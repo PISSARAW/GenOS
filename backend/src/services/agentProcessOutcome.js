@@ -48,24 +48,28 @@ function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdate
   };
 }
 
+function fallback(value, defaultValue) {
+  return value ?? defaultValue;
+}
+
 function buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable }) {
   const safeEnvironment = buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, false);
   return {
     sessionId: executionRun.id,
     agentId,
-    prompt: String(normalizedMission.prompt || normalizedMission.currentTask || ''),
-    role: normalizedMission.role || null,
-    model: normalizedMission.localModel || normalizedMission.model || null,
+    prompt: String(fallback(normalizedMission.prompt, fallback(normalizedMission.currentTask, ''))),
+    role: fallback(normalizedMission.role, null),
+    model: fallback(normalizedMission.localModel, fallback(normalizedMission.model, null)),
     executionRunId: executionRun.id,
     contractId: contractRecord.id,
     contractVersion: contractRecord.version,
-    budget: runtimeBudget || null,
-    executionPolicy: normalizedMission.executionPolicy || null,
-    executionWorkspace: normalizedMission.executionWorkspace || null,
-    autonomyPlan: autonomyPlan || null,
+    budget: fallback(runtimeBudget, null),
+    executionPolicy: fallback(normalizedMission.executionPolicy, null),
+    executionWorkspace: fallback(normalizedMission.executionWorkspace, null),
+    autonomyPlan: fallback(autonomyPlan, null),
     workspaceRoot,
     executable: resolvedExecutable,
-    environmentKeys: Object.keys(safeEnvironment || {}).sort()
+    environmentKeys: Object.keys(fallback(safeEnvironment, {})).sort()
   };
 }
 

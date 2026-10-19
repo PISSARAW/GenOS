@@ -362,19 +362,19 @@ function combinedControlReceipt(topologyReceipt, organizationReceipt) {
   const base = topologyReceipt?.topology ? { ...topologyReceipt } : { topology: topologyReceipt || null };
   return { ...base, organization: organizationReceipt };
 }
-
+function fallback(value, defaultValue) { return value ?? defaultValue; }
 module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };
 
 function applyGeneticActions({ plan, ctx, contracts, targetAgents }) {
   const genomePlanning = ctx.genomeContext?.status === 'ready'
     || (Array.isArray(ctx.availableGenomes) && ctx.availableGenomes.length > 0);
   plan.genotypeActions = genomePlanning
-    ? planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db })
+    ? planGenotypeActions({ requiredCapabilities: fallback(contracts.pc.required, []), availableGenomes: fallback(ctx.availableGenomes, []), targetAgents, db: ctx.db })
     : [];
-  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
-  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState?.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: fallback(ctx.pressure, 0), evidence: fallback(ctx.evidence, []) });
+  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: fallback(contracts.pc.required, []), availablePlasmids: fallback(ctx.availablePlasmids, []), targetAgents });
   bindGenomeActions(plan);
-  if (!genomePlanning) plan.genomeAdmission.status = ctx.genomeContext?.status || 'not_configured';
+  if (!genomePlanning) plan.genomeAdmission.status = fallback(ctx.genomeContext?.status, 'not_configured');
 }
 
 function morphologyUtilityContext({ contracts, chosen, plan, ctx }) {

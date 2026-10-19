@@ -118,12 +118,16 @@ function usageTokenCounts(usage) {
 }
 
 function usageContextTokens(source, usage, counts) {
-  const terminalSummary = source.evidenceReport && usage.tokens !== undefined
+  const terminalSummary = isTerminalTokenSummary(source, usage);
+  if (terminalSummary) return 0;
+  return Number(source.tokens ?? usage.total_tokens ?? usage.tokens ?? (counts.inputTokens + counts.outputTokens));
+}
+
+function isTerminalTokenSummary(source, usage) {
+  return source.evidenceReport && usage.tokens !== undefined
     && usage.total_tokens === undefined && usage.input_tokens === undefined
     && usage.prompt_tokens === undefined && usage.output_tokens === undefined
     && usage.completion_tokens === undefined;
-  if (terminalSummary) return 0;
-  return Number(source.tokens ?? usage.total_tokens ?? usage.tokens ?? (counts.inputTokens + counts.outputTokens));
 }
 
 function usageCostUsd(source, usage) {

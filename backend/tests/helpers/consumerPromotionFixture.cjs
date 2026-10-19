@@ -10,6 +10,7 @@ const execution = require('../../src/services/strategyExecutionService');
 const { getDatabase } = require('../../src/db');
 
 async function prepare(root, settings = {}) {
+  const { latencyMs = 30000 } = settings;
   const filename = path.join(root, 'promotion.db');
   const workspace = path.join(root, 'proof');
   const organizationId = settings.organizationId || 'consumer-org';
@@ -44,12 +45,12 @@ async function prepare(root, settings = {}) {
   const boundRecord = { ...record, contract };
   const run = await execution.createExecutionRun(db, { agentId: 'consumer-promotion-agent',
     missionId: 'consumer-promotion-mission',
-    contractRecord: boundRecord, budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+    contractRecord: boundRecord, budget: { tokens: 10000, costUsd: 1, latencyMs, events: 50 } });
   await require('../../src/services/missionEnvelopeAuthority').seal({
     db, agentId: 'consumer-promotion-agent', executionRun: run, executable: process.execPath,
     contractRecord: boundRecord, autonomyPlan: {}, normalizedMission: {
       agentId: 'consumer-promotion-agent', missionId: 'consumer-promotion-mission',
-      workspaceRoot: workspace, toolLease: [], timeoutMs: 30000
+      workspaceRoot: workspace, toolLease: [], timeoutMs: latencyMs
     }
   });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);

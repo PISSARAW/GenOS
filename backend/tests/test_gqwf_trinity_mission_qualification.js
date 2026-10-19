@@ -22,7 +22,6 @@ const missions = require('../src/services/agentRuntimeAdapter/missionWorkers');
 const evidenceBarrier = require('../src/services/workerEvidenceBarrier');
 const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const telemetry = require('../src/services/telemetryObserver');
-const { chooseCapsuleRoot } = require('../src/services/agentWorkspaceLifecycle/placement');
 
 const workerAssignments = {
   basic_implementation: { methodContract: scopedMethod() },
@@ -177,9 +176,12 @@ async function assertEscalatedComparison(db, result) {
 async function qualify(root) {
   const dbPath = path.join(root, 'qualification.sqlite');
   const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
-  const capsuleRoot = path.resolve(chooseCapsuleRoot(0), `gqwf-trinity-${crypto.randomUUID()}`);
+  const previousSnapshotRoot = process.env.GENOS_SNAPSHOT_ROOT;
+  const capsuleRoot = path.join(root, 'capsules', `gqwf-trinity-${crypto.randomUUID()}`);
+  const snapshotRoot = path.join(os.tmpdir(), `gqwf-snap-${crypto.randomUUID().slice(0, 8)}`);
   await fs.mkdir(capsuleRoot, { recursive: true });
   process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
+  process.env.GENOS_SNAPSHOT_ROOT = snapshotRoot;
   let db = await database.getDatabase(dbPath);
   const workers = [];
   try {
@@ -201,11 +203,14 @@ async function qualify(root) {
     for (const worker of workers) await require('../src/services/agentWorkspaceLifecycleService')
       .cleanupWorkspace(worker.workspaceRoot).catch(() => {});
     if (path.basename(capsuleRoot).startsWith('gqwf-trinity-')
-        && path.basename(path.dirname(capsuleRoot)) === '.genos-agent-worlds') {
+        && path.basename(path.dirname(capsuleRoot)) === 'capsules') {
       await fs.rm(capsuleRoot, { recursive: true, force: true });
     }
+    await fs.rm(snapshotRoot, { recursive: true, force: true });
     if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;
     else process.env.GENOS_CAPSULE_ROOT = previousCapsuleRoot;
+    if (previousSnapshotRoot === undefined) delete process.env.GENOS_SNAPSHOT_ROOT;
+    else process.env.GENOS_SNAPSHOT_ROOT = previousSnapshotRoot;
   }
 }
 

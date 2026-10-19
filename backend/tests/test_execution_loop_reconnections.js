@@ -83,13 +83,22 @@ function deployForFixture(prompt) {
 
 async function testSynapticVesiclesAndExosomes() {
   const previousStudioRoot = process.env.GENOS_STUDIO_ROOT;
+  const previousGenosBin = process.env.GENOS_BIN;
   const isolatedStudioRoot = path.join(__dirname, `.tmp-studio-bridge-${process.pid}`);
   process.env.GENOS_STUDIO_ROOT = isolatedStudioRoot;
+  process.env.GENOS_BIN = process.execPath;
+  fs.mkdirSync(isolatedStudioRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(isolatedStudioRoot, 'evolution'),
+    "console.log(JSON.stringify({ success: true, persisted: true }));\n"
+  );
   try {
     await runSynapticVesiclesAndExosomes();
   } finally {
     if (previousStudioRoot === undefined) delete process.env.GENOS_STUDIO_ROOT;
     else process.env.GENOS_STUDIO_ROOT = previousStudioRoot;
+    if (previousGenosBin === undefined) delete process.env.GENOS_BIN;
+    else process.env.GENOS_BIN = previousGenosBin;
     fs.rmSync(isolatedStudioRoot, { recursive: true, force: true });
   }
 }

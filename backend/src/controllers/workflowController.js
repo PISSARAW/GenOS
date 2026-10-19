@@ -192,6 +192,11 @@ async function validateWorkflow(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function boundedPriority(value) {
+  const requested = Number(value ?? 0);
+  return Number.isFinite(requested) ? Math.max(0, Math.min(Math.floor(requested), 100)) : 0;
+}
+
 async function createRun(req, res, next) {
   try {
     const db = await getDatabase();
@@ -210,8 +215,7 @@ async function createRun(req, res, next) {
     const id = `wfr-${crypto.randomUUID()}`;
     const maxAttempts = jobMaxAttempts(req.body?.maxAttempts);
     const timeoutMs = jobTimeoutMs(req.body?.timeoutMs);
-    const requestedPriority = Number(req.body?.priority ?? 0);
-    const priority = Number.isFinite(requestedPriority) ? Math.max(0, Math.min(Math.floor(requestedPriority), 100)) : 0;
+    const priority = boundedPriority(req.body?.priority);
     const input = req.body?.input || {};
     if (jsonByteLength(input) > 512 * 1024) return res.status(413).json({ error: { code: 'WORKFLOW_INPUT_TOO_LARGE', message: 'Workflow input exceeds 512 KiB.' } });
     await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, priority, status, input_json, max_attempts, timeout_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, priority, 'queued', JSON.stringify(input), maxAttempts, timeoutMs);

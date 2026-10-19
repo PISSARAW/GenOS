@@ -88,14 +88,18 @@ async function validateThawBindings(db, input) {
   const cohort = new Set(input.agents.map((agent) => agent.id));
   const target = input.targetWorkspaceId || input.workspaceId;
   for (const item of input.agents) {
-    const agent = await db.get('SELECT id, parent_agent_id, workspace_id FROM agents WHERE id = ?', item.id);
-    if (!agent || agent.workspace_id !== input.workspaceId) throw thawConflict(`Agent '${item.id}' is no longer in the frozen workspace.`);
-    if (target === input.workspaceId || !agent.parent_agent_id || cohort.has(agent.parent_agent_id)) continue;
-    const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent.parent_agent_id);
-    if (!parent || parent.workspace_id !== target) throw thawConflict(`Thawing '${item.id}' would separate it from parent '${agent.parent_agent_id}'.`);
-    await validateChildrenRemainBound(db, { parentId: item.id, cohort, targetWorkspaceId: target });
+    await validateThawBinding(db, { ...input, cohort, target }, item);
   }
   if (target !== input.workspaceId) await validateMovedParentChildren(db, { agents: input.agents, cohort, targetWorkspaceId: target });
+}
+
+async function validateThawBinding(db, input, item) {
+  const agent = await db.get('SELECT id, parent_agent_id, workspace_id FROM agents WHERE id = ?', item.id);
+  if (!agent || agent.workspace_id !== input.workspaceId) throw thawConflict(`Agent '${item.id}' is no longer in the frozen workspace.`);
+  if (input.target === input.workspaceId || !agent.parent_agent_id || input.cohort.has(agent.parent_agent_id)) return;
+  const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent.parent_agent_id);
+  if (!parent || parent.workspace_id !== input.target) throw thawConflict(`Thawing '${item.id}' would separate it from parent '${agent.parent_agent_id}'.`);
+  await validateChildrenRemainBound(db, { parentId: item.id, cohort: input.cohort, targetWorkspaceId: input.target });
 }
 
 async function validateMovedParentChildren(db, input) {

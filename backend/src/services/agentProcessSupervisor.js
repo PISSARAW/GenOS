@@ -175,106 +175,81 @@ function resolveSpawnCommand(resolvedExecutable) {
   return { spawnCmd: trustedExecutable, spawnArgs: [] };
 }
 
-async function superviseMission(options) {
-  const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
-    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission,
-    verifyInputs: true, executable: options.executable });
-  const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
-  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
-  const conscienceState = await agentConscience.loadConscienceState(db, agentId);
-  // Keep the default stable regardless of whether `npm start` was launched from
-  // the repository root or from backend/.
-  const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-  const controlTenant = dispatchedAgent.workspace_id
-    ? await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?', dispatchedAgent.workspace_id) : null;
-  const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
-  const continuousObserver = await require('./continuousExecution/observer').create({
-    db, agentId, runId: executionRun.id, workspaceRoot, options: normalizedMission.continuousExecution
-  });
-  const { spawnCmd, spawnArgs } = resolveSpawnCommand(resolvedExecutable);
-  const launcherObservation = await require('./trinityRuntimeAttestation').captureLaunch({
-    normalizedMission, workspaceRoot, resolvedExecutable, spawnSpec: { cmd: spawnCmd, args: spawnArgs }
-  });
-  const bodyActionId = authority.status === 'authorized'
-    ? await require('./runtimeProcessReceipt').predict({ db, agentId,
-      runId: executionRun.id, executable: resolvedExecutable }) : null;
-  const filesystemReceipt = bodyActionId && (isLocalRuntime(resolvedExecutable) || isDirectFileRuntime(resolvedExecutable))
-    ? await require('./runtimeFilesystemReceipt').begin({ db, agentId,
-      runId: executionRun.id, workspaceRoot }) : null;
-  const mcpDbPath = require('../db').databasePath();
-  if (normalizedMission.modelBudgetScope && isLocalRuntime(resolvedExecutable) && !mcpDbPath) throw Object.assign(new Error('Local model budget scope requires the shared server database.'), { code: 'MISSION_MODEL_BUDGET_SCOPE_INVALID' });
-  const mcpActorToken = bodyActionId && mcpDbPath
-    ? await require('./mcpActorCapability').issue(db, { agentId,
-      runId: executionRun.id, workspaceRoot }) : null;
-  const controlIdentity = Object.freeze({ workerId: agentId,
-    missionId: normalizedMission.missionId || '',
-    episodeId: normalizedMission.episodeId || normalizedMission.missionScope?.episodeId || '',
-    threadId: normalizedMission.threadId || normalizedMission.missionScope?.threadId || '',
-    organizationId: controlTenant?.organization_id || '',
-    projectId: controlTenant?.project_id || '' });
-  const reconnectProvisioning = require('./runtimeControlReconnectProvisioning');
-  const reconnect = reconnectProvisioning.prepare(isLocalRuntime(resolvedExecutable), controlIdentity);
-  let child;
+function fallback(value, defaultValue) {
+  return value ?? defaultValue;
+}
+
+function capturesFilesystem(bodyActionId, executable) {
+  return Boolean(bodyActionId && (isLocalRuntime(executable) || isDirectFileRuntime(executable)));
+}
+
+function requiresSharedDatabase(mission, executable) {
+  return Boolean(mission.modelBudgetScope && isLocalRuntime(executable));
+}
+
+function modelDatabaseEnvironment(mission, executable, databasePath) {
+  if (!mission.modelBudgetScope || !databasePath || !isLocalRuntime(executable)) return {};
+  return { GENOS_DB_PATH: databasePath };
+}
+
+function actorEnvironment(token, databasePath) {
+  return token ? { GENOS_MCP_ACTOR_TOKEN: token, GENOS_DB_PATH: databasePath } : {};
+}
+
+function childStdio(executable) {
+  return isLocalRuntime(executable) || isDirectFileRuntime(executable)
+    ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'];
+}
+
+async function spawnSupervisedChild(input) {
+  const { normalizedMission, resolvedExecutable, spawnCmd, spawnArgs } = input;
   try {
     const cpuResources = normalizedMission.workerContract?.resources;
     if (process.platform === 'win32' && cpuResources && Object.hasOwn(cpuResources, 'maxCpuMs')) {
       await require('./agents/workerProcessCpu').prepareProcessCpuMeter();
     }
-    child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
-    cwd: workspaceRoot,
-    env: { ...buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
-      ...(normalizedMission.modelBudgetScope && mcpDbPath && isLocalRuntime(resolvedExecutable) ? { GENOS_DB_PATH: mcpDbPath } : {}),
-      ...(mcpActorToken ? { GENOS_MCP_ACTOR_TOKEN: mcpActorToken, GENOS_DB_PATH: mcpDbPath } : {}),
-      ...reconnect.environment },
-    stdio: isLocalRuntime(resolvedExecutable) || isDirectFileRuntime(resolvedExecutable)
-      ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
-    detached: process.platform !== 'win32'
+    return await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
+    cwd: input.workspaceRoot,
+    env: { ...buildRuntimeEnvironment(input.runtimeEnvironment, input.workspaceRoot, input.silentUpdates),
+      ...modelDatabaseEnvironment(normalizedMission, resolvedExecutable, input.mcpDbPath),
+      ...actorEnvironment(input.mcpActorToken, input.mcpDbPath), ...input.reconnect.environment },
+    stdio: childStdio(resolvedExecutable), detached: process.platform !== 'win32'
     });
   } catch (error) {
-    if (bodyActionId) await require('./runtimeProcessReceipt').spawnFailed({ db, agentId,
-      runId: executionRun.id, actionId: bodyActionId, code: error.code });
-    await require('./runtimeFilesystemReceipt').fail(filesystemReceipt, error.code || 'SPAWN_FAILED');
-    if (mcpActorToken) await require('./mcpActorCapability').revoke(db, mcpActorToken);
+    if (input.bodyActionId) await require('./runtimeProcessReceipt').spawnFailed({ db: input.db, agentId: input.agentId,
+      runId: input.executionRun.id, actionId: input.bodyActionId, code: error.code });
+    await require('./runtimeFilesystemReceipt').fail(input.filesystemReceipt, fallback(error.code, 'SPAWN_FAILED'));
+    if (input.mcpActorToken) await require('./mcpActorCapability').revoke(input.db, input.mcpActorToken);
     throw error;
   }
+}
+
+function supervisorState() {
+  return { termination: null, executionQueue: Promise.resolve(),
+    missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' },
+    eventQueue: [], maxEventQueue: Math.max(1, Number(process.env.GENOS_RUNTIME_EVENT_QUEUE_CAPACITY) || 2048),
+    droppedEventCount: 0, isProcessingEvents: false, pendingTerminalStatuses: new Map(),
+    terminalEventSeen: false, stdoutBuffer: Buffer.alloc(0), stderrBuffer: '', earlyChildError: null };
+}
+
+async function activateSupervision(ctx, input) {
+  const { child, resolvedExecutable, executionRun, agentId, normalizedMission, dispatchedAgent } = ctx;
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
   child.genosExecutionRunId = executionRun.id;
-  child.genosControlIdentity = controlIdentity;
+  child.genosControlIdentity = input.controlIdentity;
   require('./runtimeControlCapability').bind(child);
-  if (reconnect.authority) reconnectProvisioning.attach({
-    db, child, identity: child.genosControlIdentity, authority: reconnect.authority
+  if (input.reconnect.authority) input.reconnectProvisioning.attach({
+    db: ctx.db, child, identity: child.genosControlIdentity, authority: input.reconnect.authority
   });
-  // Buffer spawn errors until the full supervision context exists.
-  let earlyChildError = null;
-  child.on('error', (error) => { earlyChildError = earlyChildError || error; });
+  child.on('error', (error) => { ctx.state.earlyChildError = fallback(ctx.state.earlyChildError, error); });
   const runtimeStartedAt = new Date().toISOString();
   activeProcesses.set(agentId, child);
-  await db.run('UPDATE agents SET runtime_pid = ?, runtime_started_at = ?, runtime_executable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', child.pid, runtimeStartedAt, spawnCmd, agentId);
-  // Disposable capsules (git worktrees or copies) are reclaimed after the
-  // mission ends; a caller-provided workspace is never tracked.
+  await ctx.db.run('UPDATE agents SET runtime_pid = ?, runtime_started_at = ?, runtime_executable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', child.pid, runtimeStartedAt, input.spawnCmd, agentId);
   if (shouldTrackWorkspace(normalizedMission, dispatchedAgent)) {
-    await workspaceLifecycle.trackWorkspace(agentId, workspaceRoot);
+    await workspaceLifecycle.trackWorkspace(agentId, ctx.workspaceRoot);
   }
-  // This marker distinguishes a deliberate control-plane stop from a runtime
-  // failure.  SIGTERM makes a child exit non-zero on many platforms, so the
-  // close handler must not turn our own guardrail into AGENT_FAILED.
-  const state = {
-    termination: null,
-    executionQueue: Promise.resolve(),
-    missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' },
-    eventQueue: [],
-    maxEventQueue: Math.max(1, Number(process.env.GENOS_RUNTIME_EVENT_QUEUE_CAPACITY) || 2048),
-    droppedEventCount: 0,
-    isProcessingEvents: false,
-    pendingTerminalStatuses: new Map(),
-    terminalEventSeen: false,
-    stdoutBuffer: Buffer.alloc(0),
-    stderrBuffer: ''
-  };
-  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver, bodyActionId, filesystemReceipt, mcpActorToken, controlTenant };
-  const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
-  ctx.emitTracked = emitTracked;
+  ctx.emitTracked = (...args) => emitTrackedImpl(ctx, ...args);
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;
   ctx.haltRuntime = haltRuntimeImpl;
   require('./agents/workerRuntimeBudgetService').startWorkerDeadline(ctx);
@@ -282,9 +257,9 @@ async function superviseMission(options) {
   require('./missionEnvelopeAuthorityMonitor').start(ctx);
   ctx.processEventQueue = processEventQueueImpl;
   child.stdout.on('data', (chunk) => { handleStdoutData(ctx, chunk); });
-  if (filesystemReceipt && directFileWriter(resolvedExecutable)) {
+  if (ctx.filesystemReceipt && directFileWriter(resolvedExecutable)) {
     child.on('message', (message) => {
-      require('./runtimeFilesystemReceipt').recordDirectWrite(filesystemReceipt, message,
+      require('./runtimeFilesystemReceipt').recordDirectWrite(ctx.filesystemReceipt, message,
         directFileWriter(resolvedExecutable));
     });
   }
@@ -292,39 +267,89 @@ async function superviseMission(options) {
   child.stdin.on('error', (error) => { handleStdinError(ctx, error); });
   child.on('error', (error) => { handleChildError(ctx, error); });
   childTermination.attach(child, (code, signal) => { handleChildClose(ctx, code, signal); });
+}
+
+async function dispatchRuntime(ctx, input) {
+  const { child, normalizedMission, resolvedExecutable, executionRun, agentId } = ctx;
   continuousExecution.start(ctx);
-  await require('./habitatEnforcementRuntimeBridge').arm(ctx, options.habitat);
-  // Replay a spawn error that fired before ctx existed, and fail the mission
-  // through the normal error path instead of crashing the bridge.
-  if (earlyChildError) {
-    handleChildError(ctx, earlyChildError);
-    throw Object.assign(new Error(`Runtime spawn failed: ${earlyChildError.message}`), { code: 'AGENT_RUNTIME_SPAWN_FAILED' });
+  await require('./habitatEnforcementRuntimeBridge').arm(ctx, input.habitat);
+  if (ctx.state.earlyChildError) {
+    handleChildError(ctx, ctx.state.earlyChildError);
+    throw Object.assign(new Error(`Runtime spawn failed: ${ctx.state.earlyChildError.message}`), { code: 'AGENT_RUNTIME_SPAWN_FAILED' });
   }
   await updateAgent(agentId, 'running', normalizedMission.prompt);
-  emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {
+  ctx.emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {
     ...buildCapabilityPayload(normalizedMission, resolvedExecutable), ...continuousExecution.capabilities(ctx)
   }, 'info', 'running');
-  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
+  ctx.emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
     executable: resolvedExecutable,
     executionRunId: executionRun.id,
-    sourceActionId: bodyActionId,
-    autonomyPlan,
-    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable })
+    sourceActionId: ctx.bodyActionId,
+    autonomyPlan: ctx.autonomyPlan,
+    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord: ctx.contractRecord,
+      autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment,
+      workspaceRoot: ctx.workspaceRoot, resolvedExecutable })
   }, 'info', 'running');
   await applyLocalRouting(ctx);
-  try { await require('./trinityRuntimeAttestation').recordLaunch(ctx, { observation: launcherObservation, pid: child.pid }); }
+  try { await require('./trinityRuntimeAttestation').recordLaunch(ctx, { observation: input.launcherObservation, pid: child.pid }); }
   catch (failure) {
     haltRuntimeImpl(ctx, 'runtime_provenance_failed', failure.message, 'Runtime launcher provenance failed.');
     throw failure;
   }
   const runtimeEnvelope = buildMissionEnvelope(ctx,
-    buildMissionIdentity(agentId, normalizedMission, dispatchedAgent), runtimeStrategyContract);
+    buildMissionIdentity(agentId, normalizedMission, ctx.dispatchedAgent), input.runtimeStrategyContract);
   const encodedMission = encodeMission(runtimeEnvelope);
-  emitTracked('AGENT_RUNTIME_INPUT_MEASURED', 'MEASURE_RUNTIME_INPUT',
+  ctx.emitTracked('AGENT_RUNTIME_INPUT_MEASURED', 'MEASURE_RUNTIME_INPUT',
     'Measured the encoded runtime mission before dispatch.', { byteLength: Buffer.byteLength(encodedMission),
       componentBytes: Object.fromEntries(Object.entries(runtimeEnvelope)
         .map(([key, value]) => [key, Buffer.byteLength(String(value ?? ''))])) }, 'info', 'running');
   child.stdin.end(encodedMission);
+}
+
+async function superviseMission(options) {
+  const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
+    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission,
+    verifyInputs: true, executable: options.executable });
+  const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
+    runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
+  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = fallback(normalizedMission.strategyContract, {});
+  const conscienceState = await agentConscience.loadConscienceState(db, agentId);
+  const workspaceRoot = fallback(normalizedMission.workspaceRoot,
+    fallback(process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../..')));
+  const controlTenant = dispatchedAgent.workspace_id
+    ? await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?', dispatchedAgent.workspace_id) : null;
+  const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
+  const continuousObserver = await require('./continuousExecution/observer').create({
+    db, agentId, runId: executionRun.id, workspaceRoot, options: normalizedMission.continuousExecution });
+  const { spawnCmd, spawnArgs } = resolveSpawnCommand(resolvedExecutable);
+  const launcherObservation = await require('./trinityRuntimeAttestation').captureLaunch({
+    normalizedMission, workspaceRoot, resolvedExecutable, spawnSpec: { cmd: spawnCmd, args: spawnArgs } });
+  const bodyActionId = authority.status === 'authorized'
+    ? await require('./runtimeProcessReceipt').predict({ db, agentId, runId: executionRun.id, executable: resolvedExecutable }) : null;
+  const filesystemReceipt = capturesFilesystem(bodyActionId, resolvedExecutable)
+    ? await require('./runtimeFilesystemReceipt').begin({ db, agentId, runId: executionRun.id, workspaceRoot }) : null;
+  const mcpDbPath = require('../db').databasePath();
+  if (requiresSharedDatabase(normalizedMission, resolvedExecutable) && !mcpDbPath) {
+    throw Object.assign(new Error('Local model budget scope requires the shared server database.'), { code: 'MISSION_MODEL_BUDGET_SCOPE_INVALID' });
+  }
+  const mcpActorToken = bodyActionId && mcpDbPath
+    ? await require('./mcpActorCapability').issue(db, { agentId, runId: executionRun.id, workspaceRoot }) : null;
+  const controlIdentity = Object.freeze({ workerId: agentId,
+    missionId: fallback(normalizedMission.missionId, ''),
+    episodeId: fallback(normalizedMission.episodeId, fallback(normalizedMission.missionScope?.episodeId, '')),
+    threadId: fallback(normalizedMission.threadId, fallback(normalizedMission.missionScope?.threadId, '')),
+    organizationId: fallback(controlTenant?.organization_id, ''), projectId: fallback(controlTenant?.project_id, '') });
+  const reconnectProvisioning = require('./runtimeControlReconnectProvisioning');
+  const reconnect = reconnectProvisioning.prepare(isLocalRuntime(resolvedExecutable), controlIdentity);
+  const spawnInput = { db, agentId, normalizedMission, executionRun, resolvedExecutable, spawnCmd, spawnArgs,
+    workspaceRoot, runtimeEnvironment, silentUpdates, mcpDbPath, mcpActorToken, bodyActionId, filesystemReceipt, reconnect };
+  const child = await spawnSupervisedChild(spawnInput);
+  const state = supervisorState();
+  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
+    runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child,
+    conscienceState, state, continuousObserver, bodyActionId, filesystemReceipt, mcpActorToken, controlTenant };
+  await activateSupervision(ctx, { reconnect, reconnectProvisioning, controlIdentity, spawnCmd });
+  await dispatchRuntime(ctx, { habitat: options.habitat, launcherObservation, runtimeStrategyContract });
   return { started: true, executionRun };
 }
 module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest,

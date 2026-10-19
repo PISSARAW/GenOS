@@ -266,7 +266,7 @@ const STATE_TOOL_HANDLERS = Object.freeze({
   genos_compile_memory: (args) => runPrimitive('compile_memory', args),
   genos_resilience_hypermutation: (args) => handleResilienceHypermutation(args),
   genos_synaptic_stdp_update: (args) => handleSynapticStdpUpdate(args),
-  genos_synaptic_prune_scale: (args) => handleSynapticPruneScale(args)
+  genos_synaptic_prune_scale: (args, context) => handleSynapticPruneScale(args, context)
 });
 
 function dispatchStrategyStateTool(toolName, args, context) {

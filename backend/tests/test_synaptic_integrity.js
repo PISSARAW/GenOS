@@ -38,6 +38,10 @@ function check(condition, message) {
   }
 }
 
+function allTrue(...conditions) {
+  return conditions.every(Boolean);
+}
+
 async function runSynapticIntegritySuite() {
   console.log('===============================================================');
   console.log('       SYNAPTIC INTEGRITY & BIOPHYSICAL VALIDATION SUITE       ');
@@ -149,11 +153,11 @@ async function runSynapticIntegritySuite() {
     organization_id: 'other-org',
     project_id: 'other-project'
   }, { agentId: testAgent });
-  check(pruneResult.result.success && pruneResult.result.configured, 'MCP pruning uses the authenticated workspace scope');
+  check(allTrue(pruneResult.result.success, pruneResult.result.configured), 'MCP pruning uses the authenticated workspace scope');
   const ownedPruned = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', idSource, idTargetA);
   check(!ownedPruned, 'Scoped pruning removes eligible synapses inside the caller workspace');
   const missingCaller = await mcpStrategyTools.executeStrategyTool('genos_synaptic_prune_scale', { threshold: 1000 });
-  check(missingCaller.success === false && missingCaller.status === 'scope_denied', 'Pruning fails closed without an authenticated workspace');
+  check(allTrue(missingCaller.success === false, missingCaller.status === 'scope_denied'), 'Pruning fails closed without an authenticated workspace');
 
   const priorLease = process.env.GENOS_MCP_LEASE;
   process.env.GENOS_MCP_LEASE = 'genos_synaptic_prune_scale';
@@ -170,8 +174,8 @@ async function runSynapticIntegritySuite() {
     if (priorLease === undefined) delete process.env.GENOS_MCP_LEASE;
     else process.env.GENOS_MCP_LEASE = priorLease;
   }
-  check(bioPruneRes.success && bioPruneRes.transport === 'strategy_primitive', 'Direct bio dispatch shares the authenticated in-process pruning implementation');
-  check(transportPruneRes.success && transportPruneRes.transport === 'strategy_primitive', 'Local executor delegates pruning to the authenticated implementation');
+  check(allTrue(bioPruneRes.success, bioPruneRes.transport === 'strategy_primitive'), 'Direct bio dispatch shares the authenticated in-process pruning implementation');
+  check(allTrue(transportPruneRes.success, transportPruneRes.transport === 'strategy_primitive'), 'Local executor delegates pruning to the authenticated implementation');
   const foreignStillExists = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', foreignSource, foreignTarget);
   check(Boolean(foreignStillExists), 'Neither MCP dispatch path can prune foreign synapses');
 
@@ -206,7 +210,7 @@ async function runSynapticIntegritySuite() {
   });
   check(stdpRes.success, 'STDP update executed successfully');
   const stdpRow = await db.get('SELECT organization_id, project_id FROM memory_synapses WHERE source_id = ? AND target_id = ?', ltpSrc, ltpTgt);
-  check(stdpRow && stdpRow.organization_id === testOrg && stdpRow.project_id === testProj, 'STDP synapse correctly persisted organization_id and project_id');
+  check(allTrue(stdpRow, stdpRow?.organization_id === testOrg, stdpRow?.project_id === testProj), 'STDP synapse correctly persisted organization_id and project_id');
 
   const depRes = await temporalPrimitives.dependencyMatrix({
     workspaceId: 'ws-local',

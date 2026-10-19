@@ -64,48 +64,47 @@ function normalizeFileArguments(args = {}) {
   return { path: normalizeWorkspacePath(args.path), content: args.content };
 }
 
+function emptySideEffects() {
+  return { filesCreated: [], filesModified: [], filesDeleted: [], subprocesses: [], networkRequests: [] };
+}
+
+function recordSimulatedFile(args, vfs, effects) {
+  const fileArgs = normalizeFileArguments(args);
+  if (vfs[fileArgs.path]) effects.filesModified.push(fileArgs.path);
+  else effects.filesCreated.push(fileArgs.path);
+  vfs[fileArgs.path] = fileArgs.content;
+}
+
+function simulatedToolEffects(tool, args, vfs) {
+  const effects = emptySideEffects();
+  let requiredRole = 'viewer';
+  let isDestructive = false;
+  if (['genos_create', 'replace_file_content', 'write_to_file'].includes(tool)) {
+    requiredRole = 'operator';
+    recordSimulatedFile(args, vfs, effects);
+  } else if (['genos_restore', 'genos_rollback'].includes(tool)) {
+    requiredRole = 'operator';
+    isDestructive = true;
+    effects.filesModified.push(args.path ? normalizeWorkspacePath(args.path) : 'workspace_root');
+  } else if (['genos_run', 'run_command'].includes(tool)) {
+    requiredRole = 'admin';
+    isDestructive = true;
+    effects.subprocesses.push(args.command || args.CommandLine || 'sh -c echo');
+  } else if (tool.includes('apoptosis') || tool.includes('kill')) {
+    requiredRole = 'admin';
+    isDestructive = true;
+  }
+  return { effects, requiredRole, isDestructive };
+}
+
 /**
  * Simulates dry-run execution against an in-memory Virtual File System (VFS)
  */
 function simulateDryRun(toolName, args = {}, vfsState = {}) {
   const tool = toolName || 'unknown_tool';
   const vfs = { ...vfsState };
-  
-  const filesCreated = [];
-  const filesModified = [];
-  const filesDeleted = [];
-  const subprocesses = [];
-  const networkRequests = [];
-
-  let requiredRole = 'viewer';
-  let isDestructive = false;
-
-  // Intercept file and execution operations
-  if (tool === 'genos_create' || tool === 'replace_file_content' || tool === 'write_to_file') {
-    requiredRole = 'operator';
-    const fileArgs = normalizeFileArguments(args);
-    const targetPath = fileArgs.path;
-    if (vfs[targetPath]) {
-      filesModified.push(targetPath);
-      vfs[targetPath] = fileArgs.content;
-    } else {
-      filesCreated.push(targetPath);
-      vfs[targetPath] = fileArgs.content;
-    }
-  } else if (tool === 'genos_restore' || tool === 'genos_rollback') {
-    requiredRole = 'operator';
-    isDestructive = true;
-    filesModified.push(args.path ? normalizeWorkspacePath(args.path) : 'workspace_root');
-  } else if (tool === 'genos_run' || tool === 'run_command') {
-    requiredRole = 'admin';
-    isDestructive = true;
-    subprocesses.push(args.command || args.CommandLine || 'sh -c echo');
-  } else if (tool.includes('apoptosis') || tool.includes('kill')) {
-    requiredRole = 'admin';
-    isDestructive = true;
-  }
-
-  const totalFilesAffected = filesCreated.length + filesModified.length + filesDeleted.length;
+  const { effects, requiredRole, isDestructive } = simulatedToolEffects(tool, args, vfs);
+  const totalFilesAffected = effects.filesCreated.length + effects.filesModified.length + effects.filesDeleted.length;
   const blastRadiusScore = calculateBlastRadius(totalFilesAffected, isDestructive, requiredRole);
 
   return {
@@ -119,13 +118,7 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
     isDestructive,
     blastRadiusScore,
     riskLevel: blastRadiusScore > 65 ? 'HIGH' : blastRadiusScore > 30 ? 'MEDIUM' : 'LOW',
-    sideEffects: {
-      filesCreated,
-      filesModified,
-      filesDeleted,
-      subprocesses,
-      networkRequests
-    },
+    sideEffects: effects,
     predictedVfsDiff: {
       totalChanges: totalFilesAffected,
       simulatedPaths: Object.keys(vfs)
@@ -186,14 +179,14 @@ function getToolMetrics(filterName = null, timeWindowMs = 60000) {
   };
 }
 
-function dryRunPatch(workspaceId, patch, vfsState = {}) {
-  if (!workspaceId) throw new Error('workspaceId is required for VFS dry-run.');
-  const entries = Array.isArray(patch) ? patch : [patch];
-  if (!entries.length || entries.some((entry) => !entry || typeof entry.path !== 'string' || !entry.path.trim())) {
-    throw new Error('patch must contain at least one file path.');
-  }
+function validPatchEntry(entry) {
+  return Boolean(entry) && typeof entry.path === 'string' && Boolean(entry.path.trim());
+}
+
+function normalizePatchEntries(entries) {
   const normalizedPaths = new Set();
-  const normalizedEntries = entries.map((entry) => {
+  const normalizedEntries = [];
+  for (const entry of entries) {
     let canonicalPath;
     try {
       canonicalPath = normalizeRelativePath(entry.path.replace(/^\.\//, ''), 'patch path');
@@ -204,14 +197,27 @@ function dryRunPatch(workspaceId, patch, vfsState = {}) {
       throw new Error(`Patch contains a duplicate target path: ${entry.path}`);
     }
     normalizedPaths.add(canonicalPath);
-    return { ...entry, path: canonicalPath };
-  });
+    normalizedEntries.push({ ...entry, path: canonicalPath });
+  }
+  return normalizedEntries;
+}
+
+function mergeSimulationEffects(simulations) {
+  const sideEffects = emptySideEffects();
+  for (const simulation of simulations) {
+    for (const key of Object.keys(sideEffects)) sideEffects[key].push(...simulation.sideEffects[key]);
+  }
+  return sideEffects;
+}
+
+function dryRunPatch(workspaceId, patch, vfsState = {}) {
+  if (!workspaceId) throw new Error('workspaceId is required for VFS dry-run.');
+  const entries = Array.isArray(patch) ? patch : [patch];
+  if (!entries.length || !entries.every(validPatchEntry)) throw new Error('patch must contain at least one file path.');
+  const normalizedEntries = normalizePatchEntries(entries);
   const state = { ...vfsState };
   const simulations = normalizedEntries.map((entry) => simulateDryRun('genos_create', { path: entry.path, content: entry.content || '' }, state));
-  const sideEffects = simulations.reduce((result, simulation) => {
-    for (const key of ['filesCreated', 'filesModified', 'filesDeleted', 'subprocesses', 'networkRequests']) result[key].push(...simulation.sideEffects[key]);
-    return result;
-  }, { filesCreated: [], filesModified: [], filesDeleted: [], subprocesses: [], networkRequests: [] });
+  const sideEffects = mergeSimulationEffects(simulations);
   const blastRadius = calculateBlastRadius(sideEffects.filesCreated.length + sideEffects.filesModified.length, false, 'operator');
   return { clean: true, workspaceId, blastRadius, blastRadiusScore: blastRadius, sideEffects, simulations };
 }
@@ -235,31 +241,36 @@ function workspaceVfs(workspaceId = 'legacy') {
   return state;
 }
 
+function writeVirtualFile(state, input) {
+  const { target, op, content } = input;
+  const virtualFiles = state.files;
+  if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
+  const value = String(content);
+  const bytes = Buffer.byteLength(value, 'utf8');
+  const limits = vfsLimits();
+  if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
+  if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
+  const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
+  if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
+  virtualFiles.set(target, value);
+  state.bytes = state.bytes - previousBytes + bytes;
+  return { success: true, message: `Wrote ${target}` };
+}
+
+function deleteVirtualFile(state, target) {
+  if (!state.files.has(target)) return { success: false, message: `File not found: ${target}` };
+  state.bytes -= Buffer.byteLength(state.files.get(target), 'utf8');
+  state.files.delete(target);
+  return { success: true, message: `Deleted ${target}` };
+}
+
 async function executeVfsOperation(operation, filePath, { content = '', workspaceId = 'legacy' } = {}) {
   const state = workspaceVfs(workspaceId);
-  const virtualFiles = state.files;
   const target = virtualPath(filePath);
   if (!target) throw new Error('A file path is required.');
   const op = String(operation || '').toLowerCase();
-  if (['create', 'write', 'replace', 'write_file', 'replace_file_content'].includes(op)) {
-    if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
-    const value = String(content);
-    const bytes = Buffer.byteLength(value, 'utf8');
-    const limits = vfsLimits();
-    if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
-    if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
-    const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
-    if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
-    virtualFiles.set(target, value);
-    state.bytes = state.bytes - previousBytes + bytes;
-    return { success: true, message: `Wrote ${target}` };
-  }
-  if (['delete', 'remove', 'delete_file'].includes(op)) {
-    if (!virtualFiles.has(target)) return { success: false, message: `File not found: ${target}` };
-    state.bytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
-    virtualFiles.delete(target);
-    return { success: true, message: `Deleted ${target}` };
-  }
+  if (['create', 'write', 'replace', 'write_file', 'replace_file_content'].includes(op)) return writeVirtualFile(state, { target, op, content });
+  if (['delete', 'remove', 'delete_file'].includes(op)) return deleteVirtualFile(state, target);
   throw new Error(`Unsupported VFS operation: ${operation}`);
 }
 

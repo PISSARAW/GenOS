@@ -14,13 +14,9 @@ function buildBenchmark(problemSpec = {}) {
   if (Array.isArray(problemSpec.cases) && problemSpec.cases.length > 0) {
     if (problemSpec.cases.length > MAX_BENCHMARK_CASES) throw new Error(`Benchmark supports at most ${MAX_BENCHMARK_CASES} cases.`);
     return {
-      id: problemSpec.id || 'custom-search',
-      title: problemSpec.title || 'Custom search benchmark',
-      cases: problemSpec.cases.map((item, index) => {
-        const values = Array.isArray(item.values) ? item.values : [];
-        if (values.length > MAX_CASE_VALUES) throw new Error(`Benchmark cases support at most ${MAX_CASE_VALUES} values.`);
-        return { id: item.id || `case-${index + 1}`, values, target: item.target };
-      })
+      id: problemSpec.id ?? 'custom-search',
+      title: problemSpec.title ?? 'Custom search benchmark',
+      cases: problemSpec.cases.map(normalizeBenchmarkCase)
     };
   }
 
@@ -30,10 +26,16 @@ function buildBenchmark(problemSpec = {}) {
     [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144]
   ];
   return {
-    id: problemSpec.id || 'local-sorted-search',
-    title: problemSpec.title || 'Local sorted search benchmark',
+    id: problemSpec.id ?? 'local-sorted-search',
+    title: problemSpec.title ?? 'Local sorted search benchmark',
     cases: cases.map((values, index) => ({ id: `case-${index + 1}`, values, target: values[(index * 3 + 2) % values.length] }))
   };
+}
+
+function normalizeBenchmarkCase(item, index) {
+  const values = Array.isArray(item.values) ? item.values : [];
+  if (values.length > MAX_CASE_VALUES) throw new Error(`Benchmark cases support at most ${MAX_CASE_VALUES} values.`);
+  return { id: item.id ?? `case-${index + 1}`, values, target: item.target };
 }
 
 function executeSolver(solverKey, values, target) {

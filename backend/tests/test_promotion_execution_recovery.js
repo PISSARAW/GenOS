@@ -13,7 +13,7 @@ const worker = path.join(__dirname, 'helpers/promotionRecoveryWorker.cjs');
 
 async function prepare(root, merge = false) {
   fs.mkdirSync(root);
-  const spec = await fixture.prepare(root, { merge });
+  const spec = await fixture.prepare(root, { merge, latencyMs: 300000 });
   const input = { filename: spec.filename, runId: spec.run.id, options: spec.options };
   await closeDatabase();
   return input;

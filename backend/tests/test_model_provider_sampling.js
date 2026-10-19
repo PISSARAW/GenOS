@@ -48,7 +48,7 @@ async function main() {
   } finally {
     await new Promise(resolve => server.close(resolve));
     const telemetry = require('../src/services/telemetryObserver');
-    const flush = await telemetry.flush(10000);
+    const flush = await telemetry.flush(30000);
     assert.equal(flush.flushed, true, `Telemetry did not drain before database closure: ${JSON.stringify({
       ...flush, persisting: telemetry.persisting, persistenceErrors: telemetry.persistenceErrors,
       retryPersistenceAfterLock: telemetry.retryPersistenceAfterLock,

@@ -1,14 +1,19 @@
 'use strict';
 
+const crypto = require('node:crypto');
+const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 const admission = require('./endogenousThoughtAdmissionService');
 const queue = require('./endogenousThoughtQueueService');
 const runner = require('./endogenousThoughtRunnerService');
+const runContract = require('./endogenousThoughtRunContractService');
 const verifier = require('./endogenousThoughtVerificationService');
 const verificationContract = require('./endogenousThoughtVerificationContractService');
 const learner = require('./endogenousThoughtLearningService');
 const continuation = require('./endogenousThoughtContinuationService');
 const followUp = require('./endogenousThoughtFollowUpQuestionService');
 const thoughtStore = require('./endogenousThoughtStoreService');
+const runMigration = require('../db/migrations/migrateEndogenousThoughtRuns');
+const verificationMigration = require('../db/migrations/migrateEndogenousThoughtVerifications');
 
 const TERMINAL = new Set(['STOPPED', 'ABSTAINED', 'FAILED']);
 
@@ -40,14 +45,27 @@ function policies(input) {
   };
 }
 
+function initialCumulativeUsage(usage) {
+  if (!usage) return { tokens: 0, usd: 0, seconds: 0 };
+  return {
+    tokens: Math.max(0, Number(usage.tokens) || 0),
+    usd: Math.max(0, Number(usage.usd) || 0),
+    seconds: Math.max(0, Number(usage.seconds) || 0)
+  };
+}
+
+function assertGates(input) {
+  if (typeof input?.authorize !== 'function' || typeof input?.verify !== 'function') {
+    throw coded('ENDOGENOUS_LOOP_GATES_REQUIRED', 'Authorization and independent verification callbacks are required.');
+  }
+}
+
 function normalizeInput(input) {
   const maxCycles = Number(input?.maxCycles ?? 1);
   if (!Number.isSafeInteger(maxCycles) || maxCycles < 1 || maxCycles > 10) {
     throw coded('ENDOGENOUS_LOOP_LIMIT_INVALID', 'maxCycles must be between one and ten.');
   }
-  if (typeof input?.authorize !== 'function' || typeof input?.verify !== 'function') {
-    throw coded('ENDOGENOUS_LOOP_GATES_REQUIRED', 'Authorization and independent verification callbacks are required.');
-  }
+  assertGates(input);
   return { organizationId: required(input.organizationId, 'ENDOGENOUS_ORGANIZATION_REQUIRED'),
     projectId: required(input.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
@@ -56,7 +74,7 @@ function normalizeInput(input) {
     sandbox: input.sandbox, usageMeter: input.usageMeter,
     grantedBy: input.grantedBy || 'ett-autonomous-loop',
     baseTime: Number(input.nowMs ?? Date.now()), policies: policies(input),
-    cumulativeUsage: { tokens: 0, usd: 0, seconds: 0 } };
+    cumulativeUsage: initialCumulativeUsage(input?.cumulativeUsage) };
 }
 
 function timestamp(context) {
@@ -104,6 +122,58 @@ async function enqueue(context) {
     nowMs: timestamp(context), policy: context.input.policies.queue });
 }
 
+function usageIntegrityError() {
+  return coded('ENDOGENOUS_LOOP_USAGE_INTEGRITY_FAILED',
+    'Persisted run usage cannot be trusted; autonomous execution is blocked.');
+}
+
+function extractRowUsage(row, input) {
+  let receipt;
+  try {
+    receipt = JSON.parse(row.receipt_json);
+  } catch (_) {
+    throw usageIntegrityError();
+  }
+  const payload = receipt?.payload;
+  const contentHash = crypto.createHash('sha256').update(canonicalJson(receipt)).digest('hex');
+  const matchesScope = row.organization_id === input.organizationId
+    && row.project_id === input.projectId && row.episode_id === input.episodeId
+    && payload?.runId === row.run_id && payload?.episodeId === row.episode_id
+    && payload?.projectId === row.project_id;
+  if (!runContract.readReceipt(receipt).valid || row.content_hash !== contentHash || !matchesScope) {
+    throw usageIntegrityError();
+  }
+  return payload.usage;
+}
+
+function sumRowUsages(rows, input) {
+  const sum = { tokens: 0, usd: 0, seconds: 0 };
+  for (const row of rows) {
+    const usage = extractRowUsage(row, input);
+    sum.tokens += usage.tokens;
+    sum.usd += usage.usd;
+    sum.seconds += usage.seconds;
+    if (!Number.isSafeInteger(sum.tokens) || !Number.isFinite(sum.usd)
+      || !Number.isSafeInteger(sum.seconds)) throw usageIntegrityError();
+  }
+  return sum;
+}
+
+async function loadPriorUsage(db, input) {
+  const initial = initialCumulativeUsage(input?.cumulativeUsage);
+  const rows = await db.all(
+    `SELECT organization_id, project_id, run_id, episode_id, content_hash, receipt_json
+     FROM endogenous_thought_runs WHERE organization_id=? AND project_id=? AND episode_id=?`,
+    input.organizationId, input.projectId, input.episodeId
+  );
+  const stored = sumRowUsages(rows, input);
+  return {
+    tokens: Math.max(initial.tokens, stored.tokens),
+    usd: Math.max(initial.usd, stored.usd),
+    seconds: Math.max(initial.seconds, stored.seconds)
+  };
+}
+
 async function run(context) {
   const episode = await thoughtStore.getEpisode(context.db, context.input);
   const receipts = await thoughtStore.listReceipts(context.db, context.input);
@@ -119,15 +189,35 @@ async function run(context) {
     nowMs: timestamp(context), policy, authorization,
     worker: context.input.worker,
     sandbox: context.input.sandbox, usageMeter: context.input.usageMeter });
-  const usage = result.run.receipt.payload.usage;
-  for (const key of ['tokens', 'usd', 'seconds']) context.input.cumulativeUsage[key] += usage[key];
+  if (result.run?.replayed !== true) {
+    const usage = result.run.receipt.payload.usage;
+    for (const key of ['tokens', 'usd', 'seconds']) context.input.cumulativeUsage[key] += usage[key];
+  }
   return result;
+}
+
+async function resolveRunReceipt(context, receipts) {
+  if (context.cycle?.run?.run?.receipt) {
+    return context.cycle.run.run.receipt;
+  }
+  const head = receipts.at(-1);
+  const runId = head?.receipt?.payload?.jobRef;
+  if (!runId) throw coded('ENDOGENOUS_LOOP_RUN_RECEIPT_NOT_FOUND', 'Episode has no run reference.');
+  const row = await context.db.get(
+    `SELECT receipt_json FROM endogenous_thought_runs
+     WHERE organization_id=? AND project_id=? AND run_id=?`,
+    context.input.organizationId, context.input.projectId, runId
+  );
+  if (!row) throw coded('ENDOGENOUS_LOOP_RUN_NOT_FOUND', 'Run was not found for verification.');
+  const receipt = JSON.parse(row.receipt_json);
+  context.cycle.run = { run: { receipt, replayed: true } };
+  return receipt;
 }
 
 async function verify(context) {
   const episode = await thoughtStore.getEpisode(context.db, context.input);
   const receipts = await thoughtStore.listReceipts(context.db, context.input);
-  const runReceipt = context.cycle.run.run.receipt;
+  const runReceipt = await resolveRunReceipt(context, receipts);
   const gated = await context.input.verify({ episode, runReceipt,
     expectedVersion: episode.version, policy: context.input.policies.verification,
     organizationId: context.input.organizationId, projectId: context.input.projectId,
@@ -140,9 +230,28 @@ async function verify(context) {
     verification: gated.verification, receipts, nowMs: timestamp(context) });
 }
 
+async function resolveVerificationReceipt(context, receipts) {
+  if (context.cycle?.verification?.verification?.receipt) {
+    return context.cycle.verification.verification.receipt;
+  }
+  const head = receipts.at(-1);
+  const runId = head?.receipt?.payload?.jobRef;
+  if (!runId) throw coded('ENDOGENOUS_LOOP_VERIFICATION_RECEIPT_NOT_FOUND', 'Episode has no job reference.');
+  const row = await context.db.get(
+    `SELECT receipt_json FROM endogenous_thought_verifications
+     WHERE organization_id=? AND project_id=? AND run_id=?`,
+    context.input.organizationId, context.input.projectId, runId
+  );
+  if (!row) throw coded('ENDOGENOUS_LOOP_VERIFICATION_NOT_FOUND', 'Verification was not found for learning.');
+  const receipt = JSON.parse(row.receipt_json);
+  context.cycle.verification = { verification: { receipt, replayed: true } };
+  return receipt;
+}
+
 async function learn(context) {
   const episode = await thoughtStore.getEpisode(context.db, context.input);
-  const verification = context.cycle.verification.verification.receipt;
+  const receipts = await thoughtStore.listReceipts(context.db, context.input);
+  const verification = await resolveVerificationReceipt(context, receipts);
   const policy = context.input.policies.learning;
   const material = { operation: 'ett-learn', projectId: context.input.projectId,
     subjectId: verification.payload.verificationId, expectedVersion: episode.version,
@@ -182,6 +291,10 @@ async function stopAtLimit(context) {
 
 async function runAutonomousLoop(db, rawInput) {
   const input = normalizeInput(rawInput);
+  await thoughtStore.ensure(db);
+  await runMigration.migrateEndogenousThoughtRuns(db);
+  await verificationMigration.migrateEndogenousThoughtVerifications(db);
+  input.cumulativeUsage = await loadPriorUsage(db, input);
   const context = { db, input, tick: 0, cycle: null };
   const cycles = [];
   for (let index = 0; index < input.maxCycles; index += 1) {

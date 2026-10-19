@@ -87,7 +87,8 @@ function assertWorkerScope(context, input) {
   const missionId = mission.missionScope.missionId || input.experimentId;
   if (missionId !== (input.row.mission_id || input.experimentId)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   if (input.design.orchestratorId && mission.orchestratorAgentId !== input.design.orchestratorId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
-  if (workspacePath(mission.workspaceRoot) !== workspacePath(input.world.workspace_root)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
+  const sealedSource = mission.gqwfSourceWorkspaceRoot || mission.workspaceRoot;
+  if (workspacePath(sealedSource) !== workspacePath(input.world.workspace_root)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
 }
 
 function workspacePath(value) {

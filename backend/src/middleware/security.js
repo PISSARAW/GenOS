@@ -23,6 +23,15 @@ const configuredOrigins = String(process.env.GENOS_ALLOWED_ORIGINS || '')
 const ALLOWED_ORIGINS = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 
 const MAX_SANITIZED_STRING_LENGTH = 100_000;
+const HIDDEN_TAGS = ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'];
+
+function nextHiddenTag(rawTag, hiddenTag) {
+  const closing = rawTag.startsWith('/');
+  const name = rawTag.replace(/^\/?\s*/, '').slice(0, 10);
+  if (closing && name.startsWith(hiddenTag)) return '';
+  if (closing || hiddenTag) return hiddenTag;
+  return HIDDEN_TAGS.find(tag => name.startsWith(tag)) || '';
+}
 
 function stripMarkup(value) {
   const source = value.slice(0, MAX_SANITIZED_STRING_LENGTH);
@@ -37,12 +46,7 @@ function stripMarkup(value) {
     const end = source.indexOf('>', index + 1);
     if (end < 0) break;
     const rawTag = source.slice(index + 1, end).trim().toLowerCase();
-    const closing = rawTag.startsWith('/');
-    const name = rawTag.replace(/^\/?\s*/, '').slice(0, 10);
-    if (closing && name.startsWith(hiddenTag)) hiddenTag = '';
-    else if (!closing && !hiddenTag && ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'].some(tag => name.startsWith(tag))) {
-      hiddenTag = ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'].find(tag => name.startsWith(tag));
-    }
+    hiddenTag = nextHiddenTag(rawTag, hiddenTag);
     index = end + 1;
   }
   return output;

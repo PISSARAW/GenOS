@@ -14,7 +14,7 @@ const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 const { paginateList } = require('../controllers/listPagination');
 const { routeRateLimit } = require('../middleware/routeRateLimit');
 
-router.use(routeRateLimit);
+router.use(['/deploy', '/agents', '/execution-runs'], routeRateLimit);
 router.use(attachTenant);
 
 router.post('/deploy', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.deployAgent);

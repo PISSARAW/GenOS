@@ -32,20 +32,24 @@ function makeResponse() {
   };
 }
 
-let passed = 0;
-let limited = null;
-for (let i = 0; i < 121; i += 1) {
-  const response = makeResponse();
-  routeRateLimit({ ip: '127.0.0.1', socket: { remoteAddress: '127.0.0.1' }, headers: {},
-    method: 'GET', originalUrl: '/security-test-route', url: '/security-test-route' },
-  response, () => { passed += 1; });
-  if (response.statusCode === 429) limited = response;
+async function main() {
+  let passed = 0;
+  let limited = null;
+  for (let i = 0; i < 121; i += 1) {
+    const response = makeResponse();
+    await routeRateLimit({ ip: '127.0.0.1', socket: { remoteAddress: '127.0.0.1' }, headers: {}, app: { get: () => false },
+      method: 'GET', originalUrl: '/security-test-route', url: '/security-test-route' },
+    response, () => { passed += 1; });
+    if (response.statusCode === 429) limited = response;
+  }
+  assert.equal(passed, 120);
+  assert.equal(limited?.statusCode, 429);
+  assert.ok(Number(limited?.headers['retry-after']) > 0);
+  for (const router of routeModules) {
+    const target = router.router || router;
+    assert.ok(target.stack.some((layer) => layer.handle === routeRateLimit), 'Every alert-target route group must install request throttling.');
+  }
+  console.log('Route rate limit passed.');
 }
-assert.equal(passed, 120);
-assert.equal(limited?.statusCode, 429);
-assert.ok(Number(limited?.headers['retry-after']) > 0);
-for (const router of routeModules) {
-  const target = router.router || router;
-  assert.ok(target.stack.some((layer) => layer.handle === routeRateLimit), 'Every alert-target route group must install request throttling.');
-}
-console.log('Route rate limit passed.');
+
+main().catch((error) => { console.error(error); process.exitCode = 1; });

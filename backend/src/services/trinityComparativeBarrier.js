@@ -53,6 +53,7 @@ async function experimentRowForMission(db, missionId) {
 function parseDesignJson(json) {
   try { return JSON.parse(json || '{}'); } catch (_) { return {}; }
 }
+function fallback(value, defaultValue) { return value ?? defaultValue; }
 async function missionForOrchestrator(db, experimentId, orchestratorId) {
   if (!orchestratorId) return null;
   try {
@@ -79,17 +80,17 @@ async function buildWorldReportsFromMission(db, missionId) {
     );
     const events = rows.map((row) => {
       let payload = {};
-      try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) {}
+      try { payload = JSON.parse(fallback(row.payload_json, '{}')); } catch (_) {}
       return { payload, eventType: row.event_type, eventId: row.event_id };
     }).filter((event) => run && event.payload.executionRunId === run.id);
     const report = latestReport({ events });
-    const normalized = report || {};
+    const normalized = fallback(report, {});
     reports.push({ worldNumber: world.world_number, role: world.strategy, agentId: world.agent_id,
       runtimeProvenance: require('./trinityObservedDiversity').provenance(events),
-      outcome: normalized.outcome || 'no_evidence',
+      outcome: fallback(normalized.outcome, 'no_evidence'),
       claims: Array.isArray(normalized.claims) ? normalized.claims : [],
       tests: Array.isArray(normalized.tests) ? normalized.tests : [],
-      uncertainties: Array.isArray(normalized.uncertainties) ? normalized.uncertainties : [], report: report || undefined });
+      uncertainties: Array.isArray(normalized.uncertainties) ? normalized.uncertainties : [], report: fallback(report, undefined) });
   }
   return reports;
 }
@@ -321,7 +322,7 @@ async function prepareCandidateArtifact({ db, targetDir, sourceDir, result }) {
 async function verifyCandidatePromotion(db, input, { winner, artifact }) {
   const { missionId, orchestratorId, result } = input;
   try {
-    const verifiedWinner = { ...winner, report: { ...winner.report, claims: result.mergedEvidence?.claims || winner.report?.claims || [] } };
+    const verifiedWinner = { ...winner, report: { ...winner.report, claims: fallback(result.mergedEvidence?.claims, fallback(winner.report?.claims, [])) } };
     const verification = await candidateVerification.verify(db, { missionId, winner: verifiedWinner, artifact });
     const experiment = await db.get('SELECT id FROM trinity_experiments WHERE mission_id = ?', missionId);
     if (!experiment) throw new Error('Trinity experiment disappeared before final promotion.');
@@ -358,9 +359,9 @@ async function verifyCandidatePromotion(db, input, { winner, artifact }) {
     return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact, verification, agentGit: decision.agentGit };
   } catch (error) {
     const quarantinedArtifact = { ...artifact, status: 'quarantined', failure: error.message };
-    await failPromotion({ db, missionId, reason: error.code || 'candidate_verification_failed', artifact: quarantinedArtifact });
+    await failPromotion({ db, missionId, reason: fallback(error.code, 'candidate_verification_failed'), artifact: quarantinedArtifact });
     emit(orchestratorId, 'TRINITY_PROMOTION_FAILED', 'PROMOTE_TRINITY', `Candidate promotion failed: ${error.message}`, { missionId, artifact }, 'error');
-    return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact: quarantinedArtifact };
+    return { promoted: false, candidateCreated: true, reason: fallback(error.code, 'candidate_verification_failed'), artifact: quarantinedArtifact };
   }
 
 }
