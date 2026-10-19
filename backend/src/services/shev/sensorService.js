@@ -20,7 +20,9 @@ function sensorContract(input) {
 
 function normalizedConfig(input) {
   const config = input.config || {};
-  if (input.adapter === 'web-audit') return validateWeb(config);
+  const specialized = { 'web-audit': validateWeb,
+    'production-telemetry': validateProductionTelemetry }[input.adapter];
+  if (specialized) return specialized(config);
   const relativePath = normalizeRelativePath(config.relativePath, 'SHEV sensor');
   const target = config.target || 'project';
   if (!['project', 'integration'].includes(target)) throw new Error('SHEV sensor target is invalid.');
@@ -32,6 +34,32 @@ function normalizedConfig(input) {
     return { relativePath, target, pointer: config.pointer, expectedSha256: config.expectedSha256 };
   }
   throw new TypeError('SHEV sensor adapter or configuration is invalid.');
+}
+
+function validateProductionTelemetry(config) {
+  const eventType = config.eventType || 'PRODUCTION_REQUEST_SUMMARY';
+  const values = { windowMs: Number(config.windowMs), maxErrorRate: Number(config.maxErrorRate),
+    maxAverageLatencyMs: Number(config.maxAverageLatencyMs), minRequests: Number(config.minRequests) };
+  if (!validProductionTelemetry(eventType, values)) {
+    throw new TypeError('SHEV production telemetry configuration is invalid.');
+  }
+  const deploymentId = config.deploymentId == null ? null : String(config.deploymentId).trim();
+  if (deploymentId !== null && (!deploymentId || deploymentId.length > 128)) {
+    throw new TypeError('SHEV production telemetry deployment is invalid.');
+  }
+  return { eventType, ...values, deploymentId };
+}
+
+function validProductionTelemetry(eventType, values) {
+  const validEvent = /^[A-Z][A-Z0-9_]{2,64}$/.test(eventType);
+  const validWindow = Number.isSafeInteger(values.windowMs)
+    && values.windowMs >= 1000 && values.windowMs <= 86400000;
+  const validError = Number.isFinite(values.maxErrorRate)
+    && values.maxErrorRate >= 0 && values.maxErrorRate <= 1;
+  const validLatency = Number.isFinite(values.maxAverageLatencyMs)
+    && values.maxAverageLatencyMs >= 0;
+  const validRequests = Number.isSafeInteger(values.minRequests) && values.minRequests >= 1;
+  return [validEvent, validWindow, validError, validLatency, validRequests].every(Boolean);
 }
 
 function validFreshness(config) { return Number.isSafeInteger(config.maxAgeMs) && config.maxAgeMs > 0; }
@@ -77,6 +105,9 @@ async function sampleSensor(db, input) {
   }
   if (sensor.adapter === 'json-contract') {
     return require('./adapters/jsonContractAdapter').inspectJsonContract(db, config);
+  }
+  if (sensor.adapter === 'production-telemetry') {
+    return require('./adapters/productionTelemetryAdapter').inspectProductionTelemetry(db, config);
   }
   const { observation } = await require('./adapters/webAuditAdapter').recordWebObservation(db,
     { projectId: sensor.project_id, dimension: sensor.dimension, config: JSON.parse(sensor.config_json) });
