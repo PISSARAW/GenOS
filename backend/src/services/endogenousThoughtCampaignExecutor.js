@@ -28,7 +28,7 @@ function signAuthorization(privateKey, input) {
   return { ...input, signature };
 }
 
-function verdictFor(scenarioClass) {
+function syntheticVerdictFor(scenarioClass) {
   if (scenarioClass === 'learnable_anomaly') return 'supported';
   if (scenarioClass === 'false_lead') return 'refuted';
   return 'inconclusive';
@@ -69,6 +69,22 @@ function canContinue(condition) {
   return condition !== 'memory_ablated';
 }
 
+function syntheticOutcome(ctx, values = {}) {
+  return {
+    success: true,
+    episodes: 0,
+    budgetViolations: 0,
+    duplicates: 0,
+    condition: ctx.condition,
+    caseId: ctx.caseId,
+    ...values,
+    verifiedDiscoveries: 0,
+    normalizedCost: 0,
+    measurementStatus: 'synthetic_control_only',
+    scientificEvidence: false
+  };
+}
+
 async function tryContinue(ctx) {
   if (!canContinue(ctx.condition)) return false;
   const { db, projectId, keys, episodeId, condition } = ctx;
@@ -89,7 +105,7 @@ async function runChain(ctx) {
   const assessment = assessmentFor(scenarioClass);
 
   if (scenarioClass === 'out_of_mandate') {
-    return { success: true, episodes: 0, verifiedDiscoveries: 0, normalizedCost: 0, budgetViolations: 0, duplicates: 0, condition, caseId };
+    return syntheticOutcome(ctx);
   }
 
   const detection = await detector.detectAndQuestion(db, {
@@ -100,7 +116,7 @@ async function runChain(ctx) {
   });
 
   if (!detection || !detection.episode) {
-    return { success: true, episodes: 0, verifiedDiscoveries: 0, normalizedCost: 0.1, budgetViolations: 0, duplicates: 0, condition, caseId };
+    return syntheticOutcome(ctx);
   }
 
   const episodeId = detection.episode.receipt.payload.episodeId;
@@ -108,7 +124,7 @@ async function runChain(ctx) {
   const admissionCondition = condition === 'agow_arbitration_ablated' ? condition : 'full';
   const admissionResult = await admission.admitQuestion(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 1000, policy: { enabled: true, id: 'ett-admission-v1', condition: admissionCondition, ttlMs: 60000 } });
   if (admissionResult.status !== 'admitted') {
-    return { success: true, episodes: 0, verifiedDiscoveries: 0, normalizedCost: 0.1, budgetViolations: 0, duplicates: 0, condition, caseId };
+    return syntheticOutcome(ctx);
   }
   const queued = await queue.queueAdmittedThought(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 2000, policy: { enabled: true, id: 'ett-queue-v1', priority: 80 } });
   const episode = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
@@ -119,7 +135,7 @@ async function runChain(ctx) {
   const runReceipt = runResult.run.receipt;
 
   const verifyEpisode = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
-  const v = verdictFor(scenarioClass);
+  const v = syntheticVerdictFor(scenarioClass);
   const publicKey = keys.verifier.publicKey.export({ type: 'spki', format: 'pem' });
   const verification = { verifierId: 'ett-campaign-verifier', publicKey, verdict: v, oracleRef: `oracle:${scenarioClass}`, evidenceRefs: [runReceipt.receiptId, `oracle:${scenarioClass}`], verifiedAt: new Date(NOW + 4000).toISOString(), nonce: `att-${episodeId}`, signature: '' };
   const unsignedVerify = { operation: 'ett-verify', projectId, subjectId: runReceipt.payload.runId, expectedVersion: verifyEpisode.version, details: { episodeId, runRef: runReceipt.receiptId, verifierId: verification.verifierId, verifierKeyDigest: verificationContract.publicKeyDigest(publicKey), policyId: 'ett-verification-v1', oracleRef: verification.oracleRef }, nonce: `verify-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
@@ -145,19 +161,12 @@ async function runChain(ctx) {
     continued = await tryContinue(ctx);
   }
 
-  return {
-    success: true,
+  return syntheticOutcome(ctx, {
     episodes: 1,
-    verifiedDiscoveries: Number(v === 'supported'),
-    normalizedCost: 1,
-    budgetViolations: 0,
-    duplicates: 0,
-    condition,
-    caseId,
-    verdict: v,
+    syntheticVerdict: v,
     learned,
     continued
-  };
+  });
 }
 
 async function execute(input) {
@@ -175,7 +184,10 @@ async function execute(input) {
     const result = await runChain(ctx);
     return result;
   } catch (error) {
-    return { success: false, episodes: 0, verifiedDiscoveries: 0, normalizedCost: 0, budgetViolations: 0, duplicates: 0, condition, caseId, error: String(error.message).slice(0, 200) };
+    return syntheticOutcome({ condition, caseId }, {
+      success: false,
+      error: String(error.message).slice(0, 200)
+    });
   } finally {
     try { if (db) await db.close(); } catch (_) {}
     try { fs.rmSync(filename, { force: true }); } catch (_) {}

@@ -2,7 +2,7 @@
 
 - **Statut** : continuation bornée implémentée ; ablations et campagne non démontrées
 - **Portée** : simulation déterministe en lecture seule
-- **Dernière revue** : 2026-10-18
+- **Dernière revue** : 2026-10-19
 
 ETT v1 mesure si une boucle GenOS peut détecter une anomalie, formuler une
 question falsifiable, arbitrer une recherche bornée, vérifier son résultat et
@@ -116,6 +116,20 @@ PR8 applique une révision catégorielle strictement confinée à l'épisode :
 
 Les continuations bornées et la campagne réservée appartiennent aux tranches
 suivantes. Un épisode `LEARNED` ne valide donc pas une capacité cognitive générale.
+
+## Campagne de développement
+
+Le runner `backend/bin/genos-ett-campaign.cjs` utilise uniquement les
+`developmentSeeds` du protocole et scelle donc ses reçus avec `holdout: false`.
+Son vérificateur dérive encore un verdict synthétique de la classe de scénario :
+ce verdict sert à exercer la chaîne de contrôle, mais il ne compte aucune
+`verifiedDiscovery`, ne mesure aucun coût réel et porte explicitement
+`scientificEvidence: false`. Ces reçus ne sont pas publiables comme comparaison
+entre GenOS et ses ablations.
+
+Une campagne holdout exigera les `reservedSeeds`, un worker ou solveur réel, des
+oracles finaux scellés et indépendants et une mesure de ressources. Elle n'est
+pas fournie par ce runner de développement.
 
 ## Frontières de sécurité
 

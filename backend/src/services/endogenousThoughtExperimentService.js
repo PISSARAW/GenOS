@@ -22,7 +22,9 @@ function validateRequired(options) {
 function validate(options) {
   validateRequired(options);
   if (typeof options.execute !== 'function') throw new TypeError('ETT experiment requires an execution adapter.');
-  if (options.holdout !== true) throw new TypeError('ETT experiment corpus must be explicitly marked holdout.');
+  if (typeof options.holdout !== 'boolean') {
+    throw new TypeError('ETT experiment corpus split must be declared with a boolean holdout flag.');
+  }
   const conditions = options.conditions || CONDITIONS;
   if (!Array.isArray(conditions) || conditions.length === 0 || new Set(conditions).size !== conditions.length) {
     throw new TypeError('ETT experiment conditions must be a non-empty unique list.');
@@ -47,13 +49,19 @@ function emptySummary() {
   return { runs: 0, ...Object.fromEntries(OUTCOME_METRICS.map((metric) => [metric, 0])) };
 }
 
+function metricValue(outcome, metric) {
+  const requiresScientificEvidence = metric === 'verifiedDiscoveries' || metric === 'normalizedCost';
+  if (requiresScientificEvidence && outcome?.scientificEvidence !== true) return 0;
+  return Math.max(0, Number(outcome?.[metric]) || 0);
+}
+
 function summarize(results) {
   const groups = {};
   for (const result of results) {
     const group = groups[result.condition] || emptySummary();
     group.runs += 1;
     for (const metric of OUTCOME_METRICS) {
-      group[metric] += Math.max(0, Number(result.outcome?.[metric]) || 0);
+      group[metric] += metricValue(result.outcome, metric);
     }
     groups[result.condition] = group;
   }
@@ -96,11 +104,15 @@ async function run(options) {
   }
   const receipt = {
     experimentId: randomUUID(), kind: options.kind || 'ett_ablation', createdAt: Date.now(), seed,
-    holdout: true, caseCount: options.cases.length, conditions: [...new Set(results.map((entry) => entry.condition))],
+    holdout: options.holdout, caseCount: options.cases.length,
+    conditions: [...new Set(results.map((entry) => entry.condition))],
     snapshotHash, environmentHash, corpusHash, protocol: options.protocol, protocolHash, manifest: options.environment,
     results, summary: summarize(results), promotionDecision: null,
-    evidenceStatus: 'replication_required',
-    caveat: 'One sealed holdout run is descriptive. No causal promotion or significance claim is emitted.'
+    publishable: false,
+    evidenceStatus: options.holdout ? 'replication_required' : 'development_only',
+    caveat: options.holdout
+      ? 'One sealed holdout run is descriptive. No causal promotion or significance claim is emitted.'
+      : 'Development corpus run only. It is not holdout evidence and must not be published as an ablation result.'
   };
   await persist(options, receipt);
   return receipt;
@@ -110,6 +122,9 @@ async function runReplicationCampaign(options) {
   const replications = options.replications;
   if (!Array.isArray(replications) || replications.length < 3) {
     throw new TypeError('ETT holdout replication requires at least three independent runs.');
+  }
+  if (replications.some((replication) => replication?.holdout !== true)) {
+    throw new TypeError('ETT holdout replication cannot include development-corpus runs.');
   }
   const receipts = [];
   for (const replication of replications) receipts.push(await run({ ...replication, kind: 'ett_holdout_replication' }));
