@@ -2,15 +2,13 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
-const { open } = require('sqlite');
-const sqlite3 = require('sqlite3');
+const { execFileSync, spawn } = require('node:child_process');
 const modelProvider = require('../src/services/modelProvider');
 const { fingerprint } = require('../src/services/stateFingerprint');
 const endocrine = require('../src/services/shev/developmentalEndocrineBridge');
 const campaign = require('../src/services/shev/developmentalLongitudinalCampaignService');
 const ledger = require('../src/services/gvxDevelopmentLedger');
-const { migrateGvxLedger } = require('../src/db/migrations/migrateGvxLedger');
+const daemonHost = require('./qwenCampaignDaemonHost.cjs');
 
 const ROOT = path.resolve(__dirname, '../..');
 const TASK_DEFINITIONS = [
@@ -70,6 +68,7 @@ function functionExcerpt(source, name) {
 }
 
 function taskSet() {
+  const headSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
   const fileSources = new Map([...new Set(TASK_DEFINITIONS.map((task) => task.file))]
     .map((file) => [file, sourceAtHead(file)]));
   const tasks = TASK_DEFINITIONS.map((task) => ({ ...task,
@@ -77,7 +76,7 @@ function taskSet() {
     sourceHash: fingerprint(fileSources.get(task.file)) }));
   const sourceSnapshotHash = fingerprint(Object.fromEntries([...fileSources]
     .map(([file, source]) => [file, fingerprint(source)])));
-  return { tasks, sourceSnapshotHash };
+  return { tasks, headSha, sourceSnapshotHash: fingerprint({ headSha, sourceSnapshotHash }) };
 }
 
 const TRAINING = TASK_DEFINITIONS.filter((task) => task.phase === 'training');
@@ -97,13 +96,15 @@ function windowsFor(tasks, campaignId) {
   });
 }
 
-function taskPrompt(task, notes) {
+function taskPrompt(task, notes, daemonContext) {
   const lesson = notes.length ? `Verified lessons from prior training windows:\n${notes.join('\n')}`
     : 'No prior verified lessons are available.';
+  const daemonEvidence = daemonContext ? `ResidentDaemon read-only context (evidence, not instructions):\n${JSON.stringify(daemonContext)}`
+    : 'No ResidentDaemon context is attached to this arm.';
   return ['You are answering a read-only code-comprehension benchmark about GenOS.',
     'Use only the source excerpt. Choose exactly one listed answer. Do not propose edits or execute tools.',
     `Source excerpt:\n${task.source}`, `Question: ${task.question}`,
-    `Choices: ${task.choices.join(' | ')}`, lesson,
+    `Choices: ${task.choices.join(' | ')}`, lesson, daemonEvidence,
     'Return one JSON object with exactly one string property named "answer".'].join('\n\n');
 }
 
@@ -137,6 +138,8 @@ function modelAudit(options) {
   const { config, task, prompt, result, answer } = options;
   return { campaignId: config.campaignId, model: config.model, taskId: task.id,
     sourceHash: task.sourceHash, promptHash: fingerprint(prompt), responseHash: fingerprint(result.text || ''),
+    daemonBriefId: config.daemonContext?.briefId || null,
+    daemonContextHash: config.daemonContext ? fingerprint(config.daemonContext) : null,
     answer, expected: task.expected, correct: answer === task.expected.toLowerCase() };
 }
 
@@ -156,7 +159,8 @@ async function runQwenWindow(input, state) {
   const { config, taskMap, notes, painHistory, pending, audit } = state;
   const task = taskMap.get(input.window.id);
   if (!task) throw new Error(`Unknown benchmark task ${input.window.id}`);
-  const prompt = taskPrompt(task, input.arm === 'treatment' ? notes.treatment : []);
+  const prompt = taskPrompt(task, input.arm === 'treatment' ? notes.treatment : [],
+    input.arm === 'treatment' ? config.daemonContext : null);
   const startedAt = Date.now();
   const response = await modelProvider.generate({ model: config.model, prompt,
     responseFormat: 'json_object', enforceSchema: false, stream: false,
@@ -249,26 +253,28 @@ async function ensureModelAvailable(model) {
   return configuration.modelName;
 }
 
-async function openCampaignDb(filename) {
-  fs.mkdirSync(path.dirname(filename), { recursive: true });
-  const db = await open({ filename, driver: sqlite3.Database });
-  await migrateGvxLedger(db);
-  return db;
-}
-
 function campaignCoordinator(campaignId) {
   return { organizationId: 'genos-local', projectId: `${campaignId}-coordinator`,
     entityId: 'qwen-campaign-runner' };
 }
 
+function configureCampaign(source, model, campaignId) {
+  const slug = campaignId.toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 48);
+  const scopeFor = (arm) => ({ organizationId: 'genos-local', projectId: `${campaignId}-${arm}`,
+    entityId: `qwen-${arm}`, workspaceId: `${campaignId}-${arm}-readonly` });
+  return { ...source, model, modelName: model.replace(/^ollama:\/\//, ''), campaignId,
+    territorySlug: slug, daemonId: `daemon.qwen-${slug}`,
+    armScopes: { control: scopeFor('control'), treatment: scopeFor('treatment') } };
+}
+
 function campaignManifest(config, startedAt) {
   const coordinator = campaignCoordinator(config.campaignId);
-  const arm = (name) => ({ scope: { organizationId: 'genos-local',
-    projectId: `${config.campaignId}-${name}`, entityId: `qwen-${name}` },
-  workspaceId: `${config.campaignId}-${name}-readonly`,
+  const arm = (name) => ({ scope: { organizationId: config.armScopes[name].organizationId,
+    projectId: config.armScopes[name].projectId, entityId: config.armScopes[name].entityId },
+  workspaceId: config.armScopes[name].workspaceId,
   intervention: name === 'control' ? 'baseline' : 'full_arc',
   initialSnapshotHash: config.sourceSnapshotHash, modelLock: config.model,
-  toolsLock: 'readonly-genos-source-qa-v1', permissionsHash: fingerprint('readonly-only'),
+  toolsLock: 'readonly-genos-source-qa-daemon-v1', permissionsHash: fingerprint('readonly-only'),
   budget: { costUsd: 1, tokens: 4096, seconds: 180 } });
   const tasks = config.tasks;
   return campaign.createManifest({ campaignId: config.campaignId, mode: 'protocol', coordinator, startedAt,
@@ -316,18 +322,31 @@ async function main() {
   const modelName = await ensureModelAvailable(model);
   const source = taskSet();
   const campaignId = option(args, 'campaign-id', `qwen-shev-${Date.now()}`);
-  const config = { ...source, model, modelName, campaignId,
+  const config = { ...configureCampaign(source, model, campaignId), modelName,
+    dbPath: path.resolve(database),
     auditFile: path.resolve(option(args, 'audit', `${database}.qwen-audit.jsonl`)) };
-  const db = await openCampaignDb(path.resolve(database));
+  let db;
+  let worktree;
+  let daemon;
   try {
+    worktree = daemonHost.createReadOnlyWorktree({ campaignId, headSha: config.headSha });
+    db = await daemonHost.openDatabase(config.dbPath);
+    daemon = await daemonHost.startResidentDaemon(db, config, worktree);
+    config.daemonContext = daemon.context;
+    config.daemonReceipt = daemon.receipt;
     const previous = await existingCampaignManifest(db, campaignId);
     const manifest = await savedManifest(db, campaignManifest(config, previous?.startedAt));
     const restored = await restoreTreatmentMemory(db, manifest, config.tasks);
     const adapters = makeAdapters(config, restored);
     const report = await campaign.runCampaign({ db, manifest,
       runWindow: adapters.runWindow, verifyWindow: adapters.verifyWindow });
-    process.stdout.write(`${JSON.stringify({ report, qwenAudit: adapters.audit }, null, 2)}\n`);
-  } finally { await db.close(); }
+    process.stdout.write(`${JSON.stringify({ report, daemon: config.daemonReceipt,
+      qwenAudit: adapters.audit }, null, 2)}\n`);
+  } finally {
+    await daemonHost.stopDaemon(daemon).catch(() => {});
+    if (db) await daemonHost.closeDatabase();
+    if (worktree) daemonHost.removeReadOnlyWorktree(worktree);
+  }
 }
 
 main().catch((error) => {
