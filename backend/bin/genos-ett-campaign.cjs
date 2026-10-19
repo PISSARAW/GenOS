@@ -22,24 +22,10 @@ function buildCases() {
   return cases;
 }
 
-// Placeholder adapter: a real implementation must invoke the full ETT chain
-// (detection -> admission -> queue -> runner -> verification -> learning -> continuation)
-// under the given condition and return measured metrics. This scaffold keeps the
-// campaign descriptive and non-promoting.
+const campaignExecutor = require('../src/services/endogenousThoughtCampaignExecutor');
+
 async function executeAdapter({ caseId, input, condition }) {
-  const base = condition === 'full' ? 1 : 0.5;
-  return {
-    success: true,
-    episodes: 1,
-    verifiedDiscoveries: condition === 'full' ? 1 : 0,
-    normalizedCost: 1,
-    budgetViolations: 0,
-    duplicates: 0,
-    score: base,
-    caseId,
-    seed: input.seed,
-    scenarioClass: input.scenarioClass
-  };
+  return campaignExecutor.execute({ caseId, input, condition });
 }
 
 async function main() {
