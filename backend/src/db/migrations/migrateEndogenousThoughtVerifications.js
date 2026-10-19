@@ -1,5 +1,7 @@
 'use strict';
 
+const { upgradeEpisodeMultiplicity } = require('./migrateEndogenousThoughtCycles');
+
 async function migrateEndogenousThoughtVerifications(db) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS endogenous_thought_verifications (
@@ -20,7 +22,6 @@ async function migrateEndogenousThoughtVerifications(db) {
       verified_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY(organization_id, project_id, verification_id),
-      UNIQUE(organization_id, project_id, episode_id),
       UNIQUE(organization_id, project_id, run_id),
       UNIQUE(organization_id, project_id, receipt_id),
       FOREIGN KEY(organization_id, project_id, episode_id)
@@ -41,6 +42,17 @@ async function migrateEndogenousThoughtVerifications(db) {
       BEFORE DELETE ON endogenous_thought_verifications
       BEGIN SELECT RAISE(ABORT, 'Endogenous thought verifications are durable evidence'); END;
   `);
+  if (await upgradeEpisodeMultiplicity(db, 'endogenous_thought_verifications')) {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_endogenous_verification_episode
+      ON endogenous_thought_verifications(
+        organization_id, project_id, episode_id, verified_at DESC);
+      CREATE TRIGGER IF NOT EXISTS endogenous_verification_no_update
+        BEFORE UPDATE ON endogenous_thought_verifications
+        BEGIN SELECT RAISE(ABORT, 'Endogenous thought verifications are immutable'); END;
+      CREATE TRIGGER IF NOT EXISTS endogenous_verification_no_delete
+        BEFORE DELETE ON endogenous_thought_verifications
+        BEGIN SELECT RAISE(ABORT, 'Endogenous thought verifications are durable evidence'); END;`);
+  }
 }
 
 module.exports = { migrateEndogenousThoughtVerifications };

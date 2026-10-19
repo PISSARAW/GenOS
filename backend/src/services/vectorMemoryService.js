@@ -60,7 +60,7 @@ class VectorMemoryService {
   }
 
   async storeMemory(agentId, content, embedding = null, optionsOrTenant = {}) {
-    const db = await this.initDb();
+    const db = optionsOrTenant.db || (await this.initDb());
     const normalizedContent = String(content || '').trim();
     if (!normalizedContent) throw new Error('Memory content is required.');
     const orgId = optionsOrTenant.organizationId || optionsOrTenant.organization_id || null;

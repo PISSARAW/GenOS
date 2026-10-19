@@ -7,6 +7,7 @@ const { getResponsibility } = require('./shev/responsibilityService');
 const { normalizedObservation } = require('./shev/observationService');
 const thoughtStore = require('./endogenousThoughtStoreService');
 const assessmentService = require('./endogenousThoughtAssessmentService');
+const questionGeneration = require('./endogenousThoughtQuestionGenerationService');
 const migration = require('../db/migrations/migrateEndogenousThoughtDetections');
 
 const CONDITIONS = new Set(['full', 'planned_control', 'curiosity_ablated',
@@ -291,51 +292,32 @@ function episodePayload(values) {
     previousReceiptId: null };
 }
 
-function defaultQuestionText(summary, dimension) {
-  return `Quel mécanisme vérifiable explique l'observation « ${summary} » sur ${dimension.name} ?`;
-}
-
-function generatedOverrides(generated) {
-  if (typeof generated === 'string') {
-    const trimmed = generated.trim();
-    if (trimmed) return { text: trimmed };
-    return null;
-  }
-  if (!generated || typeof generated !== 'object') return null;
-  const overrides = {};
-  const generatedText = typeof generated.text === 'string' ? generated.text.trim() : '';
-  if (generatedText) overrides.text = generatedText;
-  const fields = ['hypothesis', 'falsifier', 'method'];
-  for (const field of fields) {
-    if (typeof generated[field] === 'string') overrides[field] = generated[field];
-  }
-  if (Object.keys(overrides).length === 0) return null;
-  return overrides;
-}
-
-function questionPayload(values) {
+async function questionPayload(values) {
   const { input, context, payload, refs, dimension, evaluatedAt } = values;
   const summary = String(context.observation.summary).trim();
-  let text = defaultQuestionText(summary, dimension);
-  let hypothesis = `Une condition reproductible explique l'écart observé sur ${dimension.name}.`;
-  let falsifier = `Une mesure indépendante satisfait « ${dimension.expected} » sans reproduire cet écart.`;
-  let method = `Comparer le signal aux critères du mandat puis tenter de réfuter l'hypothèse.`;
-  if (typeof input.questionGenerator === 'function') {
-    try {
-      const overrides = generatedOverrides(input.questionGenerator({ summary, dimension, context, refs, payload }));
-      if (overrides?.text) text = overrides.text;
-      if (overrides?.hypothesis) hypothesis = overrides.hypothesis;
-      if (overrides?.falsifier) falsifier = overrides.falsifier;
-      if (overrides?.method) method = overrides.method;
-    } catch (_) { /* keep default open question */ }
-  }
-  return { questionId: scopedId('ett_question', payload.detectionId), episodeId: payload.episodeId,
+  const generated = await questionGeneration.generate({ summary, dimension, context, refs, payload,
+    db: values.db, agentId: input.agentId, organizationId: input.organizationId,
+    projectId: input.projectId, budget: input.budget, questionGenerator: input.questionGenerator });
+  return { payload: { questionId: scopedId('ett_question', payload.detectionId), episodeId: payload.episodeId,
     domain: context.observation.domain,
-    text, hypothesis, falsifier, method,
+    ...generated.question,
     expectedEvidence: [...new Set([...dimension.acceptance, ...refs])],
     expectedInformationGain: input.assessment.expectedInformationGain,
     estimatedCost: input.budget, risk: input.assessment.risk,
-    sourceRefs: refs, createdAt: evaluatedAt };
+    sourceRefs: refs, createdAt: evaluatedAt }, generation: generated.generation };
+}
+
+async function replayedQuestion(db, input) {
+  const episode = await thoughtStore.getEpisode(db, input);
+  if (episode.currentState === 'DETECTED') return null;
+  const receipts = await thoughtStore.listReceipts(db, input);
+  const questioned = receipts.find((entry) => entry.receipt.payload.toState === 'QUESTIONED');
+  if (!questioned) throw coded('ENDOGENOUS_DETECTION_STATE_CONFLICT',
+    'Detected episode advanced without a question.');
+  const question = await thoughtStore.getQuestion(db, { ...input,
+    receiptId: questioned.receipt.payload.questionRef });
+  return { episode: { ...questioned, replayed: true }, question,
+    questionGeneration: { status: 'replayed', source: 'stored' } };
 }
 
 async function materializeCandidate(db, input) {
@@ -347,17 +329,20 @@ async function materializeCandidate(db, input) {
   const started = await thoughtStore.startEpisode(db, { organizationId: normalized.organizationId,
     projectId: normalized.projectId,
     payload: episodePayload({ input: normalized, context, payload, refs }) });
-  const question = questionPayload({ input: normalized, context, payload, refs,
-    dimension, evaluatedAt: detection.evaluatedAt });
+  const replay = await replayedQuestion(db, { ...normalized, episodeId: payload.episodeId });
+  if (replay) return { status: 'questioned', detection, ...replay };
+  const generated = await questionPayload({ input: normalized, context, payload, refs,
+    dimension, evaluatedAt: detection.evaluatedAt, db });
   const persisted = await thoughtStore.persistQuestion(db, { organizationId: normalized.organizationId,
-    projectId: normalized.projectId, payload: question });
+    projectId: normalized.projectId, payload: generated.payload });
   const questionedPayload = { ...episodePayload({ input: normalized, context, payload, refs }),
     transitionId: scopedId('ett_transition_questioned', payload.detectionId),
     fromState: 'DETECTED', toState: 'QUESTIONED', questionRef: persisted.receipt.receiptId,
     occurredAt: detection.evaluatedAt, previousReceiptId: started.receipt.receiptId };
   const questioned = await thoughtStore.transitionEpisode(db, { organizationId: normalized.organizationId,
     projectId: normalized.projectId, payload: questionedPayload });
-  return { status: 'questioned', detection, episode: questioned, question: persisted };
+  return { status: 'questioned', detection, episode: questioned, question: persisted,
+    questionGeneration: generated.generation };
 }
 
 async function detectAndQuestion(db, input) {
@@ -396,4 +381,5 @@ function shouldWake(signal, mandate) { return canWake(signal, mandate); }
 function wakeAllowed(signal, mandate) { return canWake(signal, mandate); }
 
 module.exports = { BOUNDARIES, detectAndQuestion, computedScore, normalizePolicy, normalizeAssessment,
-  deriveAssessment, hasCompleteAssessment, defaultQuestionText, canWake, shouldWake, wakeAllowed };
+  deriveAssessment, hasCompleteAssessment, defaultQuestionText: questionGeneration.defaultQuestionText,
+  canWake, shouldWake, wakeAllowed };

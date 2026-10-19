@@ -59,7 +59,7 @@ function parseReceipt(row, contract, code) {
 
 async function loadLearning(db, input) {
   const row = await db.get(`SELECT * FROM endogenous_thought_learnings
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
+    WHERE organization_id=? AND project_id=? AND episode_id=? ORDER BY learned_at DESC LIMIT 1`,
   input.organizationId, input.projectId, input.episodeId);
   if (!row) throw coded('ENDOGENOUS_CONTINUATION_LEARNING_NOT_FOUND', 'A learned episode is required before continuation.');
   const receipt = parseReceipt(row, learningContract, 'ENDOGENOUS_CONTINUATION_LEARNING_INTEGRITY_FAILED');
@@ -67,7 +67,7 @@ async function loadLearning(db, input) {
 }
 
 function learnedVersion(receipts) {
-  const entry = receipts.find((item) => item.receipt.payload.toState === 'LEARNED');
+  const entry = receipts.findLast((item) => item.receipt.payload.toState === 'LEARNED');
   if (!entry) throw coded('ENDOGENOUS_CONTINUATION_STATE_CONFLICT', 'Episode has no learned transition.');
   return entry.sequence + 1;
 }

@@ -137,8 +137,8 @@ function readBinding(row, requestHash) {
 
 async function storedBinding(db, input, identity) {
   const row = await db.get(`SELECT * FROM endogenous_thought_task_bindings
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND decision_ref=?`,
+  input.organizationId, input.projectId, input.decisionRef);
   return readBinding(row, identity.requestHash);
 }
 

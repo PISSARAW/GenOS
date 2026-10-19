@@ -1,5 +1,7 @@
 'use strict';
 
+const { upgradeEpisodeMultiplicity } = require('./migrateEndogenousThoughtCycles');
+
 async function migrateEndogenousThoughtLearnings(db) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS endogenous_thought_learnings (
@@ -21,7 +23,6 @@ async function migrateEndogenousThoughtLearnings(db) {
       learned_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY(organization_id, project_id, learning_id),
-      UNIQUE(organization_id, project_id, episode_id),
       UNIQUE(organization_id, project_id, verification_id),
       UNIQUE(organization_id, project_id, receipt_id),
       FOREIGN KEY(organization_id, project_id, episode_id)
@@ -41,6 +42,17 @@ async function migrateEndogenousThoughtLearnings(db) {
       BEFORE DELETE ON endogenous_thought_learnings
       BEGIN SELECT RAISE(ABORT, 'Endogenous thought learnings are durable evidence'); END;
   `);
+  if (await upgradeEpisodeMultiplicity(db, 'endogenous_thought_learnings')) {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_endogenous_learning_episode
+      ON endogenous_thought_learnings(
+        organization_id, project_id, episode_id, learned_at DESC);
+      CREATE TRIGGER IF NOT EXISTS endogenous_learning_no_update
+        BEFORE UPDATE ON endogenous_thought_learnings
+        BEGIN SELECT RAISE(ABORT, 'Endogenous thought learnings are immutable'); END;
+      CREATE TRIGGER IF NOT EXISTS endogenous_learning_no_delete
+        BEFORE DELETE ON endogenous_thought_learnings
+        BEGIN SELECT RAISE(ABORT, 'Endogenous thought learnings are durable evidence'); END;`);
+  }
 }
 
 module.exports = { migrateEndogenousThoughtLearnings };

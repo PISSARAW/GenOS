@@ -829,3 +829,5 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0620 — Calibrage empirique du profil et de l'hystérésis](adr/0620-calibrage-empirique-profil-et-hysteresis.md).
 - [ADR 0627 — Frontière entre claims fonctionnels et phénoménaux](adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine, preuves requises et refus des conclusions phénoménales.
 - [ADR 0642 — Borner les heuristiques et les garanties AEIS](adr/0642-borner-les-heuristiques-aeis.md) — statut non calibré, diversité descriptive, portée mécanisable et indépendance.
+- [ADR 0646 — Apprentissage qualifié et exécution ETT reprenable](adr/0646-apprentissage-et-execution-ett-reprenables.md) — mémoire vérifiée, réservation durable, reprise sans réexécution et mesure externe.
+- [ADR 0647 — Boucle ETT multicycle et questionnement endogène](adr/0647-boucle-ett-multicycle-et-questionnement-endogene.md) — répétition bornée du cycle, questions de suivi et génération cognitive automatique sans abaisser les portes de preuve.

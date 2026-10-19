@@ -89,6 +89,32 @@ function request(subject, authorization, overrides = {}) {
     authorization, ...overrides };
 }
 
+function sandboxAdapter(overrides = {}) {
+  return { kind: 'isolated-read-only', readOnly: true, networkAllowed: false,
+    mutationAllowed: false, externalActionAllowed: false,
+    execute: async (input) => input.worker(input), ...overrides };
+}
+
+async function freshScenario(label, callback) {
+  const filename = path.join(os.tmpdir(), `ett-runner-${label}-${crypto.randomUUID()}.sqlite`);
+  const db = await fixture.memoryDb(filename);
+  const keys = crypto.generateKeyPairSync('ed25519');
+  try { return await callback({ db, keys }); }
+  finally {
+    await db.close().catch(() => {});
+    fs.rmSync(filename, { force: true });
+  }
+}
+
+async function preparedSubject(db, keys) {
+  await setup(db, keys.publicKey.export({ type: 'spki', format: 'pem' }));
+  const queued = await queuedEpisode(db);
+  const episode = await thoughtStore.getEpisode(db, { organizationId: 'org-a',
+    projectId: PROJECT, episodeId: queued.episodeId });
+  const subject = { ...queued, version: episode.version };
+  return { subject, authorization: signedAuthorization(keys.privateKey, subject) };
+}
+
 async function expectCode(promise, code) {
   await assert.rejects(promise, (error) => error.code === code);
 }
@@ -151,6 +177,90 @@ async function exercise(db, keys) {
   return { subject, authorization, receiptId: result.run.receipt.receiptId };
 }
 
+async function testDurableReservationAndMeter() {
+  await freshScenario('reservation', async ({ db, keys }) => {
+    const prepared = await preparedSubject(db, keys);
+    let workerCalls = 0;
+    const worker = async (input) => {
+      workerCalls += 1;
+      const reserved = await db.get(`SELECT status FROM endogenous_thought_run_reservations
+        WHERE execution_id=?`, input.executionId);
+      assert.equal(reserved.status, 'running');
+      return { usage: { tokens: 999999, usd: 999, seconds: 999 },
+        evidenceRefs: ['evidence:worker:external'] };
+    };
+    const usageMeter = { snapshot: async () => ({ tokens: 7, usd: 0.01, seconds: 2 }) };
+    const result = await runner.runQueuedThought(db, request(prepared.subject,
+      prepared.authorization, { worker, sandbox: sandboxAdapter(), usageMeter }));
+    assert.equal(workerCalls, 1);
+    assert.deepEqual(result.run.receipt.payload.usage, { tokens: 7, usd: 0.01, seconds: 2 });
+    assert.equal(result.execution.idempotent, true);
+    const reservation = await db.get(`SELECT status,usage_json FROM endogenous_thought_run_reservations
+      WHERE execution_id=?`, result.execution.executionId);
+    assert.equal(reservation.status, 'completed');
+    assert.deepEqual(JSON.parse(reservation.usage_json), result.run.receipt.payload.usage);
+  });
+}
+
+async function testRecoveryDoesNotReinvoke() {
+  await freshScenario('recovery', async ({ db, keys }) => {
+    const prepared = await preparedSubject(db, keys);
+    let workerCalls = 0;
+    let recoveredCalls = 0;
+    const storedResult = { evidenceRefs: ['evidence:recovered'] };
+    const worker = async () => { workerCalls += 1; return storedResult; };
+    const sandbox = sandboxAdapter({ recover: async () => {
+      recoveredCalls += 1;
+      return { status: 'completed', result: storedResult };
+    } });
+    const usageMeter = { snapshot: async () => ({ tokens: 3, usd: 0, seconds: 1 }) };
+    const originalRun = db.run.bind(db);
+    let failCompletion = true;
+    db.run = (...args) => {
+      if (failCompletion && String(args[0]).includes("SET status='verifying'")) {
+        failCompletion = false;
+        throw new Error('simulated durable completion interruption');
+      }
+      return originalRun(...args);
+    };
+    const input = request(prepared.subject, prepared.authorization,
+      { worker, sandbox, usageMeter });
+    await assert.rejects(runner.runQueuedThought(db, input), /simulated durable completion/);
+    db.run = originalRun;
+    assert.equal((await db.get('SELECT status FROM endogenous_thought_run_reservations')).status,
+      'running');
+    const recovered = await runner.runQueuedThought(db, input);
+    assert.equal(workerCalls, 1);
+    assert.equal(recoveredCalls, 1);
+    assert.equal(recovered.execution.replayed, false);
+    assert.equal((await db.get('SELECT status FROM endogenous_thought_run_reservations')).status,
+      'completed');
+  });
+}
+
+async function testCancellation() {
+  await freshScenario('cancel', async ({ db, keys }) => {
+    const prepared = await preparedSubject(db, keys);
+    const controller = new AbortController();
+    let started;
+    const entered = new Promise((resolve) => { started = resolve; });
+    let cancelled = 0;
+    const worker = async () => { started(); return new Promise(() => {}); };
+    const sandbox = sandboxAdapter({ cancel: async () => { cancelled += 1; } });
+    const usageMeter = { snapshot: async () => ({ tokens: 0, usd: 0, seconds: 0 }) };
+    const pending = runner.runQueuedThought(db, request(prepared.subject,
+      prepared.authorization, { worker, sandbox, usageMeter, signal: controller.signal }));
+    await entered;
+    controller.abort('operator-request');
+    await expectCode(pending, 'ENDOGENOUS_RUN_CANCELLED');
+    assert.equal(cancelled, 1);
+    assert.equal((await db.get('SELECT status FROM endogenous_thought_run_reservations')).status,
+      'cancelled');
+    assert.equal((await db.get('SELECT status FROM ontogenesis_runs')).status, 'failed');
+    assert.equal((await db.get('SELECT status FROM ontogenesis_backlog')).status, 'blocked');
+  });
+}
+
 async function main() {
   const filename = path.join(os.tmpdir(), `ett-runner-${crypto.randomUUID()}.sqlite`);
   const keys = crypto.generateKeyPairSync('ed25519');
@@ -167,6 +277,9 @@ async function main() {
     await db.close().catch(() => {});
     fs.rmSync(filename, { force: true });
   }
+  await testDurableReservationAndMeter();
+  await testRecoveryDoesNotReinvoke();
+  await testCancellation();
 }
 
 main().then(() => console.log('Authorized endogenous read-only runner tests passed.'))

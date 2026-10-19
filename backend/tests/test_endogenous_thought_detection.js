@@ -68,7 +68,12 @@ async function exercise(db) {
   assert.deepEqual(await detector.detectAndQuestion(db, request({ policy: { enabled: false } })),
     { status: 'skipped', reason: 'disabled' });
 
-  const questioned = await detector.detectAndQuestion(db, request());
+  let generationCalls = 0;
+  const questionGenerator = async () => {
+    generationCalls += 1;
+    return { text: 'Quelle expérience indépendante départage cette divergence ?' };
+  };
+  const questioned = await detector.detectAndQuestion(db, request({ questionGenerator }));
   assert.equal(questioned.status, 'questioned');
   assert.equal(questioned.detection.payload.decision.outcome, 'candidate');
   assert.equal(questioned.episode.receipt.payload.toState, 'QUESTIONED');
@@ -81,10 +86,12 @@ async function exercise(db) {
     taskCreated: false, externalActionAllowed: false
   });
 
-  const replay = await detector.detectAndQuestion(db, request());
+  const replay = await detector.detectAndQuestion(db, request({ questionGenerator }));
   assert.equal(replay.status, 'questioned');
   assert.equal(replay.detection.replayed, true);
   assert.equal(replay.episode.receipt.receiptId, questioned.episode.receipt.receiptId);
+  assert.equal(replay.questionGeneration.status, 'replayed');
+  assert.equal(generationCalls, 1);
   await expectCode(detector.detectAndQuestion(db, request({ assessment: { anomaly: 0.7 } })),
     'ENDOGENOUS_DETECTION_IDEMPOTENCY_CONFLICT');
 
@@ -105,6 +112,21 @@ async function exercise(db) {
     SET outcome='rejected' WHERE project_id=?`, PROJECT), /immutable/);
   await expectCode(detector.detectAndQuestion(db, request({ organizationId: 'org-b',
     policy: { id: 'ett-policy-foreign' } })), 'ENDOGENOUS_AGENT_SCOPE_MISMATCH');
+
+  await recordObservation(db, observation('observation-derived-new',
+    { summary: 'Latence réseau orthogonale' }));
+  const novelRow = await db.get('SELECT * FROM shev_observations WHERE id=?',
+    'observation-derived-new');
+  const novel = await detector.deriveAssessment(db, request(), { observation: novelRow }, null);
+  await recordObservation(db, observation('observation-derived-repeat',
+    { summary: 'Latence réseau orthogonale' }));
+  const repeatRow = await db.get('SELECT * FROM shev_observations WHERE id=?',
+    'observation-derived-repeat');
+  const repeated = await detector.deriveAssessment(db, request(), { observation: repeatRow }, null);
+  assert.match(novel.ref, /^assessment:empirical-v2:/);
+  assert.ok(repeated.novelty < novel.novelty);
+  assert.ok(repeated.expectedInformationGain < novel.expectedInformationGain);
+  assert.ok(repeated.learningProgress < novel.learningProgress);
 }
 
 async function main() {

@@ -19,6 +19,9 @@ async function main() {
   });
   assert.equal(outcome.success, true);
   assert.equal(outcome.syntheticVerdict, 'supported');
+  assert.equal(outcome.learned, true);
+  assert.equal(outcome.continued, true);
+  assert.equal(outcome.continuationError, null);
   assert.equal(outcome.verifiedDiscoveries, 0);
   assert.equal(outcome.normalizedCost, 0);
   assert.equal(outcome.measurementStatus, 'synthetic_control_only');

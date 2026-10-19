@@ -1,8 +1,8 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : Partiel — chaîne implémentée jusqu'à la continuation bornée ; ablations et campagne réservée non démontrées
-- **Portée** : simulation déterministe, bornée et en lecture seule
-- **Dernière revue** : 2026-10-18
+- **Statut** : Partiel — boucle multicycle bornée implémentée ; campagne réservée non démontrée
+- **Portée** : raisonnement borné en lecture seule, avec repli déterministe
+- **Dernière revue** : 2026-10-19
 
 ## 1. Définition
 
@@ -202,10 +202,10 @@ stateDiagram-v2
     VERIFIED --> LEARNED: autorisation SHEV ett-learn
     VERIFIED --> STOPPED
     VERIFIED --> FAILED
-    LEARNED --> FOLLOW_UP: non implémenté
+    LEARNED --> FOLLOW_UP: autorisation SHEV ett-continue
     LEARNED --> STOPPED
     LEARNED --> FAILED
-    FOLLOW_UP --> QUESTIONED: non implémenté
+    FOLLOW_UP --> QUESTIONED: nouvelle question scellée
     FOLLOW_UP --> STOPPED
     FOLLOW_UP --> FAILED
 ```
@@ -314,25 +314,25 @@ vérification indépendante et l'apprentissage borné :
 - [`test_endogenous_thought_contract.js`](../../backend/tests/test_endogenous_thought_contract.js) ;
 - [`test_cognitive_episode_schema.js`](../../backend/tests/test_cognitive_episode_schema.js) ;
 - [`test_endogenous_thought_store.js`](../../backend/tests/test_endogenous_thought_store.js) ;
+- [`test_endogenous_thought_cycles.js`](../../backend/tests/test_endogenous_thought_cycles.js) ;
 - [`test_endogenous_thought_detection.js`](../../backend/tests/test_endogenous_thought_detection.js) ;
 - [`test_endogenous_thought_admission.js`](../../backend/tests/test_endogenous_thought_admission.js) ;
 - [`test_endogenous_thought_queue.js`](../../backend/tests/test_endogenous_thought_queue.js) ;
 - [`test_endogenous_thought_runner.js`](../../backend/tests/test_endogenous_thought_runner.js) ;
 - [`test_endogenous_thought_verification.js`](../../backend/tests/test_endogenous_thought_verification.js) ;
 - [`test_endogenous_thought_learning.js`](../../backend/tests/test_endogenous_thought_learning.js).
+- [`test_endogenous_thought_campaign.js`](../../backend/tests/test_endogenous_thought_campaign.js) — exécute un suivi complet supplémentaire puis l'arrêt borné.
 
 ## 11. Limites et non-objectifs
 
 L'état actuel ne fournit pas :
 
 - de campagne exécutée sur le corpus réservé ;
-- de sortie de modèle ou de worker réel dans le runner ETT ;
 - de mesure réelle de coût pour la métrique primaire ;
 - d'oracle final scellé pour chaque scénario du benchmark ;
-- de transition implémentée vers `FOLLOW_UP` ;
-- de mise à jour de la mémoire de production à partir des verdicts ;
-- de décision autonome de continuation ou d'arrêt après vérification ;
 - d'API ou de CLI de production activant automatiquement la boucle ;
+- de calibration qualifiée des estimateurs de nouveauté, gain d'information et progression ;
+- de garantie qu'une route de modèle est disponible : le repli déterministe reste explicite ;
 - de preuve de généralisation, de conscience ou d'autonomie générale ;
 - d'autorité de promotion scientifique ou opérationnelle.
 

@@ -63,8 +63,8 @@ function verificationMatches(row, receipt) {
 
 async function loadVerification(db, input) {
   const row = await db.get(`SELECT * FROM endogenous_thought_verifications
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND run_id=?`,
+  input.organizationId, input.projectId, input.runRef);
   if (!row) {
     throw coded('ENDOGENOUS_LEARNING_VERIFICATION_NOT_FOUND',
       'An independent verification is required before learning.');
@@ -95,7 +95,7 @@ async function loadQuestion(db, input, questionRef) {
 }
 
 function verifiedVersion(receipts) {
-  const entry = receipts.find((item) => item.receipt.payload.toState === 'VERIFIED');
+  const entry = receipts.findLast((item) => item.receipt.payload.toState === 'VERIFIED');
   if (!entry) throw coded('ENDOGENOUS_LEARNING_STATE_CONFLICT', 'Episode has no verified transition.');
   return entry.sequence + 1;
 }
@@ -153,7 +153,8 @@ function assertTiming(payload, verification, authorization) {
 }
 
 function learningIdentity(payload, authorization) {
-  return { learningId: payload.learningId, requestHash: digest({ payload, authorization }) };
+  return { learningId: payload.learningId, verificationId: payload.verificationId,
+    requestHash: digest({ payload, authorization }) };
 }
 
 function learningRowMatches(row, receipt) {
@@ -182,8 +183,8 @@ function readLearning(row, requestHash) {
 
 async function storedLearning(db, input, identity) {
   const row = await db.get(`SELECT * FROM endogenous_thought_learnings
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND verification_id=?`,
+  input.organizationId, input.projectId, identity.verificationId);
   return readLearning(row, identity.requestHash);
 }
 
@@ -253,6 +254,33 @@ async function advanceEpisode(db, context) {
     projectId: context.input.projectId, payload: transitionPayload(context) });
 }
 
+async function recordMemory(db, context) {
+  if (context.input.condition === 'memory_ablated') {
+    return { skipped: true, reason: 'memory-ablated', durable: false,
+      productionMemoryMutated: false };
+  }
+  try {
+    return await memoryBridge.recordVerifiedBelief(db, { ...context.payload,
+      organizationId: context.input.organizationId, policyId: context.input.policyId,
+      question: context.question.payload, verification: context.verification.receipt.payload });
+  } catch (error) {
+    return { memoryId: null, memoryRef: null, durable: false,
+      productionMemoryMutated: false,
+      errorCode: error.code || 'ENDOGENOUS_MEMORY_WRITE_FAILED' };
+  }
+}
+
+async function resolveLearning(db, context) {
+  let learning = await storedLearning(db, context.input, context.identity);
+  if (learning) return learning;
+  if (context.episode.currentState !== 'VERIFIED') {
+    throw coded('ENDOGENOUS_LEARNING_STATE_CONFLICT', 'Episode is not ready for learning.');
+  }
+  learning = await persistLearning(db, context);
+  learning.replayed = false;
+  return learning;
+}
+
 async function learnVerifiedThought(db, rawInput) {
   if (rawInput?.policy?.enabled !== true) return { status: 'skipped', reason: 'disabled' };
   const input = normalizeInput(rawInput);
@@ -263,6 +291,8 @@ async function learnVerifiedThought(db, rawInput) {
   const episode = await thoughtStore.getEpisode(db, input);
   const receipts = await thoughtStore.listReceipts(db, input);
   const head = receipts.at(-1);
+  input.runRef = head.receipt.payload.jobRef;
+  if (!input.runRef) throw coded('ENDOGENOUS_LEARNING_VERIFICATION_NOT_FOUND', 'Verified episode has no run reference.');
   const verification = await loadVerification(db, input);
   await assertVerifiedRuntime(db, verification.receipt.payload);
   const question = await loadQuestion(db, input, head.receipt.payload.questionRef);
@@ -271,27 +301,15 @@ async function learnVerifiedThought(db, rawInput) {
   const payload = buildPayload({ input, episode, verification, question, authorization });
   assertTiming(payload, verification, authorization);
   const identity = learningIdentity(payload, authorization);
-  let learning = await storedLearning(db, input, identity);
-  if (!learning) {
-    if (episode.currentState !== 'VERIFIED') {
-      throw coded('ENDOGENOUS_LEARNING_STATE_CONFLICT', 'Episode is not ready for learning.');
-    }
-    learning = await persistLearning(db, { input, payload, authorization, identity });
-    learning.replayed = false;
-  }
+  const learning = await resolveLearning(db, { input, payload, authorization, identity, episode });
   const advanced = await advanceEpisode(db, { input, episode, head, learning });
-  let memory = null;
-  if (input.condition !== 'memory_ablated') {
-    try {
-      memory = await memoryBridge.recordVerifiedBelief(db, { ...payload,
-        organizationId: input.organizationId, policyId: input.policyId });
-    } catch (_) { memory = null; }
-  } else {
-    memory = { skipped: true, reason: 'memory-ablated' };
-  }
+  const memory = await recordMemory(db, { input, payload, question, verification });
+  const memoryMutated = memory?.productionMemoryMutated === true
+    && typeof memory.memoryId === 'string' && memory.memoryId.length > 0;
   const result = { status: payload.revision.operation, learning, episode: advanced,
     memory, memoryId: memory?.memoryId || null, memoryRef: memory?.memoryRef || null,
-    belief: memory, searchImpact: memory ? { modified: true, durable: memory.durable } : { modified: false, durable: false } };
+    belief: memory, searchImpact: { modified: memoryMutated,
+      durable: memoryMutated && memory.durable === true } };
   return result;
 }
 

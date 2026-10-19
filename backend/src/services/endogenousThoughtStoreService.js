@@ -203,6 +203,20 @@ async function persistQuestion(db, input) {
   });
 }
 
+async function getQuestion(db, input) {
+  const tenant = scope(input);
+  await ensure(db);
+  const byReceipt = typeof input.receiptId === 'string' && input.receiptId.trim();
+  const column = byReceipt ? 'receipt_id' : 'question_id';
+  const value = byReceipt ? input.receiptId : input.questionId;
+  required(value, 'ENDOGENOUS_QUESTION_REQUIRED');
+  const row = await db.get(`SELECT * FROM endogenous_thought_questions
+    WHERE organization_id=? AND project_id=? AND ${column}=?`,
+  tenant.organizationId, tenant.projectId, value);
+  if (!row) throw coded('ENDOGENOUS_QUESTION_NOT_FOUND', 'Scoped question was not found.');
+  return { receipt: parseReceipt(row, 'EndogenousQuestion'), replayed: true };
+}
+
 async function getEpisode(db, input) {
   const tenant = scope(input);
   await ensure(db);
@@ -226,4 +240,5 @@ async function listReceipts(db, input) {
     receipt: parseReceipt(row, 'EndogenousThoughtEpisode') }));
 }
 
-module.exports = { ensure, startEpisode, persistQuestion, transitionEpisode, getEpisode, listReceipts };
+module.exports = { ensure, startEpisode, persistQuestion, getQuestion,
+  transitionEpisode, getEpisode, listReceipts };

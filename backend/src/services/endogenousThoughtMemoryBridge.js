@@ -1,5 +1,8 @@
 'use strict';
 
+const crypto = require('node:crypto');
+const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
+
 function verdictOf(input) {
   if (typeof input === 'string') return input;
   if (!input || typeof input !== 'object') return null;
@@ -71,21 +74,34 @@ function pick(payload, input, key) {
   return undefined;
 }
 
-async function tryStoreMemory(verdict, fields) {
-  try {
-    const vectorMemory = require('./vectorMemoryService');
-    const content = `[ETT ${String(verdict || 'unknown').toUpperCase()} BELIEF] episode=${fields.episodeId || ''} agent=${fields.agentId} project=${fields.projectId || ''} question=${fields.questionRef || ''}`;
-    return await vectorMemory.storeMemory(fields.agentId, content, null, {
-      category: fields.category,
-      tags: ['ett', String(verdict || 'unknown'), fields.isDurable ? 'durable' : 'non-durable'],
-      organizationId: fields.organizationId,
-      projectId: fields.projectId,
-      title: `ETT ${verdict || 'belief'}`,
-      synapticWeight: fields.isDurable ? 1.0 : 0.1
-    });
-  } catch (_) {
-    return null;
-  }
+function beliefDocument(context) {
+  const { payload, input, fields, verdict } = context;
+  const question = input.question && typeof input.question === 'object' ? input.question : {};
+  const verification = input.verification && typeof input.verification === 'object'
+    ? input.verification : {};
+  return { schema: 'genos.EndogenousVerifiedBelief/v1', beliefId: pick(payload, input, 'learningId'),
+    verdict, revision: pick(payload, input, 'revision'),
+    claim: { hypothesis: question.hypothesis, method: question.method,
+      falsifier: question.falsifier, expectedEvidence: question.expectedEvidence,
+      sourceRefs: question.sourceRefs },
+    verification: { verificationId: pick(payload, input, 'verificationId'),
+      verificationRef: pick(payload, input, 'verificationRef'),
+      verifierId: verification.verifier?.id, oracleRef: verification.oracleRef,
+      evidenceRefs: pick(payload, input, 'evidenceRefs'), verifiedAt: verification.verifiedAt },
+    provenance: { organizationId: fields.organizationId, projectId: fields.projectId,
+      episodeId: fields.episodeId, agentId: fields.agentId, questionRef: fields.questionRef,
+      runId: pick(payload, input, 'runId'), learnedAt: pick(payload, input, 'learnedAt') } };
+}
+
+async function storeMemory(db, document, fields) {
+  const vectorMemory = require('./vectorMemoryService');
+  return vectorMemory.storeMemory(fields.agentId, canonicalJson(document), null, {
+    db, category: fields.category,
+    tags: ['ett', String(document.verdict || 'unknown'), fields.isDurable ? 'durable' : 'non-durable'],
+    organizationId: fields.organizationId, projectId: fields.projectId,
+    title: `ETT ${document.verdict || 'belief'}: ${document.claim.hypothesis || fields.episodeId}`,
+    synapticWeight: fields.isDurable ? 1.0 : 0.1
+  });
 }
 
 function resolveFields(payload, input, verdict) {
@@ -103,7 +119,12 @@ async function recordVerifiedBelief(db, input) {
   const payload = resolvePayload(input);
   const verdict = verdictOf(payload || input);
   const fields = resolveFields(payload, input, verdict);
-  const memoryId = await tryStoreMemory(verdict, fields);
+  const document = beliefDocument({ payload, input, fields, verdict });
+  const memoryId = await storeMemory(db, document, fields);
+  if (typeof memoryId !== 'string' || !memoryId.trim()) {
+    throw Object.assign(new Error('Verified belief memory was not persisted.'), {
+      code: 'ENDOGENOUS_MEMORY_NOT_PERSISTED' });
+  }
   const beliefId = pick(payload, input, 'learningId') || null;
   const provenanceRef = beliefId || pick(payload, input, 'verificationRef') || null;
   return {
@@ -113,8 +134,10 @@ async function recordVerifiedBelief(db, input) {
     verdict: verdict,
     category: fields.category,
     durable: fields.isDurable,
-    productionMemoryMutated: fields.isDurable,
-    provenanceRef: provenanceRef
+    productionMemoryMutated: true,
+    provenanceRef: provenanceRef,
+    contentDigest: crypto.createHash('sha256')
+      .update(canonicalJson(document)).digest('hex')
   };
 }
 

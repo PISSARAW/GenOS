@@ -19,6 +19,7 @@ const verifier = require('../src/services/endogenousThoughtVerificationService')
 const verificationContract = require('../src/services/endogenousThoughtVerificationContractService');
 const learner = require('../src/services/endogenousThoughtLearningService');
 const learningContract = require('../src/services/endogenousThoughtLearningContractService');
+const vectorMemory = require('../src/services/vectorMemoryService');
 const thoughtStore = require('../src/services/endogenousThoughtStoreService');
 
 const NOW = Date.now();
@@ -52,7 +53,16 @@ async function setup(db, publicKey) {
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, status TEXT,
       runtime_pid INTEGER, is_apoptotic INTEGER NOT NULL DEFAULT 0,
-      cognitive_budget REAL NOT NULL DEFAULT 1);`);
+      cognitive_budget REAL NOT NULL DEFAULT 1);
+    CREATE TABLE IF NOT EXISTS genome_decisions (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL,
+      embedding_blob BLOB, created_by TEXT NOT NULL, category TEXT,
+      synaptic_weight REAL, organization_id TEXT, project_id TEXT,
+      evidence_refs_json TEXT NOT NULL DEFAULT '[]', evidence_status TEXT NOT NULL DEFAULT 'provisional',
+      provenance_record_id TEXT, provenance_hash TEXT, last_accessed_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS trajectories (
+      id TEXT PRIMARY KEY, title TEXT, status TEXT, author_name TEXT, semantic_summary TEXT,
+      diff_lines TEXT, created_at TEXT, embedding_blob BLOB, workspace_id TEXT, author_id TEXT);`);
   await db.run('INSERT INTO workspaces(id,organization_id,project_id) VALUES (?,?,?)',
     'workspace-ett-learning', 'org-a', PROJECT);
   await db.run(`INSERT INTO agents(id,workspace_id,status,runtime_pid,is_apoptotic,cognitive_budget)
@@ -178,6 +188,28 @@ async function exercise(db, keys) {
   assert.deepEqual(payload.revision, learningContract.revisionFor('supported'));
   assert.deepEqual(payload.boundaries, learningContract.BOUNDARIES);
   assert.equal(learningContract.readReceipt(result.learning.receipt).valid, true);
+  assert.equal(result.learning.receipt.contractVersion, 'v2');
+  assert.equal(payload.boundaries.productionMemoryMutated, false);
+  const legacyPayload = structuredClone(payload);
+  legacyPayload.boundaries.productionMemoryMutated = true;
+  const legacyId = crypto.createHash('sha256')
+    .update(canonicalJson(`EndogenousThoughtLearning:${canonicalJson(legacyPayload)}`)).digest('hex');
+  const legacyReceipt = { ...result.learning.receipt,
+    schema: 'genos.EndogenousThoughtLearning.receipt/v1', contractVersion: 'v1',
+    receiptId: `rcpt_${legacyId.slice(0, 24)}`, sourceRefs: [...legacyPayload.evidenceRefs],
+    issuedAt: legacyPayload.learnedAt, payload: legacyPayload };
+  assert.equal(learningContract.readReceipt(legacyReceipt).valid, true);
+  assert.equal(result.searchImpact.modified, true, JSON.stringify(result.memory));
+  assert.equal(result.searchImpact.durable, true);
+  const memoryRow = await db.get('SELECT content FROM genome_decisions WHERE id=?', result.memoryId);
+  const beliefDocument = JSON.parse(memoryRow.content);
+  assert.equal(beliefDocument.schema, 'genos.EndogenousVerifiedBelief/v1');
+  assert.equal(beliefDocument.claim.hypothesis.includes('reproductible'), true);
+  assert.equal(beliefDocument.verification.verificationRef, payload.verificationRef);
+  assert.deepEqual(beliefDocument.verification.evidenceRefs, payload.evidenceRefs);
+  const recalled = await vectorMemory.searchMemory(beliefDocument.claim.hypothesis,
+    { organizationId: 'org-a', projectId: PROJECT, limit: 10 }, db);
+  assert.equal(recalled.allScoredExperiences.some((item) => item.id === result.memoryId), true);
   for (const verdict of ['refuted', 'inconclusive']) {
     const variant = structuredClone(payload);
     variant.verdict = verdict;
@@ -190,6 +222,15 @@ async function exercise(db, keys) {
   assert.equal(replay.learning.replayed, true);
   assert.equal(replay.episode.replayed, true);
   assert.equal(replay.learning.receipt.receiptId, result.learning.receipt.receiptId);
+  const originalStore = vectorMemory.storeMemory;
+  vectorMemory.storeMemory = async () => null;
+  try {
+    const failedMemory = await learner.learnVerifiedThought(db, request);
+    assert.equal(failedMemory.memoryId, null);
+    assert.equal(failedMemory.memory.productionMemoryMutated, false);
+    assert.equal(failedMemory.memory.errorCode, 'ENDOGENOUS_MEMORY_NOT_PERSISTED');
+    assert.deepEqual(failedMemory.searchImpact, { modified: false, durable: false });
+  } finally { vectorMemory.storeMemory = originalStore; }
   await expectCode(learner.learnVerifiedThought(db, { ...request, organizationId: 'org-b' }),
     'ENDOGENOUS_EPISODE_NOT_FOUND');
   await assert.rejects(db.run(`UPDATE endogenous_thought_learnings SET verdict='supported'

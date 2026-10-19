@@ -5,6 +5,17 @@ const os = require('os');
 const path = require('path');
 const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
 
+async function migrateVectorMemoryFixture(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS genome_decisions (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL,
+    cart_nodes_json TEXT DEFAULT '[]', embedding_blob BLOB, created_by TEXT NOT NULL,
+    category TEXT DEFAULT 'Architecture', synaptic_weight REAL DEFAULT 1.0,
+    organization_id TEXT, project_id TEXT, evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+    evidence_status TEXT NOT NULL DEFAULT 'provisional', provenance_record_id TEXT,
+    provenance_hash TEXT, last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+}
+
 async function memoryDb(filename = ':memory:') {
   const { open } = require('sqlite');
   const db = await open({ filename, driver: require('sqlite3').Database });
@@ -16,6 +27,7 @@ async function memoryDb(filename = ':memory:') {
     'migrateShevProjectLoop', 'migrateShevProtocols',
     'migrateShevRuntime', 'migrateGvxLedger'];
   for (const name of migrations) await require(`../src/db/migrations/${name}`)[name](db);
+  await migrateVectorMemoryFixture(db);
   return db;
 }
 

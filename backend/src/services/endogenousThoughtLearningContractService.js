@@ -4,14 +4,16 @@ const crypto = require('node:crypto');
 const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 
 const CONTRACT_TYPE = 'EndogenousThoughtLearning';
-const CONTRACT_VERSION = 'v1';
+const CONTRACT_VERSION = 'v2';
+const LEGACY_VERSION = 'v1';
 const VERDICTS = new Set(['supported', 'refuted', 'inconclusive']);
 const FIELDS = new Set(['learningId', 'episodeId', 'projectId', 'agentId', 'runId',
   'verificationId', 'verificationRef', 'questionRef', 'policyId', 'authorizationRef',
   'verdict', 'revision', 'evidenceRefs', 'boundaries', 'learnedAt']);
 const BOUNDARIES = Object.freeze({ verifiedInputOnly: true, episodeScoped: true,
-  productionMemoryMutated: true, continuationAuthorized: false,
+  productionMemoryMutated: false, continuationAuthorized: false,
   externalActionAllowed: false, promotionEligible: false });
+const LEGACY_BOUNDARIES = Object.freeze({ ...BOUNDARIES, productionMemoryMutated: true });
 
 function nonEmpty(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -52,9 +54,10 @@ function validRevision(payload) {
     && canonicalJson(payload.revision) === canonicalJson(revisionFor(payload.verdict));
 }
 
-function validBoundaries(value) {
-  const fields = Object.keys(BOUNDARIES);
-  return exactFields(value, fields) && fields.every((field) => value[field] === BOUNDARIES[field]);
+function validBoundaries(value, version) {
+  const expected = version === LEGACY_VERSION ? LEGACY_BOUNDARIES : BOUNDARIES;
+  const fields = Object.keys(expected);
+  return exactFields(value, fields) && fields.every((field) => value[field] === expected[field]);
 }
 
 function validEvidence(payload) {
@@ -73,20 +76,20 @@ function validateIdentity(payload, errors) {
   if (payload.learningId !== learningIdFor(payload)) errors.push('identity');
 }
 
-function validateSemantics(payload, errors) {
+function validateSemantics(payload, errors, version) {
   if (!VERDICTS.has(payload.verdict)) errors.push('verdict');
   if (!validRevision(payload)) errors.push('revision');
   if (!validEvidence(payload)) errors.push('evidence');
-  if (!validBoundaries(payload.boundaries)) errors.push('boundaries');
+  if (!validBoundaries(payload.boundaries, version)) errors.push('boundaries');
   const validTime = nonEmpty(payload.learnedAt) && !Number.isNaN(Date.parse(payload.learnedAt));
   if (!validTime) errors.push('timestamp');
 }
 
-function validatePayload(payload) {
+function validatePayload(payload, version = CONTRACT_VERSION) {
   if (!isRecord(payload)) return { valid: false, errors: ['payload'] };
   const errors = [];
   validateIdentity(payload, errors);
-  validateSemantics(payload, errors);
+  validateSemantics(payload, errors, version);
   return { valid: errors.length === 0, errors };
 }
 
@@ -108,11 +111,12 @@ function createReceipt(payload) {
 
 function readReceipt(receipt) {
   const envelope = isRecord(receipt)
-    && receipt.schema === `genos.${CONTRACT_TYPE}.receipt/${CONTRACT_VERSION}`
-    && receipt.contractType === CONTRACT_TYPE && receipt.contractVersion === CONTRACT_VERSION
+    && receipt.schema === `genos.${CONTRACT_TYPE}.receipt/${receipt.contractVersion}`
+    && receipt.contractType === CONTRACT_TYPE
+    && [CONTRACT_VERSION, LEGACY_VERSION].includes(receipt.contractVersion)
     && nonEmpty(receipt.receiptId) && isRecord(receipt.payload);
   if (!envelope) return { valid: false, errors: ['envelope'] };
-  const validation = validatePayload(receipt.payload);
+  const validation = validatePayload(receipt.payload, receipt.contractVersion);
   const sealed = receipt.receiptId === receiptId(receipt.payload)
     && receipt.issuedAt === receipt.payload.learnedAt
     && canonicalJson(receipt.sourceRefs) === canonicalJson(receipt.payload.evidenceRefs);

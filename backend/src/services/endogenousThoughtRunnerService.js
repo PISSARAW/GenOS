@@ -6,30 +6,32 @@ const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 const contracts = require('./versionedContractService');
 const taskContract = require('./endogenousThoughtTaskContractService');
 const runContract = require('./endogenousThoughtRunContractService');
+const execution = require('./endogenousThoughtRunExecutionService');
 const thoughtStore = require('./endogenousThoughtStoreService');
 const { consumeAuthorization } = require('./shev/authorityService');
 const taskMigration = require('../db/migrations/migrateEndogenousThoughtTasks');
 const runMigration = require('../db/migrations/migrateEndogenousThoughtRuns');
-
 const MODE = 'ett-read-only-simulation';
-
 function coded(code, message) {
   return Object.assign(new Error(message), { code });
 }
-
 function required(value, code) {
   if (typeof value !== 'string' || !value.trim()) throw coded(code, 'A non-empty value is required.');
   return value.trim();
 }
-
 function digest(value) {
   return crypto.createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
-
 function scopedId(prefix, material) {
   return `${prefix}_${digest(material).slice(0, 24)}`;
 }
-
+function executionInputs(input) {
+  const policy = input?.policy || {};
+  return { worker: input?.worker || policy.worker || input?.solver || null,
+    sandbox: input?.sandbox || policy.sandbox || null,
+    usageMeter: input?.usageMeter || policy.usageMeter || null,
+    signal: input?.signal || null };
+}
 function normalizeInput(input) {
   const nowMs = Number(input?.nowMs ?? Date.now());
   if (!Number.isFinite(nowMs) || nowMs < 0) {
@@ -40,9 +42,8 @@ function normalizeInput(input) {
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_RUN_POLICY_REQUIRED'),
     authorization: input.authorization, nowMs,
-    worker: input?.worker || input?.policy?.worker || input?.solver || null };
+    ...executionInputs(input) };
 }
-
 function parseReceipt(row, contract, code) {
   let receipt;
   try { receipt = JSON.parse(row.receipt_json); } catch (_) {
@@ -54,16 +55,14 @@ function parseReceipt(row, contract, code) {
   }
   return receipt;
 }
-
 async function loadBinding(db, input) {
   const row = await db.get(`SELECT * FROM endogenous_thought_task_bindings
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND task_id=?`,
+  input.organizationId, input.projectId, input.taskRef);
   if (!row) throw coded('ENDOGENOUS_RUN_BINDING_NOT_FOUND', 'Queued task binding was not found.');
   const receipt = parseReceipt(row, taskContract, 'ENDOGENOUS_RUN_INTEGRITY_FAILED');
   return { row, receipt };
 }
-
 async function loadQuestion(db, input, questionRef) {
   const row = await db.get(`SELECT * FROM endogenous_thought_questions
     WHERE organization_id=? AND project_id=? AND receipt_id=?`,
@@ -89,7 +88,7 @@ function expectedAuthorization(input, context) {
 }
 
 function queuedVersion(receipts) {
-  const queued = receipts.find((entry) => entry.receipt.payload.toState === 'QUEUED');
+  const queued = receipts.findLast((entry) => entry.receipt.payload.toState === 'QUEUED');
   if (!queued) throw coded('ENDOGENOUS_RUN_STATE_CONFLICT', 'Episode has no queued transition.');
   return queued.sequence + 1;
 }
@@ -109,7 +108,7 @@ function runIdentity(input, context) {
   const basis = { organizationId: input.organizationId, projectId: input.projectId,
     episodeId: input.episodeId, taskId: context.binding.receipt.payload.taskId,
     bindingRef: context.binding.receipt.receiptId };
-  return { runId: scopedId('ett_run', basis),
+  return { runId: scopedId('ett_run', basis), taskId: context.binding.receipt.payload.taskId,
     requestHash: digest({ ...basis, policyId: input.policyId,
       authorization: context.authorization }) };
 }
@@ -125,7 +124,6 @@ function proposalPayload(context) {
 function emptyUsage() {
   return { tokens: 0, usd: 0, seconds: 0 };
 }
-
 function validateUsage(usage, budget) {
   const candidate = usage || emptyUsage();
   const checks = [
@@ -138,31 +136,18 @@ function validateUsage(usage, budget) {
   return checks.every(Boolean) ? candidate : null;
 }
 
-async function runInjectedWorker(context, worker) {
+function solverResult(context, result, usage) {
   const base = proposalPayload(context);
-  const startedAt = Date.now();
-  const result = await worker({ question: context.question.payload,
-    budget: context.episode.budget, boundaries: runContract.BOUNDARIES, signal: null });
-  const usage = validateUsage(result?.usage, context.episode.budget);
-  if (!usage) throw coded('ENDOGENOUS_RUN_BUDGET_EXCEEDED',
-    'Worker consumption exceeds the held budget.');
   const proposal = result?.proposal && typeof result.proposal === 'object' && !Array.isArray(result.proposal)
     ? { ...base, ...result.proposal } : base;
   if (!proposal.hypothesis || !proposal.method || !proposal.falsifier) {
     throw coded('ENDOGENOUS_RUN_PROPOSAL_INVALID', 'Worker returned an invalid proposal.');
   }
+  const measured = validateUsage(usage, context.episode.budget);
+  if (!measured) throw coded('ENDOGENOUS_RUN_BUDGET_EXCEEDED',
+    'Externally measured consumption exceeds the held budget.');
   const evidenceRefs = Array.isArray(result?.evidenceRefs) ? result.evidenceRefs : [];
-  return { proposal, usage, evidenceRefs, durationMs: Date.now() - startedAt };
-}
-
-async function resolveProposal(context) {
-  const worker = context.input?.worker || context.input?.policy?.worker
-    || context.input?.solver;
-  if (typeof worker !== 'function') {
-    return { proposal: proposalPayload(context), usage: emptyUsage(),
-      evidenceRefs: [], durationMs: 0 };
-  }
-  return runInjectedWorker(context, worker);
+  return { proposal, usage: measured, evidenceRefs };
 }
 
 function runPayload(context) {
@@ -172,6 +157,7 @@ function runPayload(context) {
     usage: emptyUsage(), evidenceRefs: [] };
   const evidenceRefs = [...new Set([context.binding.receipt.receiptId,
     context.question.receiptId, `shev-authorization:${authorization.nonce}`,
+    `ett-execution:${context.executionId}`,
     ...solverResult.evidenceRefs])];
   return { runId: context.identity.runId, episodeId: context.input.episodeId,
     projectId: context.input.projectId, taskId: context.binding.receipt.payload.taskId,
@@ -210,8 +196,8 @@ function readRun(row, requestHash) {
 
 async function storedRun(db, input, identity) {
   const row = await db.get(`SELECT * FROM endogenous_thought_runs
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND task_id=?`,
+  input.organizationId, input.projectId, identity.taskId);
   return readRun(row, identity.requestHash);
 }
 
@@ -225,6 +211,13 @@ async function insertRun(db, context) {
   payload.bindingRef, payload.authorization.ref, payload.policyId, context.identity.requestHash,
   context.receipt.receiptId, digest(context.receipt), canonicalJson(context.receipt),
   payload.status, payload.completedAt);
+}
+
+function runtimeWorkerPayload(context) {
+  const injected = Boolean(context.input.worker);
+  return { kind: injected ? 'sandbox-adapter' : 'in-process', spawned: false,
+    executionId: context.executionId, sandbox: injected
+      ? execution.SANDBOX_POLICY : { kind: 'builtin-deterministic', readOnly: true } };
 }
 
 function taskMatchesBinding(task, binding) {
@@ -246,27 +239,49 @@ async function assertHeldTask(db, binding) {
   }
 }
 
+async function reserveRun(db, context) {
+  return withTransaction(db, async () => {
+    const existing = await execution.loadReservation(db, context);
+    if (existing) return existing;
+    await assertHeldTask(db, context.binding);
+    await consumeAuthorization(db, context.authorization);
+    const taskId = context.binding.receipt.payload.taskId;
+    const held = await db.run(`UPDATE ontogenesis_backlog
+      SET status='doing',attempt=attempt+1,updated_at=?
+      WHERE id=? AND project_id=? AND status='blocked' AND attempt=0`,
+    context.timestamp, taskId, context.input.projectId);
+    if (held.changes !== 1) {
+      throw coded('ENDOGENOUS_RUN_TASK_STATE_CONFLICT', 'Held task cannot be reserved.');
+    }
+    await db.run(`INSERT INTO ontogenesis_runs
+      (id,project_id,task_id,topology,variant,worker_json,budgets_json,status)
+      VALUES (?,?,?,'ett-read-only','deterministic',?,?,'running')`,
+    context.identity.runId, context.input.projectId, taskId,
+    canonicalJson(runtimeWorkerPayload(context)), canonicalJson(context.episode.budget));
+    return execution.insertReservation(db, context);
+  });
+}
+
 async function materializeRun(db, context) {
   const receipt = runContract.createReceipt(runPayload(context));
   return withTransaction(db, async () => {
     const replay = await storedRun(db, context.input, context.identity);
     if (replay) return replay;
-    await assertHeldTask(db, context.binding);
-    await consumeAuthorization(db, context.authorization);
     const taskId = context.binding.receipt.payload.taskId;
     const released = await db.run(`UPDATE ontogenesis_backlog
-      SET status='verifying',attempt=attempt+1,updated_at=datetime('now')
-      WHERE id=? AND project_id=? AND status='blocked' AND attempt=0`,
-    taskId, context.input.projectId);
+      SET status='verifying',updated_at=?
+      WHERE id=? AND project_id=? AND status='doing' AND attempt=1`,
+    context.timestamp, taskId, context.input.projectId);
     if (released.changes !== 1) {
-      throw coded('ENDOGENOUS_RUN_TASK_STATE_CONFLICT', 'Held task cannot be released for execution.');
+      throw coded('ENDOGENOUS_RUN_TASK_STATE_CONFLICT', 'Reserved task cannot be completed.');
     }
-    await db.run(`INSERT INTO ontogenesis_runs
-      (id,project_id,task_id,topology,variant,worker_json,budgets_json,status)
-      VALUES (?,?,?,'ett-read-only','deterministic',?,?,'unverified')`,
-    context.identity.runId, context.input.projectId, taskId,
-    canonicalJson({ kind: 'in-process', spawned: false }), canonicalJson(context.episode.budget));
+    const finished = await db.run("UPDATE ontogenesis_runs SET status='unverified' WHERE id=? AND status='running'",
+      context.identity.runId);
+    if (finished.changes !== 1) {
+      throw coded('ENDOGENOUS_RUN_RUNTIME_INTEGRITY_FAILED', 'Reserved runtime cannot be completed.');
+    }
     await insertRun(db, { ...context, receipt });
+    await execution.finishReservation(db, context);
     return storedRun(db, context.input, context.identity);
   });
 }
@@ -289,7 +304,8 @@ function validRuntimeJob(job, payload) {
 
 function validRuntimeWorker(job) {
   const worker = runtimeWorker(job);
-  return worker?.kind === 'in-process' && worker.spawned === false;
+  return ['in-process', 'sandbox-adapter'].includes(worker?.kind)
+    && worker.spawned === false && typeof worker.executionId === 'string';
 }
 
 async function verifyRuntimeState(db, run, binding) {
@@ -335,31 +351,43 @@ async function advanceEpisode(db, context) {
 async function runQueuedThought(db, rawInput) {
   if (rawInput?.policy?.enabled !== true) return { status: 'skipped', reason: 'disabled' };
   const input = normalizeInput(rawInput);
+  execution.assertExecutionInput(input);
   await thoughtStore.ensure(db);
   await taskMigration.migrateEndogenousThoughtTasks(db);
   await runMigration.migrateEndogenousThoughtRuns(db);
   const episode = await thoughtStore.getEpisode(db, input);
   const receipts = await thoughtStore.listReceipts(db, input);
   const head = receipts.at(-1);
+  input.taskRef = head.receipt.payload.taskRef;
+  if (!input.taskRef) throw coded('ENDOGENOUS_RUN_BINDING_NOT_FOUND', 'Queued episode has no task reference.');
   const binding = await loadBinding(db, input);
   const question = await loadQuestion(db, input, binding.receipt.payload.questionRef);
   const authorization = assertAuthorization(input, expectedAuthorization(input,
     { binding, queuedVersion: queuedVersion(receipts) }));
   const identity = runIdentity(input, { binding, authorization });
+  const executionId = execution.executionIdFor(identity);
+  const timestamp = new Date(input.nowMs).toISOString();
   let run = await storedRun(db, input, identity);
   if (!run) {
     if (episode.currentState !== 'QUEUED') {
       throw coded('ENDOGENOUS_RUN_STATE_CONFLICT', 'Episode is not queued for execution.');
     }
-    const solverResult = await resolveProposal({ input, episode, binding,
-      question, authorization, identity });
-    run = await materializeRun(db, { input, episode, binding, question, authorization,
-      identity, solverResult });
+    const context = { input, episode, binding, question, authorization, identity,
+      executionId, timestamp, sandboxPolicy: input.worker
+        ? execution.SANDBOX_POLICY : { kind: 'builtin-deterministic', readOnly: true } };
+    await reserveRun(db, context);
+    const executed = await execution.executeReservation(db, { ...context,
+      defaultResult: { proposal: proposalPayload(context), evidenceRefs: [] },
+      boundaries: runContract.BOUNDARIES });
+    const result = solverResult(context, executed.result, executed.usage);
+    run = await materializeRun(db, { ...context, solverResult: result,
+      usage: result.usage });
     run.replayed = false;
   }
   const runtime = await verifyRuntimeState(db, run, binding);
   const advanced = await advanceEpisode(db, { input, episode, head, run });
-  return { status: 'completed_unverified', run, runtime, episode: advanced };
+  return { status: 'completed_unverified', run, runtime, episode: advanced,
+    execution: { executionId, idempotent: true, replayed: run.replayed === true } };
 }
 
 module.exports = { MODE, normalizeInput, runQueuedThought };

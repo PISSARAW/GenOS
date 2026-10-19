@@ -57,8 +57,8 @@ function runRowMatches(row, receipt) {
 
 async function loadRun(db, input) {
   const row = await db.get(`SELECT * FROM endogenous_thought_runs
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND run_id=?`,
+  input.organizationId, input.projectId, input.runRef);
   if (!row) throw coded('ENDOGENOUS_VERIFICATION_RUN_NOT_FOUND', 'Unverified run was not found.');
   const receipt = parseReceipt(row, runContract);
   if (!runRowMatches(row, receipt)) {
@@ -68,7 +68,7 @@ async function loadRun(db, input) {
 }
 
 function transitionVersion(receipts, state) {
-  const entry = receipts.find((item) => item.receipt.payload.toState === state);
+  const entry = receipts.findLast((item) => item.receipt.payload.toState === state);
   if (!entry) throw coded('ENDOGENOUS_VERIFICATION_STATE_CONFLICT', `Episode has no ${state} transition.`);
   return entry.sequence + 1;
 }
@@ -147,7 +147,7 @@ async function assertIndependent(db, context) {
 }
 
 function verificationIdentity(payload, authorization) {
-  return { verificationId: payload.verificationId,
+  return { verificationId: payload.verificationId, runId: payload.runId,
     requestHash: digest({ payload, authorization }) };
 }
 
@@ -177,8 +177,8 @@ function readVerification(row, requestHash) {
 
 async function storedVerification(db, input, identity) {
   const row = await db.get(`SELECT * FROM endogenous_thought_verifications
-    WHERE organization_id=? AND project_id=? AND episode_id=?`,
-  input.organizationId, input.projectId, input.episodeId);
+    WHERE organization_id=? AND project_id=? AND run_id=?`,
+  input.organizationId, input.projectId, identity.runId);
   return readVerification(row, identity.requestHash);
 }
 
@@ -271,6 +271,8 @@ async function verifyRunningThought(db, rawInput) {
   const episode = await thoughtStore.getEpisode(db, input);
   const receipts = await thoughtStore.listReceipts(db, input);
   const head = receipts.at(-1);
+  input.runRef = head.receipt.payload.jobRef;
+  if (!input.runRef) throw coded('ENDOGENOUS_VERIFICATION_RUN_NOT_FOUND', 'Running episode has no run reference.');
   const run = await loadRun(db, input);
   const authorization = assertAuthorization(input, expectedAuthorization(input,
     { run, runningVersion: transitionVersion(receipts, 'RUNNING') }));

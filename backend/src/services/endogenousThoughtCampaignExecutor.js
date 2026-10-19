@@ -18,7 +18,7 @@ const runner = require('../services/endogenousThoughtRunnerService');
 const verifier = require('../services/endogenousThoughtVerificationService');
 const verificationContract = require('../services/endogenousThoughtVerificationContractService');
 const learner = require('../services/endogenousThoughtLearningService');
-const continuation = require('../services/endogenousThoughtContinuationService');
+const loop = require('../services/endogenousThoughtLoopService');
 const thoughtStore = require('../services/endogenousThoughtStoreService');
 
 const NOW = Date.now();
@@ -87,16 +87,64 @@ function syntheticOutcome(ctx, values = {}) {
 
 async function tryContinue(ctx) {
   if (!canContinue(ctx.condition)) return false;
-  const { db, projectId, keys, episodeId, condition } = ctx;
+  const { db, projectId, keys, episodeId, condition, scenarioClass } = ctx;
   try {
-    const learnEpisode2 = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
-    const unsignedContinue = { operation: 'ett-continue', projectId, subjectId: ctx.learningId || episodeId, expectedVersion: learnEpisode2.version, details: { episodeId, learningRef: ctx.learningReceiptId, policyId: 'ett-continuation-v1', target: 'ett-continuation' }, nonce: `continue-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
-    const authorizationContinue = signAuthorization(keys.authority.privateKey, unsignedContinue);
-    await continuation.continueLearnedThought(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 6000, policy: { enabled: true, id: 'ett-continuation-v1', condition }, authorization: authorizationContinue });
-    return true;
-  } catch (_) {
+    const authorize = ({ stage, ...material }) => signAuthorization(keys.authority.privateKey, {
+      ...material, nonce: `${stage}-${episodeId}-${material.expectedVersion}`,
+      expiresAt: new Date(Date.now() + 120000).toISOString()
+    });
+    const verify = async (input) => {
+      const publicKey = keys.verifier.publicKey.export({ type: 'spki', format: 'pem' });
+      const verification = { verifierId: 'ett-campaign-verifier', publicKey,
+        verdict: syntheticVerdictFor(scenarioClass), oracleRef: `oracle:${scenarioClass}`,
+        evidenceRefs: [input.runReceipt.receiptId, `oracle:${scenarioClass}`],
+        verifiedAt: new Date(Date.parse(input.runReceipt.payload.completedAt) + 1).toISOString(),
+        nonce: `att-${episodeId}-${input.expectedVersion}`, signature: '' };
+      const material = { operation: 'ett-verify', projectId,
+        subjectId: input.runReceipt.payload.runId, expectedVersion: input.expectedVersion,
+        details: { episodeId, runRef: input.runReceipt.receiptId,
+          verifierId: verification.verifierId,
+          verifierKeyDigest: input.verificationContract.publicKeyDigest(publicKey),
+          policyId: input.policy.id, oracleRef: verification.oracleRef } };
+      const authorization = await authorize({ stage: 'verify', ...material });
+      const payload = input.buildPayload({ projectId, episodeId, policyId: input.policy.id,
+        runReceipt: input.runReceipt, verification,
+        authorizationRef: `shev-authorization:${authorization.nonce}` });
+      verification.signature = crypto.sign(null,
+        Buffer.from(canonicalJson(input.verificationContract.attestationMaterial(payload))),
+        keys.verifier.privateKey).toString('base64');
+      return { authorization, verification };
+    };
+    const result = await loop.runAutonomousLoop(db, { organizationId: 'org-a', projectId,
+      episodeId, condition, maxCycles: 1, nowMs: NOW + 6000, authorize, verify,
+      questionGenerator: ({ previousQuestion }) => ({
+        text: `Quel test de suivi réfute ${previousQuestion.hypothesis} ?`,
+        hypothesis: previousQuestion.hypothesis, falsifier: previousQuestion.falsifier,
+        method: previousQuestion.method }) });
+    return result.cycles.length === 1 && result.episode.currentState === 'STOPPED';
+  } catch (error) {
+    ctx.continuationError = error.code || error.message;
     return false;
   }
+}
+
+async function learnVerified(ctx) {
+  if (!canLearn(ctx.condition)) return false;
+  const { db, projectId, episodeId, verificationReceipt, verdict, keys, condition } = ctx;
+  const episode = await thoughtStore.getEpisode(db, { organizationId: 'org-a',
+    projectId, episodeId });
+  const unsigned = { operation: 'ett-learn', projectId,
+    subjectId: verificationReceipt.payload.verificationId, expectedVersion: episode.version,
+    details: { episodeId, verificationRef: verificationReceipt.receiptId,
+      verdict, policyId: 'ett-learning-v1', target: 'ett-episode-belief' },
+    nonce: `learn-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
+  const authorization = signAuthorization(keys.authority.privateKey, unsigned);
+  const result = await learner.learnVerifiedThought(db, { organizationId: 'org-a', projectId,
+    episodeId, nowMs: NOW + 5000,
+    policy: { enabled: true, id: 'ett-learning-v1', condition }, authorization });
+  ctx.learningReceiptId = result?.learning?.receipt?.receiptId || null;
+  ctx.learningId = result?.learning?.receipt?.payload?.learningId || null;
+  return true;
 }
 
 async function runChain(ctx) {
@@ -145,16 +193,9 @@ async function runChain(ctx) {
   const verifyResult = await verifier.verifyRunningThought(db, { organizationId: 'org-a', projectId, episodeId, policy: { enabled: true, id: 'ett-verification-v1' }, authorization: authorizationVerify, verification });
   const verificationReceipt = verifyResult.verification.receipt;
 
-  let learned = false;
-  if (canLearn(condition)) {
-    const learnEpisode = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
-    const unsignedLearn = { operation: 'ett-learn', projectId, subjectId: verificationReceipt.payload.verificationId, expectedVersion: learnEpisode.version, details: { episodeId, verificationRef: verificationReceipt.receiptId, verdict: v, policyId: 'ett-learning-v1', target: 'ett-episode-belief' }, nonce: `learn-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
-    const authorizationLearn = signAuthorization(keys.authority.privateKey, unsignedLearn);
-    const learnResult = await learner.learnVerifiedThought(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 5000, policy: { enabled: true, id: 'ett-learning-v1', condition }, authorization: authorizationLearn });
-    learned = true;
-    ctx.learningReceiptId = learnResult?.learning?.receipt?.receiptId || null;
-    ctx.learningId = learnResult?.learning?.receipt?.payload?.learningId || null;
-  }
+  ctx.verificationReceipt = verificationReceipt;
+  ctx.verdict = v;
+  const learned = await learnVerified(ctx);
 
   let continued = false;
   if (learned) {
@@ -165,7 +206,8 @@ async function runChain(ctx) {
     episodes: 1,
     syntheticVerdict: v,
     learned,
-    continued
+    continued,
+    continuationError: ctx.continuationError || null
   });
 }
 
