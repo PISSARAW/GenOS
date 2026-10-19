@@ -97,7 +97,13 @@ async function provokeRegressions(db, input) {
   await tick(db, input.harness);
   const monitoring = await db.all("SELECT * FROM shev_monitoring WHERE result = 'regressed'");
   assert.equal(monitoring.length, 2);
-  assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_initiatives')).n, 2);
+  const reopenings = await db.all(`SELECT i.status, i.task_id, o.kind FROM shev_initiatives i
+    JOIN shev_observations o ON o.project_id = i.project_id AND o.id = i.observation_id
+    WHERE o.source LIKE 'shev:monitoring:%'`);
+  assert.equal(reopenings.length, 2);
+  assert.ok(reopenings.every(item => item.kind === 'risk' && item.status === 'proposed' && !item.task_id));
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_initiatives')).n, 4);
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM ontogenesis_backlog')).n, 2);
   return monitoring;
 }
 

@@ -26,11 +26,12 @@ async function monitorProjectEffect(db, input) {
   const context = await monitoringContext(db, input);
   const id = `shev_monitor_${createHash('sha256').update(`${input.initiativeId}\0${input.observationId}`).digest('hex')}`;
   const existing = await db.get('SELECT * FROM shev_monitoring WHERE id = ?', [id]);
-  if (existing) return { ...existing, replayed: true };
+  if (existing) return attachRegressionMission(db,
+    { input, context, monitored: { ...existing, replayed: true } });
   await requireActive(db, { projectId: input.projectId, expectedVersion: context.effect.mandate_version });
   const assessment = await input.verify(context);
   if (!validAssessment(assessment)) throw new Error('SHEV monitoring verifier lacks evidence.');
-  return withTransaction(db, async () => {
+  const monitored = await withTransaction(db, async () => {
     await requireActive(db, { projectId: input.projectId, expectedVersion: context.effect.mandate_version });
     await requireLaterObservation(db, input);
     const inserted = await db.run(`INSERT OR IGNORE INTO shev_monitoring
@@ -40,6 +41,17 @@ async function monitorProjectEffect(db, input) {
     if (inserted.changes === 1) await updateWatch(db, input.initiativeId, assessment.result);
     return { ...await db.get('SELECT * FROM shev_monitoring WHERE id = ?', [id]), replayed: inserted.changes === 0 };
   });
+  return attachRegressionMission(db, { input, context, monitored });
+}
+
+async function attachRegressionMission(db, payload) {
+  const { input, context, monitored } = payload;
+  const assessment = { result: monitored.result, verifierRef: monitored.verifier_ref,
+    evidenceRefs: JSON.parse(monitored.evidence_json) };
+  const reopening = await require('./regressionMissionService').ensureRegressionMission(db,
+    { projectId: input.projectId, initiativeId: input.initiativeId,
+      monitoringId: monitored.id, after: context.after, assessment });
+  return { ...monitored, reopening };
 }
 
 async function requireLaterObservation(db, input) {
