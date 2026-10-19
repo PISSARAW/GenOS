@@ -12,6 +12,7 @@ pub mod contract;
 pub mod cycle;
 pub mod dossier;
 pub mod dreaming;
+pub mod dreaming_promotion;
 pub mod invariants;
 pub mod phenotype;
 pub mod presets;
@@ -35,6 +36,11 @@ pub use dossier::{
 pub use dreaming::{
     BenchRequest, DreamBudget, DreamLabError, EvidenceEnvironment, ResponsibilityGap,
     SyntheticFinding, SyntheticProbe, TemporaryResponsibilityBench, build_responsibility_bench,
+};
+pub use dreaming_promotion::{
+    DecisionAssessment, DecisionAssessmentInput, LiveDecisionObservation, PromotionRequest,
+    PromotionVerdict, RealDecisionEvidence, RollbackPlan, WithdrawalDecision, WithdrawalInput,
+    assess_real_decision, evaluate_promotion, evaluate_withdrawal,
 };
 pub use invariants::{ActionRequest, InvariantViolation, check_action, is_verified_success};
 pub use phenotype::{
