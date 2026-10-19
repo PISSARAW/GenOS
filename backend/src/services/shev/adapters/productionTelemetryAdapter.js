@@ -79,11 +79,34 @@ async function inspectProductionTelemetry(db, input) {
   const evidenceRefs = result.epistemicStatus === 'observed'
     ? samples.slice(0, 20).map(sample => `telemetry-event:${sample.id}`) : [];
   const identity = observationIdentity(input, result, samples);
-  return recordObservation(db, { id: `production_telemetry_${identity}`,
+  const observation = await recordObservation(db, { id: `production_telemetry_${identity}`,
     projectId: input.projectId, domain: 'production-runtime', dimension: input.dimension,
     source: `production-telemetry:${digest([input.eventType, input.deploymentId])}`,
     observedAt: new Date(nowMs).toISOString(), kind: result.kind,
     epistemicStatus: result.epistemicStatus, summary: result.summary, evidenceRefs });
+  await persistWindow(db, { observation, metrics, result, input, evidenceRefs });
+  return observation;
+}
+
+async function persistWindow(db, context) {
+  const metrics = { ...context.metrics,
+    errorRate: context.result?.errorRate ?? (context.metrics.requests
+      ? context.metrics.errors / context.metrics.requests : null),
+    averageLatencyMs: context.result?.averageLatencyMs ?? (context.metrics.requests
+      ? context.metrics.latencyMsTotal / context.metrics.requests : null) };
+  const policy = { eventType: context.input.eventType, windowMs: context.input.windowMs,
+    maxErrorRate: context.input.maxErrorRate,
+    maxAverageLatencyMs: context.input.maxAverageLatencyMs,
+    minRequests: context.input.minRequests, deploymentId: context.input.deploymentId || null };
+  const evidenceDigest = digest({ metrics, policy, evidenceRefs: context.evidenceRefs });
+  await db.run(`INSERT OR IGNORE INTO production_telemetry_observations
+    (project_id,observation_id,metrics_json,policy_json,evidence_digest)
+    VALUES(?,?,?,?,?)`, [context.input.projectId, context.observation.id,
+    JSON.stringify(metrics), JSON.stringify(policy), evidenceDigest]);
+  const stored = await db.get(`SELECT evidence_digest FROM production_telemetry_observations
+    WHERE project_id = ? AND observation_id = ?`,
+  [context.input.projectId, context.observation.id]);
+  if (stored.evidence_digest !== evidenceDigest) throw new Error('Production telemetry window idempotency conflict.');
 }
 
 module.exports = { inspectProductionTelemetry, parseSample, aggregate, classify };

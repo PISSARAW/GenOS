@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('146-production-healing-campaigns', 'Persist production telemetry windows and bounded healing plans', async (db) => {
+    await require('./migrateProductionHealingCampaigns').migrateProductionHealingCampaigns(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),

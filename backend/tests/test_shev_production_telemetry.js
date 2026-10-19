@@ -5,6 +5,7 @@ const fixture = require('./ontogenesisFixture');
 const store = require('../src/services/ontogenesis/projectStore');
 const { registerResponsibility } = require('../src/services/shev/responsibilityService');
 const { inspectProductionTelemetry } = require('../src/services/shev/adapters/productionTelemetryAdapter');
+const { migrateProductionHealingCampaigns } = require('../src/db/migrations/migrateProductionHealingCampaigns');
 
 const PROJECT = 'production-telemetry-project';
 const BASE = Date.now();
@@ -22,6 +23,7 @@ async function setup(db) {
   await db.exec(`CREATE TABLE telemetry_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT, event_type TEXT NOT NULL,
     payload_json TEXT, project_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
+  await migrateProductionHealingCampaigns(db);
 }
 
 async function addSample(db, id, payload) {
