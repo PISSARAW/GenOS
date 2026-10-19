@@ -34,6 +34,7 @@ const suites = {
     ['independent endogenous verification', 'test_endogenous_thought_verification.js'],
     ['bounded endogenous learning', 'test_endogenous_thought_learning.js'],
     ['trajectory stewardship arbitration', 'test_trajectory_stewardship_policy.js'],
+    ['durable trajectory stewardship', 'test_trajectory_stewardship_store.js'],
     ['storage bootstrap migration gate', 'test_storage_bootstrap_backend_gate.js'],
     ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['topology session persistence and MCP operations', 'test_topology_session_persistence.js'],

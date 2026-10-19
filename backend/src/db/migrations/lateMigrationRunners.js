@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-trajectory-stewardships', 'Persist immutable cross-domain trajectory responsibilities', async (db) => {
+    await require('./migrateTrajectoryStewardships').migrateTrajectoryStewardships(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
