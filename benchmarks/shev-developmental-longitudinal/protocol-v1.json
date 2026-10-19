@@ -1,0 +1,45 @@
+{
+  "schema": "genos.shev-developmental-longitudinal-protocol/v1",
+  "status": "protocol-defined; field qualification not claimed",
+  "hypothesis": "A persistent SHEV-to-endocrine-to-GVX arc improves held-out task success after repeated verified pain without increasing regressions, human interventions, cost, or latency beyond preregistered bounds.",
+  "arms": {
+    "control": "Same project snapshot, model, tools, permissions, and budgets; ordinary SHEV observation without the developmental full arc.",
+    "treatment": "Matched project with the SHEV, developmental-pressure, and GVX-prioritization arc enabled."
+  },
+  "design": {
+    "paired": true,
+    "independentProjectScopes": true,
+    "matchedInitialSnapshot": true,
+    "trainingPainWindowsMinimum": 5,
+    "heldoutWindowsMinimum": 20,
+    "heldoutContextsDisjointFromTraining": true,
+    "fieldDurationMinimumHours": 72,
+    "heldoutPainInjection": false,
+    "balancedDeterministicRunOrder": true
+  },
+  "primaryOutcomes": [
+    "paired held-out task success difference",
+    "one-sided exact paired sign-test p-value",
+    "regressions per held-out window",
+    "human interventions per held-out window",
+    "cost and duration ratios",
+    "independently confirmed held-out progress",
+    "verified endocrine pressure clearance after confirmed progress"
+  ],
+  "defaultThresholds": {
+    "minimumSuccessRateGain": 0.1,
+    "maximumRegressionIncrease": 0,
+    "minimumHumanInterventionReduction": 0,
+    "maximumCostRatio": 1.25,
+    "maximumDurationRatio": 1.25,
+    "maximumPairedSignTestPValue": 0.05,
+    "minimumConfirmedHeldoutProgress": 2
+  },
+  "evidenceRules": [
+    "Pre-register the manifest, task/context hashes, model/tool/permission/budget locks, and schedule before any run.",
+    "Persist each arm/window result to the scoped append-only GVX development ledger before advancing.",
+    "Require a distinct independent verifier and sealed artifact hashes for every window.",
+    "Protocol-mode or synthetic-adapter results are never field qualification.",
+    "The campaign report always has promotionEligible=false."
+  ]
+}
