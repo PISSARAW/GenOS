@@ -11,6 +11,7 @@
     "independentProjectScopes": true,
     "matchedInitialSnapshot": true,
     "trainingPainWindowsMinimum": 5,
+    "minimumObservedPainEpisodes": 5,
     "heldoutWindowsMinimum": 20,
     "heldoutContextsDisjointFromTraining": true,
     "fieldDurationMinimumHours": 72,
@@ -32,6 +33,7 @@
     "minimumHumanInterventionReduction": 0,
     "maximumCostRatio": 1.25,
     "maximumDurationRatio": 1.25,
+    "minimumObservedPainEpisodes": 5,
     "maximumPairedSignTestPValue": 0.05,
     "minimumConfirmedHeldoutProgress": 2
   },

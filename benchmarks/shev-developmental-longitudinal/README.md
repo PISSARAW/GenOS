@@ -44,3 +44,22 @@ Le test automatisé
 `node backend/tests/test_shev_developmental_campaign.js` valide le protocole,
 l'idempotence et la reprise après interruption avec des adaptateurs synthétiques;
 il ne constitue pas une qualification de terrain.
+
+## Pilote Qwen local
+
+Le pilote `backend/bin/run-shev-qwen-campaign.cjs` effectue dix fenêtres de
+lecture seule sur des fonctions de la révision Git `HEAD`, avec le modèle Ollama
+Qwen, un oracle de source déterministe, et une condition de traitement qui conserve
+les corrections vérifiées des erreurs d'entraînement. Il écrit uniquement dans le
+ledger SQLite explicitement fourni :
+
+```powershell
+$env:GENOS_SHEV_QWEN_DB = 'C:\path\to\temporary\qwen-campaign.db'
+npm --prefix backend run bench:shev-qwen -- --campaign-id qwen-pilot-001
+```
+
+Ce pilote est une exécution réelle du modèle sur le code versionné, mais demeure
+`protocol_only` : les projets/espaces sont des scopes de benchmark en lecture seule,
+le coût monétaire local n'est pas mesuré, et aucun progrès GVX/endocrinien n'est
+revendiqué. Il ne remplace pas une campagne de terrain sur des workspaces de projet
+réel avec adaptateurs indépendants qualifiés.

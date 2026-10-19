@@ -38,7 +38,8 @@ function manifest(mode = 'protocol') {
     trainingWindows, heldoutWindows,
     startedAt,
     minimumDurationMs: mode === 'field' ? campaignService.FIELD_MINIMUM_MS : 0,
-    thresholds: { minSuccessDelta: 0.1, maxPValue: 0.05, minConfirmedHeldout: 2 } });
+    thresholds: { minSuccessDelta: 0.1, maxPValue: 0.05, minPainEpisodes: 5,
+      minConfirmedHeldout: 2 } });
 }
 
 function arm(name) {
@@ -141,7 +142,7 @@ async function testFieldRunnerWaitsForScheduledWindows() {
       startedAt, minimumDurationMs: campaignService.FIELD_MINIMUM_MS,
       coordinator: { organizationId: 'org', projectId: 'coord-field', entityId: 'coord' },
       arms: { control: arm('control'), treatment: arm('treatment') },
-      trainingWindows, heldoutWindows });
+      trainingWindows, heldoutWindows, thresholds: { minPainEpisodes: 5 } });
     let calls = 0;
     const report = await campaignService.runCampaign({ db, manifest: fieldManifest,
       now: Date.now() + 100 * 24 * 60 * 60 * 1000,

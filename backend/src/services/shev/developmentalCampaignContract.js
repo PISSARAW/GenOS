@@ -100,13 +100,18 @@ function normalizeThresholds(value = {}) {
     minHumanInterventionReduction: thresholdValue(value, 'minHumanInterventionReduction', 0),
     maxCostRatio: thresholdValue(value, 'maxCostRatio', 1.25),
     maxDurationRatio: thresholdValue(value, 'maxDurationRatio', 1.25),
+    minPainEpisodes: thresholdValue(value, 'minPainEpisodes', 3),
     minConfirmedHeldout: thresholdValue(value, 'minConfirmedHeldout', 2),
     maxPValue: thresholdValue(value, 'maxPValue', 0.05) };
-  if (!validThresholdBounds(thresholds) || !Number.isSafeInteger(thresholds.minConfirmedHeldout)
-      || thresholds.minConfirmedHeldout < 1) {
+  if (!validThresholdBounds(thresholds) || !positiveInteger(thresholds.minPainEpisodes)
+      || !positiveInteger(thresholds.minConfirmedHeldout)) {
     throw failure('SHEV_CAMPAIGN_THRESHOLDS_INVALID', 'Pre-registered campaign thresholds are invalid.');
   }
   return thresholds;
+}
+
+function positiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0;
 }
 
 function conditionsHash(arm) {
@@ -159,9 +164,13 @@ function createManifest(input) {
   const coordinator = scope(input.coordinator, 'coordinator');
   const { trainingWindows, heldoutWindows } = normalizeCampaignWindows(input, mode);
   const minimumDurationMs = normalizedDuration(input, mode);
+  const thresholds = normalizeThresholds(input.thresholds);
+  if (mode === 'field' && thresholds.minPainEpisodes < 5) {
+    throw failure('SHEV_CAMPAIGN_THRESHOLDS_INVALID', 'Field mode requires five observed pain episodes.');
+  }
   const body = { schema: SCHEMA, campaignId: text(input.campaignId, 'campaignId'), mode,
     coordinator, arms: matchedArms(input.arms, coordinator), trainingWindows,
-    heldoutWindows, thresholds: normalizeThresholds(input.thresholds), minimumDurationMs,
+    heldoutWindows, thresholds, minimumDurationMs,
     randomizationSeed: text(input.randomizationSeed || input.campaignId, 'randomizationSeed'),
     startedAt: input.startedAt || new Date().toISOString() };
   if (!Number.isFinite(Date.parse(body.startedAt))) {

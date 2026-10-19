@@ -18,11 +18,11 @@ function validateIdentity(result, arm) {
 
 function validatePainWindow(options) {
   const { result, phase, window } = options;
-  if ((phase === 'training' && result.painObserved !== true)
-      || (phase === 'heldout' && result.painObserved !== false)) {
-    throw failure('SHEV_CAMPAIGN_PAIN_CONDITION_INVALID', 'Pain must be observed during training and not injected into held-out tasks.');
+  if (typeof result.painObserved !== 'boolean'
+      || (phase === 'heldout' && result.painObserved)) {
+    throw failure('SHEV_CAMPAIGN_PAIN_CONDITION_INVALID', 'Training pain must be measured; held-out tasks cannot receive injected pain.');
   }
-  if (phase === 'training' && !validHash(result.painObservationHash)) {
+  if (phase === 'training' && result.painObserved && !validHash(result.painObservationHash)) {
     throw failure('SHEV_CAMPAIGN_PAIN_EVIDENCE_REQUIRED', 'Training pain needs a sealed SHEV observation artifact.');
   }
   if (phase === 'heldout' && result.contextHash !== window.contextHash) {
@@ -179,6 +179,10 @@ function progressMetrics(runs) {
     pressureGrewDuringTraining: false };
 }
 
+function ratio(numerator, denominator) {
+  return denominator > 0 ? numerator / denominator : null;
+}
+
 function evaluate(manifest, runs, now = Date.now()) {
   const controlTrain = runs.control.training;
   const treatmentTrain = runs.treatment.training;
@@ -189,12 +193,10 @@ function evaluate(manifest, runs, now = Date.now()) {
   const wins = pairedWins(control, treatment);
   const pValue = signTestPValue(wins);
   const progress = progressMetrics(treatment);
-  progress.pressureGrewDuringTraining = treatmentTrain.some((run) =>
-    run.developmentalPressureAfter > run.developmentalPressureBefore);
-  const costRatio = controlMetrics.meanCostUsd > 0
-    ? treatmentMetrics.meanCostUsd / controlMetrics.meanCostUsd : null;
-  const durationRatio = controlMetrics.meanDurationMs > 0
-    ? treatmentMetrics.meanDurationMs / controlMetrics.meanDurationMs : null;
+  progress.pressureGrewDuringTraining = treatmentTrain.some((run) => run.painObserved
+    && run.developmentalPressureAfter > run.developmentalPressureBefore);
+  const costRatio = ratio(treatmentMetrics.meanCostUsd, controlMetrics.meanCostUsd);
+  const durationRatio = ratio(treatmentMetrics.meanDurationMs, controlMetrics.meanDurationMs);
   const thresholds = manifest.thresholds;
   const checks = { successGain: treatmentMetrics.successRate - controlMetrics.successRate
       >= thresholds.minSuccessDelta,
@@ -205,7 +207,7 @@ function evaluate(manifest, runs, now = Date.now()) {
       - treatmentMetrics.humanInterventionsPerWindow >= thresholds.minHumanInterventionReduction,
     costBound: costRatio !== null && costRatio <= thresholds.maxCostRatio,
     durationBound: durationRatio !== null && durationRatio <= thresholds.maxDurationRatio,
-    repeatedPain: treatmentTrain.filter((run) => run.painObserved).length >= manifest.trainingWindows.length,
+    repeatedPain: treatmentTrain.filter((run) => run.painObserved).length >= thresholds.minPainEpisodes,
     heldoutProgress: progress.confirmedHeldout >= thresholds.minConfirmedHeldout,
     endocrineClearance: progress.pressureClearances >= thresholds.minConfirmedHeldout,
     developmentalPressureInduced: progress.pressureGrewDuringTraining };
