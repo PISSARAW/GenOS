@@ -305,6 +305,7 @@ async function tickClaimed(db, input, fence) {
   await notifyExpiredQuestions(db, input);
   await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });
   await require('../shev/initiativeService').compilePending(db, input);
+  await require('../shev/healingReconciliationService').reconcileProject(db, input);
   const ctx = await loadClaimedContext(db, input, fence);
   if (ctx.changed) return { ticked: false, reason: 'contexte-projet-modifie' };
   if (ctx.project.state === 'STOPPED') return { ticked: true, state: 'STOPPED', note: 'arrete' };
