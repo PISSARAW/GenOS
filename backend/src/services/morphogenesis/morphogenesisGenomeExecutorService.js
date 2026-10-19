@@ -129,14 +129,17 @@ async function executeGenomeAction(input, deps = {}) {
   const runOperation = deps.runOperation || operations.runOperation;
   const parents = await verifiedParents(input);
   if (input.action.action === 'reuse') {
-    return { status: 'verified', genomeBinding: input.action.parentBindings[0], promoted: false };
+    return { status: 'verified', genomeBinding: input.action.parentBindings[0], promoted: false,
+      promotionAuthorized: false, cognitiveImprovementDemonstrated: false,
+      qualificationRequired: 'reserved_missions' };
   }
   const outputId = candidateId(input);
   const replay = await existingReceipt({ ...input, outputId });
   if (replay) {
     if (!replay.innovationId) replay.innovationId = await persistInnovation({ ...input, parents,
       result: { genomeRef: replay.candidateGenomeRef, contentHash: replay.candidateContentHash } });
-    return replay;
+    return { ...replay, promotionAuthorized: false, cognitiveImprovementDemonstrated: false,
+      qualificationRequired: 'reserved_missions' };
   }
   const result = await runOperation(input.db, {
     operation: input.action.action,
@@ -156,7 +159,10 @@ async function executeGenomeAction(input, deps = {}) {
     candidateContentHash: result.contentHash,
     innovationId,
     innovationStatus: 'candidate',
-    promoted: false
+    promoted: false,
+    promotionAuthorized: false,
+    cognitiveImprovementDemonstrated: false,
+    qualificationRequired: 'reserved_missions'
   };
 }
 
