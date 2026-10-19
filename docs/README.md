@@ -829,3 +829,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0620 — Calibrage empirique du profil et de l'hystérésis](adr/0620-calibrage-empirique-profil-et-hysteresis.md).
 - [ADR 0627 — Frontière entre claims fonctionnels et phénoménaux](adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine, preuves requises et refus des conclusions phénoménales.
 - [ADR 0642 — Borner les heuristiques et les garanties AEIS](adr/0642-borner-les-heuristiques-aeis.md) — statut non calibré, diversité descriptive, portée mécanisable et indépendance.
+- [ADR 0646 — Stewardship du dépôt lié à l'effet projet](adr/0646-stewardship-depot-et-effet-projet.md) — intention versionnée, hypothèses préalables, preuve indépendante, effet post-intégration et `NO_CHANGE`.
