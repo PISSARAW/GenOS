@@ -2,8 +2,8 @@
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-06
-- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
+- **Dernière revue** : 2026-10-19
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0646](../adr/0646-responsabilite-coding-persistante.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
 ## 1. Définition et frontière
@@ -512,7 +512,46 @@ les taux de régression par exposition, temps de récupération et coûts.
 `causalClaim` reste `false`. Des séries synthétiques en test valident le contrat,
 sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
 
-## 19. Couverture et frontières de validation
+## 19. Responsabilité coding persistante face à un agent asynchrone
+
+La tranche `codingStewardshipService` complète le parcours d'un agent coding
+asynchrone sans prétendre remplacer son exécuteur. Une mission est enregistrée
+sous le mandat SHEV courant, puis chaque tentative reçoit une génération, un
+bail et un jeton haché. Le journal immuable relie chaque événement à son parent :
+il constitue une mémoire causale vérifiable, pas une simple suite de logs.
+
+```text
+claim → transport_accepted → delivery_verified → project_effect_improved
+          ≠ preuve              ≠ effet             = mission vérifiée
+```
+
+| Situation observée | État conservé | Initiative endogène proposée |
+| --- | --- | --- |
+| Transport accepté | mission ouverte | Obtenir une preuve indépendante de livraison. |
+| Livraison vérifiée | effet en attente | Mesurer le projet avant/après. |
+| Effet neutre | effet en attente | Diagnostiquer l'absence de bénéfice. |
+| Effet amélioré | responsabilité vérifiée | Continuer à observer les régressions. |
+| Effet régressé | récupération requise | Préparer une récupération contrôlée. |
+| Bail expiré en vol | opération ambiguë | Réconcilier avant toute nouvelle tentative. |
+
+Cette frontière vise un avantage structurel sur un agent qui s'arrête au commit,
+au push ou à la revue : GenOS conserve la responsabilité du résultat après la
+livraison et déclenche la prochaine question depuis un état mesuré. Le bénéfice
+n'est pas revendiqué sans observation comparative indépendante.
+
+Les tables `shev_coding_missions`, `shev_coding_attempts` et
+`shev_coding_events` sont ajoutées par la migration 147. Les écritures tardives
+d'une ancienne génération sont refusées. Une tentative expirée passe en
+`recovery_required` ; une inspection externe doit établir `applied` ou
+`not_applied`. La réconciliation `applied` vaut preuve de livraison, pas preuve
+d'effet projet. La réconciliation `not_applied` seule permet un nouveau claim.
+
+Le service reste interne : aucune route HTTP ou MCP ne l'expose encore. La
+qualité d'une mesure d'effet dépend de l'adaptateur et du vérificateur fournis.
+Le journal prouve son intégrité locale ; il ne prouve pas à lui seul une
+attribution causale scientifique ni un avantage longitudinal sur Codex.
+
+## 20. Couverture et frontières de validation
 
 | Exigence | Chemin implémenté | Vérification reproductible |
 | --- | --- | --- |
@@ -522,6 +561,7 @@ sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
 | Effet, surveillance, récupération | Jobs persistés, alerte, pause, crash, inspection signée et nouvelle mesure | `test_shev_closed_loop.js` |
 | Transfert GVX réservé | Job borné, manifeste d’entraînement, scope, reçu de progrès distinct | `test_shev_development_jobs.js`, `test_shev_progress_evaluation.js` |
 | Qualitatif et longitudinal | Quorum distinct, désaccords conservés, protocole signé et trois références | `test_shev_progress_evaluation.js` |
+| Responsabilité coding asynchrone | Niveaux transport/livraison/effet, chaîne causale, bail expiré et reprise fenced | `test_shev_coding_stewardship.js` |
 
 ```bash
 npm --prefix backend run test:shev
