@@ -3,11 +3,13 @@
 const { randomUUID } = require('node:crypto');
 const { AdaptiveStateService } = require('../adaptiveStateService');
 const { predictionCommitment, verifyObservationEnvelope } = require('./worldModelEnvelope');
+const learning = require('./worldModelLearningService');
 
 const SCOPE = 'world_model_ledger_v1';
 
 function emptyState() {
-  return { predictions: {}, predictionVersions: {}, observations: {} };
+  return { predictions: {}, predictionVersions: {}, observations: {},
+    episodes: {}, semanticMemory: {}, assumptionLedger: {} };
 }
 
 function ensureState(state) {
@@ -28,6 +30,7 @@ function bounded(value, field) {
 function validatePrediction(input) {
   const prediction = {
     predictionKey: requireText(input, 'predictionKey'), metric: requireText(input, 'metric'),
+    modelId: requireText(input, 'modelId'), contextKey: requireText(input, 'contextKey'),
     actionRef: requireText(input, 'actionRef'), trajectoryId: requireText(input, 'trajectoryId'),
     projectId: requireText(input, 'projectId'), responsibleAgentId: requireText(input, 'responsibleAgentId'),
     mean: Number(input.mean), variance: Number(input.variance), confidence: bounded(input.confidence, 'confidence'),
@@ -97,8 +100,9 @@ async function observe(options) {
     standardizedResidual: residual / Math.sqrt(Math.max(prediction.variance, 1e-9)) };
   state.observations[observationId] = observation;
   state.predictions[prediction.predictionId] = { ...prediction, status: 'OBSERVED', observationId };
+  const memory = learning.learn(state, prediction, observation);
   await store.persistObject(SCOPE, options.agentId, state, prediction.version);
-  return { prediction: state.predictions[prediction.predictionId], observation };
+  return { prediction: state.predictions[prediction.predictionId], observation, memory };
 }
 
 async function getState(db, agentId) {

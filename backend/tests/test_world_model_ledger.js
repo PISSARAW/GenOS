@@ -14,7 +14,8 @@ function signedObservation(privateKey, payload, publicKey) {
 }
 
 function predictionInput(overrides = {}) {
-  return { predictionKey: 'deploy-latency', metric: 'latency_ms', mean: 120, variance: 100,
+  return { predictionKey: 'deploy-latency', metric: 'latency_ms', modelId: 'release-world-v2',
+    contextKey: 'production-eu', mean: 120, variance: 100,
     confidence: 0.7, falsificationTolerance: 25, actionRef: 'action:deploy-42', actionState: 'PLANNED',
     trajectoryId: 'trajectory:release-7', projectId: 'project:genos', responsibleAgentId: 'agent:release',
     assumptionIds: ['assumption:cache-hot'], evidenceRefs: ['artifact:benchmark-1'], ...overrides };

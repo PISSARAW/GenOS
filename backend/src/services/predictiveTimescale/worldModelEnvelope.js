@@ -30,10 +30,10 @@ function verifyObservationEnvelope(envelope) {
 
 function predictionCommitment(prediction) {
   const { predictionId, version, issuedAt, predictionKey, metric, mean, variance,
-    confidence, falsificationTolerance, actionRef, trajectoryId, projectId,
+    confidence, falsificationTolerance, modelId, contextKey, actionRef, trajectoryId, projectId,
     responsibleAgentId, assumptionIds, evidenceRefs } = prediction;
   return digest({ predictionId, version, issuedAt, predictionKey, metric, mean, variance,
-    confidence, falsificationTolerance, actionRef, trajectoryId, projectId,
+    confidence, falsificationTolerance, modelId, contextKey, actionRef, trajectoryId, projectId,
     responsibleAgentId, assumptionIds, evidenceRefs });
 }
 
