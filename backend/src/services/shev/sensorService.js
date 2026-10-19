@@ -7,6 +7,11 @@ const { requireActive } = require('./runtimeGuard');
 const { normalizeRelativePath } = require('../pathSafety');
 const { FORBIDDEN } = require('../ontogenesis/integrationService');
 
+const CONFIG_NORMALIZERS = {
+  'web-audit': validateWeb,
+  'project-rhythm': config => require('./adapters/projectRhythmAdapter').normalizeRhythmConfig(config)
+};
+
 function digest(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 
 function sensorContract(input) {
@@ -20,10 +25,8 @@ function sensorContract(input) {
 
 function normalizedConfig(input) {
   const config = input.config || {};
-  if (input.adapter === 'web-audit') return validateWeb(config);
-  if (input.adapter === 'project-rhythm') {
-    return require('./adapters/projectRhythmAdapter').normalizeRhythmConfig(config);
-  }
+  const normalize = CONFIG_NORMALIZERS[input.adapter];
+  if (normalize) return normalize(config);
   const relativePath = normalizeRelativePath(config.relativePath, 'SHEV sensor');
   const target = config.target || 'project';
   if (!['project', 'integration'].includes(target)) throw new Error('SHEV sensor target is invalid.');

@@ -9,17 +9,25 @@ function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function normalizeRhythmConfig(config) {
-  const valid = config && SAFE_ID.test(config.scheduleId)
-    && Number.isSafeInteger(config.lookbackWindows) && config.lookbackWindows >= 2
+function validWindowCounts(config) {
+  return Number.isSafeInteger(config.lookbackWindows) && config.lookbackWindows >= 2
     && config.lookbackWindows <= 100
     && Number.isSafeInteger(config.minimumObservedWindows) && config.minimumObservedWindows >= 1
-    && config.minimumObservedWindows <= config.lookbackWindows
-    && Number.isFinite(config.maxMissedRatio) && config.maxMissedRatio >= 0
+    && config.minimumObservedWindows <= config.lookbackWindows;
+}
+
+function validThresholds(config) {
+  return Number.isFinite(config.maxMissedRatio) && config.maxMissedRatio >= 0
     && config.maxMissedRatio <= 1
     && Number.isSafeInteger(config.maxObservationAgeMs) && config.maxObservationAgeMs >= 1000
     && config.maxObservationAgeMs <= 2592000000;
-  if (!valid) throw new TypeError('SHEV project rhythm configuration is invalid.');
+}
+
+function normalizeRhythmConfig(config) {
+  if (!config || !SAFE_ID.test(config.scheduleId)
+    || !validWindowCounts(config) || !validThresholds(config)) {
+    throw new TypeError('SHEV project rhythm configuration is invalid.');
+  }
   return { scheduleId: config.scheduleId, lookbackWindows: config.lookbackWindows,
     minimumObservedWindows: config.minimumObservedWindows,
     maxMissedRatio: config.maxMissedRatio,
