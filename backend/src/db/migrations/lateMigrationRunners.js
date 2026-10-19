@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('148-trajectory-stewardship-outcomes', 'Require dual evidence before trajectory promotion', async (db) => {
+    await require('./migrateTrajectoryStewardshipOutcomes').migrateTrajectoryStewardshipOutcomes(db);
+  }),
   createMigrationRunner('147-trajectory-stewardships', 'Persist immutable cross-domain trajectory responsibilities', async (db) => {
     await require('./migrateTrajectoryStewardships').migrateTrajectoryStewardships(db);
   }),
