@@ -42,7 +42,13 @@ fn repository_root() -> Result<PathBuf, String> {
         .join("backend/bin/genos-rhizome-snapshot.cjs")
         .is_file()
     {
-        return compiled.canonicalize().map_err(|error| error.to_string());
+        // On Windows, `canonicalize()` returns a verbatim path (\\\\?\\C:\\...),
+        // which breaks Node module resolution when the path is passed to `node`.
+        // Strip that prefix to keep a normal absolute path.
+        let canonical = compiled.canonicalize().map_err(|error| error.to_string())?;
+        let text = canonical.to_string_lossy();
+        let cleaned = text.strip_prefix(r"\\?\").unwrap_or(&text);
+        return Ok(PathBuf::from(cleaned));
     }
     Err("Run live Rhizome telemetry from the GenOS workspace.".into())
 }
