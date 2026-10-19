@@ -14,7 +14,8 @@ async function memoryDb(filename = ':memory:') {
     'migrateOntogenesisHosts', 'migrateOntogenesisContinuity',
     'migrateOntogenesisPurge',
     'migrateShevProjectLoop', 'migrateShevProtocols',
-    'migrateShevRuntime', 'migrateShevProductStewardship', 'migrateGvxLedger'];
+    'migrateShevRuntime', 'migrateShevProductStewardship', 'migrateShevProductQualifications',
+    'migrateGvxLedger'];
   for (const name of migrations) await require(`../src/db/migrations/${name}`)[name](db);
   return db;
 }

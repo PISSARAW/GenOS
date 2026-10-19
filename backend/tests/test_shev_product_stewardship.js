@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const fixture = require('./ontogenesisFixture');
 const store = require('../src/services/ontogenesis/projectStore');
 const { registerResponsibility, reviseResponsibility } = require('../src/services/shev/responsibilityService');
-const { registerProductManifest, recordProductStage } = require('../src/services/shev/productStewardshipService');
+const { registerProductManifest, recordProductStage,
+  qualifyProductOutcome } = require('../src/services/shev/productStewardshipService');
 const { normalizeManifest } = require('../src/services/shev/productStewardshipContract');
 const authority = require('./shevFixture').authority();
 
@@ -48,7 +49,7 @@ function authorizedManifest(input) {
 
 function stageInput(id, stage, result) {
   const sequence = { 'deploy-too-early': 0, 'preview-17': 1, 'deploy-17': 2,
-    'effect-healthy': 3, 'effect-drift': 4 };
+    'effect-healthy': 3, 'effect-drift': 4, 'effect-recovered': 5 };
   return { id, manifestId: 'product-build-17', stage, verify: async () => ({ result,
     sourceRef: 'independent-product-probe',
     observedAt: new Date(Date.parse('2026-10-19T08:00:00Z') + sequence[id] * 1000).toISOString(),
@@ -72,6 +73,31 @@ async function testPostDeploymentLoop(db) {
   assert.equal((await recordProductStage(db, stageInput('effect-drift', 'user_effect', 'regressed'))).replayed, true);
   await assert.rejects(db.run("UPDATE shev_product_stage_receipts SET result = 'confirmed' WHERE id = 'effect-drift'"),
     /immutable/);
+  return { initiative, recovered: await recordProductStage(db,
+    stageInput('effect-recovered', 'user_effect', 'confirmed')) };
+}
+
+async function testDoubleProof(db, state) {
+  const base = { id: 'qualification-17', manifestId: 'product-build-17',
+    userEffectReceiptId: state.recovered.row.id, projectInitiativeId: state.initiative.id,
+    agentProgressId: 'progress-build-17' };
+  const missing = await qualifyProductOutcome(db, base);
+  assert.equal(missing.action, 'NO_CHANGE');
+  assert.deepEqual(missing.blockers.sort(), ['learning-not-confirmed', 'project-effect-not-confirmed']);
+  await db.run(`INSERT INTO shev_effects
+    (initiative_id, post_observation_id, project_result, agent_result, verifier_ref, evidence_json)
+    VALUES (?, ?, 'confirmed', 'not_tested', 'project-effect-verifier', '["artifact:project-effect"]')`,
+  [state.initiative.id, state.recovered.observation.id]);
+  assert.deepEqual((await qualifyProductOutcome(db, base)).blockers, ['learning-not-confirmed']);
+  await db.run(`INSERT INTO shev_agent_progress
+    (id, initiative_id, gvx_event_id, entity_id, result, metrics_json, verifier_ref, evidence_json)
+    VALUES (?, ?, ?, 'agent-builder', 'confirmed', '{}', 'heldout-learning-verifier',
+      '["artifact:heldout-learning"]')`, [base.agentProgressId, state.initiative.id, 'gvx-build-17']);
+  const qualified = await qualifyProductOutcome(db, base);
+  assert.equal(qualified.status, 'QUALIFIED');
+  assert.equal((await qualifyProductOutcome(db, base)).receipt.replayed, true);
+  await assert.rejects(db.run("DELETE FROM shev_product_qualifications WHERE id = 'qualification-17'"),
+    /immutable/);
 }
 
 async function main() {
@@ -87,7 +113,8 @@ async function main() {
       buildRef: 'build:18', rollback: null })), /rollback/);
     await assert.rejects(db.run("UPDATE shev_product_manifests SET build_ref = 'changed'"), /immutable/);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_product_stage_receipts')).n, 0);
-    await testPostDeploymentLoop(db);
+    const state = await testPostDeploymentLoop(db);
+    await testDoubleProof(db, state);
     console.log('SHEV product stewardship manifest passed.');
   } finally { await db.close(); }
 }

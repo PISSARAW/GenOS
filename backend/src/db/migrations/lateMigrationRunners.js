@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('148-shev-product-qualifications', 'Require distinct project-effect and learning proof for product qualification', async (db) => {
+    await require('./migrateShevProductQualifications').migrateShevProductQualifications(db);
+  }),
   createMigrationRunner('147-shev-product-stewardship', 'Persist immutable product responsibility manifests and stage receipts', async (db) => {
     await require('./migrateShevProductStewardship').migrateShevProductStewardship(db);
   }),
