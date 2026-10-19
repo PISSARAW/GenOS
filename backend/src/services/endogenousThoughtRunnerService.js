@@ -39,7 +39,8 @@ function normalizeInput(input) {
     projectId: required(input?.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_RUN_POLICY_REQUIRED'),
-    authorization: input.authorization, nowMs };
+    authorization: input.authorization, nowMs,
+    worker: input?.worker || input?.policy?.worker || input?.solver || null };
 }
 
 function parseReceipt(row, contract, code) {
@@ -121,20 +122,66 @@ function proposalPayload(context) {
     sourceRefs: [...new Set([context.question.receiptId, ...question.sourceRefs])] };
 }
 
+function emptyUsage() {
+  return { tokens: 0, usd: 0, seconds: 0 };
+}
+
+function validateUsage(usage, budget) {
+  const candidate = usage || emptyUsage();
+  const checks = [
+    Number.isSafeInteger(candidate.tokens), candidate.tokens >= 0,
+    Number.isFinite(candidate.usd), candidate.usd >= 0,
+    Number.isSafeInteger(candidate.seconds), candidate.seconds >= 0,
+    candidate.tokens <= budget.tokens, candidate.usd <= budget.usd,
+    candidate.seconds <= budget.seconds
+  ];
+  return checks.every(Boolean) ? candidate : null;
+}
+
+async function runInjectedWorker(context, worker) {
+  const base = proposalPayload(context);
+  const startedAt = Date.now();
+  const result = await worker({ question: context.question.payload,
+    budget: context.episode.budget, boundaries: runContract.BOUNDARIES, signal: null });
+  const usage = validateUsage(result?.usage, context.episode.budget);
+  if (!usage) throw coded('ENDOGENOUS_RUN_BUDGET_EXCEEDED',
+    'Worker consumption exceeds the held budget.');
+  const proposal = result?.proposal && typeof result.proposal === 'object' && !Array.isArray(result.proposal)
+    ? { ...base, ...result.proposal } : base;
+  if (!proposal.hypothesis || !proposal.method || !proposal.falsifier) {
+    throw coded('ENDOGENOUS_RUN_PROPOSAL_INVALID', 'Worker returned an invalid proposal.');
+  }
+  const evidenceRefs = Array.isArray(result?.evidenceRefs) ? result.evidenceRefs : [];
+  return { proposal, usage, evidenceRefs, durationMs: Date.now() - startedAt };
+}
+
+async function resolveProposal(context) {
+  const worker = context.input?.worker || context.input?.policy?.worker
+    || context.input?.solver;
+  if (typeof worker !== 'function') {
+    return { proposal: proposalPayload(context), usage: emptyUsage(),
+      evidenceRefs: [], durationMs: 0 };
+  }
+  return runInjectedWorker(context, worker);
+}
+
 function runPayload(context) {
   const completedAt = new Date(context.input.nowMs).toISOString();
   const authorization = context.authorization;
+  const solverResult = context.solverResult || { proposal: proposalPayload(context),
+    usage: emptyUsage(), evidenceRefs: [] };
+  const evidenceRefs = [...new Set([context.binding.receipt.receiptId,
+    context.question.receiptId, `shev-authorization:${authorization.nonce}`,
+    ...solverResult.evidenceRefs])];
   return { runId: context.identity.runId, episodeId: context.input.episodeId,
     projectId: context.input.projectId, taskId: context.binding.receipt.payload.taskId,
     bindingRef: context.binding.receipt.receiptId,
     authorization: { ref: `shev-authorization:${authorization.nonce}`,
       grantedBy: authorization.details.grantedBy, scope: MODE, expiresAt: authorization.expiresAt },
     policyId: context.input.policyId, status: 'completed_unverified',
-    proposal: proposalPayload(context), usage: { tokens: 0, usd: 0, seconds: 0 },
+    proposal: solverResult.proposal, usage: solverResult.usage,
     budget: context.episode.budget, boundaries: runContract.BOUNDARIES,
-    evidenceRefs: [...new Set([context.binding.receipt.receiptId,
-      context.question.receiptId, `shev-authorization:${authorization.nonce}`])],
-    startedAt: completedAt, completedAt };
+    evidenceRefs, startedAt: completedAt, completedAt };
 }
 
 function identityMatches(row, payload) {
@@ -304,7 +351,10 @@ async function runQueuedThought(db, rawInput) {
     if (episode.currentState !== 'QUEUED') {
       throw coded('ENDOGENOUS_RUN_STATE_CONFLICT', 'Episode is not queued for execution.');
     }
-    run = await materializeRun(db, { input, episode, binding, question, authorization, identity });
+    const solverResult = await resolveProposal({ input, episode, binding,
+      question, authorization, identity });
+    run = await materializeRun(db, { input, episode, binding, question, authorization,
+      identity, solverResult });
     run.replayed = false;
   }
   const runtime = await verifyRuntimeState(db, run, binding);

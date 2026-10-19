@@ -70,6 +70,59 @@ function buildVerificationPlan(triplet) {
   return { experimentId: experiment.id, protocol: experiment.protocol, predictions: experiment.predictions, status: 'proposed' };
 }
 
+function toFalsificationHypothesis(proposal) {
+  return {
+    id: proposal.id,
+    statement: proposal.hypothesis,
+    confidence: 0.5
+  };
+}
+
+function toFalsificationHypotheses(proposals) {
+  if (!Array.isArray(proposals)) return [];
+  return proposals.map(toFalsificationHypothesis);
+}
+
+async function falsifyGeneratedProposals(input = {}) {
+  const generated = input.generated || {};
+  const proposals = Array.isArray(generated.proposals) ? generated.proposals : [];
+  const evidence = Array.isArray(input.evidence) ? input.evidence : [];
+  const hypotheses = toFalsificationHypotheses(proposals);
+  const safetyHypothesis = require('./primitiveHandlers/safetyHypothesis');
+  const result = await safetyHypothesis.hypothesisEvidence({ hypotheses, evidence });
+  return {
+    totalHypotheses: result.totalHypotheses,
+    retainedCount: result.retainedCount,
+    falsifiedCount: result.falsifiedCount,
+    retainedHypotheses: result.retainedHypotheses,
+    falsifiedHypotheses: result.falsifiedHypotheses,
+    allFalsified: proposals.length > 0 && result.retainedCount === 0,
+    promotionEligible: false
+  };
+}
+
+function assessScientificValidity(input = {}) {
+  const oracleValidity = require('./epistemic/oracleScientificValidityService');
+  const receipts = Array.isArray(input.receipts) ? input.receipts : [];
+  return oracleValidity.summarizeValidity(receipts, {
+    trustedVerifierDigests: input.trustedVerifierDigests,
+    minDistinctVerifiers: input.minDistinctVerifiers || 1
+  });
+}
+
+async function verifyGeneratedHypotheses(input = {}) {
+  const falsification = await falsifyGeneratedProposals(input);
+  const scientificValidity = assessScientificValidity(input);
+  const promotionEligible = falsification.retainedCount > 0
+    && scientificValidity.valid
+    && falsification.allFalsified === false;
+  return {
+    falsification,
+    scientificValidity,
+    promotionEligible
+  };
+}
+
 async function runModel(input, budget, prompt) {
   const tenant = input?.tenant || {};
   return modelRouter.generate({
@@ -107,4 +160,8 @@ async function generateProposals(input) {
   };
 }
 
-module.exports = { SUPPORTED_EXECUTORS, normalizeExecutor, resolveExecutor, assertCallerMcpConfiguration, generateProposals };
+module.exports = {
+  SUPPORTED_EXECUTORS, normalizeExecutor, resolveExecutor, assertCallerMcpConfiguration,
+  generateProposals, toFalsificationHypotheses, falsifyGeneratedProposals,
+  assessScientificValidity, verifyGeneratedHypotheses
+};
