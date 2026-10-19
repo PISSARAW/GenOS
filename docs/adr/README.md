@@ -773,7 +773,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0649](0649-campagne-immunitaire-remediation-securite.md) | Campagne immunitaire de remédiation sécurité | Accepté pour la verticale synthétique bornée | 2026-10-19 | Sécurité, AEIS, contrefactuels, mémoire négative |
 | [0650a](0650-cicatrisation-production-contrefactuelle.md) | Cicatrisation de production contrefactuelle et vérifiée | Accepté | 2026-10-19 | SHEV, production, contrefactuel, preuve, rollout, mémoire |
 | [0650b](0650-cycle-cicatrisation-shev.md) | Cycle de cicatrisation SHEV fondé sur les preuves | Accepté pour le runtime local ; qualification de terrain non acquise | 2026-10-19 | SHEV, Ontogenèse, effets projet, surveillance longitudinale |
-| [0651](0651-action-genome.md) | ActionGenome comme contrat canonique d’action | Accepté | 2026-10-19 | contrat d’action, admission, reçu causal, REST, CLI, MCP |
+| [0651a](0651-action-genome.md) | ActionGenome comme contrat canonique d’action | Accepté | 2026-10-19 | contrat d’action, admission, reçu causal, REST, CLI, MCP |
+| [0651b](0651-admission-mhc-et-capacites-au-point-effet.md) | Admission MHC et capacités au point d’effet | Accepté pour le MVP local | 2026-10-19 | artefacts d’agents, admission supply-chain, secrets d’exécution |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
