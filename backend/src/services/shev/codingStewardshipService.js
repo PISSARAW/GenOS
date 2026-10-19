@@ -213,7 +213,7 @@ async function recordTransportAccepted(db, input) {
     await db.run(`UPDATE shev_coding_attempts SET status='transported',updated_at=?
       WHERE attempt_id=? AND status='executing'`, observedAt, attempt.attempt_id);
     const event = await appendEvent(db, { scope, mission, attemptId: attempt.attempt_id,
-      kind: 'transport_accepted', observedAt, payload: { transportReceiptRef } });
+      kind: 'transport_accepted', observedAt, payload: { transportReceiptRef: receiptRef } });
     return { event, missionComplete: false, proofLevel: 'transport', boundaries: BOUNDARIES };
   });
 }
