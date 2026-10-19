@@ -37,6 +37,7 @@ function normalizeInput(input) {
     projectId: required(input?.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_CONTINUATION_POLICY_REQUIRED'),
+    condition: input?.policy?.condition || 'full',
     authorization: input.authorization || null,
     nowMs,
     stopReason: input?.stopReason || input?.reason || null,
@@ -166,6 +167,7 @@ function makeContext(input, episode, extra) {
 async function continueLearnedThought(db, rawInput) {
   if (rawInput?.policy?.enabled !== true) return { status: 'skipped', reason: 'disabled' };
   const input = normalizeInput(rawInput);
+  if (input.condition === 'memory_ablated') return { status: 'skipped', reason: 'memory-ablated' };
   await thoughtStore.ensure(db);
   await verificationMigration.migrateEndogenousThoughtVerifications(db);
   await learningMigration.migrateEndogenousThoughtLearnings(db);

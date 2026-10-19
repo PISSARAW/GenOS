@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : apprentissage borné implémenté ; continuation et campagne non exécutées
+- **Statut** : continuation bornée implémentée ; ablations et campagne non démontrées
 - **Portée** : simulation déterministe en lecture seule
 - **Dernière revue** : 2026-10-18
 

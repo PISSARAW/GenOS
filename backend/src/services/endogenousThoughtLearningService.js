@@ -38,6 +38,7 @@ function normalizeInput(input) {
     projectId: required(input?.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_LEARNING_POLICY_REQUIRED'),
+    condition: input?.policy?.condition || 'full',
     authorization: input.authorization, nowMs };
 }
 
@@ -255,6 +256,7 @@ async function advanceEpisode(db, context) {
 async function learnVerifiedThought(db, rawInput) {
   if (rawInput?.policy?.enabled !== true) return { status: 'skipped', reason: 'disabled' };
   const input = normalizeInput(rawInput);
+  if (input.condition === 'metacognition_ablated') return { status: 'skipped', reason: 'metacognition-ablated' };
   await thoughtStore.ensure(db);
   await verificationMigration.migrateEndogenousThoughtVerifications(db);
   await learningMigration.migrateEndogenousThoughtLearnings(db);
@@ -279,10 +281,14 @@ async function learnVerifiedThought(db, rawInput) {
   }
   const advanced = await advanceEpisode(db, { input, episode, head, learning });
   let memory = null;
-  try {
-    memory = await memoryBridge.recordVerifiedBelief(db, { ...payload,
-      organizationId: input.organizationId, policyId: input.policyId });
-  } catch (_) { memory = null; }
+  if (input.condition !== 'memory_ablated') {
+    try {
+      memory = await memoryBridge.recordVerifiedBelief(db, { ...payload,
+        organizationId: input.organizationId, policyId: input.policyId });
+    } catch (_) { memory = null; }
+  } else {
+    memory = { skipped: true, reason: 'memory-ablated' };
+  }
   const result = { status: payload.revision.operation, learning, episode: advanced,
     memory, memoryId: memory?.memoryId || null, memoryRef: memory?.memoryRef || null,
     belief: memory, searchImpact: memory ? { modified: true, durable: memory.durable } : { modified: false, durable: false } };

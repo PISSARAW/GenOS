@@ -132,9 +132,10 @@ function requestMaterial(input, basis) {
     policy: input.policy, assessment: input.assessment, budget: input.budget };
 }
 
-function computedScore(assessment) {
+function computedScore(assessment, condition) {
+  const infoGain = condition === 'curiosity_ablated' ? 0 : assessment.expectedInformationGain;
   const positive = assessment.anomaly * 0.25 + assessment.novelty * 0.2
-    + assessment.expectedInformationGain * 0.3 + assessment.learningProgress * 0.2;
+    + infoGain * 0.3 + assessment.learningProgress * 0.2;
   const penalty = assessment.cost * 0.025 + assessment.risk * 0.025;
   return Number(Math.max(0, Math.min(1, positive - penalty)).toFixed(6));
 }
@@ -191,11 +192,13 @@ function assessmentGate(input, total) {
 }
 
 function baseDecision(input, context) {
-  const total = computedScore(input.assessment);
+  const total = computedScore(input.assessment, input.policy.condition);
   const responsibility = context.responsibility;
   const dimension = responsibility?.mandate.dimensions
     .find((item) => item.name === context.observation.dimension);
   const scoped = { ...context, dimension };
+  if (input.policy.condition === 'shev_initiative_ablated') return { outcome: 'rejected', reason: 'shev-initiative-ablated', score: total };
+  if (input.policy.condition === 'planned_control') return { outcome: 'rejected', reason: 'planned-control', score: total };
   const denied = agentGate(scoped, total) || observationGate(input, scoped, total)
     || assessmentGate(input, total);
   return denied || { outcome: 'candidate', reason: 'bounded-candidate', score: total, dimension };

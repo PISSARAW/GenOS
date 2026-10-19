@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : Partiel — chaîne implémentée jusqu'à l'apprentissage borné ; continuation et campagne réservée non implémentées
+- **Statut** : Partiel — chaîne implémentée jusqu'à la continuation bornée ; ablations et campagne réservée non démontrées
 - **Portée** : simulation déterministe, bornée et en lecture seule
 - **Dernière revue** : 2026-10-18
 

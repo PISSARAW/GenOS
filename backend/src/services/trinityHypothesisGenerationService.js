@@ -70,6 +70,18 @@ async function generate(input) {
   }
 }
 
+async function safeFalsification(result, supplied) {
+  try {
+    const proposals = result.candidates.map((candidate) => ({ id: candidate.id, hypothesis: candidate.hypothesis, verification: 'unverified' }));
+    return await require('./cognitiveExecutor').falsifyGeneratedProposals({
+      generated: { proposals },
+      evidence: supplied.candidateHypotheses || []
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
 async function design(input) {
   const mission = input.normalizedMission.prompt || input.normalizedMission.currentTask || '';
   const supplied = await suppliedDesign(input);
@@ -81,10 +93,12 @@ async function design(input) {
     const combined = [...(supplied.candidateHypotheses || []), ...result.candidates];
     const generatedDesign = trinityService.designHypotheses(mission, { ...supplied, candidateHypotheses: combined });
     const used = generatedDesign.selectedTriplet.some((candidate) => candidate.origin === 'model_generated');
+    const falsification = await safeFalsification(result, supplied);
     return { ...generatedDesign, hypothesisGeneration: {
       status: used ? 'generated' : 'unused', verification: result.verification,
       model: result.model, provider: result.provider, candidateCount: result.candidates.length,
-      promptDigest: result.promptDigest, invocationId: result.invocationId, reused: result.reused === true
+      promptDigest: result.promptDigest, invocationId: result.invocationId, reused: result.reused === true,
+      falsification
     } };
   } catch (error) {
     return { ...base, hypothesisGeneration: { status: 'unavailable', reason: error.code || error.message } };
