@@ -384,6 +384,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0508 — Refuser une intersection vide de lease](adr/0508-refuser-une-intersection-vide-de-lease.md) — une contrainte de focus sans outil commun laisse la mission sans outil.
 - [ADR 0509 — Borner la lease MCP par le budget de mission](adr/0509-borner-la-lease-mcp-par-le-budget-de-mission.md) — transmet au serveur MCP l'échéance de mission la plus stricte.
 - [ADR 0622 — Qualification contrefactuelle liée aux preuves](adr/0622-qualification-contrefactuelle-liee-aux-preuves.md) — lie branches, replays, diff causal et reçus indépendants sans autoriser directement la promotion.
+- [ADR 0646 — Registre vérifiable du modèle monde](adr/0646-registre-modele-monde-verifiable.md) — préenregistre les prédictions, refuse le synthétique comme effet réel et borne le foresight par preuve, budget et permission.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)
