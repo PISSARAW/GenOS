@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-shev-experience-stewardship', 'Persist longitudinal plural experience reviews and bounded direction decisions', async (db) => {
+    await require('./migrateShevExperienceStewardship').migrateShevExperienceStewardship(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
