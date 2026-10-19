@@ -16,6 +16,7 @@
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
+- [ADR 0646 — Sélection multisignal des buts GVX](adr/0646-selection-buts-multisignal-gvx.md) — arbitrage traçable incluant besoin projet, trajectoire, risque, coût, permissions et option `NO_CHANGE`.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
@@ -210,6 +211,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [AGOW](02-orchestration/agow.md) — workspace cognitif actif, candidats, compétition, frames récurrents, broadcasts et requêtes attentionnelles.
 - [Système prédictif multi-échelles](02-orchestration/systeme-predictif-multi-echelles.md) — états T0–T6, plasticité graduée et erreurs persistantes.
 - [Lacunes d'apprentissage GVX](02-orchestration/lacunes-apprentissage-gvx.md) — détection multi-signal et buts bornés soumis à autorité.
+- [Sélection multisignal des buts GVX](02-orchestration/selection-buts-multisignal-gvx.md) — arbitrage entre besoin projet, trajectoire, risque, opportunité, incertitude, apprentissage, coût et `NO_CHANGE`.
 - [Nursery expérimentale GVX](02-orchestration/nursery-experimentale-gvx.md) — exécution de bras isolés avec artefacts vérifiés indépendamment.
 - [Monitoring longitudinal GVX](02-orchestration/monitoring-longitudinal-gvx.md) — suivi multi-contextes, arrêt sur régression et éligibilité de maturité.
 - [Plan de puissance benchmark GVX](02-orchestration/plan-puissance-benchmark-gvx.md) — réplication dérivée de l'effet minimal et de la variance attendue.
