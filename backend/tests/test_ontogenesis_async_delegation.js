@@ -10,6 +10,7 @@ const { registerResponsibility } = require('../src/services/shev/responsibilityS
 const worktrees = require('../src/services/ontogenesis/worktreeService');
 const planService = require('../src/services/ontogenesis/asyncDelegationPlanService');
 const runtime = require('../src/services/ontogenesis/asyncDelegationRuntimeService');
+const decisions = require('../src/services/ontogenesis/asyncDelegationDecisionService');
 
 async function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onto-delegation-'));
@@ -81,6 +82,77 @@ async function main() {
     missionId: mission.id, owner: 'runtime-b', fence: 2, nowMs: 2300
   });
   assert.strictEqual(interrupted.cursor, 2);
+
+  const finalLease = await runtime.claimDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-c', nowMs: 2400, ttlMs: 1000
+  });
+  await assert.rejects(decisions.closeDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-c', fence: finalLease.fence,
+    nowMs: 2500, outcome: 'ACCEPT'
+  }), /preuve-independante-manquante/);
+  await runtime.checkpointDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-c', fence: finalLease.fence, nowMs: 2600,
+    sequence: 3, stepId: 'independent_verify',
+    state: { verifierId: 'reviewer-independent', verdict: 'accepted', candidateRevision: 'def5678' },
+    evidenceRefs: ['evidence://independent-review']
+  });
+  await runtime.checkpointDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-c', fence: finalLease.fence, nowMs: 2700,
+    sequence: 4, stepId: 'post_integration_effect',
+    state: { integratedRevision: 'fed9876', projectResult: 'confirmed' },
+    evidenceRefs: ['evidence://post-integration-probe']
+  });
+  const accepted = await decisions.closeDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-c', fence: finalLease.fence,
+    nowMs: 2800, outcome: 'ACCEPT'
+  });
+  assert.deepStrictEqual({ outcome: accepted.outcome, verifierId: accepted.verifierId },
+    { outcome: 'ACCEPT', verifierId: 'reviewer-independent' });
+  assert.throws(() => decisions.decisionFor({ producer_id: 'worker-jules' }, [
+    { stepId: 'independent_verify', state: { verifierId: 'worker-jules', verdict: 'accepted',
+      candidateRevision: 'def5678' }, evidenceRefs: ['evidence://self-review'] },
+    { stepId: 'post_integration_effect', state: { integratedRevision: 'fed9876',
+      projectResult: 'confirmed' }, evidenceRefs: ['evidence://effect'] }
+  ], { outcome: 'ACCEPT' }), /verificateur-non-independant/);
+  assert.strictEqual((await runtime.claimDelegation(ctx.db, {
+    missionId: mission.id, owner: 'runtime-d', nowMs: 2900
+  })).reason, 'mission-deleguee-terminale');
+
+  const noChangeCapsule = path.join(worktrees.managedRoot({ id: ctx.projectId,
+    root_path: ctx.root }), 'capsules', 'mission-no-change');
+  fs.mkdirSync(noChangeCapsule, { recursive: true });
+  const noChangeMission = await planService.deriveDelegation(ctx.db, {
+    ...input, missionId: 'mission-no-change', capsulePath: noChangeCapsule
+  });
+  const noChangeLease = await runtime.claimDelegation(ctx.db, {
+    missionId: noChangeMission.id, owner: 'runtime-e', nowMs: 3000
+  });
+  await runtime.checkpointDelegation(ctx.db, {
+    missionId: noChangeMission.id, owner: 'runtime-e', fence: noChangeLease.fence,
+    nowMs: 3100, sequence: 1, stepId: 'scope', state: { deltaRequired: false },
+    evidenceRefs: ['evidence://baseline-already-compliant']
+  });
+  const noChange = await decisions.closeDelegation(ctx.db, {
+    missionId: noChangeMission.id, owner: 'runtime-e', fence: noChangeLease.fence,
+    nowMs: 3200, outcome: 'NO_CHANGE', reason: 'la responsabilite est deja satisfaite'
+  });
+  assert.strictEqual(noChange.outcome, 'NO_CHANGE');
+
+  const reviewCapsule = path.join(worktrees.managedRoot({ id: ctx.projectId,
+    root_path: ctx.root }), 'capsules', 'mission-review');
+  fs.mkdirSync(reviewCapsule, { recursive: true });
+  const reviewMission = await planService.deriveDelegation(ctx.db, {
+    ...input, missionId: 'mission-review', capsulePath: reviewCapsule
+  });
+  const reviewLease = await runtime.claimDelegation(ctx.db, {
+    missionId: reviewMission.id, owner: 'runtime-f', nowMs: 3300
+  });
+  const review = await decisions.closeDelegation(ctx.db, {
+    missionId: reviewMission.id, owner: 'runtime-f', fence: reviewLease.fence,
+    nowMs: 3400, outcome: 'HUMAN_REVIEW', reason: 'effet projet ambigu',
+    reviewRef: 'review://owner/42'
+  });
+  assert.strictEqual(review.outcome, 'HUMAN_REVIEW');
 
   await ctx.db.close();
   fs.rmSync(ctx.root, { recursive: true, force: true });

@@ -20,8 +20,7 @@ async function migrateAsyncDelegation(db) {
       lease_expires_at TEXT,
       decision_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (project_id, plan_hash)
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_onto_delegations_resume
       ON ontogenesis_delegations(project_id, status, lease_expires_at);
