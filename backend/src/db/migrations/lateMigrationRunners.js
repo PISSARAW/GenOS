@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-shev-product-stewardship', 'Persist immutable product responsibility manifests and stage receipts', async (db) => {
+    await require('./migrateShevProductStewardship').migrateShevProductStewardship(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
