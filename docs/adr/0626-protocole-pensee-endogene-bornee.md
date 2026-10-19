@@ -1,10 +1,10 @@
 # ADR 0626 — Protocole de pensée endogène bornée
 
-- **Statut** : Accepté jusqu'à l'apprentissage borné ; continuation et campagne non implémentées
-- **Date** : 2026-10-18
+- **Statut** : Accepté ; continuation multicycle et exécuteur de campagne implémentés par ADR 0646 et ADR 0647 ; campagne sur corpus réservé non exécutée
+- **Date** : 2026-10-18 (statut révisé le 2026-10-19)
 - **Domaine** : cognition endogène, expérimentation, autorité, preuve
 - **Décideurs** : mainteneurs GenOS
-- **Lié à** : ADR 0012, ADR 0235, ADR 0295, ADR 0325
+- **Lié à** : ADR 0012, ADR 0235, ADR 0295, ADR 0325, ADR 0627, ADR 0646, ADR 0647
 
 ## Contexte
 
@@ -160,7 +160,9 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
 
 ### Négatives
 
-- PR8 fournit une révision de croyance locale, mais aucune continuation ou campagne exécutable.
+- PR8 fournit une révision de croyance locale ; la continuation multicycle et
+  l'exécuteur de campagne sont désormais implémentés par ADR 0646 et ADR 0647,
+  mais aucune campagne sur corpus réservé n'a encore été exécutée.
 - Les oracles de la campagne réservée restent à sceller sur le corpus final.
 - La normalisation des coûts devra être alimentée par des mesures réelles.
 - Une campagne locale ne suffira pas à établir une généralisation scientifique.

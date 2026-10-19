@@ -53,7 +53,7 @@ Au commit `e2bb374064121ff30199f5ef577a5b6301c21f88`, avec aucun fichier suivi m
 
 ### Transmission demandée par l'utilisateur
 
-Arrêt après livraison de 01c ; les lots 02–25 ne sont pas implémentés. Le lot 01 n'est pas déclaré entièrement validé : il reste l'échec Rust et la dette qualité globale. Aucun indicateur n'a été promu.
+Arrêt après livraison de 01c ; au moment de cette transmission, les lots 02–25 n'étaient pas implémentés (snapshot historique — les lots suivants ont été livrés depuis, voir les sections Lot 02 à Lot 25 ci-dessous). Le lot 01 n'est pas déclaré entièrement validé : il restait l'échec Rust (depuis corrigé, voir le bilan Rust) et la dette qualité globale. Aucun indicateur n'a été promu.
 
 Reprise :
 

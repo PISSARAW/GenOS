@@ -54,6 +54,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [monitoring-longitudinal-gvx.md](monitoring-longitudinal-gvx.md) — suivi indépendant, reprise et rollback.
 - [lacunes-apprentissage-gvx.md](lacunes-apprentissage-gvx.md) — hypothèses et buts soumis à autorité.
 - [plan-puissance-benchmark-gvx.md](plan-puissance-benchmark-gvx.md) — protocole de campagne et qualification restante.
+- [reparation-guidee-par-traces-gvx.md](reparation-guidee-par-traces-gvx.md) — attribution causale vérifiée, mutation mono-locus bornée, holdout scellé et garde de régression.
 
 ## Modes de composition
 

@@ -1,6 +1,6 @@
 # ADR 0450 — Lier la sortie du modèle au résultat de l'oracle
 
-- **Statut** : Accepté pour le refus fermé ; domaine modèle encore absent.
+- **Statut** : Accepté pour le refus fermé et le domaine `model_subset_sum` ; domaines modèles additionnels à venir.
 - **Date** : 2026-10-12.
 - **Lié à** : [ADR 0445](0445-pont-preuve-mission-vers-apprentissage-routeur.md), [ADR 0448](0448-observation-couts-modele-dans-recu-worker.md).
 
@@ -31,12 +31,15 @@ le futur domaine devra relire le texte effectivement observé et le soumettre
 
 ## Limite actuelle
 
-Le domaine `model_subset_sum` n'est pas encore implémenté. Les workers natifs
-conservent leur plafond de zéro token modèle. La voie modèle non nulle →
-oracle indépendant → apprentissage reste fermée. Aucun assemblage AEIS ni reçu
-de succès n'est simulé pour franchir cette frontière.
+Le domaine `model_subset_sum` est implémenté par
+`backend/src/services/epistemic/oracleModelSubject.js` et enregistré dans
+`nativeOracleDomains.js`. Il relit le texte effectivement observé, le lie à
+l'empreinte, au run et à la tentative, et le soumet aux vérifications
+indépendantes avant de signer le claim. La voie modèle non nulle → oracle
+indépendant → apprentissage est donc ouverte pour ce seul domaine, sous
+budget modèle explicite.
 
 `test_route_model_causal_binding.js` vérifie les mutations de l'empreinte et
 des identifiants ; `test_route_mission_outcome_bridge.js` maintient le refus
-d'un run natif sans réponse modèle observée. Un test positif bout en bout
-nécessitera le domaine d'oracle dédié et un worker avec budget modèle explicite.
+d'un run natif sans réponse modèle observée ; `test_model_oracle_route_e2e.js`
+couvre désormais le bout en bout, domaine d'oracle dédié inclus.

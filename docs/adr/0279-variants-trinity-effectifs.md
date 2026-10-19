@@ -59,9 +59,10 @@ lieu en réel.
 
 - Sans plusieurs modèles disponibles, la diversité provider/modèle reste faible :
   le score le dit au lieu de le cacher.
-- La contre-expertise adversarial en deux phases (attaquant nourri des dossiers
-  défenseurs, arbitre) n'est pas implémentée : le monde 3 attaque à l'aveugle
-  depuis le brief. Suivi requis.
+- La contre-expertise adversarial en deux phases est implémentée par
+  `backend/src/services/trinityAdversarialCrossExamination.js` : l'attaquant est
+  nourri des dossiers défenseurs, puis un arbitre statue avec gates de preuve et
+  blocage des fusions sur constats non résolus.
 - Le superviseur ne transmet pas encore les profils d'objectifs à la
   comparaison Pareto (les défauts monde 1/2/3 s'alignent déjà sur les trois
   axes quand l'ordre est respecté). Suivi requis.

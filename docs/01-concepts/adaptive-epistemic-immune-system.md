@@ -21,6 +21,12 @@ L'Adaptive Epistemic Immune System (AEIS) est le mécanisme de contrôle épist�
 de GenOS. Il traite toute affirmation (claim) comme un **antigène** — une unité
 biologique qui doit être reconnue, vérifiée ou neutralisée avant d'être promue.
 
+> **Distinction de vocabulaire** : l'antigène de l'AEIS est un claim épistémique.
+> Les « clusters d'antigènes » de la [campagne immunitaire de remédiation
+> sécurité](../adr/0649-campagne-immunitaire-remediation-securite.md) regroupent
+> des alertes de sécurité par cause ; ce sont des objets distincts qui partagent
+> la métaphore, pas le registre ni les preuves.
+
 Le système ne se contente pas de détecter les erreurs. Il calcule un score ordinal
 de pression d'assurance à partir de signaux observables et ajuste l'effort de
 vérification. Ce score est une **politique d'ordonnancement heuristique** : ce

@@ -35,8 +35,15 @@ Les modules de routes declarent l'URL, les permissions et le controller. Le cont
 | --- | --- |
 | `/api/auth`, `/api/sso`, `/api/secrets` | identite, session et secrets |
 | `/api/workspaces`, `/api/workflows`, `/api/releases` | etat de travail, workflows et promotion |
+| `/api/orchestration` | noyau d'orchestration unifie (ADR 0600) : orchestrateurs, missions, branches, escalades, reprises, taches, runs, jobs, workers, rejeu causal, bisection causale, campagnes d'evaluation et delivery progressive |
 | `/api/memory`, `/api/lineage`, `/api/trajectories`, `/api/traces` | memoire, provenance et traces |
-| `/api/swarm`, `/api/arena`, `/api/strategies`, `/api/experiments` | orchestration et evaluation |
+| `/api/swarm`, `/api/arena`, `/api/strategies`, `/api/experiments`, `/api/evaluation` | orchestration et evaluation |
+| `/api/action-genomes` | [contrats ActionGenome](action-genome.md) (ADR 0651a) : liste, validation, description et admission causale (`evaluate`, mode `admission_only`, refus 409) |
+| `/api/atomic-rollback` | plans d'annulation atomique : operations, invariants, commit et rollback |
+| `/api/chargeback` | comptabilite par mission : postes, reglement et agregats |
+| `/api/daemon`, `/api/chaos` | daemons (statut, configuration, reparation, territoires) et injection de chaos bornee |
+| `/api/resilience`, `/api/fossils`, `/api/qd` | apoptose/cryptobiosis/drift, archive stratigraphique des lignees, proxy Quality-Diversity |
+| `/api/method-contracts` | contrats de methode versionnes |
 | `/api/mcp/*`, `/api/rust/*` | outils MCP et pont CLI natif (`POST /api/rust/models/generate` inclus, voir `rustBridgeRoutes.js`) |
 | `/api/ide`, `/api/integrations`, `/api/webhooks`, `/api/plugins` | integrations externes |
 | `/api/schema/*`, `/api/config/*`, `/api/control-plane/*` | metadonnees et operations |
@@ -76,6 +83,26 @@ la reprise de l'agent et de son workspace est autorisée. Une dérive donne
 `TOPOLOGY_SNAPSHOT_DRIFT` ; une identité ou une preuve incompatible échoue
 également fermé. Les snapshots antérieurs sans option gardent leur contrat.
 Voir les [préconditions et variants](snapshots-topologiques.md).
+
+### ActionGenome : contrats d'action et admission causale
+
+Les [routes ActionGenome](../../backend/src/routes/actionGenomeRoutes.js) exposent
+le [contrat canonique `genos.action-genome/v1`](action-genome.md) (ADR 0651a) :
+
+| Méthode | Route | Permission | Contrat |
+| --- | --- | --- | --- |
+| GET | `/api/action-genomes` | `read` | Catalogue des génomes d'action publiés |
+| POST | `/api/action-genomes/validate` | `read` | Validation fermée d'un contrat (champs inconnus refusés) |
+| GET | `/api/action-genomes/:id/:version` | `read` | Description du contrat versionné |
+| POST | `/api/action-genomes/:id/:version/evaluate` | `mcp:execute_safe` | Admission causale : entrée, préconditions, permissions, leases, budget et version d'état |
+
+`evaluate` est câblé en mode `admission_only`
+(`shared/actionSurfaceBindings.v1.json`) : une invocation admise répond `200`
+avec un reçu causal liant l'acteur, la version d'état observée et le contrat
+exact ; un refus répond `409`. Le reçu ne constitue jamais une preuve d'effet
+ni un rollback. Les postconditions restent déclaratives tant qu'aucun exécuteur
+d'effet n'est câblé. Voir la [référence ActionGenome](action-genome.md) et
+[ADR 0651a](../adr/0651-action-genome.md).
 
 ### Garage Fabric : admission durable et contrôle des workers
 

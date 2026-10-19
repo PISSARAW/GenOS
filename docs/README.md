@@ -1,7 +1,9 @@
 # Documentation GenOS
 
-- [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante et apprentissage d'épisode.
-- [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification et révision de croyance non promotable.
+- [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante, apprentissage d'épisode et boucle multicycle bornée (`maxCycles` ≤ 10).
+- [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification, révision de croyance non promotable et continuation multicycle ; campagne sur corpus réservé non exécutée.
+- [ADR 0646 — Apprentissage qualifié et exécution ETT reprenable](adr/0646-apprentissage-et-execution-ett-reprenables.md) — mémoire vérifiée, réservation durable, reprise sans réexécution, sandbox worker `isolated-read-only` et mesure externe.
+- [ADR 0647 — Boucle ETT multicycle et questionnement endogène](adr/0647-boucle-ett-multicycle-et-questionnement-endogene.md) — répétition bornée du cycle, questions de suivi et génération d'hypothèses sans abaisser les portes de preuve.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
 - [ADR 0602 — Runner durable P3 pour les campagnes appariées](adr/0602-runner-durable-p3-campagnes-appariees.md) — reçus immuables, reprise idempotente, scellement shadow/holdout et adaptateurs de processus externes fail-closed.
@@ -17,7 +19,14 @@
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
 - [ADR 0648 — Qualifier les adaptateurs comme symbiotes sélectionnables](adr/0648-ecologie-adaptateurs-symbiotiques.md) — identité qualifiée, consortium minimal, succession compensée et propagation multi-dépôts par vagues.
+- [ADR 0649 — Campagne immunitaire de remédiation sécurité](adr/0649-campagne-immunitaire-remediation-securite.md) — alertes bornées SARIF, clusters d'antigènes, candidats isolés, adjudication à deux vérificateurs et mémoire négative sans promotion.
+- [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant de preuves et liaison au rollout canari.
+- [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — lésion → hémostase → remodelage, épisodes persistés, dossier `genos.shev-healing-dossier/v1` et réconciliation au tick Ontogenèse.
+- [ADR 0651a — ActionGenome comme contrat canonique d'action](adr/0651-action-genome.md) — contrat d'action fermé, projections de surface, admission causale et REST câblé en mode `admission_only`.
+- [Qualification ActionGenome et remédiation sécurité](06-qualite-preuves/qualification-action-genome-remediation-securite-2026-10-19.md) — protocole, résultats ciblés, falsifications et frontières de non-promotion des deux verticales.
+- [ADR 0651b — Admission MHC et capacités au point d'effet](adr/0651-admission-mhc-et-capacites-au-point-effet.md) — identité d'artefact fail-closed, effets régis et capacités de secrets à usage unique au point d'effet.
 - [ADR 0652 — Réparation GVX guidée par traces et maturation d’affinité](adr/0652-reparation-guidee-par-traces-gvx.md) — attribution causale vérifiée, mutation mono-locus bornée, holdout scellé et garde de régression.
+- [Qualification SHEV, GVX et chaîne d'approvisionnement](06-qualite-preuves/qualification-servicenow-kore-gitlab-2026-10-19.md) — huit contrats ciblés, contre-preuves, traçabilité et limites des portes globales au 19 octobre 2026.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
@@ -182,6 +191,8 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [philosophie-des-mathematiques.md](01-concepts/philosophie-des-mathematiques.md) — objets mathématiques, fondements, infini et preuve.
 - [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif : mémoire et autorité persistantes, quorum exécutable, niches dynamiques, workers provider isolés et qualification de `approveRun()`.
 - [organes-vitaux-agents.md](01-concepts/organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
+- [ecosysteme-agentique.md](01-concepts/ecosysteme-agentique.md) — écosystème agentique Rust : niches, chaînes trophiques et flux entre topologies (module `genos-biology`).
+- [stabilite-genomique.md](01-concepts/stabilite-genomique.md) — stabilité génomique Rust : réparation, recombinaison et garde d'intégrité du génome (module `genos-biology`).
 
 ### 2. Biomimétisme spécialisé
 
@@ -274,6 +285,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [action-genome.md](03-reference/action-genome.md) — contrat d'action fermé, admission causale, reçu, projections REST/MCP/CLI et limites d'exécution.
 - [snapshots-topologiques.md](03-reference/snapshots-topologiques.md) — contrat de capture et de reprise pour les huit topologies et chaque variant.
 - [contrat-mission-comparative.md](03-reference/contrat-mission-comparative.md) — schéma versionné des missions multi-populations et frontières entre runtime, topologie et banc d’essai.
 - [outils-mcp.md](03-reference/outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
@@ -319,6 +331,7 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 
 - [securite.md](05-securite-gouvernance/securite.md) — authentification, réseau, secrets, CORS, endpoints, audit.
+- [remediation-securite-immunitaire.md](05-securite-gouvernance/remediation-securite-immunitaire.md) — ingestion d'alertes, graphe antigénique, campagne bornée, quorum et mémoire négative sans promotion.
 - [identite-et-autorite.md](05-securite-gouvernance/identite-et-autorite.md) — identités, autorité, scopes tenants, rôles.
 - [conformite-et-gouvernance.md](05-securite-gouvernance/conformite-et-gouvernance.md) — gouvernance, conformité, supervision.
 - [sandbox-execution-code.md](05-securite-gouvernance/sandbox-execution-code.md) — sandbox, isolation, limites.
@@ -333,6 +346,13 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
 - [plan-maturite-principes-fondateurs-95.md](06-qualite-preuves/plan-maturite-principes-fondateurs-95.md) — six phases de fermeture transverse vers 95/100, sans promotion avant preuve courante.
+- [qualification-principes-fondateurs-phase7.md](06-qualite-preuves/qualification-principes-fondateurs-phase7.md) — mission verticale des phases 1 à 6 : 19/19 principes à la note 4 dans le périmètre borné.
+- [qualification-principes-fondateurs-phase8.md](06-qualite-preuves/qualification-principes-fondateurs-phase8.md) — qualification révocable, ancre de qualification et note effective 4 sur la baseline fonctionnelle.
+- [qualification-principes-fondateurs-phase9.md](06-qualite-preuves/qualification-principes-fondateurs-phase9.md) — admission courante et bornée des qualifications fondatrices, avec reçu v3.
+- [morphogenese-campagne-comparative-externe.md](06-qualite-preuves/morphogenese-campagne-comparative-externe.md) — contrat commun de campagne comparative GenOS, LangGraph, Magentic, AFlow et DyLAN sur couples tâche/graine partagés.
+- [protocole-preuve-universelle-morphogenese.md](06-qualite-preuves/protocole-preuve-universelle-morphogenese.md) — protocole versionné de non-claim : couverture observée et réplications mesurables, sans conversion en preuve universelle.
+- [morphogenese-deploiements-externes.md](06-qualite-preuves/morphogenese-deploiements-externes.md) — preuve de parité de déploiements morphogenétiques externes sur trois processus Node indépendants.
+- [rust-preflight-windows.md](06-qualite-preuves/rust-preflight-windows.md) — préflight Cargo du chemin `windows-msvc` : Build Tools, composants et préconditions vérifiées avant exécution.
 - [qualification-workers.md](06-qualite-preuves/qualification-workers.md) — critères C0–C4 et campagnes de missions workers avec preuves et limites ; [ADR 0399](adr/0399-oracles-observation-workers-bornes.md), [ADR 0400](adr/0400-oracles-workers-deterministes-structures.md), [ADR 0401](adr/0401-oracle-formel-lean-borné.md) et [ADR 0402](adr/0402-oracles-workers-recuperation-et-passation.md).
 - [plan-implementation-gvx.md](06-qualite-preuves/plan-implementation-gvx.md) — avancement des lots GVX et état des preuves attendues.
 - [validation-cycle-standard-gvx.md](06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés au commit `ac3423cb` et limites de leur portée.
@@ -368,7 +388,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 ### 9. Décisions d'architecture (ADR)
 
-- [ADR 0650 — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
+- [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
 - [ADR 0517 — Lier les reçus métaboliques aux identités de commande](adr/0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) — aligne les opérations backend/Rust sur la même mission, cellule, commande et clé de rejeu.
 - [ADR 0474 — Invariants d'homéostasie liés aux reçus Rust de division](adr/0474-contrats-homeostasie-recus-rust-division.md) — constate une division Rust exacte sans la confondre avec une preuve de worker.
 - [ADR 0475 — Invalider les préférences après transition d'organisation](adr/0475-invalider-preferences-apres-transition-organisation.md) — purge le classement des survivants après le commit du changement d'organisation.
@@ -835,6 +855,11 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0610 — Protocole P0 du commit morphogénétique](adr/0610-protocole-p0-commit-morphogenetique.md).
 - [ADR 0620 — Calibrage empirique du profil et de l'hystérésis](adr/0620-calibrage-empirique-profil-et-hysteresis.md).
 - [ADR 0627 — Frontière entre claims fonctionnels et phénoménaux](adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine, preuves requises et refus des conclusions phénoménales.
+- [ADR 0627a — Raccord de l'exécution cognitive ETT à des workers réels](adr/0627-execution-cognitive-ett-workers-reels.md) — seam d'injection worker/solveur, frontières scellées par ADR 0646 et questionnement raccordé par ADR 0647.
 - [ADR 0642 — Borner les heuristiques et les garanties AEIS](adr/0642-borner-les-heuristiques-aeis.md) — statut non calibré, diversité descriptive, portée mécanisable et indépendance.
 - [ADR 0646 — Apprentissage qualifié et exécution ETT reprenable](adr/0646-apprentissage-et-execution-ett-reprenables.md) — mémoire vérifiée, réservation durable, reprise sans réexécution et mesure externe.
 - [ADR 0647 — Boucle ETT multicycle et questionnement endogène](adr/0647-boucle-ett-multicycle-et-questionnement-endogene.md) — répétition bornée du cycle, questions de suivi et génération cognitive automatique sans abaisser les portes de preuve.
+- [ADR 0649 — Campagne immunitaire de remédiation sécurité](adr/0649-campagne-immunitaire-remediation-securite.md) — alertes bornées, clusters d'antigènes, candidats isolés et adjudication à deux vérificateurs indépendants.
+- [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant et canari lié au candidat.
+- [ADR 0651a — ActionGenome comme contrat canonique d'action](adr/0651-action-genome.md) — contrat d'action fermé, projections de surface et admission causale avec REST `admission_only`.
+- [ADR 0651b — Admission MHC et capacités au point d'effet](adr/0651-admission-mhc-et-capacites-au-point-effet.md) — identité d'artefact fail-closed et capacités de secrets à usage unique.

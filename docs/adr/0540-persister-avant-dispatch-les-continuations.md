@@ -24,9 +24,13 @@ la transaction, ne rien dispatcher et arrêter la continuation avec un motif
 explicite. L'annulation d'une réservation reçoit l'état qui porte effectivement
 l'époque active.
 
-Cette barrière garantit la persistance des missions, pas la restauration complète
-de l'état du contrôleur d'époques après redémarrage. Le registre d'époque reste
-volatile tant qu'un journal de contrôleur durable n'est pas implémenté.
+Cette barrière garantit la persistance des missions. Le journal durable du
+contrôleur d'époques est désormais implémenté par
+`backend/src/services/morphogenesis/morphogenesisEpochStore.js` (tables
+`morphogenesis_epoch_checkpoints` et `morphogenesis_epoch_checkpoint_events`,
+points de contrôle transactionnels et idempotents) et
+`morphogenesisEpochRecovery.js` réadopte les continuations en file après
+redémarrage.
 
 ## Conséquences
 

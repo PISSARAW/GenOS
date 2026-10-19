@@ -1,9 +1,9 @@
 # ADR 0627 — Raccord de l'exécution cognitive ETT à des workers GenOS réels
 
-- **Statut** : Partiel — seam d'injection implémenté (worker/solveur optionnel) ; mode LLM/réseau et frontières restent à lever par ADR
-- **Date** : 2026-10-19
+- **Statut** : Partiel — seam d'injection implémenté (worker/solveur optionnel) ; frontières du worker scellées par ADR 0646 (sandbox `isolated-read-only`) et questionnement LLM raccordé par ADR 0647
+- **Date** : 2026-10-19 (statut révisé le 2026-10-19)
 - **Domaine** : cognition endogène, exécution bornée, workers, preuve
-- **Lié à** : ADR 0626, ADR 0012, ADR 0235, ADR 0295, ADR 0325
+- **Lié à** : ADR 0626, ADR 0012, ADR 0235, ADR 0295, ADR 0325, ADR 0646, ADR 0647
 
 ## Contexte
 

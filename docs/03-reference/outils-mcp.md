@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté.
 - **Portée** : serveur MCP stdio JS (`mcp/index.js`), lease (`mcp/lease.js`), backend `mcpExecutor.js`, `mcpToolRegistry.js`, expéditeur `mcpDispatcher.js`, télémétrie `mcpTelemetry.js` ; validateurs de non-invocation directe `test_mcp_direct_call_enforcement.js`, `test_mcp_server_parity.js`.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-19 (ajout de la couverture par familles du catalogue canonique, §2.3).
 
 ## 1. Definition
 
@@ -145,6 +145,28 @@ validation ne sont pas des opérations MCP supplémentaires. Le [contrat runtime
 détaille les opérations, les refus et la distinction entre promotion de
 coordination et gates de preuve de la façade spécialisée. La lease et les
 deny-lists continuent à borner l'accès à l'outil.
+
+### 2.3 Familles du catalogue canonique
+
+Le catalogue canonique (`shared/toolDefinitions.json`, 56 outils au
+2026-10-19) se répartit par familles. La liste ci-dessous couvre chaque outil ;
+sauf mention contraire, les contrats détaillés (leases, refus, bornes) sont
+ceux des sections suivantes et la mesure reproductible fait foi
+([inventaire-technique.md](inventaire-technique.md)) :
+
+| Famille | Outils canoniques | Rôle |
+| --- | --- | --- |
+| Fossilisation | `genos_fossil_record`, `genos_fossil_list`, `genos_fossil_strata`, `genos_fossil_excavate`, `genos_fossil_decode`, `genos_fossil_candidate` | Archive stratigraphique immuable des lignées éteintes ; excavation en lecture seule avec vérification d'intégrité, décodage de phénotypes résiduels, candidat AgentDNA non promu. Voir [fossilisation](../01-concepts/fossilisation.md). |
+| Signaux zéro-texte | `genos_signal_publish`, `genos_signal_read`, `genos_signal_purge`, `genos_signal_ground`, `genos_signal_plasmid_transfer`, `genos_signal_collective_decision`, `genos_signal_electrocyte_vote`, `genos_signal_chemotactic_follow` | Publication et lecture de signaux typés (ligand, voltage, phéromone, plasmide, tenseur), accusés de grounding avec empreintes, consensus electrocyte + Kuramoto, suivi du gradient chimiotactique. |
+| Navigation et foraging | `genos_browser_act`, `genos_optimal_foraging`, `genos_foveal_crop`, `genos_computer_use` | Session navigateur bornée, étapes de foraging bornées, fovéation/cadrage d'image, boucle screenshot–modèle–action bornée (états `capture_unavailable`, `model_unavailable`, `execution_failed`). |
+| Mémoire et cognition | `genos_search_failures`, `genos_diagnose`, `genos_analyze_trajectory`, `genos_record_decision`, `genos_record_experience`, `genos_compile_memory`, `genos_working_memory`, `genos_ancestral_memory`, `genos_risk_inheritance`, `genos_collective_plasticity`, `genos_teaching_worker` | Recherche des mémoires d'échec (un résultat vide n'est pas une preuve de sûreté), hypothèses falsifiables fournies par l'appelant, mesure de répétition, décision avec références de preuve, expérience épisodique, compilation de mémoire, mémoire de travail bornée (TTL), mémoire ancestrale, héritage de risque atténué, plasticité collective, transmission d'une procédure démontrée. |
+| Orchestration et topologies | `genos_orchestrate`, `genos_delegate_worker`, `genos_report_progress`, `genos_execute_strategy_pipeline`, `genos_change_strategy`, `genos_organization_state`, `genos_worker_inbox`, `genos_trinity_launch`, `genos_a_team_preview`, `genos_biological_mode` | Mission d'orchestration (lancement arrière-plan, reçu `accepted` ≠ réussite), délégation à un worker, progression, pipeline ordonné de primitives de stratégie, changement de portefeuille aux gates de décision, lecture de la topologie active, boîte de réception du worker, mondes Trinity, prévisualisation A-Team, collectif biologique (Biome/Syncytium/Holobionte/Biocénose/Rhizome/Métapopulation). |
+| État du workspace | `genos_v2_init`, `genos_v2_fork` | Initialisation de l'état du workspace et fork en branche isolée. |
+| Primitives et biomimétisme | `genos_execute_primitive`, `genos_biomimicry`, `genos_philosophy` | Dispatch générique des primitives (Axolotl, §2), invocation d'une fonction biomimétique native, audits philosophiques bornés (§6.1). |
+| Snapshots et lignage | `genos_snapshot`, `genos_replay`, `genos_blame`, `genos_merge`, `genos_audit` | Snapshot et rejeu vérifié (`replayVerified` distinct du statut), attribution et lignage bornés (1 000 éléments, `truncated: true`), fusion destructive (rôle `admin`), artefact d'audit. |
+| Capsules et agents | `genos_capsule_create`, `genos_agent_fork_snapshot`, `genos_agent_inherited_memory_read`, `genos_agent_state_restore_inspect`, `genos_worker_publish` | Capsule chiffrée, fork d'agent inactif avec workspace isolé, lecture de mémoire héritée en lecture seule, inspection de restauration du même agent, publication de worker (`kind`, `signal_type`, `signal_data`). |
+| Sessions topologiques | `genos_topology_session` | Opérations persistantes par session (Rhizome §2.1, Syncytium §2.2 et section dédiée). |
+| Organisations | `genos_change_organization` | Transition d'organisation sous autorité ; invalide les préférences de survivants (ADR 0475). |
 
 ## 3. Leases, `enabled_tools` et `disabled_tools`
 

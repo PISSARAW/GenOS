@@ -188,6 +188,26 @@ $$
 
 et la validation est faite sur le hash, non sur le secret brut. C’est la bonne pratique minimale pour limiter les fuites en base.
 
+#### 3.3.4 Capacités de secrets au point d’effet
+
+Au-delà du stockage, les effets externes des agents ne reçoivent plus de
+secrets en clair : le [courtier de capacités au point
+d’effet](../04-exploitation/gouvernance-supply-chain-agent-native.md) délivre
+une capacité opaque à usage unique (TTL ≤ 5 minutes, liée à l’agent, au scope,
+à l’action, à la destination et à l’empreinte d’artefact), résout le `Buffer`
+seulement après vérifications, le met à zéro après usage, détecte les fuites
+dans la sortie de l’adaptateur et consomme la capacité **avant** l’effet
+asynchrone ([ADR 0651b](../adr/0651-admission-mhc-et-capacites-au-point-effet.md)).
+
+#### 3.3.5 Remédiation immunitaire bornée
+
+La [remédiation de sécurité immunitaire](remediation-securite-immunitaire.md)
+normalise au plus 25 alertes SARIF ou structurées, les regroupe par hypothèse de
+cause commune et compare un contrôle à trois familles d'intervention. Deux
+vérificateurs indépendants sont requis pour qualifier une recommandation. Cette
+verticale ne provisionne pas les workspaces déclarés, n'exécute aucun payload
+réel et laisse chaque résultat `promotionEligible: false`.
+
 ---
 
 ## 4. Sécurité réseau et transport

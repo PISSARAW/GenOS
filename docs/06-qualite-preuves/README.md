@@ -1,5 +1,9 @@
 # 06 — Qualité et preuves
 
+- [qualification-servicenow-kore-gitlab-2026-10-19.md](qualification-servicenow-kore-gitlab-2026-10-19.md) — qualification ciblée du cycle SHEV, de la réparation GVX guidée par traces et de l'effet régi par identité d'artefact, avec contre-preuves et bloqueurs globaux.
+
+- [qualification-action-genome-remediation-securite-2026-10-19.md](qualification-action-genome-remediation-securite-2026-10-19.md) — qualification bornée des contrats ActionGenome et de la campagne immunitaire, contre-preuves et critères du prochain niveau.
+
 - [qualification-issue-mission.md](qualification-issue-mission.md) — protocole de vérification du but, falsification des oracles et limites des preuves de clôture.
 
 - [studio-essai-cinq-niveaux.md](studio-essai-cinq-niveaux.md) — essai navigateur réel, persistance, refus de revue et limites des missions autonomes.

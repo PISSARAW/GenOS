@@ -114,8 +114,10 @@ PR8 applique une révision catégorielle strictement confinée à l'épisode :
 - l'épisode avance à `LEARNED` sans écrire dans la mémoire de production ;
 - aucune continuation, action externe ou promotion n'est autorisée.
 
-Les continuations bornées et la campagne réservée appartiennent aux tranches
-suivantes. Un épisode `LEARNED` ne valide donc pas une capacité cognitive générale.
+Les continuations bornées, la boucle multicycle et l'exécuteur de campagne de
+développement sont implémentés (ADR 0646, ADR 0647) ; seule la campagne sur le
+corpus réservé reste à exécuter. Un épisode `LEARNED` ne valide donc pas une
+capacité cognitive générale.
 
 ## Campagne de développement
 

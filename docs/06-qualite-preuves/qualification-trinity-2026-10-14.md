@@ -104,7 +104,7 @@ aboutir via `genos-orchestrate` dans l'état actuel du code.**
 désormais `db.get` (recherche du run) et filtre sur `executionRunId` (ligne 43).
 Test à réaligner ; sans rapport avec E1-E6.
 
-## Correctif proposé (non implémenté)
+## Correctif proposé (non implémenté au moment de la rédaction — implémenté et vérifié ensuite, voir la section suivante)
 
 Dans `topologyTrinityHandler` : créer un run d'exécution parent puis lier un
 scope (`execution-run:<runId>`, plafonds `costUsd`+`tokens` du payload,

@@ -1,6 +1,6 @@
 # ADR 0541 — Répéter les époques morphogénétiques sous budget
 
-- **Statut** : accepté pour le cycle backend en mémoire; reprise durable du contrôleur non implémentée
+- **Statut** : accepté ; reprise durable du contrôleur implémentée (journal d'époque et réadoption des continuations)
 - **Date** : 2026-10-15
 - **Domaine** : orchestration, morphogenèse, budget, épistémologie
 - **Lié à** : ADR 0288, 0430, 0522, 0534, 0536, 0538
@@ -41,9 +41,11 @@ collective qui requerrait le commit fermé par l'ADR 0430.
 
 ### Négatives et limites actuelles
 
-- L'automate `autonomousRounds` reste en mémoire. Les missions de continuation sont
-  durables, mais un redémarrage ne reconstruit pas le compteur, le pool réservé et la
-  barrière de l'époque active. La reprise durable de l'automate est une tranche requise.
+- La reprise durable du contrôleur d'époques est implémentée
+  (`morphogenesisEpochStore.js` persiste les points de contrôle et
+  `morphogenesisEpochRecovery.js` réadopte les continuations en file), mais la
+  qualification d'une interruption/reprise complète en production reste à
+  exécuter.
 - Le planificateur compose des topologies et peut choisir leurs variants, mais la
   continuation rebind les workers existants et conserve leur `workerKind` et méthode.
   Il ne recrute pas un nouveau type ni ne résout ou démarre un daemon.

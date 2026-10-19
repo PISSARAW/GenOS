@@ -1,6 +1,6 @@
 # ADR 0480 — Refuser la promotion sans rejeu d’exécution lié au run
 
-- **Statut** : Accepté et implémenté pour le refus ; producteur de reçu à réaliser.
+- **Statut** : Accepté et implémenté pour le refus et le chargement du reçu de rejeu persisté ; producteur de reçu complet à réaliser.
 - **Date** : 2026-10-14
 - **Domaine** : Exécution de stratégie, rejeu déterministe et promotion.
 - **Décideurs** : Mainteneur GenOS.
@@ -35,7 +35,9 @@ primitives, outils et dépendances, budget et graines identifiés. Il devra
 persister un reçu durable lié au `runId`, à l’agent, au snapshot et à son digest.
 Le digest d’approbation humaine lie désormais aussi le champ `replayReceipt`
 quand le producteur le renseigne. Le chargement de ce champ depuis un reçu
-persisté reste à implémenter. Une preuve de commande de test pourra compléter
+persisté est implémenté par `promotionEvidenceDossierService.js` : le dossier
+de preuve persiste `replay_receipt_id` et revérifie le reçu de rejeu lié au
+run au scellement. Une preuve de commande de test pourra compléter
 cette preuve, mais ne la remplacera pas.
 
 ## Conséquences

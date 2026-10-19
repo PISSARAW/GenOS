@@ -1,10 +1,11 @@
 # SHEV — Système d'homéorhèse étendue vérifiée
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
-- **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-06
-- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0650](../adr/0650-cycle-cicatrisation-shev.md)
+- **Portée** : responsabilité persistante, observations, initiatives, suivi des effets et cycle durable de cicatrisation
+- **Dernière revue** : 2026-10-19
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0650b](../adr/0650-cycle-cicatrisation-shev.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
+- **Qualification** : [campagne ciblée du 19 octobre 2026](../06-qualite-preuves/qualification-servicenow-kore-gitlab-2026-10-19.md)
 
 ## 1. Définition et frontière
 
