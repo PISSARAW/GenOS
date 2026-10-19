@@ -1,0 +1,20 @@
+{
+  "schema": "genos.action-surface-bindings/v1",
+  "actions": {
+    "syncytium.session.events@1.0.0": {
+      "mcp": {
+        "tool": "genos_topology_session",
+        "fixedArguments": { "operation": "events" }
+      },
+      "rest": {
+        "status": "wired",
+        "mode": "admission_only",
+        "target": "/api/action-genomes/:id/:version/evaluate"
+      },
+      "cli": {
+        "status": "descriptive",
+        "reason": "Aucune commande CLI ActionGenome n'est câblée."
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "genos.action-genome/v1",
+  "identity": {
+    "id": "syncytium.session.events",
+    "version": "1.0.0",
+    "description": "Lit les événements d'une session Syncytium depuis une révision causale observée."
+  },
+  "contract": {
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "after_revision"],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1 },
+        "after_revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "outputSchema": { "type": "object" },
+    "preconditions": [
+      { "path": "/state/revision", "operator": "gte", "value": 0 }
+    ],
+    "postconditions": [
+      { "path": "/result/sessionId", "operator": "exists", "value": true }
+    ],
+    "state": {
+      "reads": ["/syncytium/session/*/events"],
+      "writes": []
+    },
+    "effects": [
+      { "kind": "read", "target": "syncytium.session.events" }
+    ]
+  },
+  "authority": {
+    "permissions": ["topology_read"],
+    "leases": ["genos_topology_session"]
+  },
+  "budget": {
+    "maxDurationMs": 5000,
+    "maxCostUnits": 1
+  },
+  "reversibility": {
+    "mode": "not_applicable",
+    "blastRadius": "none",
+    "compensation": null
+  },
+  "evidence": {
+    "expected": ["topology-session-events-receipt"]
+  }
+}
