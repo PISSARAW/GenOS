@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-shev-coding-stewardship', 'Persist causal coding responsibility beyond delivery', async (db) => {
+    await require('./migrateShevCodingStewardship').migrateShevCodingStewardship(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
