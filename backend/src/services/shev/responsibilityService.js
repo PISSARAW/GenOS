@@ -25,16 +25,20 @@ function validateDimensions(dimensions) {
   }
 }
 
+function validEndogenousBounds(policy) {
+  return Number.isSafeInteger(policy.cooldownMs) && policy.cooldownMs >= 1000
+    && Number.isSafeInteger(policy.windowMs) && policy.windowMs >= policy.cooldownMs
+    && Number.isSafeInteger(policy.maxActionsPerWindow)
+    && policy.maxActionsPerWindow >= 1 && policy.maxActionsPerWindow <= 100;
+}
+
 function validateEndogenousPolicy(policy) {
   if (policy === undefined) return null;
   if (!policy || policy.enabled !== true || !nonEmpty(policy.observerKeyId)) {
     throw new TypeError('SHEV endogenous policy requires an observer identity.');
   }
   publicKeyOf(policy.observerPublicKey);
-  if (!Number.isSafeInteger(policy.cooldownMs) || policy.cooldownMs < 1000
-    || !Number.isSafeInteger(policy.windowMs) || policy.windowMs < policy.cooldownMs
-    || !Number.isSafeInteger(policy.maxActionsPerWindow)
-    || policy.maxActionsPerWindow < 1 || policy.maxActionsPerWindow > 100) {
+  if (!validEndogenousBounds(policy)) {
     throw new TypeError('SHEV endogenous policy requires bounded cooldown and action budget.');
   }
   return { enabled: true, observerKeyId: policy.observerKeyId,
