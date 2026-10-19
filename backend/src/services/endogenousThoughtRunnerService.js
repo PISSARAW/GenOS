@@ -379,7 +379,13 @@ async function runQueuedThought(db, rawInput) {
     const executed = await execution.executeReservation(db, { ...context,
       defaultResult: { proposal: proposalPayload(context), evidenceRefs: [] },
       boundaries: runContract.BOUNDARIES });
-    const result = solverResult(context, executed.result, executed.usage);
+    let result;
+    try { result = solverResult(context, executed.result, executed.usage); }
+    catch (error) {
+      await execution.stopReservation(db, { ...context,
+        errorCode: error.code || 'ENDOGENOUS_RUN_RESULT_INVALID' });
+      throw error;
+    }
     run = await materializeRun(db, { ...context, solverResult: result,
       usage: result.usage });
     run.replayed = false;

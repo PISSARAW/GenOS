@@ -261,6 +261,21 @@ async function testCancellation() {
   });
 }
 
+async function testRejectedMeasuredUsageStopsReservation() {
+  await freshScenario('invalid-usage', async ({ db, keys }) => {
+    const prepared = await preparedSubject(db, keys);
+    const worker = async () => ({ evidenceRefs: [] });
+    const usageMeter = { snapshot: async () => ({ tokens: 999999, usd: 999, seconds: 999 }) };
+    await expectCode(runner.runQueuedThought(db, request(prepared.subject,
+      prepared.authorization, { worker, sandbox: sandboxAdapter(), usageMeter })),
+    'ENDOGENOUS_RUN_BUDGET_EXCEEDED');
+    const reservation = await db.get(`SELECT status,error_code
+      FROM endogenous_thought_run_reservations`);
+    assert.deepEqual(reservation,
+      { status: 'failed', error_code: 'ENDOGENOUS_RUN_BUDGET_EXCEEDED' });
+  });
+}
+
 async function main() {
   const filename = path.join(os.tmpdir(), `ett-runner-${crypto.randomUUID()}.sqlite`);
   const keys = crypto.generateKeyPairSync('ed25519');
@@ -280,6 +295,7 @@ async function main() {
   await testDurableReservationAndMeter();
   await testRecoveryDoesNotReinvoke();
   await testCancellation();
+  await testRejectedMeasuredUsageStopsReservation();
 }
 
 main().then(() => console.log('Authorized endogenous read-only runner tests passed.'))
