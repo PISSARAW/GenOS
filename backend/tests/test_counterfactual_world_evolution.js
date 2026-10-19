@@ -61,11 +61,42 @@ async function main() {
     assert.equal(decision.promotionAllowed, false);
     assert.equal(decision.responsibility.authorityRef, 'delegation:web-owner');
     assert.equal(decision.responsibility.mandateVersion, 1);
+    assert.ok(decision.worldPrediction.transitionId);
     assert.equal(decision.evaluations.find((item) => item.branchId === 'ambitious').permitted, false);
     const abstention = await evolution.decideAction(db, { projectId: 'project-web',
       planId: plan.planId, policy: { maxRisk: 0, maxCost: 1,
         riskWeight: 1, costWeight: 1, minUtility: 0 } });
     assert.equal(abstention.outcome, 'ABSTAIN');
+    const simulated = { projectId: 'project-web', planId: plan.planId,
+      branchId: decision.selectedBranchId, observation: { realityMode: 'counterfactual',
+        independent: true, origin: 'counterfactual_simulated', evidenceRef: 'simulation:1',
+        verifierId: 'independent-auditor', observedAt: '2026-11-01T00:00:00.000Z',
+        succeeded: true, value: 0.24 } };
+    await assert.rejects(evolution.validateObservation(db, simulated), /independent, real/);
+    const selfVerified = { ...simulated, observation: { ...simulated.observation,
+      realityMode: 'real', origin: 'tool_observed', evidenceRef: 'observation:self',
+      verifierId: 'planner-web' } };
+    await assert.rejects(evolution.validateObservation(db, selfVerified), /independent of planner/);
+    const observed = { ...simulated, observation: { ...simulated.observation,
+      realityMode: 'real', origin: 'tool_observed', evidenceRef: 'observation:real:1',
+      verifierId: 'independent-auditor', executorAgentId: 'web-executor' } };
+    const effect = await evolution.validateObservation(db, observed);
+    assert.equal(effect.evidenceClass, 'independent_real_observation');
+    assert.equal(effect.promotionAllowed, false);
+    assert.equal(effect.requiresPromotionGate, true);
+    assert.equal(effect.calibration.brierScore, 0.09);
+    assert.equal(effect.worldModelUpdate.matched, true);
+    assert.equal(effect.responsibility.authorityRef, 'delegation:web-owner');
+    const replay = await evolution.validateObservation(db, observed);
+    assert.equal(replay.replayed, true);
+    const finalState = await new (require('../src/services/adaptiveStateService').AdaptiveStateService)(db)
+      .restoreObject(evolution.SCOPE, 'project-web');
+    assert.deepEqual(finalState.calibration, { sampleCount: 1, meanBrier: 0.09 });
+    await db.run("UPDATE shev_responsibilities SET status='retired' WHERE project_id=?", 'project-web');
+    const afterRevocation = { ...observed, observation: { ...observed.observation,
+      evidenceRef: 'observation:real:after-revocation' } };
+    await assert.rejects(evolution.validateObservation(db, afterRevocation),
+      /Persistent responsibility changed/);
   } finally {
     await db.close();
   }

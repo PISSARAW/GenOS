@@ -38,23 +38,36 @@ function baselineOf(input) {
     realityMode: 'real' };
 }
 
+function validCandidateCount(candidates) {
+  return Array.isArray(candidates) && candidates.length >= MIN_CANDIDATES
+    && candidates.length <= MAX_CANDIDATES;
+}
+
+function validCandidateShape(candidate) {
+  if (!candidate) return false;
+  const fields = [candidate.id, candidate.action, candidate.horizon, candidate.requiredPermission];
+  return fields.every(nonEmpty);
+}
+
+function validateCandidate(candidate, context) {
+  if (!validCandidateShape(candidate)) {
+    throw new TypeError('Each candidate requires id, action, horizon and requiredPermission.');
+  }
+  if (context.ids.has(candidate.id)) throw new TypeError('Candidate ids must be distinct.');
+  if (candidate.metric !== context.baseline.metric || candidate.horizon !== context.horizon) {
+    throw new TypeError('Candidate predictions must share the baseline metric and horizon.');
+  }
+  context.ids.add(candidate.id);
+}
+
 function validateCandidates(input, baseline) {
-  const candidates = input?.candidates;
-  if (!Array.isArray(candidates)
-    || candidates.length < MIN_CANDIDATES || candidates.length > MAX_CANDIDATES) {
+  if (!validCandidateCount(input?.candidates)) {
     throw new TypeError('World evolution requires 2-4 counterfactual candidates.');
   }
-  const ids = new Set();
+  const candidates = input.candidates;
+  const context = { ids: new Set(), baseline, horizon: input.horizon };
   for (const candidate of candidates) {
-    if (!candidate || !nonEmpty(candidate.id) || !nonEmpty(candidate.action)
-      || !nonEmpty(candidate.horizon) || !nonEmpty(candidate.requiredPermission)) {
-      throw new TypeError('Each candidate requires id, action, horizon and requiredPermission.');
-    }
-    if (ids.has(candidate.id)) throw new TypeError('Candidate ids must be distinct.');
-    if (candidate.metric !== baseline.metric || candidate.horizon !== input.horizon) {
-      throw new TypeError('Candidate predictions must share the baseline metric and horizon.');
-    }
-    ids.add(candidate.id);
+    validateCandidate(candidate, context);
   }
 }
 
@@ -133,11 +146,22 @@ function chooseEvaluation(evaluations, policy) {
   return eligible[0] || null;
 }
 
-async function persistDecision(db, projectId, state, decision) {
+async function registerWorldPrediction(db, plan, selected) {
+  if (!selected) return null;
+  const branch = plan.branches.find((item) => item.branchId === selected.branchId);
+  const actionId = `${plan.planId}:${branch.branchId}`;
+  const transition = await require('./worldModelService').predictTransition(db, plan.projectId, {
+    actionId, action: branch.action, expectSuccess: true,
+    expectedState: { [branch.prediction.metric]: branch.prediction.value }
+  });
+  return { actionId, transitionId: transition.id };
+}
+
+async function persistDecision(db, input) {
   if (!db) return;
-  const decisions = Array.isArray(state.decisions) ? state.decisions : [];
-  await new AdaptiveStateService(db).persistObject(SCOPE, projectId,
-    { ...state, decisions: [...decisions, decision].slice(-MAX_PLANS) }, decisions.length + 1);
+  const decisions = Array.isArray(input.state.decisions) ? input.state.decisions : [];
+  await new AdaptiveStateService(db).persistObject(SCOPE, input.projectId,
+    { ...input.state, decisions: [...decisions, input.decision].slice(-MAX_PLANS) }, decisions.length + 1);
 }
 
 async function decideAction(db, input) {
@@ -154,15 +178,123 @@ async function decideAction(db, input) {
   const policy = policyOf(input);
   const evaluations = plan.branches.map((branch) => evaluateBranch(branch, { policy, responsibility }));
   const selected = chooseEvaluation(evaluations, policy);
+  const worldPrediction = await registerWorldPrediction(db, plan, selected);
   const decision = { schema: 'genos.counterfactual-world-decision/v1',
     decisionId: `world-decision-${crypto.randomUUID()}`, planId: plan.planId,
     projectId: input.projectId, outcome: selected ? 'PROPOSE_ACTION' : 'ABSTAIN',
-    selectedBranchId: selected?.branchId || null, evaluations,
+    selectedBranchId: selected?.branchId || null, evaluations, worldPrediction,
     responsibility: responsibilityRef(responsibility), promotionAllowed: false,
     requiredNextEvidence: 'independent_real_observation',
     decidedAt: input.now || new Date().toISOString() };
-  await persistDecision(db, input.projectId, state, decision);
+  await persistDecision(db, { projectId: input.projectId, state, decision });
   return decision;
+}
+
+function realObservation(input) {
+  const observation = input?.observation;
+  const realOrigins = new Set(['external_observed', 'tool_observed', 'other_agent_observed']);
+  if (!observation || observation.realityMode !== 'real' || observation.independent !== true
+    || !realOrigins.has(observation.origin) || !nonEmpty(observation.evidenceRef)
+    || !nonEmpty(observation.verifierId) || !nonEmpty(observation.observedAt)
+    || typeof observation.succeeded !== 'boolean') {
+    throw new TypeError('Validation requires an independent, real and provenance-bearing observation.');
+  }
+  return { ...observation, value: finiteNumber(observation.value, 'observation.value') };
+}
+
+function assertIndependent(observation, plan) {
+  if (observation.verifierId === plan.plannerAgentId
+    || observation.verifierId === observation.executorAgentId) {
+    throw new Error('The real observation verifier must be independent of planner and executor.');
+  }
+}
+
+function decisionFor(state, input) {
+  return [...(state.decisions || [])].reverse().find((item) => item.planId === input.planId
+    && item.selectedBranchId === input.branchId && item.outcome === 'PROPOSE_ACTION');
+}
+
+function assertResponsibility(current, recorded) {
+  if (!current || current.status !== 'active' || current.authorityRef !== recorded.authorityRef
+    || current.mandateVersion !== recorded.mandateVersion) {
+    throw new Error('Persistent responsibility changed; a new decision is required.');
+  }
+}
+
+function calibrationOf(branch, observation) {
+  const outcome = observation.succeeded ? 1 : 0;
+  const brierScore = (branch.prediction.probability - outcome) ** 2;
+  return { predictedProbability: branch.prediction.probability, outcome,
+    brierScore: Math.round(brierScore * 1000000) / 1000000 };
+}
+
+function calibrationSummary(effects) {
+  if (!effects.length) return { sampleCount: 0, meanBrier: null };
+  const total = effects.reduce((sum, item) => sum + item.calibration.brierScore, 0);
+  return { sampleCount: effects.length,
+    meanBrier: Math.round((total / effects.length) * 1000000) / 1000000 };
+}
+
+async function observeWorldModel(db, input) {
+  const metric = input.branch.prediction.metric;
+  return require('./worldModelService').observeTransition(db, input.plan.projectId, {
+    actionId: input.decision.worldPrediction.actionId,
+    success: input.observation.succeeded,
+    observedState: { [metric]: input.observation.value }
+  });
+}
+
+function requireValidationIdentity(input) {
+  const fields = [input?.projectId, input?.planId, input?.branchId];
+  if (!fields.every(nonEmpty)) {
+    throw new TypeError('World validation requires projectId, planId and branchId.');
+  }
+}
+
+function validationSubject(state, input) {
+  const plan = (state.plans || []).find((item) => item.planId === input.planId);
+  const decision = decisionFor(state, input);
+  const branch = plan?.branches.find((item) => item.branchId === input.branchId);
+  if (!plan || !decision) throw new Error('Observation does not match a proposed counterfactual action.');
+  if (!branch || !decision.worldPrediction) {
+    throw new Error('Observation does not match a proposed counterfactual action.');
+  }
+  return { plan, decision, branch };
+}
+
+function effectOf(input) {
+  const { plan, decision, branch, observation } = input;
+  return { schema: 'genos.observed-world-effect/v1',
+    effectId: `world-effect-${crypto.randomUUID()}`, projectId: plan.projectId,
+    planId: plan.planId, decisionId: decision.decisionId, branchId: branch.branchId,
+    status: observation.succeeded ? 'supported' : 'refuted',
+    evidenceClass: 'independent_real_observation', promotionAllowed: false,
+    requiresPromotionGate: true, calibration: calibrationOf(branch, observation),
+    worldModelUpdate: input.worldModelUpdate,
+    provenance: { evidenceRef: observation.evidenceRef, origin: observation.origin,
+      realityMode: observation.realityMode, verifierId: observation.verifierId,
+      observedAt: observation.observedAt,
+      predictionTransitionId: decision.worldPrediction.transitionId },
+    responsibility: decision.responsibility };
+}
+
+async function validateObservation(db, input) {
+  requireValidationIdentity(input);
+  const observation = realObservation(input);
+  const state = await loadState(db, input.projectId);
+  const replay = (state.effects || []).find((item) => item.provenance.evidenceRef === observation.evidenceRef);
+  if (replay) return { ...replay, replayed: true };
+  const { plan, decision, branch } = validationSubject(state, input);
+  assertIndependent(observation, plan);
+  const responsibility = await getResponsibility(db, input.projectId);
+  assertResponsibility(responsibility, decision.responsibility);
+  const worldModelUpdate = await observeWorldModel(db,
+    { plan, decision, branch, observation });
+  const effect = effectOf({ plan, decision, branch, observation, worldModelUpdate });
+  const effects = [...(state.effects || []), effect].slice(-MAX_PLANS);
+  await new AdaptiveStateService(db).persistObject(SCOPE, input.projectId,
+    { ...state, effects, calibration: calibrationSummary(effects) }, effects.length);
+  return effect;
 }
 
 async function planScenarios(db, input) {
@@ -184,4 +316,4 @@ async function planScenarios(db, input) {
   return plan;
 }
 
-module.exports = { SCOPE, planScenarios, decideAction };
+module.exports = { SCOPE, planScenarios, decideAction, validateObservation };
