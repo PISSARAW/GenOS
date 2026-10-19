@@ -11,9 +11,9 @@ const manifest = manifests.sealSkillManifest({
   requestedPermissions: ['browser.read'], rollbackTarget: { version: '2.0.0', artifactHash: hashes[1] }
 });
 
-function evidence(domain, artifactHash, verifierId, overrides = {}) {
+function evidence(domain, artifactHash, options = {}) {
   return { domain, split: 'held_out', metric: 'verified-benefit', direction: 'higher',
-    baseline: 0.4, candidate: 0.7, artifactHash, verifierId, independent: true, ...overrides };
+    baseline: 0.4, candidate: 0.7, artifactHash, independent: true, ...options };
 }
 
 function validInput() {
@@ -22,15 +22,15 @@ function validInput() {
     lease: { skillId: manifest.skillId, version: manifest.version, manifestHash: manifest.manifestHash,
       leaseId: 'lease-1', approvalId: 'approval-1', permissions: ['browser.read'],
       expiresAt: '2031-01-01T00:00:00.000Z' },
-    heldOutTrials: [evidence('software', hashes[2], 'verifier-a'),
-      evidence('mathematics', hashes[3], 'verifier-b')],
+    heldOutTrials: [evidence('software', hashes[2], { verifierId: 'verifier-a' }),
+      evidence('mathematics', hashes[3], { verifierId: 'verifier-b' })],
     responsibility: { ownerKind: 'external', ownerId: 'product-owner',
       obligationId: 'objective-42', metric: 'verified-benefit' },
-    externalBenefit: evidence('production', hashes[4], 'external-verifier',
-      { responsibilityId: 'objective-42' }),
+    externalBenefit: evidence('production', hashes[4],
+      { verifierId: 'external-verifier', responsibilityId: 'objective-42' }),
     regressionWindows: [
-      evidence('production', hashes[0], 'monitor-a', { contextHash: '2'.repeat(64), regression: false }),
-      evidence('production', hashes[1], 'monitor-b', { contextHash: '3'.repeat(64), regression: false })
+      evidence('production', hashes[0], { verifierId: 'monitor-a', contextHash: '2'.repeat(64), regression: false }),
+      evidence('production', hashes[1], { verifierId: 'monitor-b', contextHash: '3'.repeat(64), regression: false })
     ]
   };
 }

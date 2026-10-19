@@ -10,10 +10,11 @@ function evaluateSkillRelease(input) {
     transfer: assessTransfer(input), responsibility: assessResponsibility(input),
     regression: assessRegression(input)
   };
-  if (assessments.regression.status === 'regressed') return rollbackDecision(input, authorization, assessments);
+  const context = { input, authorization, assessments };
+  if (assessments.regression.status === 'regressed') return rollbackDecision(context);
   const reasons = blockedReasons(input, authorization, assessments);
-  if (reasons.length) return decision('blocked', input, authorization, assessments, reasons);
-  return { ...decision('ready_for_promotion_review', input, authorization, assessments, []),
+  if (reasons.length) return decision({ ...context, status: 'blocked', reasons });
+  return { ...decision({ ...context, status: 'ready_for_promotion_review', reasons: [] }),
     promotionAuthority: 'none', automaticPromotion: false };
 }
 
@@ -68,13 +69,14 @@ function blockedReasons(input, authorization, assessments) {
   return [...new Set(reasons.filter(Boolean))];
 }
 
-function rollbackDecision(input, authorization, assessments) {
-  return { ...decision('rollback_required', input, authorization, assessments, ['regression-detected']),
+function rollbackDecision(context) {
+  return { ...decision({ ...context, status: 'rollback_required', reasons: ['regression-detected'] }),
     rollback: { automatic: false, requiresAuthorization: true,
-      target: input?.manifest?.rollbackTarget || null } };
+      target: context.input?.manifest?.rollbackTarget || null } };
 }
 
-function decision(status, input, authorization, assessments, reasons) {
+function decision(context) {
+  const { status, input, authorization, assessments, reasons } = context;
   return { schema: 'genos.gvx.reusable-skill-decision/v1', status,
     skillId: input?.manifest?.skillId || null, version: input?.manifest?.version || null,
     manifestHash: input?.manifest?.manifestHash || null, authorization, assessments, reasons };

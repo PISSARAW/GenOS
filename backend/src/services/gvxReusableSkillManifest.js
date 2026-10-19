@@ -39,15 +39,23 @@ function authorizeSkillManifest(manifest, lease, now = Date.now()) {
 
 function manifestErrors(input) {
   if (!input || typeof input !== 'object') return ['skill-manifest-required'];
-  const errors = [];
-  if (!ID.test(input.skillId || '')) errors.push('skill-id-invalid');
-  if (!VERSION.test(input.version || '')) errors.push('skill-version-invalid');
-  if (!HASH.test(input.artifactHash || '')) errors.push('skill-artifact-hash-invalid');
-  if (!ID.test(input.sourceDomain || '')) errors.push('skill-source-domain-invalid');
-  if (!validProvenance(input.provenance)) errors.push('skill-provenance-invalid');
-  if (!validPermissions(input.requestedPermissions)) errors.push('skill-permissions-invalid');
-  if (!validRollback(input.rollbackTarget, input.version)) errors.push('skill-rollback-target-invalid');
-  return errors;
+  return [...identityErrors(input), ...lineageErrors(input), ...controlErrors(input)];
+}
+
+function identityErrors(input) {
+  return [!ID.test(input.skillId || '') && 'skill-id-invalid',
+    !VERSION.test(input.version || '') && 'skill-version-invalid',
+    !HASH.test(input.artifactHash || '') && 'skill-artifact-hash-invalid',
+    !ID.test(input.sourceDomain || '') && 'skill-source-domain-invalid'].filter(Boolean);
+}
+
+function lineageErrors(input) {
+  return validProvenance(input.provenance) ? [] : ['skill-provenance-invalid'];
+}
+
+function controlErrors(input) {
+  return [!validPermissions(input.requestedPermissions) && 'skill-permissions-invalid',
+    !validRollback(input.rollbackTarget, input.version) && 'skill-rollback-target-invalid'].filter(Boolean);
 }
 
 function normalizedProvenance(provenance) {
@@ -76,11 +84,24 @@ function validRollback(target, version) {
 }
 
 function validLeaseIdentity(manifest, lease, now) {
+  return validLeaseBinding(manifest, lease) && validLeaseReceipt(lease)
+    && validLeaseExpiry(lease, now);
+}
+
+function validLeaseBinding(manifest, lease) {
   return Boolean(lease && lease.skillId === manifest.skillId && lease.version === manifest.version
-    && lease.manifestHash === manifest.manifestHash && typeof lease.leaseId === 'string' && lease.leaseId.trim()
+    && lease.manifestHash === manifest.manifestHash);
+}
+
+function validLeaseReceipt(lease) {
+  return Boolean(typeof lease.leaseId === 'string' && lease.leaseId.trim()
     && typeof lease.approvalId === 'string' && lease.approvalId.trim()
-    && Array.isArray(lease.permissions) && Number.isFinite(Date.parse(lease.expiresAt))
-    && Date.parse(lease.expiresAt) > now);
+    && Array.isArray(lease.permissions));
+}
+
+function validLeaseExpiry(lease, now) {
+  const expiresAt = Date.parse(lease.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > now;
 }
 
 function skillError(code, errors) { return Object.assign(new Error(errors.join(',')), { code, errors }); }
