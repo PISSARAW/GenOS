@@ -13,14 +13,17 @@ function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function validProjectWindow(plan, candidateId, window) {
+  const scoped = window.responsibilityId === plan.responsibilityId && window.candidateId === candidateId;
+  return scoped && Number.isFinite(window.baselineOutcome) && Number.isFinite(window.candidateOutcome);
+}
+
 function projectWindowErrors(plan, evaluation, windows) {
   if (!Array.isArray(windows) || windows.length < 3) return ['project-windows-insufficient'];
   const ids = windows.map((window) => window.observationId);
   const contexts = new Set(windows.map((window) => window.contextHash));
   const finalId = evaluation.finalEvaluation?.candidateId;
-  const scoped = windows.every((window) => window.responsibilityId === plan.responsibilityId
-    && window.candidateId === finalId && Number.isFinite(window.baselineOutcome)
-    && Number.isFinite(window.candidateOutcome));
+  const scoped = windows.every((window) => validProjectWindow(plan, finalId, window));
   const errors = [];
   if (new Set(ids).size !== ids.length || ids.some((id) => !id)) errors.push('project-window-identities-invalid');
   if (contexts.size < 2 || [...contexts].some((value) => !value)) errors.push('project-context-diversity-required');

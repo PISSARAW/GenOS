@@ -48,6 +48,7 @@ reproduction, et les 8 modes de composition (topologies).
 
 ## Développement vérifié GVX
 
+- [campagne-evolution-aide2.md](campagne-evolution-aide2.md) — campagne multi-générations, holdout/OOD, reward hacking et double preuve causale non promotrice.
 - [profil-execution-gvx.md](profil-execution-gvx.md) — configuration du cycle standard AGOW et du service externe.
 - [adaptateurs-gvx-runtime.md](adaptateurs-gvx-runtime.md) — adaptateurs standard et intégrations personnalisées.
 - [nursery-experimentale-gvx.md](nursery-experimentale-gvx.md) — essais appariés et preuves de mesures exécutées.
