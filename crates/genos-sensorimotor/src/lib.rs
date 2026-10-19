@@ -5,6 +5,7 @@ use xcap::Monitor;
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
+use std::collections::BTreeMap;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 pub fn capture_screen_base64() -> Result<(String, u32, u32), String> {
@@ -36,6 +37,64 @@ pub struct ActionStep {
     pub y: Option<i32>,
     pub text: Option<String>,
     pub button: Option<String>,
+}
+
+/// Numeric state variables that can be compared across a predicted interaction.
+/// Screen capture currently contributes dimensions and encoded image size; it does
+/// not claim OCR or semantic visual understanding.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StateObservation {
+    pub metrics: BTreeMap<String, f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PredictionContract {
+    pub expected: StateObservation,
+    pub tolerance: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SensorimotorDiscrepancy {
+    pub expected: StateObservation,
+    pub observed: StateObservation,
+    pub prediction_error: f64,
+    pub compared_metrics: usize,
+    pub within_tolerance: bool,
+}
+
+/// Execute one bounded desktop step, capture the resulting screen, and compare
+/// registered numeric metrics against the prediction contract.
+pub fn execute_predictive_step(
+    contract: &PredictionContract,
+    step: &ActionStep,
+) -> Result<SensorimotorDiscrepancy, String> {
+    execute_actions(std::slice::from_ref(step))?;
+    let (image, width, height) = capture_screen_base64()?;
+    let observed = StateObservation { metrics: BTreeMap::from([
+        ("screen.width".to_string(), f64::from(width)),
+        ("screen.height".to_string(), f64::from(height)),
+        ("screen.png_base64_bytes".to_string(), image.len() as f64),
+    ]) };
+    compare_observations(contract, observed)
+}
+
+fn compare_observations(
+    contract: &PredictionContract,
+    observed: StateObservation,
+) -> Result<SensorimotorDiscrepancy, String> {
+    if !contract.tolerance.is_finite() || contract.tolerance < 0.0 {
+        return Err("prediction tolerance must be finite and non-negative".to_string());
+    }
+    let errors: Vec<f64> = contract.expected.metrics.iter().filter_map(|(metric, expected)| {
+        let actual = observed.metrics.get(metric)?;
+        if !expected.is_finite() || !actual.is_finite() { return None; }
+        Some((actual - expected).abs() / expected.abs().max(1.0))
+    }).collect();
+    if errors.is_empty() { return Err("prediction contract has no comparable captured metrics".to_string()); }
+    let prediction_error = errors.iter().sum::<f64>() / errors.len() as f64;
+    Ok(SensorimotorDiscrepancy { expected: contract.expected.clone(), observed,
+        prediction_error, compared_metrics: errors.len(),
+        within_tolerance: prediction_error <= contract.tolerance })
 }
 
 pub fn execute_action(
@@ -160,4 +219,31 @@ fn press_key(enigo: &mut Enigo, text: Option<&str>) -> Result<(), String> {
         _ => return Err(format!("Unsupported key: {}", text)),
     };
     enigo.key(key, Direction::Click).map_err(|e| format!("Key error: {:?}", e))
+}
+
+#[cfg(test)]
+mod predictive_tests {
+    use super::{compare_observations, PredictionContract, StateObservation};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn computes_normalized_error_from_registered_metrics() {
+        let expected = StateObservation { metrics: BTreeMap::from([
+            ("screen.width".to_string(), 100.0),
+        ]) };
+        let contract = PredictionContract { expected: expected.clone(), tolerance: 0.1 };
+        let observed = StateObservation { metrics: BTreeMap::from([
+            ("screen.width".to_string(), 120.0),
+        ]) };
+        let discrepancy = compare_observations(&contract, observed).unwrap();
+        assert_eq!(discrepancy.compared_metrics, 1);
+        assert!((discrepancy.prediction_error - 0.2).abs() < f64::EPSILON);
+        assert!(!discrepancy.within_tolerance);
+    }
+
+    #[test]
+    fn rejects_contract_without_comparable_metrics() {
+        let contract = PredictionContract { expected: StateObservation::default(), tolerance: 0.1 };
+        assert!(compare_observations(&contract, StateObservation::default()).is_err());
+    }
 }

@@ -3,7 +3,9 @@
 //! Les fonctions sont exposées mais volontairement non exécutées par les tests
 //! (elles pilotent le bureau de la machine hôte).
 
-pub use genos_sensorimotor::{ActionStep, capture_screen_base64, execute_action, execute_actions};
+pub use genos_sensorimotor::{ActionStep, PredictionContract, SensorimotorDiscrepancy,
+    StateObservation, capture_screen_base64, execute_action, execute_actions,
+    execute_predictive_step};
 
 /// Capture l'écran et renvoie `(png_base64, largeur, hauteur)`.
 pub fn capture_screen() -> Result<(String, u32, u32), String> {

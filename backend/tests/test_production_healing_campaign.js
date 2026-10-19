@@ -49,6 +49,17 @@ async function main() {
     assert.ok(campaign.plan.candidates.every(item => item.executionAuthorized === false));
     assert.equal(campaign.plan.stages.coagulation.automaticExecution, false);
     assert.equal(campaign.authorizesProductionChange, false);
+    const enriched = healing.planFor({ observation: { id: 'lesion' },
+      window: { evidence_digest: 'sha256:window' }, metrics: { errorRate: 0.2,
+        averageLatencyMs: 500 }, policy: { maxErrorRate: 0.02, maxAverageLatencyMs: 300 } }, {
+      schema: 'genos.shev-morphogenesis-healing-plan/v1', primaryFamily: 'metabolic',
+      recommendedControl: 'resource_reallocation', candidateScale: 'RESOURCE_REALLOCATION',
+      candidates: [{ id: 'resource_reallocation', action: 'resource_reallocation', family: 'metabolic',
+        executionAuthorized: false }], proofObligations: [], requiresExplicitAuthorization: true,
+      promotionEligible: false });
+    assert.equal(enriched.plan.nosology.primaryFamily, 'metabolic');
+    assert.equal(enriched.plan.candidates.at(-1).executionAuthorized, false);
+    assert.equal(enriched.plan.authorizesProductionChange, false);
     assert.equal((await healing.createCampaign(db, input)).replayed, true);
     await assert.rejects(db.run('DELETE FROM production_healing_campaigns'), /durable evidence/);
     console.log('Production healing campaign planning checks passed.');

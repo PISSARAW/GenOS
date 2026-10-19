@@ -776,6 +776,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0651a](0651-action-genome.md) | ActionGenome comme contrat canonique d’action | Accepté | 2026-10-19 | contrat d’action, admission, reçu causal, REST, CLI, MCP |
 | [0651b](0651-admission-mhc-et-capacites-au-point-effet.md) | Admission MHC et capacités au point d’effet | Accepté pour le MVP local | 2026-10-19 | artefacts d’agents, admission supply-chain, secrets d’exécution |
 | [0652](0652-reparation-guidee-par-traces-gvx.md) | Réparation GVX guidée par traces et maturation d’affinité | Accepté | 2026-10-19 | GVX, AEIS, traces, causalité, mutation bornée |
+| [0653](0653-arc-physiologique-shev-sensorimoteur-morphogenese-immunite-endocrine.md) | Arc physiologique unifié sous gouvernance épistémique | Accepté | 2026-10-19 | Sensorimoteur, SHEV, nosologie, immunité, endocrinologie, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

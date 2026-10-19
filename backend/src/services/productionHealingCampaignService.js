@@ -57,13 +57,60 @@ function candidateContracts() {
       'independent-verifier-quorum'] }));
 }
 
-function planFor(context) {
+function validNosologyCandidate(candidate) {
+  const identifier = /^[a-z][a-z0-9_]{0,63}$/;
+  return identifier.test(candidate?.id || '') && identifier.test(candidate?.action || '')
+    && candidate.executionAuthorized === false;
+}
+
+function validPlanCandidates(plan) {
+  const families = new Set(['autoimmune', 'degenerative', 'infectious', 'genetic', 'cancer',
+    'metabolic', 'cardiovascular', 'psychiatric', 'environmental']);
+  const scales = new Set(['COHORT_REPLACEMENT', 'ROSTER_REDUCTION', 'RESOURCE_REALLOCATION',
+    'COMMUNICATION_REDUCTION', 'LOCAL_REPAIR', null]);
+  const ids = plan.candidates.map((candidate) => candidate.id);
+  return new Set(ids).size === ids.length && plan.candidates.every((candidate) =>
+    validNosologyCandidate(candidate) && (candidate.family === null || families.has(candidate.family))
+      && (candidate.scale === undefined || scales.has(candidate.scale)));
+}
+
+function validNosologyEnvelope(plan) {
+  const families = ['autoimmune', 'degenerative', 'infectious', 'genetic', 'cancer',
+    'metabolic', 'cardiovascular', 'psychiatric', 'environmental'];
+  const scales = ['COHORT_REPLACEMENT', 'ROSTER_REDUCTION', 'RESOURCE_REALLOCATION',
+    'COMMUNICATION_REDUCTION', null];
+  return plan?.schema === 'genos.shev-morphogenesis-healing-plan/v1'
+    && plan.requiresExplicitAuthorization === true && plan.promotionEligible === false
+    && families.includes(plan.primaryFamily) && typeof plan.recommendedControl === 'string'
+    && plan.recommendedControl.length <= 128 && scales.includes(plan.candidateScale);
+}
+
+function validPlanCandidateList(plan) {
+  return Array.isArray(plan?.candidates) && plan.candidates.length > 0
+    && plan.candidates.length <= 10 && validPlanCandidates(plan);
+}
+
+function validPlanObligations(plan) {
+  return Array.isArray(plan?.proofObligations) && plan.proofObligations.length <= 32;
+}
+
+function validNosologyPlan(plan) {
+  return validNosologyEnvelope(plan) && validPlanCandidateList(plan)
+    && validPlanObligations(plan);
+}
+
+function planFor(context, nosologyPlan = null) {
   const severity = severityFor(context.metrics, context.policy);
   const investigators = ['critical', 'high'].includes(severity) ? 3 : 2;
+  const morphCandidates = validNosologyPlan(nosologyPlan) ? nosologyPlan.candidates : [];
   const plan = { schema: 'genos.production-healing-plan/v1',
     sourceObservationId: context.observation.id, evidenceDigest: context.window.evidence_digest,
     thresholds: context.policy, hypotheses: hypotheses(context.policy),
-    candidates: candidateContracts(), stages: {
+    candidates: [...candidateContracts(), ...morphCandidates],
+    nosology: morphCandidates.length ? { primaryFamily: nosologyPlan.primaryFamily,
+      recommendedControl: nosologyPlan.recommendedControl,
+      candidateScale: nosologyPlan.candidateScale,
+      proofObligations: nosologyPlan.proofObligations } : null, stages: {
       nociception: { observationId: context.observation.id, status: 'observed' },
       inflammation: { investigators, maxCandidateExecutions: CANDIDATES.length },
       coagulation: { candidateId: 'rollback', automaticExecution: false },
@@ -104,7 +151,7 @@ async function createCampaign(db, input) {
   [scope.organizationId, scope.projectId, scope.observationId]);
   if (existing) return campaignView(existing, true);
   const context = await sourceContext(db, scope);
-  const planned = planFor(context);
+  const planned = planFor(context, input.nosologyPlan);
   const id = `healing-${randomUUID()}`;
   await db.run(`INSERT INTO production_healing_campaigns
     (id,organization_id,project_id,observation_id,producer_id,severity,status,plan_json,plan_hash)
