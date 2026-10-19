@@ -148,4 +148,117 @@ function investigateCampaign(input = {}) {
       executionStatus: 'NOT_EXECUTED' } };
 }
 
-module.exports = { DEFAULT_POLICY, detectProductionDrift, investigateCampaign };
+function authorizationBlocked(plan, reason) {
+  return { ...plan, status: 'CANDIDATE_READY', decision: 'AUTHORIZATION_BLOCKED', reason,
+    candidate: { ...plan.candidate, authorized: false, executionStatus: 'NOT_EXECUTED' } };
+}
+
+function permissionsCover(requiredPermissions, grantedPermissions) {
+  const granted = new Set(Array.isArray(grantedPermissions) ? grantedPermissions : []);
+  return requiredPermissions.every((permission) => granted.has(permission));
+}
+
+function authorizeCandidate(input = {}) {
+  const plan = input.plan;
+  const receipt = input.authorizationReceipt;
+  if (plan?.status !== 'CANDIDATE_READY') {
+    throw coded('SRE_CANDIDATE_STATE_INVALID', 'Candidate is not awaiting authorization.');
+  }
+  if (plan.circuitBreakerOpen === true) return authorizationBlocked(plan, 'CIRCUIT_BREAKER_OPEN');
+  const nowMs = Date.parse(input.now || new Date().toISOString());
+  const expiresAt = Date.parse(receipt?.expiresAt);
+  if (!Number.isFinite(nowMs) || !Number.isFinite(expiresAt) || expiresAt <= nowMs) {
+    return authorizationBlocked(plan, 'AUTHORIZATION_EXPIRED');
+  }
+  if (receipt?.candidateDigest !== plan.candidate.digest) {
+    return authorizationBlocked(plan, 'CANDIDATE_DIGEST_MISMATCH');
+  }
+  if (!permissionsCover(plan.candidate.requiredPermissions, receipt?.grantedPermissions)) {
+    return authorizationBlocked(plan, 'PERMISSION_MISSING');
+  }
+  const principalId = required(receipt?.principalId, 'SRE_AUTHORITY_PRINCIPAL_REQUIRED');
+  const authorityRef = required(receipt?.evidenceRef, 'SRE_AUTHORITY_EVIDENCE_REQUIRED');
+  return { ...plan, status: 'AUTHORIZED', decision: 'AWAIT_EXTERNAL_EXECUTION',
+    authority: { principalId, evidenceRef: authorityRef, expiresAt: receipt.expiresAt },
+    candidate: { ...plan.candidate, authorized: true, executionStatus: 'NOT_EXECUTED' } };
+}
+
+function unknownEffect(plan, reason) {
+  return { ...plan, status: 'OBSERVING', decision: 'WAIT_FOR_EVIDENCE', reason,
+    productionEffect: { status: 'UNKNOWN', evidenceRefs: [] },
+    agentLearning: { status: 'INELIGIBLE', reason: 'PRODUCTION_EFFECT_UNVERIFIED' } };
+}
+
+function normalizedWindow(item, context) {
+  const observedAt = Date.parse(item?.observedAt);
+  const score = Number(item?.healthScore);
+  const baseline = Number(item?.baselineHealthScore);
+  const evidenceRef = typeof item?.evidenceRef === 'string' ? item.evidenceRef.trim() : '';
+  const verifierId = typeof item?.verifierId === 'string' ? item.verifierId.trim() : '';
+  if (!Number.isFinite(observedAt) || observedAt <= context.appliedAt || observedAt > context.nowMs) return null;
+  if (!Number.isFinite(score) || !Number.isFinite(baseline) || !evidenceRef || !verifierId) return null;
+  return { observedAt, score, baseline, evidenceRef, verifierId,
+    delta: score - baseline };
+}
+
+function observationContext(input, receipt) {
+  const nowMs = Date.parse(input.now || new Date().toISOString());
+  const appliedAt = Date.parse(receipt.appliedAt);
+  if (!Number.isFinite(nowMs) || !Number.isFinite(appliedAt) || appliedAt > nowMs) {
+    throw coded('SRE_ACTION_TIME_INVALID', 'Action timing is invalid.');
+  }
+  return { nowMs, appliedAt };
+}
+
+function rollbackRequired(plan, windows, reason) {
+  return { ...plan, status: 'ROLLBACK_REQUIRED', decision: 'REQUEST_ROLLBACK', reason,
+    rollback: { authorized: false, executionStatus: 'NOT_EXECUTED',
+      planRef: plan.candidate.rollbackRef },
+    productionEffect: { status: 'REGRESSED',
+      evidenceRefs: windows.map((item) => item.evidenceRef) },
+    agentLearning: { status: 'REJECTED', reason: 'PRODUCTION_REGRESSION' } };
+}
+
+function verifiedEffect(plan, windows, actionReceipt) {
+  return { ...plan, status: 'VERIFIED', decision: 'CLOSE_CAMPAIGN',
+    productionEffect: { status: 'IMPROVED', productionChangeRef: actionReceipt.productionChangeRef,
+      evidenceRefs: windows.map((item) => item.evidenceRef), windowCount: windows.length },
+    agentLearning: { status: 'ELIGIBLE', source: 'VERIFIED_PRODUCTION_EFFECT',
+      candidateDigest: plan.candidate.digest } };
+}
+
+function evaluatePostAction(input = {}) {
+  const plan = input.plan;
+  if (plan?.status !== 'AUTHORIZED') {
+    throw coded('SRE_AUTHORIZED_STATE_REQUIRED', 'Post-action verification requires authorization.');
+  }
+  const receipt = input.actionReceipt;
+  if (receipt?.executionStatus !== 'APPLIED' || !receipt.productionChangeRef) {
+    return unknownEffect(plan, 'ACTION_EVIDENCE_MISSING');
+  }
+  if (receipt.candidateDigest !== plan.candidate.digest) {
+    return unknownEffect(plan, 'ACTION_CANDIDATE_MISMATCH');
+  }
+  const context = observationContext(input, receipt);
+  const windows = (Array.isArray(input.observationWindows) ? input.observationWindows : [])
+    .map((item) => normalizedWindow(item, context)).filter(Boolean);
+  const minimumWindows = Math.max(2, Math.floor(finite(input.minimumWindows, 2)));
+  if (input.circuitBreakerOpen === true) return rollbackRequired(plan, windows, 'CIRCUIT_BREAKER_OPEN');
+  const tolerance = Math.max(0, finite(input.regressionTolerance, 0));
+  if (windows.some((item) => item.delta < -tolerance)) {
+    return rollbackRequired(plan, windows, 'PRODUCTION_REGRESSION');
+  }
+  if (windows.length < minimumWindows) return unknownEffect(plan, 'LONGITUDINAL_WINDOW_INCOMPLETE');
+  const excluded = new Set([plan.scope.responsibilityAgentId, plan.authority.principalId]);
+  if (windows.some((item) => excluded.has(item.verifierId))) {
+    return unknownEffect(plan, 'INDEPENDENT_VERIFIER_REQUIRED');
+  }
+  const improvement = Math.max(0, finite(input.minimumImprovement, 0));
+  if (windows.every((item) => item.delta >= improvement)) {
+    return verifiedEffect(plan, windows, receipt);
+  }
+  return unknownEffect(plan, 'PRODUCTION_EFFECT_INCONCLUSIVE');
+}
+
+module.exports = { DEFAULT_POLICY, detectProductionDrift, investigateCampaign,
+  authorizeCandidate, evaluatePostAction };
