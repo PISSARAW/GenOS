@@ -387,6 +387,24 @@ tenus à l'écart; les prédictions de gain et de coût doivent battre les réf�
 neutres sur le jeu de validation. La compilation expose les estimations, leurs
 incertitudes et les erreurs observées. Le gain prudent doit dépasser le coût marginal
 prudent pour retenir une intervention. Sans preuve suffisante, `NO_CHANGE` gagne.
+
+Quand le portefeuille retient une candidate sous la même identité que le classement,
+`policy.decision.organizationExperiment` transforme ce choix en hypothèse
+appariée : l'organisation courante constitue le contrôle `NO_CHANGE`, la candidate
+forme le second bras et une part distincte du budget est proposée au vérificateur.
+Le contrat expose le falsificateur, la métrique primaire, le coût total observé et
+la règle prudente `borne basse du gain > borne haute du coût marginal`. Les deux
+bras doivent rester isolés et le vérificateur doit utiliser un troisième espace.
+Cette « mosaïque somatique appariée » limite le rayon d'effet de l'expérience ; le
+terme est une analogie d'organisation, pas une propriété biologique démontrée.
+
+Ce raccordement est **consultatif** : il ne réserve pas le budget, ne lance pas les
+deux bras, ne produit pas le reçu externe et ne promeut aucune topologie. Une
+abstention, une identité candidate divergente ou un budget incapable de financer
+les deux bras et le vérificateur produit `NO_CHANGE`. Le runtime doit encore relier
+ce plan au producteur d'issues appariées et à la porte d'admission séparée. Voir
+[ADR 0646](../adr/0646-essai-apparie-des-organisations.md).
+
 La validité externe reste bloquée tant que chaque domaine déclaré ne fournit pas
 au moins deux répliques indépendantes (identifiants de réplication distincts et
 espaces de vérification distincts), que tous les candidats ne couvrent pas les
