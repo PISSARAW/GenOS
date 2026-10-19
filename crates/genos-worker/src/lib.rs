@@ -11,6 +11,7 @@
 pub mod contract;
 pub mod cycle;
 pub mod dossier;
+pub mod dreaming;
 pub mod invariants;
 pub mod phenotype;
 pub mod presets;
@@ -30,6 +31,10 @@ pub use cycle::{
 pub use dossier::{
     AdaptiveEnvelope, ClinicalReport, CreativeCandidate, Escalation, ScoutObservation,
     VerificationReport, VerificationVerdict, WorkerDossier, WorkerStatus, status_name,
+};
+pub use dreaming::{
+    BenchRequest, DreamBudget, DreamLabError, EvidenceEnvironment, ResponsibilityGap,
+    SyntheticFinding, SyntheticProbe, TemporaryResponsibilityBench, build_responsibility_bench,
 };
 pub use invariants::{ActionRequest, InvariantViolation, check_action, is_verified_success};
 pub use phenotype::{
