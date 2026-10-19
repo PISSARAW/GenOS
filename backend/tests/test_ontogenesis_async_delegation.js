@@ -29,6 +29,9 @@ async function fixture() {
 }
 
 async function main() {
+  const registered = require('../src/db/migrations/registry').migrationRunners
+    .find((runner) => runner.name === '147-ontogenesis-async-delegation');
+  assert(registered, 'async delegation migration must run during backend bootstrap');
   const ctx = await fixture();
   const input = { missionId: 'mission-1', projectId: ctx.projectId,
     producerId: 'worker-jules', capsulePath: ctx.capsule, baseRevision: 'abc1234' };

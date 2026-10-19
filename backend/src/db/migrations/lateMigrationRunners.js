@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-ontogenesis-async-delegation', 'Persist responsibility-derived delegated missions and fenced checkpoints', async (db) => {
+    await require('./migrateAsyncDelegation').migrateAsyncDelegation(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
