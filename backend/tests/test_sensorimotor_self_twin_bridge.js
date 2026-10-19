@@ -13,17 +13,20 @@ async function main() {
     let shevEvent;
     const result = await bridge.executePredictiveStep({ db,
       scope: { organizationId: 'org', projectId: 'project', entityId: 'agent' },
-      prediction: { target: 'desktop', intervention: 'bounded-click', semanticType: 'capability_gap' },
+      prediction: { target: 'desktop', intervention: 'bounded-click', semanticType: 'capability_gap',
+        effects: [{ metric: 'screen', expected: 10 }] },
       step: { type: 'click', x: 2, y: 3 }, toleratedError: 0.1,
       authorization: { requiresExplicitAuthorization: true, granted: true },
       verifyAuthorization: async () => ({ authorized: true, evidenceRef: 'auth:desktop-step' }),
       executeBoundedAction: async ({ step }) => ({ action: step.type }),
-      observeState: async () => ({ observations: [{ metric: 'screen', predicted: 10, observed: 20 }],
+      observeState: async () => ({ observations: [{ metric: 'screen', predicted: 999, observed: 20 }],
         evidenceRefs: ['artifact:screen'] }),
+      verifyEvidenceRefs: async () => [{ verified: true, artifactHash: 'a'.repeat(64) }],
       candidateSubmitter: async ({ candidate }) => ({ candidateId: candidate.id }),
       notifyShev: async (event) => { shevEvent = event; return { accepted: true }; } });
     assert.equal(result.discrepancy.status, 'measured');
     assert.equal(result.discrepancy.epsilon, 1);
+    assert.deepEqual(result.record.evidenceRefs, ['a'.repeat(64)]);
     assert.equal(result.record.agowCandidate.content.semanticType, 'self_twin_prediction_error');
     assert.equal(shevEvent.kind, 'capability_gap');
     assert.equal(result.promotionEligible, false);

@@ -22,6 +22,7 @@ async function main() {
   let updated;
   await bridge.recordResolution({ episode: { ...result.episode, current_phase: 'healed' },
     nosology: result.nosology, evidenceRefs: ['artifact:resolution'],
+    verifyEvidenceRefs: async () => [{ verified: true, artifactHash: 'b'.repeat(64) }],
     updateProfile: async (record) => { updated = record; } });
   assert.equal(updated.resolution, 'healed');
   await assert.rejects(bridge.recordResolution({ episode: result.episode }), /terminal healing phase/);

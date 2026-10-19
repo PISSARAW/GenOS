@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const endocrine = require('../src/services/shev/developmentalEndocrineBridge');
+const runtimeActions = require('../src/services/shev/runtimeActions');
 
 async function main() {
   const pressure = endocrine.calculatePressure([
@@ -13,6 +14,15 @@ async function main() {
   const jobs = endocrine.prioritizeJobs([{ id: 'memory', dimension: 'memory' },
     { id: 'planning', dimension: 'planning' }], pressure.profile);
   assert.equal(jobs[0].id, 'planning');
+  const scheduled = await runtimeActions.developmentCandidates({ all: async (sql) => {
+    if (sql.includes('SELECT j.initiative_id')) return [
+      { initiative_id: 'job-telemetry', dimension: 'telemetry' },
+      { initiative_id: 'job-planning', dimension: 'planning' }];
+    if (sql.includes('FROM shev_observations o')) return [
+      { dimension: 'planning', kind: 'capability_gap', epistemic_status: 'observed' }];
+    return [{ dimension: 'planning', current_phase: 'relapsed' }];
+  } }, 'project');
+  assert.equal(scheduled[0].initiative_id, 'job-planning');
   const calls = [];
   const result = await endocrine.secretePressure({ db: { all: async (sql) =>
     sql.includes('JOIN shev_observations')

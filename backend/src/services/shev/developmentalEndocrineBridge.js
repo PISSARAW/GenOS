@@ -34,7 +34,7 @@ function addRecurrences(dimensions, episodes) {
   for (const episode of episodes || []) {
     const current = dimensions.get(episode.dimension);
     if (!current) continue;
-    const recurrence = episode.current_phase === 'relapsed' ? 0.35 : 0.1;
+    const recurrence = episode.current_phase === 'relapsed' ? 0.35 : 0.15;
     current.pressure = 1 - (1 - current.pressure) * (1 - recurrence);
   }
 }
@@ -50,11 +50,19 @@ function calculatePressure(observations, episodes) {
 }
 
 async function loadProjectHistory(db, projectId) {
-  const observations = await db.all(`SELECT dimension, kind, epistemic_status FROM shev_observations
-    WHERE project_id = ? ORDER BY created_at`, [projectId]);
+  const observations = await db.all(`SELECT o.dimension, o.kind, o.epistemic_status
+    FROM shev_observations o WHERE o.project_id = ?
+      AND NOT EXISTS (SELECT 1 FROM shev_initiatives i JOIN shev_agent_progress p
+        ON p.initiative_id = i.id WHERE i.project_id = o.project_id
+          AND i.observation_id = o.id AND p.result = 'confirmed')
+      AND NOT EXISTS (SELECT 1 FROM shev_healing_episodes h
+        WHERE h.project_id = o.project_id AND h.source_observation_id = o.id
+          AND h.current_phase = 'healed')
+    ORDER BY o.created_at DESC LIMIT 1000`, [projectId]);
   const episodes = await db.all(`SELECT o.dimension, h.current_phase FROM shev_healing_episodes h
     JOIN shev_observations o ON o.project_id = h.project_id AND o.id = h.source_observation_id
-    WHERE h.project_id = ? ORDER BY h.opened_at`, [projectId]);
+    WHERE h.project_id = ? AND h.current_phase IN ('relapsed', 'scarred')
+    ORDER BY h.opened_at DESC LIMIT 1000`, [projectId]);
   return { observations, episodes };
 }
 

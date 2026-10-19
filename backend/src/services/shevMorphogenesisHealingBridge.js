@@ -1,5 +1,6 @@
 'use strict';
 
+const HASH = /^[a-f0-9]{64}$/;
 const nosologyBridge = require('./morphogenesis/morphogenesisNosologyBridge');
 
 const CANDIDATE_BY_FAMILY = Object.freeze({
@@ -19,10 +20,13 @@ function candidatesFor(response) {
 
 function createHealingPlan(nosology) {
   const response = nosology.response;
+  const blocked = nosology.gate?.status === 'blocked';
   return { schema: 'genos.shev-morphogenesis-healing-plan/v1',
     nosologySchema: nosology.schema, primaryFamily: response.primaryFamily,
     recommendedControl: response.recommendedControl, candidateScale: response.candidateScale,
-    candidates: candidatesFor(response), proofObligations: [...nosology.proofObligations,
+    candidates: blocked ? [{ id: 'no_change', family: response.primaryFamily,
+      action: 'observe_without_change', executionAuthorized: false }] : candidatesFor(response),
+    clinicalGate: nosology.gate?.status || 'unknown', proofObligations: [...nosology.proofObligations,
       { id: 'post_transition_nosology_recheck', required: true,
         proof: 'nouvelle compilation nosologique après transition et preuves liées' }],
     requiresExplicitAuthorization: true, promotionEligible: false };
@@ -47,18 +51,32 @@ async function compileEpisodePlan(input) {
     requiresExplicitAuthorization: true, promotionEligible: false };
 }
 
+function validResolutionInput(input) {
+  return Array.isArray(input?.evidenceRefs) && input.evidenceRefs.length > 0
+    && typeof input.updateProfile === 'function'
+    && typeof input.verifyEvidenceRefs === 'function'
+    && input.nosology?.schema === 'genos.morphogenesis-nosology/v1';
+}
+
+async function verifiedResolutionRefs(input) {
+  const verified = await input.verifyEvidenceRefs(input.evidenceRefs);
+  return Array.isArray(verified) ? verified.filter((item) => item?.verified === true
+    && HASH.test(item.artifactHash || '')).map((item) => item.artifactHash) : [];
+}
+
 async function recordResolution(input) {
   const phase = input?.episode?.current_phase;
   if (!['healed', 'relapsed', 'scarred'].includes(phase)) {
     throw new Error('SHEV terminal healing phase is required for nosology resolution.');
   }
-  if (!Array.isArray(input.evidenceRefs) || input.evidenceRefs.length === 0
-      || typeof input.updateProfile !== 'function') {
+  if (!validResolutionInput(input)) {
     throw new Error('Nosology resolution requires evidence and a profile adapter.');
   }
+  const evidenceRefs = await verifiedResolutionRefs(input);
+  if (!evidenceRefs.length) throw new Error('Nosology resolution evidence was not independently verified.');
   return input.updateProfile({ projectId: input.episode.project_id,
     sourceObservationId: input.episode.source_observation_id, resolution: phase,
-    nosology: input.nosology, evidenceRefs: input.evidenceRefs,
+    nosology: input.nosology, evidenceRefs,
     requiresExplicitAuthorization: true, promotionEligible: false });
 }
 

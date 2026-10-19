@@ -8,6 +8,7 @@ const responsibilities = require('../src/services/shev/responsibilityService');
 const { recordObservation } = require('../src/services/shev/observationService');
 const { compilePending } = require('../src/services/shev/initiativeService');
 const jobs = require('../src/services/shev/developmentJobService');
+const endocrine = require('../src/services/shev/developmentalEndocrineBridge');
 const ledger = require('../src/services/gvxDevelopmentLedger');
 
 const projectId = 'shev-development-jobs';
@@ -62,15 +63,23 @@ async function verify({ windows }) {
 async function testSuccess(db) {
   const initiative = await approve(db, 'gap-success');
   let executions = 0;
+  let endocrineClearance;
   const input = { projectId, initiativeId: initiative.id, verify, perform: async context => {
     assert.equal(context.scope.entityId, scope.entityId);
     assert.equal(context.idempotencyKey, initiative.id);
     assert.equal(context.request.promotionAllowed, false);
     executions += 1;
     return transferReceipt(db, initiative);
-  } };
+  }, authorization: { requiresExplicitAuthorization: true },
+  verifyAuthorization: async () => ({ authorized: true, evidenceRef: 'auth:heldout-clearance' }),
+  modulateEndocrine: async event => { endocrineClearance = event; return { decayed: true }; } };
   const result = await jobs.executeDevelopment(db, input);
   assert.equal(result.progress.result, 'confirmed');
+  assert.equal(endocrineClearance.action, 'decay');
+  assert.equal(endocrineClearance.requiresIndependentHeldoutVerification, true);
+  assert.equal(result.clearance.decayed, true);
+  const history = await endocrine.loadProjectHistory(db, projectId);
+  assert.equal(history.observations.some(item => item.dimension === 'quality'), false);
   assert.equal(result.experimentalCreditIsProjectBenefit, false);
   assert.equal((await db.get('SELECT * FROM shev_development_jobs WHERE initiative_id = ?', [initiative.id])).status, 'completed');
   assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_effects')).n, 0);
@@ -82,6 +91,7 @@ async function testCrash(db) {
   const initiative = await approve(db, 'gap-crash');
   let executions = 0;
   let receipt;
+  let endocrineClearance;
   const input = { projectId, initiativeId: initiative.id, verify, perform: async () => {
     executions += 1;
     receipt = await transferReceipt(db, initiative);
@@ -91,8 +101,13 @@ async function testCrash(db) {
   await assert.rejects(jobs.executeDevelopment(db, input), /not approved/);
   const reconciled = await jobs.reconcileDevelopment(db, { projectId, initiativeId: initiative.id,
     inspect: async () => receipt, verify,
-    authorization: authorize('development-reconciliation', initiative.id, { gvxEventId: receipt.gvxEventId }) });
+    authorization: authorize('development-reconciliation', initiative.id, { gvxEventId: receipt.gvxEventId }),
+    endocrineAuthorization: { requiresExplicitAuthorization: true },
+    verifyEndocrineAuthorization: async () => ({ authorized: true, evidenceRef: 'auth:crash-clearance' }),
+    modulateEndocrine: async event => { endocrineClearance = event; return { decayed: true }; } });
   assert.equal(reconciled.progress.result, 'confirmed');
+  assert.equal(endocrineClearance.action, 'decay');
+  assert.equal(reconciled.clearance.decayed, true);
   assert.equal(executions, 1);
   await assert.rejects(jobs.reconcileDevelopment(db, { projectId, initiativeId: initiative.id }), /not awaiting/);
 }

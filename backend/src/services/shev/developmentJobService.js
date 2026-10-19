@@ -64,13 +64,20 @@ async function executeDevelopment(db, input) {
       guard: () => requireActive(db, { projectId: job.project_id, expectedVersion: job.mandate_version, action: true }) });
     if (!validDevelopmentReceipt(receipt, budget) || elapsedSeconds > budget.seconds) throw new Error('SHEV development receipt lacks costs, transfer or evidence.');
     await requireActive(db, { projectId: job.project_id, expectedVersion: job.mandate_version, action: true });
-    const progress = await recordAgentProgress(db, { ...scope, initiativeId: job.initiative_id,
-      gvxEventId: receipt.gvxEventId, verify });
+    const progressResult = typeof input.modulateEndocrine === 'function' && input.authorization
+      ? await require('./developmentalEndocrineBridge').recordProgressAndClear({ db,
+        progress: { ...scope, initiativeId: job.initiative_id, gvxEventId: receipt.gvxEventId, verify },
+        modulateEndocrine: input.modulateEndocrine, authorization: input.authorization,
+        verifyAuthorization: input.verifyAuthorization })
+      : { progress: await recordAgentProgress(db, { ...scope, initiativeId: job.initiative_id,
+        gvxEventId: receipt.gvxEventId, verify }), clearance: null };
+    const progress = progressResult.progress;
+    const clearance = progressResult.clearance;
     const updated = await db.run(`UPDATE shev_development_jobs SET status = 'completed', receipt_json = ?
       WHERE initiative_id = ? AND status = 'executing' AND execution_token = ?`,
     [JSON.stringify({ receipt, progressId: progress.id, result: progress.result }), job.initiative_id, token]);
     if (updated.changes !== 1) throw new Error('SHEV development fence lost.');
-    return { receipt, progress, experimentalCreditIsProjectBenefit: false };
+    return { receipt, progress, clearance, experimentalCreditIsProjectBenefit: false };
   } catch (error) {
     await db.run(`UPDATE shev_development_jobs SET receipt_json = ? WHERE initiative_id = ? AND execution_token = ?`,
       [JSON.stringify({ error: error.message, reconciliationRequired: true }), job.initiative_id, token]);
@@ -82,6 +89,18 @@ function validDevelopmentReceipt(receipt, budget) {
   return receipt && typeof receipt.gvxEventId === 'string' && evidenceRefs(receipt.evidenceRefs)
     && Number.isFinite(receipt.spentUsd) && receipt.spentUsd >= 0 && receipt.spentUsd <= budget.usd
     && Number.isFinite(receipt.seconds) && receipt.seconds >= 0 && receipt.seconds <= budget.seconds;
+}
+
+async function clearAfterProgress(input) {
+  if (typeof input.modulateEndocrine !== 'function' || !input.authorization) return null;
+  try {
+    const result = await require('./developmentalEndocrineBridge').recordProgressAndClear({
+      db: input.db, progress: input.progress, modulateEndocrine: input.modulateEndocrine,
+      authorization: input.authorization, verifyAuthorization: input.verifyAuthorization });
+    return result.clearance;
+  } catch (error) {
+    return { status: 'deferred', reason: error.code || 'endocrine-clearance-deferred' };
+  }
 }
 
 async function claimDevelopment(db, input) {
@@ -103,7 +122,7 @@ async function reconcileDevelopment(db, input) {
   const receipt = await (input.inspect || adapter('reconcileDevelopment'))({ db, job,
     idempotencyKey: input.initiativeId });
   if (!validDevelopmentReceipt(receipt, JSON.parse(job.budget_json))) throw new Error('SHEV development reconciliation lacks a receipt.');
-  return withTransaction(db, async () => {
+  const reconciled = await withTransaction(db, async () => {
     const responsibility = await requireActive(db, { projectId: input.projectId, action: true });
     await consumeAuthorization(db, { ...input.authorization, operation: 'development-reconciliation',
       projectId: input.projectId, subjectId: input.initiativeId, expectedVersion: responsibility.mandateVersion,
@@ -115,6 +134,12 @@ async function reconcileDevelopment(db, input) {
     if (updated.changes !== 1) throw new Error('SHEV development fence lost.');
     return { receipt, progress };
   });
+  const clearance = await clearAfterProgress({ db,
+    progress: { ...JSON.parse(job.scope_json), initiativeId: input.initiativeId,
+      gvxEventId: receipt.gvxEventId, verify: input.verify || adapter('verifyProgress') },
+    modulateEndocrine: input.modulateEndocrine, authorization: input.endocrineAuthorization,
+    verifyAuthorization: input.verifyEndocrineAuthorization });
+  return { ...reconciled, clearance };
 }
 
 module.exports = { approveDevelopment, executeDevelopment, reconcileDevelopment, developmentDetails };

@@ -102,7 +102,10 @@ function validNosologyPlan(plan) {
 function planFor(context, nosologyPlan = null) {
   const severity = severityFor(context.metrics, context.policy);
   const investigators = ['critical', 'high'].includes(severity) ? 3 : 2;
-  const morphCandidates = validNosologyPlan(nosologyPlan) ? nosologyPlan.candidates : [];
+  const morphCandidates = validNosologyPlan(nosologyPlan)
+    ? nosologyPlan.candidates.filter((candidate) => candidate.id !== 'no_change') : [];
+  const morphCandidateIds = morphCandidates.filter((candidate) => candidate.id !== 'no_change')
+    .map((candidate) => candidate.id);
   const plan = { schema: 'genos.production-healing-plan/v1',
     sourceObservationId: context.observation.id, evidenceDigest: context.window.evidence_digest,
     thresholds: context.policy, hypotheses: hypotheses(context.policy),
@@ -112,9 +115,9 @@ function planFor(context, nosologyPlan = null) {
       candidateScale: nosologyPlan.candidateScale,
       proofObligations: nosologyPlan.proofObligations } : null, stages: {
       nociception: { observationId: context.observation.id, status: 'observed' },
-      inflammation: { investigators, maxCandidateExecutions: CANDIDATES.length },
+      inflammation: { investigators, maxCandidateExecutions: CANDIDATES.length + morphCandidates.length },
       coagulation: { candidateId: 'rollback', automaticExecution: false },
-      cicatrisation: { candidateIds: ['minimal_fix', 'structural_fix'], status: 'unverified' },
+      cicatrisation: { candidateIds: ['minimal_fix', 'structural_fix', ...morphCandidateIds], status: 'unverified' },
       scar: { status: 'pending_canary' }
     }, authorizesProductionChange: false };
   return { severity, plan, planHash: fingerprint(plan) };
@@ -140,6 +143,21 @@ async function sourceContext(db, input) {
     policy: JSON.parse(window.policy_json) };
 }
 
+async function nosologyPlanFor(db, scope, input) {
+  if (input.nosologyPlan) return input.nosologyPlan;
+  const episode = await db.get(`SELECT id FROM shev_healing_episodes
+    WHERE project_id = ? AND source_observation_id = ?`, [scope.projectId, scope.observationId]);
+  if (!episode) return null;
+  const bridge = require('./shevMorphogenesisHealingBridge');
+  const evidenceAdapter = require('./morphogenesis/morphogenesisNosologyEvidence');
+  const nosologyScope = { db, agentIds: [scope.producerId], missionId: scope.producerId,
+    organizationId: scope.organizationId, projectId: scope.projectId };
+  const compiled = await bridge.compileEpisodePlan({ db, episodeId: episode.id,
+    orchestratorId: scope.producerId,
+    loadEvidence: () => evidenceAdapter.loadNosologyEvidence(nosologyScope) });
+  return compiled.plan;
+}
+
 async function createCampaign(db, input) {
   const scope = { organizationId: requiredText(input?.organizationId,
     'PRODUCTION_HEALING_ORGANIZATION_REQUIRED'), projectId: requiredText(input?.projectId,
@@ -151,7 +169,8 @@ async function createCampaign(db, input) {
   [scope.organizationId, scope.projectId, scope.observationId]);
   if (existing) return campaignView(existing, true);
   const context = await sourceContext(db, scope);
-  const planned = planFor(context, input.nosologyPlan);
+  const nosologyPlan = await nosologyPlanFor(db, scope, input);
+  const planned = planFor(context, nosologyPlan);
   const id = `healing-${randomUUID()}`;
   await db.run(`INSERT INTO production_healing_campaigns
     (id,organization_id,project_id,observation_id,producer_id,severity,status,plan_json,plan_hash)

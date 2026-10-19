@@ -95,9 +95,10 @@ async function executeCampaign(input) {
   const receipts = results.flatMap((result) => result.receipts);
   const adjudication = verifier.adjudicateCampaign(input.campaign, receipts, { quorum: input.quorum || 2 });
   const winner = adjudication.recommendations[0] || null;
-  const canaryAdmission = winner && typeof input.canaryGate === 'function'
+  const canaryAdmission = !winner ? null : typeof input.canaryGate === 'function'
     ? await input.canaryGate({ recommendation: winner, adjudication,
-      requiresExistingPromotionGate: true, promotionEligible: false }) : null;
+      requiresExistingPromotionGate: true, promotionEligible: false })
+    : { status: 'deferred', reason: 'canary-gate-adapter-missing' };
   return { results, adjudication, winner: winner?.candidateId || null,
     canaryAdmission, authorizationEvidenceRef: authority.evidenceRef,
     requiresExplicitAuthorization: true, promotionEligible: false };
