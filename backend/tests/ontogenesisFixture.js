@@ -25,7 +25,7 @@ async function memoryDb(filename = ':memory:') {
     'migrateOntogenesisHosts', 'migrateOntogenesisContinuity',
     'migrateOntogenesisPurge',
     'migrateShevProjectLoop', 'migrateShevProtocols',
-    'migrateShevRuntime', 'migrateGvxLedger'];
+    'migrateShevRuntime', 'migrateShevHealingCycle', 'migrateGvxLedger'];
   for (const name of migrations) await require(`../src/db/migrations/${name}`)[name](db);
   await migrateVectorMemoryFixture(db);
   return db;
