@@ -70,16 +70,16 @@ function independentCriticalSensors(candidate, assessment) {
   });
 }
 
-function validWindows(candidate, deployment, windows, minSpanMs) {
-  if (!Array.isArray(windows) || windows.length < 3
-    || !windows.every((item) => sameScope(candidate, deployment, item)
-      && independentCriticalSensors(candidate, item))) return false;
-  const timestamps = windows.map((item) => Date.parse(item.assessedAt));
-  const hashes = windows.map((item) => item.assessmentHash);
+function validWindows(input, minSpanMs) {
+  if (!Array.isArray(input.windows) || input.windows.length < 3
+    || !input.windows.every((item) => sameScope(input.candidate, input.deployment, item)
+      && independentCriticalSensors(input.candidate, item))) return false;
+  const timestamps = input.windows.map((item) => Date.parse(item.assessedAt));
+  const hashes = input.windows.map((item) => item.assessmentHash);
   return new Set(hashes).size === hashes.length
     && timestamps.every((value, index) => index === 0 || value > timestamps[index - 1])
     && timestamps.at(-1) - timestamps[0] >= minSpanMs
-    && timestamps[0] > Date.parse(deployment.deployedAt);
+    && timestamps[0] > Date.parse(input.deployment.deployedAt);
 }
 
 function resultOf(windows) {
@@ -94,7 +94,7 @@ function verifyLongitudinalWebsiteEffect(input) {
     || !validDeployment(input?.candidate || {}, input?.deployment)) {
     throw new Error('Website effect requires a separately authorized production deployment.');
   }
-  if (!validWindows(input.candidate, input.deployment, input.windows, minSpanMs)) {
+  if (!validWindows(input, minSpanMs)) {
     throw new Error('Website effect requires independent longitudinal user and AppSec evidence.');
   }
   const result = resultOf(input.windows);

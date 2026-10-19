@@ -7,7 +7,9 @@ const { createWebsiteCandidate, attachVerifiedReview,
 
 const sensors = ['analytics', 'seo', 'geo', 'links', 'content', 'appsec'];
 
-function assessment(environment, assessedAt, verdicts = {}, prefix = environment) {
+function assessment(environment, assessedAt, options = {}) {
+  const verdicts = options.verdicts || {};
+  const prefix = options.prefix || environment;
   const start = Date.parse(assessedAt);
   return assessWebsite({ projectId: 'website-project', dimension: 'site',
     targetUrl: environment === 'preview' ? 'https://preview.example.test' : 'https://example.test',
@@ -37,7 +39,8 @@ function deployment() {
 
 function windows(lastVerdicts = {}, prefix = 'production') {
   return ['2026-10-19T12:00:00.000Z', '2026-10-20T12:00:00.000Z', '2026-10-21T12:00:00.000Z']
-    .map((date, index) => assessment('production', date, index === 2 ? lastVerdicts : {}, prefix));
+    .map((date, index) => assessment('production', date,
+      { verdicts: index === 2 ? lastVerdicts : {}, prefix }));
 }
 
 function main() {
@@ -56,7 +59,8 @@ function main() {
   assert.equal(regressed.result, 'regressed');
   assert.throws(() => verifyLongitudinalWebsiteEffect({ candidate, deployment: deployment(),
     windows: windows({}, 'preview') }), /independent longitudinal/);
-  const weakPreview = assessment('preview', '2026-10-18T09:00:00.000Z', { seo: 'degradation' });
+  const weakPreview = assessment('preview', '2026-10-18T09:00:00.000Z',
+    { verdicts: { seo: 'degradation' } });
   assert.throws(() => createWebsiteCandidate({ projectId: 'website-project', initiativeId: 'i2',
     branch: 'codex/weak', sandboxRef: 'capsule:weak', previewAssessment: weakPreview }), /clean, proven preview/);
   console.log('Website candidate isolation, review and longitudinal production gate passed.');
