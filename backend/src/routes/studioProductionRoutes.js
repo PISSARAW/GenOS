@@ -32,4 +32,8 @@ const operations = require('../services/studioProductionOperations');
 router.get('/releases/:releaseId/operations', requirePermission('read'), handle(operations.inspect));
 router.get('/releases/:releaseId/runs/:runId', requirePermission('read'), handle(operations.inspectRun));
 router.post('/releases/:releaseId/feedback', ...write, handle(operations.feedback));
+const productContracts = require('../services/studioProductContractService');
+router.post('/workflows/:workflowId/product-contracts', ...write, handle(productContracts.create));
+router.get('/workflows/:workflowId/product-contracts/current', requirePermission('read'),
+  handle(productContracts.current));
 module.exports = { router, handle, write };

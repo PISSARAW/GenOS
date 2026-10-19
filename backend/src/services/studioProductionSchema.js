@@ -25,6 +25,28 @@ async function ensure(db) {
       id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
       run_id TEXT NOT NULL REFERENCES workflow_runs(id), actor TEXT NOT NULL, body TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS studio_product_contracts (
+      id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id), revision INTEGER NOT NULL,
+      parent_id TEXT REFERENCES studio_product_contracts(id), payload_json TEXT NOT NULL,
+      payload_hash TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(workflow_id, revision));
+    CREATE TABLE IF NOT EXISTS studio_product_evaluations (
+      id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
+      contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), evaluator TEXT NOT NULL,
+      modality TEXT NOT NULL CHECK(modality IN ('visual','functional','security','accessibility')),
+      verdict TEXT NOT NULL CHECK(verdict IN ('supported','refuted','inconclusive')),
+      criterion_ids_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL, note TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(release_id, evaluator, modality));
+    CREATE TABLE IF NOT EXISTS studio_product_effects (
+      id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
+      contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), observer TEXT NOT NULL,
+      hypothesis_id TEXT NOT NULL, verdict TEXT NOT NULL CHECK(verdict IN ('supported','refuted','inconclusive')),
+      metric_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(release_id, observer, hypothesis_id));
+    CREATE TABLE IF NOT EXISTS studio_product_initiatives (
+      id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
+      contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), action TEXT NOT NULL,
+      cause_hash TEXT NOT NULL UNIQUE, payload_json TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
   `);
 }
 module.exports = { ensure };
