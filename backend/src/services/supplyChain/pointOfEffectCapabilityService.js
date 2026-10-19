@@ -94,55 +94,60 @@ function publicGrant(record, token) {
   };
 }
 
+function issueCapability(context, input) {
+  if (typeof context.adapters.get(input.effectId) !== 'function') throw refusal('EFFECT_ADAPTER_UNKNOWN');
+  const token = crypto.randomBytes(32).toString('base64url');
+  const record = normalizeIssue(input, context.now());
+  context.records.set(digestOf(token), record);
+  return publicGrant(record, token);
+}
+
+async function executeCapability(context, input) {
+  const record = context.records.get(digestOf(text(input.capabilityToken,
+    'EFFECT_CAPABILITY_TOKEN_REQUIRED', 256)));
+  if (!record) throw refusal('EFFECT_CAPABILITY_UNKNOWN');
+  assertBinding(record, input, context.now());
+  record.consumed = true;
+  const secret = await context.secretResolver({ secretRef: record.secretRef, scope: record.scope });
+  if (!Buffer.isBuffer(secret) || secret.length === 0) throw refusal('EFFECT_SECRET_UNAVAILABLE');
+  const candidates = [secret.toString('utf8'), secret.toString('base64')];
+  let output;
+  try {
+    output = await context.adapters.get(record.effectId)({ secret, action: record.action,
+      destination: record.destination, artifactDigest: record.artifactDigest,
+      payload: canonicalValue(input.payload || {}) });
+    if (leaksSecret(output, candidates)) throw refusal('EFFECT_SECRET_EXPOSURE');
+    output = canonicalValue(output || {});
+  } finally {
+    secret.fill(0);
+  }
+  const body = canonicalValue({
+    schema: RECEIPT_SCHEMA,
+    capabilityId: record.capabilityId,
+    agentId: record.agentId,
+    scope: record.scope,
+    action: record.action,
+    destination: record.destination,
+    artifactDigest: record.artifactDigest,
+    effectResultHash: fingerprint(output),
+    consumedAt: new Date(context.now()).toISOString(),
+    authorizesPromotion: false
+  });
+  return { output, receipt: { ...body, receiptHash: fingerprint(body) } };
+}
+
 function create(options) {
   if (typeof options?.secretResolver !== 'function') throw refusal('EFFECT_SECRET_RESOLVER_REQUIRED');
-  const adapters = new Map(Object.entries(options.effectAdapters || {}));
-  const records = new Map();
-  const now = typeof options.now === 'function' ? options.now : Date.now;
-
-  function issue(input) {
-    if (typeof adapters.get(input.effectId) !== 'function') throw refusal('EFFECT_ADAPTER_UNKNOWN');
-    const token = crypto.randomBytes(32).toString('base64url');
-    const record = normalizeIssue(input, now());
-    records.set(digestOf(token), record);
-    return publicGrant(record, token);
-  }
-
-  async function execute(input) {
-    const record = records.get(digestOf(text(input.capabilityToken,
-      'EFFECT_CAPABILITY_TOKEN_REQUIRED', 256)));
-    if (!record) throw refusal('EFFECT_CAPABILITY_UNKNOWN');
-    assertBinding(record, input, now());
-    record.consumed = true;
-    const secret = await options.secretResolver({ secretRef: record.secretRef, scope: record.scope });
-    if (!Buffer.isBuffer(secret) || secret.length === 0) throw refusal('EFFECT_SECRET_UNAVAILABLE');
-    const candidates = [secret.toString('utf8'), secret.toString('base64')];
-    let output;
-    try {
-      output = await adapters.get(record.effectId)({ secret, action: record.action,
-        destination: record.destination, artifactDigest: record.artifactDigest,
-        payload: canonicalValue(input.payload || {}) });
-      if (leaksSecret(output, candidates)) throw refusal('EFFECT_SECRET_EXPOSURE');
-      output = canonicalValue(output || {});
-    } finally {
-      secret.fill(0);
-    }
-    const body = canonicalValue({
-      schema: RECEIPT_SCHEMA,
-      capabilityId: record.capabilityId,
-      agentId: record.agentId,
-      scope: record.scope,
-      action: record.action,
-      destination: record.destination,
-      artifactDigest: record.artifactDigest,
-      effectResultHash: fingerprint(output),
-      consumedAt: new Date(now()).toISOString(),
-      authorizesPromotion: false
-    });
-    return { output, receipt: { ...body, receiptHash: fingerprint(body) } };
-  }
-
-  return Object.freeze({ issue, execute });
+  const context = {
+    secretResolver: options.secretResolver,
+    adapters: new Map(Object.entries(options.effectAdapters || {})),
+    records: new Map(),
+    now: typeof options.now === 'function' ? options.now : Date.now
+  };
+  return Object.freeze({
+    issue: (input) => issueCapability(context, input),
+    execute: (input) => executeCapability(context, input)
+  });
 }
 
 module.exports = { RECEIPT_SCHEMA, MAX_TTL_MS, create };
