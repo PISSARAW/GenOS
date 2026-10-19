@@ -21,6 +21,9 @@ function sensorContract(input) {
 function normalizedConfig(input) {
   const config = input.config || {};
   if (input.adapter === 'web-audit') return validateWeb(config);
+  if (input.adapter === 'project-rhythm') {
+    return require('./adapters/projectRhythmAdapter').normalizeRhythmConfig(config);
+  }
   const relativePath = normalizeRelativePath(config.relativePath, 'SHEV sensor');
   const target = config.target || 'project';
   if (!['project', 'integration'].includes(target)) throw new Error('SHEV sensor target is invalid.');
@@ -77,6 +80,9 @@ async function sampleSensor(db, input) {
   }
   if (sensor.adapter === 'json-contract') {
     return require('./adapters/jsonContractAdapter').inspectJsonContract(db, config);
+  }
+  if (sensor.adapter === 'project-rhythm') {
+    return require('./adapters/projectRhythmAdapter').inspectProjectRhythm(db, config);
   }
   const { observation } = await require('./adapters/webAuditAdapter').recordWebObservation(db,
     { projectId: sensor.project_id, dimension: sensor.dimension, config: JSON.parse(sensor.config_json) });
