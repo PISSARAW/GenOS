@@ -1,5 +1,6 @@
 # Documentation GenOS
 
+- [ADR 0646 — Qualifier les compétences réutilisables GVX](adr/0646-qualification-competences-reutilisables-gvx.md) — manifeste versionné et scellé, holdouts inter-domaines, responsabilité externe, permissions fail-closed et rollback sous autorité.
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante et apprentissage d'épisode.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification et révision de croyance non promotable.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
