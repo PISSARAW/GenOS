@@ -23,7 +23,8 @@ if (selected.includes('registry')) {
   assert.ok(web.domains.includes('epistemology'));
   assert.ok(web.operational.length > 0);
   assert.ok(web.unavailable.length > 0);
-  assert.ok(web.coverage.inventory >= 705);
+  assert.strictEqual(web.coverage.inventory, 711);
+  assert.strictEqual(web.coverage.documentationOnly, 0);
   assert.strictEqual(web.coverage.registryRuntime, runtimeRegistry.getRegistrySize());
   assert.strictEqual(web.coverage.registryPhilosophy,
     web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length);
@@ -92,6 +93,9 @@ if (selected.includes('registry')) {
   assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concept.available), [true, true, true]);
   assert.strictEqual(lifecycleMission.resolvedConcepts[1].service, 'gvxDevelopmentController');
   assert.strictEqual(lifecycleMission.resolvedConcepts[2].service, 'shev.responsibilityService');
+  const pod = registry.resolveConceptReferences(['cross_functional_pod'])[0];
+  assert.strictEqual(pod.source, 'existing_adapter');
+  assert.strictEqual(pod.service, 'variantExecutionRuntime.executeCrossFunctionalPod');
 
   const workerMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
     'bounded_worker', 'verifier_worker', 'sub_orchestrator'

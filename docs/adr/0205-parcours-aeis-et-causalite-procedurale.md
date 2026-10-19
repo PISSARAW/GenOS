@@ -4,7 +4,7 @@
 - **Date** : 2026-09-30
 - **Domaine** : backend / assurance épistémique / causalité
 - **Décideurs** : GenOS
-- **Lié à** : ADR 0198, ADR 0204
+- **Lié à** : ADR 0198, ADR 0204, ADR 0642
 
 ## Contexte
 
@@ -21,7 +21,9 @@ parcours de décision. Les services de diff causal et d'analyse multi-snapshots
 - Exécuter les revues multi-provider uniquement lorsque la politique du contrat
   les active et qu'au moins deux fournisseurs distincts sont configurés. Les
   processus sont isolés; leurs sorties ne sont ni des reçus signés ni des preuves
-  d'assurance de promotion.
+  d'assurance de promotion. La distinction de fournisseur ou de processus ne
+  démontre pas une indépendance épistémique ; cette limite est précisée par
+  l'ADR 0642.
 - Router `causal_diff` vers le diff de forks persistés ou vers l'analyse de
   snapshots persistés selon les identifiants reçus. Conserver la comparaison de
   trajectoires en mémoire pour les appels existants.

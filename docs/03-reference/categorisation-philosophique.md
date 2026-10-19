@@ -154,7 +154,7 @@ réparation prouve ces exemples logiciels, pas un corpus réel de catégorisatio
 ni une qualité universelle de la métrique. Les gates qualité, Node et Rust du
 monorepo restent obligatoires pour qualifier une release.
 
-Le service spécialisé et les 375 profils d'audit sont deux chemins distincts.
+Le service spécialisé et les 420 profils d'audit sont deux chemins distincts.
 Un audit déclarant qu'une liste de catégories existe ne démontre pas que ce
 classifieur a été exécuté. Inversement, un score de classification ne peut
 remplacer un reçu runtime ou indépendant admissible pour tous les concepts.

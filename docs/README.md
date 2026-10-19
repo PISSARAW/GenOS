@@ -142,6 +142,7 @@ Index : [01-concepts/README.md](01-concepts/README.md)
 
 Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 
+- [inventaire-canonique-actuel.md](01-concepts/inventaire-canonique-actuel.md) — état actuel des 23 sections de concepts, comptes de registres, maturité et limites.
 - [biologie-computationnelle.md](01-concepts/biologie-computationnelle.md) — biomimétique, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](01-concepts/genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [runtime-agentique.md](01-concepts/runtime-agentique.md) — runtime agentique, états, garde-fous.
@@ -223,7 +224,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
-- [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
+- [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes, 20 organisations Node, 51 capacités), leases effectifs.
 - [morphogenese-strategie-adaptative.md](02-orchestration/morphogenese-strategie-adaptative.md) — stratégie consultative de sélection dynamique, frontières d'activation et protocole de qualification.
 - [politique-morphogenetique-conditionnelle.md](02-orchestration/politique-morphogenetique-conditionnelle.md) — politique consultative réévaluable reliant diagnostic, représentation, recette, travailleurs, preuves et budget.
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
@@ -281,7 +282,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [runtime-syncytium.md](03-reference/runtime-syncytium.md) — contrats Node/MCP, causalité, réplicas et preuve de complétion.
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
-- [contrats-philosophiques-ontogenese.md](03-reference/contrats-philosophiques-ontogenese.md) — raccord des 375 contrats philosophiques au plan de mission et au runtime harness Ontogenèse.
+- [contrats-philosophiques-ontogenese.md](03-reference/contrats-philosophiques-ontogenese.md) — raccord des 420 contrats philosophiques au plan de mission et au runtime harness Ontogenèse.
 - [runtime-holobionte.md](03-reference/runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
 - [modeles-et-providers.md](03-reference/modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](03-reference/integrations-ide.md) — contrat IDE `genos.ide/v1`.

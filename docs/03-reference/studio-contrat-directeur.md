@@ -205,8 +205,8 @@ l'[orchestration](../02-orchestration/README.md), les
 | G09 — Physique | Z09 : inertie/friction/entropie, matériaux, pression, énergie, dégradation, blast radius et régulation hôte. |
 | G10 — Orchestration/exécution | Z03/Z04/Z07/Z08/Z11/Z17 : contrats, portfolios, survivants, retries/jitter/dead-letter, WAL, AgentGit, benchmarks et chargeback. |
 | G11 — Huit topologies | Z13 : Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome, Métapopulation ; Garage Fabric transversal en Z07. |
-| G12 — Organisations dynamiques | Z13/Z19 : chacune des 19 entrées du catalogue, configuration, instances et résultats. |
-| G13 — Capacités topologiques | Z02/Z13/Z19 : chacune des 37 capacités ; exigences, disponibilité, autorité, exercice et preuve séparés. |
+| G12 — Organisations dynamiques | Z13/Z19 : chacune des 20 entrées Node du catalogue, configuration, instances et résultats ; parité Rust signalée séparément. |
+| G13 — Capacités topologiques | Z02/Z13/Z19 : chacune des 51 capacités ; exigences, disponibilité, autorité, exercice et preuve séparés. |
 | G14 — Types de workers | Z07/Z13/Z19 : chacun des 19 types, familles, modes cognitifs, rôles épistémiques et contraintes. |
 | G15 — Cycle du worker | Z07/Z09/Z12 : chacune des étapes et décisions, de l'incarnation à la terminaison. |
 | G16 — Biomimétisme spécialisé | Z05/Z14 : Charnov, fovéation, GAIA, cinq sens, cellules spécialisées, contrôle animal et boucle incarnée. |

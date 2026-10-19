@@ -522,7 +522,7 @@ Compteurs mémoire (`communicationMetricsService.js:15-43`, perdus au restart) :
 - [Signal Plane zero-texte](../01-concepts/signal-plane-zero-text.md) — transport, coalescing, plasticité.
 - [Intelligence de nuée](../01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [Épistémologie et évidence](../01-concepts/epistemologie-et-evidence.md) — succès ≠ vérité, gates de preuve.
-- [Topologies et capacités](topologies-et-capacites.md) — 8 modes + 19 organisations, leases effectifs.
+- [Topologies et capacités](topologies-et-capacites.md) — 8 modes, 20 organisations Node et 51 capacités, leases effectifs.
 - [Morphogenèse](topologies/morphogenese.md) — construction des organisations ; la communication en est une arête typée transverse, pas une modification implicite d'autorité.
 - [API et contrats](../03-reference/api-et-contrats.md) — surfaces REST/gRPC/MCP/CLI.
 - [Outils MCP](../03-reference/outils-mcp.md) — catalogue, leases, gating.

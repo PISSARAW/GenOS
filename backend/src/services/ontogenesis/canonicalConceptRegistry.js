@@ -80,6 +80,7 @@ const EXISTING_ADAPTERS = Object.freeze({
   valence_interoception: { service: 'conceptRuntimeService', access: 'observe' },
   report_access: { service: 'conceptRuntimeService', access: 'observe' },
   equipe_specialisee: { service: 'variantExecutionRuntime.executeExpertCommittee', access: 'execute' },
+  cross_functional_pod: { service: 'variantExecutionRuntime.executeCrossFunctionalPod', access: 'execute' },
   pipeline: { service: 'variantExecutionRuntime.executePipeline', access: 'execute' },
   project_dag: { service: 'variantExecutionRuntime.executeProjectDag', access: 'execute' },
   pod_cross_fonctionnel: { service: 'variantExecutionRuntime.executeCrossFunctionalPod', access: 'execute' },

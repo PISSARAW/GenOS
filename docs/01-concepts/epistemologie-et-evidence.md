@@ -457,10 +457,19 @@ stateDiagram-v2
 ## AEIS : preuve de promotion et apprentissage
 
 Le [système immunitaire épistémique](adaptive-epistemic-immune-system.md) relie
-les assertions de commande à deux exécutions indépendantes munies de reçus
-signés. Un timeout reste inconclusif ; un désaccord provider bloque la promotion
-lorsque la politique multi-provider est active. Aucun avis provider seul ne
-constitue une preuve exécutable.
+les prédicats de commande exacts à deux exécutions distinctes munies de reçus
+signés. Cette réplication établit ce qui a été observé dans les environnements
+exécutés ; elle ne prouve ni l'indépendance épistémique des vérificateurs, ni la
+vérité d'un claim sémantique libre. Un timeout reste inconclusif ; un désaccord
+provider bloque la promotion lorsque la politique multi-provider est active.
+Aucun avis provider seul ne constitue une preuve exécutable.
+
+Les claims tels que « ce refactoring est sain », « ce résumé est fidèle » ou
+« cette architecture est la bonne » ne sont donc pas promouvables
+automatiquement par AEIS. Ils restent en attente d'un oracle externe admissible,
+d'une politique de domaine ou d'une revue humaine. La pression d'assurance et
+l'indice de diversité servent à router l'effort : ce sont des heuristiques non
+calibrées, sans interprétation probabiliste ni efficacité publiée.
 
 La mémoire SQLite conserve les issues confirmées par portée, dont les échecs
 d'affinité nulle. Le rejeu d'une même preuve est dédupliqué. La dissonance
@@ -469,7 +478,9 @@ et s'applique aux descendants. La validité reste relative au prédicat testé e
 au domaine annoncé.
 
 Le contrat, les refus et le protocole local sont décrits dans
-[l'immunité épistémique](../06-qualite-preuves/immunite-epistemique.md).
+[l'immunité épistémique](../06-qualite-preuves/immunite-epistemique.md). Les
+limites de calibration, de portée et d'indépendance sont actées par
+[l'ADR 0642](../adr/0642-borner-les-heuristiques-aeis.md).
 
 ---
 

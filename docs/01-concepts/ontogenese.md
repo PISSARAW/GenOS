@@ -23,7 +23,7 @@ Ce qui distingue l'Ontogenèse du runtime agentique décrit dans [runtime-agenti
 
 La règle épistémique GenOS s'applique sans exception : un transport réussi n'est pas une preuve de décision valide ; une tâche terminée sans preuves suffisantes reste non vérifiée, jamais promue (**Implémenté** — refus de promotion sans preuves dans `backend/src/services/ontogenesis/loopController.js`, fonction `stepVerifying`).
 
-Les 375 contrats philosophiques peuvent maintenant accompagner ce cycle sans
+Les 420 contrats philosophiques peuvent maintenant accompagner ce cycle sans
 élargir son autorité (**Partiel** — résolution, planification, transport et audits
 logiciels bornés implémentés ; utilité sur missions réelles et validation
 indépendante non établies). Le chemin détaillé est décrit dans
@@ -286,7 +286,7 @@ liées par un manifeste à des fichiers JSON du candidat. `integrationController
 rejoue les audits au passage `verified`, avant la copie, sur les sources intégrées,
 après fencing, après commit et lors de sa récupération. Un manifeste présent mais
 lié à une autre mission ne suffit jamais. Les plafonds sont de 128 Kio par fichier,
-32 sources et 375 contrats ; les liens symboliques et chemins hors capsule sont
+32 sources et 420 contrats ; les liens symboliques et chemins hors capsule sont
 refusés (**Implémenté** pour ces audits bornés).
 
 Les états d'audit exposent incertitudes, tâches de vérification et réserves ;

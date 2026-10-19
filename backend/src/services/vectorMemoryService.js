@@ -318,6 +318,11 @@ class VectorMemoryService {
     return cherryPickGoldenPath(turns);
   }
 
+  applyVerifiedBeliefs(results, beliefs) {
+    try { return require('./endogenousThoughtMemoryBridge').modifySearchResults(results, beliefs); }
+    catch (_) { return Array.isArray(results) ? results.slice() : results; }
+  }
+
   counterfactualReplay(trajectory, stepIndex, alterations) {
     return counterfactualReplay(trajectory, stepIndex, alterations);
   }
@@ -340,5 +345,7 @@ module.exports = Object.assign(serviceInstance, {
   releaseVesicles: serviceInstance.releaseVesicles.bind(serviceInstance),
   uptakeVesicles: serviceInstance.uptakeVesicles.bind(serviceInstance),
   depositExosome: serviceInstance.depositExosome.bind(serviceInstance),
-  absorbExosomes: serviceInstance.absorbExosomes.bind(serviceInstance)
+  absorbExosomes: serviceInstance.absorbExosomes.bind(serviceInstance),
+  applyVerifiedBeliefs: serviceInstance.applyVerifiedBeliefs.bind(serviceInstance),
+  modifySearch: serviceInstance.applyVerifiedBeliefs.bind(serviceInstance)
 });

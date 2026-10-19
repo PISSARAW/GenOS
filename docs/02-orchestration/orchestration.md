@@ -1006,8 +1006,9 @@ exécutés par `run_mission`.
 
 ### 19.bis.3 Organisations et mondes
 
-- `organization.rs` reproduit les **19 organisations** du service
-  `dynamicOrganizationService` (`specialist_expert_committee`,
+- `organization.rs` reproduit les **19 organisations historiques** du service Node
+  `dynamicOrganizationService`, hors `cross_functional_pod`
+  (`specialist_expert_committee`,
   `blind_adversarial_review`, `red_blue_coevolution`, `brier_weighted_consensus`,
   `quorum_with_abstention`, `stigmergy`, `flocking_boids`, `fish_school_search`,
   `slime_mould_network`, `grey_wolf_optimizer`, `mycelial_routing`,

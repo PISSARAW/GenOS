@@ -7,6 +7,7 @@ const contracts = require('./versionedContractService');
 const verificationContract = require('./endogenousThoughtVerificationContractService');
 const learningContract = require('./endogenousThoughtLearningContractService');
 const thoughtStore = require('./endogenousThoughtStoreService');
+const memoryBridge = require('./endogenousThoughtMemoryBridge');
 const { consumeAuthorization } = require('./shev/authorityService');
 const verificationMigration = require('../db/migrations/migrateEndogenousThoughtVerifications');
 const learningMigration = require('../db/migrations/migrateEndogenousThoughtLearnings');
@@ -277,7 +278,15 @@ async function learnVerifiedThought(db, rawInput) {
     learning.replayed = false;
   }
   const advanced = await advanceEpisode(db, { input, episode, head, learning });
-  return { status: payload.revision.operation, learning, episode: advanced };
+  let memory = null;
+  try {
+    memory = await memoryBridge.recordVerifiedBelief(db, { ...payload,
+      organizationId: input.organizationId, policyId: input.policyId });
+  } catch (_) { memory = null; }
+  const result = { status: payload.revision.operation, learning, episode: advanced,
+    memory, memoryId: memory?.memoryId || null, memoryRef: memory?.memoryRef || null,
+    belief: memory, searchImpact: memory ? { modified: true, durable: memory.durable } : { modified: false, durable: false } };
+  return result;
 }
 
 module.exports = { buildPayload, learnVerifiedThought, normalizeInput };

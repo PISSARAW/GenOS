@@ -1,5 +1,9 @@
 # Audit de complétude — concepts 16 à 19
 
+> **Rapport historique.** Les résultats exécutés ci-dessous portent sur le
+> registre philosophique à 375 concepts. Le registre courant en contient 420 ;
+> voir [l'inventaire canonique actuel](../01-concepts/inventaire-canonique-actuel.md).
+
 Date : 2026-10-12. Périmètre : les 16 entrées du biomimétisme spécialisé, les 24 entrées AEIS, les 9 familles et 14 concepts transversaux de nosologie, puis les 68 entrées de philosophie (dont trois doublons de libellé entre concepts et écoles). **131 entrées évaluées individuellement.** Le fichier d'origine de l'inventaire est `Texte collé.txt` fourni avec la demande.
 
 ## Méthode et limites

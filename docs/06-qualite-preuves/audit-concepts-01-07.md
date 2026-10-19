@@ -1,5 +1,9 @@
 # Audit de complétude des concepts — inventaire 1 à 7
 
+> **Rapport historique.** Les verdicts ci-dessous restent liés aux contrôles
+> datés indiqués. Pour les registres et comptes du checkout au 2026-10-18, voir
+> [l'inventaire canonique actuel](../01-concepts/inventaire-canonique-actuel.md).
+
 Revue du 2026-10-12 sur le checkout partagé. Source : inventaire fourni par l'utilisateur, sections 1 à 7, **214 entrées** (19, 46, 18, 38, 24, 29, 40). Une entrée n'est complète que si les cinq colonnes valent **oui**. `I` = implémenté, `V` = vérifié par une exécution avec résultat, `D` = démontré par un scénario rejouable et un résultat observable, `U` = utilisable par une surface raccordée, `Doc` = documenté. `p` signifie partiel, `n` non, `?` preuve non établie ; `o` signifie oui. Un test présent mais non exécuté lors de cette revue n'est pas `V=o`. Un document ou un nom de classe n'est pas une implémentation. Les qualifications historiques sont identifiées comme telles ; elles ne prouvent pas automatiquement l'état du checkout courant. L'audit n'affirme pas l'absence de code par une seule recherche textuelle.
 
 Les sources ci-dessous donnent des ancres vérifiables, référencées dans chaque ligne. Une lettre dans « indice » désigne la source associée ; les limites de la ligne priment sur les affirmations générales de cette source.

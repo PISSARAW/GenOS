@@ -2335,7 +2335,8 @@ Précision des affirmations produites par les mondes.
 ### 6.10 Reproductibilité
 $$\text{REP} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}[\text{résultat}_i^{(1)} = \text{résultat}_i^{(2)}]$$
 
-Stabilité du résultat sur deux exécutions indépendantes.
+Stabilité du résultat sur deux exécutions distinctes. Cette répétabilité ne
+démontre pas l'indépendance épistémique des sources ni la justesse du résultat.
 
 ### 6.11 Diversity Gain
 $$\text{DG} = \text{Accuracy}_{\text{Trinity}} - \max_{w} \text{Accuracy}_w$$

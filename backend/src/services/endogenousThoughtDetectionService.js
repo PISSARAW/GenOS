@@ -6,6 +6,7 @@ const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 const { getResponsibility } = require('./shev/responsibilityService');
 const { normalizedObservation } = require('./shev/observationService');
 const thoughtStore = require('./endogenousThoughtStoreService');
+const assessmentService = require('./endogenousThoughtAssessmentService');
 const migration = require('../db/migrations/migrateEndogenousThoughtDetections');
 
 const CONDITIONS = new Set(['full', 'planned_control', 'curiosity_ablated',
@@ -67,17 +68,9 @@ function normalizePolicy(policy) {
     maxBudget: normalizeBudget(policy.maxBudget || { tokens: 12000, usd: 0.5, seconds: 120 }) };
 }
 
-function normalizeAssessment(assessment) {
-  if (!nonEmpty(assessment?.ref)) {
-    throw coded('ENDOGENOUS_ASSESSMENT_INVALID', 'Assessment provenance reference is required.');
-  }
-  return { ref: assessment.ref, anomaly: score(assessment.anomaly, 'anomaly'),
-    novelty: score(assessment.novelty, 'novelty'),
-    expectedInformationGain: score(assessment.expectedInformationGain, 'expectedInformationGain'),
-    learningProgress: score(assessment.learningProgress, 'learningProgress'),
-    cost: score(assessment.cost, 'cost'), risk: score(assessment.risk, 'risk'),
-    sampleCount: positiveInteger(assessment.sampleCount, 'sampleCount', 1000000) };
-}
+const normalizeAssessment = assessmentService.normalizeAssessment;
+const hasCompleteAssessment = assessmentService.hasCompleteAssessment;
+const deriveAssessment = assessmentService.deriveAssessment;
 
 function normalizeInput(input) {
   for (const field of ['organizationId', 'projectId', 'agentId', 'observationId']) {
@@ -86,7 +79,8 @@ function normalizeInput(input) {
   return { organizationId: input.organizationId, projectId: input.projectId,
     agentId: input.agentId, observationId: input.observationId,
     policy: normalizePolicy(input.policy), assessment: normalizeAssessment(input.assessment),
-    budget: normalizeBudget(input.budget), nowMs: Number.isFinite(input.nowMs) ? input.nowMs : Date.now() };
+    budget: normalizeBudget(input.budget), nowMs: Number.isFinite(input.nowMs) ? input.nowMs : Date.now(),
+    questionGenerator: typeof input?.questionGenerator === 'function' ? input.questionGenerator : null };
 }
 
 function digest(value) {
@@ -294,15 +288,47 @@ function episodePayload(values) {
     previousReceiptId: null };
 }
 
+function defaultQuestionText(summary, dimension) {
+  return `Quel mécanisme vérifiable explique l'observation « ${summary} » sur ${dimension.name} ?`;
+}
+
+function generatedOverrides(generated) {
+  if (typeof generated === 'string') {
+    const trimmed = generated.trim();
+    if (trimmed) return { text: trimmed };
+    return null;
+  }
+  if (!generated || typeof generated !== 'object') return null;
+  const overrides = {};
+  const generatedText = typeof generated.text === 'string' ? generated.text.trim() : '';
+  if (generatedText) overrides.text = generatedText;
+  const fields = ['hypothesis', 'falsifier', 'method'];
+  for (const field of fields) {
+    if (typeof generated[field] === 'string') overrides[field] = generated[field];
+  }
+  if (Object.keys(overrides).length === 0) return null;
+  return overrides;
+}
+
 function questionPayload(values) {
   const { input, context, payload, refs, dimension, evaluatedAt } = values;
   const summary = String(context.observation.summary).trim();
+  let text = defaultQuestionText(summary, dimension);
+  let hypothesis = `Une condition reproductible explique l'écart observé sur ${dimension.name}.`;
+  let falsifier = `Une mesure indépendante satisfait « ${dimension.expected} » sans reproduire cet écart.`;
+  let method = `Comparer le signal aux critères du mandat puis tenter de réfuter l'hypothèse.`;
+  if (typeof input.questionGenerator === 'function') {
+    try {
+      const overrides = generatedOverrides(input.questionGenerator({ summary, dimension, context, refs, payload }));
+      if (overrides?.text) text = overrides.text;
+      if (overrides?.hypothesis) hypothesis = overrides.hypothesis;
+      if (overrides?.falsifier) falsifier = overrides.falsifier;
+      if (overrides?.method) method = overrides.method;
+    } catch (_) { /* keep default open question */ }
+  }
   return { questionId: scopedId('ett_question', payload.detectionId), episodeId: payload.episodeId,
     domain: context.observation.domain,
-    text: `Quelle cause vérifiable explique le signal « ${summary} » ?`,
-    hypothesis: `Une condition reproductible explique l'écart observé sur ${dimension.name}.`,
-    falsifier: `Une mesure indépendante satisfait « ${dimension.expected} » sans reproduire cet écart.`,
-    method: `Comparer le signal aux critères du mandat puis tenter de réfuter l'hypothèse.`,
+    text, hypothesis, falsifier, method,
     expectedEvidence: [...new Set([...dimension.acceptance, ...refs])],
     expectedInformationGain: input.assessment.expectedInformationGain,
     estimatedCost: input.budget, risk: input.assessment.risk,
@@ -333,10 +359,13 @@ async function materializeCandidate(db, input) {
 
 async function detectAndQuestion(db, input) {
   if (input?.policy?.enabled !== true) return { status: 'skipped', reason: 'disabled' };
-  const normalized = normalizeInput(input);
+  let normalized = normalizeInput(input);
   await thoughtStore.ensure(db);
   await migration.migrateEndogenousThoughtDetections(db);
   const context = await loadContext(db, normalized);
+  if (!hasCompleteAssessment(normalized.assessment)) {
+    normalized.assessment = await deriveAssessment(db, normalized, context, normalized.assessment);
+  }
   const basis = detectionBasis(normalized, context);
   const identity = { basis, detectionId: scopedId('ett_detection', basis),
     requestHash: digest(requestMaterial(normalized, basis)) };
@@ -354,4 +383,14 @@ async function detectAndQuestion(db, input) {
   return materializeCandidate(db, { normalized, context, detection });
 }
 
-module.exports = { BOUNDARIES, detectAndQuestion, computedScore, normalizePolicy, normalizeAssessment };
+function canWake(signal, mandate) {
+  const hasSignal = Boolean(signal) && (typeof signal !== 'object' || Object.keys(signal).length > 0);
+  const mandateActive = Boolean(mandate) && (typeof mandate !== 'object' || mandate.status === 'active'
+    || mandate.active === true || Number.isFinite(mandate.mandateVersion));
+  return hasSignal && mandateActive;
+}
+function shouldWake(signal, mandate) { return canWake(signal, mandate); }
+function wakeAllowed(signal, mandate) { return canWake(signal, mandate); }
+
+module.exports = { BOUNDARIES, detectAndQuestion, computedScore, normalizePolicy, normalizeAssessment,
+  deriveAssessment, hasCompleteAssessment, defaultQuestionText, canWake, shouldWake, wakeAllowed };

@@ -76,10 +76,17 @@ function validateQualifications(input) {
     || input.decisionAuthority !== 'none') throw values.failure('TRINITY_LAUNCH_OBSERVATION_INVALID');
 }
 
+function canonicalWorkspace(value) {
+  if (typeof value !== 'string' || !value) return null;
+  try { return require('node:fs').realpathSync(value); } catch (_) { return path.resolve(value); }
+}
 function sameWorkspace(left, right) {
+  if (typeof left !== 'string' || !path.isAbsolute(left)) return false;
   if (typeof right !== 'string' || !path.isAbsolute(right)) return false;
-  const roots = [path.resolve(left), path.resolve(right)];
-  return process.platform === 'win32' ? roots[0].toLowerCase() === roots[1].toLowerCase() : roots[0] === roots[1];
+  const roots = [canonicalWorkspace(left), canonicalWorkspace(right)];
+  return process.platform === 'win32'
+    ? String(roots[0]).toLowerCase() === String(roots[1]).toLowerCase()
+    : roots[0] === roots[1];
 }
 
 async function recordInProcess(context, entrypoint, runtimeMode) {

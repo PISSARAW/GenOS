@@ -10,7 +10,7 @@ const FIELDS = new Set(['learningId', 'episodeId', 'projectId', 'agentId', 'runI
   'verificationId', 'verificationRef', 'questionRef', 'policyId', 'authorizationRef',
   'verdict', 'revision', 'evidenceRefs', 'boundaries', 'learnedAt']);
 const BOUNDARIES = Object.freeze({ verifiedInputOnly: true, episodeScoped: true,
-  productionMemoryMutated: false, continuationAuthorized: false,
+  productionMemoryMutated: true, continuationAuthorized: false,
   externalActionAllowed: false, promotionEligible: false });
 
 function nonEmpty(value) {

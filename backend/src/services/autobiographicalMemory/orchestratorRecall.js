@@ -2,6 +2,7 @@
 
 const { recallForSituation } = require('./recallService');
 const { emit } = require('../agentOrchestrationState');
+const causalDecision = require('../causalDecisionService');
 
 const MAX_RISK_DELTA = 0.5;
 const MAX_EVIDENCE_DELTA = 0.5;
@@ -134,6 +135,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     const recall = await recallForSituation(buildSituation({ agentId, normalizedMission }), {}, db);
     const adjustments = boundedAdjustments(recall.adjustments);
     const policyBefore = { ...(autonomyPlan.selfModel?.decisionPolicy || {}) };
+    const baselineDecision = causalDecision.chooseAction({ policy: policyBefore });
     recall.recalled = true;
     autonomyPlan.autobiographicalRecall = recall;
     attachRecallContext(normalizedMission, recall);
@@ -146,7 +148,15 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     autonomyPlan.fossilResurrection = await snapshotResurrection(db, agentId, autonomyPlan.stagnationSignal);
     autonomyPlan.monocultureCheck = await snapshotMonoculture(db, agentId, autonomyPlan);
     applyAdjustments(autonomyPlan, adjustments);
+    const policyAfter = { ...(autonomyPlan.selfModel?.decisionPolicy || {}) };
+    const recalledDecision = causalDecision.chooseAction({ policy: policyAfter });
+    autonomyPlan.causalDecision = {
+      baseline: baselineDecision,
+      recalled: recalledDecision,
+      changed: causalDecision.decisionChanged(baselineDecision, recalledDecision)
+    };
     normalizedMission.selfModelPolicy = autonomyPlan.selfModel?.decisionPolicy || normalizedMission.selfModelPolicy;
+    normalizedMission.causalDecision = autonomyPlan.causalDecision;
     const eventType = recall.episodes.length || recall.lessons.length
       ? 'AUTOBIOGRAPHICAL_RECALL_COMPLETED'
       : 'AUTOBIOGRAPHICAL_RECALL_EMPTY';
@@ -156,6 +166,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
       adjustments,
       policyBefore,
       policyAfter: { ...(autonomyPlan.selfModel?.decisionPolicy || {}) },
+      causalDecision: autonomyPlan.causalDecision,
       integration: autonomyPlan.integrationProxy?.status || 'unavailable'
     } });
     emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_ADJUSTMENTS_APPLIED', detail: 'Bounded autobiographical adjustments were applied to the decision policy.', payload: { adjustments } });

@@ -36,6 +36,11 @@ async function compileExecutionMemory(..._args) {
   return store.compileExecutionMemory(..._args);
 }
 
+function applyVerifiedBeliefs(results, beliefs) {
+  try { return require('./endogenousThoughtMemoryBridge').modifySearchResults(results, beliefs); }
+  catch (_) { return Array.isArray(results) ? results.slice() : results; }
+}
+
 function formatGoldenPath(g) {
   return prompt.formatGoldenPath(g);
 }
@@ -44,5 +49,7 @@ module.exports = {
   retrieveAgentMemories,
   formatCognitiveMemoryPrompt,
   compileExecutionMemory,
-  formatGoldenPath
+  formatGoldenPath,
+  applyVerifiedBeliefs,
+  modifySearch: applyVerifiedBeliefs
 };

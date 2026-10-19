@@ -63,14 +63,14 @@ ni la réussite de la mission ni une restauration du collectif. Les
 [préconditions par variant](snapshots-topologiques.md) complètent ce tableau
 sans changer les statuts de maturité des runtimes.
 
-Les **19 organisations dynamiques** sont proposées par `dynamicOrganizationService`
+Les **20 organisations dynamiques Node** sont proposées par `dynamicOrganizationService`
 (`changeOrganization`, `runStep`). Le statut partiel est commun à ce registre :
 l'existence d'une entrée et de capacités requises ne démontre pas son usage effectif
 par l'orchestrateur. Pour chaque entrée, l'acceptation est un `runStep` déterministe
 sur fixture, avec validation de ses sorties, budgets, cas limites et dispatch par le
 plan. Dépendances : `dynamicOrganizationService`, capacités déclarées et orchestration.
 Les algorithmes de guidage `runStep` sont désormais implémentés et testés sur fixture
-pour l'ensemble des 19 organisations (`organizationAlgorithms.js` +
+pour l'ensemble des 20 organisations Node (`organizationAlgorithms.js` +
 `swarmTopologyAlgorithms.js`), incluant les quatre organisations d'essaim
 (`flocking_boids`, `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer`)
 et les trois organisations récupération/arena/fusion
@@ -79,6 +79,7 @@ et les trois organisations récupération/arena/fusion
 | Organisation | Statut | Preuve/implémentation de référence |
 | --- | --- | --- |
 | `specialist_expert_committee` | partiel | `dynamicOrganizationService`; test `runStep`/dispatch à référencer |
+| `cross_functional_pod` | partiel | `dynamicOrganizationService`, `organizationAlgorithms`; politique pair-à-pair Node, absente du miroir Rust à 19 entrées |
 | `blind_adversarial_review` | partiel | `dynamicOrganizationService`; test `runStep`/dispatch à référencer |
 | `red_blue_coevolution` | expérimental | `dynamicOrganizationService`; scénario adversarial isolé à référencer |
 | `brier_weighted_consensus` | partiel | `dynamicOrganizationService`; test de pondération/calibration à référencer |

@@ -1,5 +1,9 @@
 # Topologies & Contrat de Capacités
 
+- **Statut** : Implémenté de façon hétérogène ; registres à jour, qualification de bout en bout partielle
+- **Portée** : 8 topologies, 20 organisations Node, 51 capacités déclaratives
+- **Dernière revue** : 2026-10-18
+
 Ce document décrit comment chaque **topologie d'orchestration** de GenOS est
 câblée au runtime, quels **concepts** (capacités) elle exige, et comment ces
 capacités deviennent **effectives** (leases d'outils, organisation).
@@ -13,7 +17,8 @@ registre déclaratif de capacités : voir le
 
 - **Composition / topologie** : *qui* exécute et *comment* ils communiquent.
   - Modes : Trinity, A-Team, Biome, Biocénose, Holobionte, Syncytium, Rhizome, Métapopulation.
-  - Organisations dynamiques : les 19 organisations de `dynamicOrganizationService`.
+  - Organisations dynamiques : les 20 organisations de `dynamicOrganizationService`.
+    Le miroir Rust en contient encore 19 et ne porte pas `cross_functional_pod`.
 - **Capacités / concepts** : *ce que* chaque agent sait faire (stratégie, preuve,
   mémoire, biomimétique, immunité, isolation, modèles, observabilité, perception).
 
@@ -31,7 +36,14 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 `CONSCIENCE_HOMEOSTASIS`, `RESILIENCE_RECOVERY`, `CHAOS_ENGINEERING`, `CRDT_SHARED_STATE`,
 `VFS_SANDBOX`, `CAPSULES_SNAPSHOTS`, `MODEL_ROUTING`, `LOCAL_INFERENCE`, `INFERENCE_GATEWAY`,
 `OBSERVABILITY`, `GOVERNANCE_APPROVAL`, `COMPLIANCE`, `WEB_FORAGING`, `FOVEAL_PERCEPTION`,
-`COMPUTER_USE`.
+`COMPUTER_USE`, `PROCEDURAL_MEMORY`, `PROCEDURAL_GUIDANCE`, `PROCEDURAL_EVOLUTION`,
+`PROCEDURAL_CAUSAL_VALIDATION`, `CAUSAL_STATE`, `SEMANTIC_CONFLICTS`, `INVARIANT_GATES`,
+`SELECTIVE_SYNC`, `TRANSACTIONAL_SHARED_STATE`, `WORKING_MEMORY`, `ANCESTRAL_MEMORY`,
+`RISK_INHERITANCE`, `COLLECTIVE_PLASTICITY`, `TEACHING_WORKER`.
+
+Cette liste de 51 identifiants est le menu déclaratif actuel. Les 14 derniers
+étendent l'ancien inventaire de 37 capacités ; leur présence n'atteste pas à
+elle seule un handler, une lease ou une validation sur mission réelle.
 
 ## 3. Câblage par topologie
 
@@ -152,8 +164,8 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
 
 - `dynamicOrganizationService.changeOrganization` renvoie désormais
   `capabilities` (capacités requises) et `runStep(state, options)`.
-- Les 19 organisations dynamiques sont :
-  `specialist_expert_committee`, `blind_adversarial_review`,
+- Les 20 organisations dynamiques Node sont :
+  `specialist_expert_committee`, `cross_functional_pod`, `blind_adversarial_review`,
   `red_blue_coevolution`, `brier_weighted_consensus`,
   `quorum_with_abstention`, `stigmergy`, `flocking_boids`,
   `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer`,
@@ -200,7 +212,7 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
   d'organisation à chaque décision orchestrateur (`orchestrationActionExecutor.execute`),
   mémorise les préférés (`preferredSurvivorsFor`) et `agentRoundService` les
   utilise comme survivants préférés pour les continuations.
-- `preferredAgents` couvre les 19 organisations : 4 filtres d'essaim
+- `preferredAgents` couvre les 20 organisations Node : 4 filtres d'essaim
   (dont `slime_mould_network` trié par conductivité) + repli générique
   (`spokes`, `competitors`, `roleGradient`, `allocations`, `pairs`, `route`).
 - L'état runtime combine positions stables (`id:role`), fitness issue du
@@ -217,7 +229,7 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
 
 ## 8. Organisations et autorité
 
-- `organizationAlgorithms.runOrganizationStep` implémente les 19 organisations
+- `organizationAlgorithms.runOrganizationStep` implémente les 20 organisations Node
   (y compris les quatre algorithmes d'essaim `flocking_boids`,
   `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer` par délégation
   vers `swarmTopologyAlgorithms`). `runTopologyStep` délègue vers lui lorsque
@@ -228,9 +240,10 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
   (`assertRoutingAuthority`) : en organisation *ranked* (grey wolf), un follower
   ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`) ;
   en organisation *adversarial_pair*, un worker doit désigner un destinataire
-  explicite (`ADVERSARIAL_RECIPIENT_REQUIRED`). `AUTHORITY` couvre les 19
-  organisations ; la parité Rust vit dans `genos-orchestrator/src/organization_step.rs`
-  (`authority_for`, `follower_may_address`, `adversarial_needs_recipient`, `step_family`).
+  explicite (`ADVERSARIAL_RECIPIENT_REQUIRED`). L'autorité Node couvre les 20
+  organisations. Le miroir Rust vit dans `genos-orchestrator/src/organization_step.rs`
+  (`authority_for`, `follower_may_address`, `adversarial_needs_recipient`, `step_family`),
+  mais reste à 19 organisations et n'implémente pas `cross_functional_pod`.
 
 ## 9. Ce qui reste ouvert
 

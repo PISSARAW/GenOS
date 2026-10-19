@@ -1,5 +1,9 @@
 # Audit de complétude des concepts canoniques — sections 8 à 15
 
+> **Rapport historique.** Cette matrice conserve la baseline à 19 organisations
+> et 37 capacités. Le checkout du 2026-10-18 en déclare respectivement 20 côté
+> Node et 51 ; voir [l'inventaire canonique actuel](../01-concepts/inventaire-canonique-actuel.md).
+
 **Périmètre.** 205 entrées de l'inventaire transmis : 24 + 15 + 45 + 9 + 19 + 37 + 33 + 23. Les composantes citées dans la description d'une topologie sont évaluées avec cette topologie. L'inventaire canonique du dépôt confirme ces domaines, mais prévient qu'un nom catalogué ne constitue pas une promesse d'exécution ([`canonicalConceptInventory.js`](../../backend/src/services/ontogenesis/canonicalConceptInventory.js#L3-L20)). La matrice de capacités est explicitement déclarative ([`topologyCapabilityService.js`](../../backend/src/services/topologyCapabilityService.js#L3-L9)). Les références de concepts `worker_runtime` et `worker_lifecycle` y sont même signalées `executable: false` ([`canonicalConceptRegistry.js`](../../backend/src/services/ontogenesis/canonicalConceptRegistry.js#L102-L117)).
 
 **Lecture des verdicts.** Colonnes `I / V / Dé / U / Do` : implémenté, vérifié, démontré, utilisable, documenté. `O` = oui sur le périmètre borné indiqué ; `P` = partiel ; `N` = non, absence ou impossibilité observée ; `?` = preuve insuffisante pour trancher. « Vérifié » exige un contrôle exécuté avec résultat, et « démontré » un scénario rejouable dont le résultat est observable, distinct d'un test unitaire. Une documentation ancienne ou un fichier de test non exécuté à ce checkout ne donne au plus que `P`. **Complet** exigerait cinq `O` pour la même portée.

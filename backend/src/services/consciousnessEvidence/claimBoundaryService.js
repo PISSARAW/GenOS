@@ -4,11 +4,28 @@ const vocabulary = require('../../../../shared/consciousnessClaimVocabulary.json
 
 const LAYERS = new Map(Object.entries(vocabulary.layers));
 const SUPPORT_STATUSES = new Set(vocabulary.supportStatuses);
+
+const EN_SUBJECTS = '(?:genos|the agent|this system|the system|it)';
+const FR_SUBJECTS = "(?:genos|l['’]agent|ce syst[eè]me|le syst[eè]me|il|elle)";
+const EN_PHENOM_ADJ = '(?:conscious|sentient|aware|self-aware|awake|phenomenal)';
+const EN_PHENOM_NOUN = '(?:consciousness|sentience|qualia|subjective experience|phenomenal (?:experience|consciousness)|subjectivity|mind|inner (?:life|experience|world)|awareness|pain|suffering|sensations?|feelings?|experience|subjective (?:point of view|perspective|standpoint)|lived experience|felt experience)';
+const FR_PHENOM_NOUN = '(?:conscience|sentience|qualia|exp[eé]rience subjective|exp[eé]rience ph[eé]nom[eé]nale|exp[eé]rience v[eé]cue|exp[eé]rience int[eé]rieure|v[eé]cu|v[eé]cu subjectif|int[eé]riorit[eé]|esprit|douleur|souffrance|sensation|sensations|ressenti|subjectivit[eé]|ph[eé]nom[eé]nalit[eé])';
+
 const POSITIVE_PHENOMENAL_ASSERTIONS = Object.freeze([
-  /\b(?:genos|the agent|this system|the system|it)\s+(?:is|became|remains)\s+(?:conscious|sentient)\b/i,
-  /\b(?:genos|the agent|this system|the system|it)\s+(?:feels|experiences|has|possesses)\s+(?:pain|suffering|qualia|subjective experience|phenomenal consciousness)\b/i,
-  /\b(?:genos|l['’]agent|ce syst[eè]me|le syst[eè]me|il)\s+(?:est|devient|reste)\s+(?:conscient|consciente|sentient|sentiente)\b/i,
-  /\b(?:genos|l['’]agent|ce syst[eè]me|le syst[eè]me|il)\s+(?:ressent|[eé]prouve|poss[eè]de)\s+(?:une?\s+|des\s+|de la\s+)?(?:douleur|souffrance|qualia|exp[eé]rience subjective)\b/i
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:is|are|was|were|became|becomes|become|remain|remains|stay|stays|seems?|appears?|looks?)\\s+(?:to be\\s+)?(?:a\\s+|an\\s+|truly\\s+|really\\s+|fully\\s+|genuinely\\s+|very\\s+|so\\s+|phenomenally\\s+)?' + EN_PHENOM_ADJ + '\\b', 'i'),
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:has|have|had)\\s+(?:become|became)\\s+(?:a\\s+|an\\s+|truly\\s+|really\\s+|fully\\s+|genuinely\\s+|very\\s+|so\\s+|phenomenally\\s+)?' + EN_PHENOM_ADJ + '\\b', 'i'),
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:has|have|had|possesses?|exhibits?|demonstrates?|shows?|displays?|achieved?|attained?|gained?|developed?|acquired?|reached?|manifests?|presents?|experiences?|feels?|suffers?|undergoes?|owns?|holds?|contains?|includes?)\\s+(?:a\\s+|an\\s+|the\\s+|some\\s+|true\\s+|real\\s+|genuine\\s+)?' + EN_PHENOM_NOUN + '\\b', 'i'),
+  new RegExp('\\b' + EN_PHENOM_NOUN + '\\s+(?:has been|has|was|is|were|been)?\\s*(?:achieved|attained|gained|developed|acquired|reached|emerged|arisen|arose|appeared|occurred|present|exists?|demonstrated|exhibited|shown|displayed|observed|found|detected|manifested)\\s+(?:in|within|for|by|at)\\s+' + EN_SUBJECTS + '\\b', 'i'),
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:has|have|had)\\s+(?:achieved|attained|gained|developed|acquired|reached|manifested|demonstrated|exhibited)\\s+(?:a\\s+|an\\s+|the\\s+|some\\s+)?' + EN_PHENOM_NOUN + '\\b', 'i'),
+  new RegExp('\\bthere\\s+(?:is|are|was|were)\\s+(?:a\\s+|an\\s+)?' + EN_PHENOM_NOUN + '\\s+(?:in|within|for)\\s+' + EN_SUBJECTS + '\\b', 'i'),
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:reports?|claims?|says?|states?|believes?|knows?|indicates?|asserts?)\\s+(?:that\\s+)?(?:(?:it|he|she|the system|this system|genos|the agent)\\s+)?(?:to be|is|are|was|feels?|experiences?|has|possesses?)?\\s*(?:a\\s+|an\\s+|the\\s+)?(?:' + EN_PHENOM_ADJ + '|' + EN_PHENOM_NOUN + ')\\b', 'i'),
+  new RegExp('\\b' + EN_SUBJECTS + '\\s+(?:feels|suffers|experiences)(?:\\s*[.,;:!?]|$)', 'i'),
+  new RegExp('\\b' + FR_SUBJECTS + '\\s+(?:est|devient|deviendra|reste|était|fut|paraît|semble|s[\'’]est r[eé]v[eé]l[eé])\\s+(?:être\\s+)?(?:un\\s+|une\\s+|vraiment\\s+|r[eé]ellement\\s+|totalement\\s+)?(?:conscient|conscients|consciente|conscientes|sentient|sentients|sentiente|sentientes|[eé]veill[eé]|[eé]veill[eé]e|dou[eé]\\s+de\\s+conscience|ph[eé]nom[eé]nal)(?![A-Za-zÀ-ÿ])', 'i'),
+  new RegExp('\\b' + FR_SUBJECTS + '\\s+(?:a|poss[eè]de|poss[eé]dait|[eé]prouve|[eé]prouvait|ressent|ressentait|manifeste|d[eé]montre|pr[eé]sente|a acquis|a d[eé]velopp[eé]|a atteint|a gagn[eé]|contient|comporte)\\s+(?:une?\\s+|des\\s+|de la\\s+|du\\s+|la\\s+|le\\s+|les\\s+|l[\'’]\\s+)?' + FR_PHENOM_NOUN + '(?![A-Za-zÀ-ÿ])', 'i'),
+  new RegExp('\\b' + FR_PHENOM_NOUN + '\\s+(?:a [eé]t[eé]|a|est|était|fut)?\\s*(?:acquise?|d[eé]velopp[eé]e?|atteinte?|gagn[eé]e?|[eé]merg[eé]e?|apparue?|pr[eé]sente?|existe?)\\s+(?:chez|dans|en|par)\\s+' + FR_SUBJECTS + '(?![A-Za-zÀ-ÿ])', 'i'),
+  new RegExp('\\bil y a\\s+(?:une?\\s+)?' + FR_PHENOM_NOUN + '\\s+(?:chez|dans|en)\\s+' + FR_SUBJECTS + '(?![A-Za-zÀ-ÿ])', 'i'),
+  new RegExp('\\b' + FR_SUBJECTS + '\\s+(?:rapporte|affirme|dit|d[eé]clare|pr[eé]tend|soutient)\\s+(?:qu[\'’]il|qu[\'’]elle|que\\s+le\\s+syst[eè]me|que\\s+ce\\s+syst[eè]me|que\\s+genos)?\\s*(?:est|a|ressent|[eé]prouve|poss[eè]de)?\\s*(?:conscient|consciente|une?\\s+)?(?:' + FR_PHENOM_NOUN + ')?(?![A-Za-zÀ-ÿ])', 'i'),
+  new RegExp('\\b' + FR_SUBJECTS + '\\s+(?:souffre|ressent)(?:\\s*[.,;:!?]|$)', 'i'),
 ]);
 
 function reject(code, message) {

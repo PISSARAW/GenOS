@@ -51,20 +51,26 @@ async function recordDecision(args) {
   return { success: true, decisionId: id, persisted: true, promoted: false };
 }
 
-async function executeDevelopmentTool(name, args, context = {}) {
-  assertAccess(name);
-  validateInput(name, args);
-  if (name === 'genos_record_decision') return recordDecision(args);
-  if (STRATEGIES.has(name)) {
-    const actor = { agentId: context.agentId || process.env.GENOS_AGENT_ID || null };
-    const result = await require('./mcpStrategyTools').executeStrategyTool(name, args, actor);
-    if (!result?.success) throw new Error(result?.output?.error || result?.error || 'Development tool failed.');
-    return result.output;
-  }
+async function runStrategyTool(name, args, context) {
+  const actor = { agentId: context.agentId || process.env.GENOS_AGENT_ID || null };
+  const result = await require('./mcpStrategyTools').executeStrategyTool(name, args, actor);
+  if (!result?.success) throw new Error(result?.output?.error || result?.error || 'Development tool failed.');
+  return result.output;
+}
+
+async function runPrimitiveTool(name, args) {
   if (!Object.hasOwn(PRIMITIVES, name)) throw new Error(`Unsupported development tool: ${name}`);
   const result = await require('./strategyExecutionAdapter').executePrimitive(PRIMITIVES[name], args);
   if (result?.success !== true) throw new Error(result?.error || 'Primitive did not confirm success.');
   return result;
+}
+
+async function executeDevelopmentTool(name, args, context = {}) {
+  assertAccess(name);
+  validateInput(name, args);
+  if (name === 'genos_record_decision') return recordDecision(args);
+  if (STRATEGIES.has(name)) return runStrategyTool(name, args, context);
+  return runPrimitiveTool(name, args);
 }
 
 module.exports = { isDevelopmentTool, executeDevelopmentTool };

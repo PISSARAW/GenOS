@@ -884,7 +884,7 @@ seule la réduction ou le gel de leurs corridors. Le bon niveau de connectivité
 et le seuil \(0{,}7\) ne sont pas établis empiriquement pour les agents GenOS ;
 ils restent des paramètres à évaluer sur des scénarios contrôlés.
 
-## 15. Quorum indépendant : règle implémentée
+## 15. Quorum dédupliqué par groupe déclaré : règle implémentée
 
 Le service de quorum réduit les doublons de preuves partageant une même origine.
 Deux membres sont regroupés s'ils partagent un `independenceGroup`, une source
@@ -1206,7 +1206,11 @@ La réussite d'une Métapopulation se mesure par sa capacité à préserver les 
 
 ## 26. Cas d'usage typiques
 
-Les cinq cas ci-dessous suivent le même canevas : **Mission** (ce qu'on veut accomplir), **Déroulé** (comment la métapopulation s'organise et évolue), **Résultat** (ce qui est obtenu comparativement à une approche monolithique).
+Les cinq cas ci-dessous suivent le même canevas : **Mission** (ce qu'on veut
+accomplir), **Déroulé** (comment la métapopulation s'organise et évolue),
+**Résultat attendu** (l'effet recherché comparativement à une approche
+monolithique). Ce sont des scénarios illustratifs, pas des benchmarks publiés ni
+des mesures d'efficacité de la topologie.
 
 ### 26.1 Audit de sécurité multi-provider
 
@@ -1216,11 +1220,16 @@ Les cinq cas ci-dessous suivent le même canevas : **Mission** (ce qu'on veut ac
 - 4 dèmes hétérogènes : `Deme-OpenAI` (GPT-4o), `Deme-Anthropic` (Claude), `Deme-Local` (Llama), `Deme-Deterministic` (outils statiques : Semgrep, Bandit, ZAP).
 - Chaque dème audite le même code avec ses propres méthodes.
 - Découverte d'une injection SQL par Deme-Anthropic → counterexample migre vers les autres (cultural migration).
-- Deme-OpenAI valide indépendamment → DISCOVERY_QUORUM atteint → la vulnérabilité est confirmée.
+- Deme-OpenAI corrobore le signal depuis un provider distinct → le quorum de
+  provenance est atteint, sans démontrer l'indépendance épistémique des LLM.
+- Un test déterministe du dème outils reproduit l'injection sur la cible autorisée
+  → le prédicat technique couvert par ce test peut être confirmé.
 - Outage Deme-OpenAI (rate limit) → Deme-OpenAI passe COLLAPSED → rescue depuis Deme-Local.
 - Une heuristique de fuzzing découverte par Deme-Local migre vers Deme-Anthropic (novelty).
 
-**Résultat** : 23 vulnérabilités trouvées (vs. 14 avec un seul provider). L'outage d'un provider n'a pas interrompu l'audit. Les contre-exemples circulent, réduisant les faux négatifs.
+**Résultat attendu** : l'outage d'un provider n'interrompt pas l'audit et les
+contre-exemples circulent entre dèmes. Aucun gain chiffré ni réduction des faux
+négatifs n'est revendiqué sans campagne reproductible et vérité terrain.
 
 ---
 
@@ -1562,7 +1571,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR9 — livré** | Rescue effect | Essais bornés depuis une source compatible, mesure du bénéfice et rollback avec reçu si le dème cible régresse ; corridor pénalisé. |
 | **PR10 — livré** | Extinction et reprise | Déclarer l'extinction seulement si tous les workers sont indisponibles et qu'aucune fonction locale ne reste viable ; libérer le patch, conserver l'historique des causes et préparer la reprise avec références cryptobiose/snapshot/fossile et exclusion des lignées ayant déjà échoué. |
 | **PR11 — livré** | Recolonisation vérifiée | Détecter les patches vacants, filtrer les lignées déjà échouées sur le patch, exiger deux lignées distinctes, garder le patch vacant pendant l'essai et ne créer le nouveau dème qu'après preuve locale de viabilité ; enregistrer les échecs. |
-| **PR12 — livré** | Quorum indépendant | Pondérer une seule preuve par groupe indépendant (source ou modèle), garder abstentions et silences dans le dénominateur sans les compter comme soutien, et exposer la diversité des sources/modèles. |
+| **PR12 — livré** | Quorum dédupliqué par groupe déclaré | Pondérer une seule preuve par `independenceGroup` déclaré, garder abstentions et silences dans le dénominateur sans les compter comme soutien, et exposer la variété des sources/modèles sans la présenter comme une indépendance démontrée. |
 | **PR13 — livré** | Anti-synchronie | Détecter les erreurs corrélées et le recouvrement de stratégies ; réduire le poids ou geler les corridors dirigés exposés et signaler les dèmes portant une capacité régionale unique. |
 | **PR14 — livré** | Utilité et capacité régionale | Calculer la valeur nette bénéfice/coût de chaque migration, conserver les exceptions de rescue critique, estimer la capacité du réseau par itération de la matrice de corridors et exposer les mesures comme observations régionales. |
 | **PR15 — livré** | Pont Rust et procédural | Ajouter l'adaptateur de contrat d'îlot vers le moteur multi-îlots Rust, valider ses rapports et synchroniser extinctions/recolonisations avec `proceduralMetapopulationService.js` ; l'évolution Rust échoue explicitement si son adaptateur d'exécution n'est pas configuré. |

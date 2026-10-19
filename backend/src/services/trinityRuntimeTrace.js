@@ -36,11 +36,15 @@ function assertOptionalBindings(context, correlation) {
   if (tenant && tenant !== correlation.tenantId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
 }
 
+function canonicalWorkspace(value) {
+  if (typeof value !== 'string' || !value) return null;
+  try { return require('node:fs').realpathSync(value); } catch (_) { return path.resolve(value); }
+}
 function sameWorkspace(left, right) {
-  if (typeof right !== 'string' || !path.isAbsolute(right)) return false;
   if (typeof left !== 'string' || !path.isAbsolute(left)) return false;
-  const roots = [path.resolve(left), path.resolve(right)];
-  if (process.platform === 'win32') return roots[0].toLowerCase() === roots[1].toLowerCase();
+  if (typeof right !== 'string' || !path.isAbsolute(right)) return false;
+  const roots = [canonicalWorkspace(left), canonicalWorkspace(right)];
+  if (process.platform === 'win32') return String(roots[0]).toLowerCase() === String(roots[1]).toLowerCase();
   return roots[0] === roots[1];
 }
 

@@ -24,8 +24,9 @@ effet sur une décision. L'audit fonctionnel suit la
   lease + schéma avant tout dispatch ; un outil absent du registre ou hors lease est
   refusé, pas chargé.
 - `backend/src/services/mcpToolRegistry.js` (+ `backend/src/db/seedTools.js`,
-  `MCP_TOOLS_LIST`, 176 entrées) — registre de dispatch runtime distinct des 36
-  définitions publiques des catalogues.
+  `MCP_TOOLS_LIST`, 185 entrées au 2026-10-18) — registre de dispatch runtime
+  distinct des 56 définitions publiques partagées ; la copie de repli
+  `mcp/toolDefinitions.json` en contient 51.
 
 ## 2. Adaptateur philosophie (chargement par nom validé)
 
@@ -39,7 +40,7 @@ effet sur une décision. L'audit fonctionnel suit la
 
 - `backend/src/strategies/strategyRegistry.js` — familles de stratégies consommées via
   `listStrategies()` (`capabilityGraphService.js`, `autonomousOrchestrationService`,
-  92 stratégies déclarées) ; exécution via `strategyExecutionAdapter`.
+  95 stratégies déclarées au 2026-10-18) ; exécution via `strategyExecutionAdapter`.
 - `backend/src/services/primitiveHandlers/handlersRegistry.js` — `HANDLERS` consommés
   par `capabilityGraphService.js` ; 255 références de primitives au registre.
 - `backend/src/services/aTeam/variants/variantRegistry.js` — `buildVariantPlan`

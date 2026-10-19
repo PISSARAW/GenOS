@@ -241,19 +241,25 @@ function receiptsForResult(result) {
 }
 
 function assessAntigenClaims(antigens, results, context) {
+  const oracleValidity = require('./oracleScientificValidityService');
   return antigens.map((antigen, index) => {
     const formal = antigen.formalResult;
     const claim = {
       id: formal?.resultId || antigen.id,
       evidenceDigest: formal?.evidence?.digest || antigen.epitopes?.evidence?.digest,
     };
+    const receipts = receiptsForResult(results[index]);
     return {
       claimId: claim.id,
       statement: typeof antigen.claim === 'string' ? antigen.claim : antigen.claim?.text || '',
       ...assessClaim(claim, {
-        receipts: receiptsForResult(results[index]),
+        receipts,
         trustedVerifierDigests: context.trustedVerifierDigests,
         verifierProfiles: context.verifierProfiles,
+      }),
+      scientificValidity: oracleValidity.summarizeValidity(receipts, {
+        trustedVerifierDigests: context.trustedVerifierDigests,
+        minDistinctVerifiers: 1,
       }),
     };
   });

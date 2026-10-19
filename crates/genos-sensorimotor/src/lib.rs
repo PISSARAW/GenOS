@@ -1,24 +1,31 @@
 use base64::{engine::general_purpose, Engine as _};
 use enigo::{Enigo, Mouse, Keyboard, Settings, Coordinate, Direction, Key, Button};
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 use xcap::Monitor;
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 pub fn capture_screen_base64() -> Result<(String, u32, u32), String> {
     let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
     let monitor = monitors.into_iter().next().ok_or_else(|| "No monitor found".to_string())?;
-    
+
     let image = monitor.capture_image().map_err(|e| format!("Failed to capture image: {}", e))?;
     let width = image.width();
     let height = image.height();
-    
+
     // Save to memory buffer as PNG
     let mut buffer = Vec::new();
     let mut cursor = std::io::Cursor::new(&mut buffer);
     image.write_to(&mut cursor, image::ImageFormat::Png).map_err(|e| format!("Failed to encode image: {}", e))?;
-    
+
     Ok((general_purpose::STANDARD.encode(&buffer), width, height))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn capture_screen_base64() -> Result<(String, u32, u32), String> {
+    Err("screen capture is not available on this platform".to_string())
 }
 
 #[derive(Deserialize, Debug)]

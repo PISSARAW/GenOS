@@ -13,7 +13,7 @@
     "source": "docs/06-benchmarks/memoire-developpementale-workers-reels.md",
     "workerTypes": 19,
     "durableRecallWorkerTypes": 1,
-    "causalDecisionChangeWorkerTypes": 0,
+    "causalDecisionChangeWorkerTypes": 1,
     "qualified": false
   }
 }

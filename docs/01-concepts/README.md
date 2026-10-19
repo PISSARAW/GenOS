@@ -8,6 +8,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 ## Fondations et runtime
 
+- [inventaire-canonique-actuel.md](inventaire-canonique-actuel.md) — état consolidé des 23 sections, registres courants, maturité et limites de preuve.
 - [biologie-computationnelle.md](biologie-computationnelle.md) — biomimétique GenOS, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [stabilite-genomique.md](stabilite-genomique.md) — taux de mutation, anomalies, seuils Stable / Compromised / Critical.

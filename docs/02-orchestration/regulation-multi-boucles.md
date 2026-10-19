@@ -116,11 +116,13 @@ Quand le plan de mission est assemblé, [backend/src/services/agentAutonomyPlanS
 Cette trace remplace les explications opaques par une preuve exploitable : pourquoi une action est amplifiée, freinée, bloquée, ou rendue dépendante d'une preuve supplémentaire.
 
 Le feedback d'exécution peut déclencher une nouvelle arbitration de la trace. Le
-score de preuve observé est converti en pression mesurée (`1 - evidenceScore`),
+score de preuve observé est converti en signal heuristique (`1 - evidenceScore`),
 puis ajusté avec `feedbackEffect` et la variation du score depuis le cycle
-précédent. La pression résultante est conservée dans `controlRegulation.homeostasis`.
-À partir de `0.7`, la boucle ajoute un signal `inhibit` sur `worker_fanout`; ce
-signal passe ensuite par l'arbitre normal et la politique runtime. Les erreurs,
+précédent. La valeur résultante est conservée dans
+`controlRegulation.homeostasis`. À partir de `0.7`, la boucle ajoute un signal
+`inhibit` sur `worker_fanout`; ce signal passe ensuite par l'arbitre normal et la
+politique runtime. `0.7` est une frontière d'ingénierie versionnée, pas un seuil
+calibré d'efficacité, de danger ou de vérité. Les erreurs,
 les dépassements de tokens et l'absence de replay gardent leurs signaux propres.
 Les cycles de ré-arbitrage restent bornés à trois. Cela régule la mission courante
 et ne met pas à jour les poids des régulateurs entre missions.
@@ -134,11 +136,12 @@ régulateurs ; les paramètres des boucles ne s'ajustent donc pas automatiquemen
 entre missions. Toute mention d'« apprentissage des poids après outcome » désigne
 une capacité hors périmètre, non implémentée par ce contrat.
 
-Cette régulation ne remplace pas les gates existants. Plusieurs axes restent des proxys : le nombre
-de workers ne prouve pas leur diversité, et risque plus budget ne constituent pas
-une simulation physique complète. Le rappel autobiographique vaut explicitement
-zéro tant qu'il n'est pas fourni au plan. La matrice décrit donc la couverture
-opérationnelle observée, pas une personnalité, une émotion ou une conscience.
+Cette régulation ne remplace pas les gates existants. Plusieurs axes restent des
+proxys : le nombre de workers ne prouve ni leur diversité cognitive ni leur
+indépendance, et risque plus budget ne constituent pas une simulation physique
+complète. Le rappel autobiographique vaut explicitement zéro tant qu'il n'est pas
+fourni au plan. La matrice décrit donc la couverture opérationnelle observée, pas
+une personnalité, une émotion ou une conscience.
 
 ## 8. Pont régulateur unique et boucle causale (implémenté)
 

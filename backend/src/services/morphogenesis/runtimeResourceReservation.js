@@ -119,12 +119,12 @@ async function revalidateAndReserveResources(db, resolution, nowInput) {
 }
 
 async function releaseWorkerReservation(db, instanceId) {
+  if (!instanceId) return false;
   const busy = await db.get(`SELECT request_id FROM garage_queue WHERE worker_id = ?
     AND status IN ('queued','claimed','running') LIMIT 1`, instanceId);
   if (busy) return false;
-  const result = await db.run(`UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND status = 'running'`, instanceId);
-  return Boolean(result && result.changes === 1);
+  const workerGarage = require('../workerGarageService');
+  return Boolean(await workerGarage.enterIdleState(db, instanceId, null));
 }
 
 module.exports = { revalidateAndReserveResources, releaseWorkerReservation };

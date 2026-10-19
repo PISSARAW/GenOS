@@ -14,9 +14,9 @@ const required = registry.get('a_team').requiredCapabilities;
 
 async function seedPool(db) {
   await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT, role TEXT,
-      metadata_json TEXT, execution_mode TEXT, updated_at TEXT);
+      metadata_json TEXT, execution_mode TEXT, current_task TEXT, isolation_mode TEXT, updated_at TEXT);
     CREATE TABLE garage_queue (request_id TEXT PRIMARY KEY, worker_id TEXT,
-      status TEXT, phase TEXT, lease_id TEXT, lease_expires_at TEXT);`);
+      status TEXT, phase TEXT, lease_id TEXT, lease_expires_at TEXT, deadline_at TEXT);`);
   for (const id of ['w-1', 'w-2']) {
     await db.run(`INSERT INTO agents(id, status, role, metadata_json, execution_mode)
       VALUES (?, 'idle', 'analyst', '{"workerKind":"analyst"}', 'worker')`, id);

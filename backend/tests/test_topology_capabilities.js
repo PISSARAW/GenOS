@@ -3,6 +3,9 @@ const topology = require('../src/services/topologyCapabilityService');
 
 const KNOWN = new Set(topology.GENOS_CAPABILITIES);
 const MODES = ['trinity', 'a_team', 'biome', 'biocenose', 'holobionte', 'syncytium', 'rhizome', 'metapopulation'];
+assert.equal(KNOWN.size, 51);
+assert.equal(Object.keys(topology.ORGANIZATION_CAPABILITIES).length, 20);
+assert.ok(topology.ORGANIZATION_CAPABILITIES.cross_functional_pod);
 
 for (const mode of MODES) {
   const entry = topology.capabilitiesForMode(mode);

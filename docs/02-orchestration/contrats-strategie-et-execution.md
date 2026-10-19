@@ -135,12 +135,21 @@ retombent sur `single_worker`.
 Les nouveaux contrats imposent `promotion.require_epistemic_assurance = true`.
 Lors de `approveRun()`, l'approbation humaine autorise l'action et la vérification
 AEIS établit les preuves requises. Le runtime recalcule l'assemblée ; une
-assemblée déclarée dans le rapport ne remplace pas les exécutions indépendantes.
+assemblée déclarée dans le rapport ne remplace pas les exécutions distinctes et
+leurs reçus. « Distinctes » décrit ici la séparation de procédure et d'identité ;
+elle ne garantit pas une indépendance épistémique réelle.
 
 La ré-arbitration homéostatique conserve le lignage des vérificateurs. Les claims
-sont traitées séquentiellement, avec un maximum de 32 par rapport et de 2 à 8
+sont traités séquentiellement, avec un maximum de 32 par rapport et de 2 à 8
 exécutions par claim. Une revue multi-provider activée dans le contrat exige
-l'accord de tous les providers distincts retenus et le quorum exécutable.
+l'accord de tous les providers distincts retenus et le quorum exécutable. Cette
+unanimité qualifie le protocole de veto ; elle ne transforme pas l'accord de LLM
+en vérité ni en oracle indépendant.
+
+La promotion automatique couvre les prédicats de commande exacts que le runtime
+peut reproduire. Un jugement libre sur la santé d'un refactoring, la fidélité
+d'un résumé ou la pertinence d'une architecture reste hors de cette garantie et
+requiert un oracle de domaine ou une décision humaine explicite.
 
 Un refus laisse le run en `awaiting_approval`. Son assemblée signée reste
 disponible pour l'audit et la mémoire. Une contre-preuve confirmée alimente la
@@ -150,4 +159,5 @@ obligatoire de preuve.
 
 Références : [immunité épistémique](../06-qualite-preuves/immunite-epistemique.md),
 [fiche AEIS](../01-concepts/adaptive-epistemic-immune-system.md),
-[ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md).
+[ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md),
+[ADR 0642](../adr/0642-borner-les-heuristiques-aeis.md).

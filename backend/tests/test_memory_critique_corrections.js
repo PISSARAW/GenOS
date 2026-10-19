@@ -85,7 +85,7 @@ function testCalibrationGate() {
   const qualified = calibration.calibrateThreshold({ samples: qualifiedSamples(), baseline: 0.7 });
   assert.strictEqual(qualified.status, 'qualified');
   assert.strictEqual(qualified.best.balancedAccuracy, 1);
-  assert.strictEqual(calibration.runtimeProfile().evidence.causalDecisionChangeWorkerTypes, 0);
+  assert.strictEqual(calibration.runtimeProfile().evidence.causalDecisionChangeWorkerTypes, 1);
   console.log('PASS seuils versionnes et qualification conditionnee par des observations');
 }
 

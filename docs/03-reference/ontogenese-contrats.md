@@ -271,7 +271,7 @@ Le runner produit `.genos/philosophy-observations.json` dans sa capsule :
 
 La source doit être un fichier JSON régulier confiné, sans segment symbolique ;
 les secrets, bases de données, `.git`, `node_modules`, `target` et `dist` sont
-refusés. Plafonds : 128 Kio par fichier, 32 sources, 375 contrats, pointeur de
+refusés. Plafonds : 128 Kio par fichier, 32 sources, 420 contrats, pointeur de
 512 caractères et 16 segments. Une source absente, un profil changé, un contrat
 dupliqué, une autre mission ou un critère non satisfait bloquent la vérification.
 

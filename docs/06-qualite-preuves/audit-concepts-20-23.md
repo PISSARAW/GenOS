@@ -1,5 +1,9 @@
 # Audit de complétude des concepts — interfaces, sécurité, exploitation
 
+> **Rapport historique.** Les verdicts ci-dessous restent liés au checkout et
+> aux exécutions du 2026-10-12. Voir [l'inventaire canonique actuel](../01-concepts/inventaire-canonique-actuel.md)
+> pour les registres et limites au 2026-10-18.
+
 Périmètre : sections 20 à 23 de l'inventaire fourni par l'utilisateur, checkout du 12 octobre 2026. Cette revue observe le code et les preuves présentes ; elle ne certifie pas une installation de production. Les modifications de travail déjà présentes ont été conservées.
 
 ## Lecture de la matrice
