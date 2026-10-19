@@ -2,8 +2,8 @@
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-06
-- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
+- **Dernière revue** : 2026-10-19
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0646](../adr/0646-admission-endogene-shev-attestee-et-bornee.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
 ## 1. Définition et frontière
@@ -63,7 +63,7 @@ ne peut compenser une violation de sécurité ou élargir une permission.
 | --- | --- | --- |
 | Responsabilité | Rattachée à une identité de projet Ontogenèse, persistée dans SQLite ; révision signée par l'autorité inscrite. | Une délégation héritée sans clé ne peut pas être révisée par cet appel. |
 | Mandat | Finalité, dimensions, critères immuables par version, permissions et stade signé. | Les préférences qualitatives restent liées à une grille externe. |
-| Observation | Source, date, validité, domaine, dimension, statut, résumé et références de preuve. | La source est rapportée, sans certification automatique. |
+| Observation | Source, date, validité, domaine, dimension, statut, résumé et références de preuve ; attestation Ed25519 obligatoire dans le mode endogène opt-in. | La signature identifie le producteur inscrit, sans certifier la justesse de sa mesure. |
 | Adaptateurs | Capteurs signés de fraîcheur, contrat JSON et audit web, avec relecture automatique après intégration. | La sonde ne vérifie que son contrat explicite. |
 | Initiative | Proposition déterministe ; risque et opportunité exigent approbation signée, budget cumulé, arrêt et alternative. | Une abstention signée est possible ; les autres gates restent requis. |
 | Reprise | Exécution bornée et réconciliation signée d’un effet métier interrompu, puis nouvelle mesure. | Un résultat ambigu bloque tout rejeu avant inspection externe. |
@@ -77,7 +77,9 @@ Le chemin principal se trouve dans
 tables `shev_responsibilities`, `shev_mandates`, `shev_observations`,
 `shev_initiatives` et `shev_effects`. La migration `102-shev-protocols`
 ajoute les autorisations, surveillances et reçus. La migration `114-shev-runtime` ajoute les capteurs, jobs et protocoles
-longitudinaux préenregistrés. Le tick Ontogenèse appelle `tickProject`, puis le
+longitudinaux préenregistrés. La migration `147-shev-endogenous-initiative`
+ajoute les attestations d'observation et arbitrages `ACT`/`NO_CHANGE` immuables.
+Le tick Ontogenèse appelle `tickProject`, puis le
 compilateur sous son claim existant avant de choisir une tâche. Les écritures
 historiques d’observations, effets, surveillance et progrès sont immuables.
 
@@ -98,7 +100,15 @@ const mandate = {
     acceptance: ['Le parcours est testé avec un cas novice documenté.']
   }],
   autoDiagnose: true,
-  autoInstrument: false
+  autoInstrument: false,
+  endogenousPolicy: {
+    enabled: true,
+    observerKeyId: 'probe-reservation-v1',
+    observerPublicKey: '-----BEGIN PUBLIC KEY-----…',
+    cooldownMs: 300000,
+    windowMs: 3600000,
+    maxActionsPerWindow: 3
+  }
 };
 ```
 
@@ -191,6 +201,18 @@ Les propositions non dispatchées sont conservées pour une décision future.
 Les risques et opportunités peuvent être approuvés par le service signé de
 la section 15. L'application doit toujours protéger l'accès à ce service et
 aux gates Ontogenèse ; la signature ne remplace pas son contrôle d'accès.
+
+Quand `endogenousPolicy` est activée, le constat normalisé doit être signé par
+la clé Ed25519 inscrite dans le mandat. Le compilateur écrit ensuite un reçu
+`ACT` ou `NO_CHANGE`. Un cooldown actif, un quota glissant épuisé, une permission
+absente ou une preuve non admissible produit `NO_CHANGE`, une initiative
+`rejected`, aucune tâche et aucun réveil. Deux ticks rejouent le même reçu par
+`(projectId, observationId)` ; ils ne consomment pas deux fois le quota.
+
+Ce quota borne le nombre d'admissions SHEV. Il ne remplace ni les budgets de
+jetons, dollars et durée d'Ontogenèse, ni l'approbation signée des risques et
+opportunités. L'autorité du mandat reste la seule voie pour modifier la clé,
+le cooldown ou le quota.
 
 ## 7. Transaction, reprise et quiescence
 
@@ -520,6 +542,7 @@ sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
 | Deux domaines distincts | Fraîcheur et contrat JSON, capteurs signés, relecture de la branche intégrée | `test_shev_domain_adapters.js`, `test_shev_closed_loop.js` |
 | Risque/opportunité approuvés | Budget cumulé, arrêt, échéance, alternative et abstention | `test_shev_protocols.js`, `test_shev_runtime_guards.js` |
 | Effet, surveillance, récupération | Jobs persistés, alerte, pause, crash, inspection signée et nouvelle mesure | `test_shev_closed_loop.js` |
+| Initiative endogène attestée | Signature du producteur, arbitrage `ACT`/`NO_CHANGE`, cooldown, quota, réveil dédupliqué et suivi d'effet | `test_shev_endogenous_initiative.js` |
 | Transfert GVX réservé | Job borné, manifeste d’entraînement, scope, reçu de progrès distinct | `test_shev_development_jobs.js`, `test_shev_progress_evaluation.js` |
 | Qualitatif et longitudinal | Quorum distinct, désaccords conservés, protocole signé et trois références | `test_shev_progress_evaluation.js` |
 
