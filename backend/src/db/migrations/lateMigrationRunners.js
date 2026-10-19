@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-shev-healing-cycle', 'Persist evidence-bound SHEV project healing episodes', async (db) => {
+    await require('./migrateShevHealingCycle').migrateShevHealingCycle(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
