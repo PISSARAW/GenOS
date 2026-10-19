@@ -371,7 +371,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const effectiveWorkerShare = resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare);
   const effectiveOrchestratorReserve = resolveEffectiveOrchestratorReserve(autonomyPlan, configuredOrchestratorReserve);
   await applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve });
-  applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
+  applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }); await require('./genericHypothesisGenerationService').apply({ autonomyPlan, normalizedMission, db, agentId, dispatchedAgent });
   await persistATeamRun({ db, agentId, normalizedMission, autonomyPlan });
   const phenotypeReport = cognitivePhenotype.attachPhenotypesToPlan({
     plan: autonomyPlan,
