@@ -71,6 +71,35 @@ async function main() {
       { scope, assessmentEventId: observed.eventId });
     assert.equal(assessmentEvent.candidateHash, HASH);
     assert.deepEqual(assessmentEvent.payload.metrics.evidenceRefs, [...EVIDENCE].sort());
+    let reviewCalls = 0;
+    const regressedDecision = await stewardship.decideSkillStewardship(db, {
+      scope, decisionId: 'decision-regressed', assessmentEventId: observed.eventId,
+      authority: { isAllowed: async () => { reviewCalls += 1; return true; } }
+    });
+    assert.equal(regressedDecision.decision, 'NO_CHANGE');
+    assert.deepEqual(regressedDecision.reasons, ['regression_detected']);
+    assert.equal(reviewCalls, 0, 'une preuve régressée ne doit pas solliciter une adoption');
+    const retainedInput = assessment(result.eventId, { assessmentId: 'assessment-retained' });
+    retainedInput.observations.retention[0].candidate = 6;
+    const retained = await stewardship.qualifySkillStewardship(db, retainedInput);
+    const review = await stewardship.decideSkillStewardship(db, {
+      scope, decisionId: 'decision-review', assessmentEventId: retained.eventId,
+      authority: { isAllowed: async (request) => request.action === 'request_skill_adoption_review' }
+    });
+    assert.equal(review.decision, 'EXTERNAL_REVIEW_REQUIRED');
+    assert.equal(review.requestedAction, 'review_versioned_skill_adoption');
+    assert.equal(review.automaticPromotion, false);
+    const denied = await stewardship.decideSkillStewardship(db, {
+      scope, decisionId: 'decision-denied', assessmentEventId: retained.eventId,
+      authority: { isAllowed: async () => false }
+    });
+    assert.equal(denied.decision, 'NO_CHANGE');
+    assert.deepEqual(denied.reasons, ['authority_denied']);
+    const decisionEvent = await stewardship.readDecision(db,
+      { scope, decisionEventId: review.eventId });
+    assert.equal(decisionEvent.payload.decision.automaticPromotion, false);
+    const applications = await db.all("SELECT id FROM gvx_development_events WHERE event_type = 'application_recorded'");
+    assert.equal(applications.length, 0, 'aucune promotion ne doit être appliquée par ce service');
     const contaminated = assessment(result.eventId, { assessmentId: 'assessment-contaminated' });
     contaminated.observations.holdout.contextId = 'payments';
     await assert.rejects(stewardship.qualifySkillStewardship(db, contaminated),

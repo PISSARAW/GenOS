@@ -191,4 +191,66 @@ async function readAssessment(db, input) {
   return event;
 }
 
-module.exports = { registerSkillResponsibility, readRegistration, qualifySkillStewardship, readAssessment };
+async function decideSkillStewardship(db, input) {
+  validateDecision(input);
+  const assessment = await readAssessment(db, input);
+  const registration = await readRegistration(db, {
+    scope: input.scope, registrationEventId: assessment.payload.registrationEventId
+  });
+  const evidenceReasons = evidenceRejectionReasons(assessment.payload.metrics);
+  const allowed = evidenceReasons.length === 0
+    ? await adoptionReviewAllowed(input, registration) : false;
+  const reasons = allowed ? [] : [...evidenceReasons, ...authorityReason(evidenceReasons, allowed)];
+  const decision = decisionPayload(assessment, reasons);
+  const event = await appendEvent(db, {
+    id: input.decisionId, ...input.scope, type: 'decision_recorded',
+    candidateHash: registration.candidateHash,
+    payload: { kind: 'skill_stewardship_decision', assessmentEventId: assessment.id,
+      registrationEventId: registration.id, decision }
+  });
+  return { schema: 'genos.gvx.skill-stewardship-decision/v1', eventId: event.id, ...decision };
+}
+
+function validateDecision(input) {
+  if (!input || !validScope(input.scope) || !IDENTIFIER.test(input.decisionId || '')
+    || !IDENTIFIER.test(input.assessmentEventId || '') || !validAuthority(input.authority)) {
+    throw error('GVX_SKILL_DECISION_INVALID');
+  }
+}
+
+function evidenceRejectionReasons(metrics) {
+  const reasons = [];
+  if (metrics.reuseCount < metrics.policy.minReuseCount) reasons.push('reuse_insufficient');
+  if (metrics.projectBenefit < metrics.policy.minProjectBenefit) reasons.push('project_benefit_insufficient');
+  if (metrics.holdoutPassed !== true) reasons.push('holdout_failed');
+  if (metrics.regressionDetected === true) reasons.push('regression_detected');
+  return reasons;
+}
+
+async function adoptionReviewAllowed(input, registration) {
+  return await input.authority.isAllowed({ action: 'request_skill_adoption_review', scope: input.scope,
+    responsibilityId: registration.payload.responsibility.responsibilityId,
+    skillId: registration.payload.skill.skillId, version: registration.payload.skill.version }) === true;
+}
+
+function authorityReason(evidenceReasons, allowed) {
+  return evidenceReasons.length === 0 && allowed !== true ? ['authority_denied'] : [];
+}
+
+function decisionPayload(assessment, reasons) {
+  const ready = reasons.length === 0;
+  return { decision: ready ? 'EXTERNAL_REVIEW_REQUIRED' : 'NO_CHANGE', reasons,
+    requestedAction: ready ? 'review_versioned_skill_adoption' : null,
+    automaticPromotion: false, assessmentMetrics: assessment.payload.metrics };
+}
+
+async function readDecision(db, input) {
+  const event = await getEvent(db, input.decisionEventId, input.scope);
+  if (!event || event.payload?.kind !== 'skill_stewardship_decision' || !sameScope(event, input.scope)) {
+    throw error('GVX_SKILL_DECISION_NOT_FOUND');
+  }
+  return event;
+}
+
+module.exports = { registerSkillResponsibility, readRegistration, qualifySkillStewardship,
+  readAssessment, decideSkillStewardship, readDecision };
