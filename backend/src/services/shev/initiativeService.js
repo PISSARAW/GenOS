@@ -43,11 +43,55 @@ async function pendingObservations(db, projectId) {
 
 async function createInitiative(db, input) {
   const id = scopedId('shev', input.projectId, input.observation.id);
+  const status = input.decision.outcome === 'NO_CHANGE' ? 'rejected' : 'proposed';
   await db.run(`INSERT OR IGNORE INTO shev_initiatives
     (id, project_id, observation_id, mandate_version, kind, status, reason)
-    VALUES (?, ?, ?, ?, ?, 'proposed', ?)`, [id, input.projectId, input.observation.id,
-    input.mandateVersion, input.decision.kind, input.decision.reason]);
+    VALUES (?, ?, ?, ?, ?, ?, ?)`, [id, input.projectId, input.observation.id,
+    input.mandateVersion, input.decision.kind, status, input.decision.reason]);
   return id;
+}
+
+function storedDecision(row, kind) {
+  return { kind, queue: row.decision === 'ACT', outcome: row.decision,
+    reason: row.reason };
+}
+
+async function endogenousDecision(db, input) {
+  const base = decisionFor(input.observation, input.mandate, input.nowMs);
+  const policy = input.mandate.endogenousPolicy;
+  if (!policy?.enabled) return base;
+  const existing = await db.get(`SELECT decision, reason FROM shev_endogenous_arbitrations
+    WHERE project_id = ? AND observation_id = ?`, [input.projectId, input.observation.id]);
+  if (existing) return storedDecision(existing, base.kind);
+  const decision = await boundedDecision(db, { ...input, base, policy });
+  await db.run(`INSERT OR IGNORE INTO shev_endogenous_arbitrations
+    (project_id, observation_id, mandate_version, dimension, kind, decision, reason, decided_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [input.projectId, input.observation.id,
+    input.mandateVersion, input.observation.dimension, base.kind, decision.outcome,
+    decision.reason, new Date(input.nowMs).toISOString()]);
+  return decision;
+}
+
+async function boundedDecision(db, input) {
+  if (!input.base.queue) return { ...input.base, outcome: 'NO_CHANGE' };
+  const attestation = await db.get(`SELECT payload_hash FROM shev_observation_attestations
+    WHERE project_id = ? AND observation_id = ?`, [input.projectId, input.observation.id]);
+  if (!attestation || attestation.payload_hash !== input.observation.content_hash) {
+    return { ...input.base, queue: false, outcome: 'NO_CHANGE', reason: 'observation-non-attestee' };
+  }
+  const since = new Date(input.nowMs - input.policy.windowMs).toISOString();
+  const accepted = await db.all(`SELECT dimension, kind, decided_at FROM shev_endogenous_arbitrations
+    WHERE project_id = ? AND decision = 'ACT' AND decided_at >= ?
+    ORDER BY decided_at DESC`, [input.projectId, since]);
+  const latest = accepted.find((item) => item.dimension === input.observation.dimension
+    && item.kind === input.base.kind);
+  if (latest && Date.parse(latest.decided_at) > input.nowMs - input.policy.cooldownMs) {
+    return { ...input.base, queue: false, outcome: 'NO_CHANGE', reason: 'cooldown-actif' };
+  }
+  if (accepted.length >= input.policy.maxActionsPerWindow) {
+    return { ...input.base, queue: false, outcome: 'NO_CHANGE', reason: 'budget-actions-epuise' };
+  }
+  return { ...input.base, outcome: 'ACT' };
 }
 
 function taskFor(observation, dimension, kind) {
@@ -126,7 +170,9 @@ async function compilePending(db, input) {
     nowMs: input.nowMs ?? Date.now() });
   const observations = await pendingObservations(db, input.projectId);
   for (const observation of observations) {
-    const decision = decisionFor(observation, responsibility.mandate, input.nowMs ?? Date.now());
+    const decision = await endogenousDecision(db, { projectId: input.projectId,
+      observation, mandateVersion: responsibility.mandateVersion,
+      mandate: responsibility.mandate, nowMs: input.nowMs ?? Date.now() });
     const id = await createInitiative(db, { projectId: input.projectId, observation,
       mandateVersion: responsibility.mandateVersion, decision });
     if (decision.queue) {
