@@ -217,7 +217,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [Profil d’exécution GVX](02-orchestration/profil-execution-gvx.md) — profils opérateur épinglés, évaluateur fixe, application, suivi et reprise.
 - [environnement-hote.md](03-reference/environnement-hote.md) — mesures de la machine, choix du disque et régulation des ressources.
 - [orchestration.md](02-orchestration/orchestration.md) — branches, preuve avant validation, survivants, fan-out.
-- [shev.md](02-orchestration/shev.md) — responsabilité, capteurs signés, boucle surveillée, récupération et transfert vérifié.
+- [shev.md](02-orchestration/shev.md) — responsabilité, capteurs signés, trajectoire UX pluraliste, boucle surveillée, récupération et transfert vérifié.
 - [exploitation-shev.md](03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, registre d'obligations, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
@@ -459,6 +459,7 @@ Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nc
 - [0309-evaluation-isolee-variants-a-team.md](adr/0309-evaluation-isolee-variants-a-team.md) — évaluation optionnelle des contrats A-Team, distincte de l’exécution des sous-runs.
 - [0329-cloture-verifiable-runs-a-team.md](adr/0329-cloture-verifiable-runs-a-team.md) — clôture des runs A-Team sur preuve, reprise et états du graphe.
 - [0310-audits-web-shev-independants.md](adr/0310-audits-web-shev-independants.md) — audits Lighthouse, axe-core et Playwright reliés aux observations et effets SHEV.
+- [0646-responsabilite-ux-pluraliste-longitudinale.md](adr/0646-responsabilite-ux-pluraliste-longitudinale.md) — dérive UX dans la durée, évaluateurs calibrés, désaccord et effet utilisateur séparé.
 - [0311-autorisation-cedar-agents.md](adr/0311-autorisation-cedar-agents.md) — politique Cedar pour les missions et le contrôle des agents, sans permission implicite par relation.
 - [0323-biscuit-delegation-workers.md](adr/0323-biscuit-delegation-workers.md) — jetons de délégation bornée des sous-orchestrateurs.
 - [0324-capsules-secretstream-transport.md](adr/0324-capsules-secretstream-transport.md) — flux authentifié pour capsules transportables.

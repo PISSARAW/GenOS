@@ -2,8 +2,8 @@
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-06
-- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
+- **Dernière revue** : 2026-10-19
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0646](../adr/0646-responsabilite-ux-pluraliste-longitudinale.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
 ## 1. Définition et frontière
@@ -512,7 +512,30 @@ les taux de régression par exposition, temps de récupération et coûts.
 `causalClaim` reste `false`. Des séries synthétiques en test valident le contrat,
 sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
 
-## 19. Couverture et frontières de validation
+## 19. Responsabilité d'expérience pluraliste
+
+`registerExperienceProtocol` préenregistre sous signature une grille, plusieurs
+publics, les seuils de calibration et de dérive, ainsi qu'un nombre minimal de
+fenêtres. `recordExperienceCheckpoint` conserve des points immuables avec score
+de dérive, captures et tests. Ils prouvent ce qui a été mesuré techniquement ;
+ils ne prouvent pas un bénéfice utilisateur.
+
+`decideExperienceDirection` ne travaille que sur le dernier checkpoint, exige
+une dérive sur plusieurs fenêtres et déduplique les évaluateurs calibrés. Tous
+les publics prévus doivent être représentés. Le reçu conserve les voix
+minoritaires, le quorum et les erreurs de calibration. Une régression visuelle
+corroborée conduit à `REFINE`; `CHANGE_DIRECTION` exige en plus un reçu
+`shev_effects` indépendant et régressif dans la même dimension. Les cas sans
+preuve suffisante donnent `NO_CHANGE`.
+
+Une décision active crée seulement une observation de dégradation. L'initiative
+et le réveil éventuels restent produits par le tick SHEV, sous le mandat et les
+gates Ontogenèse. Le service ne modifie ni ne déploie le produit. Le stade
+`observing`, un mandat inactif, une signature invalide ou un checkpoint périmé
+bloquent la transition. La calibration pluraliste ne transforme pas les goûts
+des publics en vérité esthétique universelle.
+
+## 20. Couverture et frontières de validation
 
 | Exigence | Chemin implémenté | Vérification reproductible |
 | --- | --- | --- |
@@ -522,6 +545,7 @@ sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
 | Effet, surveillance, récupération | Jobs persistés, alerte, pause, crash, inspection signée et nouvelle mesure | `test_shev_closed_loop.js` |
 | Transfert GVX réservé | Job borné, manifeste d’entraînement, scope, reçu de progrès distinct | `test_shev_development_jobs.js`, `test_shev_progress_evaluation.js` |
 | Qualitatif et longitudinal | Quorum distinct, désaccords conservés, protocole signé et trois références | `test_shev_progress_evaluation.js` |
+| Trajectoire UX pluraliste | Fenêtres immuables, publics calibrés, effet utilisateur séparé, permissions et décisions bornées | `test_shev_experience_stewardship.js` |
 
 ```bash
 npm --prefix backend run test:shev
