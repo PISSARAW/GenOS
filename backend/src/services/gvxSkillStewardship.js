@@ -87,4 +87,108 @@ async function readRegistration(db, input) {
   return event;
 }
 
-module.exports = { registerSkillResponsibility, readRegistration };
+async function qualifySkillStewardship(db, input) {
+  validateAssessment(input);
+  const registration = await readRegistration(db, input);
+  await authorizeAssessment(input, registration);
+  validateObservations(input, registration);
+  const metrics = stewardshipMetrics(input, registration.payload);
+  const event = await appendEvent(db, {
+    id: input.assessmentId, ...input.scope, type: 'evidence_attached',
+    candidateHash: registration.candidateHash,
+    payload: { kind: 'responsibility_skill_assessment', registrationEventId: registration.id,
+      metrics, automaticPromotion: false }
+  });
+  return { schema: 'genos.gvx.skill-stewardship-assessment/v1', status: 'observed',
+    eventId: event.id, registrationEventId: registration.id, metrics, automaticPromotion: false };
+}
+
+function validateAssessment(input) {
+  if (!input || !validScope(input.scope) || !IDENTIFIER.test(input.assessmentId || '')
+    || !IDENTIFIER.test(input.registrationEventId || '') || !validAuthority(input.authority)
+    || !validPolicy(input.policy) || !validObservationGroups(input.observations)) {
+    throw error('GVX_SKILL_ASSESSMENT_INVALID');
+  }
+}
+
+function validPolicy(policy) {
+  return Boolean(Number.isInteger(policy?.minReuseCount) && policy.minReuseCount > 0
+    && Number.isFinite(policy.minProjectBenefit) && policy.minProjectBenefit >= 0
+    && Number.isFinite(policy.maxRegression) && policy.maxRegression >= 0);
+}
+
+function validObservationGroups(value) {
+  return Boolean(Array.isArray(value?.reuse) && value.reuse.length > 0
+    && Array.isArray(value.retention) && value.retention.length > 0 && value.holdout);
+}
+
+async function authorizeAssessment(input, registration) {
+  const allowed = await input.authority.isAllowed({ action: 'assess_responsibility_skill',
+    scope: input.scope, responsibilityId: registration.payload.responsibility.responsibilityId,
+    skillId: registration.payload.skill.skillId });
+  if (allowed !== true) throw error('GVX_SKILL_ASSESSMENT_DENIED');
+}
+
+function validateObservations(input, registration) {
+  const all = [...input.observations.reuse, ...input.observations.retention, input.observations.holdout];
+  if (!all.every(validObservation) || !validHoldout(input.observations.holdout, registration.payload)) {
+    throw error('GVX_SKILL_OBSERVATION_INVALID');
+  }
+}
+
+function validObservation(value) {
+  return Boolean(IDENTIFIER.test(value?.observationId || '') && IDENTIFIER.test(value?.contextId || '')
+    && IDENTIFIER.test(value?.verifierId || '') && HASH.test(value?.evidenceRef || '')
+    && Number.isFinite(value.baseline) && Number.isFinite(value.candidate));
+}
+
+function validHoldout(value, registration) {
+  const { responsibility, skill } = registration;
+  return value.sealed === true && value.contextId !== responsibility.contextId
+    && value.verifierId !== skill.producerId;
+}
+
+function stewardshipMetrics(input, registration) {
+  const direction = registration.responsibility.direction;
+  const reuseBenefits = input.observations.reuse.map((item) => benefit(item, direction));
+  const holdoutBenefit = benefit(input.observations.holdout, direction);
+  const regressions = input.observations.retention.map((item) => regression(item, direction));
+  const maxRegression = Math.max(0, ...regressions);
+  const regressionDetected = maxRegression > input.policy.maxRegression;
+  return { reuseCount: new Set(input.observations.reuse.map((item) => item.contextId)).size,
+    projectBenefit: mean(reuseBenefits), holdoutBenefit,
+    holdoutPassed: holdoutBenefit >= input.policy.minProjectBenefit,
+    maxRegression, regressionDetected,
+    retentionState: regressionDetected ? 'regressed' : 'retained',
+    forgettingDisposition: regressionDetected ? 'quarantine_and_relearn' : 'retain',
+    policy: { ...input.policy }, evidenceRefs: evidenceRefs(input.observations) };
+}
+
+function benefit(observation, direction) {
+  return direction === 'higher'
+    ? observation.candidate - observation.baseline : observation.baseline - observation.candidate;
+}
+
+function regression(observation, direction) {
+  return direction === 'higher'
+    ? observation.baseline - observation.candidate : observation.candidate - observation.baseline;
+}
+
+function mean(values) {
+  return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(6));
+}
+
+function evidenceRefs(observations) {
+  return [...new Set([...observations.reuse, ...observations.retention, observations.holdout]
+    .map((item) => item.evidenceRef))].sort();
+}
+
+async function readAssessment(db, input) {
+  const event = await getEvent(db, input.assessmentEventId, input.scope);
+  if (!event || event.payload?.kind !== 'responsibility_skill_assessment' || !sameScope(event, input.scope)) {
+    throw error('GVX_SKILL_ASSESSMENT_NOT_FOUND');
+  }
+  return event;
+}
+
+module.exports = { registerSkillResponsibility, readRegistration, qualifySkillStewardship, readAssessment };
