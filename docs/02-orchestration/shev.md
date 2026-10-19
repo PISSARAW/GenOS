@@ -3,7 +3,7 @@
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
 - **Dernière revue** : 2026-10-06
-- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0650](../adr/0650-cycle-cicatrisation-shev.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
 ## 1. Définition et frontière
@@ -71,6 +71,7 @@ ne peut compenser une violation de sécurité ou élargir une permission.
 | Développement | Signal GVX et job autorisé exécuté par le fournisseur opérateur ; reçu de transfert distinct. | Un fournisseur de domaine configuré est requis pour conduire l’expérience. |
 | Progrès de l'agent | Reçu de transfert GVX sur contextes tenus à l'écart, distinct de l'effet projet. | L'absence de fuite de l'entraînement dépend de la provenance GVX. |
 | Démonstrateur | Une tâche SHEV traverse l'exécution Ontogenèse, l'intégration Git, une lecture indépendante du fichier, une régression simulée et une seconde réparation. | Il s'agit d'un essai local contrôlé, pas d'une campagne longitudinale réelle. |
+| Cicatrisation | Un épisode append-only relie dégradation, admission Ontogenèse, réparation, effet et fenêtres longitudinales. | Deux fenêtres confirmées forment un contrat MVP local, pas une qualification de terrain. |
 
 Le chemin principal se trouve dans
 `backend/src/services/shev/`. La migration `101-shev-project-loop` ajoute les
@@ -80,6 +81,20 @@ ajoute les autorisations, surveillances et reçus. La migration `114-shev-runtim
 longitudinaux préenregistrés. Le tick Ontogenèse appelle `tickProject`, puis le
 compilateur sous son claim existant avant de choisir une tâche. Les écritures
 historiques d’observations, effets, surveillance et progrès sont immuables.
+
+### 3.1 Cycle de cicatrisation et homéorhèse
+
+La migration `147-shev-healing-cycle` ajoute `shev_healing_episodes` et
+`shev_healing_events`. Après la compilation des initiatives, le tick réconcilie
+chaque dégradation admise avec les faits déjà persistés : tâche Ontogenèse,
+effet vérifié et surveillances. La machine interdit les sauts entre les phases
+`lesion`, `hemostasis`, `inflammation`, `proliferation` et `remodeling`.
+
+Une issue `healed` exige deux surveillances confirmées après l'effet initial ;
+une surveillance régressée produit `relapsed`. Une abstention ou des tentatives
+épuisées peuvent produire `scarred`. Ces issues n'effacent jamais la chronologie.
+Le dossier vérifiable conserve les références de chaque transition et refuse de
+revendiquer une attribution causale ou une qualification de terrain.
 
 ## 4. Mandat et champ de développement
 

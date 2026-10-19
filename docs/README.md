@@ -362,6 +362,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 ### 9. Décisions d'architecture (ADR)
 
+- [ADR 0650 — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
 - [ADR 0517 — Lier les reçus métaboliques aux identités de commande](adr/0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) — aligne les opérations backend/Rust sur la même mission, cellule, commande et clé de rejeu.
 - [ADR 0474 — Invariants d'homéostasie liés aux reçus Rust de division](adr/0474-contrats-homeostasie-recus-rust-division.md) — constate une division Rust exacte sans la confondre avec une preuve de worker.
 - [ADR 0475 — Invalider les préférences après transition d'organisation](adr/0475-invalider-preferences-apres-transition-organisation.md) — purge le classement des survivants après le commit du changement d'organisation.
