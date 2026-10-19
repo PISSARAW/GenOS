@@ -768,6 +768,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
 | [0646](0646-apprentissage-et-execution-ett-reprenables.md) | Apprentissage qualifié et exécution ETT reprenable | Accepté | 2026-10-19 | pensée endogène, mémoire, reprise, sandbox |
 | [0647](0647-boucle-ett-multicycle-et-questionnement-endogene.md) | Boucle ETT multicycle et questionnement endogène | Accepté | 2026-10-19 | pensée endogène, cycles cognitifs, génération d'hypothèses, SQLite |
+| [0648](0648-ecologie-adaptateurs-symbiotiques.md) | Qualifier les adaptateurs comme symbiotes sélectionnables | Accepté | 2026-10-19 | Intégrations, Rhizome, Holobionte, Garage Fabric, Métapopulation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

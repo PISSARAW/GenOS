@@ -16,6 +16,7 @@
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
+- [ADR 0648 — Qualifier les adaptateurs comme symbiotes sélectionnables](adr/0648-ecologie-adaptateurs-symbiotiques.md) — identité qualifiée, consortium minimal, succession compensée et propagation multi-dépôts par vagues.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
@@ -293,6 +294,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [runtime-metapopulation.md](03-reference/runtime-metapopulation.md) — API, adaptateurs, persistance, reprise et validation des dix suites dédiées.
 - [plugins-topologies-morphogenese.md](03-reference/plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique.
 - [runtime-rhizome.md](03-reference/runtime-rhizome.md) — contrat runtime, providers, preuves, limites et CLI Rhizome.
+- [runtime-ecologie-adaptateurs.md](03-reference/runtime-ecologie-adaptateurs.md) — qualification des intégrations, sélection minimale, dysbiose et migration de changements entre dépôts.
 - [ontogenese-contrats.md](03-reference/ontogenese-contrats.md) — contrats stables V2 de l'Ontogenèse : durabilité, reprise, états, claims, intégrateur et CLI.
 - Spécifications normatives : [`../spec/AGENT_DNA_SPEC.md`](../spec/AGENT_DNA_SPEC.md), [`../spec/GENOME_SPEC.md`](../spec/GENOME_SPEC.md).
 
