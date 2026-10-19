@@ -89,10 +89,12 @@ function option(args, name, fallback) {
 }
 
 function windowsFor(tasks, campaignId) {
-  return tasks.map((task) => ({ id: task.id, taskHash: fingerprint({ id: task.id,
-    sourceHash: task.sourceHash, question: task.question }),
-  contextHash: fingerprint({ campaignId, taskId: task.id, dimension: 'code_reasoning' }),
-  dimension: 'code_reasoning', painExpected: task.phase === 'training' }));
+  return tasks.map((task) => {
+    task.taskHash = fingerprint({ id: task.id, sourceHash: task.sourceHash, question: task.question });
+    task.contextHash = fingerprint({ campaignId, taskId: task.id, dimension: 'code_reasoning' });
+    return { id: task.id, taskHash: task.taskHash, contextHash: task.contextHash,
+      dimension: 'code_reasoning', painExpected: task.phase === 'training' };
+  });
 }
 
 function taskPrompt(task, notes) {
@@ -116,6 +118,19 @@ function parseAnswer(text) {
 
 function pressure(history) {
   return endocrine.calculatePressure(history, []).developmentalPressure;
+}
+
+function persistAudit(filename, entry) {
+  fs.mkdirSync(path.dirname(filename), { recursive: true });
+  if (fs.existsSync(filename)) {
+    const prior = fs.readFileSync(filename, 'utf8').split(/\r?\n/).filter(Boolean)
+      .map((line) => JSON.parse(line)).find((item) => item.idempotencyKey === entry.idempotencyKey);
+    if (prior) {
+      if (prior.artifactHash !== entry.artifactHash) throw new Error('Qwen audit idempotency conflict.');
+      return;
+    }
+  }
+  fs.appendFileSync(filename, `${JSON.stringify(entry)}\n`, 'utf8');
 }
 
 function modelAudit(options) {
@@ -159,7 +174,8 @@ async function runQwenWindow(input, state) {
     sourceHash: task.sourceHash, answer, expected: task.expected }) : null;
   const outcome = makeOutcome({ config, input, task, record, prompt, response,
     painObserved, painObservationHash, before, after, training, startedAt });
-  pending.set(input.idempotencyKey, { input, task, record, painObserved, nextHistory });
+    pending.set(input.idempotencyKey, { input, task, record, prompt, responseText: response.text,
+      painObserved, nextHistory });
   audit.push(record);
   return outcome;
 }
@@ -186,6 +202,15 @@ async function verifyQwenWindow(input, state) {
     notes.treatment.push(`Verified correction for ${record.task.id}: ${record.task.expected}.`);
   }
   const refs = [input.outcome.artifactHash, input.outcome.painObservationHash].filter(Boolean);
+  persistAudit(config.auditFile, { campaignId: input.campaignId,
+    idempotencyKey: input.idempotencyKey, arm: input.arm, phase: input.phase,
+    projectId: input.project.projectId, workspaceId: input.workspaceId,
+    model: config.model, sourceFile: record.task.file, sourceFunction: record.task.fn,
+    sourceHash: record.task.sourceHash, prompt: record.prompt,
+    response: record.responseText, answer: record.record.answer,
+    expected: record.task.expected, success: input.outcome.success,
+    outcomeHash: input.outcomeHash || fingerprint(input.outcome),
+    artifactHash: input.outcome.artifactHash, verifiedBy: 'genos-qwen-source-oracle-v1' });
   pending.delete(input.idempotencyKey);
   return verifierReceipt(input, config, refs);
 }
@@ -291,7 +316,8 @@ async function main() {
   const modelName = await ensureModelAvailable(model);
   const source = taskSet();
   const campaignId = option(args, 'campaign-id', `qwen-shev-${Date.now()}`);
-  const config = { ...source, model, modelName, campaignId };
+  const config = { ...source, model, modelName, campaignId,
+    auditFile: path.resolve(option(args, 'audit', `${database}.qwen-audit.jsonl`)) };
   const db = await openCampaignDb(path.resolve(database));
   try {
     const previous = await existingCampaignManifest(db, campaignId);
