@@ -95,8 +95,8 @@ function publicGrant(record, token) {
 }
 
 async function runEffect(context) {
-  const { options, adapters, record, payload } = context;
-  const secret = await options.secretResolver({ secretRef: record.secretRef, scope: record.scope });
+  const { secretResolver, adapters, record, payload } = context;
+  const secret = await secretResolver({ secretRef: record.secretRef, scope: record.scope });
   if (!Buffer.isBuffer(secret) || secret.length === 0) throw refusal('EFFECT_SECRET_UNAVAILABLE');
   const candidates = [secret.toString('utf8'), secret.toString('base64')];
   try {
@@ -126,32 +126,41 @@ function executionReceipt(record, output, consumedAt) {
   return { ...body, receiptHash: fingerprint(body) };
 }
 
+function issueCapability(context, input) {
+  if (typeof context.adapters.get(input.effectId) !== 'function') throw refusal('EFFECT_ADAPTER_UNKNOWN');
+  const token = crypto.randomBytes(32).toString('base64url');
+  const record = normalizeIssue(input, context.now());
+  context.records.set(digestOf(token), record);
+  return publicGrant(record, token);
+}
+
+async function executeCapability(context, input) {
+  const record = context.records.get(digestOf(text(input.capabilityToken,
+    'EFFECT_CAPABILITY_TOKEN_REQUIRED', 256)));
+  if (!record) throw refusal('EFFECT_CAPABILITY_UNKNOWN');
+  assertBinding(record, input, context.now());
+  record.consumed = true;
+  const output = await runEffect({
+    secretResolver: context.secretResolver,
+    adapters: context.adapters,
+    record,
+    payload: input.payload
+  });
+  return { output, receipt: executionReceipt(record, output, context.now()) };
+}
+
 function create(options) {
   if (typeof options?.secretResolver !== 'function') throw refusal('EFFECT_SECRET_RESOLVER_REQUIRED');
-  const { effectAdapters = {} } = options;
-  const adapters = new Map(Object.entries(effectAdapters));
-  const records = new Map();
-  const now = typeof options.now === 'function' ? options.now : Date.now;
-
-  function issue(input) {
-    if (typeof adapters.get(input.effectId) !== 'function') throw refusal('EFFECT_ADAPTER_UNKNOWN');
-    const token = crypto.randomBytes(32).toString('base64url');
-    const record = normalizeIssue(input, now());
-    records.set(digestOf(token), record);
-    return publicGrant(record, token);
-  }
-
-  async function execute(input) {
-    const record = records.get(digestOf(text(input.capabilityToken,
-      'EFFECT_CAPABILITY_TOKEN_REQUIRED', 256)));
-    if (!record) throw refusal('EFFECT_CAPABILITY_UNKNOWN');
-    assertBinding(record, input, now());
-    record.consumed = true;
-    const output = await runEffect({ options, adapters, record, payload: input.payload });
-    return { output, receipt: executionReceipt(record, output, now()) };
-  }
-
-  return Object.freeze({ issue, execute });
+  const context = {
+    secretResolver: options.secretResolver,
+    adapters: new Map(Object.entries(options.effectAdapters || {})),
+    records: new Map(),
+    now: typeof options.now === 'function' ? options.now : Date.now
+  };
+  return Object.freeze({
+    issue: (input) => issueCapability(context, input),
+    execute: (input) => executeCapability(context, input)
+  });
 }
 
 module.exports = { RECEIPT_SCHEMA, MAX_TTL_MS, create };
