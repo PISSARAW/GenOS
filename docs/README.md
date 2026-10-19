@@ -309,6 +309,7 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
 - [releases-et-rollouts.md](04-exploitation/releases-et-rollouts.md) — releases, rollouts, rollback et chargeback.
+- [cicatrisation-production.md](04-exploitation/cicatrisation-production.md) — anomalie production, candidats contrefactuels, vérification indépendante et cicatrice canari.
 
 ### 7. Sécurité et gouvernance
 

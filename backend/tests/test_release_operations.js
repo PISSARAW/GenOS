@@ -104,6 +104,10 @@ async function e2e() {
     body: { strategy: 'ab', candidateVariant: 'variant-b', variants: [{ name: 'variant-b', traffic: 50 }, { name: 'control', traffic: 50 }], slo: config.slo }, tenant });
   assert.equal(explicitCandidate.code, 201);
   assert.equal(explicitCandidate.body.candidateVariant, 'variant-b');
+  const invalidBinding = await invoke(releases.createRollout, { params: { id: create.body.id },
+    body: { strategy: 'canary', candidateRef: 'invalid reference with spaces', slo: config.slo }, tenant });
+  assert.equal(invalidBinding.code, 400);
+  assert.equal(invalidBinding.body.code, 'INVALID_CANDIDATE_REFERENCE');
   const explicitCandidateMetric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: explicitCandidate.body.id },
     body: { variant: 'variant-b', requests: 10, latencyMs: 80 }, tenant });
   assert.equal(explicitCandidateMetric.code, 202);

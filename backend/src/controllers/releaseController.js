@@ -170,14 +170,14 @@ function resolveCandidateVariant(variants, strategy, requestedCandidate) {
 
 function validateRolloutConfig({ strategy, body, requiredNumber }) {
   if (!['canary', 'ab'].includes(strategy)) return { error: { code: 'INVALID_ROLLOUT_STRATEGY', message: 'strategy must be canary or ab.' } };
-  
+  const binding = require('../services/releaseCandidateBindingService').validate(body?.candidateRef);
+  if (binding.error) return binding;
   const defaultVariants = buildDefaultVariants(strategy);
-  
   const config = {
     variants: body?.variants || defaultVariants,
-    slo: body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 }
+    slo: body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 },
+    candidateRef: binding.candidateRef
   };
-
   const variantsValidation = validateVariants(config.variants, requiredNumber);
   if (variantsValidation.error) return variantsValidation;
   config.variants = variantsValidation.variants;
