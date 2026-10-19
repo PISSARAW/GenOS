@@ -68,6 +68,7 @@ const qdProxyRoutes = require('./routes/qdProxyRoutes');
 const signalReceptorRoutes = require('./routes/signalReceptorRoutes');
 const signalCognitiveRoutes = require('./routes/signalCognitiveRoutes');
 const signalDeliveryRoutes = require('./routes/signalDeliveryRoutes');
+const actionGenomeRoutes = require('./routes/actionGenomeRoutes');
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
@@ -201,6 +202,7 @@ function createApp() {
   app.use('/api/qd', qdProxyRoutes);
   app.use('/api', incidentRoutes);
   app.use('/api', securityRoutes);
+  app.use('/api', actionGenomeRoutes);
 
   // 4. Error Handling
   app.use(notFoundHandler);

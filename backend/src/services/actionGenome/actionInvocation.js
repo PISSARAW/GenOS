@@ -23,7 +23,7 @@ function invalid(message, details = []) {
 }
 
 function containsAll(actual, required) {
-  return required.every((item) => actual.includes(item));
+  return actual.includes('all') || required.every((item) => actual.includes(item));
 }
 
 function resolvePointer(root, pointer) {

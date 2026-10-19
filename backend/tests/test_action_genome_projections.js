@@ -10,8 +10,8 @@ assert.equal(listActionGenomes().length, 1);
 assert.equal(surfaces.mcp.wired, true);
 assert.equal(surfaces.mcp.target, 'genos_topology_session');
 assert.deepEqual(surfaces.mcp.fixedArguments, { operation: 'events' });
-assert.equal(surfaces.rest.wired, false);
-assert.equal(surfaces.rest.mode, 'describe_only');
+assert.equal(surfaces.rest.wired, true);
+assert.equal(surfaces.rest.mode, 'admission_only');
 assert.equal(surfaces.cli.wired, false);
 assert.equal(projection.surfaces.some((surface) => surface.surface === 'a2a'), false);
 

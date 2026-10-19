@@ -7,8 +7,9 @@
         "fixedArguments": { "operation": "events" }
       },
       "rest": {
-        "status": "descriptive",
-        "reason": "Aucune route d'exécution Syncytium dédiée n'est câblée par ActionGenome."
+        "status": "wired",
+        "mode": "admission_only",
+        "target": "/api/action-genomes/:id/:version/evaluate"
       },
       "cli": {
         "status": "descriptive",
