@@ -59,15 +59,19 @@ function normalizeManifest(input) {
     previewEvidenceRefs: [...new Set(input.previewEvidenceRefs)] };
 }
 
+function validStageIdentity(input) {
+  return input && SAFE_ID.test(input.id) && SAFE_ID.test(input.manifestId) && STAGES.has(input.stage);
+}
+
+function validStageAssessment(assessment) {
+  return assessment && RESULTS.has(assessment.result) && text(assessment.sourceRef)
+    && references(assessment.evidenceRefs) && Number.isFinite(Date.parse(assessment.observedAt))
+    && Date.parse(assessment.observedAt) <= Date.now() + 1000;
+}
+
 function normalizeStage(input, assessment) {
-  if (!input || !SAFE_ID.test(input.id) || !SAFE_ID.test(input.manifestId) || !STAGES.has(input.stage)) {
-    throw new TypeError('SHEV product stage identity is invalid.');
-  }
-  if (!assessment || !RESULTS.has(assessment.result) || !text(assessment.sourceRef)
-    || !references(assessment.evidenceRefs) || !Number.isFinite(Date.parse(assessment.observedAt))
-    || Date.parse(assessment.observedAt) > Date.now() + 1000) {
-    throw new TypeError('SHEV product stage assessment is invalid.');
-  }
+  if (!validStageIdentity(input)) throw new TypeError('SHEV product stage identity is invalid.');
+  if (!validStageAssessment(assessment)) throw new TypeError('SHEV product stage assessment is invalid.');
   return { id: input.id, manifestId: input.manifestId, stage: input.stage,
     result: assessment.result, sourceRef: assessment.sourceRef,
     evidenceRefs: [...new Set(assessment.evidenceRefs)],
