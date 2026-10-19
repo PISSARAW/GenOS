@@ -36,4 +36,11 @@ const productContracts = require('../services/studioProductContractService');
 router.post('/workflows/:workflowId/product-contracts', ...write, handle(productContracts.create));
 router.get('/workflows/:workflowId/product-contracts/current', requirePermission('read'),
   handle(productContracts.current));
+const productEvaluation = require('../services/studioProductEvaluationService');
+router.post('/releases/:releaseId/product-contracts/:contractId/evaluations', ...write,
+  handle(productEvaluation.evaluate));
+router.get('/releases/:releaseId/product-contracts/:contractId/decision', requirePermission('read'),
+  handle(productEvaluation.decision));
+router.post('/releases/:releaseId/product-contracts/:contractId/acceptance', ...write,
+  handle(productEvaluation.accept));
 module.exports = { router, handle, write };

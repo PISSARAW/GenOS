@@ -37,6 +37,12 @@ async function ensure(db) {
       verdict TEXT NOT NULL CHECK(verdict IN ('supported','refuted','inconclusive')),
       criterion_ids_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL, note TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(release_id, evaluator, modality));
+    CREATE TABLE IF NOT EXISTS studio_product_acceptances (
+      id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
+      contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), accepted_by TEXT NOT NULL,
+      evaluation_hash TEXT NOT NULL, decision TEXT NOT NULL CHECK(decision IN ('accepted','rejected')),
+      note TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(release_id, contract_id, evaluation_hash));
     CREATE TABLE IF NOT EXISTS studio_product_effects (
       id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
       contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), observer TEXT NOT NULL,
