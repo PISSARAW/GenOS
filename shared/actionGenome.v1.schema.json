@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.dev/schemas/action-genome-v1.json",
+  "title": "GenOS ActionGenome v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "identity", "contract", "authority", "budget", "reversibility", "evidence"],
+  "properties": {
+    "schema": { "const": "genos.action-genome/v1" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "description"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$", "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputSchema", "outputSchema", "preconditions", "postconditions", "state", "effects"],
+      "properties": {
+        "inputSchema": { "$ref": "#/definitions/jsonSchema" },
+        "outputSchema": { "$ref": "#/definitions/jsonSchema" },
+        "preconditions": { "type": "array", "items": { "$ref": "#/definitions/predicate" } },
+        "postconditions": { "type": "array", "items": { "$ref": "#/definitions/predicate" } },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reads", "writes"],
+          "properties": {
+            "reads": { "$ref": "#/definitions/paths" },
+            "writes": { "$ref": "#/definitions/paths" }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "target"],
+            "properties": {
+              "kind": { "enum": ["read", "write", "external"] },
+              "target": { "type": "string", "minLength": 1, "maxLength": 200 }
+            }
+          }
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permissions", "leases"],
+      "properties": {
+        "permissions": { "$ref": "#/definitions/nonEmptyStrings" },
+        "leases": { "$ref": "#/definitions/nonEmptyStrings" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxDurationMs", "maxCostUnits"],
+      "properties": {
+        "maxDurationMs": { "type": "integer", "minimum": 1, "maximum": 3600000 },
+        "maxCostUnits": { "type": "number", "minimum": 0 }
+      }
+    },
+    "reversibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "blastRadius", "compensation"],
+      "properties": {
+        "mode": { "enum": ["reversible", "compensatable", "irreversible", "not_applicable"] },
+        "blastRadius": { "enum": ["none", "local", "workspace", "tenant", "external"] },
+        "compensation": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["actionId"],
+              "properties": { "actionId": { "type": "string", "minLength": 3, "maxLength": 128 } }
+            }
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected"],
+      "properties": { "expected": { "$ref": "#/definitions/nonEmptyStrings" } }
+    }
+  },
+  "definitions": {
+    "jsonSchema": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "enum": ["object", "array", "string", "number", "integer", "boolean", "null"] } }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "operator", "value"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^/[A-Za-z0-9_./-]*$", "maxLength": 200 },
+        "operator": { "enum": ["eq", "neq", "exists", "gte", "lte"] },
+        "value": {}
+      }
+    },
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^/[A-Za-z0-9_./*-]*$", "maxLength": 200 }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    }
+  }
+}
