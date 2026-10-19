@@ -15,6 +15,7 @@ async function openDatabase(filename) {
   fs.mkdirSync(path.dirname(filename), { recursive: true });
   process.env.GENOS_DB_PATH = filename;
   process.env.GENOS_DB_BACKUP_SKIP = '1';
+  process.env.GENOS_DB_BOOTSTRAP_SKIP = '0';
   const priorPassword = process.env.GENOS_ADMIN_PASSWORD;
   if (!priorPassword) process.env.GENOS_ADMIN_PASSWORD = crypto.randomBytes(32).toString('base64url');
   try {
