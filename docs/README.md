@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Responsabilité persistante de trajectoire](02-orchestration/responsabilite-trajectoire.md) — arbitrage borné, registre inter-domaines et double preuve effet projet/apprentissage agent.
+- [ADR 0646 — Responsabilité de trajectoire à double preuve](adr/0646-responsabilite-trajectoire-double-preuve.md) — autorité SHEV signée et promotion sans faux positif.
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante et apprentissage d'épisode.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification et révision de croyance non promotable.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
