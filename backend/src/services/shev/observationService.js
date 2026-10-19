@@ -1,7 +1,8 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { createHash, verify } = require('node:crypto');
 const { getResponsibility } = require('./responsibilityService');
+const { publicKeyOf } = require('./authorityService');
 
 const KINDS = new Set(['state', 'degradation', 'risk', 'opportunity', 'capability_gap', 'blind_spot']);
 const STATUSES = new Set(['observed', 'unknown', 'stale', 'invalid', 'inconclusive']);
@@ -46,6 +47,34 @@ function normalizedObservation(input) {
     summary: input.summary, evidenceRefs: [...new Set(input.evidenceRefs)] };
 }
 
+function observationPayload(observation) {
+  return JSON.stringify(observation);
+}
+
+function requireAttestation(observation, responsibility, attestation) {
+  const policy = responsibility.mandate.endogenousPolicy;
+  if (!policy?.enabled) return null;
+  if (attestation?.keyId !== policy.observerKeyId
+    || typeof attestation.signature !== 'string') {
+    throw new Error('SHEV endogenous observation requires the enrolled observer signature.');
+  }
+  const payload = observationPayload(observation);
+  const valid = verify(null, Buffer.from(payload), publicKeyOf(policy.observerPublicKey),
+    Buffer.from(attestation.signature, 'base64'));
+  if (!valid) throw new Error('SHEV endogenous observation signature is invalid.');
+  return { keyId: attestation.keyId, signature: attestation.signature,
+    payloadHash: createHash('sha256').update(payload).digest('hex') };
+}
+
+async function persistAttestation(db, observation, attestation) {
+  if (!attestation) return;
+  await db.run(`INSERT OR IGNORE INTO shev_observation_attestations
+    (project_id, observation_id, key_id, payload_hash, signature, verified_at)
+    VALUES (?, ?, ?, ?, ?, ?)`, [observation.projectId, observation.id,
+    attestation.keyId, attestation.payloadHash, attestation.signature,
+    new Date().toISOString()]);
+}
+
 async function recordObservation(db, input) {
   const observation = normalizedObservation(input);
   const responsibility = await getResponsibility(db, observation.projectId);
@@ -53,6 +82,7 @@ async function recordObservation(db, input) {
   if (!responsibility.mandate.dimensions.some((dimension) => dimension.name === observation.dimension)) {
     throw new Error('SHEV observation dimension is outside the mandate.');
   }
+  const attestation = requireAttestation(observation, responsibility, input.attestation);
   const hash = createHash('sha256').update(JSON.stringify(observation)).digest('hex');
   const inserted = await db.run(`INSERT OR IGNORE INTO shev_observations
     (id, project_id, domain, dimension, kind, epistemic_status, source, observed_at,
@@ -66,7 +96,8 @@ async function recordObservation(db, input) {
       WHERE project_id = ? AND id = ?`, [observation.projectId, observation.id]);
     if (existing.content_hash !== hash) throw new Error('SHEV observation idempotency conflict.');
   }
+  await persistAttestation(db, observation, attestation);
   return { ...observation, replayed: inserted.changes === 0 };
 }
 
-module.exports = { recordObservation, normalizedObservation };
+module.exports = { recordObservation, normalizedObservation, observationPayload };
