@@ -2,7 +2,7 @@
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-19
 - **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
@@ -64,7 +64,7 @@ ne peut compenser une violation de sécurité ou élargir une permission.
 | Responsabilité | Rattachée à une identité de projet Ontogenèse, persistée dans SQLite ; révision signée par l'autorité inscrite. | Une délégation héritée sans clé ne peut pas être révisée par cet appel. |
 | Mandat | Finalité, dimensions, critères immuables par version, permissions et stade signé. | Les préférences qualitatives restent liées à une grille externe. |
 | Observation | Source, date, validité, domaine, dimension, statut, résumé et références de preuve. | La source est rapportée, sans certification automatique. |
-| Adaptateurs | Capteurs signés de fraîcheur, contrat JSON et audit web, avec relecture automatique après intégration. | La sonde ne vérifie que son contrat explicite. |
+| Adaptateurs | Capteurs signés de fraîcheur, contrat JSON, audit web et rythme projet, avec relecture automatique après intégration. | La sonde ne vérifie que son contrat explicite. |
 | Initiative | Proposition déterministe ; risque et opportunité exigent approbation signée, budget cumulé, arrêt et alternative. | Une abstention signée est possible ; les autres gates restent requis. |
 | Reprise | Exécution bornée et réconciliation signée d’un effet métier interrompu, puis nouvelle mesure. | Un résultat ambigu bloque tout rejeu avant inspection externe. |
 | Effet du projet | Observation postérieure et callback de vérification requis après une tâche `done`. | La qualité du vérificateur dépend de l'application. |
@@ -142,6 +142,14 @@ Une observation `state` décrit un état observé après une intervention. Elle
 n'engendre pas d'initiative : elle sert notamment à comparer un avant et un
 après. L'absence d'observation n'est jamais convertie en état vert.
 
+Le capteur `project-rhythm` applique cette règle à la chronotaxie. Il lit un
+nombre borné de fenêtres réellement persistées pour un schedule du même projet.
+Un taux de fenêtres manquées supérieur au seuil devient une dégradation
+`observed`. Un historique trop court devient un angle mort `unknown`; un
+historique trop ancien devient `stale`. Seule la première classification peut
+donc déclencher automatiquement un diagnostic. La répétition du même signal est
+dédupliquée par le runtime et ne fabrique pas de nouvelles initiatives.
+
 ### Exemple : dégradation
 
 ```js
@@ -208,6 +216,11 @@ Si le projet est `IDLE` avec une tâche SHEV encore ouverte, `ensureWake`
 crée un événement de réveil. Le tick consomme cet événement et repasse
 par la planification normale. Une pause ou un arrêt opérateur empêche la
 compilation ; le projet ne se réveille pas pour contourner cette décision.
+
+Le réveil issu de `project-rhythm` est ainsi endogène au sens opérationnel :
+il provient d'une dérive qualifiée par rapport au mandat et non d'une tâche
+préécrite par un abonnement. Le capteur ne lance toutefois aucun daemon. Un
+hôte résident doit continuer à appeler le tick Ontogenèse.
 
 Ces garanties portent sur les écritures SQLite et sur le backlog. Elles ne
 constituent pas un protocole général « exactement une fois » pour les
