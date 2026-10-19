@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-production-healing-evidence', 'Persist candidate measurements and independent healing verification receipts', async (db) => {
+    await require('./migrateProductionHealingEvidence').migrateProductionHealingEvidence(db);
+  }),
   createMigrationRunner('146-production-healing-campaigns', 'Persist production telemetry windows and bounded healing plans', async (db) => {
     await require('./migrateProductionHealingCampaigns').migrateProductionHealingCampaigns(db);
   }),
