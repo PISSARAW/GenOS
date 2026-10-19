@@ -775,6 +775,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0650b](0650-cycle-cicatrisation-shev.md) | Cycle de cicatrisation SHEV fondé sur les preuves | Accepté pour le runtime local ; qualification de terrain non acquise | 2026-10-19 | SHEV, Ontogenèse, effets projet, surveillance longitudinale |
 | [0651a](0651-action-genome.md) | ActionGenome comme contrat canonique d’action | Accepté | 2026-10-19 | contrat d’action, admission, reçu causal, REST, CLI, MCP |
 | [0651b](0651-admission-mhc-et-capacites-au-point-effet.md) | Admission MHC et capacités au point d’effet | Accepté pour le MVP local | 2026-10-19 | artefacts d’agents, admission supply-chain, secrets d’exécution |
+| [0652](0652-reparation-guidee-par-traces-gvx.md) | Réparation GVX guidée par traces et maturation d’affinité | Accepté | 2026-10-19 | GVX, AEIS, traces, causalité, mutation bornée |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
