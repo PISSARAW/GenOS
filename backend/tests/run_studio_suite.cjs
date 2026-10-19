@@ -19,6 +19,7 @@ const suites = [
   'test_studio_reference.cjs',
   'test_studio_product_contract.cjs',
   'test_studio_product_evaluation.cjs',
+  'test_studio_product_effect.cjs',
   'test_studio_production.cjs',
   'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
   'test_studio_events.mjs', 'test_studio_comparison.mjs', 'test_studio_management.cjs',

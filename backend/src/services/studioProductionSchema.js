@@ -47,7 +47,8 @@ async function ensure(db) {
       id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),
       contract_id TEXT NOT NULL REFERENCES studio_product_contracts(id), observer TEXT NOT NULL,
       hypothesis_id TEXT NOT NULL, verdict TEXT NOT NULL CHECK(verdict IN ('supported','refuted','inconclusive')),
-      metric_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id), context_kind TEXT NOT NULL CHECK(context_kind IN ('production','holdout')),
+      metric_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL, observation_hash TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(release_id, observer, hypothesis_id));
     CREATE TABLE IF NOT EXISTS studio_product_initiatives (
       id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES studio_release_manifests(release_id),

@@ -43,4 +43,9 @@ router.get('/releases/:releaseId/product-contracts/:contractId/decision', requir
   handle(productEvaluation.decision));
 router.post('/releases/:releaseId/product-contracts/:contractId/acceptance', ...write,
   handle(productEvaluation.accept));
+const productEffect = require('../services/studioProductEffectService');
+router.post('/releases/:releaseId/product-contracts/:contractId/effects', ...write,
+  handle(productEffect.observe));
+router.post('/releases/:releaseId/product-contracts/:contractId/post-delivery-review', ...write,
+  handle(productEffect.review));
 module.exports = { router, handle, write };
