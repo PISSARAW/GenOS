@@ -1,9 +1,10 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { open } = require('sqlite');
-const sqlite3 = require('sqlite3');
 const { migrateAdaptiveState } = require('../src/db/migrations/migrateAdaptiveState');
+const fixture = require('./ontogenesisFixture');
+const projectStore = require('../src/services/ontogenesis/projectStore');
+const { registerResponsibility } = require('../src/services/shev/responsibilityService');
 const evolution = require('../src/services/counterfactualWorldEvolutionService');
 
 function input() {
@@ -22,9 +23,17 @@ function input() {
 }
 
 async function main() {
-  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  const db = await fixture.memoryDb();
   try {
     await migrateAdaptiveState(db);
+    await projectStore.createProject(db, { id: 'project-web', rootPath: 'C:/world-evolution',
+      branch: 'codex/world-evolution', objective: 'Évaluer des actions web',
+      config: fixture.testConfig() });
+    await registerResponsibility(db, { projectId: 'project-web',
+      authorityRef: 'delegation:web-owner', mandate: { purpose: 'Faire évoluer le produit web',
+        autoDiagnose: true, autoInstrument: false,
+        dimensions: [{ name: 'conversion_rate', expected: 'increase',
+          acceptance: ['independent real observation'] }] } });
     const plan = await evolution.planScenarios(db, input());
     assert.equal(plan.status, 'synthetic_only');
     assert.equal(plan.promotionAllowed, false);
@@ -44,6 +53,19 @@ async function main() {
     const invalid = input();
     invalid.candidates[1].metric = 'latency_ms';
     await assert.rejects(evolution.planScenarios(db, invalid), /share the baseline metric/);
+    const decision = await evolution.decideAction(db, { projectId: 'project-web',
+      planId: plan.planId, policy: { maxRisk: 0.4, maxCost: 100,
+        riskWeight: 0.01, costWeight: 0.005, minUtility: 0 } });
+    assert.equal(decision.outcome, 'PROPOSE_ACTION');
+    assert.equal(decision.selectedBranchId, 'conservative');
+    assert.equal(decision.promotionAllowed, false);
+    assert.equal(decision.responsibility.authorityRef, 'delegation:web-owner');
+    assert.equal(decision.responsibility.mandateVersion, 1);
+    assert.equal(decision.evaluations.find((item) => item.branchId === 'ambitious').permitted, false);
+    const abstention = await evolution.decideAction(db, { projectId: 'project-web',
+      planId: plan.planId, policy: { maxRisk: 0, maxCost: 1,
+        riskWeight: 1, costWeight: 1, minUtility: 0 } });
+    assert.equal(abstention.outcome, 'ABSTAIN');
   } finally {
     await db.close();
   }
