@@ -213,7 +213,8 @@ function verifierReceipt(input, config, refs) {
 async function ensureModelAvailable(model) {
   const configuration = modelProvider.modelConfiguration(model);
   if (configuration.provider !== 'ollama') throw new Error('This driver requires a local Ollama Qwen model.');
-  const tagsEndpoint = configuration.endpoint.replace(/\/api\/chat\/?$/i, '/api/tags');
+  const endpoint = new URL(configuration.endpoint);
+  const tagsEndpoint = `${endpoint.protocol}//${endpoint.host}/api/tags`;
   const response = await fetch(tagsEndpoint);
   if (!response.ok) throw new Error(`Ollama model discovery failed with HTTP ${response.status}.`);
   const models = (await response.json()).models || [];
