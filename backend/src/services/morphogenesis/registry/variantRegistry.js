@@ -1,6 +1,7 @@
 'use strict';
 
 const identity = require('./variantIdentity');
+const { normalizeVariantSpec } = require('./variantSpec');
 
 function createVariantRegistry() {
   const variants = new Map();
@@ -16,19 +17,7 @@ function registerVariant(variants, input = {}) {
   validateVariantInput(input);
   const topologyVariants = valueOr(variants.get(input.topology), new Map());
   assertVariantIsNew(topologyVariants, input.variantId);
-  const variant = {
-    topology: input.topology,
-    variantId: input.variantId,
-    parameters: structuredClone(valueOr(input.parameters, {})),
-    policy: valueOr(input.policy, null),
-    description: valueOr(input.description, null),
-    maturity: valueOr(input.maturity, 'implemented'),
-    requiredCapabilities: structuredClone(valueOr(input.requiredCapabilities, [])),
-    source: valueOr(input.source, null),
-    aliasOf: valueOr(input.aliasOf, null),
-    maturityReasons: structuredClone(valueOr(input.maturityReasons, [])),
-    maturityEvidence: structuredClone(valueOr(input.maturityEvidence, null))
-  };
+  const variant = normalizeVariantSpec(input);
   topologyVariants.set(variant.variantId, variant);
   variants.set(input.topology, topologyVariants);
   return structuredClone(variant);

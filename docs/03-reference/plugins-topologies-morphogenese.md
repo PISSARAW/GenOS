@@ -2,17 +2,26 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-15 (dispatch composite et continuation adaptative)
+- **Dernière revue** : 2026-10-20 (port runtime commun, VariantSpec v2, TopologyOutcome)
 
 ---
 
 ## 1. Contrat
 
-`installTopologyPlugins(runtime)` enregistre une implémentation
-`{ topology, run({ variant, workers }, context) }` par topologie, sans
-auto-montage caché. Le `TopologyExecutor` préfère un exécuteur dédié, sinon
+`installTopologyPlugins(runtime)` enregistre un `TopologyRuntimePort` versionné
+par topologie, sans auto-montage caché. Le port conserve l'API compatible
+`run({ variant, workers }, context)`, expose `describe()` et qualifie séparément
+les capacités morphogénétiques `observe`, `adapt`, `quiesce`, `snapshot`,
+`restore` et `finalize`. Un état `declared` ou `unknown` ne constitue pas une
+preuve de qualification. Le `TopologyExecutor` préfère un exécuteur dédié, sinon
 délègue au registre, sinon refuse (`Topology not registered`). Code :
+`backend/src/services/morphogenesis/runtime/topologyRuntimePort.js` et
 `backend/src/services/morphogenesis/runtime/topologyPlugins.js`.
+
+Les genres de port sont explicites : `canonical_service` pour les services
+directement raccordés, `hybrid_adapter` pour un contrôleur capable de déléguer
+au runtime canonique sous contrat de session, et `simulation_adapter` lorsqu'il
+n'existe sur cette surface qu'un modèle local non promotable.
 
 Dans le chemin principal d'une mission, `missionTopologyActivation` compose chaque
 feuille topologique avant le dispatch. Après la barrière de preuve,
@@ -31,14 +40,27 @@ ne doivent pas être déduites du seul résultat déterministe du contrôleur pl
 
 | Topologie | Mécanisme | Persistance | Vérifié |
 | --- | --- | --- | --- |
-| Trinity | `TrinityController` (3 chambres, `verified_claims`) | non | gate §5 |
-| A-Team | `ATeamController` (3 sous-systèmes) | non | gate §5 |
-| Rhizome | `RhizomeController` (exploration, compteur déterministe) | non | gate §5 |
-| Syncytium | `SyncytiumController` (état partagé, convergence déterministe) | non | gate §5 |
-| Biocénose | `BiocenoseController` (jury, ballots explicites) | non | gate §5 |
-| Biome | `populationRuntimeService` (`create→spawn→advance`) sur écologie in-memory construite des workers/input | non | gate §5 |
-| Holobionte | `runHolobiontMission` partagé avec la CLI : hôte, contrat, admission, exécution, vérification indépendante, gate immunitaire, contribution/mémoire atomiques, santé et clôture | Base persistante du control plane GenOS | gate §5 et contrat Holobionte |
-| Métapopulation | `runAutonomousRegionalRuntime` réel : PLAN sans effet, VERIFY par relecture et RECORD atomique ; cycle vide `NO_ACTION` | SQLite du control plane ; état des cycles reprenable | gate §5 et suite Metapopulation |
+| Trinity | `hybrid_adapter` — contrôleur 3 chambres, reçus workers éventuels | non | gate §5 |
+| A-Team | `hybrid_adapter` — contrôleur 3 sous-systèmes, reçus workers éventuels | non | gate §5 |
+| Rhizome | `hybrid_adapter` — simulation ou runtime persistant avec `db/sessionId` | selon le mode | gate §5 |
+| Syncytium | `simulation_adapter` — état partagé déterministe local | non | gate §5 |
+| Biocénose | `hybrid_adapter` — jury local ou runtime avec `db/communityId` | selon le mode | gate §5 |
+| Biome | `canonical_service` — `populationRuntimeService` (`create→spawn→advance`) | non | gate §5 |
+| Holobionte | `canonical_service` — mission, admission, preuve, immunité et clôture | SQLite du control plane | gate §5 et contrat Holobionte |
+| Métapopulation | `canonical_service` — runtime régional autonome | SQLite du control plane | gate §5 et suite Metapopulation |
+
+## 2.1. Variants et outcomes communs
+
+Le registre retourne désormais un `VariantSpec` v2. `specKind` vaut `variant`,
+`preset`, `profile` ou `alias`; `qualification` conserve séparément les états de
+liaison runtime, persistance, snapshot, restauration, qualification bout-en-bout
+et bénéfice empirique. Les identifiants et paramètres antérieurs sont inchangés.
+
+Toute sortie objet d'une feuille porte aussi `topologyOutcome` v1 : identité de
+topologie et de variant, `executionStatus`, `contractStatus`, `evidenceStatus`,
+`missionOutcome` et `promotionEligible`. Les quatre statuts restent dupliqués à
+la racine pendant la migration. `promotionEligible` ne devient vrai que si la
+preuve d'exécution, la preuve épistémique et l'outcome mission sont tous vérifiés.
 
 Le plugin Rhizome de cette matrice conserve un contrôleur in-process simplifié. Le [runtime Rhizome persistant](runtime-rhizome.md) possède un cycle distinct avec providers réels, preuves indépendantes et budgets atomiques ; ces garanties ne sont pas acquises par la seule feuille MorphologyRuntime.
 
@@ -112,7 +134,9 @@ backend SQLite configuré pour le control plane et non d'une base de test
   connue. Cette identité est incluse dans la télémétrie de proposition ; elle
   ne constitue pas une preuve d'exécution du variant.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
-  lourds (sessions distribuées, CRDT réseau, jury humain).
+  lourds (sessions distribuées, CRDT réseau, jury humain). Leur port indique
+  explicitement `hybrid_adapter` ou `simulation_adapter`; Syncytium n'est pas
+  déclaré canonique sur cette surface.
 - Le cycle Métapopulation sur région vide rend `NO_ACTION` avec
   `actionCount: 0`. Les actions d’extinction, recolonisation, migration, recherche
   ou évolution restent soumises à leurs preuves et adaptateurs ; voir le

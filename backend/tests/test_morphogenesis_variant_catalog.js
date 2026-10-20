@@ -7,6 +7,8 @@ const { resolveRequestedProfile } = require('../src/services/morphogenesis/regis
 function run() {
   const registry = createTopologyRegistry();
   const aTeam = registry.variants.resolve('a_team', 'project_dag');
+  assert.equal(aTeam.specVersion, 2);
+  assert.equal(aTeam.specKind, 'variant');
   assert.equal(aTeam.maturity, 'implemented');
   assert.equal(aTeam.parameters.communication, 'dependency_driven');
   assert.match(aTeam.source, /aTeam\/variants/);
@@ -35,6 +37,7 @@ function run() {
     const baseline = registry.variants.resolve(topology, 'default');
     const canonical = registry.variants.resolve(topology, baseline.aliasOf);
     assert.deepEqual(baseline.parameters, canonical.parameters, `${topology} default parameters`);
+    assert.equal(baseline.specKind, 'alias', `${topology} default kind`);
     assert.equal(baseline.maturity, canonical.maturity, `${topology} default maturity`);
     assert.ok(Object.keys(baseline.parameters).length > 0, `${topology} default is not empty`);
   }
@@ -57,6 +60,7 @@ function run() {
   assert.equal(automaticTrinity.selectedVariant.variantId, 'adversarial');
   assert.equal(automaticTrinity.variantSelection.variant, 'composed');
   assert.equal(automaticTrinity.variantSelection.selectedPreset, 'adversarial');
+  assert.equal(automaticTrinity.selectedVariant.specKind, 'preset');
 
   for (const topology of registry.list()) {
     assert.deepEqual(registry.get(topology).variants, registry.variants.list(topology));

@@ -1,6 +1,7 @@
 'use strict';
 
 const { ControllerRegistry } = require('../controllers/registry');
+const { createTopologyRuntimePort } = require('./topologyRuntimePort');
 
 const CONTROLLER_TOPOLOGIES = Object.freeze(['trinity', 'a_team', 'rhizome', 'syncytium', 'biocenose']);
 const SERVICE_TOPOLOGIES = Object.freeze(['biome', 'holobionte', 'metapopulation']);
@@ -9,15 +10,50 @@ const UNSUPPORTED_TOPOLOGIES = Object.freeze([]);
 
 function installTopologyPlugins(runtime) {
   const registry = new ControllerRegistry(runtime);
-  for (const topology of CONTROLLER_TOPOLOGIES) installController(runtime, registry, topology);
-  installBiome(runtime);
-  installHolobionte(runtime);
-  installMetapopulation(runtime);
-  return { installed: [...PLUGIN_TOPOLOGIES], unsupported: [...UNSUPPORTED_TOPOLOGIES], registry };
+  const ports = new Map();
+  for (const topology of CONTROLLER_TOPOLOGIES) installController({ runtime, registry, ports, topology });
+  installBiome(runtime, ports);
+  installHolobionte(runtime, ports);
+  installMetapopulation(runtime, ports);
+  return { installed: [...PLUGIN_TOPOLOGIES], unsupported: [...UNSUPPORTED_TOPOLOGIES],
+    ports: Object.fromEntries(ports), registry };
 }
 
-function installController(runtime, registry, topology) {
-  runtime.registerTopology(topology, { topology, run: runWithController(registry, topology) });
+function installController(input) {
+  const { runtime, registry, ports, topology } = input;
+  const executionKind = topology === 'syncytium' ? 'simulation_adapter' : 'hybrid_adapter';
+  registerPort(runtime, ports, {
+    topology, executionKind, execute: executeController(registry, topology),
+    morphogenesis: controllerMorphogenesis(topology)
+  });
+}
+
+function executeController(registry, topology) {
+  const run = runWithController(registry, topology);
+  return ({ args, context }) => run(args, context);
+}
+
+function registerPort(runtime, ports, definition) {
+  const port = createTopologyRuntimePort(definition);
+  ports.set(definition.topology, port);
+  runtime.registerTopology(definition.topology, port);
+}
+
+function controllerMorphogenesis(topology) {
+  const persistent = ['rhizome', 'biocenose'].includes(topology);
+  return {
+    observe: 'declared', adapt: 'declared', quiesce: 'declared',
+    snapshot: persistent ? 'declared' : 'unknown',
+    restore: persistent ? 'unknown' : 'unsupported', finalize: 'unknown'
+  };
+}
+
+function serviceMorphogenesis(topology) {
+  return {
+    observe: 'declared', adapt: 'declared', quiesce: 'declared',
+    snapshot: topology === 'biome' ? 'unknown' : 'declared',
+    restore: 'unknown', finalize: 'declared'
+  };
 }
 
 function runWithController(registry, topology) {
@@ -37,8 +73,9 @@ function attachWorkerResults(output, workerResults) {
   return { topologyOutput: output, workerResults };
 }
 
-function installBiome(runtime) {
-  runtime.registerTopology('biome', { topology: 'biome', run: runBiome });
+function installBiome(runtime, ports) {
+  registerPort(runtime, ports, { topology: 'biome', executionKind: 'canonical_service',
+    execute: ({ args, context }) => runBiome(args, context), morphogenesis: serviceMorphogenesis('biome') });
 }
 
 async function runBiome(args, context) {
@@ -54,8 +91,10 @@ async function executeBiome(args, context) {
   return { ...result, executionMode: 'service_runtime' };
 }
 
-function installHolobionte(runtime) {
-  runtime.registerTopology('holobionte', { topology: 'holobionte', run: runHolobionte });
+function installHolobionte(runtime, ports) {
+  registerPort(runtime, ports, { topology: 'holobionte', executionKind: 'canonical_service',
+    execute: ({ args, context }) => runHolobionte(args, context),
+    morphogenesis: serviceMorphogenesis('holobionte') });
 }
 
 async function runHolobionte(args, context) {
@@ -203,8 +242,10 @@ function contractBody(created, capability) {
   };
 }
 
-function installMetapopulation(runtime) {
-  runtime.registerTopology('metapopulation', { topology: 'metapopulation', run: runMetapopulation });
+function installMetapopulation(runtime, ports) {
+  registerPort(runtime, ports, { topology: 'metapopulation', executionKind: 'canonical_service',
+    execute: ({ args, context }) => runMetapopulation(args, context),
+    morphogenesis: serviceMorphogenesis('metapopulation') });
 }
 
 async function runMetapopulation(args, context) {
