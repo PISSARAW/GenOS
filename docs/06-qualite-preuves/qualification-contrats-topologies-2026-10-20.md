@@ -2,8 +2,8 @@
 
 - **Type** : rapport de preuve borné
 - **Périmètre** : lanceur transverse, contrats de workers, repli des variants et suites dédiées
-- **Statut** : validation locale partielle ; production et fournisseurs réels non certifiés
-- **Révision observée** : checkout local du 2026-10-20
+- **Statut** : qualification locale verte ; production et fournisseurs réels non certifiés
+- **Révision observée** : campagne post-v3 du 2026-10-20
 
 ## 1. Question de qualification
 
@@ -80,17 +80,32 @@ les membres requis terminés, des preuves SHA-256 liées à la mission et au mem
 une validation topologique et une barrière complète. Un membre échoué a priorité
 sur un verdict partiel.
 
-Le contrat structurel ne promeut rien : `promotionEligible` reste `false`.
-`missionClosureService.closeMission` ajoute workers, preuves, invariants et
-oracle indépendant ; son succès peut rendre une mission techniquement éligible
-à une étape de promotion, mais n'exécute aucun effet. Syncytium appelle encore
-directement le contrat structurel après ses contrôles de session et conserve
-donc `promotionEligible: false`.
+Le contrat structurel ne promeut rien. `missionClosureService.closeMission`
+ajoute workers, preuves, invariants et oracle indépendant ; son succès peut
+rendre une mission techniquement éligible à une étape de promotion, mais
+n'exécute aucun effet.
 
-Sur le chemin biologique non-Syncytium, la validation topologique générique est
-la barrière de workers. La preuve sémantique additionnelle provient des
-références d'oracle natives attachées aux reçus workers. Cette voie ne remplace
-pas les invariants riches des runtimes canoniques dédiés.
+Les sept modes non-Syncytium utilisent désormais un registre fermé
+d'adaptateurs spécialisés. Une absence d'adaptateur, un état initial, une
+barrière inconnue ou un oracle incomplet reste `partial` ou `failed`. Syncytium
+conserve son pipeline de session et son contrat structurel après validation
+sémantique.
+
+Trois frontières ont été durcies par falsification :
+
+- Rhizome résout l'oracle dans le journal natif persistant au lieu d'accepter
+  deux condensats de forme plausible ;
+- Métapopulation exige une autorité signée, rejette tous ses alias comme
+  producteur et recalcule le sceau structurel régional à la clôture ;
+- Biome scelle le sujet terminal et toutes les preuves, refuse un verdict signé
+  autre que `verified` et revalide état, révision et journal sous transaction
+  immédiatement avant `closeMission`.
+
+Le chemin public applique un routeur de progression avant la clôture. Il reste
+volontairement `BLOCKED` pour Biocénose, Biome, Holobionte et Métapopulation
+lorsque le dispatch parallèle ne fournit pas de vérificateur post-résultat lié
+au hash ou au sujet exact. Un dossier transporté avec succès n'est pas converti
+en oracle.
 
 ### 4.3 Repli des variants
 
@@ -137,29 +152,38 @@ Ils falsifient notamment l'absence de preuve, le contenu altéré, la mauvaise
 corrélation mission/worker, l'invariant faux, l'oracle absent et le snapshot
 Syncytium périmé.
 
-Lors de la relecture documentaire du 2026-10-20, les sept scripts ciblés du
-catalogue, de l'attente/barrière worker, du repli, du commit Morphogenèse et du
-stdio local ont rendu un code nul. `run_biology_suite.cjs`, exécuté par la suite
-racine, a terminé à **8/8**. La suite Trinity a terminé à **46/47** : le seul
-échec est la création du lien
-symbolique de `test_trinity_l2_capsules.js`, refusée par Windows avec `EPERM`.
-La suite Biocénose a annoncé **20 fichiers réussis sur 31 découverts**, puis
-n'a plus produit de sortie dans la fenêtre d'observation ; elle a été
-interrompue sans verdict global. Les onze fichiers restants ne sont donc pas
-qualifiés par cette exécution.
+La campagne post-v3 a exécuté la commande complète hors du confinement Windows
+qui interdit certains processus et ports locaux. Elle a terminé en **291 136 ms**
+avec un code de sortie nul, **8/8 groupes topologiques**, **5/5 frontières** et
+aucun échec :
 
-La matrice complète n’a pas obtenu un verdict global vert dans l’environnement
-Windows utilisé. Les observations incluent une création de lien symbolique
-Trinity refusée par l’OS (`EPERM`), un canal de processus enfant fermé
-(`ENOTCONN`) et une exécution Biocénose qui n’a pas fourni de verdict terminal
-dans la fenêtre d’observation. Ces incidents empêchent une attestation globale ;
-ils ne sont pas remplacés par une extrapolation à partir des groupes réussis.
+| Groupe | Verdict observé |
+| --- | --- |
+| Trinity | 48/48 et qualification GQWF réussie |
+| A-Team | 4/4 |
+| Biome | 26 programmes |
+| Biocénose | 32/32, 0 échec, 0 timeout |
+| Rhizome | 38 suites, 0 échec |
+| Syncytium | 50 suites, 13 variantes |
+| Holobionte | 59 scripts |
+| Métapopulation | 14 suites |
+
+Les frontières ont confirmé l'attente worker (3/3), le repli de variant, les
+reçus biologiques et la reprise (8/8), le commit gouverné de Morphogenèse et le
+démarrage/stdio du runtime LLM local. Les seules sorties non bloquantes étaient
+une ligne Git indiquant un répertoire temporaire non initialisé et des budgets
+absents remplacés par leurs valeurs par défaut.
+
+La définition de fini du dépôt est également verte : `npm test`, le gate de
+qualité et `cargo test --workspace` passent hors bac à sable. Les quatre faux
+négatifs Rust observés sous confinement provenaient exclusivement d'un refus
+d'accès Windows aux répertoires temporaires ; leur relance non confinée passe.
 
 ## 6. Ce que ce rapport prouve
 
-Il prouve l’existence d’un point d’entrée unique, son catalogue fermé et les
-assertions des tests ciblés réellement exécutés. Il rend aussi reproductibles
-les limites observées.
+Il prouve l’existence d’un point d’entrée unique, son catalogue fermé, les
+barrières fail-closed et les assertions de la campagne locale réellement
+exécutée. Il rend aussi reproductibles les limites observées.
 
 Il ne prouve pas :
 
