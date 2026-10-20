@@ -2,7 +2,7 @@
 const qualification = require('./trinityQualificationContract');
 const manifests = require('./trinityRunManifest');
 const traces = require('./trinityTraceEvents');
-const path = require('node:path');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 function contractForRequest(request, mission) {
   if (!request.trinityContract) return null;
@@ -88,13 +88,7 @@ function assertWorkerScope(context, input) {
   if (missionId !== (input.row.mission_id || input.experimentId)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   if (input.design.orchestratorId && mission.orchestratorAgentId !== input.design.orchestratorId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   const sealedSource = mission.gqwfSourceWorkspaceRoot || mission.workspaceRoot;
-  if (workspacePath(sealedSource) !== workspacePath(input.world.workspace_root)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
-}
-
-function workspacePath(value) {
-  if (typeof value !== 'string' || !path.isAbsolute(value)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
-  const resolved = path.resolve(value);
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  if (!workspaceIdentity.sameWorkspaceRoot(sealedSource, input.world.workspace_root)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
 }
 
 function runtimeManifest(context, input) {

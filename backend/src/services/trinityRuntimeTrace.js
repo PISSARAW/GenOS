@@ -2,7 +2,7 @@
 const manifests = require('./trinityRunManifest');
 const traces = require('./trinityTraceEvents');
 const { digest } = require('./trinityExecutionJournal');
-const path = require('node:path');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 async function observe(context, event) {
   const scope = context.normalizedMission?.missionScope;
@@ -31,21 +31,9 @@ function assertCorrelation(context, correlation) {
 
 function assertOptionalBindings(context, correlation) {
   const workspace = context.normalizedMission.workspaceRoot;
-  if (workspace && !sameWorkspace(workspace, correlation.workspaceRoot)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
+  if (workspace && !workspaceIdentity.sameWorkspaceRoot(workspace, correlation.workspaceRoot)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   const tenant = context.dispatchedAgent?.organization_id;
   if (tenant && tenant !== correlation.tenantId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
-}
-
-function canonicalWorkspace(value) {
-  if (typeof value !== 'string' || !value) return null;
-  try { return require('node:fs').realpathSync(value); } catch (_) { return path.resolve(value); }
-}
-function sameWorkspace(left, right) {
-  if (typeof left !== 'string' || !path.isAbsolute(left)) return false;
-  if (typeof right !== 'string' || !path.isAbsolute(right)) return false;
-  const roots = [canonicalWorkspace(left), canonicalWorkspace(right)];
-  if (process.platform === 'win32') return String(roots[0]).toLowerCase() === String(roots[1]).toLowerCase();
-  return roots[0] === roots[1];
 }
 
 function failure(code) { return Object.assign(new Error(code), { code }); }

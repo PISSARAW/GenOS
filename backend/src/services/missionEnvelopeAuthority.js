@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('node:fs/promises');
 const { withTransaction } = require('../db');
 const values = require('./trinityProvenanceValues');
 const ledger = require('./gvxDevelopmentLedger');
@@ -10,23 +9,12 @@ const contract = require('./executionEnvelopeContract');
 const migration = require('../db/migrations/migrateExecutionAuthorityV2');
 const SCHEMA = contract.SCHEMA;
 const LEGACY_SCHEMA = 'genos.execution-authority-envelope/v1';
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 function eventId(runId) { return `gvx-run:${runId}:authority`; }
 
 async function realWorkspaceRoot(root, options = {}) {
-  const resolve = options.resolve || fs.realpath;
-  const attempts = options.attempts ?? 1;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try { return await resolve(root); }
-    catch (failure) {
-      if (!['EPERM', 'EBUSY'].includes(failure.code)) throw failure;
-      if (attempt === attempts - 1) break;
-      await new Promise((done) => setTimeout(done, 25 * (attempt + 1)));
-    }
-  }
-  const validate = options.validate
-    || require('./workspaceSnapshotPaths').assertNoSymlinkAbsolutePath;
-  return validate(root);
+  return workspaceIdentity.canonicalWorkspaceRootAsync(root, options);
 }
 
 async function seal(ctx) {
@@ -170,7 +158,7 @@ async function assertCompletedRunEvidence(db, input) {
 async function assertMission(saved, mission) {
   if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
   const root = await realWorkspaceRoot(mission.workspaceRoot);
-  if (root !== saved.envelope.workspaceRoot) throw contextChanged('workspace root changed');
+  if (!workspaceIdentity.sameWorkspaceRoot(root, saved.envelope.workspaceRoot)) throw contextChanged('workspace root changed');
   const actualTools = [...new Set(mission.toolLease || [])];
   const sealedTools = new Set(saved.envelope.toolLease);
   if (actualTools.some(tool => !sealedTools.has(tool))) {

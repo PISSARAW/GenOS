@@ -7,6 +7,7 @@ const { validateBudgetCoherence, normalizeMissionBudget, validateShareSum } = re
 const { emit, cancelledStarts } = require('../agentOrchestrationState');
 const { assertCallerMcpConfiguration } = require('../cognitiveExecutor');
 const { withWriteRetry, withTransaction } = require('../../db');
+const workspaceIdentity = require('../trinityWorkspaceIdentity');
 
 function assertMissionNotCancelled(agentId) {
   if (cancelledStarts.has(agentId)) {
@@ -163,14 +164,16 @@ async function bindMissionWorkerWorkspace(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
   if (dispatchedAgent.execution_mode !== 'worker' || !normalizedMission.workspaceRoot) return;
   const assigned = await db.get('SELECT path FROM workspaces WHERE id = ?', dispatchedAgent.workspace_id);
-  const path = require('node:path');
-  const current = assigned?.path && path.resolve(assigned.path);
-  const requested = path.resolve(normalizedMission.workspaceRoot);
-  if (current && (process.platform === 'win32' ? current.toLowerCase() === requested.toLowerCase() : current === requested)) return;
+  const current = workspaceIdentity.canonicalWorkspaceRoot(assigned?.path);
+  const requested = workspaceIdentity.canonicalWorkspaceRoot(normalizedMission.workspaceRoot);
+  if (current && workspaceIdentity.sameWorkspaceRoot(current, requested)) return;
   if (current) {
     const garageResume = await require('../garageRuntimeService')
       .isRestoredWorkspace(db, normalizedMission, assigned.path);
     if (garageResume) return;
+    if (normalizedMission.missionScope?.trinityExperimentId) {
+      throw Object.assign(new Error('Trinity mission workspace differs from its sealed worker binding.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+    }
     // Worker already owns a capsule bound during preparation: keep the original
     // binding and realign the mission onto it. Binding a second capsule would
     // violate the unique workspace name owned by this worker.

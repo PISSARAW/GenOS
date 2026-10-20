@@ -5,18 +5,22 @@ const { copyTree, createExclusionFilter } = require('./agentWorkspaceLifecycle/c
 const { maxCopyBytes } = require('./agentWorkspaceLifecycle/constants');
 const { directory: missionSnapshotDirectory } = require('./trinityMissionSnapshotPath');
 const { hashWorkspace } = require('./trinitySnapshotService');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 async function seal(input) {
-  const root = missionSnapshotDirectory(input.repoRoot, input.missionId);
+  const repoRoot = workspaceIdentity.canonicalWorkspaceRoot(input.repoRoot);
+  const source = workspaceIdentity.canonicalWorkspaceRoot(input.source);
+  if (!repoRoot || !source) throw snapshotConflict();
+  const root = missionSnapshotDirectory(repoRoot, input.missionId);
   const staging = `${root}.partial.${crypto.randomUUID()}`;
-  const sourceHash = await hashWorkspace(input.source);
+  const sourceHash = await hashWorkspace(source);
   try {
     await fs.mkdir(staging, { recursive: true });
     await copyTree({ state: { bytes: 0, limit: maxCopyBytes(), entries: 0 }, isExcluded: createExclusionFilter() },
-      { source: input.source, destination: staging, relative: '' });
+      { source, destination: staging, relative: '' });
     const hash = await hashWorkspace(staging);
-    if (hash !== sourceHash || hash !== await hashWorkspace(input.source)) throw Object.assign(new Error('Trinity source changed while sealing.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
+    if (hash !== sourceHash || hash !== await hashWorkspace(source)) throw Object.assign(new Error('Trinity source changed while sealing.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
     await install({ staging, root, hash });
-    return { root, hash };
+    return { root: workspaceIdentity.canonicalWorkspaceRoot(root), hash };
   } finally {
     await fs.rm(staging, { recursive: true, force: true });
   }

@@ -31,6 +31,15 @@ async function main() {
     assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'worker')).workspace_id, id);
     assert.equal(await preparation.bindWorker(db, input), id);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM workspaces WHERE id = ?', id)).n, 1);
+    const equivalent = process.platform === 'win32'
+      ? clone.toUpperCase().replaceAll('\\', '/')
+      : path.join(clone, '.');
+    await db.run('UPDATE workspaces SET path = ? WHERE id = ?', equivalent, id);
+    assert.equal(await preparation.bindWorker(db, input), id);
+    assert.equal((await db.get('SELECT path FROM workspaces WHERE id = ?', id)).path, await fs.realpath(clone));
+    await db.run('UPDATE workspaces SET path = ? WHERE id = ?', source, id);
+    await assert.rejects(preparation.bindWorker(db, input), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+    await db.run('UPDATE workspaces SET path = ? WHERE id = ?', clone, id);
     await db.run('INSERT INTO agents VALUES (?, ?, ?)', 'unbound', 'parent-ws', 'parent');
     await assert.rejects(preparation.bindWorker(db, { ...input, workerId: 'unbound' }), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
     assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'unbound')).workspace_id, 'parent-ws');

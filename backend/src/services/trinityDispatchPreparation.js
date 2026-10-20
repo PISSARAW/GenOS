@@ -9,11 +9,14 @@ const { hashWorkspace } = require('./trinitySnapshotService');
 const experiments = require('./trinityExperimentStore');
 const trinity = require('./trinityService');
 const qualification = require('./trinityQualificationDispatch');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 async function prepare(db, input) {
   const { context, parent, missionId, mission, members, selection } = input;
   const source = parent.workspace_root || context.request.workspace_root || context.repoRoot;
-  const directory = missionSnapshotDirectory(context.repoRoot, missionId);
+  const repoRoot = workspaceIdentity.canonicalWorkspaceRoot(context.repoRoot);
+  if (!repoRoot) throw Object.assign(new Error('Trinity repository workspace is invalid.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+  const directory = missionSnapshotDirectory(repoRoot, missionId);
   const budget = budgetPolicy(context.request, members.length, selection);
   const prior = await db.get('SELECT design_json, budget_policy_json, mission_snapshot_hash, status FROM trinity_experiments WHERE id = ?', missionId);
   qualification.contractForRequest(context.request, mission);
@@ -21,7 +24,7 @@ async function prepare(db, input) {
     qualification.assertReplay(JSON.parse(prior.design_json), input);
     return replayPreparation(prior, { mission, selection, budget, directory });
   }
-  const snapshot = await require('./trinitySealedSnapshot').seal({ repoRoot: context.repoRoot, source, missionId });
+  const snapshot = await require('./trinitySealedSnapshot').seal({ repoRoot, source, missionId });
   const snapshotHash = snapshot.hash;
   const provenance = await qualification.seal({ ...input, snapshotHash, snapshotRoot: directory });
   const design = { ...dispatchDesign(input, directory), ...provenance };
@@ -61,21 +64,27 @@ async function bindWorker(db, input) {
   const row = await db.get('SELECT mission_snapshot_hash, design_json FROM trinity_experiments WHERE id = ?', scope.trinityExperimentId);
   const design = JSON.parse(row?.design_json || '{}');
   if (!design.orchestratorId) throw Object.assign(new Error('Trinity experiment has no sealed orchestrator identity.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
-  if (await hashWorkspace(input.workspaceRoot) !== row?.mission_snapshot_hash) {
+  const workspaceRoot = workspaceIdentity.canonicalWorkspaceRoot(input.workspaceRoot);
+  if (!workspaceRoot || await hashWorkspace(workspaceRoot) !== row?.mission_snapshot_hash) {
     throw Object.assign(new Error('Trinity worker snapshot mismatch.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
   }
   return require('../db').withTransaction(db, tx => registerPrivateWorkspace(tx, {
-    ...input, snapshotHash: row.mission_snapshot_hash, orchestratorId: design.orchestratorId
+    ...input, workspaceRoot, snapshotHash: row.mission_snapshot_hash, orchestratorId: design.orchestratorId
   }));
 }
 
 async function registerPrivateWorkspace(db, input) {
   const id = 'trinity_workspace_' + input.workerId;
   const existing = await db.get('SELECT path, visibility, organization_id, project_id FROM workspaces WHERE id = ?', id);
-  if (existing && (existing.path !== input.workspaceRoot || existing.visibility !== 'Private')) throw Object.assign(new Error('Trinity worker workspace identity changed.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+  const identity = { workspaceId: id, workspaceRoot: input.workspaceRoot };
+  if (existing && (!workspaceIdentity.sameWorkspaceIdentity(identity,
+    { workspaceId: id, workspaceRoot: existing.path }) || existing.visibility !== 'Private')) {
+    throw Object.assign(new Error('Trinity worker workspace identity changed.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+  }
   const tenant = await assertTrinityWorkerTenant(db, input, existing);
   await db.run("INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language, tags, organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, ?, ?)",
     id, 'Trinity ' + input.workerId, input.workspaceRoot, JSON.stringify(['trinity_world', 'sealed']), tenant?.organization_id || null, tenant?.project_id || null);
+  if (existing) await db.run('UPDATE workspaces SET path = ? WHERE id = ?', input.workspaceRoot, id);
   const agent = await db.run('UPDATE agents SET workspace_id = ? WHERE id = ?', id, input.workerId);
   const world = await db.run('UPDATE trinity_worlds SET workspace_root = ?, snapshot_hash = ?, status = ? WHERE agent_id = ? AND experiment_id = ?',
     input.workspaceRoot, input.snapshotHash, 'running', input.workerId, input.scope.trinityExperimentId);
