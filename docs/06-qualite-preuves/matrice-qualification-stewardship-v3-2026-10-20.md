@@ -33,7 +33,7 @@ Un test unitaire vert peut soutenir `C1` ou `C2`. Il ne suffit pas à `C5`.
 | campagne AIDE² | C1 | protocoles et statistiques déterministes ; pas d’exécution de modèles |
 | stewardship spécialisé | C2/C3 | plusieurs domaines avec stores et tests, raccord hétérogène |
 | double preuve causale | C2 | résultat atomique de trajectoire et revue causale AIDE² |
-| boucle intégrée | C0/C1 | architecture documentée, pas d’orchestrateur unique qualifié |
+| boucle intégrée | C3 local | fixture Q1/Q2 reliant les composants réels ; aucune campagne longitudinale réelle |
 | effet longitudinal public | absent | aucune campagne réelle publiée dans le dépôt |
 
 ## 3. Matrice par famille rivale
@@ -126,6 +126,14 @@ deux claims concurrents, expirer un lease et réutiliser un ancien fence.
 
 **Sortie attendue** : aucune double écriture, reprise déterministe, artefacts conservés.
 
+La fixture locale `test_trajectory_stewardship_qualification.js` compose le ledger
+ambiant, l’observation minimisée, l’arbitrage, la sélection GVX et la délégation
+Ontogenèse. Elle couvre `NO_CHANGE`, observation seule, révocation, reprise après
+réouverture SQLite entre les checkpoints, réponse perdue après commit, double claim,
+expiration de lease et rejet d’un ancien fence. Les checkpoints démontrent localement
+l’absence de double écriture et de double action. Cette preuve reste une campagne à
+processus injecté : elle ne remplace ni un kill OS d’un worker réel, ni Q3–Q5.
+
 ### Q3 — Validité causale
 
 Préenregistrer une responsabilité et un protocole apparié. Mesurer baseline, candidat,
@@ -169,6 +177,7 @@ node backend/tests/test_ambient_feedback_arbitration.js
 node backend/tests/test_trajectory_stewardship_policy.js
 node backend/tests/test_trajectory_stewardship_store.js
 node backend/tests/test_trajectory_stewardship_outcome.js
+node backend/tests/test_trajectory_stewardship_qualification.js
 node backend/tests/test_ontogenesis_async_delegation.js
 node backend/tests/test_ontogenesis_repository_stewardship.js
 node backend/tests/test_counterfactual_world_evolution.js
