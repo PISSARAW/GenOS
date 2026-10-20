@@ -108,29 +108,30 @@ function restoreMatrix(state) {
   return matrix;
 }
 
-function rehydrate(record, graph = {}) {
-  const state = record.state || {};
-  const canonical = canonicalSession({
+function rehydrateRecord(state, record, graph) {
+  return canonicalSession({
     ...state,
     nodes: graph.nodes ?? state.nodes,
     edges: graph.edges ?? state.edges,
     graphVersion: graph.graphVersion ?? state.graphVersion
   }, record.id);
+}
+
+function rehydrateVariant(state) {
+  return variantPolicyService.resolve(state.variant || 'routing');
+}
+
+function rehydrate(record, graph = {}) {
+  const state = record.state || {};
+  const canonical = rehydrateRecord(state, record, graph);
   const organization = state.organization || DEFAULT_ORGANIZATION;
-  const variant = variantPolicyService.resolve(state.variant || 'routing');
-  return {
-    ...canonical,
-    sessionId: record.id,
-    revision: Number(record.revision) || 0,
-    mission: state.mission || '',
-    organization,
-    variant: variant.name,
-    variantPolicy: variant,
-    variantSelection: state.variantSelection || null,
+  const variant = rehydrateVariant(state);
+  return { ...canonical, sessionId: record.id, revision: Number(record.revision) || 0,
+    mission: state.mission || '', organization, variant: variant.name,
+    variantPolicy: variant, variantSelection: state.variantSelection || null,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: restoreMatrix(state),
-    members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
-  };
+    members: normalizeMembers(Array.isArray(state.members) ? state.members : []) };
 }
 
 async function composeRhizome(mission, options = {}) {
