@@ -8,6 +8,7 @@
 - [Protocole pilote de campagne terrain SHEV](06-qualite-preuves/protocole-campagne-terrain-shev.md) — comparaison appariée scellable sur une dimension, sans campagne encore exécutée.
 - [Répétition générale de campagne terrain SHEV](04-exploitation/repetition-generale-campagne-terrain-shev.md) — validation accélérée, reprenable et explicitement non qualifiante du chemin d'exécution.
 - [Exécution d'une campagne terrain SHEV](04-exploitation/executer-campagne-terrain-shev.md) — runbook d'au moins 72 h avec ticks externes, reprise et verdicts honnêtes.
+- [Publication et réplication d'une campagne terrain SHEV](06-qualite-preuves/publication-replication-campagne-terrain-shev.md) — rapport sanitisé, archive brute externe et réplication indépendante.
 
 - [Dossier Holobionte](02-orchestration/topologies/holobionte.md) — modèle hôte-symbiotes, [référence runtime](03-reference/runtime-holobionte.md), [guide d'exploitation](04-exploitation/operer-runtime-holobionte.md), [campagne causale bornée](06-benchmarks/campagne-causale-holobionte.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-holobionte-2026-10-20.md).
 
