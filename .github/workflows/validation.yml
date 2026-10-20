@@ -17,6 +17,42 @@ jobs:
       - run: cargo test --workspace --locked
 
   node:
+    name: Node validation (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
+    env:
+      GENOS_ADMIN_PASSWORD: ci-test-only
+      GENOS_CI_OS: ${{ matrix.os }}
+      GENOS_CI_NODE: ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Verify diagnostic runner
+        run: node scripts/ci/test_run_with_diagnostics.cjs
+      - name: Install root dependencies
+        run: node scripts/ci/run_with_diagnostics.cjs --output artifacts/ci/root-install.json --name root-install -- npm ci
+      - name: Install backend dependencies
+        run: node scripts/ci/run_with_diagnostics.cjs --output artifacts/ci/backend-install.json --name backend-install -- npm ci --prefix backend
+      - name: Run validation suite
+        run: node scripts/ci/run_with_diagnostics.cjs --output artifacts/ci/validation.json --name validation -- npm --prefix backend run test:validation
+      - name: Publish CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-${{ matrix.os }}-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/ci
+          if-no-files-found: error
+          retention-days: 14
+
+  node-complete:
+    name: Complete Node suite (Ubuntu, Node 20)
     runs-on: ubuntu-latest
     env:
       GENOS_ADMIN_PASSWORD: ci-test-only
@@ -52,7 +88,8 @@ jobs:
       - run: npm --prefix backend run test:concurrency
       - run: npm --prefix backend run test:distributed-parity
 
-  windows:
+  windows-rust:
+    name: Rust CLI (Windows)
     runs-on: windows-latest
     env:
       GENOS_ADMIN_PASSWORD: ci-test-only
@@ -64,10 +101,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install NASM for aws-lc-sys
         run: ./scripts/ci/install-nasm.ps1 -Install -Yes -PackageManager choco
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm ci --prefix backend
       - run: ./scripts/ci/rust-test.ps1 -p genos-cli --bin genos
-      - run: npm --prefix backend run test:validation
