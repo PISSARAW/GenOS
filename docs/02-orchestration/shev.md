@@ -2,7 +2,7 @@
 
 - **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets et cycle durable de cicatrisation
-- **Dernière revue** : 2026-10-19
+- **Dernière revue** : 2026-10-20
 - **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md), [ADR 0650b](../adr/0650-cycle-cicatrisation-shev.md)
 - **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 - **Qualification** : [campagne ciblée du 19 octobre 2026](../06-qualite-preuves/qualification-servicenow-kore-gitlab-2026-10-19.md)
@@ -591,4 +591,30 @@ d'effet utilisateur, l'effet projet SHEV et le progrès d'apprentissage sur la
 cible du manifeste sont tous confirmés. Les vérificateurs projet et apprentissage
 doivent être distincts. Sinon la décision reste `INCONCLUSIVE + NO_CHANGE`.
 `QUALIFIED` est un reçu de preuve append-only ; il ne promeut pas le build et
-n'autorise aucune action de production. Voir [ADR 0695]($20695-responsabilite-produit-post-livraison.md).
+n'autorise aucune action de production. Voir [ADR 0695](../adr/0695-responsabilite-produit-post-livraison.md).
+
+## 21. Raccord à l'ontogenèse dirigée par responsabilité
+
+Les extensions 0679–0699 ajoutent des contrats spécialisés autour de SHEV sans en
+changer l'autorité : responsabilité ambiante révocable, arbitrage de trajectoire,
+délégation asynchrone, stewardship du dépôt, sélection de buts, compétences
+réutilisables, mondes contrefactuels et modèle prédictif. Leur composition cible est :
+
+```text
+SHEV constate et justifie
+  → Ontogenèse planifie, délègue et reprend
+  → Morphogenèse choisit une organisation autorisée
+  → GVX expérimente et conserve l'apprentissage
+  → un vérificateur mesure l'effet projet
+  → une gate externe décide de la promotion
+```
+
+Cette chaîne est documentée et ses segments sont testés, mais aucun service unique
+ne l'exécute encore de bout en bout. Les opérateurs doivent donc conserver les
+frontières entre recommandation, exécution, observation et promotion.
+
+Voir [Ontogenèse dirigée par responsabilité](../01-concepts/ontogenese-dirigee-par-responsabilite.md),
+[Délégation et stewardship](ontogenese-delegation-et-stewardship.md), les
+[contrats V3](../03-reference/contrats-stewardship-v3.md), le
+[runbook longitudinal](../04-exploitation/runbook-stewardship-longitudinal.md) et la
+[matrice de qualification](../06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md).

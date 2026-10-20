@@ -3,7 +3,7 @@
 - **Statut** : Implémenté pour le backend local Studio
 - **Portée** : contrats, évaluations, acceptation, effets et initiatives SQLite
 - **Dernière revue** : 2026-10-19
-- **Décision** : [ADR 0682]($20682-cycle-produit-durable-studio.md)
+- **Décision** : [ADR 0682](../adr/0682-cycle-produit-durable-studio.md)
 
 ## Contrats et frontières
 
@@ -94,6 +94,41 @@ publication, ni rollback, ni mutation du workflow.
 Ces analogies décrivent les contrats implémentés ; elles ne prouvent aucune
 propriété biologique, cognitive ou causale générale.
 
+## Machine d'état du produit
+
+```text
+CONTRACT_VERSIONED
+  -> PREVIEW_EVIDENCE_PENDING
+  -> NO_CHANGE | REJECT | READY_FOR_ACCEPTANCE
+  -> ACCEPTED | REJECTED_BY_OWNER
+  -> PRODUCTION_RUN_LINKED
+  -> EFFECT_SUPPORTED | EFFECT_REFUTED | EFFECT_INCONCLUSIVE
+  -> NO_CHANGE | ROLLBACK_RECOMMENDED | PROPOSE_TRANSFER_EXPERIMENT
+```
+
+Les flèches décrivent le protocole logique, pas une unique colonne de statut. Chaque
+étape conserve son propre artefact afin qu'une nouvelle évaluation ne réécrive pas
+l'acceptation précédente.
+
+## Échecs exploitables
+
+| Échec | Signification | Action |
+| --- | --- | --- |
+| révision attendue divergente | écriture concurrente du contrat | relire la tête et reconstruire |
+| hash de jury différent | évaluations modifiées depuis acceptation | nouvelle acceptation |
+| modalité manquante | jury incomplet | `NO_CHANGE` |
+| évaluateur = créateur | auto-évaluation | refuser la preuve |
+| run non terminé ou mauvaise release | effet non attribuable | refuser l'observation |
+| effet réfuté | régression mesurée | recommander le rollback |
+| contexte cible absent | transfert non testé | expérience cible requise |
+
+## Observabilité
+
+Suivre par workflow et release : révision du contrat, critères couverts, identités et
+modalités du jury, hash accepté, run de production, métrique baseline/observée,
+direction, échantillons, verdict d'effet et initiative suivante. Un compteur de
+releases sans ces liaisons ne permet pas d'auditer le cycle.
+
 ## Vérification et limites
 
 Les tests ciblés sont :
@@ -109,4 +144,8 @@ La tranche ne fournit ni générateur UI, ni évaluation par navigateur, ni test
 utilisateur externe, ni analyse statistique, ni déploiement cloud, ni rollback
 des effets tiers. Les modalités `visual` et `functional` sont des contrats de
 preuve ; leur oracle concret doit rester identifiable dans `evidenceRefs`.
+
+Voir aussi [Contrats de stewardship V3](contrats-stewardship-v3.md),
+[Runbook longitudinal](../04-exploitation/runbook-stewardship-longitudinal.md) et
+[Matrice de qualification](../06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md).
 

@@ -403,7 +403,7 @@ deux bras, ne produit pas le reçu externe et ne promeut aucune topologie. Une
 abstention, une identité candidate divergente ou un budget incapable de financer
 les deux bras et le vérificateur produit `NO_CHANGE`. Le runtime doit encore relier
 ce plan au producteur d'issues appariées et à la porte d'admission séparée. Voir
-[ADR 0684]($20684-essai-apparie-des-organisations.md).
+[ADR 0684](../adr/0684-essai-apparie-des-organisations.md).
 
 La validité externe reste bloquée tant que chaque domaine déclaré ne fournit pas
 au moins deux répliques indépendantes (identifiants de réplication distincts et

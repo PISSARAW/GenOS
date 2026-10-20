@@ -54,7 +54,68 @@ responsabilité, les deux références et la politique avant l'écriture atomiqu
 - double preuve :
   [`trajectoryStewardshipOutcomeService.js`](../../backend/src/services/trajectoryStewardshipOutcomeService.js) ;
 - décision :
-  [ADR 0696]($20696-responsabilite-trajectoire-double-preuve.md).
+  [ADR 0696](../adr/0696-responsabilite-trajectoire-double-preuve.md).
+
+## Machine de décision
+
+```mermaid
+flowchart TD
+    I[Entrée normalisée] --> F{Périmée ou incertaine ?}
+    F -->|oui| O[Candidate OBSERVE]
+    F -->|non| G{Écart >= seuil ACT ?}
+    G -->|oui| A[Candidate ACT]
+    G -->|non| L{Potentiel >= seuil LEARN ?}
+    L -->|oui| E[Candidate LEARN]
+    L -->|non| N[NO_CHANGE]
+    O --> P{Permission + budget ?}
+    A --> W{Permission + budget + write lease ?}
+    E --> P
+    P -->|non| N
+    W -->|non| N
+    P -->|oui| D[Décision sélectionnée]
+    W -->|oui| D
+```
+
+L'ordre est normatif. L'action n'est jamais évaluée avant la fraîcheur et
+l'incertitude. Les scores invalides, budgets négatifs et plus de seize domaines
+échouent avant arbitrage.
+
+## Contrat persistant
+
+L'identité de responsabilité est dérivée du contenu normalisé. Une première écriture
+crée une ligne immuable ; une répétition identique peut être relue ; une répétition
+divergente sous la même identité échoue. L'isolation s'effectue au minimum par projet,
+mandat et agent.
+
+Le résultat atomique conserve la politique, les deux preuves, leurs vérificateurs et
+le reçu d'autorité. Un appel concurrent ne doit ni dupliquer une décision, ni écraser
+un verdict antérieur.
+
+## Modes d'échec
+
+| Symptôme | Interprétation | Réponse |
+| --- | --- | --- |
+| `permission-denied:act` | l'écart justifie une action mais le mandat non | `NO_CHANGE`, escalade éventuelle |
+| `budget-insufficient:observe` | l'état devrait être rafraîchi mais ne peut l'être | ne pas agir sur la donnée ancienne |
+| observation incohérente | provenance ou score invalide | erreur de validation |
+| une seule preuve soutenue | causalité partielle | `INCONCLUSIVE` |
+| preuve réfutée | bénéfice ou apprentissage contredit | `REJECTED` |
+| reçu d'autorité invalide | liaison cryptographique absente | aucune écriture de résultat |
+
+## Observabilité
+
+Journaliser le mode candidat et le mode sélectionné, la raison, les seuils, les
+budgets, les références d'observation, la responsabilité et l'identité de l'agent.
+Pour le résultat, exposer séparément projet, apprentissage, vérificateurs, décision et
+référence d'autorité.
+
+## Validation
+
+```powershell
+node backend/tests/test_trajectory_stewardship_policy.js
+node backend/tests/test_trajectory_stewardship_store.js
+node backend/tests/test_trajectory_stewardship_outcome.js
+```
 
 ## Limites et non-objectifs
 
@@ -63,3 +124,7 @@ Ontogenèse. Elle ne prouve donc ni une autonomie de bout en bout ni un gain par
 rapport à un produit concurrent. Les tests démontrent les contrats locaux, la
 persistance, l'isolation et les refus adverses ; une campagne appariée reste
 nécessaire pour mesurer l'effet longitudinal.
+
+Voir aussi [Ontogenèse dirigée par responsabilité](../01-concepts/ontogenese-dirigee-par-responsabilite.md),
+[Délégation et stewardship](ontogenese-delegation-et-stewardship.md) et les
+[contrats de référence](../03-reference/contrats-stewardship-v3.md).
