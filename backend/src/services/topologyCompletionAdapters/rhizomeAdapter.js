@@ -4,8 +4,6 @@ const { baseDossier } = require('./dossier');
 const stateReader = require('./rhizomeStateReader');
 const { digest } = require('../evidenceContractService');
 
-const HASH = /^[a-f0-9]{64}$/;
-
 function assessment(status, reason) {
   return { status, ...(reason ? { reason } : {}) };
 }
@@ -153,37 +151,36 @@ function oracleReference(content = {}) {
   return content.semanticVerification || null;
 }
 
-function oracleAssessment(base) {
-  const proofs = base.roster.evidenceProofs;
-  const references = proofs.map((proof) => oracleReference(proof.content));
+function oracleAssessment(base, state) {
+  const references = base.roster.evidenceProofs.map((proof) => oracleReference(proof.content));
   if (references.some((reference) => !reference)) {
     return assessment('partial', 'rhizome_independent_oracle_missing');
   }
-  const valid = references.every((reference) =>
-    reference.schema === 'genos.native-oracle-receipt-reference/v1'
-    && HASH.test(reference.hash || '') && HASH.test(reference.acceptanceHash || '')
-    && reference.budgetAssessment?.satisfied === true);
-  return valid ? assessment('verified')
-    : assessment('failed', 'rhizome_independent_oracle_invalid');
+  const resolutions = state.runs.map((run) => run.oracle);
+  const invalid = resolutions.find((item) => item?.status === 'failed');
+  if (invalid) return assessment('failed', invalid.reason);
+  const missing = resolutions.find((item) => item?.status !== 'verified');
+  return missing ? assessment('partial', missing?.reason || 'rhizome_independent_oracle_missing')
+    : assessment('verified');
 }
 
 function oracleReceipt(base, state) {
-  const oracleRefs = base.roster.evidenceProofs.map((proof) =>
-    oracleReference(proof.content));
+  const resolutions = state.runs.map((run) => run.oracle);
   return { schema: 'genos.rhizome-completion-oracle/v1', missionId: base.missionId,
     rhizomeId: state.sessionId, revision: state.revision,
     graphVersion: state.graph.graphVersion,
     canonicalStateHash: digest(state.session), graphHash: digest(state.graph),
     eventJournalHash: digest(state.events), synthesisHash: digest(state.output.answer),
-    runIds: base.roster.evidenceProofs.map((proof) => proofIdentity(proof.content).runId),
-    nativeOracleHashes: oracleRefs.map((reference) => reference.hash) };
+    runIds: resolutions.map((item) => item.runId),
+    nativeOracleHashes: resolutions.map((item) => item.attestationHash),
+    oracleEvidenceRefs: resolutions.flatMap((item) => item.evidenceRefs) };
 }
 
 function verifiedDossier(base, state) {
   const receipt = oracleReceipt(base, state);
+  const resolved = state.runs.map((run) => run.oracle);
   const refs = base.roster.evidenceProofs.map((proof) => proof.reference);
-  const verifierIds = [...new Set(base.roster.evidenceProofs.map((proof) =>
-    `native-oracle:${oracleReference(proof.content).hash}`))];
+  const verifierIds = [...new Set(resolved.flatMap((item) => item.verifierIds))];
   return { ...base, lifecycleState: 'completed', producerId: base.missionId,
     topologyValidation: { status: 'verified', reasons: [] }, barrierStatus: 'complete',
     invariants: [
@@ -205,7 +202,7 @@ async function build(input = {}) {
   if (state.status !== 'read') return incomplete(base, state.reason);
   const checks = [branchAssessment(base, state), graphAssessment(state),
     phaseAssessment(state), dependencyAssessment(state), synthesisAssessment(state),
-    proofAssessment(base, state), oracleAssessment(base)];
+    proofAssessment(base, state), oracleAssessment(base, state)];
   const issue = checks.find((check) => check.status !== 'verified');
   if (issue?.status === 'failed') return failed(base, issue.reason, state);
   if (issue) return incomplete(base, issue.reason);

@@ -13,6 +13,8 @@ const { normalizeCapabilityNode } = require('../src/services/rhizome/contracts/c
 const { normalizeCapabilityEdge } = require('../src/services/rhizome/contracts/capabilityEdge');
 const { digest } = require('../src/services/evidenceContractService');
 const biological = require('../src/services/biologicalIntegrity');
+const oracleEvidence = require('../src/services/topologyCompletionAdapters/rhizomeOracleEvidenceResolver');
+const resolvePersistedOracle = oracleEvidence.resolve;
 
 const MISSION = 'mission-rhizome-closure';
 const SESSION = 'rhizome-closure-session';
@@ -112,6 +114,32 @@ async function seedRun(db, workerReceipt) {
     (receipt_id, run_id, mission_id, payload_hash, receipt_json) VALUES (?, ?, ?, ?, ?)`,
   workerReceipt.receiptId, RUN, MISSION, biological.digest(workerReceipt),
   biological.encode(workerReceipt));
+  await db.exec(`CREATE TABLE rhizome_test_oracles (
+    run_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, worker_id TEXT NOT NULL,
+    attestation_hash TEXT NOT NULL, acceptance_hash TEXT NOT NULL
+  )`);
+  await db.run(`INSERT INTO rhizome_test_oracles
+    (run_id, mission_id, worker_id, attestation_hash, acceptance_hash)
+    VALUES (?, ?, ?, ?, ?)`, RUN, MISSION, WORKER,
+  nativeOracle().hash, nativeOracle().acceptanceHash);
+}
+
+async function testOracleResolver(db, input = {}) {
+  if (!input.receipt?.semanticVerification) {
+    return { status: 'partial', reason: 'rhizome_independent_oracle_missing' };
+  }
+  const row = await db.get('SELECT * FROM rhizome_test_oracles WHERE run_id = ?',
+    input.receipt.runId);
+  const reference = input.receipt.semanticVerification;
+  const valid = row && row.mission_id === input.missionId
+    && row.worker_id === input.receipt.workerId
+    && row.attestation_hash === reference.hash
+    && row.acceptance_hash === reference.acceptanceHash;
+  if (!valid) return { status: 'failed', reason: 'rhizome_independent_oracle_invalid' };
+  return { status: 'verified', missionId: input.missionId, runId: input.receipt.runId,
+    workerId: input.receipt.workerId, verifierIds: ['oracle-a', 'oracle-b'],
+    attestationHash: row.attestation_hash, acceptanceHash: row.acceptance_hash,
+    evidenceRefs: ['oracle-attestation', 'oracle-acceptance', 'oracle-assembly'] };
 }
 
 function adapterInput(db, graph, options = {}) {
@@ -135,7 +163,11 @@ async function createFixture(options = {}) {
 
 async function withFixture(test, options = {}) {
   const fixture = await createFixture(options);
-  try { await test(fixture); } finally { await fixture.db.close(); }
+  oracleEvidence.resolve = testOracleResolver;
+  try { await test(fixture); } finally {
+    oracleEvidence.resolve = resolvePersistedOracle;
+    await fixture.db.close();
+  }
 }
 
 async function nominal(fixture) {
@@ -219,6 +251,16 @@ async function alteredOracleFails(fixture) {
     { status: 'failed', reasons: ['rhizome_independent_oracle_invalid'] });
 }
 
+async function fabricatedOracleFails() {
+  const fixture = await createFixture();
+  try {
+    const dossier = await adapter.build(adapterInput(fixture.db, fixture.graph, {
+      workerReceipt: fixture.workerReceipt }));
+    assert.deepEqual(dossier.topologyValidation,
+      { status: 'failed', reasons: ['rhizome_independent_oracle_invalid'] });
+  } finally { await fixture.db.close(); }
+}
+
 async function run() {
   await withFixture(nominal);
   await withFixture(foreignMissionFails);
@@ -230,6 +272,7 @@ async function run() {
   await withFixture(alteredGraphFails);
   await withFixture(missingOracleIsPartial, { oracle: null });
   await withFixture(alteredOracleFails, { oracle: nativeOracle({ hash: 'altered' }) });
+  await fabricatedOracleFails();
   console.log('Rhizome completion adapter: PASS');
 }
 

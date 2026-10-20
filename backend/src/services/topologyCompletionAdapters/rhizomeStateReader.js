@@ -3,6 +3,7 @@
 const workerStore = require('../biologicalWorkerStore');
 const { digest } = require('../evidenceContractService');
 const { normalizeRhizomeSession } = require('../rhizome/contracts/rhizomeSession');
+const oracleEvidence = require('./rhizomeOracleEvidenceResolver');
 
 function result(status, reason, extra = {}) {
   return { status, ...(reason ? { reason } : {}), ...extra };
@@ -106,7 +107,7 @@ function proofMatchesReceipt(proof, receipt) {
     && digest(proof.content) === proof.reference;
 }
 
-async function persistedRun(db, proof) {
+async function persistedRun(db, proof, missionId) {
   const runId = proofRunId(proof);
   if (!runId) return result('failed', 'rhizome_worker_run_proof_invalid');
   const bindingRow = await db.get(
@@ -123,17 +124,18 @@ async function persistedRun(db, proof) {
         || !proofMatchesReceipt(proof, receipt)) {
       return result('failed', 'rhizome_worker_run_proof_invalid');
     }
-    return result('read', null, { run: { binding, receipt } });
+    const oracle = await oracleEvidence.resolve(db, { binding, receipt, missionId });
+    return result('read', null, { run: { binding, receipt, oracle } });
   } catch (_) { return result('failed', 'rhizome_worker_run_proof_invalid'); }
 }
 
-async function runRecords(db, evidence = {}) {
+async function runRecords(db, evidence = {}, missionId) {
   const proofs = Array.isArray(evidence.evidenceProofs) ? evidence.evidenceProofs : [];
   if (!proofs.length) return result('read', null, { runs: [] });
   await workerStore.ensure(db);
   const runs = [];
   for (const proof of proofs) {
-    const loaded = await persistedRun(db, proof);
+    const loaded = await persistedRun(db, proof, missionId);
     if (loaded.status !== 'read') return loaded;
     runs.push(loaded.run);
   }
@@ -152,7 +154,7 @@ async function read(input = {}) {
   if (graph.status !== 'read') return graph;
   const events = await journal(db, sessionId, loaded.revision);
   if (events.status !== 'read') return events;
-  const runs = await runRecords(db, evidence);
+  const runs = await runRecords(db, evidence, missionId);
   if (runs.status !== 'read') return runs;
   return result('read', null, { sessionId, revision: loaded.revision,
     session: graph.session, graph: graph.graph, events: events.events,
