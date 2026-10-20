@@ -26,20 +26,17 @@ function buildMetapopulation(accepted, members) {
   };
 }
 
-function modeStatus(mode, accepted, members, dispatchFailures) {
-  if (mode === 'metapopulation') {
-    return metapopulationComplete(accepted, members) ? 'completed' : 'partial';
-  }
-  return allWorkersCompleted(accepted, members, dispatchFailures) ? 'completed' : 'partial';
-}
-
-function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
+function buildBiologicalOutput(input) {
+  const { context, mode, mission, members, accepted, topology } = input || {};
   const dispatchFailures = context.dispatchFailures || [];
   const metapopulation = mode === 'metapopulation' ? buildMetapopulation(accepted, members) : {};
+  const status = mode === 'metapopulation'
+    ? (metapopulationComplete(accepted, members) ? 'completed' : 'partial')
+    : (allWorkersCompleted(accepted, members, dispatchFailures) ? 'completed' : 'partial');
   return {
     orchestratorId: context.orchestratorId,
     biologicalMode: {
-      status: modeStatus(mode, accepted, members, dispatchFailures),
+      status,
       mode,
       mission,
       capacity: workerGarage.getDynamicCapacity(context.orchestratorId),
