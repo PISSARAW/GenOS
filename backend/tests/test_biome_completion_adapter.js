@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'biome-completion-adapter-test-secret';
+
 const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
@@ -67,9 +69,10 @@ async function createNominal() {
     verifyGoal: async (request) => ({ sessionId: request.sessionId, tick: request.tick,
       verified: request.tick >= 2, evidenceRefs: request.evidenceRefs,
       oracleReceipt: goalOracle.issue({ missionId: request.missionId,
-        producerId: request.producerId, verifierId: 'biome-goal-verifier',
-        independent: true, sessionId: request.sessionId, tick: request.tick,
-        evidenceRefs: request.evidenceRefs }) })
+        producerId: request.producerId, sessionId: request.sessionId,
+        tick: request.tick, evidenceRefs: request.evidenceRefs,
+        measurements: request.measurements, health: request.measurements.health,
+        verified: true, stopCondition: 'goal_achieved', status: 'completed' }) })
   });
   await runtime.step({ totalBudget: 100, resources: { tokens: 100 },
     individuals: [{ individualId: WORKER, role: 'analyst', capabilities: ['analysis'],
@@ -95,6 +98,17 @@ async function mutateState(fixture, mutate) {
   mutate(state);
   await fixture.db.run('UPDATE topology_sessions SET state_json = ? WHERE id = ?',
     JSON.stringify(state), fixture.sessionId);
+}
+
+function oracleInput(state, overrides = {}) {
+  const ecology = state.ecology;
+  const runtime = ecology.ecologicalState.runtime;
+  const goal = runtime.goalVerification;
+  return { missionId: OWNER, producerId: OWNER,
+    sessionId: state.sessionId || ecology.biomeId, tick: runtime.tick,
+    evidenceRefs: goal.evidenceRefs, measurements: runtime.history.at(-1).measurements,
+    health: ecology.ecologicalState.health, verified: goal.verified,
+    stopCondition: runtime.stopCondition, status: ecology.status, ...overrides };
 }
 
 async function withFixture(test) {
@@ -190,13 +204,13 @@ async function alteredOracleFails(fixture) {
 
 async function inventedVerifierFails(fixture) {
   await mutateState(fixture, (state) => {
-    state.ecology.ecologicalState.runtime.goalVerification.oracleReceipt.verifierId
+    state.ecology.ecologicalState.runtime.goalVerification.oracleReceipt.verifierDigest
       = 'biome-goal-verification-runtime';
   });
   const dossier = await adapter.build(input(fixture.db, fixture));
   assert.equal(dossier.topologyValidation.status, 'failed');
   assert.deepEqual(dossier.topologyValidation.reasons,
-    ['biome_goal_oracle_attestation_invalid']);
+    ['biome_goal_oracle_not_independent']);
 }
 
 async function missingVerifierReceiptIsPartial(fixture) {
@@ -212,8 +226,8 @@ async function missingVerifierReceiptIsPartial(fixture) {
 async function foreignReceiptMissionFails(fixture) {
   await mutateState(fixture, (state) => {
     const goal = state.ecology.ecologicalState.runtime.goalVerification;
-    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
-      missionId: 'mission-foreign' });
+    goal.oracleReceipt = goalOracle.issue(oracleInput(state, {
+      missionId: 'mission-foreign' }));
   });
   const dossier = await adapter.build(input(fixture.db, fixture));
   assert.equal(dossier.topologyValidation.status, 'failed');
@@ -224,8 +238,8 @@ async function foreignReceiptMissionFails(fixture) {
 async function selfVerificationFails(fixture) {
   await mutateState(fixture, (state) => {
     const goal = state.ecology.ecologicalState.runtime.goalVerification;
-    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
-      verifierId: goal.oracleReceipt.producerId });
+    goal.oracleReceipt = goalOracle.issue(oracleInput(state, {
+      producerId: '  PrOoF  ' }));
   });
   const dossier = await adapter.build(input(fixture.db, fixture));
   assert.equal(dossier.topologyValidation.status, 'failed');
@@ -236,8 +250,8 @@ async function selfVerificationFails(fixture) {
 async function foreignEvidenceFails(fixture) {
   await mutateState(fixture, (state) => {
     const goal = state.ecology.ecologicalState.runtime.goalVerification;
-    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
-      evidenceRefs: [`sha256:${'f'.repeat(64)}`] });
+    goal.oracleReceipt = goalOracle.issue(oracleInput(state, {
+      evidenceRefs: [`sha256:${'f'.repeat(64)}`] }));
   });
   const dossier = await adapter.build(input(fixture.db, fixture));
   assert.equal(dossier.topologyValidation.status, 'failed');
@@ -245,12 +259,62 @@ async function foreignEvidenceFails(fixture) {
     ['biome_goal_oracle_evidence_mismatch']);
 }
 
+async function arbitraryVerifierAliasIgnored(fixture) {
+  const row = await fixture.db.get('SELECT state_json FROM topology_sessions WHERE id = ?',
+    fixture.sessionId);
+  const state = JSON.parse(row.state_json);
+  const receipt = goalOracle.issue({ ...oracleInput(state),
+    verifierId: 'arbitrary-self-declared-verifier' });
+  assert.equal(receipt.verifierId, undefined);
+  assert.equal(receipt.verifierDigest, goalOracle.VERIFIER_DIGEST);
+}
+
+async function partialOracleCoverageFails(fixture) {
+  const row = await fixture.db.get('SELECT state_json FROM topology_sessions WHERE id = ?',
+    fixture.sessionId);
+  const state = JSON.parse(row.state_json);
+  const first = state.ecology.ecologicalState.runtime.goalVerification.evidenceRefs[0];
+  const second = `sha256:${'e'.repeat(64)}`;
+  const receipt = goalOracle.issue(oracleInput(state, { evidenceRefs: [first] }));
+  const assessed = goalOracle.assess(receipt,
+    oracleInput(state, { evidenceRefs: [first, second] }));
+  assert.equal(assessed.reason, 'biome_goal_oracle_evidence_mismatch');
+}
+
+function subjectMutation(name, mutate) {
+  return async function subjectMutationTest(fixture) {
+    await mutateState(fixture, mutate);
+    const dossier = await adapter.build(input(fixture.db, fixture));
+    assert.equal(dossier.topologyValidation.status, 'failed', name);
+    assert.deepEqual(dossier.topologyValidation.reasons,
+      ['biome_goal_oracle_subject_mismatch'], name);
+  };
+}
+
+const alteredVerifiedFails = subjectMutation('verified', (state) => {
+  state.ecology.ecologicalState.runtime.goalVerification.verified = false;
+});
+const alteredStopConditionFails = subjectMutation('stopCondition', (state) => {
+  state.ecology.ecologicalState.runtime.stopCondition = 'max_ticks_reached';
+});
+const alteredStatusFails = subjectMutation('status', (state) => {
+  state.ecology.status = 'active';
+});
+const alteredMeasurementsFails = subjectMutation('measurements', (state) => {
+  state.ecology.ecologicalState.runtime.history.at(-1).measurements.health = 'stressed';
+});
+const alteredHealthFails = subjectMutation('health', (state) => {
+  state.ecology.ecologicalState.health = 'stressed';
+});
+
 async function run() {
   const tests = [nominal, servicePipeline, foreignMissionFails, missingPhaseIsPartial,
     missingProofIsPartial, alteredProofFails, alteredReferenceFails,
     missingOracleIsPartial, alteredOracleFails, inventedVerifierFails,
     missingVerifierReceiptIsPartial, foreignReceiptMissionFails,
-    selfVerificationFails, foreignEvidenceFails];
+    selfVerificationFails, foreignEvidenceFails, arbitraryVerifierAliasIgnored,
+    partialOracleCoverageFails, alteredVerifiedFails, alteredStopConditionFails,
+    alteredStatusFails, alteredMeasurementsFails, alteredHealthFails];
   for (const test of tests) await withFixture(test);
   console.log('Biome completion adapter: PASS');
 }

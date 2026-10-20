@@ -14,6 +14,7 @@ const physiology = require('./populationPhysiology');
 const observer = require('./ecosystemObserver');
 const interactions = require('./ecologicalInteractions');
 const biofilm = require('../../biofilmMatrixService');
+const goalOracle = require('../contracts/goalVerificationReceipt');
 
 async function advance(session, input, options) {
   validateInput(input);
@@ -149,18 +150,23 @@ async function verifyGoal(session, measurements, options) {
     evidenceRefs: options.goalEvidenceRefs, measurements, ecology: session.ecology };
   const result = await require('./boundedInvocation').invoke(options.verifyGoal,
     structuredClone(request), options);
-  runtime.goalVerification = goalReceipt(result, request);
   const collapsed = measurements.populations.extinct > 0 && measurements.populations.active === 0;
-  if (collapsed || ['stressed', 'incomplete'].includes(measurements.health)) runtime.goalVerification.verified = false;
+  const unhealthy = collapsed || ['stressed', 'incomplete'].includes(measurements.health);
+  runtime.goalVerification = goalReceipt(result, request, unhealthy);
 }
 
-function goalReceipt(result, expected) {
+function goalReceipt(result, expected, unhealthy) {
   const matched = result?.sessionId === expected.sessionId && result?.tick === expected.tick;
-  const evidence = Array.isArray(result?.evidenceRefs) && result.evidenceRefs.some(ref => typeof ref === 'string' && ref.trim());
-  return { verified: matched && evidence && result.verified === true,
+  const evidence = Array.isArray(result?.evidenceRefs)
+    && result.evidenceRefs.some(ref => typeof ref === 'string' && ref.trim());
+  const candidate = { ...expected, verified: true, health: expected.measurements.health,
+    stopCondition: 'goal_achieved', status: 'completed' };
+  const trusted = goalOracle.assess(result?.oracleReceipt, candidate).verified;
+  return { verified: matched && evidence && !unhealthy
+      && result.verified === true && trusted,
     sessionId: expected.sessionId, tick: expected.tick,
     missionId: expected.missionId, producerId: expected.producerId,
-    evidenceRefs: evidence ? result.evidenceRefs : [],
+    evidenceRefs: evidence ? expected.evidenceRefs : [],
     oracleReceipt: result?.oracleReceipt || null };
 }
 
