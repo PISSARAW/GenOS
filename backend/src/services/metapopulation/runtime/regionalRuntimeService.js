@@ -160,6 +160,7 @@ function validatePlan(plan) {
 
 function missingAdapters(adapters = {}) { return REQUIRED_ADAPTERS.filter((name) => typeof adapters[name] !== 'function'); }
 function requireRuntimeContext(input, options) {
+  if (input && !input.metapopulationId && input.sessionId) input.metapopulationId = input.sessionId;
   if (!options.db || !input.metapopulationId) throw runtimeError('METAPOPULATION_CONTEXT_REQUIRED', 'Persistent regional runtime requires a database and session.');
 }
 function stopReason(conditions = {}, cycleIndex = 0) {
