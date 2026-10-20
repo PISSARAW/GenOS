@@ -25,16 +25,39 @@ function validateDimensions(dimensions) {
   }
 }
 
+function validEndogenousBounds(policy) {
+  return Number.isSafeInteger(policy.cooldownMs) && policy.cooldownMs >= 1000
+    && Number.isSafeInteger(policy.windowMs) && policy.windowMs >= policy.cooldownMs
+    && Number.isSafeInteger(policy.maxActionsPerWindow)
+    && policy.maxActionsPerWindow >= 1 && policy.maxActionsPerWindow <= 100;
+}
+
+function validateEndogenousPolicy(policy) {
+  if (policy === undefined) return null;
+  if (!policy || policy.enabled !== true || !nonEmpty(policy.observerKeyId)) {
+    throw new TypeError('SHEV endogenous policy requires an observer identity.');
+  }
+  publicKeyOf(policy.observerPublicKey);
+  if (!validEndogenousBounds(policy)) {
+    throw new TypeError('SHEV endogenous policy requires bounded cooldown and action budget.');
+  }
+  return { enabled: true, observerKeyId: policy.observerKeyId,
+    observerPublicKey: policy.observerPublicKey, cooldownMs: policy.cooldownMs,
+    windowMs: policy.windowMs, maxActionsPerWindow: policy.maxActionsPerWindow };
+}
+
 function validateMandate(mandate) {
   if (!mandate || !nonEmpty(mandate.purpose)) throw new TypeError('SHEV mandate requires a purpose.');
   validateDimensions(mandate.dimensions);
   if (typeof mandate.autoDiagnose !== 'boolean' || typeof mandate.autoInstrument !== 'boolean') {
     throw new TypeError('SHEV automatic initiative permissions must be explicit.');
   }
+  const endogenousPolicy = validateEndogenousPolicy(mandate.endogenousPolicy);
   return { purpose: mandate.purpose, dimensions: mandate.dimensions.map((dimension) => ({
     name: dimension.name, expected: dimension.expected, acceptance: [...dimension.acceptance]
   })),
-    autoDiagnose: mandate.autoDiagnose, autoInstrument: mandate.autoInstrument };
+    autoDiagnose: mandate.autoDiagnose, autoInstrument: mandate.autoInstrument,
+    ...(endogenousPolicy && { endogenousPolicy }) };
 }
 
 async function registerResponsibility(db, input) {
