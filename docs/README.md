@@ -226,6 +226,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [Lacunes d'apprentissage GVX](02-orchestration/lacunes-apprentissage-gvx.md) — détection multi-signal et buts bornés soumis à autorité.
 - [Nursery expérimentale GVX](02-orchestration/nursery-experimentale-gvx.md) — exécution de bras isolés avec artefacts vérifiés indépendamment.
 - [Monitoring longitudinal GVX](02-orchestration/monitoring-longitudinal-gvx.md) — suivi multi-contextes, arrêt sur régression et éligibilité de maturité.
+- [Campagne d’évolution AIDE²](02-orchestration/campagne-evolution-aide2.md) — multi-générations, holdout/OOD, reward hacking et bénéfice longitudinal projet.
 - [Plan de puissance benchmark GVX](02-orchestration/plan-puissance-benchmark-gvx.md) — réplication dérivée de l'effet minimal et de la variance attendue.
 - [Adaptateurs GVX runtime](02-orchestration/adaptateurs-gvx-runtime.md) — cycle standard AGOW, bridge outcome et adaptateurs personnalisés.
 - [Réparation GVX guidée par traces](02-orchestration/reparation-guidee-par-traces-gvx.md) — attribution vérifiée, mutation mono-locus, holdout scellé et garde de régression.
