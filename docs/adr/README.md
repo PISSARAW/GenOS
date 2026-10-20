@@ -766,6 +766,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
 | [0644](0644-calibration-et-projection-nosologique-traçable.md) | Calibration et projection nosologique traçable | Accepté | 2026-10-18 | -- |
 | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
+| [0646](0646-evolution-gouvernee-des-scaffolds.md) | Gouverner l’évolution des logiques et scaffolds | Accepté, noyau déterministe sans application automatique | 2026-10-20 | Évolution agentique, constitution, preuve, rollback |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
@@ -798,6 +799,3 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 - [0324-biologie-execution-et-autorite-durable.md](0324-biologie-execution-et-autorite-durable.md) — reçus des workers et autorité durable d’homéostasie.
 
 - [0344 — Refactorings de qualité et frontières de contrôle](0344-refactorings-qualite-et-frontieres-de-controle.md).
-@@
- | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
-+| [0646](0646-evolution-gouvernee-des-scaffolds.md) | Gouverner l’évolution des logiques et scaffolds | Accepté, noyau déterministe sans application automatique | 2026-10-20 | Évolution agentique, constitution, preuve, rollback |
