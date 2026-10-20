@@ -2,9 +2,14 @@
 
 - **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants ; la campagne R3 pré-correctifs a produit 12/12 escalades et aucune promotion, et le runtime corrigé reste à requalifier.
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
-- **Dernière revue** : 2026-10-16
+- **Dernière revue** : 2026-10-20
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
+
+Le [contrat runtime Trinity](../../03-reference/runtime-trinity.md) isole les
+surfaces publiques, l'automate persistant, les frontières de confiance, la
+reprise et les erreurs opérables. Il prévaut pour interpréter un accusé de
+dispatch, une fin de worker, une décision comparative ou une promotion.
 
 Le dispatch `dispatch_trinity` exige `executionBudget` (ou `execution_budget`)
 avec `tokens` entier strictement positif et `costUsd` fini strictement positif.

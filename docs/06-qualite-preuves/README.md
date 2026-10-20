@@ -1,9 +1,17 @@
 # 06 — Qualité et preuves
 
-- [qualification-gqwf-2026-10-20.md](qualification-gqwf-2026-10-20.md) — 17 suites GQWF réussies hors sandbox restrictive, matérialiseurs non disponibles explicités et qualification Trinity encore refusée par la clôture commune.
+- [qualification-gqwf-2026-10-20.md](qualification-gqwf-2026-10-20.md) — 18 suites GQWF réussies hors sandbox restrictive, fermeture d'exécution déclarative qualifiée, matérialiseurs non disponibles explicités et qualification Trinity encore refusée.
+
+- [matrice-qualification-stewardship-v3-2026-10-20.md](matrice-qualification-stewardship-v3-2026-10-20.md) — état daté des briques inspirées des rivaux, niveaux C0–C5, preuves disponibles, non-claims et plan de qualification longitudinale.
+
+- [qualification-contrats-topologies-2026-10-20.md](qualification-contrats-topologies-2026-10-20.md) — lanceur des huit topologies, clôture structurelle et décisionnelle, frontières communes, observations Windows et non-claims.
+
+- [qualification-contrat-completion-2026-10-20.md](qualification-contrat-completion-2026-10-20.md) — contrat commun, preuves liées à la mission et au worker, matérialisation Syncytium, contre-preuves et limites du relevé.
 
 - [qualification-metapopulation-2026-10-20.md](qualification-metapopulation-2026-10-20.md) — qualification datée du runtime régional, des variants, de la reprise et de l'idempotence, avec contre-preuves et limites.
 - [qualification-holobionte-2026-10-20.md](qualification-holobionte-2026-10-20.md) — adaptateurs, isolation, dysbiose, clôture et campagne causale bornée, sans promotion générale.
+
+- [qualification-aeis-2026-10-20.md](qualification-aeis-2026-10-20.md) — qualification datée du pipeline AEIS, benchmark contrôlé, couverture des oracles natifs, échec worker observé et non-claims.
 
 - [qualification-pensee-endogene-2026-10-20.md](qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, coûts, reprise SQLite, résultats négatifs, ablations et raccord résident fail-closed ; campagne scientifique non exécutée.
 

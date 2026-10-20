@@ -3,12 +3,13 @@
 - [Studio : contrat directeur de la cible](studio-contrat-directeur.md) — STUDIO-TARGET-V1, usages unifiés, zones Z00–Z20, couverture et critères de fin ; pas une certification de livraison.
 - [Studio : parcours et acceptation](studio-parcours-et-acceptation.md) — huit lots, contrats et critères vérifiables.
 - [Studio : cycle produit durable](studio-cycle-produit-durable.md) — hypothèses utilisateur versionnées, jury pluraliste, effets réels et initiatives sans auto-déploiement.
+- [Contrats de stewardship V3](contrats-stewardship-v3.md) — référence transversale des portées, schémas, statuts, refus, persistance et tests des services de responsabilité, délégation, évolution et preuve.
 
 Contrats et surfaces exposées par GenOS. Ces documents décrivent des interfaces
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
-- [contrat-completion-mission.md](contrat-completion-mission.md) — verdict commun, identités requises, preuves liées au contenu, validation topologique et refus fail-closed.
+- [contrat-completion-mission.md](contrat-completion-mission.md) — verdict structurel, gate avec invariants et oracle indépendant, preuves liées au contenu et refus fail-closed.
 - [action-genome.md](action-genome.md) — schéma canonique, catalogue, admission causale, projections de surfaces et limites d'exécution.
 - [snapshots-topologiques.md](snapshots-topologiques.md) — capture, frontières de cohérence et reprise vérifiée des huit topologies par variant.
 - [exploitation-shev.md](exploitation-shev.md) — contrats signés, capteurs, actions métier, cycle durable de cicatrisation, dossier, récupération et évaluation SHEV.
@@ -23,7 +24,10 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [runtime-gqwf.md](runtime-gqwf.md) — fabrique Node, politiques de mission, matérialiseurs, schéma durable, protocoles, erreurs et frontières de reconstruction GQWF.
 - [runtime-pensee-endogene.md](runtime-pensee-endogene.md) — services ETT, contrats, tables append-only, erreurs, coûts, expériences et raccord scheduler.
+- [runtime-aeis.md](runtime-aeis.md) — contrats, pipeline de promotion, oracles natifs, reçus, persistance, refus et limites de l'AEIS.
+- [runtime-trinity.md](runtime-trinity.md) — dispatch, scellement, workers, comparaison, promotion, reprise et limites de Trinity.
 - [runtime-a-team.md](runtime-a-team.md) — exécution canonique, preuves, handoffs versionnés, couvertures et reprise A-Team.
+- [runtime-biocenose.md](runtime-biocenose.md) — cycle transactionnel, variantes, preuves, continuation et effets écologiques de Biocénose.
 - [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.
 - [variants-metapopulation.md](variants-metapopulation.md) — registre des seize variants, actions, idempotence, preuves et extension fail-closed.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.

@@ -1,6 +1,10 @@
 # Documentation GenOS
 
+- [Dossier AEIS](01-concepts/adaptive-epistemic-immune-system.md) — modèle borné, [référence runtime](03-reference/runtime-aeis.md), [runbook opérateur](04-exploitation/aeis.md), [contrat de preuve](06-qualite-preuves/immunite-epistemique.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-aeis-2026-10-20.md).
+
 - [Dossier GQWF](01-concepts/gqwf.md) — modèle et invariants, [orchestration](02-orchestration/gqwf-v2.md), [référence runtime](03-reference/runtime-gqwf.md), [runbook opérateur](04-exploitation/gqwf.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-gqwf-2026-10-20.md).
+
+- [Dossier stewardship V3](01-concepts/ontogenese-dirigee-par-responsabilite.md) — concept intégré, [orchestration contrefactuelle](02-orchestration/evolution-contrefactuelle-gouvernee.md), [délégation durable](02-orchestration/ontogenese-delegation-et-stewardship.md), [contrats](03-reference/contrats-stewardship-v3.md), [runbook](04-exploitation/runbook-stewardship-longitudinal.md) et [qualification datée](06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md).
 
 - [Dossier Holobionte](02-orchestration/topologies/holobionte.md) — modèle hôte-symbiotes, [référence runtime](03-reference/runtime-holobionte.md), [guide d'exploitation](04-exploitation/operer-runtime-holobionte.md), [campagne causale bornée](06-benchmarks/campagne-causale-holobionte.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-holobionte-2026-10-20.md).
 
@@ -27,6 +31,7 @@
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
 - [ADR 0701 — Réconcilier et borner le catalogue GQWF](adr/0701-maintenance-catalogue-gqwf.md) — republication après crash, chaîne CAS vérifiée et fenêtre bornée à 64 refs sans supprimer les objets.
+- [ADR 0703 — Sceller une fermeture d'exécution GQWF](adr/0703-fermeture-execution-adressee-gqwf.md) — racine, commande, runtime, dépendances et environnement hashé dans un manifeste CAS explicitement non hermétique.
 - [ADR 0648 — Qualifier les adaptateurs comme symbiotes sélectionnables](adr/0648-ecologie-adaptateurs-symbiotiques.md) — identité qualifiée, consortium minimal, succession compensée et propagation multi-dépôts par vagues.
 - [ADR 0649 — Campagne immunitaire de remédiation sécurité](adr/0649-campagne-immunitaire-remediation-securite.md) — alertes bornées SARIF, clusters d'antigènes, candidats isolés, adjudication à deux vérificateurs et mémoire négative sans promotion.
 - [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant de preuves et liaison au rollout canari.
@@ -201,7 +206,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
 - [evolution-gouvernee-agent.md](01-concepts/evolution-gouvernee-agent.md) — évolution des logiques/scaffolds sans auto-promotion, sous constitution et preuve de transfert.
 - [philosophie-des-mathematiques.md](01-concepts/philosophie-des-mathematiques.md) — objets mathématiques, fondements, infini et preuve.
-- [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif : mémoire et autorité persistantes, quorum exécutable, niches dynamiques, workers provider isolés et qualification de `approveRun()`.
+- [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif : modèle, limites et pipeline ; dossier complété par la [référence runtime](03-reference/runtime-aeis.md), le [runbook](04-exploitation/aeis.md) et la [qualification](06-qualite-preuves/qualification-aeis-2026-10-20.md).
 - [organes-vitaux-agents.md](01-concepts/organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
 - [ecosysteme-agentique.md](01-concepts/ecosysteme-agentique.md) — écosystème agentique Rust : niches, chaînes trophiques et flux entre topologies (module `genos-biology`).
 - [stabilite-genomique.md](01-concepts/stabilite-genomique.md) — stabilité génomique Rust : réparation, recombinaison et garde d'intégrité du génome (module `genos-biology`).
@@ -253,6 +258,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
 - [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes, 20 organisations Node, 51 capacités), leases effectifs.
+- [cloture-missions-biologiques.md](02-orchestration/cloture-missions-biologiques.md) — architecture du chemin transversal de clôture, preuves workers, invariants, oracle indépendant et spécialisation Syncytium.
 - [morphogenese-strategie-adaptative.md](02-orchestration/morphogenese-strategie-adaptative.md) — stratégie consultative de sélection dynamique, frontières d'activation et protocole de qualification.
 - [politique-morphogenetique-conditionnelle.md](02-orchestration/politique-morphogenetique-conditionnelle.md) — politique consultative réévaluable reliant diagnostic, représentation, recette, travailleurs, preuves et budget.
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
@@ -279,11 +285,13 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [ADR 0564](adr/0564-charger-les-issues-verifiees-dans-la-continuation.md) — chargement durable des issues appariées vérifiées dans la continuation standard.
 - [ADR 0566](adr/0566-lier-les-issues-appariees-aux-transitions.md) — dérivation d'issues à partir de deux exécutions et d'une transition scellée, avec reçus indépendants obligatoires.
 - [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
+- [runtime-trinity.md](03-reference/runtime-trinity.md) — contrat d'exécution, scellement, comparaison, reprise et promotion Trinity.
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
 - [runtime-a-team.md](03-reference/runtime-a-team.md) — clôture canonique, preuves, accusés et reprise A-Team ; conformité globale partielle.
 - [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
 - [runtime-biome.md](03-reference/runtime-biome.md) — cycles transactionnels, ressources mesurées, adaptateurs et reprise Biome.
 - [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.
+- [runtime-biocenose.md](03-reference/runtime-biocenose.md) — contrat du cycle persistant, des preuves et des continuations Biocénose.
 - [holobionte.md](02-orchestration/topologies/holobionte.md) — orchestration hôte-symbionte.
 - [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé, 13 variants et limites de preuve des missions.
 - [protocole-missions-syncytium.md](02-orchestration/topologies/protocole-missions-syncytium.md) — budget, matrice des 53 cas et preuves attendues.
@@ -299,7 +307,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
-- [contrat-completion-mission.md](03-reference/contrat-completion-mission.md) — contrat commun de clôture, preuves adressées par contenu et précédence des verdicts.
+- [contrat-completion-mission.md](03-reference/contrat-completion-mission.md) — contrat structurel, gate de clôture, preuves adressées par contenu et précédence des verdicts.
 - [action-genome.md](03-reference/action-genome.md) — contrat d'action fermé, admission causale, reçu, projections REST/MCP/CLI et limites d'exécution.
 - [snapshots-topologiques.md](03-reference/snapshots-topologiques.md) — contrat de capture et de reprise pour les huit topologies et chaque variant.
 - [contrat-mission-comparative.md](03-reference/contrat-mission-comparative.md) — schéma versionné des missions multi-populations et frontières entre runtime, topologie et banc d’essai.
@@ -308,6 +316,9 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [delegation-biscuit.md](03-reference/delegation-biscuit.md) — jetons attenués des sous-orchestrateurs.
 - [capsules-transport.md](03-reference/capsules-transport.md) — transport chiffré des capsules.
 - [runtime-pensee-endogene.md](03-reference/runtime-pensee-endogene.md) — API de services ETT, politiques, reçus, tables, erreurs, campagne et raccord résident.
+- [runtime-aeis.md](03-reference/runtime-aeis.md) — contrats, oracles natifs, reçus, persistance, refus et observabilité AEIS.
+- [runtime-trinity.md](03-reference/runtime-trinity.md) — surfaces, automate, workers, comparaison et promotion Trinity.
+- [runtime-biocenose.md](03-reference/runtime-biocenose.md) — surface MCP, neuf étapes, bail, reprise et effets écologiques Biocénose.
 - [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [runtime-gqwf.md](03-reference/runtime-gqwf.md) — API Node, politiques, matérialiseurs, tables, protocoles et erreurs GQWF.
@@ -341,7 +352,9 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 - [observabilite.md](04-exploitation/observabilite.md) — traces, diagnostics, logs, métriques, audit.
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
+- [aeis.md](04-exploitation/aeis.md) — exploitation, diagnostic, rotation des clés, rétention et rollback AEIS.
 - [gqwf.md](04-exploitation/gqwf.md) — exploitation, reprise des baux, maintenance du catalogue, réparation, collecte et rollback GQWF.
+- [cloture-missions.md](04-exploitation/cloture-missions.md) — triage du verdict commun, inspection des reçus et reprise sans contournement des preuves.
 - [runbook-metapopulation.md](04-exploitation/runbook-metapopulation.md) — diagnostic régional, reprise idempotente et snapshots quiescents.
 - [operer-runtime-holobionte.md](04-exploitation/operer-runtime-holobionte.md) — préflight, preuves, santé, clôture et diagnostic du runtime Holobionte.
 - [releases-et-rollouts.md](04-exploitation/releases-et-rollouts.md) — releases, rollouts, rollback et chargeback.
@@ -363,14 +376,17 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.
 
 ### 8. Qualité, preuves et positionnement
-- [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 17 suites réussies hors sandbox restrictive, capacités COW non exercées sur Windows et qualification Trinity encore refusée.
+- [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 18 suites réussies hors sandbox restrictive, fermeture déclarative qualifiée, capacités COW non exercées sur Windows et qualification Trinity encore refusée.
 - [qualification-pensee-endogene-2026-10-20.md](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, vérification indépendante, coûts, crash/reprise, ablations, résultats négatifs et non-claims.
+- [qualification-aeis-2026-10-20.md](06-qualite-preuves/qualification-aeis-2026-10-20.md) — résultats AEIS, couverture native, contre-preuves, risques résiduels et décision de qualification bornée.
 
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 
+- [qualification-contrat-completion-2026-10-20.md](06-qualite-preuves/qualification-contrat-completion-2026-10-20.md) — preuves ciblées, contre-exemples et limites du contrat commun et de l'adaptateur Syncytium.
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
 - [qualification-metapopulation-2026-10-20.md](06-qualite-preuves/qualification-metapopulation-2026-10-20.md) — treize suites ciblées, crash/reprise, idempotence et limites de qualification.
 - [qualification-holobionte-2026-10-20.md](06-qualite-preuves/qualification-holobionte-2026-10-20.md) — contrats probants, isolation, santé et campagne locale, sans claim de supériorité.
+- [qualification-contrats-topologies-2026-10-20.md](06-qualite-preuves/qualification-contrats-topologies-2026-10-20.md) — catalogue des huit topologies, frontières communes et limites de la validation locale.
 - [plan-maturite-principes-fondateurs-95.md](06-qualite-preuves/plan-maturite-principes-fondateurs-95.md) — six phases de fermeture transverse vers 95/100, sans promotion avant preuve courante.
 - [qualification-principes-fondateurs-phase7.md](06-qualite-preuves/qualification-principes-fondateurs-phase7.md) — mission verticale des phases 1 à 6 : 19/19 principes à la note 4 dans le périmètre borné.
 - [qualification-principes-fondateurs-phase8.md](06-qualite-preuves/qualification-principes-fondateurs-phase8.md) — qualification révocable, ancre de qualification et note effective 4 sur la baseline fonctionnelle.

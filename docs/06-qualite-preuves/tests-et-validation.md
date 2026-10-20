@@ -108,6 +108,29 @@ flowchart TD
 | `npm run test:bfcl` | exécute la suite Berkeley Function Calling Leaderboard (BFCL, 1040/1040) |
 | `cargo test --workspace` | exécute les tests unitaires Rust disponibles dans les crates |
 
+### 3.2 Contrats transversaux des huit topologies
+
+Le lanceur [`run_topology_contracts.cjs`](../../backend/tests/run_topology_contracts.cjs)
+regroupe exactement Trinity, A-Team, Biome, Biocénose, Rhizome, Syncytium,
+Holobionte et Metapopulation. Il fournit trois usages :
+
+```bash
+node backend/tests/run_topology_contracts.cjs --list
+node backend/tests/run_topology_contracts.cjs --topology=biocenose
+node backend/tests/run_topology_contracts.cjs
+```
+
+La commande filtrée exécute uniquement la suite de la topologie demandée. La
+commande sans filtre ajoute cinq contrôles de frontière : attente des workers,
+traçabilité des replis de variants, reçus biologiques et reprise, commit
+authentifié de Morphogenèse, démarrage et stdio du runtime LLM local.
+
+Le succès indique que les scripts locaux ont rendu un code nul dans leurs
+fixtures. Il ne certifie pas un provider réel, une mission de production ni
+l'application effective d'une transition morphogénétique. Les observations et
+limites du 2026-10-20 sont consignées dans le
+[rapport de qualification](qualification-contrats-topologies-2026-10-20.md).
+
 `run_validation_suite.js` lance chaque fichier enfant par `spawnSync`, s'arrête au premier échec et retourne `0` uniquement si toutes les suites du profil passent. Il injecte `GENOS_ADMIN_PASSWORD=test-only` lorsque la variable est absente, afin d'éviter que la suite ne dépende d'un secret opérateur.
 
 Les évaluations et les gates suivent le contrat de résultat : une exception de
@@ -118,7 +141,7 @@ pour le diagnostic, mais elle ne constitue pas une validation métier.
 ---
 
 
-### 3.2 Validation ciblée Metapopulation
+### 3.3 Validation ciblée Metapopulation
 
 Depuis la racine, `npm --prefix backend run test:metapopulation` exécute treize
 suites. La [qualification du 2026-10-20](qualification-metapopulation-2026-10-20.md)
@@ -142,7 +165,7 @@ calculateurs sur des fixtures synthétiques. Le
 [rapport daté](qualification-metapopulation-2026-10-20.md) détaillent le périmètre
 vérifié et ses limites.
 
-### 3.3 Natural Search — reprise et intégrité
+### 3.4 Natural Search — reprise et intégrité
 
 Validation exécutée le 2026-10-06 sur `f101f24f` :
 `npm --prefix backend run test:natural-search` a passé les 21 scripts de

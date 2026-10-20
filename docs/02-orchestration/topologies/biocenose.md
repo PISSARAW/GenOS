@@ -2,7 +2,12 @@
 
 - **Statut** : Cycle de délibération persistant avec handlers internes, reprise par reçus, douze variants exécutables et finalisation protégée par les gates de preuve. Les modèles, oracles et adaptateurs d'action restent des dépendances explicites.
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
-- **Dernière revue** : 2026-10-16
+- **Dernière revue** : 2026-10-20
+
+Le [contrat runtime Biocénose](../../03-reference/runtime-biocenose.md) décrit
+la surface MCP, les neuf étapes transactionnelles, le bail, les reçus de reprise,
+les effets écologiques et les erreurs structurantes. Il complète cette
+monographie sans transformer une délibération terminée en preuve de vérité.
 
 ## Déclenchement public du cycle
 
