@@ -130,20 +130,38 @@ function validateMissionStep(step, input) {
   validateAllocation(step.allocation || input.allocation);
 }
 
+function validateMissionAdapters(input) {
+  if (typeof input.executeCapability !== 'function' || typeof input.verifyCapability !== 'function') {
+    throw policy.invalid('Mission executor and independent verifier are required.', 'HOLOBIONT_ADAPTERS_REQUIRED');
+  }
+  if (input.executeCapability === input.verifyCapability) {
+    throw policy.invalid('Independent verifier must differ from the mission executor.', 'HOLOBIONT_VERIFIER_NOT_INDEPENDENT');
+  }
+}
+
+function validateMissionSymbionts(input) {
+  if (!input.symbionts) return;
+  if (!Array.isArray(input.symbionts) || input.symbionts.length > 32) {
+    throw policy.invalid('At most 32 symbionts can be admitted per mission.');
+  }
+}
+
+function validateMissionSteps(steps, budget, input) {
+  if (!Array.isArray(steps) || steps.length < 1 || steps.length > Math.min(32, budget.maxSteps)) {
+    throw policy.invalid('Mission must have between 1 and 32 bounded steps.');
+  }
+  steps.forEach((step) => validateMissionStep(step, input));
+}
+
 function prepareMission(input) {
   requiredText(input.hostId, 'hostId');
   requiredText(input.missionId, 'missionId');
   validateTrialExecutor(input);
   const steps = input.steps || [{ capability: input.capability, request: input.request }];
   const budget = limits.missionBudget(input);
-  if (!Array.isArray(steps) || steps.length < 1 || steps.length > Math.min(32, budget.maxSteps)) {
-    throw policy.invalid('Mission must have between 1 and 32 bounded steps.');
-  }
-  steps.forEach((step) => validateMissionStep(step, input));
-  if (input.symbionts && (!Array.isArray(input.symbionts) || input.symbionts.length > 32)) throw policy.invalid('At most 32 symbionts can be admitted per mission.');
-  if (typeof input.executeCapability !== 'function' || typeof input.verifyCapability !== 'function') {
-    throw policy.invalid('Mission executor and independent verifier are required.', 'HOLOBIONT_ADAPTERS_REQUIRED');
-  }
+  validateMissionSteps(steps, budget, input);
+  validateMissionSymbionts(input);
+  validateMissionAdapters(input);
   const deadline = limits.missionDeadline(input, budget);
   return { steps, budget, deadline, input: { ...input, signal: deadline.signal,
     executeCapability: limits.boundedAdapter(input.executeCapability, deadline.signal),
