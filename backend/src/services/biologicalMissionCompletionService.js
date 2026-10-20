@@ -39,8 +39,10 @@ async function completeNonSyncytium(context) {
   const evidence = await completionEvidence.collect({ db: context.db, missionId: context.missionId,
     members: candidates, evidenceProofs: context.evidenceProofs });
   const registry = context.completionAdapterRegistry || completionAdapters;
-  const input = await registry.build({ context, evidence });
-  const result = closeMission(input);
+  const payload = { context, evidence };
+  const result = typeof registry.close === 'function'
+    ? await registry.close(payload, closeMission)
+    : closeMission(await registry.build(payload));
   return applyContractResult(context.output, result);
 }
 

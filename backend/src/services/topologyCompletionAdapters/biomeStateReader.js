@@ -1,5 +1,7 @@
 'use strict';
 
+const { digest } = require('../evidenceContractService');
+
 function result(status, reason, extra = {}) {
   return { status, ...(reason ? { reason } : {}), ...extra };
 }
@@ -101,6 +103,31 @@ async function loadSession(db, id) {
   });
 }
 
+function snapshotSeal(input) {
+  return { sessionId: input.sessionId, revision: input.revision,
+    stateHash: digest(input.state), eventJournalHash: digest(input.events) };
+}
+
+async function revalidate(input = {}) {
+  const seal = input.seal;
+  if (!input.db || !seal?.sessionId) {
+    return result('failed', 'biome_completion_snapshot_seal_missing');
+  }
+  const loaded = await loadSession(input.db, seal.sessionId);
+  if (loaded.status !== 'loaded') {
+    return result('failed', loaded.reason || 'biome_completion_snapshot_changed');
+  }
+  if (loaded.revision !== seal.revision || digest(loaded.state) !== seal.stateHash) {
+    return result('failed', 'biome_completion_snapshot_changed');
+  }
+  const journal = await eventJournal(input.db, seal.sessionId, loaded.revision);
+  if (journal.status !== 'verified'
+      || digest(journal.events) !== seal.eventJournalHash) {
+    return result('failed', 'biome_completion_snapshot_changed');
+  }
+  return result('verified');
+}
+
 async function read(input = {}) {
   const id = sessionId(input.context);
   const workerIds = memberIds(input.evidence);
@@ -115,8 +142,10 @@ async function read(input = {}) {
   if (bindings.status !== 'verified') return bindings;
   const journal = await eventJournal(input.db, id, loaded.revision);
   if (journal.status !== 'verified') return journal;
+  const seal = snapshotSeal({ sessionId: id, revision: loaded.revision,
+    state: loaded.state, events: journal.events });
   return result('read', null, { sessionId: id, revision: loaded.revision,
-    state: loaded.state, events: journal.events, bindings: bindings.bindings });
+    state: loaded.state, events: journal.events, bindings: bindings.bindings, seal });
 }
 
-module.exports = { read };
+module.exports = { read, revalidate };

@@ -16,5 +16,5 @@ const defaultRegistry = createRegistry({
 });
 
 module.exports = { KNOWN_TOPOLOGIES, createRegistry,
-  build: defaultRegistry.build, register: defaultRegistry.register,
+  build: defaultRegistry.build, close: defaultRegistry.close, register: defaultRegistry.register,
   resolve: defaultRegistry.resolve };

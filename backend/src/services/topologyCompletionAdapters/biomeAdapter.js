@@ -1,10 +1,11 @@
 'use strict';
 
-const { baseDossier } = require('./dossier');
+const { baseDossier, closureInput } = require('./dossier');
 const stateReader = require('./biomeStateReader');
 const { digest } = require('../evidenceContractService');
 const { digest: biologicalDigest } = require('../biologicalIntegrity');
 const goalOracle = require('../biome/contracts/goalVerificationReceipt');
+const { withTransaction } = require('../../db');
 
 function assessment(status, reason) {
   return { status, ...(reason ? { reason } : {}) };
@@ -218,6 +219,7 @@ function verifiedDossier(base, state) {
   const refs = goal.oracleReceipt.evidenceRefs;
   const receipt = oracleReceipt(base, state);
   return { ...base, lifecycleState: 'completed', producerId: base.missionId,
+    stateSeal: state.seal,
     topologyValidation: { status: 'verified', reasons: [] },
     invariants: [
       { id: 'biome_mission_run_scope', passed: true, sessionId: state.sessionId },
@@ -245,5 +247,24 @@ async function build(input = {}) {
   return verifiedDossier(base, state);
 }
 
+async function finalize(context = {}) {
+  const db = context.input?.context?.db;
+  return withTransaction(db, async () => {
+    let dossier = context.dossier;
+    if (dossier?.topologyValidation?.status === 'verified') {
+      const current = await stateReader.revalidate({ db, seal: dossier.stateSeal });
+      if (current.status !== 'verified') {
+        dossier = failed(dossier, current.reason || 'biome_completion_snapshot_changed', {
+          sessionId: dossier.stateSeal?.sessionId });
+      }
+    }
+    return context.closeMission(closureInput(dossier));
+  });
+}
+
+async function close(input = {}, closeMission) {
+  return finalize({ input, closeMission, dossier: await build(input) });
+}
+
 module.exports = Object.freeze({ id: 'biome-completion-v1', topology: 'biome',
-  specialized: true, build });
+  specialized: true, build, close, finalize });

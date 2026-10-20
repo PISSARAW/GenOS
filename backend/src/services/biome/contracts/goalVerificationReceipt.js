@@ -82,7 +82,8 @@ function evidenceShapeIssue(receipt) {
 function signedIssue(receipt) {
   const signed = receipt.signedReceipt;
   const authority = signed?.independenceDescriptor;
-  const bound = signed?.resultId === resultId(receipt)
+  const bound = signed?.status === 'verified'
+    && signed?.resultId === resultId(receipt)
     && signed?.evidenceDigest === receipt.subjectHash
     && signed?.verifierDigest === receipt.verifierDigest
     && signed?.independent === true && authority?.actorId === AUTHORITY.id

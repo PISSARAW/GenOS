@@ -3,17 +3,20 @@
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'biome-completion-adapter-test-secret';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const biome = require('../src/services/biomeCoordinationService');
 const adapter = require('../src/services/topologyCompletionAdapters/biomeAdapter');
-const { closureInput } = require('../src/services/topologyCompletionAdapters/dossier');
 const completion = require('../src/services/biologicalMissionCompletionService');
 const completionEvidence = require('../src/services/missionCompletionEvidenceService');
 const workerStore = require('../src/services/biologicalWorkerStore');
 const { closeMission } = require('../src/services/missionClosureService');
 const { digest: biologicalDigest } = require('../src/services/biologicalIntegrity');
 const goalOracle = require('../src/services/biome/contracts/goalVerificationReceipt');
+const verifierReceipts = require('../src/services/epistemicVerifierReceiptService');
 
 const OWNER = 'mission-biome-owner';
 const WORKER = 'biome-worker-1';
@@ -60,8 +63,8 @@ async function seedMissionBinding(db, sessionId) {
   await db.run('INSERT INTO mission_agents VALUES (?, ?, ?)', OWNER, WORKER, 'adaptive_worker');
 }
 
-async function createNominal() {
-  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+async function createNominal(options = {}) {
+  const db = await open({ filename: options.filename || ':memory:', driver: sqlite3.Database });
   const workerProof = proof();
   const runtime = await biome.BiomeRuntime.create('Complete an ecological mission', {
     db, variant: 'resource', maxTicks: 5, missionId: OWNER, producerId: OWNER,
@@ -121,19 +124,16 @@ async function nominal(fixture) {
   assert.equal(dossier.topologyValidation.status, 'verified');
   assert.equal(dossier.oracle.receipt.sessionId, fixture.sessionId);
   assert.equal(dossier.oracle.receipt.workerRunIds[0], `run:${OWNER}:${WORKER}`);
-  const closed = closeMission(closureInput(dossier));
+  const closed = await adapter.finalize({ input: input(fixture.db, fixture),
+    dossier, closeMission });
   assert.equal(closed.verdict, 'succeeded', JSON.stringify(closed));
 }
 
 async function servicePipeline(fixture) {
   const output = { status: 'completed', complete: true, sessionId: fixture.sessionId,
     members: [{ workerId: WORKER, status: 'completed' }] };
-  const registry = { async build(payload) {
-    return closureInput(await adapter.build(payload));
-  } };
   await completion.complete({ db: fixture.db, missionId: OWNER, mode: 'biome',
-    sessionId: fixture.sessionId, output, expectedCount: 1,
-    completionAdapterRegistry: registry });
+    sessionId: fixture.sessionId, output, expectedCount: 1 });
   assert.equal(output.completionContract.verdict, 'succeeded');
   assert.equal(output.complete, true);
 }
@@ -281,6 +281,66 @@ async function partialOracleCoverageFails(fixture) {
   assert.equal(assessed.reason, 'biome_goal_oracle_evidence_mismatch');
 }
 
+function signedWithStatus(receipt, status) {
+  const signed = receipt.signedReceipt;
+  receipt.signedReceipt = verifierReceipts.issueReceipt({
+    resultId: signed.resultId, evidenceDigest: signed.evidenceDigest,
+    verifierDigest: signed.verifierDigest, independent: signed.independent,
+    independenceDescriptor: signed.independenceDescriptor, status
+  });
+}
+
+async function nonVerifiedSignedReceiptFails(fixture, status) {
+  await mutateState(fixture, (state) => {
+    const receipt = state.ecology.ecologicalState.runtime.goalVerification.oracleReceipt;
+    signedWithStatus(receipt, status);
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'failed');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_attestation_invalid']);
+}
+
+async function signedFailedReceiptFails(fixture) {
+  return nonVerifiedSignedReceiptFails(fixture, 'failed');
+}
+
+async function signedRejectedReceiptFails(fixture) {
+  return nonVerifiedSignedReceiptFails(fixture, 'rejected');
+}
+
+async function concurrentMutationFailsClosure() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-biome-closure-'));
+  const filename = path.join(directory, 'biome.sqlite');
+  const fixture = await createNominal({ filename });
+  const writer = await open({ filename, driver: sqlite3.Database });
+  try {
+    const payload = input(fixture.db, fixture);
+    const dossier = await adapter.build(payload);
+    assert.equal(dossier.topologyValidation.status, 'verified');
+    const row = await writer.get('SELECT state_json, revision FROM topology_sessions WHERE id = ?',
+      fixture.sessionId);
+    const state = JSON.parse(row.state_json);
+    state.ecology.status = 'active';
+    const revision = Number(row.revision) + 1;
+    await writer.exec('BEGIN IMMEDIATE');
+    await writer.run(`UPDATE topology_sessions SET state_json = ?, revision = ? WHERE id = ?`,
+      JSON.stringify(state), revision, fixture.sessionId);
+    await writer.run(`INSERT INTO topology_session_events
+      (session_id, topology, revision, event_type, payload_json)
+      VALUES (?, 'biome', ?, 'CONCURRENT_MUTATION', ?)`, fixture.sessionId, revision,
+    JSON.stringify({ previousRevision: revision - 1, resultingRevision: revision }));
+    await writer.exec('COMMIT');
+    const closed = await adapter.finalize({ input: payload, dossier, closeMission });
+    assert.equal(closed.verdict, 'failed');
+    assert.equal(closed.reasons.includes('biome_completion_snapshot_changed'), true);
+  } finally {
+    await writer.close();
+    await fixture.db.close();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+}
+
 function subjectMutation(name, mutate) {
   return async function subjectMutationTest(fixture) {
     await mutateState(fixture, mutate);
@@ -314,8 +374,10 @@ async function run() {
     missingVerifierReceiptIsPartial, foreignReceiptMissionFails,
     selfVerificationFails, foreignEvidenceFails, arbitraryVerifierAliasIgnored,
     partialOracleCoverageFails, alteredVerifiedFails, alteredStopConditionFails,
-    alteredStatusFails, alteredMeasurementsFails, alteredHealthFails];
+    alteredStatusFails, alteredMeasurementsFails, alteredHealthFails,
+    signedFailedReceiptFails, signedRejectedReceiptFails];
   for (const test of tests) await withFixture(test);
+  await concurrentMutationFailsClosure();
   console.log('Biome completion adapter: PASS');
 }
 

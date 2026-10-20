@@ -42,8 +42,14 @@ function createRegistry(initial = {}) {
     return closureInput(dossier);
   }
 
+  async function close(input = {}, closeMission) {
+    const adapter = resolve(input.context?.mode);
+    if (typeof adapter.close === 'function') return adapter.close(input, closeMission);
+    return closeMission(await build(input));
+  }
+
   for (const [topology, adapter] of Object.entries(initial)) register(topology, adapter);
-  return Object.freeze({ build, register, resolve });
+  return Object.freeze({ build, close, register, resolve });
 }
 
 module.exports = { KNOWN_TOPOLOGIES, createRegistry };

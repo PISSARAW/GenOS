@@ -31,8 +31,15 @@ La clôture spécialisée Biome exige ensuite que :
 - l’autorité enregistrée soit distincte du producteur, y compris sous alias ;
 - le reçu corresponde à la mission, à la session et au tick terminaux ;
 - sa signature HMAC et son digest d’autorité soient valides ;
+- le statut signé soit exactement `verified` ;
 - son sujet corresponde encore à l’état terminal relu ;
 - ses preuves couvrent exactement tous les reçus de workers disponibles.
+
+La lecture terminale produit aussi un sceau canonique de la session, de sa
+révision, de son état et de son journal d’événements. Le registre de clôture
+laisse l’adaptateur Biome relire ce sceau immédiatement avant d’appeler le
+contrat commun `closeMission`. Toute divergence rend le dossier caduc et fait
+échouer la clôture. Les autres adaptateurs conservent leur chemin générique.
 
 Une absence de reçu reste partielle. Une identité, une portée, une attestation
 ou une référence falsifiée échoue explicitement.
@@ -43,3 +50,6 @@ Les usages écologiques historiques peuvent toujours utiliser `verifyGoal` sans
 ce reçu, mais leur réponse ne rend plus le but vérifié et ils ne satisfont pas
 le gate de clôture. Un fournisseur destiné à la clôture doit disposer de
 l’autorité épistémique configurée et signer le sujet complet qu’il a examiné.
+Une mutation Biome concurrente ne peut plus promouvoir un dossier construit
+sur une révision antérieure, même si ce dossier était valide lors de sa
+première lecture.
