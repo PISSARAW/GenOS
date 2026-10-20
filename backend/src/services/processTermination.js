@@ -91,17 +91,100 @@ function signalChild(child, numericPid, signal) {
   }
 }
 
+function measuredMembers(child) {
+  const members = child?.genosProcessScope?.members;
+  return members instanceof Map ? [...members.values()] : [];
+}
+
+function liveMeasuredMembers(child) {
+  const members = measuredMembers(child);
+  const identities = require('./agents/workerProcessCpu').processIdentities(members.map((member) => member.pid));
+  return members.filter((member) => identities.get(member.pid) === member.identity);
+}
+
+function signalMeasuredMember(member, signal) {
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('taskkill', ['/PID', String(member.pid), '/T', ...(signal === 'SIGKILL' ? ['/F'] : [])],
+        { stdio: 'ignore', windowsHide: true });
+    } catch (_) {
+      process.kill(member.pid, signal);
+    }
+    return;
+  }
+  process.kill(member.pid, signal);
+}
+
+function markSignalled(receipt, signal, pid) {
+  const key = signal === 'SIGKILL' ? 'killSignalledPids' : 'termSignalledPids';
+  if (!receipt[key].includes(pid)) receipt[key].push(pid);
+}
+
+function signalMeasuredTree(child, signal, receipt) {
+  const live = liveMeasuredMembers(child).sort((left, right) => right.pid - left.pid);
+  const root = live.find((member) => member.pid === child.genosProcessScope.rootPid);
+  if (root && receipt.detached && process.platform !== 'win32') {
+    try {
+      process.kill(-root.pid, signal);
+      markSignalled(receipt, signal, root.pid);
+    } catch (_) { /* Exact member signalling remains the safe fallback. */ }
+  }
+  live.forEach((member) => {
+    try {
+      signalMeasuredMember(member, signal);
+      markSignalled(receipt, signal, member.pid);
+    } catch (_) { /* Verification below decides whether termination succeeded. */ }
+  });
+}
+
+function verifyMeasuredTermination(child) {
+  const receipt = child?.genosTerminationReceipt;
+  if (!receipt || receipt.scope !== 'measured_process_tree') return false;
+  receipt.survivorPids = liveMeasuredMembers(child).map((member) => member.pid);
+  receipt.verified = receipt.survivorPids.length === 0;
+  receipt.verifiedAt = new Date().toISOString();
+  return receipt.verified;
+}
+
+function measuredReceipt(child) {
+  const members = measuredMembers(child);
+  if (!members.length) return null;
+  return {
+    scope: 'measured_process_tree', requestedAt: new Date().toISOString(),
+    detached: false,
+    observedPids: members.map((member) => member.pid), termSignalledPids: [],
+    killSignalledPids: [], survivorPids: null, verified: false, verifiedAt: null
+  };
+}
+
+function scheduleMeasuredVerification(child, delay = 50) {
+  const timer = setTimeout(() => verifyMeasuredTermination(child), delay);
+  if (typeof timer.unref === 'function') timer.unref();
+  child.genosTerminationVerificationTimer = timer;
+}
+
 function terminateChild(child, detached = false) {
   const numericPid = normalizePid(child?.pid);
   if (!child || !numericPid || child.exitCode !== null || child.signalCode) return false;
+  const receipt = measuredReceipt(child);
+  if (receipt) {
+    receipt.detached = Boolean(detached);
+    child.genosTerminationReceipt = receipt;
+  }
   const killGroup = process.platform !== 'win32' && detached;
-  if (killGroup) {
+  if (receipt) {
+    signalMeasuredTree(child, 'SIGTERM', receipt);
+  } else if (killGroup) {
     try { process.kill(-numericPid, 'SIGTERM'); } catch (_) { signalChild(child, numericPid, 'SIGTERM'); }
   } else {
     signalChild(child, numericPid, 'SIGTERM');
   }
+  if (receipt) scheduleMeasuredVerification(child);
   const timer = setTimeout(() => {
-    if (child.exitCode === null && !child.signalCode) {
+    if (receipt && !verifyMeasuredTermination(child)) {
+      signalMeasuredTree(child, 'SIGKILL', receipt);
+      scheduleMeasuredVerification(child);
+    } else if (!receipt && child.exitCode === null && !child.signalCode) {
       if (killGroup) { try { process.kill(-numericPid, 'SIGKILL'); } catch (_) {} }
       signalChild(child, numericPid, 'SIGKILL');
     }
@@ -129,8 +212,10 @@ function terminatePid(pid, expected, signal = 'SIGTERM') {
 
 function clearTerminationTimer(child) {
   if (!child?.genosTerminationTimer) return;
+  if (child.genosTerminationReceipt && !verifyMeasuredTermination(child)) return;
   clearTimeout(child.genosTerminationTimer);
   child.genosTerminationTimer = null;
 }
 
-module.exports = { DEFAULT_GRACE_MS, gracePeriodMs, processMatches, terminateChild, terminatePid, clearTerminationTimer };
+module.exports = { DEFAULT_GRACE_MS, gracePeriodMs, processMatches, terminateChild, terminatePid,
+  clearTerminationTimer, verifyMeasuredTermination };

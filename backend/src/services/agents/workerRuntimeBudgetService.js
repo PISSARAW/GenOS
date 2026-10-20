@@ -144,6 +144,8 @@ function startWorkerCpuBudget(context) {
   }
   const state = { limit, previous: 0, consumed: 0, accountingFailures: 0,
     sampling: false, timer: null, degraded: false, capTimer: null };
+  state.processScope = { rootPid: context.child.pid, platform: process.platform, members: new Map() };
+  context.child.genosProcessScope = state.processScope;
   const intervalMs = Math.min(500, Math.max(50, Math.floor(limit / 100)));
   const timer = setInterval(() => sampleCpuBudget(context, state), intervalMs);
   state.timer = timer;

@@ -15,6 +15,16 @@ async function waitForClose(child, timeoutMs) {
   });
 }
 
+async function waitForTerminationProof(child, timeoutMs) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (child.genosTerminationReceipt?.verified) return child.genosTerminationReceipt;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (child.genosTerminationReceipt?.verified) return child.genosTerminationReceipt;
+  throw new Error(`Process-tree termination was not verified: ${JSON.stringify(child.genosTerminationReceipt)}`);
+}
+
 async function verifyCpuMeter() {
   const usage = await processCpuMs(process.pid, process.platform, {});
   assert.ok(Number.isFinite(usage) && usage >= 0, `invalid process CPU value: ${usage}`);
@@ -74,21 +84,41 @@ function pidAlive(pid) {
 }
 
 async function verifyCpuLimitStopsDescendantLoad() {
-  const script = "const p=require('node:child_process').spawn(process.execPath,['-e','const end=Date.now()+10000;while(Date.now()<end){}'],{stdio:'ignore'});console.log(p.pid);setInterval(()=>{},1000)";
+  const leaf = "const end=Date.now()+10000;while(Date.now()<end){}";
+  const branch = `const p=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(leaf)}],{stdio:'ignore'});console.log('leaf:'+p.pid);setInterval(()=>{},1000)`;
+  const script = `const p=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(branch)}],{stdio:['ignore','pipe','ignore']});console.log('branch:'+p.pid);p.stdout.pipe(process.stdout);setInterval(()=>{},1000)`;
   const child = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'],
     windowsHide: true, detached: process.platform !== 'win32' });
-  let descendantPid = null;
+  const descendants = new Map();
   child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (value) => { descendantPid = Number(value.trim().split(/\r?\n/).at(-1)); });
+  child.stdout.on('data', (value) => {
+    value.trim().split(/\r?\n/).forEach((line) => {
+      const [kind, pid] = line.split(':');
+      if (kind && Number.isSafeInteger(Number(pid))) descendants.set(kind, Number(pid));
+    });
+  });
+  const unrelated = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], {
+    stdio: 'ignore', windowsHide: true
+  });
   let halt;
   const context = { child, normalizedMission: { workerContract: { resources: { maxCpuMs: 1000 } } },
     haltRuntime: (...args) => { halt = args.slice(1); terminateChild(child, process.platform !== 'win32'); } };
-  startWorkerCpuBudget(context);
-  await waitForClose(child, 10000);
-  assert.equal(halt?.[0], 'worker_cpu_budget');
-  assert.equal(halt?.[1], 'worker_cpu_budget_exceeded');
-  assert.ok(halt[3].observedCpuMs >= 1000, 'descendant CPU must count toward the worker budget');
-  assert.equal(pidAlive(descendantPid), false, 'CPU limit termination must include worker descendants');
+  try {
+    startWorkerCpuBudget(context);
+    await waitForClose(child, 10000);
+    const receipt = await waitForTerminationProof(child, 7000);
+    assert.equal(halt?.[0], 'worker_cpu_budget');
+    assert.equal(halt?.[1], 'worker_cpu_budget_exceeded');
+    assert.ok(halt[3].observedCpuMs >= 1000, 'grandchild CPU must count toward the worker budget');
+    assert.ok(descendants.has('branch') && descendants.has('leaf'), 'the test must observe both descendants');
+    descendants.forEach((pid) => assert.equal(pidAlive(pid), false, `descendant ${pid} must stop`));
+    assert.equal(receipt.scope, 'measured_process_tree');
+    assert.deepEqual(receipt.survivorPids, [], 'termination proof must rescan every measured identity');
+    assert.equal(pidAlive(unrelated.pid), true, 'an unrelated same-executable process must remain alive');
+  } finally {
+    if (pidAlive(unrelated.pid)) unrelated.kill('SIGKILL');
+    if (pidAlive(child.pid)) terminateChild(child, process.platform !== 'win32');
+  }
 }
 
 async function main() {

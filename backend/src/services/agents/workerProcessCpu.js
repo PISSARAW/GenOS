@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
-const { spawn } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const readline = require('node:readline');
 let windowsProbeProcess;
 let windowsProbeReady;
@@ -17,6 +17,35 @@ function linuxProcessRows() {
       return [{ pid: Number(name), parentPid: Number(fields[1]), identity: `${name}:${fields[19]}` }];
     } catch (_) { return []; }
   });
+}
+
+function windowsProcessIdentities(pids) {
+  const ids = pids.join(',');
+  const script = '$ids=@(' + ids
+    + ');foreach($id in $ids){try{$p=[Diagnostics.Process]::GetProcessById($id);"$id`t$($p.StartTime.ToUniversalTime().Ticks)"}catch{}}';
+  try {
+    const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore']
+    });
+    return new Map(output.trim().split(/\r?\n/).filter(Boolean).map((line) => {
+      const [rawPid, created] = line.split('\t');
+      return [Number(rawPid), `${rawPid}:${created}`];
+    }));
+  } catch (_) { return new Map(); }
+}
+
+function processIdentities(pids, platform = process.platform) {
+  const valid = pids.filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+  if (platform === 'linux') {
+    const rows = new Map(linuxProcessRows().map((row) => [row.pid, row.identity]));
+    return new Map(valid.map((pid) => [pid, rows.get(pid) || null]));
+  }
+  if (platform === 'win32') return windowsProcessIdentities(valid);
+  return new Map();
+}
+
+function processIdentity(pid, platform = process.platform) {
+  return processIdentities([pid], platform).get(pid) || null;
 }
 
 function linuxThreadCpuMs(pid) {
@@ -218,14 +247,23 @@ function rememberUsage(state, family) {
   return [...state.processUsage.values()].reduce((sum, usage) => sum + usage, 0);
 }
 
+function rememberProcessScope(state, family) {
+  family.forEach((row) => state.processScope.members.set(row.identity, {
+    pid: row.pid, parentPid: row.parentPid, identity: row.identity
+  }));
+  return state.processScope;
+}
+
 async function processCpuMs(pid, platform = process.platform, state) {
   if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('A valid child PID is required for CPU accounting.');
   const usageState = state || {};
   const rows = await currentProcessRows(pid, platform);
   if (!rows.some((row) => row.pid === pid)) throw new Error('Worker process was not found in the CPU sample.');
+  if (!usageState.processScope) usageState.processScope = { rootPid: pid, platform, members: new Map() };
+  rememberProcessScope(usageState, rows);
   return rememberUsage(usageState, rows);
 }
 
 process.once('exit', () => { if (windowsProbeProcess) windowsProbeProcess.kill(); });
 
-module.exports = { processCpuMs, prepareProcessCpuMeter };
+module.exports = { processCpuMs, prepareProcessCpuMeter, processIdentity, processIdentities };
