@@ -1,5 +1,9 @@
 # Protocole de benchmark Syncytium
 
+- **Statut** : protocole et runner implémentés ; campagne des 53 cas non exécutée.
+- **Portée** : comparaison `isolated_baseline`/`syncytium`, oracles, budgets et preuves de clôture.
+- **Dernière revue** : 2026-10-20.
+
 Ce document distingue l'agrégateur de métriques et le runner de missions. L'agrégateur calcule des ratios à partir de compteurs fournis. Le runner lance une comparaison entre `isolated_baseline` et `syncytium`, collecte les reçus disponibles et évalue un oracle indépendant sur la session Syncytium. Aucun résultat des 53 missions réelles n'est attesté à ce jour. Le [protocole des missions](../02-orchestration/topologies/protocole-missions-syncytium.md) décrit les budgets, les workers et les limites de preuve.
 
 ## Métriques
@@ -55,11 +59,17 @@ ses répétitions, son oracle et ses traces brutes.
 
 ## Runner de campagne et matrice
 
-`backend/bin/genos-biological-benchmark.cjs` reçoit un manifeste JSON en argument. Un manifeste individuel précise `mission`, `variantId`, `repetitions`, `budget` par worker (`tokens` et `costUsd` obligatoires), `campaignBudget`, `expectedClaims` et l'oracle de session. Il peut préciser `caseId`, `configuration`, `workerAssignments`, `timeoutMs`, `scenarioTimeoutMs` et `sessionOptions`. Le runner valide les plafonds avant le dispatch, lance le baseline isolé puis Syncytium pour chaque répétition, attend les workers, contrôle les claims et évalue l'oracle sur l'état et les reçus persistés. `comparable` exige notamment budgets et nombres de workers égaux, exécutions valides et dépenses vérifiées. `complete` exige aussi les claims attendus et, pour Syncytium, l'oracle.
+`backend/bin/genos-biological-benchmark.cjs` reçoit un manifeste JSON en argument. Un manifeste individuel précise `mission`, `variantId`, `repetitions`, `budget` par worker (`tokens` et `costUsd` obligatoires), `campaignBudget`, `expectedClaims` et l'oracle de session. Il peut préciser `caseId`, `configuration`, `workerAssignments`, `timeoutMs`, `scenarioTimeoutMs` et `sessionOptions`. Le runner valide les plafonds avant le dispatch, lance le baseline isolé puis Syncytium pour chaque répétition, attend les workers, contrôle les claims et évalue l'oracle sur l'état et les reçus persistés. `comparable` exige notamment budgets et nombres de workers égaux, exécutions valides et dépenses vérifiées. Pour Syncytium, `syncytiumReady` décrit seulement la réussite des contrôles topologiques ; `complete` exige en plus le verdict commun `succeeded`, donc un reçu durable, intact et corrélé pour chaque worker requis.
 
 Une matrice fournit exactement 53 manifestes sous `cases` et un `matrixBudget` couvrant la somme de leurs plafonds. Chaque `caseId`, `variantId` et énoncé doivent correspondre au [catalogue versionné](../../backend/fixtures/syncytium/missionCatalog.json) ; le 53e cas est transversal. Le contrôle préalable refuse les doublons, les cas absents, les oracles vides et les plafonds insuffisants avant de lancer un worker. Le rapport contient `expectedCases`, `executedCases`, `missing`, `failed`, `observed`, `reports` et `pass`. Un cas qui lève une erreur est inscrit dans `failed` et les cas suivants restent tentés, sauf dépassement de `maxRuntimeMs`. `pass` exige les 53 cas, leurs comparaisons valides, tous les runs Syncytium complets et les usages agrégés mesurés sous le plafond.
 
 Les reçus `AGENT_COMPLETED` et les événements fournisseur `AGENT_STEP` doivent fournir explicitement tokens et coût. Une valeur absente reste `null` et empêche la vérification du budget ; elle n'est jamais convertie en coût nul. L'oracle générique sait vérifier état, révision, opération appliquée/absente et rejet codé. Il ne remplace pas les assertions propres à chaque mission ni une preuve de convergence par réplica pour le cas transversal. Les 53 manifestes exécutables et leurs oracles spécifiques restent à produire.
+
+Le [contrat commun de complétion](../03-reference/contrat-completion-mission.md)
+reste distinct de l'oracle du benchmark. Il établit que les résultats requis et
+leurs preuves sont présents et corrélés ; il ne démontre pas que les compteurs
+comparatifs sont justes, que la baseline est équivalente ni qu'un effet causal
+est attribuable à Syncytium.
 
 ## Limites d'interprétation
 

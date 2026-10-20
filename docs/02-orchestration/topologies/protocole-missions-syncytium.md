@@ -1,9 +1,9 @@
 # Protocole d’exécution et de preuve des missions Syncytium
 
 - **Statut** : protocole opératoire documenté à partir du runtime Node et de ses tests ciblés.
-- **Version du relevé** : 2026-10-06.
+- **Version du relevé** : 2026-10-20 pour le contrat de clôture ; résultats de campagne conservés au 2026-10-06 lorsqu'ils sont explicitement datés.
 - **Portée** : exécutions déterministes des 13 variants Syncytium, préparation d’une campagne avec travailleurs, collecte de preuves et limites de validation.
-- **À lire avec** : [Syncytium — modèle et garanties](syncytium.md), [contrat runtime Node/MCP](../../03-reference/runtime-syncytium.md), [topologies et capacités](../topologies-et-capacites.md).
+- **À lire avec** : [Syncytium — modèle et garanties](syncytium.md), [contrat runtime Node/MCP](../../03-reference/runtime-syncytium.md), [contrat commun de complétion](../../03-reference/contrat-completion-mission.md), [topologies et capacités](../topologies-et-capacites.md).
 
 ## 1. Ce que signifie « réussi »
 
@@ -17,12 +17,18 @@ Un variant réussit une mission seulement si son oracle propre passe. Le fait qu
 
 Le résultat global est **PASS** seulement si toutes les assertions prévues passent. Un rejet est un succès uniquement quand le scénario exige précisément ce rejet et vérifie son motif. Les champs non mesurés restent `null`/« non mesuré » ; ils ne sont jamais interprétés comme zéro.
 
-Dans le dispatch biologique actuel, la clôture exige simultanément une
-`semanticValidation` complète, tous les workers attendus terminés sans erreur
-de dispatch et une `stateValidation` vérifiée sur la session autoritative.
-Ce second reçu exige des opérations CRDT, les invariants satisfaits, une
-matérialisation à la version courante et aucune opération hors ligne en attente.
-Il porte sur `committed_shared_state` ; il ne remplace pas l'oracle métier.
+Dans le dispatch biologique actuel, Syncytium construit une validation
+topologique à partir d'une `semanticValidation` complète, de tous les workers
+attendus terminés sans erreur de dispatch et d'une `stateValidation` vérifiée
+sur la session autoritative. Ce second reçu exige des opérations CRDT, les
+invariants satisfaits, une matérialisation à la version courante et aucune
+opération hors ligne en attente. Il porte sur `committed_shared_state` ; il ne
+remplace pas l'oracle métier.
+
+Le verdict final appartient ensuite au contrat commun. Celui-ci exige un reçu
+persisté pour chaque worker requis, recalcule son SHA-256 et vérifie la liaison
+du contenu au `missionId` et au worker. Un état partagé cohérent et un hash bien
+formé ne suffisent donc pas à produire `succeeded`.
 
 ### Niveaux de charge
 
@@ -281,24 +287,29 @@ leurs résultats ne permettent pas de modifier les preuves internes par alias
 mémoire. L'adaptateur MCP ne transmet pas encore le domaine aux inspections ;
 voir le [contrat des surfaces](../../03-reference/runtime-syncytium.md#surfaces-mcp-et-node).
 
-La clôture de mission exige deux contrôles distincts :
+La clôture de mission exige trois contrôles distincts :
 
 - semanticValidation : couverture et statut des workers selon l'oracle de mission ;
 - stateValidation : reçu produit depuis la session autoritative, de portée
   committed_shared_state. Il exige un état non vide, des invariants exécutés
   satisfaits, un snapshot matérialisé à la version courante et aucune opération
-  hors ligne encore en attente.
+  hors ligne encore en attente ;
+- completionContract : état terminal, roster non vide, reçu existant et intact
+  pour chaque worker, lié à la mission et à l'identité du worker.
 
 Ce reçu d'état ne certifie pas le contenu métier général. Une réponse malformée,
-un succès transport seul ou un snapshot périmé ne clôture pas la mission. Le
-lanceur des six niveaux retourne un code d'échec si un niveau reste partiel.
+un succès transport seul, un snapshot périmé ou une référence SHA-256 sans
+contenu corrélé ne clôture pas la mission. Le lanceur des six niveaux retourne
+un code d'échec si un niveau reste partiel.
 
 Vérification reproductible :
 
 ~~~powershell
 npm --prefix backend run test:syncytium
 node backend/tests/test_syncytium_completion.js
+node backend/tests/test_syncytium_completion_contract.js
 node backend/tests/test_syncytium_mission_completion.js
+node backend/tests/test_syncytium_materialization_mcp.js
 node backend/tests/test_biological_topology_dispatch.js
 node backend/tests/test_topology_mission_variant_routing.js
 ~~~

@@ -2,11 +2,19 @@
 
 - **Statut** : Partiel — runtime Node pour les treize variants (48 suites `test:syncytium` PASS vérifiées le 2026-10-14) ; garanties formelles, propriétés distribuées et campagne des 53 missions non attestées.
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
-- **Dernière revue** : 2026-10-16
+- **Dernière revue** : 2026-10-20
 
 > **Statut scientifique et mathématique.** Les équations de cette fiche restent un modèle de conception, sauf indication explicite contraire. Le runtime Node possède maintenant des services Syncytium, 13 politiques de variants, sessions CRDT, opérations, transactions, réplication/réconciliation et diagnostics ; des tests ciblés attestent certains comportements, sans prouver toutes les propriétés formelles décrites ici ni un protocole distribué complet. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés. Voir le [protocole opératoire et le relevé des tests](protocole-missions-syncytium.md) pour la séparation entre code, mesures et architecture cible.
 
 Le parcours de campagne instancie un service spécialisé par politique de variant (13 politiques), puis expose ses actions typées par `genos_topology_session`. Seuls cinq variants ajoutent un worker spécialiste (`code → code_semantic_reviewer`, `graph → graph_analyzer`, `document → causal_reconstructor`, `epistemic → epistemic_specialist`, `transactional → transactional_validator`, voir `backend/src/services/syncytiumVariantWorkerService.js` et [ADR 0170](../../adr/0170-specialisation-workers-variants-syncytium.md)) ; les huit autres s'appuient sur les quatre rôles de base. Les workers reçoivent une identité de session et des droits bornés ; les mutations génériques sont interdites dans les sessions spécialisées. Le runner compare `isolated_baseline` et `syncytium`, avec un oracle indépendant et des budgets observés. Le catalogue contient 52 missions de variant et un cas transversal, mais leurs 53 manifestes exécutables et les preuves de leur réussite manquent encore. Voir §5 du [protocole](protocole-missions-syncytium.md).
+
+La clôture est désormais divisée en deux autorités. Syncytium décide uniquement
+de sa cohérence : couverture sémantique, invariants, réplicas et matérialisation
+de l'état partagé. Le [contrat commun de complétion](../../03-reference/contrat-completion-mission.md)
+relit ensuite l'état terminal, le roster requis et les reçus de workers. Une
+référence SHA-256 plausible n'est jamais une preuve suffisante : le reçu doit
+exister, son contenu doit produire cette empreinte et ses identités doivent
+correspondre à la mission et au worker évalués.
 
 ## Snapshot d'agent lié à l'état partagé
 
@@ -651,6 +659,137 @@ L'exemple suivant est une sortie fictive destinée à illustrer un format de rap
 ### Décision
 MERGE : Le syncytium a convergé. L'état final est causalement complet et tous les invariants sont satisfaits.
 ```
+
+### 8.1 Clôture d'une mission : trois plans, une seule convention de verdict
+
+La fusion d'un état et la réussite d'une mission ne sont pas synonymes. La
+clôture implémentée sépare trois plans qui possèdent des autorités différentes :
+
+| Plan | Autorité | Question résolue | Sortie transmise |
+| --- | --- | --- | --- |
+| Oracle de mission | runner et vérificateur du cas | Les résultats des workers couvrent-ils la mission selon son oracle ? | `semanticValidation` |
+| Cohérence Syncytium | runtime de session | L'état partagé courant est-il cohérent, matérialisé et sans opération hors ligne en attente ? | `topologyValidation` |
+| Complétion commune | contrat transversal | L'exécution est-elle terminale et chaque membre requis possède-t-il une preuve existante, intacte et corrélée ? | `genos.mission-completion/v1` |
+
+Le troisième plan ne connaît ni CRDT, ni frontière causale, ni variant
+Syncytium. Réciproquement, le vérificateur Syncytium ne décide pas de la
+validité cryptographique des reçus de tous les workers. Cette séparation évite
+qu'un invariant Syncytium devienne accidentellement une règle pour Trinity,
+Rhizome, Holobionte ou une autre topologie.
+
+Le chemin effectif est :
+
+```mermaid
+sequenceDiagram
+    participant W as Workers
+    participant O as Oracle de mission
+    participant S as Runtime Syncytium
+    participant D as Reçus SQLite
+    participant C as Contrat commun
+
+    W->>O: résultats et couverture
+    O-->>S: semanticValidation
+    S->>S: vérifier roster et dispatch
+    S->>S: matérialiser la version courante
+    S->>S: relire invariants et réplicas
+    S-->>C: topologyValidation
+    D->>C: contenus des reçus liés à missionId
+    C->>C: recalcul SHA-256 et corrélation worker
+    C-->>S: succeeded | failed | partial | in_progress
+```
+
+### 8.2 Porte propre à Syncytium
+
+`syncytiumMissionCompletionService` ne produit `topologyValidation.status =
+"verified"` que si toutes les conditions suivantes sont satisfaites :
+
+1. `semanticValidation.status` vaut `complete` ;
+2. `workerCount` et `coveredWorkers` valent le nombre attendu ;
+3. la sortie contient exactement ce nombre de membres, tous `completed` ;
+4. aucune défaillance de dispatch n'est présente ;
+5. la matérialisation porte sur la version courante ;
+6. l'état partagé contient au moins une opération ;
+7. les invariants exécutés sont cohérents ;
+8. aucun réplica ne conserve d'opération hors ligne en attente.
+
+La matérialisation n'est tentée qu'après la réussite des contrôles de workers.
+Un snapshot courant déjà vérifié peut être réutilisé. Sinon, le gate de
+matérialisation crée un snapshot durable, puis l'état est relu. Une mutation
+postérieure rend ce snapshot périmé pour la nouvelle version.
+
+| Observation Syncytium | Motif conservé | Effet topologique |
+| --- | --- | --- |
+| Oracle absent | `SEMANTIC_VALIDATION_MISSING` | `partial` |
+| Couverture incomplète | `SEMANTIC_WORKER_COVERAGE_INCOMPLETE` | `partial` |
+| Worker non terminé | `WORKER_NOT_COMPLETED` | `partial` |
+| État partagé vide | `EMPTY_SHARED_STATE` | `partial` |
+| Snapshot absent ou périmé | `MATERIALIZATION_MISSING_OR_STALE` | `partial` |
+| Opérations hors ligne restantes | `OFFLINE_OPERATIONS_PENDING` | `partial` |
+| Invariant partagé violé | `FAILED_SHARED_INVARIANTS` | `failed` |
+| Session illisible | `SESSION_EVIDENCE_UNAVAILABLE` | `partial` |
+
+`syncytiumReady` est un indicateur intermédiaire dérivé de cette porte. Il ne
+doit pas être interprété comme le verdict final, car les reçus de workers
+peuvent encore manquer, être altérés ou appartenir à une autre mission.
+
+### 8.3 Preuve par worker et liaison à la mission
+
+Quand une base SQLite est disponible, le collecteur commun relit
+`biological_worker_receipts` avec le `missionId` courant. Il ne fait pas
+confiance aux références de preuve injectées par l'appelant. Pour chaque worker
+requis, le contrat exige :
+
+$$
+ValidProof(p,m,w) = Exists(p) \land SHA256(Content(p)) = Ref(p)
+\land Mission(p)=m \land Worker(p)=w \land Verified(Content(p))
+$$
+
+La forme `sha256:<64 hex>` n'établit que la syntaxe de la référence. Elle ne
+prouve ni l'existence de l'objet, ni son contenu, ni son origine. Un reçu d'un
+autre worker, un reçu d'une autre mission et un contenu modifié sont donc
+refusés même si le transport, le processus et l'état partagé ont réussi.
+
+En mode sans base, des preuves en mémoire peuvent être fournies aux tests et
+aux adaptateurs. Cette voie conserve les contrôles de digest et de corrélation,
+mais elle ne doit pas être décrite comme une relecture durable SQLite.
+
+### 8.4 Automate commun et précédence
+
+Pour une exécution `completed`, le verdict est déterminé par la combinaison des
+résultats des membres, de la validation topologique et de la barrière :
+
+$$
+verdict = \begin{cases}
+failed & \text{si un membre requis ou la topologie est en échec} \\
+partial & \text{si une identité, une preuve, la topologie ou la barrière est incomplète} \\
+succeeded & \text{si toutes les portes sont satisfaites}
+\end{cases}
+$$
+
+La précédence `failed > partial > succeeded` empêche une preuve manquante de
+masquer un échec réel. Avant la terminaison, `accepted` et `running` produisent
+`in_progress`. Une interruption produit `interrupted`. Le booléen historique
+`complete` n'est vrai que lorsque `completionContract.verdict` vaut
+`succeeded`; `success` est dérivé de la même condition.
+
+Dans tous les cas, `promotionEligible` reste `false`. La complétion technique
+n'autorise ni promotion, ni vérité scientifique, ni acceptation métier.
+
+### 8.5 Scénarios discriminants
+
+| Scénario | Porte Syncytium | Preuves workers | Verdict final |
+| --- | --- | --- | --- |
+| Session cohérente, reçus intacts et corrélés | `verified` | valides pour tous | `succeeded` |
+| Session cohérente, hash bien formé mais contenu absent | `verified` | invalides | `partial` |
+| Session cohérente, reçu d'une autre mission | `verified` | invalides | `partial` |
+| Invariant partagé violé, reçus valides | `failed` | valides | `failed` |
+| Workers incomplets, snapshot existant | `partial` | incomplètes | `partial` |
+| Dispatch admis mais encore actif | non évaluée comme succès | non terminales | `in_progress` |
+
+Le contrat normatif, le schéma de sortie et la liste complète des motifs sont
+documentés dans [Contrat commun de complétion de mission](../../03-reference/contrat-completion-mission.md).
+Le diagnostic opérateur est décrit dans
+[Clôture des missions : diagnostic et reprise](../../04-exploitation/cloture-missions.md).
 
 ---
 
