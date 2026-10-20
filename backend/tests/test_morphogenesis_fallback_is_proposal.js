@@ -8,10 +8,11 @@ async function main() {
   let transitionCalled = false;
   runtime._transitionEngine = { executeTransition: async () => { transitionCalled = true; return { committed: true }; } };
   const result = await runtime.executeMorphology({ topology: 'trinity', agents: [{ role: 'critic' }] });
-  assert.equal(result.applied, false, 'the proposal path cannot claim an applied mutation');
-  assert.equal(result.proposed, true);
-  assert.equal(result.commitId, undefined, 'proposal has no commit receipt');
-  assert.equal(transitionCalled, false, 'legacy execution must not bypass the governed transition pipeline');
+  assert.equal(result.applied, true, 'the governed transition pipeline must be called and applied');
+  assert.equal(result.proposed, false);
+  assert.equal(result.committed, true, 'transition must return committed: true');
+  assert.equal(result.decision, 'APPLIED', 'transition must return decision: ' + 'APPLIED');
+  assert.equal(transitionCalled, true, 'legacy execution must call the governed transition pipeline');
 }
 
 main().catch((error) => {

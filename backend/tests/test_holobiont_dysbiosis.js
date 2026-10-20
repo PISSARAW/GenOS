@@ -11,6 +11,19 @@ function testHealthyRedundantCommunity() {
   assert.strictEqual(result.state, 'STABLE');
   assert.strictEqual(result.score, 0);
   assert.strictEqual(result.automaticActionApplied, false);
+  assert.strictEqual(result.status, 'heuristic');
+  assert.strictEqual(result.signals.resourceConcentration.status, 'heuristic');
+  assert.strictEqual(result.signals.resourceConcentration.value, 0.1);
+}
+
+function testMeasuredSignalStatus() {
+  const result = detectDysbiosis({
+    resourceConcentration: { value: 0.9, status: 'measured' },
+    dependencyConcentration: 0.8, harmfulActivity: 0.8,
+    conflictRate: 0.7, immunePressure: 0.8, functionalRedundancy: 0.1
+  });
+  assert.strictEqual(result.signals.resourceConcentration.status, 'measured');
+  assert.strictEqual(result.signalStatuses.resourceConcentration, 'measured');
 }
 
 function testAccumulatingPressure() {
@@ -28,6 +41,7 @@ function testRejectsUnmeasuredSignal() {
 }
 
 testHealthyRedundantCommunity();
+testMeasuredSignalStatus();
 testAccumulatingPressure();
 testRejectsUnmeasuredSignal();
 console.log('✅ Holobiont dysbiosis tests passed.');

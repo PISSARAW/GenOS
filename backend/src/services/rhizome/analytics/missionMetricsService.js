@@ -15,9 +15,16 @@ function latestResults(session) {
   return latest;
 }
 
+function validEntry(entry, need) {
+  if (!entry) return false;
+  if (entry.receipt.capability !== need.capability) return false;
+  if (entry.receipt.outcome !== 'SUCCESS') return false;
+  return /^sha256:[a-f0-9]{64}$/.test(entry.receipt.executionDigest || '');
+}
+
 function validatedResult(input) {
   const { session, need, entry, policy, route } = input;
-  if (!entry || entry.receipt.capability !== need.capability || entry.receipt.outcome !== 'SUCCESS' || !/^sha256:[a-f0-9]{64}$/.test(entry.receipt.executionDigest || '')) return null;
+  if (!validEntry(entry, need)) return null;
   try {
     const receipt = receiptService.validateReceipt(session, entry.receipt, policy.trustedVerifierDigests || []);
     if (!need.evidenceRequirements.every(ref => receipt.verification.evidenceRefs.includes(ref))) return null;

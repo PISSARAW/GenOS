@@ -63,10 +63,13 @@ async function saveProjectionState(db, projection) {
 }
 
 function parseIds(value) {
-  try { const ids = JSON.parse(value || '[]'); return Array.isArray(ids) ? ids : []; } catch (_) { return []; }
+  try { const ids = JSON.parse(value || '[]'); return Array.isArray(ids) ? ids : []; } catch (error) {
+    console.error('[rhizomeGraphProjector] Failed to parse projection ids:', error && error.message ? error.message : error);
+    return [];
+  }
 }
 
 function nodeId(sessionId, id) { return `rhizome:${sessionId}:node:${id}`; }
 function edgeId(sessionId, id) { return `rhizome:${sessionId}:edge:${id}`; }
 
-module.exports = { project, projectedNode, projectedEdge };
+module.exports = { project, projectedNode, projectedEdge, parseIds };
