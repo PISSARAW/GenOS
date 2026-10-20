@@ -24,6 +24,9 @@ const missing = input(valid);
 missing.evidenceProofs = [];
 assert.deepEqual(contract.evaluate(missing).reasons, ['required_member_evidence_invalid']);
 
+const noWorkers = { ...input(valid), requiredMemberIds: [], members: [] };
+assert.equal(contract.evaluate(noWorkers).verdict, 'partial');
+
 const tampered = input(valid);
 tampered.evidenceProofs = [{ ...valid, content: { ...valid.content, workerId: 'attacker' } }];
 assert.equal(contract.evaluate(tampered).verdict, 'partial');

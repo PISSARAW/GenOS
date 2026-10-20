@@ -22,7 +22,8 @@ function output(input, result) {
 }
 
 function unique(values) {
-  return Array.isArray(values) && values.every((item) => typeof item === 'string' && item.trim())
+  return Array.isArray(values) && values.length > 0
+    && values.every((item) => typeof item === 'string' && item.trim())
     && new Set(values).size === values.length;
 }
 
