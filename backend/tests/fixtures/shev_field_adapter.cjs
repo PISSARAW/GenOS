@@ -38,17 +38,22 @@ function execution(request) {
 
 function measurement(request, executed) {
   const treatment = request.arm === 'treatment';
-  const outcome = { success: true, projectId: request.project.projectId,
+  const training = request.phase === 'training';
+  const progress = !training && treatment;
+  const outcome = { success: training || treatment, projectId: request.project.projectId,
     actorId: executed.actorId, regressions: 0, humanInterventions: treatment ? 0 : 1,
-    costUsd: 0.1, durationMs: 100, tokens: 100, painObserved: true,
-    painObservationHash: fingerprint(`pain:${executed.executionId}`),
-    developmentalPressureBefore: treatment ? 0.1 : null,
-    developmentalPressureAfter: treatment ? 0.2 : null, progressResult: 'not_tested',
-    clearanceApplied: false, clearanceEvidenceHash: null,
+    costUsd: 0.1, durationMs: 100, tokens: 100, painObserved: training,
+    painObservationHash: training ? fingerprint(`pain:${executed.executionId}`) : null,
+    developmentalPressureBefore: treatment ? (training ? 0.1 : 0.4) : null,
+    developmentalPressureAfter: treatment ? 0.2 : null,
+    progressResult: progress ? 'confirmed' : 'not_tested',
+    clearanceApplied: progress,
+    clearanceEvidenceHash: progress ? fingerprint(`clearance:${executed.executionId}`) : null,
     contextHash: request.window.contextHash, artifactHash: executed.artifactHash };
   const body = { schema: MEASUREMENT_SCHEMA, executionId: executed.executionId,
     collectorId: `observer-${request.arm}`, measuredAt: new Date().toISOString(), outcome,
-    evidenceRefs: [executed.artifactHash, outcome.painObservationHash] };
+    evidenceRefs: [executed.artifactHash, outcome.painObservationHash,
+      outcome.clearanceEvidenceHash].filter(Boolean) };
   return { ...body, measurementHash: fingerprint(body) };
 }
 
