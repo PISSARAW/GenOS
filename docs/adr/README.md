@@ -811,6 +811,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0705](0705-registre-adaptateurs-cloture-topologique.md) | Registre d'adaptateurs de clôture topologique | Accepté, adaptateurs spécialisés en attente | 2026-10-20 | orchestration, topologies, clôture, preuves |
 | [0706](0706-cataloguer-et-reconstruire-fermetures-gqwf.md) | Cataloguer et reconstruire les fermetures d'exécution GQWF | Accepté | 2026-10-20 | GQWF, CAS, catalogue, reprise, provenance |
 | [0709](0709-dossier-campagnes-qualification-non-promoteur.md) | Sceller les campagnes de qualification sans promouvoir | Accepté | 2026-10-20 | ETT, stewardship, campagnes, preuve, reprise |
+| [0710](0710-harnais-restauration-morphogenetique.md) | Harnais transactionnel de restauration morphogénétique | Accepté, qualification des topologies en attente | 2026-10-20 | orchestration, morphogenèse, restauration, preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { fingerprint } = require('../src/services/stateFingerprint');
 const { createVariantRegistry } = require('../src/services/morphogenesis/registry/variantRegistry');
 const { createTopologyRegistry } = require('../src/services/morphogenesis/registry/topologyRegistry');
 const { installTopologyPlugins, PLUGIN_TOPOLOGIES } = require('../src/services/morphogenesis/runtime/topologyPlugins');
@@ -17,6 +18,10 @@ const VERIFIED_QUALIFICATION = Object.freeze({
   runtimeBinding: 'verified', persistent: 'verified', snapshotable: 'verified',
   restorable: 'verified', endToEnd: 'verified'
 });
+const PRODUCER = 'p2-producer';
+const VERIFIER = 'p2-verifier';
+const SNAPSHOT_STATE = Object.freeze({ generation: 1 });
+const SNAPSHOT_HASH = fingerprint(SNAPSHOT_STATE);
 
 function controlledRegistry(overrides = {}) {
   const evidence = Object.fromEntries(Object.keys(VERIFIED_QUALIFICATION)
@@ -41,9 +46,11 @@ function qualifiedPort(events) {
     lifecycle: {
       observe: record('observe', { observed: true }),
       quiesce: record('quiesce', { quiescent: true }),
-      snapshot: record('snapshot', { restorable: true, snapshotId: 'p2-snapshot', hash: 'p2-hash' }),
+      snapshot: record('snapshot', { restorable: true, snapshotId: 'p2-snapshot',
+        producerId: PRODUCER, state: SNAPSHOT_STATE, hash: SNAPSHOT_HASH }),
       adapt: record('adapt', { applied: true }),
-      restore: record('restore', { restored: true, verified: true, snapshotId: 'p2-snapshot', hash: 'p2-hash' }),
+      restore: record('restore', { restored: true, idempotent: true,
+        snapshotId: 'p2-snapshot', hash: SNAPSHOT_HASH }),
       finalize: record('finalize', { finalized: true })
     },
     execute: async () => ({ status: 'unused' })
@@ -55,7 +62,9 @@ function request(events, overrides = {}) {
     transitionId: 'p2-qualified-path', port: qualifiedPort(events),
     variantRegistry: controlledRegistry(overrides),
     plan: { selectedTopology: 'trinity', selectedVariant: 'controlled' },
-    verify: async () => ({ verified: true, evidenceRefs: ['proof://test/independent'] })
+    producerId: PRODUCER, verifierId: VERIFIER,
+    verify: async () => ({ verified: true, verifierId: VERIFIER,
+      evidenceRefs: ['proof://test/independent'] })
   };
 }
 
