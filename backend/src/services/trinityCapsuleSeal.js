@@ -3,9 +3,15 @@ const path = require('path');
 const crypto = require('crypto');
 const paths = require('./trinityCapsulePaths');
 const store = require('./trinityCapsuleSealStore');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 function specification(context, resolved) {
-  return { correlation: resolved.correlation, workspaceRoot: path.resolve(context.workspaceRoot),
+  const identity = workspaceIdentity.workspaceIdentity({
+    workspaceId: resolved.correlation?.workspaceId,
+    workspaceRoot: context.workspaceRoot
+  });
+  return { correlation: resolved.correlation,
+    workspaceRoot: identity.comparisonKey,
     sourceSnapshotHash: context.sourceSnapshotHash || null, name: context.name || 'worker',
     role: context.role || 'worker', budgetSteps: context.budgetSteps || 100,
     executable: context.executable || null, fallbackAllowed: context.fallbackSynthetic === true };

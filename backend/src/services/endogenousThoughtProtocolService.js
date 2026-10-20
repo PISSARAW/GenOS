@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateProtocolV2 } = require('./endogenousThoughtProtocolV2Service');
+
 const REQUIRED_CONDITIONS = Object.freeze([
   'full', 'planned_control', 'curiosity_ablated', 'shev_initiative_ablated',
   'agow_arbitration_ablated', 'metacognition_ablated', 'memory_ablated'
@@ -43,6 +45,12 @@ function validateNormalization(normalization, errors) {
 }
 
 function validateProtocol(protocol, metricSet) {
+  if (protocol?.schema === 'genos.endogenous-thought-protocol/v2') {
+    const metricErrors = validateMetricSet(metricSet).errors;
+    const result = validateProtocolV2(protocol, metricSet);
+    const errors = [...new Set([...metricErrors, ...result.errors])];
+    return { valid: errors.length === 0, errors };
+  }
   const errors = [...validateMetricSet(metricSet).errors];
   validateProtocolIdentity(protocol, metricSet, errors);
   validateProtocolConditions(protocol, errors);

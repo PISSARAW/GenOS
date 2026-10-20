@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { issueDelegation, attenuateDelegation, verifyDelegation } = require('../src/services/agents/biscuitDelegationService');
 
 async function main() {
-  const { Biscuit, KeyPair } = await import('@biscuit-auth/biscuit-wasm');
+  const { loadBiscuitApi } = await import('../src/services/agents/biscuitWasmAdapter.mjs');
+  const { Biscuit, KeyPair } = await loadBiscuitApi();
   const keys = new KeyPair();
   const privateKeyHex = keys.getPrivateKey().toString();
   const publicKeyHex = keys.getPublicKey().toString();

@@ -47,6 +47,7 @@ const suites = {
     ['trajectory stewardship arbitration', 'test_trajectory_stewardship_policy.js'],
     ['durable trajectory stewardship', 'test_trajectory_stewardship_store.js'],
     ['trajectory stewardship dual evidence', 'test_trajectory_stewardship_outcome.js'],
+    ['trajectory stewardship Q1/Q2 qualification', 'test_trajectory_stewardship_qualification.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],

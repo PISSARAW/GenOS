@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { fingerprint } = require('../src/services/stateFingerprint');
 const { createVariantRegistry } = require('../src/services/morphogenesis/registry/variantRegistry');
 const { createTopologyRuntimePort } = require('../src/services/morphogenesis/runtime/topologyRuntimePort');
 const qualification = require('../src/services/morphogenesis/runtime/topologyMorphogenesisQualification');
@@ -10,6 +11,10 @@ const NOW = '2026-10-20T10:00:00.000Z';
 const VERIFIED = Object.freeze({ observe: 'verified', quiesce: 'verified',
   snapshot: 'verified', adapt: 'verified', restore: 'verified', finalize: 'verified' });
 const DIMENSIONS = Object.freeze(['runtimeBinding', 'persistent', 'snapshotable', 'restorable', 'endToEnd']);
+const PRODUCER = 'p3-producer';
+const VERIFIER = 'p3-verifier';
+const SNAPSHOT_STATE = Object.freeze({ generation: 1 });
+const SNAPSHOT_HASH = fingerprint(SNAPSHOT_STATE);
 
 function registry(evidenceSuffix = 'v1') {
   const variants = createVariantRegistry();
@@ -26,9 +31,11 @@ function port(events, executionKind = 'canonical_service') {
     morphogenesis: VERIFIED, lifecycle: {
       observe: record('observe', { observed: true }),
       quiesce: record('quiesce', { quiescent: true }),
-      snapshot: record('snapshot', { restorable: true, snapshotId: 'p3-snapshot', hash: 'p3-hash' }),
+      snapshot: record('snapshot', { restorable: true, snapshotId: 'p3-snapshot',
+        producerId: PRODUCER, state: SNAPSHOT_STATE, hash: SNAPSHOT_HASH }),
       adapt: record('adapt', { applied: true }),
-      restore: record('restore', { restored: true, verified: true, snapshotId: 'p3-snapshot', hash: 'p3-hash' }),
+      restore: record('restore', { restored: true, idempotent: true,
+        snapshotId: 'p3-snapshot', hash: SNAPSHOT_HASH }),
       finalize: record('finalize', { finalized: true })
     }, execute: async () => ({ status: 'unused' }) });
 }
@@ -50,7 +57,9 @@ function authority() {
 function base(events = [], variants = registry(), runtimePort = port(events)) {
   return { transitionId: 'p3-attested-path', port: runtimePort, variantRegistry: variants,
     plan: { selectedTopology: 'trinity', selectedVariant: 'controlled' }, now: NOW,
-    verify: async () => ({ verified: true, evidenceRefs: ['proof://p3/independent'] }) };
+    producerId: PRODUCER, verifierId: VERIFIER,
+    verify: async () => ({ verified: true, verifierId: VERIFIER,
+      evidenceRefs: ['proof://p3/independent'] }) };
 }
 
 function emptyLedger() {

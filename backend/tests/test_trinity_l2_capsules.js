@@ -27,6 +27,12 @@ async function testReprise(root) {
   await assert.rejects(capsules.recoverPartial(request), error =>
     error.code === 'TRINITY_CAPSULE_RECOVERY_AMBIGUOUS');
   assert.deepEqual(await capsules.provisionSynthetic(request), first);
+  const equivalentRoot = process.platform === 'win32'
+    ? request.workspaceRoot.toUpperCase().replaceAll('\\', '/')
+    : path.join(request.workspaceRoot, '.');
+  assert.deepEqual(await capsules.provisionSynthetic({ ...request, workspaceRoot: equivalentRoot }), first);
+  await assert.rejects(capsules.provisionSynthetic({ ...request,
+    workspaceRoot: path.join(root, 'other-workspace') }), /reprise inputs changed/);
   await assert.rejects(capsules.provisionSynthetic({ ...request, role: 'Different' }), /reprise inputs changed/);
   const second = await capsules.provisionSynthetic(input(root, 'run-2'));
   assert.notEqual(second.root, first.root);

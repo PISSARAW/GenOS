@@ -1,0 +1,54 @@
+{
+  "schema": "genos.qualification-campaign/v1",
+  "campaignId": "replace-with-unique-campaign-id",
+  "status": "configured_not_run",
+  "revision": "replace-with-40-character-git-commit-hash",
+  "costBudget": {
+    "tokens": 250000,
+    "usd": 25,
+    "seconds": 14400
+  },
+  "workloads": [
+    {
+      "id": "ett-v2-holdout",
+      "kind": "ett_v2",
+      "adapterId": "ett-real-adapter",
+      "configuration": {
+        "protocolRef": "../endogenous-thought/protocol-v2.json",
+        "metricSetRef": "../../shared/endogenousThoughtMetrics.v1.json",
+        "corpusRef": "replace-with-sealed-reserved-corpus",
+        "providerProfileRef": "replace-with-sealed-provider-profile"
+      }
+    },
+    {
+      "id": "stewardship-longitudinal",
+      "kind": "stewardship",
+      "adapterId": "stewardship-real-adapter",
+      "configuration": {
+        "protocolRef": "replace-with-preregistered-q1-q5-protocol",
+        "projectCorpusRef": "replace-with-sealed-project-corpus",
+        "observationWindowRef": "replace-with-sealed-observation-windows"
+      }
+    }
+  ],
+  "activationRequirements": [
+    "ci.linux",
+    "ci.windows",
+    "ett.holdout.1",
+    "ett.holdout.2",
+    "ett.holdout.3",
+    "stewardship.q1",
+    "stewardship.q2",
+    "stewardship.q3",
+    "stewardship.q4",
+    "stewardship.q5",
+    "topology.trinity",
+    "topology.a-team",
+    "topology.biome",
+    "topology.biocenose",
+    "topology.holobionte",
+    "topology.syncytium",
+    "topology.rhizome",
+    "topology.metapopulation"
+  ]
+}

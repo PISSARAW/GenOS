@@ -61,6 +61,34 @@ nul ou une erreur de lancement rend le groupe rouge. Le résumé distingue le
 nombre de groupes topologiques et celui des frontières ; il ne transforme pas
 une suite partiellement verte en succès.
 
+### 3.1 Dossier de preuve du lanceur
+
+Chaque exécution de qualification, filtrée ou complète, persiste un dossier
+`genos.qualification-evidence-bundle/v1` sous
+`artifacts/qualification/topology-contracts/`. Le chemin peut être fixé avec
+`GENOS_QUALIFICATION_EVIDENCE_FILE`. Le dossier contient la révision Git et son
+état propre ou modifié, l’environnement Node/OS, chaque commande et son code de
+sortie, les sorties partielles hachées et bornées, les tests non exécutés, les
+échecs et un verdict terminal parmi :
+
+- `qualified` : toutes les commandes prévues ont terminé avec succès ;
+- `failed` : au moins une commande ou le lanceur a échoué ;
+- `inconclusive` : timeout, commande manquante dans l’exécution ou absence de
+  preuve suffisante ;
+- `environment_blocked` : l’environnement a refusé ou empêché l’exécution
+  (`ENOENT`, `EACCES`, `EPERM` ou `ENOTCONN`).
+
+Un timeout ou une exception du lanceur produit donc encore un dossier terminal
+et un code de sortie non nul. Il n’est jamais converti en qualification.
+
+Les métadonnées expérimentales facultatives sont lues depuis
+`GENOS_QUALIFICATION_SEED`, `GENOS_QUALIFICATION_PROVIDER`,
+`GENOS_QUALIFICATION_BUDGETS_JSON` et
+`GENOS_QUALIFICATION_ARTIFACTS_JSON`. Les identités distinctes de producteur et
+de vérificateur peuvent être déclarées avec
+`GENOS_QUALIFICATION_PRODUCER_ID` et `GENOS_QUALIFICATION_VERIFIER_ID` ; leur
+présence ne constitue pas, à elle seule, une preuve d’indépendance effective.
+
 ## 4. Propriétés ciblées
 
 ### 4.1 Attente des workers

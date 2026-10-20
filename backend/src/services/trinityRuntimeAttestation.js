@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const manifests = require('./trinityRunManifest');
 const traces = require('./trinityTraceEvents');
 const values = require('./trinityProvenanceValues');
+const workspaceIdentity = require('./trinityWorkspaceIdentity');
 
 async function artifact(filename) {
   if (!path.isAbsolute(filename)) throw values.failure('TRINITY_LAUNCH_EXECUTABLE_UNRESOLVED');
@@ -42,7 +43,7 @@ async function recordLaunch(context, input) {
   require('./trinityRuntimeTrace').assertCorrelation(context, manifest.payload.correlation);
   await require('./trinityCapsuleBinding').assertAnchored(context, manifest);
   const observation = validateObservation(input.observation);
-  if (!sameWorkspace(observation.workspaceRoot, mission.workspaceRoot)) throw values.failure('TRINITY_WORKER_SCOPE_INVALID');
+  if (!workspaceIdentity.sameWorkspaceRoot(observation.workspaceRoot, mission.workspaceRoot)) throw values.failure('TRINITY_WORKER_SCOPE_INVALID');
   if (!Number.isSafeInteger(input.pid) || input.pid <= 0) throw values.failure('TRINITY_LAUNCH_PID_INVALID');
   return traces.append(context.db, { correlation: manifest.payload.correlation,
     eventId: 'runtime-launch:' + key.runId, stage: 'runtime_launcher', status: 'observed',
@@ -74,19 +75,6 @@ function validateQualifications(input) {
   if (values.encode(Object.keys(input).sort()) !== values.encode(fields.sort())) throw values.failure('TRINITY_LAUNCH_OBSERVATION_INVALID');
   if (input.qualification !== 'artifact-bytes-before-invocation' || input.dependencies !== 'not-captured'
     || input.decisionAuthority !== 'none') throw values.failure('TRINITY_LAUNCH_OBSERVATION_INVALID');
-}
-
-function canonicalWorkspace(value) {
-  if (typeof value !== 'string' || !value) return null;
-  try { return require('node:fs').realpathSync(value); } catch (_) { return path.resolve(value); }
-}
-function sameWorkspace(left, right) {
-  if (typeof left !== 'string' || !path.isAbsolute(left)) return false;
-  if (typeof right !== 'string' || !path.isAbsolute(right)) return false;
-  const roots = [canonicalWorkspace(left), canonicalWorkspace(right)];
-  return process.platform === 'win32'
-    ? String(roots[0]).toLowerCase() === String(roots[1]).toLowerCase()
-    : roots[0] === roots[1];
 }
 
 async function recordInProcess(context, entrypoint, runtimeMode) {

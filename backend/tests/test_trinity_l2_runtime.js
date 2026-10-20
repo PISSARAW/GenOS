@@ -71,6 +71,16 @@ async function negativeCases(ctx, input) {
   await assert.rejects(attestation.recordLaunch(missing, input), { code: 'TRINITY_RUNTIME_MANIFEST_MISSING' });
 }
 
+async function equivalentWorkspaceCase(ctx, input) {
+  const root = ctx.normalizedMission.workspaceRoot;
+  const equivalent = process.platform === 'win32'
+    ? root.toUpperCase().replaceAll('\\', '/')
+    : path.join(root, '.');
+  const replay = await attestation.recordLaunch({ ...ctx,
+    normalizedMission: { ...ctx.normalizedMission, workspaceRoot: equivalent } }, input);
+  assert.equal(replay.details.pid, input.pid);
+}
+
 async function lockedWorkspaceCase(ctx) {
   let attempts = 0;
   const observation = await attestation.captureLaunch({ normalizedMission: ctx.normalizedMission,
@@ -96,6 +106,7 @@ async function main() {
       tenantId: 'tenant', workspaceRoot: root }, requestedRuntime: { model: 'requested-only' } }));
     const input = await realChild({ root, ctx });
     await lockedWorkspaceCase(ctx);
+    await equivalentWorkspaceCase(ctx, input);
     await negativeCases(ctx, input);
     const events = await traces.read(db, { missionId: 'mission' });
     assert.equal(events.length, 1);
