@@ -12,7 +12,8 @@ function requireIdentifier(value) {
 }
 
 async function biscuitApi() {
-  return import('@biscuit-auth/biscuit-wasm');
+  const { loadBiscuitApi } = await import('./biscuitWasmAdapter.mjs');
+  return loadBiscuitApi();
 }
 
 async function issueDelegation(input, privateKeyHex) {
