@@ -3,9 +3,8 @@
 const store = require('../metapopulationStore');
 const corridorStore = require('../migration/corridorStore');
 const migrationStore = require('../migration/migrationStore');
-const { RUNTIME_MARKERS } = require('./variantActionExecutors');
+const { RUNTIME_MARKERS } = require('./variantRuntimeRegistry');
 const culturalPersistentRuntime = require('../migration/culturalPersistentRuntimeService');
-const { verifyCulturalActions } = require('./culturalActionVerification');
 const policyService = require('./regionalPolicyService');
 const islands = require('./islandExecutionService');
 const topology = require('../migration/corridorGraphService');
@@ -208,6 +207,62 @@ async function verifyCultureOffers(context) {
   const migrationStore = require('../migration/migrationStore');
   const rows = await Promise.all(offered.map((item) => migrationStore.getMigration(db, metapopulationId, item.migrationId)));
   return rows.every((row) => row && ['QUARANTINED', 'ACCEPTED', 'REJECTED'].includes(row.status));
+}
+
+async function verifyCulturalActions(context) {
+  const { actions, results, db, metapopulationId } = context;
+  for (const action of actions) {
+    if (!CULTURAL_TYPES.has(action.type)) continue;
+    const result = results.find((entry) => culturalActionMatches(action, entry));
+    if (!result || !await verifyCulturalAction({ action, result, db, metapopulationId })) return false;
+  }
+  return true;
+}
+
+const CULTURAL_TYPES = new Set(['TRANSFER_CULTURE', 'REJECT_CULTURE_TRANSFER',
+  'MUTATE_CULTURE', 'BUILD_CULTURAL_PHYLOGENY']);
+
+function culturalActionMatches(action, result) {
+  if (action.type !== result.type) return false;
+  if (action.type === 'TRANSFER_CULTURE') return action.culture?.id === result.cultureId;
+  if (action.type === 'REJECT_CULTURE_TRANSFER') return action.cultureId === result.cultureId;
+  if (action.type === 'MUTATE_CULTURE') return action.cultureId === result.requestedCultureId;
+  return true;
+}
+
+async function verifyCulturalAction(context) {
+  const { action, result } = context;
+  if (action.type === 'REJECT_CULTURE_TRANSFER') {
+    return result.rejected === true && result.reason === action.reason;
+  }
+  if (action.type === 'TRANSFER_CULTURE') return verifyCulturalTransfer(context);
+  if (action.type === 'MUTATE_CULTURE') return verifyCulturalMutation(context);
+  return verifyCulturalPhylogeny(context);
+}
+
+async function verifyCulturalTransfer(context) {
+  const { action, result, db, metapopulationId } = context;
+  if (!result.offered || !result.migrationId) return false;
+  const culture = await culturalPersistentRuntime.getCulture({ db, metapopulationId, cultureId: result.cultureId });
+  const migration = await migrationStore.getMigration(db, metapopulationId, result.migrationId);
+  return culture?.version === action.culture.version && migration?.payloadRef === action.culture.id
+    && migration.sourceDemeId === action.sourceDemeId
+    && migration.targetDemeId === action.targetDemeId
+    && ['QUARANTINED', 'ACCEPTED', 'REJECTED'].includes(migration.status);
+}
+
+async function verifyCulturalMutation(context) {
+  const { action, result, db, metapopulationId } = context;
+  if (!result.mutated) return false;
+  const child = await culturalPersistentRuntime.getCulture({ db, metapopulationId, cultureId: result.cultureId });
+  return child?.parentCultureId === action.cultureId && child.version === result.newVersion
+    && child.contentHash === result.contentHash;
+}
+
+async function verifyCulturalPhylogeny(context) {
+  const { result, db, metapopulationId } = context;
+  const persisted = await culturalPersistentRuntime.buildCulturalPhylogeny({ db, metapopulationId });
+  return result.count === persisted.count && JSON.stringify(result.nodes) === JSON.stringify(persisted.nodes);
 }
 
 function verifyPatchActions(actions, session) {

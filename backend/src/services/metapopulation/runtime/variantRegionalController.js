@@ -3,8 +3,7 @@
 const recolonization = require('../patches/recolonizationService');
 const corridors = require('../migration/corridorGraphService');
 const variantRuntime = require('../policy/variantRuntimeService');
-const variantActionExecutors = require('./variantActionExecutors');
-const variantActionVerifiers = require('./variantActionVerifiers');
+const metapopulationPolicy = require('../policy/metapopulationPolicyService');
 
 async function planVariantActions(context) {
   await planPopulationFeatures(context);
@@ -310,19 +309,24 @@ function recoverPair(context) {
 }
 
 async function executeVariantAction(action, context) {
-  return variantActionExecutors.executeVariantAction(action, context);
+  return runtimeFor(context).executeVariantAction(action, context);
 }
 
 async function verifyVariantActions(context) {
-  return variantActionVerifiers.verifyVariantActions(context);
+  return runtimeFor(context).verifyVariantActions(context);
 }
 
 async function verifyTopologyActions(context) {
-  return variantActionVerifiers.verifyTopologyActions(context);
+  return runtimeFor(context).verifyTopologyActions(context);
 }
 
 async function verifyFirebreakActions(context) {
-  return variantActionVerifiers.verifyFirebreakActions(context);
+  return runtimeFor(context).verifyFirebreakActions(context);
+}
+
+function runtimeFor(context) {
+  const variant = context.observed?.variant || context.input?.variant || context.input?.variantId || 'balanced';
+  return metapopulationPolicy.resolveVariantRuntime(variant);
 }
 
 module.exports = { planVariantActions, executeVariantAction, verifyVariantActions, verifyTopologyActions, verifyFirebreakActions };

@@ -6,8 +6,7 @@ const { open } = require('sqlite');
 const { migrateMetapopulationVariantRuntime } = require('../src/db/migrations/migrateMetapopulationVariantRuntime');
 const cultures = require('../src/services/metapopulation/migration/culturalPersistentRuntimeService');
 const actions = require('../src/services/metapopulation/policy/variantFlowActions');
-const executor = require('../src/services/metapopulation/runtime/variantActionExecutors');
-const verifier = require('../src/services/metapopulation/runtime/variantActionVerifiers');
+const runtime = require('../src/services/metapopulation/runtime/variantRuntimeRegistry');
 
 async function seedDemes(db) {
   const time = new Date().toISOString();
@@ -91,12 +90,12 @@ async function testCulturalExecution(db) {
     corridors: [{ corridorId: 'culture-corridor', sourceDemeId: 'deme-a', targetDemeId: 'deme-b', enabled: true, capacity: 2 }] };
   const results = [];
   for (const action of plan.actions) {
-    results.push(await executor.executeVariantAction(action, { input, options, observed }));
+    results.push(await runtime.executeVariantAction(action, { input, options, observed }));
   }
   assert.equal(results[0].offered, true);
   assert.equal(results[1].mutated, true);
   assert.ok(results[2].count >= 4);
-  assert.equal(await verifier.verifyVariantActions({ plan, input, options, execution: { results } }), true);
+  assert.equal(await runtime.verifyVariantActions({ plan, input, options, execution: { results } }), true);
 }
 
 async function run() {

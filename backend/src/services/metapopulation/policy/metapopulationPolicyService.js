@@ -52,6 +52,15 @@ function resolveMetapopulationVariant(input = {}) {
     persistent: ['workspace', 'project', 'persistent'].includes(scope), selection };
 }
 
+function resolveVariantRuntime(input = {}) {
+  const variant = typeof input === 'string'
+    ? explicitSelection(input).variant
+    : resolveMetapopulationVariant(input).variant;
+  const runtime = require('../runtime/variantRuntimeRegistry').getVariantRuntime(variant);
+  if (!runtime) throw policyError('METAPOPULATION_VARIANT_RUNTIME_UNKNOWN', 'Unknown metapopulation variant runtime.');
+  return runtime;
+}
+
 function explicitSelection(name) {
   const variant = String(name || '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   if (!VARIANTS[variant]) throw policyError('METAPOPULATION_VARIANT_UNKNOWN', 'Unknown metapopulation variant.');
@@ -119,4 +128,5 @@ function isLeaseValid(input) {
 
 function policyError(code, message) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { resolveMetapopulationVariant, selectVariant, authorizeFederationTransfer, assessResidentLease, VARIANTS, DOCUMENTED_VARIANTS };
+module.exports = { resolveMetapopulationVariant, resolveVariantRuntime, selectVariant,
+  authorizeFederationTransfer, assessResidentLease, VARIANTS, DOCUMENTED_VARIANTS };
