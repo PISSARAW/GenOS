@@ -249,6 +249,14 @@ ne prouve pas que la dimension du projet s'est améliorée. La fonction
 5. un résultat `confirmed`, `regressed` ou `inconclusive`, avec identifiant de
    vérificateur et références de preuve.
 
+`getMissionLifecycle(db, input)` rend cette séparation explicite pour les
+clients opérateurs. Sa projection expose quatre axes : admission de
+l'initiative, livraison de la tâche, effet sur le projet et surveillance.
+Le booléen `successful` n'est vrai que si la tâche est livrée, si l'effet est
+`confirmed` et si la surveillance n'est pas en alerte. Un ticket intégré mais
+non mesuré reste donc `delivery: delivered`, `effect: not_assessed` et
+`successful: false`.
+
 L'évaluation est rejouable par identifiant d'initiative. Le code ne déclare
 pas l'indépendance du callback à la place de l'application : le propriétaire
 du domaine doit fournir un vérificateur qui n'est pas contrôlé par le
@@ -261,6 +269,15 @@ vérificateur. Le champ `agent_result` de ce reçu reste `not_tested` : le
 transfert dispose maintenant d'un reçu séparé (section 17). Une correction
 du projet ne certifie pas un transfert de compétence.
 Un exercice GVX ne certifie pas non plus une amélioration du projet réel.
+
+Une surveillance qui conclut `regressed` ne rouvre pas silencieusement
+l'ancienne tâche. SHEV dérive une nouvelle observation immuable de type
+`risk`, liée au reçu de surveillance, puis la soumet au compilateur normal.
+L'initiative `investigate` reste `proposed` sans tâche de backlog : une
+approbation signée, son budget, sa condition d'arrêt et son alternative sont
+nécessaires avant le dispatch. Le plan de récupération borné demeure un
+chemin séparé ; créer la proposition ne l'approuve pas et ne l'exécute pas.
+Le rejeu du même reçu retrouve la même observation et la même initiative.
 
 ## 9. Pont vers GVX
 

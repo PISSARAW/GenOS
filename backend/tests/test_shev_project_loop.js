@@ -8,6 +8,7 @@ const { tickOnce } = require('../src/services/ontogenesis/tickService');
 const { registerResponsibility } = require('../src/services/shev/responsibilityService');
 const { recordObservation } = require('../src/services/shev/observationService');
 const { recordProjectEffect } = require('../src/services/shev/effectService');
+const { getMissionLifecycle } = require('../src/services/shev/missionLifecycleService');
 const { requestDevelopment } = require('../src/services/shev/developmentRequestService');
 const BASE = Date.now();
 
@@ -52,6 +53,10 @@ async function main() {
     const initiative = await db.get('SELECT * FROM shev_initiatives WHERE project_id = ?', ['shev-a']);
     assert.strictEqual(initiative.kind, 'diagnose');
     assert.strictEqual(initiative.status, 'queued');
+    const accepted = await getMissionLifecycle(db, { projectId: 'shev-a', initiativeId: initiative.id });
+    assert.deepStrictEqual({ admission: accepted.admission, delivery: accepted.delivery,
+      effect: accepted.effect, successful: accepted.successful },
+    { admission: 'accepted', delivery: 'pending', effect: 'not_assessed', successful: false });
     assert.strictEqual((await db.get('SELECT COUNT(*) AS n FROM ontogenesis_backlog WHERE project_id = ?', ['shev-a'])).n, 1);
     await tick(db, 'shev-a');
     assert.strictEqual((await db.get('SELECT COUNT(*) AS n FROM ontogenesis_backlog WHERE project_id = ?', ['shev-a'])).n, 1);
@@ -59,6 +64,10 @@ async function main() {
       postObservationId: 'later', verify: async () => ({ result: 'confirmed' }) }), /not complete/);
 
     await db.run("UPDATE ontogenesis_backlog SET status = 'done' WHERE id = ?", [initiative.task_id]);
+    const delivered = await getMissionLifecycle(db, { projectId: 'shev-a', initiativeId: initiative.id });
+    assert.strictEqual(delivered.delivery, 'delivered');
+    assert.strictEqual(delivered.effect, 'not_assessed');
+    assert.strictEqual(delivered.successful, false);
     await recordObservation(db, observation('shev-a', 'recheck-1', {
       observedAt: new Date(BASE - 3600000).toISOString(), kind: 'state', summary: 'Parcours reteste',
       evidenceRefs: ['artifact:probe-2'] }));
@@ -67,6 +76,10 @@ async function main() {
         verifierRef: 'verifier:independent-1', evidenceRefs: ['artifact:comparison-1'] }) });
     assert.strictEqual(assessed.project_result, 'confirmed');
     assert.strictEqual(assessed.agent_result, 'not_tested');
+    const effective = await getMissionLifecycle(db, { projectId: 'shev-a', initiativeId: initiative.id });
+    assert.deepStrictEqual({ delivery: effective.delivery, effect: effective.effect,
+      monitoring: effective.monitoring, successful: effective.successful },
+    { delivery: 'delivered', effect: 'confirmed', monitoring: 'active', successful: true });
     assert.strictEqual((await recordProjectEffect(db, { projectId: 'shev-a',
       initiativeId: initiative.id, postObservationId: 'recheck-1', verify: async () => { throw Error('replayed'); } })).replayed, true);
 
