@@ -155,4 +155,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('145-endogenous-thought-learnings', 'Persist verified episode-scoped belief revisions', async (db) => {
     await require('./migrateEndogenousThoughtLearnings').migrateEndogenousThoughtLearnings(db);
   }),
+  createMigrationRunner('147-sre-healing-campaigns', 'Persist scoped SRE responsibility and append-only healing transitions', async (db) => {
+    await require('./migrateSreHealingCampaigns').migrateSreHealingCampaigns(db);
+  }),
 ];
