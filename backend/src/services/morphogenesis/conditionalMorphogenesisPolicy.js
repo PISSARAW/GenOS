@@ -7,6 +7,7 @@ const communicationReduction = require('./communicationReductionIntervention');
 const rosterReduction = require('./rosterReductionIntervention');
 const resourceReallocation = require('./resourceReallocationCandidate');
 const variantUseCases = require('./registry/variantUseCaseSelector');
+const organizationExperiment = require('./organizationHypothesisExperiment');
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
   'provenanceRisk', 'deterministicNeed', 'adversarialRisk', 'monitoringNeed', 'stagnation']);
@@ -16,7 +17,6 @@ function unit(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
 }
-
 function normalizedSignals(value = {}) {
   return Object.fromEntries(SIGNALS.map(key => [key, unit(value[key])]));
 }
@@ -32,7 +32,6 @@ function representationFor(signals) {
   if (ranked[0][1] === 0) return { kind: 'task_graph', confidence: 0, alternatives: ranked.slice(0, -1).map(item => item[0]) };
   return { kind: ranked[0][0], confidence: ranked[0][1], alternatives: ranked.slice(1).map(item => item[0]) };
 }
-
 function phasesFor(signals) {
   const phases = [
     { id: 'observe', signal: 'uncertainty', methods: ['scan_literal', 'monitor_samples'] },
@@ -56,7 +55,6 @@ function proofObligations(signals, representation) {
     proof: 'hypothèse causale et prédiction falsifiable observée' });
   return obligations;
 }
-
 function buildRecipePortfolio(input, signals) {
   const calibration = selectorCalibration.compileCalibration(input.verifiedOutcomes);
   const replacement = calibration.scales.COHORT_REPLACEMENT;
@@ -103,7 +101,6 @@ function resourceCandidateFor(availability, calibration) {
     admissibility: 'available', runtimeAvailability: availability,
     ...candidateCalibrationAttributes(false, estimate, 'RESOURCE_REALLOCATION') };
 }
-
 function rosterCandidateFor(availability, calibration) {
   const estimate = calibration.scales.ROSTER_REDUCTION.candidates[availability.candidateId]
     || { status: 'unavailable' };
@@ -112,7 +109,6 @@ function rosterCandidateFor(availability, calibration) {
     admissibility: 'available', runtimeAvailability: availability,
     ...candidateCalibrationAttributes(false, estimate, 'ROSTER_REDUCTION') };
 }
-
 function selectedCandidate(context) {
   const { ranking, scaleDecision, communicationCandidate, reallocationCandidate,
     rosterCandidate } = context;
@@ -138,7 +134,6 @@ function candidateGenerationInput(input) {
     adapterRegistry: input.adapterRegistry
   };
 }
-
 function decorateCandidates(context) {
   return context.candidates.map(candidate => decorateCandidate({ ...context, candidate }));
 }
@@ -183,7 +178,6 @@ function rankPortfolio(candidates, input, signals) {
     requireEmpiricalEvidence: true
   });
 }
-
 function replaceableCandidates(candidates) {
   return candidates.filter(candidate => candidate.kind !== 'NO_CHANGE'
     && candidate.admissibility !== 'rejected')
@@ -196,7 +190,6 @@ function admittedSelection(ranking, scaleDecision) {
   return selected && scaleDecision.scale === selected.interventionScale
     && scaleDecision.candidateId === selected.id ? selected : null;
 }
-
 function selectionSummary(selected, input, scaleDecision) {
   if (!selected) return { candidateId: 'NO_CHANGE', topology: input.currentTopology || null,
     variant: input.currentVariant || null, kind: 'NO_CHANGE', interventionScale: 'NO_CHANGE',
@@ -218,7 +211,6 @@ function selectionSummary(selected, input, scaleDecision) {
     executionEligible: false
   };
 }
-
 function estimateCost(candidate, input) {
   const explicit = Number(input.estimatedCosts?.[candidate.candidateId]);
   if (Number.isFinite(explicit) && explicit >= 0) return explicit;
@@ -312,11 +304,18 @@ function compileConditionalMorphogenesisPolicy(input = {}) {
 function buildPolicyState(input) {
   const signals = normalizedSignals(input.diagnosis);
   const portfolio = buildRecipePortfolio(input, signals);
+  const budget = budgetPlan(input, signals);
+  const experiment = organizationExperiment.compileOrganizationHypothesisExperiment({
+    missionId: input.missionId, currentTopology: input.currentTopology,
+    currentVariant: input.currentVariant, primaryMetric: input.primaryMetric,
+    totalTokens: budget.totalTokens, verifierTokens: budget.verificationTokens,
+    ranking: portfolio.ranking, selected: portfolio.selected
+  });
   return { signals, mission: missionText(input.mission), representation: representationFor(signals), portfolio,
     workerRoster: buildAdaptiveWorkerRoster({ phases: phasesFor(signals),
       workerAssignments: input.workerAssignments, runtimeSnapshot: input.runtimeSnapshot,
       availableCapabilities: input.availableCapabilities,
-      daemonAllowed: input.operationalConstraints?.daemonAllowed }), budget: budgetPlan(input, signals) };
+      daemonAllowed: input.operationalConstraints?.daemonAllowed }), budget, experiment };
 }
 
 function missionText(mission) {
@@ -324,12 +323,12 @@ function missionText(mission) {
 }
 
 function buildPolicyDocument(state) {
-  const { signals, mission, representation, portfolio, workerRoster, budget } = state;
+  const { signals, mission, representation, portfolio, workerRoster, budget, experiment } = state;
   return {
     schemaVersion: 1, kind: 'conditional_morphogenesis_policy', status: policyStatus(mission),
     mission,
     diagnosis: { signals, representation },
-    decision: buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget }),
+    decision: buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget, experiment }),
     portfolio: buildPolicyPortfolio(portfolio),
     conditions: policyConditions(),
     bounds: { executionAuthorized: false, maxTransitions: 0, maxEpochs: budget.maxEpochs },
@@ -341,11 +340,12 @@ function policyStatus(mission) {
   return mission ? 'proposed' : 'blocked';
 }
 
-function buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget }) {
+function buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget, experiment }) {
   const selected = portfolio.selected;
   return { representation: representation.kind, recipe: selected,
     interventionScale: selected.interventionScale, interventionEstimate: interventionEstimate(selected),
-    workerRoster, proofObligations: proofObligations(signals, representation), budget };
+    workerRoster, organizationExperiment: experiment,
+    proofObligations: proofObligations(signals, representation), budget };
 }
 
 function interventionEstimate(selected) {

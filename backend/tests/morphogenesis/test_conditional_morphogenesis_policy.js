@@ -40,6 +40,8 @@ function testCompilesPolicyFromObservedNeeds() {
   assert.ok(policy.decision.proofObligations.some(item => item.id === 'counterexample_search'));
   assert.equal(policy.decision.budget.totalTokens, 10000);
   assert.equal(policy.decision.budget.maxEpochs, 4);
+  assert.equal(policy.decision.organizationExperiment.decision, 'NO_CHANGE');
+  assert.equal(policy.decision.organizationExperiment.executionAuthorized, false);
   assert.equal(policy.bounds.executionAuthorized, false);
   assert.ok(policy.portfolio.ranking.candidates.some(item => item.isNoChange));
   assert.ok(policy.conditions.some(item => item.action === 'quarantine_correlated_claims'));
