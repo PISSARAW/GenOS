@@ -137,6 +137,26 @@ pour les paramètres, l'automate, la préemption consentie et les limites de rep
 
 REST n'a pas une enveloppe de succes universelle. Les lectures repondent souvent directement l'objet ou la liste ; les commandes peuvent repondre `{ "success": true, ... }`, `{ "accepted": true, ... }` ou une ressource creee avec `201`. Le client doit donc interpreter simultanement le code HTTP et le schema specifique de l'endpoint, pas uniquement un champ `success`.
 
+## Statuts et preuves
+
+Un statut de transport ou d'ordonnancement ne prouve pas le résultat métier.
+Une réponse HTTP `2xx` confirme uniquement que la requête a été reçue ou traitée
+selon le contrat de la route. De même, les champs API suivants ont des portées
+distinctes :
+
+| Champ ou statut | Garantie | Ne garantit pas |
+| --- | --- | --- |
+| `accepted: true` | La commande a franchi les contrôles d'admission déclarés | Le démarrage, la terminaison ou la validité du résultat |
+| `started: true` | Une tentative a été lancée et possède son identité d'exécution | Sa terminaison, son succès ou la qualité de sa sortie |
+| `status: "completed"` | L'unité d'exécution concernée a atteint son état terminal attendu | Une vérification indépendante, une acceptation métier ou une promotion |
+| `status: "VERIFIED"` | Le vérificateur propre à ce contrat a accepté les preuves requises dans leur scope exact | Une certification globale de la mission ou l'autorisation d'une promotion ultérieure |
+
+Le client doit relire le schéma de l'endpoint pour identifier l'unité décrite
+(requête, job, worker, cycle ou mission), puis vérifier les reçus et références
+de preuve associés. Il ne doit jamais déduire `completed` de `accepted` ou
+`started`, ni convertir un `completed` en `VERIFIED`. Un endpoint qui expose
+plusieurs de ces champs décrit plusieurs étapes du protocole, pas des synonymes.
+
 Les en-tetes `X-Request-Id` et `X-Trace-Id` sont attaches par l'application. Les erreurs REST suivent l'enveloppe :
 
 ```json
