@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// MCP-to-backend bridge. It owns one complete GenOS mission, including the
-// authority contract and bounded worker fleet, then returns its telemetry.
 const path = require('path');
 try {
   process.loadEnvFile(path.resolve(__dirname, '../../.env'));
@@ -28,17 +26,6 @@ const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPr
   gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
   shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
-process.on('unhandledRejection', (reason) => {
-  console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
-});
-if (process.env.GENOS_STREAM_TELEMETRY === '1') {
-  telemetry.on('telemetry', (evt) => {
-    process.stdout.write(`GENOS_STREAM:${JSON.stringify(evt)}\n`);
-  });
-}
-
-const cliHelp = require('./cliHelp.cjs');
-if (cliHelp.checkHelp(process.argv, 'genos-orchestrate.cjs')) return;
 let request = {};
 try {
   const helper = require('./detachedSpawn.cjs');
@@ -48,7 +35,6 @@ try {
   process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
   process.exit(1);
 }
-
 const biologicalModes = new Set(['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation']);
 const strategy = String(request.strategy || '').toLowerCase();
 const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
@@ -70,7 +56,6 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
   process.exitCode = 1;
   process.exit(1);
 }
-
 const SCRIPT_START_TIME = Date.now();
 const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
 const missionAux = require('./orchestratorMissionAux.cjs');
@@ -78,7 +63,6 @@ function waitForCompletionUnbounded() {
   return policyRequest.unbounded === true || policyRequest.noTimeout === true
     || request.unbounded === true || request.noTimeout === true;
 }
-
 async function waitForCompletion(db) {
   const unbounded = waitForCompletionUnbounded();
   const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 600000);
@@ -106,14 +90,18 @@ async function waitForCompletion(db) {
       throw err;
     }
     busyRetries = 0;
-    if (missionExecutionTerminal(agents, trinityWorlds)) return agents;
+    if (missionExecutionTerminal(agents, trinityWorlds, id)) return agents;
+    const allOrphaned = agents.length > 0 && agents.every((a) => a.status === 'running' && !a.runtime_pid);
+    if (allOrphaned && Date.now() > SCRIPT_START_TIME + 30000) {
+      process.stderr.write(`[genos-orchestrate] All agents orphaned (running, no pid) after 30s; concluding mission.\n`);
+      return agents;
+    }
     pulseTick += 1;
     await observeMissionPulse(db, pulseTick);
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
 }
-
 function isRetryableDatabaseError(error) {
   return error?.code === 'SQLITE_BUSY' || /busy|locked/i.test(error?.message || '');
 }
@@ -290,6 +278,16 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
+  if (process.platform === 'win32') {
+    await require('./orchestratorWindowsLocalExecution.cjs').runWindowsLocalExecution({
+      db, id, missionId, task, enhancedPrompt, request, missionBudget,
+      requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
+      nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
+      finalizeOrchestratedMission
+    });
+    return;
+  }
+
   const launch = await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology, preflightObservedTools: preflight.observedTools });
   await missionEpisodeRuntime.bindOwner(db, { runtime: episodeRuntime, launch, orchestratorId: id });
   const agents = await waitForCompletion(db);

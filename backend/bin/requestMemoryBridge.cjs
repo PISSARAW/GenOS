@@ -24,6 +24,9 @@ async function checkReuse(db, request, task) {
   const minted = profiler.profileRequest({ mission: task, ...request });
   const route = router.chooseExecutionPath(minted.profile);
   const scopeId = await requestScope(db, request);
+  if (!scopeId) {
+    return { minted, route, lookup: { hit: false, problem: null }, scopeId: '' };
+  }
   const lookup = await registry.lookupReusable(db, {
     semanticId: minted.semanticId, scopeId, dependencies: requestDeps(request),
   });

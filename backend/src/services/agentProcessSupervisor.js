@@ -21,6 +21,7 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const { terminateChild } = require('./processTermination');
 const { spawnRuntimeWithRetry } = require('./agentProcessSpawner');
+const { runLocalWorker } = require('./workerEvidenceBarrierLocal');
 const childTermination = require('./agentChildTerminationObserver');
 const {
   buildRuntimeEnvironment,
@@ -343,7 +344,22 @@ async function superviseMission(options) {
   const reconnect = reconnectProvisioning.prepare(isLocalRuntime(resolvedExecutable), controlIdentity);
   const spawnInput = { db, agentId, normalizedMission, executionRun, resolvedExecutable, spawnCmd, spawnArgs,
     workspaceRoot, runtimeEnvironment, silentUpdates, mcpDbPath, mcpActorToken, bodyActionId, filesystemReceipt, reconnect };
-  const child = await spawnSupervisedChild(spawnInput);
+  let child;
+  try {
+    child = await spawnSupervisedChild(spawnInput);
+  } catch (spawnError) {
+    // Sur Windows, le spawn de processus enfant avec pipes stdin/stdout peut
+    // échouer avec EPIPE (broken pipe) car le pipe est fermé avant que l'enfant
+    // n'ait pu le lire. Basculer sur l'exécution in-process via runLocalWorker,
+    // qui contacte le modèle local (ollama) directement sans processus enfant.
+    if (process.platform === 'win32') {
+      process.stderr.write('[agentProcessSupervisor] Worker child spawn failed on Windows (' +
+        (spawnError?.code || spawnError?.message || 'unknown') +
+        '); falling back to in-process local-model execution.\n');
+      return runLocalWorker(db, normalizedMission, executionRun);
+    }
+    throw spawnError;
+  }
   const state = supervisorState();
   const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
     runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child,

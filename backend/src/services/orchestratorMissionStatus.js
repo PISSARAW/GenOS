@@ -7,15 +7,25 @@ const TERMINAL_RUN_STATUSES = new Set(['completed', 'awaiting_approval', 'failed
 
 function agentTerminal(agent) {
   if (TERMINAL_STATUSES.has(agent.status)) return true;
+  // Un agent en statut 'running' sans runtime_pid est un processus orphelin :
+  // le worker child n'a jamais pu être lancé (spawn échoué, EPIPE, etc.).
+  // On le considère comme terminal pour ne pas bloquer l'orchestre indéfiniment.
+  if (agent.status === 'running' && !agent.runtime_pid) return true;
   return agent.status === 'idle' && TERMINAL_RUN_STATUSES.has(agent.latest_run_status);
 }
 
-function agentsQuiescent(agents) {
-  return agents.length > 0 && agents.every((agent) => !agent.runtime_pid && agentTerminal(agent));
+function agentsQuiescent(agents, orchestratorId) {
+  return agents.length > 0 && agents.every((agent) => {
+    // L'orchestre est le processus appelant ; son propre runtime_pid ne doit
+    // pas bloquer l'évaluation de quiescence. Seuls les workers délégués
+    // doivent être sans processus associé et dans un état terminal.
+    if (agent.id === orchestratorId) return agentTerminal(agent);
+    return !agent.runtime_pid && agentTerminal(agent);
+  });
 }
 
-function missionExecutionTerminal(agents, worlds) {
-  if (!agentsQuiescent(agents)) return false;
+function missionExecutionTerminal(agents, worlds, orchestratorId) {
+  if (!agentsQuiescent(agents, orchestratorId)) return false;
   return worlds.length === 0 || worlds.every((world) => TERMINAL_STATUSES.has(world.status));
 }
 

@@ -58,9 +58,9 @@ async function bootstrapMission(mission) {
 async function startMissionInternal(mission) {
   const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
+  assertMissionNotCancelled(agentId);
   await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId: executionRun.id,
     mission: normalizedMission, verifyInputs: true, executable: ctx.authorityExecutable });
-  assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   await require('../garageRuntimeService').assertLease(db, normalizedMission);

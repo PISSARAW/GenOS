@@ -2,6 +2,7 @@
 
 const { buildMissionMorphogenesisInput } = require('./missionMorphogenesis');
 const { bindGraphMission } = require('../morphogenesis/morphogenesisMissionBinding');
+const { emit } = require('../agentOrchestrationState');
 
 const DEDICATED_TOPOLOGIES = new Set(['trinity', 'a_team']);
 
@@ -162,8 +163,19 @@ async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {})
   const nodes = topologyNodes(morphologyPlan);
   const dedicated = nodes.length === 1 && nodes[0].topology === topology
     && DEDICATED_TOPOLOGIES.has(topology);
-  if (dedicated) assertDedicatedPlan(ctx, topology);
-  else await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  if (dedicated) {
+    try {
+      assertDedicatedPlan(ctx, topology);
+    } catch (error) {
+      // Le plan dédié sélectionné par la morphogenesis ne peut pas s'instancier
+      // (pas de budget ni de workers exécutables pour cette mission).
+      // On continue sans topologie dédiée plutôt que de faire échouer l'orchestration.
+      emit(ctx.agentId, 'MORPHOGENESIS_DEDICATED_PLAN_SKIPPED', 'PLAN_MISSION',
+        `Dedicated topology '${topology}' could not be activated: ${error.message}`, { topology, code: error.code }, 'warning');
+    }
+  } else {
+    await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  }
   return bindSelectedPlan(ctx, morphologyPlan);
 }
 
