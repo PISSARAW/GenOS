@@ -119,7 +119,7 @@ const PRIORITY = Object.freeze([
 ]);
 
 function resolve(name = 'routing') {
-  const canonical = String(name).trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  const canonical = String(name || 'routing').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   const profile = PROFILES[canonical];
   if (!profile) throw Object.assign(new Error(`Unknown Rhizome variant '${name}'.`), { code: 'RHIZOME_VARIANT_UNKNOWN' });
   return { name: canonical, ...structuredClone(profile) };
