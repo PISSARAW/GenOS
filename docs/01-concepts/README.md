@@ -17,7 +17,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [gvx.md](gvx.md) — développement vérifié des agents : signaux, reçus indépendants, plasticité et limites de maturité.
 - [continuite-mission.md](continuite-mission.md) — organisme de mission, homéostasie cible, six systèmes de survie (régénération, immunité, dormance, apoptose contrôlée).
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
-- [endogenous-thought-test.md](endogenous-thought-test.md) — protocole ETT v1 : détection, question falsifiable, runner borné (seam worker/solveur `isolated-read-only`), vérification indépendante, apprentissage d'épisode, boucle multicycle bornée et campagne ; limites expérimentales explicites.
+- [endogenous-thought-test.md](endogenous-thought-test.md) — protocole ETT v1 : détection, question falsifiable, runner borné, vérification indépendante, apprentissage d'épisode et boucle multicycle ; dossier complété par [l'orchestration](../02-orchestration/pensee-endogene-bornee.md), la [référence runtime](../03-reference/runtime-pensee-endogene.md), le [runbook](../04-exploitation/pensee-endogene.md) et la [qualification](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md).
 - [savoir-et-epistemologie.md](savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
 - [instinct.md](instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.

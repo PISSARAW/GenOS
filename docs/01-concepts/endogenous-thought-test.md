@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel — chaîne PR1–PR8, continuation et boucle multicycle bornée implémentées ; campagne de développement exécutable mais `scientificEvidence: false` ; campagne sur corpus réservé non exécutée
 - **Portée** : raisonnement borné en lecture seule, avec repli déterministe et reçus durables
-- **Dernière revue** : 2026-10-19
+- **Dernière revue** : 2026-10-20
 
 ## 1. Définition
 
@@ -21,6 +21,18 @@ Le protocole préenregistré est
 [`benchmarks/endogenous-thought/protocol-v1.json`](../../benchmarks/endogenous-thought/protocol-v1.json).
 La décision d'architecture est tracée dans
 [l'ADR 0626](../adr/0626-protocole-pensee-endogene-bornee.md).
+
+Le dossier est séparé par usage, conformément aux conventions documentaires :
+
+- cette page explique le **concept**, le modèle et les limites ;
+- [l'orchestration](../02-orchestration/pensee-endogene-bornee.md) décrit les
+  responsabilités, les flux, l'autorité et le raccord résident ;
+- [la référence runtime](../03-reference/runtime-pensee-endogene.md) inventorie
+  les API de service, contrats, tables, erreurs et sorties ;
+- [le guide d'exploitation](../04-exploitation/pensee-endogene.md) donne les
+  commandes, diagnostics et procédures de reprise ;
+- [la qualification du 2026-10-20](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md)
+  rapporte les observations exécutées et leurs limites.
 
 ### 1.1 Frontière endogène/exogène
 
@@ -583,6 +595,73 @@ aucune découverte vérifiée. Les reçus de campagne de développement portent
 contrôle exécutable, pas une généralisation. Aucune campagne sur le corpus
 réservé n'a encore été exécutée.
 
+### 5.8 Raccord au scheduler résident
+
+Le scheduler d'inactivité peut appeler
+[`endogenousThoughtResidentSchedulerService.js`](../../backend/src/services/endogenousThoughtResidentSchedulerService.js)
+à chaque tick. Ce raccord est **désactivé par défaut** et échoue fermé : une
+installation qui ne fournit pas explicitement toutes les dépendances reste
+`unavailable`, sans créer d'épisode, de worker ou d'autorisation de substitution.
+
+```mermaid
+flowchart TD
+    T[Tick d'inactivité] --> R{enabled === true ?}
+    R -->|non| U[unavailable — disabled]
+    R -->|oui| D{Dépendances de production complètes ?}
+    D -->|non| M[unavailable — production-dependencies-missing]
+    D -->|oui| C[candidateProvider]
+    C -->|aucun candidat| I[idle — no-candidate]
+    C -->|épisode candidat| L[runAutonomousLoop]
+    L --> O[completed + état réel de la boucle]
+```
+
+La readiness exige les dépendances suivantes :
+
+| Dépendance | Contrat |
+| --- | --- |
+| `candidateProvider(db)` | Sélectionne un épisode dans le scope organisation/projet ; retourne `null` si aucun candidat n'est admissible |
+| `authorize` | Émet les autorisations SHEV réelles utilisées par la boucle |
+| `verify` | Produit la vérification indépendante ; aucun vérificateur synthétique n'est créé |
+| `worker` | Worker explicite transmis à l'exécution bornée |
+| `sandbox` | Contrat `isolated-read-only` valide, avec fonction `recover` |
+| `usageMeter.snapshot` | Mesureur externe fonctionnel |
+
+`maxCycles` est normalisé entre un et dix ; une valeur absente ou invalide
+retombe à un seul cycle. `grantedBy` vaut `ett-resident-scheduler` par défaut,
+mais cette étiquette ne confère aucune autorité : chaque opération sensible
+reste conditionnée à la signature retournée par `authorize`.
+
+Le scheduler ne fait pas confiance à un cumul d'usage fourni par le candidat.
+La boucle reconstruit l'usage depuis les reçus de runs persistés et validés. La
+sortie expose donc `usageSource: "validated-run-receipts"` et le cumul relu.
+Cette règle empêche un épisode candidat de minorer son coût pour obtenir des
+cycles supplémentaires.
+
+| Statut résident | Signification |
+| --- | --- |
+| `unavailable / disabled` | Configuration par défaut ; aucune pensée résidente n'est lancée |
+| `unavailable / production-dependencies-missing` | Au moins une porte de production est absente ; `missing` les énumère |
+| `idle / no-candidate` | Scheduler prêt, mais aucun épisode admissible |
+| `completed` | L'appel borné de la boucle est revenu ; consulter `loopStatus` pour son issue |
+| `failed` dans `idleTickService` | Une exception a franchi le raccord ; son code devient le motif |
+
+`completed` décrit ici le retour du raccord résident, pas nécessairement une
+croyance `LEARNED`. L'appelant doit lire `loopStatus`, l'état de l'épisode et les
+reçus. Les états `stopped`, `abstained` ou `failed` ne sont jamais convertis en
+succès cognitif.
+
+Le test de contrat est :
+
+```powershell
+node backend/tests/test_endogenous_thought_resident_scheduler.js
+```
+
+Il vérifie le défaut désactivé, l'inventaire des dépendances manquantes, la
+propagation de `maxCycles`, l'absence de confiance dans l'usage candidat et le
+raccord explicite au scheduler de production. Il ne prouve pas qu'un scheduler
+est activé dans un déploiement ni qu'une campagne réservée a été exécutée. Voir
+l'[ADR 0655](../adr/0655-raccord-resident-ett-fail-closed.md).
+
 ## 6. Cycle de vie
 
 ```mermaid
@@ -870,7 +949,7 @@ node backend/tests/test_endogenous_thought_continuation_smoke.js
 - [`test_endogenous_thought_contract.js`](../../backend/tests/test_endogenous_thought_contract.js) — contrats, transitions, exigences de preuve et états terminaux ;
 - [`test_cognitive_episode_schema.js`](../../backend/tests/test_cognitive_episode_schema.js) — parité schéma JSON / validateur runtime et frontières non promotables ;
 - [`test_endogenous_thought_store.js`](../../backend/tests/test_endogenous_thought_store.js) — idempotence, conflits de tête et de lignée, isolation de portée, immutabilité, reprise après redémarrage ;
-- [`test_endogenous_thought_cycles.js`](../../backend/tests/test_endogenous_thought_cycles.js) — multiplicité par parent immédiat et cycles complets ;
+- [`test_endogenous_thought_cycles.js`](../../backend/tests/test_endogenous_thought_cycles.js) — trois cycles effectifs avec solver déclaré, suivi influencé par le verdict, coûts cumulés et reprise SQLite sans double exécution ;
 - [`test_endogenous_thought_resident_scheduler.js`](../../backend/tests/test_endogenous_thought_resident_scheduler.js) — raccord au scheduler résident, indisponibilité par défaut et injection complète des portes ;
 - [`test_endogenous_thought_detection.js`](../../backend/tests/test_endogenous_thought_detection.js) — défaut inactif, mandat SHEV, seuils, refus persistés, question falsifiable, idempotence ;
 - [`test_endogenous_thought_admission.js`](../../backend/tests/test_endogenous_thought_admission.js) — arbitrage AGOW sans effet, `ADMITTED`/`ABSTAINED`, ablation, reçu versionné ;
@@ -878,8 +957,8 @@ node backend/tests/test_endogenous_thought_continuation_smoke.js
 - [`test_endogenous_thought_runner.js`](../../backend/tests/test_endogenous_thought_runner.js) — autorisation signée, réservation durable, reprise, annulation, budget, absence de worker/réseau/mutation ;
 - [`test_endogenous_thought_verification.js`](../../backend/tests/test_endogenous_thought_verification.js) — double signature Ed25519, indépendance des identités et des clés, verdicts scellés, reprise ;
 - [`test_endogenous_thought_learning.js`](../../backend/tests/test_endogenous_thought_learning.js) — révision bornée sur verdict intègre, projection mémoire, report des inconclusifs ;
-- [`test_endogenous_thought_experiment.js`](../../backend/tests/test_endogenous_thought_experiment.js) — expérience ETT, agrégation qualifiée et métriques de campagne ;
-- [`test_endogenous_thought_campaign.js`](../../backend/tests/test_endogenous_thought_campaign.js) — exécute un suivi complet supplémentaire puis l'arrêt borné `cycle-limit`.
+- [`test_endogenous_thought_experiment.js`](../../backend/tests/test_endogenous_thought_experiment.js) — agrégation qualifiée, échec fail-soft et publication d'un cas synthétique sans gain ;
+- [`test_endogenous_thought_campaign.js`](../../backend/tests/test_endogenous_thought_campaign.js) — catalogue des problèmes GenOS et comportements distincts des sept conditions sur un cas de développement.
 
 Le contrôle `continuation_smoke` ci-dessus (vérification d'exposition des
 fonctions de continuation) n'est pas inclus dans la suite `test:ett`. Le
@@ -958,6 +1037,7 @@ Table honnête, tranche par tranche :
 | Boucle multicycle | enchaînement automatique, `maxCycles` ≤ 10 | Implémentée | `test_endogenous_thought_cycles.js`, `test_endogenous_thought_campaign.js` |
 | Expérience et ablations | reçus `development_only` non publiables | Implémentée | `test_endogenous_thought_experiment.js` |
 | Campagne de développement | lanceur `genos-ett-campaign.cjs`, verdict synthétique | Exécutable, `scientificEvidence: false` | `test_endogenous_thought_campaign.js` |
+| Raccord scheduler résident (ADR 0655) | readiness fail-closed et entrée `idleTick` | Implémenté, désactivé sans providers production | `test_endogenous_thought_resident_scheduler.js` |
 | Campagne sur corpus réservé | graines 401/503/607, oracles scellés, mesure réelle | **Non exécutée** | — |
 
 Un épisode `LEARNED`, même multicycle, ne valide donc pas une capacité
@@ -972,6 +1052,10 @@ cognitive générale ; il valide que la chaîne de contrôle a tenu pour cet
 - [Métacognition](metacognition.md) — arbitrage des modes cognitifs.
 - [Mémoire et apprentissage](memoire-et-apprentissage.md) — projection mémoire et poids synaptiques.
 - [README du benchmark ETT](../../benchmarks/endogenous-thought/README.md) — état tranche par tranche et frontières.
+- [Orchestration ETT](../02-orchestration/pensee-endogene-bornee.md) — flux, rôles, autorité, scheduler et reprise.
+- [Référence runtime ETT](../03-reference/runtime-pensee-endogene.md) — API internes, tables, reçus, erreurs et expérience.
+- [Guide d'exploitation ETT](../04-exploitation/pensee-endogene.md) — validation, campagne, diagnostic, reprise et désactivation.
+- [Qualification ETT du 2026-10-20](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — preuves exécutées, résultats et menaces à la validité.
 
 Références normatives :
 

@@ -2,7 +2,7 @@
 
 - **Statut** : campagne synthétique de développement exécutable ; campagne réservée non exécutée
 - **Portée** : simulation déterministe en lecture seule
-- **Dernière revue** : 2026-10-19
+- **Dernière revue** : 2026-10-20
 
 ETT v1 mesure si une boucle GenOS peut détecter une anomalie, formuler une
 question falsifiable, arbitrer une recherche bornée, vérifier son résultat et
@@ -13,6 +13,14 @@ Le protocole préenregistré se trouve dans
 [`protocol-v1.json`](protocol-v1.json). Les métriques canoniques sont définies
 dans [`../../shared/endogenousThoughtMetrics.v1.json`](../../shared/endogenousThoughtMetrics.v1.json).
 
+Documentation complémentaire :
+
+- [concept et modèle logique](../../docs/01-concepts/endogenous-thought-test.md) ;
+- [orchestration et raccord résident](../../docs/02-orchestration/pensee-endogene-bornee.md) ;
+- [référence runtime](../../docs/03-reference/runtime-pensee-endogene.md) ;
+- [guide d'exploitation](../../docs/04-exploitation/pensee-endogene.md) ;
+- [qualification fonctionnelle du 2026-10-20](../../docs/06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md).
+
 Le contrat peut être vérifié depuis la racine du dépôt avec :
 
 ```powershell
@@ -21,7 +29,7 @@ npm --prefix backend run test:ett
 Le payload d'une transition d'épisode est défini par
 [`../../spec/cognitive-episode.schema.json`](../../spec/cognitive-episode.schema.json).
 
-## État de PR8
+## Chaîne PR1–PR8 et extensions
 
 PR1 a figé les frontières, contrats et métriques. PR2 ajoute :
 
@@ -85,9 +93,10 @@ PR6 consomme une autorisation SHEV signée avant de lever la retenue :
   la politique du runner ;
 - le run Ontogenèse et son reçu ETT sont persistés avant la transition
   `QUEUED` vers `RUNNING` ;
-- le runner en processus recopie déterministement l'hypothèse, le falsificateur
-  et le plan de preuve sans lancer de worker, utiliser le réseau ou muter un
-  environnement ;
+- sans worker injecté, le runner recopie déterministement l'hypothèse, le
+  falsificateur et le plan de preuve ; avec un worker déclaré, il invoque le
+  solveur via le sandbox `isolated-read-only`, sans réseau, mutation ni action
+  externe, et exige une mesure d'usage indépendante ;
 - la tâche passe à `verifying` et le run reste `unverified` ;
 - le reçu interdit explicitement toute vérification implicite et toute
   éligibilité à la promotion.
@@ -147,6 +156,41 @@ entre GenOS et ses ablations.
 Une campagne holdout exigera les `reservedSeeds`, un worker ou solveur réel, des
 oracles finaux scellés et indépendants et une mesure de ressources. Elle n'est
 pas fournie par ce runner de développement.
+
+### Exécution et lecture du reçu
+
+Depuis la racine :
+
+```powershell
+node backend/bin/genos-ett-campaign.cjs --output ett-campaign-receipt.json
+```
+
+Le catalogue contient 18 cas (`3` graines × `6` problèmes) et l'expérience
+ordonne les `7` conditions pour chaque cas. Une exception d'un cas devient un
+résultat négatif et n'interrompt pas les autres cas. Inspecter au minimum :
+
+```powershell
+$receipt = Get-Content -Raw .\ett-campaign-receipt.json | ConvertFrom-Json
+$receipt.summary | ConvertTo-Json -Depth 8
+$receipt.negativeResults | ConvertTo-Json -Depth 8
+```
+
+Une exécution de ce runner reste `development_only`, `publishable: false` et
+`promotionDecision: null`, même si aucun cas ne signale d'échec.
+
+### Couverture automatisée et frontière
+
+`test_endogenous_thought_campaign.js` vérifie le catalogue complet puis exécute
+un cas `learnable_anomaly` dans les sept conditions. Il ne remplace pas une
+campagne scientifique sur toutes les paires. Le test des cycles exerce trois
+appels d'un solver déclaré, deux questions influencées par les résultats
+vérifiés, les coûts cumulés et la reprise SQLite. Le test du scheduler prouve
+le défaut fermé et le chemin injecté, pas la disponibilité de providers de
+production.
+
+Les observations exactes, les commandes et les menaces à la validité sont
+consignées dans le
+[rapport de qualification](../../docs/06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md).
 
 ## Frontières de sécurité
 

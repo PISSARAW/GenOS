@@ -1,6 +1,7 @@
 # Documentation GenOS
 
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante, apprentissage d'épisode et boucle multicycle bornée (`maxCycles` ≤ 10).
+- [Dossier ETT — orchestration](02-orchestration/pensee-endogene-bornee.md), [référence](03-reference/runtime-pensee-endogene.md), [exploitation](04-exploitation/pensee-endogene.md) et [qualification](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — parcours complet du concept à la preuve, avec activation production explicitement indisponible.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification, révision de croyance non promotable et continuation multicycle ; campagne sur corpus réservé non exécutée.
 - [ADR 0646 — Apprentissage qualifié et exécution ETT reprenable](adr/0646-apprentissage-et-execution-ett-reprenables.md) — mémoire vérifiée, réservation durable, reprise sans réexécution, sandbox worker `isolated-read-only` et mesure externe.
 - [ADR 0647 — Boucle ETT multicycle et questionnement endogène](adr/0647-boucle-ett-multicycle-et-questionnement-endogene.md) — répétition bornée du cycle, questions de suivi et génération d'hypothèses sans abaisser les portes de preuve.
@@ -223,6 +224,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 **Exécution**
 
+- [pensee-endogene-bornee.md](02-orchestration/pensee-endogene-bornee.md) — orchestration ETT multicycle, rôles, autorité, worker isolé, vérification indépendante, reprise et scheduler fail-closed.
 - [AGOW](02-orchestration/agow.md) — workspace cognitif actif, candidats, compétition, frames récurrents, broadcasts et requêtes attentionnelles.
 - [Système prédictif multi-échelles](02-orchestration/systeme-predictif-multi-echelles.md) — états T0–T6, plasticité graduée et erreurs persistantes.
 - [Lacunes d'apprentissage GVX](02-orchestration/lacunes-apprentissage-gvx.md) — détection multi-signal et buts bornés soumis à autorité.
@@ -296,6 +298,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [axolotl-regeneration.md](03-reference/axolotl-regeneration.md) — contrat des primitives, persistance, états, budgets et limites d’admission.
 - [delegation-biscuit.md](03-reference/delegation-biscuit.md) — jetons attenués des sous-orchestrateurs.
 - [capsules-transport.md](03-reference/capsules-transport.md) — transport chiffré des capsules.
+- [runtime-pensee-endogene.md](03-reference/runtime-pensee-endogene.md) — API de services ETT, politiques, reçus, tables, erreurs, campagne et raccord résident.
 - [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [runtime-syncytium.md](03-reference/runtime-syncytium.md) — contrats Node/MCP, causalité, réplicas et preuve de complétion.
@@ -320,6 +323,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 
 Index : [04-exploitation/README.md](04-exploitation/README.md)
 
+- [pensee-endogene.md](04-exploitation/pensee-endogene.md) — commandes de validation, campagne de développement, lecture des reçus, diagnostic, reprise et désactivation ETT.
 - [deploiement.md](04-exploitation/deploiement.md) — modèles de déploiement, Docker, Windows.
 - [cli-et-experience-operateur.md](04-exploitation/cli-et-experience-operateur.md) — CLI, TUI, parcours opérateur.
 - [ontogenese.md](04-exploitation/ontogenese.md) — ontogenèse : exploitation locale, mémoire, reprise, diagnostic, rollback.
@@ -345,6 +349,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.
 
 ### 8. Qualité, preuves et positionnement
+- [qualification-pensee-endogene-2026-10-20.md](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, vérification indépendante, coûts, crash/reprise, ablations, résultats négatifs et non-claims.
 
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 

@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-pensee-endogene-2026-10-20.md](qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, coûts, reprise SQLite, résultats négatifs, ablations et raccord résident fail-closed ; campagne scientifique non exécutée.
+
 - [qualification-servicenow-kore-gitlab-2026-10-19.md](qualification-servicenow-kore-gitlab-2026-10-19.md) — qualification ciblée du cycle SHEV, de la réparation GVX guidée par traces et de l'effet régi par identité d'artefact, avec contre-preuves et bloqueurs globaux.
 
 - [qualification-action-genome-remediation-securite-2026-10-19.md](qualification-action-genome-remediation-securite-2026-10-19.md) — qualification bornée des contrats ActionGenome et de la campagne immunitaire, contre-preuves et critères du prochain niveau.
