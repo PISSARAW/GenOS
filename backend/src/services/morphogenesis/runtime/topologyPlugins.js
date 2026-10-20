@@ -21,11 +21,22 @@ function installTopologyPlugins(runtime) {
 
 function installController(input) {
   const { runtime, registry, ports, topology } = input;
+  if (topology === 'rhizome' && runtime.rhizomeRestoration) {
+    return installRhizomeRestoration(input);
+  }
   const executionKind = topology === 'syncytium' ? 'simulation_adapter' : 'hybrid_adapter';
   registerPort(runtime, ports, {
     topology, executionKind, execute: executeController(registry, topology),
     morphogenesis: controllerMorphogenesis(topology)
   });
+}
+
+function installRhizomeRestoration(input) {
+  const factory = require('./rhizomeRestorationPort');
+  const port = factory.createRhizomeRestorationPort({ ...input.runtime.rhizomeRestoration,
+    execute: executeController(input.registry, 'rhizome') });
+  input.ports.set('rhizome', port);
+  input.runtime.registerTopology('rhizome', port);
 }
 
 function executeController(registry, topology) {

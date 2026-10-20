@@ -810,6 +810,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0704](0704-qualification-signee-revocable-morphogenese-p3.md) | Qualification signée et révocable de morphogenèse P3 | Accepté | 2026-10-20 | Morphogenèse, qualification, autorité, révocation |
 | [0705](0705-registre-adaptateurs-cloture-topologique.md) | Registre d'adaptateurs de clôture topologique | Accepté, adaptateurs spécialisés en attente | 2026-10-20 | orchestration, topologies, clôture, preuves |
 | [0706](0706-cataloguer-et-reconstruire-fermetures-gqwf.md) | Cataloguer et reconstruire les fermetures d'exécution GQWF | Accepté | 2026-10-20 | GQWF, CAS, catalogue, reprise, provenance |
+| [0708](0708-restauration-transactionnelle-rhizome.md) | Restauration transactionnelle spécialisée de Rhizome | Accepté pour qualification, production interdite | 2026-10-20 | Rhizome, morphogenèse, restauration, preuves |
 | [0709](0709-dossier-campagnes-qualification-non-promoteur.md) | Sceller les campagnes de qualification sans promouvoir | Accepté | 2026-10-20 | ETT, stewardship, campagnes, preuve, reprise |
 | [0710](0710-harnais-restauration-morphogenetique.md) | Harnais transactionnel de restauration morphogénétique | Accepté, qualification des topologies en attente | 2026-10-20 | orchestration, morphogenèse, restauration, preuves |
 

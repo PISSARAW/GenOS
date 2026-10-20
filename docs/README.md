@@ -913,3 +913,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0651b — Admission MHC et capacités au point d'effet](adr/0651-admission-mhc-et-capacites-au-point-effet.md) — identité d'artefact fail-closed et capacités de secrets à usage unique.
 - [ADR 0705 — Registre d'adaptateurs de clôture topologique](adr/0705-registre-adaptateurs-cloture-topologique.md) — sélection injectible, dossiers communs et échec fermé tant que les oracles spécialisés sont absents.
 - [ADR 0710 — Harnais transactionnel de restauration morphogénétique](adr/0710-harnais-restauration-morphogenetique.md) — snapshot lié à l'état, restauration rejouée, vérification indépendante et dossier terminal sans autorité de promotion.
+- [ADR 0708 — Restauration transactionnelle spécialisée de Rhizome](adr/0708-restauration-transactionnelle-rhizome.md) — préimage métier explicite, CAS monotone, double restore sans double écriture et bindings externes relus indépendamment en qualification seulement.
