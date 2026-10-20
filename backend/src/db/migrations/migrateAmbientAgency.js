@@ -70,6 +70,35 @@ async function migrateAmbientAgency(db) {
         REFERENCES ambient_observations(organization_id, project_id, observation_id)
         ON DELETE RESTRICT
     );
+    CREATE TABLE IF NOT EXISTS ambient_feedback_candidates (
+      organization_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      feedback_id TEXT NOT NULL,
+      responsibility_id TEXT NOT NULL,
+      responsibility_version INTEGER NOT NULL,
+      proposer_id TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      feedback_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(organization_id, project_id, feedback_id),
+      FOREIGN KEY(organization_id, project_id, responsibility_id)
+        REFERENCES ambient_responsibilities(organization_id, project_id, responsibility_id)
+        ON DELETE RESTRICT
+    );
+    CREATE TABLE IF NOT EXISTS ambient_learning_decisions (
+      organization_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      decision_id TEXT NOT NULL,
+      feedback_id TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      decision_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(organization_id, project_id, decision_id),
+      UNIQUE(organization_id, project_id, feedback_id),
+      FOREIGN KEY(organization_id, project_id, feedback_id)
+        REFERENCES ambient_feedback_candidates(organization_id, project_id, feedback_id)
+        ON DELETE RESTRICT
+    );
     CREATE TRIGGER IF NOT EXISTS ambient_responsibility_identity_immutable
       BEFORE UPDATE OF organization_id, project_id, responsibility_id, owner_agent_id,
         created_at ON ambient_responsibilities
@@ -109,6 +138,18 @@ async function migrateAmbientAgency(db) {
     CREATE TRIGGER IF NOT EXISTS ambient_observation_event_no_delete
       BEFORE DELETE ON ambient_observation_events
       BEGIN SELECT RAISE(ABORT, 'Ambient observation events are durable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_feedback_no_update
+      BEFORE UPDATE ON ambient_feedback_candidates
+      BEGIN SELECT RAISE(ABORT, 'Ambient feedback candidates are append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_feedback_no_delete
+      BEFORE DELETE ON ambient_feedback_candidates
+      BEGIN SELECT RAISE(ABORT, 'Ambient feedback candidates are durable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_learning_decision_no_update
+      BEFORE UPDATE ON ambient_learning_decisions
+      BEGIN SELECT RAISE(ABORT, 'Ambient learning decisions are append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_learning_decision_no_delete
+      BEFORE DELETE ON ambient_learning_decisions
+      BEGIN SELECT RAISE(ABORT, 'Ambient learning decisions are durable'); END;
   `);
 }
 
