@@ -120,17 +120,27 @@ pour le diagnostic, mais elle ne constitue pas une validation métier.
 
 ### 3.2 Validation ciblée Metapopulation
 
-Depuis la racine, `npm --prefix backend run test:metapopulation` exécute dix suites.
-La qualification du 2026-10-06 au commit `5b18c834` a obtenu 10/10, avec exécution
-séparée des suites, relecture des empreintes et reprise d'une fixture corrigée.
-Elle couvre les 12 variants et 4 profils historiques, la persistance, les preuves
-invalides et les interruptions rescue/rollback. Les fixtures d'adaptateurs ne
-certifient ni les moteurs externes ni la réussite d'une mission réelle.
+Depuis la racine, `npm --prefix backend run test:metapopulation` exécute treize
+suites. La [qualification du 2026-10-20](qualification-metapopulation-2026-10-20.md)
+a obtenu 13/13 : les 12 spécialisations et 4 profils historiques, la persistance,
+les preuves invalides, l'interruption pendant EXECUTE, la reprise au même numéro
+logique, la quiescence de snapshot et l'idempotence des cycles et adaptateurs.
+Les qualifications antérieures du 2026-10-06 et du 2026-10-14 avaient obtenu
+10/10 sur le profil alors en vigueur ; elles restent des observations historiques,
+pas la baseline courante.
+
+Les fixtures d'adaptateurs ne certifient ni les moteurs externes ni la réussite
+d'une mission réelle. Une clé unique SQLite refuse les doubles écritures dans le
+runtime, mais seule l'implémentation du contrat d'idempotence par le système tiers
+empêche la répétition de son effet.
 
 Ces résultats ne remplacent pas les trois checks globaux du dépôt.
 Le benchmark `node backend/bin/metapopulation-benchmark.cjs 1` mesure des
-calculateurs sur des fixtures synthétiques. Le [contrat runtime](../03-reference/runtime-metapopulation.md)
-détaille le périmètre vérifié et ses limites.
+calculateurs sur des fixtures synthétiques. Le
+[contrat runtime](../03-reference/runtime-metapopulation.md), le
+[registre des variants](../03-reference/variants-metapopulation.md) et le
+[rapport daté](qualification-metapopulation-2026-10-20.md) détaillent le périmètre
+vérifié et ses limites.
 
 ### 3.3 Natural Search — reprise et intégrité
 

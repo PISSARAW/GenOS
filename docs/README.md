@@ -76,7 +76,7 @@
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
-- [Studio : cycle produit durable](03-reference/studio-cycle-produit-durable.md) — contrat UX versionné, jury pluraliste, séparation aperçu/acceptation/effet et initiative post-livraison bornée ; [ADR 0682]($20682-cycle-produit-durable-studio.md).
+- [Studio : cycle produit durable](03-reference/studio-cycle-produit-durable.md) — contrat UX versionné, jury pluraliste, séparation aperçu/acceptation/effet et initiative post-livraison bornée ; [ADR 0682](adr/0682-cycle-produit-durable-studio.md).
 - [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
 - [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
 - [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.
@@ -432,7 +432,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0508 — Refuser une intersection vide de lease](adr/0508-refuser-une-intersection-vide-de-lease.md) — une contrainte de focus sans outil commun laisse la mission sans outil.
 - [ADR 0509 — Borner la lease MCP par le budget de mission](adr/0509-borner-la-lease-mcp-par-le-budget-de-mission.md) — transmet au serveur MCP l'échéance de mission la plus stricte.
 - [ADR 0622 — Qualification contrefactuelle liée aux preuves](adr/0622-qualification-contrefactuelle-liee-aux-preuves.md) — lie branches, replays, diff causal et reçus indépendants sans autoriser directement la promotion.
-- [ADR 0684 — Traiter l'organisation comme une hypothèse appariée]($20684-essai-apparie-des-organisations.md) — planifie un contrôle `NO_CHANGE`, une candidate et un vérificateur indépendant sans autoriser leur exécution.
+- [ADR 0684 — Traiter l'organisation comme une hypothèse appariée](adr/0684-essai-apparie-des-organisations.md) — planifie un contrôle `NO_CHANGE`, une candidate et un vérificateur indépendant sans autoriser leur exécution.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)
