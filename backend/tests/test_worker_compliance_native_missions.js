@@ -9,6 +9,7 @@ const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(__dirname, 'run_worker_compliance_missions.cjs');
+const MISSION_TIMEOUT_MS = Number(process.env.GENOS_COMPLIANCE_MISSION_TIMEOUT_MS) || 300000;
 const LEAN = leanRuntime();
 
 function leanRuntime() {
@@ -44,9 +45,12 @@ function isolatedEnvironment(root) {
 function runKind(environment, kind) {
   const runId = `c2-${crypto.randomBytes(6).toString('hex')}`;
   const executed = spawnSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: 'utf8',
-    timeout: 120000, windowsHide: true, env: { ...environment,
+    timeout: MISSION_TIMEOUT_MS, windowsHide: true, env: { ...environment,
       GENOS_COMPLIANCE_KIND: kind, GENOS_COMPLIANCE_RUN_ID: runId } });
-  if (executed.error) throw executed.error;
+  if (executed.error) {
+    throw new Error(`${kind} compliance process failed: ${executed.error.message}`, {
+      cause: executed.error });
+  }
   const reportPath = path.join(environment.GENOS_COMPLIANCE_ROOT, 'worker-compliance-report.json');
   assert.ok(fs.existsSync(reportPath), `Missing ${reportPath}; exit=${executed.status}\n${executed.stderr}`);
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
