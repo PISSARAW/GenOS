@@ -2,7 +2,7 @@
 
 function handleBiologicalCondition(mode, out) {
   return (mode === 'syncytium' && !out.biologicalMode.complete)
-    || (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1' && (out.biologicalMode.dispatchFailures || []).length);
+    || (out.biologicalMode.dispatchFailures || []).length > 0;
 }
 
 function handleBiologicalMission(context) {
