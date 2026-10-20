@@ -7,6 +7,7 @@
 - [Dossier stewardship V3](01-concepts/ontogenese-dirigee-par-responsabilite.md) — concept intégré, [orchestration contrefactuelle](02-orchestration/evolution-contrefactuelle-gouvernee.md), [délégation durable](02-orchestration/ontogenese-delegation-et-stewardship.md), [contrats](03-reference/contrats-stewardship-v3.md), [runbook](04-exploitation/runbook-stewardship-longitudinal.md) et [qualification datée](06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md).
 - [Protocole pilote de campagne terrain SHEV](06-qualite-preuves/protocole-campagne-terrain-shev.md) — comparaison appariée scellable sur une dimension, sans campagne encore exécutée.
 - [Répétition générale de campagne terrain SHEV](04-exploitation/repetition-generale-campagne-terrain-shev.md) — validation accélérée, reprenable et explicitement non qualifiante du chemin d'exécution.
+- [Exécution d'une campagne terrain SHEV](04-exploitation/executer-campagne-terrain-shev.md) — runbook d'au moins 72 h avec ticks externes, reprise et verdicts honnêtes.
 
 - [Dossier Holobionte](02-orchestration/topologies/holobionte.md) — modèle hôte-symbiotes, [référence runtime](03-reference/runtime-holobionte.md), [guide d'exploitation](04-exploitation/operer-runtime-holobionte.md), [campagne causale bornée](06-benchmarks/campagne-causale-holobionte.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-holobionte-2026-10-20.md).
 
