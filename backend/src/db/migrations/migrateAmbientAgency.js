@@ -29,6 +29,47 @@ async function migrateAmbientAgency(db) {
         REFERENCES ambient_responsibilities(organization_id, project_id, responsibility_id)
         ON DELETE RESTRICT
     );
+    CREATE TABLE IF NOT EXISTS ambient_observations (
+      organization_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      observation_id TEXT NOT NULL,
+      responsibility_id TEXT NOT NULL,
+      responsibility_version INTEGER NOT NULL,
+      source_app TEXT NOT NULL,
+      source_ref TEXT NOT NULL,
+      consent_ref TEXT NOT NULL,
+      provenance_json TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      observed_at TEXT NOT NULL,
+      PRIMARY KEY(organization_id, project_id, observation_id),
+      FOREIGN KEY(organization_id, project_id, responsibility_id)
+        REFERENCES ambient_responsibilities(organization_id, project_id, responsibility_id)
+        ON DELETE RESTRICT
+    );
+    CREATE TABLE IF NOT EXISTS ambient_observation_payloads (
+      organization_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      observation_id TEXT NOT NULL,
+      minimized_json TEXT,
+      forgotten_at TEXT,
+      PRIMARY KEY(organization_id, project_id, observation_id),
+      FOREIGN KEY(organization_id, project_id, observation_id)
+        REFERENCES ambient_observations(organization_id, project_id, observation_id)
+        ON DELETE RESTRICT
+    );
+    CREATE TABLE IF NOT EXISTS ambient_observation_events (
+      organization_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      observation_id TEXT NOT NULL,
+      event_kind TEXT NOT NULL CHECK(event_kind IN ('INGEST','FORGET')),
+      event_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(organization_id, project_id, event_id),
+      FOREIGN KEY(organization_id, project_id, observation_id)
+        REFERENCES ambient_observations(organization_id, project_id, observation_id)
+        ON DELETE RESTRICT
+    );
     CREATE TRIGGER IF NOT EXISTS ambient_responsibility_identity_immutable
       BEFORE UPDATE OF organization_id, project_id, responsibility_id, owner_agent_id,
         created_at ON ambient_responsibilities
@@ -48,6 +89,26 @@ async function migrateAmbientAgency(db) {
     CREATE TRIGGER IF NOT EXISTS ambient_responsibility_version_no_delete
       BEFORE DELETE ON ambient_responsibility_versions
       BEGIN SELECT RAISE(ABORT, 'Ambient responsibility versions are durable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_observation_no_update
+      BEFORE UPDATE ON ambient_observations
+      BEGIN SELECT RAISE(ABORT, 'Ambient observation provenance is immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_observation_no_delete
+      BEFORE DELETE ON ambient_observations
+      BEGIN SELECT RAISE(ABORT, 'Ambient observation provenance is durable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_payload_forget_only
+      BEFORE UPDATE ON ambient_observation_payloads
+      WHEN OLD.minimized_json IS NULL OR NEW.minimized_json IS NOT NULL
+        OR OLD.forgotten_at IS NOT NULL OR NEW.forgotten_at IS NULL
+      BEGIN SELECT RAISE(ABORT, 'Ambient payload can only be forgotten once'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_payload_no_delete
+      BEFORE DELETE ON ambient_observation_payloads
+      BEGIN SELECT RAISE(ABORT, 'Ambient payload tombstones are durable'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_observation_event_no_update
+      BEFORE UPDATE ON ambient_observation_events
+      BEGIN SELECT RAISE(ABORT, 'Ambient observation events are append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS ambient_observation_event_no_delete
+      BEFORE DELETE ON ambient_observation_events
+      BEGIN SELECT RAISE(ABORT, 'Ambient observation events are durable'); END;
   `);
 }
 

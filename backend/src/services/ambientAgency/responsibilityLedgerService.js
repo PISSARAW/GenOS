@@ -47,8 +47,35 @@ function versionContent(input, version, status) {
     externalTrajectoryRef: required(payload.externalTrajectoryRef, 'AMBIENT_TRAJECTORY_REQUIRED'),
     purpose: required(payload.purpose, 'AMBIENT_PURPOSE_REQUIRED'),
     policy: validatePolicy(payload.policy), version, status,
+    revocationRef: status === 'REVOKED'
+      ? required(payload.revocationRef, 'AMBIENT_REVOCATION_REQUIRED') : null,
     recordedAt: required(payload.recordedAt, 'AMBIENT_RECORDED_AT_REQUIRED')
   };
+}
+
+async function revokeInTransaction(db, input) {
+  const scope = tenant(input);
+  const id = required(input.payload?.responsibilityId, 'AMBIENT_RESPONSIBILITY_REQUIRED');
+  const head = await headRow(db, scope, id);
+  if (!head) throw coded('AMBIENT_RESPONSIBILITY_NOT_FOUND', 'Responsibility was not found.');
+  if (head.status === 'REVOKED') return parsedVersion(await versionRow(db, scope, id, head.current_version));
+  if (input.expectedVersion !== head.current_version) {
+    throw coded('AMBIENT_RESPONSIBILITY_VERSION_CONFLICT', 'Responsibility head changed.');
+  }
+  const previous = parsedVersion(await versionRow(db, scope, id, head.current_version));
+  const content = versionContent({ payload: { ...previous, ...input.payload,
+    ownerAgentId: previous.ownerAgentId } }, head.current_version + 1, 'REVOKED');
+  const contentHash = hash(content);
+  await db.run(`INSERT INTO ambient_responsibility_versions
+    (organization_id,project_id,responsibility_id,version,previous_hash,content_hash,
+     content_json,change_kind) VALUES (?,?,?,?,?,?,?,'REVOKE')`, scope.organizationId,
+  scope.projectId, id, content.version, head.current_hash, contentHash, canonicalJson(content));
+  const updated = await db.run(`UPDATE ambient_responsibilities SET current_version=?,
+    current_hash=?,status='REVOKED',updated_at=CURRENT_TIMESTAMP WHERE organization_id=?
+    AND project_id=? AND responsibility_id=? AND current_version=? AND status='ACTIVE'`,
+  content.version, contentHash, scope.organizationId, scope.projectId, id, head.current_version);
+  if (updated.changes !== 1) throw coded('AMBIENT_RESPONSIBILITY_VERSION_CONFLICT', 'Responsibility head changed.');
+  return content;
 }
 
 async function ensure(db) {
@@ -102,9 +129,13 @@ async function create(db, input) {
 }
 
 async function current(db, input) {
+  await ensure(db);
+  return currentInTransaction(db, input);
+}
+
+async function currentInTransaction(db, input) {
   const scope = tenant(input);
   const responsibilityId = required(input.responsibilityId, 'AMBIENT_RESPONSIBILITY_REQUIRED');
-  await ensure(db);
   const head = await headRow(db, scope, responsibilityId);
   if (!head) throw coded('AMBIENT_RESPONSIBILITY_NOT_FOUND', 'Responsibility was not found.');
   const row = await versionRow(db, scope, responsibilityId, head.current_version);
@@ -155,4 +186,5 @@ async function history(db, input) {
 }
 
 module.exports = { ensure, create, current, amend, history, hash, tenant, coded,
-  versionContent, headRow, versionRow, parsedVersion };
+  versionContent, headRow, versionRow, parsedVersion, revokeInTransaction,
+  currentInTransaction };
