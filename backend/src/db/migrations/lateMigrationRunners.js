@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('148-metapopulation-cycle-idempotency', 'Fence metapopulation cycle execution with durable idempotency keys', async (db) => {
+    await require('./migrateMetapopulationCycleIdempotency').migrateMetapopulationCycleIdempotency(db);
+  }),
   createMigrationRunner('147-production-healing-evidence', 'Persist candidate measurements and independent healing verification receipts', async (db) => {
     await require('./migrateProductionHealingEvidence').migrateProductionHealingEvidence(db);
   }),
