@@ -1,6 +1,7 @@
 # Documentation GenOS
 
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante et apprentissage d'épisode.
+- [ADR 0646 — Responsabilité ambiante versionnée et oubli révocable](adr/0646-responsabilite-ambiante-et-oublie-revocable.md) — observation multi-app minimisée, feedback sous preuve, arbitrage sans auto-action et révocation avec tombstones.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification et révision de croyance non promotable.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
