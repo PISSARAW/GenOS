@@ -1,8 +1,8 @@
 # GVX — développement vérifié des agents
 
 - **Statut** : Partiel
-- **Portée** : propositions, expériences, preuves, interoception, plasticité somatique, transmission et intégration aux outcomes AGOW.
-- **Dernière revue** : 2026-10-06
+- **Portée** : propositions, expériences, preuves, interoception, plasticité somatique, stewardship des compétences, transmission et intégration aux outcomes AGOW.
+- **Dernière revue** : 2026-10-19
 
 > **Règle de lecture.** « Implémenté » signifie qu'un contrat existe dans le dépôt ; cela ne prouve ni son efficacité empirique ni la complétude du cycle développemental. « Partiel » désigne une capacité dont l'adaptateur, la validation indépendante ou l'intégration métier manque encore. Les analogies biologiques restent des modèles de conception.
 
@@ -70,6 +70,7 @@ Les termes « somatique », « germinal », « compétence », « fitness » et 
 - **Monitoring longitudinal** : observer une application sur plusieurs fenêtres et contextes ; enregistrer la régression et interrompre sur rejet (**Implémenté** par le moniteur ; preuves d'indépendance statistique et réplication externe restent à établir).
 - **Transmission contrôlée** : placer un artefact en quarantaine et faire avancer un cycle d'essai, revue, assimilation et monitoring uniquement avec preuves vérifiées (**Partiel** — lifecycle présent ; évaluation métier du receveur et consolidation intergénérationnelle restent à réaliser).
 - **Pont AGOW–GVX** : utiliser des signaux rapportés pour orienter une hypothèse, sans leur accorder une autorité de preuve ou de plasticité (**Implémenté** pour le marquage `reported` et les reçus indépendants).
+- **Stewardship d'une compétence** : lier une version acquise à une responsabilité externe, mesurer ses réutilisations et son bénéfice projet, exiger un holdout dans un autre contexte et détecter sa régression (**Implémenté** — `gvxSkillStewardship.js`; la décision reste `NO_CHANGE` ou demande de revue externe).
 
 ## 5. Exemples de contrats
 
@@ -132,6 +133,7 @@ Le chemin standard AGOW orchestre hypothèse, essai, application, suivi et créd
 | Transformations | `gvxTransformation.js`, `gvxMutationProposer.js` — candidat versionné, parent, hypothèse, expériences sources, delta de compétences |
 | Graphe/curriculum | `gvxCompetenceGraph.js`, `gvxCompetenceCurriculum.js` — claims étayés par résultats et références de vérificateurs, prérequis, coût, autorité et étapes bornées |
 | Lacunes | `gvxLearningGapDetector.js` — signaux pondérés, confiance heuristique, propositions et autorité de tâche distincte |
+| Stewardship | `gvxSkillStewardship.js` — responsabilité externe persistante, provenance versionnée, réutilisation, bénéfice, holdout indépendant, rétention et décision fail-closed |
 | Expériences | `gvxExperimentProtocol.js`, `gvxExperimentalNursery.js` — bras, snapshot, contrôles, budget, mondes, registre de vérificateurs et lecteur d’artefacts |
 | Cycle standard | `gvxStandardLifecycleAdapters.js`, `gvxCycleExecution.js`, `gvxCycleJournal.js`, `gvxRuntimeLease.js` — profils AGOW, étapes durables, leases et reprise |
 | Mesures externes | `gvxExecutionProfiles.js`, `gvxExecutionEvaluator.js`, `gvxEvaluationWorld.js`, `gvxRuntimeStateVerification.js` — sources épinglées, processus distincts, mesures signées et état runtime recoupé |
@@ -157,6 +159,7 @@ Le cycle cible et son état courant sont les suivants :
 6. **Évaluer** le résultat. L'absence de coverage donne `blocked` ou `inconclusive`; les protocoles nursery, méta-politique et assessment somatique retournent explicitement `promotionAllowed: false`.
 7. **Appliquer éventuellement** après décision d'autorisation indépendante, avec hash parent, reçu runtime et token de rollback.
 8. **Surveiller** sur fenêtres/contextes distincts. Sur le chemin standard, une régression déclenche le rollback ; un suivi mature et vérifié permet ensuite le reçu signé et le crédit idempotent. Le transfert et la promotion germinale gardent leurs gates séparées.
+9. **Qualifier l'usage durable** d'une compétence par sa responsabilité externe, des contextes de réutilisation distincts, un bénéfice projet, un holdout scellé hors contexte et une mesure de rétention. Une régression recommande la quarantaine ; seule une autorité externe peut ouvrir la revue d'adoption, qui n'applique elle-même aucun changement.
 
 Les tests de contrats présents dans `backend/tests/` couvrent le ledger, le pont développemental, l'interoception, les transformations, le curriculum, les protocoles expérimentaux, la nursery, le monitoring, le transfert, AgentGit et la méta-politique. Leur existence ne remplace ni campagne holdout, ni réplication indépendante, ni benchmark comparatif.
 
@@ -182,6 +185,7 @@ Contrairement à une boucle d'auto-optimisation qui ajuste un score interne, GVX
 - **Scope explicite** : sans scope fourni par l'appelant, un signal de trajectoire n'est pas publié. Un scope fourni mais différent du workspace de l'agent est rejeté.
 - **Isolation bornée** : le profil standard sépare processus et répertoires et peut imposer un UID/GID distinct sous Linux. Le mode par défaut ne confine pas du code hostile ; une frontière forte exige les droits et le confinement OS de la plateforme. Le mode UID/GID échoue fermé sous Windows.
 - **L'autorité reste séparée** : aucun résultat expérimental ou statut de maturité ne vaut droit d'application, de transfert, de commit, de push ou de fusion.
+- **Stewardship non promoteur** : une qualification positive demande seulement une revue externe. Un holdout unique reste descriptif ; une preuve insuffisante, une régression ou un refus d'autorité produit `NO_CHANGE`.
 - **Rollback non absolu** : l'application exige une capacité runtime réversible ; une défaillance du rollback est tracée comme échec, pas présentée comme restauration réussie.
 - **Méta-développement sous garde** : `gvxMetaPolicyGate.js` protège explicitement autorité racine, sandbox, vérificateurs, évaluations cachées, signature du ledger, promotion, limites dures et politiques constitutionnelles.
 - **Non-objectifs actuels** : apprentissage autonome sans budget; auto-modification de ses propres vérificateurs; héritabilité biologique; promotion automatique; garantie causale déduite d'un seul protocole; revendication de supériorité sans mesures reproductibles.
