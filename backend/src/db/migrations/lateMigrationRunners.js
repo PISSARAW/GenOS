@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('147-ambient-agency-ledger', 'Persist versioned ambient responsibilities', async (db) => {
+    await require('./migrateAmbientAgency').migrateAmbientAgency(db);
+  }),
   createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
     await require('./migrateLineageMemory').migrateLineageMemory(db);
   }),
