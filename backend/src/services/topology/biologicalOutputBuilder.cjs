@@ -4,7 +4,7 @@ const { collectMechanisms, metapopulationComplete, isVerifiedResult, populationA
 const workerGarage = require('../workerGarageService.js');
 
 function workerCompleted(member) {
-  return member.status === 'completed';
+  return member.status === 'completed' && member.result?.status === 'completed';
 }
 
 function allWorkersCompleted(accepted, members, dispatchFailures) {
@@ -21,6 +21,12 @@ function buildMetapopulation(accepted, members) {
     status: complete ? 'completed' : 'partial',
     complete,
     migrationReviewStatus,
+    ...buildWorkerResults(accepted)
+  };
+}
+
+function buildWorkerResults(accepted) {
+  return {
     results: accepted.map((member) => member.result || null),
     answer: accepted.map((member) => `## ${member.role}\n${populationAnswer(member)}`).join('\n\n')
   };
@@ -29,7 +35,8 @@ function buildMetapopulation(accepted, members) {
 function buildBiologicalOutput(input) {
   const { context, mode, mission, members, accepted, topology } = input || {};
   const dispatchFailures = context.dispatchFailures || [];
-  const metapopulation = mode === 'metapopulation' ? buildMetapopulation(accepted, members) : {};
+  const workerResults = mode === 'metapopulation'
+    ? buildMetapopulation(accepted, members) : buildWorkerResults(accepted);
   const status = mode === 'metapopulation'
     ? (metapopulationComplete(accepted, members) ? 'completed' : 'partial')
     : (allWorkersCompleted(accepted, members, dispatchFailures) ? 'completed' : 'partial');
@@ -43,7 +50,7 @@ function buildBiologicalOutput(input) {
       mechanisms: collectMechanisms(members),
       ...topology,
       members: accepted,
-      ...metapopulation
+      ...workerResults
     }
   };
 }

@@ -10,8 +10,9 @@ const { buildNCEEnrichments } = require('./nceEnrichmentBuilder.cjs');
 const { composeBiologicalMode } = require('./biologicalModeComposer.cjs');
 const biologicalWorkerCompletion = require('../biologicalWorkerCompletionService.js');
 const { waitForMetapopulationWorkers } = require('./metapopulationWaiter.cjs');
-const syncytiumMissionCompletion = require('../syncytiumMissionCompletionService.js');
+const biologicalMissionCompletion = require('../biologicalMissionCompletionService.js');
 const { topologyDetails } = require('./topologyDetails.cjs');
+const workerResultReader = require('./workerResultReader.cjs');
 
 async function prepareBiologicalContext(db, context) {
   const parent = await ensureParent({ db, context });
@@ -35,7 +36,8 @@ async function dispatchAndValidate({ db, context, mode, parent, composition }) {
   const semanticValidation = mode === 'syncytium'
     ? await biologicalWorkerCompletion.validateSyncytiumResponses({ db, context, accepted,
       expectedCount: members.length, waitForWorkers: waitForMetapopulationWorkers })
-    : null;
+    : undefined;
+  await workerResultReader.readAll(db, accepted);
   return { members, accepted, semanticValidation };
 }
 
@@ -43,9 +45,10 @@ async function finalizeBiologicalOutput({ db, context, mode, mission, members, a
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
   out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
-  await syncytiumMissionCompletion.validateAndComplete({ db, sessionId: composition.sessionId,
-    output: out.biologicalMode, validation: semanticValidation, expectedCount: members.length });
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
+  await biologicalMissionCompletion.complete({ db, missionId: context.missionId, mode,
+    sessionId: composition.sessionId, output: out.biologicalMode,
+    validation: semanticValidation, expectedCount: members.length });
   process.stdout.write(JSON.stringify(out));
   return out;
 }

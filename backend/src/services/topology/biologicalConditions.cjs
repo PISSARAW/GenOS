@@ -1,8 +1,12 @@
 'use strict';
 
-function handleBiologicalCondition(mode, out) {
-  return (mode === 'syncytium' && !out.biologicalMode.complete)
-    || (out.biologicalMode.dispatchFailures || []).length > 0;
+function handleBiologicalCondition(_mode, out) {
+  const biologicalMode = out?.biologicalMode || {};
+  const members = Array.isArray(biologicalMode.members) ? biologicalMode.members : [];
+  const workersCompleted = members.length > 0
+    && members.every((member) => member.status === 'completed');
+  return biologicalMode.complete !== true || biologicalMode.status !== 'completed'
+    || !workersCompleted;
 }
 
 function handleBiologicalMission(context) {
