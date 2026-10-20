@@ -4,6 +4,7 @@ const { baseDossier } = require('./dossier');
 const stateReader = require('./metapopulationStateReader');
 const { digest } = require('../evidenceContractService');
 const verificationReceipts = require('../metapopulation/contracts/regionalVerificationReceiptContract');
+const regionalStateSeal = require('../metapopulation/runtime/regionalStateSeal');
 
 function assessment(status, reason) {
   return { status, ...(reason ? { reason } : {}) };
@@ -174,7 +175,7 @@ function proofAssessment(base) {
   return assessment('verified');
 }
 
-function oracleReceiptAssessment(base, state) {
+async function oracleReceiptAssessment(base, state, db) {
   const latest = state.cycles.at(-1);
   if (!latest) return assessment('partial', 'metapopulation_verified_cycle_missing');
   const event = cycleEvent(state, latest.cycle);
@@ -186,6 +187,14 @@ function oracleReceiptAssessment(base, state) {
     return assessment('partial', 'metapopulation_cycle_oracle_receipt_missing');
   }
   if (!checked.valid) return assessment('failed', 'metapopulation_cycle_oracle_receipt_invalid');
+  let currentSeal;
+  try { currentSeal = await regionalStateSeal.capture(db, state.sessionId); }
+  catch (_) { return assessment('partial', 'metapopulation_canonical_state_unavailable'); }
+  const receiptSeal = { revision: receipt.canonicalRevision,
+    hash: receipt.canonicalStateHash };
+  if (!regionalStateSeal.matchesCurrent(receiptSeal, currentSeal)) {
+    return assessment('failed', 'metapopulation_cycle_oracle_state_stale');
+  }
   const journalBound = event?.actor === receipt.producerId
     && event.payload_json?.verificationReceiptHash === receipt.receiptHash;
   return journalBound ? assessment('verified')
@@ -228,9 +237,10 @@ async function build(input = {}) {
     missionId: base.missionId, context: input.context });
   if (state.status === 'failed') return failed(base, state.reason, state);
   if (state.status !== 'read') return incomplete(base, state.reason);
+  const oracleCheck = await oracleReceiptAssessment(base, state, input.context.db);
   const checks = [lifecycleAssessment(state), demeAssessment(base, state),
     migrationAssessment(state), fitnessAssessment(base, state),
-    cycleAssessment(state), oracleReceiptAssessment(base, state), proofAssessment(base)];
+    cycleAssessment(state), oracleCheck, proofAssessment(base)];
   const issue = checks.find((check) => check.status !== 'verified');
   if (issue?.status === 'failed') return failed(base, issue.reason, state);
   if (issue) return incomplete(base, issue.reason);

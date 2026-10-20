@@ -1,7 +1,11 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'biome-cycle-completion-test-secret';
+
 const assert = require('node:assert/strict');
 const biome = require('../src/services/biomeCoordinationService');
+const goalOracle = require('../src/services/biome/contracts/goalVerificationReceipt');
+const { digest } = require('../src/services/evidenceContractService');
 
 const environment = { opportunities: [{
   id: 'logs', descriptor: 'Analyze observed logs', opportunityScore: 0.9,
@@ -46,13 +50,28 @@ async function stopAndProof() {
   assert.equal(results.at(-1).stopCondition, 'max_ticks_reached');
   assert.equal(runtime.state.goalVerification, undefined);
   assert.equal((await runtime.run({}, 2)).length, 0);
-  const goal = await biome.BiomeRuntime.create('Explicit goal verifier', { maxTicks: 10, variant: 'resource',
-    verifyGoal: async request => ({ sessionId: request.sessionId, tick: request.tick,
-      verified: true, evidenceRefs: ['test:independent-goal'] }) });
-  assert.equal((await goal.step()).stopCondition, 'goal_achieved');
+  const evidenceRefs = [digest('independent-goal')];
+  const verifyGoal = async request => ({ sessionId: request.sessionId,
+    tick: request.tick, verified: true, evidenceRefs,
+    oracleReceipt: goalOracle.issue({ ...request, evidenceRefs,
+      health: request.measurements.health, verified: true,
+      stopCondition: 'goal_achieved', status: 'completed' }) });
+  const goal = await biome.BiomeRuntime.create('Explicit goal verifier', {
+    maxTicks: 10, variant: 'resource', missionId: 'goal-mission',
+    producerId: 'goal-owner', verifyGoal });
+  assert.equal((await goal.step({ evidenceRefs })).stopCondition, 'goal_achieved');
   const forged = await biome.BiomeRuntime.create('Stale goal receipt', { maxTicks: 2, variant: 'resource',
     verifyGoal: async request => ({ sessionId: request.sessionId, tick: 0, verified: true, evidenceRefs: ['stale'] }) });
   assert.equal((await forged.step()).goalVerification.verified, false);
+  const unsigned = await biome.BiomeRuntime.create('Unsigned verifier callback', {
+    maxTicks: 2, variant: 'resource', missionId: 'unsigned-mission',
+    producerId: 'unsigned-owner', verifyGoal: async request => ({
+      sessionId: request.sessionId, tick: request.tick, verified: true,
+      evidenceRefs, oracleReceipt: { schema: goalOracle.SCHEMA,
+        missionId: request.missionId, producerId: request.producerId,
+        sessionId: request.sessionId, tick: request.tick,
+        evidenceRefs, verifierDigest: goalOracle.VERIFIER_DIGEST } }) });
+  assert.equal((await unsigned.step({ evidenceRefs })).goalVerification.verified, false);
   await assert.rejects(() => biome.BiomeRuntime.create('bad limit', { maxTicks: -1 }), { code: 'BIOME_TICK_LIMIT_INVALID' });
   const abort = new AbortController();
   abort.abort();

@@ -83,10 +83,10 @@ function terminalAssessment(base, state) {
   const runtime = ecology.ecologicalState.runtime;
   const goal = runtime.goalVerification;
   if (!goal) return assessment('partial', 'biome_goal_oracle_missing');
-  const stateIssue = goalStateAssessment(goal, state, runtime);
-  if (stateIssue) return stateIssue;
   const oracleIssue = independentGoalAssessment({ base, state, runtime, goal });
   if (oracleIssue) return oracleIssue;
+  const stateIssue = goalStateAssessment(goal, state, runtime);
+  if (stateIssue) return stateIssue;
   if (runtime.stopCondition !== 'goal_achieved' || ecology.status !== 'completed') {
     return assessment('failed', 'biome_terminal_state_inconsistent');
   }
@@ -105,9 +105,13 @@ function goalStateAssessment(goal, state, runtime) {
 
 function independentGoalAssessment(context) {
   const { base, state, runtime, goal } = context;
+  const ecology = state.state.ecology;
+  const measurements = runtime.history.at(-1)?.measurements || null;
   const oracle = goalOracle.assess(goal.oracleReceipt, { missionId: base.missionId,
     producerId: base.producerId, sessionId: state.sessionId, tick: runtime.tick,
-    evidenceRefs: availableEvidence(base) });
+    evidenceRefs: availableEvidence(base), measurements,
+    health: ecology.ecologicalState.health, verified: goal.verified,
+    stopCondition: runtime.stopCondition, status: ecology.status });
   if (oracle.verified) return null;
   const partial = ['biome_goal_oracle_receipt_missing',
     'biome_goal_oracle_evidence_missing'].includes(oracle.reason);
@@ -201,9 +205,9 @@ function oracleReceipt(base, state) {
   const goal = runtime.goalVerification;
   return { schema: 'genos.biome-completion-oracle/v1', missionId: base.missionId,
     sessionId: state.sessionId, revision: state.revision, tick: runtime.tick,
-    producerId: base.producerId, verifierId: goal.oracleReceipt.verifierId,
+    producerId: base.producerId, verifierDigest: goal.oracleReceipt.verifierDigest,
     goalVerificationHash: digest(goal),
-    goalOracleAttestation: goal.oracleReceipt.attestation,
+    goalOracleAttestation: goal.oracleReceipt.signedReceipt.signature,
     canonicalStateHash: digest(state.state), eventJournalHash: digest(state.events),
     workerRunIds: base.roster.evidenceProofs.map((proof) =>
       proof.content?.runId || proof.content?.executionRunId).filter(Boolean) };
@@ -223,7 +227,7 @@ function verifiedDossier(base, state) {
       { id: 'biome_event_journal_integrity', passed: true, revision: state.revision }
     ],
     oracle: { status: 'verified', independent: true,
-      verifierIds: [goal.oracleReceipt.verifierId], evidenceRefs: refs,
+      verifierIds: [goal.oracleReceipt.verifierDigest], evidenceRefs: refs,
       receipt, receiptHash: digest(receipt) } };
 }
 
