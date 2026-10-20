@@ -10,6 +10,7 @@ const constitution = require('../src/services/holobionte/host/hostConstitutionSe
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
 const mixed = require('../src/services/holobionte/transmission/mixedTransmissionService');
+const { admissionIsolation } = require('./helpers/holobiontIsolationProof');
 
 function contractFor(hostId, symbiontId, transmissionPolicy) {
   return {
@@ -73,12 +74,15 @@ async function testCoreAndPeriphery(db) {
   assert(result.child.candidateSymbionts.some((item) => item.id === 'context-parser' && item.status === 'TRIAL'));
   assert.strictEqual(result.transmissionHistory.length, 1);
   assert.strictEqual(result.transmissionHistory[0].symbiontId, 'context-parser');
+  const isolation = admissionIsolation('mixed-transmission-trial');
   const evaluated = await admission.evaluateTrial(db, {
     holobiontId: result.child.holobiontId, symbiontId: 'context-parser',
     expectedSessionRevision: result.child.revision, contributionScore: 0.85,
     contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'host-verifier', resultHash: 'sha256:context-parser-trial',
-      evidenceRefs: ['proof:review-proof:context-parser-trial'] }
+      evidenceRefs: ['proof:review-proof:context-parser-trial', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   assert.strictEqual(evaluated.decision, 'ADMITTED');
 }

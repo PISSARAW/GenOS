@@ -6,6 +6,9 @@ const store = require('../holobiontStore');
 const hostGate = require('../host/hostDecisionGateService');
 const immuneSystem = require('../../immuneSystem');
 
+const ADAPTER_PROVENANCE_SCHEMA = 'genos.holobiont-adapter-provenance/v1';
+const boundAdapterProofs = new WeakMap();
+
 function invalid(message, code = 'HOLOBIONT_EXECUTION_INVALID') {
   return Object.assign(new Error(message), { code });
 }
@@ -16,9 +19,54 @@ function resultHash(result) {
   return `sha256:${createHash('sha256').update(serialized).digest('hex')}`;
 }
 
+function hashText(value) {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function adapterId(adapter, role) {
+  const declared = typeof adapter.adapterId === 'string' ? adapter.adapterId.trim() : '';
+  return declared || adapter.name || role;
+}
+
+function createAdapterProof(adapter, role) {
+  const implementationHash = hashText(Function.prototype.toString.call(adapter));
+  const identity = { schema: ADAPTER_PROVENANCE_SCHEMA, role,
+    adapterId: adapterId(adapter, role), adapterVersion: adapter.adapterVersion || null,
+    implementationHash };
+  return { ...identity, proofHash: hashText(JSON.stringify(identity)) };
+}
+
+function adapterProof(adapter, role, code) {
+  if (typeof adapter !== 'function') throw invalid(`A functional ${role} adapter is required.`, code);
+  const bound = boundAdapterProofs.get(adapter);
+  if (bound && bound.role !== role) throw invalid('Adapter provenance role mismatch.', 'HOLOBIONT_ADAPTER_PROVENANCE_INVALID');
+  return bound || createAdapterProof(adapter, role);
+}
+
+function bindAdapter(adapter, proof) {
+  if (typeof adapter !== 'function' || !proof?.proofHash || !proof?.role) {
+    throw invalid('Adapter provenance binding is invalid.', 'HOLOBIONT_ADAPTER_PROVENANCE_INVALID');
+  }
+  boundAdapterProofs.set(adapter, structuredClone(proof));
+  return adapter;
+}
+
 function assertAdapters(input) {
-  if (typeof input.executeCapability !== 'function') throw invalid('A capability executor is required.', 'HOLOBIONT_EXECUTOR_REQUIRED');
-  if (typeof input.verifyCapability !== 'function') throw invalid('An independent capability verifier is required.', 'HOLOBIONT_VERIFIER_REQUIRED');
+  const executor = adapterProof(input.executeCapability, 'executor', 'HOLOBIONT_EXECUTOR_REQUIRED');
+  const verifier = adapterProof(input.verifyCapability, 'verifier', 'HOLOBIONT_VERIFIER_REQUIRED');
+  if (input.executeCapability === input.verifyCapability
+    || executor.implementationHash === verifier.implementationHash) {
+    throw invalid('Independent verifier must differ from the capability executor.', 'HOLOBIONT_VERIFIER_NOT_INDEPENDENT');
+  }
+  let trial = null;
+  if (input.trialCapabilityExecutor !== undefined) {
+    trial = adapterProof(input.trialCapabilityExecutor, 'trial', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
+  }
+  return { schema: ADAPTER_PROVENANCE_SCHEMA, executor, verifier, trial };
+}
+
+function provenanceRef(proof) {
+  return `${ADAPTER_PROVENANCE_SCHEMA}:${proof.role}:${proof.adapterId}:${proof.proofHash}`;
 }
 
 async function authorizeExecution(db, plan, input) {
@@ -82,6 +130,9 @@ function verifiedReceipt(receipt, context) {
 
 async function verifyOutput(output, context) {
   if (!output || output.selfVerified === true) throw invalid('Self-verified execution is forbidden.', 'HOLOBIONT_EVIDENCE_REQUIRED');
+  const adapters = assertAdapters(context.input);
+  const producer = context.executionAdapterRole === 'trial' ? adapters.trial : adapters.executor;
+  if (!producer) throw invalid('Trial adapter provenance is required.', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
   output = structuredClone(output);
   boundedConsumption(output, context);
   const usage = JSON.stringify(output.resourcesConsumed);
@@ -92,7 +143,11 @@ async function verifyOutput(output, context) {
     contract, signal: context.input.signal });
   if (resultHash(output.result) !== hash) throw invalid('Result changed during verification.', 'HOLOBIONT_RESULT_CHANGED');
   if (JSON.stringify(output.resourcesConsumed) !== usage) throw invalid('Usage changed during verification.', 'HOLOBIONT_USAGE_CHANGED');
-  return { ...output, verification: verifiedReceipt(receipt, { ...context, hash }) };
+  const verification = verifiedReceipt(receipt, { ...context, hash });
+  verification.evidenceRefs = [...new Set([...verification.evidenceRefs,
+    provenanceRef(producer), provenanceRef(adapters.verifier)])];
+  verification.adapterProvenance = { producer, verifier: adapters.verifier };
+  return { ...output, verification };
 }
 
 async function confirmContract(db, plan) {
@@ -119,4 +174,5 @@ async function authorizeOutput(db, context) {
   });
 }
 
-module.exports = { authorizeExecution, verifyOutput, authorizeOutput, confirmContract, resultHash, invalid };
+module.exports = { authorizeExecution, verifyOutput, authorizeOutput, confirmContract,
+  assertAdapters, bindAdapter, resultHash, invalid, ADAPTER_PROVENANCE_SCHEMA };

@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const { exampleIsolationProof, verifiedEvidence } = require('./isolation-proof.cjs');
 
 // Host : objectifs fixes, autorite finale sur la mission.
 const HOST_OBJECTIVES = [
@@ -78,22 +79,27 @@ function reviewProcedure(result) {
   }).map((check) => ({ check: check.id, evidence: check.evidence }));
 }
 
-function execution() {
-  return { result: SAFE_PROCEDURE,
+function execution(context = {}) {
+  const output = { result: SAFE_PROCEDURE,
     receiptId: randomUUID(), resourcesConsumed: { tokens: 2 },
     contributionScore: 1, contractCompliant: true, benefitScore: 1,
     evidenceQuality: 1, costScore: 0.1, riskScore: 0 };
+  if (context.adapterProvenance) output.isolationProof =
+    exampleIsolationProof(context.adapterProvenance, 'password-trial-example');
+  return output;
 }
 
 // Systeme immunitaire : verificateur independant du producteur.
-function verifyCapability({ result, resultHash }) {
+function verifyCapability({ result, resultHash, output }) {
   const flaws = reviewProcedure(result);
   if (flaws.length > 0) {
     return { status: 'REJECTED', resultHash, verifierId: 'password-immune-verifier',
-      evidenceRefs: flaws.map((flaw) => flaw.evidence), flaws: flaws.map((flaw) => flaw.check) };
+      evidenceRefs: verifiedEvidence(output, flaws.map((flaw) => flaw.evidence)),
+      flaws: flaws.map((flaw) => flaw.check) };
   }
   return { status: 'VERIFIED', resultHash, verifierId: 'password-immune-verifier',
-    evidenceRefs: ['immune-proof:secret-rotation-checklist', 'host-objective:secret-safety'] };
+    evidenceRefs: verifiedEvidence(output,
+      ['immune-proof:secret-rotation-checklist', 'host-objective:secret-safety']) };
 }
 
 function createMissionInput() {

@@ -60,10 +60,24 @@ async function run() {
     assert.strictEqual(result.status, 'VERIFIED');
     assert.strictEqual(result.symbiontId, 'resident-planner');
     assert.strictEqual(result.health.automaticActionApplied, false);
+    assert.strictEqual(result.holobiontId, session.holobiontId);
+    assert.strictEqual(result.sessionStatus, 'ACTIVE');
+    assert.strictEqual(result.sessionClosed, false);
     const gap = await runtime.runCycle(db, {
       holobiontId: session.holobiontId, capability: 'security-audit'
     }, dependencies);
     assert.strictEqual(gap.status, 'CAPABILITY_GAP');
+    assert.strictEqual(gap.holobiontId, session.holobiontId);
+    assert.strictEqual(gap.sessionRevision, result.sessionRevision);
+    assert.strictEqual(gap.sessionStatus, 'ACTIVE');
+    assert.strictEqual(gap.sessionClosed, false);
+    const rejected = await runtime.runCycle(db, {
+      holobiontId: session.holobiontId, capability: 'planning', missionId: 'runtime-mission'
+    }, { ...dependencies, executeCapability: async () => ({ accepted: false, reason: 'test-rejection' }) });
+    assert.strictEqual(rejected.status, 'EXECUTION_REJECTED');
+    assert.strictEqual(rejected.holobiontId, session.holobiontId);
+    assert.strictEqual(rejected.sessionStatus, 'ACTIVE');
+    assert.strictEqual(rejected.sessionClosed, false);
     const ignored = await controller.handleEvent(db, { eventType: 'UNKNOWN_EVENT', payload: {} }, dependencies);
     assert.strictEqual(ignored.handled, false);
   } finally {

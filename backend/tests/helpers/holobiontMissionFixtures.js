@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const service = require('../../src/services/holobionte/runtime/holobiontMissionService');
 const store = require('../../src/services/holobionte/holobiontStore');
+const { isolationProof, withIsolationEvidence } = require('./holobiontIsolationProof');
 
 function symbiont(id = 'calculator') {
   return { id, contract: { capabilitiesOffered: ['arithmetic'], resourcesRequested: { tokens: 20 },
@@ -14,9 +15,10 @@ function symbiont(id = 'calculator') {
     adaptationPolicy: {}, transmissionPolicy: 'NEVER_INHERIT', terminationConditions: ['mission-end'], dependencyCeiling: 0.3 } };
 }
 
-function trial() {
+function trial({ adapterProvenance }) {
   return { result: { sum: 6 }, contributionScore: 0.9, contractCompliant: true,
-    resourcesConsumed: { tokens: 1 }, riskScore: 0 };
+    resourcesConsumed: { tokens: 1 }, riskScore: 0,
+    isolationProof: isolationProof(adapterProvenance, 'fixture-mission-trial') };
 }
 
 function output() {
@@ -24,15 +26,16 @@ function output() {
     costScore: 0.1, riskScore: 0, resourcesConsumed: { tokens: 1 } };
 }
 
-function verify({ result, resultHash }) {
+function verify({ result, resultHash, output: candidateOutput }) {
   return { status: result.sum === 1 + 2 + 3 ? 'VERIFIED' : 'REJECTED',
-    resultHash, verifierId: 'independent-arithmetic-checker', evidenceRefs: [`math-proof:${resultHash}`] };
+    resultHash, verifierId: 'independent-arithmetic-checker',
+    evidenceRefs: withIsolationEvidence(candidateOutput, [`math-proof:${resultHash}`]) };
 }
 
 function mission(overrides = {}) {
   return { hostId: 'math-host', missionId: randomUUID(), capability: 'arithmetic',
     symbionts: [symbiont()], executeCapability: async () => output(),
-    trialCapabilityExecutor: async () => trial(), verifyCapability: verify,
+    trialCapabilityExecutor: async (context) => trial(context), verifyCapability: verify,
     allocation: { policy: { tokens: { basal: 1, preferred: 2, maximum: 5, burstAllowance: 0 } },
       available: { tokens: 10 } }, ...overrides };
 }

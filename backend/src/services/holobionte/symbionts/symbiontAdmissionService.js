@@ -4,8 +4,10 @@ const { randomUUID } = require('crypto');
 const store = require('../holobiontStore');
 const contracts = require('../contracts/symbiosisContractService');
 const immunePlane = require('../immune/holobiontImmunePlane');
+const { ADAPTER_PROVENANCE_SCHEMA } = require('../runtime/capabilityExecutionPolicy');
 
 const MINIMUM_TRIAL_CONTRIBUTION = 0.6;
+const ISOLATION_PROOF_SCHEMA = 'genos.holobiont-isolation-proof/v1';
 
 function admissionError(message, code = 'HOLOBIONT_ADMISSION_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -60,6 +62,46 @@ function trialScope(input, contract) {
   };
 }
 
+function isolationFailure() {
+  throw admissionError('A verifier-backed isolation proof from the trial adapter is required.',
+    'HOLOBIONT_ISOLATION_UNVERIFIED');
+}
+
+function validIsolationBoundaries(boundaries) {
+  if (!boundaries || typeof boundaries !== 'object' || Array.isArray(boundaries)) return false;
+  return boundaries.process === 'ISOLATED'
+    && ['EPHEMERAL', 'READ_ONLY'].includes(boundaries.workspace)
+    && ['DENIED', 'RESTRICTED'].includes(boundaries.network);
+}
+
+function validIsolationIdentity(proof) {
+  return proof?.schema === ISOLATION_PROOF_SCHEMA && proof.status === 'VERIFIED'
+    && Boolean(String(proof.isolationId || '').trim()) && Boolean(String(proof.mechanism || '').trim())
+    && Number.isFinite(Date.parse(proof.observedAt));
+}
+
+function isolationEvidenceBound(proof, verification) {
+  const evidenceRefs = proof?.evidenceRefs;
+  const verifiedRefs = new Set(verification.evidenceRefs);
+  return Array.isArray(evidenceRefs) && evidenceRefs.length > 0
+    && evidenceRefs.every((ref) => typeof ref === 'string' && ref.trim() && verifiedRefs.has(ref));
+}
+
+function isolationProvenanceBound(proof, verification) {
+  const producer = verification.adapterProvenance?.producer;
+  return producer?.schema === ADAPTER_PROVENANCE_SCHEMA && producer.role === 'trial'
+    && typeof producer.proofHash === 'string' && proof?.adapterProofHash === producer.proofHash;
+}
+
+function verifiedIsolationProof(input, verification) {
+  const proof = input.isolationProof;
+  if (!validIsolationIdentity(proof) || !validIsolationBoundaries(proof?.boundaries)
+    || !isolationProvenanceBound(proof, verification) || !isolationEvidenceBound(proof, verification)) {
+    isolationFailure();
+  }
+  return structuredClone(proof);
+}
+
 async function startAdmission(db, input = {}) {
   const session = await store.getSession(db, input.holobiontId);
   if (!session) throw admissionError('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
@@ -96,13 +138,15 @@ function trialReceipt(input, candidate, contract) {
   if (missingEvidence.length) {
     throw admissionError('Trial evidence does not cover the SymbiosisContract requirements.', 'HOLOBIONT_TRIAL_EVIDENCE_INCOMPLETE');
   }
+  const isolationProof = verifiedIsolationProof(input, verification);
   const receipt = {
     receiptId: randomUUID(), trialId: candidate.admissionTrial.trialId,
     contractId: candidate.contractId, contractRevision: candidate.contractRevision,
     capability: candidate.admissionTrial.capability, contributionScore: contribution,
     contractCompliant: input.contractCompliant === true,
     verifierId: requireText(verification.verifierId, 'verifierId'),
-    resultHash: requireText(verification.resultHash, 'resultHash'), evidenceRefs,
+    resultHash: requireText(verification.resultHash, 'resultHash'), evidenceRefs, isolationProof,
+    adapterProvenance: structuredClone(verification.adapterProvenance),
     evaluatedAt: new Date().toISOString(), actorId: input.actorId || null
   };
   return { receipt, contribution };
@@ -149,4 +193,4 @@ async function evaluateTrial(db, input = {}) {
   return { decision, receipt, sessionRevision: revision };
 }
 
-module.exports = { startAdmission, evaluateTrial, MINIMUM_TRIAL_CONTRIBUTION };
+module.exports = { startAdmission, evaluateTrial, MINIMUM_TRIAL_CONTRIBUTION, ISOLATION_PROOF_SCHEMA };

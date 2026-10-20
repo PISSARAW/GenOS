@@ -9,6 +9,7 @@ const store = require('../src/services/holobionte/holobiontStore');
 const constitution = require('../src/services/holobionte/host/hostConstitutionService');
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
+const { admissionIsolation } = require('./helpers/holobiontIsolationProof');
 
 async function setup(db) {
   await migrateHolobiontSessions(db);
@@ -52,17 +53,21 @@ async function testRestrictedTrialAndAdmission(db, holobiontId) {
   const session = await store.getSession(db, holobiontId);
   assert.strictEqual(session.candidateSymbionts[0].status, 'TRIAL');
   assert.strictEqual(session.candidateSymbionts[0].admissionTrial.capability, 'review');
+  const isolation = admissionIsolation('review-trial');
   const result = await admission.evaluateTrial(db, {
     holobiontId, symbiontId: 'candidate-admission', expectedSessionRevision: 4,
     contributionScore: 0.9, contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:review-result',
-      evidenceRefs: ['proof:citations:review-result'] }
+      evidenceRefs: ['proof:citations:review-result', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   assert.strictEqual(result.decision, 'ADMITTED');
   const restored = await store.getSession(db, holobiontId);
   assert.strictEqual(restored.residentSymbionts[0].id, 'candidate-admission');
   assert.strictEqual(restored.residentSymbionts[0].admissionReceipt.receiptId, result.receipt.receiptId);
   assert.strictEqual(restored.residentSymbionts[0].admissionReceipt.immuneReview.allowed, true);
+  assert.strictEqual(result.receipt.isolationProof.adapterProofHash, isolation.producer.proofHash);
 }
 
 async function testTrialRejectionAndBounds(db, holobiontId) {
@@ -96,11 +101,20 @@ async function testTrialRejectionAndBounds(db, holobiontId) {
     contributionScore: 0.1, contractCompliant: true,
     verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:empty', evidenceRefs: [] }
   }), { code: 'HOLOBIONT_TRIAL_EVIDENCE_REQUIRED' });
+  const isolation = admissionIsolation('weak-trial');
+  await assert.rejects(() => admission.evaluateTrial(db, {
+    holobiontId, symbiontId: 'candidate-weak', expectedSessionRevision: trial.revision,
+    contributionScore: 0.1, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:missing-isolation',
+      evidenceRefs: ['proof:citations:missing-isolation'], adapterProvenance: { producer: isolation.producer } }
+  }), { code: 'HOLOBIONT_ISOLATION_UNVERIFIED' });
   const rejected = await admission.evaluateTrial(db, {
     holobiontId, symbiontId: 'candidate-weak', expectedSessionRevision: trial.revision,
     contributionScore: 0.1, contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:no-useful-output',
-      evidenceRefs: ['proof:citations:no-useful-output'] }
+      evidenceRefs: ['proof:citations:no-useful-output', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   assert.strictEqual(rejected.decision, 'REJECTED');
   assert.strictEqual((await store.getSession(db, holobiontId)).candidateSymbionts.length, 0);

@@ -6,12 +6,35 @@ const dysbiosisDetector = require('../health/dysbiosisDetector');
 const measurements = require('../health/holobiontMeasurements');
 const classifier = require('../health/symbiontFailureClassifier');
 
+function asSignalObject(value, status) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return { value: value.value ?? value.measuredValue ?? value.score, status: value.status ?? status };
+  }
+  return { value, status };
+}
+
+function annotateSignals(signals, status) {
+  const result = {};
+  for (const [name, value] of Object.entries(signals || {})) {
+    result[name] = asSignalObject(value, status);
+  }
+  return result;
+}
+
 async function healthMeasurements(db, input) {
   const result = {};
   if (input.fitnessVector) result.fitnessVector = fitnessVectors.buildFitnessVector(input.fitnessVector);
-  const signals = input.dysbiosisSignals || await measurements.deriveDysbiosisSignals(db, input.holobiontId);
-  result.dysbiosis = dysbiosisDetector.detectDysbiosis(signals);
-  result.measurementSource = input.dysbiosisSignals ? 'supplied' : 'persisted-ledger';
+  const supplied = Boolean(input.dysbiosisSignals);
+  const rawSignals = supplied
+    ? input.dysbiosisSignals
+    : await measurements.deriveDysbiosisSignals(db, input.holobiontId);
+  const signals = annotateSignals(rawSignals, 'heuristic');
+  const thresholds = input.healthPolicy?.dysbiosisThresholds;
+  result.dysbiosis = dysbiosisDetector.detectDysbiosis(signals, thresholds);
+  result.measurementSource = supplied ? 'supplied' : 'persisted-ledger';
+  result.status = result.dysbiosis.measurementStatus;
+  result.measurementStatus = result.dysbiosis.measurementStatus;
+  result.promotionEligible = false;
   return result;
 }
 

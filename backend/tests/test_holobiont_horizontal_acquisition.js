@@ -9,6 +9,7 @@ const store = require('../src/services/holobionte/holobiontStore');
 const constitution = require('../src/services/holobionte/host/hostConstitutionService');
 const acquisition = require('../src/services/holobionte/transmission/horizontalAcquisitionService');
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
+const { admissionIsolation } = require('./helpers/holobiontIsolationProof');
 
 function contractFor(session, symbiontId) {
   return {
@@ -55,12 +56,15 @@ async function testAcquisitionTrialAndAdmission(db) {
   assert(transitions.indexOf('SYMBIONT_DISCOVERED') < transitions.indexOf('SYMBIONT_QUARANTINED'));
   assert(transitions.includes('HORIZONTAL_ACQUISITION'));
   assert(transitions.indexOf('SYMBIONT_QUARANTINED') < transitions.indexOf('HORIZONTAL_ACQUISITION'));
+  const isolation = admissionIsolation('horizontal-trial');
   const evaluated = await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'external-reviewer',
     expectedSessionRevision: trialSession.revision, contributionScore: 0.9,
     contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'host-reviewer', resultHash: 'sha256:review-trial',
-      evidenceRefs: ['proof:review-proof:successful-review-trial'] }
+      evidenceRefs: ['proof:review-proof:successful-review-trial', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   assert.strictEqual(evaluated.decision, 'ADMITTED');
 }

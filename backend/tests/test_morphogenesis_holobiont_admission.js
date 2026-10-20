@@ -5,6 +5,7 @@ const { compileExpression } = require('../src/services/morphogenesis/graph/morph
 const { topologyExpression } = require('../src/services/morphogenesis/expression');
 const { MorphologyRuntime } = require('../src/services/morphogenesis/runtime/morphologyRuntime');
 const { installTopologyPlugins } = require('../src/services/morphogenesis/runtime/topologyPlugins');
+const { isolationProof, withIsolationEvidence } = require('./helpers/holobiontIsolationProof');
 
 function runtime() {
   const instance = new MorphologyRuntime({ globalBudget: { tokens: 100 } });
@@ -29,10 +30,15 @@ function verifiedOutput() {
   };
 }
 
-function verifyCapability({ result, resultHash }) {
+function verifyCapability({ result, resultHash, output }) {
   assert.equal(result.review, 'checked');
   return { status: 'VERIFIED', resultHash, verifierId: 'independent-review-checker',
-    evidenceRefs: ['proof:review-architecture-proof:' + resultHash] };
+    evidenceRefs: withIsolationEvidence(output, ['proof:review-architecture-proof:' + resultHash]) };
+}
+
+function trialOutput(adapterProvenance, contributionScore, id) {
+  return { result: { review: 'checked' }, resourcesConsumed: { tokens: 1 }, contributionScore,
+    contractCompliant: true, isolationProof: isolationProof(adapterProvenance, id) };
 }
 
 let testDb;
@@ -46,9 +52,8 @@ async function main() {
     missionId: 'mission-trial-reject', capability: 'review-architecture', verifyCapability,
     allocation: { policy: { tokens: { basal: 1, preferred: 2, maximum: 5, burstAllowance: 0 } },
       available: { tokens: 10 } },
-    trialCapabilityExecutor: async () => ({ result: { review: 'checked' }, resourcesConsumed: { tokens: 1 }, contributionScore: 0.2, contractCompliant: true,
-      verification: { status: 'VERIFIED', verifierId: 'verifier.trial', resultHash: 'sha256:trial-low',
-        evidenceRefs: ['proof:review-architecture-proof:trial'] } }),
+    trialCapabilityExecutor: async ({ adapterProvenance }) =>
+      trialOutput(adapterProvenance, 0.2, 'morphogenesis-rejected-trial'),
     executeCapability: async () => { executions += 1; return verifiedOutput(); }
   });
   assert.equal(rejected.output.status, 'ADMISSION_REJECTED');
@@ -58,12 +63,10 @@ async function main() {
     missionId: 'mission-trial-pass', capability: 'review-architecture', verifyCapability,
     allocation: { policy: { tokens: { basal: 1, preferred: 2, maximum: 5, burstAllowance: 0 } },
       available: { tokens: 10 } },
-    trialCapabilityExecutor: async ({ sandbox, contract }) => {
+    trialCapabilityExecutor: async ({ sandbox, contract, adapterProvenance }) => {
       assert.equal(sandbox.maxCost.tokens, 4);
       assert.ok(sandbox.maxCost.tokens <= contract.maxCost.tokens);
-      return { result: { review: 'checked' }, resourcesConsumed: { tokens: 1 }, contributionScore: 0.9, contractCompliant: true,
-        verification: { status: 'VERIFIED', verifierId: 'verifier.trial', resultHash: 'sha256:trial-pass',
-          evidenceRefs: ['proof:review-architecture-proof:trial'] } };
+      return trialOutput(adapterProvenance, 0.9, 'morphogenesis-admitted-trial');
     },
     executeCapability: async () => { executions += 1; return verifiedOutput(); }
   });

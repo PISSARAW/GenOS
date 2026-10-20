@@ -25,11 +25,23 @@ async function successfulMission() {
     assert.equal(result.status, 'VERIFIED');
     assert.equal(result.stopped, true);
     assert.equal(result.lifecycle.disposition, 'CLOSED');
+    assert.equal(result.sessionStatus, 'CLOSED');
+    assert.equal(result.sessionClosed, true);
     assert.equal(result.usage.tokens, 2, 'trial consumption is part of the budget');
     const session = await store.getSession(db, result.holobiontId);
+    assert.equal(result.sessionRevision, session.revision);
+    assert.ok(result.completed.every((cycle) => cycle.sessionClosed === false));
     assert.deepEqual(session.resourceState.allocations, {});
     assert.equal(await ledgerSize(db, result.holobiontId), 1);
     assert.equal(result.completed[0].execution.hostDecision.allowed, true);
+    assert.equal(result.adapterProvenance.schema, 'genos.holobiont-adapter-provenance/v1');
+    assert.equal(result.adapterProvenance.executor.role, 'executor');
+    assert.equal(result.adapterProvenance.verifier.role, 'verifier');
+    assert.equal(result.adapterProvenance.trial.role, 'trial');
+    const evidenceRefs = result.completed[0].execution.contribution.evidenceRefs;
+    assert.ok(evidenceRefs.some((ref) => ref.includes('adapter-provenance/v1:executor:')));
+    assert.ok(evidenceRefs.some((ref) => ref.includes('adapter-provenance/v1:verifier:')));
+    assert.ok(result.admissions[0].receipt.evidenceRefs.some((ref) => ref.includes('adapter-provenance/v1:trial:')));
     assert.equal(result.completed[0].health.measurementSource, 'persisted-ledger');
     await assert.rejects(() => runtime.runCycle(db, { holobiontId: session.holobiontId, capability: 'arithmetic' }), { code: 'HOLOBIONT_SESSION_INACTIVE' });
   } finally { await db.close(); }
@@ -129,7 +141,12 @@ async function persistentReuse() {
     const second = await service.runHolobiontMission(db, mission({ persistentHost: true,
       trialCapabilityExecutor: () => { throw new Error('resident should be reused'); } }));
     assert.equal(first.lifecycle.disposition, 'QUIESCENT');
+    assert.equal(first.sessionStatus, 'QUIESCENT');
+    assert.equal(first.sessionClosed, false);
     assert.equal(second.status, 'VERIFIED');
+    assert.equal(second.lifecycle.disposition, 'QUIESCENT');
+    assert.equal(second.sessionStatus, 'QUIESCENT');
+    assert.equal(second.sessionClosed, false);
     assert.equal(second.hostReused, true);
     assert.equal(second.holobiontId, first.holobiontId);
     assert.equal(await ledgerSize(db, first.holobiontId), 2);

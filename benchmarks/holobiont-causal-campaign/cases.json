@@ -1,0 +1,23 @@
+{
+  "schema": "genos.holobiont-causal-cases/v1",
+  "cases": [
+    {
+      "id": "positive-integers",
+      "operation": "bounded-sum",
+      "values": [1, 2, 3, 4],
+      "expected": 10
+    },
+    {
+      "id": "signed-integers",
+      "operation": "bounded-sum",
+      "values": [-8, 3, 12, -2],
+      "expected": 5
+    },
+    {
+      "id": "empty-input",
+      "operation": "bounded-sum",
+      "values": [],
+      "expected": 0
+    }
+  ]
+}

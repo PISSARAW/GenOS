@@ -13,6 +13,7 @@ const contracts = require('../src/services/holobionte/contracts/symbiosisContrac
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
 const resources = require('../src/services/holobionte/resources/symbioticResourceService');
 const contribution = require('../src/services/holobionte/fitness/symbiontContributionService');
+const { admissionIsolation } = require('./helpers/holobiontIsolationProof');
 
 async function setup(db) {
   await migrateHolobiontSessions(db);
@@ -45,11 +46,14 @@ async function setup(db) {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', capability: 'analyze',
     expectedSessionRevision: 3
   });
+  const isolation = admissionIsolation('resource-trial');
   await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', expectedSessionRevision: 4,
     contributionScore: 0.8, contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'resource-verifier', resultHash: 'sha256:admission',
-      evidenceRefs: ['proof:result:admission'] }
+      evidenceRefs: ['proof:result:admission', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   await contribution.recordContribution(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', capability: 'analyze',

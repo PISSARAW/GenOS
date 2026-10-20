@@ -88,18 +88,22 @@ async function admitMissionSymbiont(db, input, symbiont) {
   const resident = session.residentSymbionts.find((item) => item.id === symbiont.id);
   if (resident) return { decision: resident.status === 'RESIDENT' ? 'REUSED' : 'UNAVAILABLE', symbiontId: resident.id };
   if (typeof input.trialCapabilityExecutor !== 'function') throw policy.invalid('An isolated trial executor is required.', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
+  const adapterProvenance = policy.assertAdapters(input).trial;
   const plan = await trialContext(db, { session, symbiont, input });
   const sandbox = boundedTrial(plan.resident.admissionTrial, input);
   const invocation = structuredClone({ capability: plan.capability,
-    candidate: plan.resident, contract: plan.contract, sandbox, session: plan.session });
+    candidate: plan.resident, contract: plan.contract, sandbox, session: plan.session,
+    adapterProvenance });
   const raw = await input.trialCapabilityExecutor({ ...invocation, signal: input.signal });
   input.signal?.throwIfAborted();
-  const output = await policy.verifyOutput(raw, { plan, input, allocation: { resources: sandbox.maxCost } });
+  const output = await policy.verifyOutput(raw, { plan, input,
+    allocation: { resources: sandbox.maxCost }, executionAdapterRole: 'trial' });
   input.signal?.throwIfAborted();
   const verdict = await policy.authorizeOutput(db, { plan, output: { ...output, receiptId: sandbox.trialId }, input });
   const result = await admission.evaluateTrial(db, { holobiontId: session.holobiontId,
     expectedSessionRevision: plan.session.revision, symbiontId: symbiont.id,
     contributionScore: output.contributionScore, verification: output.verification,
+    isolationProof: output.isolationProof,
     contractCompliant: output.contractCompliant === true, unsafeBehavior: output.unsafeBehavior === true || verdict.allowed !== true,
     riskScore: output.riskScore, actorId: input.actorId });
   return { ...result, resourcesConsumed: output.resourcesConsumed };
@@ -131,12 +135,7 @@ function validateMissionStep(step, input) {
 }
 
 function validateMissionAdapters(input) {
-  if (typeof input.executeCapability !== 'function' || typeof input.verifyCapability !== 'function') {
-    throw policy.invalid('Mission executor and independent verifier are required.', 'HOLOBIONT_ADAPTERS_REQUIRED');
-  }
-  if (input.executeCapability === input.verifyCapability) {
-    throw policy.invalid('Independent verifier must differ from the mission executor.', 'HOLOBIONT_VERIFIER_NOT_INDEPENDENT');
-  }
+  return policy.assertAdapters(input);
 }
 
 function validateMissionSymbionts(input) {
@@ -161,15 +160,20 @@ function prepareMission(input) {
   const budget = limits.missionBudget(input);
   validateMissionSteps(steps, budget, input);
   validateMissionSymbionts(input);
-  validateMissionAdapters(input);
+  const adapterProvenance = validateMissionAdapters(input);
   const deadline = limits.missionDeadline(input, budget);
   return { steps, budget, deadline, input: { ...input, signal: deadline.signal,
-    executeCapability: limits.boundedAdapter(input.executeCapability, deadline.signal),
-    verifyCapability: limits.boundedAdapter(input.verifyCapability, deadline.signal),
-    trialCapabilityExecutor: limits.boundedAdapter(input.trialCapabilityExecutor, deadline.signal) } };
+    adapterProvenance,
+    executeCapability: policy.bindAdapter(limits.boundedAdapter(input.executeCapability, deadline.signal), adapterProvenance.executor),
+    verifyCapability: policy.bindAdapter(limits.boundedAdapter(input.verifyCapability, deadline.signal), adapterProvenance.verifier),
+    trialCapabilityExecutor: adapterProvenance.trial
+      ? policy.bindAdapter(limits.boundedAdapter(input.trialCapabilityExecutor, deadline.signal), adapterProvenance.trial) : undefined } };
 }
 
 function validateTrialExecutor(input) {
+  if (input.trialCapabilityExecutor !== undefined && typeof input.trialCapabilityExecutor !== 'function') {
+    throw policy.invalid('A functional isolated trial executor is required.', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
+  }
   if (!input.symbionts?.length || typeof input.trialCapabilityExecutor === 'function') return;
   throw policy.invalid('An isolated trial executor is required.', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
 }
@@ -210,15 +214,25 @@ async function runSteps(db, context) {
   return { status: 'VERIFIED', completed };
 }
 
+function missionReceipt(session, result) {
+  return { ...result, sessionRevision: session.revision,
+    sessionStatus: session.status, sessionClosed: session.status === 'CLOSED' };
+}
+
 async function finishMission(db, context, outcome) {
-  if (outcome.status !== 'VERIFIED') return { ...outcome, stopped: false };
+  if (outcome.status !== 'VERIFIED') {
+    const session = await store.getSession(db, context.input.holobiontId);
+    return missionReceipt(session, { ...outcome, stopped: false });
+  }
   context.input.signal.throwIfAborted();
   const session = await store.getSession(db, context.input.holobiontId);
   const lifecycle = await stop.stopHolobiont(db, { holobiontId: session.holobiontId,
     expectedSessionRevision: session.revision, missionId: context.input.missionId,
     missionCompleted: true, missionActive: false, allPromotedOutputsImmunePassed: true,
     unresolvedCriticalFailures: outcome.completed.filter((item) => ['COMPROMISED', 'PATHOBIOTIC'].includes(item.health?.failure?.failureClass)).length });
-  return { ...outcome, status: lifecycle.stopped ? outcome.status : 'STOP_BLOCKED', lifecycle, stopped: lifecycle.stopped };
+  const finalized = await store.getSession(db, session.holobiontId);
+  return missionReceipt(finalized, { ...outcome,
+    status: lifecycle.stopped ? outcome.status : 'STOP_BLOCKED', lifecycle, stopped: lifecycle.stopped });
 }
 
 function preflightHolobiontMission(input = {}) {
@@ -245,6 +259,7 @@ async function runHolobiontMission(db, input = {}) {
     return { schema: 'genos.holobiont-capability-mission/v1', missionId: input.missionId,
       holobiontId: opened.session.holobiontId, hostId: opened.session.hostId, hostReused: opened.reused,
       persistentHost: input.persistentHost === true, budget: context.budget,
+      adapterProvenance: context.input.adapterProvenance,
       admissions: admissions.receipts, usage: context.usage, ...result };
   } finally {
     context.deadline.close();

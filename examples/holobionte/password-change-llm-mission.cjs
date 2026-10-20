@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const { exampleIsolationProof, verifiedEvidence } = require('./isolation-proof.cjs');
 
 // Branchement LLM reel : deux modeles locaux DISTINCTS (independance immunitaire).
 // Specialiste (conception) : qwen2.5:14b. Immunite (revue) : llama3.1:8b.
@@ -216,12 +217,15 @@ async function designProcedure() {
   return { procedure, tokens: answer.promptTokens + answer.completionTokens };
 }
 
-async function execution() {
+async function execution(context = {}) {
   const { procedure, tokens } = await designProcedure();
-  return { result: procedure,
+  const output = { result: procedure,
     receiptId: randomUUID(), resourcesConsumed: { tokens },
     contributionScore: 1, contractCompliant: true, benefitScore: 1,
     evidenceQuality: 1, costScore: 0.1, riskScore: 0 };
+  if (context.adapterProvenance) output.isolationProof =
+    exampleIsolationProof(context.adapterProvenance, 'password-llm-trial-example');
+  return output;
 }
 
 async function immuneVerdict(procedure) {
@@ -250,7 +254,7 @@ function groundedFlaws(flaws, procedureText) {
 }
 
 // Immunite a deux etages : le LLM independant PUIS la checklist deterministe. Les deux doivent passer.
-async function verifyCapability({ result, resultHash }) {
+async function verifyCapability({ result, resultHash, output }) {
   const review = await immuneVerdict(result);
   const procedureText = JSON.stringify(result);
   const grounded = groundedFlaws(review.flaws, procedureText);
@@ -261,11 +265,13 @@ async function verifyCapability({ result, resultHash }) {
   const verdictRef = `immune-llm:verdict-${review.verdict}:${IMMUNE_MODEL}${review.salvaged ? '+salvaged' : ''}`;
   if (flaws.length > 0) {
     return { status: 'REJECTED', resultHash, verifierId: 'password-llm-immune-verifier',
-      evidenceRefs: [verdictRef, ...deterministic.map((flaw) => flaw.evidence)], flaws };
+      evidenceRefs: verifiedEvidence(output,
+        [verdictRef, ...deterministic.map((flaw) => flaw.evidence)]), flaws };
   }
   const refs = [verdictRef, 'immune-proof:secret-rotation-checklist', 'host-objective:secret-safety'];
   if (ungrounded > 0) refs.push(`immune-llm:ungrounded-flags-discarded:${ungrounded}`);
-  return { status: 'VERIFIED', resultHash, verifierId: 'password-llm-immune-verifier', evidenceRefs: refs };
+  return { status: 'VERIFIED', resultHash, verifierId: 'password-llm-immune-verifier',
+    evidenceRefs: verifiedEvidence(output, refs) };
 }
 
 function createMissionInput() {

@@ -12,6 +12,7 @@ const constitution = require('../src/services/holobionte/host/hostConstitutionSe
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
 const ledger = require('../src/services/holobionte/fitness/symbiontContributionService');
+const { admissionIsolation } = require('./helpers/holobiontIsolationProof');
 
 async function setup(db) {
   await migrateHolobiontSessions(db);
@@ -42,11 +43,14 @@ async function setup(db) {
     holobiontId: session.holobiontId, symbiontId: 'sym-ledger', capability: 'analyze',
     expectedSessionRevision: 3
   });
+  const isolation = admissionIsolation('ledger-trial');
   await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-ledger', expectedSessionRevision: 4,
     contributionScore: 0.8, contractCompliant: true,
+    isolationProof: isolation.isolationProof,
     verification: { status: 'VERIFIED', verifierId: 'ledger-verifier', resultHash: 'sha256:ledger-trial',
-      evidenceRefs: ['result:result:trial'] }
+      evidenceRefs: ['result:result:trial', isolation.evidenceRef],
+      adapterProvenance: { producer: isolation.producer } }
   });
   return session.holobiontId;
 }
