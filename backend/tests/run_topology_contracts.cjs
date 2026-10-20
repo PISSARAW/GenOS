@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const processRunner = require('./helpers/suiteProcessRunner.cjs');
+const evidenceBundle = require('./helpers/qualificationEvidenceBundle.cjs');
 
 const backendRoot = path.resolve(__dirname, '..');
 const DEFAULT_SUITE_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -72,6 +73,11 @@ function execute(check, context = {}) {
     const label = command.join(' ');
     context.stdout.write(`[START] ${label}\n`);
     const outcome = runScript(command, context);
+    if (context.evidence) {
+      evidenceBundle.recordCommand(context.evidence, {
+        testId: `${check.id}:${label}`, command: [process.execPath, ...command], outcome
+      });
+    }
     processRunner.writeCapturedOutput(outcome, context);
     context.stdout.write(`${processRunner.formatOutcome(label, outcome)}\n`);
     if (outcome.status !== 'PASS') {
@@ -101,6 +107,19 @@ function runChecks(checks, context) {
   return checks.map((check) => execute(check, context)).filter(Boolean);
 }
 
+function runSelection(args) {
+  const topologies = selectedTopologies(args);
+  const includeBoundaries = !args.some((item) => item.startsWith('--topology='));
+  return { topologies, includeBoundaries,
+    checks: includeBoundaries ? [...topologies, ...boundaryChecks] : topologies };
+}
+
+function plannedTests(selection) {
+  return selection.checks.flatMap((check) => check.scripts.map((command) => ({
+    id: `${check.id}:${command.join(' ')}`, groupId: check.id, command: command.join(' ')
+  })));
+}
+
 function createContext(options = {}, startedAt) {
   const env = options.env || process.env;
   const stdout = options.stdout || process.stdout;
@@ -108,6 +127,7 @@ function createContext(options = {}, startedAt) {
   const now = options.now || Date.now;
   const policyStart = startedAt === undefined ? now() : startedAt;
   return { env, stdout, stderr, now, dependencies: options.dependencies || {},
+    evidence: options.evidence,
     policy: options.policy || createPolicy(env, policyStart) };
 }
 
@@ -120,42 +140,59 @@ function reportRun(result, context) {
   }
   context.stdout.write(`Topology runner summary: failures=${result.failures.length} ` +
     `durationMs=${Math.max(0, context.now() - result.startedAt)}\n`);
+  context.stdout.write(`Evidence verdict: ${result.evidence.verdict} file=${result.evidencePath}\n`);
   context.stdout.write('Controlled contracts do not certify a live provider or production deployment.\n');
-  if (result.failures.length) {
+  if (result.evidence.verdict !== 'qualified') {
     context.stderr.write(`${JSON.stringify(result.failures, null, 2)}\n`);
     process.exitCode = 1;
   }
 }
 
-function executeRun(args, context, startedAt) {
-  const topologies = selectedTopologies(args);
-  const includeBoundaries = !args.some((item) => item.startsWith('--topology='));
+function executeRun(selection, context, startedAt) {
+  const { topologies, includeBoundaries } = selection;
   const topologyFailures = runChecks(topologies, context);
   const boundaryFailures = includeBoundaries ? runChecks(boundaryChecks, context) : [];
   const failures = [...topologyFailures, ...boundaryFailures];
   const result = { failures, topologyFailures, boundaryFailures,
     topologies, includeBoundaries, startedAt };
-  reportRun(result, context);
   return result;
+}
+
+function failedRun(error, startedAt) {
+  return { failures: [{ reason: error.message, errorCode: error.code || null }],
+    topologyFailures: [], boundaryFailures: [], topologies: [],
+    includeBoundaries: false, startedAt };
 }
 
 function main(args = process.argv.slice(2), options = {}) {
   if (args.includes('--list')) { printCatalog(options.stdout); return; }
   const now = options.now || Date.now;
   const startedAt = now();
+  const bundle = evidenceBundle.createBundle({ env: options.env || process.env, now,
+    repositoryRoot: path.resolve(backendRoot, '..'), dependencies: options.dependencies || {},
+    outputFile: options.evidenceFile, selection: { arguments: args } });
+  let runnerError = null;
+  let result;
   try {
-    return executeRun(args, createContext(options, startedAt), startedAt);
+    const selection = runSelection(args);
+    bundle.plannedTests = plannedTests(selection);
+    const context = createContext({ ...options, evidence: bundle }, startedAt);
+    result = executeRun(selection, context, startedAt);
   } catch (error) {
+    runnerError = error;
     const stderr = options.stderr || process.stderr;
     stderr.write(`[FAIL] Topology runner error=${error.message}\n`);
-    stderr.write('Topology runner summary: failures=1 durationMs=0\n');
-    process.exitCode = 1;
-    return { failures: [{ reason: error.message }], topologyFailures: [], boundaryFailures: [] };
+    result = failedRun(error, startedAt);
   }
+  result.evidence = evidenceBundle.finalizeBundle(bundle, { runnerError, now });
+  result.evidencePath = evidenceBundle.writeBundle(result.evidence, options.evidenceDependencies);
+  reportRun(result, createContext({ ...options, evidence: bundle }, startedAt));
+  return result;
 }
 
 if (require.main === module) main();
 
 module.exports = {
-  topologyChecks, boundaryChecks, createPolicy, selectedTopologies, runScript, execute, main
+  topologyChecks, boundaryChecks, createPolicy, selectedTopologies, runScript, execute, main,
+  plannedTests, runSelection
 };
