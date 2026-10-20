@@ -23,11 +23,14 @@ async function runCycle(db, input = {}, dependencies = {}) {
   const report = await assessHealth(db, healthInput);
   const healthReport = await governance.applyHealthAction(db, healthInput, report);
   const session = await store.getSession(db, plan.session.holobiontId);
+  // A run cycle verifies one capability; it intentionally leaves session
+  // lifecycle and quiescence management to the mission/host layer.
   return {
     status: 'VERIFIED', holobiontId: session.holobiontId,
     sessionRevision: session.revision, capability: plan.capability,
     symbiontId: plan.resident.id, execution, health: healthReport,
     transmissionState: session.transmissionState,
+    sessionClosed: false,
     lifecycleAction: healthReport.nextAction
   };
 }
