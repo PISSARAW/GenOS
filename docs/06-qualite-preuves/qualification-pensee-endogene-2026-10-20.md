@@ -1,7 +1,7 @@
 # Qualification fonctionnelle ETT — 2026-10-20
 
 - **Statut** : qualification fonctionnelle ciblée réussie ; qualification scientifique et production non acquises
-- **Code évalué** : commit `c025f8c9` (`[FEAT] Complete bounded ETT execution campaign`)
+- **Code évalué** : baseline `c025f8c9` (`[FEAT] Complete bounded ETT execution campaign`) et fermeture de réservation `a3fa95c3` (`[FIX] Fermer les reservations ETT invalides`)
 - **Portée** : cycles réels dans les fixtures, reprise SQLite, campagne synthétique et raccord résident fail-closed
 - **Date** : 2026-10-20
 
@@ -11,6 +11,8 @@ Ce rapport sépare quatre questions :
 2. reprend-elle après crash sans casser lignée, budget ou comptabilité ?
 3. la campagne publie-t-elle aussi ses échecs et ses cas sans gain ?
 4. le scheduler de production refuse-t-il une activation incomplète ?
+5. une croyance vérifiée complète est-elle récupérable par la mémoire ?
+6. un échec mémoire ou un résultat worker invalide évite-t-il tout succès fantôme ?
 
 Il ne répond pas à la question scientifique « la pensée endogène apporte-t-elle
 un gain sur le corpus réservé ? ». Cette campagne n'a pas été exécutée.
@@ -25,7 +27,7 @@ python scripts/ci/check_code_quality.py --strict
 python scripts/ci/check_adr_index.py
 ```
 
-Résultats observés :
+Résultats consignés pour la baseline :
 
 | Contrôle | Résultat |
 | --- | --- |
@@ -34,6 +36,22 @@ Résultats observés :
 | index ADR | `770 files, 770 rows, 0 problems` |
 | hook pré-commit | 9 fichiers source du commit, 0 violation nouvelle |
 | reçu du commit | 15 chemins déclarés et vérifiés |
+
+Revalidation du dossier ETT sur le checkout courant le 2026-10-20 :
+
+| Contrôle | Résultat |
+| --- | --- |
+| `npm --prefix backend run test:ett` | exit `0`, treize fichiers réussis |
+| `python scripts/ci/check_code_quality.py` | `7061 source files checked, 0 violations (0 new)` |
+| `python scripts/ci/check_adr_index.py` | `796 files, 796 rows, 0 problems` |
+| liens relatifs du dossier ETT | toutes les cibles de fichiers existent |
+| `npm run docs:inventory:check` | échec : inventaire technique généré absent ou obsolète par rapport aux changements parallèles du checkout |
+
+Le dernier point reste un gate documentaire global non vert. L'inventaire
+technique n'a pas été régénéré pendant cette qualification afin de ne pas
+écraser une modification concurrente déjà présente. Il ne remet pas en cause
+les assertions ETT ciblées, mais doit être résolu avant de déclarer le worktree
+globalement prêt à livrer.
 
 Des messages SQLite de tables vectorielles absentes ont été écrits pendant le
 test d'apprentissage ; le test a utilisé son repli prévu et s'est terminé avec
@@ -148,7 +166,44 @@ campagne scientifique. Le runner fourni emploie un verdict synthétique, une
 consommation nulle et les graines de développement. Les graines réservées
 `401`, `503`, `607` n'ont pas été ouvertes.
 
-## 5. Raccord résident
+## 5. Mémoire vérifiée et impact de recherche
+
+`test_endogenous_thought_learning.js` vérifie le chemin positif et sa
+contre-preuve :
+
+| Observation | Assertion exécutée |
+| --- | --- |
+| contenu | la ligne mémoire contient `genos.EndogenousVerifiedBelief/v1` |
+| croyance | l'hypothèse complète, la méthode et le falsificateur proviennent de la question scellée |
+| vérification | référence du reçu, oracle, vérificateur et preuves sont conservés |
+| provenance | organisation, projet, épisode, agent, run et question sont présents |
+| récupération | `searchMemory()` retrouve le `memoryId` dans la même portée |
+| durabilité | `supported` produit `modified: true`, `durable: true` |
+| contre-preuve | un `storeMemory()` simulé sans identifiant produit `modified: false`, `durable: false` et `ENDOGENOUS_MEMORY_NOT_PERSISTED` |
+
+Cette preuve ferme l'écart « étiquette seule » : le contenu indexé est le
+document de croyance. Elle ferme aussi l'écart « succès annoncé sans écriture ».
+Elle ne prouve pas qu'un raisonneur de production interroge automatiquement la
+mémoire avant chaque décision, ni que l'embedding de la fixture est sémantique.
+
+## 6. Réservation, reprise et mesure du worker
+
+`test_endogenous_thought_runner.js` couvre les propriétés suivantes :
+
+- la réservation est déjà `running` lorsque le callback commence ;
+- l'usage mensonger renvoyé par le worker est ignoré au profit du compteur
+  externe (`7` jetons, `0.01` USD, `2` secondes dans le scénario) ;
+- une interruption après le callback laisse la réservation `running`, puis la
+  reprise appelle `recover()` une fois sans réinvoquer le worker ;
+- un `AbortSignal` appelle `sandbox.cancel()` et persiste `cancelled` ;
+- une mesure hors budget persiste `failed` avec
+  `ENDOGENOUS_RUN_BUDGET_EXCEEDED` au lieu de laisser `running`.
+
+La preuve porte sur l'adaptateur de test et SQLite local. Elle n'établit pas
+l'arrêt physique d'un processus hostile, l'exactly-once d'un service distant,
+ni un failover concurrent entre plusieurs hôtes.
+
+## 7. Raccord résident
 
 `test_endogenous_thought_resident_scheduler.js` vérifie :
 
@@ -165,7 +220,7 @@ des cycles teste séparément la vraie boucle et ses reçus. Ensemble, ils prouv
 la disponibilité du chemin d'intégration et son défaut fermé, pas une activation
 production.
 
-## 6. Matrice de preuve
+## 8. Matrice de preuve
 
 | Claim borné | Preuve | Niveau atteint | Limite |
 | --- | --- | --- | --- |
@@ -174,15 +229,19 @@ production.
 | vérification indépendante | 3 reçus, clés distinctes | contrat/test | séparation organisationnelle future |
 | coûts mesurés | compteur injecté, sommes exactes | fonctionnel | pas de provider réel |
 | reprise sans double run | fermeture/réouverture SQLite | fonctionnel durable | pas de failover distribué |
+| réservation avant callback | état `running` observé dans le worker | fonctionnel durable | adaptateur local de test |
+| coûts indépendants du worker | usage mensonger ignoré | fonctionnel | compteur injecté |
+| mémoire de croyance complète | JSON canonique relu et recherché | fonctionnel durable | consommation automatique non prouvée |
+| absence de succès mémoire fantôme | store sans identifiant → impact faux | fonctionnel | pas d'outbox de réconciliation |
 | budgets et lignée conservés | assertions sur tous les reçus | fonctionnel durable | fixture locale |
 | échecs publiés | erreur injectée conservée | fonctionnel | pas de campagne réelle |
 | cas sans gain publiés | paire synthétique conservée | fonctionnel | indicateur non scientifique |
 | scheduler sûr par défaut | indisponible sans providers | fonctionnel | providers absents |
 | bénéfice scientifique | aucune | non acquis | corpus réservé non exécuté |
 
-## 7. Menaces à la validité
+## 9. Menaces à la validité
 
-### 7.1 Validité interne
+### 9.1 Validité interne
 
 - le solver et les oracles de campagne sont déterministes ;
 - les coûts du test sont fournis par un compteur injecté ;
@@ -192,7 +251,7 @@ production.
 Ces choix sont adaptés à la vérification de contrats, pas à l'estimation d'un
 effet cognitif.
 
-### 7.2 Validité externe
+### 9.2 Validité externe
 
 - aucun modèle distant ou local réel n'est qualifié ;
 - aucun incident de production n'est rejoué ;
@@ -200,14 +259,14 @@ effet cognitif.
 - aucune isolation hostile ou fuite réseau n'est testée ici ;
 - Windows local et SQLite ne représentent pas tous les déploiements.
 
-### 7.3 Validité statistique
+### 9.3 Validité statistique
 
 - aucune puissance n'est calculée ;
 - aucun intervalle de confiance ni test de significativité n'est produit ;
 - les résultats synthétiques n'alimentent pas la métrique primaire ;
 - les réplications holdout restent à exécuter.
 
-## 8. Gates avant une affirmation scientifique
+## 10. Gates avant une affirmation scientifique
 
 Une affirmation de gain exige au minimum :
 
@@ -225,7 +284,7 @@ Une affirmation de gain exige au minimum :
 Même après ces gates, ETT ne pourrait conclure qu'à une performance sur le
 protocole défini. Il ne démontrerait ni conscience, ni autonomie générale.
 
-## 9. Conclusion
+## 11. Conclusion
 
 Le commit évalué établit une chaîne ETT fonctionnelle, multicycle, reprenable et
 fail-closed. Il démontre la séparation des étapes, l'intégrité de lignée et la

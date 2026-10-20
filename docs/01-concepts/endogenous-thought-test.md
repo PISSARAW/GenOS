@@ -521,7 +521,8 @@ preuves attendues, verdict, oracle, attestation, provenance complète) en
 mémoire vectorielle : catégorie `Experience` si `supported`, `Failure` si
 `refuted`, `UnverifiedExperience` sinon, avec un poids synaptique durable
 seulement pour un verdict supporté. Un échec de stockage est explicite
-(`ENDOGENOUS_MEMORY_WRITE_FAILED`) et n'annule pas le reçu ; l'impact de
+(`ENDOGENOUS_MEMORY_NOT_PERSISTED`, code du store, ou repli
+`ENDOGENOUS_MEMORY_WRITE_FAILED`) et n'annule pas le reçu ; l'impact de
 recherche n'est annoncé que si un identifiant de mémoire non vide a été obtenu.
 La condition `memory_ablated` saute la projection ; `metacognition_ablated`
 saute tout l'apprentissage. Aucun de ces effets n'autorise continuation, action

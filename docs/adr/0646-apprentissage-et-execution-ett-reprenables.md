@@ -45,6 +45,12 @@ Une découverte supportée devient récupérable avec son contenu scientifique e
 provenance. Un échec de stockage reste visible et ne produit plus de faux impact
 de recherche. Les anciens reçus d'apprentissage restent lisibles.
 
+Le reçu d'apprentissage et la projection mémoire restent deux commits distincts.
+Un épisode peut donc être `LEARNED` avec `searchImpact.modified = false`. Un
+rejeu retente l'upsert déterministe de la croyance, mais aucun outbox ni daemon de
+réconciliation n'est introduit par cette décision. Cette limite doit être
+surveillée par l'intégration hôte.
+
 Le protocole ne promet pas une exécution exactement une fois face à un système
 externe arbitraire. Il fournit une réservation avant effet, une clé idempotente et
 une récupération explicite ; un adaptateur incapable de récupérer un effet ambigu
@@ -66,3 +72,11 @@ le contrat des workers injectés.
 - `node backend/tests/test_endogenous_thought_learning.js`
 - `node backend/tests/test_endogenous_thought_runner.js`
 - `python scripts/ci/check_code_quality.py`
+
+## Documentation opérationnelle
+
+- [Concept ETT](../01-concepts/endogenous-thought-test.md)
+- [Orchestration de la pensée endogène](../02-orchestration/pensee-endogene-bornee.md)
+- [Contrats runtime, mémoire et reprise](../03-reference/runtime-pensee-endogene.md)
+- [Guide d'exploitation](../04-exploitation/pensee-endogene.md)
+- [Qualification fonctionnelle du 2026-10-20](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md)

@@ -160,12 +160,139 @@ réexécute pas `execute()`. La récupération doit répondre
 | `EndogenousThoughtTaskBinding` | v1 | décision | worker non démarré |
 | `EndogenousThoughtRun` | v1 | binding/tâche | `completed_unverified` |
 | `EndogenousThoughtVerification` | v1 | run | vérificateur indépendant |
-| `EndogenousThoughtLearning` | v2 | vérification | local à l'épisode, mémoire production intacte |
+| `EndogenousThoughtLearning` | v2 | vérification | révision locale ; aucune attestation implicite de la projection mémoire |
 
 Les contrats sont scellés avec une représentation JSON canonique et une
 empreinte de contenu. La lecture refuse un type, une version, une signature ou
 une empreinte invalide. L'apprentissage lit encore les reçus v1 historiques,
 mais écrit uniquement v2.
+
+### 6.1 Projection de croyance vérifiée
+
+Après la persistance du reçu d'apprentissage et le passage à `LEARNED`, le
+service appelle `endogenousThoughtMemoryBridge.recordVerifiedBelief()` avec la
+même connexion SQLite. Le pont écrit dans `genome_decisions` le JSON canonique
+suivant :
+
+```json
+{
+  "schema": "genos.EndogenousVerifiedBelief/v1",
+  "beliefId": "ett_learning_…",
+  "verdict": "supported | refuted | inconclusive",
+  "revision": {
+    "operation": "reinforce | correct | defer",
+    "priorStatus": "unresolved",
+    "revisedStatus": "…",
+    "applied": true
+  },
+  "claim": {
+    "hypothesis": "…",
+    "method": "…",
+    "falsifier": "…",
+    "expectedEvidence": ["…"],
+    "sourceRefs": ["…"]
+  },
+  "verification": {
+    "verificationId": "ett_verification_…",
+    "verificationRef": "rcpt_…",
+    "verifierId": "…",
+    "oracleRef": "…",
+    "evidenceRefs": ["…"],
+    "verifiedAt": "…"
+  },
+  "provenance": {
+    "organizationId": "…",
+    "projectId": "…",
+    "episodeId": "…",
+    "agentId": "…",
+    "questionRef": "rcpt_…",
+    "runId": "ett_run_…",
+    "learnedAt": "…"
+  }
+}
+```
+
+Le contenu, et non une simple étiquette d'épisode, alimente l'embedding. Le
+scope organisation/projet est aussi porté par les colonnes de
+`genome_decisions`. L'identifiant par défaut vaut
+`mem_<sha256(scope, agent, contenu)>` : un rejeu identique converge vers la
+même ligne via `INSERT … ON CONFLICT DO UPDATE`. Un identifiant existant dans
+une autre portée provoque `MEMORY_SCOPE_CONFLICT`.
+
+| Verdict | Catégorie | Poids initial | `durable` | Révision |
+| --- | --- | ---: | --- | --- |
+| `supported` | `Experience` | `1.0` | `true` | renforcement provisoire |
+| `refuted` | `Failure` | `0.1` | `false` | correction dans la portée |
+| `inconclusive` | `UnverifiedExperience` | `0.1` | `false` | aucune révision appliquée |
+
+`searchImpact.modified` n'est vrai que si le pont confirme
+`productionMemoryMutated === true` **et** retourne un `memoryId` non vide.
+`searchImpact.durable` exige en plus un verdict `supported`. Une exception ou
+un identifiant nul donne une structure explicite avec `memoryId: null`,
+`productionMemoryMutated: false` et `errorCode`; le service ne fabrique pas de
+succès mémoire.
+
+La projection n'est pas dans la transaction du reçu d'apprentissage. Une panne
+peut donc laisser l'épisode `LEARNED` sans ligne mémoire. Le rejeu retente
+l'écriture de façon convergente. En revanche, aucun outbox ni worker de
+réconciliation périodique n'est actuellement fourni : l'intégration hôte doit
+surveiller `memory.errorCode` et provoquer une reprise autorisée.
+
+La recherche `vectorMemory.searchMemory()` peut retrouver le document complet,
+avec embedding sémantique si un provider est disponible ou repli lexical
+déterministe sinon. Cette récupération prouve que la découverte est disponible
+pour un raisonnement ultérieur. Elle ne prouve pas que chaque orchestrateur
+GenOS consulte automatiquement cette mémoire ; cette consommation reste une
+responsabilité explicite de l'appelant.
+
+### 6.2 Réservation d'exécution et frontière de reprise
+
+L'identifiant d'exécution est déterministe :
+
+```text
+ett_execution_<sha256(runId NUL requestHash)[0:24]>
+```
+
+La transaction `reserveRun()` consomme l'autorisation, passe la tâche de
+`blocked` à `doing`, crée le run Ontogenèse `running` et insère la réservation
+`reserved` **avant** l'appel au sandbox. La machine de la réservation est :
+
+```mermaid
+stateDiagram-v2
+    [*] --> reserved: transaction de réservation
+    reserved --> running: claim atomique
+    running --> completed: reçu + usage matérialisés
+    running --> failed: worker, mesure ou résultat invalide
+    running --> cancelled: AbortSignal + cancel()
+    running --> running: reprise ambiguë via recover()
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+Une réservation `running` indique que `execute()` a pu produire un effet sans
+que le reçu final soit durable. Le runtime appelle uniquement `recover()` avec
+le même `executionId`; il n'appelle jamais une seconde fois le worker. Sans
+résultat `{ status: 'completed', result }`, il retourne
+`ENDOGENOUS_RUN_RECOVERY_REQUIRED` et conserve l'ambiguïté pour intervention.
+
+Le callback ne fait pas autorité sur son coût. Après `execute()` ou `recover()`,
+`usageMeter.snapshot()` fournit la mesure acceptée. Les valeurs sont validées
+contre le budget avant matérialisation. Une proposition invalide ou une mesure
+hors budget ferme la réservation en `failed`, conserve le code d'erreur, marque
+le run Ontogenèse `failed` et rebloque la tâche.
+
+L'annulation n'est promise que si `signal` est accompagné de
+`sandbox.cancel()`. Le signal et la mesure sont mis en course avec l'abandon ;
+un abandon confirmé produit `cancelled`. Cette frontière évite une réussite
+fantôme, mais ne garantit pas l'annulation physique si l'adaptateur ment ou si
+le système externe ignore `cancel()`.
+
+Le protocole fournit un *at-most-once invocation* du callback à travers la
+reprise locale. Il ne garantit pas l'« exactly once » des effets arbitraires
+d'un système externe. Un adaptateur autorisé à produire de tels effets doit les
+rendre idempotents par `executionId` et offrir une récupération probante. La
+politique ETT courante interdit précisément réseau, mutation et action externe.
 
 ## 7. États et références
 
@@ -202,6 +329,7 @@ et le schéma normatif dans
 | `endogenous_thought_run_reservations` | exécution | état du side-effect, sandbox, usage, erreur | transitions contrôlées, jamais supprimée |
 | `endogenous_thought_verifications` | vérification | identité/key digest, verdict, preuve | immuable |
 | `endogenous_thought_learnings` | apprentissage | verdict, opération et application | immuable |
+| `genome_decisions` | mémoire dérivée | document de croyance canonique + embedding | upsert convergent par identifiant et portée |
 
 Les clés étrangères utilisent `ON DELETE RESTRICT`. Les triggers refusent les
 updates/deletes des artefacts de preuve. Les index de lecture sont tenant-scoped.
@@ -306,6 +434,9 @@ une promotion.
 | `ENDOGENOUS_RUN_RECOVERY_REQUIRED` | exécution ambiguë sans récupération probante | intervention opérateur, pas de rejeu |
 | `ENDOGENOUS_RUN_BUDGET_EXCEEDED` | mesure supérieure au budget | arrêter et conserver le reçu de coût |
 | `ENDOGENOUS_VERIFIER_NOT_INDEPENDENT` | identité/clé partagée | sélectionner un autre vérificateur |
+| `ENDOGENOUS_MEMORY_NOT_PERSISTED` | le store n'a retourné aucun identifiant | conserver l'apprentissage, retenter la projection |
+| `ENDOGENOUS_MEMORY_WRITE_FAILED` | projection mémoire en erreur sans code plus précis | diagnostiquer le store et ne pas annoncer d'impact |
+| `MEMORY_SCOPE_CONFLICT` | identifiant mémoire déjà lié à une autre portée | refuser et auditer organisation/projet |
 
 Les codes exacts restent définis par les services. Cette table regroupe les
 familles ; elle ne remplace pas la valeur `error.code` observée.
@@ -321,6 +452,8 @@ familles ; elle ne remplace pas la valeur `error.code` observée.
 | réservation/worker | `endogenousThoughtRunnerService.js` | `test_endogenous_thought_runner.js` |
 | vérification | `endogenousThoughtVerificationService.js` | `test_endogenous_thought_verification.js` |
 | apprentissage | `endogenousThoughtLearningService.js` | `test_endogenous_thought_learning.js` |
+| projection/recherche mémoire | `endogenousThoughtMemoryBridge.js`, `vectorMemoryService.js` | `test_endogenous_thought_learning.js` |
+| réservation/reprise/annulation | `endogenousThoughtRunExecutionService.js` | `test_endogenous_thought_runner.js` |
 | boucle/reprise | `endogenousThoughtLoopService.js` | `test_endogenous_thought_cycles.js` |
 | scheduler | `endogenousThoughtResidentSchedulerService.js` | `test_endogenous_thought_resident_scheduler.js` |
 | expérience | `endogenousThoughtExperimentService.js` | `test_endogenous_thought_experiment.js` |

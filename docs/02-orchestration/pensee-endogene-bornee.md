@@ -59,7 +59,7 @@ de transport, un texte produit ou un worker terminé ne valent jamais verdict.
 | `endogenousThoughtQueueService` | créer la tâche Ontogenèse `blocked` et son binding | démarrage d'un worker |
 | `endogenousThoughtRunnerService` | consommer l'autorisation, réserver, exécuter en sandbox et persister le run | validité de la proposition |
 | `endogenousThoughtVerificationService` | vérifier portée, signatures, indépendance et verdict | apprentissage ou promotion |
-| `endogenousThoughtLearningService` | appliquer une révision catégorielle à l'épisode | mutation de mémoire de production |
+| `endogenousThoughtLearningService` | appliquer une révision catégorielle et tenter la projection de la croyance vérifiée | succès de la projection mémoire, continuation ou promotion |
 | `endogenousThoughtContinuationService` | décider suivi, arrêt, échec et reprise | nouvelle autorité ou budget |
 | `endogenousThoughtFollowUpQuestionService` | dériver une question du résultat vérifié précédent | véracité de la nouvelle hypothèse |
 | `endogenousThoughtLoopService` | reprendre l'état courant et enchaîner jusqu'à la borne | découverte utile par elle-même |
@@ -149,6 +149,27 @@ contenu, le verdict et les preuves.
 Les verdicts sont `supported`, `refuted` ou `inconclusive`. Ils se projettent
 respectivement en `reinforce`, `correct` et `defer`. La révision est locale à
 l'épisode et ne rend jamais la proposition promotable.
+
+Le reçu d'apprentissage v2 et la projection mémoire sont deux effets distincts.
+Le reçu porte donc toujours `productionMemoryMutated: false` : il atteste la
+révision de l'épisode, pas l'écriture ultérieure dans `genome_decisions`. Après
+ce commit logique, le pont mémoire tente d'enregistrer le document canonique
+`genos.EndogenousVerifiedBelief/v1`. Le résultat de l'appel distingue alors :
+
+| Signal | Signification |
+| --- | --- |
+| `memory.productionMemoryMutated: true` | `storeMemory()` a retourné un identifiant non vide |
+| `searchImpact.modified: true` | la mémoire est réellement adressable par cet identifiant |
+| `searchImpact.durable: true` | la mémoire existe et le verdict est `supported` |
+| `memory.errorCode` | la révision est acquise, mais la projection a échoué |
+
+Une réfutation ou un résultat inconclusif correctement stocké modifie donc la
+surface de recherche (`modified: true`) sans devenir une vérité durable
+(`durable: false`). La condition `memory_ablated` ne tente aucune écriture.
+Une reprise peut retenter la projection à partir du même reçu d'apprentissage ;
+l'identifiant mémoire est dérivé du contenu et de la portée, ce qui rend cette
+écriture convergente. Cette convergence ne transforme pas les deux effets en
+transaction atomique.
 
 ### 3.5 Continuation
 
@@ -297,6 +318,12 @@ questions de suivi, les coûts cumulés et la reprise après réouverture SQLite
 Le test résident couvre l'indisponibilité par défaut et le chemin totalement
 injecté. La campagne de développement couvre les sept conditions et publie ses
 échecs et cas sans gain.
+
+Le test d'apprentissage vérifie séparément que le document complet est relu par
+la recherche vectorielle et qu'un stockage simulé en échec laisse
+`searchImpact.modified` et `searchImpact.durable` à `false`. Cela démontre une
+influence récupérable par la couche mémoire, pas encore sa consommation
+automatique par tous les raisonneurs GenOS.
 
 Ces résultats qualifient l'orchestration fonctionnelle, pas le bénéfice
 scientifique de la pensée autonome. Voir le
