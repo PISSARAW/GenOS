@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Dossier GQWF](01-concepts/gqwf.md) — modèle et invariants, [orchestration](02-orchestration/gqwf-v2.md), [référence runtime](03-reference/runtime-gqwf.md), [runbook opérateur](04-exploitation/gqwf.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-gqwf-2026-10-20.md).
+
 - [Dossier Holobionte](02-orchestration/topologies/holobionte.md) — modèle hôte-symbiotes, [référence runtime](03-reference/runtime-holobionte.md), [guide d'exploitation](04-exploitation/operer-runtime-holobionte.md), [campagne causale bornée](06-benchmarks/campagne-causale-holobionte.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-holobionte-2026-10-20.md).
 
 - [Dossier Metapopulation](02-orchestration/topologies/metapopulation.md) — modèle écologique, contrat régional, seize variants, [runbook opérateur](04-exploitation/runbook-metapopulation.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-metapopulation-2026-10-20.md).
@@ -165,6 +167,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [biologie-computationnelle.md](01-concepts/biologie-computationnelle.md) — biomimétique, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](01-concepts/genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [runtime-agentique.md](01-concepts/runtime-agentique.md) — runtime agentique, états, garde-fous.
+- [gqwf.md](01-concepts/gqwf.md) — racines adressées par contenu, vues privées, baux, catalogue CAS, invariants et limites de maturité.
 - [physique-computationnelle.md](01-concepts/physique-computationnelle.md) — acquisition bornée, coûts physiques des plans et profils appris persistants dans le runtime Rust.
 - [ontogenese.md](01-concepts/ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
 - [gvx.md](01-concepts/gvx.md) — développement vérifié : transformations, preuves, interoception, plasticité et transmission.
@@ -255,7 +258,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](02-orchestration/workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](02-orchestration/workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
-- [GQWF v2](02-orchestration/gqwf-v2.md) — racines et catalogue adressés par contenu, vues privées, réparation SQLite et matérialisation opt-in multi-runtime.
+- [GQWF v2](02-orchestration/gqwf-v2.md) — raccord d'orchestration des racines, vues, missions, workers, promotion, matérialisation et catalogue CAS.
 - [git-agents.md](02-orchestration/git-agents.md) — transposition de Git aux états d'agents.
 - [reproduction-et-replication.md](02-orchestration/reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 - [dossiers-agents-et-conscience.md](02-orchestration/dossiers-agents-et-conscience.md) — dossiers de preuves et conscience opérationnelle.
@@ -307,6 +310,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [runtime-pensee-endogene.md](03-reference/runtime-pensee-endogene.md) — API de services ETT, politiques, reçus, tables, erreurs, campagne et raccord résident.
 - [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [runtime-gqwf.md](03-reference/runtime-gqwf.md) — API Node, politiques, matérialiseurs, tables, protocoles et erreurs GQWF.
 - [runtime-syncytium.md](03-reference/runtime-syncytium.md) — contrats Node/MCP, causalité, réplicas et preuve de complétion.
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
@@ -337,6 +341,7 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 - [observabilite.md](04-exploitation/observabilite.md) — traces, diagnostics, logs, métriques, audit.
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
+- [gqwf.md](04-exploitation/gqwf.md) — exploitation, reprise des baux, maintenance du catalogue, réparation, collecte et rollback GQWF.
 - [runbook-metapopulation.md](04-exploitation/runbook-metapopulation.md) — diagnostic régional, reprise idempotente et snapshots quiescents.
 - [operer-runtime-holobionte.md](04-exploitation/operer-runtime-holobionte.md) — préflight, preuves, santé, clôture et diagnostic du runtime Holobionte.
 - [releases-et-rollouts.md](04-exploitation/releases-et-rollouts.md) — releases, rollouts, rollback et chargeback.
@@ -358,6 +363,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.
 
 ### 8. Qualité, preuves et positionnement
+- [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 17 suites réussies hors sandbox restrictive, capacités COW non exercées sur Windows et qualification Trinity encore refusée.
 - [qualification-pensee-endogene-2026-10-20.md](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, vérification indépendante, coûts, crash/reprise, ablations, résultats négatifs et non-claims.
 
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)

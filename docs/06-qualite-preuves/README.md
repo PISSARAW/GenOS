@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-gqwf-2026-10-20.md](qualification-gqwf-2026-10-20.md) — 17 suites GQWF réussies hors sandbox restrictive, matérialiseurs non disponibles explicités et qualification Trinity encore refusée par la clôture commune.
+
 - [qualification-metapopulation-2026-10-20.md](qualification-metapopulation-2026-10-20.md) — qualification datée du runtime régional, des variants, de la reprise et de l'idempotence, avec contre-preuves et limites.
 - [qualification-holobionte-2026-10-20.md](qualification-holobionte-2026-10-20.md) — adaptateurs, isolation, dysbiose, clôture et campagne causale bornée, sans promotion générale.
 
