@@ -37,7 +37,10 @@ async function loadGraph(db, sessionId) {
 }
 
 function parse(value) {
-  try { return JSON.parse(value); } catch (_) { return {}; }
+  try { return JSON.parse(value); } catch (error) {
+    console.error('[rhizomeStore] Failed to parse graph JSON:', error && error.message ? error.message : error);
+    return {};
+  }
 }
 
 async function deleteGraph(db, sessionId) {
@@ -46,4 +49,4 @@ async function deleteGraph(db, sessionId) {
   await db.run('DELETE FROM rhizome_edges WHERE session_id = ?', sessionId);
 }
 
-module.exports = { ensureGraphTables, replaceGraph, loadGraph, deleteGraph };
+module.exports = { ensureGraphTables, replaceGraph, loadGraph, deleteGraph, parse };

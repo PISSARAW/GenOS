@@ -30,7 +30,10 @@ function validatedResult(input) {
     if (!need.evidenceRequirements.every(ref => receipt.verification.evidenceRefs.includes(ref))) return null;
     if (!route.alternatives.some((candidate) => sameRoute(candidate, receipt))) return null;
     return entry;
-  } catch (_) { return null; }
+  } catch (error) {
+    console.error('[missionMetricsService] Receipt validation failed:', error && error.message ? error.message : error);
+    return null;
+  }
 }
 
 function sameRoute(candidate, receipt) {
@@ -82,4 +85,4 @@ function assess(session, input = {}) {
   return { ...snapshot, ...evaluation.decision, evaluation, reason: evaluation.decision.canMerge ? 'GATES_PASSED' : 'GATES_REJECTED' };
 }
 
-module.exports = { assess, DEFAULT_POLICY };
+module.exports = { assess, DEFAULT_POLICY, validatedResult };
