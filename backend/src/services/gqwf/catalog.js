@@ -4,11 +4,13 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { withTransaction } = require('../../db');
 const { parseManifest } = require('./manifest');
+const catalogMaintenance = require('./catalogMaintenance');
 const metadataStore = require('./metadataStore');
 const storage = require('./storage');
 
 const PROTOCOL = 'gqwf-catalog-v1';
 const REPAIR_PROTOCOL = 'gqwf-metadata-repair-v1';
+const HASH = /^[a-f0-9]{64}$/;
 const STATUSES = new Set(['preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined']);
 
 function canonicalJson(value) { return JSON.stringify(value); }
@@ -104,9 +106,12 @@ async function withCatalogMutation(db, input) {
 }
 
 async function checkpointMetadata(db, input) {
+  await catalogMaintenance.maintain(db, { workspaceId: input.workspaceId });
   const ref = await withTransaction(db, () => stageCatalog(db, input.workspaceId));
   await publishRef(db, ref);
-  return { checkpointed: true, revision: ref.revision, catalogHash: ref.catalogHash };
+  const maintenance = await catalogMaintenance.maintain(db, { workspaceId: input.workspaceId });
+  return { checkpointed: true, revision: ref.revision, catalogHash: ref.catalogHash,
+    maintenance };
 }
 
 function assertUnique(entries, key, label) {
@@ -155,9 +160,15 @@ function validateLease(workspacePath, entry, roots) {
   return entry;
 }
 
+function validPreviousLink(catalog) {
+  return catalog?.revision === 1
+    ? catalog.previousCatalogHash === null : HASH.test(catalog?.previousCatalogHash || '');
+}
+
 function validateCatalog(workspacePath, expected, catalog) {
   const valid = catalog?.protocol === PROTOCOL && catalog.workspaceId === expected.workspaceId
     && catalog.revision === expected.revision
+    && validPreviousLink(catalog)
     && Array.isArray(catalog.roots) && Array.isArray(catalog.heads)
     && Array.isArray(catalog.leases);
   if (!valid) throw new Error('GQWF metadata catalog binding is invalid.');
@@ -319,10 +330,15 @@ async function repairMetadata(db, input, options = {}) {
   });
 }
 
+async function maintainMetadataCatalog(db, input) {
+  return catalogMaintenance.maintain(db, { workspaceId: input.workspaceId });
+}
+
 module.exports = {
   checkpointMetadata,
   inspectMetadataRepair,
   latestCatalog,
+  maintainMetadataCatalog,
   repairMetadata,
   withCatalogMutation
 };

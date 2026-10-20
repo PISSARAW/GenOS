@@ -420,6 +420,28 @@ Voir l'[ADR 0643](../adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_metadata_repair.js`.
 
+### Maintenance bornée du catalogue
+
+La tranche 19 ajoute `gqwf-catalog-maintenance-v1`. Avant tout nouveau
+checkpoint, GQWF compare `gqwf_catalog_state` à la dernière ref publiée. Si le
+commit SQLite a survécu mais pas la publication, il remonte la chaîne
+`previousCatalogHash` dans le CAS, refuse toute rupture ou divergence, puis
+recrée idempotemment la ref manquante. `maintainMetadataCatalog` expose cette
+réconciliation sans produire une nouvelle révision.
+
+Après publication, GQWF conserve les 64 refs les plus récentes. L'élagage ne
+supprime jamais les objets de catalogue adressés par contenu : il borne le coût
+filesystem des pointeurs sans transformer la rétention en collecte destructive.
+Deux refs pour une même révision, une ref appartenant à un autre workspace, un
+état SQLite plus ancien que la ref ou un objet CAS altéré échouent fermé.
+
+La validation de cette chaîne n'est pas la validation de restauration des
+baux. Les matérialiseurs externes peuvent conserver leur chemin d'exécution ;
+la reconstruction SQLite continue, elle, d'exiger les chemins gérés et de
+mettre en quarantaine les baux non terminaux. Voir l'[ADR 0701](../adr/0701-maintenance-catalogue-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_catalog_maintenance.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
@@ -454,6 +476,7 @@ Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_worker_promotion.js`,
 `node backend/tests/test_gqwf_garbage_collection.js`,
 `node backend/tests/test_gqwf_metadata_repair.js`,
+`node backend/tests/test_gqwf_catalog_maintenance.js`,
 `node backend/tests/test_gqwf_canary_rollout.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et

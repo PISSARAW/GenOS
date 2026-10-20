@@ -90,7 +90,15 @@ async function writeRef(workspacePath, value) {
   await fs.mkdir(directory, { recursive: true });
   const target = path.join(directory, refName(value.revision, value.catalogHash));
   const serialized = JSON.stringify(value);
-  await fs.writeFile(target, serialized, { flag: 'wx' });
+  try {
+    await fs.writeFile(target, serialized, { flag: 'wx' });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    await privateFile(target);
+    if (await fs.readFile(target, 'utf8') !== serialized) {
+      throw new Error('GQWF metadata catalog ref collision or corruption.');
+    }
+  }
   return target;
 }
 
@@ -99,30 +107,75 @@ function parseRefName(name) {
   return match ? { revision: Number(match[1]), catalogHash: match[2] } : null;
 }
 
-async function latestRef(workspacePath) {
+async function readRef(directory, name, parsed) {
+  const target = path.join(directory, name);
+  await privateFile(target);
+  let stored;
+  try { stored = JSON.parse(await fs.readFile(target, 'utf8')); } catch (_) {
+    throw new Error('GQWF metadata catalog ref integrity check failed.');
+  }
+  if (stored.protocol !== 'gqwf-catalog-ref-v1'
+    || stored.revision !== parsed.revision || stored.catalogHash !== parsed.catalogHash) {
+    throw new Error('GQWF metadata catalog ref integrity check failed.');
+  }
+  return { ...stored, name, path: target };
+}
+
+async function listRefs(workspacePath) {
   const directory = refDirectory(workspacePath);
   let names;
   try {
     names = await fs.readdir(directory);
   } catch (error) {
-    if (error.code === 'ENOENT') return null;
+    if (error.code === 'ENOENT') return [];
     throw error;
   }
-  const refs = names.map(parseRefName).filter(Boolean)
-    .sort((left, right) => right.revision - left.revision
-      || right.catalogHash.localeCompare(left.catalogHash));
-  if (!refs.length) return null;
-  const highest = refs.filter((entry) => entry.revision === refs[0].revision);
-  if (highest.length !== 1) throw new Error('GQWF metadata catalog has a forked latest ref.');
-  const selected = highest[0];
-  const target = path.join(directory, refName(selected.revision, selected.catalogHash));
-  await privateFile(target);
-  const stored = JSON.parse(await fs.readFile(target, 'utf8'));
-  if (stored.protocol !== 'gqwf-catalog-ref-v1'
-    || stored.revision !== selected.revision || stored.catalogHash !== selected.catalogHash) {
-    throw new Error('GQWF metadata catalog ref integrity check failed.');
+  const candidates = names.map((name) => ({ name, parsed: parseRefName(name) }))
+    .filter((entry) => entry.parsed);
+  if (names.some((name) => name.endsWith('.ref') && !parseRefName(name))) {
+    throw new Error('GQWF metadata catalog contains a malformed ref name.');
   }
-  return stored;
+  const entries = await Promise.all(candidates.map((entry) =>
+    readRef(directory, entry.name, entry.parsed)));
+  entries.sort((left, right) => right.revision - left.revision
+    || right.catalogHash.localeCompare(left.catalogHash));
+  for (let index = 1; index < entries.length; index += 1) {
+    if (entries[index - 1].revision === entries[index].revision) {
+      throw new Error('GQWF metadata catalog has a forked ref revision.');
+    }
+  }
+  return entries;
 }
 
-module.exports = { digest, latestRef, objectPath, putObject, readObject, writeRef };
+async function latestRef(workspacePath) {
+  return (await listRefs(workspacePath))[0] || null;
+}
+
+async function pruneRefs(workspacePath, keepCount, knownRefs) {
+  if (!Number.isSafeInteger(keepCount) || keepCount < 2) {
+    throw new Error('GQWF metadata ref retention must keep at least two refs.');
+  }
+  const refs = knownRefs || await listRefs(workspacePath);
+  const pruned = refs.slice(keepCount);
+  for (const ref of pruned) {
+    const expected = path.join(refDirectory(workspacePath),
+      refName(ref.revision, ref.catalogHash));
+    if (path.resolve(ref.path) !== path.resolve(expected)) {
+      throw new Error('GQWF metadata ref pruning escaped its managed directory.');
+    }
+    await privateFile(ref.path);
+    await fs.unlink(ref.path);
+  }
+  return { retained: refs.slice(0, keepCount), pruned };
+}
+
+module.exports = {
+  digest,
+  latestRef,
+  listRefs,
+  objectPath,
+  pruneRefs,
+  putObject,
+  readObject,
+  writeRef
+};

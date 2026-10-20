@@ -24,6 +24,7 @@
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
+- [ADR 0701 — Réconcilier et borner le catalogue GQWF](adr/0701-maintenance-catalogue-gqwf.md) — republication après crash, chaîne CAS vérifiée et fenêtre bornée à 64 refs sans supprimer les objets.
 - [ADR 0648 — Qualifier les adaptateurs comme symbiotes sélectionnables](adr/0648-ecologie-adaptateurs-symbiotiques.md) — identité qualifiée, consortium minimal, succession compensée et propagation multi-dépôts par vagues.
 - [ADR 0649 — Campagne immunitaire de remédiation sécurité](adr/0649-campagne-immunitaire-remediation-securite.md) — alertes bornées SARIF, clusters d'antigènes, candidats isolés, adjudication à deux vérificateurs et mémoire négative sans promotion.
 - [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant de preuves et liaison au rollout canari.

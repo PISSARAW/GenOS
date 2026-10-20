@@ -59,6 +59,7 @@ function createFabric(db, options = {}) {
     repairRoot: (input) => cataloged(input.targetWorkspaceId,
       () => repair.repairRoot(db, input, options)),
     checkpointMetadata: (input) => catalog.checkpointMetadata(db, input),
+    maintainMetadataCatalog: (input) => catalog.maintainMetadataCatalog(db, input),
     inspectMetadataRepair: (input) => catalog.inspectMetadataRepair(db, input),
     repairMetadata: async (input) => {
       const result = await catalog.repairMetadata(db, input, options);

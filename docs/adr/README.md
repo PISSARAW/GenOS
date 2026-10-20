@@ -803,6 +803,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0697](0697-responsabilite-ux-pluraliste-longitudinale.md) | Responsabilité UX pluraliste et longitudinale | Accepté | 2026-10-19 | SHEV, expérience produit, évaluation pluraliste |
 | [0698](0698-selection-buts-multisignal-gvx.md) | Sélection multisignal des buts GVX | Accepté | 2026-10-19 | GVX, curriculum, décision, provenance, autorité |
 | [0699](0699-stewardship-depot-et-effet-projet.md) | Stewardship du dépôt lié à l'effet projet | Accepté | 2026-10-19 | Ontogenèse, responsabilité durable, preuve, intégration |
+| [0701](0701-maintenance-catalogue-gqwf.md) | Réconcilier et borner le catalogue GQWF | Accepté | 2026-10-20 | GQWF, CAS, reprise, rétention, intégrité |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
