@@ -36,7 +36,8 @@ async function advance(session, input, options) {
   await physiology.regulate(ecology, input, { actions, options });
   runtime.tick += 1;
   const measurements = observer.measure(ecology);
-  await verifyGoal(session, measurements, options);
+  await verifyGoal(session, measurements, { ...options,
+    goalEvidenceRefs: input.evidenceRefs || [] });
   runtime.stopCondition = ecologicalStop(session, measurements);
   ecology.ecologicalState.health = measurements.health;
   ecology.status = ecologyStatus(runtime);
@@ -143,9 +144,12 @@ function allocate(ecology, input, actions) {
 async function verifyGoal(session, measurements, options) {
   if (typeof options.verifyGoal !== 'function') return;
   const runtime = session.ecology.ecologicalState.runtime;
-  const result = await require('./boundedInvocation').invoke(options.verifyGoal, structuredClone({ sessionId: session.sessionId,
-    tick: runtime.tick, measurements, ecology: session.ecology }), options);
-  runtime.goalVerification = goalReceipt(result, { sessionId: session.sessionId, tick: runtime.tick });
+  const request = { sessionId: session.sessionId, tick: runtime.tick,
+    missionId: options.missionId || null, producerId: options.producerId || null,
+    evidenceRefs: options.goalEvidenceRefs, measurements, ecology: session.ecology };
+  const result = await require('./boundedInvocation').invoke(options.verifyGoal,
+    structuredClone(request), options);
+  runtime.goalVerification = goalReceipt(result, request);
   const collapsed = measurements.populations.extinct > 0 && measurements.populations.active === 0;
   if (collapsed || ['stressed', 'incomplete'].includes(measurements.health)) runtime.goalVerification.verified = false;
 }
@@ -153,8 +157,11 @@ async function verifyGoal(session, measurements, options) {
 function goalReceipt(result, expected) {
   const matched = result?.sessionId === expected.sessionId && result?.tick === expected.tick;
   const evidence = Array.isArray(result?.evidenceRefs) && result.evidenceRefs.some(ref => typeof ref === 'string' && ref.trim());
-  return { verified: matched && evidence && result.verified === true, ...expected,
-    evidenceRefs: evidence ? result.evidenceRefs : [] };
+  return { verified: matched && evidence && result.verified === true,
+    sessionId: expected.sessionId, tick: expected.tick,
+    missionId: expected.missionId, producerId: expected.producerId,
+    evidenceRefs: evidence ? result.evidenceRefs : [],
+    oracleReceipt: result?.oracleReceipt || null };
 }
 
 function ecologyStatus(runtime) {

@@ -11,6 +11,7 @@ const completionEvidence = require('../src/services/missionCompletionEvidenceSer
 const workerStore = require('../src/services/biologicalWorkerStore');
 const { closeMission } = require('../src/services/missionClosureService');
 const { digest: biologicalDigest } = require('../src/services/biologicalIntegrity');
+const goalOracle = require('../src/services/biome/contracts/goalVerificationReceipt');
 
 const OWNER = 'mission-biome-owner';
 const WORKER = 'biome-worker-1';
@@ -59,11 +60,16 @@ async function seedMissionBinding(db, sessionId) {
 
 async function createNominal() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  const workerProof = proof();
   const runtime = await biome.BiomeRuntime.create('Complete an ecological mission', {
-    db, variant: 'resource', maxTicks: 5,
+    db, variant: 'resource', maxTicks: 5, missionId: OWNER, producerId: OWNER,
     environment: { opportunities: [opportunity()] },
     verifyGoal: async (request) => ({ sessionId: request.sessionId, tick: request.tick,
-      verified: request.tick >= 2, evidenceRefs: ['oracle:goal-validation'] })
+      verified: request.tick >= 2, evidenceRefs: request.evidenceRefs,
+      oracleReceipt: goalOracle.issue({ missionId: request.missionId,
+        producerId: request.producerId, verifierId: 'biome-goal-verifier',
+        independent: true, sessionId: request.sessionId, tick: request.tick,
+        evidenceRefs: request.evidenceRefs }) })
   });
   await runtime.step({ totalBudget: 100, resources: { tokens: 100 },
     individuals: [{ individualId: WORKER, role: 'analyst', capabilities: ['analysis'],
@@ -73,10 +79,10 @@ async function createNominal() {
     evidenceRefs: ['evidence:fitness-result'] }],
   populationCommands: [{ type: 'adapt', populationId: 'population:niche-analysis',
     individualId: WORKER, patch: { strategy: 'adapted-analysis' },
-    evidenceRefs: ['evidence:adaptation'] }] });
+    evidenceRefs: ['evidence:adaptation'] }], evidenceRefs: [workerProof.reference] });
   await seedMissionBinding(db, runtime.sessionId);
   await workerStore.ensure(db);
-  await workerStore.putReceipt(db, proof().content);
+  await workerStore.putReceipt(db, workerProof.content);
   const evidence = await completionEvidence.collect({ db, missionId: OWNER,
     members: [{ workerId: WORKER, status: 'completed' }] });
   return { db, sessionId: runtime.sessionId, evidence };
@@ -182,10 +188,69 @@ async function alteredOracleFails(fixture) {
   assert.deepEqual(dossier.topologyValidation.reasons, ['biome_goal_oracle_scope_mismatch']);
 }
 
+async function inventedVerifierFails(fixture) {
+  await mutateState(fixture, (state) => {
+    state.ecology.ecologicalState.runtime.goalVerification.oracleReceipt.verifierId
+      = 'biome-goal-verification-runtime';
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'failed');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_attestation_invalid']);
+}
+
+async function missingVerifierReceiptIsPartial(fixture) {
+  await mutateState(fixture, (state) => {
+    delete state.ecology.ecologicalState.runtime.goalVerification.oracleReceipt;
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'partial');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_receipt_missing']);
+}
+
+async function foreignReceiptMissionFails(fixture) {
+  await mutateState(fixture, (state) => {
+    const goal = state.ecology.ecologicalState.runtime.goalVerification;
+    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
+      missionId: 'mission-foreign' });
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'failed');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_scope_mismatch']);
+}
+
+async function selfVerificationFails(fixture) {
+  await mutateState(fixture, (state) => {
+    const goal = state.ecology.ecologicalState.runtime.goalVerification;
+    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
+      verifierId: goal.oracleReceipt.producerId });
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'failed');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_not_independent']);
+}
+
+async function foreignEvidenceFails(fixture) {
+  await mutateState(fixture, (state) => {
+    const goal = state.ecology.ecologicalState.runtime.goalVerification;
+    goal.oracleReceipt = goalOracle.issue({ ...goal.oracleReceipt,
+      evidenceRefs: [`sha256:${'f'.repeat(64)}`] });
+  });
+  const dossier = await adapter.build(input(fixture.db, fixture));
+  assert.equal(dossier.topologyValidation.status, 'failed');
+  assert.deepEqual(dossier.topologyValidation.reasons,
+    ['biome_goal_oracle_evidence_mismatch']);
+}
+
 async function run() {
   const tests = [nominal, servicePipeline, foreignMissionFails, missingPhaseIsPartial,
     missingProofIsPartial, alteredProofFails, alteredReferenceFails,
-    missingOracleIsPartial, alteredOracleFails];
+    missingOracleIsPartial, alteredOracleFails, inventedVerifierFails,
+    missingVerifierReceiptIsPartial, foreignReceiptMissionFails,
+    selfVerificationFails, foreignEvidenceFails];
   for (const test of tests) await withFixture(test);
   console.log('Biome completion adapter: PASS');
 }

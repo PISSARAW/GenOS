@@ -25,6 +25,7 @@ function sessionOptions(input) {
     opportunityScore: 1, justifiedUncertainty: 0.75, requiredCapabilities: [], resourceProfile: input.resourceProfile || {} }] };
   return { db: input.db, variant: input.variantId, environment, scope: input.scope,
     persistenceKey: input.persistenceKey, maxTicks: input.maxTicks ?? 100,
+    missionId: input.missionId, producerId: input.producerId || input.missionId,
     verifyGoal: input.verifyGoal,
     executors: input.executors, authorizeExecution: input.authorizeExecution, verifyExecution: input.verifyExecution,
     executionTimeoutMs: input.executionTimeoutMs, signal: input.signal, deadline: input.deadline };
