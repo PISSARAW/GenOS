@@ -38,7 +38,24 @@ async function inspectBoundary(db, sessionId) {
   return current.shared;
 }
 
+const materializationLocks = new Map();
+
+async function withSessionLock(sessionId, task) {
+  const previous = materializationLocks.get(sessionId) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  materializationLocks.set(sessionId, previous.then(() => current));
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (materializationLocks.get(sessionId) === current) materializationLocks.delete(sessionId);
+  }
+}
+
 async function materialize(db, sessionId) {
+  return withSessionLock(sessionId, async () => {
   const before = await inspectBoundary(db, sessionId);
   const stored = await syncytium.createSnapshot(sessionId, { db });
   const after = await inspectBoundary(db, sessionId);
@@ -59,6 +76,7 @@ async function materialize(db, sessionId) {
     stateVersion: stored.stateVersion, causalFrontier: stored.causalFrontier,
     verificationScope: validation.verificationScope,
     invariantReceipts: validation.invariants } };
+  });
 }
 
 module.exports = { materialize };
