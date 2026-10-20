@@ -22,6 +22,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [instinct.md](instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.
 - [speciation-graft-autonome.md](speciation-graft-autonome.md) — flux autonome complet : identification du besoin → speciate/graft → évaluation → promotion → déploiement.
+- [evolution-gouvernee-agent.md](evolution-gouvernee-agent.md) — hypothèses de logique/scaffold sous constitution scellée, holdout indépendant, autorisation séparée et rollback reçu.
 - [physique-computationnelle.md](physique-computationnelle.md) — mesures du workspace, contexte, imports, couverture et calibration persistante par mission dans la boucle Rust.
 - [imagination-et-simulation.md](imagination-et-simulation.md) — recombinaison de fragments, simulation interne, contrôle et preuve.
 - [conscience-esprit-mental.md](conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
