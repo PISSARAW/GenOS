@@ -1,9 +1,11 @@
 'use strict';
 
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const processRunner = require('./helpers/suiteProcessRunner.cjs');
 
 const backendRoot = path.resolve(__dirname, '..');
+const DEFAULT_SUITE_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_CHILD_TIMEOUT_MS = 35 * 60 * 1000;
 const topologyChecks = Object.freeze([
   { id: 'trinity', label: 'Trinity', scripts: [
     ['tests/run_trinity_suite.js'], ['tests/test_gqwf_trinity_mission_qualification.js']] },
@@ -33,20 +35,49 @@ const boundaryChecks = Object.freeze([
     scripts: [['tests/test_orchestrator_local_models.js']] }
 ]);
 
-function runScript(command) {
-  const [script, ...args] = command;
-  const result = spawnSync(process.execPath, [script, ...args], {
-    cwd: backendRoot, stdio: 'inherit', timeout: 600000, windowsHide: true
-  });
-  if (result.status === 0) return null;
-  return result.error?.message || `exit ${result.status}`;
+function createPolicy(env, now) {
+  const suiteTimeoutMs = processRunner.positiveMilliseconds(
+    env.GENOS_TOPOLOGY_SUITE_TIMEOUT_MS, DEFAULT_SUITE_TIMEOUT_MS,
+    'GENOS_TOPOLOGY_SUITE_TIMEOUT_MS');
+  const childTimeoutMs = processRunner.positiveMilliseconds(
+    env.GENOS_TOPOLOGY_CHILD_TIMEOUT_MS, DEFAULT_CHILD_TIMEOUT_MS,
+    'GENOS_TOPOLOGY_CHILD_TIMEOUT_MS');
+  return { childTimeoutMs, deadlineMs: now + suiteTimeoutMs };
 }
 
-function execute(check) {
-  console.log(`\n=== ${check.label} ===`);
+function runScript(command, context = {}) {
+  context = createContext(context);
+  const [script, ...args] = command;
+  const deadlineMs = Math.min(context.policy.deadlineMs,
+    context.now() + context.policy.childTimeoutMs);
+  const env = {
+    ...(context.env || process.env),
+    GENOS_PARENT_DEADLINE_EPOCH_MS: String(deadlineMs)
+  };
+  return processRunner.runProcess({
+    command: process.execPath, args: [script, ...args], cwd: backendRoot, env,
+    timeoutMs: context.policy.childTimeoutMs, deadlineMs
+  }, context.dependencies);
+}
+
+function failureReason(outcome) {
+  return [outcome.status, `exit=${outcome.exitCode ?? '-'}`, `signal=${outcome.signal || '-'}`,
+    `error=${outcome.errorCode || '-'}`].join(' ');
+}
+
+function execute(check, context = {}) {
+  context = createContext(context);
+  context.stdout.write(`\n=== ${check.label} ===\n`);
   for (const command of check.scripts) {
-    const reason = runScript(command);
-    if (reason) return { id: check.id, label: check.label, reason };
+    const label = command.join(' ');
+    context.stdout.write(`[START] ${label}\n`);
+    const outcome = runScript(command, context);
+    processRunner.writeCapturedOutput(outcome, context);
+    context.stdout.write(`${processRunner.formatOutcome(label, outcome)}\n`);
+    if (outcome.status !== 'PASS') {
+      return { id: check.id, label: check.label, command: label,
+        reason: failureReason(outcome) };
+    }
   }
   return null;
 }
@@ -60,34 +91,71 @@ function selectedTopologies(args) {
   return selected;
 }
 
-function printCatalog() {
-  console.log(topologyChecks.map((item) => `${item.id}: ${item.label}`).join('\n'));
-  console.log('\nBoundary checks:');
-  console.log(boundaryChecks.map((item) => `${item.id}: ${item.label}`).join('\n'));
+function printCatalog(stdout = process.stdout) {
+  stdout.write(`${topologyChecks.map((item) => `${item.id}: ${item.label}`).join('\n')}\n`);
+  stdout.write('\nBoundary checks:\n');
+  stdout.write(`${boundaryChecks.map((item) => `${item.id}: ${item.label}`).join('\n')}\n`);
 }
 
-function runChecks(checks) {
-  return checks.map(execute).filter(Boolean);
+function runChecks(checks, context) {
+  return checks.map((check) => execute(check, context)).filter(Boolean);
 }
 
-function main(args = process.argv.slice(2)) {
-  if (args.includes('--list')) { printCatalog(); return; }
+function createContext(options = {}, startedAt) {
+  const env = options.env || process.env;
+  const stdout = options.stdout || process.stdout;
+  const stderr = options.stderr || process.stderr;
+  const now = options.now || Date.now;
+  const policyStart = startedAt === undefined ? now() : startedAt;
+  return { env, stdout, stderr, now, dependencies: options.dependencies || {},
+    policy: options.policy || createPolicy(env, policyStart) };
+}
+
+function reportRun(result, context) {
+  const passed = result.topologies.length - result.topologyFailures.length;
+  context.stdout.write(`\nTopology contract checks: ${passed}/${result.topologies.length} passed.\n`);
+  if (result.includeBoundaries) {
+    const boundaryPassed = boundaryChecks.length - result.boundaryFailures.length;
+    context.stdout.write(`Boundary checks: ${boundaryPassed}/${boundaryChecks.length} passed.\n`);
+  }
+  context.stdout.write(`Topology runner summary: failures=${result.failures.length} ` +
+    `durationMs=${Math.max(0, context.now() - result.startedAt)}\n`);
+  context.stdout.write('Controlled contracts do not certify a live provider or production deployment.\n');
+  if (result.failures.length) {
+    context.stderr.write(`${JSON.stringify(result.failures, null, 2)}\n`);
+    process.exitCode = 1;
+  }
+}
+
+function executeRun(args, context, startedAt) {
   const topologies = selectedTopologies(args);
   const includeBoundaries = !args.some((item) => item.startsWith('--topology='));
-  const topologyFailures = runChecks(topologies);
-  const boundaryFailures = includeBoundaries ? runChecks(boundaryChecks) : [];
+  const topologyFailures = runChecks(topologies, context);
+  const boundaryFailures = includeBoundaries ? runChecks(boundaryChecks, context) : [];
   const failures = [...topologyFailures, ...boundaryFailures];
-  console.log(`\nTopology contract checks: ${topologies.length - topologyFailures.length}/${topologies.length} passed.`);
-  if (includeBoundaries) {
-    console.log(`Boundary checks: ${boundaryChecks.length - boundaryFailures.length}/${boundaryChecks.length} passed.`);
-  }
-  console.log('Controlled contracts do not certify a live provider or production deployment.');
-  if (failures.length) {
-    console.error(JSON.stringify(failures, null, 2));
+  const result = { failures, topologyFailures, boundaryFailures,
+    topologies, includeBoundaries, startedAt };
+  reportRun(result, context);
+  return result;
+}
+
+function main(args = process.argv.slice(2), options = {}) {
+  if (args.includes('--list')) { printCatalog(options.stdout); return; }
+  const now = options.now || Date.now;
+  const startedAt = now();
+  try {
+    return executeRun(args, createContext(options, startedAt), startedAt);
+  } catch (error) {
+    const stderr = options.stderr || process.stderr;
+    stderr.write(`[FAIL] Topology runner error=${error.message}\n`);
+    stderr.write('Topology runner summary: failures=1 durationMs=0\n');
     process.exitCode = 1;
+    return { failures: [{ reason: error.message }], topologyFailures: [], boundaryFailures: [] };
   }
 }
 
 if (require.main === module) main();
 
-module.exports = { topologyChecks, boundaryChecks, selectedTopologies, runScript, execute, main };
+module.exports = {
+  topologyChecks, boundaryChecks, createPolicy, selectedTopologies, runScript, execute, main
+};
