@@ -15,6 +15,8 @@ const { validateWorkerDossiers } = require('./agentEvidenceService');
 const { applyTrinityComparison } = require('./trinityComparativeBarrier');
 const { applyAteamIntegration } = require('./aTeamComparativeBarrier');
 const { applyCognitiveSynthesis } = require('./cognitiveSynthesisService');
+const { closeMission } = require('./missionClosureService');
+const closureAdapter = require('./missionClosureDossierAdapter');
 const helpers = require('./workerEvidenceBarrierHelpers');
 
 const {
@@ -161,8 +163,9 @@ async function runEvidenceBarrier(barrierContext) {
   let partial = false;
   let degradedUsable = null;
   let partialReason = null;
+  let pipelineResult = null;
   try {
-    await runPipelineStage({
+    pipelineResult = await runPipelineStage({
       db: barrierContext.db,
       agentId: barrierContext.agentId,
       workers: workers,
@@ -203,7 +206,8 @@ async function runEvidenceBarrier(barrierContext) {
     workers: workers,
     partial: partial,
     degradedUsable: degradedUsable,
-    partialReason: partialReason
+    partialReason: partialReason,
+    pipelineResult
   });
 }
 
@@ -235,9 +239,10 @@ async function finishPartialBarrier(ctx) {
     clearBarrier(ctx.agentId);
     throw noEvidenceError();
   }
-  await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan,
+  const comparison = await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan,
     normalizedMission: ctx.normalizedMission, usable }).catch(() => {});
-  await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
+  const integration = await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
+  applyCommonClosure({ ...ctx, dossiers: usable, comparison, integration, partial: true });
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
   await finalizePartial({
     agentId: ctx.agentId,
@@ -321,10 +326,38 @@ async function enforceReportGate(ctx) {
   } catch (_) {}
 }
 
+function applyCommonClosure(ctx) {
+  const missionId = ctx.normalizedMission?.missionId
+    || ctx.autonomyPlan?.trinity?.missionId || ctx.agentId;
+  const topology = closureAdapter.topologyContext(ctx);
+  const invariants = ctx.partial ? [
+    { id: 'partial_worker_evidence_preserved', passed: Array.isArray(ctx.dossiers) && ctx.dossiers.length > 0 }
+  ] : [
+    { id: 'worker_dossiers_verified', passed: true },
+    { id: 'topology_decision_recorded', passed: topology.decisionPassed },
+    { id: 'report_gate_clear', passed: !(ctx.autonomyPlan?.reportGateViolations || []).length }
+  ];
+  const input = closureAdapter.buildClosureInput({ missionId, topology: topology.id,
+    producerId: ctx.agentId, workers: ctx.workers, dossiers: ctx.dossiers, invariants,
+    barrierStatus: ctx.partial ? 'partial' : 'complete' });
+  const result = closeMission(input);
+  ctx.autonomyPlan.missionClosure = result;
+  return result;
+}
+
+function reusablePipelineClosure(ctx) {
+  const closure = ctx.pipelineResult?.completion;
+  const missionId = ctx.autonomyPlan?.aTeam?.teamRun?.missionId;
+  if (!ctx.autonomyPlan?.aTeam?.activated || ctx.pipelineResult?.accepted !== true) return null;
+  if (ctx.autonomyPlan?.reportGateViolations?.length) return null;
+  return closure?.success === true && closure.missionId === missionId
+    && closure.topology === 'a_team' ? closure : null;
+}
+
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
-  await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan,
+  const comparison = await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan,
     normalizedMission: ctx.normalizedMission, usable: dossiers }).catch(() => {});
   await attachCounterfactualScores(ctx, dossiers);
   await attachProbeVerdicts(ctx, dossiers);
@@ -337,6 +370,14 @@ async function finishSatisfiedBarrier(ctx) {
     throw Object.assign(new Error('A-Team integration rejected the worker evidence.'), {
       code: 'ATEAM_INTEGRATION_REJECTED', failures: integration.failures,
       integrationFailures: integration.integrationFailures
+    });
+  }
+  const pipelineClosure = reusablePipelineClosure(ctx);
+  const closure = pipelineClosure || applyCommonClosure({ ...ctx, dossiers, comparison, integration, partial: false });
+  if (pipelineClosure) ctx.autonomyPlan.missionClosure = closure;
+  if (!closure.success) {
+    throw Object.assign(new Error('Common mission closure rejected the worker evidence barrier.'), {
+      code: 'MISSION_CLOSURE_REJECTED', reasons: closure.reasons
     });
   }
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});

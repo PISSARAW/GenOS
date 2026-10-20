@@ -51,6 +51,8 @@ global.fetch = async (_url, options) => {
     name: 'biocenose_revision', strict: false, schema: responseFormat.schema
   } });
   assert.deepEqual(schemaResult.structured, { ok: true });
+  assert.equal(schemaResult.schemaViolation.error, 'OUTPUT_SCHEMA_VIOLATION');
+  assert.match(schemaResult.schemaViolation.violations[0], /changedClaims is required/);
   global.fetch = async () => ({
     ok: true,
     headers: { get: () => 'application/json' },

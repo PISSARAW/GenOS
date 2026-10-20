@@ -25,4 +25,24 @@ assert.ok(dossier.required.includes('specialtyAssessment'));
 assert.equal(dossier.properties.specialtyAssessment.properties.inScope.const, true);
 assert.equal(dossier.properties.workerArtifact, undefined);
 
+const criterion = 'Le livrable respecte le contrat.';
+const teamWorker = workerArtifactResponseFormat('creative_worker', [], { missionCriteria: [criterion] }).schema;
+assert.ok(teamWorker.required.includes('acceptanceEvaluations'));
+assert.deepEqual(teamWorker.properties.acceptanceEvaluations.items.properties.criterion.enum, [criterion]);
+assert.deepEqual(teamWorker.properties.acceptanceEvaluations.items.required,
+  ['criterion', 'passed', 'evidenceRefs']);
+assert.deepEqual(teamWorker.properties.acceptanceEvaluations.items.properties.passed.enum,
+  [true, false, null]);
+
+const handoff = { handoffId: 'author->critic:1', digest: 'abc123', version: 1 };
+const consumer = workerArtifactResponseFormat('creative_worker', [], {
+  missionCriteria: [criterion], handoffs: [handoff]
+}).schema;
+assert.ok(consumer.required.includes('integrationConstraints'));
+assert.ok(consumer.required.includes('handoffEvaluations'));
+assert.equal(consumer.properties.handoffEvaluations.minItems, 1);
+assert.equal(consumer.properties.handoffEvaluations.maxItems, 1);
+assert.deepEqual(consumer.properties.handoffEvaluations.items.properties.handoffId.enum,
+  ['author->critic:1']);
+
 process.stdout.write('Worker artifacts expose provider-enforced JSON schemas: PASS\n');

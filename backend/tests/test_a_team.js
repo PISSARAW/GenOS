@@ -49,6 +49,13 @@ assert.equal(fiction.members.some((member) => member.role === 'quality_engineer'
 assert.deepEqual(fiction.members.map((member) => member.pipelineStage), [0, 1, 2]);
 assert.deepEqual(fiction.members[2].dependsOn, ['literary_creation', 'dramaturgy']);
 
+const song = aTeam.analyzeMission('Écrire les paroles complètes d’une chanson française narrative.');
+assert.equal(song.recommended, true);
+assert.equal(song.primaryDomain, 'creative_writing');
+assert.deepEqual(song.members.map((member) => member.role), [
+  'literary_author', 'dramaturg', 'literary_critic'
+]);
+
 const explicitIntegration = aTeam.analyzeMission('Intégrer une interface React avec une API Express.');
 assert.equal(explicitIntegration.members.some((member) => member.role === 'integration_observer'), true);
 

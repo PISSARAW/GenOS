@@ -4,6 +4,7 @@ const store = require('./garageQueueStore');
 const processControl = require('./garageProcessControl');
 const { error } = require('./garageRequests');
 const schedulers = new WeakMap();
+const RUNTIME_LEASE_TTL_MS = 300000;
 
 async function isRestoredWorkspace(db, mission, assignedPath) {
   if (!hasResumeIdentity(mission)) return false;
@@ -118,7 +119,8 @@ async function pendingApproval(db, row) {
   const run = await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', binding.runId);
   if (run?.status !== 'awaiting_approval') return false;
   await db.run("UPDATE garage_queue SET phase = 'awaiting_approval' WHERE request_id = ? AND lease_id = ?", row.request_id, row.lease_id);
-  await store.renewPersistent(db, { requestId: row.request_id, leaseId: row.lease_id });
+  await store.renewPersistent(db, { requestId: row.request_id, leaseId: row.lease_id,
+    ttlMs: RUNTIME_LEASE_TTL_MS });
   return true;
 }
 
@@ -126,7 +128,8 @@ async function reconcileLive(input, row) {
   const leaseExpired = !(Date.parse(row.lease_expires_at) > Date.now());
   const deadlineExpired = Date.parse(row.deadline_at) <= Date.now();
   if (!leaseExpired && !deadlineExpired) {
-    await store.renewPersistent(input.db, { requestId: row.request_id, leaseId: row.lease_id });
+    await store.renewPersistent(input.db, { requestId: row.request_id, leaseId: row.lease_id,
+      ttlMs: RUNTIME_LEASE_TTL_MS });
     return;
   }
   await (input.stopVerified || processControl.stopVerified)({ ...input, workerId: row.worker_id });
@@ -177,7 +180,8 @@ async function finalizeAgent(agentId) {
   for (const row of rows) await reconcileOne({ db }, row.request_id);
 }
 
-module.exports = { assertLease, bindExecution, isRestoredWorkspace, reconcileOne, tick, start, stop, finalizeAgent };
+module.exports = { assertLease, bindExecution, isRestoredWorkspace, reconcileOne, tick, start, stop,
+  finalizeAgent, RUNTIME_LEASE_TTL_MS };
 async function clearApprovalPhase(db, row) {
   if (row.phase !== 'awaiting_approval') return;
   await db.run("UPDATE garage_queue SET phase = 'ready' WHERE request_id = ? AND lease_id = ?", row.request_id, row.lease_id);

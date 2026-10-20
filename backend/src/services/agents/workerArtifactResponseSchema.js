@@ -85,7 +85,34 @@ function artifactSchema(input) {
     ['type', 'content', 'provenance']);
 }
 
-function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], diagnosis = false) {
+function acceptanceEvaluationSchema(criteria, refs) {
+  return { type: 'array', minItems: criteria.length, items: object({
+    criterion: { type: 'string', enum: criteria },
+    passed: { enum: [true, false, null] },
+    localPassed: { type: 'boolean' },
+    evidenceRefs: refs
+  }, ['criterion', 'passed', 'evidenceRefs']) };
+}
+
+function handoffEvaluationSchema(handoffs, refs) {
+  const ids = handoffs.map((handoff) => handoff.handoffId);
+  const digests = handoffs.map((handoff) => handoff.digest);
+  const versions = [...new Set(handoffs.map((handoff) => handoff.version))];
+  return { type: 'array', minItems: handoffs.length, maxItems: handoffs.length, items: object({
+    handoffId: { type: 'string', enum: ids },
+    digest: { type: 'string', enum: digests },
+    version: { type: 'integer', enum: versions },
+    passed: { type: 'boolean' },
+    evidenceRefs: refs
+  }, ['handoffId', 'digest', 'version', 'passed', 'evidenceRefs']) };
+}
+
+function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = false) {
+  const diagnosis = typeof options === 'object' ? options.diagnosis === true : options === true;
+  const missionCriteria = typeof options === 'object' && Array.isArray(options.missionCriteria)
+    ? options.missionCriteria : [];
+  const handoffs = typeof options === 'object' && Array.isArray(options.handoffs)
+    ? options.handoffs.filter((handoff) => handoff?.handoffId && handoff?.digest) : [];
   const resolved = require('./workerKindService').resolveWorkerKind(kind);
   const artifactType = kindDefinition(resolved).artifact;
   const refs = referenceList(allowedEvidenceRefs);
@@ -102,6 +129,16 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], diagnosis 
   } else {
     properties.workerArtifact = artifactSchema({ kind: resolved, artifactType, refs, diagnosis });
     required.push('workerArtifact');
+  }
+  if (missionCriteria.length) {
+    properties.acceptanceEvaluations = acceptanceEvaluationSchema(missionCriteria, refs);
+    required.push('acceptanceEvaluations');
+  }
+  if (handoffs.length) {
+    properties.integrationConstraints = { type: 'array', minItems: 1,
+      items: { type: 'string', minLength: 1 } };
+    properties.handoffEvaluations = handoffEvaluationSchema(handoffs, refs);
+    required.push('integrationConstraints', 'handoffEvaluations');
   }
   return { name: 'genos_worker_artifact', schema: object(properties, required) };
 }

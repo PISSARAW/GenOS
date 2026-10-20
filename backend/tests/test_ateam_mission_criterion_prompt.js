@@ -13,6 +13,15 @@ assert.match(prompt, /every promoted worker provides a backed localPassed=true/)
 assert.match(prompt, /must also appear in claims\[\]\.evidence/);
 assert.match(prompt, /rejects evaluation references that the report does not independently back/);
 assert.ok(prompt.includes(JSON.stringify(criterion)));
+assert.match(prompt, /Add these exact root fields/);
+assert.match(prompt, /acceptanceEvaluations/);
+
+const handoffPrompt = executionMission({ mission: 'Review.', handoffContext: [{
+  handoffId: 'author->critic:1', digest: 'abc123', version: 1
+}] }, [criterion]);
+assert.match(handoffPrompt, /integrationConstraints/);
+assert.match(handoffPrompt, /handoffEvaluations/);
+assert.match(handoffPrompt, /author->critic:1/);
 
 function verdict(worker, evaluation, refs = [`evidence:${worker}`]) {
   return { promoted: true, evidenceRefs: refs,

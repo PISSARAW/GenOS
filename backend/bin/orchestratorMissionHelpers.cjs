@@ -243,14 +243,15 @@ function missionWorkspaceOptions(request) {
 }
 
 function missionRuntimeContext(request) {
-  const normalized = { ...request,
+  const normalized = { ...request, successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
+    workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
     morphologyExpression: request.morphologyExpression || request.morphology_expression,
     morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy };
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'requiresEvidenceBeforePromotion'];
+    'problemProfile', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }

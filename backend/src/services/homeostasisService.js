@@ -195,7 +195,7 @@ async function evaluateDurableHomeostasis(db, target) {
     expectedRevision: mission.expectedHomeostasisRevision,
     proposed: () => evaluateDurableHomeostasisCondition(mission, inherited, organism)
   });
-  const execution = await executionEvidence.collect(db, mission.id);
+  const execution = await executionEvidence.collect(db, mission);
   const evaluatedContext = executionEvidence.contextWithEvidence(context, execution);
   const state = executionEvidence.bindState(evaluateContract(contract, evaluatedContext), execution);
   const status = homeostasisStatus(state);

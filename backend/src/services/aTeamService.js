@@ -74,7 +74,7 @@ const TECHNICAL_DOMAIN_RULES = [
   }
 ];
 
-const FICTION_ARTIFACT = /\b(?:histoire|nouvelle|roman|récit|recit|fiction|conte|scénario|scenario|short story)\b/i;
+const FICTION_ARTIFACT = /\b(?:histoire|nouvelle|roman|récit|recit|fiction|conte|scénario|scenario|short story|chanson|paroles|poème|poeme|lyrics|song)\b/i;
 const CREATIVE_ACTION = /\b(?:écri\w*|ecri\w*|rédig\w*|redig\w*|compose\w*|imagine\w*|raconte\w*|invent\w*|creative writing)\b/i;
 
 const FICTION_CAPABILITIES = [

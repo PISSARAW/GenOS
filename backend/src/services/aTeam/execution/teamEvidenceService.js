@@ -1,7 +1,7 @@
 'use strict';
 
 const { latestReport } = require('../../trinityComparativeBarrier');
-const { reportIsUsable, usableEvidenceReferences } = require('../../aTeamHandoffEvidenceService');
+const { artifactPayload, reportIsUsable, usableEvidenceReferences } = require('../../aTeamHandoffEvidenceService');
 const { validateArtifact } = require('../variants/variantExecutionService');
 
 function validateMemberEvidence(member, dossier) {
@@ -19,7 +19,7 @@ function validateMemberEvidence(member, dossier) {
 function invalidReport(member, report) {
   const tests = Array.isArray(report.tests) ? report.tests : [];
   if (tests.some((test) => test.passed !== true)) return rejected('test_not_passed');
-  const payload = report.output ?? report.result ?? report;
+  const payload = artifactPayload(report) ?? report;
   const errors = member.outputSchema ? validateArtifact(payload, member.outputSchema) : [];
   return errors.length ? rejected('output_schema_invalid', errors) : null;
 }
@@ -84,6 +84,21 @@ function metric(numerator, denominator, source) {
   return { numerator, denominator, ratio: denominator > 0 ? numerator / denominator : null, source };
 }
 
+function teamReportFields(member, successCriteria) {
+  const evidenceRefs = ['<same source-ref used in claims.evidence>'];
+  const fields = { acceptanceEvaluations: successCriteria.map((criterion) => ({
+    criterion, passed: true, evidenceRefs
+  })) };
+  const handoffs = member.handoffContext || [];
+  if (handoffs.length) {
+    fields.integrationConstraints = ['<one concrete constraint for consuming the upstream artifact>'];
+    fields.handoffEvaluations = handoffs.map(({ handoffId, digest, version }) => ({
+      handoffId, digest, version, passed: true, evidenceRefs
+    }));
+  }
+  return fields;
+}
+
 function executionMission(member, successCriteria = []) {
   const contract = { inputArtifacts: member.inputArtifacts || [], outputs: member.outputs || [],
     requiredArtifacts: member.requiredArtifacts || [], outputSchema: member.outputSchema || null,
@@ -91,6 +106,7 @@ function executionMission(member, successCriteria = []) {
   return (member.mission || '') + '\n\nTEAM EXECUTION CONTRACT\n' + JSON.stringify(contract)
     + '\nReturn an evidence report with outcome, output, artifacts, tests, integrationConstraints, acceptanceEvaluations and handoffEvaluations. For each received handoff, evaluate its exact handoffId, digest and version, with passed and evidenceRefs. Each evaluated criterion must name its criterion, passed result and evidenceRefs from actual observations. Leave untested criteria unresolved; a dispatch or a policy is not proof of success.'
     + '\nFor missionCriteria, copy each evaluated criterion string exactly as written in TEAM EXECUTION CONTRACT into acceptanceEvaluations. Do not translate, summarize or paraphrase it.'
+    + '\nAdd these exact root fields to the base worker JSON contract (replace angle-bracket placeholders with real evidence): ' + JSON.stringify(teamReportFields(member, successCriteria))
     + '\nWhen you can prove only your own contribution to a collective mission criterion, keep passed unresolved and set localPassed=true with evidenceRefs that prove your contribution. Never set localPassed from another worker identity. The orchestrator validates the collective criterion only when every promoted worker provides a backed localPassed=true evaluation.'
     + '\nEvery evidenceRefs value in acceptanceEvaluations must also appear in claims[].evidence or in the evidenceRefs of a passed test. The validator rejects evaluation references that the report does not independently back.';
 }

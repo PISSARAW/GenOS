@@ -23,5 +23,8 @@ assert.equal(buildWorkerContract('specialist', {
 assert.equal(buildWorkerContract('specialist', {
   workerTokenLimit: 99999, nicheDomain: 'coordination'
 }).resources.maxTokens, 20000);
+assert.equal(buildWorkerContract('creative_worker', { workerTokenLimit: 13333 })
+  .resources.maxTokens, 13333);
+assert.equal(buildWorkerContract('creative_worker').resources.maxTokens, 8000);
 
 console.log('Social worker resource policy: PASS');

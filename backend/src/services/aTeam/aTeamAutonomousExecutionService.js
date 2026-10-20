@@ -6,6 +6,7 @@ const scheduler = require('../aTeamStageScheduler');
 const { executeTeamRun } = require('./execution/teamExecutionService');
 const { executionMission } = require('./execution/teamEvidenceService');
 const garage = require('../workerGarageService');
+const { closeMission } = require('../missionClosureService');
 
 async function executeAutonomousTeam(input) {
   let run = await store.load(input.db, input.autonomyPlan.aTeam.teamRun.teamRunId);
@@ -22,7 +23,10 @@ async function executeAutonomousTeam(input) {
       options: { ...input.options, timeoutMs: input.timeoutMs,
         onTick: () => assertNotCancelled(input) } });
     input.autonomyPlan.aTeam.teamRun = await store.load(input.db, run.teamRunId);
-    if (!result.accepted) throw coded('A-Team execution did not satisfy integration contracts.', 'ATEAM_INTEGRATION_REJECTED');
+    const completion = result.completionInput ? closeMission(result.completionInput) : result.completion;
+    result.completion = completion;
+    result.accepted = completion?.success === true;
+    if (!result.accepted) throw coded('A-Team execution did not satisfy common closure contracts.', 'ATEAM_INTEGRATION_REJECTED');
     return result;
   } catch (error) {
     await stopUnfinishedWorkers(input);
@@ -46,7 +50,8 @@ async function launchMember(member, context) {
   if (!worker) throw coded('Canonical A-Team worker is missing.', 'ATEAM_WORKER_MISSING');
   const prompt = executionMission({ ...member, mission: worker.prompt }, context.run.successCriteria);
   const assignment = { ...member, ...worker, handoffContext: member.handoffContext, agentId: worker.agentId, prompt: require('../aTeamHandoffEvidenceService').missionWithHandoffs(prompt, member.handoffContext),
-    strategyContract: context.contract, autonomousOrchestration: false };
+    strategyContract: context.contract, missionCriteria: context.run.successCriteria,
+    autonomousOrchestration: false };
   await (context.reserveSlot || reserveSlot)(context, assignment);
   try {
     const launch = context.startMission || require('../agentRuntimeAdapter').startMission;

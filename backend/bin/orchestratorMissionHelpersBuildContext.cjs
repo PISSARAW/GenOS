@@ -2,13 +2,24 @@
 
 const { collectMissionEvidence } = require('../src/services/missionEvidenceCollector');
 
+function requestedSuccessCriteria(policyRequest, request) {
+  return policyRequest.successCriteria || request.successCriteria
+    || policyRequest.success_criteria || request.success_criteria;
+}
+
+function verifiedMissionOutcome(outcome, flags, evidenceAvailable) {
+  return evidenceAvailable !== false
+    && (outcome.success === true || flags.missionOutcome === true);
+}
+
 function makeHomeostasisContext(opts) {
   const { outcome, policyRequest = {}, request = {}, flags, evidence, profiles, dossierCount } = opts;
   const completionContract = policyRequest.completionContract || request.completionContract || null;
   const invariants = policyRequest.invariants || request.invariants || null;
-  const missionOutcome = outcome.success === true && opts.evidenceAvailable !== false;
+  const successCriteria = requestedSuccessCriteria(policyRequest, request);
+  const missionOutcome = verifiedMissionOutcome(outcome, flags, opts.evidenceAvailable);
   flags.missionOutcome = missionOutcome;
-  flags.completionContractConfigured = hasCompletionCriteria(completionContract, invariants);
+  flags.completionContractConfigured = hasCompletionCriteria(completionContract, invariants, successCriteria);
   return {
     completionContract,
     invariants,
@@ -25,9 +36,9 @@ function makeHomeostasisContext(opts) {
   };
 }
 
-function hasCompletionCriteria(contract, invariants) {
+function hasCompletionCriteria(contract, invariants, successCriteria) {
   const hasContractCriteria = Boolean(contract?.invariants?.length || contract?.requiredEvidence?.length);
-  return hasContractCriteria || Boolean(invariants?.length);
+  return hasContractCriteria || Boolean(invariants?.length || successCriteria?.length);
 }
 
 function makeFallbackContext(opts) {
@@ -69,4 +80,4 @@ async function buildMissionContext(opts) {
   });
 }
 
-module.exports = { buildMissionContext };
+module.exports = { buildMissionContext, verifiedMissionOutcome };

@@ -175,17 +175,39 @@ function validateStructuredCandidate(candidate) {
   return { structured: repaired, schemaViolation: { error: 'OUTPUT_SCHEMA_VIOLATION', violations } };
 }
 
+function validateResponseSchema(result, responseFormat) {
+  const schema = responseFormat?.schema;
+  if (!schema) return result;
+  const validate = new (require('ajv'))({ allErrors: true, strict: false }).compile(schema);
+  if (!validate(result.structured)) {
+    const violations = validate.errors.map((error) => `${error.instancePath || '$'} ${error.message}`);
+    result.schemaViolation = { error: 'OUTPUT_SCHEMA_VIOLATION', violations };
+  }
+  return result;
+}
+
+function enforceStructuredOutput(result, text, responseFormat) {
+  if (!responseFormat?.schema) return attachSchemaValidation(result, text);
+  try { result.structured = JSON.parse(text); }
+  catch (_) { return attachSchemaValidation(result, text); }
+  return validateResponseSchema(result, responseFormat);
+}
+
 async function consumeOllamaStream(context, response, idleTimeoutMs) {
   const streamed = await readOllamaStream(response, context.options.onToken, idleTimeoutMs);
   const result = buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
-  if (context.options.enforceSchema !== false) return attachSchemaValidation(result, streamed.text);
+  if (context.options.enforceSchema !== false) {
+    return enforceStructuredOutput(result, streamed.text, context.options.responseFormat);
+  }
   return result;
 }
 
 async function consumeTextStream(context, response, idleTimeoutMs) {
   const streamed = await readStreamingResponse(response, context.options.onToken, idleTimeoutMs);
   const result = buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
-  if (context.options.enforceSchema !== false) return attachSchemaValidation(result, streamed.text);
+  if (context.options.enforceSchema !== false) {
+    return enforceStructuredOutput(result, streamed.text, context.options.responseFormat);
+  }
   return result;
 }
 
@@ -198,7 +220,9 @@ async function consumeJsonResponse(context, response) {
   const result = buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
   if (context.options.enforceSchema === false) return result;
   if (result.structured) {
-    if (context.options.responseFormat?.schema) return result;
+    if (context.options.responseFormat?.schema) {
+      return validateResponseSchema(result, context.options.responseFormat);
+    }
     Object.assign(result, validateStructuredCandidate(result.structured));
     return result;
   }

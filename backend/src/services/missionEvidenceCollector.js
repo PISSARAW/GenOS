@@ -2,6 +2,8 @@
 
 const { workerEvidenceDossiers, hasDecisionEvidence } = require('./agentEvidenceService');
 const { createEvidenceProfile } = require('./typedEvidenceAlgebraService');
+const completionContract = require('./missionCompletionContract');
+const completionEvidence = require('./missionCompletionEvidenceService');
 
 // Collects real runtime evidence from worker dossiers, strategy execution
 // runs, and telemetry events for a completed mission.
@@ -27,7 +29,39 @@ async function collectMissionEvidence(db, missionId, agents) {
   const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry });
   const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState });
   const profiles = buildTypedProfiles(dossiers, runs);
-  return { flags, evidence, profiles, dossiers, runs, telemetry };
+  const completion = await evaluateCollectedCompletion({ db, missionId,
+    orchestratorId: identity?.orchestratorAgentId, agents: effective, flags });
+  flags.missionOutcome = completion.success;
+  flags.completionVerdict = completion.verdict;
+  return { flags, evidence, profiles, dossiers, runs, telemetry, completion };
+}
+
+function collectedLifecycle(agents) {
+  if (agents.some((agent) => ['error', 'failed', 'apoptosis'].includes(agent.status))) return 'failed';
+  if (agents.some((agent) => ['blocked', 'terminated'].includes(agent.status))) return 'interrupted';
+  if (agents.length && agents.every((agent) => agent.status === 'completed')) return 'completed';
+  return 'running';
+}
+
+function collectedTopology(flags) {
+  if (!flags.noFailedAgents) return { status: 'failed', reasons: ['required_agent_failed'] };
+  if (!flags.allAgentsCompleted) return { status: 'partial', reasons: ['required_agents_incomplete'] };
+  return { status: 'verified', reasons: [] };
+}
+
+async function evaluateCollectedCompletion(input) {
+  const team = await require('./aTeamCompletionEvidenceService')
+    .latest(input.db, [input.missionId, input.orchestratorId]);
+  if (team) return team.completion;
+  const workers = input.agents.filter((agent) => agent.execution_mode === 'worker');
+  const required = workers.map((agent) => agent.id);
+  const evidence = await completionEvidence.collect({ db: input.db, missionId: input.missionId,
+    members: workers.map((worker) => ({ ...worker, memberId: worker.id })),
+    evidenceProofs: input.evidenceProofs });
+  return completionContract.evaluate({ missionId: input.missionId,
+    lifecycleState: collectedLifecycle(input.agents), requiredMemberIds: required,
+    members: evidence.members, evidenceProofs: evidence.evidenceProofs,
+    topologyValidation: collectedTopology(input.flags) });
 }
 
 function collectWorkerDossiers(orchestratorId, agents) {
@@ -130,4 +164,5 @@ function buildTypedProfiles(dossiers, runs) {
   return profiles;
 }
 
-module.exports = { collectMissionEvidence, EVIDENCE_TELEMETRY_EVENTS, buildEvidenceFlags, buildEvidenceKinds, buildTypedProfiles };
+module.exports = { collectMissionEvidence, evaluateCollectedCompletion, EVIDENCE_TELEMETRY_EVENTS,
+  buildEvidenceFlags, buildEvidenceKinds, buildTypedProfiles };

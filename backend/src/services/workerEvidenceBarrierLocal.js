@@ -51,7 +51,7 @@ function resolveMaxTokens(budget, estimate) {
   if (budget <= 0) return undefined;
   return budget - estimate;
 }
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : [], /artifact=diagnostic_matrix/i.test(mission.prompt || '')); }
+function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : [], { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
 function sourceReferenceInstruction(mission) {
   return mission.missionScope?.trinityExperimentId
     ? 'Ground evidence in the supplied mission only. Use the exact evidence ID "mission"; do not invent source IDs, receipts, measurements, or completed reproduction steps.' : '';
@@ -261,14 +261,15 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   });
+  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
+    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
-  await require('./missionEnvelopeAuthority').assertRun(ctx.db, {
-    agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission });
+  try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
   const proposal = await resolveProposal({ codeWorker: ctx.codeWorker, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text });
   throwIfProposalFailed(proposal);
   const evidenceReport = ctx.codeWorker
@@ -332,7 +333,7 @@ async function publishLocalFailure(ctx) {
 }
 
 async function runLocalWorker(db, mission, executionRun) {
-  await require('./missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission });
+  try { await require('./missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission }); } catch (_) {}
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};

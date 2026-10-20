@@ -6,6 +6,8 @@ const learning = require('../learning/teamLearningService');
 const { observeExecution } = require('./workGraphExecutionService');
 const { runDependencyGraph } = require('./dependencyExecutionService');
 const handoffs = require('../../aTeamHandoffEvidenceService');
+const { closeMission } = require('../../missionClosureService');
+const { digest } = require('../../evidenceContractService');
 
 async function executeTeamRun(input) {
   const run = await runStore.load(input.db, input.teamRunId);
@@ -51,14 +53,40 @@ async function executeMultiteamRun(input, run) {
   }
   const result = await runtime.advanceProgramRun({ db: input.db, programId,
     orchestratorId: input.orchestratorId, executeTeam: input.executeTeam });
-  const accepted = result.status === 'SUCCEEDED';
+  const completionInput = multiteamClosureInput(run, result);
+  const completion = closeMission(completionInput);
+  const accepted = completion.success;
   const status = accepted ? 'COMPLETED' : result.status === 'FAILED' ? 'FAILED' : 'BLOCKED';
   const latest = await requireLease(input);
   await require('../aTeamRuntime').transitionRun({ db: input.db, teamRunId: latest.teamRunId,
     revision: latest.revision, patch: { status, phase: 'DEBRIEF', execution: {
-      ...latest.execution, multiteamProgram: result, integration: { accepted }
+      ...latest.execution, multiteamProgram: result, integration: { accepted, completion }
     } } });
-  return { teamRunId: run.teamRunId, programId, status, accepted, program: result };
+  return { teamRunId: run.teamRunId, programId, status, accepted, program: result,
+    completion, completionInput };
+}
+
+function multiteamClosureInput(run, program) {
+  const records = program.teams.map((team) => {
+    const completed = team.status === 'SUCCEEDED' && team.receipt?.verified === true;
+    const content = { schema: 'genos.ateam-subteam-closure-proof/v1',
+      missionId: run.missionId, workerId: team.teamId,
+      result: { status: completed ? 'completed' : 'partial', verified: completed }, receipt: team.receipt };
+    const proof = { reference: digest(content), content, source: 'a_team_program' };
+    return { member: { memberId: team.teamId, status: completed ? 'completed' : 'partial',
+      evidenceRefs: completed ? [proof.reference] : [] }, proof };
+  });
+  const receipt = { schema: 'genos.ateam-program-oracle/v1', missionId: run.missionId,
+    programId: program.programId, teams: program.teams };
+  return { missionId: run.missionId, topology: 'a_team_multiteam', lifecycleState: 'completed',
+    producerId: run.missionId, requiredMemberIds: program.teams.map((team) => team.teamId),
+    members: records.map((record) => record.member), evidenceProofs: records.map((record) => record.proof),
+    topologyValidation: { status: 'verified', reasons: [] }, barrierStatus: 'complete',
+    invariants: [{ id: 'subteams_verified', passed: program.status === 'SUCCEEDED' }],
+    oracle: { status: program.status === 'SUCCEEDED' ? 'verified' : 'failed', independent: true,
+      verifierIds: ['a-team-program-completion-inspector'],
+      evidenceRefs: records.map((record) => record.proof.reference), receipt,
+      receiptHash: digest(receipt) } };
 }
 
 async function observeWithLease(input, state) {
@@ -89,13 +117,16 @@ async function finalizeExecution(input) {
   const { observed } = input;
   const statistical = await require('../../morphogenesis/capabilities/statisticalPromotionGate')
     .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
-  const accepted = observed.promoted && observed.gate.passed && statistical.allowed;
-  const status = accepted ? 'COMPLETED' : observed.graph.nodes.some((node) => node.status === 'FAILED') ? 'FAILED' : 'BLOCKED';
   const audit = await require('./teamAuditService').buildTeamAudit(input.db, input.run, observed);
+  const completionInput = teamClosureInput({ ...input, statistical, audit });
+  const completion = closeMission(completionInput);
+  const accepted = completion.success;
+  const status = accepted ? 'COMPLETED' : observed.graph.nodes.some((node) => node.status === 'FAILED') ? 'FAILED' : 'BLOCKED';
   let run = await requireLease(input);
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
     patch: { status, phase: 'INTEGRATION', execution: { ...run.execution,
-      coverage: observed.coverage, integration: { accepted, failures: observed.observation, gate: observed.gate, audit },
+      coverage: observed.coverage, integration: { accepted, failures: observed.observation,
+        gate: observed.gate, audit, completion },
       schedulingResults: input.results } } });
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision, patch: { phase: 'DEBRIEF' } });
   const evidenceIds = [...new Set([...observed.verdicts.values()].flatMap((verdict) => verdict.evidenceRefs))];
@@ -106,7 +137,45 @@ async function finalizeExecution(input) {
       handoffAcceptanceRate: observed.graph.edges.length ? acceptedHandoffs(observed.graph) : 1 },
     evidenceIsUsable: async ({ evidenceId }) => valid.has(evidenceId) });
   return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage,
-    results: input.results, audit };
+    results: input.results, audit, completion, completionInput };
+}
+
+function memberClosureRecord(input, member) {
+  const verdict = input.observed.verdicts.get(member.workerId);
+  const completed = input.observed.statuses.get(member.workerId) === 'completed'
+    && verdict?.promoted === true;
+  const content = { schema: 'genos.ateam-member-closure-proof/v1',
+    missionId: input.run.missionId, workerId: member.workerId,
+    result: { status: completed ? 'completed' : 'partial', verified: completed },
+    reportHash: verdict?.report ? digest(verdict.report) : null,
+    sourceEvidenceRefs: verdict?.evidenceRefs || [] };
+  const proof = { reference: digest(content), content, source: 'a_team_work_graph' };
+  return { member: { memberId: member.workerId, status: completed ? 'completed' : 'partial',
+    evidenceRefs: completed ? [proof.reference] : [] }, proof };
+}
+
+function teamOracle(input, records) {
+  const receipt = { schema: 'genos.ateam-independent-observer/v1',
+    missionId: input.run.missionId, observerReport: input.observed.observation.observerReport,
+    qualityGate: input.observed.gate };
+  return { status: input.observed.gate.passed ? 'verified' : 'failed', independent: true,
+    verifierIds: ['a-team-integration-observer'],
+    evidenceRefs: records.map((record) => record.proof.reference),
+    receipt, receiptHash: digest(receipt) };
+}
+
+function teamClosureInput(input) {
+  const records = input.plan.members.map((member) => memberClosureRecord(input, member));
+  const invariants = [
+    { id: 'work_graph_promoted', passed: input.observed.promoted === true },
+    { id: 'quality_gate_passed', passed: input.observed.gate.passed === true },
+    { id: 'statistical_gate_allowed', passed: input.statistical.allowed === true }
+  ];
+  return { missionId: input.run.missionId, topology: 'a_team', lifecycleState: 'completed',
+    producerId: input.run.missionId, requiredMemberIds: input.plan.members.map((member) => member.workerId),
+    members: records.map((record) => record.member), evidenceProofs: records.map((record) => record.proof),
+    topologyValidation: { status: 'verified', reasons: [] }, barrierStatus: 'complete',
+    invariants, oracle: teamOracle(input, records) };
 }
 
 function receiptsForMember(graph, nodes) {
@@ -134,4 +203,4 @@ async function timingFor(input, run) {
 
 function coded(message, code) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { executeTeamRun, finalizeExecution, assertLease };
+module.exports = { executeTeamRun, finalizeExecution, assertLease, teamClosureInput };

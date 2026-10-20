@@ -15,7 +15,12 @@ async function missionScope(db, mission) {
   return { ...mission, id: rows[0].mission_id, legacyAuthorityMissionId: id };
 }
 
-async function collect(db, missionId) {
+async function collect(db, mission) {
+  const scope = typeof mission === 'string' ? { id: mission } : mission;
+  const missionId = scope.id;
+  const team = await require('./aTeamCompletionEvidenceService')
+    .latest(db, [missionId, scope.legacyAuthorityMissionId, scope.orchestratorAgentId]);
+  if (team) return aTeamExecution(team);
   await migrateBiologicalExecutionReceipts(db);
   const registered = await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', missionId);
   const workers = registered ? await biology.missionEvidence(db, missionId)
@@ -26,6 +31,15 @@ async function collect(db, missionId) {
   return { satisfied: workers.satisfied, missing: workers.missing, rejected: workers.rejected,
     workerCount: workers.receipts.length, references,
     verifiedRustDivisionReceipts: rust.verifiedDivisions, epoch: digest(references) };
+}
+
+function aTeamExecution(team) {
+  const reference = { runtime: 'a-team', schema: team.completion.schema,
+    receiptId: `a-team:${team.teamRunId}`, payloadHash: digest(team.completion),
+    teamRunId: team.teamRunId, missionId: team.completion.missionId };
+  return { satisfied: true, missing: [], rejected: [], kind: 'a_team',
+    workerCount: team.completion.completedMemberIds.length, references: [reference],
+    verifiedRustDivisionReceipts: [], epoch: digest([reference]) };
 }
 
 function workerReference(receipt) {
@@ -82,7 +96,10 @@ function verifiedDivisionReference(input) {
 
 function contextWithEvidence(context, execution) {
   const kinds = evidenceKinds(context.evidence).filter(kind => kind !== 'biological_worker_receipt');
-  if (execution.satisfied && execution.workerCount > 0) kinds.push('biological_worker_receipt');
+  if (execution.kind === 'a_team') kinds.push('a_team_completion');
+  if (execution.kind !== 'a_team' && execution.satisfied && execution.workerCount > 0) {
+    kinds.push('biological_worker_receipt');
+  }
   return { ...context, evidence: [...new Set(kinds)],
     verifiedRustDivisionReceipts: execution.verifiedRustDivisionReceipts || [] };
 }

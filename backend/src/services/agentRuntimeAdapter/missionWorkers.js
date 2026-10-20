@@ -193,7 +193,9 @@ async function orchestrateAutonomousWorkers(ctx) {
 function capAssignments(requested, ctx) {
   const limit = Number(ctx.normalizedMission?.executionPolicy?.workerFanoutLimit);
   if (!Number.isFinite(limit) || limit < 0) return requested;
-  if (ctx.autonomyPlan?.nativeMissionPlan) return capNativeAssignments(requested, limit);
+  if (ctx.autonomyPlan?.nativeMissionPlan || ctx.autonomyPlan?.aTeam?.activated) {
+    return capNativeAssignments(requested, limit);
+  }
   const capped = requested.slice(0, Math.floor(limit));
   if (capped.length < requested.length) {
     emit(ctx.agentId, capped.length ? 'WORKER_FANOUT_CAPPED' : 'WORKER_FANOUT_BLOCKED', 'FANOUT_CAP',

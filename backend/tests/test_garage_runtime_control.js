@@ -27,6 +27,11 @@ async function adoption(test) {
     dispatchedAgent: { execution_mode: 'worker', status: 'running' } });
   await runtime.stop(test.db);
   assert.ok(mission.garageRequestId);
+  await runtime.reconcileOne({ db: test.db, isAlive: async () => true }, mission.garageRequestId);
+  const adopted = await test.db.get('SELECT lease_expires_at FROM garage_queue WHERE request_id = ?',
+    mission.garageRequestId);
+  assert.ok(Date.parse(adopted.lease_expires_at) - Date.now() > admission.ADOPTION_LEASE_TTL_MS - 5000,
+    'runtime renewal must preserve the bootstrap lease window during slow workspace provisioning');
   await runtime.assertLease(test.db, mission);
   assert.equal(await garage.enterIdleState(test.db, 'worker-2', 'orch'), false, 'an old callback cannot idle an active durable request');
   assert.equal(await garage.releaseSlot(test.db, { orchestratorId: 'orch', workerId: 'worker-2' }), false);

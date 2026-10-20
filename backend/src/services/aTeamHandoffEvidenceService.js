@@ -21,7 +21,9 @@ function usableEvidenceReferences(report) {
   const claimRefs = records(report.claims).flatMap((claim) => referenceList(claim.evidence));
   const testRefs = records(report.tests).filter((test) => test.passed === true)
     .flatMap((test) => referenceList(test.evidence || test.artifacts));
-  return [...new Set([...referenceList(report.artifacts), ...claimRefs, ...testRefs])];
+  const handoffRefs = records(report.handoffEvaluations).filter((item) => item.passed === true)
+    .flatMap((item) => referenceList(item.evidenceRefs));
+  return [...new Set([...referenceList(report.artifacts), ...claimRefs, ...testRefs, ...handoffRefs])];
 }
 
 function normalizeArtifacts(value) {
@@ -48,6 +50,11 @@ function reportArray(report, field) {
   return Array.isArray(report[field]) ? report[field] : [];
 }
 
+function artifactPayload(report) {
+  return report.workerArtifact?.content ?? report.workerArtifact
+    ?? report.output ?? report.result ?? null;
+}
+
 function handoffForDossier({ producer, consumer, dossier }) {
   const report = latestReport(dossier);
   if (!canBuildHandoff(report, producer, consumer)) return null;
@@ -56,7 +63,7 @@ function handoffForDossier({ producer, consumer, dossier }) {
 
 function canBuildHandoff(report, producer, consumer) {
   if (!reportIsUsable(report, consumer.inputArtifacts || consumer.requiredArtifacts || [])) return false;
-  const payload = report.output ?? report.result ?? report;
+  const payload = artifactPayload(report) ?? report;
   if (producer.outputSchema && validateArtifact(payload, producer.outputSchema).length) return false;
   if (consumer.inputSchema && validateArtifact(payload, consumer.inputSchema).length) return false;
   const evidence = require('./aTeam/execution/teamEvidenceService');
@@ -70,6 +77,7 @@ function createHandoff(report, producer, consumer) {
     producer: { agentId: producer.agentId, domain: memberDomain(producer) },
     consumer: { agentId: consumer.agentId, domain: memberDomain(consumer) },
     artifactRefs: normalizeArtifacts(report.artifacts),
+    artifactPayload: artifactPayload(report),
     claimRefs: records(report.claims),
     interfaceSchema: producer.outputSchema || null,
     assumptions: reportArray(report, 'assumptions'),
@@ -186,6 +194,7 @@ function missionWithHandoffs(prompt, handoffs) {
 }
 
 module.exports = {
+  artifactPayload,
   telemetryDossier,
   reportIsUsable,
   usableEvidenceReferences,

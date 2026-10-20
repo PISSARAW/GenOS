@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Expérience — mission chanson A-Team du 20 octobre 2026](06-qualite-preuves/experience-mission-chanson-a-team-2026-10-20.md) — artefact réellement produit, chronologie des refus, correctifs de clôture, preuves vérifiées et limites du rejeu.
+
 - [Dossier AEIS](01-concepts/adaptive-epistemic-immune-system.md) — modèle borné, [référence runtime](03-reference/runtime-aeis.md), [runbook opérateur](04-exploitation/aeis.md), [contrat de preuve](06-qualite-preuves/immunite-epistemique.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-aeis-2026-10-20.md).
 
 - [Dossier GQWF](01-concepts/gqwf.md) — modèle et invariants, [orchestration](02-orchestration/gqwf-v2.md), [référence runtime](03-reference/runtime-gqwf.md), [runbook opérateur](04-exploitation/gqwf.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-gqwf-2026-10-20.md).

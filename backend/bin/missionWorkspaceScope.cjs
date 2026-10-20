@@ -32,7 +32,7 @@ async function checkedRoot(value) {
 
 async function workspaceByPath(db, root) {
   const rows = await db.all('SELECT id, path FROM workspaces');
-  return rows.find((row) => row.path && samePath(row.path, root)) || null;
+  return rows.find((row) => row.path && path.isAbsolute(row.path) && samePath(row.path, root)) || null;
 }
 
 async function requestedWorkspace(db, requestedId, root) {

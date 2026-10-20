@@ -4,6 +4,7 @@ const { withTransaction } = require('../db');
 const store = require('./garageQueueStore');
 const requests = require('./garageRequests');
 const garage = () => require('./workerGarageService');
+const ADOPTION_LEASE_TTL_MS = 300000;
 
 async function submit(db, request) {
   await require('./agentAuthorityService').authorizeMission(db, {
@@ -32,7 +33,8 @@ async function adopt(ctx) {
       await garage().reserveSlot(ctx.db, { ...request, mission: mission.prompt });
     }
     const row = await store.enqueuePersistent(ctx.db, request);
-    const lease = require('./garageFabricService').createLease({ orchestratorId: request.orchestratorId, workerId: ctx.agentId, ttlMs: 60000 });
+    const lease = require('./garageFabricService').createLease({ orchestratorId: request.orchestratorId,
+      workerId: ctx.agentId, ttlMs: ADOPTION_LEASE_TTL_MS });
     await ctx.db.run(`UPDATE garage_queue SET status = 'running', phase = 'ready', lease_id = ?,
       lease_expires_at = ?, owner_id = ?, attempts = 1, started_at = CURRENT_TIMESTAMP WHERE request_id = ?`,
     lease.leaseId, new Date(lease.expiresAt).toISOString(), String(process.pid), row.request_id);
@@ -64,4 +66,4 @@ async function provisionWorker(ctx) {
   mission.workspaceProvisioned = true;
 }
 
-module.exports = { submit, adopt, provisionWorker };
+module.exports = { submit, adopt, provisionWorker, ADOPTION_LEASE_TTL_MS };

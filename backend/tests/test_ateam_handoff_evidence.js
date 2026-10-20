@@ -6,6 +6,8 @@ const consumer = { agentId: 'worker-b', subSystem: 'integration', dependsOn: ['f
 const plan = { members: [producer, consumer] };
 const report = {
   outcome: 'success',
+  output: 'dist/ui.js',
+  workerArtifact: { content: { text: 'A complete original song' } },
   artifacts: ['dist/ui.js'],
   claims: [{ statement: 'UI bundle built', evidence: ['build-log://123'] }],
   assumptions: ['browser runtime']
@@ -16,8 +18,15 @@ const ready = handoff.buildHandoffsFromDossiers({ plan, consumer, dossiers });
 assert.equal(ready.ok, true);
 assert.equal(ready.handoffs[0].type, 'DELIVERY');
 assert.deepEqual(ready.handoffs[0].artifactRefs, [{ uri: 'dist/ui.js' }]);
+assert.deepEqual(ready.handoffs[0].artifactPayload, report.workerArtifact.content);
 assert.deepEqual(ready.handoffs[0].evidenceRefs, ['dist/ui.js', 'build-log://123']);
-assert.match(handoff.missionWithHandoffs('integrate', ready.handoffs), /TYPED SPECIALIST HANDOFFS/);
+const handoffMission = handoff.missionWithHandoffs('integrate', ready.handoffs);
+assert.match(handoffMission, /TYPED SPECIALIST HANDOFFS/);
+assert.match(handoffMission, /A complete original song/);
+assert.deepEqual(handoff.usableEvidenceReferences({ handoffEvaluations: [
+  { passed: true, evidenceRefs: ['handoff://accepted'] },
+  { passed: false, evidenceRefs: ['handoff://rejected'] }
+] }), ['handoff://accepted']);
 
 const missing = handoff.buildHandoffsFromDossiers({
   plan, consumer, dossiers: [{ workerId: 'worker-a', events: [{ evidenceReport: { ...report, artifacts: [] } }] }]
