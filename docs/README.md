@@ -381,6 +381,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.
 
 ### 8. Qualité, preuves et positionnement
+- [experience-morphogenese-qwen-site-2026-10-20.md](06-qualite-preuves/experience-morphogenese-qwen-site-2026-10-20.md) — trois mondes Trinity exécutés par Qwen, absence de matérialisation HTML diagnostiquée et promotion correctement refusée.
 - [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 18 suites réussies hors sandbox restrictive, fermeture déclarative qualifiée, capacités COW non exercées sur Windows et qualification Trinity encore refusée.
 - [qualification-pensee-endogene-2026-10-20.md](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, vérification indépendante, coûts, crash/reprise, ablations, résultats négatifs et non-claims.
 - [qualification-aeis-2026-10-20.md](06-qualite-preuves/qualification-aeis-2026-10-20.md) — résultats AEIS, couverture native, contre-preuves, risques résiduels et décision de qualification bornée.
