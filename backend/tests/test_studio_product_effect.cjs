@@ -53,20 +53,24 @@ function metric(observed) {
     minimumEffect: 0.1, sampleSize: 100, direction: 'increase' };
 }
 
-async function observe(spec, ids, observer, contextKind, runId, observed) {
-  return effects.observe(spec.db, scoped(ids, observer, { hypothesisId: 'h-success',
-    runId, contextKind, metric: metric(observed), evidenceRefs: [`metric:${observer}`] }));
+async function observe(spec, ids, observation) {
+  return effects.observe(spec.db, scoped(ids, observation.observer,
+    { hypothesisId: 'h-success', runId: observation.runId,
+      contextKind: observation.contextKind, metric: metric(observation.observed),
+      evidenceRefs: [`metric:${observation.observer}`] }));
 }
 
 async function probe(spec) {
   const ids = await setup(spec);
   const firstRun = await completedRun(spec, ids, 'production');
-  await observe(spec, ids, 'effect-observer-a', 'production', firstRun, 0.7);
+  await observe(spec, ids, { observer: 'effect-observer-a', contextKind: 'production',
+    runId: firstRun, observed: 0.7 });
   const waiting = await effects.review(spec.db, scoped(ids, 'steward'));
   assert.equal(waiting.action, 'NO_CHANGE');
   assert.equal(waiting.boundaries.deploymentTriggered, false);
   const holdoutRun = await completedRun(spec, ids, 'holdout');
-  await observe(spec, ids, 'effect-observer-b', 'holdout', holdoutRun, 0.65);
+  await observe(spec, ids, { observer: 'effect-observer-b', contextKind: 'holdout',
+    runId: holdoutRun, observed: 0.65 });
   const transfer = await effects.review(spec.db, scoped(ids, 'steward'));
   assert.equal(transfer.action, 'PROPOSE_TRANSFER_EXPERIMENT');
   assert.equal(transfer.learning.transferable, true);
@@ -76,7 +80,8 @@ async function probe(spec) {
   assert.equal(replay.initiativeId, transfer.initiativeId);
   assert.equal(replay.replayed, true);
   const regressionRun = await completedRun(spec, ids, 'regression');
-  await observe(spec, ids, 'effect-observer-c', 'production', regressionRun, 0.4);
+  await observe(spec, ids, { observer: 'effect-observer-c', contextKind: 'production',
+    runId: regressionRun, observed: 0.4 });
   const rollback = await effects.review(spec.db, scoped(ids, 'steward'));
   assert.equal(rollback.action, 'ROLLBACK_RECOMMENDED');
   assert.equal(rollback.boundaries.rollbackTriggered, false);
