@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'metapopulation-completion-test-only';
+
 const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
@@ -10,6 +12,7 @@ const adapter = require('../src/services/topologyCompletionAdapters/metapopulati
 const { closureInput } = require('../src/services/topologyCompletionAdapters/dossier');
 const { closeMission } = require('../src/services/missionClosureService');
 const { digest } = require('../src/services/evidenceContractService');
+const receiptContract = require('../src/services/metapopulation/contracts/regionalVerificationReceiptContract');
 
 const MISSION_ID = 'mission-metapopulation';
 const SESSION_ID = 'metapopulation-session';
@@ -91,8 +94,7 @@ async function insertVerifiedCycle(db) {
     diagnose: async () => ({ summary: 'comparison complete' }),
     plan: async () => ({ actions: [{ type: 'MIGRATE_STRATEGY' }] }),
     execute: async () => ({ completed: true, migrationId: 'migration-alpha-beta' }),
-    verify: async () => ({ valid: true, verifierId: 'regional-runtime-verifier',
-      independent: true }) };
+    verify: async () => ({ valid: true, method: 'regional-state-comparison' }) };
   const result = await runtime.runRegionalCycle({ metapopulationId: SESSION_ID,
     cycle: 1, actor: 'metapopulation-runtime' }, { db, adapters });
   assert.equal(result.status, 'VERIFIED');
@@ -147,7 +149,7 @@ async function nominal() {
     assert.equal(dossier.topologyValidation.status, 'verified');
     assert.equal(dossier.oracle.independent, true);
     assert.equal(dossier.oracle.receipt.missionId, MISSION_ID);
-    assert.equal(dossier.oracle.verifierIds[0], 'regional-runtime-verifier');
+    assert.equal(dossier.oracle.verifierIds[0], receiptContract.AUTHORITY_ID);
     assert.match(dossier.oracle.receipt.cycleVerificationReceiptHash, /^sha256:[a-f0-9]{64}$/);
     const completion = closeMission(closureInput(dossier));
     assert.equal(completion.verdict, 'succeeded', JSON.stringify(completion));
@@ -219,12 +221,77 @@ async function missingAndAlteredOracle() {
   }), status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
 }
 
+function probeAdapters(verify) {
+  return { observe: async () => ({ revision: 1 }),
+    diagnose: async () => ({ status: 'READY' }),
+    plan: async () => ({ actions: [{ type: 'PROBE' }] }),
+    execute: async () => ({ completed: true }), verify };
+}
+
+async function runtimeProbe(input = {}) {
+  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  await migrateMetapopulationRuntime(db);
+  const session = await coordination.createMetapopulationSession(
+    'Probe authority boundaries.', { db, missionId: MISSION_ID });
+  try {
+    const result = await runtime.runRegionalCycle({ metapopulationId: session.sessionId,
+      cycle: 1, actor: input.actor }, { db,
+      adapters: probeAdapters(() => input.verify(db, session.sessionId)) });
+    const count = await db.get(`SELECT COUNT(*) AS count
+      FROM metapopulation_cycle_states WHERE metapopulation_id = ?`, session.sessionId);
+    return { result, cycleCount: count.count };
+  } finally { await db.close(); }
+}
+
+async function authoritySpoofingIsRejected() {
+  const invented = await runtimeProbe({ actor: 'regional-producer',
+    verify: async () => ({ valid: true, verifierId: 'invented-verifier',
+      independent: true }) });
+  assert.equal(invented.result.reason, 'REGIONAL_VERIFICATION_AUTHORITY_REQUIRED');
+  assert.equal(invented.cycleCount, 0);
+  const alias = await runtimeProbe({
+    actor: `  ${receiptContract.AUTHORITY_ID.toUpperCase()}  `,
+    verify: async () => ({ valid: true }) });
+  assert.equal(alias.result.reason, 'REGIONAL_VERIFICATION_AUTHORITY_REQUIRED');
+  assert.equal(alias.cycleCount, 0);
+}
+
+async function mutationDuringVerificationIsRejected() {
+  const attempt = await runtimeProbe({ actor: 'regional-producer',
+    verify: async (db, sessionId) => {
+      await db.run(`UPDATE metapopulation_sessions SET mission = mission || ' altered'
+        WHERE id = ?`, sessionId);
+      return { valid: true };
+    } });
+  assert.equal(attempt.result.reason, 'REGIONAL_STATE_CHANGED_DURING_VERIFICATION');
+  assert.equal(attempt.cycleCount, 0);
+}
+
+async function coherentlyRewrittenReceiptIsRejected() {
+  await expectReason({ mutate: async (db) => {
+    const row = await db.get(`SELECT execution_json, verification_json
+      FROM metapopulation_cycle_states WHERE metapopulation_id = ? AND cycle = 1`,
+    SESSION_ID);
+    const execution = { ...JSON.parse(row.execution_json), forged: true };
+    const verification = JSON.parse(row.verification_json);
+    verification.receipt.resultHash = digest(execution);
+    verification.receipt = reseal(verification.receipt);
+    await db.run(`UPDATE metapopulation_cycle_states
+      SET execution_json = ?, verification_json = ?
+      WHERE metapopulation_id = ? AND cycle = 1`, JSON.stringify(execution),
+    JSON.stringify(verification), SESSION_ID);
+  }, status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
+}
+
 async function run() {
   await nominal();
   await foreignMission();
   await missingStateAndPhase();
   await missingAndAlteredProofs();
   await missingAndAlteredOracle();
+  await authoritySpoofingIsRejected();
+  await mutationDuringVerificationIsRejected();
+  await coherentlyRewrittenReceiptIsRejected();
   console.log('Metapopulation completion adapter: PASS');
 }
 
