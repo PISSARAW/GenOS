@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-20 (admission topologie–variant P2)
+- **Dernière revue** : 2026-10-20 (qualification signée et révocable P3)
 
 ---
 
@@ -92,6 +92,21 @@ La suite P2 exécute ce parcours complet avec un variant contrôlé uniquement d
 test. Aucun des variants de production des huit topologies n'est promu par cette
 preuve du protocole commun : leurs qualifications spécialisées restent à établir.
 
+P3 ajoute `topologyMorphogenesisQualification`, frontière d'autorité au-dessus de
+P2. Un lease Ed25519 lie l'admission, le digest du port, les références de preuve,
+l'autorité et une expiration maximale de quinze minutes. À chaque exécution,
+`executeAttestedTopologyMorphogenesis` recalcule P2 puis vérifie la signature, la
+fraîcheur, les bindings et le journal de révocation signé et chaîné avant tout
+`observe`. Une dérive, une expiration, une révocation ou un registre invalide
+refuse en fermé. Le lease conserve `authorizesPromotion: false`.
+
+Cette nouvelle entrée constitue le parcours contrôlé P3 ; la fonction P2 reste la
+couche d'admission statique et le test de protocole interne. Aucun appel de
+production n'est encore raccordé à P3 et aucun des huit ports n'est qualifié : les
+adaptateurs de snapshot existants retournent un plan `verify-only` avec
+`restorable: false`. Le registre de confiance et le journal sont injectés, sans
+stockage durable ni réplication multi-hôte dans ce lot.
+
 Toute sortie objet d'une feuille porte aussi `topologyOutcome` v1 : identité de
 topologie et de variant, `executionStatus`, `contractStatus`, `evidenceStatus`,
 `missionOutcome` et `promotionEligible`. Les quatre statuts restent dupliqués à
@@ -156,11 +171,16 @@ backend SQLite configuré pour le control plane et non d'une base de test
   `backend/tests/test_morphogenesis_p2_admission.js` vérifie le parcours qualifié,
   le refus d'une étiquette sans preuve, la liaison d'identité et la fermeture des
   huit catalogues actuels.
+- Qualification signée et révocable :
+  `backend/tests/test_morphogenesis_p3_qualification.js` vérifie un lease courant,
+  l'expiration, la dérive du port et des preuves, la révocation signée, le refus
+  d'un journal forgé et l'absence d'effet avant admission.
 - Protocole à 8 avec SQLite :
   `docs/06-qualite-preuves/morphogenese-gates-2026-09-26.md`.
 - Décisions : `docs/adr/0133-graphe-morphologique-executable-et-plugins-topologies.md`,
   `docs/adr/0700-cycle-transactionnel-commun-morphogenese-p1.md` et
-  `docs/adr/0702-admission-topologie-variant-morphogenese-p2.md`.
+  `docs/adr/0702-admission-topologie-variant-morphogenese-p2.md`, puis
+  `docs/adr/0704-qualification-signee-revocable-morphogenese-p3.md`.
 
 ## 6. Limites
 

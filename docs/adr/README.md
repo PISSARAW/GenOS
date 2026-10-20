@@ -806,6 +806,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0700](0700-cycle-transactionnel-commun-morphogenese-p1.md) | Cycle transactionnel commun de morphogenèse P1 | Accepté | 2026-10-20 | Morphogenèse, topologies, restauration, preuves |
 | [0701](0701-maintenance-catalogue-gqwf.md) | Réconcilier et borner le catalogue GQWF | Accepté | 2026-10-20 | GQWF, CAS, reprise, rétention, intégrité |
 | [0702](0702-admission-topologie-variant-morphogenese-p2.md) | Admission topologie–variant de morphogenèse P2 | Accepté | 2026-10-20 | Morphogenèse, variants, admission, preuves |
+| [0704](0704-qualification-signee-revocable-morphogenese-p3.md) | Qualification signée et révocable de morphogenèse P3 | Accepté | 2026-10-20 | Morphogenèse, qualification, autorité, révocation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
