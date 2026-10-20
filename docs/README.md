@@ -829,3 +829,6 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0620 — Calibrage empirique du profil et de l'hystérésis](adr/0620-calibrage-empirique-profil-et-hysteresis.md).
 - [ADR 0627 — Frontière entre claims fonctionnels et phénoménaux](adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine, preuves requises et refus des conclusions phénoménales.
 - [ADR 0642 — Borner les heuristiques et les garanties AEIS](adr/0642-borner-les-heuristiques-aeis.md) — statut non calibré, diversité descriptive, portée mécanisable et indépendance.
+@@
+ - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
++- [evolution-gouvernee-agent.md](01-concepts/evolution-gouvernee-agent.md) — évolution des logiques/scaffolds sans auto-promotion, sous constitution et preuve de transfert.
