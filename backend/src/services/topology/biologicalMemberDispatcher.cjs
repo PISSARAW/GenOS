@@ -21,7 +21,8 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
 
 async function dispatchMetapopulationReview({ db, context, parent, members, initialWorkers }) {
   const initialSettled = await waitForMetapopulationWorkers(db, initialWorkers, context.request.timeoutMs);
-  for (const member of initialWorkers) member.result = await metapopulationMissionResults.read(db, member);
+  for (const member of initialWorkers) member.result = await metapopulationMissionResults.read(db,
+    { member, missionId: context.missionId });
   const initial = initialWorkers.map((member) => ({ role: member.role, ...member.result }));
   if (!initialSettled) {
     for (const member of initialWorkers) member.result.initialResults = initial;
@@ -33,7 +34,7 @@ async function dispatchMetapopulationReview({ db, context, parent, members, init
     accepted = await reviewMetapopulationCandidates({ db, context, parent, members, candidates });
     await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
     for (const member of accepted) {
-      member.result = await metapopulationMissionResults.read(db, member);
+      member.result = await metapopulationMissionResults.read(db, { member, missionId: context.missionId });
       member.result.initialResults = initial;
     }
     candidates = accepted.map((member) => ({ role: member.role, ...member.result }));

@@ -8,6 +8,7 @@ async function applyRhizomeResults({ db, context, mode, topology, accepted, pare
   if (mode !== 'rhizome' || !topology.sessionId) return;
   const discovery = await rhizomeMissionRunner.completeMission({
     db, sessionId: topology.sessionId, accepted, mission: output.biologicalMode.mission,
+    missionId: context.missionId,
     dispatch: (members) => dispatchRhizomeMissionMembers({ db, context, members, parent })
   });
   const { result, discoveredBranches } = discovery;

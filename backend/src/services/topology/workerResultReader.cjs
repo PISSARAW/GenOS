@@ -6,7 +6,7 @@ const store = require('../biologicalWorkerStore');
 async function read(db, input) {
   const member = input.member;
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
-  const evidence = await authoritativeEvidence(db, input);
+  const evidence = await readEvidence(db, input);
   return resultFromEvidence({ member, agent, evidence });
 }
 
@@ -19,7 +19,7 @@ async function readAll(db, input) {
   return members;
 }
 
-async function authoritativeEvidence(db, input) {
+async function readEvidence(db, input) {
   if (!input.missionId || !input.member?.workerId) return invalidEvidence();
   try {
     await store.ensure(db);
@@ -34,9 +34,10 @@ async function authoritativeEvidence(db, input) {
 }
 
 async function latestBinding(db, input) {
-  return db.get(`SELECT * FROM biological_worker_bindings
-    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+  const rows = await db.all(`SELECT * FROM biological_worker_bindings
+    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 2`,
   input.missionId, input.member.workerId);
+  return rows.length === 1 ? rows[0] : null;
 }
 
 async function evidenceForBinding(db, bindingRow, binding) {
@@ -149,4 +150,4 @@ function text(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-module.exports = { read, readAll };
+module.exports = { read, readAll, readEvidence };

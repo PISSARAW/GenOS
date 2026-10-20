@@ -1,7 +1,10 @@
 'use strict';
 
-async function validate(db, members) {
-  const reports = await Promise.all(members.map((member) => readReport(db, member)));
+const workerEvidence = require('./topology/workerResultReader.cjs');
+
+async function validate(db, input) {
+  const members = input.members || [];
+  const reports = await Promise.all(members.map((member) => readReport(db, { member, missionId: input.missionId })));
   const claims = reports.flatMap((report) => report.claims);
   const conflicts = findConflicts(claims);
   const coveredWorkers = new Set(claims.map((claim) => claim.workerId)).size;
@@ -16,11 +19,10 @@ function hasFullCoverage(workerCount, coveredWorkers) {
   return workerCount > 0 && coveredWorkers === workerCount;
 }
 
-async function readReport(db, member) {
-  const row = await db.get(`SELECT id, payload_json FROM telemetry_events
-    WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
-  const payload = parse(row?.payload_json);
-  const report = payload?.evidenceReport || payload?.report || payload;
+async function readReport(db, input) {
+  const { member, missionId } = input;
+  const evidence = await workerEvidence.readEvidence(db, { member, missionId });
+  const report = evidence.receipt?.evidence?.report || null;
   const content = report?.workerArtifact?.content || report?.content || report;
   const source = Array.isArray(content?.semanticClaims) ? content.semanticClaims : [];
   return { workerId: member.workerId, claims: source.map((claim) => normalizeClaim(claim, member.workerId)).filter(Boolean) };
@@ -73,10 +75,6 @@ function strings(value) {
 
 function clean(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-function parse(value) {
-  try { return JSON.parse(value || '{}'); } catch { return {}; }
 }
 
 module.exports = { validate };

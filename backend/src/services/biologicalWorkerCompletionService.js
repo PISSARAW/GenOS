@@ -6,7 +6,7 @@ async function validateSyncytiumResponses({ db, context, accepted, expectedCount
   const settled = await waitForWorkers(db, accepted, context.request.timeoutMs);
   await collectCompletedWorkerStatuses({ db, context, accepted });
   if (!settled) recordDispatchFailure(context, 'orchestrator', 'worker_wait_timeout');
-  const validation = await semanticValidation.validate(db, accepted);
+  const validation = await semanticValidation.validate(db, { members: accepted, missionId: context.missionId });
   validation.expectedWorkers = expectedCount;
   validation.dispatchedWorkers = accepted.length;
   return validation;

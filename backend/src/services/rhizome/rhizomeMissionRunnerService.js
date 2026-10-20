@@ -8,8 +8,9 @@ const MAX_DISCOVERY_ROUNDS = 2;
 async function completeMission(input) {
   const { db, sessionId, accepted, mission, dispatch } = input;
   const branches = [...accepted];
-  let result = await resultsService.collect(db, sessionId, branches);
-  const state = { db, sessionId, branches, mission, dispatch, result, seen: new Set(), unlaunched: [], deferred: [], launched: 0 };
+  let result = await resultsService.collect(db, { sessionId, workers: branches, missionId: input.missionId });
+  const state = { db, sessionId, branches, mission, missionId: input.missionId,
+    dispatch, result, seen: new Set(), unlaunched: [], deferred: [], launched: 0 };
   await runDiscoveryRounds(state);
   result = state.result;
   result.unexploredDependencies = unresolvedCandidates(state);
@@ -37,7 +38,8 @@ async function runDiscoveryRounds(state) {
     state.launched += launched.length;
     const launchedIds = new Set(launched.map((branch) => branch.branchCandidateId));
     state.unlaunched.push(...candidates.filter((candidate) => !launchedIds.has(candidate.id)));
-    state.result = await resultsService.collect(state.db, state.sessionId, state.branches);
+    state.result = await resultsService.collect(state.db,
+      { sessionId: state.sessionId, workers: state.branches, missionId: state.missionId });
     pending = [...state.unlaunched, ...fresh.slice(candidates.length), ...newCandidates(state)];
   }
 }

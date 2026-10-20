@@ -83,7 +83,7 @@ function validateBudget(budget) {
 async function executeRun({ manifest, db, variant, repetition }) {
   const output = launchScenario({ manifest, variant });
   const members = output.biologicalMode?.members || [];
-  const validation = await semanticValidation.validate(db, members);
+  const validation = await semanticValidation.validate(db, validationInput(output, members));
   const runtimeValidation = output.biologicalMode?.semanticValidation;
   const counts = metricCounts({ validation, runtimeValidation, baseline: variant.name === 'isolated_baseline' });
   const quality = qualityScore(manifest.expectedClaims, validation.claims);
@@ -152,10 +152,15 @@ function parseOutput(stdout) {
     try {
       const parsed = JSON.parse(line);
       if (parsed.biologicalMode) return parsed;
+      if (parsed.result?.biologicalMode) return { ...parsed.result, missionId: parsed.missionId || null };
     } catch (_) {}
   }
   return { biologicalMode: { status: 'failed', members: [], complete: false,
     dispatchFailures: ['orchestrator_returned_no_biological_output'] } };
+}
+
+function validationInput(output, members) {
+  return { members, missionId: output.missionId || output.biologicalMode?.missionId };
 }
 
 function metricCounts({ validation, runtimeValidation, baseline }) {

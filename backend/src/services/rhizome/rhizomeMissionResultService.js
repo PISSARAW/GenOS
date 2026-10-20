@@ -1,13 +1,15 @@
 'use strict';
 
 const rhizome = require('../rhizomeCoordinationService');
+const workerEvidence = require('../topology/workerResultReader.cjs');
 
 const MAX_BRANCH_NODES = 32;
 const RELATIONS = new Set(['ROUTES_TO', 'TRANSLATES_TO', 'DEPENDS_ON', 'VERIFIES', 'PROVIDES_INPUT', 'PRODUCES_FOR', 'BRIDGES']);
 
-async function collect(db, sessionId, workers) {
+async function collect(db, input) {
+  const { sessionId, workers, missionId } = input;
   const branches = [];
-  for (const worker of workers || []) branches.push(await readBranch(db, worker));
+  for (const worker of workers || []) branches.push(await readBranch(db, { worker, missionId }));
   const additions = branches.flatMap((branch) => branch.structured ? graphAdditions(branch) : []);
   const snapshot = await rhizome.graphSnapshot(sessionId, { db });
   const knownBeforeGrowth = new Set(snapshot.nodes.map((node) => node.nodeId));
@@ -84,19 +86,17 @@ function renderAnswers(branches) {
   return answers.join('\n\n');
 }
 
-async function readBranch(db, worker) {
+async function readBranch(db, input) {
+  const { worker, missionId } = input;
   if (!worker.workerId) return failedBranch(worker);
   const row = await db.get('SELECT status, current_task FROM agents WHERE id = ?', worker.workerId);
-  const event = await db.get(
-    "SELECT id, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1",
-    worker.workerId
-  );
-  return branchFromEvidence({ worker, row, event });
+  const evidence = await workerEvidence.readEvidence(db, { member: worker, missionId });
+  return branchFromEvidence({ worker, row, evidence });
 }
 
 function branchFromEvidence(context) {
-  const { worker, row, event } = context;
-  const report = parsePayload(event && event.payload_json);
+  const { worker, row, evidence } = context;
+  const report = evidence.receipt?.evidence?.report || null;
   const answer = reportAnswer(report);
   const complete = branchHasSuccessfulEvidence(row, report, answer);
   const parsed = complete ? parseStructured(answer) : null;
@@ -106,7 +106,7 @@ function branchFromEvidence(context) {
     status: resolvedBranchStatus(complete, row),
     answer,
     failureReason: complete ? null : (row && row.current_task) || null,
-    evidenceEventId: (event && event.id) || null,
+    evidenceEventId: evidenceEventId(evidence),
     provenance: reportProvenance(report),
     structured
   };
@@ -179,13 +179,9 @@ function failedBranch(worker) {
   };
 }
 
-function parsePayload(value) {
-  try {
-    const payload = JSON.parse(value || '{}');
-    return payload.evidenceReport || payload.report || payload;
-  } catch (_) {
-    return null;
-  }
+function evidenceEventId(evidence) {
+  return evidence.event?.event?.id || evidence.event?.event?.eventId
+    || evidence.event?.row?.event_key || null;
 }
 
 function reportAnswer(report) {

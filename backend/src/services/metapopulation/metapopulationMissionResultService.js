@@ -2,19 +2,20 @@
 const { validateSchedulingResult } = require('./schedulingEvidenceValidator');
 const migrationService = require('./metapopulationMigrationService');
 const topologyEvaluation = require('../topologyMissionEvaluationService');
+const workerEvidence = require('../topology/workerResultReader.cjs');
 
-async function read(db, member) {
+async function read(db, input) {
+  const { member, missionId } = input;
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
-  const event = await db.get(`SELECT id, payload_json FROM telemetry_events WHERE agent_id = ?
-    AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
-  const result = assembleResult({ member, agent, event });
+  const evidence = await workerEvidence.readEvidence(db, { member, missionId });
+  const result = assembleResult({ member, agent, evidence });
   const statistical = await require('../morphogenesis/capabilities/statisticalPromotionGate')
     .evaluateForNode(db, { nodeId: member.riskNodeId || member.workerId, contract: member.statisticalContract });
   return statistical.allowed ? result : { ...result, status: 'unverified', statistical };
 }
 
-function assembleResult({ member, agent, event }) {
-  const report = parseEvidence(event?.payload_json);
+function assembleResult({ member, agent, evidence }) {
+  const report = evidence.receipt?.evidence?.report || null;
   const answer = evidenceAnswer(report);
   const expectedMethod = String(member.mission || '').match(/Assigned method:\s*([^\n.]+)/i)?.[1]?.trim() || '';
   const methodValidated = methodEvidenceMatches(primaryEvidence(report), expectedMethod);
@@ -24,10 +25,10 @@ function assembleResult({ member, agent, event }) {
   const domainValidation = validateDomainResult({ member, answer, expectedMethod, structured, fixtureId });
   const baselineValidation = validateBaseline({ member, review, expectedMethod, fixtureId });
   const migrationDecisions = validateMigrations({ structured, review, baselineValidation, domainValidation });
-  const complete = completedEvidence({ agent, report, answer, methodValidated, domainValidation });
+  const complete = completedEvidence({ agent, evidence, report, answer, methodValidated, domainValidation });
   const status = complete ? 'completed' : agent?.status === 'completed' ? 'unverified' : agent?.status || 'NO_EVIDENCE';
   return { workerId: member.workerId, role: member.role, status,
-    answer: answer || null, evidenceEventId: event?.id || null, outcome: report?.outcome || null,
+    verified: complete, answer: answer || null, evidenceEventId: evidenceEventId(evidence), outcome: report?.outcome || null,
     expectedMethod: expectedMethod || null, methodValidated, domainValidation,
     transferableIdeas: structured.transferableIdeas, migrationDecisions };
 }
@@ -146,15 +147,17 @@ function readableAnswer(value) {
   }
 }
 
-function completedEvidence({ agent, report, answer, methodValidated, domainValidation }) {
-  return agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0
+function completedEvidence({ agent, evidence, report, answer, methodValidated, domainValidation }) {
+  return evidence.valid && evidence.receipt?.result?.status === 'completed'
+    && evidence.receipt?.result?.verified === true
+    && agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0
     && methodValidated && domainValidation?.valid !== false
     && (!domainValidation?.applicable || domainValidation.valid === true);
 }
 
-function parseEvidence(value) {
-  try { const payload = JSON.parse(value || '{}'); return payload.evidenceReport || payload.report || payload; }
-  catch (_) { return null; }
+function evidenceEventId(evidence) {
+  return evidence.event?.event?.id || evidence.event?.event?.eventId
+    || evidence.event?.row?.event_key || null;
 }
 
 function reviewPrompt(member, results) {

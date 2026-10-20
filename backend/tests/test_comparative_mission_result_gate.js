@@ -3,15 +3,7 @@
 const assert = require('node:assert/strict');
 const { read } = require('../src/services/metapopulation/metapopulationMissionResultService');
 const { loadFixture, renderFixtureMission } = require('../src/services/comparativeMissionFixtureService');
-
-function fakeDb(report) {
-  return {
-    async get(query) {
-      if (query.includes('FROM agents')) return { status: 'completed' };
-      return { id: 11, payload_json: JSON.stringify({ evidenceReport: report }) };
-    }
-  };
-}
+const fixture = require('./helpers/authoritativeEvidenceFixture');
 
 function evidence(answer, method) {
   const statement = JSON.stringify({ answer, submission: { schedule: 'locally checked' } });
@@ -21,11 +13,18 @@ function evidence(answer, method) {
 async function main() {
   const fixtureMission = `${renderFixtureMission(loadFixture('level-1'))}\nAssigned method: gloutonne.`;
   const validAnswer = 'Méthode gloutonne. Machine 1 -> E (6), B (3), A (2). Machine 2 -> D (5), C (4). Makespan = 11.';
-  const result = await read(fakeDb(evidence(validAnswer, 'gloutonne')), { workerId: 'w1', role: 'greedy', mission: fixtureMission });
+  const missionId = 'comparative-mission';
+  const member = { workerId: 'w1', role: 'greedy', mission: fixtureMission };
+  const db = fixture.database([fixture.record({ workerId: 'w1', missionId,
+    runId: 'comparative-valid', report: evidence(validAnswer, 'gloutonne') })]);
+  const result = await read(db, { member, missionId });
   assert.equal(result.status, 'completed');
   assert.equal(result.domainValidation.valid, true);
-  const invalid = await read(fakeDb(evidence('Method gloutonne. Machine 1 -> A (2). Makespan = 2.', 'gloutonne')),
-    { workerId: 'w2', role: 'greedy', mission: fixtureMission });
+  const invalidMember = { workerId: 'w2', role: 'greedy', mission: fixtureMission };
+  const invalidDb = fixture.database([fixture.record({ workerId: 'w2', missionId,
+    runId: 'comparative-invalid',
+    report: evidence('Method gloutonne. Machine 1 -> A (2). Makespan = 2.', 'gloutonne') })]);
+  const invalid = await read(invalidDb, { member: invalidMember, missionId });
   assert.equal(invalid.status, 'unverified');
   assert.equal(invalid.domainValidation.valid, false);
 }
