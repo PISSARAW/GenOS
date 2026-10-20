@@ -808,6 +808,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0702](0702-admission-topologie-variant-morphogenese-p2.md) | Admission topologie–variant de morphogenèse P2 | Accepté | 2026-10-20 | Morphogenèse, variants, admission, preuves |
 | [0703](0703-fermeture-execution-adressee-gqwf.md) | Sceller une fermeture d'exécution GQWF adressée par contenu | Accepté | 2026-10-20 | GQWF, CAS, provenance, reproductibilité, Nix |
 | [0704](0704-qualification-signee-revocable-morphogenese-p3.md) | Qualification signée et révocable de morphogenèse P3 | Accepté | 2026-10-20 | Morphogenèse, qualification, autorité, révocation |
+| [0705](0705-registre-adaptateurs-cloture-topologique.md) | Registre d'adaptateurs de clôture topologique | Accepté, adaptateurs spécialisés en attente | 2026-10-20 | orchestration, topologies, clôture, preuves |
+| [0706](0706-cataloguer-et-reconstruire-fermetures-gqwf.md) | Cataloguer et reconstruire les fermetures d'exécution GQWF | Accepté | 2026-10-20 | GQWF, CAS, catalogue, reprise, provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

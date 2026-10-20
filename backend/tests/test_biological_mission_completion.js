@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const completion = require('../src/services/biologicalMissionCompletionService');
 const { digest } = require('../src/services/evidenceContractService');
+const { KNOWN_TOPOLOGIES, createRegistry } = require('../src/services/topologyCompletionAdapters');
 const { handleBiologicalCondition } = require('../src/services/topology/biologicalConditions.cjs');
 
 function output(statuses, status = 'completed') {
@@ -12,7 +13,11 @@ function output(statuses, status = 'completed') {
 }
 
 function proof(missionId, workerId) {
-  const content = { missionId, workerId, result: { status: 'completed', verified: true } };
+  const suffix = digest({ missionId, workerId }).slice('sha256:'.length);
+  const content = { missionId, workerId, result: { status: 'completed', verified: true },
+    semanticVerification: { schema: 'genos.native-oracle-receipt-reference/v1',
+      hash: suffix, acceptanceHash: digest({ missionId, workerId, accepted: true }),
+      budgetAssessment: { satisfied: true } } };
   return { reference: digest(content), content };
 }
 
@@ -27,14 +32,19 @@ async function verifyWorkerCompletionWithoutDecisionProof() {
   assert.equal(handleBiologicalCondition('trinity', { biologicalMode: result }), true);
 }
 
-async function verifyCompletionContractIntegration() {
-  const evidenceProofs = [proof('mission-2', 'worker-1')];
-  const result = await completion.complete({ mode: 'biocenose', missionId: 'mission-2',
-    output: output(['completed']), expectedCount: 1, evidenceProofs });
-  assert.equal(result.complete, true);
-  assert.equal(result.completionContract.schema, 'genos.mission-completion/v1');
-  assert.equal(result.completionContract.verdict, 'succeeded');
-  assert.equal(result.success, true);
+async function verifyKnownModesFailClosed() {
+  for (const mode of KNOWN_TOPOLOGIES) {
+    const missionId = `mission-${mode}`;
+    const result = await completion.complete({ mode, missionId, output: output(['completed']),
+      expectedCount: 1, evidenceProofs: [proof(missionId, 'worker-1')] });
+    assert.equal(result.complete, false, mode);
+    assert.equal(result.completionContract.schema, 'genos.mission-completion/v1', mode);
+    assert.equal(result.completionContract.verdict, 'partial', mode);
+    assert.equal(result.completionContract.reasons.includes(
+      'topology_completion_adapter_unavailable'), true, mode);
+    assert.equal(result.completionContract.closureChecks.requiredWorkers, true, mode);
+    assert.equal(result.completionContract.closureChecks.independentOracle, false, mode);
+  }
 }
 
 async function verifyPartialBarrierFails() {
@@ -54,16 +64,61 @@ async function verifyRhizomeUsesCollectedBranches() {
       branches: [{ workerId: 'worker-1', status: 'completed' },
         { workerId: 'worker-2', status: 'completed' }] },
     expectedCount: 1, evidenceProofs });
+  assert.equal(result.complete, false);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.completionContract.closureChecks.requiredWorkers, true);
+  assert.equal(result.completionContract.closureChecks.evidence, true);
+  assert.equal(handleBiologicalCondition('rhizome', { biologicalMode: result }), true);
+}
+
+function verifiedAdapter(topology) {
+  return { id: `${topology}-test-adapter`, topology, specialized: true,
+    async build({ context, evidence }) {
+      const evidenceRefs = evidence.evidenceProofs.map((item) => item.reference);
+      const receipt = { schema: 'test.topology-closure/v1', missionId: context.missionId,
+        topology, verdict: 'verified' };
+      return { missionId: context.missionId, topology, lifecycleState: 'completed',
+        producerId: context.missionId, roster: { requiredMemberIds: evidence.members.map(
+          (member) => member.workerId), members: evidence.members,
+        evidenceProofs: evidence.evidenceProofs }, barrierStatus: 'complete',
+      topologyValidation: { status: 'verified', reasons: [] },
+      invariants: [{ id: `${topology}_canonical_state`, passed: true }],
+      oracle: { status: 'verified', independent: true,
+        verifierIds: [`${topology}-test-verifier`], evidenceRefs,
+        receipt, receiptHash: digest(receipt) } };
+    } };
+}
+
+async function verifySpecializedAdapterExtensionPoint() {
+  const registry = createRegistry();
+  registry.register('trinity', verifiedAdapter('trinity'));
+  const missionId = 'mission-specialized-trinity';
+  const result = await completion.complete({ mode: 'trinity', missionId,
+    output: output(['completed']), expectedCount: 1,
+    evidenceProofs: [proof(missionId, 'worker-1')], completionAdapterRegistry: registry });
   assert.equal(result.complete, true);
-  assert.equal(result.status, 'completed');
-  assert.equal(handleBiologicalCondition('rhizome', { biologicalMode: result }), false);
+  assert.equal(result.completionContract.verdict, 'succeeded');
+  assert.equal(result.completionContract.closureChecks.independentOracle, true);
+}
+
+async function verifyMalformedAdapterFailsClosed() {
+  const registry = createRegistry({ biome: { async build() { return null; } } });
+  const missionId = 'mission-malformed-biome-adapter';
+  const result = await completion.complete({ mode: 'biome', missionId,
+    output: output(['completed']), expectedCount: 1,
+    evidenceProofs: [proof(missionId, 'worker-1')], completionAdapterRegistry: registry });
+  assert.equal(result.complete, false);
+  assert.equal(result.completionContract.verdict, 'partial');
+  assert.equal(result.completionContract.reasons.includes('execution_state_unknown'), true);
 }
 
 async function main() {
   await verifyWorkerCompletionWithoutDecisionProof();
-  await verifyCompletionContractIntegration();
+  await verifyKnownModesFailClosed();
   await verifyPartialBarrierFails();
   await verifyRhizomeUsesCollectedBranches();
+  await verifySpecializedAdapterExtensionPoint();
+  await verifyMalformedAdapterFailsClosed();
   console.log('Biological mission completion: PASS');
 }
 

@@ -32,6 +32,7 @@
 - [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
 - [ADR 0701 — Réconcilier et borner le catalogue GQWF](adr/0701-maintenance-catalogue-gqwf.md) — republication après crash, chaîne CAS vérifiée et fenêtre bornée à 64 refs sans supprimer les objets.
 - [ADR 0703 — Sceller une fermeture d'exécution GQWF](adr/0703-fermeture-execution-adressee-gqwf.md) — racine, commande, runtime, dépendances et environnement hashé dans un manifeste CAS explicitement non hermétique.
+- [ADR 0706 — Cataloguer et reconstruire les fermetures GQWF](adr/0706-cataloguer-et-reconstruire-fermetures-gqwf.md) — catalogue v2 compatible v1, restauration autorisée de l'index et de l'objet CAS de fermeture.
 - [ADR 0648 — Qualifier les adaptateurs comme symbiotes sélectionnables](adr/0648-ecologie-adaptateurs-symbiotiques.md) — identité qualifiée, consortium minimal, succession compensée et propagation multi-dépôts par vagues.
 - [ADR 0649 — Campagne immunitaire de remédiation sécurité](adr/0649-campagne-immunitaire-remediation-securite.md) — alertes bornées SARIF, clusters d'antigènes, candidats isolés, adjudication à deux vérificateurs et mémoire négative sans promotion.
 - [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant de preuves et liaison au rollout canari.
@@ -909,3 +910,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0650a — Cicatrisation de production contrefactuelle et vérifiée](adr/0650-cicatrisation-production-contrefactuelle.md) — télémétrie SLO, campagnes de cicatrisation, quorum indépendant et canari lié au candidat.
 - [ADR 0651a — ActionGenome comme contrat canonique d'action](adr/0651-action-genome.md) — contrat d'action fermé, projections de surface et admission causale avec REST `admission_only`.
 - [ADR 0651b — Admission MHC et capacités au point d'effet](adr/0651-admission-mhc-et-capacites-au-point-effet.md) — identité d'artefact fail-closed et capacités de secrets à usage unique.
+- [ADR 0705 — Registre d'adaptateurs de clôture topologique](adr/0705-registre-adaptateurs-cloture-topologique.md) — sélection injectible, dossiers communs et échec fermé tant que les oracles spécialisés sont absents.

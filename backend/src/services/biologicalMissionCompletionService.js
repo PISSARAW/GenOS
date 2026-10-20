@@ -1,8 +1,9 @@
 'use strict';
 
-const completionContract = require('./missionCompletionContract');
 const completionEvidence = require('./missionCompletionEvidenceService');
 const syncytiumCompletion = require('./syncytiumMissionCompletionService');
+const { closeMission } = require('./missionClosureService');
+const completionAdapters = require('./topologyCompletionAdapters');
 
 function outputMembers(output) {
   return Array.isArray(output.members) ? output.members : [];
@@ -22,23 +23,6 @@ function applyWorkerCompletion(output, expectedCount, candidates = outputMembers
   return output;
 }
 
-function memberId(member) {
-  return member?.memberId || member?.workerId || null;
-}
-
-function topologyValidation(output) {
-  return { status: output.complete ? 'verified' : 'partial',
-    reasons: output.complete ? [] : ['worker_barrier_partial'], scope: 'worker_completion' };
-}
-
-function contractInput(context, evidence) {
-  return { missionId: context.missionId || null, topology: context.mode,
-    lifecycleState: 'completed', requiredMemberIds: evidence.members.map(memberId).filter(Boolean),
-    members: evidence.members, evidenceProofs: evidence.evidenceProofs,
-    topologyValidation: topologyValidation(context.output),
-    barrierStatus: context.output.complete ? 'complete' : 'partial' };
-}
-
 function applyContractResult(output, result) {
   output.completionContract = result;
   output.complete = result.verdict === 'succeeded';
@@ -54,7 +38,9 @@ async function completeNonSyncytium(context) {
   applyWorkerCompletion(context.output, expectedCount, candidates);
   const evidence = await completionEvidence.collect({ db: context.db, missionId: context.missionId,
     members: candidates, evidenceProofs: context.evidenceProofs });
-  const result = completionContract.evaluate(contractInput(context, evidence));
+  const registry = context.completionAdapterRegistry || completionAdapters;
+  const input = await registry.build({ context, evidence });
+  const result = closeMission(input);
   return applyContractResult(context.output, result);
 }
 
