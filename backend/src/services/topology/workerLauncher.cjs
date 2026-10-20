@@ -61,7 +61,6 @@ function getRunnerStdio(workerId) {
 }
 
 async function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
-  const awaitWorker = true;
   const payload = workerLaunchPayload({ context, member, workerId, parent,
     capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease });
@@ -74,7 +73,7 @@ async function spawnTopologyWorker({ db, context, member, parent, workerId, laun
   runner.once('spawn', log.close);
   runner.once('error', log.close);
   await waitForWorkerStart(runner, db, workerId);
-  if (awaitWorker) await waitForWorkerExit(runner, db, workerId);
+  await waitForWorkerExit(runner, db, workerId);
 }
 
 async function waitForWorkerStart(runner, db, workerId) {
