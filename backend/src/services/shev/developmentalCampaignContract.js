@@ -25,7 +25,7 @@ function scope(value, name) {
     entityId: text(value?.entityId, `${name}.entityId`) };
 }
 
-function normalizeArm(name, value) {
+function normalizeArm(name, value, mode) {
   const intervention = name === 'control' ? 'baseline' : 'full_arc';
   if (value?.intervention !== intervention || !validHash(value.initialSnapshotHash)
       || !validHash(value.permissionsHash)) {
@@ -34,10 +34,16 @@ function normalizeArm(name, value) {
   if (!value.modelLock || !value.toolsLock || !value.budget) {
     throw failure('SHEV_CAMPAIGN_ARMS_INVALID', `Arm ${name} is missing matched runtime locks.`);
   }
+  const fieldRequired = mode === 'field';
   return { scope: scope(value.scope, `arms.${name}.scope`), workspaceId: text(value.workspaceId, `${name}.workspaceId`),
     intervention, initialSnapshotHash: value.initialSnapshotHash, modelLock: value.modelLock,
     toolsLock: value.toolsLock, permissionsHash: value.permissionsHash,
-    budget: normalizeBudget(value.budget) };
+    budget: normalizeBudget(value.budget),
+    campaignBudget: normalizeCampaignBudget(value.campaignBudget, fieldRequired),
+    runtimeLock: normalizeLockEvidence(value.runtimeLock, 'runtimeLock', fieldRequired),
+    environmentLock: normalizeLockEvidence(value.environmentLock, 'environmentLock', fieldRequired),
+    interventionAttestation: normalizeInterventionAttestation(
+      value.interventionAttestation, intervention, fieldRequired) };
 }
 
 function normalizeBudget(value) {
@@ -46,6 +52,37 @@ function normalizeBudget(value) {
     throw failure('SHEV_CAMPAIGN_BUDGET_INVALID', 'Matched positive cost, token, and time budgets are required.');
   }
   return budget;
+}
+
+function normalizeCampaignBudget(value, required) {
+  if (!value && !required) return null;
+  if (!value) {
+    throw failure('SHEV_CAMPAIGN_CUMULATIVE_BUDGET_INVALID',
+      'Field arms require a positive cumulative campaign budget.');
+  }
+  try { return normalizeBudget(value); } catch (_error) {
+    throw failure('SHEV_CAMPAIGN_CUMULATIVE_BUDGET_INVALID',
+      'Cumulative campaign cost, token, and time budgets must be positive.');
+  }
+}
+
+function normalizeLockEvidence(value, name, required) {
+  if (!value && !required) return null;
+  if (!validHash(value?.digest) || !validHash(value?.evidenceHash)) {
+    throw failure('SHEV_CAMPAIGN_LOCK_EVIDENCE_INVALID',
+      `${name} requires immutable digest and evidence hashes.`);
+  }
+  return { digest: value.digest, evidenceHash: value.evidenceHash };
+}
+
+function normalizeInterventionAttestation(value, intervention, required) {
+  if (!value && !required) return null;
+  const shevEnabled = intervention === 'full_arc';
+  if (value?.shevEnabled !== shevEnabled || !validHash(value?.evidenceHash)) {
+    throw failure('SHEV_CAMPAIGN_INTERVENTION_ATTESTATION_INVALID',
+      `${intervention} must attest the expected SHEV activation state.`);
+  }
+  return { shevEnabled, evidenceHash: value.evidenceHash };
 }
 
 function normalizeWindow(value, painExpected) {
@@ -84,10 +121,12 @@ function normalizeWindows(options) {
 
 function validThresholdBounds(thresholds) {
   const nonNegative = ['minSuccessDelta', 'maxRegressionIncrease',
-    'minHumanInterventionReduction', 'maxCostRatio', 'maxDurationRatio', 'maxPValue'];
+    'minHumanInterventionReduction', 'maxCostRatio', 'maxDurationRatio',
+    'maxTokenRatio', 'maxPValue'];
   return !nonNegative.some((key) => !Number.isFinite(thresholds[key]) || thresholds[key] < 0)
     && thresholds.minSuccessDelta <= 1 && thresholds.maxCostRatio >= 1
-    && thresholds.maxDurationRatio >= 1 && thresholds.maxPValue <= 1;
+    && thresholds.maxDurationRatio >= 1 && thresholds.maxTokenRatio >= 1
+    && thresholds.maxPValue <= 1;
 }
 
 function thresholdValue(values, name, fallback) {
@@ -100,6 +139,7 @@ function normalizeThresholds(value = {}) {
     minHumanInterventionReduction: thresholdValue(value, 'minHumanInterventionReduction', 0),
     maxCostRatio: thresholdValue(value, 'maxCostRatio', 1.25),
     maxDurationRatio: thresholdValue(value, 'maxDurationRatio', 1.25),
+    maxTokenRatio: thresholdValue(value, 'maxTokenRatio', 1.25),
     minPainEpisodes: thresholdValue(value, 'minPainEpisodes', 3),
     minConfirmedHeldout: thresholdValue(value, 'minConfirmedHeldout', 2),
     maxPValue: thresholdValue(value, 'maxPValue', 0.05) };
@@ -115,20 +155,31 @@ function positiveInteger(value) {
 }
 
 function conditionsHash(arm) {
-  return fingerprint({ modelLock: arm.modelLock, toolsLock: arm.toolsLock,
+  const conditions = { modelLock: arm.modelLock, toolsLock: arm.toolsLock,
     permissionsHash: arm.permissionsHash, initialSnapshotHash: arm.initialSnapshotHash,
-    budget: arm.budget, intervention: arm.intervention });
+    budget: arm.budget, intervention: arm.intervention };
+  for (const key of ['campaignBudget', 'runtimeLock', 'environmentLock', 'interventionAttestation']) {
+    if (arm[key]) conditions[key] = arm[key];
+  }
+  return fingerprint(conditions);
 }
 
-function matchedArms(arms, coordinator) {
-  const control = normalizeArm('control', arms?.control);
-  const treatment = normalizeArm('treatment', arms?.treatment);
+function matchedExecutionLocks(control, treatment) {
+  return ['runtimeLock', 'environmentLock'].every((key) =>
+    fingerprint(control[key]?.digest || null) === fingerprint(treatment[key]?.digest || null));
+}
+
+function matchedArms(arms, coordinator, mode) {
+  const control = normalizeArm('control', arms?.control, mode);
+  const treatment = normalizeArm('treatment', arms?.treatment, mode);
   const projectIds = [control.scope.projectId, treatment.scope.projectId];
   const workspaces = [control.workspaceId, treatment.workspaceId];
-  const locks = ['modelLock', 'toolsLock', 'permissionsHash', 'initialSnapshotHash', 'budget'];
+  const locks = ['modelLock', 'toolsLock', 'permissionsHash', 'initialSnapshotHash',
+    'budget', 'campaignBudget'];
   if (new Set(projectIds).size !== 2 || new Set(workspaces).size !== 2
       || [control, treatment].some((arm) => arm.scope.organizationId !== coordinator.organizationId)
-      || locks.some((key) => fingerprint(control[key]) !== fingerprint(treatment[key]))) {
+      || locks.some((key) => fingerprint(control[key]) !== fingerprint(treatment[key]))
+      || !matchedExecutionLocks(control, treatment)) {
     throw failure('SHEV_CAMPAIGN_ARMS_UNMATCHED', 'Arms must be isolated, paired, and share model/tool/permission/budget/snapshot locks.');
   }
   return { control, treatment };
@@ -169,7 +220,7 @@ function createManifest(input) {
     throw failure('SHEV_CAMPAIGN_THRESHOLDS_INVALID', 'Field mode requires five observed pain episodes.');
   }
   const body = { schema: SCHEMA, campaignId: text(input.campaignId, 'campaignId'), mode,
-    coordinator, arms: matchedArms(input.arms, coordinator), trainingWindows,
+    coordinator, arms: matchedArms(input.arms, coordinator, mode), trainingWindows,
     heldoutWindows, thresholds, minimumDurationMs,
     randomizationSeed: text(input.randomizationSeed || input.campaignId, 'randomizationSeed'),
     startedAt: input.startedAt || new Date().toISOString() };
@@ -219,7 +270,30 @@ function verifyManifest(manifest) {
   if (manifest.manifestHash !== fingerprint(body)) {
     throw failure('SHEV_CAMPAIGN_MANIFEST_TAMPERED', 'The pre-registered campaign manifest was altered.');
   }
+  verifyFieldHardening(manifest);
   return manifest;
+}
+
+function verifyFieldHardening(manifest) {
+  if (manifest.mode !== 'field') return;
+  if (!Number.isFinite(manifest.thresholds?.maxTokenRatio)) {
+    throw failure('SHEV_CAMPAIGN_THRESHOLDS_INVALID',
+      'Field manifests require a sealed token ratio threshold.');
+  }
+  normalizeThresholds(manifest.thresholds);
+  for (const name of ['control', 'treatment']) {
+    const arm = manifest.arms?.[name];
+    normalizeCampaignBudget(arm?.campaignBudget, true);
+    normalizeLockEvidence(arm?.runtimeLock, `${name}.runtimeLock`, true);
+    normalizeLockEvidence(arm?.environmentLock, `${name}.environmentLock`, true);
+    normalizeInterventionAttestation(arm?.interventionAttestation, arm?.intervention, true);
+  }
+  const { control, treatment } = manifest.arms;
+  if (fingerprint(control.campaignBudget) !== fingerprint(treatment.campaignBudget)
+      || !matchedExecutionLocks(control, treatment)) {
+    throw failure('SHEV_CAMPAIGN_ARMS_UNMATCHED',
+      'Field arms must retain matched cumulative budgets and execution lock digests.');
+  }
 }
 
 module.exports = { SCHEMA, FIELD_MINIMUM_MS, createManifest, verifyManifest,

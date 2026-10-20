@@ -808,7 +808,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0702](0702-admission-topologie-variant-morphogenese-p2.md) | Admission topologie–variant de morphogenèse P2 | Accepté | 2026-10-20 | Morphogenèse, variants, admission, preuves |
 | [0703](0703-fermeture-execution-adressee-gqwf.md) | Sceller une fermeture d'exécution GQWF adressée par contenu | Accepté | 2026-10-20 | GQWF, CAS, provenance, reproductibilité, Nix |
 | [0704](0704-qualification-signee-revocable-morphogenese-p3.md) | Qualification signée et révocable de morphogenèse P3 | Accepté | 2026-10-20 | Morphogenèse, qualification, autorité, révocation |
-| [0705](0705-registre-adaptateurs-cloture-topologique.md) | Registre d'adaptateurs de clôture topologique | Accepté, adaptateurs spécialisés en attente | 2026-10-20 | orchestration, topologies, clôture, preuves |
+| [0705a](0705-protocole-campagne-terrain-shev.md) | Protocole scellé de campagne terrain SHEV | Accepté pour préparer une première campagne ; campagne non exécutée | 2026-10-20 | SHEV, développement longitudinal, expérimentation, preuve |
+| [0705b](0705-registre-adaptateurs-cloture-topologique.md) | Registre d'adaptateurs de clôture topologique | Accepté, adaptateurs spécialisés en attente | 2026-10-20 | orchestration, topologies, clôture, preuves |
 | [0706](0706-cataloguer-et-reconstruire-fermetures-gqwf.md) | Cataloguer et reconstruire les fermetures d'exécution GQWF | Accepté | 2026-10-20 | GQWF, CAS, catalogue, reprise, provenance |
 | [0707](0707-recu-verification-regionale-metapopulation.md) | Reçu de vérification régionale Métapopulation | Accepté | 2026-10-20 | Métapopulation, clôture, preuve, séparation des responsabilités |
 
