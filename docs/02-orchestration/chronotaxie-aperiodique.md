@@ -2,7 +2,7 @@
 
 - **Statut** : planification, sondes résidentes, couverture et agrégation implémentées.
 - **Portée** : observations backend en lecture seule, sous fenêtres temporelles bornées.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-19.
 
 ## 1. Domaine et objectif
 
@@ -115,6 +115,12 @@ les garanties temporelles. Les sondes sont locales et SQL ; les observations
 distantes nécessitent un adaptateur distinct. L'espacement est partagé dans
 le scope du projet, pas entre toutes les installations. Une observation manquée
 ne prouve jamais que l'environnement était sain.
+
+SHEV peut agréger ces fenêtres au moyen du capteur signé `project-rhythm`.
+Cette composition transforme une dérive fraîche et prouvée en observation du
+mandat, puis éventuellement en initiative Ontogenèse. Elle ne change pas la
+chronotaxie en ordonnanceur d'actions : l'historique insuffisant ou périmé reste
+un angle mort et ne produit jamais un état sain par défaut.
 
 ## 10. Références internes
 

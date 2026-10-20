@@ -7,6 +7,12 @@ const { requireActive } = require('./runtimeGuard');
 const { normalizeRelativePath } = require('../pathSafety');
 const { FORBIDDEN } = require('../ontogenesis/integrationService');
 
+const CONFIG_NORMALIZERS = {
+  'web-audit': validateWeb,
+  'production-telemetry': validateProductionTelemetry,
+  'project-rhythm': config => require('./adapters/projectRhythmAdapter').normalizeRhythmConfig(config)
+};
+
 function digest(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 
 function sensorContract(input) {
@@ -20,9 +26,8 @@ function sensorContract(input) {
 
 function normalizedConfig(input) {
   const config = input.config || {};
-  const specialized = { 'web-audit': validateWeb,
-    'production-telemetry': validateProductionTelemetry }[input.adapter];
-  if (specialized) return specialized(config);
+  const normalize = CONFIG_NORMALIZERS[input.adapter];
+  if (normalize) return normalize(config);
   const relativePath = normalizeRelativePath(config.relativePath, 'SHEV sensor');
   const target = config.target || 'project';
   if (!['project', 'integration'].includes(target)) throw new Error('SHEV sensor target is invalid.');
@@ -108,6 +113,9 @@ async function sampleSensor(db, input) {
   }
   if (sensor.adapter === 'production-telemetry') {
     return require('./adapters/productionTelemetryAdapter').inspectProductionTelemetry(db, config);
+  }
+  if (sensor.adapter === 'project-rhythm') {
+    return require('./adapters/projectRhythmAdapter').inspectProjectRhythm(db, config);
   }
   const { observation } = await require('./adapters/webAuditAdapter').recordWebObservation(db,
     { projectId: sensor.project_id, dimension: sensor.dimension, config: JSON.parse(sensor.config_json) });
