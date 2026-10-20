@@ -21,8 +21,7 @@ function wireStdio(state) {
 }
 
 function isPermanentNetworkDenial(stderr) {
-  return /os error 10013/i.test(String(stderr || ''))
-    && /wss?:\/\//i.test(String(stderr || ''));
+  return /os error 10013/i.test(String(stderr || ''));
 }
 
 module.exports = { wireStdio, isPermanentNetworkDenial };

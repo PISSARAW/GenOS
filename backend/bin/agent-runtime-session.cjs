@@ -149,6 +149,7 @@ function createState(mission, data) {
     observedTools: new Set(preflightObservedTools),
     buffer: '',
     stderr: '',
+    networkDenied: false,
     finalReportText: '',
     recordedTurns: [],
     cleanedUp: false,
