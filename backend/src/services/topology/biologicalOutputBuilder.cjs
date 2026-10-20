@@ -4,10 +4,17 @@ const { collectMechanisms, metapopulationComplete, isVerifiedResult, populationA
 const workerGarage = require('../workerGarageService.js');
 
 function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
+  const dispatchFailures = context.dispatchFailures || [];
+  const allWorkersCompleted = accepted.length === members.length
+    && accepted.every((member) => member.status === 'completed')
+    && dispatchFailures.length === 0;
+  const modeStatus = mode === 'metapopulation'
+    ? (metapopulationComplete(accepted, members) ? 'completed' : 'partial')
+    : (allWorkersCompleted ? 'completed' : 'partial');
   return {
     orchestratorId: context.orchestratorId,
     biologicalMode: {
-      status: 'accepted', mode, mission,
+      status: modeStatus, mode, mission,
       capacity: workerGarage.getDynamicCapacity(context.orchestratorId),
       mechanisms: collectMechanisms(members),
       ...topology, members: accepted,
