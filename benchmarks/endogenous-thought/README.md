@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : continuation bornée implémentée ; ablations et campagne non démontrées
+- **Statut** : campagne synthétique de développement exécutable ; campagne réservée non exécutée
 - **Portée** : simulation déterministe en lecture seule
 - **Dernière revue** : 2026-10-19
 
@@ -123,6 +123,21 @@ capacité cognitive générale.
 
 Le runner `backend/bin/genos-ett-campaign.cjs` utilise uniquement les
 `developmentSeeds` du protocole et scelle donc ses reçus avec `holdout: false`.
+Il croise chaque seed avec six problèmes GenOS déterministes : dérive de bail,
+gigue non apprenable, faux écart de snapshot, replay déjà maîtrisé, chaîne de
+preuve saine et observation hors mandat. Les sept conditions préenregistrées
+sont exécutées et rapportées séparément : boucle complète, abstention planifiée,
+et ablations de curiosité, initiative SHEV, arbitrage AGOW, métacognition et
+mémoire.
+
+Le reçu conserve les erreurs de chaque cas sans interrompre les cas suivants.
+Son bloc `negativeResults` publie les échecs et les paires où l'indicateur de
+développement de la boucle complète ne dépasse pas celui du contrôle planifié.
+Une paire synthétique porte toujours `scientificEvidence: false` et la base
+`synthetic_development_indicator` : elle décrit le harnais, pas un effet causal.
+Le résumé par condition distingue de même les exécutions scientifiques et
+synthétiques ainsi que les succès et les échecs.
+
 Son vérificateur dérive encore un verdict synthétique de la classe de scénario :
 ce verdict sert à exercer la chaîne de contrôle, mais il ne compte aucune
 `verifiedDiscovery`, ne mesure aucun coût réel et porte explicitement

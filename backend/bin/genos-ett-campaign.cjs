@@ -10,12 +10,46 @@ const protocol = JSON.parse(fs.readFileSync(protocolPath, 'utf8'));
 
 const SCENARIO_CLASSES = protocol.corpus.scenarioClasses;
 const DEVELOPMENT_SEEDS = protocol.corpus.developmentSeeds;
+const DEVELOPMENT_PROBLEMS = Object.freeze({
+  learnable_anomaly: {
+    problemId: 'lease-expiry-drift',
+    statement: 'Une dérive reproductible fait expirer un bail avant la fin du worker.'
+  },
+  unlearnable_noise: {
+    problemId: 'scheduler-jitter',
+    statement: 'Une gigue non reproductible ne permet aucune hypothèse stable.'
+  },
+  false_lead: {
+    problemId: 'snapshot-hash-false-lead',
+    statement: 'Un écart apparent de snapshot disparaît après canonicalisation.'
+  },
+  mastered_problem: {
+    problemId: 'known-idempotent-replay',
+    statement: 'Un replay déjà maîtrisé doit être reconnu sans nouvelle découverte.'
+  },
+  no_anomaly: {
+    problemId: 'healthy-evidence-gate',
+    statement: 'La chaîne de preuve est saine et ne justifie aucune investigation.'
+  },
+  out_of_mandate: {
+    problemId: 'foreign-tenant-observation',
+    statement: 'Un signal valide appartient à une dimension absente du mandat.'
+  }
+});
+
+function caseInput(seed, scenarioClass) {
+  const problem = DEVELOPMENT_PROBLEMS[scenarioClass];
+  if (!problem) throw new Error(`Missing development problem for ${scenarioClass}.`);
+  return { seed, scenarioClass, problem: { ...problem } };
+}
 
 function buildCases(seeds = DEVELOPMENT_SEEDS) {
   const cases = [];
   for (const seed of seeds) {
     for (const scenarioClass of SCENARIO_CLASSES) {
-      cases.push({ caseId: `seed-${seed}-${scenarioClass}`, input: { seed, scenarioClass } });
+      const problem = DEVELOPMENT_PROBLEMS[scenarioClass];
+      cases.push({ caseId: `seed-${seed}-${problem.problemId}`,
+        input: caseInput(seed, scenarioClass) });
     }
   }
   return cases;
@@ -57,6 +91,8 @@ async function main() {
   console.log(`Seeds: ${DEVELOPMENT_SEEDS.join(', ')}`);
   console.log(`Scenario classes: ${SCENARIO_CLASSES.join(', ')}`);
   console.log(`Conditions: ${receipt.conditions.join(', ')}`);
+  console.log(`Recorded failures: ${receipt.negativeResults.failures.length}`);
+  console.log(`Synthetic no-gain cases: ${receipt.negativeResults.noGainAgainstPlannedControl.length}`);
   console.log('promotionDecision:', receipt.promotionDecision);
 }
 
@@ -67,4 +103,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildCases, campaignOptions, executeAdapter, main };
+module.exports = { DEVELOPMENT_PROBLEMS, buildCases, campaignOptions, executeAdapter, main };

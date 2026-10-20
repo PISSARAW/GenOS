@@ -29,13 +29,19 @@ function database() {
 }
 
 async function main() {
-  const cases = [{ caseId: 'case-1', input: { value: 1 } }];
+  const cases = [{ caseId: 'case-1', input: { value: 1 } },
+    { caseId: 'case-2', input: { value: 2 } }];
   const receipt = await experiments.run({
     agentId: 'agent-1', snapshot: { x: 1 }, environment: { model: 'm', dependencies: [], toolLease: 'lease' },
     cases, protocol: parsed, holdout: false, db: database(),
-    execute: async ({ condition }) => ({ success: condition !== 'planned_control', episodes: 1,
-      verifiedDiscoveries: 1, normalizedCost: 1, scientificEvidence: false,
-      budgetViolations: 0, duplicates: 0 })
+    execute: async ({ caseId, condition }) => {
+      if (caseId === 'case-1' && condition === 'planned_control') {
+        throw Object.assign(new Error('injected control failure'), { code: 'CONTROL_FAILED' });
+      }
+      return { success: true, episodes: 1, developmentUtility: caseId === 'case-1' ? 1 : 0,
+        verifiedDiscoveries: 1, normalizedCost: 1, scientificEvidence: false,
+        budgetViolations: 0, duplicates: 0 };
+    }
   });
   assert.equal(receipt.promotionDecision, null);
   assert.equal(receipt.holdout, false);
@@ -46,6 +52,14 @@ async function main() {
   assert.ok(receipt.summary.planned_control);
   assert.equal(receipt.summary.full.verifiedDiscoveries, 0);
   assert.equal(receipt.summary.full.normalizedCost, 0);
+  assert.equal(receipt.summary.planned_control.failures, 1);
+  assert.equal(receipt.negativeResults.failures.length, 1);
+  assert.equal(receipt.negativeResults.failures[0].code, 'CONTROL_FAILED');
+  assert.deepEqual(receipt.negativeResults.noGainAgainstPlannedControl, [{
+    caseId: 'case-2', fullScore: 0, plannedControlScore: 0,
+    basis: 'synthetic_development_indicator', scientificEvidence: false
+  }]);
+  assert.equal(receipt.negativeResults.scientificClaimAllowed, false);
 
   await assert.rejects(experiments.run({
     agentId: 'agent-1', snapshot: { x: 1 }, environment: { model: 'm' },

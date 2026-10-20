@@ -777,6 +777,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0651b](0651-admission-mhc-et-capacites-au-point-effet.md) | Admission MHC et capacités au point d’effet | Accepté pour le MVP local | 2026-10-19 | artefacts d’agents, admission supply-chain, secrets d’exécution |
 | [0652](0652-reparation-guidee-par-traces-gvx.md) | Réparation GVX guidée par traces et maturation d’affinité | Accepté | 2026-10-19 | GVX, AEIS, traces, causalité, mutation bornée |
 | [0653](0653-arc-physiologique-shev-sensorimoteur-morphogenese-immunite-endocrine.md) | Arc physiologique unifié sous gouvernance épistémique | Accepté | 2026-10-19 | Sensorimoteur, SHEV, nosologie, immunité, endocrinologie, preuve |
+| [0655](0655-raccord-resident-ett-fail-closed.md) | Raccorder ETT au scheduler résident en échec fermé | Accepté pour le raccord ; activation de production indisponible | 2026-10-20 | pensée endogène, scheduler résident, autorité, vérification, coûts |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

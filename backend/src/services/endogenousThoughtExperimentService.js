@@ -46,7 +46,8 @@ function seededOrder(items, seed) {
 }
 
 function emptySummary() {
-  return { runs: 0, ...Object.fromEntries(OUTCOME_METRICS.map((metric) => [metric, 0])) };
+  return { runs: 0, successes: 0, failures: 0, scientificRuns: 0, syntheticRuns: 0,
+    ...Object.fromEntries(OUTCOME_METRICS.map((metric) => [metric, 0])) };
 }
 
 function metricValue(outcome, metric) {
@@ -60,6 +61,8 @@ function summarize(results) {
   for (const result of results) {
     const group = groups[result.condition] || emptySummary();
     group.runs += 1;
+    group[result.outcome.success ? 'successes' : 'failures'] += 1;
+    group[result.outcome.scientificEvidence === true ? 'scientificRuns' : 'syntheticRuns'] += 1;
     for (const metric of OUTCOME_METRICS) {
       group[metric] += metricValue(result.outcome, metric);
     }
@@ -71,9 +74,71 @@ function summarize(results) {
   }]));
 }
 
+function failureRecord(result) {
+  const failure = result.outcome.failure || {};
+  return { caseId: result.caseId, condition: result.condition,
+    stage: failure.stage || result.outcome.stage || 'execution',
+    code: failure.code || 'ETT_CASE_FAILED',
+    message: failure.message || result.outcome.error || 'Case reported failure without details.' };
+}
+
+function comparisonScore(outcome) {
+  if (outcome.scientificEvidence === true) {
+    return metricValue(outcome, 'verifiedDiscoveries')
+      / Math.max(1, metricValue(outcome, 'normalizedCost'));
+  }
+  return Math.max(0, Number(outcome.developmentUtility) || 0);
+}
+
+function noGainRecords(results) {
+  const cases = new Map();
+  for (const result of results) {
+    const group = cases.get(result.caseId) || {};
+    group[result.condition] = result;
+    cases.set(result.caseId, group);
+  }
+  const records = [];
+  for (const [caseId, group] of cases) {
+    const full = group.full;
+    const control = group.planned_control;
+    if (!full?.outcome.success || !control?.outcome.success) continue;
+    const fullScore = comparisonScore(full.outcome);
+    const controlScore = comparisonScore(control.outcome);
+    if (fullScore > controlScore) continue;
+    const scientific = full.outcome.scientificEvidence === true
+      && control.outcome.scientificEvidence === true;
+    records.push({ caseId, fullScore, plannedControlScore: controlScore,
+      basis: scientific ? 'scientific_primary_metric' : 'synthetic_development_indicator',
+      scientificEvidence: scientific });
+  }
+  return records;
+}
+
+function negativeResults(results) {
+  return {
+    failures: results.filter((result) => !result.outcome.success).map(failureRecord),
+    noGainAgainstPlannedControl: noGainRecords(results),
+    scientificClaimAllowed: false
+  };
+}
+
+function failedOutcome(error) {
+  return { success: false, episodes: 0, verifiedDiscoveries: 0, normalizedCost: 0,
+    budgetViolations: 0, duplicates: 0, scientificEvidence: false,
+    measurementStatus: 'execution_failed',
+    failure: { stage: 'execution', code: error?.code || 'ETT_CASE_EXECUTION_FAILED',
+      message: String(error?.message || error).slice(0, 500) } };
+}
+
 async function executeCase(options) {
   const { item, condition, seed } = options;
-  const outcome = await options.execute({ caseId: item.caseId, input: structuredClone(item.input), condition, seed });
+  let outcome;
+  try {
+    outcome = await options.execute({ caseId: item.caseId,
+      input: structuredClone(item.input), condition, seed });
+  } catch (error) {
+    outcome = failedOutcome(error);
+  }
   if (!outcome || typeof outcome !== 'object' || typeof outcome.success !== 'boolean') {
     throw new TypeError(`Experiment adapter returned an invalid outcome for ${item.caseId}/${condition}.`);
   }
@@ -107,7 +172,7 @@ async function run(options) {
     holdout: options.holdout, caseCount: options.cases.length,
     conditions: [...new Set(results.map((entry) => entry.condition))],
     snapshotHash, environmentHash, corpusHash, protocol: options.protocol, protocolHash, manifest: options.environment,
-    results, summary: summarize(results), promotionDecision: null,
+    results, summary: summarize(results), negativeResults: negativeResults(results), promotionDecision: null,
     publishable: false,
     evidenceStatus: options.holdout ? 'replication_required' : 'development_only',
     caveat: options.holdout
@@ -137,4 +202,5 @@ async function list(options) {
   return Array.isArray(loaded.state.receipts) ? loaded.state.receipts : [];
 }
 
-module.exports = { CONDITIONS, OUTCOME_METRICS, run, runReplicationCampaign, list, summarize };
+module.exports = { CONDITIONS, OUTCOME_METRICS, run, runReplicationCampaign, list, summarize,
+  negativeResults };

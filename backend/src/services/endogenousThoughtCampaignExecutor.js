@@ -51,9 +51,13 @@ async function setup(ctx) {
   const mandate = { purpose: 'Campagne ETT', autoDiagnose: false, autoInstrument: false, dimensions: [{ name: 'prediction', expected: 'La prédiction converge', acceptance: ['Une observation indépendante mesure l’écart.'] }] };
   await registerResponsibility(db, { projectId, authorityRef: 'delegation:ett-campaign', authorityPublicKey: keys.authority.publicKey.export({ type: 'spki', format: 'pem' }), mandate });
   const observationId = `observation-${scenarioClass}`;
-  if (scenarioClass !== 'out_of_mandate') {
-    await recordObservation(db, { id: observationId, projectId, domain: 'runtime', dimension: 'prediction', kind: scenarioClass === 'no_anomaly' ? 'state' : 'degradation', epistemicStatus: 'observed', source: 'campaign', observedAt: new Date(NOW - 1000).toISOString(), validUntil: new Date(NOW + 120000).toISOString(), summary: 'Signal', evidenceRefs: ['evidence:campaign'] });
-  }
+  const dimension = scenarioClass === 'out_of_mandate' ? 'foreign-tenant' : 'prediction';
+  await recordObservation(db, { id: observationId, projectId, domain: 'runtime', dimension,
+    kind: scenarioClass === 'no_anomaly' ? 'state' : 'degradation',
+    epistemicStatus: 'observed', source: 'campaign',
+    observedAt: new Date(NOW - 1000).toISOString(),
+    validUntil: new Date(NOW + 120000).toISOString(), summary: 'Signal',
+    evidenceRefs: ['evidence:campaign'] });
   await db.exec(`CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, project_id TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, status TEXT, runtime_pid INTEGER, is_apoptotic INTEGER NOT NULL DEFAULT 0, cognitive_budget REAL NOT NULL DEFAULT 1);`);
   await db.run('INSERT INTO workspaces(id,organization_id,project_id) VALUES (?,?,?)', `workspace-${projectId}`, 'org-a', projectId);
@@ -69,6 +73,14 @@ function canContinue(condition) {
   return condition !== 'memory_ablated';
 }
 
+function minimumScore(condition) {
+  return condition === 'curiosity_ablated' ? 0.75 : 0.1;
+}
+
+function usefulDevelopmentResult(verdict, learned) {
+  return learned && ['supported', 'refuted'].includes(verdict) ? 1 : 0;
+}
+
 function syntheticOutcome(ctx, values = {}) {
   return {
     success: true,
@@ -77,12 +89,30 @@ function syntheticOutcome(ctx, values = {}) {
     duplicates: 0,
     condition: ctx.condition,
     caseId: ctx.caseId,
+    problemId: ctx.caseInput?.problem?.problemId || null,
+    developmentUtility: 0,
     ...values,
     verifiedDiscoveries: 0,
     normalizedCost: 0,
     measurementStatus: 'synthetic_control_only',
     scientificEvidence: false
   };
+}
+
+function plannedControlOutcome(ctx, detection) {
+  return syntheticOutcome(ctx, {
+    stage: 'planned_control', decisionReason: detection.reason,
+    plannedControl: { planId: 'ett-planned-abstention-v1',
+      action: 'bounded_abstention', executed: true },
+    syntheticVerdict: syntheticVerdictFor(ctx.scenarioClass)
+  });
+}
+
+function rejectedDetectionOutcome(ctx, detection) {
+  if (ctx.condition === 'planned_control') return plannedControlOutcome(ctx, detection);
+  return syntheticOutcome(ctx, { stage: 'detection',
+    decisionReason: detection?.reason || 'no-candidate',
+    ablationEffect: ctx.condition === 'full' ? null : ctx.condition });
 }
 
 async function tryContinue(ctx) {
@@ -147,32 +177,36 @@ async function learnVerified(ctx) {
   return true;
 }
 
+async function continueLearnedThought(ctx, learned) {
+  if (!learned) return false;
+  return tryContinue(ctx);
+}
+
 async function runChain(ctx) {
   const { db, projectId, agentId, keys, scenarioClass, condition, caseId } = ctx;
   const observationId = await setup(ctx);
   const assessment = assessmentFor(scenarioClass);
 
-  if (scenarioClass === 'out_of_mandate') {
-    return syntheticOutcome(ctx);
-  }
-
   const detection = await detector.detectAndQuestion(db, {
     organizationId: 'org-a', projectId, agentId, observationId, nowMs: NOW,
-    policy: { enabled: true, id: 'ett-detection-v1', condition, cooldownMs: 0, maxOpenEpisodes: 1, maxBudget: { tokens: 1000, usd: 0.1, seconds: 60 }, minScore: 0.1, minInformationGain: 0.1, minLearningProgress: 0.01 },
+    policy: { enabled: true, id: 'ett-detection-v1', condition, cooldownMs: 0,
+      maxOpenEpisodes: 1, maxBudget: { tokens: 1000, usd: 0.1, seconds: 60 },
+      minScore: minimumScore(condition), minInformationGain: 0.1,
+      minLearningProgress: 0.01 },
     assessment,
     budget: { tokens: 500, usd: 0.05, seconds: 30 }
   });
 
-  if (!detection || !detection.episode) {
-    return syntheticOutcome(ctx);
-  }
+  if (!detection?.episode) return rejectedDetectionOutcome(ctx, detection);
 
   const episodeId = detection.episode.receipt.payload.episodeId;
   ctx.episodeId = episodeId;
   const admissionCondition = condition === 'agow_arbitration_ablated' ? condition : 'full';
   const admissionResult = await admission.admitQuestion(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 1000, policy: { enabled: true, id: 'ett-admission-v1', condition: admissionCondition, ttlMs: 60000 } });
   if (admissionResult.status !== 'admitted') {
-    return syntheticOutcome(ctx);
+    return syntheticOutcome(ctx, { episodes: 1, stage: 'admission',
+      decisionReason: admissionResult.decision.receipt.payload.reason,
+      terminalState: 'ABSTAINED', ablationEffect: condition });
   }
   const queued = await queue.queueAdmittedThought(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 2000, policy: { enabled: true, id: 'ett-queue-v1', priority: 80 } });
   const episode = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
@@ -197,17 +231,23 @@ async function runChain(ctx) {
   ctx.verdict = v;
   const learned = await learnVerified(ctx);
 
-  let continued = false;
-  if (learned) {
-    continued = await tryContinue(ctx);
-  }
+  const continued = await continueLearnedThought(ctx, learned);
+
+  const finalEpisode = await thoughtStore.getEpisode(db, { organizationId: 'org-a',
+    projectId, episodeId });
+  const failed = Boolean(ctx.continuationError);
 
   return syntheticOutcome(ctx, {
+    success: !failed,
     episodes: 1,
     syntheticVerdict: v,
     learned,
     continued,
-    continuationError: ctx.continuationError || null
+    terminalState: finalEpisode.currentState,
+    developmentUtility: usefulDevelopmentResult(v, learned),
+    continuationError: ctx.continuationError || null,
+    failure: failed ? { stage: 'continuation', code: ctx.continuationError,
+      message: 'Synthetic continuation failed.' } : null
   });
 }
 
@@ -222,13 +262,16 @@ async function execute(input) {
   let db;
   try {
     db = await fixture.memoryDb(filename);
-    const ctx = { db, projectId, agentId, keys, scenarioClass, condition, caseId };
+    const ctx = { db, projectId, agentId, keys, scenarioClass, condition, caseId,
+      caseInput };
     const result = await runChain(ctx);
     return result;
   } catch (error) {
-    return syntheticOutcome({ condition, caseId }, {
+    return syntheticOutcome({ condition, caseId, caseInput }, {
       success: false,
-      error: String(error.message).slice(0, 200)
+      error: String(error.message).slice(0, 200),
+      failure: { stage: 'execution', code: error.code || 'ETT_CAMPAIGN_EXECUTION_FAILED',
+        message: String(error.message).slice(0, 200) }
     });
   } finally {
     try { if (db) await db.close(); } catch (_) {}

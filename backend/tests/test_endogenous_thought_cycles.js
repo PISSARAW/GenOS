@@ -2,6 +2,9 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 const fixture = require('./ontogenesisFixture');
@@ -18,6 +21,8 @@ const verifier = require('../src/services/endogenousThoughtVerificationService')
 const loop = require('../src/services/endogenousThoughtLoopService');
 const thoughtStore = require('../src/services/endogenousThoughtStoreService');
 const migration = require('../src/db/migrations/migrateEndogenousThoughtCycles');
+
+const SOLVER_MODEL = 'genos-test-solver/v1';
 
 function generateKeys() {
   return {
@@ -125,12 +130,20 @@ async function createEpisode(db, opts) {
 }
 
 function makeExternalWorker(tokens = 10) {
+  const trace = [];
+  const worker = {
+    model: SOLVER_MODEL,
+    solve: async (request) => {
+      trace.push({ model: SOLVER_MODEL, sandbox: request.sandbox });
+      return { evidenceRefs: [`solver-model:${SOLVER_MODEL}`] };
+    }
+  };
   return {
-    worker: async () => ({}),
+    model: SOLVER_MODEL, trace, worker,
     sandbox: {
       kind: 'isolated-read-only', readOnly: true, networkAllowed: false,
       mutationAllowed: false, externalActionAllowed: false,
-      execute: async ({ defaultResult }) => defaultResult
+      execute: async ({ worker: isolatedWorker, ...request }) => isolatedWorker.solve(request)
     },
     usageMeter: {
       snapshot: () => ({ tokens, usd: 0.001, seconds: 1 })
@@ -223,7 +236,27 @@ async function testMultiCycleExecution(keys) {
     assert.equal(questionCount, 2);
     assert.ok(generatedHypotheses[1].includes(generatedHypotheses[0]),
       'each follow-up hypothesis must incorporate the preceding verified hypothesis');
-    assert.equal(result.cumulativeUsage.tokens, 30);
+    assert.deepEqual(result.cumulativeUsage, { tokens: 30, usd: 0.003, seconds: 3 });
+    assert.equal(workerSpec.trace.length, 3);
+    assert.ok(workerSpec.trace.every((entry) => entry.model === SOLVER_MODEL));
+    assert.ok(workerSpec.trace.every((entry) => entry.sandbox.kind === 'isolated-read-only'
+      && entry.sandbox.readOnly && !entry.sandbox.networkAllowed
+      && !entry.sandbox.mutationAllowed && !entry.sandbox.externalActionAllowed));
+    const runs = await db.all(
+      'SELECT receipt_json FROM endogenous_thought_runs WHERE episode_id=?', episodeId);
+    assert.equal(runs.length, 3);
+    assert.ok(runs.every((row) => JSON.parse(row.receipt_json).payload.evidenceRefs
+      .includes(`solver-model:${SOLVER_MODEL}`)), 'each sealed run declares its solver model');
+    const authorityDigest = require('../src/services/endogenousThoughtVerificationContractService')
+      .publicKeyDigest(keys.authority.publicKey.export({ type: 'spki', format: 'pem' }));
+    const verifications = await db.all(
+      'SELECT receipt_json FROM endogenous_thought_verifications WHERE episode_id=?', episodeId);
+    assert.equal(verifications.length, 3);
+    assert.ok(verifications.every((row) => {
+      const payload = JSON.parse(row.receipt_json).payload;
+      return payload.boundaries.independentVerifier === true
+        && payload.verifier.keyDigest !== authorityDigest;
+    }), 'every cycle is attested by a verifier independent from the authority');
     const learnings = await db.all(
       'SELECT * FROM endogenous_thought_learnings WHERE episode_id=? ORDER BY learned_at', episodeId);
     assert.equal(learnings.length, 3);
@@ -233,16 +266,22 @@ async function testMultiCycleExecution(keys) {
 }
 
 async function testCrashRecoveryRunning(keys) {
-  const db = await fixture.memoryDb();
+  const filename = path.join(os.tmpdir(), `ett-cycle-recovery-${crypto.randomUUID()}.sqlite`);
+  let db = await fixture.memoryDb(filename);
   try {
     const projectId = 'proj-recover-run';
     const agentId = 'agent-recover-run';
     await setupProject(db, { projectId, agentId, authorityKey: keys.authority.publicKey });
-    const episodeId = await createEpisode(db, { projectId, agentId });
+    const budget = { tokens: 500, usd: 0.05, seconds: 30 };
+    const episodeId = await createEpisode(db, { projectId, agentId, budget });
     const workerSpec = makeExternalWorker(15);
-    await prepareRunning(db, { projectId, episodeId, keys, workerSpec });
+    const prepared = await prepareRunning(db, { projectId, episodeId, keys, workerSpec });
     const before = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
     assert.equal(before.currentState, 'RUNNING');
+    const runningReceiptId = before.currentReceiptId;
+    const runReceiptId = prepared.run.receipt.receiptId;
+    await db.close();
+    db = await fixture.memoryDb(filename);
     const result = await loop.runAutonomousLoop(db, {
       organizationId: 'org-a', projectId, episodeId, maxCycles: 1,
       authorize: makeAuthorizer(keys.authority.privateKey, episodeId),
@@ -251,12 +290,23 @@ async function testCrashRecoveryRunning(keys) {
     });
     assert.equal(result.status, 'stopped');
     assert.equal(result.episode.currentState, 'STOPPED');
-    assert.ok(result.cycles[0].run?.run?.receipt);
-    assert.equal(result.cumulativeUsage.tokens, 15);
+    assert.equal(result.cycles[0].run.run.receipt.receiptId, runReceiptId);
+    assert.equal(result.cycles[0].run.run.replayed, true);
+    assert.deepEqual(result.cumulativeUsage, { tokens: 15, usd: 0.001, seconds: 1 });
+    assert.equal(workerSpec.trace.length, 1, 'restart must not reinvoke the completed solver');
+    const receipts = await thoughtStore.listReceipts(db,
+      { organizationId: 'org-a', projectId, episodeId });
+    assert.ok(receipts.some((entry) => entry.receipt.receiptId === runningReceiptId));
+    for (let index = 1; index < receipts.length; index += 1) {
+      assert.equal(receipts[index].receipt.payload.previousReceiptId,
+        receipts[index - 1].receipt.receiptId, 'restart must preserve receipt lineage');
+      assert.deepEqual(receipts[index].receipt.payload.budget, budget);
+    }
     const verifications = await db.all('SELECT * FROM endogenous_thought_verifications WHERE episode_id=?', episodeId);
     assert.equal(verifications.length, 1);
   } finally {
-    await db.close();
+    await db.close().catch(() => {});
+    fs.rmSync(filename, { force: true });
   }
 }
 

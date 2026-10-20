@@ -865,12 +865,13 @@ node backend/bin/genos-ett-campaign.cjs --output ett-campaign-receipt.json
 node backend/tests/test_endogenous_thought_continuation_smoke.js
 ```
 
-`test:ett` exécute douze fichiers, dans cet ordre :
+`test:ett` exécute treize fichiers, dans cet ordre :
 
 - [`test_endogenous_thought_contract.js`](../../backend/tests/test_endogenous_thought_contract.js) — contrats, transitions, exigences de preuve et états terminaux ;
 - [`test_cognitive_episode_schema.js`](../../backend/tests/test_cognitive_episode_schema.js) — parité schéma JSON / validateur runtime et frontières non promotables ;
 - [`test_endogenous_thought_store.js`](../../backend/tests/test_endogenous_thought_store.js) — idempotence, conflits de tête et de lignée, isolation de portée, immutabilité, reprise après redémarrage ;
 - [`test_endogenous_thought_cycles.js`](../../backend/tests/test_endogenous_thought_cycles.js) — multiplicité par parent immédiat et cycles complets ;
+- [`test_endogenous_thought_resident_scheduler.js`](../../backend/tests/test_endogenous_thought_resident_scheduler.js) — raccord au scheduler résident, indisponibilité par défaut et injection complète des portes ;
 - [`test_endogenous_thought_detection.js`](../../backend/tests/test_endogenous_thought_detection.js) — défaut inactif, mandat SHEV, seuils, refus persistés, question falsifiable, idempotence ;
 - [`test_endogenous_thought_admission.js`](../../backend/tests/test_endogenous_thought_admission.js) — arbitrage AGOW sans effet, `ADMITTED`/`ABSTAINED`, ablation, reçu versionné ;
 - [`test_endogenous_thought_queue.js`](../../backend/tests/test_endogenous_thought_queue.js) — liaison atomique au backlog Ontogenèse, retenue `blocked`, refus d'exécution sans autorisation ;
@@ -905,9 +906,11 @@ Aucun de ces tests ne promeut une capacité.
 
 - Aucune campagne sur le corpus réservé n'a été exécutée ; les oracles finaux
   de pertinence, d'arrêt et de doublons ne sont pas scellés.
-- Il n'existe pas d'API ou de CLI de production activant automatiquement la
-  boucle : `runAutonomousLoop` exige un signataire et un fournisseur de
-  vérification fournis par l'appelant.
+- Le scheduler résident appelle un raccord ETT fail-closed, mais l'entrée serveur
+  ne l'active pas : `runAutonomousLoop` exige toujours un sélecteur d'épisode, un
+  signataire, un fournisseur de vérification indépendant, un worker isolé
+  récupérable et un mesureur externe fournis par l'appelant. Voir
+  [ADR 0655](../adr/0655-raccord-resident-ett-fail-closed.md).
 - La campagne de développement utilise un verdict synthétique dérivé de la
   classe de scénario ; elle démontre la chaîne exécutable, pas un bénéfice.
 

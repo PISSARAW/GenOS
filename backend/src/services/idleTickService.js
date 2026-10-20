@@ -11,8 +11,9 @@
  * (≥ 15), 3 fois de suite ⇒ statut 'divergent' (le runtime décide).
  * sweepIdleAgents() borne le balayage (5 agents, budget wall-clock).
  * Déclencheur automatique : finalizeChildClose (fenêtre idle qui s'ouvre).
- * Boucle auto-entretenue sans déclencheur externe = étape suivante
- * (nécessite un scheduler + préemption dédiés, non implémentés ici).
+ * Le raccord ETT résident est invoqué à chaque balayage, mais reste fail-closed
+ * tant que sélection, autorité, vérification indépendante, sandbox récupérable
+ * et mesure d'usage ne sont pas explicitement injectés.
  */
 
 const { AdaptiveStateService } = require('./adaptiveStateService');
@@ -181,7 +182,8 @@ function schedulerSettings(options) {
     maxMs: env('GENOS_IDLE_TICK_MAX_MS', numOr(settings.maxMs, MAX_INTERVAL_CEILING_MS)),
     sweepLimit: Math.max(1, Math.min(20, Math.floor(numOr(settings.limit, DEFAULT_SWEEP_LIMIT)))),
     sweepBudgetMs: numOr(settings.sweepBudgetMs, DEFAULT_SWEEP_BUDGET_MS),
-    tickBudgetMs: numOr(settings.budgetMs, DEFAULT_BUDGET_MS)
+    tickBudgetMs: numOr(settings.budgetMs, DEFAULT_BUDGET_MS),
+    endogenousThought: settings.endogenousThought || {}
   };
 }
 
@@ -199,9 +201,19 @@ async function runSchedulerCycle(getDb, state, settings) {
     sweepBudgetMs: settings.sweepBudgetMs,
     budgetMs: settings.tickBudgetMs
   });
+  const endogenousThought = await scheduledThought(db, settings.endogenousThought);
   state.cycles += 1;
-  state.lastOutcome = { ticked: outcome.ticked, divergent: outcome.divergent, skipped: outcome.skipped };
+  state.lastOutcome = { ticked: outcome.ticked, divergent: outcome.divergent,
+    skipped: outcome.skipped, endogenousThought };
   state.delayMs = nextDelay(state.lastOutcome, settings, state.delayMs);
+}
+
+async function scheduledThought(db, input) {
+  try {
+    return await require('./endogenousThoughtResidentSchedulerService').runScheduled(db, input);
+  } catch (error) {
+    return { status: 'failed', reason: error.code || 'resident-loop-failed' };
+  }
 }
 
 function startScheduler(getDb, options) {
