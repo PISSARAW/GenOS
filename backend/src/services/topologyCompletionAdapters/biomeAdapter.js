@@ -4,6 +4,7 @@ const { baseDossier } = require('./dossier');
 const stateReader = require('./biomeStateReader');
 const { digest } = require('../evidenceContractService');
 const { digest: biologicalDigest } = require('../biologicalIntegrity');
+const goalOracle = require('../biome/contracts/goalVerificationReceipt');
 
 function assessment(status, reason) {
   return { status, ...(reason ? { reason } : {}) };
@@ -73,22 +74,44 @@ function phaseAssessment(state) {
   return assessment('verified');
 }
 
-function terminalAssessment(state) {
+function availableEvidence(base) {
+  return base.roster.evidenceProofs.map((proof) => proof.reference).filter(Boolean);
+}
+
+function terminalAssessment(base, state) {
   const ecology = state.state.ecology;
   const runtime = ecology.ecologicalState.runtime;
   const goal = runtime.goalVerification;
   if (!goal) return assessment('partial', 'biome_goal_oracle_missing');
-  const bound = goal.sessionId === state.sessionId && goal.tick === runtime.tick;
-  if (!bound) return assessment('failed', 'biome_goal_oracle_scope_mismatch');
-  const evidence = Array.isArray(goal.evidenceRefs)
-    && goal.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim());
-  if (goal.verified !== true || !evidence) {
-    return assessment('partial', 'biome_goal_oracle_unverified');
-  }
+  const stateIssue = goalStateAssessment(goal, state, runtime);
+  if (stateIssue) return stateIssue;
+  const oracleIssue = independentGoalAssessment({ base, state, runtime, goal });
+  if (oracleIssue) return oracleIssue;
   if (runtime.stopCondition !== 'goal_achieved' || ecology.status !== 'completed') {
     return assessment('failed', 'biome_terminal_state_inconsistent');
   }
   return assessment('verified');
+}
+
+function goalStateAssessment(goal, state, runtime) {
+  if (goal.sessionId !== state.sessionId || goal.tick !== runtime.tick) {
+    return assessment('failed', 'biome_goal_oracle_scope_mismatch');
+  }
+  const evidence = Array.isArray(goal.evidenceRefs)
+    && goal.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim());
+  return goal.verified === true && evidence
+    ? null : assessment('partial', 'biome_goal_oracle_unverified');
+}
+
+function independentGoalAssessment(context) {
+  const { base, state, runtime, goal } = context;
+  const oracle = goalOracle.assess(goal.oracleReceipt, { missionId: base.missionId,
+    producerId: base.producerId, sessionId: state.sessionId, tick: runtime.tick,
+    evidenceRefs: availableEvidence(base) });
+  if (oracle.verified) return null;
+  const partial = ['biome_goal_oracle_receipt_missing',
+    'biome_goal_oracle_evidence_missing'].includes(oracle.reason);
+  return assessment(partial ? 'partial' : 'failed', oracle.reason);
 }
 
 function fitnessReceipts(ecology) {
@@ -175,16 +198,20 @@ function runProofAssessment(base) {
 
 function oracleReceipt(base, state) {
   const runtime = state.state.ecology.ecologicalState.runtime;
+  const goal = runtime.goalVerification;
   return { schema: 'genos.biome-completion-oracle/v1', missionId: base.missionId,
     sessionId: state.sessionId, revision: state.revision, tick: runtime.tick,
-    goalVerificationHash: digest(runtime.goalVerification),
+    producerId: base.producerId, verifierId: goal.oracleReceipt.verifierId,
+    goalVerificationHash: digest(goal),
+    goalOracleAttestation: goal.oracleReceipt.attestation,
     canonicalStateHash: digest(state.state), eventJournalHash: digest(state.events),
     workerRunIds: base.roster.evidenceProofs.map((proof) =>
       proof.content?.runId || proof.content?.executionRunId).filter(Boolean) };
 }
 
 function verifiedDossier(base, state) {
-  const refs = base.roster.evidenceProofs.map((proof) => proof.reference).filter(Boolean);
+  const goal = state.state.ecology.ecologicalState.runtime.goalVerification;
+  const refs = goal.oracleReceipt.evidenceRefs;
   const receipt = oracleReceipt(base, state);
   return { ...base, lifecycleState: 'completed', producerId: base.missionId,
     topologyValidation: { status: 'verified', reasons: [] },
@@ -196,7 +223,7 @@ function verifiedDossier(base, state) {
       { id: 'biome_event_journal_integrity', passed: true, revision: state.revision }
     ],
     oracle: { status: 'verified', independent: true,
-      verifierIds: ['biome-goal-verification-runtime'], evidenceRefs: refs,
+      verifierIds: [goal.oracleReceipt.verifierId], evidenceRefs: refs,
       receipt, receiptHash: digest(receipt) } };
 }
 
@@ -206,8 +233,8 @@ async function build(input = {}) {
     missionId: base.missionId, context: input.context, evidence: input.evidence });
   if (state.status === 'failed') return failed(base, state.reason, state);
   if (state.status !== 'read') return incomplete(base, state.reason);
-  const checks = [topologyStructure(state), phaseAssessment(state), terminalAssessment(state),
-    fitnessAssessment(state), adaptationAssessment(state), runProofAssessment(base)];
+  const checks = [topologyStructure(state), phaseAssessment(state), runProofAssessment(base),
+    terminalAssessment(base, state), fitnessAssessment(state), adaptationAssessment(state)];
   const issue = checks.find((check) => check.status !== 'verified');
   if (issue?.status === 'failed') return failed(base, issue.reason, state);
   if (issue) return incomplete(base, issue.reason);
