@@ -65,7 +65,7 @@ Une sortie tardive après annulation, une révocation pendant l’exécution ou 
 
 Le résultat expose schema: genos.holobiont-capability-mission/v1, les identifiants, admissions, completed, usage, budget, status, stopped et lifecycle. Les résultats vérifiés gardent la sortie, l’empreinte, les preuves, la décision de l’hôte, la mémoire et la santé. Les missions incomplètes ne ferment pas automatiquement l’hôte et doivent être diagnostiquées ou reprises sous son contrat.
 
-Les signaux de dysbiose dérivés du registre sont des heuristiques. Le vecteur de fitness conserve ses dimensions séparées. L’isolation physique, les consommations réelles et la vérification des artefacts dépendent des adaptateurs fournis. Les tests de contrat et l’exemple arithmétique ne prouvent aucun gain causal face à un agent isolé ni une campagne de 600 à 1 200 exécutions réelles. Le [benchmark longitudinal](../06-benchmarks/benchmark-longitudinal-holobionte.md) conserve ces limites.
+Les signaux de dysbiose dérivés du registre sont des heuristiques. Le vecteur de fitness conserve ses dimensions séparées. L’isolation physique, les consommations réelles et la vérification des artefacts dépendent des adaptateurs fournis. Les adaptateurs `executeCapability`, `trialCapabilityExecutor` et `verifyCapability` sont obligatoires ; `verifyCapability` doit être une fonction distincte de `executeCapability`. Les tests de contrat et l’exemple arithmétique ne prouvent aucun gain causal face à un agent isolé ni une campagne de 600 à 1 200 exécutions réelles. Le [benchmark longitudinal](../06-benchmarks/benchmark-longitudinal-holobionte.md) conserve ces limites.
 
 ## Validation observée le 2026-10-06
 
