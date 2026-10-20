@@ -61,7 +61,7 @@ function getRunnerStdio(workerId) {
 }
 
 async function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
-  const awaitWorker = context.request.mode === 'rhizome' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
+  const awaitWorker = true;
   const payload = workerLaunchPayload({ context, member, workerId, parent,
     capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease });
@@ -69,7 +69,7 @@ async function spawnTopologyWorker({ db, context, member, parent, workerId, laun
   const log = getRunnerStdio(workerId);
   const runner = require('child_process').spawn(process.execPath,
     args,
-    { cwd: context.repoRoot, detached: !awaitWorker, shell: false,
+    { cwd: context.repoRoot, detached: false, shell: false,
       windowsHide: true, stdio: log.stdio, env: runnerEnvironment() });
   runner.once('spawn', log.close);
   runner.once('error', log.close);
@@ -107,7 +107,7 @@ function workerSummary(member, index, workerId) {
     branchCandidateReason: member.branchCandidateReason,
     modelTier: member.modelTier,
     mission: member.mission,
-    status: 'accepted',
+    status: 'started',
   };
 }
 

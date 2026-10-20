@@ -29,7 +29,7 @@ async function prepareBiologicalContext(db, context) {
 async function dispatchAndValidate({ db, context, mode, parent, composition }) {
   const members = composition.members || [];
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
-  if (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1' && mode !== 'syncytium') {
+  if (mode !== 'syncytium') {
     await biologicalWorkerCompletion.collectCompletedWorkerStatuses({ db, context, accepted });
   }
   const semanticValidation = mode === 'syncytium'
@@ -42,9 +42,7 @@ async function dispatchAndValidate({ db, context, mode, parent, composition }) {
 async function finalizeBiologicalOutput({ db, context, mode, mission, members, accepted, composition, semanticValidation, parent }) {
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  if (mode === 'syncytium' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
-    out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
-  }
+  out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
   await syncytiumMissionCompletion.validateAndComplete({ db, sessionId: composition.sessionId,
     output: out.biologicalMode, validation: semanticValidation, expectedCount: members.length });
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
