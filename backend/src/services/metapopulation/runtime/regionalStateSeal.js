@@ -8,8 +8,7 @@ const COLLECTIONS = Object.freeze([
   ['corridors', 'metapopulation_corridors', 'corridor_id'],
   ['migrations', 'metapopulation_migrations', 'migration_id'],
   ['colonizations', 'metapopulation_colonizations', 'colonization_id'],
-  ['fitness', 'mission_fitness', 'fitness_id'],
-  ['events', 'metapopulation_events', 'sequence']
+  ['fitness', 'mission_fitness', 'fitness_id']
 ]);
 
 async function rows(db, collection, metapopulationId) {
@@ -24,9 +23,23 @@ async function capture(db, metapopulationId) {
     'Unknown metapopulation session.');
   const values = await Promise.all(COLLECTIONS.map((entry) =>
     rows(db, entry, metapopulationId)));
-  const state = { session };
+  const state = { session: canonicalSession(session) };
   COLLECTIONS.forEach((entry, index) => { state[entry[0]] = values[index]; });
   return { revision: Number(session.revision), hash: digest(state) };
+}
+
+function canonicalSession(session) {
+  const { revision, status, updated_at: updatedAt, ...stable } = session;
+  return stable;
+}
+
+function matchesCurrent(expected = {}, current = {}) {
+  const expectedRevision = Number(expected.revision);
+  const currentRevision = Number(current.revision);
+  return Number.isSafeInteger(expectedRevision) && expectedRevision >= 1
+    && Number.isSafeInteger(currentRevision) && currentRevision >= expectedRevision
+    && /^sha256:[a-f0-9]{64}$/.test(expected.hash || '')
+    && expected.hash === current.hash;
 }
 
 async function assertUnchanged(db, metapopulationId, expected) {
@@ -42,4 +55,4 @@ function stateError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { capture, assertUnchanged };
+module.exports = { capture, assertUnchanged, matchesCurrent };

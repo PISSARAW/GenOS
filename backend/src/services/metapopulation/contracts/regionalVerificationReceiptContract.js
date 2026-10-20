@@ -13,6 +13,17 @@ function identity(value) {
     ? value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase() : null;
 }
 
+function authorityAliases() {
+  const authority = trust.ensureVerifier(AUTHORITY_TYPE, '1.0');
+  return new Set([AUTHORITY_ID, AUTHORITY_TYPE, authority.id,
+    authority.type, authority.digest].map(identity).filter(Boolean));
+}
+
+function isAuthorityIdentity(value) {
+  const normalized = identity(value);
+  return Boolean(normalized && authorityAliases().has(normalized));
+}
+
 function verificationMaterial(verification = {}) {
   const { receipt, ...material } = verification;
   return material;
@@ -27,7 +38,7 @@ function receiptBody(input = {}) {
   return { schema: SCHEMA, missionId: input.missionId,
     metapopulationId: input.metapopulationId, cycle: input.cycle,
     verdict: 'VERIFIED', producerId: input.producerId,
-    verifierId: AUTHORITY_ID, independent: input.producerId !== AUTHORITY_ID,
+    verifierId: AUTHORITY_ID, independent: !isAuthorityIdentity(input.producerId),
     canonicalRevision: input.stateSeal?.revision,
     canonicalStateHash: input.stateSeal?.hash,
     resultHash: digest(input.execution),
@@ -60,7 +71,7 @@ function issue(input = {}) {
   const cycle = Number(input.cycle);
   if (!identity(input.missionId) || !identity(input.metapopulationId)
       || !Number.isSafeInteger(cycle) || cycle < 1 || !validSeal(input.stateSeal)) return null;
-  if (!producerId || producerId === AUTHORITY_ID
+  if (!producerId || isAuthorityIdentity(producerId)
       || selfDeclaredAuthority(input.verification)) return null;
   const body = receiptBody({ ...input, producerId });
   const authorityReceipt = issueAuthorityReceipt(input, body);
@@ -80,7 +91,7 @@ function validIdentities(receipt) {
   const verifierId = identity(receipt.verifierId);
   return Boolean(producerId && producerId === receipt.producerId
     && verifierId === AUTHORITY_ID && receipt.independent === true
-    && producerId !== verifierId);
+    && !isAuthorityIdentity(producerId));
 }
 
 function validAuthority(input, body) {
@@ -120,5 +131,5 @@ function validate(input = {}) {
     && validBinding(input), missing: false };
 }
 
-module.exports = { SCHEMA, AUTHORITY_ID, issue, validate,
-  verificationMaterial, identity };
+module.exports = { SCHEMA, AUTHORITY_ID, AUTHORITY_TYPE, issue, validate,
+  verificationMaterial, identity, isAuthorityIdentity };

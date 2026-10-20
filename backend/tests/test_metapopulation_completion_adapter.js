@@ -13,6 +13,7 @@ const { closureInput } = require('../src/services/topologyCompletionAdapters/dos
 const { closeMission } = require('../src/services/missionClosureService');
 const { digest } = require('../src/services/evidenceContractService');
 const receiptContract = require('../src/services/metapopulation/contracts/regionalVerificationReceiptContract');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
 
 const MISSION_ID = 'mission-metapopulation';
 const SESSION_ID = 'metapopulation-session';
@@ -249,11 +250,29 @@ async function authoritySpoofingIsRejected() {
       independent: true }) });
   assert.equal(invented.result.reason, 'REGIONAL_VERIFICATION_AUTHORITY_REQUIRED');
   assert.equal(invented.cycleCount, 0);
-  const alias = await runtimeProbe({
-    actor: `  ${receiptContract.AUTHORITY_ID.toUpperCase()}  `,
-    verify: async () => ({ valid: true }) });
-  assert.equal(alias.result.reason, 'REGIONAL_VERIFICATION_AUTHORITY_REQUIRED');
-  assert.equal(alias.cycleCount, 0);
+  const authority = verifierTrust.ensureVerifier(receiptContract.AUTHORITY_TYPE, '1.0');
+  const aliases = [
+    ['authority id', receiptContract.AUTHORITY_ID],
+    ['registry type', authority.type],
+    ['registry id', authority.id],
+    ['registry digest', authority.digest],
+    ['fullwidth authority id', fullwidth(receiptContract.AUTHORITY_ID)],
+    ['whitespace authority id', `  ${receiptContract.AUTHORITY_ID.toUpperCase()}  `]
+  ];
+  for (const [label, actor] of aliases) {
+    const alias = await runtimeProbe({ actor,
+      verify: async () => ({ valid: true }) });
+    assert.equal(alias.result.reason, 'REGIONAL_VERIFICATION_AUTHORITY_REQUIRED', label);
+    assert.equal(alias.cycleCount, 0, label);
+  }
+}
+
+function fullwidth(value) {
+  return [...value].map((character) => {
+    const code = character.charCodeAt(0);
+    return code >= 0x21 && code <= 0x7e
+      ? String.fromCharCode(code + 0xfee0) : character;
+  }).join('');
 }
 
 async function mutationDuringVerificationIsRejected() {
@@ -283,6 +302,17 @@ async function coherentlyRewrittenReceiptIsRejected() {
   }, status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
 }
 
+async function staleRegionalStateSealIsRejected() {
+  await expectReason({ mutate: async (db) => {
+    await db.run(`UPDATE metapopulation_patches SET quality = 0.1
+      WHERE metapopulation_id = ? AND patch_id = 'patch-alpha'`, SESSION_ID);
+    await coordination.recordMetapopulationEvent(SESSION_ID, {
+      type: 'PATCH_STATUS_CHANGED', payload: { patchId: 'patch-alpha', quality: 0.1 },
+      actor: 'regional-producer', provenance: { source: 'structured-mutation-probe' }
+    }, { db });
+  }, status: 'failed', reason: 'metapopulation_cycle_oracle_state_stale' });
+}
+
 async function run() {
   await nominal();
   await foreignMission();
@@ -292,6 +322,7 @@ async function run() {
   await authoritySpoofingIsRejected();
   await mutationDuringVerificationIsRejected();
   await coherentlyRewrittenReceiptIsRejected();
+  await staleRegionalStateSealIsRejected();
   console.log('Metapopulation completion adapter: PASS');
 }
 
