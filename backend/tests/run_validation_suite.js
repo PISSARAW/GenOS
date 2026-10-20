@@ -98,6 +98,7 @@ const suites = {
   ],
   metapopulation: [
     ['completion', 'test_metapopulation_completion.js'],
+    ['crash recovery and quiescent snapshot', 'test_metapopulation_crash_recovery.js'],
     ['durable', 'test_metapopulation_durable_execution.js'],
     ['test_metapopulation_cultural_persistence.js', 'test_metapopulation_cultural_persistence.js'],
     ['test_metapopulation_migration_review.js', 'test_metapopulation_migration_review.js'],
