@@ -33,8 +33,9 @@ async function isolated(probe) {
   finally {
     bridge.executeVerifierWorkers = original;
     await require('../src/services/garageRuntimeService').stop(db);
+    await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
     await closeDatabase();
-    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 
