@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-20 (cycle transactionnel morphogénétique P1)
+- **Dernière revue** : 2026-10-20 (admission topologie–variant P2)
 
 ---
 
@@ -73,10 +73,24 @@ ne doivent pas être déduites du seul résultat déterministe du contrôleur pl
 
 ## 2.1. Variants et outcomes communs
 
-Le registre retourne désormais un `VariantSpec` v2. `specKind` vaut `variant`,
+Le registre retourne désormais un `VariantSpec` v3. `specKind` vaut `variant`,
 `preset`, `profile` ou `alias`; `qualification` conserve séparément les états de
 liaison runtime, persistance, snapshot, restauration, qualification bout-en-bout
-et bénéfice empirique. Les identifiants et paramètres antérieurs sont inchangés.
+et bénéfice empirique. `qualificationEvidence` conserve les références de preuve
+par dimension. Les identifiants et paramètres antérieurs sont inchangés ; les
+catalogues sans preuve explicite reçoivent des listes vides et restent fermés.
+
+Le gate P2 `topologyMorphogenesisAdmission` relie avant tout effet le plan, le port
+et le `VariantSpec` exact. La liaison runtime, la persistance, le snapshot, la
+restauration et le bout-en-bout doivent tous être `verified` avec une référence de
+preuve. Une divergence d'identité ou une preuve absente refuse la transaction avant
+`observe`. Une admission valide délègue au coordinateur P1 et produit un digest de
+qualification ; elle conserve néanmoins `promotionEligible: false`. Le bénéfice
+empirique et l'autorité de promotion restent des gates séparés.
+
+La suite P2 exécute ce parcours complet avec un variant contrôlé uniquement dans le
+test. Aucun des variants de production des huit topologies n'est promu par cette
+preuve du protocole commun : leurs qualifications spécialisées restent à établir.
 
 Toute sortie objet d'une feuille porte aussi `topologyOutcome` v1 : identité de
 topologie et de variant, `executionStatus`, `contractStatus`, `evidenceStatus`,
@@ -138,9 +152,15 @@ backend SQLite configuré pour le control plane et non d'une base de test
   `backend/tests/test_morphogenesis_dynamic_continuation.js` vérifie le choix de
   l'opérateur, la version du graphe, la réaffectation par identité, la politique de gel
   et l'entrée publique de configuration.
+- Admission topologie–variant :
+  `backend/tests/test_morphogenesis_p2_admission.js` vérifie le parcours qualifié,
+  le refus d'une étiquette sans preuve, la liaison d'identité et la fermeture des
+  huit catalogues actuels.
 - Protocole à 8 avec SQLite :
   `docs/06-qualite-preuves/morphogenese-gates-2026-09-26.md`.
-- Décision : `docs/adr/0133-graphe-morphologique-executable-et-plugins-topologies.md`.
+- Décisions : `docs/adr/0133-graphe-morphologique-executable-et-plugins-topologies.md`,
+  `docs/adr/0700-cycle-transactionnel-commun-morphogenese-p1.md` et
+  `docs/adr/0702-admission-topologie-variant-morphogenese-p2.md`.
 
 ## 6. Limites
 

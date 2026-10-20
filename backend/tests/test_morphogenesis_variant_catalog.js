@@ -7,11 +7,12 @@ const { resolveRequestedProfile } = require('../src/services/morphogenesis/regis
 function run() {
   const registry = createTopologyRegistry();
   const aTeam = registry.variants.resolve('a_team', 'project_dag');
-  assert.equal(aTeam.specVersion, 2);
+  assert.equal(aTeam.specVersion, 3);
   assert.equal(aTeam.specKind, 'variant');
   assert.equal(aTeam.maturity, 'implemented');
   assert.equal(aTeam.parameters.communication, 'dependency_driven');
   assert.match(aTeam.source, /aTeam\/variants/);
+  assert.deepEqual(aTeam.qualificationEvidence.runtimeBinding, []);
   assert.equal(registry.variants.list('trinity').filter((variant) => variant !== 'default').length, 12);
   assert.equal(registry.variants.resolve('trinity', 'factorial').maturity, 'implemented');
 
