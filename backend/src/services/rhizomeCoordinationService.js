@@ -117,7 +117,7 @@ function rehydrate(record, graph = {}) {
     graphVersion: graph.graphVersion ?? state.graphVersion
   }, record.id);
   const organization = state.organization || DEFAULT_ORGANIZATION;
-  const variant = variantPolicyService.resolve(state.variant);
+  const variant = variantPolicyService.resolve(state.variant || 'routing');
   return {
     ...canonical,
     sessionId: record.id,
