@@ -201,8 +201,15 @@ Ces deux portes ne sont pas déclarées vertes dans cette fiche.
 
 ### 8.1 Suite npm globale
 
-Sur un HEAD propre de référence, la suite globale reproduit un échec préexistant
-dans `test_gqwf_trinity_mission_qualification.js` :
+La revalidation du 2026-10-20 sur le checkout de travail a franchi les sept cas
+de la suite Biology et le test de liaison des workspaces, puis s'est arrêtée au
+début de la suite backend : le processus de test n'a pas pu se reconnecter au
+serveur qu'il venait d'ouvrir sur `::1:4099` ou `127.0.0.1:4099` (`EACCES`). Ce
+refus du loopback empêche d'observer la suite complète dans ce bac à sable.
+
+Indépendamment de ce blocage d'environnement, une exécution antérieure sur un
+HEAD propre de référence reproduisait un échec préexistant dans
+`test_gqwf_trinity_mission_qualification.js` :
 
 ```text
 INVALID_WORKER_ARTIFACT
@@ -215,11 +222,13 @@ parcours GQWF/Trinity.
 
 ### 8.2 Workspace Cargo
 
-La compilation du workspace Rust est bloquée dans l'environnement observé par
-la construction de `aws-lc-sys` : NASM indisponible, puis erreur de liaison
-Windows `LNK1114` liée à l'accès au fichier. Ce résultat ne permet pas de
-conclure à une régression Rust causée par les trois verticales, mais interdit de
-revendiquer un workspace globalement vert.
+La revalidation du 2026-10-20 a atteint la compilation de `aws-lc-sys` après
+deux avertissements dans `genos-common`, puis la session d'exécution a été
+interrompue sans verdict. Une exécution antérieure dans le même environnement
+avait échoué à cette étape : NASM indisponible, puis erreur de liaison Windows
+`LNK1114` liée à l'accès au fichier. Ces observations ne permettent pas de
+conclure à une régression Rust causée par les trois verticales, mais interdisent
+de revendiquer un workspace globalement vert.
 
 ### 8.3 Conséquence
 
