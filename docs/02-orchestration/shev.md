@@ -570,3 +570,25 @@ la qualité d’un fournisseur métier réel, le transfert sur de nouveaux proje
 et une comparaison longitudinale de terrain nécessitent leurs propres artefacts.
 Les commandes, contrats de signature, configuration et diagnostic sont décrits
 dans le [guide opérateur](../03-reference/exploitation-shev.md).
+
+## 20. Responsabilité d'un produit après sa livraison
+
+Le manifeste `shev_product_manifests` rattache un build à la dimension d'un
+mandat courant. Il conserve la trajectoire attendue, les critères de qualité,
+les risques, une cible d'apprentissage, les preuves d'aperçu et un plan de
+retour. Son enregistrement exige une autorisation Ed25519 au stade `assisted` ou
+`delegated`; le manifeste est ensuite immuable.
+
+`recordProductStage` enregistre des reçus externes sans appeler de déploiement.
+L'ordre `preview → deployed → user_effect` est obligatoire. Un effet utilisateur
+`confirmed` produit une observation `state` et la décision `NO_CHANGE`. Un effet
+`regressed` produit une `degradation` puis appelle le compilateur SHEV : une
+initiative automatique n'existe que si le mandat autorise le diagnostic. Un
+résultat `inconclusive` reste `HOLD` et ne devient pas un succès implicite.
+
+`qualifyProductOutcome` ne qualifie le produit que lorsque le dernier reçu
+d'effet utilisateur, l'effet projet SHEV et le progrès d'apprentissage sur la
+cible du manifeste sont tous confirmés. Les vérificateurs projet et apprentissage
+doivent être distincts. Sinon la décision reste `INCONCLUSIVE + NO_CHANGE`.
+`QUALIFIED` est un reçu de preuve append-only ; il ne promeut pas le build et
+n'autorise aucune action de production. Voir [ADR 0646](../adr/0646-responsabilite-produit-post-livraison.md).

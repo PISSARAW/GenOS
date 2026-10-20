@@ -1,0 +1,122 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fixture = require('./ontogenesisFixture');
+const store = require('../src/services/ontogenesis/projectStore');
+const { registerResponsibility, reviseResponsibility } = require('../src/services/shev/responsibilityService');
+const { registerProductManifest, recordProductStage,
+  qualifyProductOutcome } = require('../src/services/shev/productStewardshipService');
+const { normalizeManifest } = require('../src/services/shev/productStewardshipContract');
+const authority = require('./shevFixture').authority();
+
+const projectId = 'shev-product-stewardship';
+const mandate = { purpose: 'Maintenir le produit apres sa livraison', autoDiagnose: true,
+  autoInstrument: false, dimensions: [{ name: 'user-value', expected: 'Usage durable sans regression',
+    acceptance: ['Effet utilisateur verifie independamment.'] }] };
+
+function manifestInput(overrides = {}) {
+  return { id: 'product-build-17', projectId, dimension: 'user-value', buildRef: 'build:17',
+    trajectory: ['preview verifiee', 'deploiement externe explicite', 'effet utilisateur observe'],
+    qualityCriteria: ['Parcours critique disponible', 'Aucune regression critique'],
+    risks: [{ id: 'checkout-regression', severity: 'high', mitigation: 'Arreter puis restaurer build:16.' }],
+    rollback: { actionRef: 'runbook:rollback-build', checkpointRef: 'build:16',
+      evidenceRefs: ['artifact:rollback-drill-16'] },
+    learningTarget: { organizationId: 'org-test', agentId: 'agent-builder' },
+    previewEvidenceRefs: ['artifact:preview-build-17'], ...overrides };
+}
+
+async function setup(db) {
+  await store.createProject(db, { id: projectId, rootPath: 'C:/test', branch: 'codex/test',
+    objective: 'Maintenir le produit', config: fixture.testConfig() });
+  await registerResponsibility(db, { projectId, authorityRef: 'owner:test',
+    authorityPublicKey: authority.publicKey, mandate });
+  await reviseResponsibility(db, { projectId, expectedVersion: 1, mandate, stage: 'assisted',
+    authorization: authority.authorize({ operation: 'mandate-revision', projectId,
+      subjectId: projectId, expectedVersion: 1, details: { mandate: normalizeMandate(), stage: 'assisted' } }) });
+}
+
+function normalizeMandate() {
+  return { purpose: mandate.purpose, dimensions: mandate.dimensions,
+    autoDiagnose: mandate.autoDiagnose, autoInstrument: mandate.autoInstrument };
+}
+
+function authorizedManifest(input) {
+  const normalized = normalizeManifest(input);
+  return { ...input, expectedVersion: 2,
+    authorization: authority.authorize({ operation: 'product-manifest-registration', projectId,
+      subjectId: input.id, expectedVersion: 2, details: normalized }) };
+}
+
+function stageInput(id, stage, result) {
+  const sequence = { 'deploy-too-early': 0, 'preview-17': 1, 'deploy-17': 2,
+    'effect-healthy': 3, 'effect-drift': 4, 'effect-recovered': 5 };
+  return { id, manifestId: 'product-build-17', stage, verify: async () => ({ result,
+    sourceRef: 'independent-product-probe',
+    observedAt: new Date(Date.parse('2026-10-19T08:00:00Z') + sequence[id] * 1000).toISOString(),
+    evidenceRefs: [`artifact:${id}`] }) };
+}
+
+async function testPostDeploymentLoop(db) {
+  await assert.rejects(recordProductStage(db, stageInput('deploy-too-early', 'deployed', 'confirmed')), /gate/);
+  assert.equal((await recordProductStage(db, stageInput('preview-17', 'preview', 'confirmed'))).action,
+    'AWAIT_DEPLOYMENT');
+  assert.equal((await recordProductStage(db, stageInput('deploy-17', 'deployed', 'confirmed'))).action,
+    'AWAIT_USER_EFFECT');
+  const healthy = await recordProductStage(db, stageInput('effect-healthy', 'user_effect', 'confirmed'));
+  assert.equal(healthy.action, 'NO_CHANGE');
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_initiatives')).n, 0);
+  const drift = await recordProductStage(db, stageInput('effect-drift', 'user_effect', 'regressed'));
+  assert.equal(drift.action, 'INITIATIVE');
+  assert.equal(drift.compilation.queued, 1);
+  const initiative = await db.get('SELECT * FROM shev_initiatives WHERE observation_id = ?', [drift.observation.id]);
+  assert.equal(initiative.status, 'queued');
+  assert.equal((await recordProductStage(db, stageInput('effect-drift', 'user_effect', 'regressed'))).replayed, true);
+  await assert.rejects(db.run("UPDATE shev_product_stage_receipts SET result = 'confirmed' WHERE id = 'effect-drift'"),
+    /immutable/);
+  return { initiative, recovered: await recordProductStage(db,
+    stageInput('effect-recovered', 'user_effect', 'confirmed')) };
+}
+
+async function testDoubleProof(db, state) {
+  const base = { id: 'qualification-17', manifestId: 'product-build-17',
+    userEffectReceiptId: state.recovered.row.id, projectInitiativeId: state.initiative.id,
+    agentProgressId: 'progress-build-17' };
+  const missing = await qualifyProductOutcome(db, base);
+  assert.equal(missing.action, 'NO_CHANGE');
+  assert.deepEqual(missing.blockers.sort(), ['learning-not-confirmed', 'project-effect-not-confirmed']);
+  await db.run(`INSERT INTO shev_effects
+    (initiative_id, post_observation_id, project_result, agent_result, verifier_ref, evidence_json)
+    VALUES (?, ?, 'confirmed', 'not_tested', 'project-effect-verifier', '["artifact:project-effect"]')`,
+  [state.initiative.id, state.recovered.observation.id]);
+  assert.deepEqual((await qualifyProductOutcome(db, base)).blockers, ['learning-not-confirmed']);
+  await db.run(`INSERT INTO shev_agent_progress
+    (id, initiative_id, gvx_event_id, entity_id, result, metrics_json, verifier_ref, evidence_json)
+    VALUES (?, ?, ?, 'agent-builder', 'confirmed', '{}', 'heldout-learning-verifier',
+      '["artifact:heldout-learning"]')`, [base.agentProgressId, state.initiative.id, 'gvx-build-17']);
+  const qualified = await qualifyProductOutcome(db, base);
+  assert.equal(qualified.status, 'QUALIFIED');
+  assert.equal((await qualifyProductOutcome(db, base)).receipt.replayed, true);
+  await assert.rejects(db.run("DELETE FROM shev_product_qualifications WHERE id = 'qualification-17'"),
+    /immutable/);
+}
+
+async function main() {
+  const db = await fixture.memoryDb();
+  try {
+    await setup(db);
+    const input = manifestInput();
+    const registered = await registerProductManifest(db, authorizedManifest(input));
+    assert.equal(registered.manifest.buildRef, 'build:17');
+    assert.equal(registered.manifest.rollback.checkpointRef, 'build:16');
+    assert.equal((await registerProductManifest(db, authorizedManifest(input))).replayed, true);
+    assert.throws(() => authorizedManifest(manifestInput({ id: 'unsafe-build',
+      buildRef: 'build:18', rollback: null })), /rollback/);
+    await assert.rejects(db.run("UPDATE shev_product_manifests SET build_ref = 'changed'"), /immutable/);
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_product_stage_receipts')).n, 0);
+    const state = await testPostDeploymentLoop(db);
+    await testDoubleProof(db, state);
+    console.log('SHEV product stewardship manifest passed.');
+  } finally { await db.close(); }
+}
+
+main().catch(error => { console.error(error); process.exitCode = 1; });
