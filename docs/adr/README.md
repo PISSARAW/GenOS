@@ -779,6 +779,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0653](0653-arc-physiologique-shev-sensorimoteur-morphogenese-immunite-endocrine.md) | Arc physiologique unifié sous gouvernance épistémique | Accepté | 2026-10-19 | Sensorimoteur, SHEV, nosologie, immunité, endocrinologie, preuve |
 | [0654](0654-contrat-commun-completion-et-preuves-liees.md) | Contrat commun de complétion et preuves liées | Accepté | 2026-10-20 | orchestration, topologies, preuves, complétion |
 | [0655](0655-raccord-resident-ett-fail-closed.md) | Raccorder ETT au scheduler résident en échec fermé | Accepté pour le raccord ; activation de production indisponible | 2026-10-20 | pensée endogène, scheduler résident, autorité, vérification, coûts |
+| [0656](0656-registre-runtime-variants-metapopulation.md) | Registre unifié des runtimes de variants Metapopulation | Accepté | 2026-10-20 | Metapopulation, runtime régional, variants |
 | [0670](0670-evolution-monde-web-validee.md) | Évolution du monde web validée par observation réelle | Accepté | 2026-10-19 | monde contrefactuel, modèle du monde, SHEV, calibration, preuve |
 | [0679](0679-campagnes-sre-causales-gouvernees.md) | Campagnes SRE causales et gouvernées | Accepté | 2026-10-19 | exploitation, SRE, causalité, autorité, récupération |
 | [0680](0680-admission-endogene-shev-attestee-et-bornee.md) | Admission endogène SHEV attestée et bornée | Accepté | 2026-10-19 | SHEV, Ontogenèse, initiative endogène |
