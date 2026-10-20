@@ -529,6 +529,31 @@ mettre en quarantaine les baux non terminaux. Voir l'[ADR 0701](../adr/0701-main
 
 Validation ciblée : `node backend/tests/test_gqwf_catalog_maintenance.js`.
 
+### Fermeture d'exécution adressée par contenu
+
+La tranche 20 introduit `gqwf-execution-closure-v1`. Une racine GQWF décrit
+les fichiers, mais ne suffit pas à identifier le runtime, la commande, les
+dépendances et l'environnement déclarés d'une exécution. La nouvelle fermeture
+canonique lie ces éléments à `workspaceId` et `rootHash`, puis stocke le
+manifeste dans le CAS de métadonnées sous son propre `closureHash`.
+
+Les dépendances et variables d'environnement sont triées avant hashage. Les
+variables ne conservent que leur nom et `valueHash` ; un champ supplémentaire,
+notamment une valeur en clair, est refusé. Un rejeu identique est idempotent et
+une variation de racine, runtime, commande, dépendance ou empreinte produit une
+autre identité.
+
+Cette fermeture reprend l'identité déclarative d'une dérivation Nix sans
+inventer son herméticité. Le manifeste porte donc inconditionnellement
+`externalInputs: declared-only` et `sandbox: not-attested`.
+`inspectExecutionClosure` vérifie l'objet CAS et la racine même si l'index
+SQLite a disparu, mais il ne prouve pas que le processus n'a utilisé aucune
+autre entrée. Une fermeture indexée protège sa racine de la collecte et le
+scrub vérifie son objet CAS. Aucun gate de promotion n'est modifié par cette tranche. Voir
+l'[ADR 0703](../adr/0703-fermeture-execution-adressee-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_execution_closure.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
@@ -564,6 +589,7 @@ Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_garbage_collection.js`,
 `node backend/tests/test_gqwf_metadata_repair.js`,
 `node backend/tests/test_gqwf_catalog_maintenance.js`,
+`node backend/tests/test_gqwf_execution_closure.js`,
 `node backend/tests/test_gqwf_canary_rollout.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et

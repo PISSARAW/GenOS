@@ -194,6 +194,8 @@ promotion gouvernée par des preuves.
   objet CAS ;
 - une tête GQWF n'est ni une branche Git ni un journal de commits ;
 - un hash de racine ne prouve pas une construction hermétique à la Nix ;
+- une fermeture `gqwf-execution-closure-v1` prouve l'identité des entrées
+  déclarées, pas l'absence d'entrées cachées ;
 - un scrub applicatif ne remplace pas les contrôles d'intégrité du support ;
 - une déduplication de blobs n'établit ni causalité ni qualité de la candidate.
 
@@ -297,6 +299,8 @@ Les limites structurantes sont :
 
 - le catalogue CAS ne reconstruit pas encore les vues, overlays, sessions
   d'exécution, décisions de rollout ni tous les reçus ;
+- les fermetures d'exécution sont adressées par contenu et inspectables par
+  hash, mais leur index SQLite n'est pas encore inclus dans le catalogue ;
 - SQLite reste nécessaire comme index transactionnel et projection runtime ;
 - `linux-overlayfs-v1` dépend de Linux et de capacités noyau ;
 - Windows utilise typiquement le reflink natif s'il est réellement disponible,
@@ -317,7 +321,8 @@ Les limites structurantes sont :
 | promotion sous preuve | implémentée sur parcours raccordés | porte globale et vérificateurs réels |
 | catalogue CAS | racines/têtes/baux seulement | étendre ou exclure durablement les projections restantes |
 | sauvegarde/restauration complète | non fournie | contrat distinct incluant SQLite et reçus |
-| herméticité à la Nix | non fournie | dérivations et fermeture des dépendances, si retenues |
+| provenance de fermeture inspirée de Nix | manifeste déclaratif implémenté | attestation du sandbox et capture des accès externes |
+| herméticité à la Nix | non fournie | dérivations exécutées dans un sandbox et fermeture complète des dépendances |
 
 ### 14.2 Quand ne pas utiliser GQWF
 

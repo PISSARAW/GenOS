@@ -6,6 +6,7 @@ const leases = require('./leases');
 const legacy = require('./legacy');
 const workers = require('./workers');
 const execution = require('./execution');
+const executionClosure = require('./executionClosure');
 const workerPromotion = require('./workerPromotion');
 const garbageCollection = require('./garbageCollection');
 const integrity = require('./integrity');
@@ -67,6 +68,8 @@ function createFabric(db, options = {}) {
       return result;
     },
     inspectRollout: (input) => rollout.inspectRollout(db, input),
+    sealExecutionClosure: (input) => executionClosure.sealExecutionClosure(db, input),
+    inspectExecutionClosure: (input) => executionClosure.inspectExecutionClosure(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
     materializeExecutionWorkspace: (input) => cataloged(input.workspaceId,
       () => execution.materializeExecutionWorkspace(db, input, options)),

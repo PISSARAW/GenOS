@@ -1,6 +1,6 @@
 # Qualification ciblée GQWF — 20 octobre 2026
 
-- **Statut** : campagne locale exécutée ; 17 suites GQWF réussies hors sandbox restrictive, porte globale arrêtée par la qualification Trinity.
+- **Statut** : campagne locale exécutée ; 18 suites GQWF réussies hors sandbox restrictive, porte globale arrêtée par la qualification Trinity.
 - **Portée** : fabrique, exécution paresseuse, matérialisation, missions, workers, collecte, intégrité, réplication, réparation et catalogue CAS.
 - **Dernière revue** : 2026-10-20.
 
@@ -49,7 +49,7 @@ Chaque fichier a été lancé directement avec Node depuis la racine du dépôt 
 node backend/tests/<suite>.js
 ```
 
-Les 17 suites ont été exécutées séquentiellement afin de réduire les
+Les 18 suites ont été exécutées séquentiellement afin de réduire les
 interférences de fichiers temporaires. La suite snapshot, bloquée deux fois par
 le filesystem temporaire de la sandbox, a ensuite réussi pendant la relance
 globale autorisée hors de cette restriction.
@@ -74,6 +74,7 @@ globale autorisée hors de cette restriction.
 | `test_gqwf_repair.js` | PASS | réparation authentifiée, quarantaine et contrôle final |
 | `test_gqwf_metadata_repair.js` | PASS | reconstruction racines/têtes/baux depuis le catalogue CAS |
 | `test_gqwf_catalog_maintenance.js` | PASS | republication post-crash, rétention 64 refs et refus des corruptions/forks |
+| `test_gqwf_execution_closure.js` | PASS | identité canonique, provenance déclarée, perte d'index et altération CAS |
 | `test_gqwf_organism_snapshot.js` | PASS hors sandbox restrictive | référence de racine dans le snapshot d'organisme et frontière de restauration |
 
 ### Écart environnemental observé sur l'intégration snapshot
@@ -101,7 +102,7 @@ refusé la barrière avec `required_member_evidence_invalid`,
 `required_workers_incomplete`, `independent_oracle_missing` et
 `required_evidence_missing`.
 
-Ce refus ne remet pas en cause les 17 suites ciblées, mais bloque toute
+Ce refus ne remet pas en cause les 18 suites ciblées, mais bloque toute
 affirmation de qualification Trinity GQWF de bout en bout sur la copie de
 travail courante.
 
@@ -139,6 +140,9 @@ Les suites vertes exercent notamment :
 - ref de catalogue perdue après staging ;
 - fork de révision et objet de catalogue corrompu ;
 - limitation de la fenêtre publiée à 64 refs.
+- champs inconnus, doublons, digests invalides et racines inconnues dans une
+  fermeture d'exécution ;
+- altération de l'objet CAS d'une fermeture et perte de son index SQLite.
 
 ## 6. Affirmations autorisées
 
@@ -150,6 +154,8 @@ Dans le périmètre de ces fixtures locales :
 - la réplication et la réparation testées conservent l'identité CAS ;
 - les racines, têtes et baux peuvent être reconstruits depuis un catalogue CAS valide ;
 - la maintenance sait fermer la fenêtre de crash entre staging et publication.
+- une fermeture déclarative produit une identité stable sans stocker les
+  valeurs d'environnement en clair.
 
 ## 7. Non-claims et lacunes
 
@@ -162,6 +168,8 @@ Cette campagne ne prouve pas :
 - la sûreté sous writers externes non coordonnés ;
 - une promotion Trinity de bout en bout avec trois workers réels ;
 - une certification multi-OS ou production.
+- l'herméticité d'une fermeture d'exécution ou l'absence d'accès externes non
+  déclarés.
 
 ### Couverture des avantages revendiqués
 
@@ -211,6 +219,7 @@ $tests = @(
   'test_gqwf_repair.js',
   'test_gqwf_metadata_repair.js',
   'test_gqwf_catalog_maintenance.js',
+  'test_gqwf_execution_closure.js',
   'test_gqwf_organism_snapshot.js'
 )
 

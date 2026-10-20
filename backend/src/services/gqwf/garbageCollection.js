@@ -22,7 +22,8 @@ const ROOT_REFERENCES = [
   'SELECT base_hash AS hash FROM gqwf_worker_bindings WHERE workspace_id = ?',
   'SELECT candidate_hash AS hash FROM gqwf_worker_bindings WHERE workspace_id = ?',
   'SELECT previous_hash AS hash FROM gqwf_worker_promotions WHERE workspace_id = ?',
-  'SELECT candidate_hash AS hash FROM gqwf_worker_promotions WHERE workspace_id = ?'
+  'SELECT candidate_hash AS hash FROM gqwf_worker_promotions WHERE workspace_id = ?',
+  'SELECT root_hash AS hash FROM gqwf_execution_closures WHERE workspace_id = ?'
 ];
 
 function fingerprint(value) {

@@ -7,6 +7,7 @@ const { withTransaction } = require('../../db');
 const { scanBlobStore } = require('./blobInventory');
 const { parseManifest } = require('./manifest');
 const { blobPath } = require('./objects');
+const executionClosure = require('./executionClosure');
 const storage = require('./storage');
 
 const HASH = /^[a-f0-9]{64}$/;
@@ -84,17 +85,37 @@ function addStoreAnomalies(scanned, references, issues) {
   }
 }
 
+async function inspectClosures(db, workspaceId, issues) {
+  const rows = await db.all(`SELECT closure_hash FROM gqwf_execution_closures
+    WHERE workspace_id = ? ORDER BY closure_hash`, workspaceId);
+  let verified = 0;
+  for (const row of rows) {
+    try {
+      await executionClosure.inspectExecutionClosure(db, {
+        workspaceId, closureHash: row.closure_hash
+      });
+      verified += 1;
+    } catch (_) {
+      issues.push({ type: 'invalid_execution_closure', closureHash: row.closure_hash });
+    }
+  }
+  return { rows, verified };
+}
+
 function buildReport(state) {
   const issues = state.issues.sort((left, right) =>
     JSON.stringify(left).localeCompare(JSON.stringify(right)));
   const inventory = { protocol: PROTOCOL, workspaceId: state.workspaceId,
     roots: state.roots.map((row) => row.root_hash),
     overlays: state.changes.map((row) => [row.view_id, row.path, row.blob_hash, row.size]),
-    blobs: state.scanned.blobs, issues };
+    blobs: state.scanned.blobs,
+    executionClosures: state.closures.rows.map((row) => row.closure_hash), issues };
   return { protocol: PROTOCOL, workspaceId: state.workspaceId,
     status: issues.length ? 'corrupt' : 'healthy', inventoryHash: fingerprint(inventory),
     rootCount: state.roots.length, overlayChangeCount: state.changes.length,
     storedBlobCount: state.scanned.blobs.length,
+    executionClosureCount: state.closures.rows.length,
+    verifiedExecutionClosureCount: state.closures.verified,
     referencedBlobCount: state.references.size, verifiedBlobCount: state.verified,
     unreferencedBlobCount: state.scanned.blobs.filter((blob) =>
       !state.references.has(blob.hash)).length,
@@ -118,7 +139,9 @@ async function inspect(db, workspaceId) {
   const verified = await inspectReferences({ workspacePath: workspace.path,
     references, scanned, issues });
   addStoreAnomalies(scanned, references, issues);
-  return buildReport({ workspaceId, roots, changes, scanned, references, verified, issues });
+  const closures = await inspectClosures(db, workspaceId, issues);
+  return buildReport({ workspaceId, roots, changes, scanned, references,
+    verified, closures, issues });
 }
 
 async function persist(db, report) {

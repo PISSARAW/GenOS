@@ -153,6 +153,7 @@ async function migrateGqwf(db) {
   await createReplicationReceiptTable(db);
   await createRepairReceiptTable(db);
   await createMetadataCatalogTables(db);
+  await createExecutionClosureTable(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -338,6 +339,21 @@ async function createMetadataCatalogTables(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_gqwf_metadata_repair_workspace
     ON gqwf_metadata_repair_receipts(workspace_id, created_at);`);
+}
+
+async function createExecutionClosureTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_execution_closures (
+    workspace_id TEXT NOT NULL,
+    closure_hash TEXT NOT NULL,
+    root_hash TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (workspace_id, closure_hash),
+    FOREIGN KEY (workspace_id, root_hash)
+      REFERENCES gqwf_roots(workspace_id, root_hash) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_gqwf_execution_closures_root
+    ON gqwf_execution_closures(workspace_id, root_hash, created_at);`);
 }
 
 module.exports = { migrateGqwf };

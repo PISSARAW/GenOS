@@ -113,6 +113,8 @@ exact `root`. Tout autre chemin est refusé.
 | `maintainMetadataCatalog` | réconcilie publication et conserve 64 refs |
 | `inspectMetadataRepair` / `repairMetadata` | plan puis reconstruction SQLite autorisée |
 | `inspectRollout` | synthèse des décisions canari persistées |
+| `sealExecutionClosure` | scelle racine, commande, runtime, dépendances et environnement hashé dans le CAS |
+| `inspectExecutionClosure` | relit et vérifie une fermeture par son hash, avec état `registered` de l'index |
 
 Les couples `inspect*` / mutation sont intentionnels : l'appel mutateur exige le
 hash exact du plan ou de l'inventaire précédemment observé.
@@ -169,6 +171,7 @@ backend explicitement demandé est une erreur, pas une permission de fallback.
 | preuves d'infrastructure | `gqwf_materialization_receipts`, `gqwf_gc_runs`, `gqwf_integrity_runs` |
 | transport et réparation | `gqwf_replication_receipts`, `gqwf_repair_receipts` |
 | catalogue | `gqwf_catalog_state`, `gqwf_metadata_repair_receipts` |
+| provenance d'exécution | `gqwf_execution_closures` |
 
 Le store physique se trouve sous le workspace enregistré :
 
@@ -294,10 +297,54 @@ attributs étendus ne font pas partie de cette projection.
 | `gqwf-scrub-v1` | inventaire d'intégrité non destructif |
 | `gqwf-cas-replication-v1` | plan et reçu de réplication |
 | `gqwf-cas-repair-v1` | plan et reçu de réparation |
+| `gqwf-execution-closure-v1` | fermeture déclarative liée à une racine et adressée par contenu |
 
 Les JSON sont hashés dans leur sérialisation canonique attendue par le module.
 Une ref mal nommée, dupliquée à la même révision, liée à un autre workspace ou
 pointant vers un objet corrompu bloque la maintenance.
+
+### Fermeture d'exécution
+
+Entrée minimale :
+
+```js
+const closure = await fabric.sealExecutionClosure({
+  workspaceId,
+  rootHash,
+  command: { executable: 'node', arguments: ['tests/run.js'] },
+  runtime: { name: 'node', version: '24.18.0', digest: runtimeSha256 },
+  dependencies: [
+    { name: 'sqlite', version: '5.1.7', digest: packageSha256 }
+  ],
+  environment: [
+    { name: 'NODE_ENV', valueHash: valueSha256 }
+  ]
+});
+```
+
+Les objets `command`, `runtime`, `dependencies` et `environment` refusent tout
+champ inconnu. Une dépendance est unique par triplet nom/version/digest et une
+variable par nom. Les listes sont bornées à 2 048 entrées, les arguments à 256
+et les textes à 1 000 caractères. Tous les digests sont des SHA-256
+hexadécimaux sur 64 caractères.
+
+Le résultat expose `closureHash` et l'assurance fixe :
+
+```json
+{
+  "fileRoot": "content-addressed",
+  "externalInputs": "declared-only",
+  "sandbox": "not-attested"
+}
+```
+
+`inspectExecutionClosure` exige `workspaceId` et `closureHash`. Il relit
+l'objet CAS, recalcule sa forme canonique et confirme que `rootHash` reste une
+racine accessible du workspace. `registered: false` signifie que l'objet reste
+valide mais que sa projection `gqwf_execution_closures` a disparu. Cette API ne
+réinsère rien et ne constitue pas une réparation de métadonnées. Une ligne
+indexée ajoute sa racine aux références protégées par le GC ; le scrub compte
+et vérifie les fermetures indexées dans son rapport.
 
 ## Concurrence et erreurs attendues
 
