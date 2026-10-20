@@ -70,6 +70,7 @@
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
+- [Studio : cycle produit durable](03-reference/studio-cycle-produit-durable.md) — contrat UX versionné, jury pluraliste, séparation aperçu/acceptation/effet et initiative post-livraison bornée ; [ADR 0646](adr/0646-cycle-produit-durable-studio.md).
 - [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
 - [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
 - [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.

@@ -32,4 +32,20 @@ const operations = require('../services/studioProductionOperations');
 router.get('/releases/:releaseId/operations', requirePermission('read'), handle(operations.inspect));
 router.get('/releases/:releaseId/runs/:runId', requirePermission('read'), handle(operations.inspectRun));
 router.post('/releases/:releaseId/feedback', ...write, handle(operations.feedback));
+const productContracts = require('../services/studioProductContractService');
+router.post('/workflows/:workflowId/product-contracts', ...write, handle(productContracts.create));
+router.get('/workflows/:workflowId/product-contracts/current', requirePermission('read'),
+  handle(productContracts.current));
+const productEvaluation = require('../services/studioProductEvaluationService');
+router.post('/releases/:releaseId/product-contracts/:contractId/evaluations', ...write,
+  handle(productEvaluation.evaluate));
+router.get('/releases/:releaseId/product-contracts/:contractId/decision', requirePermission('read'),
+  handle(productEvaluation.decision));
+router.post('/releases/:releaseId/product-contracts/:contractId/acceptance', ...write,
+  handle(productEvaluation.accept));
+const productEffect = require('../services/studioProductEffectService');
+router.post('/releases/:releaseId/product-contracts/:contractId/effects', ...write,
+  handle(productEffect.observe));
+router.post('/releases/:releaseId/product-contracts/:contractId/post-delivery-review', ...write,
+  handle(productEffect.review));
 module.exports = { router, handle, write };

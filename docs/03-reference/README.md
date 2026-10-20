@@ -2,6 +2,7 @@
 
 - [Studio : contrat directeur de la cible](studio-contrat-directeur.md) — STUDIO-TARGET-V1, usages unifiés, zones Z00–Z20, couverture et critères de fin ; pas une certification de livraison.
 - [Studio : parcours et acceptation](studio-parcours-et-acceptation.md) — huit lots, contrats et critères vérifiables.
+- [Studio : cycle produit durable](studio-cycle-produit-durable.md) — hypothèses utilisateur versionnées, jury pluraliste, effets réels et initiatives sans auto-déploiement.
 
 Contrats et surfaces exposées par GenOS. Ces documents décrivent des interfaces
 stables (REST, gRPC, MCP, CLI) et le modèle de données.

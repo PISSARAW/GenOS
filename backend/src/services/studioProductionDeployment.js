@@ -47,7 +47,11 @@ async function publish(db, context) {
     const { row } = await store.release(db, context);
     if (row.workflow_id !== workflow.id) throw failure('RELEASE_WORKFLOW_MISMATCH', 409);
     if (row.payload_hash !== context.body.releaseHash) throw failure('RELEASE_HASH_CONFLICT', 409);
-    if (current.environment === 'production') await require('./studioProductionReview').requireApproval(db, context);
+    if (current.environment === 'production') {
+      await require('./studioProductionReview').requireApproval(db, context);
+      await require('./studioProductEvaluationService').requireAcceptance(db,
+        { ...context, releaseId: row.id });
+    }
     return replace(db, context, { current, releaseId: row.id, action: 'publish' });
   });
 }
