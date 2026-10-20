@@ -38,7 +38,20 @@ async function dispatchBiologicalMembersCore({ db, context, mode, parent, select
     }
     return completed;
   }
-  return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
+  const results = await Promise.allSettled(selected.map((member, index) =>
+    launchWorker({ db, context, member, index: index + 1, parent })));
+  const completed = [];
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    if (result.status === 'fulfilled') {
+      completed.push(result.value);
+    } else {
+      const { recordDispatchFailure } = require('../biologicalWorkerCompletionService.js');
+      recordDispatchFailure(context, selected[index]?.role || 'unknown', result.reason?.message || 'worker_launch_failed');
+      console.error(`[topology] Worker launch failed: ${result.reason?.message || result.reason}`);
+    }
+  }
+  return completed;
 }
 
 function dispatchBiologicalMembersValues({ context, pair, index, result }) {
