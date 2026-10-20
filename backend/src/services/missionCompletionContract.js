@@ -138,13 +138,22 @@ function finalOutput(input, assessments) {
   return output(input, { verdict: 'succeeded', evidenceRefs });
 }
 
+function barrierVerdict(status) {
+  if (status === 'complete') return { verdict: null };
+  if (status === 'partial') {
+    return { verdict: 'partial', reason: 'worker_barrier_partial' };
+  }
+  return { verdict: 'partial',
+    reason: status === undefined || status === null
+      ? 'worker_barrier_missing' : 'worker_barrier_invalid' };
+}
+
 function evaluate(input = {}) {
   const state = input.lifecycleState;
   if (state !== 'completed') return terminalOutput(input, state);
   const members = memberVerdict(input, proofIndex(input.evidenceProofs));
   const topology = topologyVerdict(input.topologyValidation);
-  const barrier = input.barrierStatus === 'partial'
-    ? { verdict: 'partial', reason: 'worker_barrier_partial' } : { verdict: null };
+  const barrier = barrierVerdict(input.barrierStatus);
   return finalOutput(input, [members, topology, barrier]);
 }
 

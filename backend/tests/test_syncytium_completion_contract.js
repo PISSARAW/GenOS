@@ -14,7 +14,8 @@ function input(evidence) {
   return { missionId: 'mission-1', topology: 'syncytium', lifecycleState: 'completed',
     requiredMemberIds: ['worker-1'],
     members: [{ memberId: 'worker-1', status: 'completed', evidenceRefs: [evidence.reference] }],
-    evidenceProofs: [evidence], topologyValidation: { status: 'verified', reasons: [] } };
+    evidenceProofs: [evidence], topologyValidation: { status: 'verified', reasons: [] },
+    barrierStatus: 'complete' };
 }
 
 const valid = proof();
@@ -43,6 +44,25 @@ separated.invariants = [{ id: 'syncytium-only', passed: false }];
 separated.oracle = null;
 assert.equal(contract.evaluate(separated).verdict, 'succeeded',
   'the common contract consumes only the topology validation result');
+
+const absentBarrier = input(valid);
+delete absentBarrier.barrierStatus;
+assert.deepEqual(contract.evaluate(absentBarrier).reasons, ['worker_barrier_missing']);
+assert.equal(contract.evaluate(absentBarrier).verdict, 'partial');
+
+const unknownBarrier = { ...input(valid), barrierStatus: 'unknown' };
+assert.deepEqual(contract.evaluate(unknownBarrier).reasons, ['worker_barrier_invalid']);
+assert.equal(contract.evaluate(unknownBarrier).verdict, 'partial');
+
+const partialBarrier = { ...input(valid), barrierStatus: 'partial' };
+assert.deepEqual(contract.evaluate(partialBarrier).reasons, ['worker_barrier_partial']);
+assert.equal(contract.evaluate(partialBarrier).verdict, 'partial');
+
+const completeBarrier = { ...input(valid), barrierStatus: 'complete' };
+assert.equal(contract.evaluate(completeBarrier).verdict, 'succeeded');
+
+const failedWithMissingBarrier = { ...absentBarrier, lifecycleState: 'failed' };
+assert.equal(contract.evaluate(failedWithMissingBarrier).verdict, 'failed');
 
 assert.equal(contract.processOutcome({ ...input(valid), interrupted: true }).verdict, 'interrupted');
 console.log('Common completion contract and durable proof binding: PASS');
