@@ -145,7 +145,8 @@ function sessionLifecycle(input) {
   return {
     closeSession: async (sessionId, options = {}) => {
       const session = await input.getSession(sessionId, options.db).catch(() => null);
-      const fossil = session?.variant === 'ephemeral' ? sessionFossil(session) : null;
+      if (!session) return false;
+      const fossil = session.variant === 'ephemeral' ? sessionFossil(session) : null;
       if (options.db) await input.store.closeRhizome(options.db, sessionId, fossil);
       else if (fossil) input.closedSessionFossils.set(sessionId, fossil);
       input.sessions.delete(sessionId);
