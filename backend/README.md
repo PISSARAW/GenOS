@@ -443,6 +443,26 @@ sur la session autoritative : opérations CRDT non vides, invariants satisfaits,
 snapshot à la version courante et aucune opération hors ligne en attente.
 Une réponse worker ou un succès transport seul laisse la mission partielle.
 
+## Clôture commune des missions biologiques
+
+Le dispatcher biologique route les huit modes vers
+`biologicalMissionCompletionService`. Les sept modes non-Syncytium utilisent
+une barrière de workers, les reçus persistés de
+`biological_worker_receipts`, leurs références d'oracle natives et
+`missionClosureService.closeMission`. Rhizome clôt sur ses branches finales.
+
+Syncytium conserve son adaptateur spécialisé : oracle sémantique,
+matérialisation et cohérence de la session sont agrégés avant
+`missionCompletionContract.evaluate`. L'absence d'une validation Syncytium ne
+rend donc plus les autres modes artificiellement partiels.
+
+Dans tous les modes, `complete`, `success` et `status` sont des projections du
+verdict. Un dispatch accepté, un processus terminé ou un membre `completed` ne
+constitue pas seul une preuve de réussite. Voir
+[l'architecture de clôture](../docs/02-orchestration/cloture-missions-biologiques.md),
+[le contrat de référence](../docs/03-reference/contrat-completion-mission.md) et
+[le runbook](../docs/04-exploitation/cloture-missions.md).
+
 ## Verification Test Suite
 
 ### Garage Fabric : ordonnanceur durable des workers

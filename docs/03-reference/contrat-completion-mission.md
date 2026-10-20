@@ -98,7 +98,7 @@ signature ni une identité cryptographique du producteur.
 
 | Champ | Forme | Règle |
 | --- | --- | --- |
-| `missionId` | chaîne | Identité à retrouver dans chaque preuve |
+| `missionId` | chaîne attendue | Identité à retrouver dans chaque preuve ; son absence empêche la collecte durable |
 | `topology` | chaîne ou `null` | Portée informative conservée dans le reçu |
 | `lifecycleState` | chaîne | `accepted`, `running`, `completed`, `failed` ou `interrupted` sont interprétés explicitement |
 | `requiredMemberIds` | tableau de chaînes | Non vide, sans doublon ni identité blanche |
@@ -157,7 +157,8 @@ bon membre et au bon `missionId`, puis porter un état vérifié reconnu.
 L'ordre de contrôle est important pour l'audit :
 
 1. indexer uniquement les objets possédant une référence SHA-256 valide ;
-2. refuser les références dupliquées dans l'index ;
+2. conserver un seul objet par référence afin qu'un doublon ne puisse pas
+   remplacer le contenu déjà indexé ;
 3. résoudre chaque référence annoncée par le membre ;
 4. recalculer le digest du contenu résolu ;
 5. extraire les identités de mission et de membre depuis le contenu ;
@@ -329,7 +330,7 @@ ajouter ses invariants. Son adaptateur doit :
    `closeMission` pour une clôture avec invariants et oracle ;
 7. projeter les anciens champs uniquement depuis ce verdict.
 
-Exemple minimal :
+Exemple minimal de l'étage structurel :
 
 ```javascript
 const completion = require('./missionCompletionContract');
@@ -350,6 +351,12 @@ const result = completion.evaluate({
   barrierStatus: 'complete'
 });
 ```
+
+Pour une clôture décisionnelle, transmettre cette même entrée à
+`missionClosureService.closeMission` avec `invariants`, `oracle` et
+`producerId`. Remplacer ces champs par des constantes positives dans un
+adaptateur de production contournerait la gate ; ils doivent provenir des
+sources autoritatives de la topologie et du vérificateur.
 
 Un adaptateur ne doit pas marquer `topologyValidation: verified` simplement
 parce que les workers sont `completed`. La valeur doit résulter d'une lecture

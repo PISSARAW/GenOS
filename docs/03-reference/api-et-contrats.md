@@ -160,14 +160,17 @@ plusieurs de ces champs décrit plusieurs étapes du protocole, pas des synonyme
 ### Complétion commune des missions
 
 Les consommateurs raccordés à `missionCompletionContract` produisent
-`genos.mission-completion/v1`. Un verdict `succeeded` exige simultanément un
+`genos.mission-completion/v1`. Un verdict structurel `succeeded` exige simultanément un
 état terminal `completed`, tous les membres requis terminés, une preuve
 adressée par contenu pour chacun, une identité de mission et de membre
 cohérente, une validation topologique `verified` et aucune barrière partielle.
 
 Le hash est recalculé sur le contenu du reçu ; une référence SHA-256 seulement
 plausible, une preuve d'une autre mission ou un code de sortie zéro sont
-insuffisants. La sortie conserve toujours `promotionEligible: false`. Voir le
+insuffisants. Cette sortie conserve `promotionEligible: false`.
+`missionClosureService` peut ajouter invariants, oracle indépendant et
+`closureChecks`; son succès exprime une éligibilité technique à une étape
+ultérieure, pas une promotion exécutée. Voir le
 [contrat commun de complétion](contrat-completion-mission.md) pour les schémas,
 la précédence `failed > partial > succeeded`, les motifs et les tests.
 

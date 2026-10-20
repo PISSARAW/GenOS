@@ -2,8 +2,8 @@
 
 - **Statut** : Implémenté pour les contrats Node décrits ; garanties bornées à leur portée.
 - **Portée** : admission, persistance, réplication et clôture du runtime Node Syncytium.
-- **Dernière revue** : 2026-10-11.
-- **Référence de validation** : commit `4c4d4f33`, [ADR 0331](../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md).
+- **Dernière revue** : 2026-10-20.
+- **Références de validation** : commits `1a529ba6` et `e8cb0cc4`, [ADR 0331](../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md), [ADR 0654](../adr/0654-contrat-commun-completion-et-preuves-liees.md).
 
 Cette fiche décrit les services Node actuels. Le [modèle Syncytium](../02-orchestration/topologies/syncytium.md)
 présente aussi une architecture cible ; le [protocole de missions](../02-orchestration/topologies/protocole-missions-syncytium.md)
@@ -38,7 +38,9 @@ avant `materialize` et les autres opérations ([ADR 0411](../adr/0411-appelant-l
 | --- | --- |
 | [syncytiumCoordinationService.js](../../backend/src/services/syncytiumCoordinationService.js) | Session, admission, transactions, snapshots, historique, réplication et branches. |
 | [variantPolicyRegistry.js](../../backend/src/services/syncytium/variants/variantPolicyRegistry.js) | Sélection des 13 variants et création de la session de politique. |
-| [syncytiumMissionCompletionService.js](../../backend/src/services/syncytiumMissionCompletionService.js) | Validation de l'état partagé et combinaison avec l'oracle des workers. |
+| [syncytiumMissionCompletionService.js](../../backend/src/services/syncytiumMissionCompletionService.js) | Oracle, matérialisation et validation de l'état partagé propres à Syncytium. |
+| [missionCompletionEvidenceService.js](../../backend/src/services/missionCompletionEvidenceService.js) | Relecture des reçus durables et association de la preuve au worker. |
+| [missionCompletionContract.js](../../backend/src/services/missionCompletionContract.js) | Verdict transversal sur le cycle de vie, les membres, les preuves et la validation topologique. |
 | [topologySessionTools.js](../../backend/src/services/topologySessionTools.js) | Adaptation des opérations de session au dispatch MCP. |
 
 Le dispatch biologique Syncytium active `configuration.useVariantRuntime: true`
@@ -140,12 +142,37 @@ pas des noms d'opération de cet adaptateur. Voir [outils MCP](outils-mcp.md).
 
 ## Preuve de complétion
 
-Le chemin de clôture du dispatch biologique combine deux contrôles :
+Le chemin de clôture sépare la validation propre à Syncytium du
+[contrat commun de complétion](contrat-completion-mission.md). Cette frontière
+est normative : le runtime Syncytium connaît l'état partagé et ses invariants ;
+le contrat commun connaît le cycle de vie, le roster requis et les preuves des
+workers. Aucun des deux ne doit absorber l'autorité de l'autre.
 
-- `semanticValidation` : oracle de mission complet, couverture du nombre attendu
-  de workers, chaque membre terminé et aucune défaillance de dispatch ;
-- `stateValidation` : état autoritatif évalué côté serveur, de portée
-  `verificationScope: "committed_shared_state"`.
+Cette voie appelle actuellement `missionCompletionContract.evaluate`
+directement. Elle n'appelle pas `missionClosureService.closeMission`, car ses
+invariants et son oracle sont déjà agrégés par l'adaptateur Syncytium. La sortie
+conserve donc `promotionEligible: false`, même lorsque le verdict technique est
+`succeeded`. La différence avec les sept autres modes du dispatcher est décrite
+dans [Clôture des missions biologiques](../02-orchestration/cloture-missions-biologiques.md).
+
+La clôture traverse trois contrôles :
+
+1. `semanticValidation` vérifie l'oracle de mission, la couverture du nombre
+   attendu de workers, leur terminaison et les défaillances de dispatch ;
+2. `stateValidation` relit l'état autoritatif côté serveur, de portée
+   `verificationScope: "committed_shared_state"`, après matérialisation ;
+3. `completionContract` exige un état terminal et un reçu valide, existant et
+   corrélé pour chaque worker requis.
+
+Les deux premiers contrôles sont agrégés sous `topologyValidation` :
+
+| Champ | Producteur | Autorité | Peut conclure seul ? |
+| --- | --- | --- | --- |
+| `semanticValidation` | oracle de la mission | couverture et résultat sémantique des workers | non |
+| `materialization` | gate Syncytium | snapshot de la version courante | non |
+| `stateValidation` | session Syncytium | état partagé, invariants et opérations hors ligne | non |
+| `topologyValidation` | adaptateur Syncytium | synthèse `verified`, `partial` ou `failed` | non |
+| `completionContract` | contrat commun | verdict final et références de preuve admises | oui, pour la complétion technique |
 
 `validateSession(sessionId, options)` produit ce second reçu :
 
@@ -167,21 +194,75 @@ Un schéma sans prédicats ne fournit pas une preuve métier exhaustive. Le reç
 ne vérifie pas que chaque réplica est actif ou à la frontière courante ; il
 n'atteste pas une convergence distribuée universelle. Il ne constitue pas une
 attestation cryptographique, ni une preuve de durabilité SQLite sans base.
-Créer un snapshot ne suffit pas à terminer les workers ou leur oracle.
+Créer un snapshot ne suffit pas à terminer les workers, à satisfaire leur
+oracle ou à fournir leurs reçus.
 
-Quand les contrôles de clôture échouent, la mission reste `partial` avec
-`complete: false`. Le lanceur des six niveaux exige aussi la validation sémantique
-complète et `stateValidation.status: "verified"` ; un niveau partiel produit
-un code de sortie d'échec.
+### Matérialisation conditionnelle
+
+Le service ne matérialise qu'après une validation sémantique complète, un
+nombre de workers égal à `expectedCount`, une couverture complète, des membres
+terminés et aucune défaillance de dispatch. Si la session possède déjà un
+snapshot vérifié pour `shared.totalOps`, celui-ci est réutilisé avec
+`materialization.reused: true`. Sinon, le gate crée le snapshot avant la
+relecture de l'état.
+
+Une matérialisation ignorée produit `status: "skipped"` et
+`WORKER_EVIDENCE_INCOMPLETE`. Un refus conserve son code ou son motif sous
+`materialization.reason`. Dans les deux cas, `topologyValidation` ne peut pas
+être `verified`.
+
+### Reçus durables des workers
+
+Avec une base, `missionCompletionEvidenceService` relit
+`biological_worker_receipts` par `mission_id`. Les références fournies par
+l'appelant ne remplacent pas cette source. Pour chaque membre requis, le reçu
+le plus récent doit satisfaire simultanément :
+
+- le JSON persisté est décodable et son hash stocké est valide ;
+- `sha256(content)` correspond à la référence exposée ;
+- `missionId` ou `correlation.missionId` correspond à la mission courante ;
+- `workerId`, `memberId`, `agentId` ou `correlation.agentId` correspond au
+  membre évalué ;
+- le contenu porte `state: "verified"` ou un résultat `completed` explicitement
+  `verified: true`.
+
+Une simple chaîne `sha256:<64 hex>` ne satisfait donc jamais ce contrat. Sans
+base, les tests peuvent fournir `{ reference, content }`; ils conservent les
+contrôles de digest et de corrélation, sans bénéficier de la provenance SQLite.
+
+### Résultat et compatibilité
+
+Le résultat autoritatif est `completionContract`, de schéma
+`genos.mission-completion/v1`. La projection historique reste disponible :
+
+| Verdict commun | `complete` | `success` | `status` historique |
+| --- | --- | --- | --- |
+| `succeeded` | `true` | `true` | `completed` |
+| `failed` | `false` | `false` | `failed` |
+| `partial` | `false` | `false` | `partial` |
+| `in_progress` | `false` | `false` | non terminal selon l'appelant |
+| `interrupted` | `false` | `false` | interruption selon l'appelant |
+
+`syncytiumReady` signifie seulement que les contrôles propres à Syncytium sont
+vérifiés. Il ne remplace pas `completionContract.verdict`, car une preuve de
+worker peut encore être absente ou mal corrélée. `promotionEligible` reste
+toujours `false` dans le schéma commun.
+
+Quand un contrôle est incomplet, la mission reste `partial` avec
+`complete: false`. Une violation d'invariant partagé ou un worker requis en
+échec produit `failed`. Le lanceur des six niveaux exige le verdict commun
+`succeeded`; un niveau partiel ou en échec produit un code de sortie d'échec.
 
 ### Conditions de succès du dispatch
 
 Le statut `accepted` est une acceptation intermédiaire, pas une preuve de
-complétion. Pour Syncytium, la réussite exige `complete: true`, c'est-à-dire
-la validation sémantique complète et un état partagé vérifié. Pour les autres
-modes, la réussite exige l'absence d'échecs de dispatch. Ces échecs sont
-désormais toujours exposés et bloquants, indépendamment de
-`GENOS_TOPOLOGY_AWAIT_WORKERS`. Syncytium attend ses workers par défaut et
+complétion. Pour Syncytium, la réussite exige
+`completionContract.verdict: "succeeded"` : validation topologique vérifiée,
+barrière complète et reçu corrélé pour chaque worker requis. Pour les autres
+modes raccordés, le même verdict est utilisé avec leur propre validation
+topologique ; ils ne passent pas par les invariants ni la matérialisation
+Syncytium. Les échecs de dispatch restent exposés et bloquants, indépendamment
+de `GENOS_TOPOLOGY_AWAIT_WORKERS`. Syncytium attend ses workers par défaut et
 n'accepte plus silencieusement une mission sans validation.
 
 ## Exemple Node minimal
@@ -238,6 +319,21 @@ main().catch(error => { console.error(error); process.exitCode = 1; });
 Depuis la racine : `npm --prefix backend run test:syncytium` découvre les fichiers
 `test_syncytium*.js`, puis lance chacun dans un processus isolé avec un timeout
 de 120 secondes. Le `npm test` du backend inclut ce profil.
+
+Les régressions spécifiques à la nouvelle frontière sont exécutables séparément :
+
+```powershell
+node backend/tests/test_syncytium_completion_contract.js
+node backend/tests/test_syncytium_mission_completion.js
+node backend/tests/test_syncytium_materialization_mcp.js
+node backend/tests/test_biological_mission_completion.js
+```
+
+Elles couvrent respectivement le verdict transversal et la liaison des preuves,
+l'adaptateur de clôture, la matérialisation sur état durable et la séparation
+entre Syncytium et les autres topologies. Le relevé daté et ses contre-preuves
+sont conservés dans la
+[qualification du contrat de complétion](../06-qualite-preuves/qualification-contrat-completion-2026-10-20.md).
 
 Au relevé du 6 octobre associé au commit `4c4d4f33`, **45 suites couvrant les
 13 variants** et le `npm test` racine ont réussi. Ces résultats fonctionnels

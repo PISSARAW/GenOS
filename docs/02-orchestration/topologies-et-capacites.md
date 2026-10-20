@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté de façon hétérogène ; registres à jour, qualification de bout en bout partielle
 - **Portée** : 8 topologies, 20 organisations Node, 51 capacités déclaratives
-- **Dernière revue** : 2026-10-18
+- **Dernière revue** : 2026-10-20
 
 Ce document décrit comment chaque **topologie d'orchestration** de GenOS est
 câblée au runtime, quels **concepts** (capacités) elle exige, et comment ces
@@ -59,14 +59,38 @@ elle seule un handler, une lease ou une validation sur mission réelle.
 | **Biome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, allocation, foraging et santé, dont les résultats sont déposés dans la matrice biofilm. `biomeMissionLoop.runBiomeMission` enchaîne observe → propose → constrain → act → verify avec reçus, budget et autorisation explicite avant effet réel (`backend/tests/test_biome_mission_loop.js`, démo `examples/biome-mission-demo/run-demo.mjs`). | La navigation et la réallocation restent déclenchées par la mission, pas par une boucle autonome ; le mode simulé (`simulated: true`) ne produit aucun effet réel. |
 
 Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées lorsqu'ils
-forment seuls la mission. Le chemin principal Morphogenèse appelle désormais
-`biologicalTopologyService.composeMode` pour chaque feuille d'un graphe composite,
-puis lance la flotte mixte sous un budget et un fan-out communs. Pour les six modes
-biologiques, l'entrée MCP `genos_biological_mode` appelle le même composeur; utilisée
+forment seuls la mission. Le chemin biologique transversal accepte néanmoins les
+huit identifiants et applique une clôture commune à ses workers. Le chemin
+principal Morphogenèse appelle désormais `biologicalTopologyService.composeMode`
+pour chaque feuille d'un graphe composite, puis lance la flotte mixte sous un
+budget et un fan-out communs. Pour les six
+modes biologiques autres que Trinity et A-Team, l'entrée MCP
+`genos_biological_mode` appelle le même composeur ; utilisée
 seule, cette entrée prépare la composition sans lancer automatiquement les workers.
 Les sessions Syncytium, Rhizome et Biome restent observables et opérables par
 `genos_topology_session`. Une composition ne rend pas effectives les capacités qui ne
 sont qu'inscrites dans le contrat.
+
+### Clôture transversale du chemin biologique
+
+La composition et la clôture sont deux contrats distincts. Après attente des
+workers et lecture de leurs résultats, le dispatcher relit les reçus durables,
+lie chaque preuve à la mission et au membre, puis produit un verdict
+`genos.mission-completion/v1`.
+
+Pour les sept modes non-Syncytium, la barrière de workers constitue l'invariant
+topologique minimal de cette voie et les reçus doivent référencer un oracle
+natif indépendant. Rhizome utilise les branches finales plutôt que le tableau
+générique de membres. Syncytium conserve son adaptateur spécialisé : oracle
+sémantique, matérialisation, invariants de l'état partagé et opérations hors
+ligne sont vérifiés avant le contrat structurel commun.
+
+Ce raccord ne remplace pas les gates des runtimes canoniques. Il garantit que
+le chemin générique ne transforme plus l'absence d'une validation Syncytium en
+échec artificiel des autres modes, tout en refusant un succès fondé sur la seule
+terminaison des processus. Voir
+[Clôture des missions biologiques](cloture-missions-biologiques.md) et le
+[contrat commun](../03-reference/contrat-completion-mission.md).
 
 ### 3.1 Composition morphogénétique dynamique
 
