@@ -554,6 +554,28 @@ l'[ADR 0703](../adr/0703-fermeture-execution-adressee-gqwf.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_execution_closure.js`.
 
+### Catalogue v2 et reconstruction des fermetures
+
+La tranche 21 introduit `gqwf-catalog-v2`. Tout nouveau checkpoint ajoute aux
+racines, têtes et baux une liste canonique `executionClosures`. Chaque entrée
+embarque le hash, la racine et le manifeste vérifié de la fermeture. Le
+scellement d'une fermeture passe désormais par la mutation cataloguée : une
+réussite stage puis publie une révision v2, soumise à la même maintenance
+append-only que les autres métadonnées.
+
+La réparation compare aussi `gqwf_execution_closures`. Si l'index et l'objet
+CAS de fermeture ont disparu, le catalogue v2 autorisé réécrit l'objet, vérifie
+que son hash est inchangé, puis reconstruit la ligne après sa racine. Un objet
+restauré reste une provenance déclarative : la réparation ne produit aucune
+attestation d'isolation et n'ouvre aucun gate de promotion.
+
+Les catalogues `gqwf-catalog-v1` restent lisibles et maintenables. Leur absence
+de `executionClosures` signifie que cette projection n'était pas couverte à la
+révision concernée ; elle n'est ni inventée ni reconstruite par scan du store.
+Voir l'[ADR 0706](../adr/0706-cataloguer-et-reconstruire-fermetures-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_metadata_repair.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes

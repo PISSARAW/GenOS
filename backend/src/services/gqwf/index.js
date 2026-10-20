@@ -68,7 +68,8 @@ function createFabric(db, options = {}) {
       return result;
     },
     inspectRollout: (input) => rollout.inspectRollout(db, input),
-    sealExecutionClosure: (input) => executionClosure.sealExecutionClosure(db, input),
+    sealExecutionClosure: (input) => cataloged(input.workspaceId,
+      () => executionClosure.sealExecutionClosure(db, input)),
     inspectExecutionClosure: (input) => executionClosure.inspectExecutionClosure(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
     materializeExecutionWorkspace: (input) => cataloged(input.workspaceId,

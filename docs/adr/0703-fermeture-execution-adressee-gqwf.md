@@ -78,8 +78,8 @@ ambiante n'est inventée ou lue implicitement.
   capable de l'observer correctement.
 - Les arguments peuvent contenir des données sensibles ; les appelants doivent
   utiliser des références ou hashes pour les secrets.
-- L'index des fermetures n'est pas encore inclus dans `gqwf-catalog-v1` et ne
-  bénéficie pas de sa reconstruction SQLite.
+- `gqwf-catalog-v1` historique ne couvre pas l'index des fermetures ;
+  `gqwf-catalog-v2` et sa reconstruction sont ajoutés par l'ADR 0706.
 - La présence d'une fermeture ne constitue ni un verdict de test ni une
   autorisation de promotion.
 

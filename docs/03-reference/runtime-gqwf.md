@@ -56,7 +56,7 @@ transport en guise d'autorisation.
 | `materialization/` | sonde, sélection, capture, libération et reçu | fallback silencieux d'un backend explicite |
 | `execution.js` / `missionExecution.js` | sessions virtuelles et raccord mission | publier automatiquement la candidate |
 | `workers.js` / `workerPromotion.js` | binding privé et promotion worker | réutiliser un verdict non lié |
-| `catalog.js` | checkpoint, maintenance et reconstruction couverte | reconstruire les projections hors catalogue |
+| `catalog.js`, `executionClosureCatalog.js` | checkpoint, maintenance et reconstruction des racines, têtes, baux et fermetures | reconstruire les projections hors catalogue |
 | `integrity.js`, `replication.js`, `repair.js` | observer, transporter et restaurer les octets | convertir une réparation en promotion |
 | `garbageCollection.js` | inventaire puis suppression liée | collecter à partir d'un aperçu périmé |
 
@@ -185,8 +185,8 @@ Le store physique se trouve sous le workspace enregistré :
     └── refs/catalog/<révision-sur-12-chiffres>-<sha256>.ref
 ```
 
-SQLite est un index transactionnel. Le catalogue CAS protège seulement les
-racines, têtes et baux nécessaires à la reconstruction prévue ; les vues,
+SQLite est un index transactionnel. Le catalogue CAS v2 protège seulement les
+racines, têtes, baux et fermetures nécessaires à la reconstruction prévue ; les vues,
 overlays, sessions, décisions de rollout et reçus ne sont pas reconstruits par
 `repairMetadata`.
 
@@ -290,7 +290,8 @@ attributs étendus ne font pas partie de cette projection.
 
 | Protocole | Objet |
 | --- | --- |
-| `gqwf-catalog-v1` | catalogue canonique racines/têtes/baux |
+| `gqwf-catalog-v1` | catalogue historique racines/têtes/baux, lisible sans réinterprétation |
+| `gqwf-catalog-v2` | catalogue canonique racines/têtes/baux/fermetures d'exécution |
 | `gqwf-catalog-ref-v1` | publication append-only d'une révision |
 | `gqwf-catalog-maintenance-v1` | résultat de réconciliation/rétention |
 | `gqwf-metadata-repair-v1` | plan et reçu de reconstruction SQLite |
@@ -345,6 +346,21 @@ valide mais que sa projection `gqwf_execution_closures` a disparu. Cette API ne
 réinsère rien et ne constitue pas une réparation de métadonnées. Une ligne
 indexée ajoute sa racine aux références protégées par le GC ; le scrub compte
 et vérifie les fermetures indexées dans son rapport.
+
+Depuis `gqwf-catalog-v2`, `sealExecutionClosure` est une mutation cataloguée.
+Le catalogue stocke une entrée canonique `{ closureHash, rootHash, manifest }`
+pour chaque fermeture indexée. La validation exige une racine présente dans le
+même catalogue, un manifeste lié au workspace et un hash exact. Les entrées
+sont triées par hash et les doublons sont refusés.
+
+`inspectMetadataRepair` signale `missing_execution_closure`,
+`divergent_execution_closure` ou `invalid_execution_closure_object`. Après
+validation du plan et de l'autorisation, `repairMetadata` restaure la racine,
+réécrit un objet CAS absent depuis le manifeste catalogué et reconstruit la
+ligne SQLite. Un objet présent mais corrompu reste refusé : la réparation de
+métadonnées ne l'écrase pas silencieusement. Un catalogue v1 produit une liste
+de fermetures vide : il reste lisible mais ne confère aucune donnée qu'il ne
+contenait pas.
 
 ## Concurrence et erreurs attendues
 

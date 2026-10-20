@@ -16,7 +16,8 @@ La campagne cherche à falsifier les affirmations suivantes :
 2. une matérialisation conserve un backend lié au bail jusqu'à sa capture et sa libération ;
 3. les parcours mission et worker peuvent produire une candidate sans la publier implicitement ;
 4. collecte, réplication et réparation refusent un état qui diffère du plan observé ;
-5. le catalogue CAS peut reconstruire son périmètre SQLite et republier une ref perdue ;
+5. le catalogue CAS peut reconstruire son périmètre SQLite, y compris les
+   fermetures en v2, et republier une ref perdue ;
 6. les matérialiseurs non disponibles ne sont pas présentés comme réellement exercés.
 
 ## 2. Environnement observé
@@ -25,7 +26,7 @@ La campagne cherche à falsifier les affirmations suivantes :
 | --- | --- |
 | Date | 2026-10-20 |
 | Révision de départ | `b2422f22d4bd434e058780b2d176bd4eea6ec810` |
-| Révision GQWF revalidée | `c4ce881321bd9b37e9f406705440c3cc82d5b0b0` (`[FEAT] Réconcilier et borner le catalogue GQWF`) |
+| Révision GQWF de départ | `4ded0627aaa0ca047ae63a918c6ea65f98fd6129` (`[FEAT] Sceller les fermetures d execution GQWF`) |
 | Copie de travail | modifiée ; documentation et développements concurrents non commités présents |
 | Plateforme | Windows, exécutions sous sandbox Codex puis hors sandbox restrictive pour les tests de filesystem et HTTP locaux |
 | Node.js | `v24.18.0` |
@@ -36,10 +37,10 @@ La révision seule ne suffit donc pas à reproduire la campagne : les tests ont
 été exécutés sur le contenu courant de la copie de travail. Le présent rapport
 doit être revalidé après stabilisation du commit cible.
 
-Deux campagnes sont distinguées dans ce rapport : la campagne fonctionnelle
-directe des 17 suites, puis la revalidation de la tranche catalogue sur
-`c4ce8813`. Cette séparation évite d'attribuer au commit seul les résultats
-obtenus avec d'autres modifications présentes dans la copie de travail.
+La campagne fonctionnelle directe couvre 18 suites. Les extensions du catalogue
+v2 sont revalidées sur la copie de travail issue de `4ded0627`. Cette séparation
+évite d'attribuer au commit de départ les résultats obtenus avec des modifications
+postérieures présentes dans la copie de travail.
 
 ## 3. Protocole
 
@@ -72,7 +73,7 @@ globale autorisée hors de cette restriction.
 | `test_gqwf_garbage_collection.js` | PASS | aperçu, refus sur dérive, collecte et scrub |
 | `test_gqwf_replication.js` | PASS | autorisation liée, déduplication et reprise |
 | `test_gqwf_repair.js` | PASS | réparation authentifiée, quarantaine et contrôle final |
-| `test_gqwf_metadata_repair.js` | PASS | reconstruction racines/têtes/baux depuis le catalogue CAS |
+| `test_gqwf_metadata_repair.js` | PASS | catalogue v2, reconstruction racines/têtes/baux/fermetures et compatibilité v1 |
 | `test_gqwf_catalog_maintenance.js` | PASS | republication post-crash, rétention 64 refs et refus des corruptions/forks |
 | `test_gqwf_execution_closure.js` | PASS | identité canonique, provenance déclarée, perte d'index et altération CAS |
 | `test_gqwf_organism_snapshot.js` | PASS hors sandbox restrictive | référence de racine dans le snapshot d'organisme et frontière de restauration |
@@ -142,7 +143,10 @@ Les suites vertes exercent notamment :
 - limitation de la fenêtre publiée à 64 refs.
 - champs inconnus, doublons, digests invalides et racines inconnues dans une
   fermeture d'exécution ;
-- altération de l'objet CAS d'une fermeture et perte de son index SQLite.
+- altération de l'objet CAS d'une fermeture et perte de son index SQLite ;
+- perte conjointe de l'index et de l'objet de fermeture, reconstruits depuis un
+  catalogue v2 autorisé ;
+- lecture et maintenance d'un catalogue v1 sans inventer de fermetures.
 
 ## 6. Affirmations autorisées
 
@@ -152,8 +156,8 @@ Dans le périmètre de ces fixtures locales :
 - les missions et workers testés produisent des candidates sans promotion automatique ;
 - les opérations destructives testées sont liées à un aperçu stable ;
 - la réplication et la réparation testées conservent l'identité CAS ;
-- les racines, têtes et baux peuvent être reconstruits depuis un catalogue CAS valide ;
-- la maintenance sait fermer la fenêtre de crash entre staging et publication.
+- les racines, têtes, baux et fermetures v2 peuvent être reconstruits depuis un catalogue CAS valide ;
+- la maintenance sait fermer la fenêtre de crash entre staging et publication ;
 - une fermeture déclarative produit une identité stable sans stocker les
   valeurs d'environnement en clair.
 
@@ -162,7 +166,7 @@ Dans le périmètre de ces fixtures locales :
 Cette campagne ne prouve pas :
 
 - le remplacement général des snapshots v1 ;
-- la restauration complète de SQLite : vues, overlays, sessions, rollouts et reçus restent hors catalogue ;
+- la restauration complète de SQLite : vues, overlays, sessions, rollouts et reçus restent hors catalogue v2 ;
 - l'exécution réelle d'OverlayFS ou du reflink natif sur cette machine ;
 - les performances, la scalabilité, la résistance à une coupure matérielle ou à un disque plein ;
 - la sûreté sous writers externes non coordonnés ;
@@ -179,7 +183,7 @@ Cette campagne ne prouve pas :
 | COW physique reflink | sonde `ENOSYS` | non exercé |
 | lower/upper OverlayFS | refus `win32` | non exercé |
 | isolation façon worktree sans dépendance Git | missions/workers et baux privés | couvert sur fixtures |
-| identité immuable façon store Nix | hashes de blobs/racines et refus de corruption | couvert pour les fichiers, pas pour une fermeture de dépendances |
+| identité immuable façon store Nix | hashes de blobs/racines/fermetures, catalogue v2 et refus de corruption | couvert pour la provenance déclarée, pas pour l'herméticité |
 | scrub/réparation inspirés ZFS | suites scrub, réplication, réparation | couvert au niveau applicatif, pas bloc/filesystem |
 | reprise de catalogue après crash | maintenance et metadata repair | couvert par injection de fenêtre de crash, pas coupure matérielle |
 

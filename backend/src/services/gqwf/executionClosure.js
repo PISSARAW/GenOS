@@ -159,4 +159,10 @@ async function inspectExecutionClosure(db, input) {
   return { closureHash: input.closureHash, registered: Boolean(row), manifest };
 }
 
-module.exports = { PROTOCOL, buildManifest, inspectExecutionClosure, sealExecutionClosure };
+module.exports = {
+  PROTOCOL,
+  buildManifest,
+  inspectExecutionClosure,
+  parseManifest,
+  sealExecutionClosure
+};

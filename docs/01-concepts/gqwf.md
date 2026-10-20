@@ -154,8 +154,10 @@ un dossier ambigu.
 Chaque mutation cataloguée stage une nouvelle révision CAS puis publie sa ref.
 La maintenance peut republier une ref perdue après crash, vérifier la chaîne et
 ne conserver que les 64 refs les plus récentes. Elle ne supprime pas les objets
-CAS historiques. La réparation des métadonnées reconstruit racines, têtes et
-baux depuis un catalogue autorisé.
+CAS historiques. Depuis un catalogue autorisé, la réparation des métadonnées
+reconstruit racines, têtes, baux et, avec `gqwf-catalog-v2`, fermetures
+d'exécution. Les catalogues v1 historiques restent lisibles mais ne couvrent
+pas les fermetures.
 
 ## 9. Comparaison
 
@@ -262,7 +264,8 @@ constitue pas un verdict de promotion.
 | vue/overlay | SQLite | conflit de version, abandon ou reconstruction applicative | absent du catalogue de métadonnées |
 | bail physique | SQLite + marqueur privé | réconciliation `preparing`/`releasing` | ambiguïté mise en quarantaine |
 | tête | SQLite + catalogue CAS | réparation de métadonnées sous plan | verdict original non recréé |
-| session/rollout/reçu | SQLite | logique propre au parcours appelant | pas reconstruit par le catalogue v1 |
+| fermeture d'exécution | objet CAS + SQLite + catalogue v2 | reconstruction autorisée de l'objet et de l'index | provenance déclarative, pas herméticité |
+| session/rollout/reçu | SQLite | logique propre au parcours appelant | pas reconstruit par le catalogue v2 |
 | ref de catalogue | fichier append-only | republication de la ref stageée | fork ou ref future bloque l'opération |
 
 Le catalogue CAS complète SQLite ; il ne le remplace pas. La fenêtre de crash
@@ -299,8 +302,8 @@ Les limites structurantes sont :
 
 - le catalogue CAS ne reconstruit pas encore les vues, overlays, sessions
   d'exécution, décisions de rollout ni tous les reçus ;
-- les fermetures d'exécution sont adressées par contenu et inspectables par
-  hash, mais leur index SQLite n'est pas encore inclus dans le catalogue ;
+- les fermetures d'exécution sont couvertes par `gqwf-catalog-v2`, mais cette
+  durabilité ne constitue pas une attestation des entrées réellement lues ;
 - SQLite reste nécessaire comme index transactionnel et projection runtime ;
 - `linux-overlayfs-v1` dépend de Linux et de capacités noyau ;
 - Windows utilise typiquement le reflink natif s'il est réellement disponible,
@@ -319,7 +322,7 @@ Les limites structurantes sont :
 | reflink natif | implémenté, dépendant de la sonde | preuve sur filesystems supportés |
 | OverlayFS | implémenté, Linux seulement | campagne Linux avec montage réel |
 | promotion sous preuve | implémentée sur parcours raccordés | porte globale et vérificateurs réels |
-| catalogue CAS | racines/têtes/baux seulement | étendre ou exclure durablement les projections restantes |
+| catalogue CAS | racines/têtes/baux/fermetures ; v1 lisible | étendre ou exclure durablement les projections restantes |
 | sauvegarde/restauration complète | non fournie | contrat distinct incluant SQLite et reçus |
 | provenance de fermeture inspirée de Nix | manifeste déclaratif implémenté | attestation du sandbox et capture des accès externes |
 | herméticité à la Nix | non fournie | dérivations exécutées dans un sandbox et fermeture complète des dépendances |

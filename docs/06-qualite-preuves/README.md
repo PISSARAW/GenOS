@@ -1,6 +1,6 @@
 # 06 — Qualité et preuves
 
-- [qualification-gqwf-2026-10-20.md](qualification-gqwf-2026-10-20.md) — 18 suites GQWF réussies hors sandbox restrictive, fermeture d'exécution déclarative qualifiée, matérialiseurs non disponibles explicités et qualification Trinity encore refusée.
+- [qualification-gqwf-2026-10-20.md](qualification-gqwf-2026-10-20.md) — 18 suites GQWF réussies hors sandbox restrictive, fermeture déclarative et reconstruction par catalogue v2 qualifiées, matérialiseurs non disponibles explicités et qualification Trinity encore refusée.
 
 - [matrice-qualification-stewardship-v3-2026-10-20.md](matrice-qualification-stewardship-v3-2026-10-20.md) — état daté des briques inspirées des rivaux, niveaux C0–C5, preuves disponibles, non-claims et plan de qualification longitudinale.
 

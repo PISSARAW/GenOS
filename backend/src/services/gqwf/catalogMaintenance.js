@@ -23,10 +23,22 @@ function assertWorkspaceRefs(refs, workspaceId) {
 function validCatalogBinding(input, parsed) {
   const previousValid = input.revision === 1
     ? parsed?.previousCatalogHash === null : HASH.test(parsed?.previousCatalogHash || '');
-  return parsed?.protocol === 'gqwf-catalog-v1'
+  return validCatalogProtocol(parsed) && validCatalogCollections(parsed)
     && parsed.workspaceId === input.workspaceId && parsed.revision === input.revision
-    && previousValid && Array.isArray(parsed.roots) && Array.isArray(parsed.heads)
-    && Array.isArray(parsed.leases);
+    && previousValid;
+}
+
+function validCatalogProtocol(parsed) {
+  return parsed?.protocol === 'gqwf-catalog-v1'
+    || parsed?.protocol === 'gqwf-catalog-v2';
+}
+
+function validCatalogCollections(parsed) {
+  const common = Array.isArray(parsed?.roots) && Array.isArray(parsed?.heads)
+    && Array.isArray(parsed?.leases);
+  const closures = parsed?.protocol === 'gqwf-catalog-v1'
+    || Array.isArray(parsed?.executionClosures);
+  return common && closures;
 }
 
 async function loadCatalog(input) {

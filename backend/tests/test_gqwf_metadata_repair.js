@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const sqlite3 = require('sqlite3');
@@ -11,6 +12,22 @@ const metadataStore = require('../src/services/gqwf/metadataStore');
 
 function authorization(request) {
   return { ...request, allowed: true, evidenceId: 'metadata-recovery-policy' };
+}
+
+function digest(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function closureInput(base) {
+  return {
+    workspaceId: 'ws-metadata', rootHash: base.rootHash,
+    command: { executable: 'node', arguments: ['tests/recover.js'] },
+    runtime: { name: 'node', version: '24.18.0', digest: digest('node-runtime') },
+    dependencies: [
+      { name: 'sqlite', version: '5.1.7', digest: digest('sqlite-runtime') }
+    ],
+    environment: [{ name: 'CI', valueHash: digest('true') }]
+  };
 }
 
 async function fixture() {
@@ -40,13 +57,15 @@ async function seeded(context, release = true) {
   if (release) {
     await context.fabric.releaseLease({ workspaceId: 'ws-metadata', leaseId: lease.leaseId });
   }
-  return { base, lease };
+  const closure = await context.fabric.sealExecutionClosure(closureInput(base));
+  return { base, lease, closure };
 }
 
 async function eraseCatalogRows(context) {
   await context.db.exec(`PRAGMA foreign_keys = OFF;
     DELETE FROM gqwf_leases;
     DELETE FROM gqwf_heads;
+    DELETE FROM gqwf_execution_closures;
     DELETE FROM gqwf_roots;
     DELETE FROM gqwf_catalog_state;
     PRAGMA foreign_keys = ON;`);
@@ -55,19 +74,23 @@ async function eraseCatalogRows(context) {
 async function exerciseRecovery(context) {
   const state = await seeded(context);
   const latest = await catalog.latestCatalog(context.db, 'ws-metadata');
-  assert.ok(latest.ref.revision >= 4);
+  assert.ok(latest.ref.revision >= 5);
+  assert.equal(latest.catalog.protocol, 'gqwf-catalog-v2');
   assert.equal(latest.catalog.roots[0].rootHash, state.base.rootHash);
+  assert.equal(latest.catalog.executionClosures[0].closureHash,
+    state.closure.closureHash);
   assert.equal(await fs.readFile(metadataStore.objectPath(context.workspacePath,
     state.base.rootHash), 'utf8').then((text) => JSON.parse(text).files.length), 1);
+  await fs.unlink(metadataStore.objectPath(context.workspacePath, state.closure.closureHash));
   await eraseCatalogRows(context);
   const preview = await context.fabric.inspectMetadataRepair({ workspaceId: 'ws-metadata' });
   assert.equal(preview.protocol, 'gqwf-metadata-repair-v1');
-  assert.equal(preview.issueCount, 3);
+  assert.equal(preview.issueCount, 4);
   await assert.rejects(context.fabric.repairMetadata({ workspaceId: 'ws-metadata',
     expectedPlanHash: '0'.repeat(64) }), /plan changed/);
   const receipt = await context.fabric.repairMetadata({ workspaceId: 'ws-metadata',
     expectedPlanHash: preview.planHash });
-  assert.equal(receipt.repairedCount, 3);
+  assert.equal(receipt.repairedCount, 4);
   assert.equal((await context.fabric.getHead({ workspaceId: 'ws-metadata',
     name: 'main' })).rootHash, state.base.rootHash);
   const root = await context.db.get(`SELECT manifest_json FROM gqwf_roots
@@ -76,6 +99,11 @@ async function exerciseRecovery(context) {
   const lease = await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?',
     state.lease.leaseId);
   assert.equal(lease.status, 'released');
+  const closure = await context.fabric.inspectExecutionClosure({
+    workspaceId: 'ws-metadata', closureHash: state.closure.closureHash
+  });
+  assert.equal(closure.registered, true);
+  assert.equal(closure.manifest.rootHash, state.base.rootHash);
   assert.equal((await context.fabric.inspectMetadataRepair({
     workspaceId: 'ws-metadata' })).issueCount, 0);
 }
@@ -109,6 +137,34 @@ async function exerciseTamper(context) {
     workspaceId: 'ws-metadata' }), /integrity check failed/);
 }
 
+async function exerciseLegacyCatalog(context) {
+  const legacy = { protocol: 'gqwf-catalog-v1', workspaceId: 'ws-metadata',
+    revision: 1, previousCatalogHash: null, roots: [], heads: [], leases: [] };
+  const catalogHash = await metadataStore.putObject(context.workspacePath,
+    JSON.stringify(legacy));
+  await metadataStore.writeRef(context.workspacePath, {
+    protocol: 'gqwf-catalog-ref-v1', workspaceId: 'ws-metadata',
+    revision: 1, catalogHash
+  });
+  const loaded = await catalog.latestCatalog(context.db, 'ws-metadata');
+  assert.equal(loaded.catalog.protocol, 'gqwf-catalog-v1');
+  const maintained = await context.fabric.maintainMetadataCatalog({
+    workspaceId: 'ws-metadata'
+  });
+  assert.equal(maintained.catalogHash, catalogHash);
+}
+
+async function exerciseCorruptClosureObject(context) {
+  const state = await seeded(context);
+  await fs.writeFile(metadataStore.objectPath(context.workspacePath,
+    state.closure.closureHash), '{}');
+  const preview = await context.fabric.inspectMetadataRepair({ workspaceId: 'ws-metadata' });
+  assert.deepEqual(preview.issues, [{ type: 'invalid_execution_closure_object',
+    entityId: state.closure.closureHash }]);
+  await assert.rejects(context.fabric.repairMetadata({ workspaceId: 'ws-metadata',
+    expectedPlanHash: preview.planHash }), /collision or corruption/);
+}
+
 async function run(exercise) {
   const context = await fixture();
   try { await exercise(context); } finally {
@@ -119,7 +175,9 @@ async function run(exercise) {
 }
 
 async function main() {
+  await run(exerciseLegacyCatalog);
   await run(exerciseRecovery);
+  await run(exerciseCorruptClosureObject);
   await run(exerciseAuthorization);
   await run(exerciseActiveLeaseQuarantine);
   await run(exerciseTamper);

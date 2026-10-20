@@ -5,10 +5,12 @@ const path = require('node:path');
 const { withTransaction } = require('../../db');
 const { parseManifest } = require('./manifest');
 const catalogMaintenance = require('./catalogMaintenance');
+const closureCatalog = require('./executionClosureCatalog');
 const metadataStore = require('./metadataStore');
 const storage = require('./storage');
 
-const PROTOCOL = 'gqwf-catalog-v1';
+const PROTOCOL = 'gqwf-catalog-v2';
+const LEGACY_PROTOCOL = 'gqwf-catalog-v1';
 const REPAIR_PROTOCOL = 'gqwf-metadata-repair-v1';
 const HASH = /^[a-f0-9]{64}$/;
 const STATUSES = new Set(['preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined']);
@@ -53,10 +55,13 @@ function leaseEntries(rows) {
 async function buildCatalog(db, input) {
   const workspace = await storage.workspace(db, input.workspaceId);
   const [roots, heads, leases] = await catalogRows(db, input.workspaceId);
+  const executionClosures = await closureCatalog.entries(db, {
+    workspaceId: input.workspaceId, workspacePath: workspace.path
+  });
   return { protocol: PROTOCOL, workspaceId: input.workspaceId,
     revision: input.revision, previousCatalogHash: input.previousCatalogHash || null,
     roots: await rootEntries(workspace.path, roots),
-    heads: headEntries(heads), leases: leaseEntries(leases) };
+    heads: headEntries(heads), leases: leaseEntries(leases), executionClosures };
 }
 
 async function catalogState(db, workspaceId) {
@@ -165,13 +170,31 @@ function validPreviousLink(catalog) {
     ? catalog.previousCatalogHash === null : HASH.test(catalog?.previousCatalogHash || '');
 }
 
+function validCatalogHeader(expected, catalog) {
+  const supported = catalog?.protocol === PROTOCOL || catalog?.protocol === LEGACY_PROTOCOL;
+  return supported && catalog.workspaceId === expected.workspaceId
+    && catalog.revision === expected.revision && validPreviousLink(catalog);
+}
+
+function validCatalogCollections(catalog) {
+  const common = Array.isArray(catalog?.roots) && Array.isArray(catalog?.heads)
+    && Array.isArray(catalog?.leases);
+  const closures = catalog?.protocol === LEGACY_PROTOCOL
+    || Array.isArray(catalog?.executionClosures);
+  return common && closures;
+}
+
+function normalizedCatalog(catalog, entries) {
+  const normalized = { ...catalog, roots: entries.roots,
+    heads: entries.heads, leases: entries.leases };
+  if (catalog.protocol === PROTOCOL) normalized.executionClosures = entries.executionClosures;
+  return normalized;
+}
+
 function validateCatalog(workspacePath, expected, catalog) {
-  const valid = catalog?.protocol === PROTOCOL && catalog.workspaceId === expected.workspaceId
-    && catalog.revision === expected.revision
-    && validPreviousLink(catalog)
-    && Array.isArray(catalog.roots) && Array.isArray(catalog.heads)
-    && Array.isArray(catalog.leases);
-  if (!valid) throw new Error('GQWF metadata catalog binding is invalid.');
+  if (!validCatalogHeader(expected, catalog) || !validCatalogCollections(catalog)) {
+    throw new Error('GQWF metadata catalog binding is invalid.');
+  }
   const roots = catalog.roots.map(validateRoot).sort((a, b) => compareText(a.rootHash, b.rootHash));
   assertUnique(roots, 'rootHash', 'root');
   const rootSet = new Set(roots.map((entry) => entry.rootHash));
@@ -179,9 +202,13 @@ function validateCatalog(workspacePath, expected, catalog) {
     .sort((a, b) => compareText(a.name, b.name));
   const leases = catalog.leases.map((entry) => validateLease(workspacePath, entry, rootSet))
     .sort((a, b) => compareText(a.id, b.id));
+  const executionClosures = catalog.protocol === PROTOCOL
+    ? closureCatalog.validateEntries({ entries: catalog.executionClosures,
+      roots: rootSet, workspaceId: catalog.workspaceId }) : [];
   assertUnique(heads, 'name', 'head');
   assertUnique(leases, 'id', 'lease');
-  if (canonicalJson({ ...catalog, roots, heads, leases }) !== canonicalJson(catalog)) {
+  const normalized = normalizedCatalog(catalog, { roots, heads, leases, executionClosures });
+  if (canonicalJson(normalized) !== canonicalJson(catalog)) {
     throw new Error('GQWF metadata catalog is not canonical.');
   }
   return catalog;
@@ -203,7 +230,8 @@ async function currentRows(db, workspaceId) {
   const [roots, heads, leases] = await catalogRows(db, workspaceId);
   return { roots: new Map(roots.map((row) => [row.root_hash, row])),
     heads: new Map(heads.map((row) => [row.name, row])),
-    leases: new Map(leases.map((row) => [row.id, row])) };
+    leases: new Map(leases.map((row) => [row.id, row])),
+    executionClosures: await closureCatalog.currentRows(db, workspaceId) };
 }
 
 function rootIssue(entry, row) {
@@ -233,6 +261,11 @@ async function repairPlan(db, input) {
   for (const entry of loaded.catalog.roots) issues.push(rootIssue(entry, rows.roots.get(entry.rootHash)));
   for (const entry of loaded.catalog.heads) issues.push(headIssue(entry, rows.heads.get(entry.name)));
   for (const entry of loaded.catalog.leases) issues.push(leaseIssue(entry, rows.leases.get(entry.id)));
+  issues.push(...await closureCatalog.issues({
+    entries: loaded.catalog.executionClosures || [], rows: rows.executionClosures,
+    workspaceId: input.workspaceId,
+    workspacePath: (await storage.workspace(db, input.workspaceId)).path
+  }));
   const filtered = issues.filter(Boolean).sort((a, b) => canonicalJson(a).localeCompare(canonicalJson(b)));
   const body = { protocol: REPAIR_PROTOCOL, workspaceId: input.workspaceId,
     catalogHash: loaded.ref.catalogHash, catalogRevision: loaded.ref.revision, issues: filtered };
@@ -324,6 +357,11 @@ async function repairMetadata(db, input, options = {}) {
   const authorization = await authorizeRepair(options, plan);
   return withTransaction(db, async () => {
     await restoreRoots(db, plan.catalog);
+    await closureCatalog.restore(db, {
+      entries: plan.catalog.executionClosures || [],
+      workspaceId: plan.catalog.workspaceId,
+      workspacePath: (await storage.workspace(db, plan.catalog.workspaceId)).path
+    });
     await restoreHeads(db, plan.catalog);
     await restoreLeases(db, plan.catalog);
     return persistRepairReceipt(db, { plan, authorization });
