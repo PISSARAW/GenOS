@@ -1,0 +1,87 @@
+{
+  "schema": "genos.endogenous-thought-protocol/v2",
+  "protocolId": "ett-v2",
+  "revision": "v2",
+  "status": "preregistered_not_run",
+  "executed": false,
+  "promotionDecision": null,
+  "purpose": "Comparer ETT complet à une résolution LLM directe à ressources strictement égales.",
+  "scope": "Résolution de tâches bornées sans autorité, réseau ou mutation hors du sandbox.",
+  "conditions": [
+    "full",
+    "llm_only"
+  ],
+  "conditionContracts": {
+    "full": {
+      "endogenousLoopEnabled": true,
+      "description": "Le solveur injecté reçoit le protocole ETT complet avant de produire une proposition."
+    },
+    "llm_only": {
+      "endogenousLoopEnabled": false,
+      "singleDirectSolve": true,
+      "description": "Le même solveur traite directement la tâche sans détection, questionnement, boucle ETT ou apprentissage endogène."
+    }
+  },
+  "comparison": {
+    "primaryPair": [
+      "full",
+      "llm_only"
+    ],
+    "parityRequired": [
+      "model",
+      "parameters",
+      "tools",
+      "budget"
+    ]
+  },
+  "providers": {
+    "solver": "injected",
+    "verifier": "injected_independent",
+    "usageMeter": "injected_external",
+    "producerCanVerifyOwnOutput": false,
+    "selfReportedCostsAccepted": false
+  },
+  "budget": {
+    "tokens": 12000,
+    "usd": 0.5,
+    "seconds": 120
+  },
+  "corpus": {
+    "development": {
+      "seeds": [
+        101,
+        211,
+        307
+      ],
+      "availableForTuning": true
+    },
+    "reserved": {
+      "seeds": [
+        401,
+        503,
+        607
+      ],
+      "availableForTuning": false,
+      "minimumIndependentReplications": 3
+    }
+  },
+  "primaryMetricId": "verified_useful_discoveries_per_normalized_cost",
+  "analysisPlan": {
+    "pairedByCaseAndSeed": true,
+    "includeFailedRunsInDenominator": true,
+    "minimumHoldoutReplications": 3,
+    "reservedCorpusUsedForTuning": false
+  },
+  "evidencePolicy": {
+    "modelOutputIsEvidence": false,
+    "independentVerificationRequired": true,
+    "externalCostMeasurementRequired": true,
+    "scientificPromotionAllowed": false
+  },
+  "safetyBoundary": {
+    "authorityAblated": false,
+    "sandboxAblated": false,
+    "budgetEnforcementAblated": false,
+    "evidenceGateAblated": false
+  }
+}
