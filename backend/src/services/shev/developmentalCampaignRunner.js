@@ -69,8 +69,19 @@ function runOptions(options) {
     intervention: arm.intervention, conditionsHash: contract.conditionsHash(arm),
     modelLock: arm.modelLock, toolsLock: arm.toolsLock, permissionsHash: arm.permissionsHash,
     initialSnapshotHash: arm.initialSnapshotHash,
-    budget: arm.budget, idempotencyKey: eventId('run', runKey(options)),
+    budget: arm.budget, campaignBudget: arm.campaignBudget,
+    runtimeLock: arm.runtimeLock, environmentLock: arm.environmentLock,
+    interventionAttestation: arm.interventionAttestation,
+    idempotencyKey: eventId('run', runKey(options)),
     painExpected: window.painExpected, scheduledAt: window.scheduledAt };
+}
+
+function campaignUsage(journal, armName) {
+  return [...journal[armName].values()].reduce((usage, record) => ({
+    costUsd: usage.costUsd + record.outcome.costUsd,
+    tokens: usage.tokens + record.outcome.tokens,
+    durationMs: usage.durationMs + record.outcome.durationMs
+  }), { costUsd: 0, tokens: 0, durationMs: 0 });
 }
 
 async function executeWindow(options) {
@@ -80,7 +91,8 @@ async function executeWindow(options) {
   const manifest = input.manifest;
   const windowOptions = runOptions({ manifest, armName, phase, window });
   const raw = await input.runWindow(windowOptions);
-  const outcome = assessment.validateOutcome({ result: raw, phase, window, arm: manifest.arms[armName] });
+  const outcome = assessment.validateOutcome({ result: raw, phase, window,
+    arm: manifest.arms[armName], campaignUsage: campaignUsage(journal, armName) });
   const receipt = await input.verifyWindow({ ...windowOptions, outcome });
   const verification = assessment.validateVerification({ receipt, outcome, manifest,
     arm: manifest.arms[armName] });

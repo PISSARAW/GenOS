@@ -6,11 +6,17 @@ const sqlite3 = require('sqlite3');
 const { fingerprint } = require('../src/services/stateFingerprint');
 const { migrateGvxLedger } = require('../src/db/migrations/migrateGvxLedger');
 const campaignService = require('../src/services/shev/developmentalLongitudinalCampaignService');
+const campaignContract = require('../src/services/shev/developmentalCampaignContract');
+const campaignRunner = require('../src/services/shev/developmentalCampaignRunner');
+const campaignEvaluation = require('../src/services/shev/developmentalCampaignEvaluation');
 
 const HASH = (value) => fingerprint(value);
 const LOCKS = { modelLock: 'model-sha256', toolsLock: 'tools-v3',
   permissionsHash: HASH('permissions'), initialSnapshotHash: HASH('initial-project') };
 const BUDGET = { costUsd: 1, tokens: 1000, seconds: 60 };
+const CAMPAIGN_BUDGET = { costUsd: 25, tokens: 5000, seconds: 1500 };
+const RUNTIME_LOCK = { digest: HASH('node-runtime'), evidenceHash: HASH('runtime-lock-evidence') };
+const ENVIRONMENT_LOCK = { digest: HASH('field-environment'), evidenceHash: HASH('environment-lock-evidence') };
 
 function windows(prefix, count, painExpected) {
   return Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index}`,
@@ -34,7 +40,7 @@ function manifest(mode = 'protocol') {
   }
   return campaignService.createManifest({ campaignId: `campaign-${mode}`,
     mode, coordinator: { organizationId: 'org', projectId: 'coordination', entityId: 'coordinator' },
-    arms: { control: arm('control'), treatment: arm('treatment') },
+    arms: { control: arm('control', mode), treatment: arm('treatment', mode) },
     trainingWindows, heldoutWindows,
     startedAt,
     minimumDurationMs: mode === 'field' ? campaignService.FIELD_MINIMUM_MS : 0,
@@ -42,10 +48,15 @@ function manifest(mode = 'protocol') {
       minConfirmedHeldout: 2 } });
 }
 
-function arm(name) {
-  return { scope: { organizationId: 'org', projectId: `project-${name}`, entityId: `agent-${name}` },
+function arm(name, mode = 'protocol') {
+  const value = { scope: { organizationId: 'org', projectId: `project-${name}`, entityId: `agent-${name}` },
     workspaceId: `workspace-${name}`, intervention: name === 'control' ? 'baseline' : 'full_arc',
     ...LOCKS, budget: BUDGET };
+  if (mode !== 'field') return value;
+  return { ...value, campaignBudget: CAMPAIGN_BUDGET,
+    runtimeLock: RUNTIME_LOCK, environmentLock: ENVIRONMENT_LOCK,
+    interventionAttestation: { shevEnabled: name === 'treatment',
+      evidenceHash: HASH(`shev-state:${name}`) } };
 }
 
 function pressureBefore(input) {
@@ -80,12 +91,36 @@ function outcomeFor(input) {
 function verifierFor(input) {
   const outcome = input.outcome;
   const evidenceRefs = [outcome.artifactHash, outcome.painObservationHash,
-    outcome.clearanceEvidenceHash].filter(Boolean);
+    outcome.clearanceEvidenceHash, input.runtimeLock?.evidenceHash,
+    input.environmentLock?.evidenceHash,
+    input.interventionAttestation?.evidenceHash].filter(Boolean);
   return { verified: true, verifierId: `independent-${input.arm}`,
     projectId: input.project.projectId, intervention: input.intervention,
     workspaceId: input.workspaceId, initialSnapshotHash: input.initialSnapshotHash,
     executionMode: input.mode, artifactHash: outcome.artifactHash,
-    outcomeHash: fingerprint(outcome), conditionsHash: input.conditionsHash, evidenceRefs };
+    outcomeHash: fingerprint(outcome), conditionsHash: input.conditionsHash, evidenceRefs,
+    interventionAttestation: input.interventionAttestation || null };
+}
+
+function metricRun(tokens, options = {}) {
+  return { success: options.success === true, regressions: 0,
+    humanInterventions: options.humanInterventions || 0, costUsd: 0.1,
+    durationMs: 1000, tokens, painObserved: options.painObserved === true,
+    developmentalPressureBefore: options.pressureBefore ?? null,
+    developmentalPressureAfter: options.pressureAfter ?? null,
+    progressResult: options.progressResult || 'not_tested',
+    clearanceApplied: options.progressResult === 'confirmed' };
+}
+
+function evaluationRuns(trainingCount, heldoutCount, tokens = {}) {
+  const repeated = (count, factory) => Array.from({ length: count }, factory);
+  return { control: {
+    training: repeated(trainingCount, () => metricRun(tokens.control || 100)),
+    heldout: repeated(heldoutCount, () => metricRun(tokens.control || 100)) },
+  treatment: {
+    training: repeated(trainingCount, () => metricRun(tokens.treatment || 100,
+      { painObserved: true, pressureBefore: 0.1, pressureAfter: 0.2 })),
+    heldout: repeated(heldoutCount, () => metricRun(tokens.treatment || 100)) } };
 }
 
 async function createDb() {
@@ -141,7 +176,7 @@ async function testFieldRunnerWaitsForScheduledWindows() {
     const fieldManifest = campaignService.createManifest({ campaignId: 'scheduled-field', mode: 'field',
       startedAt, minimumDurationMs: campaignService.FIELD_MINIMUM_MS,
       coordinator: { organizationId: 'org', projectId: 'coord-field', entityId: 'coord' },
-      arms: { control: arm('control'), treatment: arm('treatment') },
+      arms: { control: arm('control', 'field'), treatment: arm('treatment', 'field') },
       trainingWindows, heldoutWindows, thresholds: { minPainEpisodes: 5 } });
     let calls = 0;
     const report = await campaignService.runCampaign({ db, manifest: fieldManifest,
@@ -177,11 +212,86 @@ async function testVerifierCannotVerifyItsProducer() {
   } finally { await db.close(); }
 }
 
+function testFieldContractRequiresExecutionEvidence() {
+  const valid = manifest('field');
+  assert.equal(valid.arms.control.interventionAttestation.shevEnabled, false);
+  assert.equal(valid.arms.treatment.interventionAttestation.shevEnabled, true);
+  assert.equal(manifest().arms.control.campaignBudget, null,
+    'protocol manifests remain backward compatible');
+  const missingBudget = structuredClone(valid);
+  delete missingBudget.arms.control.campaignBudget;
+  assert.throws(() => campaignService.createManifest(missingBudget),
+    { code: 'SHEV_CAMPAIGN_CUMULATIVE_BUDGET_INVALID' });
+  const missingRuntimeEvidence = structuredClone(valid);
+  delete missingRuntimeEvidence.arms.control.runtimeLock.evidenceHash;
+  assert.throws(() => campaignService.createManifest(missingRuntimeEvidence),
+    { code: 'SHEV_CAMPAIGN_LOCK_EVIDENCE_INVALID' });
+  const wrongActivation = structuredClone(valid);
+  wrongActivation.arms.control.interventionAttestation.shevEnabled = true;
+  assert.throws(() => campaignService.createManifest(wrongActivation),
+    { code: 'SHEV_CAMPAIGN_INTERVENTION_ATTESTATION_INVALID' });
+  const legacyField = structuredClone(valid);
+  for (const value of Object.values(legacyField.arms)) delete value.campaignBudget;
+  const legacyBody = { ...legacyField };
+  delete legacyBody.manifestHash;
+  delete legacyBody.promotionEligible;
+  legacyField.manifestHash = fingerprint(legacyBody);
+  assert.throws(() => campaignContract.verifyManifest(legacyField),
+    { code: 'SHEV_CAMPAIGN_CUMULATIVE_BUDGET_INVALID' });
+}
+
+function testTokenRatioAndCumulativeBudget() {
+  const protocol = manifest();
+  const report = campaignEvaluation.evaluate(protocol,
+    evaluationRuns(5, 5, { control: 100, treatment: 150 }), Date.now());
+  assert.equal(report.tokenRatio, 1.5);
+  assert.equal(report.checks.tokenBound, false);
+  assert.equal(protocol.thresholds.maxTokenRatio, 1.25);
+  const field = manifest('field');
+  const window = field.heldoutWindows[0];
+  const options = campaignRunner.runOptions({ manifest: field, armName: 'control',
+    phase: 'heldout', window });
+  assert.throws(() => campaignEvaluation.validateOutcome({ result: outcomeFor(options),
+    phase: 'heldout', window, arm: field.arms.control,
+    campaignUsage: { costUsd: 0, tokens: 4950, durationMs: 0 } }),
+  { code: 'SHEV_CAMPAIGN_CUMULATIVE_BUDGET_EXCEEDED' });
+  const armBudget = { ...field.arms.control.campaignBudget, tokens: 1000 };
+  const bounded = campaignService.createManifest({ ...field,
+    arms: { control: { ...field.arms.control, campaignBudget: armBudget },
+      treatment: { ...field.arms.treatment, campaignBudget: armBudget } } });
+  assert.throws(() => campaignEvaluation.evaluate(bounded,
+    evaluationRuns(5, 20), Date.parse(bounded.startedAt) + bounded.minimumDurationMs),
+  { code: 'SHEV_CAMPAIGN_CUMULATIVE_BUDGET_EXCEEDED' });
+}
+
+function testFieldVerifierAttestsInterventionState() {
+  const field = manifest('field');
+  const window = field.heldoutWindows[0];
+  const options = campaignRunner.runOptions({ manifest: field, armName: 'control',
+    phase: 'heldout', window });
+  const outcome = campaignEvaluation.validateOutcome({ result: outcomeFor(options),
+    phase: 'heldout', window, arm: field.arms.control });
+  const receipt = verifierFor({ ...options, outcome });
+  assert.doesNotThrow(() => campaignEvaluation.validateVerification({ receipt, outcome,
+    manifest: field, arm: field.arms.control }));
+  assert.throws(() => campaignEvaluation.validateVerification({ receipt: { ...receipt,
+    interventionAttestation: null }, outcome, manifest: field, arm: field.arms.control }),
+  { code: 'SHEV_CAMPAIGN_VERIFICATION_INVALID' });
+  const missingEvidence = { ...receipt,
+    evidenceRefs: receipt.evidenceRefs.filter((hash) => hash !== RUNTIME_LOCK.evidenceHash) };
+  assert.throws(() => campaignEvaluation.validateVerification({ receipt: missingEvidence,
+    outcome, manifest: field, arm: field.arms.control }),
+  { code: 'SHEV_CAMPAIGN_VERIFICATION_INVALID' });
+}
+
 async function main() {
   await testPairedCampaignAndResume();
   await testFieldRunnerWaitsForScheduledWindows();
   await testFieldModeRequiresTimeAndSealedHoldouts();
   await testVerifierCannotVerifyItsProducer();
+  testFieldContractRequiresExecutionEvidence();
+  testTokenRatioAndCumulativeBudget();
+  testFieldVerifierAttestsInterventionState();
   console.log('SHEV developmental longitudinal campaign checks passed (protocol-only; no field claim).');
 }
 
