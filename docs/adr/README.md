@@ -812,6 +812,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0706](0706-cataloguer-et-reconstruire-fermetures-gqwf.md) | Cataloguer et reconstruire les fermetures d'exécution GQWF | Accepté | 2026-10-20 | GQWF, CAS, catalogue, reprise, provenance |
 | [0707](0707-recu-verification-regionale-metapopulation.md) | Reçu de vérification régionale Métapopulation | Accepté | 2026-10-20 | Métapopulation, clôture, preuve, séparation des responsabilités |
 | [0708](0708-recu-oracle-independant-biome.md) | Reçu d’oracle indépendant pour la clôture Biome | Accepté | 2026-10-20 | Biome, clôture de mission, preuves |
+| [0709](0709-progression-resultats-topologiques.md) | Progression canonique des résultats topologiques | Accepté | 2026-10-20 | Topologies, résultats workers, progression, clôture |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

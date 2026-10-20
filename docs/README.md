@@ -913,3 +913,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0705 — Registre d'adaptateurs de clôture topologique](adr/0705-registre-adaptateurs-cloture-topologique.md) — sélection injectible, dossiers communs et échec fermé tant que les oracles spécialisés sont absents.
 - [ADR 0707 — Reçu de vérification régionale Métapopulation](adr/0707-recu-verification-regionale-metapopulation.md) — reçu durable lié au résultat et séparation explicite entre producteur et vérificateur régional.
 - [ADR 0708 — Reçu d’oracle indépendant pour la clôture Biome](adr/0708-recu-oracle-independant-biome.md) — identité d’oracle fournie, attestation canonique et liaison stricte aux preuves de workers.
+- [ADR 0709 — Progression canonique des résultats topologiques](adr/0709-progression-resultats-topologiques.md) — routeur fail-closed entre reçus workers persistés, runtime spécialisé et clôture de mission.

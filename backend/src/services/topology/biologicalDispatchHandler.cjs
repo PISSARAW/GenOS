@@ -3,7 +3,7 @@
 const { persistBiologicalMissionTick } = require('./biologicalMissionPersist.cjs');
 const { dispatchAndCollectResults } = require('./dispatchCollector.cjs');
 const { buildBiologicalOutput } = require('./biologicalOutputBuilder.cjs');
-const { applyRhizomeResults } = require('./rhizomeResultsApplier.cjs');
+const { applyTopologyResults } = require('./topologyResultApplier.cjs');
 const { handleBiologicalCondition, handleBiologicalMission } = require('./biologicalConditions.cjs');
 const { ensureParent } = require('./parentEnsurer.cjs');
 const { buildNCEEnrichments } = require('./nceEnrichmentBuilder.cjs');
@@ -46,9 +46,11 @@ async function finalizeBiologicalOutput({ db, context, mode, mission, members, a
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
   out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
-  await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
+  out.biologicalMode.runtimeProgression = await applyTopologyResults({
+    db, context, mode, topology, accepted, parent, composition, output: out
+  });
   await biologicalMissionCompletion.complete({ db, missionId: context.missionId, mode,
-    sessionId: composition.sessionId, output: out.biologicalMode,
+    sessionId: topology.sessionId, output: out.biologicalMode,
     validation: semanticValidation, expectedCount: members.length });
   return out;
 }
