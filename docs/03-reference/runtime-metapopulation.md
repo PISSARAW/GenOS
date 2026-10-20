@@ -78,7 +78,10 @@ Les [contrats](../../backend/src/services/metapopulation/contracts/) et
 | Cycle | observations, diagnostic, plan, exécution, vérification, seed et numéro du dernier cycle vérifié |
 
 La session renvoyée par la façade fournit aussi `sessionId` comme alias
-de `metapopulationId`. Le runtime attend `metapopulationId`.
+de `metapopulationId`. Le runtime attend `metapopulationId`. `sessionId`
+est conservé pour compatibilité, mais il est déprécié : les nouveaux
+appelants doivent utiliser `metapopulationId`. Le runtime accepte
+`sessionId` comme repli, uniquement à titre de compatibilité.
 
 Scopes : `mission`, `workspace`, `project`, `persistent`.
 Les statuts de session incluent `QUIESCENT` et `CLOSED`.
