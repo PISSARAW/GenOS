@@ -11,7 +11,9 @@ const { isVerifiedResult } = require('./biologicalHelpers.cjs');
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
-  const waves = mode === 'metapopulation' || mode === 'syncytium' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
+  const waves = mode === 'metapopulation' || mode === 'syncytium'
+    || context.request?.awaitWorkers === true
+    || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
   const selected = selectMembers(members, garage.available, waves ? 2 : members.length);
   if (mode === 'rhizome') return dispatchRhizomeMissionMembers({ db, context, members: selected, parent });
   return dispatchBiologicalMembersCore({ db, context, mode, parent, selected, waves });
