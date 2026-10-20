@@ -45,7 +45,8 @@ async function verifyKnownModesFailClosed() {
         : mode === 'a_team' ? 'ateam_scope_missing'
           : mode === 'biome' ? 'biome_completion_scope_missing'
             : mode === 'holobionte' ? 'holobionte_completion_scope_missing'
-              : 'topology_completion_adapter_unavailable';
+              : mode === 'metapopulation' ? 'metapopulation_completion_scope_missing'
+                : 'topology_completion_adapter_unavailable';
     assert.equal(result.completionContract.reasons.includes(reason), true, mode);
     assert.equal(result.completionContract.closureChecks.requiredWorkers, true, mode);
     assert.equal(result.completionContract.closureChecks.independentOracle, false, mode);
