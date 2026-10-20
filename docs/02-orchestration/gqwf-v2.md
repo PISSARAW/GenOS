@@ -1,8 +1,94 @@
 # GQWF v2 — Racines de fichiers et vues durables
 
-- **Statut** : Partiel — noyau backend, catalogue CAS reconstructible, workers autonomes, runtimes déterministes/in-process, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in ; le défaut reste physique.
-- **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
-- **Dernière revue** : 2026-10-18.
+- **Statut** : Partiel — noyau backend, catalogue CAS reconstructible et maintenu, workers autonomes, runtimes déterministes/in-process, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in ; le défaut reste physique.
+- **Portée** : raccord d'orchestration, projection de fichiers, overlays, merge, matérialisation et tête versionnée.
+- **Dernière revue** : 2026-10-20.
+
+## Lire le dossier GQWF
+
+- [Concept et invariants](../01-concepts/gqwf.md) — modèle logique, architecture, comparaison et limites.
+- [Référence runtime](../03-reference/runtime-gqwf.md) — API Node, politiques, tables, matérialiseurs, protocoles et erreurs.
+- [Runbook opérateur](../04-exploitation/gqwf.md) — prévol, reprise, réparation, collecte, canari et rollback.
+- [Qualification du 20 octobre 2026](../06-qualite-preuves/qualification-gqwf-2026-10-20.md) — protocole, résultats exécutés et non-claims.
+
+Le présent document conserve le détail chronologique des tranches
+d'orchestration et des ADR. Il ne remplace pas la référence contractuelle ni le
+runbook.
+
+## Contrat d'orchestration actuel
+
+GQWF intervient à quatre frontières distinctes. Les confondre créerait une
+publication implicite que le runtime interdit.
+
+```mermaid
+sequenceDiagram
+    participant O as Orchestrateur
+    participant F as Fabrique GQWF
+    participant M as Matérialiseur
+    participant W as Worker/Outil
+    participant V as Vérificateur
+    O->>F: importBase + openExecutionWorkspace
+    F-->>O: vue virtuelle, aucun chemin
+    O->>F: materializeExecutionWorkspace
+    F->>M: sélectionner, sonder, persister le reçu
+    M-->>W: bail/root comme cwd
+    W-->>M: sorties physiques
+    O->>F: ingestExecutionWorkspace
+    F-->>O: candidateHash
+    O->>V: preuves + candidate liée
+    V-->>O: verdict
+    alt verdict accepté et parcours autorisé
+      O->>F: publishCandidate/promoteWorkerCandidate
+      F-->>O: tête génération suivante
+    else échec ou refus
+      O->>F: conserver ou collecter la candidate
+    end
+    O->>F: releaseExecutionWorkspace
+```
+
+### Qui décide quoi
+
+| Décision | Autorité | Donnée durable |
+| --- | --- | --- |
+| activer GQWF | politique de mission ou affectation canari | `gqwf_rollout_decisions` |
+| choisir le backend | politique explicite ou algorithme `auto` sur sondes | `gqwf_materialization_receipts` |
+| produire une candidate | runtime de session/worker | racine CAS et binding/session |
+| publier une tête | vérificateur du parcours concerné | tête, événement et preuve |
+| réparer ou répliquer | autorisateur lié au plan | reçu de l'opération |
+| supprimer des objets | inventaire stable relu au moment de l'effet | reçu de GC |
+
+Le matérialiseur n'a aucune autorité de promotion. Le vérificateur ne choisit
+pas le backend. Le catalogue ne rejoue pas les décisions métier : il restaure
+uniquement le périmètre de métadonnées qu'il encode.
+
+### Routage par type d'exécution
+
+| Parcours | Activation | Cycle GQWF | Publication |
+| --- | --- | --- | --- |
+| mission supervisée orchestrateur | `executionPolicy.gqwfV2` | session virtuelle, bail, ingestion, libération | aucune automatique |
+| runtime déterministe/local/in-process | même opt-in | même session durable et même matérialisation | aucune automatique |
+| worker autonome | opt-in et binding `gqwf-worker` | vue privée, bail direct, capture | `promoteWorkerCandidate` sous vérificateur |
+| Trinity | opt-in du parcours | candidate importée et liée à AgentGit | tête `trinity/<expérience>` après gate |
+| snapshot d'organisme | référence opt-in | racine référencée/restaurée | ne publie pas une tête par lui-même |
+
+Le chemin historique physique reste le contrôle. `deferOrchestratorCopy` évite
+la copie initiale seulement pour le parcours orchestrateur effectivement
+éligible ; les workers déjà dans un binding GQWF ne sont pas réenveloppés dans
+une seconde session.
+
+### Frontières d'échec
+
+- échec avant matérialisation : la vue reste virtuelle et aucune sortie n'est
+  présentée comme candidate ;
+- échec du backend : la décision de rollout passe `failed` et aucun fallback
+  silencieux n'est permis pour une demande explicite ;
+- échec du worker : le bail est libéré sans ingestion, sauf capture explicitement
+  demandée par le contrat du parcours ;
+- ingestion réussie, vérification refusée : la candidate existe mais la tête ne
+  bouge pas ;
+- publication réussie, persistance métier échouée : le parcours spécialisé doit
+  appliquer sa transaction ou son rollback documenté ;
+- libération interrompue : le statut durable et le reçu pilotent la reprise.
 
 Le noyau [GQWF](../../backend/src/services/gqwf/index.js) ajoute une représentation
 logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../adr/0369-racines-gqwf-et-vues-durables.md).
@@ -29,8 +115,9 @@ vérifie le store complet et persiste son rapport sans réparer.
 `inspectReplication` et `replicateRoot` transportent une racine entre deux
 workspaces du même tenant sous autorisation liée. `inspectRepair` et
 `repairRoot` restaurent ses blobs depuis une réplique attestée.
-`checkpointMetadata`, `inspectMetadataRepair` et `repairMetadata` scellent puis
-reconstruisent le catalogue SQLite depuis le CAS sous plan et autorisation liés.
+`checkpointMetadata`, `maintainMetadataCatalog`, `inspectMetadataRepair` et
+`repairMetadata` scellent, réconcilient puis reconstruisent le périmètre couvert
+du catalogue SQLite depuis le CAS sous plan et autorisation liés.
 `publishCandidate` échoue sans vérificateur injecté par le runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
