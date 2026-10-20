@@ -11,7 +11,7 @@ const topologyChecks = Object.freeze([
     ['tests/run_trinity_suite.js'], ['tests/test_gqwf_trinity_mission_qualification.js']] },
   { id: 'a_team', label: 'A-Team', scripts: [
     ['tests/test_ateam_execution_e2e.js'], ['tests/test_ateam_terminal_wait.js'],
-    ['tests/test_ateam_multiteam_runtime.js']] },
+    ['tests/test_ateam_multiteam_runtime.js'], ['tests/test_ateam_completion_adapter.js']] },
   { id: 'biome', label: 'Biome', scripts: [['tests/run_biome_suite.js']] },
   { id: 'biocenose', label: 'Biocenose', scripts: [['tests/run_biocenose_suite.js']] },
   { id: 'rhizome', label: 'Rhizome', scripts: [['tests/run_rhizome_suite.js']] },

@@ -101,6 +101,7 @@ const suites = {
   ],
   metapopulation: [
     ['completion', 'test_metapopulation_completion.js'],
+    ['completion adapter', 'test_metapopulation_completion_adapter.js'],
     ['crash recovery and quiescent snapshot', 'test_metapopulation_crash_recovery.js'],
     ['external adapter and cycle idempotency', 'test_metapopulation_idempotency.js'],
     ['durable', 'test_metapopulation_durable_execution.js'],

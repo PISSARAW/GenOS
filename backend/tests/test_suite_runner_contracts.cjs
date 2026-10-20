@@ -1,10 +1,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const processRunner = require('./helpers/suiteProcessRunner.cjs');
 const biocenose = require('./run_biocenose_suite.js');
 const topology = require('./run_topology_contracts.cjs');
+const validation = require('./run_validation_suite.js');
 
 const fixture = path.join(__dirname, 'fixtures', 'suiteRunnerChild.cjs');
 
@@ -112,6 +114,37 @@ function testCatalogAndFilters() {
   assert.throws(() => topology.selectedTopologies(['--topology=missing']), /Unknown topology/);
 }
 
+function testCompletionAdapterCampaignCatalog() {
+  const dynamic = [
+    ['trinity', 'tests/run_trinity_suite.js', /^test_trinity_.*\.js$/],
+    ['biome', 'tests/run_biome_suite.js', /^test_biome_.*\.js$/],
+    ['biocenose', 'tests/run_biocenose_suite.js', /^test_biocenose_.*\.js$/],
+    ['rhizome', 'tests/run_rhizome_suite.js', /^test_rhizome.*\.js$/],
+    ['holobionte', 'tests/run_holobiont_suite.js', /^test_holobion[t_].*\.js$/]
+  ];
+  const covered = new Set();
+  for (const [id, carrier, pattern] of dynamic) {
+    const check = topology.topologyChecks.find((item) => item.id === id);
+    const test = `test_${id}_completion_adapter.js`;
+    assert.ok(check.scripts.some((command) => command[0] === carrier), `${id} carrier missing`);
+    assert.ok(pattern.test(test), `${test} is outside the dynamic suite catalog`);
+    assert.ok(fs.existsSync(path.join(__dirname, test)), `${test} missing`);
+    covered.add(id);
+  }
+  const aTeam = topology.topologyChecks.find((item) => item.id === 'a_team');
+  assert.ok(aTeam.scripts.some((command) => command[0] ===
+    'tests/test_ateam_completion_adapter.js'));
+  covered.add('a_team');
+  const metapopulation = topology.topologyChecks.find((item) => item.id === 'metapopulation');
+  assert.ok(metapopulation.scripts.some((command) => command.join(' ') ===
+    'tests/run_validation_suite.js metapopulation'));
+  assert.ok(validation.suites.metapopulation.some(([, file]) =>
+    file === 'test_metapopulation_completion_adapter.js'));
+  covered.add('metapopulation');
+  assert.deepEqual([...covered].sort(),
+    ['a_team', 'biocenose', 'biome', 'holobionte', 'metapopulation', 'rhizome', 'trinity']);
+}
+
 function testCoherentParentDeadline() {
   const policy = biocenose.createPolicy({
     GENOS_BIOCENOSE_SUITE_TIMEOUT_MS: '10000',
@@ -147,6 +180,7 @@ testBiocenoseDeadline();
 testTimeoutMainExit();
 testTopologyTimeoutMainExit();
 testCatalogAndFilters();
+testCompletionAdapterCampaignCatalog();
 testCoherentParentDeadline();
 testChildDeadlinePropagation();
 console.log('Suite runners: deadlines, child timeout, partial output, failures and filters PASS');
