@@ -179,8 +179,11 @@ minutes avant la première fenêtre. Ensuite :
 - ni réussite de transport ni reprise technique ne vaut résultat scientifique.
 
 La [répétition générale](../04-exploitation/repetition-generale-campagne-terrain-shev.md)
-doit être terminée avant le scellement terrain. Ce lien décrit une procédure à
-venir ; il ne signifie pas qu'elle a été exécutée.
+doit être terminée avant le scellement terrain. La présence de sa procédure ne
+signifie pas qu'elle a été exécutée.
+
+L'exécution du manifeste scellé suit le
+[runbook terrain](../04-exploitation/executer-campagne-terrain-shev.md).
 
 ## Voir aussi
 
