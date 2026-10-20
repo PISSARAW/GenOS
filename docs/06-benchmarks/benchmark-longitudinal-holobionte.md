@@ -1,12 +1,16 @@
 # Benchmark longitudinal Holobionte
 
-- **Statut** : Runner réel et journal reprenable implémentés; campagne non exécutée
+- **Statut** : runner réel et journal reprenable implémentés ; campagne longitudinale non exécutée
 - **Portée** : comparaison appariée de douze stratégies sur 50 à 100 missions séquentielles
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-20
 
 ## Objectif
 
 Évaluer si les capacités persistantes d’Holobionte apportent une différence mesurable face à des stratégies de référence et à des ablations. Le runner calcule des résumés descriptifs et n’autorise aucune promotion (`promotionDecision: null`).
+
+Une [campagne causale bornée](campagne-causale-holobionte.md) exécute désormais
+trois cas arithmétiques sur deux processus et un oracle séparé. Elle qualifie le
+petit harnais local, pas le protocole longitudinal à douze bras décrit ici.
 
 ## Bras comparés
 
@@ -80,4 +84,7 @@ le journal, le rapport, le code d’adaptateur épinglé et les artefacts de pre
 - Les agrégats sont descriptifs. Le runner ne calcule ni intervalles de confiance, ni test de significativité, ni décision de promotion.
 - Une métrique absente reste absente ; il faut distinguer donnée manquante et valeur nulle lors de l’interprétation.
 
-Voir également l’[ADR 0105](../adr/0105-benchmark-longitudinal-holobionte.md) et la [fiche Holobionte](../02-orchestration/topologies/holobionte.md).
+Voir également l’[ADR 0105](../adr/0105-benchmark-longitudinal-holobionte.md),
+la [campagne causale bornée](campagne-causale-holobionte.md), le
+[dossier de qualification](../06-qualite-preuves/qualification-holobionte-2026-10-20.md)
+et la [fiche Holobionte](../02-orchestration/topologies/holobionte.md).

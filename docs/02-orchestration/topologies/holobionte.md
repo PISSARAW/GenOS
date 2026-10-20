@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté pour le runtime contractuel ; modèles biologiques conceptuels
 - **Portée** : missions par capacité avec admission, preuves indépendantes, décision de l’hôte, quotas, mémoire, santé et clôture ; composition historique à quatre rôles explicitement déclarative.
-- **Dernière revue** : 2026-10-16
+- **Dernière revue** : 2026-10-20
 
 Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. Le service de mission commun et Morphogenesis utilisent les mêmes gates. La composition seule retourne COMPOSED, sans déclaration de succès d’exécution.
 
@@ -760,46 +760,26 @@ $$
 
 ## 16. Cas d'erreur et escalade
 
-### Erreur 1 : Budget insuffisant
-```
-HOLOBIONTE_BUDGET_INSUFFICIENT:
-  Holobionte requires 4 agents (160,000 tokens total)
-  but budget permits only 1 agent (20,000 tokens)
-  Action: Holobionte is not activated. Falling back to single-agent orchestration.
-```
+Le runtime échoue fermé avec des codes structurés. Les formulations
+`HOLOBIONTE_*` historiques qui figuraient auparavant dans cette section étaient
+des scénarios conceptuels, pas des codes émis. Le catalogue opérationnel est :
 
-### Erreur 2 : Specialist viole le contrat
-```
-SPECIALIST_AUTHORITY_VIOLATION:
-  Specialist proposed to change authentication policy
-  But Host authority boundary restricts auth decisions to Host only
-  Action: Immune Symbiont REJECTS output. Host decides: refine or escalate.
-```
+| Frontière | Codes principaux | Conduite |
+| --- | --- | --- |
+| adaptateurs | `HOLOBIONT_EXECUTOR_REQUIRED`, `HOLOBIONT_VERIFIER_REQUIRED`, `HOLOBIONT_TRIAL_EXECUTOR_REQUIRED` | fournir une fonction réelle et rejouer d'abord le préflight |
+| indépendance | `HOLOBIONT_VERIFIER_NOT_INDEPENDENT`, `HOLOBIONT_ADAPTER_PROVENANCE_INVALID` | séparer les implémentations et conserver leurs dossiers de provenance |
+| admission | `HOLOBIONT_ISOLATION_UNVERIFIED`, `HOLOBIONT_TRIAL_EVIDENCE_REQUIRED`, `HOLOBIONT_TRIAL_EVIDENCE_INCOMPLETE` | refaire l'essai dans une frontière attestée ; ne pas forcer l'état résident |
+| contrat | `HOLOBIONT_CONTRACT_REQUIRED`, `HOLOBIONT_CAPABILITY_OUT_OF_SCOPE`, `HOLOBIONT_PRIVACY_VIOLATION`, `HOLOBIONT_TOOL_LEASE_REQUIRED` | réduire l'action au contrat ou demander un nouveau contrat |
+| ressources | `BUDGET_EXHAUSTED`, `HOLOBIONT_USAGE_REQUIRED`, `HOLOBIONT_RESOURCE_OVERRUN` | préserver le reçu et revoir explicitement budget ou étape |
+| concurrence | `HOLOBIONT_REVISION_CONFLICT`, `HOLOBIONT_CONTRACT_REVISION_CONFLICT` | relire session et contrat ; ne pas écraser une révision concurrente |
+| intégrité | `HOLOBIONT_RESULT_CHANGED`, `HOLOBIONT_USAGE_CHANGED`, `HOLOBIONT_EVIDENCE_REQUIRED` | traiter la sortie comme non vérifiée et examiner producteur et vérificateur |
+| santé | `HOLOBIONT_DYSBIOSIS_INVALID` | corriger signal, statut ou seuil ; ne pas convertir l'agrégat en preuve |
 
-### Erreur 3 : Immune détecte risque critique
-```
-IMMUNE_CRITICAL_REJECTION:
-  Specialist passes technical tests
-  But Immune detects: "Data rollback cannot be guaranteed"
-  Violates Host contract: "Rollback capability: mandatory"
-  Action: Host = REJECTED. Specialist must redesign.
-```
-
-### Erreur 4 : Dysbiose détectée
-```
-DYSBIOSIS_DETECTED:
-  DysbiosisRisk(H) exceeds threshold
-  Resource concentration too high, functional redundancy too low
-  Action: Rebalance resources, acquire new symbionts, expel parasites.
-```
-
-### Erreur 5 : Aucune solution n'est sûre
-```
-HOLOBIONTE_SAFETY_IMPOSSIBLE:
-  After 2 continuation rounds, Specialist cannot meet safety thresholds
-  Immune confirms: unsolvable with current constraints
-  Action: Escalate to human. All reports forwarded.
-```
+Les résultats de mission `ADMISSION_REJECTED`, `CAPABILITY_GAP`,
+`EXECUTION_REJECTED` et `STOP_BLOCKED` ne sont pas des succès dégradés. Ils
+préservent la session pour diagnostic lorsque sa fermeture n'est pas sûre. Une
+escalade humaine reste nécessaire lorsqu'une nouvelle autorité, un relèvement
+de budget, une expulsion ou une action non bornée serait requis.
 
 ---
 
@@ -1110,11 +1090,42 @@ Le [contrat du runtime Holobionte](../../03-reference/runtime-holobionte.md) dé
 
 ### Preuve, ressources et gouvernance
 
-Le résultat concret doit être vérifié par un adaptateur indépendant. Son reçu lie l’empreinte SHA-256 aux références de preuve. Le gate immunitaire inspecte cette sortie avant la promotion. Contrat actif, révisions, baux d’outils, classes de données et autorité sont contrôlés. Contribution, mémoire et CAPABILITY_USED sont atomiques ; les ressources sont libérées après succès, erreur, révocation ou annulation.
+Le résultat concret doit être vérifié par un adaptateur indépendant. Le runtime
+refuse un callback absent, non fonctionnel ou identique à l'exécuteur par
+référence ou empreinte d'implémentation. Chaque rôle reçoit une provenance
+`genos.holobiont-adapter-provenance/v1`, exposée dans le reçu de mission et
+reliée aux `evidenceRefs` des exécutions. Cette provenance identifie le callback
+local ; elle ne certifie pas seule son opérateur externe.
 
-La mission borne les jetons cumulés des essais et étapes, la durée et le nombre d’étapes. Les allocations concurrentes consomment la disponibilité de l’hôte. Une mission terminée ferme sa session ou met l’hôte persistant en quiescence. Une session fermée ne peut exécuter une nouvelle capacité.
+L'admission exige en plus une preuve
+`genos.holobiont-isolation-proof/v1` liée exactement à la provenance du rôle
+`trial`. Elle atteste un processus isolé, un workspace éphémère ou en lecture
+seule, un réseau refusé ou restreint, et des références toutes couvertes par le
+vérificateur. Une preuve absente ou divergente produit
+`HOLOBIONT_ISOLATION_UNVERIFIED` et empêche l'admission.
 
-La santé dérive par défaut six signaux heuristiques du registre persistant et conserve le vecteur de fitness à dix dimensions sans agrégation implicite. La boucle applique WARN, THROTTLE, REDUCE_RESOURCES ou QUARANTINE avec preuves et conditions de récupération. Les décisions plus larges restent soumises à la gouvernance ; l’automatisme peut être désactivé.
+Le gate immunitaire inspecte la sortie avant la promotion. Contrat actif,
+révisions, baux d’outils, classes de données et autorité sont contrôlés.
+Contribution, mémoire et `CAPABILITY_USED` sont atomiques ; les ressources sont
+libérées après succès, erreur, révocation ou annulation.
+
+La mission borne les jetons cumulés des essais et étapes, la durée et le nombre
+d’étapes. Les allocations concurrentes consomment la disponibilité de l’hôte.
+`runCycle` expose systématiquement `sessionStatus` et `sessionClosed` sans
+finaliser l'hôte. La couche mission ferme un scope `MISSION` ou place un scope
+`PERSISTENT` en quiescence après réussite. Une issue incomplète conserve l'hôte
+actif pour diagnostic ; une session fermée ne peut exécuter une nouvelle
+capacité.
+
+La santé conserve six signaux sous `{ value, status }`, avec `status` limité à
+`measured` ou `heuristic`. Les valeurs nues et les dérivations du registre sont
+heuristiques. Le score et l'état agrégés restent toujours heuristiques et
+exposent `promotionEligible: false`, même si les six entrées sont mesurées. Les
+seuils sont configurables dans `healthPolicy.dysbiosisThresholds` et restitués
+dans le reçu. La boucle applique seulement `WARN`, `THROTTLE`,
+`REDUCE_RESOURCES` ou `QUARANTINE` avec preuves et conditions de récupération.
+Les décisions plus larges restent soumises à la gouvernance ; l’automatisme
+peut être désactivé.
 
 ### Variants, transmission et intégrations
 
@@ -1152,6 +1163,23 @@ Les services couvrent transmission verticale, horizontale, mixte et procédurale
 
 ### Validation et limites
 
-La suite dédiée est exécutée par npm --prefix backend run test:holobionte. Elle inclut les missions complètes sur SQLite en mémoire et les refus de preuve, de quota, d’accès, de révocation concurrente et d’annulation, ainsi que les intégrations et services existants. L’exemple examples/holobionte/run-mission.cjs effectue un calcul réel et indépendant de contrôle.
+La suite dédiée est exécutée par `npm --prefix backend run test:holobionte`. Elle
+inclut les missions complètes sur SQLite en mémoire et les refus de preuve, de
+quota, d’accès, de révocation concurrente et d’annulation, ainsi que les
+intégrations et services existants. L’exemple
+`examples/holobionte/run-mission.cjs` effectue un calcul réel et un contrôle
+indépendant. Le [dossier de qualification du 20 octobre
+2026](../../06-qualite-preuves/qualification-holobionte-2026-10-20.md) relie
+les cinq exigences de durcissement à leurs tests et contre-épreuves.
 
-L’intégrateur réalise l’isolation physique et les mesures via ses adaptateurs. Le runtime ne certifie pas une sandbox système à partir d’un callback. Le benchmark longitudinal compare douze bras sur 50 à 100 missions, sans promotion automatique ; les tests du runner utilisent des missions simulées. Aucune campagne réelle de 600 à 1 200 exécutions ni gain causal de performance n’est attesté. Voir le [protocole longitudinal](../../06-benchmarks/benchmark-longitudinal-holobionte.md) et l’[ADR 0330](../../adr/0330-holobionte-missions-contractuelles-verifiees.md).
+L’intégrateur réalise l’isolation physique et les mesures via ses adaptateurs.
+Le runtime ne certifie pas une sandbox système à partir d’un callback. Une
+[campagne causale bornée](../../06-benchmarks/campagne-causale-holobionte.md)
+exécute trois cas arithmétiques, deux processus par répétition et un oracle
+séparé ; elle prouve le fonctionnement du harnais, pas un avantage général. Le
+benchmark longitudinal compare douze bras sur 50 à 100 missions, sans promotion
+automatique ; ses tests utilisent des missions simulées. Aucune campagne réelle
+de 600 à 1 200 exécutions ni gain causal de performance n’est attesté. Voir le
+[protocole longitudinal](../../06-benchmarks/benchmark-longitudinal-holobionte.md),
+le [guide d'exploitation](../../04-exploitation/operer-runtime-holobionte.md)
+et l’[ADR 0330](../../adr/0330-holobionte-missions-contractuelles-verifiees.md).

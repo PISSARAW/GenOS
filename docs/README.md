@@ -1,5 +1,9 @@
 # Documentation GenOS
 
+- [Dossier Holobionte](02-orchestration/topologies/holobionte.md) — modèle hôte-symbiotes, [référence runtime](03-reference/runtime-holobionte.md), [guide d'exploitation](04-exploitation/operer-runtime-holobionte.md), [campagne causale bornée](06-benchmarks/campagne-causale-holobionte.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-holobionte-2026-10-20.md).
+
+- [Dossier Metapopulation](02-orchestration/topologies/metapopulation.md) — modèle écologique, contrat régional, seize variants, [runbook opérateur](04-exploitation/runbook-metapopulation.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-metapopulation-2026-10-20.md).
+
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante, apprentissage d'épisode et boucle multicycle bornée (`maxCycles` ≤ 10).
 - [Dossier ETT — orchestration](02-orchestration/pensee-endogene-bornee.md), [référence](03-reference/runtime-pensee-endogene.md), [exploitation](04-exploitation/pensee-endogene.md) et [qualification](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — parcours complet du concept à la preuve, avec activation production explicitement indisponible.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification, révision de croyance non promotable et continuation multicycle ; campagne sur corpus réservé non exécutée.
@@ -280,7 +284,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé, 13 variants et limites de preuve des missions.
 - [protocole-missions-syncytium.md](02-orchestration/topologies/protocole-missions-syncytium.md) — budget, matrice des 53 cas et preuves attendues.
 - [rhizome.md](02-orchestration/topologies/rhizome.md) — missions par capacités, croissance vérifiée, budgets et routage borné.
-- [metapopulation.md](02-orchestration/topologies/metapopulation.md) — populations semi-indépendantes, migrations vérifiées et reprise régionale.
+- [metapopulation.md](02-orchestration/topologies/metapopulation.md) — populations semi-indépendantes, migrations vérifiées, [seize variants](03-reference/variants-metapopulation.md) et reprise régionale.
 - [garage-fabric.md](02-orchestration/topologies/garage-fabric.md) — garage adaptatif des workers, leases et admission multi-stratégies.
 
 ### 5. Référence technique
@@ -291,6 +295,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [contrat-completion-mission.md](03-reference/contrat-completion-mission.md) — contrat commun de clôture, preuves adressées par contenu et précédence des verdicts.
 - [action-genome.md](03-reference/action-genome.md) — contrat d'action fermé, admission causale, reçu, projections REST/MCP/CLI et limites d'exécution.
 - [snapshots-topologiques.md](03-reference/snapshots-topologiques.md) — contrat de capture et de reprise pour les huit topologies et chaque variant.
 - [contrat-mission-comparative.md](03-reference/contrat-mission-comparative.md) — schéma versionné des missions multi-populations et frontières entre runtime, topologie et banc d’essai.
@@ -305,14 +310,15 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
 - [contrats-philosophiques-ontogenese.md](03-reference/contrats-philosophiques-ontogenese.md) — raccord des 420 contrats philosophiques au plan de mission et au runtime harness Ontogenèse.
-- [runtime-holobionte.md](03-reference/runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
+- [runtime-holobionte.md](03-reference/runtime-holobionte.md) — provenance des adaptateurs, admission isolée, vérification indépendante, santé typée, quotas et cycle de session Holobionte.
 - [modeles-et-providers.md](03-reference/modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](03-reference/integrations-ide.md) — contrat IDE `genos.ide/v1`.
 - [notifications-et-alertes.md](03-reference/notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [preuves-produit-et-safe-debugging.md](03-reference/preuves-produit-et-safe-debugging.md) — preuves backend et safe debugging.
 - [contrat-produit-et-completude.md](03-reference/contrat-produit-et-completude.md) — périmètre livré, statuts de maturité, critères de preuve et environnements supportés.
 - [pont-rust-et-hallucinations.md](03-reference/pont-rust-et-hallucinations.md) — bridge REST vers `genos-cli`.
-- [runtime-metapopulation.md](03-reference/runtime-metapopulation.md) — API, adaptateurs, persistance, reprise et validation des dix suites dédiées.
+- [runtime-metapopulation.md](03-reference/runtime-metapopulation.md) — API, adaptateurs, persistance, reprise et validation des treize suites dédiées.
+- [variants-metapopulation.md](03-reference/variants-metapopulation.md) — registre exécutable des seize variants, actions, preuves et idempotence.
 - [plugins-topologies-morphogenese.md](03-reference/plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique.
 - [runtime-rhizome.md](03-reference/runtime-rhizome.md) — contrat runtime, providers, preuves, limites et CLI Rhizome.
 - [runtime-ecologie-adaptateurs.md](03-reference/runtime-ecologie-adaptateurs.md) — qualification des intégrations, sélection minimale, dysbiose et migration de changements entre dépôts.
@@ -330,6 +336,8 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 - [observabilite.md](04-exploitation/observabilite.md) — traces, diagnostics, logs, métriques, audit.
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
+- [runbook-metapopulation.md](04-exploitation/runbook-metapopulation.md) — diagnostic régional, reprise idempotente et snapshots quiescents.
+- [operer-runtime-holobionte.md](04-exploitation/operer-runtime-holobionte.md) — préflight, preuves, santé, clôture et diagnostic du runtime Holobionte.
 - [releases-et-rollouts.md](04-exploitation/releases-et-rollouts.md) — releases, rollouts, rollback et chargeback.
 - [cicatrisation-production.md](04-exploitation/cicatrisation-production.md) — anomalie production, candidats contrefactuels, vérification indépendante et cicatrice canari.
 - [gouvernance-supply-chain-agent-native.md](04-exploitation/gouvernance-supply-chain-agent-native.md) — admission MHC d’artefact et secret court au point d’effet.
@@ -354,6 +362,8 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
+- [qualification-metapopulation-2026-10-20.md](06-qualite-preuves/qualification-metapopulation-2026-10-20.md) — treize suites ciblées, crash/reprise, idempotence et limites de qualification.
+- [qualification-holobionte-2026-10-20.md](06-qualite-preuves/qualification-holobionte-2026-10-20.md) — contrats probants, isolation, santé et campagne locale, sans claim de supériorité.
 - [plan-maturite-principes-fondateurs-95.md](06-qualite-preuves/plan-maturite-principes-fondateurs-95.md) — six phases de fermeture transverse vers 95/100, sans promotion avant preuve courante.
 - [qualification-principes-fondateurs-phase7.md](06-qualite-preuves/qualification-principes-fondateurs-phase7.md) — mission verticale des phases 1 à 6 : 19/19 principes à la note 4 dans le périmètre borné.
 - [qualification-principes-fondateurs-phase8.md](06-qualite-preuves/qualification-principes-fondateurs-phase8.md) — qualification révocable, ancre de qualification et note effective 4 sur la baseline fonctionnelle.
@@ -386,8 +396,9 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [LeanDojo-v2 et Dafny](../integrations/formal_proofs/README.md) — traces de preuve et invariants formels.
 - [Commandes XGrammar](../integrations/xgrammar/README.md) — grammaire compacte et autorité distincte.
 - [Couverture des 24 dépôts](06-qualite-preuves/couverture-24-depots.md) — correspondance des vingt lots et limites de preuve.
-- [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne réelle exécutée.
+- [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne longitudinale exécutée ; le harnais causal local est documenté séparément.
 - [protocole-execution-holobionte.md](06-benchmarks/protocole-execution-holobionte.md) — budgets, temps, topologies, workers, nosologie, échanges, graphe relationnel et télémétrie.
+- [campagne-causale-holobionte.md](06-benchmarks/campagne-causale-holobionte.md) — campagne arithmétique bornée, bras isolés, oracle séparé et limites causales explicites.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
 - [morphogenese-gates-2026-09-26.md](06-qualite-preuves/morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse, protocole et limites.
 - [locomo.md](06-qualite-preuves/benchmarks/locomo.md) — résultats officiels LoCoMo.
@@ -589,7 +600,8 @@ Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nc
 2. [cli-et-experience-operateur.md](04-exploitation/cli-et-experience-operateur.md)
 3. [observabilite.md](04-exploitation/observabilite.md)
 4. [runbook-recovery.md](04-exploitation/runbook-recovery.md)
-5. [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md)
+5. [runbook-metapopulation.md](04-exploitation/runbook-metapopulation.md)
+6. [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md)
 
 ### Pour développer ou intégrer
 

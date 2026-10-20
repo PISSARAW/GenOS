@@ -20,12 +20,12 @@ ni modifier leur contrat de mission.
 - [Contrat runtime A-Team](../../03-reference/runtime-a-team.md) — états, rapports, clôture et limites des variantes.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).
-- [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.
+- [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte, adaptateurs vérifiables, admission isolée, santé typée et cycle de session ; [contrat runtime](../../03-reference/runtime-holobionte.md) et [guide opérateur](../../04-exploitation/operer-runtime-holobionte.md).
 - [syncytium.md](syncytium.md) — modèle d'état partagé et runtime partiel à 13 variants ; campagne des 53 missions non attestée ; orchestration par état partagé causal et synchronisation continue.
 - [runtime-syncytium.md](../../03-reference/runtime-syncytium.md) — contrat Node/MCP actuel et preuve de complétion.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
-- [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md).
+- [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md), [registre des variants](../../03-reference/variants-metapopulation.md) et [runbook](../../04-exploitation/runbook-metapopulation.md).
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance, maturité et guide vers les cas d'usage des 95 variants canoniques.
 - [garage-fabric.md](garage-fabric.md) — douze politiques exécutables, file SQLite, baux clôturés et cycle snapshot/freeze/thaw vérifié.
 

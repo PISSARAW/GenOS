@@ -157,6 +157,36 @@ de preuve associés. Il ne doit jamais déduire `completed` de `accepted` ou
 `started`, ni convertir un `completed` en `VERIFIED`. Un endpoint qui expose
 plusieurs de ces champs décrit plusieurs étapes du protocole, pas des synonymes.
 
+### Complétion commune des missions
+
+Les consommateurs raccordés à `missionCompletionContract` produisent
+`genos.mission-completion/v1`. Un verdict `succeeded` exige simultanément un
+état terminal `completed`, tous les membres requis terminés, une preuve
+adressée par contenu pour chacun, une identité de mission et de membre
+cohérente, une validation topologique `verified` et aucune barrière partielle.
+
+Le hash est recalculé sur le contenu du reçu ; une référence SHA-256 seulement
+plausible, une preuve d'une autre mission ou un code de sortie zéro sont
+insuffisants. La sortie conserve toujours `promotionEligible: false`. Voir le
+[contrat commun de complétion](contrat-completion-mission.md) pour les schémas,
+la précédence `failed > partial > succeeded`, les motifs et les tests.
+
+### Metapopulation : portée du cycle
+
+Pour le runtime régional, `accepted` concerne l'admission de la commande,
+`started` le lancement du runner, `completed` la terminaison du worker concerné
+et `VERIFIED` la relecture des effets du cycle dans leur scope persistant. Un
+cycle `VERIFIED` ne certifie ni toute la mission, ni la pertinence scientifique
+du variant. Le champ canonique est `metapopulationId`.
+
+`sessionId` reste accepté comme alias de compatibilité, mais son emploi émet
+l'avertissement `DEP_METAPOPULATION_SESSION_ID`. Les nouveaux clients doivent
+envoyer `metapopulationId` et journaliser l'identité du cycle, les
+`idempotencyKey` et les reçus avant toute reprise. Voir le
+[contrat runtime](runtime-metapopulation.md), le
+[registre des variants](variants-metapopulation.md) et le
+[runbook opérateur](../04-exploitation/runbook-metapopulation.md).
+
 Les en-tetes `X-Request-Id` et `X-Trace-Id` sont attaches par l'application. Les erreurs REST suivent l'enveloppe :
 
 ```json
@@ -375,6 +405,10 @@ GenOS n'expose pas un unique versionnement semantique transversal a REST, gRPC, 
 La compatibilite IDE est appliquee dans [backend/src/controllers/ideController.js](../../backend/src/controllers/ideController.js) : un major different ou un minor client inferieur produit `426 INCOMPATIBLE_IDE_VERSION`. Cette asymetrie signifie qu'un client plus recent dans le meme major est accepte, mais ses capacites ne sont pas garanties sans negotiation explicite.
 
 Pour preserver la backward compatibility : ajouter des champs optionnels, conserver les noms/numéros proto existants, annoncer une nouvelle version MCP si le schema canonique change, accepter un alias temporaire sans ambiguite, et retourner un code d'erreur explicite avant de retirer l'ancien champ. Ne pas introduire un champ `success:true` comme substitut d'un resultat metier verifie.
+
+L'alias Metapopulation `sessionId` illustre cette règle : il reste lisible pour
+les anciens appelants, émet `DEP_METAPOPULATION_SESSION_ID` et ne doit plus être
+produit par les nouvelles intégrations. `metapopulationId` est le nom canonique.
 
 ## Reponses de succes mensongeres : prevention
 

@@ -1,5 +1,8 @@
 # 06 — Qualité et preuves
 
+- [qualification-metapopulation-2026-10-20.md](qualification-metapopulation-2026-10-20.md) — qualification datée du runtime régional, des variants, de la reprise et de l'idempotence, avec contre-preuves et limites.
+- [qualification-holobionte-2026-10-20.md](qualification-holobionte-2026-10-20.md) — adaptateurs, isolation, dysbiose, clôture et campagne causale bornée, sans promotion générale.
+
 - [qualification-pensee-endogene-2026-10-20.md](qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, coûts, reprise SQLite, résultats négatifs, ablations et raccord résident fail-closed ; campagne scientifique non exécutée.
 
 - [qualification-servicenow-kore-gitlab-2026-10-19.md](qualification-servicenow-kore-gitlab-2026-10-19.md) — qualification ciblée du cycle SHEV, de la réparation GVX guidée par traces et de l'effet régi par identité d'artefact, avec contre-preuves et bloqueurs globaux.

@@ -3,14 +3,17 @@
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Progression 2026-10-18** : qualification externe minimale (adaptateur `evaluateColonization`) couverte par `externalAdapterQualificationService` et `test_metapopulation_external_adapter_qualification.js`. La qualification globale reste ouverte ; le statut n'est pas promu en implémenté.
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
-- **Dernière revue** : 2026-10-16
+- **Dernière revue** : 2026-10-20
 
 > **Lecture du statut** — Les descriptions de rôles, variantes, scénarios et machines à états expriment le modèle visé lorsqu’elles sont présentées comme cible ou hypothèse. Les calculs, seuils et actions précédés de « réellement calculé », « implémenté » ou « défaut actuel » décrivent le code observé. Les analogies écologiques motivent le vocabulaire ; elles ne valident pas les performances du runtime.
 
-La [référence du runtime](../../03-reference/runtime-metapopulation.md) décrit les API,
-les schémas actuels, les adaptateurs requis et la preuve des dix suites dédiées
-au commit `5b18c834`. Les sections de conception restent des modèles lorsque
-leur portée est indiquée comme cible.
+La [référence du runtime](../../03-reference/runtime-metapopulation.md) décrit les
+API et les schémas actuels ; le
+[registre des variants](../../03-reference/variants-metapopulation.md) relie les
+seize politiques à leurs actions et preuves. La qualification du 2026-10-20
+atteste [treize suites dédiées](../../06-qualite-preuves/qualification-metapopulation-2026-10-20.md),
+sans promouvoir la topologie en résultat scientifique général. Les sections de
+conception restent des modèles lorsque leur portée est indiquée comme cible.
 
 ## Snapshot d'agent lié à un dème
 
@@ -420,7 +423,7 @@ Notes :
   `island-search-adapter` et `procedural-metapopulation`, pas des `workerKind`.
 
 Preuve : `buildWorkerContract` + `promptRule` OK pour les 7 kinds le 2026-10-14 ;
-`npm --prefix backend run test:metapopulation` 10/10 PASS ;
+`npm --prefix backend run test:metapopulation` 13/13 suites PASS le 2026-10-20 ;
 `test_topology_snapshot_metapopulation.js` 16/16 PASS.
 
 ---
@@ -698,12 +701,26 @@ DORMANT → [*] : fossilisation
 
 ## 13. Les 16 variants de Metapopulation
 
-Les douze entrées ci-dessous sont les variants canoniques du registre. Le profil
-automatique actuel examine des mots de la mission, départage les égalités selon
-un ordre fixe et retombe sur `balanced` sans signal distinctif. Il ne mesure pas
-encore l'adéquation réelle des douze variants à une mission. Les cas d'usage
-de la section 13.13 sont des **critères de décision à vérifier** : ils ne
-prouvent ni la supériorité ni l'activation automatique de la forme décrite.
+Le registre contient quatre profils transversaux et douze spécialisations. Le
+profil automatique actuel examine des mots de la mission, départage les égalités
+selon un ordre fixe et retombe sur `balanced` sans signal distinctif. Il ne
+mesure pas encore l'adéquation réelle des seize variants à une mission. Les cas
+d'usage de la section 13.13 sont des **critères de décision à vérifier** : ils
+ne prouvent ni la supériorité ni l'activation automatique de la forme décrite.
+
+### 13.0 Profils transversaux
+
+| Profil | Politique dominante | Intention | Limite de preuve |
+| --- | --- | --- | --- |
+| `balanced` | complementary | compromis par défaut entre utilité, diversité et coût de migration | baseline sûre de sélection, pas optimum démontré |
+| `resilient` | rescue | privilégier les migrations qui restaurent une capacité menacée | fitness locale et rollback restent obligatoires |
+| `exploratory` | novelty | explorer des propagules ou lignées peu représentés | nouveauté déclarée, pas gain de mission établi |
+| `conservative` | counterexample | exiger davantage de preuve avant assimilation | quorum `0.7`, sans garantie de supériorité globale |
+
+Ces profils utilisent le même registre d'exécution et le même vérificateur que
+les spécialisations. La
+[matrice technique](../../03-reference/variants-metapopulation.md#3-matrice-des-seize-variants)
+détaille leurs actions et leurs gardes.
 
 ### 13.1 Classic Patch
 
@@ -1647,7 +1664,14 @@ termine la recolonisation uniquement sur une preuve locale valide.
 
 ## 33. Garanties exécutables du runtime régional
 
-Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm --prefix backend run test:metapopulation` couvre les 12 spécialisations et les 4 profils fondamentaux. La [référence opérationnelle](../../03-reference/runtime-metapopulation.md) précise les dix suites, leurs résultats et les limites de qualification.
+Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite
+`npm --prefix backend run test:metapopulation` couvre les 12 spécialisations et
+les 4 profils fondamentaux. La
+[référence opérationnelle](../../03-reference/runtime-metapopulation.md) précise
+le contrat ; le [rapport daté](../../06-qualite-preuves/qualification-metapopulation-2026-10-20.md)
+détaille les treize suites, leurs résultats et les limites de qualification.
+Le [runbook dédié](../../04-exploitation/runbook-metapopulation.md) décrit la
+reprise, la réconciliation des effets externes et la frontière de snapshot.
 
 Le cerveau reçoit `extinctionReports` avec `demeId`, `evidence.workers`, `evidence.localFunctions` et `provenance`. BUSY, silence et absence de mesure restent insuffisants. PLAN ne démarre pas d'essai. `options.evaluateColonization` reçoit patch, fondateurs et clé d'idempotence, puis retourne `{ viable, fitness, provenance }` avec une fitness numérique dans [0, 1]. Une preuve invalide conserve l'essai en attente ; une acceptation crée un dème actif atomiquement.
 

@@ -1,9 +1,10 @@
 # Runtime Holobionte : contrat d’exécution
 
 - **Statut** : Implémenté pour les missions contractuelles décrites ici
+- **Portée** : façade de mission par capacité, admission, adaptateurs, santé et cycle de session
 - **Dernière revue** : 2026-10-20
 
-Le point d’entrée est [holobionteService.js](../../backend/src/services/holobionteService.js), qui expose runHolobiontMission, openMissionHost, admitMissionSymbiont et preflightHolobiontMission. Le cycle de capacité reste accessible par holobiontRuntime.runCycle. Voir l’[ADR 0330](../adr/0330-holobionte-missions-contractuelles-verifiees.md).
+Le point d’entrée est [holobionteService.js](../../backend/src/services/holobionteService.js), qui expose runHolobiontMission, openMissionHost, admitMissionSymbiont et preflightHolobiontMission. Le cycle de capacité reste accessible par holobiontRuntime.runCycle. Voir l’[ADR 0330](../adr/0330-holobionte-missions-contractuelles-verifiees.md), le [guide d'exploitation](../04-exploitation/operer-runtime-holobionte.md) et le [dossier de qualification](../06-qualite-preuves/qualification-holobionte-2026-10-20.md).
 
 ## Snapshot topologique
 
@@ -51,7 +52,7 @@ Le précontrôle refuse séparément un exécuteur, un vérificateur ou un exéc
 
 Cette provenance prouve quelle implémentation de callback le runtime local a liée au rôle. Elle ne certifie pas à elle seule l’identité d’un fournisseur externe, son environnement physique ni la validité du résultat : ces propriétés exigent les preuves propres à l’adaptateur et restent soumises aux gates de résultat et d’isolation.
 
-L’admission finale exige aussi un objet `isolationProof` émis dans la sortie de `trialCapabilityExecutor`. Le runtime fournit à ce callback son dossier `adapterProvenance`; la preuve doit utiliser le schéma `genos.holobiont-isolation-proof/v1`, référencer exactement le `proofHash` du rôle `trial`, identifier l’isolation et son mécanisme, horodater l’observation, puis attester les frontières `process: ISOLATED`, `workspace: EPHEMERAL|READ_ONLY` et `network: DENIED|RESTRICTED`. Ses `evidenceRefs` doivent toutes être reprises par le vérificateur indépendant. Une preuve absente, non liée à l’adaptateur effectivement appelé ou non couverte par le reçu de vérification provoque `HOLOBIONT_ISOLATION_UNVERIFIED`; aucun symbiote n’est alors admis.
+L’admission finale exige aussi un objet `isolationProof` émis dans la sortie de `trialCapabilityExecutor`. Le runtime fournit à ce callback son dossier `adapterProvenance`; la preuve doit utiliser le schéma `genos.holobiont-isolation-proof/v1`, placer exactement le `proofHash` du rôle `trial` dans `adapterProofHash`, identifier l’isolation et son mécanisme, horodater l’observation, puis attester les frontières `process: ISOLATED`, `workspace: EPHEMERAL|READ_ONLY` et `network: DENIED|RESTRICTED`. Ses `evidenceRefs` doivent toutes être reprises par le vérificateur indépendant. Une preuve absente, non liée à l’adaptateur effectivement appelé ou non couverte par le reçu de vérification provoque `HOLOBIONT_ISOLATION_UNVERIFIED`; aucun symbiote n’est alors admis.
 
 Le helper `examples/holobionte/isolation-proof.cjs` illustre uniquement la forme de ce contrat. Son attestation d’exemple ne crée aucune sandbox système et doit être remplacée en production par les références observables du conteneur, processus ou environnement isolé piloté par l’adaptateur.
 
@@ -81,16 +82,233 @@ Les seuils par défaut sont `signalExtreme: 0.70`, `lowRedundancy: 0.25`, `watch
 
 Le vecteur de fitness conserve ses dimensions séparées. L’isolation physique, les consommations réelles et la vérification des artefacts dépendent des adaptateurs fournis. Les adaptateurs `executeCapability`, `trialCapabilityExecutor` et `verifyCapability` sont obligatoires ; `verifyCapability` doit être une fonction distincte de `executeCapability`. Les tests de contrat et l’exemple arithmétique ne prouvent aucun gain causal face à un agent isolé ni une campagne de 600 à 1 200 exécutions réelles. Le [benchmark longitudinal](../06-benchmarks/benchmark-longitudinal-holobionte.md) conserve ces limites.
 
-## Validation observée le 2026-10-06
+## Architecture d'une mission
 
-| Contrôle exécuté | Résultat observé |
+```mermaid
+flowchart TD
+    I[Mission bornée] --> P[Précontrôle des adaptateurs et du scope]
+    P --> H[Ouverture ou reprise de l'hôte]
+    H --> A[Essai isolé et admission du symbiote]
+    A --> S[Sélection d'un résident sous contrat]
+    S --> E[Exécution de capacité]
+    E --> V[Vérification indépendante]
+    V --> M[Inspection immunitaire]
+    M --> T[Transaction contribution + mémoire + événement]
+    T --> D[Mesure de dysbiose et gouvernance bornée]
+    D --> C[Clôture ou quiescence]
+```
+
+La façade de mission coordonne quatre frontières qui restent séparées :
+
+1. le **contrat du symbiote**, qui borne capacités, classes de données,
+   ressources et autorité ;
+2. l'**adaptateur d'essai**, responsable de l'environnement réellement isolé ;
+3. l'**adaptateur d'exécution**, producteur de la sortie et de la consommation ;
+4. le **vérificateur**, qui relit la sortie sans être le producteur.
+
+Le runtime peut vérifier la forme, la provenance du callback et les liaisons de
+preuve. Il ne peut pas transformer une fonction locale en sandbox système ni
+prouver l'indépendance organisationnelle d'un fournisseur externe.
+
+## Cycle de vie de l'hôte et de la mission
+
+Une mission crée un hôte ou réutilise une session active du même `hostId`,
+`projectId` et `workspaceId`. Le scope n'est jamais élargi par la réutilisation.
+Un hôte persistant revient en quiescence après une mission vérifiée ; un hôte
+non persistant est fermé. Une mission bloquée ne force pas la fermeture et
+conserve le contexte nécessaire au diagnostic.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: ouverture de session
+    ACTIVE --> ACTIVE: admission et étapes vérifiées
+    ACTIVE --> QUIESCENT: mission terminée, persistentHost=true
+    ACTIVE --> CLOSED: mission terminée, persistentHost=false
+    ACTIVE --> STOP_BLOCKED: effets ou conditions d'arrêt non résolus
+    QUIESCENT --> ACTIVE: nouvelle mission dans le même scope
+    QUIESCENT --> CLOSED: fermeture explicite
+```
+
+La quiescence signifie qu'aucune étape de la mission n'est en cours selon le
+journal du runtime. Elle ne prouve pas que tous les effets distants ont été
+annulés. La capture topologique exige cette frontière, puis scelle les reçus et
+la mémoire sans rejouer les outils à la restauration.
+
+## Admission et essai isolé
+
+L'admission d'un nouveau symbiote est une opération probante, pas un simple
+enregistrement. Le candidat doit fournir un contrat complet et réussir un essai
+borné. La sortie de l'essai comprend au minimum le résultat, la consommation,
+le score de contribution et `contractCompliant`.
+
+La preuve d'isolation doit être corrélée au callback d'essai réellement appelé :
+
+```json
+{
+  "schema": "genos.holobiont-isolation-proof/v1",
+  "status": "VERIFIED",
+  "adapterProofHash": "<empreinte de la provenance trial>",
+  "isolationId": "<identifiant observable>",
+  "mechanism": "container-or-process-boundary",
+  "observedAt": "2026-10-20T00:00:00.000Z",
+  "boundaries": {
+    "process": "ISOLATED",
+    "workspace": "READ_ONLY",
+    "network": "DENIED"
+  },
+  "evidenceRefs": ["sha256:…"]
+}
+```
+
+`workspace` accepte `EPHEMERAL` ou `READ_ONLY`; `network` accepte `DENIED` ou
+`RESTRICTED`. Toutes les références doivent réapparaître dans le reçu du
+vérificateur. Une attestation déclarative dont le hash vise un autre callback
+est refusée, même si ses frontières textuelles paraissent correctes.
+
+## Exécution, atomicité et annulation
+
+Avant chaque étape, le runtime relit la session, le résident, la révision de
+contrat, l'autorité, les classes de données et la capacité de ressources.
+L'allocation est réservée avant l'appel puis libérée dans tous les chemins
+terminaux. La consommation retournée est comparée au budget et à l'allocation ;
+une consommation absente ou modifiée pendant la vérification est refusée.
+
+La contribution, la mémoire du symbiote et l'événement `CAPABILITY_USED` sont
+persistés ensemble après vérification et décision immunitaire. Une erreur de
+persistance ne laisse donc pas une contribution promue sans son journal. Le
+signal d'annulation est contrôlé avant les mutations et propagé aux callbacks.
+Il appartient néanmoins à l'adaptateur d'interrompre effectivement un effet
+externe et d'implémenter sa propre idempotence.
+
+## Vérification indépendante
+
+Le vérificateur reçoit la sortie exacte, son empreinte, le contrat, la
+consommation et le signal. Sa réponse doit contenir :
+
+| Champ | Exigence |
 | --- | --- |
-| `npm --prefix backend run test:holobionte` | 51 scripts réussis, code 0. |
-| `npm test` depuis la racine | Réussi, code 0. |
-| Contrôle strict ciblé sur 49 fichiers du runtime et de ses frontières modifiées | Zéro violation. |
-| Exemple CLI arithmétique | Somme 30, résultat `VERIFIED`, session `CLOSED`. |
-| `python scripts/ci/check_code_quality.py` | Échec global : violations présentes ailleurs dans le dépôt. |
-| `cargo test --workspace` | Échec initial sur le test de quarantaine nosocomiale ; ce test passe ensuite isolément après recompilation de changements concurrents. |
-| `cargo test --workspace --no-fail-fast` | Compilation terminée en erreur ; aucun bilan complet des tests du workspace acquis. |
+| `status` | exactement `VERIFIED` |
+| `resultHash` | égal à l'empreinte calculée avant l'appel |
+| `verifierId` | non vide et distinct de l'identité du symbiote |
+| `evidenceRefs` | tableau non vide de références de preuve |
+| `selfVerified` | ne doit pas valoir `true` |
 
-Ces observations couvrent l’état testé pendant des travaux concurrents dans le dépôt. Elles attestent les contrats exercés, sans certifier la totalité de GenOS ni des gains de performance. La dette globale n’a pas été masquée par une modification de la baseline.
+Le callback doit aussi être une fonction différente de l'exécuteur, avec une
+empreinte d'implémentation différente. Cette garde empêche l'auto-vérification
+locale évidente ; elle ne prouve pas qu'une même personne ou organisation ne
+contrôle pas les deux adaptateurs.
+
+## Santé, dysbiose et gouvernance
+
+Le runtime mesure six signaux après l'étape et les conserve séparément. Une
+politique de santé peut déclencher `WARN`, `THROTTLE`, `REDUCE_RESOURCES` ou
+`QUARANTINE`. Ces actions sont bornées par la constitution et ne changent pas
+le verdict historique de la capacité déjà vérifiée.
+
+| Signal | Interprétation opérationnelle |
+| --- | --- |
+| `resourceConcentration` | dépendance excessive à un consommateur de ressources |
+| `dependencyConcentration` | dépendance fonctionnelle à trop peu de symbiotes |
+| `harmfulActivity` | activité classée nuisible par les observations fournies |
+| `conflictRate` | fréquence de conflits avec l'hôte ou les pairs |
+| `immunePressure` | intensité des réponses immunitaires |
+| `functionalRedundancy` | capacité de remplacement ; une valeur faible augmente le risque |
+
+`automatic: false` conserve le diagnostic sans appliquer les sanctions. Une
+mesure `heuristic` ne doit pas être présentée comme un capteur calibré. Même
+avec six entrées `measured`, l'agrégat de dysbiose reste heuristique et ne rend
+jamais une mission promotable.
+
+## Catalogue des résultats
+
+| Statut | Portée exacte | Reprise recommandée |
+| --- | --- | --- |
+| `VERIFIED` | Toutes les étapes exécutées et vérifiées, clôture conforme | Consommer le reçu ; appliquer ensuite les gates métier |
+| `ADMISSION_REJECTED` | Au moins un candidat n'a pas franchi l'admission | Corriger contrat, essai ou preuve d'isolation |
+| `CAPABILITY_GAP` | Aucun résident admissible n'offre la capacité | Ajouter un candidat qualifié ou revoir le plan |
+| `EXECUTION_REJECTED` | Sortie, consommation, preuve ou décision immunitaire refusée | Examiner le reçu de l'étape ; ne pas la rejouer aveuglément |
+| `STOP_BLOCKED` | La session ne peut pas atteindre une frontière d'arrêt sûre | Résoudre allocations, effets en vol ou état de session |
+
+Le reçu `genos.holobiont-capability-mission/v1` inclut les identités de mission
+et d'hôte, les admissions, les étapes terminées, l'usage, le budget, le statut,
+la clôture et le cycle de vie. Le consommateur doit conserver les preuves de
+chaque étape ; un statut de mission ne remplace pas leurs dossiers.
+
+## Erreurs structurantes
+
+| Code | Cause |
+| --- | --- |
+| `HOLOBIONT_EXECUTION_INVALID` | Entrée ou sortie d'exécution invalide |
+| `HOLOBIONT_EXECUTOR_REQUIRED` | Exécuteur de capacité absent ou non fonctionnel |
+| `HOLOBIONT_VERIFIER_REQUIRED` | Vérificateur absent ou non fonctionnel |
+| `HOLOBIONT_ADAPTER_PROVENANCE_INVALID` | Dossier de callback absent ou divergent |
+| `HOLOBIONT_VERIFIER_NOT_INDEPENDENT` | Vérificateur confondu avec le producteur |
+| `HOLOBIONT_SESSION_INACTIVE` | Session fermée ou non active au moment de l'effet |
+| `HOLOBIONT_REVISION_CONFLICT` | État de session modifié depuis la lecture |
+| `HOLOBIONT_CONTRACT_REVISION_CONFLICT` | Contrat du résident modifié pendant l'étape |
+| `HOLOBIONT_PRIVACY_VIOLATION` | Classe de données hors contrat |
+| `HOLOBIONT_USAGE_REQUIRED` | Consommation absente ou non mesurable |
+| `HOLOBIONT_RESOURCE_OVERRUN` | Budget ou allocation dépassé |
+| `HOLOBIONT_EVIDENCE_REQUIRED` | Vérification sans références probantes |
+| `HOLOBIONT_TRIAL_EXECUTOR_REQUIRED` | Admission sans exécuteur d'essai |
+| `HOLOBIONT_ISOLATION_UNVERIFIED` | Preuve d'isolation absente, divergente ou non couverte |
+| `HOLOBIONT_RESULT_CHANGED` | Résultat différent entre production et vérification |
+| `HOLOBIONT_USAGE_CHANGED` | Consommation différente entre production et vérification |
+
+## Diagnostic opérateur
+
+1. Exécuter d'abord `preflightHolobiontMission` pour séparer une erreur de
+   forme d'un refus probant. Un préflight réussi n'exécute aucune capacité.
+2. Sur `ADMISSION_REJECTED`, comparer `adapterProofHash` au `proofHash` de la provenance
+   du rôle `trial`, puis vérifier la couverture des `evidenceRefs`.
+3. Sur `EXECUTION_REJECTED`, comparer la sortie, son hash, la consommation et
+   le reçu du vérificateur avant toute nouvelle tentative.
+4. Sur conflit de révision, relire la session et le contrat ; ne pas écraser la
+   révision concurrente.
+5. Sur `STOP_BLOCKED`, inspecter les allocations et effets en vol. Ne pas
+   fabriquer un état `CLOSED` pour permettre un snapshot.
+6. Sur dysbiose, distinguer chaque signal mesuré de l'agrégat heuristique et
+   journaliser l'action de gouvernance réellement appliquée.
+
+## Campagne causale bornée
+
+Le harnais [`holobiont-causal-campaign`](../../benchmarks/holobiont-causal-campaign/)
+compare, dans deux processus dédiés, une somme directe et la même tâche via le
+service de mission réel. Un oracle séparé relit les sorties. Cette campagne
+falsifie des erreurs de câblage et d'isolation sur trois cas déterministes ;
+elle ne démontre pas un avantage causal général. Le protocole complet est
+décrit dans [Campagne causale bornée Holobionte](../06-benchmarks/campagne-causale-holobionte.md).
+
+## Validation ciblée
+
+Depuis la racine :
+
+```powershell
+node backend/tests/test_holobiont_symbiont_admission.js
+node backend/tests/test_holobiont_capability_mission.js
+node backend/tests/test_holobiont_variant_mission_execution.js
+node backend/tests/test_holobionte_all_variants_mission.js
+node backend/tests/test_holobiont_causal_campaign.js
+```
+
+Le profil agrégé reste disponible avec :
+
+```powershell
+npm --prefix backend run test:holobionte
+```
+
+Les tests couvrent les contrats locaux, les refus et les variants exercés par
+leurs fixtures. Ils ne qualifient pas un fournisseur externe, une sandbox
+système, une campagne métier distribuée ni un gain en coût ou en qualité.
+
+## Références
+
+- [Topologie Holobionte](../02-orchestration/topologies/holobionte.md)
+- [Guide d'exploitation](../04-exploitation/operer-runtime-holobionte.md)
+- [Qualification du 20 octobre 2026](../06-qualite-preuves/qualification-holobionte-2026-10-20.md)
+- [Campagne causale bornée](../06-benchmarks/campagne-causale-holobionte.md)
+- [Guide d'exploitation Holobionte](../04-exploitation/operer-runtime-holobionte.md)
+- [Qualification Holobionte du 2026-10-20](../06-qualite-preuves/qualification-holobionte-2026-10-20.md)
+- [Snapshots topologiques](snapshots-topologiques.md)
+- [ADR 0330 — missions contractuelles vérifiées](../adr/0330-holobionte-missions-contractuelles-verifiees.md)
+- [ADR 0401 — preuve d'arrêt](../adr/0401-preuve-arret-mission-holobionte.md)

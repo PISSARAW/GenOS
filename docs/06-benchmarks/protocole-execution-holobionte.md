@@ -1,13 +1,16 @@
 # Protocole d'exécution des missions Holobionte
 
-- **Statut** : runner de mission variant exécutable; campagne complète non exécutée
+- **Statut** : runner de mission variant exécutable ; campagne complète non exécutée
 - **Objet** : comparer topologies et workers sur les missions discriminantes et archiver les preuves
 - **Référence** : le commit V3 est inscrit dans chaque campagne
-- **Date** : 2026-10-04
+- **Dernière revue** : 2026-10-20
 
 Ce document sépare les valeurs appliquées par défaut des paramètres préenregistrés
 par expérience. Une sélection de variant, un message transporté, un événement de
 télémétrie ou une suite simulée ne constitue pas, seul, une preuve de réussite métier.
+La [campagne causale bornée](campagne-causale-holobionte.md) exécute trois cas
+arithmétiques et qualifie le harnais local minimal ; elle ne constitue pas la
+campagne multi-topologies décrite ici.
 
 ## 1. Corpus et unité d'essai
 
@@ -314,6 +317,13 @@ réussies et preuves. Un adaptateur absent, un service distant non configuré ou
 preuve non vérifiable laisse l'essai bloqué ou inconclusif. La commande ne fabrique
 pas les reçus cloud, outil ou agent dont la mission a besoin.
 
+Pour les missions par capacité, les callbacks requis reçoivent désormais une
+provenance `genos.holobiont-adapter-provenance/v1`. L'admission doit en outre
+lier `isolationProof.adapterProofHash` au rôle `trial` et faire couvrir ses
+références par le vérificateur. Les signaux de dysbiose distinguent `measured`
+et `heuristic`, et aucun agrégat de santé n'autorise une promotion. Voir le
+[contrat runtime](../03-reference/runtime-holobionte.md).
+
 Les missions de worker, leurs relations, échanges et classifications nosologiques ne
 sont pas créés automatiquement par ce runner; ils doivent être fournis et reliés par
 les adaptateurs de campagne avant que ces mesures soient disponibles. Ces suites
@@ -327,6 +337,9 @@ campagne réelle est exécutée.
 ## 10. Références
 
 - [Missions discriminantes / benchmark longitudinal](benchmark-longitudinal-holobionte.md)
+- [Campagne causale bornée](campagne-causale-holobionte.md)
+- [Guide d'exploitation](../04-exploitation/operer-runtime-holobionte.md)
+- [Qualification du 20 octobre 2026](../06-qualite-preuves/qualification-holobionte-2026-10-20.md)
 - [Communication](../02-orchestration/communication.md) et [relations inter-agents](../02-orchestration/relations-inter-agents.md)
 - [Catalogue des topologies](../02-orchestration/topologies/README.md)
 - [Nosologie](../01-concepts/nosologie/README.md) et [budgets/runtime](../01-concepts/runtime-agentique.md)

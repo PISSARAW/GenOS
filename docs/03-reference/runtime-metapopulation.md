@@ -3,7 +3,12 @@
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : API Node, persistance SQLite, adaptateurs et reprise bornée
 - **Dernière revue** : 2026-10-20
-- **Version de référence** : commit `5b18c834`
+- **Version de référence** : lots `32b54d0f`, `d0050db3`, `eb7b0b1d`,
+  `e97a60d4` et `f851b506`
+
+Références complémentaires : [registre des seize variants](variants-metapopulation.md),
+[runbook opérateur](../04-exploitation/runbook-metapopulation.md) et
+[qualification datée](../06-qualite-preuves/qualification-metapopulation-2026-10-20.md).
 
 ## Snapshot topologique
 
@@ -61,6 +66,14 @@ async function observeEmptyRegion(db) {
 
 Une région sans action planifiée retourne `NO_ACTION`. Ce résultat décrit
 l'inactivité ; il ne constitue pas une réussite de mission.
+
+Les seize variants sont résolus par
+[`metapopulationPolicyService`](../../backend/src/services/metapopulation/policy/metapopulationPolicyService.js),
+planifiés par `variantRuntimeService`, puis exécutés par le registre partagé
+[`variantRuntimeRegistry`](../../backend/src/services/metapopulation/runtime/variantRuntimeRegistry.js).
+Le module `variantRuntimeVerification` relit les effets persistés. Un nom
+sélectionnable sans runtime résolu provoque un refus ; il ne retombe pas sur un
+exécuteur générique silencieux.
 
 ## 2. Données réellement persistées
 
@@ -126,6 +139,19 @@ par l'appelant ne réactive pas une session fermée.
 Les effets externes doivent honorer leurs clés d'idempotence : le journal
 SQLite seul ne rend pas une API externe transactionnelle.
 
+Chaque action EXECUTE possède une `idempotencyKey`. Si elle n'est pas fournie,
+le runtime la dérive de la session, du cycle, de la position et du contenu de
+l'action avant validation. Les doublons internes au plan sont refusés. La clé
+du cycle est persistée dans `metapopulation_cycle_states.idempotency_key` et
+protégée par l'index unique partiel
+`idx_cycle_states_idempotency_key` sur la paire session/clé. Cette garde refuse
+un second enregistrement ; elle ne compense pas un effet tiers déjà appliqué.
+
+Le scénario d'interruption exercé arrête le cycle pendant EXECUTE, confirme que
+le dernier curseur `VERIFIED` n'avance pas, puis reprend au même numéro logique
+avec `resume: true`. La procédure détaillée et la réconciliation des effets
+externes sont dans le [runbook dédié](../04-exploitation/runbook-metapopulation.md).
+
 Pour le variant `persistent`, `REGISTER_RESIDENT_DAEMON` n'est vérifié que si
 le daemon demandé par le plan est celui du reçu et du bail actif relu dans
 la même session et pour le même dème. Le chemin du workspace doit aussi
@@ -166,6 +192,12 @@ Enregistrer un adaptateur par type dans
 [migrationAdapterRegistry](../../backend/src/services/metapopulation/migration/migrationAdapterRegistry.js).
 `validate` fournit la décision et ses preuves locales ; `assimilate`
 retourne un reçu `{ receiptId, provenance }`.
+
+Les opérations `adapt`, `assimilate` et `rollback` sont invoquées via le
+contrat `genos.metapopulation-migration-adapter-idempotency/v1`. Elles exigent
+un champ `idempotencyKey` et doivent retourner le reçu original lors d'un rejeu
+identique. L'identité de migration sert à `adapt`/`assimilate` ; le rollback
+utilise `rollback:<migrationId>`.
 
 | Décision du receveur | Effet |
 | --- | --- |
@@ -220,8 +252,9 @@ npm --prefix backend run test:metapopulation
 node backend/bin/metapopulation-benchmark.cjs 1
 ```
 
-Le profil dédié contient onze suites : completion, durable execution,
-cultural persistence, migration review, morphogenesis integration, regional brain,
+Le profil dédié contient treize suites : completion, crash recovery et snapshot
+quiescent, idempotence des adaptateurs et cycles, durable execution, cultural
+persistence, migration review, morphogenesis integration, regional brain,
 variants runtime, variant gaps, variant selection, wiring et external adapter
 qualification. La qualification externe minimale (adaptateur `evaluateColonization`)
 est couverte par `externalAdapterQualificationService` et son test dédié ; la
@@ -248,9 +281,58 @@ fail-closed d'un kind incompatible (`WORKER_KIND_CAPABILITY_MISMATCH`).
 Le profil `workers` a passé 7 gates avant un timeout >120 s sur
 `test_worker_compliance_native_missions` (à relancer avec un timeout augmenté).
 
+Qualification du 2026-10-20 : profil `metapopulation` **13/13 suites PASS**,
+gate qualité revalidé sur **7 057 fichiers, 0 violation** et workspace Rust PASS après
+relance hors sandbox des tests de checkpoint refusés par Windows. La suite npm
+globale a rencontré un refus de clôture GQWF dans des changements concurrents
+hors périmètre ; aucune validation globale du dépôt n'est revendiquée. Le
+[rapport daté](../06-qualite-preuves/qualification-metapopulation-2026-10-20.md)
+décrit le protocole, les contre-preuves et les limites.
+
 Le benchmark mesure uniquement capacité et anti-synchronie sur des fixtures
 synthétiques de 12, 24 et 48 dèmes. La supériorité entre topologies, la tolérance
 à des pannes réelles et le bénéfice par token demandent un protocole comparatif.
 
 Voir la [fiche de topologie](../02-orchestration/topologies/metapopulation.md)
 et [ADR 0330](../adr/0330-effets-durables-metapopulation.md).
+## 8. Architecture des variants
+
+Les seize variants partagent un seul runtime d'exécution et un seul module de
+vérification. Les différences sont portées par :
+
+1. la politique persistée de la session ;
+2. le planificateur associé à l'identifiant du variant ;
+3. les actions produites ;
+4. les effets relus par catégorie ;
+5. les adaptateurs externes explicitement configurés.
+
+```mermaid
+flowchart LR
+    P[Politique et signaux] --> A[Planificateur du variant]
+    A --> K[Actions avec clés]
+    K --> R[Registre runtime partagé]
+    R --> E[Effets persistés ou externes]
+    E --> V[Vérification partagée]
+    V --> C[Cycle VERIFIED]
+```
+
+La matrice de maturité actuelle retourne `implemented` pour les seize variants
+parce que leur politique, planificateur, contrat d'action et vérification sont
+présents. Cette maturité logicielle ne qualifie ni la calibration des seuils,
+ni l'efficacité comparative. La matrice complète est dans
+[Variants Metapopulation](variants-metapopulation.md).
+
+## 9. Contrat opérateur minimal
+
+- utiliser `metapopulationId`, pas le repli déprécié `sessionId` ;
+- ne lancer qu'un runner autorisé par session ;
+- conserver les clés et reçus avant une reprise ;
+- ne jamais promouvoir manuellement `FAILED` ou `RESUMED` en `VERIFIED` ;
+- exiger une frontière quiescente avant snapshot ;
+- interpréter `boundaryVerified` comme preuve de frontière, jamais comme preuve
+  de mission ;
+- relancer les treize suites après une modification du registre, des migrations
+  ou des vérificateurs.
+
+Le [runbook Metapopulation](../04-exploitation/runbook-metapopulation.md) fournit
+les requêtes SQL, l'arbre de décision et les réponses aux codes d'erreur.

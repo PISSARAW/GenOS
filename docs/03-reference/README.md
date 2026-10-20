@@ -8,6 +8,7 @@ Contrats et surfaces exposées par GenOS. Ces documents décrivent des interface
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [contrat-completion-mission.md](contrat-completion-mission.md) — verdict commun, identités requises, preuves liées au contenu, validation topologique et refus fail-closed.
 - [action-genome.md](action-genome.md) — schéma canonique, catalogue, admission causale, projections de surfaces et limites d'exécution.
 - [snapshots-topologiques.md](snapshots-topologiques.md) — capture, frontières de cohérence et reprise vérifiée des huit topologies par variant.
 - [exploitation-shev.md](exploitation-shev.md) — contrats signés, capteurs, actions métier, cycle durable de cicatrisation, dossier, récupération et évaluation SHEV.
@@ -23,6 +24,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [runtime-pensee-endogene.md](runtime-pensee-endogene.md) — services ETT, contrats, tables append-only, erreurs, coûts, expériences et raccord scheduler.
 - [runtime-a-team.md](runtime-a-team.md) — exécution canonique, preuves, handoffs versionnés, couvertures et reprise A-Team.
 - [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.
+- [variants-metapopulation.md](variants-metapopulation.md) — registre des seize variants, actions, idempotence, preuves et extension fail-closed.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.
 - [runtime-syncytium.md](runtime-syncytium.md) — admission causale, réplication, persistance et clôture vérifiée de l’état partagé.
 
@@ -39,7 +41,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
 - [categorisation-philosophique.md](categorisation-philosophique.md) — comparaison à l'instance, procédures graduées, métriques, contre-exemples et limites.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 420 contrats dans le plan de mission et le runtime harness Ontogenèse.
-- [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
+- [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, provenance des adaptateurs, admission isolée, santé typée, quotas et cycle de session Holobionte.
 - [matrice-operationnelle-philosophique.md](matrice-operationnelle-philosophique.md) — 420 profils d'audit, champs et prédicats ; limites de la couverture logicielle.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
