@@ -2,7 +2,6 @@
 
 const policy = require('./metapopulationPolicyService');
 const runtime = require('./variantRuntimeService');
-const executors = require('../runtime/variantActionExecutors');
 const regional = require('../runtime/regionalPolicyService');
 
 const EXPECTED_ACTIONS = Object.freeze({
@@ -27,7 +26,7 @@ const EXPECTED_ACTIONS = Object.freeze({
 const brain = require('../runtime/regionalBrainService');
 
 function handledActionTypes() {
-  return new Set([...Object.keys(executors.EXECUTORS), ...Object.keys(executors.RUNTIME_MARKERS),
+  return new Set([...policy.resolveVariantRuntime('balanced').handledActionTypes(),
     ...Object.keys(regional.EVENT_ACTIONS), ...Object.keys(brain.CORE_ACTION_EXECUTORS)]);
 }
 

@@ -33,7 +33,8 @@ async function rollbackRescue(input, options = {}) {
   }
   const adapter = adapterRegistry.resolveAdapter(migration.type);
   if (!adapter?.rollback) throw Object.assign(new Error('The receiver adapter does not support rollback.'), { code: 'METAPOPULATION_RESCUE_ROLLBACK_UNAVAILABLE' });
-  const receipt = await adapter.rollback({ migration, receiver: input.receiver, idempotencyKey: `rollback:${migration.migrationId}` });
+  const receipt = await adapterRegistry.invokeAdapter(adapter, 'rollback',
+    { migration, receiver: input.receiver, idempotencyKey: `rollback:${migration.migrationId}` });
   if (!hasProvenanceReceipt(receipt) || !isPenaltyValid(input.corridorPenalty)) {
     throw Object.assign(new Error('A provenance receipt and bounded corridor penalty are required.'), { code: 'METAPOPULATION_RESCUE_ROLLBACK_INVALID' });
   }
@@ -64,7 +65,7 @@ async function validateAndAssimilate(migration, input) {
     });
   }
   const adaptation = await adaptIfRequested(adapter, context, validation);
-  const receipt = await adapter.assimilate({ ...context, validation, adaptation });
+  const receipt = await adapterRegistry.invokeAdapter(adapter, 'assimilate', { ...context, validation, adaptation });
   if (!hasProvenanceReceipt(receipt)) {
     throw Object.assign(new Error('Assimilation must return a provenance-bearing receipt.'), { code: 'METAPOPULATION_ASSIMILATION_RECEIPT_REQUIRED' });
   }
@@ -77,7 +78,7 @@ async function adaptIfRequested(adapter, context, validation) {
   if (validation.decision !== 'ADAPT_AND_ACCEPT') return null;
   if (typeof adapter.adapt !== 'function') throw Object.assign(new Error('Receiver adaptation is unavailable.'),
     { code: 'METAPOPULATION_ADAPTATION_UNAVAILABLE' });
-  const adaptation = await adapter.adapt({ ...context, validation });
+  const adaptation = await adapterRegistry.invokeAdapter(adapter, 'adapt', { ...context, validation });
   if (!hasProvenanceReceipt(adaptation)) throw Object.assign(new Error('Adaptation requires a provenance receipt.'),
     { code: 'METAPOPULATION_ADAPTATION_RECEIPT_REQUIRED' });
   const recheck = await adapter.validate({ ...context, adaptation });

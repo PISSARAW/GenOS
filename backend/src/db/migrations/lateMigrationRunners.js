@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('148-metapopulation-cycle-idempotency', 'Fence metapopulation cycle execution with durable idempotency keys', async (db) => {
+    await require('./migrateMetapopulationCycleIdempotency').migrateMetapopulationCycleIdempotency(db);
+  }),
   createMigrationRunner('148-trajectory-stewardship-outcomes', 'Require dual evidence before trajectory promotion', async (db) => {
     await require('./migrateTrajectoryStewardshipOutcomes').migrateTrajectoryStewardshipOutcomes(db);
   }),

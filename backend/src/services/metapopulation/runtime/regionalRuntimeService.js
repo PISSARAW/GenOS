@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const STAGES = Object.freeze(['OBSERVE', 'DIAGNOSE', 'PLAN', 'EXECUTE', 'VERIFY', 'RECORD']);
 const REQUIRED_ADAPTERS = Object.freeze(['observe', 'diagnose', 'plan', 'execute', 'verify']);
 
@@ -43,10 +45,12 @@ async function executeCycleStages(input, options) {
   input = { ...input, seed };
   const observed = await adapter.observe(input);
   const diagnosis = await adapter.diagnose(observed, input);
-  const plan = await adapter.plan(diagnosis, observed, input);
+  const plan = prepareExecutablePlan(await adapter.plan(diagnosis, observed, input), input);
   validatePlan(plan);
   const stopped = await persistedStopReason(input, options, 0);
   if (stopped) return { status: 'STOPPED', reason: stopped, cycle: input.cycle, stages: STAGES };
+  const idempotencyKey = cycleIdempotencyKey(plan.actions);
+  await assertCycleNotDuplicate(options.db, input.metapopulationId, idempotencyKey);
   const execution = await executePlan(adapter, { plan, diagnosis, observed, input });
   const verification = await adapter.verify(execution, plan, diagnosis, observed, input);
   if (!verification || verification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
@@ -54,7 +58,8 @@ async function executeCycleStages(input, options) {
   const { withTransaction } = require('../../../db');
   await withTransaction(options.db, async () => {
     await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification, seed });
-    if (status === 'VERIFIED') await persistCycleState(input, options, { observed, diagnosis, plan, execution, verification, seed });
+    if (status === 'VERIFIED') await persistCycleState(input, options,
+      { observed, diagnosis, plan, execution, verification, seed, idempotencyKey });
   });
   return { status, cycle: input.cycle || null, stages: STAGES,
     actionCount: plan.actions.length, verification, seed };
@@ -68,19 +73,20 @@ async function persistCycleState(input, options, cycleData) {
   await withTransaction(db, async () => {
     await db.run(
       `INSERT INTO metapopulation_cycle_states
-       (state_id, metapopulation_id, cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VERIFIED', ?)`,
+       (state_id, metapopulation_id, cycle, seed, observed_json, diagnosis_json, plan_json, execution_json,
+        verification_json, status, idempotency_key, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VERIFIED', ?, ?)`,
       stateId, metapopulationId, input.cycle, cycleData.seed,
       JSON.stringify(cycleData.observed), JSON.stringify(cycleData.diagnosis),
       JSON.stringify(cycleData.plan), JSON.stringify(cycleData.execution),
-      JSON.stringify(cycleData.verification), new Date().toISOString()
+      JSON.stringify(cycleData.verification), cycleData.idempotencyKey, new Date().toISOString()
     );
   });
 }
 
 async function getLastVerifiedCycle(db, metapopulationId) {
   const row = await db.get(
-    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json
+    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json, idempotency_key
      FROM metapopulation_cycle_states
      WHERE metapopulation_id = ? AND status = 'VERIFIED'
      ORDER BY cycle DESC LIMIT 1`,
@@ -94,13 +100,14 @@ async function getLastVerifiedCycle(db, metapopulationId) {
     diagnosis: JSON.parse(row.diagnosis_json),
     plan: JSON.parse(row.plan_json),
     execution: JSON.parse(row.execution_json),
-    verification: JSON.parse(row.verification_json)
+    verification: JSON.parse(row.verification_json),
+    idempotencyKey: row.idempotency_key
   };
 }
 
 async function resumeFromCycle(db, metapopulationId, targetCycle) {
   const row = await db.get(
-    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json
+    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json, idempotency_key
      FROM metapopulation_cycle_states
      WHERE metapopulation_id = ? AND cycle = ? AND status = 'VERIFIED'`,
     metapopulationId, targetCycle
@@ -113,7 +120,8 @@ async function resumeFromCycle(db, metapopulationId, targetCycle) {
     diagnosis: JSON.parse(row.diagnosis_json),
     plan: JSON.parse(row.plan_json),
     execution: JSON.parse(row.execution_json),
-    verification: JSON.parse(row.verification_json)
+    verification: JSON.parse(row.verification_json),
+    idempotencyKey: row.idempotency_key
   };
 }
 
@@ -156,12 +164,61 @@ async function persistedStopReason(input, options, cycleIndex) {
 
 function validatePlan(plan) {
   if (!plan || !Array.isArray(plan.actions)) throw runtimeError('REGIONAL_PLAN_INVALID', 'Plan must contain an actions array.');
+  const keys = new Set();
+  for (const action of plan.actions) validateActionIdempotency(action, keys);
+}
+
+function prepareExecutablePlan(plan, input) {
+  if (!plan || !Array.isArray(plan.actions)) return plan;
+  return { ...plan, actions: plan.actions.map((action, index) => withIdempotencyKey(action, input, index)) };
+}
+
+function withIdempotencyKey(action, input, index) {
+  if (!action || typeof action !== 'object' || action.idempotencyKey !== undefined) return action;
+  const payload = JSON.stringify([input.metapopulationId, input.cycle || 0, index, action]);
+  return { ...action, idempotencyKey: crypto.createHash('sha256').update(payload).digest('hex') };
+}
+
+function validateActionIdempotency(action, keys) {
+  if (!action || typeof action.type !== 'string' || !action.type.trim()) {
+    throw runtimeError('REGIONAL_ACTION_INVALID', 'Regional execute actions require a type.');
+  }
+  if (typeof action.idempotencyKey !== 'string' || !action.idempotencyKey.trim()) {
+    throw runtimeError('REGIONAL_ACTION_IDEMPOTENCY_KEY_REQUIRED', 'Regional execute actions require a non-empty idempotencyKey.');
+  }
+  if (keys.has(action.idempotencyKey)) {
+    throw runtimeError('REGIONAL_ACTION_IDEMPOTENCY_KEY_DUPLICATE', 'Regional execute action idempotency keys must be unique.');
+  }
+  keys.add(action.idempotencyKey);
+}
+
+function cycleIdempotencyKey(actions) {
+  if (!actions.length) return null;
+  if (actions.length === 1) return actions[0].idempotencyKey;
+  const keys = actions.map((action) => action.idempotencyKey);
+  return crypto.createHash('sha256').update(JSON.stringify(keys)).digest('hex');
+}
+
+async function assertCycleNotDuplicate(db, metapopulationId, idempotencyKey) {
+  if (!idempotencyKey) return;
+  const duplicate = await db.get(`SELECT state_id FROM metapopulation_cycle_states
+    WHERE metapopulation_id = ? AND idempotency_key = ?`, metapopulationId, idempotencyKey);
+  if (duplicate) throw runtimeError('REGIONAL_ACTION_DUPLICATE', 'Regional execute action was already recorded.');
 }
 
 function missingAdapters(adapters = {}) { return REQUIRED_ADAPTERS.filter((name) => typeof adapters[name] !== 'function'); }
 function requireRuntimeContext(input, options) {
-  if (input && !input.metapopulationId && input.sessionId) input.metapopulationId = input.sessionId;
+  if (input && !input.metapopulationId && input.sessionId) {
+    warnDeprecatedSessionId();
+    input.metapopulationId = input.sessionId;
+  }
   if (!options.db || !input.metapopulationId) throw runtimeError('METAPOPULATION_CONTEXT_REQUIRED', 'Persistent regional runtime requires a database and session.');
+}
+/** @deprecated Pass input.metapopulationId to the regional runtime. */
+function warnDeprecatedSessionId() {
+  process.emitWarning('input.sessionId is deprecated; use input.metapopulationId.', {
+    code: 'DEP_METAPOPULATION_SESSION_ID', type: 'DeprecationWarning'
+  });
 }
 function stopReason(conditions = {}, cycleIndex = 0) {
   if (conditions.requested === true) return 'STOP_REQUESTED';

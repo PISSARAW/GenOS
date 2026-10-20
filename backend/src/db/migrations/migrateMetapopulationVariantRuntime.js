@@ -6,6 +6,7 @@ async function migrateMetapopulationVariantRuntime(db) {
   await ensureTable(db, 'ephemeral_leases');
   await ensureTable(db, 'daemon_leases');
   await ensureTable(db, 'cycle_states');
+  await require('./migrateMetapopulationCycleIdempotency').migrateMetapopulationCycleIdempotency(db);
   await ensureTable(db, 'daemon_memory');
   await ensureTable(db, 'mission_fitness');
   await ensureTable(db, 'cultures');
@@ -67,6 +68,7 @@ async function ensureTable(db, table) {
         plan_json TEXT NOT NULL DEFAULT '{}',
         execution_json TEXT NOT NULL DEFAULT '{}',
         verification_json TEXT NOT NULL DEFAULT '{}',
+        idempotency_key TEXT,
         status TEXT NOT NULL CHECK (status IN ('VERIFIED', 'FAILED', 'RESUMED')),
         created_at TEXT NOT NULL,
         FOREIGN KEY (metapopulation_id) REFERENCES metapopulation_sessions(id) ON DELETE CASCADE,

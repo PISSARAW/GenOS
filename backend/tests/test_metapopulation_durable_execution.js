@@ -7,7 +7,7 @@ const { migrateMetapopulationRuntime } = require('../src/db/migrations/migrateMe
 const api = require('../src/services/metapopulationCoordinationService');
 const store = require('../src/services/metapopulation/metapopulationStore');
 const brain = require('../src/services/metapopulation/runtime/regionalBrainService');
-const executors = require('../src/services/metapopulation/runtime/variantActionExecutors');
+const variantRuntime = require('../src/services/metapopulation/runtime/variantRuntimeRegistry');
 const islands = require('../src/services/metapopulation/runtime/islandExecutionService');
 const migrationLoop = require('../src/services/metapopulation/runtime/regionalMigrationLoopService');
 const migrationStore = require('../src/services/metapopulation/migration/migrationStore');
@@ -190,17 +190,17 @@ async function reservePersistence(db) {
     corridors: graph.map((item) => item.corridorId === corridor.corridorId ? { ...item, enabled: false, isReserve: true } : item) });
   assert.equal((await corridorStore.listGraph(db, id)).find((item) => item.corridorId === corridor.corridorId).isReserve, true);
   const action = { type: 'ACTIVATE_RESERVE_CORRIDOR', corridorId: corridor.corridorId };
-  await executors.executeVariantAction(action, { input: { metapopulationId: id }, options: { db } });
+  await variantRuntime.executeVariantAction(action, { input: { metapopulationId: id }, options: { db } });
   const activated = (await corridorStore.listGraph(db, id)).find((item) => item.corridorId === corridor.corridorId);
   assert.equal(activated.enabled, true);
   assert.equal(activated.isReserve, false);
   const reserve = { type: 'STAGE_FOUNDER_RESERVE', deficit: 2,
     founders: [{ lineageId: 'reserve-a' }, { lineageId: 'reserve-b' }] };
-  const staged = await executors.executeVariantAction(reserve,
+  const staged = await variantRuntime.executeVariantAction(reserve,
     { input: { metapopulationId: id }, options: { db } });
   const observed = await brain.observeRegion({ metapopulationId: id }, { db });
   assert.equal(observed.regionalMemory.founderReserve.length, 2);
-  const verifyReserve = () => require('../src/services/metapopulation/runtime/variantActionVerifiers')
+  const verifyReserve = () => require('../src/services/metapopulation/runtime/variantRuntimeRegistry')
     .verifyVariantActions({ input: { metapopulationId: id }, options: { db },
       plan: { actions: [reserve] }, execution: { results: [staged] } });
   assert.equal(await verifyReserve(), true);
@@ -212,7 +212,7 @@ async function residentLeaseRecovery(db) {
   const id = await population(db, 'persistent');
   const persistent = require('../src/services/metapopulation/runtime/persistentRuntimeService');
   const leases = require('../src/services/metapopulation/runtime/persistentDaemonLeaseService');
-  const verification = require('../src/services/metapopulation/runtime/variantActionVerifiers');
+  const verification = require('../src/services/metapopulation/runtime/variantRuntimeRegistry');
   await persistent.registerResidentDaemon({ db, metapopulationId: id, demeId: id + 'a', daemonId: 'custom-resident' });
   const before = await db.get('SELECT COUNT(*) AS count FROM daemon_memory WHERE metapopulation_id = ? AND deme_id = ?', id, id + 'a');
   await db.run("UPDATE daemon_leases SET active = 0, expires_at = '2000-01-01T00:00:00.000Z' WHERE metapopulation_id = ?", id);

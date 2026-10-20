@@ -6,6 +6,8 @@ const { open } = require('sqlite');
 const syncytium = require('../src/services/syncytiumCoordinationService');
 const completion = require('../src/services/syncytiumMissionCompletionService');
 const topology = require('../src/services/topologySessionTools');
+const workerStore = require('../src/services/biologicalWorkerStore');
+const { digest, encode } = require('../src/services/biologicalIntegrity');
 
 function missionOptions(db) {
   return { db, schema: { fields: { result: { dataType: 'LWW_REGISTER' } }, invariants: [
@@ -24,7 +26,17 @@ async function applyResult(db, sessionId, result) {
 }
 
 function workerOutput() {
-  return { members: [{ status: 'completed' }], dispatchFailures: [] };
+  return { members: [{ workerId: 'worker', status: 'completed' }], dispatchFailures: [] };
+}
+
+async function persistMissionProof(db, missionId) {
+  await workerStore.ensure(db);
+  const content = { schema: 'genos.worker-biological-execution-receipt/v1',
+    receiptId: `receipt-${missionId}`, runId: `run-${missionId}`, missionId,
+    workerId: 'worker', result: { status: 'completed', verified: true } };
+  await db.run(`INSERT INTO biological_worker_receipts
+    (receipt_id, run_id, mission_id, payload_hash, receipt_json) VALUES (?, ?, ?, ?, ?)`,
+  content.receiptId, content.runId, missionId, digest(content), encode(content));
 }
 
 async function verifyOrchestratorScope(db, sessionId) {
@@ -85,14 +97,16 @@ async function main() {
     const closure = await syncytium.createSession('Close a coherent worker mission.', missionOptions(db));
     await syncytium.applyOperation(closure.sessionId, { opId: 'closure', actorId: 'worker',
       kind: { type: 'set_field', key: 'result', value: 'done' } }, { db });
-    const output = await completion.validateAndComplete({ db, sessionId: closure.sessionId,
+    await persistMissionProof(db, 'closure-mission');
+    const output = await completion.validateAndComplete({ db, missionId: 'closure-mission', sessionId: closure.sessionId,
       output: workerOutput(), validation: { status: 'complete', workerCount: 1, coveredWorkers: 1 },
       expectedCount: 1 });
     assert.equal(output.complete, true);
     assert.equal(output.materialization.status, 'verified');
     assert.equal(output.stateValidation.snapshotId, output.materialization.snapshotId);
     const empty = await syncytium.createSession('No invented shared proof.', missionOptions(db));
-    const incomplete = await completion.validateAndComplete({ db, sessionId: empty.sessionId,
+    await persistMissionProof(db, 'empty-mission');
+    const incomplete = await completion.validateAndComplete({ db, missionId: 'empty-mission', sessionId: empty.sessionId,
       output: workerOutput(), validation: { status: 'complete', workerCount: 1, coveredWorkers: 1 },
       expectedCount: 1 });
     assert.equal(incomplete.complete, false);

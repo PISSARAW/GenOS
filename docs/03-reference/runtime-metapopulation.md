@@ -2,7 +2,7 @@
 
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : API Node, persistance SQLite, adaptateurs et reprise bornée
-- **Dernière revue** : 2026-10-14
+- **Dernière revue** : 2026-10-20
 - **Version de référence** : commit `5b18c834`
 
 ## Snapshot topologique
@@ -81,7 +81,8 @@ La session renvoyée par la façade fournit aussi `sessionId` comme alias
 de `metapopulationId`. Le runtime attend `metapopulationId`. `sessionId`
 est conservé pour compatibilité, mais il est déprécié : les nouveaux
 appelants doivent utiliser `metapopulationId`. Le runtime accepte
-`sessionId` comme repli, uniquement à titre de compatibilité.
+`sessionId` comme repli, uniquement à titre de compatibilité, et émet alors
+le `DeprecationWarning` de code `DEP_METAPOPULATION_SESSION_ID`.
 
 Scopes : `mission`, `workspace`, `project`, `persistent`.
 Les statuts de session incluent `QUIESCENT` et `CLOSED`.
@@ -97,6 +98,16 @@ exécute `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`.
 PLAN lit et prépare les actions sans ouvrir d'essai ni modifier les populations.
 VERIFY relit les états et reçus dans la session, le patch, le dème ou le daemon
 visés. RECORD inscrit le journal et l'état du cycle vérifié dans une transaction.
+
+Les statuts ne sont pas interchangeables. `accepted` décrit l'admission d'une
+commande ; `started` indique qu'une tentative a été lancée. Aucun des deux ne
+prouve que les actions sont terminées. `completed` décrit la terminaison de
+l'unité concernée, par exemple une exécution d'adaptateur, sans attester à lui
+seul la validité de son résultat. `VERIFIED` est le statut du **cycle régional**
+après relecture des effets et reçus attendus, puis enregistrement par RECORD.
+Il ne propage pas automatiquement cette garantie à la mission entière et ne
+vaut ni acceptation produit ni promotion. Le consommateur doit donc conserver
+le scope et les références de preuve associés à chaque statut.
 
 | Résultat | Sens |
 | --- | --- |

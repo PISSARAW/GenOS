@@ -56,10 +56,14 @@ async function specializedResultIsPreserved() {
 
 async function conditionRequiresCompletedWorkers() {
   const complete = { biologicalMode: { complete: true, status: 'completed',
-    members: [{ status: 'completed' }] } };
+    dispatchFailures: [], members: [{ status: 'completed' }] } };
   assert.equal(handleBiologicalCondition('biocenose', complete), false);
   complete.biologicalMode.members[0].status = 'error';
   assert.equal(handleBiologicalCondition('biocenose', complete), true);
+  complete.biologicalMode.members[0].status = 'completed';
+  complete.biologicalMode.dispatchFailures.push({ role: 'reviewer', reason: 'spawn failed' });
+  assert.equal(handleBiologicalCondition('biocenose', complete), true,
+    'dispatch failures must fail every biological mode independently of aggregate status');
 }
 
 async function main() {

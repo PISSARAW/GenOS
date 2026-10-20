@@ -1,26 +1,78 @@
 'use strict';
 
+const completionContract = require('./missionCompletionContract');
+const completionEvidence = require('./missionCompletionEvidenceService');
+
+function memberId(member) {
+  return member?.memberId || member?.workerId || null;
+}
+
+function semanticReasons(validation, expectedCount, output) {
+  const reasons = [];
+  if (!validation) reasons.push('SEMANTIC_VALIDATION_MISSING');
+  else {
+    if (validation.status !== 'complete') reasons.push(`SEMANTIC_${String(validation.status).toUpperCase()}`);
+    if (validation.workerCount !== expectedCount) reasons.push('SEMANTIC_WORKER_COUNT_MISMATCH');
+    if (validation.coveredWorkers !== expectedCount) reasons.push('SEMANTIC_WORKER_COVERAGE_INCOMPLETE');
+  }
+  if (output.members.length !== expectedCount) reasons.push('WORKER_RESULT_COUNT_MISMATCH');
+  if (output.members.some((member) => member.status !== 'completed')) reasons.push('WORKER_NOT_COMPLETED');
+  if ((output.dispatchFailures || []).length) reasons.push('WORKER_DISPATCH_FAILED');
+  return reasons;
+}
+
+function stateReasons(output) {
+  const validation = output.stateValidation;
+  const reasons = [];
+  if (output.materialization?.status !== 'verified') reasons.push('MATERIALIZATION_NOT_VERIFIED');
+  if (validation?.status !== 'verified') {
+    reasons.push(...(validation?.reasons || ['SHARED_STATE_VALIDATION_MISSING']));
+  }
+  return [...new Set(reasons)];
+}
+
+function failedValidation(validation, reasons) {
+  return validation?.status === 'conflicts_detected'
+    || reasons.includes('FAILED_SHARED_INVARIANTS');
+}
+
+function syncytiumValidation(output, validation, expectedCount) {
+  const reasons = [...semanticReasons(validation, expectedCount, output), ...stateReasons(output)];
+  if (failedValidation(validation, reasons)) return { status: 'failed', reasons: [...new Set(reasons)] };
+  return { status: reasons.length ? 'partial' : 'verified', reasons: [...new Set(reasons)] };
+}
+
 function applySemanticValidation(output, validation, expectedCount) {
-  output.semanticValidation = validation;
-  output.complete = validation.status === 'complete'
-    && validation.workerCount === expectedCount && validation.coveredWorkers === expectedCount
-    && output.members.length === expectedCount
-    && output.members.every((member) => member.status === 'completed')
-    && !(output.dispatchFailures || []).length && output.stateValidation?.status === 'verified';
-  if (!output.complete) output.semanticValidation.status = 'incomplete';
-  output.status = output.complete ? 'completed' : 'partial';
+  output.semanticValidation = validation || null;
+  output.topologyValidation = syncytiumValidation(output, validation, expectedCount);
+  output.syncytiumReady = output.topologyValidation.status === 'verified';
   return output;
 }
 
 async function validateAndComplete(context) {
-  if (!context.validation) {
-    context.output.complete = false;
-    context.output.status = 'partial';
-    return context.output;
-  }
   context.output.materialization = await materializeCompletedMission(context);
   context.output.stateValidation = await validateSession(context.sessionId, { db: context.db });
-  return applySemanticValidation(context.output, context.validation, context.expectedCount);
+  applySemanticValidation(context.output, context.validation, context.expectedCount);
+  const evidence = await completionEvidence.collect({ db: context.db, missionId: context.missionId,
+    members: context.output.members, evidenceProofs: context.evidenceProofs });
+  const result = completionContract.evaluate(contractInput(context, evidence));
+  return applyCompletionResult(context.output, result);
+}
+
+function contractInput(context, evidence) {
+  const requiredMemberIds = evidence.members.map(memberId).filter(Boolean);
+  return { missionId: context.missionId || null, topology: 'syncytium', lifecycleState: 'completed',
+    requiredMemberIds, members: evidence.members, evidenceProofs: evidence.evidenceProofs,
+    topologyValidation: context.output.topologyValidation,
+    barrierStatus: context.validation?.status === 'complete' ? 'complete' : 'partial' };
+}
+
+function applyCompletionResult(output, result) {
+  output.completionContract = result;
+  output.complete = result.verdict === 'succeeded';
+  output.success = result.success;
+  output.status = output.complete ? 'completed' : result.verdict === 'failed' ? 'failed' : 'partial';
+  return output;
 }
 
 async function materializeCompletedMission(context) {
@@ -42,7 +94,7 @@ async function materializeCompletedMission(context) {
 
 function workersReadyForMaterialization(context) {
   const { validation, expectedCount, output } = context;
-  if (!context.db || validation.status !== 'complete') return false;
+  if (validation?.status !== 'complete') return false;
   if (validation.workerCount !== expectedCount || validation.coveredWorkers !== expectedCount) return false;
   if (output.members.length !== expectedCount || (output.dispatchFailures || []).length) return false;
   return output.members.every((member) => member.status === 'completed');

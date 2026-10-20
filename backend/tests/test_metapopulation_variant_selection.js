@@ -16,12 +16,23 @@ async function run() {
   assertSelection('Quatre populations optimisent chacune une dimension différente et ne migrent que des techniques validées localement.', 'heterogeneous_islands', 'complementary');
   assert.equal(metapopulation.composeMetapopulation('Explore after an outage.', { variant: 'balanced' }).variant, 'balanced');
   verifyDocumentedVariants();
+  verifyRuntimeRegistry();
   verifyTopologyEffects();
   assert.throws(() => metapopulation.composeMetapopulation('Recover.', { variant: 'unknown' }),
     (error) => error.code === 'METAPOPULATION_VARIANT_UNKNOWN');
   verifyPolicyEffects();
   await verifySessionPersistence();
   console.log('Metapopulation automatic variant selection: PASS');
+}
+
+function verifyRuntimeRegistry() {
+  for (const variant of Object.keys(policyService.VARIANTS)) {
+    const runtime = policyService.resolveVariantRuntime(variant);
+    assert.equal(typeof runtime.executeVariantAction, 'function');
+    assert.equal(typeof runtime.verifyVariantActions, 'function');
+    assert.equal(typeof runtime.verifyTopologyActions, 'function');
+    assert.equal(typeof runtime.verifyFirebreakActions, 'function');
+  }
 }
 
 function verifyDocumentedVariants() {
