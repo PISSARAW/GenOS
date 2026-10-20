@@ -107,7 +107,10 @@ function profileSelection(profile, result) {
     variantId: result.selectedVariant?.variantId || 'default',
     method: selectedExplicitly ? 'explicit_profile' : 'safe_baseline',
     confidence: selectedExplicitly ? 1 : 0.5,
-    reasons: selectedExplicitly ? ['EXPLICIT_TOPOLOGY_PROFILE'] : ['NO_EXECUTABLE_SPECIALIZATION']
+    reasons: selectedExplicitly ? ['EXPLICIT_TOPOLOGY_PROFILE'] : ['NO_EXECUTABLE_SPECIALIZATION'],
+    substituted: false,
+    fallback: false,
+    fallbackReason: null
   };
 }
 
@@ -121,17 +124,62 @@ function automaticProfile(ctx, topology, registry) {
   const localSelection = selectLocalVariant(topology, ctx);
   const selection = useCases.selectVariant({ ...ctx, topology, mission: missionText(ctx),
     localSelection, available: registry.list(topology) });
-  const canonicalId = catalogId(topology, selection.variantId, registry);
+  const visibleSelection = annotateSelection(selection, localSelection);
+  const canonicalId = catalogId(topology, visibleSelection.variantId, registry);
   const catalogEntry = registry.resolve(topology, canonicalId);
   const usable = Boolean(catalogEntry);
   const variantId = usable ? canonicalId : 'default';
   return {
     baseTopology: topology,
     structuralVariants: variantId === 'default' ? [] : [variantId],
-    variantSelection: usable ? selection : {
-      variantId, method: 'safe_baseline', confidence: selection.confidence || 0.5,
-      reasons: [...(selection.reasons || []), 'SELECTED_VARIANT_UNAVAILABLE']
-    }
+    variantSelection: usable ? withSubstitutionFlag(visibleSelection, false) : unavailableSelection(visibleSelection)
+  };
+}
+
+function annotateSelection(selection, localSelection) {
+  if (!localSelection || localSelection.substituted !== true) return normalizeSelection(selection);
+  const reason = localSelection.fallbackReason;
+  const reasons = [...(selection.reasons || [])];
+  if (reason && !reasons.includes(reason)) reasons.push(reason);
+  return {
+    ...selection, substituted: true, fallback: true,
+    fallbackReason: reason || selection.fallbackReason || null,
+    reasons
+  };
+}
+
+function normalizeSelection(selection) {
+  return { ...selection, substituted: selection.substituted === true,
+    fallback: selection.fallback === true,
+    fallbackReason: selection.fallbackReason || null };
+}
+
+function withSubstitutionFlag(selection, forced) {
+  return {
+    ...selection,
+    substituted: forced === true ? true : selection.substituted === true,
+    fallback: forced === true ? true : selection.fallback === true,
+    fallbackReason: selection.fallbackReason || null
+  };
+}
+
+function unavailableSelection(selection) {
+  const reasons = [...(selection.reasons || [])];
+  if (!reasons.includes('SELECTED_VARIANT_UNAVAILABLE')) reasons.push('SELECTED_VARIANT_UNAVAILABLE');
+  return {
+    ...selection,
+    variantId: 'default',
+    requestedVariantId: selection.variantId,
+    actualVariantId: 'default',
+    substituted: true,
+    fallback: true,
+    fallbackApplied: true,
+    fallbackFrom: selection.variantId,
+    fallbackTo: 'default',
+    fallbackReason: 'SELECTED_VARIANT_UNAVAILABLE',
+    method: 'safe_baseline',
+    confidence: selection.confidence || 0.5,
+    reasons
   };
 }
 
@@ -152,7 +200,18 @@ function selectLocalVariant(topology, ctx) {
     return selector(ctx, mission);
   } catch (error) {
     if (error.code === 'HOLOBIONT_VARIANT_INCOMPATIBLE' && explicitHolobiontVariant(ctx)) throw error;
-    return defaultSelection(error.code || 'SELECTOR_UNAVAILABLE');
+    const reason = error.code || 'SELECTOR_UNAVAILABLE';
+    return {
+      ...defaultSelection(reason),
+      substituted: true,
+      fallback: true,
+      fallbackApplied: true,
+      fallbackFrom: null,
+      fallbackTo: 'default',
+      fallbackReason: reason,
+      requestedVariantId: null,
+      actualVariantId: 'default'
+    };
   }
 }
 
@@ -178,7 +237,8 @@ function trinitySelection(mission) {
 }
 
 function defaultSelection(reason) {
-  return { variantId: 'default', method: 'safe_baseline', confidence: 0.5, reasons: [reason] };
+  return { variantId: 'default', method: 'safe_baseline', confidence: 0.5, reasons: [reason],
+    substituted: false, fallback: false, fallbackReason: null };
 }
 
 function missionText(ctx) {
