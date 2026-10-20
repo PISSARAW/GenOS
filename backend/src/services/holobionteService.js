@@ -57,6 +57,7 @@ function activateHolobionte(mission, context = {}) {
     activated: false,
     executionStarted: false,
     runtimeRequired: true,
+    activationMode: 'declared',
     holobiontId: null,
     compositionId: `holobionte-${Date.now()}`,
     ...composition,
