@@ -1,19 +1,24 @@
 'use strict';
 
+const { digest } = require('./evidenceContractService');
+
 const HASH = /^sha256:[a-f0-9]{64}$/i;
 const TERMINAL = new Set(['completed', 'failed', 'interrupted']);
+const FAILED_MEMBER_STATES = new Set(['failed', 'error', 'cancelled', 'blocked']);
 
-function validHash(value) { return typeof value === 'string' && HASH.test(value); }
+function validHash(value) {
+  return typeof value === 'string' && HASH.test(value);
+}
 
-function output(input, verdict, reasons) {
+function output(input, result) {
   const members = Array.isArray(input.members) ? input.members : [];
-  const evidenceRefs = [...new Set((input.evidenceRefs || []).filter(validHash))];
   return { schema: 'genos.mission-completion/v1', missionId: input.missionId || null,
     topology: input.topology || null, lifecycleState: input.lifecycleState,
-    verdict, terminal: TERMINAL.has(input.lifecycleState), success: verdict === 'succeeded',
+    verdict: result.verdict, terminal: TERMINAL.has(input.lifecycleState),
+    success: result.verdict === 'succeeded',
     requiredMemberIds: input.requiredMemberIds || [],
-    completedMemberIds: members.filter((item) => item.status === 'completed').map((item) => item.memberId),
-    evidenceRefs, reasons, promotionEligible: false };
+    completedMemberIds: members.filter((item) => item.status === 'completed').map(memberId),
+    evidenceRefs: result.evidenceRefs || [], reasons: result.reasons || [], promotionEligible: false };
 }
 
 function unique(values) {
@@ -21,73 +26,125 @@ function unique(values) {
     && new Set(values).size === values.length;
 }
 
-function memberVerdict(input) {
+function memberId(member) {
+  return member?.memberId || member?.workerId || null;
+}
+
+function proofIndex(proofs) {
+  const index = new Map();
+  for (const proof of Array.isArray(proofs) ? proofs : []) {
+    if (!validHash(proof?.reference) || index.has(proof.reference)) continue;
+    index.set(proof.reference, proof);
+  }
+  return index;
+}
+
+function proofIdentity(content) {
+  return {
+    missionId: content?.missionId || content?.correlation?.missionId || null,
+    memberId: content?.memberId || content?.workerId || content?.agentId
+      || content?.correlation?.agentId || null
+  };
+}
+
+function verifiedContent(content) {
+  if (content?.state === 'verified') return true;
+  return content?.result?.status === 'completed' && content.result.verified === true;
+}
+
+function validProof(context) {
+  const proof = context.index.get(context.reference);
+  if (!proof || !proof.content || digest(proof.content) !== context.reference) return false;
+  const identity = proofIdentity(proof.content);
+  return identity.missionId === context.missionId && identity.memberId === context.memberId
+    && verifiedContent(proof.content);
+}
+
+function memberEvidence(input, member, index) {
+  const refs = Array.isArray(member.evidenceRefs) ? member.evidenceRefs : [];
+  if (!refs.length || !refs.every(validHash)) return null;
+  const context = { index, missionId: input.missionId, memberId: memberId(member) };
+  return refs.every((reference) => validProof({ ...context, reference })) ? refs : null;
+}
+
+function identityVerdict(context) {
+  if (!unique(context.required) || context.byId.size !== context.members.length
+      || context.byId.has(null)) {
+    return { verdict: 'partial', reason: 'member_identity_invalid', evidenceRefs: [] };
+  }
+  if (context.required.some((id) => !context.byId.has(id))) {
+    return { verdict: 'partial', reason: 'required_member_missing', evidenceRefs: [] };
+  }
+  return null;
+}
+
+function memberStateVerdict(required, byId) {
+  if (required.some((id) => FAILED_MEMBER_STATES.has(byId.get(id).status))) {
+    return { verdict: 'failed', reason: 'required_member_failed', evidenceRefs: [] };
+  }
+  return null;
+}
+
+function memberVerdict(input, index) {
   const required = input.requiredMemberIds || [];
   const members = Array.isArray(input.members) ? input.members : [];
-  const byId = new Map(members.map((item) => [item.memberId, item]));
-  if (!unique(required) || byId.size !== members.length) return { verdict: 'partial', reason: 'member_identity_invalid' };
-  if (required.some((id) => !byId.has(id))) return { verdict: 'partial', reason: 'required_member_missing' };
-  if (required.some((id) => byId.get(id).status === 'failed')) return { verdict: 'failed', reason: 'required_member_failed' };
-  if (required.some((id) => byId.get(id).status !== 'completed'
-      || !Array.isArray(byId.get(id).evidenceRefs) || !byId.get(id).evidenceRefs.some(validHash))) {
-    return { verdict: 'partial', reason: 'required_member_not_verified' };
+  const byId = new Map(members.map((item) => [memberId(item), item]));
+  const identity = identityVerdict({ required, members, byId });
+  if (identity) return identity;
+  const state = memberStateVerdict(required, byId);
+  if (state) return state;
+  const evidence = required.map((id) => memberEvidence(input, byId.get(id), index));
+  if (required.some((id, offset) => byId.get(id).status !== 'completed' || !evidence[offset])) {
+    return { verdict: 'partial', reason: 'required_member_evidence_invalid', evidenceRefs: [] };
   }
-  return null;
+  const evidenceRefs = evidence.flat();
+  return { verdict: null, reason: null, evidenceRefs: [...new Set(evidenceRefs)] };
 }
 
-function invariantVerdict(invariants) {
-  if (!Array.isArray(invariants) || !invariants.length
-      || invariants.some((item) => !item?.id || typeof item.passed !== 'boolean')) {
-    return { verdict: 'partial', reason: 'completion_invariants_missing' };
+function topologyVerdict(validation) {
+  if (!validation || !['verified', 'failed', 'partial'].includes(validation.status)) {
+    return { verdict: 'partial', reasons: ['topology_validation_missing'] };
   }
-  if (invariants.some((item) => !item.passed)) return { verdict: 'failed', reason: 'completion_invariant_failed' };
-  return null;
-}
-
-function validOracleHashes(oracle) {
-  return validHash(oracle.receiptHash) && Array.isArray(oracle.evidenceRefs)
-    && oracle.evidenceRefs.length > 0 && oracle.evidenceRefs.every(validHash);
-}
-
-function validOracleVerifiers(oracle, producerId) {
-  const verifiers = oracle.verifierIds;
-  return Array.isArray(verifiers) && verifiers.length >= 2
-    && verifiers.every((id) => typeof id === 'string' && id.trim() && id !== producerId)
-    && new Set(verifiers).size >= 2;
-}
-
-function validOracle(oracle, producerId) {
-  return oracle?.status === 'verified' && oracle.independent === true
-    && validOracleHashes(oracle) && validOracleVerifiers(oracle, producerId);
+  const reasons = Array.isArray(validation.reasons) && validation.reasons.length
+    ? validation.reasons : [];
+  if (validation.status === 'failed') {
+    return { verdict: 'failed', reasons: reasons.length ? reasons : ['topology_validation_failed'] };
+  }
+  if (validation.status === 'partial') {
+    return { verdict: 'partial', reasons: reasons.length ? reasons : ['topology_validation_partial'] };
+  }
+  return { verdict: null, reasons: [] };
 }
 
 function terminalOutput(input, state) {
-  if (state === 'accepted' || state === 'running') return output(input, 'in_progress', ['execution_not_terminal']);
-  if (state === 'interrupted') return output(input, 'interrupted', [input.reason || 'execution_interrupted']);
-  if (state === 'failed') return output(input, 'failed', [input.reason || 'execution_failed']);
-  return output(input, 'partial', ['execution_state_unknown']);
+  if (state === 'accepted' || state === 'running') {
+    return output(input, { verdict: 'in_progress', reasons: ['execution_not_terminal'] });
+  }
+  if (state === 'failed') return output(input, { verdict: 'failed', reasons: [input.reason || 'execution_failed'] });
+  if (state === 'interrupted') return output(input, { verdict: 'interrupted', reasons: [input.reason || 'execution_interrupted'] });
+  return output(input, { verdict: 'partial', reasons: ['execution_state_unknown'] });
 }
 
-function failedOrPartial(input, reasons) {
-  if (reasons.some((reason) => reason === 'required_member_failed'
-      || reason === 'completion_invariant_failed')) {
-    return output(input, 'failed', reasons);
+function finalOutput(input, assessments) {
+  const reasons = assessments.flatMap((item) => item.reasons || (item.reason ? [item.reason] : []));
+  const evidenceRefs = assessments.flatMap((item) => item.evidenceRefs || []);
+  if (assessments.some((item) => item.verdict === 'failed')) {
+    return output(input, { verdict: 'failed', reasons, evidenceRefs });
   }
-  if (reasons.length) return output(input, 'partial', reasons);
-  return output(input, 'succeeded', []);
+  if (assessments.some((item) => item.verdict === 'partial')) {
+    return output(input, { verdict: 'partial', reasons, evidenceRefs });
+  }
+  return output(input, { verdict: 'succeeded', evidenceRefs });
 }
 
 function evaluate(input = {}) {
   const state = input.lifecycleState;
   if (state !== 'completed') return terminalOutput(input, state);
-  const reasons = [];
-  if (input.barrierStatus === 'partial') reasons.push('worker_barrier_partial');
-  const member = memberVerdict(input);
-  const invariant = invariantVerdict(input.invariants);
-  if (member) reasons.push(member.reason);
-  if (invariant) reasons.push(invariant.reason);
-  if (!validOracle(input.oracle, input.producerId)) reasons.push('independent_oracle_missing');
-  return failedOrPartial(input, reasons, member, invariant);
+  const members = memberVerdict(input, proofIndex(input.evidenceProofs));
+  const topology = topologyVerdict(input.topologyValidation);
+  const barrier = input.barrierStatus === 'partial'
+    ? { verdict: 'partial', reason: 'worker_barrier_partial' } : { verdict: null };
+  return finalOutput(input, [members, topology, barrier]);
 }
 
 function dispatchAccepted(input = {}) {
@@ -100,4 +157,4 @@ function processOutcome(input = {}) {
   return evaluate({ ...input, lifecycleState: 'completed' });
 }
 
-module.exports = { evaluate, dispatchAccepted, processOutcome, validOracle, validHash };
+module.exports = { evaluate, dispatchAccepted, processOutcome, validHash };

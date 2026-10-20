@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const cases = [
   'test_homeostasis_durable_authority.js', 'test_homeostasis_authority_receipts.js',
+  'test_biological_mission_completion.js',
   'test_biological_ingestion_atomic.js', 'test_biological_receipt_ingestion.js',
   'test_biological_worker_receipts.js', 'test_biological_worker_restart.js', 'test_biological_receipt_audit.js'
 ];
