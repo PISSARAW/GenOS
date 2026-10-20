@@ -13,7 +13,11 @@ function applySemanticValidation(output, validation, expectedCount) {
 }
 
 async function validateAndComplete(context) {
-  if (!context.validation) return context.output;
+  if (!context.validation) {
+    context.output.complete = false;
+    context.output.status = 'partial';
+    return context.output;
+  }
   context.output.materialization = await materializeCompletedMission(context);
   context.output.stateValidation = await validateSession(context.sessionId, { db: context.db });
   return applySemanticValidation(context.output, context.validation, context.expectedCount);
