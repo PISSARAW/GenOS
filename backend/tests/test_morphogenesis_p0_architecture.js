@@ -11,10 +11,12 @@ async function verifyPortContract() {
   const port = createTopologyRuntimePort({
     topology: 'test', executionKind: 'canonical_service',
     morphogenesis: { observe: 'verified', restore: 'unsupported' },
+    lifecycle: { observe: async () => ({ observed: true }) },
     execute: async ({ args }) => ({ value: args.value })
   });
-  assert.equal(port.contractVersion, '1.0.0');
+  assert.equal(port.contractVersion, '1.1.0');
   assert.equal(port.supports('observe'), true);
+  assert.equal(port.qualified('observe'), true);
   assert.equal(port.supports('restore'), false);
   const output = await port.run({ value: 7 }, {});
   assert.equal(output.value, 7);
@@ -32,7 +34,7 @@ async function verifyEightInstalledPorts() {
   for (const topology of PLUGIN_TOPOLOGIES) {
     const descriptor = plugins.get(topology).describe();
     assert.equal(descriptor.topology, topology);
-    assert.equal(descriptor.contractVersion, '1.0.0');
+    assert.equal(descriptor.contractVersion, '1.1.0');
     assert.ok(descriptor.morphogenesis.observe);
   }
   const syncytium = await plugins.get('syncytium').run({}, {

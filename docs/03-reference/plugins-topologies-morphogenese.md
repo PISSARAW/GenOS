@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-20 (port runtime commun, VariantSpec v2, TopologyOutcome)
+- **Dernière revue** : 2026-10-20 (cycle transactionnel morphogénétique P1)
 
 ---
 
@@ -17,6 +17,28 @@ preuve de qualification. Le `TopologyExecutor` préfère un exécuteur dédié, 
 délègue au registre, sinon refuse (`Topology not registered`). Code :
 `backend/src/services/morphogenesis/runtime/topologyRuntimePort.js` et
 `backend/src/services/morphogenesis/runtime/topologyPlugins.js`.
+
+Depuis P1, le port distingue aussi `supports(capability)` de
+`qualified(capability)`. Le premier indique une capacité déclarée ou vérifiée ;
+le second exige simultanément l'état `verified` et un handler runtime réellement
+câblé. `morphogenesis(capability, request)` refuse donc toute capacité seulement
+déclarée, inconnue ou sans implémentation.
+
+Le coordinateur `topologyMorphogenesisTransaction` impose avant tout effet les six
+capacités qualifiées. Il déroule `observe → quiesce → snapshot → adapt → verify →
+finalize`. Le snapshot doit annoncer `restorable: true`, un identifiant et un hash.
+La vérification indépendante doit fournir au moins une référence de preuve. Tout
+échec après l'armement du snapshot appelle `restore` ; le reçu doit correspondre à
+l'identifiant et au hash scellés et déclarer la restauration vérifiée. Sinon l'état
+terminal est `recovery_required`, jamais un rollback réussi.
+
+Les huit plugins de la matrice ne sont pas automatiquement promus par ce contrat :
+leurs restaurations propres restent `unknown` ou `unsupported`. Ils sont donc tous
+refusés par le prévol transactionnel P1 tant qu'un adaptateur de cycle complet et sa
+campagne de qualification n'ont pas établi la restauration de l'état spécifique à
+la topologie et au variant. Cette fermeture évite que le snapshot durable commun
+des workspaces, agents, baux et budgets soit confondu avec la restauration des
+sessions Holobionte, Métapopulation, Syncytium ou des autres états spécialisés.
 
 Les genres de port sont explicites : `canonical_service` pour les services
 directement raccordés, `hybrid_adapter` pour un contrôleur capable de déléguer
