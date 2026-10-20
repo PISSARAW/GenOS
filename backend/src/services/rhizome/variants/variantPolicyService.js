@@ -130,17 +130,20 @@ function list() {
 }
 
 function supports(name) {
+  let variant;
   try {
-    const variant = resolve(name).name;
-    const base = require('../routing/routePlanner');
-    const special = runtimeProbe(variant);
-    return typeof base.plan === 'function' && special();
-  } catch (_) {
-    return false;
+    variant = resolve(name).name;
+  } catch (error) {
+    if (error && error.code === 'RHIZOME_VARIANT_UNKNOWN') return false;
+    throw error;
   }
+  const base = require('../routing/routePlanner');
+  const special = runtimeProbe(variant);
+  return typeof base.plan === 'function' && special();
 }
 
-function runtimeProbe(variant) {
+function runtimeProbe(name) {
+  const variant = resolve(name).name;
   if (variant === 'growth') return () => typeof require('../growth/growthPlanner').plan === 'function';
   if (['resilient', 'self_healing'].includes(variant)) return () => typeof require('../resilience/routeRepairService').repair === 'function';
   if (variant === 'small_world') return () => typeof require('./smallWorldTopologyService').plan === 'function';
@@ -212,4 +215,4 @@ function explicitSelection(name) {
   return { ...policy, selection: { variant: policy.name, method: 'explicit', confidence: 1, reasons: ['EXPLICIT_VARIANT'] } };
 }
 
-module.exports = { resolve, list, supports, analyzeFit, selectForMission };
+module.exports = { resolve, list, supports, runtimeProbe, analyzeFit, selectForMission };
