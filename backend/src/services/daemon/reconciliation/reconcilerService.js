@@ -23,6 +23,7 @@ const stigmergyService = require('../daemonStigmergyService');
 const repairService = require('../repair/repairEpisodeService');
 const territoryService = require('../daemonTerritoryService');
 const suspects = require('./suspectService');
+const orphanageService = require('./orphanageService');
 
 const DEFAULT_EVENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_HANDOFF_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -96,6 +97,7 @@ async function sweep(db, args) {
   const orphanEpisodes = await expireOrphanedEpisodes(db, scope);
   const staleBriefs = await expireStaleHeadBriefs(db, scope);
   const danglingEdges = await pruneDanglingEdges(db, scope);
+  const orphanedWorkers = await orphanageService.reapExpiredOrphans(db, scope.nowIso);
   return {
     swept: true,
     territoryId: args.territoryId,
@@ -114,6 +116,7 @@ async function sweep(db, args) {
     expiredStaleBriefsError: staleBriefs.error,
     prunedDanglingEdges: danglingEdges.count,
     prunedDanglingEdgesError: danglingEdges.error,
+    expiredOrphanedWorkers: orphanedWorkers.reaped,
     newSuspects: suspectReceipt.isNew,
     resolvedSuspects: suspectReceipt.resolved,
     pendingSuspects: suspectReceipt.pending

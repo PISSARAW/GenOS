@@ -1,6 +1,7 @@
 const { getDatabase } = require('../../db');
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit, updateAgent, orchestratorToolLease } = require('../agentOrchestrationState');
 const { processMatches, terminateChild } = require('../processTermination');
+const orphanageService = require('../daemon/reconciliation/orphanageService');
 
 async function markRuntimeTerminated(db, row, error = null) {
   const { id, runtime_pid, runtime_executable } = row;
@@ -72,57 +73,71 @@ async function reconcileOrphanedRunning(db) {
   return reconciled;
 }
 
+async function territoryProjection(db) {
+  const columns = await db.all('PRAGMA table_info(agents)');
+  return columns.some((column) => column.name === 'territory_id')
+    ? 'a.territory_id' : 'NULL AS territory_id';
+}
+
 async function reconcileDeadOrchestratorChildren(db) {
+  const territory = await territoryProjection(db);
   const orphans = await db.all(`
-    SELECT id FROM agents
-    WHERE parent_agent_id IN (
+    SELECT a.id, a.parent_agent_id as former_parent_id, ${territory}
+    FROM agents a
+    WHERE a.parent_agent_id IN (
       SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'error') OR is_apoptotic = 1)
-    ) AND execution_mode = 'worker' AND status = 'running'
+    ) AND a.execution_mode = 'worker' AND a.status = 'running'
   `);
   if (!orphans.length) return 0;
-  await db.run(`
-    UPDATE agents
-    SET status = 'terminated', current_task = 'Terminated following parent orchestrator termination/apoptosis',
-        runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP
-    WHERE parent_agent_id IN (
-      SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'error') OR is_apoptotic = 1)
-    ) AND execution_mode = 'worker' AND status = 'running'
-  `);
+  let admitted = 0;
   for (const orphan of orphans) {
+    try {
+      await orphanageService.admitWorker(db, {
+        workerId: orphan.id,
+        territoryId: orphan.territory_id,
+        formerParentId: orphan.former_parent_id,
+        ttlMs: orphanageService.DEFAULT_ORPHAN_TTL_MS
+      });
+      admitted += 1;
+    } catch (err) {
+      console.error(`[MissionReconcile] Error admitting orphan ${orphan.id} to orphanage:`, err.message);
+    }
     try {
       await db.run('UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?', 'terminated', orphan.id);
     } catch (err) {
       console.error(`[MissionReconcile] Error updating trinity_worlds status for orphan ${orphan.id}:`, err.message);
     }
   }
-  return orphans.length;
+  return admitted;
 }
 
 async function reconcileUntrackedWorkers(db) {
-  const rows = await db.all(`SELECT a.id FROM agents a
+  const territory = await territoryProjection(db);
+  const rows = await db.all(`SELECT a.id, a.parent_agent_id as former_parent_id, ${territory} FROM agents a
     WHERE a.execution_mode = 'worker' AND a.status = 'running' AND a.runtime_pid IS NULL
       AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
         AND (q.status IN ('claimed','running')
           OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))
       AND NOT EXISTS (SELECT 1 FROM agents parent WHERE parent.id = a.parent_agent_id
         AND parent.status IN ('running','blocked'))`);
-  let reconciled = 0;
+  let admitted = 0;
   for (const row of rows) {
-    const updated = await db.run(`UPDATE agents
-      SET status = 'terminated', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND execution_mode = 'worker' AND status = 'running' AND runtime_pid IS NULL
-        AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
-          AND (q.status IN ('claimed','running')
-            OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))
-        AND NOT EXISTS (SELECT 1 FROM agents parent WHERE parent.id = agents.parent_agent_id
-          AND parent.status IN ('running','blocked'))`, row.id);
-    if (!updated.changes) continue;
+    try {
+      await orphanageService.admitWorker(db, {
+        workerId: row.id,
+        territoryId: row.territory_id,
+        formerParentId: row.former_parent_id,
+        ttlMs: orphanageService.DEFAULT_ORPHAN_TTL_MS
+      });
+      admitted += 1;
+    } catch (err) {
+      console.error(`[MissionReconcile] Error admitting untracked worker ${row.id} to orphanage:`, err.message);
+    }
     emit(row.id, 'UNTRACKED_WORKER_RECONCILED', 'RECONCILE',
-      `Untracked worker ${row.id} has no active parent, runtime PID, or garage lease; marked terminated.`,
+      `Untracked worker ${row.id} has no active parent, runtime PID, or garage lease; admitted to orphanage.`,
       {}, 'warning');
-    reconciled += 1;
   }
-  return reconciled;
+  return admitted;
 }
 
 async function reconcilePersistedRuntimes(db) {
