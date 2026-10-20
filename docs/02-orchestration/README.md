@@ -10,6 +10,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [shev.md](shev.md) — responsabilité, capteurs signés, boucle surveillée, récupération et transfert vérifié.
+- [responsabilite-trajectoire.md](responsabilite-trajectoire.md) — arbitrage agir/observer/apprendre/NO_CHANGE, registre inter-domaines et double preuve.
 - [exploitation-shev.md](../03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [Physique computationnelle](../01-concepts/physique-computationnelle.md) — mesures réelles, régimes, recherche de plans et calibration des coûts du runtime Rust.
