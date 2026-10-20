@@ -37,7 +37,7 @@ async function dispatchAndValidate({ db, context, mode, parent, composition }) {
     ? await biologicalWorkerCompletion.validateSyncytiumResponses({ db, context, accepted,
       expectedCount: members.length, waitForWorkers: waitForMetapopulationWorkers })
     : undefined;
-  await workerResultReader.readAll(db, accepted);
+  await workerResultReader.readAll(db, { members: accepted, missionId: context.missionId });
   return { members, accepted, semanticValidation };
 }
 
