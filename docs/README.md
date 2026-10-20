@@ -911,3 +911,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0651a — ActionGenome comme contrat canonique d'action](adr/0651-action-genome.md) — contrat d'action fermé, projections de surface et admission causale avec REST `admission_only`.
 - [ADR 0651b — Admission MHC et capacités au point d'effet](adr/0651-admission-mhc-et-capacites-au-point-effet.md) — identité d'artefact fail-closed et capacités de secrets à usage unique.
 - [ADR 0705 — Registre d'adaptateurs de clôture topologique](adr/0705-registre-adaptateurs-cloture-topologique.md) — sélection injectible, dossiers communs et échec fermé tant que les oracles spécialisés sont absents.
+- [ADR 0707 — Reçu de vérification régionale Métapopulation](adr/0707-recu-verification-regionale-metapopulation.md) — reçu durable lié au résultat et séparation explicite entre producteur et vérificateur régional.

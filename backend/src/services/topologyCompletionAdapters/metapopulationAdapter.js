@@ -3,6 +3,7 @@
 const { baseDossier } = require('./dossier');
 const stateReader = require('./metapopulationStateReader');
 const { digest } = require('../evidenceContractService');
+const verificationReceipts = require('../metapopulation/contracts/regionalVerificationReceiptContract');
 
 function assessment(status, reason) {
   return { status, ...(reason ? { reason } : {}) };
@@ -173,24 +174,31 @@ function proofAssessment(base) {
   return assessment('verified');
 }
 
-function oracleIdentityAssessment(base, state) {
+function oracleReceiptAssessment(base, state) {
   const latest = state.cycles.at(-1);
   if (!latest) return assessment('partial', 'metapopulation_verified_cycle_missing');
   const event = cycleEvent(state, latest.cycle);
-  const verifier = latest.verification_json.verifier || event?.actor;
-  if (!verifier) return assessment('partial', 'metapopulation_cycle_oracle_identity_missing');
-  return verifier === base.missionId
-    ? assessment('partial', 'metapopulation_cycle_oracle_not_independent')
-    : assessment('verified');
+  const receipt = latest.verification_json.receipt;
+  const checked = verificationReceipts.validate({ receipt, missionId: base.missionId,
+    metapopulationId: state.sessionId, cycle: latest.cycle,
+    execution: latest.execution_json, verification: latest.verification_json });
+  if (checked.missing) {
+    return assessment('partial', 'metapopulation_cycle_oracle_receipt_missing');
+  }
+  if (!checked.valid) return assessment('failed', 'metapopulation_cycle_oracle_receipt_invalid');
+  const journalBound = event?.actor === receipt.producerId
+    && event.payload_json?.verificationReceiptHash === receipt.receiptHash;
+  return journalBound ? assessment('verified')
+    : assessment('failed', 'metapopulation_cycle_oracle_receipt_journal_mismatch');
 }
 
 function oracleReceipt(base, state) {
   const latest = state.cycles.at(-1);
-  const event = cycleEvent(state, latest.cycle);
-  const verifierId = latest.verification_json.verifier || event.actor;
+  const cycleReceipt = latest.verification_json.receipt;
   return { schema: 'genos.metapopulation-completion-oracle/v1',
     missionId: base.missionId, metapopulationId: state.sessionId,
-    revision: state.revision, cycle: latest.cycle, verifierId,
+    revision: state.revision, cycle: latest.cycle, verifierId: cycleReceipt.verifierId,
+    cycleVerificationReceiptHash: cycleReceipt.receiptHash,
     canonicalStateHash: digest({ session: state.session, demes: state.demes,
       migrations: state.migrations, fitness: state.fitness }),
     regionalJournalHash: digest(state.events), cycleStateHash: digest(latest) };
@@ -222,7 +230,7 @@ async function build(input = {}) {
   if (state.status !== 'read') return incomplete(base, state.reason);
   const checks = [lifecycleAssessment(state), demeAssessment(base, state),
     migrationAssessment(state), fitnessAssessment(base, state),
-    cycleAssessment(state), oracleIdentityAssessment(base, state), proofAssessment(base)];
+    cycleAssessment(state), oracleReceiptAssessment(base, state), proofAssessment(base)];
   const issue = checks.find((check) => check.status !== 'verified');
   if (issue?.status === 'failed') return failed(base, issue.reason, state);
   if (issue) return incomplete(base, issue.reason);

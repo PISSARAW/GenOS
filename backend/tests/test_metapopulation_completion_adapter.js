@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const { migrateMetapopulationRuntime } = require('../src/db/migrations/migrateMetapopulationRuntime');
 const coordination = require('../src/services/metapopulationCoordinationService');
+const runtime = require('../src/services/metapopulation/runtime/regionalRuntimeService');
 const adapter = require('../src/services/topologyCompletionAdapters/metapopulationAdapter');
 const { closureInput } = require('../src/services/topologyCompletionAdapters/dossier');
 const { closeMission } = require('../src/services/missionClosureService');
@@ -86,22 +87,16 @@ async function insertFitness(db) {
 }
 
 async function insertVerifiedCycle(db) {
-  const now = new Date().toISOString();
-  await db.run(`INSERT INTO metapopulation_cycle_states
-    (state_id, metapopulation_id, cycle, seed, observed_json, diagnosis_json,
-     plan_json, execution_json, verification_json, status, idempotency_key, created_at)
-    VALUES (?, ?, 1, 'seed-1', ?, ?, ?, ?, ?, 'VERIFIED', ?, ?)`,
-  'cycle-state-1', SESSION_ID,
-  JSON.stringify({ demes: ['deme-alpha', 'deme-beta'] }),
-  JSON.stringify({ summary: 'comparison complete' }),
-  JSON.stringify({ actions: [{ type: 'MIGRATE_STRATEGY' }] }),
-  JSON.stringify({ completed: true, migrationId: 'migration-alpha-beta' }),
-  JSON.stringify({ valid: true, verifier: 'regional-runtime-verifier' }),
-  'cycle-key-1', now);
-  await coordination.recordMetapopulationEvent(SESSION_ID, {
-    type: 'REGIONAL_CYCLE_RECORDED', payload: { cycle: 1, status: 'VERIFIED',
-      actionCount: 1, verification: 'VALID' }, provenance: { source: 'regionalRuntimeService' }
-  }, { db });
+  const adapters = { observe: async () => ({ demes: ['deme-alpha', 'deme-beta'] }),
+    diagnose: async () => ({ summary: 'comparison complete' }),
+    plan: async () => ({ actions: [{ type: 'MIGRATE_STRATEGY' }] }),
+    execute: async () => ({ completed: true, migrationId: 'migration-alpha-beta' }),
+    verify: async () => ({ valid: true, verifierId: 'regional-runtime-verifier',
+      independent: true }) };
+  const result = await runtime.runRegionalCycle({ metapopulationId: SESSION_ID,
+    cycle: 1, actor: 'metapopulation-runtime' }, { db, adapters });
+  assert.equal(result.status, 'VERIFIED');
+  assert.equal(result.verification.receipt.missionId, MISSION_ID);
 }
 
 async function fixture() {
@@ -118,6 +113,21 @@ async function fixture() {
   await insertVerifiedCycle(db);
   await db.run("UPDATE metapopulation_sessions SET status = 'CLOSED' WHERE id = ?", SESSION_ID);
   return db;
+}
+
+async function mutateReceipt(db, mutate) {
+  const row = await db.get(`SELECT verification_json FROM metapopulation_cycle_states
+    WHERE metapopulation_id = ? AND cycle = 1`, SESSION_ID);
+  const verification = JSON.parse(row.verification_json);
+  mutate(verification);
+  await db.run(`UPDATE metapopulation_cycle_states SET verification_json = ?
+    WHERE metapopulation_id = ? AND cycle = 1`, JSON.stringify(verification), SESSION_ID);
+}
+
+function reseal(receipt) {
+  const body = { ...receipt };
+  delete body.receiptHash;
+  return { ...body, receiptHash: digest(body) };
 }
 
 async function expectReason(input) {
@@ -137,6 +147,8 @@ async function nominal() {
     assert.equal(dossier.topologyValidation.status, 'verified');
     assert.equal(dossier.oracle.independent, true);
     assert.equal(dossier.oracle.receipt.missionId, MISSION_ID);
+    assert.equal(dossier.oracle.verifierIds[0], 'regional-runtime-verifier');
+    assert.match(dossier.oracle.receipt.cycleVerificationReceiptHash, /^sha256:[a-f0-9]{64}$/);
     const completion = closeMission(closureInput(dossier));
     assert.equal(completion.verdict, 'succeeded', JSON.stringify(completion));
   } finally { await db.close(); }
@@ -186,6 +198,25 @@ async function missingAndAlteredOracle() {
   await expectReason({ mutate: (db) => db.run(`UPDATE metapopulation_cycle_states
     SET verification_json = '{"valid":false}'`), status: 'failed',
   reason: 'metapopulation_cycle_oracle_inconsistent' });
+  await expectReason({ mutate: (db) => mutateReceipt(db, (verification) => {
+    delete verification.receipt;
+  }), status: 'partial', reason: 'metapopulation_cycle_oracle_receipt_missing' });
+  await expectReason({ mutate: (db) => mutateReceipt(db, (verification) => {
+    verification.verifierId = 'metapopulation-runtime';
+    verification.receipt.verifierId = 'metapopulation-runtime';
+    const material = { ...verification };
+    delete material.receipt;
+    verification.receipt.verificationHash = digest(material);
+    verification.receipt = reseal(verification.receipt);
+  }), status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
+  await expectReason({ mutate: (db) => mutateReceipt(db, (verification) => {
+    verification.receipt.missionId = 'foreign-mission';
+    verification.receipt = reseal(verification.receipt);
+  }), status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
+  await expectReason({ mutate: (db) => mutateReceipt(db, (verification) => {
+    verification.receipt.resultHash = digest({ altered: true });
+    verification.receipt = reseal(verification.receipt);
+  }), status: 'failed', reason: 'metapopulation_cycle_oracle_receipt_invalid' });
 }
 
 async function run() {

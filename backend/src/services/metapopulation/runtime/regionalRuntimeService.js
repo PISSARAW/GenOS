@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const verificationReceipts = require('../contracts/regionalVerificationReceiptContract');
 
 const STAGES = Object.freeze(['OBSERVE', 'DIAGNOSE', 'PLAN', 'EXECUTE', 'VERIFY', 'RECORD']);
 const REQUIRED_ADAPTERS = Object.freeze(['observe', 'diagnose', 'plan', 'execute', 'verify']);
@@ -52,8 +53,10 @@ async function executeCycleStages(input, options) {
   const idempotencyKey = cycleIdempotencyKey(plan.actions);
   await assertCycleNotDuplicate(options.db, input.metapopulationId, idempotencyKey);
   const execution = await executePlan(adapter, { plan, diagnosis, observed, input });
-  const verification = await adapter.verify(execution, plan, diagnosis, observed, input);
-  if (!verification || verification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
+  const rawVerification = await adapter.verify(execution, plan, diagnosis, observed, input);
+  if (!rawVerification || rawVerification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
+  const verification = await attachVerificationReceipt({ input, options,
+    execution, verification: rawVerification });
   const status = plan.actions.length === 0 ? 'NO_ACTION' : 'VERIFIED';
   const { withTransaction } = require('../../../db');
   await withTransaction(options.db, async () => {
@@ -63,6 +66,16 @@ async function executeCycleStages(input, options) {
   });
   return { status, cycle: input.cycle || null, stages: STAGES,
     actionCount: plan.actions.length, verification, seed };
+}
+
+async function attachVerificationReceipt(context) {
+  const session = await context.options.db.get(
+    'SELECT mission_id FROM metapopulation_sessions WHERE id = ?', context.input.metapopulationId);
+  const receipt = verificationReceipts.issue({ missionId: session?.mission_id,
+    metapopulationId: context.input.metapopulationId, cycle: context.input.cycle,
+    producerId: context.input.actor || 'metapopulation-runtime',
+    execution: context.execution, verification: context.verification });
+  return receipt ? { ...context.verification, receipt } : context.verification;
 }
 
 async function persistCycleState(input, options, cycleData) {
@@ -146,7 +159,9 @@ async function recordCycle(input, options, outcome) {
     type: outcome.type,
     payload: { cycle: input.cycle || null, status: outcome.status || (outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED'),
       actionCount: outcome.plan?.actions?.length || 0, diagnosis: outcome.diagnosis?.summary || null,
-      verification: outcome.verification?.valid === true ? 'VALID' : null, failure: outcome.failure || null },
+      verification: outcome.verification?.valid === true ? 'VALID' : null,
+      verificationReceiptHash: outcome.verification?.receipt?.receiptHash || null,
+      failure: outcome.failure || null },
     actor: input.actor || 'metapopulation-runtime',
     provenance: { source: 'regionalRuntimeService', stages: STAGES },
     occurredAt: new Date().toISOString()

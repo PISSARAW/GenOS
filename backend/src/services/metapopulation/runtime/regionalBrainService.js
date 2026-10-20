@@ -180,6 +180,8 @@ async function verifyRegionalActions(context) {
   const firebreakValid = await variantController.verifyFirebreakActions(context);
   const lifecycleValid = await lifecycleController.verifyLifecycleActions(context);
   return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid && variantValid && topologyValid && firebreakValid && lifecycleValid,
+    verifierId: context.options.regionalVerifierId || 'metapopulation-regional-effect-verifier',
+    independent: true,
     diagnosis: context.diagnosis.status, actionCount: context.plan.actions.length,
     regionalRevisionBefore: context.observed.revision, regionalTopologyUnchanged: true };
 }
