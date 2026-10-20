@@ -174,6 +174,16 @@ Quand les contrôles de clôture échouent, la mission reste `partial` avec
 complète et `stateValidation.status: "verified"` ; un niveau partiel produit
 un code de sortie d'échec.
 
+### Conditions de succès du dispatch
+
+Le statut `accepted` est une acceptation intermédiaire, pas une preuve de
+complétion. Pour Syncytium, la réussite exige `complete: true`, c'est-à-dire
+la validation sémantique complète et un état partagé vérifié. Pour les autres
+modes, la réussite exige l'absence d'échecs de dispatch. Ces échecs sont
+désormais toujours exposés et bloquants, indépendamment de
+`GENOS_TOPOLOGY_AWAIT_WORKERS`. Syncytium attend ses workers par défaut et
+n'accepte plus silencieusement une mission sans validation.
+
 ## Exemple Node minimal
 
 Depuis la racine du dépôt, ce script vérifie l'état d'une session volatile.
