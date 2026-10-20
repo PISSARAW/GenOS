@@ -24,7 +24,7 @@ const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const telemetry = require('../src/services/telemetryObserver');
 
 const workerAssignments = {
-  basic_implementation: { methodContract: scopedMethod() },
+  basic_implementation: { workerKind: 'experimental_worker', methodContract: experimentMethod() },
   interview_plan_implementation: { specialtyNiche: 'planned_world', methodContract: nicheMethod() },
   self_correcting_implementation: { methodContract: adaptiveMethod() }
 };
@@ -35,8 +35,10 @@ function problem() {
   } };
 }
 
-function scopedMethod() {
-  return { version: 1, methodId: 'scoped_procedure', parameters: { procedure: problem() } };
+function experimentMethod() {
+  return { version: 1, methodId: 'measure_lpt', parameters: {
+    ...problem().parameters, threshold: 7
+  } };
 }
 
 function nicheMethod() {
@@ -51,9 +53,9 @@ function adaptiveMethod() {
   ] } };
 }
 
-function claimPlans(source) {
+function claimPlans() {
   return [
-    `Scoped procedure 'lpt' completed in '${source}'.`,
+    'supported_for_this_input',
     "Procedure executed within declared niche 'planned_world'.",
     '3 bounded strategy trials executed; best observed makespan 7.'
   ].map((claim) => ({ claim, commandIds: ['npm-test'] }));
@@ -79,9 +81,9 @@ async function createWorkspace(db, root, answer) {
       'Local', 'JavaScript', 'Branch', 100000, 100000, '{}')`, 'gqwf-qual-ws');
   const contract = strategies.buildStrategyContract({ mission: 'Execute a bounded comparative mission.', allowPrototype: true });
   contract.execution_pipeline = ['deterministic_execution'];
-  contract.promotion.require_independent_verification = false;
+  contract.promotion.require_independent_verification = true;
   contract.promotion.require_epistemic_assurance = false;
-  contract.promotion.native_verification = null;
+  contract.promotion.native_verification = { executions: 2, latencyMs: 30000 };
   await strategies.saveContract(db, { agentId: 'gqwf-qual-agent', workspaceId: 'gqwf-qual-ws',
     contract, createdBy: 'gqwf-trinity-qualification' });
   return source;
@@ -93,7 +95,7 @@ function missionInput(source, missionId) {
       tokens: 12000, workerShare: 0.75, orchestratorReserve: 0.25, events: 180, latencyMs: 120000
     }, executionPolicy: { gqwfV2: true, requestedWorkers: 3, workerFanoutLimit: 3, allowFileEdits: true },
     workerAssignments, trinityVariantId: 'controlled', trinityIntegrationChecks: ['npm-test'],
-    trinityClaimVerificationChecks: claimPlans(source), executor: 'local', localRuntime: true, silentUpdates: true };
+    trinityClaimVerificationChecks: claimPlans(), executor: 'local', localRuntime: true, silentUpdates: true };
 }
 
 function autonomyPlan(input) {
@@ -132,6 +134,9 @@ async function runMission(db, source, missionId) {
   for (const worker of workers) fsSync.realpathSync(worker.workspaceRoot);
   await evidenceBarrier.runEvidenceBarrier({ db, agentId: row.id, normalizedMission: input,
     autonomyPlan: ctx.autonomyPlan, contractRecord, autonomousWorkers: workers, strict: true });
+  assert.equal(ctx.autonomyPlan.missionClosure?.success, true,
+    JSON.stringify(ctx.autonomyPlan.missionClosure || null));
+  assert.equal(ctx.autonomyPlan.missionClosure?.closureChecks?.independentOracle, true);
   return { ctx, workers, experimentId: ctx.autonomyPlan.trinity.missionId };
 }
 
@@ -148,8 +153,11 @@ async function assertEscalatedComparison(db, result) {
   assert.ok(worlds.every((world) => world.status === 'compared'));
   assert.ok(worlds.every((world) => {
     const vector = JSON.parse(world.evidence_vector_json || '{}');
-    return vector.correctness === 1 && vector.coverage === null && vector.robustness === 0.5;
-  }), `production comparison must preserve unmeasured finite-trial coverage as null: ${JSON.stringify(worlds)}`);
+    const replayedProcedure = world.world_number === 1
+      ? vector.correctness === null && vector.robustness === null
+      : vector.correctness === 1 && vector.robustness === 0.5;
+    return replayedProcedure && vector.coverage === null;
+  }), `production comparison must not fabricate unmeasured vector dimensions: ${JSON.stringify(worlds)}`);
   assert.ok(reports.every((entry) => !Object.hasOwn(entry.report.evidenceVectorEvidence || {}, 'coverage')),
     'finite procedure checks must not claim universal coverage without a dedicated proof');
   for (const world of worlds) {
