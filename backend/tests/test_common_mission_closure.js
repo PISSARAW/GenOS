@@ -56,8 +56,9 @@ async function verifyBiologicalTopologyPaths() {
     const result = await completion.complete({ mode, missionId, output, expectedCount: 1,
       evidenceProofs: [proof] });
     assert.equal(result.completionContract.verdict, 'partial', mode);
-    assert.equal(result.completionContract.reasons.includes(
-      'topology_completion_adapter_unavailable'), true, mode);
+    const reason = mode === 'trinity' ? 'trinity_scope_missing'
+      : 'topology_completion_adapter_unavailable';
+    assert.equal(result.completionContract.reasons.includes(reason), true, mode);
     assert.equal(result.completionContract.closureChecks.independentOracle, false, mode);
   }
 }
