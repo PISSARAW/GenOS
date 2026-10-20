@@ -480,7 +480,11 @@ au domaine annoncé.
 Le contrat, les refus et le protocole local sont décrits dans
 [l'immunité épistémique](../06-qualite-preuves/immunite-epistemique.md). Les
 limites de calibration, de portée et d'indépendance sont actées par
-[l'ADR 0642](../adr/0642-borner-les-heuristiques-aeis.md).
+[l'ADR 0642](../adr/0642-borner-les-heuristiques-aeis.md). La
+[référence runtime](../03-reference/runtime-aeis.md), le
+[runbook opérateur](../04-exploitation/aeis.md) et la
+[qualification datée](../06-qualite-preuves/qualification-aeis-2026-10-20.md)
+complètent ce cadre conceptuel.
 
 ---
 

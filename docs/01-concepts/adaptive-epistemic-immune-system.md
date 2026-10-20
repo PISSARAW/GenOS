@@ -1,7 +1,7 @@
 ---
 title: "Adaptive Epistemic Immune System"
 description: "Système immunitaire épistémique adaptatif pour GenOS — reconnaissance, vérification et neutralisation des formes de conviction trompeuses."
-version: 1.3.0
+version: 1.4.0
 author: GenOS
 created: 2026-09-21
 tags: [epistemology, immunity, biomimicry, verification, adaptive]
@@ -13,7 +13,12 @@ tags: [epistemology, immunity, biomimicry, verification, adaptive]
   d'ordonnancement non calibrées
 - **Portée** : intégrité procédurale, reproduction et promotion de claims
   mécanisables ; pas de vérité générale
-- **Dernière revue** : 2026-10-18
+- **Dernière revue** : 2026-10-20
+
+**Dossier documentaire** : cette fiche expose le concept. Les contrats exacts
+sont dans la [référence du runtime](../03-reference/runtime-aeis.md), les gestes
+opérateur dans le [runbook](../04-exploitation/aeis.md), et les résultats datés
+dans la [qualification du 20 octobre 2026](../06-qualite-preuves/qualification-aeis-2026-10-20.md).
 
 ## 1. Définition du domaine
 
@@ -107,7 +112,7 @@ vérité terrain, métriques de faux positifs/faux négatifs et version de polit
 Tolérance   : le claim est accepté tel quel
 Quarantaine : le claim est isolé, vérifié, puis accepté ou rejeté
 Neutralisation : le claim est détruit/réfuté
-Vérification : le claim passe avec un reçu de vérificateur indépendant
+Vérification : le claim passe avec un reçu de vérificateur séparé selon le contrat
 ```
 
 ### Diversité cognitive effective
@@ -247,7 +252,7 @@ Population A (GPT)     Population B (Claude)     Population C (déterministe)
     └─────── migration contrôlée (échange de résultats) ──┘
                               │
                               ▼
-                    convergence indépendante mesurée
+                    convergence inter-populations mesurée
 ```
 
 Si A et B arrivent à la même réponse sans s'influencer, le runtime enregistre une
@@ -333,6 +338,9 @@ Une information arrive dans l'organisme GenOS
 | Affinity maturation | `backend/src/services/epistemic/affinityMaturationService.js` | `diagnoseError`, `targetedMutation`, `matureStrategy` |
 | Homéostasie | `backend/src/services/epistemic/epistemicHomeostasisService.js` | `computePressure`, `tierFromPressure`, `feedbackEffect` |
 | Holobionte | `backend/src/services/epistemic/epistemicHolobionteService.js` | `epistemicHolobionte`, `hostDecision`, `immuneSymbiontReview`, `memorySymbiontLookup` |
+| Oracle natif : coordination | `backend/src/services/epistemic/nativeOracleCoordinator.js` + `nativeOracleJournal.js` | réservation, exécution bornée, attestation et journal durable |
+| Oracle natif : domaines | `backend/src/services/epistemic/nativeOracleDomains.js` + `oracle*Subject.js` + `oracle*Checks.js` | sujets scellés, claims canoniques et postconditions par domaine |
+| Oracle natif : gate | `backend/src/services/epistemic/nativeOracleGate.js` + `nativeOracleProof.js` | relecture courante/historique, coûts, nonces, scope et binding |
 
 ### Hiérarchie d'appel
 
@@ -436,7 +444,7 @@ epistemicHolobionte(antigen, context)
    coverage/behavior → mesures et recherches réelles sur l'antigène
 
 7. CENSUS + GATE
-   buildConstraintAttestations(verifications, obligationIds) → 2 acteurs indépendants requis
+   buildConstraintAttestations(verifications, obligationIds) → 2 acteurs distincts requis
    buildGateContext injecte aeisEvaluation.assembly dans epistemicAssembly
    epistemicAssurancePolicy évalue l'assembly injectée (pas de "missing assembly" si AEIS a tourné)
 
@@ -456,6 +464,12 @@ epistemicHolobionte(antigen, context)
     computePressure(antigen) → 0.0 - 1.0
     tierFromPressure(pressure) → "baseline" | "lean" | "adaptive" | "inflamed" | "systemic"
 ```
+
+Pour les méthodes couvertes par un oracle natif, le pipeline ajoute une
+réservation liée à l'autorité, au sujet et au budget, deux stratégies de contrôle,
+une attestation scellée et une acceptation liée aux nonces. La liste opposable des
+domaines et de leurs limites est publiée dans la
+[référence runtime](../03-reference/runtime-aeis.md#8-oracles-natifs).
 
 ### Validation des tests
 
@@ -494,7 +508,7 @@ L'option `problem_profile.multi_provider_verification` active la revue par
 fournisseurs. `problem_profile.aeis_provider_allowlist` doit alors désigner au
 moins deux fournisseurs distincts configurés; une revue manquante, divergente
 ou réfutante bloque la promotion. Les avis provider ne remplacent pas les
-reçus indépendants des vérificateurs locaux.
+reçus séparés selon le contrat des vérificateurs locaux.
 
 Cette frontière n'est pas présentée comme une solution générale au problème de
 la vérification des affirmations non mécanisables. AEIS refuse de convertir un
@@ -529,6 +543,12 @@ et la régression EAB locale.
 | Approval et contre-preuve dédupliquée sur SQLite | `test_approve_run_deferred_promotion.js` |
 | Approval avec deux processus provider ; refus du désaccord et du quorum manquant | `test_aeis_provider_approve_run.js` |
 | Régression adversariale de promotion | `benchmarks/eab/run-aeis-eab.cjs` |
+| Réservation, attestation, replay et coûts d'oracle natif | `test_native_oracle_completion.js`, `test_native_oracle_failure_costs.js` |
+| Postconditions code et fidélité mémoire | `test_native_code_completion.js`, `test_native_memory_budget.js` |
+
+La campagne datée du 20 octobre 2026 qualifie la suite AEIS canonique mais garde
+la matrice native worker en statut partiel :
+[qualification-aeis-2026-10-20.md](../06-qualite-preuves/qualification-aeis-2026-10-20.md).
 
 ### Autorité persistée
 
@@ -557,8 +577,9 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 
 ### Limites
 
-- **Pas de vérité absolue** : le système mesure la fiabilité, pas la vérité.
-  Un claim vérifié peut être faux ; un claim rejeté peut être vrai.
+- **Pas de vérité absolue** : le système vérifie une procédure et des prédicats
+  bornés ; il ne mesure pas une fiabilité générale. Un claim vérifié peut être
+  faux hors de son domaine ; un claim rejeté peut être vrai sans preuve admissible.
 
 - **Portée mécanisable seulement** : la promotion automatique couvre actuellement
   les prédicats de commande exacts. La santé d'un refactoring, la fidélité d'un
@@ -600,7 +621,8 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 ### Non-objectifs
 
 - **Pas de vérité générale** : le système ne décide pas de la vérité absolue.
-  Il mesure la fiabilité d'une claim par rapport aux preuves et aux vérificateurs.
+  Il vérifie qu'un claim satisfait une politique versionnée au regard des preuves
+  et vérificateurs déclarés ; il ne mesure pas sa fiabilité générale.
 
 - **Pas de remplacement de l'orchestrateur** : l'AEIS est un sous-système de
   vérification, pas un remplacement de `genos-orchestrate.cjs`.
@@ -628,7 +650,8 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 - trust registry central (digests stables type+version+policy, source unique contrats + receipts)
 - indépendance vs producer évaluée avant signature du receipt (immuable après)
 - FormalResult créé avant vérification, receipts bindés (resultId + evidenceDigest)
-- census de contraintes depuis receipts indépendants (2 acteurs requis)
+- census de contraintes depuis deux reçus séparés selon le contrat ; cette
+  séparation procédurale ne démontre pas une indépendance épistémique
 - AEIS → promotion gate injectée (epistemicAssembly depuis aeisEvaluation)
 - clonal expansion exécutée (clonalExpansionService : mutateStrategy, expandClone, selectWinningClones)
 - recrutement de niches conditionnel à la pression, à la preuve observée et au
@@ -650,6 +673,9 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
   lexical lorsque le gold est `undefined`.
 - benchmark local AEIS EAB exécutant quatre cas adversariaux sur le vrai pont
   de promotion, raccordé à `npm test`
+- oracles natifs bornés pour procédures, observations, code, mémoire, réponse
+  modèle mesurée, crédit externe et artefacts workers ; chaque domaine publie
+  une proposition plus étroite que le résultat métier général
 
 **Bornes vérifiées** :
 - au maximum 32 claims par rapport, traitées séquentiellement ; de 2 à 8

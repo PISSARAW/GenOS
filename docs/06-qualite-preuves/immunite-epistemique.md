@@ -1,5 +1,10 @@
 # Immunité épistémique
 
+- **Type** : contrat de preuve
+- **Statut** : implémenté pour les prédicats mécanisables ; couverture native par
+  domaines fermés, matrice worker encore partiellement qualifiée
+- **Dernière revue** : 2026-10-20
+
 ## Objectif
 
 L'immunité épistémique empêche la promotion d'une synthèse lorsque sa cohérence
@@ -66,8 +71,8 @@ L'assemblage contient les sections suivantes :
 | `results` | Résultats formels canoniques à assembler |
 | `obligations` | Contraintes et questions qui doivent être couvertes |
 | `coverage` | Liens entre obligation, résultat et digest de preuve |
-| `constraintAttestations` | Deux recensements indépendants du même ensemble d'obligations (construits depuis les receipts indépendants par `buildConstraintAttestations`) |
-| `verifications` | Reçus authentifiés de vérificateurs indépendants |
+| `constraintAttestations` | Deux recensements séparés du même ensemble d'obligations (construits depuis des reçus distincts par `buildConstraintAttestations`) |
+| `verifications` | Reçus authentifiés de vérificateurs distincts selon le contrat |
 | `equivalences` | Équivalences accompagnées d'un témoin |
 | `deduplications` | Groupes équivalents coalescés vers un résultat canonique |
 | `relations` | Relations de support ou de contradiction entre résultats |
@@ -90,9 +95,9 @@ allowlist, et `verified` dépend du exit code réel — puis appelle
 `issueReceipt()` avec ce `resultId`, ce digest de preuve et le digest du
 vérificateur résolu dans le registre central (`verifierTrustRegistry`, digest
 stable `type + version + policy`, source unique des contrats et des reçus).
-L'indépendance est évaluée **avant** signature, contre le **producer** du claim
-puis contre les verifiers précédents ; le reçu lie aussi la date, un nonce, le
-statut et cette indépendance. La signature HMAC-SHA256 couvre tous ces champs
+La séparation déclarée est évaluée **avant** signature, contre le **producer** du
+claim puis contre les verifiers précédents ; le reçu lie aussi la date, un nonce,
+le statut et cette propriété. La signature HMAC-SHA256 couvre tous ces champs
 (`backend/src/services/epistemicVerifierReceiptService.js` : `signatureFor`,
 `issueReceipt`, `validateReceipt` en temps constant via `timingSafeEqual`).
 Conditionnalité : l'émission et la validation exigent `GENOS_EPISTEMIC_RECEIPT_SECRET`
@@ -136,7 +141,7 @@ humaine non liée à l'assemblage.
 ## Ordre de promotion
 
 L'ordre obligatoire est : résultat formel, recensement des obligations,
-vérification indépendante, résolution des contradictions, composition du graphe,
+vérification séparée selon le contrat, résolution des contradictions, composition du graphe,
 puis seulement merge du workspace. Un merge three-way réussi ne fournit aucune
 preuve sur la validité de la conclusion.
 
@@ -164,9 +169,10 @@ La variété de providers, modèles ou processus n'établit pas leur indépendan
 
 - L'affirmation doit décrire exactement le prédicat de commande exécuté :
   `<commande> outputs "<valeur>"` ou `<commande> exits with code 0`.
-- Le quorum comporte au moins deux vérificateurs exécutés indépendamment, dans
+- Le quorum comporte au moins deux vérificateurs exécutés séparément, dans
   des workspaces distincts, avec reçus signés liés au résultat et à sa preuve.
-  La ré-arbitration conserve les descripteurs des lots précédents.
+  Cette séparation est une règle procédurale, pas une preuve d'indépendance
+  épistémique. La ré-arbitration conserve les descripteurs des lots précédents.
 - Les niches sont recrutées selon une pression heuristique, les preuves observées
   et le budget. Le
   rapport contient au maximum 32 claims traitées séquentiellement ; le budget
@@ -182,6 +188,12 @@ La variété de providers, modèles ou processus n'établit pas leur indépendan
 - Un timeout est inconclusif. Une contre-preuve exécutée et confirmée reste
   opposable au Host et au régulateur.
 
+Les méthodes possédant un oracle natif passent aussi par une réservation liée au
+scope, à l'autorité, au sujet et au budget. Deux stratégies distinctes recalculent
+les postconditions ; l'attestation et l'acceptation sont ensuite liées aux coûts
+et aux nonces. Cette preuve reste limitée au domaine fermé déclaré. Voir la
+[référence du runtime AEIS](../03-reference/runtime-aeis.md#8-oracles-natifs).
+
 ## Mémoire et autorité persistantes
 
 La mémoire est isolée par organisation/projet/workspace et bornée à 1 000 entrées
@@ -196,7 +208,7 @@ les descendants d'un agent révoqué. Cette révocation retire les droits ; elle
 ne tue pas les processus externes déjà lancés.
 
 Voir [ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md) et la
-[matrice de qualification AEIS](../01-concepts/adaptive-epistemic-immune-system.md#9-qualification-opérationnelle).
+[matrice de qualification AEIS](qualification-aeis-2026-10-20.md).
 
 ## Vérification locale
 
@@ -204,6 +216,9 @@ Voir [ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md) et la
 npm --prefix backend run test:aeis
 node backend/tests/test_formal_result_contract.js
 node backend/tests/test_epistemic_assurance.js
+node backend/tests/test_native_oracle_completion.js
+node backend/tests/test_native_code_completion.js
+node backend/tests/test_native_memory_budget.js
 npm test
 cargo test --workspace
 ```
@@ -211,3 +226,7 @@ cargo test --workspace
 Les scénarios adversariaux couvrent les contraintes absentes, les preuves altérées,
 les reçus forgés, les doublons, les contradictions, les graphes incomplets, les
 échecs hors domaine et les contributions non reliées.
+
+Le résultat daté de ces contrôles, y compris le blocage courant de la matrice
+worker native, est consigné dans
+[qualification-aeis-2026-10-20.md](qualification-aeis-2026-10-20.md).
