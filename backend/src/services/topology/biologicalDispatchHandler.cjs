@@ -13,6 +13,7 @@ const { waitForMetapopulationWorkers } = require('./metapopulationWaiter.cjs');
 const biologicalMissionCompletion = require('../biologicalMissionCompletionService.js');
 const { topologyDetails } = require('./topologyDetails.cjs');
 const workerResultReader = require('./workerResultReader.cjs');
+const dispatchEnvelope = require('./biologicalDispatchEnvelope.cjs');
 
 async function prepareBiologicalContext(db, context) {
   const parent = await ensureParent({ db, context });
@@ -49,7 +50,6 @@ async function finalizeBiologicalOutput({ db, context, mode, mission, members, a
   await biologicalMissionCompletion.complete({ db, missionId: context.missionId, mode,
     sessionId: composition.sessionId, output: out.biologicalMode,
     validation: semanticValidation, expectedCount: members.length });
-  process.stdout.write(JSON.stringify(out));
   return out;
 }
 
@@ -59,15 +59,16 @@ async function handleBiological(db, context) {
       ...context.request, mode: context.request.mode,
       orchestrator_id: context.orchestratorId
     }, { agentId: context.orchestratorId });
-    process.stdout.write(JSON.stringify(result));
-    return;
+    return result;
   }
   const { parent, mode, mission, composition } = await prepareBiologicalContext(db, context);
   const { members, accepted, semanticValidation } = await dispatchAndValidate({ db, context, mode, parent, composition });
   const out = await finalizeBiologicalOutput({ db, context, mode, mission, members, accepted, composition, semanticValidation, parent });
-  if (handleBiologicalCondition(mode, out)) {
-    throw Object.assign(new Error(`${mode} dispatch did not complete every required worker with valid evidence.`), { code: 'BIOLOGICAL_MISSION_INCOMPLETE' });
+  const envelope = dispatchEnvelope.build({ missionId: context.missionId, mode, output: out });
+  if (handleBiologicalCondition(mode, out) || !envelope.success) {
+    throw dispatchEnvelope.incompleteError(envelope);
   }
+  return envelope;
 }
 
 module.exports = { handleBiological };

@@ -395,6 +395,6 @@ function exitAfterFlush(code) {
   process.stdout.write('', () => process.exit(code));
 }
 main().then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
-  console.error(error.stack || error.message);
-  exitAfterFlush(1);
+  if (error?.stdoutEnvelope) { process.stderr.write(`${error.message}\n`); process.stdout.write(JSON.stringify(error.stdoutEnvelope)); return exitAfterFlush(error.exitCode || 2); }
+  console.error(error.stack || error.message); exitAfterFlush(1);
 });

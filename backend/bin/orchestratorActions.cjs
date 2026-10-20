@@ -198,8 +198,8 @@ async function handleTeam(opts) {
   return handlers.handleTeam(opts.db, opts.context);
 }
 async function handleBiological(opts) {
-  const handlers = require('../bin/topologyHandlers.cjs');
-  return handlers.handleBiological(opts.db, opts.context);
+  const handlers = require('../bin/topologyHandlers.cjs'), result = await handlers.handleBiological(opts.db, opts.context);
+  process.stdout.write(JSON.stringify(result)); return result;
 }
 async function handleTrinity(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');

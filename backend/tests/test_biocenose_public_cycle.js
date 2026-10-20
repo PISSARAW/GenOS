@@ -99,13 +99,7 @@ async function testExplicitPublicCycle(db) {
 
 async function dispatchBiocenose(db, request) {
   const dispatch = require('../src/services/topology/biologicalDispatchHandler.cjs');
-  const write = process.stdout.write;
-  let output = '';
-  process.stdout.write = (value) => { output += value; return true; };
-  try {
-    await dispatch.handleBiological(db, { request, orchestratorId: request.orchestrator_id });
-  } finally { process.stdout.write = write; }
-  return JSON.parse(output);
+  return dispatch.handleBiological(db, { request, orchestratorId: request.orchestrator_id });
 }
 
 async function testMcpContinuationRoute(db, resume) {
