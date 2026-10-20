@@ -40,8 +40,9 @@ async function verifyKnownModesFailClosed() {
     assert.equal(result.complete, false, mode);
     assert.equal(result.completionContract.schema, 'genos.mission-completion/v1', mode);
     assert.equal(result.completionContract.verdict, 'partial', mode);
-    assert.equal(result.completionContract.reasons.includes(
-      'topology_completion_adapter_unavailable'), true, mode);
+    const reason = mode === 'biocenose' ? 'biocenose_scope_missing'
+      : 'topology_completion_adapter_unavailable';
+    assert.equal(result.completionContract.reasons.includes(reason), true, mode);
     assert.equal(result.completionContract.closureChecks.requiredWorkers, true, mode);
     assert.equal(result.completionContract.closureChecks.independentOracle, false, mode);
   }

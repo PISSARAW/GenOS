@@ -11,7 +11,8 @@ function signedOracleReceipt(input) {
     round: session.round, evidenceRef: input.evidenceRef || 'proof:r2', oracle: 'trusted' };
   return { ...receipt, epistemicReceipt: issueReceipt({ resultId: receipt.receiptId,
     evidenceDigest: proof.bindingDigest({ claim, receipt, session }),
-    verifierDigest: listVerifierDigests()[0], status: 'verified' }) };
+    verifierDigest: listVerifierDigests()[0], status: 'verified',
+    independent: input.independent === true }) };
 }
 
 module.exports = { signedOracleReceipt };
