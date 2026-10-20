@@ -227,6 +227,25 @@ function verifiedEffect(plan, windows, actionReceipt) {
       candidateDigest: plan.candidate.digest } };
 }
 
+function evaluateObservedEffect(context) {
+  const { input, plan, windows, receipt } = context;
+  if (input.circuitBreakerOpen === true) return rollbackRequired(plan, windows, 'CIRCUIT_BREAKER_OPEN');
+  const tolerance = Math.max(0, finite(input.regressionTolerance, 0));
+  if (windows.some((item) => item.delta < -tolerance)) {
+    return rollbackRequired(plan, windows, 'PRODUCTION_REGRESSION');
+  }
+  const minimumWindows = Math.max(2, Math.floor(finite(input.minimumWindows, 2)));
+  if (windows.length < minimumWindows) return unknownEffect(plan, 'LONGITUDINAL_WINDOW_INCOMPLETE');
+  const excluded = new Set([plan.scope.responsibilityAgentId, plan.authority.principalId]);
+  if (windows.some((item) => excluded.has(item.verifierId))) {
+    return unknownEffect(plan, 'INDEPENDENT_VERIFIER_REQUIRED');
+  }
+  const improvement = Math.max(0, finite(input.minimumImprovement, 0));
+  return windows.every((item) => item.delta >= improvement)
+    ? verifiedEffect(plan, windows, receipt)
+    : unknownEffect(plan, 'PRODUCTION_EFFECT_INCONCLUSIVE');
+}
+
 function evaluatePostAction(input = {}) {
   const plan = input.plan;
   if (plan?.status !== 'AUTHORIZED') {
@@ -242,22 +261,7 @@ function evaluatePostAction(input = {}) {
   const context = observationContext(input, receipt);
   const windows = (Array.isArray(input.observationWindows) ? input.observationWindows : [])
     .map((item) => normalizedWindow(item, context)).filter(Boolean);
-  const minimumWindows = Math.max(2, Math.floor(finite(input.minimumWindows, 2)));
-  if (input.circuitBreakerOpen === true) return rollbackRequired(plan, windows, 'CIRCUIT_BREAKER_OPEN');
-  const tolerance = Math.max(0, finite(input.regressionTolerance, 0));
-  if (windows.some((item) => item.delta < -tolerance)) {
-    return rollbackRequired(plan, windows, 'PRODUCTION_REGRESSION');
-  }
-  if (windows.length < minimumWindows) return unknownEffect(plan, 'LONGITUDINAL_WINDOW_INCOMPLETE');
-  const excluded = new Set([plan.scope.responsibilityAgentId, plan.authority.principalId]);
-  if (windows.some((item) => excluded.has(item.verifierId))) {
-    return unknownEffect(plan, 'INDEPENDENT_VERIFIER_REQUIRED');
-  }
-  const improvement = Math.max(0, finite(input.minimumImprovement, 0));
-  if (windows.every((item) => item.delta >= improvement)) {
-    return verifiedEffect(plan, windows, receipt);
-  }
-  return unknownEffect(plan, 'PRODUCTION_EFFECT_INCONCLUSIVE');
+  return evaluateObservedEffect({ input, plan, windows, receipt });
 }
 
 module.exports = { DEFAULT_POLICY, detectProductionDrift, investigateCampaign,

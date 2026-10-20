@@ -56,7 +56,8 @@ async function recordCandidate(db, input) {
   });
 }
 
-function assertIndependentActors(responsibility, candidate, verification, authority) {
+function assertIndependentActors(context) {
+  const { responsibility, candidate, verification, authority } = context;
   const verifierId = required(verification?.verifierId, 'AMBIENT_VERIFIER_REQUIRED');
   const authorityId = required(authority?.authorityId, 'AMBIENT_AUTHORITY_REQUIRED');
   const actors = [responsibility.ownerAgentId, candidate.proposerId, verifierId, authorityId];
@@ -75,7 +76,7 @@ function learningContent(input, responsibility, candidate) {
   const payload = input.payload || {};
   const verification = payload.verification || {};
   const authority = payload.authority || {};
-  assertIndependentActors(responsibility, candidate, verification, authority);
+  assertIndependentActors({ responsibility, candidate, verification, authority });
   if (!['SUPPORTED', 'REJECTED', 'INSUFFICIENT'].includes(verification.verdict)) {
     throw ledger.coded('AMBIENT_VERDICT_INVALID', 'Verification verdict is invalid.');
   }

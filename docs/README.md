@@ -70,7 +70,7 @@
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
-- [Studio : cycle produit durable](03-reference/studio-cycle-produit-durable.md) — contrat UX versionné, jury pluraliste, séparation aperçu/acceptation/effet et initiative post-livraison bornée ; [ADR 0646](adr/0646-cycle-produit-durable-studio.md).
+- [Studio : cycle produit durable](03-reference/studio-cycle-produit-durable.md) — contrat UX versionné, jury pluraliste, séparation aperçu/acceptation/effet et initiative post-livraison bornée ; [ADR 0682]($20682-cycle-produit-durable-studio.md).
 - [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
 - [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
 - [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.
@@ -415,7 +415,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0508 — Refuser une intersection vide de lease](adr/0508-refuser-une-intersection-vide-de-lease.md) — une contrainte de focus sans outil commun laisse la mission sans outil.
 - [ADR 0509 — Borner la lease MCP par le budget de mission](adr/0509-borner-la-lease-mcp-par-le-budget-de-mission.md) — transmet au serveur MCP l'échéance de mission la plus stricte.
 - [ADR 0622 — Qualification contrefactuelle liée aux preuves](adr/0622-qualification-contrefactuelle-liee-aux-preuves.md) — lie branches, replays, diff causal et reçus indépendants sans autoriser directement la promotion.
-- [ADR 0646 — Traiter l'organisation comme une hypothèse appariée](adr/0646-essai-apparie-des-organisations.md) — planifie un contrôle `NO_CHANGE`, une candidate et un vérificateur indépendant sans autoriser leur exécution.
+- [ADR 0684 — Traiter l'organisation comme une hypothèse appariée]($20684-essai-apparie-des-organisations.md) — planifie un contrôle `NO_CHANGE`, une candidate et un vérificateur indépendant sans autoriser leur exécution.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)
@@ -491,7 +491,7 @@ Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nc
 - [0309-evaluation-isolee-variants-a-team.md](adr/0309-evaluation-isolee-variants-a-team.md) — évaluation optionnelle des contrats A-Team, distincte de l’exécution des sous-runs.
 - [0329-cloture-verifiable-runs-a-team.md](adr/0329-cloture-verifiable-runs-a-team.md) — clôture des runs A-Team sur preuve, reprise et états du graphe.
 - [0310-audits-web-shev-independants.md](adr/0310-audits-web-shev-independants.md) — audits Lighthouse, axe-core et Playwright reliés aux observations et effets SHEV.
-- [0646-responsabilite-ux-pluraliste-longitudinale.md](adr/0646-responsabilite-ux-pluraliste-longitudinale.md) — dérive UX dans la durée, évaluateurs calibrés, désaccord et effet utilisateur séparé.
+- [0697-responsabilite-ux-pluraliste-longitudinale.md](adr/0697-responsabilite-ux-pluraliste-longitudinale.md) — dérive UX dans la durée, évaluateurs calibrés, désaccord et effet utilisateur séparé.
 - [0311-autorisation-cedar-agents.md](adr/0311-autorisation-cedar-agents.md) — politique Cedar pour les missions et le contrôle des agents, sans permission implicite par relation.
 - [0323-biscuit-delegation-workers.md](adr/0323-biscuit-delegation-workers.md) — jetons de délégation bornée des sous-orchestrateurs.
 - [0324-capsules-secretstream-transport.md](adr/0324-capsules-secretstream-transport.md) — flux authentifié pour capsules transportables.

@@ -1,4 +1,4 @@
-# ADR 0646 — Stewardship du dépôt lié à l'effet projet
+# ADR 0699 — Stewardship du dépôt lié à l'effet projet
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

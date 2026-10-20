@@ -54,7 +54,7 @@ responsabilité, les deux références et la politique avant l'écriture atomiqu
 - double preuve :
   [`trajectoryStewardshipOutcomeService.js`](../../backend/src/services/trajectoryStewardshipOutcomeService.js) ;
 - décision :
-  [ADR 0646](../adr/0646-responsabilite-trajectoire-double-preuve.md).
+  [ADR 0696]($20696-responsabilite-trajectoire-double-preuve.md).
 
 ## Limites et non-objectifs
 

@@ -60,15 +60,30 @@ function normalizeCandidate(input, contract) {
   };
 }
 
-function independentProof(candidate, proof) {
-  if (!proof || proof.exitCode !== 0 || proof.source !== 'ontogenesis-verifier') return 'preuve-executable-requise';
+function executableProofReason(proof) {
+  if (!proof) return 'preuve-executable-requise';
+  if (proof.exitCode !== 0 || proof.source !== 'ontogenesis-verifier') return 'preuve-executable-requise';
+  return null;
+}
+
+function proofIdentityReason(candidate, proof) {
   if (typeof proof.verifierId !== 'string' || !proof.verifierId.trim()) return 'verificateur-requis';
   if (proof.verifierId === candidate.executorId) return 'preuve-non-independante';
+  return null;
+}
+
+function proofBindingReason(candidate, proof) {
   if (proof.candidateId !== candidate.candidateId) return 'preuve-mauvais-candidat';
   if (!Array.isArray(proof.evidenceRefs) || proof.evidenceRefs.length === 0
     || !proof.evidenceRefs.every((ref) => typeof ref === 'string' && ref.trim())) return 'references-preuve-requises';
   if (!proof.treeHash) return 'empreinte-preuve-requise';
   return null;
+}
+
+function independentProof(candidate, proof) {
+  const executableReason = executableProofReason(proof);
+  if (executableReason) return executableReason;
+  return proofIdentityReason(candidate, proof) || proofBindingReason(candidate, proof);
 }
 
 function integrationGate(proof, integration) {
@@ -77,17 +92,31 @@ function integrationGate(proof, integration) {
   return null;
 }
 
-function effectGate(candidate, integration, effect) {
+function effectObservationReason(candidate, integration, effect) {
   if (!effect || effect.observedAfterSha !== integration.sha) return 'effet-post-integration-requis';
   if (!effect.verifierId || effect.verifierId === candidate.executorId) return 'effet-non-independant';
+  return null;
+}
+
+function effectMeasurementReason(effect) {
   if (!effect.metric || !Number.isFinite(effect.baseline) || !Number.isFinite(effect.observed)) {
     return 'mesure-effet-invalide';
   }
   if (!Array.isArray(effect.evidenceRefs) || effect.evidenceRefs.length === 0) return 'preuve-effet-requise';
-  const improved = effect.direction === 'decrease'
-    ? effect.observed < effect.baseline
-    : effect.direction === 'increase' && effect.observed > effect.baseline;
-  return improved ? null : 'effet-projet-non-demontre';
+  return null;
+}
+
+function effectImproved(effect) {
+  if (effect.direction === 'decrease') return effect.observed < effect.baseline;
+  return effect.direction === 'increase' && effect.observed > effect.baseline;
+}
+
+function effectGate(candidate, integration, effect) {
+  const observationReason = effectObservationReason(candidate, integration, effect);
+  if (observationReason) return observationReason;
+  const measurementReason = effectMeasurementReason(effect);
+  if (measurementReason) return measurementReason;
+  return effectImproved(effect) ? null : 'effet-projet-non-demontre';
 }
 
 function assess(candidate, input) {

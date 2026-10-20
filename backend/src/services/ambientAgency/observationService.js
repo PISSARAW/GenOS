@@ -87,13 +87,15 @@ async function ingest(db, input) {
     await db.run(`INSERT INTO ambient_observation_payloads
       (organization_id,project_id,observation_id,minimized_json) VALUES (?,?,?,?)`,
     scope.organizationId, scope.projectId, record.observationId, canonicalJson(minimized));
-    await appendEvent(db, scope, record.observationId, 'INGEST', {
-      eventId: `ingest:${record.observationId}`, contentHash, observedAt: record.observedAt });
+    await appendEvent(db, { scope, observationId: record.observationId, eventKind: 'INGEST',
+      event: { eventId: `ingest:${record.observationId}`, contentHash,
+        observedAt: record.observedAt } });
     return { record, minimized, replayed: false };
   });
 }
 
-async function appendEvent(db, scope, observationId, eventKind, event) {
+async function appendEvent(db, input) {
+  const { scope, observationId, eventKind, event } = input;
   await db.run(`INSERT INTO ambient_observation_events
     (organization_id,project_id,event_id,observation_id,event_kind,event_json)
     VALUES (?,?,?,?,?,?)`, scope.organizationId, scope.projectId, event.eventId,
@@ -114,9 +116,10 @@ async function revokeAndForget(db, input) {
       await db.run(`UPDATE ambient_observation_payloads SET minimized_json=NULL,forgotten_at=?
         WHERE organization_id=? AND project_id=? AND observation_id=?`,
       input.payload.recordedAt, scope.organizationId, scope.projectId, row.observation_id);
-      await appendEvent(db, scope, row.observation_id, 'FORGET', {
-        eventId: `forget:${row.observation_id}:${responsibility.version}`,
-        revocationRef: responsibility.revocationRef, forgottenAt: input.payload.recordedAt });
+      await appendEvent(db, { scope, observationId: row.observation_id, eventKind: 'FORGET',
+        event: { eventId: `forget:${row.observation_id}:${responsibility.version}`,
+          revocationRef: responsibility.revocationRef,
+          forgottenAt: input.payload.recordedAt } });
     }
     return { responsibility, forgottenCount: rows.length };
   });

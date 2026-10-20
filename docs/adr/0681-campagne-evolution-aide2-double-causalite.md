@@ -1,4 +1,4 @@
-# ADR 0646 — Campagne d’évolution AIDE² à double causalité
+# ADR 0681 — Campagne d’évolution AIDE² à double causalité
 
 - **Statut** : Accepté pour la validation backend non promotrice
 - **Date** : 2026-10-19

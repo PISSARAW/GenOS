@@ -1,4 +1,4 @@
-# ADR 0646 — Gouverner l’évolution des logiques et scaffolds
+# ADR 0685 — Gouverner l’évolution des logiques et scaffolds
 
 - **Statut** : Accepté, noyau déterministe sans application automatique
 - **Date** : 2026-10-20

@@ -91,40 +91,54 @@ pub struct WithdrawalDecision {
 }
 
 fn usable_receipt(receipt: &Option<String>) -> bool {
-    receipt.as_ref().is_some_and(|value| !value.trim().is_empty())
+    receipt
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn assessment_reasons(input: &DecisionAssessmentInput) -> Vec<String> {
+    let mut reasons = Vec::new();
+    let evidence = &input.real_evidence;
+    if !input.finding.responsibility_gap_observed {
+        reasons.push("la piste synthetique ne revele aucune lacune".to_string());
+    }
+    if input.finding.decision_id != evidence.decision_id {
+        reasons.push("les identifiants de decision divergent".to_string());
+    }
+    if evidence.environment != EvidenceEnvironment::RealSystem || evidence.evidence_refs.is_empty()
+    {
+        reasons.push("une mesure du systeme reel est absente".to_string());
+    }
+    if !usable_receipt(&evidence.independent_validation_receipt) {
+        reasons.push("la validation reelle independante est absente".to_string());
+    }
+    let valid_scale = evidence.baseline_coverage_permille <= 1_000
+        && evidence.candidate_coverage_permille <= 1_000;
+    if !valid_scale || evidence.candidate_coverage_permille <= evidence.baseline_coverage_permille {
+        reasons.push("la couverture de responsabilite ne progresse pas".to_string());
+    }
+    reasons
+}
+
+fn decision_improved(input: &DecisionAssessmentInput) -> bool {
+    let evidence = &input.real_evidence;
+    input.finding.responsibility_gap_observed
+        && input.finding.decision_id == evidence.decision_id
+        && evidence.environment == EvidenceEnvironment::RealSystem
+        && !evidence.evidence_refs.is_empty()
+        && usable_receipt(&evidence.independent_validation_receipt)
+        && evidence.baseline_coverage_permille <= 1_000
+        && evidence.candidate_coverage_permille <= 1_000
+        && evidence.candidate_coverage_permille > evidence.baseline_coverage_permille
 }
 
 /// Verifie par une mesure reelle si la piste synthetique a ameliore la decision.
 pub fn assess_real_decision(input: DecisionAssessmentInput) -> DecisionAssessment {
-    let mut reasons = Vec::new();
     let evidence = &input.real_evidence;
-    let same_decision = input.finding.decision_id == evidence.decision_id;
     let real_scope = evidence.environment == EvidenceEnvironment::RealSystem;
-    let valid_scale = evidence.baseline_coverage_permille <= 1_000
-        && evidence.candidate_coverage_permille <= 1_000;
     let independent = usable_receipt(&evidence.independent_validation_receipt);
-    if !input.finding.responsibility_gap_observed {
-        reasons.push("la piste synthetique ne revele aucune lacune".to_string());
-    }
-    if !same_decision {
-        reasons.push("les identifiants de decision divergent".to_string());
-    }
-    if !real_scope || evidence.evidence_refs.is_empty() {
-        reasons.push("une mesure du systeme reel est absente".to_string());
-    }
-    if !independent {
-        reasons.push("la validation reelle independante est absente".to_string());
-    }
-    if !valid_scale || evidence.candidate_coverage_permille <= evidence.baseline_coverage_permille {
-        reasons.push("la couverture de responsabilite ne progresse pas".to_string());
-    }
-    let improved = input.finding.responsibility_gap_observed
-        && same_decision
-        && real_scope
-        && !evidence.evidence_refs.is_empty()
-        && independent
-        && valid_scale
-        && evidence.candidate_coverage_permille > evidence.baseline_coverage_permille;
+    let improved = decision_improved(&input);
+    let reasons = assessment_reasons(&input);
     DecisionAssessment {
         decision_id: evidence.decision_id.clone(),
         real_decision_improved: improved,
@@ -151,15 +165,18 @@ pub fn evaluate_promotion(request: PromotionRequest) -> PromotionVerdict {
     if !request.rollback.reversible || request.rollback.rollback_ref.trim().is_empty() {
         reasons.push("le rollback executable est absent".to_string());
     }
-    PromotionVerdict { eligible: reasons.is_empty(), reasons }
+    PromotionVerdict {
+        eligible: reasons.is_empty(),
+        reasons,
+    }
 }
 
 /// Retire par defaut si la surveillance reelle devient aveugle ou regresse.
 pub fn evaluate_withdrawal(input: WithdrawalInput) -> WithdrawalDecision {
     let blind = input.observation.environment != EvidenceEnvironment::RealSystem
         || input.observation.evidence_refs.is_empty();
-    let regressed = input.observation.responsibility_coverage_permille
-        < input.minimum_coverage_permille;
+    let regressed =
+        input.observation.responsibility_coverage_permille < input.minimum_coverage_permille;
     let withdraw = blind || regressed;
     let mut reasons = Vec::new();
     if blind {
@@ -168,11 +185,14 @@ pub fn evaluate_withdrawal(input: WithdrawalInput) -> WithdrawalDecision {
     if regressed {
         reasons.push("couverture de responsabilite sous le seuil".to_string());
     }
-    let rollback_ref = (withdraw
-        && input.rollback.reversible
-        && !input.rollback.rollback_ref.trim().is_empty())
-        .then_some(input.rollback.rollback_ref);
-    WithdrawalDecision { withdraw, rollback_ref, reasons }
+    let rollback_ref =
+        (withdraw && input.rollback.reversible && !input.rollback.rollback_ref.trim().is_empty())
+            .then_some(input.rollback.rollback_ref);
+    WithdrawalDecision {
+        withdraw,
+        rollback_ref,
+        reasons,
+    }
 }
 
 #[cfg(test)]
@@ -250,6 +270,9 @@ mod tests {
             },
         });
         assert!(decision.withdraw);
-        assert_eq!(decision.rollback_ref.as_deref(), Some("snapshot://before/d-1"));
+        assert_eq!(
+            decision.rollback_ref.as_deref(),
+            Some("snapshot://before/d-1")
+        );
     }
 }

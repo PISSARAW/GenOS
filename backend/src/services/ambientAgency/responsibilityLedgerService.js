@@ -58,11 +58,12 @@ async function revokeInTransaction(db, input) {
   const id = required(input.payload?.responsibilityId, 'AMBIENT_RESPONSIBILITY_REQUIRED');
   const head = await headRow(db, scope, id);
   if (!head) throw coded('AMBIENT_RESPONSIBILITY_NOT_FOUND', 'Responsibility was not found.');
-  if (head.status === 'REVOKED') return parsedVersion(await versionRow(db, scope, id, head.current_version));
+  const lookup = { scope, responsibilityId: id, version: head.current_version };
+  if (head.status === 'REVOKED') return parsedVersion(await versionRow(db, lookup));
   if (input.expectedVersion !== head.current_version) {
     throw coded('AMBIENT_RESPONSIBILITY_VERSION_CONFLICT', 'Responsibility head changed.');
   }
-  const previous = parsedVersion(await versionRow(db, scope, id, head.current_version));
+  const previous = parsedVersion(await versionRow(db, lookup));
   const content = versionContent({ payload: { ...previous, ...input.payload,
     ownerAgentId: previous.ownerAgentId } }, head.current_version + 1, 'REVOKED');
   const contentHash = hash(content);
@@ -88,7 +89,8 @@ async function headRow(db, scope, responsibilityId) {
   scope.organizationId, scope.projectId, responsibilityId);
 }
 
-async function versionRow(db, scope, responsibilityId, version) {
+async function versionRow(db, input) {
+  const { scope, responsibilityId, version } = input;
   return db.get(`SELECT * FROM ambient_responsibility_versions
     WHERE organization_id=? AND project_id=? AND responsibility_id=? AND version=?`,
   scope.organizationId, scope.projectId, responsibilityId, version);
@@ -111,7 +113,8 @@ async function create(db, input) {
   return withTransaction(db, async () => {
     const existing = await headRow(db, scope, content.responsibilityId);
     if (existing) {
-      const stored = await versionRow(db, scope, content.responsibilityId, 1);
+      const stored = await versionRow(db, { scope,
+        responsibilityId: content.responsibilityId, version: 1 });
       if (stored?.content_hash === contentHash) return { content: parsedVersion(stored), replayed: true };
       throw coded('AMBIENT_RESPONSIBILITY_CONFLICT', 'Responsibility identifier is already bound.');
     }
@@ -138,7 +141,7 @@ async function currentInTransaction(db, input) {
   const responsibilityId = required(input.responsibilityId, 'AMBIENT_RESPONSIBILITY_REQUIRED');
   const head = await headRow(db, scope, responsibilityId);
   if (!head) throw coded('AMBIENT_RESPONSIBILITY_NOT_FOUND', 'Responsibility was not found.');
-  const row = await versionRow(db, scope, responsibilityId, head.current_version);
+  const row = await versionRow(db, { scope, responsibilityId, version: head.current_version });
   const content = parsedVersion(row);
   if (row.content_hash !== head.current_hash || content.status !== head.status) {
     throw coded('AMBIENT_RESPONSIBILITY_INTEGRITY_FAILED', 'Responsibility head is inconsistent.');
@@ -154,7 +157,8 @@ async function amend(db, input) {
     const head = await headRow(db, scope, id);
     if (!head) throw coded('AMBIENT_RESPONSIBILITY_NOT_FOUND', 'Responsibility was not found.');
     if (head.status !== 'ACTIVE') throw coded('AMBIENT_RESPONSIBILITY_REVOKED', 'Revoked responsibility cannot be amended.');
-    const previous = parsedVersion(await versionRow(db, scope, id, head.current_version));
+    const previous = parsedVersion(await versionRow(db, { scope,
+      responsibilityId: id, version: head.current_version }));
     if (input.expectedVersion !== head.current_version) {
       throw coded('AMBIENT_RESPONSIBILITY_VERSION_CONFLICT', 'Responsibility head changed.');
     }

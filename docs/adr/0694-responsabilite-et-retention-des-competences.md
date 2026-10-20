@@ -1,4 +1,4 @@
-# ADR 0646 — Responsabilité et rétention des compétences
+# ADR 0694 — Responsabilité et rétention des compétences
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

@@ -1,4 +1,4 @@
-# ADR 0646 — Isoler le laboratoire synthétique DiCode de la décision réelle
+# ADR 0689 — Isoler le laboratoire synthétique DiCode de la décision réelle
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

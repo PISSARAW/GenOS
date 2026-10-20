@@ -1,4 +1,31 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('148-trajectory-stewardship-outcomes', 'Require dual evidence before trajectory promotion', async (db) => {
+    await require('./migrateTrajectoryStewardshipOutcomes').migrateTrajectoryStewardshipOutcomes(db);
+  }),
+  createMigrationRunner('148-shev-product-qualifications', 'Require distinct project-effect and learning proof for product qualification', async (db) => {
+    await require('./migrateShevProductQualifications').migrateShevProductQualifications(db);
+  }),
+  createMigrationRunner('147-trajectory-stewardships', 'Persist immutable cross-domain trajectory responsibilities', async (db) => {
+    await require('./migrateTrajectoryStewardships').migrateTrajectoryStewardships(db);
+  }),
+  createMigrationRunner('147-shev-product-stewardship', 'Persist immutable product responsibility manifests and stage receipts', async (db) => {
+    await require('./migrateShevProductStewardship').migrateShevProductStewardship(db);
+  }),
+  createMigrationRunner('147-shev-experience-stewardship', 'Persist longitudinal plural experience reviews and bounded direction decisions', async (db) => {
+    await require('./migrateShevExperienceStewardship').migrateShevExperienceStewardship(db);
+  }),
+  createMigrationRunner('147-shev-endogenous-initiative', 'Bind endogenous SHEV initiatives to signed observations and durable arbitration', async (db) => {
+    await require('./migrateShevEndogenousInitiative').migrateShevEndogenousInitiative(db);
+  }),
+  createMigrationRunner('147-shev-coding-stewardship', 'Persist causal coding responsibility beyond delivery', async (db) => {
+    await require('./migrateShevCodingStewardship').migrateShevCodingStewardship(db);
+  }),
+  createMigrationRunner('147-ontogenesis-async-delegation', 'Persist responsibility-derived delegated missions and fenced checkpoints', async (db) => {
+    await require('./migrateAsyncDelegation').migrateAsyncDelegation(db);
+  }),
+  createMigrationRunner('147-ambient-agency-ledger', 'Persist versioned ambient responsibilities', async (db) => {
+    await require('./migrateAmbientAgency').migrateAmbientAgency(db);
+  }),
   createMigrationRunner('147-production-healing-evidence', 'Persist candidate measurements and independent healing verification receipts', async (db) => {
     await require('./migrateProductionHealingEvidence').migrateProductionHealingEvidence(db);
   }),

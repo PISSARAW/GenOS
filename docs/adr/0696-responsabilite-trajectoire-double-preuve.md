@@ -1,4 +1,4 @@
-# ADR 0646 — Responsabilité de trajectoire à double preuve
+# ADR 0696 — Responsabilité de trajectoire à double preuve
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

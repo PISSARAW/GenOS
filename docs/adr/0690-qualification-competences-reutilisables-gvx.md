@@ -1,4 +1,4 @@
-# ADR 0646 — Qualifier les compétences réutilisables GVX
+# ADR 0690 — Qualifier les compétences réutilisables GVX
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

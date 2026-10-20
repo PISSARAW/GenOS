@@ -1,4 +1,4 @@
-# ADR 0646 — Séparer aperçu, acceptation et effet du produit Studio
+# ADR 0682 — Séparer aperçu, acceptation et effet du produit Studio
 
 - **Statut** : Accepté pour la boucle locale Studio
 - **Date** : 2026-10-19

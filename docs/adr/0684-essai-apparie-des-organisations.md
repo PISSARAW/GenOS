@@ -1,4 +1,4 @@
-# ADR 0646 — Traiter l'organisation comme une hypothèse appariée
+# ADR 0684 — Traiter l'organisation comme une hypothèse appariée
 
 - **Statut** : Accepté pour la planification consultative
 - **Date** : 2026-10-19

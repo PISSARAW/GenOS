@@ -591,4 +591,4 @@ d'effet utilisateur, l'effet projet SHEV et le progrès d'apprentissage sur la
 cible du manifeste sont tous confirmés. Les vérificateurs projet et apprentissage
 doivent être distincts. Sinon la décision reste `INCONCLUSIVE + NO_CHANGE`.
 `QUALIFIED` est un reçu de preuve append-only ; il ne promeut pas le build et
-n'autorise aucune action de production. Voir [ADR 0646](../adr/0646-responsabilite-produit-post-livraison.md).
+n'autorise aucune action de production. Voir [ADR 0695]($20695-responsabilite-produit-post-livraison.md).

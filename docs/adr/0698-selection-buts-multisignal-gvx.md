@@ -1,4 +1,4 @@
-# ADR 0646 — Sélection multisignal des buts GVX
+# ADR 0698 — Sélection multisignal des buts GVX
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

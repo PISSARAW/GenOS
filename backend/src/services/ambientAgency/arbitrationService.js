@@ -51,12 +51,7 @@ function arbitrateFeedback(input) {
   return outcome('LEARN', 'VERIFIED_FEEDBACK', input.learningDecision.evidenceRefs);
 }
 
-function arbitrate(input) {
-  if (!responsibilityReady(input)) return outcome('NO_CHANGE', 'RESPONSIBILITY_INACTIVE_OR_STALE');
-  if (input.trajectory?.ref !== input.responsibility.externalTrajectoryRef) {
-    return outcome('OBSERVE', 'EXTERNAL_TRAJECTORY_MISSING');
-  }
-  if (input.feedback) return arbitrateFeedback(input);
+function arbitrateTrajectory(input) {
   const gap = trajectoryGap(input.trajectory);
   if (gap === null) return outcome('OBSERVE', 'EXTERNAL_TRAJECTORY_UNMEASURED');
   if (gap <= (input.trajectory.tolerance || 0)) {
@@ -72,6 +67,14 @@ function arbitrate(input) {
   }
   return outcome('PROPOSE_ACTION', 'VERIFIED_EXTERNAL_TRAJECTORY_GAP',
     [...input.verification.evidenceRefs, ...input.trajectory.effectEvidenceRefs]);
+}
+
+function arbitrate(input) {
+  if (!responsibilityReady(input)) return outcome('NO_CHANGE', 'RESPONSIBILITY_INACTIVE_OR_STALE');
+  if (input.trajectory?.ref !== input.responsibility.externalTrajectoryRef) {
+    return outcome('OBSERVE', 'EXTERNAL_TRAJECTORY_MISSING');
+  }
+  return input.feedback ? arbitrateFeedback(input) : arbitrateTrajectory(input);
 }
 
 module.exports = { arbitrate };

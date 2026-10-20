@@ -1,4 +1,4 @@
-# ADR 0646 — Évaluer l'évolution du scaffold par une double causalité
+# ADR 0687 — Évaluer l'évolution du scaffold par une double causalité
 
 - **Statut** : Accepté, preuve locale synthétique
 - **Date** : 2026-10-19

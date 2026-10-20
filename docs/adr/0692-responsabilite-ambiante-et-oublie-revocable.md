@@ -1,4 +1,4 @@
-# ADR 0646 — Responsabilité ambiante versionnée et oubli révocable
+# ADR 0692 — Responsabilité ambiante versionnée et oubli révocable
 
 - **Statut** : Accepté pour une tranche backend isolée, non raccordée aux connecteurs
 - **Date** : 2026-10-20

@@ -3,7 +3,7 @@
 - **Statut** : Implémenté pour le backend local Studio
 - **Portée** : contrats, évaluations, acceptation, effets et initiatives SQLite
 - **Dernière revue** : 2026-10-19
-- **Décision** : [ADR 0646](../adr/0646-cycle-produit-durable-studio.md)
+- **Décision** : [ADR 0682]($20682-cycle-produit-durable-studio.md)
 
 ## Contrats et frontières
 

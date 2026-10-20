@@ -1,4 +1,4 @@
-# ADR 0646 — Responsabilité coding persistante au-delà de la livraison
+# ADR 0693 — Responsabilité coding persistante au-delà de la livraison
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

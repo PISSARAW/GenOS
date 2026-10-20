@@ -1,4 +1,4 @@
-# ADR 0646 — Évolution probante des interfaces Studio
+# ADR 0686 — Évolution probante des interfaces Studio
 
 - Statut : Accepté pour la tranche locale V0.
 - Date : 2026-10-20.

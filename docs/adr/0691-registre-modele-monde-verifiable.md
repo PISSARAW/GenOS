@@ -1,4 +1,4 @@
-# ADR 0646 — Registre vérifiable du modèle monde
+# ADR 0691 — Registre vérifiable du modèle monde
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

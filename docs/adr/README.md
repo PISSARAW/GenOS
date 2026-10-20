@@ -778,6 +778,28 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0652](0652-reparation-guidee-par-traces-gvx.md) | Réparation GVX guidée par traces et maturation d’affinité | Accepté | 2026-10-19 | GVX, AEIS, traces, causalité, mutation bornée |
 | [0653](0653-arc-physiologique-shev-sensorimoteur-morphogenese-immunite-endocrine.md) | Arc physiologique unifié sous gouvernance épistémique | Accepté | 2026-10-19 | Sensorimoteur, SHEV, nosologie, immunité, endocrinologie, preuve |
 | [0655](0655-raccord-resident-ett-fail-closed.md) | Raccorder ETT au scheduler résident en échec fermé | Accepté pour le raccord ; activation de production indisponible | 2026-10-20 | pensée endogène, scheduler résident, autorité, vérification, coûts |
+| [0670](0670-evolution-monde-web-validee.md) | Évolution du monde web validée par observation réelle | Accepté | 2026-10-19 | monde contrefactuel, modèle du monde, SHEV, calibration, preuve |
+| [0679](0679-campagnes-sre-causales-gouvernees.md) | Campagnes SRE causales et gouvernées | Accepté | 2026-10-19 | exploitation, SRE, causalité, autorité, récupération |
+| [0680](0680-admission-endogene-shev-attestee-et-bornee.md) | Admission endogène SHEV attestée et bornée | Accepté | 2026-10-19 | SHEV, Ontogenèse, initiative endogène |
+| [0681](0681-campagne-evolution-aide2-double-causalite.md) | Campagne d’évolution AIDE² à double causalité | Accepté pour la validation backend non promotrice | 2026-10-19 | évolution agentique, causalité, projet, autorité, preuve |
+| [0682](0682-cycle-produit-durable-studio.md) | Séparer aperçu, acceptation et effet du produit Studio | Accepté pour la boucle locale Studio | 2026-10-19 | Studio, produit, UX, preuve, apprentissage, sûreté |
+| [0683](0683-delegation-asynchrone-causale-ontogenese.md) | Délégation asynchrone causale d’Ontogenèse | Accepté pour la tranche backend bornée | 2026-10-19 | Ontogenèse, SHEV, délégation, reprise, preuve |
+| [0684](0684-essai-apparie-des-organisations.md) | Traiter l'organisation comme une hypothèse appariée | Accepté pour la planification consultative | 2026-10-19 | orchestration, morphogenèse, budgets, preuves |
+| [0685](0685-evolution-gouvernee-des-scaffolds.md) | Gouverner l’évolution des logiques et scaffolds | Accepté, noyau déterministe sans application automatique | 2026-10-20 | Évolution agentique, constitution, preuve, rollback |
+| [0686](0686-evolution-probante-interfaces-studio.md) | Évolution probante des interfaces Studio | Accepté pour la tranche locale V0 | 2026-10-20 | Studio, UX, preuve, autorité |
+| [0687](0687-evolution-scaffold-double-causale.md) | Évaluer l'évolution du scaffold par une double causalité | Accepté, preuve locale synthétique | 2026-10-19 | DGM, évolution de scaffold, causalité, responsabilité projet |
+| [0688](0688-intendance-web-preuves-longitudinales.md) | Intendance web guidée par des preuves longitudinales | Accepté | 2026-10-19 | SHEV, sites web, autorité, preuve d’effet |
+| [0689](0689-laboratoire-synthetique-dicode.md) | Isoler le laboratoire synthétique DiCode de la décision réelle | Accepté | 2026-10-19 | workers, apprentissage, responsabilité, preuve, promotion, rollback |
+| [0690](0690-qualification-competences-reutilisables-gvx.md) | Qualifier les compétences réutilisables GVX | Accepté | 2026-10-19 | GVX, compétences, provenance, transfert, autorité |
+| [0691](0691-registre-modele-monde-verifiable.md) | Registre vérifiable du modèle monde | Accepté | 2026-10-19 | prédiction, mémoire, provenance, trajectoires, autorité |
+| [0692](0692-responsabilite-ambiante-et-oublie-revocable.md) | Responsabilité ambiante versionnée et oubli révocable | Accepté pour une tranche backend isolée, non raccordée aux connecteurs | 2026-10-20 | agent ambiant, consentement, mémoire, preuve, autorité |
+| [0693](0693-responsabilite-coding-persistante.md) | Responsabilité coding persistante au-delà de la livraison | Accepté | 2026-10-19 | SHEV, Ontogenèse, autonomie coding, preuve, reprise |
+| [0694](0694-responsabilite-et-retention-des-competences.md) | Responsabilité et rétention des compétences | Accepté | 2026-10-19 | GVX, apprentissage, gouvernance des compétences |
+| [0695](0695-responsabilite-produit-post-livraison.md) | Responsabilité produit post-livraison | Accepté et implémenté (portée backend SHEV) | 2026-10-19 | SHEV, produit, livraison, observation, apprentissage |
+| [0696](0696-responsabilite-trajectoire-double-preuve.md) | Responsabilité de trajectoire à double preuve | Accepté | 2026-10-19 | autonomie, SHEV, trajectoire projet, apprentissage, autorité |
+| [0697](0697-responsabilite-ux-pluraliste-longitudinale.md) | Responsabilité UX pluraliste et longitudinale | Accepté | 2026-10-19 | SHEV, expérience produit, évaluation pluraliste |
+| [0698](0698-selection-buts-multisignal-gvx.md) | Sélection multisignal des buts GVX | Accepté | 2026-10-19 | GVX, curriculum, décision, provenance, autorité |
+| [0699](0699-stewardship-depot-et-effet-projet.md) | Stewardship du dépôt lié à l'effet projet | Accepté | 2026-10-19 | Ontogenèse, responsabilité durable, preuve, intégration |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

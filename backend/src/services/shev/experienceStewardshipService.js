@@ -18,25 +18,42 @@ function uniqueStrings(value, minimum, maximum) {
   return strings(value, minimum, maximum) && new Set(value).size === value.length;
 }
 
+function validProtocolIdentity(input) {
+  return SAFE_ID.test(input?.id || '') && typeof input?.dimension === 'string'
+    && SAFE_ID.test(input?.protocol?.rubricVersion || '');
+}
+
+function validPanelPolicy(protocol) {
+  return uniqueStrings(protocol?.audiences, 2, 6)
+    && Number.isInteger(protocol.minEvaluators) && protocol.minEvaluators >= 3
+    && protocol.minEvaluators <= 7 && protocol.minEvaluators >= protocol.audiences.length;
+}
+
+function validWindowPolicy(protocol) {
+  return Number.isInteger(protocol?.minWindows) && protocol.minWindows >= 3
+    && protocol.minWindows <= 12 && Number.isInteger(protocol.consecutiveDriftWindows)
+    && protocol.consecutiveDriftWindows >= 2
+    && protocol.consecutiveDriftWindows <= protocol.minWindows;
+}
+
+function validThresholdPolicy(protocol) {
+  return Number.isFinite(protocol?.maxVisualDrift) && protocol.maxVisualDrift >= 0
+    && protocol.maxVisualDrift <= 1 && Number.isFinite(protocol.maxCalibrationError)
+    && protocol.maxCalibrationError >= 0 && protocol.maxCalibrationError <= 1;
+}
+
+function validDecisionPolicy(protocol) {
+  return Number.isInteger(protocol?.regressionScoreMax) && protocol.regressionScoreMax >= 0
+    && protocol.regressionScoreMax <= 2 && Number.isSafeInteger(protocol.maxCheckpointAgeMs)
+    && protocol.maxCheckpointAgeMs >= 60000 && protocol.maxCheckpointAgeMs <= 7776000000;
+}
+
 function normalizeProtocol(input) {
   const protocol = input?.protocol;
-  if (!SAFE_ID.test(input?.id || '') || typeof input?.dimension !== 'string'
-    || !protocol || !SAFE_ID.test(protocol.rubricVersion || '')
-    || !uniqueStrings(protocol.audiences, 2, 6)
-    || !Number.isInteger(protocol.minEvaluators) || protocol.minEvaluators < 3
-    || protocol.minEvaluators > 7 || protocol.minEvaluators < protocol.audiences.length
-    || !Number.isInteger(protocol.minWindows) || protocol.minWindows < 3 || protocol.minWindows > 12
-    || !Number.isInteger(protocol.consecutiveDriftWindows)
-    || protocol.consecutiveDriftWindows < 2
-    || protocol.consecutiveDriftWindows > protocol.minWindows
-    || !Number.isFinite(protocol.maxVisualDrift) || protocol.maxVisualDrift < 0
-    || protocol.maxVisualDrift > 1
-    || !Number.isFinite(protocol.maxCalibrationError) || protocol.maxCalibrationError < 0
-    || protocol.maxCalibrationError > 1
-    || !Number.isInteger(protocol.regressionScoreMax)
-    || protocol.regressionScoreMax < 0 || protocol.regressionScoreMax > 2
-    || !Number.isSafeInteger(protocol.maxCheckpointAgeMs)
-    || protocol.maxCheckpointAgeMs < 60000 || protocol.maxCheckpointAgeMs > 7776000000) {
+  const valid = [validProtocolIdentity(input), validPanelPolicy(protocol),
+    validWindowPolicy(protocol), validThresholdPolicy(protocol),
+    validDecisionPolicy(protocol)].every(Boolean);
+  if (!valid) {
     throw new TypeError('SHEV experience protocol is invalid.');
   }
   return { rubricVersion: protocol.rubricVersion, audiences: [...protocol.audiences],
@@ -70,12 +87,28 @@ async function registerExperienceProtocol(db, input) {
   });
 }
 
+function validCheckpointIdentity(input) {
+  return SAFE_ID.test(input?.id || '') && SAFE_ID.test(input?.period || '');
+}
+
+function validCheckpointTiming(input) {
+  const observedAt = Date.parse(input?.observedAt);
+  return Number.isFinite(observedAt) && observedAt <= Date.now() + 1000;
+}
+
+function validVisualDrift(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function validCheckpointEvidence(input) {
+  return uniqueStrings(input?.screenshotRefs, 1, 10)
+    && uniqueStrings(input?.testRefs, 1, 10);
+}
+
 function checkpointInput(input) {
-  if (!SAFE_ID.test(input?.id || '') || !SAFE_ID.test(input?.period || '')
-    || !Number.isFinite(Date.parse(input?.observedAt))
-    || Date.parse(input.observedAt) > Date.now() + 1000
-    || !Number.isFinite(input.visualDrift) || input.visualDrift < 0 || input.visualDrift > 1
-    || !uniqueStrings(input.screenshotRefs, 1, 10) || !uniqueStrings(input.testRefs, 1, 10)) {
+  const valid = [validCheckpointIdentity(input), validCheckpointTiming(input),
+    validVisualDrift(input?.visualDrift), validCheckpointEvidence(input)].every(Boolean);
+  if (!valid) {
     throw new TypeError('SHEV experience checkpoint is invalid.');
   }
   return { id: input.id, period: input.period,
@@ -200,7 +233,8 @@ function directionOf(context, panel, effect) {
     visualVerdict: 'regressed' };
 }
 
-function decisionObservation(input, context, panel, direction) {
+function decisionObservation(input, context, review) {
+  const { panel, direction } = review;
   const id = `experience_drift:${createHash('sha256').update(input.id).digest('hex')}`;
   return { id, projectId: input.projectId, domain: 'product-experience',
     dimension: context.protocol.dimension, kind: 'degradation', epistemicStatus: 'observed',
@@ -226,7 +260,7 @@ async function decideExperienceDirection(db, input) {
     let observation = null;
     if (direction.decision !== 'NO_CHANGE') {
       observation = await recordObservation(db,
-        decisionObservation(input, context, panel, direction));
+        decisionObservation(input, context, { panel, direction }));
     }
     const review = { protocolVersion: context.protocol.protocol.rubricVersion,
       windows: context.windows.map((row) => ({ id: row.id, period: row.period,

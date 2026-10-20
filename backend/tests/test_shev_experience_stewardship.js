@@ -36,8 +36,8 @@ function authorize(input) {
     signature: sign(null, Buffer.from(JSON.stringify(payload)), keyPair.privateKey).toString('base64') };
 }
 
-function signed(operation, subjectId, expectedVersion, details) {
-  return authorize({ operation, subjectId, expectedVersion, details });
+function signed(operation, subjectId, contract) {
+  return authorize({ operation, subjectId, ...contract });
 }
 
 async function setup(db) {
@@ -47,11 +47,12 @@ async function setup(db) {
   await registerResponsibility(db, { projectId, authorityRef: 'owner:experience', mandate,
     authorityPublicKey: keyPair.publicKey.export({ type: 'spki', format: 'pem' }) });
   await reviseResponsibility(db, { projectId, expectedVersion: 1, stage: 'assisted', mandate,
-    authorization: signed('mandate-revision', projectId, 1, { mandate, stage: 'assisted' }) });
+    authorization: signed('mandate-revision', projectId,
+      { expectedVersion: 1, details: { mandate, stage: 'assisted' } }) });
   const input = { id: 'experience-protocol', projectId, dimension: 'reservation', protocol };
   await registerExperienceProtocol(db, { ...input,
-    authorization: signed('experience-protocol-registration', input.id, 2,
-      protocolAuthorizationDetails(input)) });
+    authorization: signed('experience-protocol-registration', input.id,
+      { expectedVersion: 2, details: protocolAuthorizationDetails(input) }) });
 }
 
 async function checkpoint(db, index, drift) {
@@ -95,8 +96,8 @@ function reviewInput(id, checkpointId, effectInitiativeId) {
 
 async function decide(db, input) {
   return decideExperienceDirection(db, { ...input,
-    authorization: signed('experience-direction-review', input.id, 2,
-      decisionAuthorizationDetails(input)) });
+    authorization: signed('experience-direction-review', input.id,
+      { expectedVersion: 2, details: decisionAuthorizationDetails(input) }) });
 }
 
 async function measuredRegression(db, initiative) {
@@ -150,8 +151,9 @@ async function main() {
 
     const forged = reviewInput('review-forged', 'checkpoint-5');
     await assert.rejects(decideExperienceDirection(db, { ...forged,
-      authorization: signed('experience-direction-review', forged.id, 2,
-        { ...decisionAuthorizationDetails(forged), effectInitiativeId: initiative.id }) }), /signature is invalid/);
+      authorization: signed('experience-direction-review', forged.id,
+        { expectedVersion: 2, details: { ...decisionAuthorizationDetails(forged),
+          effectInitiativeId: initiative.id } }) }), /signature is invalid/);
     assert.equal(await db.get('SELECT id FROM shev_experience_decisions WHERE id = ?', [forged.id]), undefined);
     await assert.rejects(db.run("UPDATE shev_experience_decisions SET decision = 'REFINE' WHERE id = ?",
       [noChangeInput.id]), /immutable/);

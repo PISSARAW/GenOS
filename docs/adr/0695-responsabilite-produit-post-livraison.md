@@ -1,4 +1,4 @@
-# ADR 0646 — Responsabilité produit post-livraison
+# ADR 0695 — Responsabilité produit post-livraison
 
 - **Statut** : Accepté et implémenté (portée backend SHEV)
 - **Date** : 2026-10-19

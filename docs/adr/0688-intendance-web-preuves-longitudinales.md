@@ -1,4 +1,4 @@
-# ADR 0646 — Intendance web guidée par des preuves longitudinales
+# ADR 0688 — Intendance web guidée par des preuves longitudinales
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

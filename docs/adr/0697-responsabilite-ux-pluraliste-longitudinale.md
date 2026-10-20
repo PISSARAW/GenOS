@@ -1,4 +1,4 @@
-# ADR 0646 - Responsabilité UX pluraliste et longitudinale
+# ADR 0697 - Responsabilité UX pluraliste et longitudinale
 
 - **Statut** : Accepté
 - **Date** : 2026-10-19

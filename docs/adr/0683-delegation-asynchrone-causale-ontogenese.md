@@ -1,4 +1,4 @@
-# ADR 0646 — Délégation asynchrone causale d’Ontogenèse
+# ADR 0683 — Délégation asynchrone causale d’Ontogenèse
 
 - **Statut** : Accepté pour la tranche backend bornée
 - **Date** : 2026-10-19

@@ -96,4 +96,4 @@ réelle attestée. Aucun résultat comparatif externe n’est toutefois encore m
 - pas de création automatique des holdouts ou des reçus ;
 - pas de revendication de sûreté générale ni de supériorité empirique.
 
-Voir [ADR 0646](../adr/0646-evolution-gouvernee-des-scaffolds.md).
+Voir [ADR 0685]($20685-evolution-gouvernee-des-scaffolds.md).
