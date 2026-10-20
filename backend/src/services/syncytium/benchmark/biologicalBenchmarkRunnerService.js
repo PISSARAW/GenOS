@@ -111,7 +111,7 @@ async function executeRun({ manifest, db, variant, repetition }) {
 function collectFailures(input) {
   const { output, members, validation, quality, oracle, variantName, observedBudget } = input;
   const failures = [...(output.biologicalMode?.dispatchFailures || [])];
-  if (output.biologicalMode?.complete !== true && output.biologicalMode?.status !== 'accepted') failures.push('topology_incomplete');
+  if (variantName !== 'isolated_baseline' && output.biologicalMode?.complete !== true) failures.push('topology_incomplete');
   if (members.some((member) => member.status !== 'completed')) failures.push('worker_not_completed');
   if (validation?.status !== 'complete') failures.push('semantic_validation_incomplete');
   if (quality.value !== 1) failures.push('oracle_claims_not_fully_matched');
