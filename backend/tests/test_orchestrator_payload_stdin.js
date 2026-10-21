@@ -16,7 +16,8 @@ async function main() {
   assert.equal(JSON.parse(transport.stdinText).resume_token, secret);
   const normal = bridgePayloadTransport({ payload: { action: 'dispatch_team' },
     bridge: 'orchestrator.cjs', executor: 'caller_mcp' });
-  assert.equal(normal.stdinText, undefined);
+  assert.deepEqual(normal.args, ['orchestrator.cjs', '--payload-stdin']);
+  assert.equal(JSON.parse(normal.stdinText).action, 'dispatch_team');
   const loader = path.resolve(__dirname, '../bin/detachedSpawn.cjs');
   const script = `if (process.argv.some((arg) => arg.startsWith('{'))) process.exit(2);
     process.stdout.write(require(${JSON.stringify(loader)}).loadArgv(process.argv))`;
@@ -31,6 +32,8 @@ async function main() {
   });
   assert.notEqual(oversized.status, 0);
   assert.match(oversized.stderr, /Payload from stdin exceeds 1 MiB/);
+  assert.throws(() => require('../bin/detachedSpawn.cjs').loadArgv(['--payload-file']),
+    /requires a file path/);
   console.log('Orchestrator continuation payload stdin: PASS');
 }
 

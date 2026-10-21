@@ -14,6 +14,9 @@ const FILE_THRESHOLD = 15000;
 const STDIN_LIMIT = 1024 * 1024;
 
 function readStdinPayload() {
+  if (fs.fstatSync(0).isCharacterDevice()) {
+    throw new Error('Payload stdin must be a closed pipe, not an interactive terminal.');
+  }
   const chunks = [];
   const buffer = Buffer.alloc(65536);
   let size = 0;
@@ -56,6 +59,9 @@ function loadArgv(argv) {
   const flag = args.indexOf('--payload-file');
   if (flag === -1) return null;
   const file = args[flag + 1];
+  if (typeof file !== 'string' || !file || file.startsWith('--')) {
+    throw new Error('--payload-file requires a file path.');
+  }
   const body = fs.readFileSync(file, 'utf8');
   try {
     fs.unlinkSync(file);

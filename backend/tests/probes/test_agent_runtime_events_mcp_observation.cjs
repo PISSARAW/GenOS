@@ -2,7 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { observeGenosTools } = require('../../bin/agent-runtime-events.cjs');
-const { assertSuccessfulTool } = require('../../bin/orchestratorMcpPreflight.cjs');
+const { assertSuccessfulTool, assertPreflightContext,
+  preflightEnvironment } = require('../../bin/orchestratorMcpPreflight.cjs');
 const { encodeMission, decodeMissionInput } = require('../../src/services/runtimeProtocol');
 
 const state = {
@@ -37,6 +38,17 @@ assert.throws(() => assertSuccessfulTool('genos_snapshot', { isError: true,
 assert.throws(() => assertSuccessfulTool('genos_search_failures', { content: [{ type: 'text',
   text: JSON.stringify({ success: false, error: 'lease denied' }) }] }),
 error => error.code === 'ORCHESTRATOR_PREFLIGHT_TOOL_FAILED');
+assert.throws(() => assertSuccessfulTool('genos_search_failures', { content: [{ type: 'text',
+  text: JSON.stringify({ failures: [] }) }] }),
+error => error.code === 'ORCHESTRATOR_PREFLIGHT_TOOL_FAILED');
+assert.doesNotThrow(() => assertSuccessfulTool('genos_search_failures', { content: [{ type: 'text',
+  text: JSON.stringify({ success: true, failures: [] }) }] }));
+assert.throws(() => assertPreflightContext({ tools: [] }),
+  error => error.code === 'ORCHESTRATOR_PREFLIGHT_CONTEXT_INVALID');
+const environment = preflightEnvironment({ repoRoot: 'repo-root', workspaceRoot: 'workspace-root' },
+  ['genos_snapshot']);
+assert.equal(environment.GENOS_REPO_ROOT, 'repo-root');
+assert.equal(environment.GENOS_WORKSPACE_ROOT, 'workspace-root');
 
 const missionFrame = encodeMission({ agentId: 'orchestrator', missionId: 'mission-preflight-binding', prompt: 'synthesize' });
 assert.equal(decodeMissionInput(missionFrame).missionId, 'mission-preflight-binding',

@@ -26,8 +26,8 @@ function assertSuccessfulTool(tool, result, extra = {}) {
       { code: 'ORCHESTRATOR_PREFLIGHT_TOOL_FAILED', tool });
   }
   const parsed = parseResult(result);
-  if (parsed.value && typeof parsed.value === 'object' && parsed.value.success === false) {
-    throw Object.assign(new Error(`GenOS preflight tool '${tool}' returned success=false.`),
+  if (!parsed.value || typeof parsed.value !== 'object' || parsed.value.success !== true) {
+    throw Object.assign(new Error(`GenOS preflight tool '${tool}' did not attest success=true.`),
       { code: 'ORCHESTRATOR_PREFLIGHT_TOOL_FAILED', tool });
   }
   return { text: parsed.text, value: parsed.value, ...extra };
@@ -51,10 +51,10 @@ function snapshotAgentPath(root, requested) {
 }
 
 async function runOrchestratorMcpPreflight(input) {
+  assertPreflightContext(input);
   const tools = [...new Set(input.tools || [])].filter(tool => PREFLIGHT_TOOLS.has(tool));
   if (!tools.length) return { observedTools: [], receipts: [] };
-  assertPreflightContext(input);
-  const client = await connectPreflightClient(input.repoRoot, tools);
+  const client = await connectPreflightClient(input, tools);
   const receipts = [];
   try {
     for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool));
@@ -65,22 +65,27 @@ async function runOrchestratorMcpPreflight(input) {
 }
 
 function assertPreflightContext(input) {
-  const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input;
+  const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
   if (!db || !orchestratorId || !missionId || !repoRoot || !workspaceRoot) {
     throw Object.assign(new Error('Orchestrator MCP preflight context is incomplete.'),
       { code: 'ORCHESTRATOR_PREFLIGHT_CONTEXT_INVALID' });
   }
 }
 
-async function connectPreflightClient(repoRoot, tools) {
+function preflightEnvironment(input, tools) {
+  return { ...process.env, GENOS_REPO_ROOT: input.repoRoot, GENOS_WORKSPACE_ROOT: input.workspaceRoot,
+    GENOS_MCP_LEASE: tools.join(','), GENOS_DISABLE_DOTENV: '1' };
+}
+
+async function connectPreflightClient(input, tools) {
+  const { repoRoot } = input;
   const sdkRoot = path.join(repoRoot, 'mcp', 'node_modules', '@modelcontextprotocol', 'sdk');
   const [{ Client }, { StdioClientTransport }] = await Promise.all([
     import(pathToFileURL(path.join(sdkRoot, 'dist', 'esm', 'client', 'index.js'))),
     import(pathToFileURL(path.join(sdkRoot, 'dist', 'esm', 'client', 'stdio.js')))
   ]);
   const cli = path.join(repoRoot, 'target', 'debug', process.platform === 'win32' ? 'genos.exe' : 'genos');
-  const env = { ...process.env, GENOS_REPO_ROOT: repoRoot, GENOS_WORKSPACE_ROOT: repoRoot,
-    GENOS_MCP_LEASE: tools.join(','), GENOS_DISABLE_DOTENV: '1' };
+  const env = preflightEnvironment(input, tools);
   if (fs.existsSync(cli)) env.GENOS_BIN = cli;
   const transport = new StdioClientTransport({ command: process.execPath,
     args: [path.join(repoRoot, 'mcp', 'index.js')], cwd: repoRoot, stderr: 'pipe', env });
@@ -141,4 +146,5 @@ function pathToFileURL(filePath) {
   return require('node:url').pathToFileURL(filePath).href;
 }
 
-module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool };
+module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
+  assertPreflightContext, preflightEnvironment };
