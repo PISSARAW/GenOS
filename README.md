@@ -1,122 +1,156 @@
-# GenOS Agent Runtime — Reproducible Multi-Agent Orchestration
+# GenOS V3 — runtime biomimétique pour agents responsables
 
-**GenOS is an open-source AI agent runtime for reproducible, evidence-driven execution.** It provides versioned workspace state, counterfactual branches, deterministic replay, evidence gates, supervised multi-agent orchestration, and an MCP interface.
+**GenOS est un runtime open source pour exécuter, comparer, reprendre et faire évoluer des agents IA sous contraintes de preuve.**
 
-En français : GenOS est un runtime open source pour agents IA, centré sur l'état versionné, les branches contrefactuelles et l'exécution vérifiable. Le nom canonique du projet est **GenOS Agent Runtime** afin de le distinguer des autres projets appelés GenOS.
+Il ne cherche plus seulement à orchestrer une mission. GenOS V3 conserve une responsabilité dans le temps : observer un projet, décider s’il faut agir, apprendre ou ne rien changer, déléguer dans un environnement isolé, vérifier séparément le résultat, puis réviser sa mémoire et son mandat.
 
-🌐 **Site public** : https://genos.work
-🧬 **Code source** : https://github.com/PISSARAW/GenOS
-📖 **Documentation** : [index des docs](docs/README.md)
-🔌 **Serveur MCP** : [serveur MCP GenOS](mcp/README.md) · [métadonnées pour le MCP Registry](server.json)
+La règle centrale reste simple : **un transport réussi n’est pas une décision valide, un test vert n’est pas un effet réel et une mémoire n’est pas une vérité**.
 
----
+> **État du projet : alpha.** L’architecture est intégrée et de nombreux composants sont testés localement. La boucle longitudinale complète n’est pas encore qualifiée sur plusieurs projets réels.
 
-## Runtime d'orchestration destiné à survivre à l'hype
-
-GenOS est un runtime pour agents autonomes où **une exécution réussie n'est pas une preuve, et une erreur n'est pas fatale**.
-
-- 8 topologies câblées au runtime : Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome et Métapopulation. Leurs services et capacités diffèrent selon le mode.
-- Snapshots, forks contrefactuels, diffs, replay et gates de promotion fondées sur des preuves.
-- Runtime d'agents supervisés : processus, workspaces isolés, budgets, mémoire et rapports d'évidence.
-- [Physique computationnelle Rust](docs/01-concepts/physique-computationnelle.md) : mesures sourcées du workspace, coûts de planification et calibration persistante par mission ; indices de contrôle heuristiques.
-- Contrôles de sécurité : autorisations, isolation de workspace, VFS sandboxé et gates de promotion.
-
-Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agentic computation moins fertile pour les hallucinations de chaîne.
-
-📊 **Inventaire vérifiable** : [comptages techniques](docs/03-reference/inventaire-technique.md), régénérés par `npm run docs:inventory` et contrôlables par `npm run docs:inventory:check`.
-🏁 **Démo** : `examples/safe-debugging-demo` (zéro token, exécutable)
+- Site : [genos.work](https://genos.work)
+- Documentation : [docs/README.md](docs/README.md)
+- Code source : [github.com/PISSARAW/GenOS](https://github.com/PISSARAW/GenOS)
+- Serveur MCP : [mcp/README.md](mcp/README.md)
+- Licence : [Apache 2.0](LICENSE)
 
 ---
 
-## What distinguishes GenOS from conventional agent runtimes
+## Ce qu’est GenOS maintenant
 
-La différence principale : l'état est versionné par défaut.
+GenOS est un **plan de contrôle pour l’autonomie agentique durable**. Il relie cinq responsabilités qui restent généralement séparées :
 
-Les orchestrateurs classiques avancent sur une timeline mutable. GenOS versionne l'état pour pouvoir comparer et rejouer des trajectoires.
+1. **Établir un mandat** — portée, propriétaire, objectif, budget, autorité et conditions d’arrêt.
+2. **Observer avec provenance** — fraîcheur, incertitude, consentement et possibilité de révocation.
+3. **Arbitrer** — choisir explicitement entre `ACT`, `OBSERVE`, `LEARN` et `NO_CHANGE`.
+4. **Exécuter sans confondre sortie et preuve** — workers supervisés, workspaces isolés, budgets, leases, checkpoints et reprise.
+5. **Vérifier et apprendre** — distinguer effet projet, apprentissage agent, simulation, acceptation et promotion.
 
-| Ce que vous faites | Sortie normale | Sortie GenOS |
-| --- | --- | --- |
-| Un agent échoue pendant une mission | L'état est difficile à reprendre | Snapshots, workspaces isolés et processus survivants supervisés |
-| Vous voulez comparer deux approches | Lancement séquentiel et contexte séparé | Forks contrefactuels, diff et replay ; l'évaluation dépend du scénario |
-| Un modèle propose une décision critique | La sortie du modèle est traitée comme résultat | Les gates peuvent exiger des preuves avant promotion |
+```text
+responsabilité versionnée
+        ↓
+observation sourcée ──→ incertitude / fraîcheur
+        ↓
+ACT | OBSERVE | LEARN | NO_CHANGE
+        ↓
+capsule ou workspace isolé
+        ↓
+vérification indépendante
+        ↓
+effet projet + apprentissage agent + décision de maintien/rollback
+```
 
-En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seulement quand il réussit.
-
----
-
-## Huit topologies d'orchestration
-
-- **Trinity** — baseline comparative à trois mondes et douze variants à runners dédiés, avec gates de preuve ; les résultats incomplets escaladent (R3 pré-correctifs : 12/12 escalades, 0 merge ; qualification post-correctifs en attente).
-- **A-Team** — workers spécialisés, DAG à progression indépendante, handoffs versionnés et clôture sur preuve ; conformité globale partielle, évaluations de variantes distinctes. Voir [le contrat runtime](docs/03-reference/runtime-a-team.md).
-- **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
-- **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
-- **Syncytium** — état partagé CRDT causal, 13 variants Node et clôture séparant cohérence topologique, preuves workers liées à la mission et [verdict commun](docs/03-reference/contrat-completion-mission.md) ([contrat runtime](docs/03-reference/runtime-syncytium.md)).
-- **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
-- **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
-- **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).
-
-Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
-
-Le [système immunitaire épistémique AEIS](docs/01-concepts/adaptive-epistemic-immune-system.md)
-relie la promotion à des preuves de commande exécutées indépendamment. Il inclut
-mémoire et autorité persistantes, recrutement de niches, ré-arbitration
-homéostatique et revues provider en processus séparés. La fiche précise les
-limites et la matrice de qualification ; les réponses provider locales contrôlées
-ne constituent pas une mesure de modèles externes.
+Cette boucle est appelée **ontogenèse dirigée par responsabilité**. Elle compose les surfaces SHEV, Ontogenèse, GVX, modèle du monde, Morphogenèse et Studio ; elle n’accorde jamais à l’une d’elles une autorité universelle. Voir [le concept](docs/01-concepts/ontogenese-dirigee-par-responsabilite.md), [les contrats V3](docs/03-reference/contrats-stewardship-v3.md) et [la matrice de qualification](docs/06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md).
 
 ---
 
-## Ce qui est réel en ce moment
+## Ce qui est implémenté
 
-Fonctionnalités implémentées :
+### Exécution et reprise
 
-- **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; le manifeste vérifié couvre aussi les mémoires persistées, les relations, l'état runtime durable, les échanges visibles du routeur LLM et les références immuables des checkpoints Rust associés. Une option lie le snapshot d'agent à l'une des huit topologies et à son variant ; la reprise vérifie le collectif sans le rembobiner ([contrat](docs/03-reference/snapshots-topologiques.md)). La RAM des processus et l'état caché des fournisseurs LLM restent hors portée ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
-- **[GQWF v2](docs/02-orchestration/gqwf-v2.md)** : racines et catalogue de métadonnées adressés par contenu, vues privées durables, réparation SQLite sous plan autorisé et matérialisation sous bail. L'opt-in executionPolicy.gqwfV2 couvre les runtimes supervisés, déterministes, locaux et in-process ; le défaut reste le workspace physique. OverlayFS est propre à Linux, tandis que la politique auto sonde aussi le reflink avant la copie portable.
+- runtime d’agents supervisés avec processus, budgets, événements, résultats et preuves persistés ;
+- snapshots d’agent et de workspace, forks, diffs, replay et checkpoints logiques ;
+- [GQWF v2](docs/02-orchestration/gqwf-v2.md) : vues privées durables, stockage adressé par contenu, baux et matérialisation portable ;
+- [Garage Fabric](docs/02-orchestration/topologies/garage-fabric.md) : admission, file SQLite, dépendances, préemption consentie et reprise de workers ;
+- routage vers OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together, OpenRouter, Ollama, LM Studio, vLLM et endpoints compatibles OpenAI.
 
-Le backend expose `GET /api/agents/snapshot-capabilities` pour indiquer sur Windows, macOS et Linux le mode logique disponible et les restaurations indisponibles. Une demande de snapshot de RAM échoue explicitement avant capture ; voir [ADR 0375](docs/adr/0375-portabilite-snapshots-memoire.md).
-- **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.
-- **GenOS Studio** et backend Node.js : [client opérateur modulaire](integrations/studio/README.md) à `/studio/`, inspection, supervision, gestion, fichiers et laboratoire ; [qualification et limites](docs/06-qualite-preuves/studio-qualification.md). API REST, services gRPC et persistance SQLite WAL ; [VSIX VS Code de référence](integrations/ide/vscode/README.md) pour inspecter les mêmes runs.
-- **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
-- **Natural Search Control Plane** : contrôle de pression et de progrès, ledger d'hypothèses et reprise atomique SQLite des états des phases 6–12 ; transmission culturelle sous preuve. Voir le [contrat et ses limites](docs/01-concepts/natural-search-control-plane.md).
-- **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
-- **[Garage Fabric](docs/02-orchestration/topologies/garage-fabric.md)** : douze politiques de circulation des workers, file SQLite durable, réservation transactionnelle, baux clôturés et préemption consentie avec snapshot vérifié. La reprise restaure les fichiers et le budget restant, pas la mémoire du processus ; ce service transversal n'est pas une neuvième topologie.
-- **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
-- **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
-- **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.
+Un snapshot restaure les états durables couverts par son manifeste. Il ne restaure ni la RAM arbitraire d’un processus ni l’état caché d’un fournisseur de modèles.
 
-Le **cycle GVX standard AGOW** fournit mesures signées par un service séparé, application autorisée, suivi longitudinal, rollback, reprise et crédit idempotent pour des politiques déclaratives configurées. Voir le [profil d’exécution](docs/02-orchestration/profil-execution-gvx.md) et les [résultats fonctionnels](docs/06-qualite-preuves/validation-cycle-standard-gvx.md). Les autres lots GVX et la qualification empirique restent partiels.
+### Organisation multi-agent
 
-Les routes de modèles sont conditionnelles à votre environnement :
+Huit topologies sont câblées, avec des niveaux de maturité différents :
 
-- une route distante demande le réseau, un modèle déclaré et la clé du fournisseur correspondante ;
-- une route locale demande un serveur d'inférence actif et un modèle de conversation disponible ;
-- `openai-compatible://` demande l'URL d'endpoint compatible configurée ;
-- la configuration d'exemple sélectionne Ollama. Les intégrations ne téléchargent pas elles-mêmes les modèles.
+| Topologie | Rôle principal |
+| --- | --- |
+| **Trinity** | comparer plusieurs mondes sous gates de preuve |
+| **A-Team** | coordonner des spécialistes avec handoffs et critères globaux |
+| **Biocénose** | agréger quorum, consensus pondéré et métriques communautaires |
+| **Holobionte** | organiser un hôte et des symbiotes sous admission et veto immunitaire |
+| **Syncytium** | partager un état CRDT causal et vérifier sa matérialisation |
+| **Biome** | allouer les ressources et exécuter une boucle de foraging bornée |
+| **Rhizome** | router par capacités dans un graphe persistant et reprenable |
+| **Métapopulation** | coordonner des régions, migrations, extinctions et recolonisations |
 
-Les primitives de perception web et de fovéation restent isolées et ne forment pas encore une boucle complète capture-observation-action-vérification. Certaines fonctions d'orchestration et d'évaluation restent expérimentales ; consultez les limites décrites dans la documentation avant de dépendre d'une capacité particulière.
+La **Morphogenèse** peut composer ces topologies avec `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE` et `FEDERATE`. La présence d’une topologie ou d’une capacité dans un registre ne prouve toutefois ni son activation dans une installation, ni la réussite d’une mission. Voir [topologies et capacités](docs/02-orchestration/topologies-et-capacites.md).
+
+### Preuve, mémoire et évolution
+
+- clôture commune des missions fondée sur les reçus des workers, leurs invariants et un oracle indépendant ;
+- [AEIS](docs/01-concepts/adaptive-epistemic-immune-system.md), système immunitaire épistémique qui peut refuser une promotion malgré une exécution réussie ;
+- mémoire épisodique, graphe, recherche hybride, provenance, contradictions et mémoire négative ;
+- [Natural Search Control Plane](docs/01-concepts/natural-search-control-plane.md) : pression de recherche, hypothèses, checkpoints atomiques et transmission culturelle sous preuve ;
+- cycle [GVX standard AGOW](docs/02-orchestration/profil-execution-gvx.md) : évaluation, autorisation, application, suivi, rollback et crédit idempotent ;
+- [ETT v1](docs/01-concepts/endogenous-thought-test.md) : détection, question falsifiable, admission, exécution reprenable, vérification et apprentissage borné ;
+- évolution contrefactuelle de compétences et de scaffolds, sans promotion automatique.
+
+ETT démontre aujourd’hui une chaîne de contrôle durable et falsifiable, pas une cognition générale. GVX démontre un protocole d’évolution gouvernée, pas qu’un modèle s’améliore dans tous les contextes.
+
+### Surfaces opérateur
+
+- backend Node.js : API REST Express, services gRPC et SQLite en mode WAL ;
+- cœur Rust : store, cellule, biologie, orchestration, CLI et serveur MCP ;
+- deux serveurs MCP stdio, Node et Rust, fermés par défaut sans lease explicite ;
+- [GenOS Studio](integrations/studio/README.md) pour inspecter missions, agents, fichiers, preuves et opérations ;
+- intégrations Codex, VS Code, OpenTelemetry, Temporal et moteurs spécialisés.
+
+L’[inventaire technique](docs/03-reference/inventaire-technique.md) fournit des comptages reproductibles. Ces comptages décrivent le dépôt ; ils ne constituent pas des mesures de maturité.
 
 ---
 
-## Nosologie computationnelle
+## Ce que GenOS ne prétend pas encore
 
-Le runtime Rust couvre **28 conditions dans neuf familles et 48 opérateurs de marqueurs**. Les diagnostics et recommandations sont synchronisés; l’application passe par une autorisation signée et un reçu persistant avec statut `applied`, `no_target` ou `refused`. Le type et la cible de la CLI doivent correspondre à l’autorisation. Les noms médicaux désignent des abstractions logicielles.
+- aucune campagne publique ne démontre encore une amélioration durable sur plusieurs projets réels ;
+- les campagnes locales et les fixtures ne remplacent pas une validation externe ou longitudinale ;
+- plusieurs politiques restent déterministes ou configurées plutôt qu’apprises empiriquement ;
+- les primitives web, de fovéation et de computer use ne forment pas encore une boucle générale unique perception–action–vérification ;
+- toutes les topologies ne disposent pas du même niveau de qualification de bout en bout ;
+- les métaphores biologiques ne prouvent ni conscience, ni intention, ni sûreté biologique.
 
-Voir le [catalogue](docs/01-concepts/nosologie/catalogue-runtime.md), le [contrat API et CLI](docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques) et le [bilan daté](docs/06-qualite-preuves/validation-nosologie.md). Les mécanismes biologiques détaillés restent des propositions au-delà des contrats exécutables; les contrôles globaux du dépôt et le parcours HTTP → Rust complet ne sont pas déclarés validés.
-
-## Pourquoi "biomimétique" et pas juste "biologique" ?
-
-Parce que les mots comptent pour ce qu'ils modélisent, pas pour ce qu'ils vendent. GenOS utilise des notions biologiques comme **structuration fonctionnelle** :
-
-- cellule, génome, épigénétique → spécialisation et contraintes d'agents
-- synapse, plasticité → mémoire et apprentissage collectif
-- apoptose, cryptobiosis → reprise, isolation, survie aux perturbations
-- phéromones, stigmergie → coordination sans centralisation
-
-Ce n'est pas une simulation biologique. C'est un runtime qui prend les invariants fonctionnels de ces systèmes comme modèle d'organisation.
+La formulation honnête est : **architecture intégrée, composants testés, qualification longitudinale en cours**. Une première [campagne terrain SHEV](docs/06-qualite-preuves/protocole-campagne-terrain-shev.md) est scellée et en exécution ; elle ne doit pas être présentée comme concluante avant son verdict final.
 
 ---
 
-## Comment l'utiliser sans devenir fou
+## Pourquoi biomimétique ?
+
+Les noms biologiques décrivent des invariants logiciels, pas une simulation du vivant :
+
+- **cellule, génome, épigénétique** → identité, spécialisation et contraintes ;
+- **métabolisme, homéostasie** → budgets, pression, arrêt et récupération ;
+- **immunité** → admission, détection de preuves incompatibles et refus ;
+- **plasticité, mémoire** → apprentissage borné, rétention et oubli ;
+- **écologie, morphogenèse** → organisation dynamique de collectifs ;
+- **apoptose, cryptobiose** → interruption, isolement, snapshot et reprise.
+
+Cette terminologie n’autorise pas à transformer une analogie en fonctionnalité. Chaque claim doit revenir à un contrat, un état persistant et une preuve exécutable.
+
+---
+
+## Architecture du dépôt
+
+```text
+Studio / CLI / clients MCP
+            │
+   REST + gRPC + MCP stdio
+            │
+backend/ — contrôle, orchestration, preuves, mémoire, SQLite
+            │
+crates/  — runtime Rust, store, biologie, CLI, MCP
+            │
+workspaces isolés / GQWF / runtimes modèles / workers
+```
+
+- `crates/` — workspace Rust du runtime ;
+- `backend/` — plan de contrôle Node.js ;
+- `mcp/` — pont MCP stdio Node.js ;
+- `agents/` — définitions AgentDNA ;
+- `docs/` — concepts, contrats, exploitation, sécurité et preuves ;
+- `examples/`, `benchmarks/`, `integrations/`, `shared/`, `spec/` — démonstrations, protocoles et contrats partagés.
+
+---
+
+## Démarrage local
+
+Prérequis : Rust 1.88+, Node.js 20.19+ ou 22.12+, Python 3 et les outils C/C++ nécessaires aux dépendances SQLite natives.
 
 ```bash
 git clone https://github.com/PISSARAW/GenOS.git
@@ -126,36 +160,68 @@ npm ci --prefix backend
 npm ci --prefix mcp
 cargo build --workspace
 cp .env.example .env
+```
+
+Puis, dans des terminaux séparés :
+
+```bash
 npm --prefix backend start
 cargo run -p genos-cli -- --help
 node mcp/index.js
-node backend/bin/genos-orchestrate.cjs '{"mission":"..." , "background":true}'
 ```
 
-Prérequis de développement : Rust stable 1.88+, Node.js 20.19+ ou 22.12+, Git et outils de compilation C/C++ pour les dépendances natives SQLite. Python 3 est nécessaire pour lancer le contrôle qualité du dépôt. Après la copie de `.env.example`, `GENOS_DB_PATH` reste commenté par défaut : le backend réutilise `backend/genos.db` s'il existe, sinon le volume géré `.genos/data/operational/genos.db`. Décommentez-le (ex. `/data/genos.db`) pour figer un emplacement de déploiement.
+Le backend écoute par défaut sur `http://localhost:4000` et gRPC sur `127.0.0.1:50051`. Les probes sont `/healthz`, `/readyz` et `/livez`.
 
-Pour les missions avec inférence, configurez une route de modèle : le `.env.example` choisit Ollama (`llama3.1:8b`), qui doit être installé, démarré et disposer de ce modèle. Vous pouvez choisir un autre fournisseur avec `GENOS_DEFAULT_MODEL` et définir sa clé API dans l'environnement du backend. Pour les missions utilisant le runtime Codex, installez Codex CLI et rendez-le accessible via `PATH` ou `CODEX_EXECUTABLE`. L'installation et la démo sans token n'exigent pas de clé de fournisseur de modèles.
+Pour une mission :
 
-Démo sans token : `./examples/safe-debugging-demo/run-demo.sh` ou le fichier `.mjs` équivalent.
+```bash
+node backend/bin/genos-orchestrate.cjs '{"mission":"...","background":true}'
+```
 
----
+La configuration d’exemple sélectionne Ollama. Une mission avec inférence exige un modèle réellement disponible, local ou distant, et les identifiants correspondants. La démo de débogage parallèle ne requiert pas de clé API :
 
-## Licence
+```bash
+node examples/safe-debugging-demo/run-demo.mjs target/debug/genos
+```
 
-Apache 2.0. Voir [LICENSE](LICENSE).
-
----
-
-## Pourquoi ce README est laid la première fois
-
-Parce que les readme trop polis cachent souvent ce qui est réel et ce qui est vendu. Ici, la limite est explicite : **alpha**, **preuve avant promotion**, **pas de succès = preuve de vérité**.
-
-Si vous voulez contribuer, lisez [CONTRIBUTING.md](CONTRIBUTING.md) et la gouvernance dans [.genos.md](.genos.md). Les changements architecturaux demandent un ADR + une preuve exécutable.
-
-Si vous voulez juste tester : lancez la démo, sniffez le repo, constatez que l'état est versionné même quand l'agent rate.
-
-Si vous voulez juste copier l'idée : prenez la partie "state as versioned" + "proof before promotion" et oubliez le reste. Le reste, c'est la sauce.
+Le fichier `.mcp.json` est un exemple de client avec lease de développement ; il ne configure pas Codex à lui seul. Voir [l’intégration Codex](integrations/codex/README.md).
 
 ---
 
-*Made by PISSARAW — runtime d'orchestration qui essaie de survivre à l'hype du agentic.*
+## Vérification du dépôt
+
+```bash
+python scripts/ci/check_code_quality.py
+npm test
+cargo test --workspace
+```
+
+Commandes ciblées utiles :
+
+```bash
+npm --prefix backend run test:validation
+npm --prefix backend run test:mcp
+npm --prefix backend run test:grpc
+npm --prefix backend run test:quality
+npm run docs:inventory:check
+```
+
+Un test vert prouve seulement ce que son oracle mesure. Les rapports de qualification sous `docs/06-qualite-preuves/` décrivent la portée et les preuves manquantes.
+
+---
+
+## Lire ensuite
+
+- [Vue d’ensemble de la documentation](docs/README.md)
+- [Runtime agentique](docs/01-concepts/runtime-agentique.md)
+- [Épistémologie et évidence](docs/01-concepts/epistemologie-et-evidence.md)
+- [Ontogenèse dirigée par responsabilité](docs/01-concepts/ontogenese-dirigee-par-responsabilite.md)
+- [Workspaces contrefactuels et snapshots](docs/02-orchestration/workspaces-contrefactuel.md)
+- [Référence des outils MCP](docs/03-reference/outils-mcp.md)
+- [Contribuer](CONTRIBUTING.md)
+
+Les changements architecturaux nécessitent un ADR et une preuve exécutable. Les fichiers `.env`, secrets, bases locales et artefacts générés ne doivent jamais être versionnés.
+
+---
+
+*GenOS Agent Runtime — la continuité d’une trajectoire compte davantage que le succès apparent d’un seul run.*
