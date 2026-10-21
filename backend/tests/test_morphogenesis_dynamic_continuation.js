@@ -128,9 +128,12 @@ async function verifyPolicyCanFreezeAdaptation() {
 function verifyPublicMissionOptions() {
   const expression = { kind: 'PARALLEL', children: [] };
   const policy = { adaptive: false, evidenceThreshold: 80 };
+  const successCriteria = ['Return a complete verified artifact.'];
   assert.deepEqual(missionHelpers.missionRuntimeContext({
-    morphology_expression: expression, morphogenesis_policy: policy
-  }), { morphologyExpression: expression, morphogenesisPolicy: policy });
+    morphology_expression: expression, morphogenesis_policy: policy,
+    success_criteria: successCriteria, worker_barrier_timeout_ms: 540000
+  }), { morphologyExpression: expression, morphogenesisPolicy: policy,
+    successCriteria, workerBarrierTimeoutMs: 540000 });
 }
 
 async function verifyCompositeRuntimeReceivesEvidence() {

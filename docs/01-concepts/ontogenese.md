@@ -132,6 +132,7 @@ Comportements documentés, observables depuis l'extérieur — ce sont des compo
 - **délégation suivie** : missions GenOS lancées, preuves examinées, instructions complémentaires envoyées ; aucune promotion sans preuves exécutables portant sur le résultat intégré ;
 - **retour vers l'opérateur** : notification sur résultat significatif, blocage ou décision nécessaire ; silence pendant les périodes sans changement ;
 - **vue d'activité** : tâches, workers, preuves, changements et commits exposés ; réorientation ou arrêt toujours possibles (service dédié : `backend/src/services/ontogenesis/activityView.js`).
+- **système sensoriel territorial** : le `ResidentDaemon` associé au `root_path` fournit à chaque tick un instantané consultatif lié au HEAD (liveness, phénotypes, findings et stigmergie). Un changement actionnable peut réveiller un projet `IDLE` et infléchir le choix parmi les topologies déjà autorisées, sans créer de tâche, autoriser une action ou constituer une preuve de promotion (`daemonSensorySystem.js`, ADR 0712).
 
 Cas d'usage visés (**Cadre conceptuel**, scénarios de validation ADR 0235) : petit projet de bout en bout, échec worker avec repli borné, saturation mémoire avec sommeil et réveil, redémarrage à chaque étape critique, double lancement, arrêt pendant travail ou intégration, résultat sans preuves refusé, exécution prolongée sans croissance incontrôlée.
 

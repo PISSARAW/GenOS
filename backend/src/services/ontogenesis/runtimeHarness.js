@@ -28,10 +28,15 @@ function knownConceptIds(resolution, plan) {
   return [...new Set([...resolvedIds, ...compatibleIds])];
 }
 
+function requiredPhilosophicalContracts(contracts) {
+  return (contracts || []).filter((contract) => contract.requiredForMission === true);
+}
+
 function philosophicalReferences(mission, plan) {
-  return plan.philosophicalContracts?.contracts
-    || (mission.concepts?.resolvedConcepts || [])
-      .map((concept) => concept.implementationContractReference).filter(Boolean);
+  const planned = requiredPhilosophicalContracts(plan.philosophicalContracts?.contracts);
+  if (planned.length) return planned;
+  return requiredPhilosophicalContracts((mission.concepts?.resolvedConcepts || [])
+    .map((concept) => concept.implementationContractReference).filter(Boolean));
 }
 
 function conceptRequestFields(mission, plan) {
@@ -61,7 +66,9 @@ function contextRequestFields(mission) {
   return {
     organization: mission.morphology?.selectedOrganization || undefined,
     developmentalContext: mission.developmentalContext || null, morphologyPlan: mission.morphology || null,
-    missionCapabilityPlan: mission.plan || null, problemProfile: mission.profile || {}
+    missionCapabilityPlan: mission.plan || null,
+    problemProfile: { ...(mission.profile || {}), ...(mission.kind === 'implement' ? { type: 'implementation' } : {}) },
+    sensoryContext: mission.sensoryContext || null
   };
 }
 
@@ -79,10 +86,13 @@ function requestFor(input) {
   const mission = input.mission || {};
   const plan = mission.plan || {};
   return {
-    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nOperator memory: ${JSON.stringify(input.mission?.operatorContext || [])}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit, push, merge, or alter remotes.`,
+    id: input.id, missionId: `mission_${input.id}`,
+    mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nOperator memory: ${JSON.stringify(input.mission?.operatorContext || [])}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nSensory context (advisory; verify before use): ${JSON.stringify(input.mission?.sensoryContext || {})}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit, push, merge, or alter remotes.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
+    workspaceId: 'ws-local',
     autonomousOrchestration: true, useMemoryContext: true,
     operatorContext: input.mission?.operatorContext || [],
+    topologyId: input.selection.topology,
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
     ...conceptRequestFields(mission, plan),
     ...capabilityRequestFields(mission, plan, input.selection),
@@ -125,6 +135,7 @@ function conceptInstruction(plan) {
   const candidates = arrayValue(source.runtimeLeaseCandidates);
   const blocked = arrayValue(source.blockedCapabilities);
   const resolved = arrayValue(source.resolvedConcepts);
+  const philosophy = requiredPhilosophicalContracts(source.philosophicalContracts?.contracts);
   return JSON.stringify({
     catalogueSize: arrayValue(source.canonicalConcepts).length,
     runtimeConcepts: arrayValue(source.runtimeConcepts).length,
@@ -135,8 +146,8 @@ function conceptInstruction(plan) {
       available: concept.available, executable: concept.executable, access: concept.access, reason: concept.reason })),
     blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean),
     blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean),
-    philosophicalContracts: source.philosophicalContracts?.contracts || [],
-    philosophicalAuditInstructions: instructionFor(source.philosophicalContracts?.contracts || []),
+    philosophicalContracts: philosophy,
+    philosophicalAuditInstructions: instructionFor(philosophy),
     runtimeBridges: source.runtimeBridges || []
   });
 }

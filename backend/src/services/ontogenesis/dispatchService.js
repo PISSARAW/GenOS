@@ -55,7 +55,8 @@ async function topologyFor(db, ctx) {
     mission: selectionMission(task, ctx.mission),
     allowedTopologies: ctx.config.topologies || [],
     availableCapabilities: capabilities.list,
-    memoryLevel: ctx.memoryLevel, failures, variant: ctx.config.variant });
+    memoryLevel: ctx.memoryLevel, failures, variant: ctx.config.variant,
+    sensoryPhenotypes: ctx.sensory?.fresh ? ctx.sensory.activePhenotypes : [] });
   if (capabilities.defaulted) selection.rationale.unshift('capacites-par-defaut');
   return selection;
 }
@@ -158,7 +159,7 @@ async function dispatchTask(db, ctx, harness) {
   const refusal = dispatchRefusal(selection.preflight);
   if (refusal) return blockDispatch(db, ctx, refusal);
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
-  const reservationMb = reservationFor(ctx);
+  const reservationMb = reservationFor(ctx, selection);
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };
   await ctx.fence();
   const workspace = await harness.prepare(ctx.project);

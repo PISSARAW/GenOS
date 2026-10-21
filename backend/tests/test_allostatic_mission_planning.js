@@ -37,6 +37,15 @@ assert.equal(fullDispatch.length, 2, 'measured intervention caps the assignments
 assert.equal(ablatedDispatch.length, 5, 'ablated policy admits the full identical assignment set');
 assert.deepEqual(fullDispatch, assignments.slice(0, 2), 'dispatch cap preserves deterministic assignment order');
 
+const stagedTeam = planContext('allostatic-staged-team', pressuredVariables);
+stagedTeam.autonomyPlan.aTeam = { activated: true };
+stagedTeam.normalizedMission.executionPolicy.workerFanoutLimit = 1;
+const stagedAssignments = assignments.slice(0, 3).map((assignment, pipelineStage) => ({
+  ...assignment, pipelineStage
+}));
+assert.deepEqual(capAssignments(stagedAssignments, stagedTeam), stagedAssignments,
+  'a sequential A-Team keeps every member when its concurrent peak fits the cap');
+
 const unsafeVariables = { ...pressuredVariables, energy: 0.8, context_pressure: 0.1, integrity: 0.2 };
 const unsafe = planContext('allostatic-integrity', unsafeVariables);
 applyValencePosture(unsafe);

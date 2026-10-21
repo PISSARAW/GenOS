@@ -11,7 +11,9 @@ reproduction, et les 8 modes de composition (topologies).
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [shev.md](shev.md) — responsabilité, capteurs signés, boucle surveillée, récupération et transfert vérifié.
 - [responsabilite-trajectoire.md](responsabilite-trajectoire.md) — arbitrage agir/observer/apprendre/NO_CHANGE, registre inter-domaines et double preuve.
-- [pensee-endogene-bornee.md](pensee-endogene-bornee.md) — orchestration ETT multicycle : rôles, autorité SHEV, admission AGOW, worker isolé, vérification indépendante, reprise et raccord résident fail-closed.
+- [ontogenese-delegation-et-stewardship.md](ontogenese-delegation-et-stewardship.md) — mandat SHEV, capsule isolée, leases, fencing, checkpoints, issues terminales et stewardship spécialisé.
+- [evolution-contrefactuelle-gouvernee.md](evolution-contrefactuelle-gouvernee.md) — mondes synthétiques, campagnes AIDE², scaffold constitutionnel, modèle prédictif, double causalité et frontière de promotion.
+- [pensee-endogene-bornee.md](pensee-endogene-bornee.md) — orchestration ETT multicycle : autorité, réservation avant worker, reprise, vérification indépendante, projection mémoire qualifiée et raccord résident fail-closed.
 - [exploitation-shev.md](../03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [Physique computationnelle](../01-concepts/physique-computationnelle.md) — mesures réelles, régimes, recherche de plans et calibration des coûts du runtime Rust.
@@ -22,6 +24,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [architecture-survie.md](architecture-survie.md) — viabilité, pressions vitales, homéostasie, dormance et reproduction validée.
 - [continuite-mission-organisme.md](continuite-mission-organisme.md) — organisme de mission, six systèmes de continuité, régénération et apoptose contrôlée.
 - [topologies-et-capacites.md](topologies-et-capacites.md) — contrat de capacités (8 modes, 20 organisations Node, 51 capacités), leases effectifs.
+- [cloture-missions-biologiques.md](cloture-missions-biologiques.md) — chemin de clôture des huit modes biologiques, preuves workers, oracle indépendant, cas Syncytium et limites des projections historiques.
 - [primitives-executables.md](primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
@@ -51,6 +54,7 @@ reproduction, et les 8 modes de composition (topologies).
 ## Développement vérifié GVX
 
 - [campagne-evolution-aide2.md](campagne-evolution-aide2.md) — campagne multi-générations, holdout/OOD, reward hacking et double preuve causale non promotrice.
+- [selection-buts-multisignal-gvx.md](selection-buts-multisignal-gvx.md) — arbitrage déterministe besoin/écart/risque/opportunité/incertitude/apprentissage/coût avec `NO_CHANGE` explicite.
 - [profil-execution-gvx.md](profil-execution-gvx.md) — configuration du cycle standard AGOW et du service externe.
 - [adaptateurs-gvx-runtime.md](adaptateurs-gvx-runtime.md) — adaptateurs standard et intégrations personnalisées.
 - [nursery-experimentale-gvx.md](nursery-experimentale-gvx.md) — essais appariés et preuves de mesures exécutées.

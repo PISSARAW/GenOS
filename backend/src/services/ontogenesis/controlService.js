@@ -14,6 +14,7 @@ const { listFailures } = require('./memoryService');
 const { listTasks, getProject } = require('./projectStore');
 const { sampleMemory } = require('./memoryPressure');
 const { buildActivity } = require('./activityView');
+const daemonSensory = require('./daemonSensorySystem');
 
 const { withTransaction } = require('../../db');
 
@@ -129,10 +130,11 @@ async function getStatusView(db, input) {
   const current = currentRunOf(runs);
   const live = sampleMemory({ reservationsMb: 0 });
   const lastCommit = lastCommitOf(integrations);
+  const sensory = daemonSensory.summarize(await daemonSensory.observeProject(db, project));
   const view = buildActivity({
     projectId: project.id, state: project.state, branch: project.branch,
     lastCommit, waitReason: (control && control.reason) || null,
-    backlog: tasks, runs, inbox, notifications, failures
+    backlog: tasks, runs, inbox, notifications, failures, sensory
   });
   return {
     ...view,

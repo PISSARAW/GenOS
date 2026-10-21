@@ -23,9 +23,13 @@ async function verifyOnlyRunningRowsAreScanned() {
 async function verifyUntrackedWorkersNeedAnInactiveParent() {
   const updates = [];
   const db = {
+    exec: async () => {},
+    get: async () => ({ current_budget: 0 }),
     all: async (sql) => {
+      if (/PRAGMA table_info\(agents\)/.test(sql)) return [{ name: 'id' }];
       assert.match(sql, /runtime_pid IS NULL/);
       assert.match(sql, /parent\.status IN \('running','blocked'\)/);
+      assert.match(sql, /NULL AS territory_id/);
       return [{ id: 'stale-worker' }];
     },
     run: async (sql, id) => {
@@ -36,8 +40,8 @@ async function verifyUntrackedWorkersNeedAnInactiveParent() {
   assert.equal(await reconcileUntrackedWorkers(db), 1);
   assert.equal(updates.length, 1);
   assert.equal(updates[0].id, 'stale-worker');
-  assert.match(updates[0].sql, /status = 'terminated'/);
-  assert.match(updates[0].sql, /NOT EXISTS \(SELECT 1 FROM garage_queue/);
+  assert.match(updates[0].sql, /INSERT INTO worker_orphanage_grace/);
+  assert.match(updates[0].sql, /status = 'SUSPECT'/);
 }
 
 Promise.all([verifyTerminalRowsAreNotRewritten(), verifyOnlyRunningRowsAreScanned(),

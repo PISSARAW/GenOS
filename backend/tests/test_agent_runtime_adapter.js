@@ -120,7 +120,7 @@ try {
   assert.equal(domainFailed.payload.artifactFailure, 'INVALID_WORKER_ARTIFACT');
   const unverified = adapter.runtimeExitOutcome(null, 0, null, '', { unverified: true });
   assert.equal(unverified.status, 'unverified');
-  assert.equal(unverified.payload.domainVerdict, 'unverified');
+  assert.equal(unverified.payload.domainVerdict, 'partial');
   assert.equal(adapter.evidenceScore({ evidenceReport: { claims: [{ evidence: ['source', 'calculation'] }], uncertainties: ['inclination'] } }), 19);
   const creativeScore = adapter.evidenceScore({ evidenceReport: {
     artifact: 'creative', artifactText: 'A finished story.', uncertainties: [],

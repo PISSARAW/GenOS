@@ -26,11 +26,17 @@ async function runMission(db, request) {
   process.once('SIGTERM', stop);
   process.once('SIGINT', stop);
   try {
+    await require('./orchestratorMissionInitialization.cjs').initializeMission({
+      db, action: 'orchestrate', orchestratorId: request.id, task: request.mission, request
+    });
     const prepared = await helpers.prepareMission({ db, enhancedPrompt: request.mission, id: request.id,
       request, policyRequest: request, nceMetadata: {} });
+    await require('../src/services/missionIdentityService').create(db, {
+      missionId: request.missionId, objective: request.mission, orchestratorAgentId: request.id
+    });
     if (stopping) throw new Error('execution-arretee');
     await helpers.startOrchestratorMission({ db, ...prepared, id: request.id, enhancedPrompt: request.mission,
-      request, policyRequest: request, allowedCommands: request.allowed_commands,
+      missionId: request.missionId, request, policyRequest: request, allowedCommands: request.allowed_commands,
       allowFileEdits: request.allow_file_edits === true, runtime });
     const agents = await waitForMission(db, request, { stopped: () => stopping });
     const telemetry = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'ORCHESTRATOR_WORKSPACE_CREATED' ORDER BY rowid DESC LIMIT 1", [request.id]);

@@ -31,6 +31,7 @@ const { haltForControl, observeExecution } = require('./executionLifecycle');
 const { processIntegration } = require('./integrationController');
 const { compileDevelopmentalContext } = require('./developmentalContextService');
 const { authorizeTick } = require('./continuityService');
+const daemonSensory = require('./daemonSensorySystem');
 
 const { processInbox, operatorContext } = require('./inboxProcessor');
 const { reconcileExecution, cancelBlockedTask } = require('./recoveryController');
@@ -265,6 +266,7 @@ async function prepareMissionContext(db, ctx, input) {
   ctx.mission = input.preparation.mission;
   ctx.mission.operatorContext = await operatorContext(db, ctx.project.id);
   ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
+  ctx.mission.sensoryContext = ctx.sensory;
   ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
     (capability) => ctx.mission.capabilities.includes(capability)
   );
@@ -293,6 +295,8 @@ async function loadClaimedContext(db, input, fence) {
   await processInbox(db, input.projectId);
   const ctx = await loadContext(db, input);
   ctx.fence = fence;
+  ctx.sensory = await daemonSensory.observeProject(db, ctx.project);
+  await daemonSensory.publishObservation(db, { projectId: ctx.project.id, snapshot: ctx.sensory });
   ctx.observedEvents = await observeEvents(db, input.projectId);
   return ctx;
 }

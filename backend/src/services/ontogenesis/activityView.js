@@ -38,7 +38,8 @@ function buildActivity(input) {
     runs: summarizeRuns(input.runs),
     pendingInbox: (input.inbox || []).length,
     pendingNotifications: (input.notifications || []).length,
-    memory: { failures: (input.failures || []).length }
+    memory: { failures: (input.failures || []).length },
+    sensory: input.sensory || { available: false, reason: 'not-observed' }
   };
 }
 

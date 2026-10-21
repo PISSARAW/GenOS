@@ -45,9 +45,10 @@ function isStable(memory, healthySince) {
   return healthySince !== null && Date.now() - healthySince >= stableMs;
 }
 
-function reservationFor(ctx) {
+function reservationFor(ctx, selection = {}) {
   const memory = ctx.config.memory;
-  return Math.min(memory.workerEstimateMb || 512, memory.envelopeMb);
+  const workerCount = Math.max(1, (selection.workerRoles || []).length);
+  return Math.min((memory.workerEstimateMb || 512) * workerCount, memory.envelopeMb);
 }
 
 module.exports = { budgetState, memoryState, remainingBudget, usableBudget, reservationFor };

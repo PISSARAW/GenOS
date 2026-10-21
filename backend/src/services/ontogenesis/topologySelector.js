@@ -11,6 +11,7 @@
 const { resolveWorkerKind, KIND_CAPABILITIES } = require('../agents/workerKindService');
 const useCases = require('../morphogenesis/registry/variantUseCaseSelector');
 const variantCatalog = require('../morphogenesis/registry/variantCatalog');
+const { PHENOTYPE_TOPOLOGIES: SENSORY_PREFERENCES } = require('./daemonSensorySystem');
 
 const CATALOG = [
   { id: 'trinity', needs: ['execute', 'verify'], roles: ['specialist', 'bounded_worker', 'verifier_worker'], cost: 2 },
@@ -40,10 +41,26 @@ function compatibilityMatrix() {
   }));
 }
 
-function preferenceOrder(taskKind, allowed) {
+function sensoryFamilies(phenotypes) {
+  return (phenotypes || []).map((item) => typeof item === 'string' ? item : item.family)
+    .filter((family) => SENSORY_PREFERENCES[family]);
+}
+
+function applySensoryPreference(base, phenotypes) {
+  const scores = new Map(base.map((id) => [id, 0]));
+  for (const family of sensoryFamilies(phenotypes)) {
+    const preferred = SENSORY_PREFERENCES[family];
+    preferred.forEach((id, index) => scores.set(id, (scores.get(id) || 0) + preferred.length - index));
+  }
+  return base.map((id, index) => ({ id, index, score: scores.get(id) || 0 }))
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map((entry) => entry.id);
+}
+
+function preferenceOrder(taskKind, allowed, phenotypes) {
   const base = PREFERENCES[taskKind] || allowed.slice();
   const wanted = new Set(allowed);
-  return base.filter((id) => wanted.has(id));
+  return applySensoryPreference(base.filter((id) => wanted.has(id)), phenotypes);
 }
 
 function missingCapability(entry, available) {
@@ -112,7 +129,9 @@ function resolveVariant(topology, requested, mission) {
 
 function selectTopology(input) {
   const rationale = [];
-  const ordered = preferenceOrder(input.taskKind, input.allowedTopologies || []);
+  const families = sensoryFamilies(input.sensoryPhenotypes);
+  const ordered = preferenceOrder(input.taskKind, input.allowedTopologies || [], families);
+  if (families.length) rationale.push(`sensoriel:${families.join(',')}`);
   const survivors = ordered.map((id) => CATALOG.find((entry) => entry.id === id)).filter(Boolean);
   const kept = [];
   for (const entry of survivors) {
@@ -132,4 +151,4 @@ function selectTopology(input) {
   return { topology: winner.id, variant: resolved.variant, workerRoles: winner.roles.slice(), rationale, ordered, taskKind: input.taskKind };
 }
 
-module.exports = { CATALOG, PREFERENCES, FAILURE_LIMIT, compatibilityMatrix, selectTopology };
+module.exports = { CATALOG, PREFERENCES, SENSORY_PREFERENCES, FAILURE_LIMIT, compatibilityMatrix, selectTopology };

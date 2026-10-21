@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { compileMission, classifyMission } = require('../src/services/ontogenesis/missionContextService');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
+const { reservationFor } = require('../src/services/ontogenesis/resourceGuard');
 const { buildMissionCapabilityPlan } = require('../src/services/ontogenesis/missionCapabilityPlanService');
 const fixture = require('./ontogenesisFixture');
 
@@ -31,6 +32,14 @@ try {
     selection: { topology: 'a_team', variant: 'default', workerRoles: ['sub_orchestrator', 'specialist'] }, worktree: root,
     budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
   assert.strictEqual(request.projectId, undefined);
+  assert.strictEqual(request.topologyId, 'a_team');
+  assert.strictEqual(request.proposedTopology, 'a_team');
+  assert.strictEqual(request.missionId, 'mission_run-1');
+  assert.strictEqual(request.workspaceId, 'ws-local');
+  assert.strictEqual(request.problemProfile.type, 'implementation');
+  assert.deepStrictEqual(request.philosophicalContracts, []);
+  assert.strictEqual(reservationFor({ config: { memory: { envelopeMb: 2048 } } },
+    { workerRoles: ['one', 'two', 'three'] }), 1536);
   assert.strictEqual(request.organization, compiled.morphology.selectedOrganization || undefined);
   assert.strictEqual(request.topologyContract, null);
   assert.deepStrictEqual(request.capabilityContract.required, compiled.capabilities);

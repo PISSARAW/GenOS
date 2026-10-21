@@ -31,6 +31,7 @@
 - [ADR 0609 — Basculer l’Ontogenèse vers un hôte toujours disponible](adr/0609-bascule-ontogenese-hote-toujours-disponible.md) — bascule froide, génération monotone, lease et reprise explicite sans partage SQLite concurrent.
 - [ADR 0610 — Purger les traces et worktrees de l’Ontogenèse](adr/0610-purge-complete-traces-worktrees-ontogenese.md) — purge confirmée, confinée et attestée des contenus opérationnels d’un projet arrêté.
 - [ADR 0611 — Frontière de livraison d’Ontogenèse](adr/0611-frontiere-livraison-ontogenese.md) — commit local vérifié, push et fusion explicitement hors autorité.
+- [ADR 0712 — ResidentDaemon comme système sensoriel de l’Ontogenèse](adr/0712-daemon-systeme-sensoriel-ontogenese.md) — instantané territorial consultatif, réveil dédupliqué, biais de topologie et frontières d’autorité.
 - [ADR 0616 — Hystérésis transactionnelle et adaptateurs externes signés](adr/0616-hysteresis-transactionnelle-et-adaptateurs-signes.md) — budget par mission consommé atomiquement et preuves Ed25519 des exécutions externes.
 - [ADR 0635 — Scrubber explicitement le store GQWF](adr/0635-scrub-integrite-store-gqwf.md) — inventaire non destructif, détection durable des corruptions et base de la future réparation authentifiée.
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.

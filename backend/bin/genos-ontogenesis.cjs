@@ -72,6 +72,7 @@ function printStatus(view, asJson) {
   console.log(`budgets  : ${JSON.stringify(view.budgets)}`);
   console.log(`memoire  : libre=${view.memory.freeMb}Mo/${view.memory.totalMb}Mo superviseur=${view.memory.supervisorMb}Mo`);
   console.log(`attente  : ${view.waitReason || '-'} | inbox=${view.pendingInbox} notifs=${view.pendingNotifications} echecs-memoire=${view.memory.failures}`);
+  console.log(`sensoriel: daemon=${view.sensory?.daemonLive ? 'live' : 'absent/stale'} territoire=${view.sensory?.territoryId || '-'} phenotypes=${(view.sensory?.activePhenotypes || []).join(',') || '-'} findings=${view.sensory?.findings || 0}`);
 }
 
 async function runInit(db, options) {
