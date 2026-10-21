@@ -18,6 +18,7 @@ function validCompletion(state) {
 }
 
 async function latest(db, missionIds = []) {
+  if (!db) return null;
   const ids = distinctIds(missionIds);
   if (!ids.length) return null;
   const placeholders = ids.map(() => '?').join(',');

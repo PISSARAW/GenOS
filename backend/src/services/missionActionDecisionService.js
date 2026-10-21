@@ -2,6 +2,7 @@
 
 const { quoteActionCost, KINDS } = require('./actionCostQuoteService');
 const { validate: validateContract } = require('./missionOutcomeContract');
+const completionContract = require('./missionCompletionContract');
 
 const ACTIVE_KINDS = new Set([...KINDS].filter((kind) => kind !== 'none' && kind !== 'abstain'));
 const METRICS = ['tokens', 'usd', 'latencyMs'];
@@ -42,13 +43,32 @@ function validateInput(input) {
   }
 }
 
-function openObligations(input, adapters) {
+function outcomeLifecycle(outcome, trusted) {
+  if (['accepted', 'running', 'in_progress'].includes(outcome?.status)) return 'accepted';
+  if (['rejected', 'failed'].includes(outcome?.status)) return 'failed';
+  if (['abstained', 'interrupted'].includes(outcome?.status) && trusted) return 'interrupted';
+  return 'completed';
+}
+
+function outcomeValidation(input, trusted) {
+  if (input.outcome?.status === 'rejected') return { status: 'failed', reasons: ['outcome_rejected'] };
+  if (input.outcome?.status === 'verified' && trusted) return { status: 'verified', reasons: [] };
+  return { status: 'partial', reasons: ['required_results_unverified'] };
+}
+
+function evaluateOutcome(input, adapters) {
+  const supplied = input.outcome?.completionInput || {};
+  const trusted = Boolean(input.outcome)
+    && adapters.verifyOutcome?.(input.outcome, input.contract) === true;
+  return completionContract.evaluate({ ...supplied, missionId: input.missionId,
+    lifecycleState: outcomeLifecycle(input.outcome, trusted),
+    barrierStatus: supplied.barrierStatus ?? 'complete',
+    topologyValidation: supplied.topologyValidation || outcomeValidation(input, trusted) });
+}
+
+function openObligations(input, completion) {
   const ids = input.contract.obligations.map((obligation) => obligation.id);
-  const outcome = input.outcome;
-  if (outcome?.status !== 'verified' && outcome?.status !== 'abstained') return ids;
-  if (adapters.verifyOutcome?.(outcome, input.contract) !== true) return ids;
-  if (outcome.status === 'verified') return [];
-  return ids;
+  return completion.verdict === 'succeeded' ? [] : ids;
 }
 
 function quoteFor(action) {
@@ -115,10 +135,9 @@ function activeAlternative(action, context) {
     probabilityVerified: probability, score };
 }
 
-function terminalAlternative(kind, input, adapters) {
-  const expected = kind === 'none' ? 'verified' : 'abstained';
-  const valid = input.outcome?.status === expected
-    && adapters.verifyOutcome?.(input.outcome, input.contract) === true;
+function terminalAlternative(kind, input, completion) {
+  const expected = kind === 'none' ? 'succeeded' : 'interrupted';
+  const valid = completion.verdict === expected;
   const quote = quoteActionCost({ kind, inactionRisk: { probability: 0, impact: 0 } });
   return { id: kind, kind, eligible: valid, reason: valid ? null : 'terminal_outcome_unverified',
     quote, probabilityVerified: valid ? { min: kind === 'none' ? 1 : 0,
@@ -135,14 +154,16 @@ function rank(left, right) {
 
 function decideMissionAction(input, adapters = {}) {
   validateInput(input);
-  const open = openObligations(input, adapters);
-  const alternatives = [terminalAlternative('none', input, adapters),
-    terminalAlternative('abstain', input, adapters),
+  const completion = evaluateOutcome(input, adapters);
+  const open = openObligations(input, completion);
+  const alternatives = [terminalAlternative('none', input, completion),
+    terminalAlternative('abstain', input, completion),
     ...input.actions.map((action) => activeAlternative(action, { input, adapters, open }))];
   const eligible = alternatives.filter((alternative) => alternative.eligible).sort(rank);
   const selected = eligible[0] || null;
   return {
-    status: selected ? 'shadow' : 'need_evidence', missionId: input.missionId,
+    status: selected ? 'shadow' : 'need_evidence', verdict: completion.verdict,
+    completion, missionId: input.missionId,
     goal: input.contract.goal, openObligations: open, selectedId: selected?.id || null,
     alternatives, objective: 'lower_bound_verified_probability_per_normalized_complete_cost',
     executable: false,

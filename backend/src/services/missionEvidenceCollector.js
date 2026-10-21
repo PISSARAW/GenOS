@@ -61,6 +61,7 @@ async function evaluateCollectedCompletion(input) {
   return completionContract.evaluate({ missionId: input.missionId,
     lifecycleState: collectedLifecycle(input.agents), requiredMemberIds: required,
     members: evidence.members, evidenceProofs: evidence.evidenceProofs,
+    barrierStatus: input.barrierStatus ?? 'complete',
     topologyValidation: collectedTopology(input.flags) });
 }
 

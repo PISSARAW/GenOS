@@ -1,6 +1,7 @@
 'use strict';
 
 const { updateAgent } = require('./agentOrchestrationState');
+const completionContract = require('./missionCompletionContract');
 
 const TERMINAL_EVENTS = new Set([
   'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED',
@@ -11,17 +12,64 @@ function isTerminalEvent(eventType) {
   return TERMINAL_EVENTS.has(eventType);
 }
 
+function lifecycleState(status, eventType) {
+  if (['accepted', 'running', 'idle', 'in_progress'].includes(status)) return 'running';
+  if (eventType === 'AGENT_COMPLETED'
+      || ['completed', 'partial', 'unverified'].includes(status)) return 'completed';
+  if (eventType === 'AGENT_HALTED' || ['blocked', 'terminated'].includes(status)) return 'interrupted';
+  return 'failed';
+}
+
+function domainValidation(state) {
+  const domain = state?.missionDomainState;
+  if (domain?.hasDomainFailure) return { status: 'failed', reasons: ['agent_domain_failed'] };
+  if (domain?.unverified === false) return { status: 'verified', reasons: [] };
+  return { status: 'partial', reasons: ['required_results_unverified'] };
+}
+
+function eventValidation(status, state) {
+  if (['partial', 'unverified'].includes(status)) {
+    return { status: 'partial', reasons: ['required_results_unverified'] };
+  }
+  return domainValidation(state);
+}
+
+function evaluateTerminalStatus(ctx, event, nextStatus) {
+  const supplied = event.payload?.completionInput || event.completionInput || {};
+  const status = nextStatus || event.status;
+  return completionContract.evaluate({ ...supplied,
+    lifecycleState: lifecycleState(status, event.eventType),
+    barrierStatus: supplied.barrierStatus ?? 'complete',
+    topologyValidation: supplied.topologyValidation || eventValidation(status, ctx.state) });
+}
+
+function persistedStatus(verdict, fallback) {
+  if (verdict === 'succeeded') return 'completed';
+  if (verdict === 'failed') return 'failed';
+  if (verdict === 'interrupted') return fallback === 'blocked' ? 'blocked' : 'terminated';
+  if (verdict === 'in_progress') return 'running';
+  return 'unverified';
+}
+
 function queue(ctx, event, nextStatus) {
   if (!(nextStatus || event.currentTask)) return;
   if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
+  if (!nextStatus && !isTerminalEvent(event.eventType)) {
+    ctx.state.executionQueue = ctx.state.executionQueue.then(() => updateAgent(ctx.agentId,
+      null, event.currentTask));
+    return null;
+  }
+  const completion = evaluateTerminalStatus(ctx, event, nextStatus);
+  const status = persistedStatus(completion.verdict, nextStatus);
   if (isTerminalEvent(event.eventType)) {
     ctx.state.pendingTerminalStatuses.set(event.trackedEventId, {
-      nextStatus, currentTask: event.currentTask
+      nextStatus: status, currentTask: event.currentTask, completion
     });
-    return;
+    return completion;
   }
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => updateAgent(ctx.agentId,
-    nextStatus, event.currentTask));
+    status, event.currentTask));
+  return completion;
 }
 
 async function settle(input) {
@@ -41,4 +89,4 @@ async function settle(input) {
   }
 }
 
-module.exports = { isTerminalEvent, queue, settle };
+module.exports = { isTerminalEvent, evaluateTerminalStatus, queue, settle };

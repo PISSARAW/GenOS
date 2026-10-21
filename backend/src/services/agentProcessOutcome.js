@@ -1,3 +1,5 @@
+const completionContract = require('./missionCompletionContract');
+
 const SAFE_RUNTIME_ENV = new Set([
   'PATH', 'Path', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV', 'LOCALAPPDATA', 'GENOS_SOLAR_API_URL',
@@ -102,13 +104,28 @@ function resolveDomainFlags(extra) {
   const unverified = Boolean(extra.unverified);
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
   return { hasDomainFailure, unverified, explicitFailed,
-    artifactFailure: extra.artifactFailure || null };
+    artifactFailure: extra.artifactFailure || null,
+    completionInput: extra.completionInput || {} };
 }
 
-function resolveDomainVerdict(flags) {
-  if (flags.explicitFailed) return 'failed';
-  if (flags.unverified) return 'unverified';
-  return 'completed';
+function topologyValidation(flags) {
+  if (flags.explicitFailed) return { status: 'failed', reasons: ['agent_domain_failed'] };
+  if (flags.unverified) return { status: 'partial', reasons: ['required_results_unverified'] };
+  return { status: 'verified', reasons: [] };
+}
+
+function evaluateCompletion(lifecycleState, flags = {}) {
+  const supplied = flags.completionInput || {};
+  return completionContract.evaluate({ ...supplied, lifecycleState,
+    barrierStatus: supplied.barrierStatus ?? 'complete',
+    topologyValidation: supplied.topologyValidation || topologyValidation(flags) });
+}
+
+function persistedStatus(verdict) {
+  if (verdict === 'succeeded') return 'completed';
+  if (verdict === 'failed') return 'failed';
+  if (verdict === 'interrupted') return 'terminated';
+  return 'unverified';
 }
 
 function formatExitCode(code) {
@@ -117,34 +134,42 @@ function formatExitCode(code) {
 }
 
 function haltedOutcome({ termination, code, signal, stderr }) {
+  const completion = evaluateCompletion('interrupted');
   return {
-    status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
+    status: 'blocked', verdict: completion.verdict,
+    eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
     task: `Runtime halted: ${termination.reason}`,
     detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
-    payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
+    payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason,
+      stderr: String(stderr).trim(), completion }
   };
 }
 
 function completedOutcome({ code, executionStatus, flags }) {
-  const domainVerdict = resolveDomainVerdict(flags);
+  const completion = evaluateCompletion('completed', flags);
   return {
-    status: flags.explicitFailed ? 'failed' : (flags.unverified ? 'unverified' : 'completed'),
-    eventType: flags.explicitFailed ? 'AGENT_FAILED' : 'AGENT_COMPLETED',
+    status: persistedStatus(completion.verdict), verdict: completion.verdict,
+    eventType: completion.verdict === 'succeeded' ? 'AGENT_COMPLETED' : 'AGENT_FAILED',
     action: 'COMPLETE',
-    severity: flags.explicitFailed ? 'error' : (flags.unverified ? 'warning' : 'info'),
+    severity: completion.verdict === 'failed' ? 'error'
+      : (completion.verdict === 'succeeded' ? 'info' : 'warning'),
     task: 'Execution completed',
-    detail: `Runtime completed (process: success, domain: ${domainVerdict}).`,
-    payload: { code, executionStatus, domainVerdict, artifactFailure: flags.artifactFailure }
+    detail: `Runtime completed with verdict '${completion.verdict}'.`,
+    payload: { code, executionStatus, domainVerdict: completion.verdict,
+      artifactFailure: flags.artifactFailure, completion }
   };
 }
 
 function failedExitOutcome({ code, signal, stderr, executionStatus }) {
   const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
+  const completion = evaluateCompletion('failed');
   return {
-    status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
+    status: 'error', verdict: completion.verdict,
+    eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
     task: `Runtime exited with code ${formatExitCode(code)}${signal ? ` (${signal})` : ''}`,
     detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
-    payload: { code, signal, stderr: String(stderr).trim(), executionStatus, domainVerdict: 'failed' }
+    payload: { code, signal, stderr: String(stderr).trim(), executionStatus,
+      domainVerdict: completion.verdict, completion }
   };
 }
 
@@ -207,6 +232,7 @@ function buildGaragePayload(garage, workerGarage, agentId) {
 function runtimeObservation(outcome, code, signal) {
   return {
     status: outcome.status,
+    verdict: outcome.verdict,
     code,
     signal,
     domainVerdict: outcome.payload.domainVerdict || null,
