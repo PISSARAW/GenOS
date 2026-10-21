@@ -2,7 +2,7 @@
 
 Date de vérification : 2026-10-06. Voir [ADR-0334](../adr/0334-registre-executeurs-workers.md).
 
-Les 19 types disposent d'un exécuteur natif et d'un artefact validé par leur contrat. Un appel natif utilise un `methodContract` de version 1, avec `methodId` et `parameters`, persisté lors de l'assignation. Modifier ce contrat au lancement est refusé. Le budget de tokens natif est nul ; le lancement ne demande pas de route de modèle.
+Les 20 types disposent d'un exécuteur natif et d'un artefact validé par leur contrat. Un appel natif utilise un `methodContract` de version 1, avec `methodId` et `parameters`, persisté lors de l'assignation. Modifier ce contrat au lancement est refusé. Le budget de tokens natif est nul ; le lancement ne demande pas de route de modèle.
 
 | Type | Méthode native |
 | --- | --- |
@@ -17,6 +17,7 @@ Les 19 types disposent d'un exécuteur natif et d'un artefact validé par leur c
 | red_worker | falsify_procedure |
 | experimental_worker | measure_lpt |
 | formal_worker | check_arithmetic, formal_proof, theorem_proving |
+| math_worker | compute_integral |
 | synthesis_worker | synthesize_claims |
 | creative_worker | combine_candidates |
 | medical_worker | review_synthetic_case |

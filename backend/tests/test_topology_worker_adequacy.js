@@ -8,7 +8,7 @@ const workerKinds = require('../src/services/agents/workerKindService');
 
 const EXPECTED_KINDS = ['scout_cell', 'resident_daemon', 'bounded_worker', 'adaptive_worker', 'specialist',
   'procedural_executor', 'symbiotic_worker', 'verifier_worker', 'red_worker', 'experimental_worker',
-  'formal_worker', 'synthesis_worker', 'creative_worker', 'medical_worker', 'recovery_worker',
+  'formal_worker', 'math_worker', 'synthesis_worker', 'creative_worker', 'medical_worker', 'recovery_worker',
   'forensic_worker', 'liaison_worker', 'teaching_worker', 'sub_orchestrator'];
 
 function readPreferences() {
@@ -62,7 +62,7 @@ function testReachability() {
     record(selectQuiet(`custom_${declared.join('_')}`, null, declared), `declared:${declared.join(',')}`);
   }
   assert.deepEqual([...reached.keys()].sort(), EXPECTED_KINDS.filter((kind) =>
-    !['procedural_executor', 'formal_worker'].includes(kind)).sort());
+    !['procedural_executor', 'formal_worker', 'math_worker'].includes(kind)).sort());
 }
 
 function testPreferenceFirst() {
@@ -138,4 +138,4 @@ testReachability();
 testPreferenceFirst();
 testVariantMemberAdequacy();
 testAdequacySweep();
-console.log('Topology worker adequacy (19 kinds): PASS');
+console.log('Topology worker adequacy (20 kinds): PASS');

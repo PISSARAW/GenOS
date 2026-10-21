@@ -83,7 +83,7 @@ impl Default for AgentPhenotype {
     }
 }
 
-/// Les 19 types de workers GenOS.
+/// Les 20 types de workers GenOS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkerKind {
     ScoutCell,
@@ -97,6 +97,7 @@ pub enum WorkerKind {
     RedWorker,
     ExperimentalWorker,
     FormalWorker,
+    MathWorker,
     SynthesisWorker,
     CreativeWorker,
     MedicalWorker,
@@ -108,8 +109,8 @@ pub enum WorkerKind {
 }
 
 impl WorkerKind {
-    /// Les 19 types repertories.
-    pub fn all() -> [WorkerKind; 19] {
+    /// Les 20 types repertories.
+    pub fn all() -> [WorkerKind; 20] {
         use WorkerKind::*;
         [
             ScoutCell,
@@ -123,6 +124,7 @@ impl WorkerKind {
             RedWorker,
             ExperimentalWorker,
             FormalWorker,
+            MathWorker,
             SynthesisWorker,
             CreativeWorker,
             MedicalWorker,
@@ -148,6 +150,7 @@ impl WorkerKind {
             RedWorker => "red_worker",
             ExperimentalWorker => "experimental_worker",
             FormalWorker => "formal_worker",
+            MathWorker => "math_worker",
             SynthesisWorker => "synthesis_worker",
             CreativeWorker => "creative_worker",
             MedicalWorker => "medical_worker",
@@ -179,7 +182,7 @@ pub fn family_of(kind: WorkerKind) -> WorkerFamily {
         BoundedWorker | AdaptiveWorker | Specialist => Execution,
         ProceduralExecutor | SymbioticWorker => Execution,
         VerifierWorker | RedWorker | ExperimentalWorker => Epistemic,
-        FormalWorker | SynthesisWorker => Epistemic,
+        FormalWorker | MathWorker | SynthesisWorker => Epistemic,
         CreativeWorker | MedicalWorker | RecoveryWorker => AdaptiveRepair,
         ForensicWorker => AdaptiveRepair,
         LiaisonWorker | TeachingWorker | SubOrchestrator => Organizational,
@@ -227,7 +230,7 @@ pub fn default_phenotype(kind: WorkerKind) -> AgentPhenotype {
         ExperimentalWorker => {
             base.epistemic_role = EpistemicRole::Experimenter;
         }
-        FormalWorker => {
+        FormalWorker | MathWorker => {
             base.epistemic_role = EpistemicRole::Experimenter;
             base.cognition = CognitionMode::Deterministic;
         }

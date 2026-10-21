@@ -2,12 +2,23 @@ const { getDatabase } = require('../../db');
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit, updateAgent, orchestratorToolLease } = require('../agentOrchestrationState');
 const { processMatches, terminateChild } = require('../processTermination');
 const orphanageService = require('../daemon/reconciliation/orphanageService');
+const RUNTIME_DRAIN_GRACE_SECONDS = 30;
+
+function recentActivityInterval() {
+  return `-${RUNTIME_DRAIN_GRACE_SECONDS} seconds`;
+}
 
 async function markRuntimeTerminated(db, row, error = null) {
   const { id, runtime_pid, runtime_executable } = row;
   const updated = await db.run(
-    `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running' AND runtime_pid = ? AND runtime_executable = ?`,
-    id, runtime_pid, runtime_executable
+    `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND status = 'running' AND runtime_pid = ? AND runtime_executable = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM telemetry_events recent
+         WHERE recent.agent_id = agents.id
+           AND recent.created_at >= datetime('now', ?)
+       )`,
+    id, runtime_pid, runtime_executable, recentActivityInterval()
   );
   if (!updated.changes) return 0;
   const detail = error
@@ -20,6 +31,11 @@ async function markRuntimeTerminated(db, row, error = null) {
 async function reconcilePersistedRuntimeRow(db, row) {
   const { id, status, runtime_pid, runtime_executable } = row;
   if (!runtime_pid || status !== 'running') return 0;
+  // The child may already have exited while its owning supervisor is still
+  // draining framed events. Revoking the agent here would invalidate those
+  // already-emitted events. The SQL guard above also protects this boundary
+  // when reconciliation runs from another process.
+  if (activeProcesses.has(id)) return 0;
   // Vérifie d'abord que le PID existe toujours (signal 0 ne tue pas le process),
   // puis vérifie que le PID correspond bien à l'exécutable GenOS enregistré.
   // Un PID recyclé par le système aurait un exécutable différent → faux positif évité.
@@ -155,4 +171,5 @@ async function reconcilePersistedRuntimes(db) {
 }
 
 module.exports = { reconcileDeadOrchestratorChildren, reconcilePersistedRuntimes,
-  reconcilePersistedRuntimeRow, reconcileOrphanedRunning, reconcileUntrackedWorkers };
+  reconcilePersistedRuntimeRow, reconcileOrphanedRunning, reconcileUntrackedWorkers,
+  RUNTIME_DRAIN_GRACE_SECONDS };

@@ -113,7 +113,11 @@ function resolveIdentity(mission) {
 
 function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
   if (isWorker) {
-    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. Use leased organization tools through the enforced routing. For continuous coordination, genos_organization_state, genos_worker_inbox and genos_worker_publish are mandatory runtime evidence. Return final evidence to the orchestrator.`;
+    const coordinated = workerMcpPreflight.continuousCoordination(mission);
+    const routing = coordinated
+      ? 'Use leased organization tools through the enforced routing. For continuous coordination, genos_organization_state, genos_worker_inbox and genos_worker_publish are mandatory runtime evidence.'
+      : 'This worker world is isolated. Do not call peer coordination tools; return the final evidence only through the sealed worker dossier.';
+    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. ${routing} Return final evidence to the orchestrator.`;
   }
   if (autonomyPlan.synthesisOnly) {
     return 'You are the GenOS orchestrator in the enforced final-synthesis phase. The control plane has already completed every delegated worker, continuation round, and recovery listed in the attached dossiers. Compare all dossiers and produce the one official result. Do not dispatch, preview, or launch any new worker or Trinity world during this phase.';
@@ -390,4 +394,4 @@ async function startRuntime(state) {
   state.child.stdin.end(state.prompt);
   wireProcessEvents(state);
 }
-module.exports = { runSession, parseToolLease };
+module.exports = { runSession, parseToolLease, buildAuthorityInstruction };

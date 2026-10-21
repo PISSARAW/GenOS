@@ -44,6 +44,9 @@ const CASES = Object.freeze([
   { id: 'subset-sum', workerKind: 'procedural_executor', task: 'Trouver un sous-ensemble de somme 10.',
     methodContract: { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } },
     oracle: { path: 'output.found', equals: true } },
+  { id: 'prime-integral', workerKind: 'math_worker', task: 'Calculer exactement les intégrales premières bornées.',
+    methodContract: { version: 1, methodId: 'compute_integral', parameters: { terms: [2, 3, 5] } },
+    oracle: { path: 'output.I_2', equals: 'pi/2' } },
   { id: 'host-bound', workerKind: 'symbiotic_worker', task: 'Exécuter une contribution autorisée par le contrat hôte.',
     methodContract: { version: 1, methodId: 'host_procedure', parameters: {
       capability: 'deterministic_procedure', procedure: VERIFICATION_PROCEDURE } },

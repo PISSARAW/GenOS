@@ -13,5 +13,6 @@ module.exports = Object.freeze({
   replenish_external_quota: ['recover'],
   prepare_handoff: ['handoff'],
   coordinate_children: ['delegate'],
-  check_arithmetic: ['formal_proof']
+  check_arithmetic: ['formal_proof'],
+  compute_integral: ['formal_proof']
 });

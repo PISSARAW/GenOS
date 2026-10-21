@@ -11,7 +11,7 @@ const presetSource = fs.readFileSync(path.join(rustRoot, 'presets.rs'), 'utf8');
 const enumBody = rustSource.match(/pub enum WorkerKind \{([\s\S]*?)\n\}/)?.[1] || '';
 const rustKinds = [...enumBody.matchAll(/^\s{4}([A-Z][A-Za-z]+),?$/gm)].map((match) => workerKinds.normalize(match[1]));
 assert.deepEqual(Object.keys(workerKinds.KINDS).sort(), rustKinds.sort());
-assert.equal(rustKinds.length, 19);
+assert.equal(rustKinds.length, 20);
 
 function rustFunctionBody(source, functionName) {
   const declaration = source.indexOf(`fn ${functionName}(`);

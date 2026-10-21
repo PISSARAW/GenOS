@@ -90,7 +90,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
-      native_objectives: { type: 'array', minItems: 1, maxItems: 19, items: { type: 'object' } },
+      native_objectives: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object' } },
       worker_assignments: workerAssignmentsSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout.' },

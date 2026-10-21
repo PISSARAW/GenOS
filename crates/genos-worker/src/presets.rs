@@ -233,6 +233,14 @@ pub fn formal_preset(input: &PresetInput) -> WorkerRuntimeContract {
     c
 }
 
+/// Contrat MathWorker : calcul exact deterministe avec certificat formel.
+pub fn math_preset(input: &PresetInput) -> WorkerRuntimeContract {
+    let mut c = procedural_preset(input);
+    c.identity.phenotype = WorkerKind::MathWorker.name().to_string();
+    c.evidence.required_artifacts = vec!["formal_certificate".to_string()];
+    c
+}
+
 /// Contrat SynthesisWorker : synthese sans ecraser les desaccords.
 pub fn synthesis_preset(input: &PresetInput) -> WorkerRuntimeContract {
     let mut c = base_contract(WorkerKind::SynthesisWorker, input);
@@ -287,6 +295,7 @@ pub fn preset_for(kind: WorkerKind, input: &PresetInput) -> WorkerRuntimeContrac
         RedWorker => red_preset(input),
         ExperimentalWorker => experimental_preset(input),
         FormalWorker => formal_preset(input),
+        MathWorker => math_preset(input),
         SynthesisWorker => synthesis_preset(input),
         CreativeWorker => creative_preset(input),
         MedicalWorker => medical_preset(input),

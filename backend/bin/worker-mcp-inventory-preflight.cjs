@@ -12,6 +12,9 @@ const COORDINATION_TOOLS = Object.freeze([
 function continuousCoordination(mission = {}) {
   const policy = mission.coordinationPolicy || mission.coordination_policy || {};
   const cadence = policy.communicationCadence || policy.communication_cadence;
+  const isolatedTrinity = Boolean(mission.missionScope?.trinityExperimentId
+    || mission.mission_scope?.trinityExperimentId);
+  if (isolatedTrinity || policy.isolated === true || String(cadence).toLowerCase() === 'isolated') return false;
   return mission.organization === 'cross_functional_pod'
     || String(cadence || '').toLowerCase() === 'continuous_sync';
 }

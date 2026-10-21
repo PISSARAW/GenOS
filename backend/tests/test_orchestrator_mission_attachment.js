@@ -8,5 +8,8 @@ assert.equal(shouldAttachMissionOrchestrator('orchestrate', 'mission-1'), true);
 assert.equal(shouldAttachMissionOrchestrator('dispatch_worker', 'mission-1'), false);
 assert.equal(shouldAttachMissionOrchestrator('dispatch_worker', 'mission-1', true), true);
 assert.equal(shouldAttachMissionOrchestrator('dispatch_worker', null), false);
+assert.equal(shouldAttachMissionOrchestrator('organization_state', 'mission-1'), false);
+assert.equal(shouldAttachMissionOrchestrator('organization_inbox', 'mission-1'), false);
+assert.equal(shouldAttachMissionOrchestrator('organization_publish', 'mission-1'), false);
 
 console.log('orchestrator mission attachment checks passed');

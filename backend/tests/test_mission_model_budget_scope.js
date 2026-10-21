@@ -113,11 +113,31 @@ async function testMissingAuthorityFailsClosed() {
   } finally { await db.close(); }
 }
 
+async function testOptionalTenantScopeMatchesPersistedNulls() {
+  const db = await database();
+  try {
+    await db.run(`INSERT INTO mission_model_budget_scopes
+      (scope_id, parent_run_id, parent_agent_id, organization_id, project_id,
+       cost_ceiling_usd, token_ceiling) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    'execution-run:windows-local', 'windows-local', 'windows-orchestrator',
+    null, null, 0, 1024);
+    const routed = await scopeService.routeBudget({
+      orchestratorAgentId: 'windows-orchestrator',
+      modelBudgetScope: { id: 'execution-run:windows-local', costUsd: 0, tokens: 1024 },
+      executionBudget: { costUsd: 0 }
+    }, db);
+    assert.equal(routed.organizationId, undefined);
+    assert.equal(routed.projectId, undefined);
+    assert.equal(routed.budgetReservationId, 'execution-run:windows-local');
+  } finally { await db.close(); }
+}
+
 (async () => {
   await testConcurrentChildren({ costUsd: 0.000004, tokens: 6,
     rejection: /remaining shared budget/ });
   await testConcurrentChildren({ costUsd: 0.00001, tokens: 4,
     rejection: /token reservation/ });
   await testMissingAuthorityFailsClosed();
+  await testOptionalTenantScopeMatchesPersistedNulls();
   console.log('Mission model budget scope checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

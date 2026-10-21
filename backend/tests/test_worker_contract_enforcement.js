@@ -230,4 +230,4 @@ async function verifyPersistedTools() {
   }), { code: 'WORKER_CONTRACT_DENIED' });
 }
 
-verifyPersistedTools().then(() => console.log('Worker contracts enforce MCP authority and typed evidence artifacts for all 19 kinds.'));
+verifyPersistedTools().then(() => console.log('Worker contracts enforce MCP authority and typed evidence artifacts for all 20 kinds.'));

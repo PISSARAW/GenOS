@@ -87,7 +87,8 @@ function workspaceAttestation(expected, commitHash) {
   return { ...body, attestationHash: fingerprint(body) };
 }
 
-function ensureArm(expected, workspacesRoot, repo, baseCommit) {
+function ensureArm(input) {
+  const { expected, workspacesRoot, repo, baseCommit } = input;
   const arm = expected.arm;
   const destDir = path.join(workspacesRoot, arm);
   fs.mkdirSync(path.dirname(destDir), { recursive: true });
@@ -221,7 +222,8 @@ function pressureValues(phase, intervention, metrics) {
   return { before, after };
 }
 
-function progressVerdict(phase, intervention, metrics, pressure) {
+function progressVerdict(input) {
+  const { phase, intervention, metrics, pressure } = input;
   if (phase !== 'heldout') return 'not_tested';
   if (intervention !== 'full_arc') return 'not_tested';
   if (!metrics.success) return 'regressed';
@@ -233,7 +235,7 @@ function progressVerdict(phase, intervention, metrics, pressure) {
 function buildMeasurement(request, execution, metrics) {
   const intervention = request.arm === 'treatment' ? 'full_arc' : 'baseline';
   const pressure = pressureValues(request.phase, intervention, metrics);
-  const progress = progressVerdict(request.phase, intervention, metrics, pressure);
+  const progress = progressVerdict({ phase: request.phase, intervention, metrics, pressure });
   const clearance = progress === 'confirmed';
   const outcome = {
     success: metrics.success,
@@ -319,15 +321,8 @@ async function createAdapters(context) {
     const { request, execution, measurement, outcome } = context;
     const file = artifactFile(artifactsRoot, request.arm, request.window.id);
     const artifact = readArtifact(file);
-    if (!artifact) {
-      throw new Error(`Verifier: no artifact for ${request.arm}:${request.window.id}`);
-    }
-    if (fingerprint(artifact) !== execution.artifactHash) {
-      throw new Error(`Verifier: artifact hash mismatch for ${request.arm}:${request.window.id}`);
-    }
-    if (measurement.outcome.artifactHash !== outcome.artifactHash) {
-      throw new Error('Verifier: outcome artifact binding broken.');
-    }
+    assertVerifierArtifact({ artifact, request, execution });
+    assertOutcomeBinding(measurement, outcome);
     const verified = Boolean(execution.artifactHash && measurement.measurementHash);
     return {
       verified,
@@ -349,7 +344,7 @@ async function createAdapters(context) {
 
   return Object.freeze({
     workspace: {
-      ensureArm: async (expected) => ensureArm(expected, workspacesRoot, repo, baseCommit)
+      ensureArm: async (expected) => ensureArm({ expected, workspacesRoot, repo, baseCommit })
     },
     runtime: {
       executeWindow: async ({ request, attestation }) =>
@@ -360,6 +355,22 @@ async function createAdapters(context) {
     WORKSPACE_SCHEMA,
     MEASUREMENT_SCHEMA
   });
+}
+
+function assertVerifierArtifact(input) {
+  const { artifact, request, execution } = input;
+  if (!artifact) {
+    throw new Error(`Verifier: no artifact for ${request.arm}:${request.window.id}`);
+  }
+  if (fingerprint(artifact) !== execution.artifactHash) {
+    throw new Error(`Verifier: artifact hash mismatch for ${request.arm}:${request.window.id}`);
+  }
+}
+
+function assertOutcomeBinding(measurement, outcome) {
+  if (measurement.outcome.artifactHash !== outcome.artifactHash) {
+    throw new Error('Verifier: outcome artifact binding broken.');
+  }
 }
 
 module.exports = { createAdapters, WORKSPACE_SCHEMA, MEASUREMENT_SCHEMA };

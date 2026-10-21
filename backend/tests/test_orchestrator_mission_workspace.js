@@ -24,7 +24,8 @@ async function main() {
     await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT, path TEXT UNIQUE,
       visibility TEXT, language TEXT, description TEXT, tags TEXT, updated_at DATETIME);
       CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT, role TEXT, status TEXT,
-      execution_mode TEXT, workspace_id TEXT, model_tier TEXT, isolation_mode TEXT, current_task TEXT);`);
+      execution_mode TEXT, workspace_id TEXT, model_tier TEXT, isolation_mode TEXT, current_task TEXT,
+      parent_agent_id TEXT);`);
     await db.run("INSERT INTO workspaces (id, name, path) VALUES ('legacy-relative', 'Legacy', '.')");
     process.chdir(root);
     await initializeMission({ db, action: 'dispatch_team', orchestratorId: 'root', task: 'test',
@@ -40,6 +41,12 @@ async function main() {
       request: { workspace_root: otherRoot } });
     await assert.rejects(initializeMission({ db, action: 'dispatch_worker', orchestratorId: 'bound', task: 'test',
       request: { workspace_root: root } }), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
+    await db.run(`INSERT INTO agents (id, execution_mode, workspace_id, parent_agent_id)
+      VALUES ('trusted-worker', 'worker', (SELECT workspace_id FROM agents WHERE id = 'bound'), 'bound')`);
+    await initializeMission({ db, action: 'dispatch_worker', orchestratorId: 'bound', task: 'test',
+      request: { workspace_root: root, reuseChecked: true, reuseWorkerId: 'trusted-worker' } });
+    assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'bound')).workspace_id,
+      (await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'trusted-worker')).workspace_id);
     console.log('Top-level mission orchestrator workspace binding: PASS');
   } finally {
     process.chdir(originalCwd);

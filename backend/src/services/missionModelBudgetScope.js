@@ -43,10 +43,12 @@ async function bindParent(ctx) {
 
 async function assertPersisted(db, scope, parentId) {
   const row = await db.get('SELECT * FROM mission_model_budget_scopes WHERE scope_id = ?', scope.id);
+  const organizationId = scope.organizationId ?? null;
+  const projectId = scope.projectId ?? null;
   if (!row || row.parent_agent_id !== parentId
     || row.cost_ceiling_usd !== scope.costUsd || row.token_ceiling !== scope.tokens
-    || row.organization_id !== scope.organizationId
-    || row.project_id !== scope.projectId) {
+    || row.organization_id !== organizationId
+    || row.project_id !== projectId) {
     throw budgetError('Parent model budget scope does not match its persisted authority.');
   }
 }

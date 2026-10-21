@@ -21,7 +21,8 @@ const EXECUTORS = Object.freeze({
   forensic_worker: ['trace_declared_causes', 'deterministicWorkerForensic', 'assertForensicInput', 'runForensic'],
   liaison_worker: ['prepare_handoff', 'workerCoordinationExecutor', 'assertHandoffInput', 'runHandoff'],
   teaching_worker: ['teach_subset_sum', 'deterministicWorkerTeaching', 'assertTeachingInput', 'runTeaching'],
-  sub_orchestrator: ['coordinate_children', 'workerCoordinationExecutor', 'assertCoordinationInput', 'runCoordination']
+  sub_orchestrator: ['coordinate_children', 'workerCoordinationExecutor', 'assertCoordinationInput', 'runCoordination'],
+  math_worker: ['compute_integral', 'deterministicWorkerMath', 'assertMathInput', 'runMath']
 });
 
 const ARITHMETIC = ['check_arithmetic', 'workerArithmeticExecutor', 'assertArithmeticInput', 'runArithmetic'];
@@ -29,7 +30,7 @@ const MEMORY = ['verify_memory_fidelity', 'workerMemoryVerification', 'assertMem
 const CODE = ['verify_code_postconditions', 'workerCodeVerification', 'assertCodeInput', 'runCode'];
 const EXTERNAL_CREDIT = ['replenish_external_quota', 'workerExternalCreditExecutor', 'assertCreditInput', 'runCredit'];
 const VERIFIERS = Object.freeze({ verify_memory_fidelity: MEMORY, verify_code_postconditions: CODE });
-const ALWAYS_NATIVE = new Set(['procedural_executor', 'formal_worker']);
+const ALWAYS_NATIVE = new Set(['procedural_executor', 'formal_worker', 'math_worker']);
 
 const SPECIAL = Object.freeze({ verifier_worker: VERIFIERS,
   recovery_worker: { replenish_external_quota: EXTERNAL_CREDIT },

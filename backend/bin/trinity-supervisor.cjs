@@ -6,7 +6,8 @@ const trinityService = require('../src/services/trinityService');
 const organization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const { compareMission } = require('../src/services/trinityComparisonRuntime');
-const TERMINAL = new Set(['blocked', 'completed', 'completed_unpromoted', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
+const TERMINAL = new Set(['blocked', 'cancelled', 'completed', 'completed_unpromoted', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
+const TERMINAL_RUN = new Set(['blocked', 'cancelled', 'completed', 'failed']);
 const RECORDED = new Set(['compared', 'candidate', 'promoted', 'quarantined']);
 
 function pause(ms) {
@@ -47,11 +48,17 @@ async function assessWorkerExecution(db, worker) {
   const run = await db.get(`SELECT id, status, guardrail_reason FROM strategy_execution_runs
     WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1`, worker.agentId);
   const promotionBlockReason = promotionGateBlockReason(run);
-  if (!promotionBlockReason) return worker;
-  const events = await db.all(`SELECT event_type, payload_json FROM telemetry_events
-    WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED') ORDER BY rowid DESC LIMIT 1`, worker.agentId);
-  if (!completedReportForRun(events, run.id)) return worker;
-  return { ...worker, status: 'completed_unpromoted', promotionBlocked: true, promotionBlockReason };
+  if (promotionBlockReason) {
+    const events = await db.all(`SELECT event_type, payload_json FROM telemetry_events
+      WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED') ORDER BY rowid DESC LIMIT 1`, worker.agentId);
+    if (completedReportForRun(events, run.id)) {
+      return { ...worker, status: 'completed_unpromoted', executionRunId: run.id,
+        promotionBlocked: true, promotionBlockReason };
+    }
+  }
+  if (!TERMINAL_RUN.has(run?.status)) return worker;
+  return { ...worker, status: run.status, executionRunId: run.id,
+    guardrailReason: run.guardrail_reason || null };
 }
 
 function promotionGateBlockReason(run) {

@@ -32,6 +32,7 @@ function fixtures(root) {
     red_worker: method('falsify_procedure', { procedure: subset, candidateReceipt: { ...candidateReceipt, result: { found: false } } }),
     experimental_worker: method('measure_lpt', { ...lpt.parameters, threshold: 7 }),
     formal_worker: method('check_arithmetic', { claim: '2 + 2 * 3 = 8' }),
+    math_worker: method('compute_integral', { terms: [2, 3, 5] }),
     synthesis_worker: method('synthesize_claims', { sources: [
       { sourceRef: 'source://native/a', claim: 'Deploy', position: 'yes' },
       { sourceRef: 'source://native/b', claim: 'Deploy', position: 'no' }

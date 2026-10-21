@@ -76,6 +76,7 @@ async function observe(db, request) {
   await db.run(`INSERT OR IGNORE INTO biological_worker_observations (run_id, event_key, event_hash, event_json)
     VALUES (?, ?, ?, ?)`, value.runId, eventKey, eventHash, encode(request.event));
   const row = await observation(db, { runId: value.runId, eventKey });
+  if (!row) throw biologyError('BIOLOGICAL_WORKER_OBSERVATION_UNPERSISTED');
   if (row.event_hash !== eventHash) throw biologyError('BIOLOGICAL_WORKER_EVENT_CONFLICT');
   return { binding: value, eventKey, applied: row.applied === 1 };
 }

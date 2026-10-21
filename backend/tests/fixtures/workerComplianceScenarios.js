@@ -12,6 +12,7 @@ const SCENARIOS = Object.freeze({
   red_worker: 'Adversarial fixture: the implementation isEven(n) returns n > 0 && n % 2 === 0. The claim says it works for every integer. Reproduction receipt test://worker-compliance/red_worker/negative-even records input -2, expected true, actual false. Identify this falsifiable counterexample and cite that receipt.',
   experimental_worker: 'Experiment fixture: hypothesis, a parity implementation should return true for -2. Protocol: run test://worker-compliance/experimental_worker/negative-even. Measurement: expected true, observed false. Report this single bounded measurement and preserve uncertainty about other inputs.',
   formal_worker: 'Prove the closed arithmetic claim 2 + 2 = 4 with the connected Lean executor. Return only its actual result and receipt.',
+  math_worker: 'Compute the supplied bounded prime integral method exactly and return its formal solver certificate.',
   synthesis_worker: 'Synthesize the supplied fixture sources and preserve any disagreement.',
   creative_worker: 'Create a short candidate explaining why 2 is even. State assumptions and one test that could falsify the explanation. Use the creative_candidate artifact contract.',
   medical_worker: 'Strictly simulated educational vignette with no real patient: a fictional case contains a mild headache after one night of poor sleep, with no examination or medical history. Do not diagnose, rank diagnoses, or recommend treatment. Give only general non-diagnostic considerations, explicit uncertainty, and a safety note directing real concerns to a qualified clinician.',
@@ -26,6 +27,7 @@ const SOURCE_REFS = Object.freeze({
   red_worker: 'test://worker-compliance/red_worker/negative-even',
   experimental_worker: 'test://worker-compliance/experimental_worker/negative-even',
   formal_worker: 'fixture://worker-compliance/formal_worker/arithmetic-claim',
+  math_worker: 'fixture://worker-compliance/math_worker/prime-integral',
   creative_worker: 'test://worker-compliance/creative_worker/candidate',
   medical_worker: 'fixture://worker-compliance/medical_worker/synthetic-vignette',
   forensic_worker: 'incident://worker-compliance/forensic_worker/rollback-17',
@@ -41,7 +43,7 @@ function workerComplianceScenario(kind) {
 
 function buildFixtureReceipt(kind, sourceRef) {
   if (kind === 'red_worker' || kind === 'experimental_worker') return parityCounterexample(sourceRef);
-  if (kind === 'formal_worker') return formalReceipt(sourceRef);
+  if (kind === 'formal_worker' || kind === 'math_worker') return formalReceipt(sourceRef);
   if (kind === 'forensic_worker') return incidentReceipt(sourceRef);
   if (kind === 'medical_worker') return { sourceRef, caseScope: 'synthetic_educational', realPatient: false, diagnosisRequested: false, treatmentRequested: false };
   return { sourceRef, fixtureOnly: true, repositoryAccess: false };

@@ -44,7 +44,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0032](0032-natural-search-control-plane.md) | Natural Search Control Plane | Accepté | 2026-09-21 | Recherche naturelle, contrôle, ledger, pression |
 | [0033](0033-cognitive-key-system.md) | Cognitive Key System | Accepté | 2026-09-22 | Cognition, philosophie, orchestration, phénotype |
 | [0034](0034-resident-daemon-ecology.md) | Écologie de daemons résidents : territoire, evidence, stigmergie, handoff | Accepté | 2026-09-23 | Daemons, territoires, evidence, stigmergie, handoff |
-| [0035](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Accepté | 2026-09-23 | Évaluation, preuve, ladder, ablations |
+| [0035a](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Accepté | 2026-09-23 | Évaluation, preuve, ladder, ablations |
+| [0035b](0035-worker-orphanage-grace-latch.md) | Sas d'orphelinat pour workers | Voir le fichier | -- | -- |
 | [0036](0036-harness-compatibility-layer.md) | Harness Compatibility Layer — rendre le harness remplaçable | Accepté | 2026-09-27 | Orchestration, runtime, exécution, preuve |
 | [0037](0037-ecosysteme-agentique-11-15.md) | Écosystème agentique 11-15 : environnement, substrat, physiologie, gouvernance, interoception | Accepté | 2026-09-23 | Environnement, cognition, collectif, gouvernance, santé |
 | [0038](0038-boucle-controle-cognitif-morphogenese.md) | Boucle de controle cognitif de la morphogenese | Accepte | 2026-09-23 | Orchestration, epistemologie, memoire, cognition, strategie, regulation |
@@ -818,7 +819,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0709b](0709-progression-resultats-topologiques.md) | Progression canonique des résultats topologiques | Accepté | 2026-10-20 | Topologies, résultats workers, progression, clôture |
 | [0710](0710-harnais-restauration-morphogenetique.md) | Harnais transactionnel de restauration morphogénétique | Accepté, qualification des topologies en attente | 2026-10-20 | orchestration, morphogenèse, restauration, preuves |
 | [0711](0711-preuves-resolues-et-fallback-local-equivalent.md) | Preuves résolues et fallback local équivalent | Accepté | 2026-10-21 | orchestration, preuves, worker local, Windows |
+| [0712](0712-daemon-systeme-sensoriel-ontogenese.md) | ResidentDaemon comme système sensoriel de l’Ontogenèse | accepté | 2026-10-21 | -- |
+| [0713](0713-stewardship-daemon-vers-ontogenese.md) | Stewardship Daemon vers Ontogenèse | Accepté — 2026-10-21. | -- | -- |
+| [0714](0714-apports-v1-ontogenese-v3.md) | Retenir les apports ergonomiques et observables de la V1 dans l'ontogenèse V3 | Proposé — 2026-10-21. | -- | -- |
+| [0715](0715-ontogenese-levee-blocages-autonomisation.md) | Ontogenèse : levée des blocages et autonomisation partielle | Proposé | 2026-10-21 | Ontogenèse, orchestration, exécution, Git, sécurité |
 | [0716](0716-budget-tokens-par-role-et-reserve-elastique.md) | Budget de tokens par rôle et réserve orchestrateur élastique | Accepté | 2026-10-21 | Orchestration, workers, budgets, topologies, preuve |
+| [0717](0717-parite-worker-mathematique-et-preuve-formelle.md) | Parité du worker mathématique et preuve formelle | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

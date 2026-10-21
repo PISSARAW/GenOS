@@ -95,7 +95,7 @@ async function auditCase(db, provider, item) {
 
 async function main() {
   assert.equal(report.schema, 'genos.external-credit-matrix/v1');
-  assert.equal(report.kinds, 19);
+  assert.equal(report.kinds, 20);
   assert.equal(report.cases, 38);
   const db = open('genos.db');
   const provider = open('provider.db');
@@ -111,12 +111,12 @@ async function main() {
     const ledger = await get(provider, 'SELECT initial,reserve,spent FROM ledger WHERE id=1');
     const balances = await all(provider, 'SELECT balance FROM accounts');
     const accountTotal = balances.reduce((sum, row) => sum + row.balance, 0);
-    assert.equal(balances.length, 19);
+    assert.equal(balances.length, 20);
     assert.equal(ledger.reserve + accountTotal + ledger.spent, ledger.initial);
     assert.equal(ledger.spent, 95);
     assert.equal(accountTotal, 133);
     const result = { schema: 'genos.external-credit-matrix-audit/v1', root,
-      kinds: 19, cases: 38, verified: audited.length, conservation: true,
+      kinds: 20, cases: 40, verified: audited.length, conservation: true,
       reserve: ledger.reserve, accountTotal, spent: ledger.spent,
       entries: audited };
     fs.writeFileSync(path.join(root, 'audit.json'), JSON.stringify(result, null, 2));

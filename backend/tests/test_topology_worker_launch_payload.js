@@ -66,6 +66,17 @@ const baselineWorker = workerLaunchPayload({
 assert.ok(baselineWorker.mission.includes('ISOLATED BASELINE'));
 assert.deepEqual(baselineWorker.toolLease, ['genos_snapshot']);
 
+const trinityWorker = workerLaunchPayload({
+  context: { ...context, request: { ...context.request, mode: 'trinity',
+    coordinationPolicy: { communicationCadence: 'continuous_sync' } } },
+  member: { role: 'verifier', mission: 'Independent Trinity world', engine: 'cloud' },
+  workerId: 'trinity-worker', parent: { workspace_root: '/workspace' },
+  toolLease: ['genos_snapshot', 'genos_worker_publish', 'genos_worker_inbox']
+});
+assert.deepEqual(trinityWorker.toolLease, ['genos_snapshot']);
+assert.equal(trinityWorker.coordinationPolicy.isolated, true);
+assert.equal(trinityWorker.coordinationPolicy.communicationCadence, 'isolated');
+
 const localModelWorker = workerLaunchPayload({
   context: { ...context, request: { ...context.request, executor: undefined, localModel: 'ollama://qwen2.5-coder:7b' } },
   member: { role: 'analyst', mission: 'Analyze evidence', engine: 'cloud' },

@@ -33,7 +33,25 @@ async function verifyBlockedPromotionStillSupervisesEvidence() {
   const invalid = await supervisor.assessWorkerExecution({ ...db,
     get: async () => ({ id: 'run-2', status: 'blocked', guardrail_reason: 'budget exhausted' })
   }, { agentId: 'worker-2', status: 'error' });
-  assert.equal(invalid.status, 'error');
+  assert.equal(invalid.status, 'blocked');
+  assert.equal(invalid.guardrailReason, 'budget exhausted');
+}
+async function verifyTerminalRunOverridesIdleProjection() {
+  const db = {
+    all: async (query) => query.includes('FROM trinity_worlds')
+      ? [{ agentId: 'worker-1', status: 'idle' }]
+      : [],
+    get: async () => ({ id: 'run-budget', status: 'blocked',
+      guardrail_reason: 'Codex shared model budget is unsupported.' })
+  };
+  const workers = await supervisor.waitForWorkers(db, {
+    missionId: 'mission-budget', expectedWorlds: 1, timeoutMs: 5
+  });
+  assert.equal(workers[0].status, 'blocked');
+  assert.equal(workers[0].executionRunId, 'run-budget');
+  assert.throws(() => supervisor.requireSuccessfulWorkers(workers, 1), {
+    code: 'TRINITY_WORLD_EXECUTION_INCOMPLETE'
+  });
 }
 async function verifyUnpromotedWorkersAreTerminal() {
   const db = {
@@ -54,6 +72,7 @@ assert.throws(() => supervisor.requireCompleteReports([
   { outcome: 'success', claims: [{}], tests: [], report: { outcome: 'success' } }
 ], 3), { code: 'TRINITY_WORLD_EVIDENCE_INCOMPLETE' });
 
-Promise.all([verifyBlockedPromotionStillSupervisesEvidence(), verifyUnpromotedWorkersAreTerminal()]).then(() => {
+Promise.all([verifyBlockedPromotionStillSupervisesEvidence(), verifyUnpromotedWorkersAreTerminal(),
+  verifyTerminalRunOverridesIdleProjection()]).then(() => {
   process.stdout.write('Trinity supervisor honors bounded timeouts and separates execution from promotion gates.\n');
 }).catch((error) => { console.error(error); process.exitCode = 1; });

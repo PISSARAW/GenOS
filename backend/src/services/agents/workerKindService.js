@@ -19,6 +19,7 @@ const KINDS = Object.freeze({
   forensic_worker: ['AdaptiveRepair', 'causal_dossier', 'Verifier'],
   liaison_worker: ['Organizational', 'dossier', 'BoundedWorker'],
   teaching_worker: ['Organizational', 'training_packet', 'Verifier'],
+  math_worker: ['Epistemic', 'formal_certificate', 'BoundedWorker'],
   sub_orchestrator: ['Organizational', 'dossier', 'SubOrchestrator']
 });
 
@@ -32,6 +33,7 @@ const KIND_CAPABILITIES = Object.freeze({
   creative_worker: ['create_candidate'], medical_worker: ['analyze', 'clinical_context'],
   recovery_worker: ['execute', 'recover'], forensic_worker: ['analyze', 'causal_analysis'],
   liaison_worker: ['coordinate', 'handoff'], teaching_worker: ['analyze', 'teach'],
+  math_worker: ['execute', 'scoped_execution', 'formal_proof'],
   sub_orchestrator: ['analyze', 'coordinate', 'delegate']
 });
 
@@ -100,6 +102,7 @@ const PROMPT_RULES = Object.freeze({
   forensic_worker: 'Reconstruct only causal links supported by incident receipts; separate observed facts from hypotheses.',
   liaison_worker: 'Bridge the assigned groups with a concise handoff that preserves source references.',
   teaching_worker: 'Transmit only a validated procedure with prerequisites, steps, and supporting evidence.',
+  math_worker: 'Compute the requested mathematical expression deterministically and return exact closed-form results with a solver receipt; never invent or approximate without flagging it as numeric.',
   sub_orchestrator: 'Coordinate only this subgraph; do not alter global topology or promote results; honor spawn and depth ceilings.'
 });
 const AUTHORITY_OVERRIDES = Object.freeze({

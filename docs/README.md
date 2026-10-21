@@ -32,6 +32,7 @@
 - [ADR 0610 — Purger les traces et worktrees de l’Ontogenèse](adr/0610-purge-complete-traces-worktrees-ontogenese.md) — purge confirmée, confinée et attestée des contenus opérationnels d’un projet arrêté.
 - [ADR 0611 — Frontière de livraison d’Ontogenèse](adr/0611-frontiere-livraison-ontogenese.md) — commit local vérifié, push et fusion explicitement hors autorité.
 - [ADR 0712 — ResidentDaemon comme système sensoriel de l’Ontogenèse](adr/0712-daemon-systeme-sensoriel-ontogenese.md) — instantané territorial consultatif, réveil dédupliqué, biais de topologie et frontières d’autorité.
+- [ADR 0717 — Parité du worker mathématique et preuve formelle](adr/0717-parite-worker-mathematique-et-preuve-formelle.md) — vingtième WorkerKind, alignement Rust/Node/MCP et certificat lié au reçu du solveur.
 - [ADR 0616 — Hystérésis transactionnelle et adaptateurs externes signés](adr/0616-hysteresis-transactionnelle-et-adaptateurs-signes.md) — budget par mission consommé atomiquement et preuves Ed25519 des exécutions externes.
 - [ADR 0635 — Scrubber explicitement le store GQWF](adr/0635-scrub-integrite-store-gqwf.md) — inventaire non destructif, détection durable des corruptions et base de la future réparation authentifiée.
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.
@@ -614,7 +615,7 @@ Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nc
 - [0119-actions-metier-et-detection-de-collapse.md](adr/0119-actions-metier-et-detection-de-collapse.md) — exclusion des événements internes et critères probants d'arrêt du Sentinel.
 - [0097-calibration-immunitaire-holobionte.md](adr/0097-calibration-immunitaire-holobionte.md) — mesurer les faux positifs et faux négatifs immunitaires avec des preuves indépendantes.
 - [0113-benchmark-avec-sans-genos.md](adr/0113-benchmark-avec-sans-genos.md) — benchmark apparié avec / sans GenOS, campagne v1 sur runner A-Team.
-- [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des 19 types et état d'intégration.
+- [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des 20 types et état d'intégration.
 
 ---
 

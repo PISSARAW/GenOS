@@ -23,6 +23,7 @@ const { runCandidates, runClinical } = require('../../backend/src/services/agent
 const { runRecovery } = require('../../backend/src/services/agents/workerRecoveryExecutor');
 const { runHandoff } = require('../../backend/src/services/agents/workerCoordinationExecutor');
 const { runCode } = require('../../backend/src/services/agents/workerCodeVerification');
+const { runMath } = require('../../backend/src/services/agents/deterministicWorkerMath');
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const RUNNERS = Object.freeze({
@@ -34,7 +35,8 @@ const RUNNERS = Object.freeze({
   synthesis_worker: [runSynthesis, 'synthesisReceipt'],
   resident_daemon: [runMonitor, 'monitorReceipt'],
   forensic_worker: [runForensic, 'forensicReceipt'],
-  teaching_worker: [runTeaching, 'teachingReceipt']
+  teaching_worker: [runTeaching, 'teachingReceipt'],
+  math_worker: [runMath, 'receipt']
 });
 
 async function runCase(testCase) {

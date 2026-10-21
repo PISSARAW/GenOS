@@ -47,9 +47,9 @@ function isOrchestratorMission(mission) {
   return false;
 }
 
-function resolveMaxTokens(budget, estimate) {
+function resolveMaxTokens(budget, prompt) {
   if (budget <= 0) return undefined;
-  return budget - estimate;
+  return budget - estimatePromptTokens(prompt);
 }
 function missionEvidenceRefs(mission) {
   const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
@@ -280,7 +280,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxTokens(budget, estimate),
+    maxTokens: resolveMaxTokens(budget, promptText),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,

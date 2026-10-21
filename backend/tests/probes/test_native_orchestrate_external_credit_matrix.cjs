@@ -194,9 +194,9 @@ async function readSelectedPlan(db) {
   const planEvent = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id=? AND event_type='NATIVE_MISSION_PLAN_SELECTED' ORDER BY id DESC LIMIT 1", parent.id);
   assert.ok(planEvent, 'genos_orchestrate did not select a native objective plan');
   const plan = JSON.parse(planEvent.payload_json);
-  assert.equal(plan.requested, 19);
-  assert.equal(plan.selected, 38);
-  assert.equal(plan.assignments.filter(isExternalRecoveryAssignment).length, 19);
+  assert.equal(plan.requested, 20);
+  assert.equal(plan.selected, 40);
+  assert.equal(plan.assignments.filter(isExternalRecoveryAssignment).length, 20);
   return { parent, parentRun, plan };
 }
 
@@ -207,7 +207,7 @@ async function auditTargets({ db, plan, objectives, context }) {
   }
   const counts = Object.fromEntries([...new Set(targetResults.map(result => result.kind))]
     .map(kind => [kind, targetResults.filter(result => result.kind === kind).length]));
-  assert.equal(Object.keys(counts).length, 19, 'the matrix must cover all 19 native worker kinds');
+  assert.equal(Object.keys(counts).length, 20, 'the matrix must cover all 20 native worker kinds');
   assert.ok(Object.values(counts).every(count => count === 1), 'each native worker kind must be represented exactly once');
   return targetResults;
 }
@@ -272,7 +272,7 @@ async function writeAuditArtifact(root, missionId, audit) {
 function assertMatrixComplete({ audit, targetResults, cliResult }) {
   assert.equal(audit.parentStatus, 'completed', 'the real orchestrator did not finish');
   assert.equal(audit.parentRunStatus, 'completed', 'the orchestrator execution run did not finish');
-  assert.equal(targetResults.length, 19, 'not all native worker kinds completed');
+  assert.equal(targetResults.length, 20, 'not all native worker kinds completed');
   assert.equal(cliResult.continuity?.homeostasisSatisfied, true, 'mission homeostasis did not pass');
   assert.equal(cliResult.completionGate?.allowed, true, 'the homeostasis completion gate did not pass');
   assert.ok(cliResult.coverage?.verdict, 'the CLI did not report its required orchestration coverage audit');
@@ -342,7 +342,7 @@ async function main() {
       cycleAudits.push(await auditMatrix({ root, environment, objectives, provider, missionId, exitCode, stdout }));
     }
     assert.equal(cycleAudits.length, 2);
-    assert.ok(cycleAudits.every(audit => audit.result === 'complete'), 'both 19-type mission cycles must complete');
+    assert.ok(cycleAudits.every(audit => audit.result === 'complete'), 'both 20-type mission cycles must complete');
     await fs.writeFile(path.join(root, 'audit.json'), JSON.stringify({
       schema: 'genos.native-orchestrate-two-cycle-matrix/v1', result: 'complete', cycles: cycleAudits.map(audit => ({
         missionId: audit.preflightReceipts[0].stage_key.replace('preflight:', ''),

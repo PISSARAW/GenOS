@@ -161,8 +161,8 @@ function assertNativePlanDigest(plan) {
 function applyNativeMissionPlan(plan, mission) {
   const objectives = mission.native_objectives || mission.nativeObjectives;
   if (objectives === undefined) return plan;
-  if (!Array.isArray(objectives) || !objectives.length || objectives.length > 19) {
-    throw invalid('NATIVE_OBJECTIVE_INVALID', 'Provide between 1 and 19 native objectives.');
+  if (!Array.isArray(objectives) || !objectives.length || objectives.length > 20) {
+    throw invalid('NATIVE_OBJECTIVE_INVALID', 'Provide between 1 and 20 native objectives.');
   }
   assertParentId(mission);
   if (plan.trinity?.activated || plan.aTeam?.activated) {

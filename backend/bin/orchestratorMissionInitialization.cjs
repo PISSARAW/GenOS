@@ -18,9 +18,20 @@ async function bindExistingOrchestrator(db, agent, workspace) {
   return workspace.id;
 }
 
+async function inheritedWorkerWorkspace(db, input) {
+  const request = input.request || {};
+  if (input.action !== 'dispatch_worker' || request.reuseChecked !== true || !request.reuseWorkerId) return null;
+  return db.get(`SELECT parent.workspace_id AS id
+    FROM agents worker JOIN agents parent ON parent.id = worker.parent_agent_id
+    WHERE worker.id = ? AND worker.execution_mode = 'worker'
+      AND parent.id = ? AND parent.execution_mode = 'orchestrator'
+      AND worker.workspace_id = parent.workspace_id`, request.reuseWorkerId, input.orchestratorId);
+}
+
 async function initializeMission({ db, action, orchestratorId, task, request = {} }) {
   if (!MISSION_ACTIONS.has(action)) return;
-  const workspace = await resolveMissionWorkspace(db, request);
+  const workspace = await inheritedWorkerWorkspace(db, { action, orchestratorId, request })
+    || await resolveMissionWorkspace(db, request);
   await db.run(`INSERT OR IGNORE INTO agents
     (id, name, role, status, execution_mode, workspace_id, model_tier, isolation_mode, current_task)
     VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', ?, 'frontier', 'Branch', ?)`,

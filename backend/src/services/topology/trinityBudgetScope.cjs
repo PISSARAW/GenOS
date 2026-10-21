@@ -46,4 +46,16 @@ async function bindTrinityBudgetScope({ db, context, parent }) {
   return normalizedMission.modelBudgetScope;
 }
 
-module.exports = { bindTrinityBudgetScope };
+function assertWorkerBudgetSupport(context, members) {
+  const executor = require('../cognitiveExecutor').resolveExecutor(context.request || {});
+  if (executor !== 'codex') return;
+  const limits = require('../agents/workerRuntimeLimitsService');
+  if (members.every((member) => limits.isDeterministicWorkerMission(member))) return;
+  throw Object.assign(new Error('Trinity cannot dispatch model-backed Codex CLI workers under a shared '
+    + 'cost budget because that runtime has no measured USD receipt. Select caller_mcp/solar-direct '
+    + 'or provide native deterministic method contracts.'), {
+    code: 'TRINITY_EXECUTOR_BUDGET_UNSUPPORTED'
+  });
+}
+
+module.exports = { bindTrinityBudgetScope, assertWorkerBudgetSupport };

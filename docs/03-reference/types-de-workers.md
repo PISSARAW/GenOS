@@ -87,7 +87,7 @@ Enums exacts :
 - `AdaptationLevel` : `None | Local | BoundedCollective`.
 - `WorkerFamily` : `Sensory | Execution | Epistemic | AdaptiveRepair | Organizational`.
 
-Les 19 `WorkerKind` exacts (`phenotype.rs` L88-L160, `all()`, `name()`, `family_of()`) :
+Les 20 `WorkerKind` exacts (`phenotype.rs`, `all()`, `name()`, `family_of()`) :
 
 | # | Variante Rust | `name()` canonique | Famille |
 |---|---|---|---|
@@ -102,14 +102,15 @@ Les 19 `WorkerKind` exacts (`phenotype.rs` L88-L160, `all()`, `name()`, `family_
 | 9 | `RedWorker` | `red_worker` | Epistemic |
 | 10 | `ExperimentalWorker` | `experimental_worker` | Epistemic |
 | 11 | `FormalWorker` | `formal_worker` | Epistemic |
-| 12 | `SynthesisWorker` | `synthesis_worker` | Epistemic |
-| 13 | `CreativeWorker` | `creative_worker` | AdaptiveRepair |
-| 14 | `MedicalWorker` | `medical_worker` | AdaptiveRepair |
-| 15 | `RecoveryWorker` | `recovery_worker` | AdaptiveRepair |
-| 16 | `ForensicWorker` | `forensic_worker` | AdaptiveRepair |
-| 17 | `LiaisonWorker` | `liaison_worker` | Organizational |
-| 18 | `TeachingWorker` | `teaching_worker` | Organizational |
-| 19 | `SubOrchestrator` | `sub_orchestrator` | Organizational |
+| 12 | `MathWorker` | `math_worker` | Epistemic |
+| 13 | `SynthesisWorker` | `synthesis_worker` | Epistemic |
+| 14 | `CreativeWorker` | `creative_worker` | AdaptiveRepair |
+| 15 | `MedicalWorker` | `medical_worker` | AdaptiveRepair |
+| 16 | `RecoveryWorker` | `recovery_worker` | AdaptiveRepair |
+| 17 | `ForensicWorker` | `forensic_worker` | AdaptiveRepair |
+| 18 | `LiaisonWorker` | `liaison_worker` | Organizational |
+| 19 | `TeachingWorker` | `teaching_worker` | Organizational |
+| 20 | `SubOrchestrator` | `sub_orchestrator` | Organizational |
 
 `default_phenotype()` (`phenotype.rs` L190-L261) donne les différenciations : `ScoutCell` (`Ephemeral, Deterministic, memory="none"`), `ResidentDaemon` (`Resident, Bounded, memory="territory"`), `AdaptiveWorker`/`Specialist` (`Adaptive + Local`), `ProceduralExecutor` (`Deterministic`), `VerifierWorker` (`Verifier`), `RedWorker` (`Adversary`), `ExperimentalWorker` et `FormalWorker` (`Experimenter`, `Formal` + `Deterministic`), `SynthesisWorker` (`Synthesizer`), `CreativeWorker` (`Creative + Local`), `Medical/Recovery/Forensic` (`Adaptive + BoundedCollective`), `LiaisonWorker`/`TeachingWorker` (`OrgRole::Liaison`, comms `bridge` / mémoire `cultural`), `SubOrchestrator` (`SubOrchestrator + BoundedCollective + depth=1 + budget=5`).
 
@@ -165,7 +166,7 @@ Checks privés appelés par `check_action()` :
 
 ---
 
-## 3. Les 19 presets Rust : garanties encodées
+## 3. Les 20 presets Rust : garanties encodées
 
 Source : `crates/genos-worker/src/presets.rs` (~299 lignes). Chaque fabrique prend un unique `PresetInput { agent_id, parent_id, objective, scope }` (contrainte ≤ 3 paramètres). Le socle `base_contract()` donne à tous : `phenotype=kind.name()`, `mission={objective, scope}`, `niche={scope, kind}`, `comms={parent_only, [], 8}`, `resources={8000, 300_000, 60_000}`, `evidence={["dossier"], provenance:true}`.
 
@@ -184,6 +185,7 @@ Table fidèle au code (identifiant → deltas → artefact attendu vérifié par
 | `red_worker` | `red_preset` (= verifier +) | `recipe="adversarial"` ; jamais de promotion directe (aucun preset ne met `promote=true`). | `verification_report` |
 | `experimental_worker` | `experimental_preset` (= bounded +) | Hypothèse → protocole → mesures. | `experiment_record` |
 | `formal_worker` | `formal_preset` (= procedural +) | Hérite `tokens=0`, `lease=["solver"]`, `recipe="deterministic"`. | `formal_certificate` |
+| `math_worker` | `math_preset` (= procedural +) | Hérite `tokens=0`, exécution native et certificat lié au reçu du solveur. | `formal_certificate` |
 | `synthesis_worker` | `synthesis_preset` | Lecture seule, synthèse sans écraser les désaccords. | `synthesis_dossier` |
 | `creative_worker` | `creative_preset` | Lecture seule, `recipe="divergent"`, `allowed_recipe_changes=true`, `max_cognitif=2`. | `creative_candidate` |
 | `medical_worker` | `medical_preset` (= verifier +) | `itérations=8`, rapport pédagogique sur une vignette synthétique, sans diagnostic ni traitement individuel. | `clinical_report` |

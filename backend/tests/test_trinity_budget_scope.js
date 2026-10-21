@@ -7,7 +7,21 @@ const strategyExecution = require('../src/services/strategyExecutionService.js')
 const budgetScopes = require('../src/services/missionModelBudgetScope.js');
 const reservations = require('../src/services/modelBudgetReservationService.js');
 const { TABLES_MODEL_ATTEMPTS } = require('../src/db/schema-model-attempts');
-const { bindTrinityBudgetScope } = require('../src/services/topology/trinityBudgetScope.cjs');
+const { bindTrinityBudgetScope, assertWorkerBudgetSupport } = require('../src/services/topology/trinityBudgetScope.cjs');
+
+function testCodexBudgetCompatibilityPreflight() {
+  assert.throws(() => assertWorkerBudgetSupport({ request: { executor: 'codex' } }, [
+    { workerKind: 'bounded_worker' }
+  ]), { code: 'TRINITY_EXECUTOR_BUDGET_UNSUPPORTED' });
+  assert.doesNotThrow(() => assertWorkerBudgetSupport({ request: { executor: 'caller_mcp' } }, [
+    { workerKind: 'bounded_worker' }
+  ]));
+  assert.doesNotThrow(() => assertWorkerBudgetSupport({ request: { executor: 'codex' } }, [
+    { workerKind: 'procedural_executor', methodContract: {
+      version: 1, methodId: 'subset_sum', parameters: { values: [1], target: 1 }
+    } }
+  ]));
+}
 
 async function testParentScopeIsPersistedAndRoutable() {
   const previousContractLookup = contracts.getLatestContract;
@@ -116,6 +130,7 @@ async function testRealExecutionRunBootstrap() {
 }
 
 (async () => {
+  testCodexBudgetCompatibilityPreflight();
   await testParentScopeIsPersistedAndRoutable();
   await testMissingCeilingsFailClosed();
   await testRealExecutionRunBootstrap();

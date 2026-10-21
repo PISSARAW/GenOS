@@ -9,8 +9,6 @@ const { createOrchestratorId, launchWorker } = require('./workerLauncher.cjs');
 async function handleTrinity(db, context) {
   const parent = await ensureParent({ db, context });
   context.request.trinityMissionId ||= `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
-  context.trinityModelBudgetScope = await require('./trinityBudgetScope.cjs')
-    .bindTrinityBudgetScope({ db, context, parent });
   return topologyTrinityHandler.handle({ db, context, parent, ensureParent, workerGarage,
     buildNCEEnrichments, createOrchestratorId, launchWorker });
 }

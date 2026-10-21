@@ -23,6 +23,17 @@ async function measuredExecution(db) {
   const repeated = await execution.recordExecutionEvent(db, 'worker', event);
   assert.equal(repeated.duplicate, true);
   assert.equal(repeated.run.metrics.tokens, 3, 'replay does not charge the same event twice');
+  const observations = await store.observations(db, run.id);
+  const postTerminal = await execution.recordExecutionEvent(db, 'worker', {
+    ...event, id: 'post-terminal-step', eventType: 'AGENT_STEP', action: 'CLOSE'
+  });
+  assert.equal(postTerminal.duplicate, true);
+  assert.equal(postTerminal.biologicalReceipt.receiptId, first.biologicalReceipt.receiptId);
+  assert.equal((await store.observations(db, run.id)).length, observations.length,
+    'post-terminal lifecycle events cannot mutate the sealed receipt');
+  await assert.rejects(execution.recordExecutionEvent(db, 'worker', {
+    ...event, id: 'conflicting-terminal', eventType: 'AGENT_FAILED'
+  }), { code: 'BIOLOGICAL_WORKER_RECEIPT_SEALED' });
   await assert.rejects(execution.recordExecutionEvent(db, 'worker', { ...event,
     payload: { ...event.payload, usage: { total_tokens: 4 } } }), { code: 'BIOLOGICAL_WORKER_EVENT_CONFLICT' });
   await assert.rejects(db.run('UPDATE biological_worker_bindings SET binding_json = ?', '{}'), /Immutable/);

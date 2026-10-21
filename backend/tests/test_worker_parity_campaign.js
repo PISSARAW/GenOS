@@ -6,17 +6,17 @@ const { compare } = require('../../benchmarks/workers/compare.cjs');
 const adapter = require('../../benchmarks/workers/genos-adapter.cjs');
 
 async function run() {
-  assert.equal(CASES.length, 20);
-  assert.equal(new Set(CASES.map((item) => item.workerKind)).size, 19);
+  assert.equal(CASES.length, 25);
+  assert.equal(new Set(CASES.map((item) => item.workerKind)).size, 20);
   const report = await runCampaign(adapter, 'genos');
-  assert.deepEqual(summary(report), { passed: 10, failed: 0, unverified: 0, unmeasured: 10, total: 20, kinds: 19 });
+  assert.deepEqual(summary(report), { passed: 22, failed: 0, unverified: 0, unmeasured: 3, total: 25, kinds: 20 });
   await assert.rejects(compare(report, report), /distinct identified systems/);
   const rival = structuredClone(report);
   rival.systemId = 'rival';
   rival.results.find((row) => row.id === 'lpt-schedule').execution.result.output.makespan = 8;
   await assert.rejects(compare(report, rival), /inconsistent/);
   rival.results.find((row) => row.id === 'lpt-schedule').score = 'failed';
-  assert.equal((await compare(report, rival)).comparableCases, 10);
+  assert.equal((await compare(report, rival)).comparableCases, 22);
   rival.results.pop();
   await assert.rejects(compare(report, rival), /missing or duplicate/);
   const fake = { runCase: async () => ({ status: 'executed', result: { output: { makespan: 7 } },

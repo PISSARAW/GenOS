@@ -8,6 +8,7 @@ const { decideGarageCapacity } = require('../src/services/garageCapacityService'
 const handoffCompiler = require('../src/services/daemon/handoff/handoffCompilerService');
 const handoffFeedback = require('../src/services/daemon/handoff/handoffFeedbackService');
 const { loadMissionAgentState, requestedMissionBudget } = require('./orchestratorMissionPreparation.cjs');
+const { shouldAttachMissionOrchestrator } = require('./missionOrchestratorAttachment.cjs');
 
 function buildActionContext(ctx) {
   return {
@@ -71,10 +72,6 @@ function resolveWorkspacePath(request) {
 
 function resolveWorkspaceId(request) {
   return pickOr(request, ['workspaceId', 'workspace_id']);
-}
-
-function shouldAttachMissionOrchestrator(action, missionId, synthesizedWorkerMission = false) {
-  return Boolean(missionId) && (action !== 'dispatch_worker' || synthesizedWorkerMission);
 }
 
 function buildNceInput(request) {
@@ -207,7 +204,8 @@ function applyLatencyBudget(budget, timeoutMs) {
 
 function checkLocalRuntime(policyRequest, request) {
   const executor = String(policyRequest.executor || request.executor || '').trim().toLowerCase();
-  return executor === 'local' || policyRequest.local_runtime === true
+  if (executor) return executor === 'local';
+  return policyRequest.local_runtime === true
     || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
     || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
 }

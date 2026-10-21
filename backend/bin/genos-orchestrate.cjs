@@ -37,9 +37,11 @@ try {
   process.exit(1);
 }
 const biologicalModes = new Set(['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation']);
+const mathematicalModes = new Set(['math', 'mathematique', 'formel', 'deterministe', 'proof']);
 const strategy = String(request.strategy || '').toLowerCase();
-const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
+const isMathMission = request.workerKind === 'math_worker' || mathematicalModes.has(strategy) || request.action === 'math_deterministic_solve';
+const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
 let orchestratorId = request.orchestratorId;
 let missionId = request.missionId || process.env.GENOS_MISSION_ID || null;
 let id = action === 'dispatch_worker' ? request.workerId : null;
@@ -49,10 +51,10 @@ const allowedCommands = normalizeAllowedCommands(
   policyRequest.allowed_commands ?? policyRequest.allowedCommands
 ) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true || policyRequest.allowFileEdits === true;
-try { require('./orchestratorRequestValidation.cjs').validateRequest(action, { ...policyRequest, timeoutMs: policyRequest.timeoutMs ?? request.timeoutMs }); }
+try { if (!isMathMission) require('./orchestratorRequestValidation.cjs').validateRequest(action, { ...policyRequest, timeoutMs: policyRequest.timeoutMs ?? request.timeoutMs }); }
 catch (error) { process.stderr.write(error.message + '\n'); process.exit(1); }
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
-if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
+if (!isMathMission && String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
   const msg = `GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`;
   process.stderr.write(`[genos-orchestrate] ${msg}\n`);
@@ -261,7 +263,7 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && useLocalRuntime) {
     await require('./orchestratorWindowsLocalExecution.cjs').runWindowsLocalExecution({
       db, id, missionId, task, enhancedPrompt, request, missionBudget,
       requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
@@ -371,11 +373,21 @@ async function main() {
   await executeForeground(await getDatabase());
 }
 
+async function runMathShortcut() {
+  const result = await require('./mathMissionShortcut.cjs').runMathMissionShortcut({ request, task });
+  process.stdout.write(JSON.stringify(result));
+}
+
 function exitAfterFlush(code) {
   if (process.stdout.writableLength === 0) return process.exit(code);
   process.stdout.write('', () => process.exit(code));
 }
-main().then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
+const execution = isMathMission ? runMathShortcut() : main();
+execution.then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
+  if (isMathMission) {
+    process.stderr.write(JSON.stringify({ error: error.message, code: error.code || 'MATH_MISSION_FAILED' }));
+    return exitAfterFlush(1);
+  }
   if (error?.stdoutEnvelope) { process.stderr.write(`${error.message}\n`); process.stdout.write(JSON.stringify(error.stdoutEnvelope)); return exitAfterFlush(error.exitCode || 2); }
   console.error(error.stack || error.message); exitAfterFlush(1);
 });

@@ -65,6 +65,13 @@ function procedure(result) {
       methodContract: { version: 1, methodId: result.methodId, parameters: result.parameters }, result: result.output } });
 }
 
+function math(result) {
+  const refs = [result.receipt.id];
+  const { I_2, I_3, explanation } = result.output || {};
+  const statement = `Integrales de Borwein sur nombres premiers verifiees: I_2 = ${I_2}, I_3 = ${I_3}. ${explanation}`.slice(0, 500);
+  return sourcedReport({ type: 'formal_certificate', refs, statement, content: result.output });
+}
+
 function reportFor(kind, result) {
   if (result.evidenceReport) return result.evidenceReport;
   return reportForCommonWorker(kind, result) || reportForSpecialWorker(kind, result);
@@ -78,6 +85,7 @@ function reportForCommonWorker(kind, result) {
     case 'resident_daemon': return monitor(result);
     case 'synthesis_worker': return synthesis(result);
     case 'experimental_worker': return experiment(result);
+    case 'math_worker': return math(result);
     default: return null;
   }
 }

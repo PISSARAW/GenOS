@@ -63,6 +63,13 @@ async function record(db, request) {
   const agent = await db.get('SELECT execution_mode FROM agents WHERE id = ?', request.agentId);
   if (agent?.execution_mode !== 'worker') return request.apply();
   evidence.usageMeasurements(request.event);
+  return recordWorker(db, request);
+}
+
+async function recordWorker(db, request) {
+  const binding = await store.eventBinding(db, request);
+  const sealed = await sealedReceipt(db, binding);
+  if (sealed) return recordAfterSeal({ db, request, binding, biologicalReceipt: sealed });
   const observation = await store.observe(db, request);
   if (!observation) return request.apply();
   return withTransaction(db, async () => {
@@ -86,6 +93,30 @@ async function record(db, request) {
     await store.markApplied(db, input);
     return saved && { ...saved, biologicalReceipt: receipt };
   });
+}
+
+async function sealedReceipt(db, binding) {
+  if (!binding) return null;
+  return store.receipt(db, binding.runId);
+}
+
+async function recordAfterSeal(input) {
+  const { db, request, binding, biologicalReceipt } = input;
+  const eventHash = digest(request.event);
+  const eventKey = String(request.event.id || request.event.eventId || eventHash);
+  const prior = await store.observation(db, { runId: binding.runId, eventKey });
+  if (prior) {
+    if (prior.event_hash !== eventHash) throw store.biologyError('BIOLOGICAL_WORKER_EVENT_CONFLICT');
+    const run = await events.getRun(db, binding.runId);
+    return { run, halt: run.status === 'blocked', duplicate: true, biologicalReceipt };
+  }
+  if (events.FINAL_EVENTS.has(request.event.eventType)) {
+    throw store.biologyError('BIOLOGICAL_WORKER_RECEIPT_SEALED');
+  }
+  const run = await events.getRun(db, binding.runId);
+  await enqueueCausalLearning(db, { run, biologicalReceipt, event: request.event });
+  return { run, halt: run.status === 'blocked', duplicate: true,
+    postTerminal: true, biologicalReceipt };
 }
 
 async function enqueueCausalLearning(db, input) {

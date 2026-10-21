@@ -44,6 +44,12 @@ function isolatedBaselineLease(context, lease) {
   return (Array.isArray(lease) ? lease : []).filter((tool) => !sharedTools.has(String(tool).toLowerCase()));
 }
 
+function selectedCoordinationPolicy(context) {
+  const policy = context.request?.coordinationPolicy || {};
+  if (context.request?.mode !== 'trinity' && context.request?.mode !== 'isolated_baseline') return policy;
+  return { ...policy, isolated: true, communicationCadence: 'isolated' };
+}
+
 function selectedExecutor(context) {
   return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR || (context.request?.localModel ? 'local' : undefined);
 }
@@ -99,7 +105,7 @@ function workerLaunchPayload(args) {
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope,
     organization: context.request?.organization,
-    coordinationPolicy: context.request?.coordinationPolicy,
+    coordinationPolicy: selectedCoordinationPolicy(context),
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
     topologySessionId: context.topologySession?.sessionId || null,

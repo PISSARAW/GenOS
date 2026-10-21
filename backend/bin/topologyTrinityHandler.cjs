@@ -59,6 +59,11 @@ async function handle(input) {
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
   const members = await prepareMembers({ db, context, missionId, mission, options, assignments, garage });
+  const budgetScope = require('../src/services/topology/trinityBudgetScope.cjs');
+  budgetScope.assertWorkerBudgetSupport(context, members);
+  context.trinityModelBudgetScope ||= await budgetScope.bindTrinityBudgetScope({
+    db, context, parent
+  });
   const release = await require('../src/services/trinityExecutionJournal').acquire(db, missionId + ':dispatch');
   try {
   const variantSelection = withDispatchRuntime(members, context.request);

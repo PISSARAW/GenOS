@@ -4,12 +4,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const preflight = require('../bin/worker-mcp-inventory-preflight.cjs');
+const { buildAuthorityInstruction } = require('../bin/agent-runtime-session.cjs');
 
 const required = preflight.requiredWorkerTools({
   organization: 'cross_functional_pod', coordinationPolicy: { communicationCadence: 'continuous_sync' }
 });
 assert.deepEqual(required, [...preflight.COORDINATION_TOOLS]);
 assert.deepEqual(preflight.requiredWorkerTools({ organization: 'specialist_expert_committee' }), []);
+assert.deepEqual(preflight.requiredWorkerTools({
+  organization: 'cross_functional_pod',
+  missionScope: { trinityExperimentId: 'trinity-isolated' }
+}), []);
+assert.deepEqual(preflight.requiredWorkerTools({
+  organization: 'cross_functional_pod',
+  coordinationPolicy: { isolated: true, communicationCadence: 'isolated' }
+}), []);
+const isolatedInstruction = buildAuthorityInstruction({
+  orchestratorAgentId: 'root', coordinationPolicy: { isolated: true }
+}, true, {});
+assert.match(isolatedInstruction, /worker world is isolated/);
+assert.doesNotMatch(isolatedInstruction, /mandatory runtime evidence/);
 assert.equal(preflight.coordinationWaitMs({}), 120000);
 assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 540000 } }), 243000);
 assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 1000 } }), 30000);

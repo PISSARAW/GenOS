@@ -56,7 +56,7 @@ async function main() {
     fs.writeFileSync(path.join(root, 'state.txt'), 'damaged');
     for (const [kind, method] of Object.entries(inputs)) await verifyMission(missionFor(kind, method, root));
     assert.equal(fs.readFileSync(path.join(root, 'state.txt'), 'utf8'), 'checkpoint');
-    console.log('Native worker matrix: 19/19 executable methods and typed evidence passed.');
+    console.log('Native worker matrix: 20/20 executable methods and typed evidence passed.');
   } finally {
     dispatch.dispatchSubOrchestratorWorker = original;
     assert.ok(root.startsWith(path.join(os.tmpdir(), 'genos-worker-native-')));
