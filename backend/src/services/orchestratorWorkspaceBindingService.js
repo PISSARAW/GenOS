@@ -2,6 +2,14 @@
 
 const path = require('node:path');
 
+function samePath(left, right) {
+  const resolvedLeft = path.resolve(left);
+  const resolvedRight = path.resolve(right);
+  return process.platform === 'win32'
+    ? resolvedLeft.toLowerCase() === resolvedRight.toLowerCase()
+    : resolvedLeft === resolvedRight;
+}
+
 async function bind(input) {
   const { db, agentId, workspaceId, request = {} } = input;
   const workspace = await db.get('SELECT id,path,organization_id,project_id FROM workspaces WHERE id = ?', workspaceId);
@@ -10,7 +18,7 @@ async function bind(input) {
     throw Object.assign(new Error(`Workspace '${workspaceId}' has no complete tenant scope.`), { code: 'MISSION_WORKSPACE_SCOPE_REQUIRED' });
   }
   const requestedRoot = request.workspaceRoot || request.workspace_root;
-  if (requestedRoot && path.resolve(workspace.path) !== path.resolve(requestedRoot)) {
+  if (requestedRoot && !samePath(workspace.path, requestedRoot)) {
     throw Object.assign(new Error(`Workspace '${workspaceId}' path does not match the requested mission root.`), { code: 'MISSION_WORKSPACE_PATH_MISMATCH' });
   }
   await assertCompatibleBinding(db, agentId, workspaceId);
@@ -26,4 +34,4 @@ async function assertCompatibleBinding(db, agentId, workspaceId) {
   }
 }
 
-module.exports = { bind };
+module.exports = { bind, samePath };

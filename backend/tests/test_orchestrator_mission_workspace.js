@@ -10,6 +10,7 @@ const { initializeMission } = require('../bin/orchestratorMissionInitialization.
 
 async function main() {
   const root = await fs.mkdtemp(path.join(process.cwd(), '.mission-workspace-'));
+  const otherRoot = await fs.mkdtemp(path.join(process.cwd(), '.mission-workspace-other-'));
   const originalCwd = process.cwd();
   const db = await sqlite.open({ filename: ':memory:', driver: sqlite3.Database });
   const originalGet = contracts.getLatestContract;
@@ -19,6 +20,7 @@ async function main() {
   contracts.saveContract = async (_db, input) => { saved = input; };
   try {
     await fs.writeFile(path.join(root, 'package.json'), '{}');
+    await fs.writeFile(path.join(otherRoot, 'package.json'), '{}');
     await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT, path TEXT UNIQUE,
       visibility TEXT, language TEXT, description TEXT, tags TEXT, updated_at DATETIME);
       CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT, role TEXT, status TEXT,
@@ -34,6 +36,10 @@ async function main() {
     assert.equal(saved.workspaceId, workspace.id);
     await assert.rejects(initializeMission({ db, action: 'dispatch_team', orchestratorId: 'other', task: 'test',
       request: { workspace_id: 'missing' } }), { code: 'ORCHESTRATOR_WORKSPACE_INVALID' });
+    await initializeMission({ db, action: 'dispatch_team', orchestratorId: 'bound', task: 'test',
+      request: { workspace_root: otherRoot } });
+    await assert.rejects(initializeMission({ db, action: 'dispatch_worker', orchestratorId: 'bound', task: 'test',
+      request: { workspace_root: root } }), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
     console.log('Top-level mission orchestrator workspace binding: PASS');
   } finally {
     process.chdir(originalCwd);
@@ -41,6 +47,7 @@ async function main() {
     contracts.saveContract = originalSave;
     await db.close();
     await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(otherRoot, { recursive: true, force: true });
   }
 }
 

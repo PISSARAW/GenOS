@@ -14,14 +14,9 @@ function agentTerminal(agent) {
   return agent.status === 'idle' && TERMINAL_RUN_STATUSES.has(agent.latest_run_status);
 }
 
-function agentsQuiescent(agents, orchestratorId) {
-  return agents.length > 0 && agents.every((agent) => {
-    // L'orchestre est le processus appelant ; son propre runtime_pid ne doit
-    // pas bloquer l'évaluation de quiescence. Seuls les workers délégués
-    // doivent être sans processus associé et dans un état terminal.
-    if (agent.id === orchestratorId) return agentTerminal(agent);
-    return !agent.runtime_pid && agentTerminal(agent);
-  });
+function agentsQuiescent(agents) {
+  return agents.length > 0
+    && agents.every((agent) => !agent.runtime_pid && agentTerminal(agent));
 }
 
 function missionExecutionTerminal(agents, worlds, orchestratorId) {
