@@ -5,9 +5,18 @@ function buildAnalysisPrompt(context) {
     codeWorker, orchestrator, agentName, prompt, workspaceContext } = context;
   const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
   const intro = [selfIntro, workerSelfBlock || '', conscienceBlock, workerBlock].filter(Boolean).join('\n');
-  if (codeWorker) return `${intro}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
+  if (codeWorker) return `${intro}\n${requiredPatchInstruction(context.requiredPatchPaths, context.requiredPatchMarkers, context.requiredPatchMinimumBytes)}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
   return `${intro}\nYou are a bounded GenOS local worker (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}`;
+}
+
+function requiredPatchInstruction(paths, markers, minimumBytes) {
+  if (!Array.isArray(paths) || !paths.length) return '';
+  const markerText = markers && Object.keys(markers).length
+    ? ` Required exact content markers by path: ${JSON.stringify(markers)}.` : '';
+  const sizeText = minimumBytes && Object.keys(minimumBytes).length
+    ? ` Required minimum UTF-8 bytes by path: ${JSON.stringify(minimumBytes)}.` : '';
+  return `The patch proposal MUST include each required path exactly once: ${JSON.stringify(paths)}.${markerText}${sizeText}`;
 }
 
 function codeProposalInstruction() {

@@ -8,6 +8,7 @@ const { compileMission, classifyMission } = require('../src/services/ontogenesis
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
 const { reservationFor } = require('../src/services/ontogenesis/resourceGuard');
 const { buildMissionCapabilityPlan } = require('../src/services/ontogenesis/missionCapabilityPlanService');
+const { candidateWorkspace } = require('../src/services/ontogenesis/missionCompletion');
 const fixture = require('./ontogenesisFixture');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onto-context-'));
@@ -36,6 +37,22 @@ try {
   assert.strictEqual(request.proposedTopology, 'a_team');
   assert.strictEqual(request.missionId, 'mission_run-1');
   assert.strictEqual(request.workspaceId, 'ws-local');
+  assert.strictEqual(request.workspaceProvisioned, true);
+  assert.strictEqual(request.capsuleRoot, path.join(path.dirname(root), 'capsules'));
+  assert.strictEqual(request.localCodeWorker, true);
+  assert.deepStrictEqual(request.requiredPatchPaths, ['index.html', 'styles.css', 'script.js']);
+  assert.deepStrictEqual(request.requiredPatchMarkers['index.html'],
+    ['lang="fr"', '<nav', '<main', 'id="hero"', 'id="synopsis"', 'id="casting"',
+      'id="moments"', 'id="cta"', 'aria-label', 'NOX VELOCITY',
+      'Au cinéma', 'Mara Voss', 'Kane Mercer', 'data-reveal']);
+  assert.deepStrictEqual(request.requiredPatchMarkers['styles.css'],
+    [':root', '--accent', 'prefers-reduced-motion']);
+  assert.deepStrictEqual(request.requiredPatchMarkers['script.js'],
+    ['addEventListener', 'IntersectionObserver', "querySelectorAll('[data-reveal]')",
+      "classList.add('is-visible')", "matchMedia('(prefers-reduced-motion: reduce)')",
+      "getElementById('menu-toggle')", "setAttribute('aria-expanded'"]);
+  assert.deepStrictEqual(request.requiredPatchMinimumBytes,
+    { 'index.html': 1000, 'styles.css': 800, 'script.js': 650 });
   assert.strictEqual(request.problemProfile.type, 'implementation');
   assert.deepStrictEqual(request.philosophicalContracts, []);
   assert.strictEqual(reservationFor({ config: { memory: { envelopeMb: 2048 } } },
@@ -54,6 +71,14 @@ try {
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
   assert.deepStrictEqual(request.worker_assignments.specialist.workerRequirements.requiredCapabilities,
     ['execute', 'analyze', 'domain_specialization']);
+  assert.strictEqual(candidateWorkspace([
+    { id: 'run-1', execution_mode: 'orchestrator', status: 'completed', workspace_path: root },
+    { id: 'worker-1', execution_mode: 'worker', status: 'completed', workspace_path: root + '/capsule' }
+  ], 'run-1'), root + '/capsule');
+  assert.strictEqual(candidateWorkspace([
+    { id: 'worker-1', execution_mode: 'worker', status: 'completed', workspace_path: root + '/one' },
+    { id: 'worker-2', execution_mode: 'worker', status: 'completed', workspace_path: root + '/two' }
+  ], 'run-1'), null);
   const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
     mission: compiled, config: { budgets: { tokens: 10 }, authority: {} }, selection: { topology: 'a_team', variant: 'default' } });
   assert.strictEqual(plan.failClosed, true);

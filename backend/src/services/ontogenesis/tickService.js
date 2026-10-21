@@ -271,8 +271,9 @@ async function prepareMissionContext(db, ctx, input) {
   ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
     (capability) => ctx.mission.capabilities.includes(capability)
   );
-  if (ctx.mission.morphology.selectedTopology) {
-    ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
+  const selectedTopology = ctx.mission.morphology.selectedTopology;
+  if (selectedTopology && (ctx.config.topologies || []).includes(selectedTopology)) {
+    ctx.config.topologies = [selectedTopology];
   }
   ctx.mission.plan = buildMissionCapabilityPlan({
     project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config

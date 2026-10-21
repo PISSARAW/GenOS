@@ -1,8 +1,8 @@
 # Protocole pilote — campagne terrain développementale SHEV
 
-- **Statut** : protocole accepté, non scellé et non exécuté
+- **Statut** : protocole accepté ; campagne `field-campaign-2026-10-21` préparée, scellée et en exécution (première fenêtre d'apprentissage réalisée sur horloge réelle)
 - **Portée** : première comparaison longitudinale appariée de l'arc SHEV complet
-- **Dernière revue** : 2026-10-20
+- **Dernière revue** : 2026-10-21
 
 Ce document est un contrat de préparation. Il ne rapporte aucun résultat et ne
 constitue aucune preuve de terrain. L'[ADR 0705](../adr/0705-protocole-campagne-terrain-shev.md)

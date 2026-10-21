@@ -4,7 +4,7 @@ const pendingAdapter = require('./pendingAdapter');
 const { closureInput } = require('./dossier');
 
 const KNOWN_TOPOLOGIES = Object.freeze([
-  'biocenose', 'trinity', 'a_team', 'rhizome', 'biome', 'holobionte', 'metapopulation'
+  'biocenose', 'trinity', 'a_team', 'rhizome', 'biome', 'holobionte', 'metapopulation', 'syncytium'
 ]);
 
 function validAdapter(adapter) {

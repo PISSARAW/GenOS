@@ -223,9 +223,10 @@ async function finishBarrierSafely(ctx) {
 async function finishBarrier(ctx) {
   if (ctx.partial) {
     await finishPartialBarrier(ctx);
-    return;
+  } else {
+    await finishSatisfiedBarrier(ctx);
   }
-  await finishSatisfiedBarrier(ctx);
+  if (!ctx.autonomyPlan?.missionClosure) ctx.autonomyPlan.missionClosure = applyCommonClosure({ ...ctx, partial: ctx.partial || false });
 }
 
 async function finishPartialBarrier(ctx) {

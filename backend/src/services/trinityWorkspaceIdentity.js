@@ -21,7 +21,12 @@ function normalizedRoot(value, platform) {
 
 function comparisonKey(value, platform = process.platform) {
   const normalized = normalizedRoot(value, platform);
-  return platform === 'win32' ? normalized?.toLowerCase() : normalized;
+  if (!normalized) return null;
+  let key = platform === 'win32' ? normalized.toLowerCase() : normalized;
+  // Uniformiser les séparateurs de chemin pour éviter les faux négatifs entre
+  // slash et backslash sur Windows (ex: C:/foo vs C:\foo).
+  if (platform === 'win32') key = key.replace(/\//g, '\\');
+  return key;
 }
 
 function canonicalWorkspaceRoot(value, options = {}) {

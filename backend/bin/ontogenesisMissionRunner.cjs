@@ -5,7 +5,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const helpers = require('./orchestratorMissionHelpers.cjs');
 const { updateExecution } = require('../src/services/ontogenesis/executionStore');
-const { waitForMission, completionGate } = require('../src/services/ontogenesis/missionCompletion');
+const { waitForMission, completionGate, candidateWorkspace } = require('../src/services/ontogenesis/missionCompletion');
 
 async function main() {
   const operationId = process.argv[3];
@@ -39,14 +39,13 @@ async function runMission(db, request) {
       missionId: request.missionId, request, policyRequest: request, allowedCommands: request.allowed_commands,
       allowFileEdits: request.allow_file_edits === true, runtime });
     const agents = await waitForMission(db, request, { stopped: () => stopping });
-    const telemetry = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'ORCHESTRATOR_WORKSPACE_CREATED' ORDER BY rowid DESC LIMIT 1", [request.id]);
-    const candidateWorktree = telemetry ? JSON.parse(telemetry.payload_json).workspaceRoot : null;
+    const candidateWorktree = candidateWorkspace(agents, request.id);
     const verifierReceipt = request.requiresEvidenceBeforePromotion === false ? null
       : await require('../src/services/ontogenesis/missionVerifierReceiptService').createReceipt({
         missionId: request.id, workspaceRoot: candidateWorktree, checks: request.verifierChecks,
         allowExecution: request.allowVerifierExecution, timeoutMs: request.verifierTimeoutMs
       });
-    const gate = await completionGate(db, { request, agents, verifierReceipt });
+    const gate = await completionGate(db, { request, agents, verifierReceipt, candidateWorktree });
     const success = !stopping && gate.allowed === true;
     await updateExecution(db, { id: request.id, phase: 'finished', result: { success, candidateWorktree, completionGate: gate } });
   } catch (error) {

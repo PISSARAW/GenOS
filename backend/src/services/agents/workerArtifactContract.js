@@ -24,7 +24,7 @@ function authenticTestRefs(content) {
   const values = require('../trinityProvenanceValues');
   const tests = Array.isArray(content?.tests) ? content.tests : [];
   return tests.filter((test) => test && test.exitCode === 0 && typeof test.command === 'string')
-    .map((test) => `genos://code-test/${values.digest({ command: test.command, exitCode: 0, stdout: test.stdout || '', stderr: test.stderr || '' })}`);
+    .map((test) => `genos://code-test/${values.digest(test)}`);
 }
 
 function fileHashOf(ref) {

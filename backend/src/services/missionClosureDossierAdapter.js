@@ -6,19 +6,34 @@ function successfulEvent(dossier) {
   return [...(dossier?.events || [])].reverse().find((event) =>
     event.eventType === 'AGENT_COMPLETED'
       && event.evidenceReport?.outcome === 'success'
-      && event.nativeOracleRef?.hash && event.nativeOracleRef?.eventId);
+      && verificationRef(event));
+}
+
+function validReplay(receipt, snapshot) {
+  return receipt?.success === true && receipt.replay_status === 'VERIFIED'
+    && receipt.execution_replayed === true && receipt.snapshot_id && receipt.final_chain_hash
+    && typeof snapshot === 'string' && receipt.snapshot === snapshot;
+}
+
+function verificationRef(event) {
+  if (event?.nativeOracleRef?.hash && event.nativeOracleRef?.eventId) {
+    return { kind: 'native-oracle', id: event.nativeOracleRef.hash, value: event.nativeOracleRef };
+  }
+  if (!validReplay(event?.replayReceipt, event?.snapshot)) return null;
+  return { kind: 'genos-replay', id: digest(event.replayReceipt), value: event.replayReceipt };
 }
 
 function memberRecord(missionId, worker, dossier) {
   const event = successfulEvent(dossier);
   if (!event) return { member: { memberId: worker.agentId, status: 'partial', evidenceRefs: [] }, proof: null, oracleRef: null };
+  const verifier = verificationRef(event);
   const content = { schema: 'genos.worker-barrier-closure-proof/v1', missionId,
     workerId: worker.agentId, executionRunId: event.executionRunId,
     result: { status: 'completed', verified: true },
-    evidenceReportHash: digest(event.evidenceReport), nativeOracleRef: event.nativeOracleRef };
+    evidenceReportHash: digest(event.evidenceReport), verification: verifier };
   const proof = { reference: digest(content), content, source: 'worker_evidence_barrier' };
   return { member: { memberId: worker.agentId, status: 'completed', evidenceRefs: [proof.reference] },
-    proof, oracleRef: event.nativeOracleRef };
+    proof, oracleRef: verifier };
 }
 
 function closureOracle(missionId, records) {
@@ -26,7 +41,7 @@ function closureOracle(missionId, records) {
   const receipt = { schema: 'genos.worker-barrier-oracle/v1', missionId,
     sourceOracleRefs: records.map((record) => record.oracleRef) };
   return { status: 'verified', independent: true,
-    verifierIds: records.map((record) => `native-oracle:${record.oracleRef.hash}`),
+    verifierIds: records.map((record) => `${record.oracleRef.kind}:${record.oracleRef.id}`),
     evidenceRefs: records.map((record) => record.proof.reference),
     receipt, receiptHash: digest(receipt) };
 }
@@ -55,4 +70,4 @@ function topologyContext(ctx) {
   return { id: 'delegated_workers', decisionPassed: true };
 }
 
-module.exports = { buildClosureInput, successfulEvent, topologyContext };
+module.exports = { buildClosureInput, successfulEvent, topologyContext, validReplay };

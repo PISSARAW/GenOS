@@ -1,5 +1,4 @@
 'use strict';
-
 const path = require('path');
 const telemetry = require('../src/services/telemetryObserver');
 const { summarizeAgents } = require('../src/services/orchestratorOutcome');
@@ -144,6 +143,10 @@ function requestedTopology(request) {
 function requestedVariant(request) {
   return request.variant_id || request.variantId || request.variant;
 }
+function requestedTrinityVariant(request) {
+  const explicit = request.trinityVariantId || request.trinity_variant_id || request.trinityVariant || request.trinity_variant;
+  return explicit || (requestedTopology(request) === 'trinity' ? requestedVariant(request) : undefined);
+}
 
 function missionMorphologyOptions(input) {
   return { profile: input.strategyContract.profile, fork_count: input.request.fork_count,
@@ -230,7 +233,7 @@ function missionWorkspaceOptions(request) {
     capsuleRoot: request.capsuleRoot || request.capsule_root
       || (request.workspaceProvisioned === true ? workspaceRoot : undefined),
     proposedTopology: request.proposedTopology, trinityMode: request.trinityMode,
-    trinityVariant: request.variant, aTeamMode: request.aTeamMode,
+    trinityVariant: requestedTrinityVariant(request), aTeamMode: request.aTeamMode,
     topologyConfiguration: request.configuration,
     topologySessionOptions: request.sessionOptions };
 }
@@ -244,7 +247,8 @@ function missionRuntimeContext(request) {
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs'];
+    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
+    'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }
@@ -379,6 +383,7 @@ module.exports = {
   prepareMission,
   applyLatencyBudget,
   checkLocalRuntime,
+  requestedTrinityVariant,
   missionRuntimeContext,
   startOrchestratorMission,
   buildMissionContext,

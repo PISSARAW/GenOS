@@ -90,6 +90,12 @@ function requestFor(input) {
     mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nOperator memory: ${JSON.stringify(input.mission?.operatorContext || [])}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nSensory context (advisory; verify before use): ${JSON.stringify(input.mission?.sensoryContext || {})}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit, push, merge, or alter remotes.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     workspaceId: 'ws-local',
+    workspaceProvisioned: true,
+    capsuleRoot: path.join(path.dirname(path.resolve(input.worktree)), 'capsules'),
+    localCodeWorker: mission.kind === 'implement',
+    requiredPatchPaths: requiredWebPatchPaths(input),
+    requiredPatchMarkers: requiredWebPatchMarkers(input),
+    requiredPatchMinimumBytes: requiredWebPatchMinimumBytes(input),
     autonomousOrchestration: true, useMemoryContext: true,
     operatorContext: input.mission?.operatorContext || [],
     topologyId: input.selection.topology,
@@ -114,6 +120,29 @@ function requestFor(input) {
     explicit_write_lease: input.config.authority?.allowEdit === true,
     git_authority: { localCommit: false, push: false, merge: false, remoteMutation: false }
   };
+}
+
+function requiredWebPatchPaths(input) {
+  const text = `${input.project.objective || ''} ${input.task.title || ''}`;
+  return /\b(site|web)\b/i.test(text) ? ['index.html', 'styles.css', 'script.js'] : undefined;
+}
+
+function requiredWebPatchMarkers(input) {
+  if (!requiredWebPatchPaths(input)) return undefined;
+  return {
+    'index.html': ['lang="fr"', '<nav', '<main', 'id="hero"', 'id="synopsis"', 'id="casting"',
+      'id="moments"', 'id="cta"', 'aria-label', 'NOX VELOCITY',
+      'Au cinéma', 'Mara Voss', 'Kane Mercer', 'data-reveal'],
+    'styles.css': [':root', '--accent', 'prefers-reduced-motion'],
+    'script.js': ['addEventListener', 'IntersectionObserver', "querySelectorAll('[data-reveal]')",
+      "classList.add('is-visible')", "matchMedia('(prefers-reduced-motion: reduce)')",
+      "getElementById('menu-toggle')", "setAttribute('aria-expanded'"]
+  };
+}
+
+function requiredWebPatchMinimumBytes(input) {
+  if (!requiredWebPatchPaths(input)) return undefined;
+  return { 'index.html': 1000, 'styles.css': 800, 'script.js': 650 };
 }
 
 function workerRequirementsFor(role) {

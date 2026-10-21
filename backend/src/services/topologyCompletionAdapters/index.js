@@ -7,12 +7,13 @@ const biomeAdapter = require('./biomeAdapter');
 const holobionteAdapter = require('./holobionteAdapter');
 const metapopulationAdapter = require('./metapopulationAdapter');
 const rhizomeAdapter = require('./rhizomeAdapter');
+const syncytiumAdapter = require('./syncytiumAdapter');
 const trinityAdapter = require('./trinityAdapter');
 
 const defaultRegistry = createRegistry({
   a_team: aTeamAdapter, biocenose: biocenoseAdapter, biome: biomeAdapter,
   holobionte: holobionteAdapter, metapopulation: metapopulationAdapter,
-  rhizome: rhizomeAdapter, trinity: trinityAdapter
+  rhizome: rhizomeAdapter, syncytium: syncytiumAdapter, trinity: trinityAdapter
 });
 
 module.exports = { KNOWN_TOPOLOGIES, createRegistry,
