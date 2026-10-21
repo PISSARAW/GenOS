@@ -4,8 +4,12 @@ const HOMEOSTASIS_POLICY_VERSION = 'genos.homeostasis-policy/v2';
 const LEGACY_POLICY_VERSION = 'genos.homeostasis-policy/v1';
 const DEFAULT_MINIMUM_FUNCTIONAL_COVERAGE = 1;
 
+function normalizePolicyVersion(version) {
+  return new Set(['1', 'v1']).has(String(version)) ? LEGACY_POLICY_VERSION : version;
+}
+
 function resolveHomeostasisPolicy(input = {}) {
-  const version = input.policyVersion || HOMEOSTASIS_POLICY_VERSION;
+  let version = normalizePolicyVersion(input.policyVersion || HOMEOSTASIS_POLICY_VERSION);
   if (![HOMEOSTASIS_POLICY_VERSION, LEGACY_POLICY_VERSION].includes(version)) {
     throw new Error(`Unsupported homeostasis policy '${version}'`);
   }

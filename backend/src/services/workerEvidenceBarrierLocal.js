@@ -75,7 +75,9 @@ async function generateWorkerResult(ctx) {
     });
   }
   const startedAt = Date.now();
-  const sharedBudget = (ctx.mission.modelBudgetScope || ctx.mission.orchestratorAgentId)
+  const hasParentBudget = Boolean(ctx.mission.modelBudgetScope)
+    || (ctx.mission.orchestratorAgentId && ctx.mission.orchestratorAgentId !== ctx.mission.agentId);
+  const sharedBudget = hasParentBudget
     ? await require('./missionModelBudgetScope').routeBudget(ctx.mission, ctx.db) : {};
   try { return await modelRouter.generate({
     db: ctx.db,

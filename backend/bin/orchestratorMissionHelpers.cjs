@@ -6,9 +6,9 @@ const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { decideGarageCapacity } = require('../src/services/garageCapacityService');
-const workspaceBinding = require('../src/services/orchestratorWorkspaceBindingService');
 const handoffCompiler = require('../src/services/daemon/handoff/handoffCompilerService');
 const handoffFeedback = require('../src/services/daemon/handoff/handoffFeedbackService');
+const { loadMissionAgentState, requestedMissionBudget } = require('./orchestratorMissionPreparation.cjs');
 
 function buildActionContext(ctx) {
   return {
@@ -137,11 +137,6 @@ function contractEvaluationMode(policyRequest, request) {
     ? request.evaluationMode : null;
 }
 
-function requestedMissionBudget(policyRequest, request) {
-  return { ...(policyRequest.executionBudget || policyRequest.execution_budget
-    || request.executionBudget || request.execution_budget || {}) };
-}
-
 function requestedTopology(request) {
   return request.topologyId || request.topology_id || request.topology;
 }
@@ -165,9 +160,7 @@ function morphologyMetadata(morphology) {
 async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
   const contracts = require('../src/services/strategyContractService');
-  const workspaceId = request.workspaceId || request.workspace_id || null;
-  if (workspaceId) await workspaceBinding.bind({ db, agentId: id, workspaceId, request });
-  const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
+  const { existing, workspaceId } = await loadMissionAgentState(db, id, request);
   const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json, workspace_id) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?, ?)`, id, enhancedPrompt, metadataJson, workspaceId);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
@@ -175,7 +168,7 @@ async function prepareMission(opts) {
   const requestedPrimary = request.strategyConcept?.strategyId
     || request.strategyConcept?.id || request.strategyConceptId;
   const strategyContract = await contracts.saveContract(db, { agentId: id, workspaceId, problem: enhancedPrompt,
-    requestedPrimary, evaluationMode, createdBy: 'mcp_orchestrate' });
+    problemProfile: request.problemProfile, requestedPrimary, evaluationMode, createdBy: 'mcp_orchestrate' });
 
   // Morphogenesis: determine topology, agents, and substrate requirements
   const morphogenesis = require('../src/services/morphogenesis/morphogenesisRuntime');
@@ -251,7 +244,7 @@ function missionRuntimeContext(request) {
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs'];
+    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }
@@ -381,6 +374,8 @@ module.exports = {
   shouldAttachMissionOrchestrator,
   buildEnhancedPrompt,
   mergeMetadataJson,
+  requestedMissionBudget,
+  loadMissionAgentState,
   prepareMission,
   applyLatencyBudget,
   checkLocalRuntime,

@@ -41,7 +41,10 @@ function verifyExecutionParsers() {
   const event = JSON.stringify({ type: 'turn.completed', usage: {
     input_tokens: 10, cached_input_tokens: 3, output_tokens: 2
   } });
-  assert.strictEqual(usageFromAlone(event), 9);
+  assert.deepStrictEqual(usageFromAlone(event), {
+    totalContextTokens: 10, billableTokens: 9, outputTokens: 2,
+    cachedInputTokens: 3, experimentalCeilingTokens: 12
+  });
   const campaignDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-unscorable-'));
   fs.mkdirSync(path.join(campaignDir, 'run-records'));
   const run = { runId: 'r1', mode: 'genos', outcome: { taskSucceeded: false, evidenceValid: false }, metrics: { tokens: null } };

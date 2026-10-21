@@ -99,6 +99,11 @@ function fixturesExist(protocol) {
   return missing;
 }
 
+function confirmatoryEligible(state, missingFixtures) {
+  if (state.dirty) return false;
+  return missingFixtures.length === 0;
+}
+
 function prepareCampaign(options = {}) {
   const protocolPath = path.resolve(options.protocol || DEFAULT_PROTOCOL);
   const protocolText = fs.readFileSync(protocolPath, 'utf8');
@@ -112,7 +117,7 @@ function prepareCampaign(options = {}) {
   const campaign = {
     schemaVersion: 1, protocolId: protocol.protocolId, protocolDigest: digest(protocolText),
     generatedAt, seed: String(options.seed || '20261021'), repository: { ...state },
-    confirmatoryEligible: !state.dirty && missingFixtures.length === 0,
+    confirmatoryEligible: confirmatoryEligible(state, missingFixtures),
     runs: buildSchedule(protocol, String(options.seed || '20261021'))
   };
   writeCampaign({ outDir, campaign });
