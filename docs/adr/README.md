@@ -817,6 +817,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0709a](0709-dossier-campagnes-qualification-non-promoteur.md) | Sceller les campagnes de qualification sans promouvoir | Accepté | 2026-10-20 | ETT, stewardship, campagnes, preuve, reprise |
 | [0709b](0709-progression-resultats-topologiques.md) | Progression canonique des résultats topologiques | Accepté | 2026-10-20 | Topologies, résultats workers, progression, clôture |
 | [0710](0710-harnais-restauration-morphogenetique.md) | Harnais transactionnel de restauration morphogénétique | Accepté, qualification des topologies en attente | 2026-10-20 | orchestration, morphogenèse, restauration, preuves |
+| [0711](0711-preuves-resolues-et-fallback-local-equivalent.md) | Preuves résolues et fallback local équivalent | Accepté | 2026-10-21 | orchestration, preuves, worker local, Windows |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

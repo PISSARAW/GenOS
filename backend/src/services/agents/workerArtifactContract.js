@@ -2,7 +2,8 @@
 
 const { hasEvidenceItem } = require('../agentEvidence/evidenceHelpers');
 const { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction } = require('./workerArtifactInstructions');
-const { hasEvidenceReferences, provenanceReferences } = require('./workerEvidenceReferenceService');
+const { hasEvidenceReferences, provenanceReferences,
+  unresolvedEvidenceReferences } = require('./workerEvidenceReferenceService');
 const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
 
 const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
@@ -270,6 +271,10 @@ function inspectDossier(input) {
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   if (codeDossierUnsubstantiated(kind, content, provenance)) issues.push('dossier.code_fix.unsubstantiated');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
+  const completedRefs = content.scopeCompletion?.completedRefs || [];
+  const unresolved = unresolvedEvidenceReferences([...sourceRefs, ...completedRefs],
+    provenance?.allowedEvidenceRefs);
+  if (unresolved.length) issues.push(`evidence.references.unresolved:${unresolved.join(',')}`);
   return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
 }
 

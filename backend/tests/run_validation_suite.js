@@ -193,6 +193,7 @@ const suites = {
     ['bounded code worker evidence', 'test_worker_code_evidence.js'],
     ['bounded code worker qualification language', 'test_bounded_code_worker_qualification.js'],
     ['local code worker proposal schema and safety', 'test_local_code_worker.js'],
+    ['reflection campaign root-cause guards', 'test_reflection_campaign_root_causes.js'],
     ['persisted worker mission promotion and refusal', 'test_worker_compliance_native_missions.js'],
     ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],

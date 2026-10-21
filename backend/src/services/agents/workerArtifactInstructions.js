@@ -33,10 +33,13 @@ function artifactInstruction(contract) {
   const rhizome = rhizomeArtifactInstruction(contract, required);
   if (rhizome) return rhizome;
   const artifact = { type: required[0], content: templateForWorker(contract, required[0]) };
+  const unresolved = 'If the available evidence is insufficient, return '
+    + '{"outcome":"unresolved","claims":[],"uncertainties":["<missing evidence>"]}; '
+    + 'do not report completed work or invent a reference.';
   if (required.every((type) => type === 'dossier')) {
-    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence.`;
+    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence. ${unresolved}`;
   }
-  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
+  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance. ${unresolved}`;
 }
 
 function customInstruction(kind, contract) {
@@ -52,7 +55,9 @@ function customInstruction(kind, contract) {
 }
 
 function schemaInstruction(text, fields) {
-  return `${text} Schema: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, ...fields })}`;
+  return `${text} Schema: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, ...fields })}. `
+    + 'If evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<missing evidence>"]}; '
+    + 'omit completion fields and never invent a reference.';
 }
 
 function specialistInstruction(niche) {

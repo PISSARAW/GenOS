@@ -10,7 +10,8 @@ const report = { outcome: 'success', claims: [], fullText: JSON.stringify({
   scopeCompletion: { scopeRef: 'mission:api-response', completedRefs: ['mission:api-response'] }
 }) };
 attachWorkerArtifact(report, {
-  mission: { workerKind: 'bounded_worker', localModel: 'test-model', workspaceRoot: 'workspace' },
+  mission: { workerKind: 'bounded_worker', localModel: 'test-model', workspaceRoot: 'workspace',
+    allowedEvidenceRefs: ['mission:api-response'] },
   agentName: 'worker'
 });
 

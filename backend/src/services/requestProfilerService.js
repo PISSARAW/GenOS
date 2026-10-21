@@ -31,7 +31,14 @@ function fingerprintRequest(normalized) {
 }
 
 function detectIntent(text) {
-  return earlyIntent(text) || lateIntent(text) || 'answer';
+  return technicalIntent(text) || earlyIntent(text) || lateIntent(text) || 'answer';
+}
+
+function technicalIntent(text) {
+  if (hasAny(text, ['corrige', 'corriger', 'correctif', 'fixe le bug', 'fix the bug'])) return 'implement';
+  if (hasAny(text, ['preuve manque', 'preuve absente', 'porte de preuve', 'statuer sur la promotion'])) return 'verify';
+  if (hasAny(text, ['note technique', 'explique snapshot', 'expliquer snapshot'])) return 'explain';
+  return null;
 }
 
 function earlyIntent(text) {

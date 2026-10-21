@@ -107,40 +107,55 @@ function handoffEvaluationSchema(handoffs, refs) {
   }, ['handoffId', 'digest', 'version', 'passed', 'evidenceRefs']) };
 }
 
+function responseOptions(options) {
+  if (typeof options !== 'object') return { diagnosis: options === true, missionCriteria: [], handoffs: [] };
+  return { diagnosis: options.diagnosis === true,
+    missionCriteria: Array.isArray(options.missionCriteria) ? options.missionCriteria : [],
+    handoffs: Array.isArray(options.handoffs)
+      ? options.handoffs.filter((handoff) => handoff?.handoffId && handoff?.digest) : [] };
+}
+
+function attachMissionRequirements(target, opts, refs) {
+  if (opts.missionCriteria.length) {
+    target.properties.acceptanceEvaluations = acceptanceEvaluationSchema(opts.missionCriteria, refs);
+    target.required.push('acceptanceEvaluations');
+  }
+  if (!opts.handoffs.length) return;
+  target.properties.integrationConstraints = { type: 'array', minItems: 1,
+    items: { type: 'string', minLength: 1 } };
+  target.properties.handoffEvaluations = handoffEvaluationSchema(opts.handoffs, refs);
+  target.required.push('integrationConstraints', 'handoffEvaluations');
+}
+
 function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = false) {
-  const diagnosis = typeof options === 'object' ? options.diagnosis === true : options === true;
-  const missionCriteria = typeof options === 'object' && Array.isArray(options.missionCriteria)
-    ? options.missionCriteria : [];
-  const handoffs = typeof options === 'object' && Array.isArray(options.handoffs)
-    ? options.handoffs.filter((handoff) => handoff?.handoffId && handoff?.digest) : [];
+  const opts = responseOptions(options);
   const resolved = require('./workerKindService').resolveWorkerKind(kind);
   const artifactType = kindDefinition(resolved).artifact;
   const refs = referenceList(allowedEvidenceRefs);
   const properties = {
     outcome: { enum: ['success', 'unresolved'] },
-    claims: { type: 'array', items: claimSchema(refs) }
+    claims: { type: 'array', items: claimSchema(refs) },
+    uncertainties: { type: 'array', items: { type: 'string', minLength: 1 } }
   };
   const required = ['outcome', 'claims'];
   if (artifactType === 'dossier') {
-    properties.claims.minItems = 1;
-    const details = dossierProperties(resolved, refs, diagnosis);
+    const details = dossierProperties(resolved, refs, opts.diagnosis);
     Object.assign(properties, details);
-    required.push(...Object.keys(details));
   } else {
-    properties.workerArtifact = artifactSchema({ kind: resolved, artifactType, refs, diagnosis });
-    required.push('workerArtifact');
+    properties.workerArtifact = artifactSchema({ kind: resolved, artifactType, refs,
+      diagnosis: opts.diagnosis });
   }
-  if (missionCriteria.length) {
-    properties.acceptanceEvaluations = acceptanceEvaluationSchema(missionCriteria, refs);
-    required.push('acceptanceEvaluations');
-  }
-  if (handoffs.length) {
-    properties.integrationConstraints = { type: 'array', minItems: 1,
-      items: { type: 'string', minLength: 1 } };
-    properties.handoffEvaluations = handoffEvaluationSchema(handoffs, refs);
-    required.push('integrationConstraints', 'handoffEvaluations');
-  }
-  return { name: 'genos_worker_artifact', schema: object(properties, required) };
+  attachMissionRequirements({ properties, required }, opts, refs);
+  const schema = object(properties, required);
+  const successRequired = artifactType === 'dossier'
+    ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];
+  schema.allOf = [{
+    if: { properties: { outcome: { const: 'success' } }, required: ['outcome'] },
+    then: { properties: { claims: { minItems: 1 } }, required: successRequired },
+    else: { properties: { claims: { maxItems: 0 }, uncertainties: { minItems: 1 } },
+      required: ['uncertainties'] }
+  }];
+  return { name: 'genos_worker_artifact', schema };
 }
 
 module.exports = { workerArtifactResponseFormat };

@@ -51,10 +51,16 @@ function resolveMaxTokens(budget, estimate) {
   if (budget <= 0) return undefined;
   return budget - estimate;
 }
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : [], { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
+function missionEvidenceRefs(mission) {
+  const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
+  return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
+}
+function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
 function sourceReferenceInstruction(mission) {
-  return mission.missionScope?.trinityExperimentId
-    ? 'Ground evidence in the supplied mission only. Use the exact evidence ID "mission"; do not invent source IDs, receipts, measurements, or completed reproduction steps.' : '';
+  const refs = missionEvidenceRefs(mission);
+  return `Use only these exact evidence references: ${JSON.stringify(refs)}. `
+    + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
+    + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
 }
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
@@ -91,7 +97,8 @@ async function generateWorkerResult(ctx) {
 
 async function resolveProposal(ctx) {
   if (!ctx.codeWorker) return null;
-  return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text });
+  return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text,
+    allowedCommands: ctx.allowedCommands });
 }
 
 function throwIfProposalFailed(proposal) {
@@ -234,6 +241,9 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
+  const workspaceContext = codeWorker
+    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot).text
+    : '';
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
     orchestrator: isOrchestratorMission(ctx.mission),
@@ -242,6 +252,7 @@ async function runGenerationStage(ctx) {
     agentName: agentName,
     prompt: ctx.mission.prompt,
     workerSelfBlock: wsBlock,
+    workspaceContext: workspaceContext,
     workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
       sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
@@ -270,20 +281,27 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
-  const proposal = await resolveProposal({ codeWorker: ctx.codeWorker, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text });
+  const proposal = await resolveProposal({ codeWorker: ctx.codeWorker,
+    workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
+    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [] });
   throwIfProposalFailed(proposal);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);
   attachProposalTests(evidenceReport, proposal);
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
+  if (!ctx.codeWorker && evidenceReport.outcome === 'unresolved') {
+    return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
+      proof: null, noAnswer: false, unresolved: true };
+  }
   const validationStartedAt = Date.now();
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);
-  return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport, proof: proof, noAnswer: noAnswer };
+  return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
+    proof: proof, noAnswer: noAnswer, unresolved: false };
 }
 async function evidenceReportFromModel(ctx) {
   const startedAt = Date.now();
@@ -294,53 +312,16 @@ async function evidenceReportFromModel(ctx) {
     return immuneReport.report;
   } finally { ctx.stageTimings.responseParsingMs = Date.now() - startedAt; }
 }
-function isBudgetBlocked(error) {
-  if (error.code === 'BUDGET_EXHAUSTED') return true;
-  if (/budget|timeout/i.test(error.message)) return true;
-  return false;
-}
-
-async function publishLocalFailure(ctx) {
-  const { recordWorkerEvidence } = require('./agentEvidenceService');
-  const blocked = isBudgetBlocked(ctx.error);
-  let status = 'error';
-  if (blocked) status = 'blocked';
-  await updateAgent(ctx.mission.agentId, status, ctx.error.message);
-  let eventType = 'AGENT_FAILED';
-  if (blocked) eventType = 'AGENT_HALTED';
-  let action = 'LOCAL_MODEL';
-  if (blocked) action = 'BUDGET_GUARD';
-  let eventStatus = 'error';
-  if (blocked) eventStatus = 'blocked';
-  const failed = emit(
-    ctx.mission.agentId,
-    eventType,
-    action,
-    ctx.error.message,
-    { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel, workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics || undefined, proposalTests: ctx.error.proposal?.tests || undefined, stageTimings: ctx.stageTimings || undefined },
-    'warning',
-    eventStatus
-  );
-  recordWorkerEvidence(ctx.mission, failed);
-  reportMilestone(ctx.mission, failed);
-  if (!ctx.error.terminalReceiptPublished) {
-    await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, failed);
-  }
-  await advanceAutonomousRound(ctx.mission, failed);
-  if (blocked === false) agentRecoveryService.queueWorkerRecovery(ctx.mission, failed);
-  await scheduleWorkspaceCleanup(ctx.mission.agentId);
-  return { started: false, executionRun: ctx.executionRun, local: true, error: ctx.error.message };
-}
-
 async function runLocalWorker(db, mission, executionRun) {
   try { await require('./missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission }); } catch (_) {}
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
   let identity;
+  let generation;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
-    const generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
+    generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
     const evidence = await runEvidenceStage({
       db, executionRun,
       result: generation.result,
@@ -351,46 +332,16 @@ async function runLocalWorker(db, mission, executionRun) {
       nameMeaning: generation.nameMeaning,
       stageTimings: stageTimings
     });
-    const nativeOracleRef = await require('./workerCodeOracleLocal').prepare({
-      db, mission, executionRun, evidenceReport: evidence.evidenceReport
-    });
-    await workerIdentity.finish(db, { identity, success: true,
-      evidenceRef: { executionRunId: executionRun.id, nativeOracleRef: nativeOracleRef || null,
-        reportHash: require('./identity/storage').hash(evidence.evidenceReport), verification: 'runtime_evidence_barrier' } });
-    let eventType = 'AGENT_COMPLETED';
-    if (evidence.noAnswer) eventType = 'WORKER_NO_ANSWER_PROVEN';
-    let kind = 'LOCAL_REVIEW';
-    if (generation.codeWorker) kind = 'LOCAL_CODE_PROPOSAL';
-    if (evidence.noAnswer) kind = 'REPORT_NO_ANSWER';
-    let detail = 'Local-model worker completed its evidence review.';
-    if (generation.codeWorker) detail = 'Local worker produced a non-merged capsule diff and test evidence.';
-    if (evidence.noAnswer) detail = 'Local worker returned an evidence-backed proof that no answer exists in the stated scope.';
-    let statusText = 'Local review completed';
-    if (evidence.noAnswer) statusText = 'No answer proven';
-    let noAnswerProof = undefined;
-    if (evidence.noAnswer) noAnswerProof = evidence.proof;
-    await require('./workerEvidenceBarrierLocalCompletion').emit({
-      db: db,
-      mission: mission,
-      statusText: statusText,
-      eventType: eventType,
-      kind: kind,
-      detail: detail,
-      executionRun: executionRun,
-      model: generation.result.model,
-      provider: generation.result.provider,
-      evidenceReport: evidence.evidenceReport,
-      nativeOracleRef: nativeOracleRef,
-      identityReceipt: identity.receipt,
-      noAnswerProof: noAnswerProof,
-      proposal: evidence.proposal,
-      usage: { input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens, cost_usd: generation.result.costUsd, tokens: evidence.consumed },
-      stageTimings: stageTimings
-    }, publishLocalSuccess);
-    return { started: true, executionRun: executionRun, local: true, result: generation.result };
+    return require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
+      executionRun, generation, evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
     await workerIdentity.fail(db, { identity, executionRun, error });
-    return publishLocalFailure({ db: db, mission: mission, executionRun: executionRun, error: error, stageTimings: stageTimings });
+    const usage = generation?.result ? {
+      input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens,
+      cost_usd: generation.result.costUsd, tokens: consumedTokensOf(generation.result)
+    } : undefined;
+    return require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
+      error, usage, stageTimings, reportMilestone });
   } finally {
     await workerIdentity.release(db, identity);
   }

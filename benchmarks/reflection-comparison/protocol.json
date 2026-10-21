@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "protocolId": "genos-reflection-comparison-pilot-v1",
+  "status": "executable-protocol-no-results",
+  "design": "two-period-crossover-counterbalanced",
+  "modes": ["alone", "genos"],
+  "repetitions": 2,
+  "rules": {
+    "sameModelWithinPair": true,
+    "sameBudgetWithinMission": true,
+    "differentVariantWithinPair": true,
+    "cleanRevisionRequired": true,
+    "minimumEvidencePerRun": 1,
+    "minimumVerifierReceiptsPerRun": 1,
+    "missingMetricPolicy": "null-invalidates-confirmatory-score",
+    "successRule": "taskSucceeded && evidenceValid"
+  },
+  "missions": [
+    {
+      "id": "branches",
+      "label": "Débogage à branches multiples",
+      "primaryMetric": "resolutionTimeMs",
+      "budget": { "tokens": 12000, "wallTimeMs": 360000 },
+      "genosWorkflow": [
+        "Créer un snapshot avant toute mutation.",
+        "Créer trois branches isolées, une par hypothèse.",
+        "Exécuter l'oracle dans chaque branche et conserver les reçus.",
+        "Rejouer le candidat gagnant depuis le snapshot avant promotion."
+      ],
+      "aloneWorkflow": [
+        "Utiliser uniquement Git, des copies de répertoire et le runner de test.",
+        "Tester les trois hypothèses sans outil GenOS.",
+        "Conserver commandes, diffs et sorties de test comme preuves."
+      ],
+      "variants": [
+        {
+          "id": "discount-boundary",
+          "fixture": "../../examples/safe-debugging-demo/fixture",
+          "prompt": "Corriger le défaut de frontière du calcul de remise. Évaluer séparément les hypothèses seuil inclusif, arrondi monétaire et validation du montant.",
+          "oracleCommand": "node test.js"
+        },
+        {
+          "id": "pagination-boundary",
+          "fixture": "fixtures/pagination",
+          "prompt": "Corriger le défaut de frontière de pagination. Évaluer séparément les hypothèses index de fin inclusif, origine du numéro de page et taille de page invalide.",
+          "oracleCommand": "node test.js"
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "label": "Budget d'agent IA",
+      "primaryMetric": "budgetOverrunTokens",
+      "budget": { "tokens": 1800, "wallTimeMs": 180000 },
+      "genosWorkflow": [
+        "Déclarer le plafond avant l'exécution.",
+        "Conserver le reçu de réservation, la consommation et l'état terminal.",
+        "Traiter toute consommation inconnue comme un résultat non concluant."
+      ],
+      "aloneWorkflow": [
+        "Configurer le même plafond dans le prompt et surveiller la consommation exposée par le fournisseur.",
+        "Consigner chaque lecture manuelle et le temps de surveillance.",
+        "Ne pas estimer une métrique absente."
+      ],
+      "variants": [
+        {
+          "id": "runtime-note",
+          "prompt": "Rédiger une note technique de 600 mots maximum expliquant snapshot, branche et promotion, avec trois risques et trois critères vérifiables.",
+          "oracleCommand": null
+        },
+        {
+          "id": "recovery-checklist",
+          "prompt": "Produire une checklist de reprise après panne de 18 points maximum, chaque point ayant une condition observable et une preuve attendue.",
+          "oracleCommand": null
+        }
+      ]
+    },
+    {
+      "id": "evidence-gate",
+      "label": "Porte de preuve",
+      "primaryMetric": "unsupportedPromotions",
+      "budget": { "tokens": 4000, "wallTimeMs": 240000 },
+      "genosWorkflow": [
+        "Soumettre la décision à une porte exigeant sources, tests et comparatif.",
+        "Conserver le reçu de la porte, y compris en cas de refus.",
+        "Ne promouvoir que si toutes les preuves obligatoires sont présentes."
+      ],
+      "aloneWorkflow": [
+        "Faire une revue manuelle avec la même checklist de preuves.",
+        "Consigner le verdict, le relecteur et chaque preuve contrôlée.",
+        "Refuser explicitement une décision insuffisamment étayée."
+      ],
+      "variants": [
+        {
+          "id": "database-choice",
+          "prompt": "Décider entre SQLite WAL et PostgreSQL pour une file locale mono-hôte. Le dossier contient un benchmark de latence et des tests de reprise, mais aucune mesure multi-hôte. Statuer sur la promotion sans inventer la preuve absente.",
+          "expectedPromotion": "REVISE",
+          "oracleCommand": null
+        },
+        {
+          "id": "retry-library",
+          "prompt": "Décider entre une boucle interne et une bibliothèque de retry. Le dossier contient une API documentée et des tests unitaires, mais aucun test d'idempotence en panne partielle. Statuer sur la promotion sans inventer la preuve absente.",
+          "expectedPromotion": "REVISE",
+          "oracleCommand": null
+        }
+      ]
+    }
+  ]
+}

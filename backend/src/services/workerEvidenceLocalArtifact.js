@@ -46,7 +46,8 @@ function artifactProvenance(mission, context) {
   return {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
-    methodContract: mission.methodContract || null
+    methodContract: mission.methodContract || null,
+    allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || [])])]
   };
 }
 

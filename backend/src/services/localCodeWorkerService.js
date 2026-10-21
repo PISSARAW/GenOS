@@ -39,8 +39,10 @@ function parseProposal(text) {
 
   return proposal;
 }
-function allowedTest(command, root) {
-  return isAllowedSandboxTestCommand(command);
+function allowedTest(command, allowedCommands) {
+  const normalized = normalizeSandboxCommand(command);
+  const missionAllowlist = (allowedCommands || []).map(normalizeSandboxCommand);
+  return isAllowedSandboxTestCommand(command) && missionAllowlist.includes(normalized);
 }
 async function assertNoSymlinkPath(root, destination) {
   const resolvedRoot = path.resolve(root);
@@ -115,10 +117,10 @@ async function runTest(command, root) {
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
   });
 }
-async function executeProposal({ workspaceRoot, text }) {
+async function executeProposal({ workspaceRoot, text, allowedCommands }) {
   const proposal = parseProposal(text);
   for (const command of proposal.tests) {
-    if (!allowedTest(command, workspaceRoot)) throw new Error(`Test command is not allow-listed: ${command}`);
+    if (!allowedTest(command, allowedCommands)) throw new Error(`Test command is not allow-listed: ${command}`);
   }
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);

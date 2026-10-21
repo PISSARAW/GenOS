@@ -415,6 +415,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
 - [comparaison-agent-codex-worker-genos-2026-10-15.md](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — expérience locale sur la deny-list MCP, métriques asymétriques et gate de promotion GenOS.
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
+- [missions-reflexion-comparatives.md](06-benchmarks/missions-reflexion-comparatives.md) — pilote crossover exécutable avec/sans GenOS sur branches, budget et porte de preuve.
 - [qualite-diversite-organisations.md](06-benchmarks/qualite-diversite-organisations.md) — archive Pyribs et tâche Shinka bornée.
 - [Bancs AgentDojo et BrowserGym](../integrations/agent_benchmarks/README.md) — évaluation indépendante des attaques et de la navigation.
 - [Exécution Wasmtime bornée](../integrations/wasmtime/README.md) — score WebAssembly sans import hôte.

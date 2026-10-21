@@ -26,6 +26,7 @@ const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPr
   gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
   shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
+const completionPolling = require('./orchestratorCompletionPolling.cjs');
 let request = {};
 try {
   const helper = require('./detachedSpawn.cjs');
@@ -44,8 +45,10 @@ let missionId = request.missionId || process.env.GENOS_MISSION_ID || null;
 let id = action === 'dispatch_worker' ? request.workerId : null;
 let synthesizedWorkerMission = false;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
-const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
-const allowFileEdits = policyRequest.allow_file_edits === true;
+const allowedCommands = normalizeAllowedCommands(
+  policyRequest.allowed_commands ?? policyRequest.allowedCommands
+) || [];
+const allowFileEdits = policyRequest.allow_file_edits === true || policyRequest.allowFileEdits === true;
 try { require('./orchestratorRequestValidation.cjs').validateRequest(action, { ...policyRequest, timeoutMs: policyRequest.timeoutMs ?? request.timeoutMs }); }
 catch (error) { process.stderr.write(error.message + '\n'); process.exit(1); }
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
@@ -69,30 +72,13 @@ async function waitForCompletion(db) {
   const deadline = unbounded ? null : Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   let pulseTick = 0;
   let busyRetries = 0;
-  while (unbounded || Date.now() < deadline) {
-    let agents, trinityWorlds;
-    try {
-      agents = await db.all(`SELECT a.id, a.status, a.runtime_pid,
-        (SELECT r.status FROM strategy_execution_runs r WHERE r.agent_id = a.id ORDER BY r.rowid DESC LIMIT 1) AS latest_run_status
-        FROM agents a WHERE a.id = ? OR a.parent_agent_id = ?`, id, id);
-      trinityWorlds = await db.all(
-        `SELECT agent_id, status FROM trinity_worlds
-         WHERE experiment_id GLOB ? AND datetime(created_at) >= datetime(?)
-         ORDER BY world_number`,
-        `trinity_${id}*`, new Date(SCRIPT_START_TIME).toISOString()
-      );
-    } catch (err) {
-      if (isRetryableDatabaseError(err)) {
-        await new Promise((resolve) => setTimeout(resolve, Math.min(3000, 300 * Math.pow(1.5, busyRetries))));
-        busyRetries += 1;
-        continue;
-      }
-      throw err;
-    }
+  while (completionPolling.withinDeadline(unbounded, deadline)) {
+    const poll = await completionPolling.poll(db, { agentId: id, startedAt: SCRIPT_START_TIME }, busyRetries);
+    if (poll.retry) { busyRetries = poll.busyRetries; continue; }
+    const { agents, trinityWorlds } = poll;
     busyRetries = 0;
     if (missionExecutionTerminal(agents, trinityWorlds, id)) return agents;
-    const allOrphaned = agents.length > 0 && agents.every((a) => a.status === 'running' && !a.runtime_pid);
-    if (allOrphaned && Date.now() > SCRIPT_START_TIME + 30000) {
+    if (completionPolling.allOrphaned(agents, SCRIPT_START_TIME)) {
       process.stderr.write(`[genos-orchestrate] All agents orphaned (running, no pid) after 30s; concluding mission.\n`);
       return agents;
     }
@@ -101,9 +87,6 @@ async function waitForCompletion(db) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
-}
-function isRetryableDatabaseError(error) {
-  return error?.code === 'SQLITE_BUSY' || /busy|locked/i.test(error?.message || '');
 }
 
 async function observeMissionPulse(db, pulseTick) {

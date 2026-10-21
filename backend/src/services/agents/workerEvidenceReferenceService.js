@@ -19,4 +19,11 @@ function provenanceReferences(artifact) {
   return provenance.sourceRefs || provenance.evidenceRefs || artifact?.evidenceRefs;
 }
 
-module.exports = { evidenceReferences, hasEvidenceReferences, provenanceReferences };
+function unresolvedEvidenceReferences(value, allowed) {
+  if (!Array.isArray(allowed)) return [];
+  const registry = new Set(evidenceReferences(allowed));
+  return evidenceReferences(value).filter((item) => !registry.has(item));
+}
+
+module.exports = { evidenceReferences, hasEvidenceReferences, provenanceReferences,
+  unresolvedEvidenceReferences };
