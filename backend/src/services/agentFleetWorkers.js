@@ -80,8 +80,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-  const plan = options.plan ?? options;
-  const mission = options.mission ?? (arguments[3] || {});
+  const { plan, mission } = options;
+  if (!plan || !mission) throw Object.assign(new Error('Worker creation requires explicit plan and mission options.'), { code: 'INVALID_WORKER_CREATION_OPTIONS' });
   const assignments = plan.dispatchWorkers || [];
   validateAssignments(assignments, plan);
   const parent = await loadWorkerParent(db, orchestrator);

@@ -238,7 +238,9 @@ async function dispatchSelectedWorkers(ctx, assignments) {
   emitDispatchSelected(ctx, assignments);
   let autonomousWorkers = [];
   try {
-    autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, ctx.autonomyPlan, ctx.normalizedMission);
+    autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, {
+      plan: ctx.autonomyPlan, mission: ctx.normalizedMission
+    });
     assertWorkerDispatchMatches(assignments, autonomousWorkers);
     const cells = require('../autonomousWorkerCellBridge');
     await cells.bind(ctx, autonomousWorkers);

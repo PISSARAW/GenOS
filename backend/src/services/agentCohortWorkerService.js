@@ -54,7 +54,11 @@ function cohortIdentityError(existing, reason) {
 }
 
 function parseWorkerMetadata(serialized) {
-  try { return JSON.parse(serialized || '{}'); } catch (_) { return {}; }
+  try { return JSON.parse(serialized || '{}'); } catch (_) {
+    throw Object.assign(new Error('Sub-orchestrator metadata is invalid.'), {
+      code: 'INVALID_SUBORCHESTRATOR_CONTRACT'
+    });
+  }
 }
 
 module.exports = { assignedWorkerId, existingCohortWorker, reuseCohortWorker };

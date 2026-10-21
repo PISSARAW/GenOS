@@ -42,10 +42,12 @@ async function verifyDispatchSupervision() {
     assert.deepEqual(options.plan.dispatchWorkers[0].methodContract, childMethod);
     assert.deepEqual(options.mission.methodContract, childMethod);
     assert.equal(options.plan.tokenPolicy.total, 2000);
-    return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker', workspaceId: 'ws-1', executionBudget: { tokens: 2000 } }];
+    return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker',
+      workspaceId: 'ws-1', workspaceRoot: 'C:/workspace', executionBudget: { tokens: 2000 } }];
   };
   runtime.startMission = async (request) => { startRequest = request; return { success: true, artifact: 'dossier' }; };
   const childContract = { identity: { workerKind: 'bounded_worker' }, evidence: { requiredArtifacts: ['dossier'] } };
+  let childMissing = false;
   const db = { get: async (sql) => {
     if (sql.includes('COUNT(*)')) return { count: 0 };
     if (sql.includes('FROM workspaces')) return { path: 'C:/workspace' };
@@ -54,7 +56,8 @@ async function verifyDispatchSupervision() {
       outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
       workerArtifact: { type: 'dossier', content: { claims: [{ statement: 'claim', evidence: ['source'] }], scopeCompletion: { scopeRef: 'Review a bounded change.', completedRefs: ['runtime:child-1'] } }, provenance: { sourceRefs: ['runtime:child-1'] } }
     } }) };
-    if (sql.includes('SELECT id, status, metadata_json')) return { id: 'child-1', status: 'completed', metadata_json: JSON.stringify({ workerContract: childContract }) };
+    if (sql.includes('SELECT id, status, metadata_json')) return childMissing ? null
+      : { id: 'child-1', status: 'completed', runtime_pid: 999, metadata_json: JSON.stringify({ workerContract: childContract }) };
     return { id: 'sub-1', role: 'sub_orchestrator', agent_type: 'GenOS', workspace_id: 'ws-1', cognitive_budget: 5000, execution_mode: 'worker', metadata_json: metadata() };
   } };
   bounded.parent = async () => ({ agent: await db.get('parent'), contract: { limits: { maxTokens: 10000 } } });
@@ -67,6 +70,7 @@ async function verifyDispatchSupervision() {
     assert.equal(result.supervision.success, true);
     assert.equal(result.supervision.evidenceReport.workerArtifact.type, 'dossier');
     assert.equal(startRequest.orchestratorAgentId, 'sub-1');
+    assert.equal(startRequest.workspaceProvisioned, true);
     assert.deepEqual(startRequest.methodContract, childMethod);
     assert.equal(startRequest.timeoutMs, 1234);
     assert.equal(startRequest.executionBudget.tokens, 2000);
@@ -77,6 +81,13 @@ async function verifyDispatchSupervision() {
     assert.equal(cancelled.success, false);
     assert.equal(cancelled.supervision.code, 'MISSION_CANCELLED');
     assert.equal(stopped, 'child-1');
+    state.cancelledStarts.delete('sub-1');
+    childMissing = true;
+    runtime.startMission = async () => ({ success: true });
+    const missing = await dispatchSubOrchestratorWorker(db, 'sub-1', {
+      mission: 'Missing child', methodContract: childMethod, timeoutMs: 25
+    });
+    assert.equal(missing.supervision.code, 'CHILD_AGENT_MISSING');
   } finally {
     fleet.createAutonomousWorkers = originalCreate;
     runtime.startMission = originalStart;

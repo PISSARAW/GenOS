@@ -39,7 +39,7 @@ async function readCheckpoint(directory, name, rustMissionId) {
 async function latest(rustMissionId) {
   const directory = checkpointDirectory(rustMissionId);
   const names = await checkpointNames(directory);
-  const files = names.filter((name) => name.startsWith('checkpoint-') && name.endsWith('.json'));
+  const files = names.filter((name) => FILE.test(name));
   const head = await readHead(directory);
   if (!files.length) {
     if (head) throw new Error('Rust checkpoint head references a missing checkpoint.');
@@ -106,8 +106,8 @@ async function withMissionLocks(references, action) {
     return await action();
   } finally {
     for (const item of held.reverse()) {
-      await item.handle.close();
-      await fs.unlink(item.lockPath);
+      await item.handle.close().catch(() => {});
+      await fs.unlink(item.lockPath).catch(() => {});
     }
   }
 }

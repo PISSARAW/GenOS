@@ -22,10 +22,9 @@ async function runLocalWorker(db, mission, executionRun) {
   return localWorker.runLocalWorker(db, mission, executionRun);
 }
 
-async function createAutonomousWorkers(...args) {
-  const plan = args[2];
-  enforceTrinityBudget(plan);
-  return createWorkers(...args);
+async function createAutonomousWorkers(db, orchestrator, options) {
+  enforceTrinityBudget(options?.plan);
+  return createWorkers(db, orchestrator, options);
 }
 
 function enforceTrinityBudget(plan) {

@@ -18,6 +18,7 @@ async function main() {
     const hash = crypto.createHash('sha256').update(bytes).digest('hex');
     const name = `checkpoint-7-${hash}.json`;
     await fs.writeFile(path.join(directory, name), bytes);
+    await fs.writeFile(path.join(directory, 'checkpoint-notes.json'), 'operator notes');
     const db = { all: async () => [{ missionId: 'mission-1', rustMissionId, memberCount: 2 }] };
     const references = await checkpoints.capture(db, 'agent-1');
     assert.equal(references.length, 1);
@@ -36,6 +37,16 @@ async function main() {
       await assert.rejects(() => checkpoints.withMissionLocks(references, async () => {}),
         { code: 'ORGANISM_MISSION_BUSY' });
     });
+    const originalUnlink = fs.unlink;
+    try {
+      await assert.rejects(() => checkpoints.withMissionLocks(references, async () => {
+        fs.unlink = async () => { throw new Error('cleanup failed'); };
+        throw new Error('action failed');
+      }), /action failed/);
+    } finally {
+      fs.unlink = originalUnlink;
+      await fs.rm(path.join(root, 'biological-receipts', `${rustMissionId}.lock`), { force: true });
+    }
     await fs.writeFile(path.join(directory, name), 'corrupt');
     await assert.rejects(() => checkpoints.verify(references), /digest mismatch/);
     await fs.rm(path.join(directory, name));

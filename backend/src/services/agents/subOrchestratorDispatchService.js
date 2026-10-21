@@ -55,11 +55,12 @@ async function createChild(db, parent, args) {
   const assignment = childAssignment(args);
   const fleet = require('../agentFleetWorkers');
   const { withTransaction } = require('../../db');
+  const workspaceRoot = (await db.get('SELECT path FROM workspaces WHERE id = ?', parent.workspace_id))?.path;
   const mission = {
     methodContract: args.methodContract,
     timeoutMs: childTimeout(args.timeoutMs),
     prompt: String(args.mission).trim().slice(0, 12000), executor: 'local',
-    workspaceRoot: (await db.get('SELECT path FROM workspaces WHERE id = ?', parent.workspace_id))?.path,
+    workspaceRoot, workspaceProvisioned: Boolean(workspaceRoot),
     executionPolicy: { allowFileEdits: false }, executionBudget: { events: 100 }
   };
   const workers = await withTransaction(db, async () => {
@@ -81,16 +82,16 @@ async function createChild(db, parent, args) {
 
 async function childOutcome(db, childId) {
   const agent = await db.get('SELECT id, status, metadata_json, runtime_pid FROM agents WHERE id = ?', childId);
-  if (!agent) return null;
+  if (!agent) return failedChild('missing', 'CHILD_AGENT_MISSING');
   const run = await db.get('SELECT id, status, guardrail_reason FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', childId);
   if (['blocked', 'failed', 'cancelled', 'awaiting_approval'].includes(run?.status)) {
     return { ...failedChild(run?.status || agent.status, 'CHILD_EXECUTION_NOT_VERIFIED'),
       runId: run?.id || null, reason: run?.guardrail_reason || 'Missing completed execution run.' };
   }
-  if (agent.runtime_pid) return null;
   if (run?.status === 'completed' && ['completed', 'idle'].includes(agent.status)) {
     return validateChildEvidence(db, { ...agent, status: 'completed' });
   }
+  if (agent.runtime_pid) return null;
   if (!CHILD_TERMINAL_STATES.has(agent.status)) return null;
   return failedChild(agent.status, 'CHILD_NOT_COMPLETED');
 }
