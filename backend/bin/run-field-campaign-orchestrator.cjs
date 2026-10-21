@@ -77,12 +77,7 @@ function log(level, message) {
   process.stdout.write(`[${nowIso()}] [${level}] ${message}\n`);
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const campaignDir = path.resolve(args.campaignDir);
-  const adapter = args.adapter || path.join(ROOT, 'bin', 'field-campaign-adapter.cjs');
-
-  // Load the sealed manifest to get the schedule.
+function loadManifest(campaignDir) {
   const sealPath = path.join(campaignDir, 'seal.json');
   if (!fs.existsSync(sealPath)) {
     throw new Error(`No seal found at ${sealPath}. Run 'seal' first.`);
@@ -92,24 +87,28 @@ async function main() {
   if (manifest.mode !== 'field') {
     throw new Error(`Campaign mode is ${manifest.mode}, expected 'field'.`);
   }
+  return manifest;
+}
 
-  const startedAt = Date.parse(manifest.startedAt);
+function campaignWindows(manifest) {
   const allWindows = [
     ...manifest.trainingWindows.map((w) => ({ ...w, phase: 'training' })),
     ...manifest.heldoutWindows.map((w) => ({ ...w, phase: 'heldout' }))
   ];
   allWindows.sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt));
+  return allWindows;
+}
 
+function logSchedule(manifest, allWindows) {
   log('INFO', `Campaign ${manifest.campaignId} (${manifest.manifestHash})`);
   log('INFO', `Started at: ${manifest.startedAt}`);
   log('INFO', `Total windows: ${allWindows.length} (training: ${manifest.trainingWindows.length}, heldout: ${manifest.heldoutWindows.length})`);
   log('INFO', `First window: ${allWindows[0].scheduledAt}`);
   log('INFO', `Last window: ${allWindows[allWindows.length - 1].scheduledAt}`);
   log('INFO', `Minimum duration: ${manifest.minimumDurationMs / 3600000} h`);
+}
 
-  let lastDueIndex = -1;
-  let exportDone = false;
-
+async function runCampaign(allWindows, campaignDir, adapter) {
   for (let round = 0; round < 1000; round += 1) {
     const now = Date.now();
 
@@ -150,20 +149,28 @@ async function main() {
       break;
     }
   }
+}
 
-  // Final status check.
+function finishCampaign(campaignDir, adapter) {
   const statusResult = runCli('status', campaignDir, adapter);
   log('INFO', `Final status: ${statusResult.status}`);
   log('INFO', `  runs: control=${JSON.stringify(statusResult.runs.control)}, treatment=${JSON.stringify(statusResult.runs.treatment)}`);
 
-  // Export the final dossier.
-  if (!exportDone) {
-    log('INFO', 'Exporting final dossier...');
-    const exportResult = runCli('export', campaignDir, adapter);
-    log('INFO', `Export: ${exportResult.file}`);
-    log('INFO', `Export hash: ${exportResult.exportHash}`);
-    exportDone = true;
-  }
+  log('INFO', 'Exporting final dossier...');
+  const exportResult = runCli('export', campaignDir, adapter);
+  log('INFO', `Export: ${exportResult.file}`);
+  log('INFO', `Export hash: ${exportResult.exportHash}`);
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const campaignDir = path.resolve(args.campaignDir);
+  const adapter = args.adapter || path.join(ROOT, 'bin', 'field-campaign-adapter.cjs');
+  const manifest = loadManifest(campaignDir);
+  const allWindows = campaignWindows(manifest);
+  logSchedule(manifest, allWindows);
+  await runCampaign(allWindows, campaignDir, adapter);
+  finishCampaign(campaignDir, adapter);
 
   log('INFO', 'Orchestrator finished.');
 }

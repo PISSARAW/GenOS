@@ -15,21 +15,26 @@ function failed(base, reason, state = {}) {
     sessionId: state.sessionId || null }], oracle: null };
 }
 
-function semanticAssessment(output, validation, expectedCount) {
+function semanticValidationReasons(validation, expectedCount) {
   const reasons = [];
   if (!validation) {
     reasons.push('SEMANTIC_VALIDATION_MISSING');
-  } else {
-    if (validation.status !== 'complete') {
-      reasons.push(`SEMANTIC_${String(validation.status).toUpperCase()}`);
-    }
-    if (validation.workerCount !== expectedCount) {
-      reasons.push('SYNCYTIUM_WORKER_COUNT_MISMATCH');
-    }
-    if (validation.coveredWorkers !== expectedCount) {
-      reasons.push('SYNCYTIUM_WORKER_COVERAGE_INCOMPLETE');
-    }
+    return reasons;
   }
+  if (validation.status !== 'complete') {
+    reasons.push(`SEMANTIC_${String(validation.status).toUpperCase()}`);
+  }
+  if (validation.workerCount !== expectedCount) {
+    reasons.push('SYNCYTIUM_WORKER_COUNT_MISMATCH');
+  }
+  if (validation.coveredWorkers !== expectedCount) {
+    reasons.push('SYNCYTIUM_WORKER_COVERAGE_INCOMPLETE');
+  }
+  return reasons;
+}
+
+function workerCompletionReasons(output, expectedCount) {
+  const reasons = [];
   if (output.members.length !== expectedCount) {
     reasons.push('WORKER_RESULT_COUNT_MISMATCH');
   }
@@ -39,11 +44,24 @@ function semanticAssessment(output, validation, expectedCount) {
   if ((output.dispatchFailures || []).length) {
     reasons.push('WORKER_DISPATCH_FAILED');
   }
-  const hard = reasons.some((reason) =>
-    reason.includes('FAILED') || reason.includes('NOT_COMPLETED')
-    || reason.includes('DISPATCH_FAILED'));
-  return { status: reasons.length ? (hard ? 'failed' : 'partial') : 'verified',
+  return reasons;
+}
+
+function isHardSemanticReason(reason) {
+  return reason.includes('FAILED') || reason.includes('NOT_COMPLETED')
+    || reason.includes('DISPATCH_FAILED');
+}
+
+function assessment(reasons, hardReason) {
+  if (!reasons.length) return { status: 'verified', reasons: [] };
+  return { status: reasons.some(hardReason) ? 'failed' : 'partial',
     reasons: [...new Set(reasons)] };
+}
+
+function semanticAssessment(output, validation, expectedCount) {
+  const reasons = [...semanticValidationReasons(validation, expectedCount),
+    ...workerCompletionReasons(output, expectedCount)];
+  return assessment(reasons, isHardSemanticReason);
 }
 
 function stateAssessment(output) {
@@ -55,9 +73,7 @@ function stateAssessment(output) {
   if (validation?.status !== 'verified') {
     reasons.push(...(validation?.reasons || ['SHARED_STATE_VALIDATION_MISSING']));
   }
-  const hard = reasons.includes('FAILED_SHARED_INVARIANTS');
-  return { status: reasons.length ? (hard ? 'failed' : 'partial') : 'verified',
-    reasons: [...new Set(reasons)] };
+  return assessment(reasons, (reason) => reason === 'FAILED_SHARED_INVARIANTS');
 }
 
 function oracleReceipt(base, state) {
@@ -102,8 +118,8 @@ async function build(input = {}) {
   const semantic = semanticAssessment(output, output.semanticValidation, expectedCount);
   const stateCheck = stateAssessment(output);
   const issue = [semantic, stateCheck].find((check) => check.status !== 'verified');
-  if (issue?.status === 'failed') return failed(base, issue.reason, state);
-  if (issue) return incomplete(base, issue.reason);
+  if (issue?.status === 'failed') return failed(base, issue.reasons[0], state);
+  if (issue) return incomplete(base, issue.reasons[0]);
   return verifiedDossier(base, state);
 }
 

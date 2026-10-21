@@ -6,6 +6,14 @@ const { digest } = require('../src/services/evidenceContractService');
 const { KNOWN_TOPOLOGIES, createRegistry } = require('../src/services/topologyCompletionAdapters');
 const { handleBiologicalCondition } = require('../src/services/topology/biologicalConditions.cjs');
 
+const SCOPE_REASONS = Object.freeze({
+  biocenose: 'biocenose_scope_missing', trinity: 'trinity_scope_missing',
+  a_team: 'ateam_scope_missing', biome: 'biome_completion_scope_missing',
+  holobionte: 'holobionte_completion_scope_missing',
+  metapopulation: 'metapopulation_completion_scope_missing',
+  rhizome: 'rhizome_scope_missing', syncytium: 'SEMANTIC_VALIDATION_MISSING'
+});
+
 function output(statuses, status = 'completed') {
   return { status, members: statuses.map((memberStatus, index) => ({
     workerId: `worker-${index + 1}`, status: memberStatus
@@ -40,15 +48,12 @@ async function verifyKnownModesFailClosed() {
     assert.equal(result.complete, false, mode);
     assert.equal(result.completionContract.schema, 'genos.mission-completion/v1', mode);
     assert.equal(result.completionContract.verdict, 'partial', mode);
-    const reason = mode === 'biocenose' ? 'biocenose_scope_missing'
-      : mode === 'trinity' ? 'trinity_scope_missing'
-        : mode === 'a_team' ? 'ateam_scope_missing'
-          : mode === 'biome' ? 'biome_completion_scope_missing'
-            : mode === 'holobionte' ? 'holobionte_completion_scope_missing'
-              : mode === 'metapopulation' ? 'metapopulation_completion_scope_missing'
-                : mode === 'rhizome' ? 'rhizome_scope_missing'
-                  : 'topology_completion_adapter_unavailable';
+    const reason = SCOPE_REASONS[mode] || 'topology_completion_adapter_unavailable';
     assert.equal(result.completionContract.reasons.includes(reason), true, mode);
+    if (mode === 'syncytium') {
+      assert.equal(result.completionContract.promotionEligible, false, mode);
+      continue;
+    }
     assert.equal(result.completionContract.closureChecks.requiredWorkers, true, mode);
     assert.equal(result.completionContract.closureChecks.independentOracle, false, mode);
   }
