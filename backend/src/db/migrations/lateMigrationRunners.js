@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('150-ontogenesis-memory-search', 'Persist Ontogenesis memory FTS5 search and synapse graph', async (db) => {
+    await require('./migrateOntogenesisMemorySearch').migrateOntogenesisMemorySearch(db);
+  }),
   createMigrationRunner('148-metapopulation-cycle-idempotency', 'Fence metapopulation cycle execution with durable idempotency keys', async (db) => {
     await require('./migrateMetapopulationCycleIdempotency').migrateMetapopulationCycleIdempotency(db);
   }),
