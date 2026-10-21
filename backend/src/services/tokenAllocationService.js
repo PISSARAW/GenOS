@@ -18,6 +18,66 @@ function splitPool(pool, workerCount) {
   };
 }
 
+function profiledRound(workerTokens) {
+  const pool = workerTokens.reduce((sum, tokens) => sum + tokens, 0);
+  const perWorkerTokens = workerTokens.length ? Math.floor(pool / workerTokens.length) : 0;
+  return { workerCount: workerTokens.length, pool, perWorkerTokens,
+    remainderTokens: pool - (perWorkerTokens * workerTokens.length), workerTokens };
+}
+
+function fillToward(workerTokens, limits, available) {
+  const funded = [...workerTokens];
+  let remaining = Math.max(0, available - funded.reduce((sum, value) => sum + value, 0));
+  while (remaining > 0) {
+    const active = funded.map((tokens, index) => limits[index] > tokens ? index : -1).filter(index => index >= 0);
+    if (!active.length) break;
+    const share = Math.max(1, Math.floor(remaining / active.length));
+    for (const index of active) {
+      const grant = Math.min(share, limits[index] - funded[index], remaining);
+      funded[index] += grant;
+      remaining -= grant;
+      if (!remaining) break;
+    }
+  }
+  return { funded, remaining };
+}
+
+function profileValues(profiles, field) {
+  return profiles.map(profile => whole(profile?.[field]));
+}
+
+function profiledAllocation(workerPool, profiles, mode) {
+  if (!profiles.length) {
+    return { mode, workerPool, recoveryPool: workerPool,
+      initial: { workerCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0, workerTokens: [] },
+      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: workerPool, workerTokens: [] } };
+  }
+  const minimums = profileValues(profiles, 'minimumStartTokens');
+  const minimumTotal = minimums.reduce((sum, value) => sum + value, 0);
+  if (workerPool < minimumTotal) {
+    return { mode, workerPool, recoveryPool: workerPool,
+      initial: { workerCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0, workerTokens: [] },
+      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: workerPool, workerTokens: [] } };
+  }
+  if (mode !== 'successive_halving_with_reallocation' && mode !== 'trinity_adaptive_all_worlds') {
+    const targets = profileValues(profiles, 'targetTokens');
+    const allocation = fillToward(minimums, targets, workerPool);
+    return { mode, workerPool, recoveryPool: allocation.remaining,
+      initial: profiledRound(allocation.funded),
+      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0, workerTokens: [] } };
+  }
+  const survivorCount = mode === 'trinity_adaptive_all_worlds'
+    ? profiles.length : Math.max(1, Math.ceil(profiles.length / 2));
+  const capacities = profiles.map((profile, index) => Math.max(0,
+    whole(profile.maximumTokens) - minimums[index]));
+  const safePerSurvivor = capacities.length ? Math.min(...capacities) : 0;
+  const continuationPool = Math.min(workerPool - minimumTotal, safePerSurvivor * survivorCount);
+  const continuation = splitPool(continuationPool, survivorCount);
+  return { mode, workerPool, recoveryPool: workerPool - minimumTotal - continuationPool,
+    initial: profiledRound(minimums),
+    continuation: { survivorCount, pool: continuationPool, ...continuation } };
+}
+
 function adaptiveAllWorldsAllocation({ workerPool, workers, minimum, mode }) {
   const minimumPass = minimum * workers;
   if (workerPool < minimumPass * 2) {
@@ -35,12 +95,15 @@ function adaptiveAllWorldsAllocation({ workerPool, workers, minimum, mode }) {
 
 // This is intentionally deterministic.  The runtime can persist and replay the
 // allocation decision instead of asking a model to invent a budget split.
-function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerTokens, mode }) {
+function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerTokens, workerBudgets, mode }) {
   const total = whole(totalTokens);
   const workers = whole(workerCount);
   const minimum = Math.max(1, whole(minimumWorkerTokens));
   const share = Number(workerShare);
   const workerPool = whole(total * (Number.isFinite(share) ? Math.max(0, Math.min(1, share)) : 0));
+  if (Array.isArray(workerBudgets) && workerBudgets.length === workers) {
+    return profiledAllocation(workerPool, workerBudgets, mode);
+  }
   if (!workers || workerPool < minimum * workers) {
     return { mode, workerPool, initial: { workerCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0 }, continuation: { survivorCount: 0, pool: workerPool, perWorkerTokens: 0, remainderTokens: workerPool } };
   }

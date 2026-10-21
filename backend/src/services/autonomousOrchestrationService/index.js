@@ -27,18 +27,22 @@ function applySurvivalConstraints(plan) {
   const requestedWorkers = plan.workers.length;
   plan.workers = plan.workers.slice(0, limit);
   plan.dispatchWorkers = plan.dispatchWorkers.slice(0, limit);
-  const workerShare = plan.dispatchWorkers.length ? plan.tokenPolicy.workerShare : 0;
-  plan.tokenPolicy.workerShare = workerShare;
-  plan.tokenPolicy.orchestratorReserve = plan.dispatchWorkers.length ? plan.tokenPolicy.orchestratorReserve : 1;
-  plan.tokenPolicy.rounds = require('../tokenAllocationService').buildAllocation({
-    totalTokens: plan.tokenPolicy.total,
-    workerShare,
-    workerCount: plan.dispatchWorkers.length,
-    minimumWorkerTokens: plan.tokenPolicy.minimumWorkerTokens,
-    mode: plan.tokenPolicy.allocation
-  });
+  if (plan.dispatchWorkers.length) {
+    require('../aTeamDispatchBudgetService').applyWorkerBudget(
+      plan.tokenPolicy, plan.dispatchWorkers);
+  } else {
+    plan.tokenPolicy.workerShare = 0;
+    plan.tokenPolicy.orchestratorReserve = 1;
+    plan.tokenPolicy.workerBudgets = [];
+    plan.tokenPolicy.rounds = require('../tokenAllocationService').buildAllocation({
+      totalTokens: plan.tokenPolicy.total, workerShare: 0, workerCount: 0,
+      minimumWorkerTokens: plan.tokenPolicy.minimumWorkerTokens,
+      workerBudgets: [], mode: plan.tokenPolicy.allocation
+    });
+  }
   plan.exploration = buildExploration(plan.workers, plan.dispatchWorkers);
-  plan.dispatchDecision = buildDispatchDecision(plan.workers, plan.dispatchWorkers);
+  plan.dispatchDecision = buildDispatchDecision(
+    plan.workers, plan.dispatchWorkers, plan.tokenPolicy.admission);
   plan.dispatchDecision.reason = plan.survival.constraints.suspend ? 'survival_dormancy' : (plan.dispatchDecision.reason || 'homeostasis_guard');
   plan.survival.constraints.requestedWorkerFanout = requestedWorkers;
   plan.survival.constraints.appliedWorkerFanout = plan.dispatchWorkers.length;
@@ -95,7 +99,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     mandatoryTools: [...requiredTools],
     workers,
     dispatchWorkers,
-    dispatchDecision: buildDispatchDecision(workers, dispatchWorkers),
+    dispatchDecision: buildDispatchDecision(workers, dispatchWorkers, tokenPlan.admission),
     competition: buildCompetition(contract, modes.competition),
     evolution: buildEvolution(contract, modes.evolution),
     parasitism: buildParasitism(flags),

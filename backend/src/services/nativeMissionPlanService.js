@@ -3,7 +3,6 @@
 const crypto = require('node:crypto');
 const registry = require('./agents/workerExecutorRegistry');
 const kinds = require('./agents/workerKindService');
-const { buildAllocation } = require('./tokenAllocationService');
 
 function invalid(code, message) {
   return Object.assign(new Error(message), { code });
@@ -128,12 +127,12 @@ function externalCreditAssignments(input) {
   return [helper, target];
 }
 
-function allocationFor(plan, count) {
+function allocationFor(plan, assignments) {
   const policy = plan.tokenPolicy;
-  const rounds = buildAllocation({ totalTokens: policy.total, workerShare: policy.workerShare,
-    workerCount: count, minimumWorkerTokens: policy.minimumWorkerTokens,
-    mode: 'fixed_native_objectives' });
-  if (rounds.initial.workerCount !== count) {
+  policy.allocation = 'fixed_native_objectives';
+  require('./aTeamDispatchBudgetService').applyWorkerBudget(policy, assignments);
+  const rounds = policy.rounds;
+  if (rounds.initial.workerCount !== assignments.length) {
     throw invalid('NATIVE_OBJECTIVE_BUDGET_INSUFFICIENT', 'Worker token budget cannot fund every native objective.');
   }
   return rounds;
@@ -173,7 +172,7 @@ function applyNativeMissionPlan(plan, mission) {
   const selected = objectives.flatMap((objective, index) => externalCreditAssignments({ objective, index,
     parentId: mission.agentId, missionId: mission.missionId,
     helperIndex: objectives.length + index + 1, batchSize }));
-  const rounds = allocationFor(plan, selected.length);
+  const rounds = allocationFor(plan, selected);
   plan.workers = selected;
   plan.dispatchWorkers = selected;
   plan.tokenPolicy.rounds = rounds;

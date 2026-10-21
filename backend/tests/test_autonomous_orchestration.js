@@ -48,8 +48,8 @@ assert(plan.decisionGates.some((gate) => gate.actions.includes('genos_replay')))
 assert.strictEqual(plan.parasitism.enabled, true);
 assert.strictEqual(plan.tokenPolicy.allocation, 'successive_halving_with_reallocation');
 assert.strictEqual(plan.tokenPolicy.rounds.initial.workerCount, 3);
-assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 9600);
-assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 0);
+assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 8000);
+assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 2);
 assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 assert.strictEqual(plan.controlRegulation.schema, 'genos.control-regulation/v1alpha1');
 assert(plan.controlRegulation.signals.some((signal) => signal.source === 'attention' && signal.target === 'diagnostics'));

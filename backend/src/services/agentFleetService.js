@@ -43,6 +43,8 @@ function enforceTrinityBudget(plan) {
     workerShare: 1,
     workerCount: count,
     minimumWorkerTokens: policy.minimumWorkerTokens,
+    workerBudgets: Array.isArray(policy.workerBudgets) && policy.workerBudgets.length === count
+      ? policy.workerBudgets : undefined,
     mode: policy.allocation
   });
   if (policy.rounds.initial.workerCount !== count) {

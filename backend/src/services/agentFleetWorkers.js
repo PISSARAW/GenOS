@@ -121,7 +121,7 @@ async function createAssignedWorkers(context) {
       ? await cohortWorkerService.existingCohortWorker(db, workerIds[index]) : null;
     const worker = existing
       ? cohortWorkerService.reuseCohortWorker(existing, { parentId: orchestrator.id, assignment: typed,
-        tokenBudget: workerContext.initialWorkerTokens?.[index] || workerContext.perWorkerTokens, mission })
+        tokenBudget: workerContext.initialWorkerTokens?.[index] ?? workerContext.perWorkerTokens, mission })
       : await createWorker({ ...workerContext, db, orchestrator, assignment: typed,
         index, id: workerIds[index], usedNames });
     workers.push(worker);
@@ -202,7 +202,7 @@ function buildWorkerPrompt(details) {
       methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
     })),
     phenotypeBlock,
-    context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${context.perWorkerTokens} tokens.` : `Budget allocation: ${context.perWorkerTokens} tokens.`
+    context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${context.allocationTokens ?? context.perWorkerTokens} tokens.` : `Budget allocation: ${context.allocationTokens ?? context.perWorkerTokens} tokens.`
   ].filter(Boolean).join('\n');
 }
 
@@ -222,7 +222,7 @@ async function createWorker(workerContext) {
 
 async function prepareWorkerAssets(workerContext) {
   const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
-  const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
+  const assignedTokens = initialWorkerTokens?.[index] ?? perWorkerTokens;
   const id = workerContext.id || autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
@@ -244,7 +244,7 @@ async function prepareWorkerAssets(workerContext) {
     workerSelfBlock = workerSelf.formatWorkerSelfPrompt(ws);
   } catch (_) {}
 
-  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection, workerSelfBlock });
+  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: { ...workerContext, allocationTokens: assignedTokens }, dnaSelection, workerSelfBlock });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
@@ -319,7 +319,7 @@ function fleetWorkerContract(details) {
     writeLease: workerWriteLease(mission),
     codeVerificationContract: mission.codeVerificationContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
-    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens,
+    workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens,
     delegatedTokenLimit: assignment.delegatedTokenLimit
   });
   if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);

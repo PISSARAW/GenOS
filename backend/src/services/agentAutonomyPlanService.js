@@ -104,10 +104,8 @@ function attachAteamCoordination({ aTeam, agentId, normalizedMission, emitEvent 
   return aTeam;
 }
 
-function activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount }) {
-  autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
-  autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
-  autonomyPlan.tokenPolicy.rounds = aTeamDispatchBudget.buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, trinityWorkerCount);
+function activateTrinity({ autonomyPlan, agentId }) {
+  aTeamDispatchBudget.applyWorkerBudget(autonomyPlan.tokenPolicy, autonomyPlan.trinity.members);
   autonomyPlan.workers = autonomyPlan.trinity.members;
   autonomyPlan.dispatchWorkers = autonomyPlan.trinity.members;
   emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
@@ -115,7 +113,8 @@ function activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiv
 
 function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare) {
   const trinityWorkerCount = autonomyPlan.trinity.members.length;
-  const affordableTrinityMembers = aTeamDispatchBudget.affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
+  const affordableTrinityMembers = aTeamDispatchBudget.affordableWorkerCount(
+    autonomyPlan.tokenPolicy, effectiveWorkerShare, autonomyPlan.trinity.members);
   autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
   const availableTokens = autonomyPlan.tokenPolicy.total * effectiveWorkerShare;
   const plannedTokens = Math.floor(availableTokens);
@@ -175,7 +174,7 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
     db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id
   });
   if (autonomyPlan.trinity.activated) {
-    activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount: engagement.trinityWorkerCount });
+    activateTrinity({ autonomyPlan, agentId });
   } else {
     reportTrinityPlan({ autonomyPlan, agentId, ...engagement });
   }
@@ -206,18 +205,16 @@ async function applyTrinityHypothesisDesign(trinity, normalizedMission, context)
   });
 }
 
-function activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount }) {
+function activateATeam({ autonomyPlan, agentId }) {
   autonomyPlan.workers = autonomyPlan.aTeam.members;
   autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
-  autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
-  autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
-  autonomyPlan.tokenPolicy.rounds = aTeamDispatchBudget.buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, aTeamWorkerCount);
+  aTeamDispatchBudget.applyWorkerBudget(autonomyPlan.tokenPolicy, autonomyPlan.aTeam.members);
   emit(agentId, 'A_TEAM_PLANNED', 'COMPOSE_TEAM', `Detected multidisciplinary mission across ${autonomyPlan.aTeam.detectedDomains.join(', ')}.`, autonomyPlan.aTeam, 'info');
 }
 
 function reportATeamDecision({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount, affordableAteamMembers }) {
   if (autonomyPlan.aTeam.activated) {
-    activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount });
+    activateATeam({ autonomyPlan, agentId });
     return;
   }
   if (autonomyPlan.aTeam.recommended && autonomyPlan.trinity.recommended) {
@@ -236,7 +233,8 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
     availableSpecialists: normalizedMission.availableSpecialists || normalizedMission.available_specialists
   });
   const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
-  const affordableAteamMembers = aTeamDispatchBudget.affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
+  const affordableAteamMembers = aTeamDispatchBudget.affordableWorkerCount(
+    autonomyPlan.tokenPolicy, effectiveWorkerShare, autonomyPlan.aTeam.members);
   autonomyPlan.aTeam.activated = !autonomyPlan.trinity.activated
     && (autonomyPlan.aTeam.recommended || normalizedMission.proposedTopology === 'a_team' || normalizedMission.morphologyTopology === 'a_team')
     && affordableAteamMembers >= aTeamWorkerCount;

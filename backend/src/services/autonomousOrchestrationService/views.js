@@ -7,10 +7,16 @@ function buildRegistry(portfolio) {
 function buildTokenPolicyView(contract, plan) {
   return {
     total: plan.totalTokens,
-    workerShare: plan.dispatchWorkers.length ? plan.effectiveWorkerShare : 0,
-    orchestratorReserve: plan.dispatchWorkers.length ? plan.orchestratorReserve : 1,
+    workerShare: plan.effectiveWorkerShare,
+    orchestratorReserve: plan.orchestratorReserve,
+    orchestratorReserveTokens: plan.orchestratorReserveTokens,
+    minimumOrchestratorReserveTokens: plan.minimumOrchestratorReserveTokens,
+    explicitWorkerShare: plan.explicitWorkerShare,
     allocation: plan.allocation,
     minimumWorkerTokens: plan.minimumWorkerTokens,
+    minimumWorkerTokensExplicit: plan.minimumWorkerTokensExplicit,
+    workerBudgets: plan.workerBudgets,
+    admission: plan.admission,
     stopConditions: contract.stop_conditions || [],
     rounds: plan.rounds
   };

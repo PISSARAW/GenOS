@@ -818,6 +818,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0709b](0709-progression-resultats-topologiques.md) | Progression canonique des résultats topologiques | Accepté | 2026-10-20 | Topologies, résultats workers, progression, clôture |
 | [0710](0710-harnais-restauration-morphogenetique.md) | Harnais transactionnel de restauration morphogénétique | Accepté, qualification des topologies en attente | 2026-10-20 | orchestration, morphogenèse, restauration, preuves |
 | [0711](0711-preuves-resolues-et-fallback-local-equivalent.md) | Preuves résolues et fallback local équivalent | Accepté | 2026-10-21 | orchestration, preuves, worker local, Windows |
+| [0716](0716-budget-tokens-par-role-et-reserve-elastique.md) | Budget de tokens par rôle et réserve orchestrateur élastique | Accepté | 2026-10-21 | Orchestration, workers, budgets, topologies, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

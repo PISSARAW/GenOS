@@ -11,12 +11,17 @@ function buildExploration(workers, dispatchWorkers) {
   };
 }
 
-function buildDispatchDecision(workers, dispatchWorkers) {
+function buildDispatchDecision(workers, dispatchWorkers, admission) {
   if (dispatchWorkers.length) {
-    return { status: 'planned', requestedWorkers: workers.length, selectedWorkers: dispatchWorkers.length, reason: 'budget_and_capacity_satisfied' };
+    return { status: 'planned', requestedWorkers: workers.length, selectedWorkers: dispatchWorkers.length,
+      reason: dispatchWorkers.length === workers.length ? 'budget_and_capacity_satisfied' : 'partial_topology_budgeted',
+      ...(admission ? { admission } : {}) };
   }
   if (workers.length) {
-    return { status: 'deferred', requestedWorkers: workers.length, selectedWorkers: 0, reason: 'worker_budget_below_minimum' };
+    return { status: 'deferred', code: 'TOPOLOGY_BUDGET_INSUFFICIENT',
+      requestedWorkers: workers.length, selectedWorkers: 0,
+      reason: admission?.reason || 'worker_budget_below_minimum',
+      ...(admission ? { admission } : {}) };
   }
   return { status: 'not_required', requestedWorkers: 0, selectedWorkers: 0, reason: 'no_worker_assignments' };
 }
