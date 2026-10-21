@@ -35,10 +35,15 @@ assert.match(conceptInstruction({ canonicalConcepts: [{ id: 'mission' }], runtim
     executable: false, reason: 'concept-documentaire-sans-raccord-runtime' }] }), /morphogenese/);
 const runtimeContext = missionRuntimeContext({
   conceptResolution: { failClosed: true }, missionCapabilityPlan: { version: 1 },
-  developmentalContext: { failClosed: true }, unrelated: 'not-forwarded'
+  developmentalContext: { failClosed: true }, localCodeWorker: true,
+  requiredPatchPaths: ['index.html'], requiredPatchMarkers: { 'index.html': ['id="hero"'] },
+  unrelated: 'not-forwarded'
 });
 assert.deepStrictEqual(runtimeContext.conceptResolution, { failClosed: true });
 assert.strictEqual(runtimeContext.missionCapabilityPlan.version, 1);
+assert.strictEqual(runtimeContext.localCodeWorker, true);
+assert.deepStrictEqual(runtimeContext.requiredPatchPaths, ['index.html']);
+assert.deepStrictEqual(runtimeContext.requiredPatchMarkers, { 'index.html': ['id="hero"'] });
 assert.strictEqual(runtimeContext.unrelated, undefined);
 const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_committee', requiredTools: ['genos_snapshot'] }, {
   topologyContract: { mode: 'a_team', organization: 'specialist_expert_committee', required: ['SIGNALING_BUS'] },

@@ -9,7 +9,14 @@ const TERMINAL = ['completed', 'blocked', 'error', 'terminated', 'apoptosis', 'u
 async function missionAgents(db, id) {
   return db.all(`WITH RECURSIVE family(id) AS (
     SELECT id FROM agents WHERE id = ? UNION SELECT a.id FROM agents a JOIN family f ON a.parent_agent_id = f.id
-  ) SELECT a.* FROM agents a JOIN family f ON a.id = f.id`, [id]);
+  ) SELECT a.*, w.path AS workspace_path FROM agents a JOIN family f ON a.id = f.id
+    LEFT JOIN workspaces w ON w.id = a.workspace_id`, [id]);
+}
+
+function candidateWorkspace(agents, orchestratorId) {
+  const candidates = (agents || []).filter((agent) => agent.id !== orchestratorId
+    && agent.execution_mode === 'worker' && agent.status === 'completed' && agent.workspace_path);
+  return candidates.length === 1 ? candidates[0].workspace_path : null;
 }
 
 function settled(agents) {
@@ -28,13 +35,14 @@ async function waitForMission(db, request, options) {
 }
 
 async function completionGate(db, input) {
-  const { request, agents, verifierReceipt = null } = input;
+  const { request, agents, verifierReceipt = null, candidateWorktree = null } = input;
   const outcome = summarizeAgents(agents);
   if (!Array.isArray(agents) || agents.length === 0 || !agents.every((agent) => agent?.status === 'completed')) return { allowed: false, reason: 'agents-non-verifies' };
   const context = await buildMissionContext({ db, missionId: request.id, agents, outcome, request, policyRequest: request });
   const verifierReceipts = require('./missionVerifierReceiptService');
   const verifierReceiptPresent = await verifierReceipts.validateReceipt(verifierReceipt, {
-    missionId: request.id, workspaceRoot: request.workspaceRoot, checks: request.verifierChecks
+    missionId: request.id, workspaceRoot: candidateWorktree || request.workspaceRoot,
+    checks: request.verifierChecks
   });
   context.context.flags.verifierReceiptPresent = verifierReceiptPresent;
   if (verifierReceiptPresent) context.context.evidence.push('independent_verifier_receipt');
@@ -57,4 +65,5 @@ function verifyEvidenceContract(request, context) {
   return null;
 }
 
-module.exports = { waitForMission, completionGate, missionAgents, settled, verifyEvidenceContract };
+module.exports = { waitForMission, completionGate, missionAgents, settled, verifyEvidenceContract,
+  candidateWorkspace };

@@ -23,6 +23,14 @@ function assertPlatformPathSemantics() {
   assert.equal(workspaceBinding.samePath(upper, lower), process.platform === 'win32');
 }
 
+function assertTopologyVariantIsolation() {
+  assert.equal(helpers.requestedTrinityVariant({ topologyId: 'a_team', variant: 'project_dag' }), undefined);
+  assert.equal(helpers.requestedTrinityVariant({ topologyId: 'trinity', variant: 'controlled' }), 'controlled');
+  assert.equal(helpers.requestedTrinityVariant({
+    topologyId: 'a_team', variant: 'project_dag', trinityVariant: 'adversarial'
+  }), 'adversarial');
+}
+
 async function assertResolvedWorkspaceIsRetained() {
   const db = {
     get: async () => ({ metadata_json: '{}', workspace_id: 'resolved-workspace' })
@@ -34,6 +42,7 @@ async function assertResolvedWorkspaceIsRetained() {
 async function main() {
   assertBudgetSources();
   assertPlatformPathSemantics();
+  assertTopologyVariantIsolation();
   await assertResolvedWorkspaceIsRetained();
   console.log('Orchestrator mission helper budget, workspace and path checks passed.');
 }

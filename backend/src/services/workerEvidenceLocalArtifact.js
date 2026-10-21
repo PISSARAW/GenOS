@@ -26,7 +26,8 @@ function attachWorkerArtifact(evidenceReport, context) {
   const mission = context.mission || {};
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
   const source = context.codeWorker ? evidenceReport : rawReply(evidenceReport);
-  const inspected = inspectWorkerArtifact(kind, source, artifactProvenance(mission, context));
+  const inspected = inspectWorkerArtifact(kind, source,
+    artifactProvenance(mission, context, evidenceReport));
   if (requiresDiagnosticMatrix(mission) && !diagnosticMatrixIsValid(inspected.artifact?.content)) {
     inspected.issues.push('diagnosticMatrix.invalid');
     inspected.artifact = null;
@@ -42,12 +43,21 @@ function requiresDiagnosticMatrix(mission) {
 
 function rawReply(report) { return report.fullText || report; }
 
-function artifactProvenance(mission, context) {
+function trustedCodeEvidenceRefs(report, codeWorker) {
+  if (!codeWorker) return [];
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
+  const refs = claims.flatMap((claim) => claim.evidence || [])
+    .concat(report?.scopeCompletion?.completedRefs || []);
+  return refs.filter((ref) => /^genos:\/\/code-(?:file|test)\/[a-f0-9]{64}$/.test(String(ref)));
+}
+
+function artifactProvenance(mission, context, evidenceReport) {
   return {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
     methodContract: mission.methodContract || null,
-    allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || [])])]
+    allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || []),
+      ...trustedCodeEvidenceRefs(evidenceReport, context.codeWorker)])]
   };
 }
 

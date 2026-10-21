@@ -14,6 +14,21 @@ assert.equal(proposal.patches[0].path, 'src/lib.rs');
 const responseFormat = proposalResponseFormat();
 assert.equal(responseFormat.schema.additionalProperties, false);
 assert.deepEqual(responseFormat.schema.required, ['format', 'patches', 'tests', 'evidence']);
+const leasedResponseFormat = proposalResponseFormat(['npm test', 'node malicious.js']);
+assert.deepEqual(leasedResponseFormat.schema.properties.tests.items.enum, ['npm test']);
+const webResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test'],
+	requiredPatchPaths: ['index.html', 'styles.css', 'script.js'],
+	requiredPatchMarkers: { 'index.html': ['data-reveal'] },
+	requiredPatchMinimumBytes: { 'index.html': 4500 } });
+assert.equal(webResponseFormat.schema.properties.patches.allOf.length, 3);
+assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.path.const, 'index.html');
+assert.deepEqual(webResponseFormat.schema.properties.patches.items.properties.path.enum,
+	['index.html', 'styles.css', 'script.js']);
+assert.equal(webResponseFormat.schema.properties.patches.minItems, 3);
+assert.equal(webResponseFormat.schema.properties.patches.maxItems, 3);
+assert.deepEqual(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.allOf,
+	[{ pattern: 'data-reveal' }]);
+assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.minLength, 4500);
 assert.deepEqual(require('../src/services/modelProviderRequest').buildRequestBody({
 	provider: 'ollama', modelName: 'fixture', prompt: 'Return a proposal.', outputLimit: 128,
 	stream: false, nativeOllama: true, responseFormat
@@ -37,6 +52,12 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker' }, stageTimings: {} });
 		assert.deepEqual(observedFormat, responseFormat);
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'ollama://fixture', latencyMs: 100,
+			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
+			mission: { agentId: 'code-worker', executionPolicy: { allowedCommands: ['npm test'] } },
+			stageTimings: {} });
+		assert.deepEqual(observedFormat.schema.properties.tests.items.enum, ['npm test']);
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
@@ -44,6 +65,19 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
 				text: JSON.stringify({ ...proposal, tests: ['node malicious.js'] }) }),
 			/not allow-listed/
+		);
+		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
+		await assert.rejects(
+			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
+				requiredPatchPaths: ['src/lib.rs'], requiredPatchMarkers: { 'src/lib.rs': ['required-marker'] },
+				text: JSON.stringify(proposal) }),
+			/missing required markers/
+		);
+		await assert.rejects(
+			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
+				requiredPatchPaths: ['src/lib.rs'], requiredPatchMinimumBytes: { 'src/lib.rs': 100 },
+				text: JSON.stringify(proposal) }),
+			/smaller than the required/
 		);
 		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
 		await fs.mkdir(path.join(root, 'linked-target'));

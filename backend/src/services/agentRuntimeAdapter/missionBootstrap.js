@@ -246,6 +246,7 @@ async function provisionMissionCapsule(ctx) {
     budgetSteps: normalizedMission.executionBudget?.events || 100,
     fallbackSynthetic: true
   });
+  normalizedMission.runtimeCapsule = genosCapsule;
   emit(agentId, 'AGENT_CAPSULE_CREATED', 'CAPSULE', `Created GenOS capsule ${genosCapsule.id}.`, genosCapsule, 'info');
   if (dispatchedAgent.execution_mode === 'orchestrator') {
     emit(agentId, 'ORCHESTRATOR_WORKSPACE_CREATED', 'CAPSULE', `Created isolated workspace for orchestrator ${agentId}.`, {

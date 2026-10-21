@@ -15,7 +15,6 @@ const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget')
 const { buildExecutionBudget, splitBudget } = require('./workerBudgetAllocationService');
 const cohortWorkerService = require('./agentCohortWorkerService');
 const { buildWorkerMeta } = require('./agentFleetWorkerMetadata');
-
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission } = ctx;
   const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
@@ -25,7 +24,6 @@ async function applyAgentDna(ctx) {
   assignment.genomeRef = selection.genomeRef;
   return selection;
 }
-
 function dnaAuthorityEvolution(selection) {
   return {
     genes: selection.genes,
@@ -36,13 +34,11 @@ function dnaAuthorityEvolution(selection) {
     predictedFitness: null
   };
 }
-
 function intersectLease(dnaTools, lease) {
   if (!Array.isArray(dnaTools) || !dnaTools.length) return lease;
   const allowed = new Set(dnaTools.map((tool) => String(tool)));
   return lease.filter((tool) => allowed.has(String(tool)));
 }
-
 function manifestFallbackCaps(assignment) {
   try {
     const { buildLaunchCapabilities } = require('./agents/agentIncarnationPayloadService');
@@ -389,6 +385,10 @@ function workerRuntime(details) {
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
     workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
     gqwfWorkerLease: gqwfWorkerWorkspace || null,
+    localCodeWorker: mission.localCodeWorker === true,
+    requiredPatchPaths: mission.requiredPatchPaths,
+    requiredPatchMarkers: mission.requiredPatchMarkers,
+    requiredPatchMinimumBytes: mission.requiredPatchMinimumBytes,
     inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy,
     localRoutingCriteria: route.criteria, capabilities, toolLease,
     workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider,

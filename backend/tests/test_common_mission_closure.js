@@ -75,6 +75,20 @@ function verifyWorkerBarrierAdapter() {
     workers, dossiers: [{ ...dossiers[0], events: [{ ...dossiers[0].events[0], nativeOracleRef: null }] }],
     invariants: [{ id: 'dossiers_valid', passed: true }] });
   assert.equal(closeMission(missingOracle).verdict, 'partial');
+
+  const replay = { success: true, replay_status: 'VERIFIED', execution_replayed: true,
+    snapshot: 'capsule/snapshot.json', snapshot_id: 'snapshot-barrier',
+    final_chain_hash: 'a'.repeat(64) };
+  const replayDossier = [{ ...dossiers[0], events: [{ ...dossiers[0].events[0],
+    nativeOracleRef: null, snapshot: 'capsule/snapshot.json', replayReceipt: replay }] }];
+  const replayInput = dossierAdapter.buildClosureInput({ missionId: 'mission-barrier', producerId: 'root',
+    workers, dossiers: replayDossier, invariants: [{ id: 'dossiers_valid', passed: true }] });
+  assert.equal(closeMission(replayInput).verdict, 'succeeded');
+  const invalidReplay = dossierAdapter.buildClosureInput({ missionId: 'mission-barrier', producerId: 'root',
+    workers, dossiers: [{ ...replayDossier[0], events: [{ ...replayDossier[0].events[0],
+      replayReceipt: { ...replay, execution_replayed: false } }] }],
+    invariants: [{ id: 'dossiers_valid', passed: true }] });
+  assert.equal(closeMission(invalidReplay).verdict, 'partial');
 }
 
 async function main() {

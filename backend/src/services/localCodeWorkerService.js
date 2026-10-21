@@ -117,8 +117,11 @@ async function runTest(command, root) {
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
   });
 }
-async function executeProposal({ workspaceRoot, text, allowedCommands }) {
+async function executeProposal({ workspaceRoot, text, allowedCommands, requiredPatchPaths,
+  requiredPatchMarkers, requiredPatchMinimumBytes }) {
   const proposal = parseProposal(text);
+  assertRequiredPatchContract(proposal, requiredPatchPaths, {
+    markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
   for (const command of proposal.tests) {
     if (!allowedTest(command, allowedCommands)) throw new Error(`Test command is not allow-listed: ${command}`);
   }
@@ -150,8 +153,44 @@ async function executeProposal({ workspaceRoot, text, allowedCommands }) {
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
     changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests, merged: false, testStatus: 'passed' };
 }
+function responseOptions(options) {
+  return Array.isArray(options) ? { allowedCommands: options, requiredPatchPaths: [],
+    requiredPatchMarkers: {}, requiredPatchMinimumBytes: {} }
+    : { allowedCommands: options?.allowedCommands || [], requiredPatchPaths: options?.requiredPatchPaths || [],
+      requiredPatchMarkers: options?.requiredPatchMarkers || {},
+      requiredPatchMinimumBytes: options?.requiredPatchMinimumBytes || {} };
+}
+
+function proposalResponseFormat(options = {}) {
+  const resolved = responseOptions(options);
+  const commands = [...new Set(resolved.allowedCommands.map(normalizeSandboxCommand)
+    .filter(isAllowedSandboxTestCommand))];
+  const paths = [...new Set(resolved.requiredPatchPaths.filter(safePath))].slice(0, 12);
+  if (!commands.length && !paths.length) return PROPOSAL_RESPONSE_FORMAT;
+  const format = JSON.parse(JSON.stringify(PROPOSAL_RESPONSE_FORMAT));
+  if (commands.length) format.schema.properties.tests.items.enum = commands;
+  if (paths.length) {
+    format.schema.properties.patches.minItems = paths.length;
+    format.schema.properties.patches.maxItems = paths.length;
+    format.schema.properties.patches.items.properties.path.enum = paths;
+    format.schema.properties.patches.allOf = paths.map((requiredPath) => ({
+      contains: { type: 'object', properties: { path: { const: requiredPath },
+        content: { type: 'string', minLength: resolved.requiredPatchMinimumBytes[requiredPath] || 0,
+          allOf: markerPatterns(resolved.requiredPatchMarkers[requiredPath]) } },
+      required: ['path', 'content'] }
+    }));
+  }
+  return format;
+}
+
+function markerPatterns(markers) {
+  return (Array.isArray(markers) ? markers : []).map((marker) => ({
+    pattern: String(marker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }));
+}
+
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
-  restorePatchState, proposalResponseFormat: () => PROPOSAL_RESPONSE_FORMAT };
+  restorePatchState, proposalResponseFormat, assertRequiredPatchContract };
 
 function assertProposalSchema(proposal) {
   if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
@@ -160,5 +199,33 @@ function assertProposalSchema(proposal) {
 function assertProposalPatches(proposal) {
   for (const patch of proposal.patches) {
     if (!patch || Object.keys(patch).some((key) => !['path', 'content'].includes(key)) || !safePath(patch.path) || typeof patch.content !== 'string' || Buffer.byteLength(patch.content) > 200000) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+  }
+}
+
+function assertRequiredPatchContract(proposal, requiredPaths = [], requirements = {}) {
+  const paths = [...new Set((requiredPaths || []).map((item) => normalizeRelativePath(item, 'required patch path')))];
+  const patches = new Map(proposal.patches.map((patch) => [normalizeRelativePath(patch.path, 'patch path'), patch]));
+  if (paths.length && (patches.size !== paths.length || paths.some((item) => !patches.has(item)))) {
+    throw new Error(`Patch proposal does not match required paths: ${paths.join(', ')}.`);
+  }
+  assertRequiredMarkers(patches, requirements.markers);
+  assertMinimumBytes(patches, requirements.minimumBytes);
+}
+
+function assertRequiredMarkers(patches, requiredMarkers = {}) {
+  for (const [relative, markers] of Object.entries(requiredMarkers)) {
+    const patch = patches.get(normalizeRelativePath(relative, 'required marker path'));
+    const missing = (Array.isArray(markers) ? markers : []).filter((marker) => !patch?.content.includes(marker));
+    if (missing.length) throw new Error(`Patch '${relative}' is missing required markers: ${missing.join(', ')}.`);
+  }
+}
+
+function assertMinimumBytes(patches, minimumBytes = {}) {
+  for (const [relative, minimum] of Object.entries(minimumBytes)) {
+    const patch = patches.get(normalizeRelativePath(relative, 'required size path'));
+    if (!Number.isSafeInteger(minimum) || minimum < 0) throw new Error(`Invalid minimum patch size for '${relative}'.`);
+    if (!patch || Buffer.byteLength(patch.content, 'utf8') < minimum) {
+      throw new Error(`Patch '${relative}' is smaller than the required ${minimum} UTF-8 bytes.`);
+    }
   }
 }

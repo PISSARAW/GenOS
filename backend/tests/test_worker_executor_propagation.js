@@ -21,7 +21,9 @@ async function main() {
         missionId: 'mission-executor-test',
         orchestratorId: 'orchestrator-executor-test',
         task: 'Verify executor propagation',
-        request: { executor: 'codex', execution_budget: { tokens: 8000 },
+        request: { executor: 'codex', localCodeWorker: true, requiredPatchPaths: ['index.html'],
+          requiredPatchMarkers: { 'index.html': ['NOX'] }, requiredPatchMinimumBytes: { 'index.html': 4500 },
+          execution_budget: { tokens: 8000 },
           organization: 'cross_functional_pod', coordinationPolicy: { communicationCadence: 'continuous_sync' } }
       },
       parent: { agent_type: 'GenOS', model_tier: 'frontier', isolation_mode: 'Branch' },
@@ -36,6 +38,10 @@ async function main() {
     const built = dispatchService.buildWorkerMission(dispatched);
     assert.equal(built.executor, 'codex');
     assert.equal(built.localRuntime, false);
+    assert.equal(built.localCodeWorker, true);
+    assert.deepEqual(built.requiredPatchPaths, ['index.html']);
+    assert.deepEqual(built.requiredPatchMarkers, { 'index.html': ['NOX'] });
+    assert.deepEqual(built.requiredPatchMinimumBytes, { 'index.html': 4500 });
     assert.equal(built.workspaceProvisioned, true);
   } finally {
     dispatchService.dispatchWorkerMission = originalDispatch;

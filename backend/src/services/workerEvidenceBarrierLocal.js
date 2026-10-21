@@ -91,7 +91,14 @@ async function generateWorkerResult(ctx) {
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
     ...sharedBudget,
-    responseFormat: ctx.codeWorker ? localCodeWorker.proposalResponseFormat() : workerResponseFormat(ctx.mission),
+    responseFormat: ctx.codeWorker
+      ? localCodeWorker.proposalResponseFormat({
+        allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
+        requiredPatchPaths: ctx.mission.requiredPatchPaths,
+        requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
+        requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
+      })
+      : workerResponseFormat(ctx.mission),
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
@@ -100,7 +107,9 @@ async function generateWorkerResult(ctx) {
 async function resolveProposal(ctx) {
   if (!ctx.codeWorker) return null;
   return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text,
-    allowedCommands: ctx.allowedCommands });
+    allowedCommands: ctx.allowedCommands, requiredPatchPaths: ctx.requiredPatchPaths,
+    requiredPatchMarkers: ctx.requiredPatchMarkers,
+    requiredPatchMinimumBytes: ctx.requiredPatchMinimumBytes });
 }
 
 function throwIfProposalFailed(proposal) {
@@ -197,7 +206,7 @@ function maybeEmitDecisionBlocked(mission, event) {
   }, 'warning', 'blocked');
   return null;
 }
-function maybeExecuteDecision(mission, event) {
+async function maybeExecuteDecision(mission, event) {
   const evidence = require('./agentEvidenceService');
   if (evidence.hasDecisionEvidence(event) === false) return;
   const decision = decideFromEvent(event);
@@ -207,18 +216,20 @@ function maybeExecuteDecision(mission, event) {
   let gateId = null;
   if (decision.gateId) gateId = decision.gateId;
   emit(ownerId, 'ORCHESTRATION_DECISION_GATE', decision.action, decision.reason, { gateId: gateId, sourceAgentId: mission.agentId, sourceEvent: event.eventType }, 'info');
-  actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision: decision, event: event, workspaceRoot: mission.workspaceRoot }).catch(() => undefined);
+  return actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId,
+    decision: decision, event: event, workspaceRoot: mission.workspaceRoot }).catch(() => undefined);
 }
 async function publishLocalSuccess(ctx) {
   const { recordWorkerEvidence } = require('./agentEvidenceService');
   const progress = await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, ctx.event);
   if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED',
     terminalReceiptPublished: Boolean(progress.biologicalReceipt) });
+  maybeEmitDecisionBlocked(ctx.mission, ctx.event);
+  const action = await maybeExecuteDecision(ctx.mission, ctx.event);
+  if (action?.executed && action.result?.proof) ctx.event.payload.replayReceipt = action.result.proof;
   recordWorkerEvidence(ctx.mission, ctx.event);
   reportMilestone(ctx.mission, ctx.event);
   await advanceAutonomousRound(ctx.mission, ctx.event);
-  maybeEmitDecisionBlocked(ctx.mission, ctx.event);
-  maybeExecuteDecision(ctx.mission, ctx.event);
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
   require('./agentDnaInnovation').captureFromSuccess({ db: ctx.db, mission: ctx.mission, event: ctx.event }).catch(() => undefined);
 }
@@ -248,6 +259,9 @@ async function runGenerationStage(ctx) {
     : '';
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
+    requiredPatchPaths: ctx.mission.requiredPatchPaths,
+    requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
+    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
     orchestrator: isOrchestratorMission(ctx.mission),
     selfIntro: selfIntro,
     conscienceBlock: conscienceBlock,
@@ -285,7 +299,10 @@ async function runEvidenceStage(ctx) {
   try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
   const proposal = await resolveProposal({ codeWorker: ctx.codeWorker,
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
-    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [] });
+    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
+    requiredPatchPaths: ctx.mission.requiredPatchPaths,
+    requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
+    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
   throwIfProposalFailed(proposal);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
@@ -334,7 +351,7 @@ async function runLocalWorker(db, mission, executionRun) {
       nameMeaning: generation.nameMeaning,
       stageTimings: stageTimings
     });
-    return require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
+    return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
       executionRun, generation, evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
     await workerIdentity.fail(db, { identity, executionRun, error });
@@ -342,7 +359,7 @@ async function runLocalWorker(db, mission, executionRun) {
       input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens,
       cost_usd: generation.result.costUsd, tokens: consumedTokensOf(generation.result)
     } : undefined;
-    return require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
+    return await require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
       error, usage, stageTimings, reportMilestone });
   } finally {
     await workerIdentity.release(db, identity);

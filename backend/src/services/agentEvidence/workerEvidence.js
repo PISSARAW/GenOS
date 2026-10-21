@@ -47,7 +47,9 @@ function buildWorkerEvidenceEntry(event, report, failure) {
     detail: String(event.detail || '').slice(0, 500)
   };
   if (reportCarriesEvidence(report)) entry.evidenceReport = report;
+  if (event.payload?.snapshot) entry.snapshot = event.payload.snapshot;
   if (event.payload?.nativeOracleRef) entry.nativeOracleRef = event.payload.nativeOracleRef;
+  if (event.payload?.replayReceipt) entry.replayReceipt = event.payload.replayReceipt;
   if (failure) entry.failure = failure;
   if (event.payload?.noAnswerProof) entry.noAnswerProof = event.payload.noAnswerProof;
   return entry;

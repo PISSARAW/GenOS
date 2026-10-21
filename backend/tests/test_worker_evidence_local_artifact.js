@@ -19,6 +19,19 @@ assert.equal(report.workerArtifact.type, 'dossier');
 assert.equal(report.workerArtifact.content.claims[0].statement, 'The contract covers the API response.');
 assert.equal(report.claims[0].statement, report.workerArtifact.content.claims[0].statement);
 
+const codeReport = require('../src/services/workerCodeEvidenceReport').build({
+  mission: { workspaceRoot: 'workspace' },
+  proposal: { testStatus: 'passed', changedFileHashes: [{ path: 'index.html', hash: 'a'.repeat(64) }],
+    tests: [{ command: 'npm test', exitCode: 0, signal: null, stdout: 'pass', stderr: '' }] }
+});
+attachWorkerArtifact(codeReport, {
+  codeWorker: true,
+  mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' },
+  agentName: 'code-worker'
+});
+assert.equal(codeReport.workerArtifact.type, 'dossier');
+assert.match(codeReport.claims[0].evidence[0], /^genos:\/\/code-file\//);
+
 const invalid = { outcome: 'success', claims: [], fullText: '{"outcome":"success","claims":[]}' };
 assert.throws(() => attachWorkerArtifact(invalid, {
   mission: { workerKind: 'bounded_worker' }, agentName: 'worker'
