@@ -11,6 +11,7 @@ const { notify } = require('./notificationService');
 const { workerFailure } = require('./failurePolicy');
 const { verifyPhilosophicalObservations } = require('./philosophicalObservationService');
 const operationJournal = require('./operationJournal');
+const daemonStewardship = require('./daemonStewardshipService');
 
 async function beginIntegrationOperation(db, run) {
   const operation = await operationJournal.prepareOperation(db, {
@@ -140,7 +141,10 @@ async function completeIntegration(db, ctx, input) {
     await db.run("UPDATE ontogenesis_projects SET state = 'PLANNING' WHERE id = ?", [ctx.project.id]);
   });
   await notify(db, { projectId: ctx.project.id, kind: 'result', payload: { sha: input.sha, taskId: input.run.task_id } });
-  return { state: 'PLANNING', event: 'integrated', sha: input.sha };
+  const daemonFeedback = await daemonStewardship.recordIntegration(db, {
+    projectId: ctx.project.id, taskId: input.run.task_id, sha: input.sha
+  }).catch((error) => ({ recorded: false, reason: error.message }));
+  return { state: 'PLANNING', event: 'integrated', sha: input.sha, daemonFeedback };
 }
 
 async function processIntegration(db, ctx) {

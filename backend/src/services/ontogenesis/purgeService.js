@@ -12,6 +12,7 @@ const { canonicalJson } = require('./durableJson');
 
 const TRACE_TABLES = ['trace_spans', 'telemetry_events', 'telemetry_hourly_stats', 'audit_logs'];
 const PROJECT_TABLES = [
+  'ontogenesis_daemon_proposals',
   'ontogenesis_recovery_receipts', 'ontogenesis_artifacts', 'ontogenesis_outbox',
   'ontogenesis_operations', 'ontogenesis_execution', 'ontogenesis_pressure',
   'ontogenesis_integrations', 'ontogenesis_decisions', 'ontogenesis_runs',

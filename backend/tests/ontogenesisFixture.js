@@ -22,6 +22,7 @@ async function memoryDb(filename = ':memory:') {
   const migrations = ['migrateOntogenesis', 'migrateOntogenesisConversation', 'migrateOntogenesisSchedule',
     'migrateOntogenesisQuestions', 'migrateOntogenesisExecution', 'migrateOntogenesisLedger',
     'migrateOntogenesisDurableFoundation', 'migrateOntogenesisCrashRecovery',
+    'migrateOntogenesisDaemonStewardship',
     'migrateOntogenesisHosts', 'migrateOntogenesisContinuity',
     'migrateOntogenesisPurge',
     'migrateShevProjectLoop', 'migrateShevProtocols',

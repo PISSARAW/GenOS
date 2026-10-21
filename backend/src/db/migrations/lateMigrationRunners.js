@@ -188,4 +188,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('147-sre-healing-campaigns', 'Persist scoped SRE responsibility and append-only healing transitions', async (db) => {
     await require('./migrateSreHealingCampaigns').migrateSreHealingCampaigns(db);
   }),
+  createMigrationRunner('149-ontogenesis-daemon-stewardship', 'Persist bounded Daemon findings as Ontogenesis backlog proposals', async (db) => {
+    await require('./migrateOntogenesisDaemonStewardship').migrateOntogenesisDaemonStewardship(db);
+  }),
 ];

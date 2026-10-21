@@ -24,6 +24,10 @@ function defaultConfig() {
     allowMerge: false,
     durability: { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' },
     retention: { artifactsDays: 30, evidenceDays: 365, quarantineDays: 7 },
+    daemonStewardship: {
+      enabled: true, autoEnqueue: true, eligibleStatuses: ['REPAIRABLE'],
+      maxOpenTasks: 3, requireLiveDaemon: true
+    },
     publication: { enabled: false },
     merge: { enabled: false },
     authority: { allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: [DEFAULT_BRANCH], rules: [] }
@@ -111,6 +115,21 @@ function checkExternalAuthority(config, errors) {
   if (!isPlainObject(config.merge) || config.merge.enabled !== false) errors.push('fusion-interdite-lot0');
 }
 
+function checkDaemonStewardship(config, errors) {
+  const policy = config.daemonStewardship;
+  if (!isPlainObject(policy)) return errors.push('daemonStewardship-requis');
+  if (typeof policy.enabled !== 'boolean') errors.push('daemonStewardship.enabled-booleen-requis');
+  if (typeof policy.autoEnqueue !== 'boolean') errors.push('daemonStewardship.autoEnqueue-booleen-requis');
+  if (typeof policy.requireLiveDaemon !== 'boolean') errors.push('daemonStewardship.requireLiveDaemon-booleen-requis');
+  if (!Number.isSafeInteger(policy.maxOpenTasks) || policy.maxOpenTasks < 0 || policy.maxOpenTasks > 20) {
+    errors.push('daemonStewardship.maxOpenTasks-invalide');
+  }
+  const allowed = ['REPAIRABLE', 'CAUSALLY_SUPPORTED', 'REPRODUCED'];
+  if (!Array.isArray(policy.eligibleStatuses) || policy.eligibleStatuses.some((status) => !allowed.includes(status))) {
+    errors.push('daemonStewardship.eligibleStatuses-invalides');
+  }
+}
+
 function migrateProjectConfig(input) {
   if (!isPlainObject(input)) throw new Error('configuration-legacy-invalide');
   const version = input.version === undefined ? LEGACY_CONFIG_VERSION : input.version;
@@ -127,6 +146,9 @@ function migrateProjectConfig(input) {
 
 function validateProjectConfig(input) {
   const config = Object.assign(defaultConfig(), input || {});
+  config.daemonStewardship = {
+    ...defaultConfig().daemonStewardship, ...(input?.daemonStewardship || {})
+  };
   if (input && input.branch && !input.authority) config.authority.branches = [config.branch];
   const errors = [];
   checkCore(config, errors);
@@ -135,6 +157,7 @@ function validateProjectConfig(input) {
   checkDurability(config, errors);
   checkRetention(config, errors);
   checkExternalAuthority(config, errors);
+  checkDaemonStewardship(config, errors);
   validateExecutionConfig(config, errors);
   return { ok: errors.length === 0, errors, config };
 }

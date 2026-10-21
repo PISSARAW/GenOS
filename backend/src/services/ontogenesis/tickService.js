@@ -32,6 +32,7 @@ const { processIntegration } = require('./integrationController');
 const { compileDevelopmentalContext } = require('./developmentalContextService');
 const { authorizeTick } = require('./continuityService');
 const daemonSensory = require('./daemonSensorySystem');
+const daemonStewardship = require('./daemonStewardshipService');
 
 const { processInbox, operatorContext } = require('./inboxProcessor');
 const { reconcileExecution, cancelBlockedTask } = require('./recoveryController');
@@ -293,10 +294,15 @@ async function loadClaimedContext(db, input, fence) {
   const tasks = await listTasks(db, input.projectId);
   await compileEmptyBacklog(db, project, { tasks, compiled: input.preparation.mission });
   await processInbox(db, input.projectId);
+  const sensory = await daemonSensory.observeProject(db, project);
+  await daemonSensory.publishObservation(db, { projectId: project.id, snapshot: sensory });
+  const stewardship = await daemonStewardship.reconcileBacklog(db, {
+    project, config: configOf(project), snapshot: sensory
+  });
   const ctx = await loadContext(db, input);
   ctx.fence = fence;
-  ctx.sensory = await daemonSensory.observeProject(db, ctx.project);
-  await daemonSensory.publishObservation(db, { projectId: ctx.project.id, snapshot: ctx.sensory });
+  ctx.sensory = sensory;
+  ctx.daemonStewardship = stewardship;
   ctx.observedEvents = await observeEvents(db, input.projectId);
   return ctx;
 }

@@ -5,6 +5,7 @@ const { setProjectState, setTaskStatus, bumpAttempt } = require('./projectStore'
 const { recordMemory } = require('./memoryService');
 const { notify } = require('./notificationService');
 const { failureState } = require('./failurePolicy');
+const daemonStewardship = require('./daemonStewardshipService');
 
 async function stopExecution(db, ctx, harness) {
   const run = await activeExecution(db, ctx.project.id);
@@ -67,6 +68,9 @@ async function settleFailedExecution(db, ctx, error) {
   }
   await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: error.message, provenance: { operationId: run && run.id, topology: run && run.topology, taskId: run && run.task_id } });
   const state = await failureState(db, run, error);
+  if (run) await daemonStewardship.recordFailure(db, {
+    projectId: ctx.project.id, taskId: run.task_id, reason: error.message
+  }).catch(() => ({ recorded: false }));
   await setProjectState(db, { projectId: ctx.project.id, state });
   await notify(db, { projectId: ctx.project.id, kind: 'blocked', payload: { reason: error.message } });
   return { state, note: error.message };
