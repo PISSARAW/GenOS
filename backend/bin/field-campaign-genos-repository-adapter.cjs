@@ -2,17 +2,18 @@
 'use strict';
 
 /**
- * SHEV field campaign — real repository adapter (point P0: scaffolding + workspace).
+ * SHEV field campaign — real repository adapter (P0: workspace + P1: runtime).
  *
  * This adapter implements the four separated roles required by the field
  * protocol: workspace (attestation), runtime (execution), observer
  * (independent measurement), and verifier (independent receipt).
  *
- * Point P0: only workspace.ensureArm is real. It clones two workspaces issued
- * from the same base commit of a real repository (one per arm) and attests
- * their isolation. The runtime, observer and verifier roles exist but are
- * intentionally unimplemented; they raise a clear error naming the point that
- * implements them. They will be replaced by real terrain code in P1 and P2.
+ * Points P0+P1: workspace.ensureArm clones two workspaces issued from the same
+ * base commit of a real repository. runtime.executeWindow launches a real
+ * GenOS maintenance mission on each workspace and produces a real diff/commit
+ * plus content-addressed artifacts. The observer and verifier roles exist but
+ * are intentionally unimplemented; they raise a clear error naming P2. They
+ * will be replaced by real terrain code in P2.
  *
  * Environment:
  *   GENOS_FIELD_REPO        — source repository to clone (default: cwd)
@@ -32,6 +33,7 @@ const WORKSPACE_SCHEMA = 'genos.shev-field-workspace-attestation/v1';
 const MEASUREMENT_SCHEMA = 'genos.shev-field-window-measurement/v1';
 
 const ROOT = path.resolve(__dirname, '..');
+const ORCHESTRATE = path.join(ROOT, 'bin', 'genos-orchestrate.cjs');
 
 function envOr(name, fallback) {
   const value = process.env[name];
@@ -100,6 +102,96 @@ function ensureArm(expected, workspacesRoot, repo, baseCommit) {
   return workspaceAttestation(expected, actual);
 }
 
+function missionPayload(request, workspaceDir) {
+  return {
+    mission: `repository-maintenance-correctness-v1:${request.window.id}`,
+    task: request.window.taskHash,
+    contextHash: request.window.contextHash,
+    phase: request.phase,
+    arm: request.arm,
+    intervention: request.intervention,
+    projectId: request.project.projectId,
+    workspaceId: request.workspaceId,
+    workspace: workspaceDir,
+    scheduledAt: request.window.scheduledAt,
+    painExpected: request.window.painExpected
+  };
+}
+
+function runOrchestrator(workspaceDir, payload) {
+  const started = Date.now();
+  const result = spawnSync(process.execPath, [ORCHESTRATE], {
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    cwd: workspaceDir,
+    timeout: 300000
+  });
+  return {
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    exitCode: result.status,
+    signal: result.signal || null,
+    error: result.error ? result.error.message : null,
+    durationMs: Date.now() - started
+  };
+}
+
+function captureCommits(workspaceDir) {
+  let before = null;
+  let after = null;
+  try { before = gitHead(workspaceDir); } catch (_) { before = null; }
+  return { before, after: null };
+}
+
+function buildArtifact(ctx) {
+  const { request, arm, commitBefore, commitAfter, result, durationMs } = ctx;
+  const artifact = {
+    schema: 'genos.shev-field-window-artifact/v1',
+    windowId: request.window.id,
+    phase: request.phase,
+    arm,
+    intervention: request.intervention,
+    projectId: request.project.projectId,
+    workspaceId: request.workspaceId,
+    commitBefore,
+    commitAfter,
+    exitCode: result.exitCode,
+    signal: result.signal,
+    error: result.error,
+    durationMs: result.durationMs || durationMs,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    producedAt: new Date().toISOString()
+  };
+  return artifact;
+}
+
+function runWorkspaceMission(request, workspacesRoot) {
+  const arm = request.arm;
+  const workspaceDir = path.join(workspacesRoot, arm);
+  if (!fs.existsSync(path.join(workspaceDir, '.git'))) {
+    throw new Error(`Workspace ${arm} is not prepared (missing .git).`);
+  }
+  const commitBefore = gitHead(workspaceDir);
+  const payload = missionPayload(request, workspaceDir);
+  const result = runOrchestrator(workspaceDir, payload);
+  let commitAfter = commitBefore;
+  try { commitAfter = gitHead(workspaceDir); } catch (_) { commitAfter = commitBefore; }
+  const artifact = buildArtifact({
+    request, arm, commitBefore, commitAfter, result, durationMs: result.durationMs
+  });
+  const artifactHash = fingerprint(artifact);
+  return {
+    executionId: `field-execution-${arm}-${request.window.id}`,
+    actorId: `field-producer-${arm}`,
+    projectId: request.project.projectId,
+    workspaceId: request.workspaceId,
+    intervention: request.intervention,
+    artifactHash
+  };
+}
+
 function notImplemented(role, point) {
   return async () => {
     throw new Error(`${role} is not implemented yet: see point ${point}.`);
@@ -119,7 +211,8 @@ async function createAdapters(context) {
       ensureArm: async (expected) => ensureArm(expected, workspacesRoot, repo, baseCommit)
     },
     runtime: {
-      executeWindow: notImplemented('runtime.executeWindow', 'P1')
+      executeWindow: async ({ request, attestation }) =>
+        runWorkspaceMission(request, workspacesRoot)
     },
     observer: {
       measureWindow: notImplemented('observer.measureWindow', 'P2')
