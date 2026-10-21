@@ -39,10 +39,12 @@ async function replaceParent(db, context) {
     `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`,
     context.orchestratorId, context.task
   );
-  return db.get(
+  const parent = await db.get(
     "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.organization_id, w.project_id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
     context.orchestratorId
   );
+  if (!parent) throw new Error(`Replacement orchestrator '${context.orchestratorId}' could not be persisted.`);
+  return parent;
 }
 
 module.exports = { ensureParent, isUnavailableParent, replaceParent };

@@ -19,6 +19,7 @@ const { getDatabase } = require('../src/db');
 const { ensureAgentStrategyContracts } = require('../src/db/seed');
 const swarmMetrics = require('../src/services/swarmMetricsService');
 const workspaceLifecycle = require('../src/services/agentWorkspaceLifecycleService');
+const workspaceBindings = require('../src/services/workerWorkspaceBindingService');
 const TEST_PORT = 50059;
 const testWorkerId = `worker-sub-${crypto.randomBytes(5).toString('hex')}`;
 const testGrpcSecret = `grpc-test-${crypto.randomBytes(24).toString('hex')}`;
@@ -229,22 +230,34 @@ async function runGrpcSuite() {
       'ws-test-identity'
     );
     await db.run(
-      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id, is_apoptotic)
-       VALUES (?, ?, ?, 'idle', 'worker', ?, ?, 0)
-       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id, is_apoptotic=0`,
+      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id, is_apoptotic, isolation_mode)
+       VALUES (?, ?, ?, 'idle', 'worker', ?, ?, 0, 'Branch')
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status,
+         execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id,
+         parent_agent_id=excluded.parent_agent_id, is_apoptotic=0, isolation_mode='Branch'`,
       testWorkerId,
       'gRPC worker',
       'parallel_executor',
       'ws-test-identity',
       'orch-prime'
     );
+    await db.run(`INSERT OR REPLACE INTO missions (mission_id,objective,orchestrator_agent_id)
+      VALUES ('grpc-suite-mission','Verify gRPC fleet dispatch','orch-prime')`);
+    await db.run(`INSERT OR REPLACE INTO mission_agents (mission_id,agent_id,role) VALUES
+      ('grpc-suite-mission','orch-prime','orchestrator'),
+      ('grpc-suite-mission',?,'worker')`, testWorkerId);
     await ensureAgentStrategyContracts(db);
     const originalStartMission = runtimeAdapter.startMission;
     const originalCreateIsolatedWorkspace = workspaceLifecycle.createIsolatedWorkspace;
+    const originalBindWorkerWorkspace = workspaceBindings.bindWorkerWorkspace;
     workspaceLifecycle.createIsolatedWorkspace = async (sourceRoot, workerId) => {
       assert.strictEqual(sourceRoot, process.cwd());
       assert.strictEqual(workerId, testWorkerId);
-      return sourceRoot;
+      return path.join(sourceRoot, '.grpc-isolated');
+    };
+    workspaceBindings.bindWorkerWorkspace = async (_database, input) => {
+      assert.strictEqual(input.parentWorkspaceId, 'ws-test-identity');
+      return 'grpc-suite-capsule';
     };
     runtimeAdapter.startMission = async (mission) => {
       assert.strictEqual(mission.agentId, testWorkerId);
@@ -265,6 +278,7 @@ async function runGrpcSuite() {
     } finally {
       runtimeAdapter.startMission = originalStartMission;
       workspaceLifecycle.createIsolatedWorkspace = originalCreateIsolatedWorkspace;
+      workspaceBindings.bindWorkerWorkspace = originalBindWorkerWorkspace;
     }
     assert.strictEqual(orchRes.success, true, `DispatchWorker failed: ${orchRes.status}`);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);
