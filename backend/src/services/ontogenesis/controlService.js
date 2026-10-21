@@ -12,6 +12,7 @@ const { postInbox, listPendingInbox, postEvent } = require('./inboxService');
 const { listPendingNotifications } = require('./notificationService');
 const { listFailures } = require('./memoryService');
 const { listTasks, getProject } = require('./projectStore');
+const { claimSummary, getClaim } = require('./claimService');
 const { sampleMemory } = require('./memoryPressure');
 const { buildActivity } = require('./activityView');
 const daemonSensory = require('./daemonSensorySystem');
@@ -130,6 +131,7 @@ async function getStatusView(db, input) {
   const current = currentRunOf(runs);
   const live = sampleMemory({ reservationsMb: 0 });
   const lastCommit = lastCommitOf(integrations);
+  const claim = await claimSummary(db, input.projectId);
   const sensory = daemonSensory.summarize(await daemonSensory.observeProject(db, project));
   const view = buildActivity({
     projectId: project.id, state: project.state, branch: project.branch,
@@ -144,6 +146,8 @@ async function getStatusView(db, input) {
     workers: parseWorkers(current),
     budgets: config.budgets || null,
     delivery: deliveryBoundary(lastCommit),
+    claimOwner: claim.claimOwner,
+    claimExpiresAt: claim.claimExpiresAt,
     memory: { ...live, failures: view.memory.failures }
   };
 }

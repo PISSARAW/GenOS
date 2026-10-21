@@ -121,7 +121,7 @@ function resolveVariant(topology, requested, mission) {
   const selected = useCases.selectVariant({ topology, mission: mission || '' });
   const found = variantCatalog.resolveTopologyVariant(topology, selected.variantId);
   if (!found || found.maturity !== 'implemented') {
-    return { blocked: `baseline-indisponible:${selected.variantId}` };
+    return { variant: 'default', note: `variante-indisponible:${selected.variantId}` };
   }
   return { variant: found.variantId,
     note: selected.method === 'safe_baseline' ? null : `mission-fit:${selected.method}` };

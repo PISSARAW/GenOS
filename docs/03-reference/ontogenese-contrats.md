@@ -347,8 +347,10 @@ Non-garanties (hors contrat) :
   pas une mesure indépendante des coûts facturés par un fournisseur.
 - `markInbox` reste une primitive interne ; les `CHECK` SQL bornent les valeurs.
   `markNotified` refuse les statuts inconnus côté service.
-- `resolveVariant` replie silencieusement vers `default` (avec note de rationale) si la
-  variante est indisponible ou si le catalogue est inaccessible.
+- `resolveVariant` replie vers `default` (avec note de rationale) si la variante
+  demandée est indisponible, et ne bloque que si la variante par défaut elle-même
+  n'est pas implémentée (voir ADR 0714).
+- Les non-garanties sont maintenues comme feuille de route à jour (ADR 0714 §5).
 
 ## 11. Pilotage et reprise (ADR 0334)
 

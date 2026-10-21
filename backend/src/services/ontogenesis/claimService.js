@@ -46,10 +46,14 @@ async function renewIfExpired(db, claim) {
   return { acquired: false, reason: 'claim-actif' };
 }
 
+function parseExpiresAt(row) {
+  const expires = Date.parse(String(row && row.expires_at));
+  if (Number.isNaN(expires)) throw new Error('claim-expiration-invalide');
+  return expires;
+}
+
 function isExpired(row) {
-  const expires = Date.parse(String(row.expires_at));
-  if (Number.isNaN(expires)) return true;
-  return expires <= Date.now();
+  return parseExpiresAt(row) <= Date.now();
 }
 
 async function extendClaim(db, claim) {
@@ -76,6 +80,18 @@ function wasUpdated(info) {
   return Boolean(info) && info.changes > 0;
 }
 
+async function getClaim(db, projectId) {
+  return db.get('SELECT * FROM ontogenesis_claims WHERE project_id = ?', [projectId]);
+}
+
+async function claimSummary(db, projectId) {
+  const claim = await getClaim(db, projectId);
+  return {
+    claimOwner: claim ? claim.owner : null,
+    claimExpiresAt: claim ? claim.expires_at : null
+  };
+}
+
 async function releaseClaim(db, claim) {
   await db.run(
     'DELETE FROM ontogenesis_claims WHERE project_id = ? AND owner = ? AND operation_id = ?',
@@ -88,4 +104,4 @@ async function ownedOperation(db, claim) {
   return row && row.operation_id;
 }
 
-module.exports = { acquireClaim, releaseClaim, extendClaim };
+module.exports = { acquireClaim, releaseClaim, extendClaim, getClaim, claimSummary, parseExpiresAt };
