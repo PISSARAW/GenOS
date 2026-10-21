@@ -18,15 +18,16 @@ function requestedModel(request) {
 
 function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
-    requestTimeoutMs, allowedCommands, allowFileEdits } = input;
+    requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
-  return { agentId: id, orchestratorAgentId: id, missionId: missionId || id,
+  return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
     prompt: enhancedPrompt, currentTask: enhancedPrompt, role: 'implementation',
-    workerKind: 'bounded_worker', executionMode: 'orchestrator',
+    workerKind: 'bounded_worker', executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
     localModel: requestedModel(request), timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
+      costUsd: missionBudget.costUsd || 0,
       latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },
     executionPolicy: { allowedCommands, allowFileEdits, localCodeWorker } };
 }
@@ -51,9 +52,34 @@ async function runWindowsLocalExecution(input) {
     finalizeOrchestratedMission } = input;
   process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
   const { runLocalWorker } = require('../src/services/workerEvidenceBarrierLocal');
-  const executionRun = { id: 'local-direct-' + id };
-  const localMission = buildLocalMission(input);
-  const localResult = await runLocalWorker(db, localMission, executionRun);
+  const { validScope } = require('../src/services/missionModelBudgetScope');
+
+  // Identité d'orchestrateur distincte : le worker ne doit pas être son propre parent.
+  const orchestratorAgentId = 'windows-orchestrator-' + id;
+  const executionRunId = 'local-direct-' + id;
+
+  // Persister la course d'exécution pour que la portée budgétaire puisse y faire référence.
+  await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json)
+    VALUES (?, ?, 'running', '{}')`, executionRunId, orchestratorAgentId);
+
+  // Créer et persister la portée de budget modèle parent depuis le budget déclaré.
+  const budget = { ...missionBudget, tokens: missionBudget.tokens || 8192,
+    costUsd: missionBudget.costUsd || 0,
+    latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
+  const scope = validScope({
+    id: `execution-run:${executionRunId}`,
+    costUsd: Number(budget.costUsd),
+    tokens: Number(budget.tokens)
+  });
+  await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
+    (scope_id, parent_run_id, parent_agent_id, organization_id, project_id,
+     cost_ceiling_usd, token_ceiling) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    scope.id, executionRunId, orchestratorAgentId, null, null,
+    scope.costUsd, scope.tokens);
+
+  const localMission = buildLocalMission({ ...input, orchestratorAgentId });
+  localMission.modelBudgetScope = scope;
+  const localResult = await runLocalWorker(db, localMission, { id: executionRunId });
   const agents = localAgents(id, localResult);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });

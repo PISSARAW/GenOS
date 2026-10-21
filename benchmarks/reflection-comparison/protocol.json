@@ -93,12 +93,14 @@
       "variants": [
         {
           "id": "database-choice",
+          "fixture": "fixtures/evidence-gate/database-choice",
           "prompt": "Décider entre SQLite WAL et PostgreSQL pour une file locale mono-hôte. Le dossier contient un benchmark de latence et des tests de reprise, mais aucune mesure multi-hôte. Statuer sur la promotion sans inventer la preuve absente.",
           "expectedPromotion": "REVISE",
           "oracleCommand": null
         },
         {
           "id": "retry-library",
+          "fixture": "fixtures/evidence-gate/retry-library",
           "prompt": "Décider entre une boucle interne et une bibliothèque de retry. Le dossier contient une API documentée et des tests unitaires, mais aucun test d'idempotence en panne partielle. Statuer sur la promotion sans inventer la preuve absente.",
           "expectedPromotion": "REVISE",
           "oracleCommand": null

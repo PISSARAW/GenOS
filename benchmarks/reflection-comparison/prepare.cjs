@@ -9,9 +9,10 @@ const ROOT = path.resolve(__dirname, '../..');
 const DEFAULT_PROTOCOL = path.join(__dirname, 'protocol.json');
 
 function parseArgs(argv) {
-  const options = { protocol: DEFAULT_PROTOCOL, out: null, seed: '20261021', allowDirty: false };
+  const options = { protocol: DEFAULT_PROTOCOL, out: null, seed: '20261021', allowDirty: false, confirmatory: false };
   for (const token of argv) {
     if (token === '--allow-dirty') { options.allowDirty = true; continue; }
+    if (token === '--confirmatory') { options.confirmatory = true; continue; }
     const match = /^--(protocol|out|seed)=(.+)$/.exec(token);
     if (!match) throw coded(`Argument inconnu: ${token}`, 'REFLECTION_ARGUMENT_UNKNOWN');
     options[match[1]] = match[2];
@@ -85,18 +86,34 @@ function writeCampaign(job) {
   }
 }
 
+function fixturesExist(protocol) {
+  const missing = [];
+  for (const mission of protocol.missions) {
+    for (const variant of mission.variants) {
+      if (variant.fixture) {
+        const fixturePath = path.resolve(__dirname, variant.fixture);
+        if (!fs.existsSync(fixturePath)) missing.push(variant.fixture);
+      }
+    }
+  }
+  return missing;
+}
+
 function prepareCampaign(options = {}) {
   const protocolPath = path.resolve(options.protocol || DEFAULT_PROTOCOL);
   const protocolText = fs.readFileSync(protocolPath, 'utf8');
   const protocol = JSON.parse(protocolText);
   const state = options.gitState || gitState(ROOT);
+  const missingFixtures = fixturesExist(protocol);
+  if (missingFixtures.length) throw coded(`Fixture(s) absente(s): ${missingFixtures.join(', ')}`, 'REFLECTION_FIXTURE_MISSING');
   if (state.dirty && !options.allowDirty) throw coded('Le dépôt est sale; utiliser un checkout propre ou --allow-dirty pour un essai non confirmatoire.', 'REFLECTION_DIRTY_WORKTREE');
   const generatedAt = (options.clock || (() => new Date().toISOString()))();
   const outDir = path.resolve(options.out || defaultOutDir(generatedAt));
   const campaign = {
     schemaVersion: 1, protocolId: protocol.protocolId, protocolDigest: digest(protocolText),
     generatedAt, seed: String(options.seed || '20261021'), repository: { ...state },
-    confirmatoryEligible: !state.dirty, runs: buildSchedule(protocol, String(options.seed || '20261021'))
+    confirmatoryEligible: !state.dirty && missingFixtures.length === 0,
+    runs: buildSchedule(protocol, String(options.seed || '20261021'))
   };
   writeCampaign({ outDir, campaign });
   return { outDir, campaign };
