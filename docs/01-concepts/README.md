@@ -14,11 +14,12 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [stabilite-genomique.md](stabilite-genomique.md) — taux de mutation, anomalies, seuils Stable / Compromised / Critical.
 - [runtime-agentique.md](runtime-agentique.md) — runtime agentique, états, garde-fous.
 - [ontogenese.md](ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
+- [ontogenese-dirigee-par-responsabilite.md](ontogenese-dirigee-par-responsabilite.md) — boucle intégrée responsabilité → observation → initiative → action/apprentissage → double preuve, avec biomimétismes, modèle formel et limites de qualification.
 - [gvx.md](gvx.md) — développement vérifié des agents : signaux, reçus indépendants, plasticité et limites de maturité.
 - [continuite-mission.md](continuite-mission.md) — organisme de mission, homéostasie cible, six systèmes de survie (régénération, immunité, dormance, apoptose contrôlée).
 - [gqwf.md](gqwf.md) — système de fichiers logique adressé par contenu : racines, vues, baux, catalogue, invariants, architecture et limites ; dossier complété par l'[orchestration](../02-orchestration/gqwf-v2.md), la [référence runtime](../03-reference/runtime-gqwf.md), le [runbook](../04-exploitation/gqwf.md) et la [qualification](../06-qualite-preuves/qualification-gqwf-2026-10-20.md).
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
-- [endogenous-thought-test.md](endogenous-thought-test.md) — protocole ETT v1 : détection, question falsifiable, runner borné, vérification indépendante, apprentissage d'épisode et boucle multicycle ; dossier complété par [l'orchestration](../02-orchestration/pensee-endogene-bornee.md), la [référence runtime](../03-reference/runtime-pensee-endogene.md), le [runbook](../04-exploitation/pensee-endogene.md) et la [qualification](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md).
+- [endogenous-thought-test.md](endogenous-thought-test.md) — protocole ETT v1 : détection, question falsifiable, réservation durable, worker borné, vérification indépendante, croyance complète projetée en mémoire et boucle multicycle ; dossier complété par [l'orchestration](../02-orchestration/pensee-endogene-bornee.md), la [référence runtime](../03-reference/runtime-pensee-endogene.md), le [runbook](../04-exploitation/pensee-endogene.md) et la [qualification](../06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md).
 - [savoir-et-epistemologie.md](savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
 - [instinct.md](instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.
@@ -41,9 +42,10 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [calibration.md](calibration.md) — mise à jour lissée de la confiance, ECE, Brier.
 - [etats-de-conscience.md](etats-de-conscience.md) — niveaux fonctionnels, pas états de conscience phénoménale.
 - [limites-metrique-experience.md](limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.
-- [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge). **v2.1 : FormalResult-first, receipts bindés, gate injectée, `npm run test:aeis` vert.**
+- [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif : modèle, limites, architecture et pipeline ; dossier complété par la [référence runtime](../03-reference/runtime-aeis.md), le [runbook](../04-exploitation/aeis.md) et la [qualification datée](../06-qualite-preuves/qualification-aeis-2026-10-20.md).
 - [organes-vitaux-agents.md](organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
 - [ecosysteme-agentique.md](ecosysteme-agentique.md) — agents, niches, biomes, assignation d'agent à niche avec contrôle de capacité.
+- [sas-orphelinat-workers-grace-latch.md](sas-orphelinat-workers-grace-latch.md) — sas d'orphelinat à durée déterminée pour workers : admission, budget gelé, TTL, réclamation et expiration ; dossier complété par la [référence technique](../03-reference/runtime-sas-orphelinat-workers.md) et le [runbook](../04-exploitation/sas-orphelinat-workers.md).
 
 ## Mémoire, collectif et évolution
 

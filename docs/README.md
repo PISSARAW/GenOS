@@ -314,6 +314,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [experiences-nce.md](03-reference/experiences-nce.md) — procédures apprises, phénotypes, POET et ablations exécutables.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
+- [sas-orphelinat-workers-grace-latch.md](01-concepts/sas-orphelinat-workers-grace-latch.md) — sas d'orphelinat à durée déterminée pour workers : admission, budget gelé, TTL, réclamation et expiration ; dossier complété par la [référence technique](03-reference/runtime-sas-orphelinat-workers.md) et le [runbook](04-exploitation/sas-orphelinat-workers.md).
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
 - [contrat-completion-mission.md](03-reference/contrat-completion-mission.md) — contrat structurel, gate de clôture, preuves adressées par contenu et précédence des verdicts.
 - [action-genome.md](03-reference/action-genome.md) — contrat d'action fermé, admission causale, reçu, projections REST/MCP/CLI et limites d'exécution.

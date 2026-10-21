@@ -47,6 +47,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [categorisation-philosophique.md](categorisation-philosophique.md) — comparaison à l'instance, procédures graduées, métriques, contre-exemples et limites.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 420 contrats dans le plan de mission et le runtime harness Ontogenèse.
 - [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, provenance des adaptateurs, admission isolée, santé typée, quotas et cycle de session Holobionte.
+- [runtime-sas-orphelinat-workers.md](runtime-sas-orphelinat-workers.md) — contrat, tables, états, signaux et API du sas d'orphelinat pour workers (grace-latch) ; dossier complété par le [concept](../01-concepts/sas-orphelinat-workers-grace-latch.md) et le [runbook](../04-exploitation/sas-orphelinat-workers.md).
 - [matrice-operationnelle-philosophique.md](matrice-operationnelle-philosophique.md) — 420 profils d'audit, champs et prédicats ; limites de la couverture logicielle.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
