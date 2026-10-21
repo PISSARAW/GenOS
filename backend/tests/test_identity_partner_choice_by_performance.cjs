@@ -31,7 +31,8 @@ async function sessionFor(db, agentId, ownerId) {
   return await incarnations.activate(db, { agentId, ownerId, ttlMs: 900000 });
 }
 
-async function recordInteractions(db, session, peerId, results) {
+async function recordInteractions(db, context) {
+  const { session, peerId, results } = context;
   for (const [index, success] of results.entries()) {
     const operationId = `interact-${peerId}-${index}`;
     await decisions.begin(db, { session, operationId, domain: 'cooperation',
@@ -84,8 +85,8 @@ async function main() {
     });
 
     // b : 3 succes sur 4 ; c : 1 succes sur 4
-    await recordInteractions(db, sa, 'b', [true, true, false, true]);
-    await recordInteractions(db, sa, 'c', [false, false, true, false]);
+    await recordInteractions(db, { session: sa, peerId: 'b', results: [true, true, false, true] });
+    await recordInteractions(db, { session: sa, peerId: 'c', results: [false, false, true, false] });
 
     // 1. a lit son historique de decisions pour calculer la performance par paire
     const rows = await db.all(`SELECT peer_id, outcome FROM agent_identity_decisions
