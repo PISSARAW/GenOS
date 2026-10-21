@@ -39,6 +39,8 @@
     "test:shev-developmental-campaign": "node tests/test_shev_developmental_campaign.js",
     "test:shev-field-campaign": "node tests/test_shev_field_campaign_service.js && node tests/test_shev_field_campaign_cli.js && node tests/test_shev_field_campaign_adversarial.js",
     "shev:field": "node bin/run-shev-field-campaign.cjs",
+    "shev:field:manifest": "node bin/generate-field-manifest.cjs",
+    "shev:field:orchestrate": "node bin/run-field-campaign-orchestrator.cjs",
     "bench:shev-qwen": "node bin/run-shev-qwen-campaign.cjs",
     "test:agent-git": "node tests/test_agent_git_sqlite_e2e.js && node tests/test_agent_git_foundations.js && node tests/test_agent_git_invariants_p0.js && node tests/test_agent_git_head_index.js && node tests/test_agent_git_state_operations.js && node tests/test_agent_git_advanced_operations.js && node tests/test_agent_git_advanced_features.js && node tests/test_agent_git_remote_ssrf.js",
     "test:capabilities": "node tests/test_morphogenesis_capabilities.js && node tests/test_morphogenesis_capabilities_phase2.js && node tests/run_capability_runtime_suite.js",
