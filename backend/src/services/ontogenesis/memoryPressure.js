@@ -38,7 +38,7 @@ function thresholdsOf(options) {
 function baseLevel(sample, options) {
   const thresholds = thresholdsOf(options);
   const reserveMb = (options && options.reserveMb) || 0;
-  const availableMb = sample.freeMb - reserveMb - sample.reservationsMb;
+  const availableMb = sample.freeMb - reserveMb - (sample.reservationsMb || 0);
   if (sample.freePct < thresholds.criticalPct || availableMb < 0) return 'critical';
   if (sample.freePct < thresholds.constrainedPct) return 'constrained';
   return 'normal';
@@ -62,7 +62,7 @@ function classifyLevel(sample, options) {
 
 function availableOf(sample, options) {
   const reserveMb = (options && options.reserveMb) || 0;
-  return sample.freeMb - reserveMb - sample.reservationsMb;
+  return sample.freeMb - reserveMb - (sample.reservationsMb || 0);
 }
 
 function admitWork(input) {

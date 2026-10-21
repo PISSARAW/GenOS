@@ -37,7 +37,11 @@ function defaultConfig() {
 
 function getAutostartConfig() {
   try {
-    if (fs.existsSync(configFile())) return { ...defaultConfig(), ...JSON.parse(fs.readFileSync(configFile(), 'utf8')) };
+    if (fs.existsSync(configFile())) {
+      const parsed = JSON.parse(fs.readFileSync(configFile(), 'utf8'));
+      const values = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      return { ...defaultConfig(), ...values };
+    }
   } catch (_) {
     return defaultConfig();
   }
@@ -64,7 +68,7 @@ function batPath(directory) {
 }
 
 function enableAutostart(input) {
-  if (!input.projectId) throw new Error('projectId-requis');
+  if (!input || !input.projectId) throw new Error('projectId-requis');
   const target = batPath(input.startupDir);
   fs.writeFileSync(target, batContent(input.projectId), 'utf8');
   return { config: saveAutostartConfig({ enabled: true, projectId: input.projectId }), batFile: target };

@@ -22,7 +22,7 @@ function expiryIso(ttlMs) {
 }
 
 async function createPairing(db, input) {
-  if (!ROLES.includes(input.role)) throw new Error('role-hote-inconnu');
+  if (!input || !ROLES.includes(input.role)) throw new Error('role-hote-inconnu');
   const code = newCode();
   const expires = expiryIso(input.ttlMs || DEFAULT_CODE_TTL_MS);
   const id = input.id || `host_${crypto.randomUUID()}`;

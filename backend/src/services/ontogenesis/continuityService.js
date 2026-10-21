@@ -154,7 +154,7 @@ function verifyPrepared(row, input) {
 
 async function persistAccepted(db, input) {
   const host = await pairedHost(db, input);
-  if (host.role !== 'controller') throw new Error('hote-cible-non-controleur');
+  assertTarget(host, input);
   const row = await db.get(
     'SELECT * FROM ontogenesis_handoffs WHERE id = ? AND project_id = ?',
     [input.handoffId, input.projectId]

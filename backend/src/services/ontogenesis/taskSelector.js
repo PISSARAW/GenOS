@@ -40,7 +40,10 @@ function topPriority(runnable) {
 }
 
 function comparePriority(left, right) {
-  return right.priority - left.priority;
+  const rightPriority = Number.isFinite(right?.priority) ? right.priority : 0;
+  const leftPriority = Number.isFinite(left?.priority) ? left.priority : 0;
+  if (rightPriority !== leftPriority) return rightPriority - leftPriority;
+  return String(left?.id || '').localeCompare(String(right?.id || ''));
 }
 
 function blockedReason(tasks) {

@@ -130,7 +130,7 @@ async function startRitual(db, input) {
   const failures = await listFailures(db, input.projectId);
   const opened = await openRitual(db, {
     projectId: input.projectId, taskId: input.taskId, action: input.action,
-    review: input.review, context: { failures, budgetsOk: input.budgetsOk, reversibility: input.review.reversibility }
+    review: input.review, context: { failures, budgetsOk: input.budgetsOk, reversibility: (input.review && input.review.reversibility) || 'reversible' }
   });
   if (opened.unanimous) {
     const closed = await closeRitual(db, { ritual: await getDecision(db, opened.decisionId) });

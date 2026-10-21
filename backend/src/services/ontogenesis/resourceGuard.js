@@ -46,9 +46,9 @@ function isStable(memory, healthySince) {
 }
 
 function reservationFor(ctx, selection = {}) {
-  const memory = ctx.config.memory;
+  const memory = (ctx.config && ctx.config.memory) || {};
   const workerCount = Math.max(1, (selection.workerRoles || []).length);
-  return Math.min((memory.workerEstimateMb || 512) * workerCount, memory.envelopeMb);
+  return Math.min((memory.workerEstimateMb || 512) * workerCount, memory.envelopeMb || Infinity);
 }
 
 module.exports = { budgetState, memoryState, remainingBudget, usableBudget, reservationFor };

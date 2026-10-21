@@ -34,7 +34,7 @@ function isActionAllowed(config, action) {
   if (denied) return denied;
   const authority = (config && config.authority) || {};
   if (!isBranchAllowed(authority, action.branch)) return deniedBranch();
-  if (action.path && !isPathAllowed(authority, action.path)) return deniedPath();
+  if (action.path != null && !isPathAllowed(authority, action.path)) return deniedPath();
   const flag = checkScopeFlag(authority, action);
   if (flag) return { allowed: false, reason: flag };
   return { allowed: true };

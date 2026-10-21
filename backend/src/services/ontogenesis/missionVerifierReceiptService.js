@@ -42,7 +42,12 @@ function validConfiguredChecks(receipt, checks) {
 async function createReceipt(input) {
   if (!input?.missionId || !input.workspaceRoot || input.allowExecution !== true) return null;
   if (!Array.isArray(input.checks) || !input.checks.length) return null;
-  const workspaceRoot = fs.realpathSync(input.workspaceRoot);
+  let workspaceRoot;
+  try {
+    workspaceRoot = fs.realpathSync(input.workspaceRoot);
+  } catch (_) {
+    return null;
+  }
   const proof = await proofService.verifyChecks(workspaceRoot, input.checks, { timeoutMs: input.timeoutMs });
   return { schema: SCHEMA, source: SOURCE, missionId: input.missionId, workspaceRoot,
     checksDigest: checksDigest(input.checks), ...proof };

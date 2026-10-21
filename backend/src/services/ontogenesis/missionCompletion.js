@@ -30,7 +30,7 @@ async function waitForMission(db, request, options) {
 async function completionGate(db, input) {
   const { request, agents, verifierReceipt = null } = input;
   const outcome = summarizeAgents(agents);
-  if (!agents.every((agent) => agent.status === 'completed')) return { allowed: false, reason: 'agents-non-verifies' };
+  if (!Array.isArray(agents) || agents.length === 0 || !agents.every((agent) => agent?.status === 'completed')) return { allowed: false, reason: 'agents-non-verifies' };
   const context = await buildMissionContext({ db, missionId: request.id, agents, outcome, request, policyRequest: request });
   const verifierReceipts = require('./missionVerifierReceiptService');
   const verifierReceiptPresent = await verifierReceipts.validateReceipt(verifierReceipt, {

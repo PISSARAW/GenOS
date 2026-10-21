@@ -11,7 +11,7 @@ async function processRows() {
     return [].concat(JSON.parse(result.stdout)).map(windowsRow);
   }
   const result = await exec('ps', ['-eo', 'pid=,ppid=,rss=,args='], { maxBuffer: 8 * 1024 * 1024, timeout: 10000 });
-  return result.stdout.trim().split('\n').map(unixRow);
+  return result.stdout.trim().split(/\n/).filter((line) => line.trim() !== '').map(unixRow);
 }
 
 function processAlive(pid) {
