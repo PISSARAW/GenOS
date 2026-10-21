@@ -71,7 +71,6 @@ function workspaceAttestation(expected, commitHash) {
     toolsLock: expected.toolsLock,
     permissionsHash: expected.permissionsHash,
     intervention: expected.intervention,
-    actualCommitHash: commitHash,
     ...(expected.campaignBudget && { campaignBudget: expected.campaignBudget }),
     ...(expected.runtimeLock && { runtimeLock: expected.runtimeLock }),
     ...(expected.environmentLock && { environmentLock: expected.environmentLock }),
