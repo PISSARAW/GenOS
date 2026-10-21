@@ -13,7 +13,8 @@
     "source": "docs/06-benchmarks/memoire-developpementale-workers-reels.md",
     "workerTypes": 19,
     "durableRecallWorkerTypes": 1,
-    "causalDecisionChangeWorkerTypes": 1,
-    "qualified": false
+    "causalDecisionChangeWorkerTypes": 0,
+    "qualified": false,
+    "note": "Rappel durable verifie pour 1 type (bounded_worker). Aucun changement causal de choix d'action n'est encore demontre (0/19). Valeur alignee sur memoire-developpementale-workers-reels.md ; passera a 1 quand une experience demonstrera un choix d'action effectivement modifie par la politique rappelee."
   }
 }
