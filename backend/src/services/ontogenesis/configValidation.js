@@ -1,6 +1,7 @@
 'use strict';
 
 const { externalCheckReason } = require('./gitAuthority');
+const { DEFAULT_THRESHOLDS } = require('./memoryPressure');
 
 const TOPOLOGIES = ['trinity', 'a_team', 'biocenose', 'holobionte', 'syncytium', 'biome', 'rhizome', 'metapopulation'];
 
@@ -14,6 +15,23 @@ function checkMemoryNumbers(memory, errors) {
     && (!Number.isFinite(memory.workerEstimateMb) || memory.workerEstimateMb <= 0)) errors.push('memory.estimation-invalide');
   if (memory.recoveryStableMs !== undefined
     && (!Number.isSafeInteger(memory.recoveryStableMs) || memory.recoveryStableMs < 0)) errors.push('memory.stabilite-invalide');
+  checkMemoryThresholds(memory.thresholds, errors);
+}
+
+function checkMemoryThresholds(thresholds, errors) {
+  if (thresholds === undefined) return;
+  if (!thresholds || typeof thresholds !== 'object' || Array.isArray(thresholds)) {
+    errors.push('memory.thresholds-objet-requis');
+    return;
+  }
+  const resolved = { ...DEFAULT_THRESHOLDS, ...thresholds };
+  const values = Object.values(resolved);
+  if (values.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
+    errors.push('memory.thresholds-valeurs-invalides');
+    return;
+  }
+  if (!(resolved.criticalPct < resolved.constrainedPct
+    && resolved.constrainedPct < resolved.recoverPct)) errors.push('memory.thresholds-ordre-invalide');
 }
 
 function checkTopology(config, errors) {

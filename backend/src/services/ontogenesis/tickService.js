@@ -55,12 +55,12 @@ function schedulePayload(row) {
   return payload;
 }
 
-function reserveOf(project) {
+function memoryOptionsOf(project) {
   try {
-    const config = JSON.parse(project.config_json || '{}');
-    return (config.memory && config.memory.reserveMb) || 0;
+    const memory = JSON.parse(project.config_json || '{}').memory || {};
+    return { reserveMb: memory.reserveMb || 0, thresholds: memory.thresholds };
   } catch (_) {
-    return 0;
+    return { reserveMb: 0 };
   }
 }
 
@@ -94,7 +94,7 @@ async function loadContext(db, input) {
   if (!project) throw new Error('projet-introuvable');
   const control = await getControl(db, input.projectId);
   const tasks = await listTasks(db, input.projectId);
-  const memoryLevel = classifyLevel(sampleMemory({ reservationsMb: 0 }), { reserveMb: reserveOf(project) });
+  const memoryLevel = classifyLevel(sampleMemory({ reservationsMb: 0 }), memoryOptionsOf(project));
   const ctx = { project, control, tasks, config: configOf(project), selection: selectNextTask(tasks), memoryLevel, budgetsOk: true, harness: input.harness };
   if (input.harness) Object.assign(ctx, await budgetState(db, ctx), await memoryState(db, ctx, input.harness));
   return ctx;
@@ -224,7 +224,7 @@ async function consumeFirstOfType(db, projectId, type) {
 
 async function sleepingWake(ctx) {
   if (ctx.harness) return ctx.memoryLevel === 'normal' && ctx.memoryStable ? 'recovered' : null;
-  const level = classifyLevel(sampleMemory({ reservationsMb: 0 }), { reserveMb: reserveOf(ctx.project) });
+  const level = classifyLevel(sampleMemory({ reservationsMb: 0 }), memoryOptionsOf(ctx.project));
   return level === 'normal' ? 'recovered' : null;
 }
 

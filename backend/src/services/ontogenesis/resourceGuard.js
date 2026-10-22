@@ -25,8 +25,10 @@ async function memoryState(db, ctx, harness) {
   const measurements = await harness.resources(ctx.project);
   const sample = measurements.sample || sampleMemory({ reservationsMb: measurements.reservationsMb || 0 });
   const memory = ctx.config.memory || {};
-  let level = classifyLevel(sample, { reserveMb: memory.reserveMb, previous: previous && previous.level });
-  if (ctx.project.state === 'SLEEPING_RESOURCE' && sample.freePct < DEFAULT_THRESHOLDS.recoverPct) level = 'critical';
+  let level = classifyLevel(sample, { reserveMb: memory.reserveMb,
+    previous: previous && previous.level, thresholds: memory.thresholds });
+  const recoverPct = memory.thresholds?.recoverPct ?? DEFAULT_THRESHOLDS.recoverPct;
+  if (ctx.project.state === 'SLEEPING_RESOURCE' && sample.freePct < recoverPct) level = 'critical';
   if (measurements.ownedMb >= memory.envelopeMb) level = 'critical';
   const healthySince = recoverySince(level, previous);
   await db.run(`INSERT INTO ontogenesis_pressure (project_id, level, healthy_since) VALUES (?, ?, ?)
