@@ -53,3 +53,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commandes : `node backend/tests/test_mission_outcome_contract.js`, `node backend/tests/test_mission_outcome_falsification.js`, `node backend/tests/test_counterfactual_mission_qualification.js`.
 - Résultat : trois commandes code 0. Contrat de clôture, falsifications structurelles/sémantiques, oracle de sous-ensemble borné et promotion signée vérifiés; 0 faux positifs et 0 faux négatifs sur les fixtures rapportées.
 - Verdict local T02 : les contrats automatisés de résultat de mission réussissent. La construction complète d'une application depuis un cahier des charges reste à mesurer en mission autonome réelle.
+
+## 2026-10-22 — T03, premier passage SHEV
+
+- Commande : `npm --prefix backend run test:shev`.
+- Résultat : projet, arbitrage endogène et fraîcheur des données passent; le quatrième scénario s'arrête sur `git init` temporaire avec `Permission denied` dans le sandbox. Code de sortie 1.
+- Verdict : passage partiel, aucun verdict sur le reste de SHEV. Relance de la suite requise hors sandbox.
