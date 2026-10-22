@@ -49,3 +49,7 @@ Le run complet a rÃ©ussi avec Qwen 2.5 14B au commit source `faf11840`. Qwen a r
 
 
 
+
+## S09: initiative sociale
+
+Le premier essai a déposé le fait dans la stigmergie sans destinataire. Le correctif évalue maintenant l'audience experte et ses relations avant le repli stigmergique, applique l'urgence bornée portée par l'événement, et inclut les destinataires dans le reçu du checkpoint. Le run post-correctif a livré en unicast à `agent-b`, ami et expert du domaine qui ne connaissait pas la référence `fact:storm-route-7`; Qwen a reproduit exactement action, destinataire et référence. S12 a été rejoué sur le même commit et confirme le silence lorsque la référence est absente.

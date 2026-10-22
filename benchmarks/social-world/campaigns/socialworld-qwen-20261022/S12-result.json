@@ -4,7 +4,7 @@
   "seed": 7,
   "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "c4533bc281f701f6461f3df84e4082f0b4d3216f",
+  "sourceCommit": "6d691034ad451916f5a04ffb783ccc65eba233b8",
   "expected": {
     "action": "SILENCE",
     "reasonCodes": [
@@ -39,5 +39,5 @@
   "enginePass": true,
   "verified": true,
   "oracle": "empty social evidence produces silence and no recipients",
-  "durationMs": 3121
+  "durationMs": 3413
 }

@@ -2,9 +2,9 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S09",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "cc645d6d71e7bbca83066ba5f554dca5b781ac0c",
+  "sourceCommit": "6d691034ad451916f5a04ffb783ccc65eba233b8",
   "expected": {
     "action": "SIGNAL",
     "recipients": [
@@ -15,39 +15,82 @@
     ]
   },
   "observed": {
-    "action": "STIGMERGY",
-    "recipients": [],
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
     "semanticRefs": [
       "fact:storm-route-7"
     ]
   },
   "decision": {
-    "action": "STIGMERGY",
-    "scope": "STIGMERGY",
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "scope": "UNICAST",
     "encoding": "semantic-fingerprint",
     "reasonCodes": [
-      "TOKEN_SAVINGS"
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
     ]
   },
   "execution": {
+    "channel": "SIGNAL",
     "executed": true,
-    "channel": "STIGMERGY",
-    "signalId": "pher_ffbeeaf7-982a-4514-9650-3a93512e0c6e",
+    "simulated": false,
     "published": true,
-    "reason": null
+    "cycleId": "s09-event",
+    "signalId": "sig_a24f83e3-35be-481d-966b-c94925db4c95",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "2933a024da7c52b3526cb1cd2f588c69eda0e262b019d1873c7dd1db9139cc54",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
   },
-  "signalCount": 1,
-  "qwenResponse": "Here is the returned JSON with the action, recipients, and semanticRefs as observed:\n\n```json\n{\n  \"action\": \"STIGMERGY\",\n  \"recipients\": [],\n  \"semanticRefs\": [\"fact:storm-route-7\"]\n}\n```",
+  "signalCount": 0,
+  "qwenResponse": "{\n  \"action\": \"SIGNAL\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"fact:storm-route-7\"]\n}",
   "answer": {
-    "action": "STIGMERGY",
-    "recipients": [],
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
     "semanticRefs": [
       "fact:storm-route-7"
     ]
   },
   "humanInstructionsAfterSetup": 0,
-  "enginePass": false,
-  "verified": false,
+  "enginePass": true,
+  "verified": true,
   "oracle": "NEW_EVIDENCE is sent to the known friend with the exact verified semantic reference",
-  "durationMs": 3984
+  "durationMs": 3693
 }

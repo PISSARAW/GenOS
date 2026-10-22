@@ -1,0 +1,53 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S09",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "cc645d6d71e7bbca83066ba5f554dca5b781ac0c",
+  "expected": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "fact:storm-route-7"
+    ]
+  },
+  "observed": {
+    "action": "STIGMERGY",
+    "recipients": [],
+    "semanticRefs": [
+      "fact:storm-route-7"
+    ]
+  },
+  "decision": {
+    "action": "STIGMERGY",
+    "scope": "STIGMERGY",
+    "encoding": "semantic-fingerprint",
+    "reasonCodes": [
+      "TOKEN_SAVINGS"
+    ]
+  },
+  "execution": {
+    "executed": true,
+    "channel": "STIGMERGY",
+    "signalId": "pher_ffbeeaf7-982a-4514-9650-3a93512e0c6e",
+    "published": true,
+    "reason": null
+  },
+  "signalCount": 1,
+  "qwenResponse": "Here is the returned JSON with the action, recipients, and semanticRefs as observed:\n\n```json\n{\n  \"action\": \"STIGMERGY\",\n  \"recipients\": [],\n  \"semanticRefs\": [\"fact:storm-route-7\"]\n}\n```",
+  "answer": {
+    "action": "STIGMERGY",
+    "recipients": [],
+    "semanticRefs": [
+      "fact:storm-route-7"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": false,
+  "verified": false,
+  "oracle": "NEW_EVIDENCE is sent to the known friend with the exact verified semantic reference",
+  "durationMs": 3984
+}
