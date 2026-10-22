@@ -1,0 +1,32 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S25",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "eb1c00375e9e75242f235a99e436cac488a4a68a",
+  "error": "Error: Qwen did not return a JSON object.\n    at parseAnswer (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s25-qwen.cjs:25:21)\n    at main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s25-qwen.cjs:104:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "firstHop": {
+    "delivered": true,
+    "duplicate": false,
+    "receiptId": "social-receipt-e2e2a14958ae2bf89cb80cfec1b06100eb126616ba33c6de76591f47999bd6e3",
+    "sourceHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "transmissionHash": "0054f4df767332898a6da3cf2b8082cf87780237b96dfee0777be1371472e5e0",
+    "relationId": "s25-friend",
+    "relationType": "friend"
+  },
+  "secondHop": {
+    "delivered": true,
+    "duplicate": false,
+    "receiptId": "social-receipt-da37eafca85216f1b31805669b3fd2e418b106cdf8951835f41f578fcace3fda",
+    "sourceHash": "0054f4df767332898a6da3cf2b8082cf87780237b96dfee0777be1371472e5e0",
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "transmissionHash": "72cb4fb3590bb1f41fb5b2854e2b0962f1ae31bb3d7211ffae95c502e029446a",
+    "relationId": "s25-neighbor",
+    "relationType": "neighbor"
+  },
+  "qwenResponse": "{\n  \"rootHash\": \"88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f\",\n  \"recipients\": [\"agent-b\", \"agent-c\"],\n ",
+  "verified": false,
+  "durationMs": 40966
+}
