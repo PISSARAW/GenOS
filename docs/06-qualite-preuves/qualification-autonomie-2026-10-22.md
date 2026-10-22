@@ -150,3 +150,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Syntaxe JavaScript : `node --check` passe sur les cinq fichiers modifiés.
 - Tests après refactorisation : `npm --prefix backend run test:security-remediation` termine avec le code 0 (ingestion, graphe d'antigènes, planification et e2e).
 - Premier commit du refactor refusé par le hook de reçu : les commits `[REFACTOR]` doivent terminer par la liste exacte des fichiers stagés. Code qualité passé; seul le format du message manquait. Nouveau commit avec reçu requis.
+
+## Test global Node — 2026-10-22
+
+- Commande : `npm test`, lancée depuis le dépôt source `C:\Users\Shadow\Documents\GitHub\GenOS` avec `TEMP` et `TMP` pointés vers `D:\GenOS\runs\autonomy-proof-2026-10-22`.
+- Résultat : code 0. Les suites racines biologie (8/8), worker workspaces, backend (57 vérifications de l'API, snapshots, autorités, AEIS, Syncytium, Axolotl, Biome, daemon 43/43, capsules, OTel, workers 36 suites et P1 socle), garage (8 suites) et P1 v3 se terminent.
+- Notes : le test worker formel indique que Lean n'est pas installé et saute cette exécution; des erreurs simulées de persistence/fixtures apparaissent dans les journaux, mais aucune n'interrompt la suite. La commande globale reste réussie.
