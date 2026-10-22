@@ -121,3 +121,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Les tests ciblés de preuve et de stockage terminent avec le code 0 après ajout de `variant: pareto` aux résultats worker.
 - La suite complète hors sandbox termine à 109/110 : toutes les erreurs de transition et de loopback sont résolues; seul `test_security_morphogenesis.js` échoue encore sur `cpuMs > 0`.
 - La mesure vient de `process.cpuUsage()` en microsecondes; ce scénario déterministe peut durer moins d'une unité mesurable sur l'hôte. Le résultat 0 est une valeur mesurée valide, pas un dépassement de budget. L'assertion doit vérifier un nombre fini non négatif, sans imposer une consommation minimale artificielle.
+
+### T08 — résultat final
+
+- Après ajustement de l'assertion à une mesure finie et non négative, `node backend/tests/test_security_morphogenesis.js` passe (14/14).
+- Relance complète hors sandbox : `npm --prefix backend run test:morphogenesis`, code 0, 110/110 tests.
+- T08 réussi au niveau des contrats et scénarios automatisés; le passage réel et répété entre recherche, développement et validation dans une mission externe reste à mesurer.
