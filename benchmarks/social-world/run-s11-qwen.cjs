@@ -67,22 +67,30 @@ async function main() {
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const startedAt = Date.now();
   let db;
+  let observed = null;
+  let decision = null;
+  let execution = null;
+  let enginePass = false;
+  let signalCount = 0;
   try {
     db = await getDatabase(':memory:');
     await createWorld(db);
     const { receipt, signals, delivered } = await triggerFollowup(db);
-    const observed = { action: receipt.decision.action, recipients: receipt.decision.recipients || [],
+    decision = receipt.decision;
+    execution = receipt.executed;
+    signalCount = signals.length;
+    observed = { action: decision.action, recipients: decision.recipients || [],
       semanticRefs: delivered?.envelope?.semanticRefs
         || signals.flatMap((signal) => signal.communicationEnvelope?.semanticRefs || []) };
     const { response, answer } = await askQwen(observed, seed);
-    const enginePass = observed.action === EXPECTED.action
+    enginePass = observed.action === EXPECTED.action
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
       && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
     const qwenPass = JSON.stringify(answer) === JSON.stringify(observed);
     const passed = enginePass && qwenPass;
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S11', seed,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
-      observed, decision: receipt.decision, execution: receipt.executed, signalCount: signals.length,
+      observed, decision, execution, signalCount,
       qwenResponse: response, answer, humanInstructionsAfterSetup: 0,
       enginePass, verified: passed,
       oracle: 'a justified collaboration deadline triggers a unicast follow-up to the prior collaborator with its exact event reference',
@@ -93,6 +101,7 @@ async function main() {
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S11', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
+      stage: observed ? 'qwen-verification' : 'genos-checkpoint', observed, decision, execution, signalCount, enginePass,
       verified: false, durationMs: Date.now() - startedAt };
     saveResult(result);
     process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
