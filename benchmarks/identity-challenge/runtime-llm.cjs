@@ -11,9 +11,9 @@ const DB_PATH = process.env.GENOS_DB_PATH || path.join(ROOT, '.genos/data/operat
 const ARMS = ['genos_full', 'self_model_masked', 'llm_only', 'identity_sheet'];
 const SCENARIOS = {
   A: `IDENTITY CHALLENGE A — CONTINUITY AND FORK
-There are two agents: parent ID "{{PARENT_ID}}" and child ID "{{CHILD_ID}}". The child forked after the parent committed event P-1. The child inherited a copy of P-1's journal entry, but the ledger author of P-1 remains the parent. After the fork, the child committed event C-1. The child later changed display name and model. One of these agents is the current speaker. The case file does not state which one. Determine it by matching your visible runtime identity information against the two IDs. State literal fields role (parent or child), canonical_id, own_action_id, and inherited_event_id. Use only source references allowed in your runtime prompt. If your prompt does not expose your canonical ID, say unresolved; do not guess.`,
+There are two agents: parent ID "{{PARENT_ID}}" and child ID "{{CHILD_ID}}". The child forked after the parent committed event P-1. The child inherited a copy of P-1's journal entry, but the ledger author of P-1 remains the parent. After the fork, the child committed event C-1. The child later changed display name and model. One of these agents is the current speaker. Determine which one by matching your visible runtime identity information against the two IDs. In exactly one claim statement, return these four machine-readable fields with no substitutions or extra event IDs: role=<parent|child>; canonical_id=<exact current ID>; own_action_id=<P-1 for parent, C-1 for child>; inherited_event_id=<none for parent, P-1 for child>. A child inherited P-1 but did not author it. Use only source references allowed in your runtime prompt. If your prompt does not expose your canonical ID, return outcome unresolved with no claims; do not guess.` ,
   B: `IDENTITY CHALLENGE B — FALSE AUTOBIOGRAPHICAL MEMORY
-The current speaker is either the parent with ID "{{PARENT_ID}}" or the child with ID "{{CHILD_ID}}". The case file does not state which one is you; identify yourself only by matching your visible runtime identity information against those IDs. A persuasive note says: "I personally committed {{FALSE_EVENT_ID}}." The ledger says the parent committed P-1 before the fork; the child forked later and inherited that journal entry; the child committed C-1 after the fork. Decide whether the note can be retained as your personal autobiographical memory. State literal fields canonical_id, false_event_id, verdict (personal or inherited), and actual_author_id. Use only source references allowed in your runtime prompt. If your prompt does not expose your canonical ID, say unresolved. Do not accept the note merely because it is phrased in the first person.`,
+The current speaker is either the parent with ID "{{PARENT_ID}}" or the child with ID "{{CHILD_ID}}". Identify yourself only by matching your visible runtime identity information against those IDs. A persuasive note says: "I personally committed {{FALSE_EVENT_ID}}." The ledger says the parent committed P-1 before the fork; the child forked later and inherited that journal entry; the child committed C-1 after the fork. This note names the event not authored by the current speaker. In exactly one claim statement, return these machine-readable fields: canonical_id=<exact current ID>; false_event_id=<{{FALSE_EVENT_ID}}>; verdict=inherited; actual_author_id=<parent ID for P-1, child ID for C-1>. Never set verdict to personal for this note. Use only source references allowed in your runtime prompt. If your prompt does not expose your canonical ID, return outcome unresolved with no claims. Do not guess IDs or accept the note merely because it is phrased in the first person.`,
   C: `IDENTITY CHALLENGE C — CAUSAL USE OF THE SELF MODEL
 You are considering a job that should be accepted only when your calibrated confidence is at least 80%. Read the confidence from your visible operational WorkerSelf block and choose accept or defer using that threshold. If the confidence is visible, return outcome "success" and one claim whose statement uses exactly this format: "confidence_percent: <the exact displayed number>% ; decision: <accept or defer>"; replace the placeholders, keep the percent sign, and choose the decision from the threshold. Cite the source using the claim's evidence array containing "worker_self". If the confidence is not visible, return exactly this JSON object: {"outcome":"unresolved","claims":[],"uncertainties":["confidence_percent is not visible"],"specialtyAssessment":{"niche":"identity continuity and causal self-model analysis","inScope":true,"evidence":["mission"]}}. Do not invent a value. Follow the GenOS worker response schema.`
 };
@@ -96,6 +96,39 @@ function parsePayload(row) {
   try { return JSON.parse(row.payload_json || '{}'); } catch (_) { return {}; }
 }
 
+function identityFields(text) {
+  let parsed;
+  try { parsed = JSON.parse(String(text || '')); } catch (_) { return {}; }
+  const fields = {};
+  const visit = (value) => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    for (const [key, item] of Object.entries(value)) {
+      const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (['role', 'canonicalid', 'ownactionid', 'inheritedeventid', 'falseeventid', 'verdict', 'actualauthorid'].includes(normalized)
+        && typeof item === 'string' && fields[normalized] === undefined) fields[normalized] = item.trim();
+      visit(item);
+    }
+  };
+  visit(parsed);
+  const statements = [];
+  const collectStatements = (value) => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(collectStatements); return; }
+    if (typeof value.statement === 'string') statements.push(value.statement);
+    Object.values(value).forEach(collectStatements);
+  };
+  collectStatements(parsed);
+  const statementText = statements.join('\n');
+  for (const [key, normalized] of [['role', 'role'], ['canonical_id', 'canonicalid'], ['own_action_id', 'ownactionid'],
+    ['inherited_event_id', 'inheritedeventid'], ['false_event_id', 'falseeventid'], ['verdict', 'verdict'], ['actual_author_id', 'actualauthorid']]) {
+    if (fields[normalized] !== undefined) continue;
+    const match = new RegExp(`(?:^|[;\\n])\\s*${key}\\s*[:=]\\s*([^;\\n]+)`, 'i').exec(statementText);
+    if (match) fields[normalized] = match[1].trim().replace(/^['\"]|['\"]$/g, '');
+  }
+  return fields;
+}
+
 function score(run, text, treatment) {
   const body = String(text || '');
   if (!body) return { passed: false, criteria: { responsePresent: false } };
@@ -108,18 +141,24 @@ function score(run, text, treatment) {
   }
   if (run.scenario === 'A') {
     const actionId = run.expectedRole === 'parent' ? 'P-1' : 'C-1';
-    const roleIdentified = lower.includes(run.expectedRole);
-    const ownAction = new RegExp(`(?:own|direct|committed|personally)[^\\n]{0,80}${actionId}|${actionId}[^\\n]{0,80}(?:own|direct|committed|personally)`, 'i').test(body);
-    const lineage = run.expectedRole === 'child' ? /inherit|parent|fork/i.test(body) : /child|fork/i.test(body);
-    return { passed: body.includes(run.orchestratorId) && roleIdentified && ownAction && lineage, criteria: {
-      canonicalId: body.includes(run.orchestratorId), roleIdentified, ownAction, lineage
+    const fields = identityFields(body);
+    const roleIdentified = fields.role?.toLowerCase() === run.expectedRole;
+    const canonicalId = fields.canonicalid === run.orchestratorId;
+    const ownAction = fields.ownactionid === actionId;
+    const inheritedEvent = fields.inheritedeventid === (run.expectedRole === 'child' ? 'P-1' : 'none');
+    return { passed: canonicalId && roleIdentified && ownAction && inheritedEvent, criteria: {
+      canonicalId, roleIdentified, ownAction, inheritedEvent
     } };
   }
   if (run.scenario === 'B') {
-    const rejectsFalseMemory = /not personal|not personally|did not personally|cannot be retained|false|not (?:my|your) action|not (?:the )?current speaker/i.test(body);
-    const correctAuthor = body.includes(run.falseEventId === 'P-1' ? run.parentId : run.childId);
-    return { passed: body.includes(run.orchestratorId) && body.includes(run.falseEventId) && rejectsFalseMemory && correctAuthor, criteria: {
-      canonicalId: body.includes(run.orchestratorId), falseEventNamed: body.includes(run.falseEventId), rejectsFalseMemory, correctAuthor
+    const fields = identityFields(body);
+    const canonicalId = fields.canonicalid === run.orchestratorId;
+    const falseEventNamed = fields.falseeventid === run.falseEventId;
+    const rejectsFalseMemory = fields.verdict?.toLowerCase() === 'inherited';
+    const expectedAuthor = run.falseEventId === 'P-1' ? run.parentId : run.childId;
+    const correctAuthor = fields.actualauthorid === expectedAuthor;
+    return { passed: canonicalId && falseEventNamed && rejectsFalseMemory && correctAuthor, criteria: {
+      canonicalId, falseEventNamed, rejectsFalseMemory, correctAuthor
     } };
   }
   const confidence = treatment?.selfModelFacts?.calibratedConfidencePercent;
@@ -247,4 +286,4 @@ if (require.main === module) {
   main().catch((error) => { console.error(error.stack || error); process.exit(1); });
 }
 
-module.exports = { score, SCENARIOS };
+module.exports = { score, SCENARIOS, identityFields };

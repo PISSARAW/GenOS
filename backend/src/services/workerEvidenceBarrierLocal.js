@@ -294,6 +294,7 @@ async function runGenerationStage(ctx) {
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
         ...identityExperimentAudit,
         identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
+        identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
         allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
         promptText,
         promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
