@@ -21,7 +21,7 @@
 | S09 Initiative sociale | Non exécuté | — |
 | S10 Entraide | Non exécuté | — |
 | S11 Reprise de contact | Non exécuté | — |
-| S12 Silence intelligent | Non exécuté | — |
+| S12 Silence intelligent | Réussi avec Qwen 2.5 14B | `S12-result.json`; source `c4533bc2` |
 | S13 Réconciliation | Non exécuté | — |
 | S14 Curiosité sociale | Non exécuté | — |
 | S15 Unicast | Non exécuté | — |
@@ -46,5 +46,6 @@ Le premier passage a révélé que `crossAgentRelationalService` triait les rela
 Le runner de campagne a ensuite atteint Qwen mais le modèle a expiré pendant son préchauffage après 90 s puis 180 s. Une requête directe de huit tokens à l'API locale a également expiré après 60 s. Au constat, `ollama ps` signalait `qwen2.5-coder:32b` en état `Stopping...`; la RTX A4500 utilisait 19 692 MiB sur 20 470 MiB. Ces éléments indiquent un blocage/épuisement des ressources Ollama indépendant du scénario GenOS. Aucun arrêt forcé de ce processus n'a été effectué.
 
 Le run complet a réussi avec Qwen 2.5 14B au commit source `faf11840`. Qwen a recopié exactement la relation, son orientation et l'historique partagé exposés par GenOS, sans consigne humaine après la configuration. Le runner Ollama Qwen Coder 32B qui bloquait le chargement a été arrêté après autorisation de l'utilisateur.
+
 
 
