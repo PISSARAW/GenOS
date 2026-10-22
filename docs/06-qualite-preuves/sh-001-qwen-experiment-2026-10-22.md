@@ -68,3 +68,18 @@ Enfin, le premier lancement réel du drill chaos avait révélé `SQLITE_ERROR: 
 L’audit global `test_schema_drift.js` n’a pas pu servir d’oracle : lancé directement, il échouait d’abord avant assertions (`test is not defined`; `expect` global absent). Une adaptation temporaire au runner Node a ensuite révélé une divergence préexistante importante de son catalogue : plusieurs centaines de tables générées sont classées « orphelines » et 16 entrées déclarées canoniques sont absentes. Cette adaptation a été retirée; la correction `detached_processes` est vérifiée directement par le drill chaos sur une base fraîche. Le catalogue global reste à réparer avant de réutiliser ce test comme preuve.
 
 Deux contrôles de basculement Rhizome passent (`test_rhizome_runtime_recovery.js`, `test_rhizome_repair.js`) : le reçu d’échec exclut les arêtes de la première route, puis le second trajet reçoit un reçu signé de succès; une échéance expirée reste non vérifiée. Ces exécutants et reçus sont des fixtures, pas des nœuds réseau réellement déconnectés. Les vérifications Natural Search `test_natural_search_module_restore.js` (restauration SQLite des sept modules) et `test_natural_search_integrity.js` (corruption, provenance et culture durable) passent également. Ce sont des altérations de données locales en fixture; le crash forcé documenté plus haut est l’essai qui a effectivement arrêté et redémarré un processus.
+
+## Couverture des huit expériences proposées
+
+| Test | État actuel | Limite restante |
+| --- | --- | --- |
+| T01 — arrêt worker | Arrêt réel d’un processus jetable par chaos; crash/reprise Natural Search; tests de reconnexion de processus réels passent | Pas encore de démonstration unique de reprise d’une mission worker après son kill et sans mock de dispatch |
+| T02 — mémoire | Projection partielle restaurée depuis checkpoint après crash; restauration des sept modules et cas de corruption passent | Cas applicatif local, pas une corruption mémoire persistante injectée dans un GenOS déployé |
+| T03 — réseau | Rhizome exclut le chemin échoué et vérifie une route alternative | Les callbacks de transport et vérificateurs sont des fixtures; aucun lien réseau réel n’a été coupé |
+| T04 — organe indisponible | Redispatch logique vérifie checkpoint et identité/remplacement; les tests de supervision de processus passent | Le test de redispatch remplace `startMission`; pas de mission complète terminée par un remplaçant réel |
+| T05 — immunité | Laboratoire de qualification et contrôles de sécurité passent | Actionneur JSON de VM simulée; pas d’outil malveillant réel exécuté dans une VM isolée |
+| T06 — cicatrisation | SH-001 : Qwen 14B répare le défaut caché; public et oracle indépendant passent | Verdict global du runner direct reste `required_coverage_incomplete`; résultat limité à ce bug/famille |
+| T07 — régénération | Aucun essai de suppression puis reconstruction d’un sous-orchestrateur avec mission réellement reprise | À lancer |
+| T08 — adaptation | Aucun essai réservé comparant performance avec et sans mémoire d’expériences | À lancer; requiert protocole et cas inédits gelés avant exécution |
+
+Ainsi, les preuves actuelles couvrent des récupérations locales et une réparation SH-001 observée; les T01, T03, T04 et T05 demeurent partiellement simulés, T07/T08 ne sont pas exécutés, et aucun résultat ne qualifie une campagne longitudinale de 72 h.
