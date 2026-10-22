@@ -3,9 +3,11 @@
 const store = require('./shreCaseStore');
 const policy = require('./shrePolicy');
 const actuators = require('./shreActuatorRegistry');
+const causalVerifier = require('./causalRemediationVerifier');
 
 const STATES = Object.freeze(['DIAGNOSTIC', 'PLAN', 'SIMULATION', 'AUTHORIZATION', 'APPLICATION',
-  'APPLICATION_PENDING', 'APPLICATION_UNCERTAIN', 'COUNTER_TEST', 'COUNTER_TEST_FAILED', 'CLOSED', 'ROLLED_BACK']);
+  'APPLICATION_PENDING', 'APPLICATION_UNCERTAIN', 'COUNTER_TEST', 'COUNTER_TEST_FAILED',
+  'CAUSAL_VERIFICATION', 'CLOSED', 'ROLLED_BACK']);
 
 function requiredText(value, code, max = 512) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(code);
@@ -38,6 +40,7 @@ async function createDiagnostic(db, tenant, input) {
     resourceId: requiredText(input?.resourceId, 'SHRE_RESOURCE_REQUIRED', 128),
     actuatorId: requiredText(input?.actuatorId, 'SHRE_ACTUATOR_REQUIRED', 128),
     verifierId: requiredText(input?.verifierId, 'SHRE_VERIFIER_REQUIRED', 128),
+    causalVerifierId: requiredText(input?.causalVerifierId, 'SHRE_CAUSAL_VERIFIER_REQUIRED', 128),
     sourceDigest: requiredText(input?.sourceDigest, 'SHRE_SOURCE_DIGEST_REQUIRED', 256),
     createdBy: requiredText(input?.createdBy, 'SHRE_ACTOR_REQUIRED', 128) };
   const current = { caseId, status: 'DIAGNOSTIC', diagnostic, timeline: [], createdAt: new Date().toISOString() };
@@ -68,6 +71,7 @@ async function plan(db, tenant, caseId, input) {
   current.plan = { minimalChange: requiredText(input?.minimalChange, 'SHRE_MINIMAL_CHANGE_REQUIRED'),
     expectedImpact: requiredText(input?.expectedImpact, 'SHRE_EXPECTED_IMPACT_REQUIRED'),
     rollbackPlan: requiredText(input?.rollbackPlan, 'SHRE_ROLLBACK_PLAN_REQUIRED'),
+    changeScope: causalVerifier.normalizeChangeScope(input, current.diagnostic.resourceId),
     impactLevel, evidenceRefs: evidenceRefs(input?.evidenceRefs, 'SHRE_PLAN_EVIDENCE_REQUIRED') };
   appendEvent(current, 'PLAN', { detail: 'Plan minimal enregistré', evidenceRefs: current.plan.evidenceRefs });
   await store.save(context);
@@ -179,15 +183,40 @@ async function counterTest(db, tenant, caseId) {
   return current;
 }
 
+async function verifyCausalRemediation(db, tenant, caseId) {
+  const context = await store.load(db, tenant);
+  const current = store.requireCase(context.state, caseId);
+  if (!['COUNTER_TEST', 'CAUSAL_VERIFICATION'].includes(current.status)) {
+    throw new Error('SHRE_CAUSAL_VERIFICATION_REQUIRES_COUNTER_TEST');
+  }
+  requireSuccessfulCounterTest(current);
+  current.causalVerification = await causalVerifier.verify({ caseRecord: current, tenant });
+  const refs = current.causalVerification.evidenceRefs.map((item) => item.id);
+  appendEvent(current, 'CAUSAL_VERIFICATION', { detail: `Vérification indépendante: ${current.causalVerification.status}`,
+    evidenceRefs: refs });
+  await store.save(context);
+  return current;
+}
+
+function requireSuccessfulCounterTest(current) {
+  if (current.application?.applied !== true || current.application?.uncertain === true
+    || !current.counterTest?.effectObserved || !current.counterTest?.changeAttributed || !current.counterTest?.noRegression
+    || current.counterTest.verifierId === current.diagnostic.actuatorId) {
+    throw new Error('SHRE_INDEPENDENT_COUNTER_TEST_REQUIRED');
+  }
+}
+
 async function close(db, tenant, caseId, input) {
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
   const abandonable = ['DIAGNOSTIC', 'PLAN', 'SIMULATION', 'AUTHORIZATION'].includes(current.status);
-  if (current.status !== 'COUNTER_TEST' && !abandonable) requireState(current, 'COUNTER_TEST');
+  const causalPass = current.status === 'CAUSAL_VERIFICATION' && current.causalVerification?.status === 'PASS';
+  if (!abandonable && !causalPass) throw new Error('SHRE_CAUSAL_VERIFICATION_REQUIRED');
   if (abandonable && !input?.abandon) throw new Error('SHRE_PRE_APPLICATION_CLOSE_REQUIRES_ABANDON');
   const archivedEvidenceRefs = [...(current.diagnostic?.evidenceRefs || []), ...(current.plan?.evidenceRefs || []),
     ...(current.simulation?.evidenceRefs || []), ...(current.authorization?.evidenceRefs || []),
-    ...(current.application?.evidenceRefs || []), ...(current.counterTest?.evidenceRefs || [])];
+    ...(current.application?.evidenceRefs || []), ...(current.counterTest?.evidenceRefs || []),
+    ...(current.causalVerification?.evidenceRefs || []).map((item) => item.id)];
   if (abandonable) archivedEvidenceRefs.push(...evidenceRefs(input?.evidenceRefs, 'SHRE_ABANDON_EVIDENCE_REQUIRED'));
   current.closure = { decision: requiredText(input?.decision, 'SHRE_CLOSURE_DECISION_REQUIRED', 128),
     archivedEvidenceRefs };
@@ -199,7 +228,7 @@ async function close(db, tenant, caseId, input) {
 async function rollback(db, tenant, caseId, input) {
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
-  if (!['APPLICATION', 'APPLICATION_PENDING', 'APPLICATION_UNCERTAIN', 'COUNTER_TEST_FAILED'].includes(current.status)) {
+  if (!['APPLICATION', 'APPLICATION_PENDING', 'APPLICATION_UNCERTAIN', 'COUNTER_TEST_FAILED', 'CAUSAL_VERIFICATION'].includes(current.status)) {
     throw new Error('SHRE_ROLLBACK_NOT_ALLOWED');
   }
   const actuator = actuators.getActuator(current.diagnostic.actuatorId);
@@ -210,7 +239,7 @@ async function rollback(db, tenant, caseId, input) {
   current.rollback = { reason: input.reason, evidenceRefs: refs };
   current.closure = { decision: 'rolled_back', archivedEvidenceRefs: [...current.diagnostic.evidenceRefs,
     ...current.plan.evidenceRefs, ...current.simulation.evidenceRefs, ...(current.application?.evidenceRefs || []),
-    ...(current.counterTest?.evidenceRefs || []), ...refs] };
+    ...(current.counterTest?.evidenceRefs || []), ...(current.causalVerification?.evidenceRefs || []).map((item) => item.id), ...refs] };
   appendEvent(current, 'ROLLED_BACK', { detail: 'Rollback confirmé par l’actionneur', evidenceRefs: refs });
   await store.save(context);
   return current;
@@ -221,4 +250,5 @@ async function getCase(db, tenant, caseId) {
   return store.requireCase(context.state, caseId);
 }
 
-module.exports = { STATES, createDiagnostic, plan, simulate, authorize, apply, counterTest, close, rollback, getCase };
+module.exports = { STATES, createDiagnostic, plan, simulate, authorize, apply, counterTest,
+  verifyCausalRemediation, close, rollback, getCase };

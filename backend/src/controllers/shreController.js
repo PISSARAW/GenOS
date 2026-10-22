@@ -27,8 +27,9 @@ const authorize = endpoint((db, tenant, req) => workflow.authorize(db, tenant, r
 }));
 const apply = endpoint((db, tenant, req) => workflow.apply(db, tenant, req.params.caseId));
 const counterTest = endpoint((db, tenant, req) => workflow.counterTest(db, tenant, req.params.caseId));
+const causalVerify = endpoint((db, tenant, req) => workflow.verifyCausalRemediation(db, tenant, req.params.caseId));
 const close = endpoint((db, tenant, req) => workflow.close(db, tenant, req.params.caseId, req.body));
 const rollback = endpoint((db, tenant, req) => workflow.rollback(db, tenant, req.params.caseId, req.body));
 const getCase = endpoint((db, tenant, req) => workflow.getCase(db, tenant, req.params.caseId));
 
-module.exports = { create, plan, simulate, authorize, apply, counterTest, close, rollback, getCase };
+module.exports = { create, plan, simulate, authorize, apply, counterTest, causalVerify, close, rollback, getCase };

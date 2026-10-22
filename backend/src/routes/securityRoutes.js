@@ -36,6 +36,7 @@ router.post('/security/shre/cases/:caseId/simulate', requirePermission('security
 router.post('/security/shre/cases/:caseId/authorize', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.authorize);
 router.post('/security/shre/cases/:caseId/apply', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.apply);
 router.post('/security/shre/cases/:caseId/counter-test', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.counterTest);
+router.post('/security/shre/cases/:caseId/causal-verify', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.causalVerify);
 router.post('/security/shre/cases/:caseId/close', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.close);
 router.post('/security/shre/cases/:caseId/rollback', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.rollback);
 

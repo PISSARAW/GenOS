@@ -835,6 +835,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0722a](0722-morphogenese-securite-cybercorp.md) | Morphogenèse de sécurité CyberCorp et retenue de l'architecture la plus simple | Accepté | 2026-10-22 | morphogenèse, topologies CyberCorp, résilience, parcimonie architecturale |
 | [0722b](0722-security-homeostatic-recovery.md) | Security Homeostatic Recovery Engine | Accepté pour l'implémentation initiale. | -- | -- |
 | [0723](0723-cybercorp-action-gateway.md) | CyberCorp Action Gateway | Accepté pour le pilote. | -- | -- |
+| [0724](0724-verificateur-causal-remediation.md) | Vérificateur causal des remédiations | Accepté pour les dossiers SHRE clôturés comme corrigés. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
