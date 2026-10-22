@@ -1,0 +1,125 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S07",
+  "seed": 7,
+  "attempt": 3,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "ebf7bbf722b68a3f8e17ba065d02071f481c6727",
+  "expected": [
+    {
+      "relationType": "friend",
+      "direction": "forward"
+    },
+    {
+      "relationType": "colleague",
+      "direction": "forward"
+    },
+    {
+      "relationType": "manager",
+      "direction": "reverse"
+    }
+  ],
+  "genosProfile": {
+    "relationId": "friend",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.95,
+      "interactionCount": 12,
+      "sharedHistory": 0.6,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": null
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend",
+      "colleague",
+      "manager"
+    ],
+    "relations": [
+      {
+        "relationId": "friend",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.95,
+          "interactionCount": 12,
+          "sharedHistory": 0.6,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "forward"
+      },
+      {
+        "relationId": "colleague",
+        "relationType": "colleague",
+        "relationClass": "organizational",
+        "properties": {
+          "familiarity": 0.7,
+          "interactionCount": 5,
+          "sharedHistory": 0.4,
+          "authority": 0.4,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.5,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "forward"
+      },
+      {
+        "relationId": "manager",
+        "relationType": "manager",
+        "relationClass": "organizational",
+        "properties": {
+          "familiarity": 0.5,
+          "interactionCount": 0,
+          "sharedHistory": 0,
+          "authority": 0.8,
+          "trustForDomain": 0.5,
+          "commonGroundEstimate": 0,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.3,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "reverse"
+      }
+    ]
+  },
+  "qwenResponse": "{\n  \"relations\": [\n    {\n      \"relationType\": \"friend\",\n      \"direction\": \"forward\"\n    },\n    {\n      \"relationType\": \"colleague\",\n      \"direction\": \"forward\"\n    },\n    {\n      \"relationType\": \"manager\",\n      \"direction\": \"reverse\"\n    }\n  ]\n}",
+  "answer": [
+    {
+      "relationType": "friend",
+      "direction": "forward"
+    },
+    {
+      "relationType": "colleague",
+      "direction": "forward"
+    },
+    {
+      "relationType": "manager",
+      "direction": "reverse"
+    }
+  ],
+  "verified": true,
+  "oracle": "exact relation type and direction set from the seeded graph",
+  "durationMs": 87911,
+  "testCommand": "node benchmarks/social-world/run-s07-qwen.cjs --seed=7 --attempt=3"
+}

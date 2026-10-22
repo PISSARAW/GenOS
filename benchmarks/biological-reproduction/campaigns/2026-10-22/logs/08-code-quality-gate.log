@@ -1,0 +1,21 @@
+REJECT backend/bin/localRuntimeWorkspaceContext.cjs: COMPLEXITY 11>10 at line 6
+REJECT backend/bin/orchestratorWindowsLocalExecution.cjs: COMPLEXITY 13>10 at line 19
+REJECT backend/src/services/cyberCorpActionGateway/catalog.js: PARAMETERS 4>3 at line 15
+REJECT backend/src/services/cyberCorpActionGateway/catalog.js: COMPLEXITY 19>10 at line 19
+REJECT backend/src/services/cyberCorpActionGateway/catalog.js: COMPLEXITY 11>10 at line 50
+REJECT backend/src/services/identityExperimentPromptTreatment.js: COMPLEXITY 12>10 at line 4
+REJECT backend/src/services/securityRemediation/causalRemediationVerifier.js: PARAMETERS 4>3 at line 55
+REJECT backend/src/services/securityRemediation/causalRemediationVerifier.js: COMPLEXITY 11>10 at line 108
+REJECT backend/src/services/securityRemediation/causalRemediationVerifier.js: COMPLEXITY 14>10 at line 145
+REJECT backend/src/services/securityRemediation/causalRemediationVerifier.js: COMPLEXITY 12>10 at line 164
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: PARAMETERS 4>3 at line 65
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: PARAMETERS 4>3 at line 102
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: COMPLEXITY 11>10 at line 102
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: PARAMETERS 4>3 at line 209
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: COMPLEXITY 14>10 at line 209
+REJECT backend/src/services/securityRemediation/shreWorkflowService.js: PARAMETERS 4>3 at line 228
+REJECT benchmarks/identity-challenge/runtime-llm.cjs: PARAMETERS 4>3 at line 54
+REJECT benchmarks/identity-challenge/runtime-llm.cjs: COMPLEXITY 13>10 at line 54
+REJECT benchmarks/identity-challenge/runtime-llm.cjs: COMPLEXITY 22>10 at line 97
+REJECT benchmarks/identity-challenge/runtime-llm.cjs: COMPLEXITY 15>10 at line 152
+Quality gate: 7299 source files checked, 21 violations (20 new).

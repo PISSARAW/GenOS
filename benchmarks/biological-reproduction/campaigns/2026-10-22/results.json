@@ -1,0 +1,98 @@
+{
+  "campaignId": "biological-reproduction-2026-10-22",
+  "repository": "GenOS",
+  "sourceCommitTested": "ebf7bbf722b68a3f8e17ba065d02071f481c6727",
+  "worktree": "D:/GenOS/identity-real-llm-worktree",
+  "qwen": {
+    "scenario": "S07",
+    "model": "ollama://qwen2.5:14b",
+    "seed": 7,
+    "status": "pass",
+    "attempt": 3,
+    "exactOracleMatch": true,
+    "result": "qwen-s07-result.json",
+    "timeoutAttempt": "../../../social-world/campaigns/socialworld-qwen-20261022/S07-attempt-02.json"
+  },
+  "reproductionSuites": [
+    {
+      "status": "pass",
+      "tests": 9,
+      "log": "logs/01-reproduction-cycle.log",
+      "exitCode": 0,
+      "command": "cargo test -p genos-orchestrator --test reproduction_cycle -- --nocapture"
+    },
+    {
+      "status": "pass",
+      "tests": 3,
+      "log": "logs/02-reproduction-lineage-replay.log",
+      "exitCode": 0,
+      "command": "cargo test -p genos-orchestrator --test reproduction_lineage_replay -- --nocapture"
+    },
+    {
+      "status": "pass",
+      "tests": 2,
+      "log": "logs/03-reproduction-campaign-seed.log",
+      "exitCode": 0,
+      "command": "cargo test -p genos-orchestrator --test reproduction_campaign_seed -- --nocapture"
+    },
+    {
+      "status": "pass",
+      "tests": 1,
+      "log": "logs/04-biological-ecology-campaign.log",
+      "exitCode": 0,
+      "command": "cargo test -p genos-cli --test biological_ecology_reproduction_campaign -- --nocapture"
+    },
+    {
+      "status": "pass",
+      "checks": 3,
+      "log": "logs/05-breed-transaction.log",
+      "exitCode": 0,
+      "command": "node backend/tests/test_breed_transaction.js"
+    },
+    {
+      "status": "pass",
+      "scope": "metadata_simulation",
+      "runtimeAgentCreated": false,
+      "log": "logs/06-chimeric-merge.log",
+      "exitCode": 0,
+      "command": "node backend/tests/test_chimeric_merge.js"
+    },
+    {
+      "status": "pass",
+      "toolStatuses": 19,
+      "runtimeBirthTested": false,
+      "log": "logs/07-birth-mcp-status-dispatch.log",
+      "exitCode": 0,
+      "command": "node backend/tests/test_all_birth_mechanisms_mcp_dispatch.js"
+    }
+  ],
+  "qualityGate": {
+    "status": "fail",
+    "command": "python scripts/ci/check_code_quality.py",
+    "sourceFilesChecked": 7299,
+    "violations": 21,
+    "newViolations": 20,
+    "affectedFilesOutsideReproductionFixes": 8,
+    "log": "logs/08-code-quality-gate.log",
+    "exitCode": 1
+  },
+  "limitations": [
+    "Chimeric merge proves metadata simulation only; it does not create a runtime agent.",
+    "MCP test proves tool registration and status dispatch only; it does not test runtime birth.",
+    "This campaign does not execute A01-D03 or prove executable chimeras, functional triplets, or cross-generation cognitive evolution."
+  ],
+  "repositoryValidations": [
+    {
+      "log": "logs/11-npm-test.log",
+      "status": "pass",
+      "command": "npm test",
+      "exitCode": 0
+    },
+    {
+      "log": "logs/12-cargo-test-workspace.log",
+      "status": "pass",
+      "command": "cargo test --workspace",
+      "exitCode": 0
+    }
+  ]
+}

@@ -1,0 +1,950 @@
+
+> test
+> npm run test:biology && npm run test:worker-workspaces && npm --prefix backend test && npm run test:garage && npm run test:p1-v3
+
+
+> test:biology
+> node backend/tests/run_biology_suite.cjs
+
+Durable authority, idempotency, immutable revisions and coverage policy passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+homeostasis authority and transition receipt checks passed
+Biological mission completion: PASS
+Atomic Rust population ingestion, origin checks, mission remapping and idempotency passed.
+Biological receipt attribution, mission mapping, and tick bridge passed.
+Worker mission, frozen genome, measured costs, immutable outcome and idempotency passed.
+Real procedure execution, fresh transition binding, durable replay and closure across process restart passed.
+Read-only biological audit, frozen genome lookup, bounded history and tenant isolation passed.
+Biology suite: 8/8 passed.
+
+> test:worker-workspaces
+> node backend/tests/test_worker_workspace_binding.js
+
+Worker capsule registration, tenant binding, reuse and snapshot target: PASS
+
+> genos-backend@1.0.0 test
+> npm run test:identity && node tests/test_backend.js && npm run test:snapshots && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome && npm run test:daemon && npm run test:capsules && npm run test:otel && npm run test:workers && node tests/test_consumer_inspection.js && node tests/test_model_provider_sampling.js && node tests/test_p0_pilot_protocol.js && npm run test:p1-socle
+
+
+> genos-backend@1.0.0 test:identity
+> node tests/test_agent_identity_dossier.js && node tests/test_identity_dossier_runtime.js && node tests/test_identity_v2.js
+
+Agent identity dossier: all cases passed
+Identity dossier runtime: AgentSelf and WorkerSelf passed
+Identity v2: causal history, fencing, recognition, learning, forks, restore and inherited memories passed.
+=== STARTING GENOS BACKEND VERIFICATION SUITE ===
+
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Test server active on port 4099
+
+--- 1. Database WAL Mode & Transaction Verification ---
+  ✅ PASS: SQLite PRAGMA journal_mode is WAL
+  ✅ PASS: withTransaction helper committed transaction successfully
+
+--- 2. Database Schema & Tables Verification ---
+  ✅ PASS: Table 'access_keys' is queryable (rows: 3)
+  ✅ PASS: Table 'sessions' is queryable (rows: 0)
+  ✅ PASS: Table 'workspaces' is queryable (rows: 2)
+  ✅ PASS: Table 'workspace_snapshots' is queryable (rows: 0)
+  ✅ PASS: Table 'agents' is queryable (rows: 0)
+  ✅ PASS: Table 'trajectories' is queryable (rows: 0)
+  ✅ PASS: Table 'lineage_nodes' is queryable (rows: 0)
+  ✅ PASS: Table 'lineage_edges' is queryable (rows: 0)
+  ✅ PASS: Table 'experiments' is queryable (rows: 0)
+  ✅ PASS: Table 'experiment_waves' is queryable (rows: 0)
+  ✅ PASS: Table 'experiment_thoughts' is queryable (rows: 0)
+  ✅ PASS: Table 'coevolution_arenas' is queryable (rows: 0)
+  ✅ PASS: Table 'swarm_proposals' is queryable (rows: 0)
+  ✅ PASS: Table 'swarm_votes' is queryable (rows: 0)
+  ✅ PASS: Table 'mcp_tools' is queryable (rows: 185)
+  ✅ PASS: Table 'telemetry_events' is queryable (rows: 0)
+  ✅ PASS: Table 'genome_decisions' is queryable (rows: 0)
+  ✅ PASS: Table 'trace_spans' is queryable (rows: 0)
+  ✅ PASS: Table 'global_alerts' is queryable (rows: 1)
+
+--- 3. Auth, RBAC & Security Protection ---
+  ✅ PASS: Level 5 Override Token authenticated as admin
+  ✅ PASS: Invalid token rejected with 401 Unauthorized
+  ✅ PASS: X-Frame-Options: DENY header verified
+
+--- 4. Arena: Multi-Solver Tournament & Pareto Frontier ---
+  ✅ PASS: GET /api/arena/tournament returned solver leaderboard
+  ✅ PASS: Solver ELO rating computed accurately
+  ✅ PASS: GET /api/arena/pareto returned Pareto Front
+  ✅ PASS: Mathematical Knee-Point identified successfully
+  ✅ PASS: Unknown tournament cannot borrow another trace
+  ✅ PASS: GET /api/arena/trace exported OpenTelemetry trace spans
+
+--- 5. MCP Sandbox: Schema Inspector, VFS Dry-Run & Metrics ---
+  ✅ PASS: GET /api/tools returned 185 MCP tools
+  ✅ PASS: GET /api/tools/:name/schema returned draft-07 JSON Schema
+  ✅ PASS: POST /api/tools/dry-run executed VFS simulation with Blast Radius
+  ✅ PASS: GET /api/tools/metrics returned sub-millisecond latency & token metrics
+
+--- 6. Swarm Telemetry: Shannon Entropy & Dynamic Topology ---
+  ✅ PASS: GET /api/swarm/metrics returned Shannon entropy H(A)
+  ✅ PASS: Cognitive drift state detected
+  ✅ PASS: GET /api/swarm/topology returned nodes and particle message flows
+
+--- 7. Biology & Resilience: Apoptosis Autopsy & Cryptobiosis ---
+  ✅ PASS: POST /api/resilience/apoptosis generated automated autopsy report
+  ✅ PASS: POST /api/resilience/cryptobiosis/freeze created instant state snapshot
+  ✅ PASS: POST /api/resilience/cryptobiosis/thaw revived runtime state
+  ✅ PASS: POST /api/resilience/drift evaluated prompt mutation Levenshtein drift
+
+--- 8. Genetics & Genome: Phylogeny & Crossover Synthesizer ---
+  ✅ PASS: GET /api/genome/phylogeny returned evolutionary mutation DAG
+  ✅ PASS: GET /api/genome/alleles refuses unsupported beneficial classifications
+  ✅ PASS: POST /api/genome/crossover synthesized valid child agent DNA
+
+--- 9. Memory & Experience: Vector Search, Cherry-Pick & What-If ---
+  ✅ PASS: POST /api/memory/search executed hybrid cosine vector search
+  ✅ PASS: POST /api/memory/cherry-pick pruned dead-ends into Golden Path
+  ✅ PASS: POST /api/memory/counterfactual simulated branching timeline comparison
+
+--- 10. Workspace: Multi-Branch Diff, Causal Bisection & Rollback ---
+  ✅ PASS: Baseline snapshot creation succeeded (201: {"id":"snp-mvk1nlgv-e370c28192","workspaceId":"ws-genos-core","snapshotHash":"32e841a6b19ce7e5d653f78e1742e639f881b59f0547a66d70fe054fb6f52757","stepNumber":1,"label":"Step 1 baseline","reason":"Bisection baseline","metadata":{"storage":"durable-filesystem","manifestPath":"D:\\GenOS\\identity-real-llm-worktree\\backend\\tests\\.tmp-ws-genos-core-30556\\.genos\\workspace-snapshots\\32e841a6b19ce7e5d653f78e1742e639f881b59f0547a66d70fe054fb6f52757\\manifest.json","storagePath":"D:\\GenOS\\identity-real-llm-worktree\\backend\\tests\\.tmp-ws-genos-core-30556\\.genos\\workspace-snapshots\\32e841a6b19ce7e5d653f78e1742e639f881b59f0547a66d70fe054fb6f52757","fileCount":2,"hashAlgorithm":"sha256","snapshotContext":{"snapshot_id":"snp-mvk1nlgv-e370c28192","agent_id":"system","branch_id":"main","genome":{},"state":{"status":"quiescent"},"world_id":"world-matrix-0","created_at":"2026-10-22T21:19:26.575Z"},"gitCommit":"414d8bdac2e482fe6c53073601ed8d4434053330"},"fileCount":2})
+  ✅ PASS: Regression snapshot creation succeeded (201: {"id":"snp-mvk1nlka-b27e5eb3ee","workspaceId":"ws-genos-core","snapshotHash":"1703f4436787acce2abea4709c29fd786f66e19f2b29d8cf7e92e5212558d357","stepNumber":2,"label":"Step 2 regression","reason":"Introduced null dereference","metadata":{"storage":"durable-filesystem","manifestPath":"D:\\GenOS\\identity-real-llm-worktree\\backend\\tests\\.tmp-ws-genos-core-30556\\.genos\\workspace-snapshots\\1703f4436787acce2abea4709c29fd786f66e19f2b29d8cf7e92e5212558d357\\manifest.json","storagePath":"D:\\GenOS\\identity-real-llm-worktree\\backend\\tests\\.tmp-ws-genos-core-30556\\.genos\\workspace-snapshots\\1703f4436787acce2abea4709c29fd786f66e19f2b29d8cf7e92e5212558d357","fileCount":2,"hashAlgorithm":"sha256","snapshotContext":{"snapshot_id":"snp-mvk1nlka-b27e5eb3ee","agent_id":"system","branch_id":"main","genome":{},"state":{"status":"quiescent"},"world_id":"world-matrix-0","created_at":"2026-10-22T21:19:26.698Z"},"gitCommit":"414d8bdac2e482fe6c53073601ed8d4434053330"},"fileCount":2})
+  ✅ PASS: GET /api/workspaces/diff returned multi-branch diff & churn heatmap (200: {"baseBranch":"GenOS Core","targetBranch":"GenOS Core","diffGeneratedAt":"2026-10-22T21:19:26.797Z","totalFilesChanged":1,"totalAdditions":0,"totalDeletions":0,"categories":{"syntaxAdditions":0,"refactorings":0,"breakingApiChanges":0,"documentation":0},"churnHeatmap":[{"file":"src/parser.js","churnScore":0,"collisionRisk":"UNKNOWN"}],"diffEntries":[{"file":"src/parser.js","additions":0,"deletions":0,"category":"Snapshot manifest","collisionRisk":"UNKNOWN"}],"diffSummary":[{"file":"src/parser.js","additions":0,"deletions":0,"category":"Snapshot manifest","collisionRisk":"UNKNOWN"}]})
+  ✅ PASS: POST /api/workspaces/bisect isolated culprit step in O(log N) iterations (200: {"bisectionComplete":true,"anomalyFound":true,"evidenceLevel":"regression_indicator","causalGuarantee":false,"totalSnapshotsSearched":2,"bisectionIterationsRequired":1,"bisectionSteps":1,"theoreticalComplexity":"O(log 2) = 1 steps","bisectionAuditTrace":[{"iteration":1,"testedIndex":1,"stepNumber":2,"snapshotHash":"1703f4436787acce2abea4709c29fd786f66e19f2b29d8cf7e92e5212558d357","evaluatedStatus":"FAIL (ANOMALY_PRESENT)"}],"culpritReport":{"stepNumber":2,"snapshotHash":"1703f4436787acce2abea4709c29fd786f66e19f2b29d8cf7e92e5212558d357","lastHealthy":{"stepNumber":1,"snapshotHash":"32e841a6b19ce7e5d653f78e1742e639f881b59f0547a66d70fe054fb6f52757","snapshotId":"snp-mvk1nlgv-e370c28192"},"culpritAgentId":"Bootstrap administrator","actionDescription":"Invariant command exited with 1.\n\n> ws-genos-core@0.0.0 test\n> node -e \"const fs=require('fs'); process.exit(fs.readFileSync('src/parser.js', 'utf8').includes('deep.property') ? 1 : 0)\"","toolCall":"isolated_test_runner","targetFile":null,"rootCauseSummary":"Introduced null dereference"},"remediation":null})
+  ✅ PASS: POST /api/workspaces/rollback restored the pre-regression snapshot atomically
+
+--- 11. Command Palette, Terminal & Emergency Kill Switch ---
+  ✅ PASS: Unauthenticated POST /api/terminal rejected with 401
+  ✅ PASS: Authenticated terminal requires an explicit tenant
+  ✅ PASS: Authenticated POST /api/terminal executed
+  ✅ PASS: Authenticated POST /api/command executed
+  ✅ PASS: POST /api/security/kill-switch triggered halt
+
+========================================
+TEST RESULTS: 57 PASSED, 0 FAILED
+========================================
+
+
+> genos-backend@1.0.0 test:snapshots
+> node tests/test_agent_state_snapshot_contract.js && node tests/test_gqwf_fabric.js && node tests/test_gqwf_worker_execution.js && node tests/test_gqwf_worker_promotion.js && node tests/test_gqwf_garbage_collection.js && node tests/test_gqwf_replication.js && node tests/test_gqwf_repair.js && node tests/test_gqwf_metadata_repair.js && node tests/test_gqwf_catalog_maintenance.js && node tests/test_gqwf_execution_closure.js && node tests/test_gqwf_cow_benchmark.js && node tests/test_gqwf_materializer_benchmark.js && node tests/test_gqwf_canary_rollout.js && node tests/test_gqwf_execution_workspace.js && node tests/test_gqwf_organism_snapshot.js && node tests/test_gqwf_trinity_promotion.js && node tests/test_gqwf_trinity_mission_qualification.js && node tests/test_organism_persisted_state.js && node tests/test_organism_orchestrator_checkpoint.js && node tests/test_organism_shared_mission_checkpoint.js && node tests/test_organism_restore_recovery.js && node tests/test_organism_restore_sigkill.js && npm run test:topology-snapshots && node tests/test_sealed_agent_fork_service.js && node tests/test_inherited_organism_archive.js
+
+Agent state and workspace restore contract passed.
+GQWF fabric checks passed.
+GQWF worker Copy-on-Write lifecycle: PASS
+GQWF worker evidence-gated promotion: PASS
+GQWF safe garbage collection and integrity scrub: PASS
+GQWF authorized CAS replication and resumable deduplication: PASS
+GQWF authenticated repair from verified replica: PASS
+GQWF content-addressed metadata recovery: PASS
+GQWF metadata catalog maintenance: PASS
+GQWF content-addressed execution closure: PASS
+GQWF paired Copy-on-Write qualification: PASS
+GQWF paired materializer qualification: PASS
+GQWF bounded canary rollout checks passed.
+GQWF lazy execution workspace checks passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+GQWF organism snapshot reference and restore boundary passed.
+GQWF Trinity signed promotion checks passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+GQWF Trinity three-worker run, independent claim checks, fail-closed comparison and restart: PASS
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Organism persisted sections and model context passed.
+Rust checkpoint reference integrity passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Shared mission cohort guard passed.
+Organism restore crash recovery passed.
+Organism restore SIGKILL recovery passed.
+
+> genos-backend@1.0.0 test:topology-snapshots
+> node tests/test_topology_worker_persistence.js && node tests/test_topology_snapshot_service.js && node tests/test_topology_snapshot_trinity.js && node tests/test_topology_snapshot_ateam.js && node tests/test_topology_snapshot_biocenose.js && node tests/test_topology_snapshot_holobionte.js && node tests/test_syncytium_topology_snapshot_adapter.js && node tests/test_topology_snapshot_rhizome.js && node tests/test_topology_snapshot_metapopulation.js && node tests/test_topology_snapshot_biome.js
+
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Topology worker identity persistence: PASS
+topology snapshot service: pass
+✔ Trinity captures a verified baseline and policy for all twelve variants (287.7706ms)
+✔ Trinity refuses capture for an agent outside the experiment world (11.8016ms)
+✔ Trinity default snapshot preserves the persisted non-controlled variant (15.4614ms)
+✔ Trinity refuses a changed sealed baseline (17.3389ms)
+✔ Trinity refuses workspace restore while the experiment is active (17.7444ms)
+✔ Trinity binds every automatically selected preset to its verified design (277.0288ms)
+✔ Trinity rejects a selected preset whose persisted design changed (23.8725ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 659.9476
+A-Team topology snapshots: pass
+Biocenose topology snapshot checks: PASS
+✔ Holobionte captures and preflights all twelve persisted variants (320.3547ms)
+✔ Holobionte refuses foreign workspace, host, and variant bindings (14.8064ms)
+✔ Holobionte rejects an incomplete immutable journal and active host (14.3673ms)
+✔ Holobionte rejects a contribution receipt without a bound contract (11.0366ms)
+✔ Holobionte shared preflight refuses collective state drift (24.7686ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 394.5099
+Syncytium topology snapshot adapter: PASS
+Rhizome topology snapshots: pass
+Metapopulation topology snapshots: 16 variants pass
+✔ all 11 Biome variants capture sealed, variant-specific manifests and preflight unchanged state (27.7087ms)
+✔ Biome refuses live ecology, foreign session identity and wrong variant (1.8472ms)
+✔ Biome detects event gaps, environment conflict and state drift before restore (2.3945ms)
+✔ Biome refuses a forged tenant scope and snapshot binding (1.9983ms)
+✔ Biome refuses unresolved external executions at a dormant boundary (0.4979ms)
+✔ Biome variant proof hashes fields actually produced by specialized controllers (8.7157ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55.3679
+Sealed agent fork service contract passed.
+Read-only inherited organism archive, scope, owner and resealed forgery refusals passed.
+
+> genos-backend@1.0.0 test:authority
+> node tests/test_cedar_agent_authority.js && node tests/test_relation_authority_bridge.js && node tests/test_biscuit_delegation.js
+
+Cedar agent authority: all assertions passed.
+Relation authority bridge tests passed.
+biscuit-wasm loading
+Biscuit delegation enforces caller, child kind, attenuation and revocation.
+
+> genos-backend@1.0.0 test:aeis
+> node tests/run_aeis_suite.js
+
+✓ Holobionte async produit un résultat structuré
+✓ Adapter Holobionte → FormalResult produit un résultat valide
+✓ Adapter rejette les statuts invalides (pending → conjecture)
+✓ Adapter downgrade "verified" sans proof vers "tested"
+✓ Adapter immunitaire produit un FormalResult
+✓ Adapter immunitaire refuted → status refuted
+✓ Receipt signé est immuable (HMAC détecte la modification)
+✓ Builder rejette un receipt non signé
+✓ Independence Policy évalue correctement
+✓ Independence Policy détecte workspace partagé
+✓ evaluateReportWithAeis construit une assemblée
+✓ Adapter coverage normalise evidence objet
+✓ Adapter behavior normalise claim objet
+✓ Bon claim eligible via sandbox, binde, gate OK
+✓ Faux claim 2+2=5 non eligible via sandbox
+✓ Une affirmation sans lien avec un test réussi est refusée
+✓ La promotion multi-provider refuse une configuration sans quorum
+✓ Une affirmation sans lien avec un test réussi est refusée
+✓ La promotion multi-provider refuse une configuration sans quorum
+✓ Sans assembly la gate refuse
+
+✅ All E2E AEIS tests passed.
+AEIS rejects oversized reports and insufficient execution budgets before spawning any verifier: PASS
+✓ sandboxExecutor exécute npm test
+✓ sandboxExecutor rejette rm -rf /
+✓ sandboxExecutor détecte exitCode != 0
+✓ runTestAdapter exécute réellement la commande
+✓ runArtifactAdapter exécute le build
+✓ independencePolicy évalue avant signature
+✓ independencePolicy détecte dépendance dans le bridge
+✓ executeVerifierWorkers signe receipt avec indépendance
+✓ Receipt portant indépendance est valide
+
+✅ All E2E AEIS sandbox + independence tests passed.
+AEIS execution timeout abstains without recording a false refutation: PASS
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS assemblies survive key rotation and obey retention.
+AEIS cross-provider verification enforces distinct providers and quorum.
+AEIS homeostatic feedback, niche selection and verifier budget are active.
+AEIS homeostatic re-arbitration expands verification under measured pressure.
+AEIS re-arbitration preserves every earlier verifier workspace and the execution budget: PASS
+AEIS niche recruitment is conditional and executes the selected niche.
+AEIS populations use separate child processes and report isolated failures.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS provider databases are genuinely in memory and lose state after closure: PASS
+AEIS real child workers: two HTTP adapters, distinct processes, dispute and timeout: PASS
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Production AEIS adapters: distinct executable replicas, signed process evidence, restart and tamper rejection: PASS
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS provider reviews persist under the run and tenant scope.
+AEIS runtime integration checks passed.
+Promotion nonces: scope binding, signed negative outcomes, real SQLite rollback and concurrent replay on two connections passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+✅ approveRun rejects unsigned evidence and accepts two genuine independent AEIS receipts.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS approveRun: supports promoted; dissent, HTTP 503, misbound claimId, and missing quorum blocked before promotion: PASS
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS immune memory is persisted, scoped and rejects unproven outcomes.
+OK immuneMemoryService
+OK adaptiveImmuneResponse
+OK epistemicHomeostasisService
+OK epistemicInflammationAndRegulation
+OK epistemicBiocenoseService
+OK epistemicMetapopulationService
+OK epistemicStigmergyService
+Local-only pheromones skip global database lookup: PASS
+OK epistemicApoptosisService
+OK epistemicApoptosisAuthorityBridge
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+AEIS authority: restart, deduplication, dispatch restriction, quarantine and apoptosis: PASS
+OK epistemicEcologicalSelectionService
+OK epistemicChallengeService
+OK epistemicBenchmarkIntegrationService
+Epistemic assurance gate checks passed.
+Epistemic analysis verified; promotion still requires an assembly; worker memory integration: PASS
+Epistemic claims and events are persisted and revised.
+OK epistemicHolobionteService
+OK verifierExecutionService
+OK clonalExpansionService
+OK affinityMaturationService
+[AEIS-EAB] start supported
+[AEIS-EAB] done supported 270.8ms
+[AEIS-EAB] start contradicted
+[AEIS-EAB] done contradicted 146.9ms
+[AEIS-EAB] start unrelated
+[AEIS-EAB] done unrelated 0.1ms
+[AEIS-EAB] start unconfined
+[AEIS-EAB] done unconfined 77.4ms
+{"schema":"genos.aeis-eab/v1","benchmark":"AEIS promotion adversarial fixtures","cases":4,"trueAccepts":1,"falseAccepts":0,"trueRefusals":3,"falseRefusals":0,"totalLatencyMs":495.20730000000003,"totalVerifierResults":6,"casesDetail":[{"id":"supported","expected":true,"actual":true,"latencyMs":270.798,"verifierResults":2,"violations":[]},{"id":"contradicted","expected":false,"actual":false,"latencyMs":146.9401,"verifierResults":2,"violations":[{"policy":"constraint_census","message":"Census incomplet: 0 acteur(s), 1 obligation(s) manquante(s)","details":{"actors":[],"covered":[],"missing":["sha256:3d25a91c408cf8e3d699e7728a3ed60180d2c636fb2818f6d15628df1f473f67"]}},{"policy":"proof_verification","message":"A promoted root lacks an independent, evidence-bound verifier receipt.","details":{"resultId":"sha256:3d25a91c408cf8e3d699e7728a3ed60180d2c636fb2818f6d15628df1f473f67"}},{"policy":"host_veto","message":"The AEIS host refused one or more claims."}]},{"id":"unrelated","expected":false,"actual":false,"latencyMs":0.0518,"verifierResults":0,"violations":[{"policy":"claim_verification_contract","message":"The claim must state the checked predicate exactly: echo 4 outputs \"4\""}]},{"id":"unconfined","expected":false,"actual":false,"latencyMs":77.4174,"verifierResults":2,"violations":[{"policy":"constraint_census","message":"Census incomplet: 1 acteur(s), 0 obligation(s) manquante(s)","details":{"actors":["verifier-source-anon"],"covered":["sha256:2acda8bd7062b42abf8d954b1bba6742a47838abfbc98055410964e8ebe5f503"],"missing":[]}},{"policy":"host_veto","message":"The AEIS host refused one or more claims."}]}]}
+AEIS: 42 suites and benchmark completed successfully.
+
+> genos-backend@1.0.0 test:syncytium
+> node tests/run_syncytium_suite.js
+
+Syncytium adaptive sync checks: PASS
+Syncytium authority checks: PASS
+Syncytium autonomous runtime checks: PASS
+Syncytium benchmark metric checks: PASS
+Syncytium blackboard variant checks: PASS
+Syncytium caller session scope: PASS
+Syncytium causality checks: PASS
+Syncytium code variant checks: PASS
+Syncytium completion regressions: PASS (7 groups)
+Common completion contract and durable proof binding: PASS
+Syncytium semantic conflict checks: PASS
+Syncytium consistency zone checks: PASS
+=== TEST 1: Syncytium Mission Analysis & Composition ===
+  ✅ Analyse et composition des 4 agents Syncytium validées.
+
+=== TEST 2: Concurrent CRDT Operations & Non-Blocking State ===
+  ✅ Opérations concurrentes CRDT sans corruption validées.
+  ✅ Réapplication du même opId sans effet supplémentaire validée.
+
+=== TEST 3: Multi-Agent Cursors Tracking (4 Roles) ===
+  ✅ Curseurs des 4 agents avec couleurs distinctes validés.
+
+=== TEST 4: Time-Travel Rewind Millisecond by Millisecond ===
+  ✅ Time-Travel rewind exact milliseconde par milliseconde validé.
+
+=== TEST 5: Invariant Check & Fault Localization ===
+  ✅ Vérification d invariant et localisation de faute validées.
+
+=== TEST 6: Op Without kind Must Not Crash ===
+  ✅ Opérations sans kind ignorées sans crash validées.
+
+=== TEST 7: Step Rewind Is Collision-Free ===
+  ✅ Rewind par step deterministe malgre des timestamps identiques validé.
+
+=============================================================
+TOUS LES TESTS CRDT ET SYNCHRONISATION SYNCYTIUM ONT RÉUSSI !
+=============================================================
+Syncytium CRDT type checks: PASS
+Syncytium causal diagnostics checks: PASS
+Syncytium dispatch capabilities and tool leases: PASS
+Syncytium document editing and compensation checks: PASS
+Syncytium epistemic variant checks: PASS
+Syncytium graph cycle checks: PASS
+Syncytium graph variant checks: PASS
+Syncytium hard fencing and concurrent transaction checks: PASS
+Syncytium hierarchical variant checks: PASS
+Syncytium human-AI variant checks: PASS
+Syncytium invariant checks: PASS
+[Test] Running test_syncytium_ionic_flux...
+[Test] test_syncytium_ionic_flux PASSED successfully.
+Syncytium local-first queue and reconciliation checks: PASS
+Syncytium MCP materialization and mission closure: PASS
+Syncytium mission completion evidence gates: PASS
+Syncytium mission repair regressions: PASS (6 scenarios)
+Syncytium morphogenesis advisor checks: PASS
+Syncytium MCP morphogenesis handoff checks: PASS
+Syncytium nested topology checks: PASS
+Syncytium partition and reconciliation checks: PASS
+Syncytium persistence safety checks: PASS
+Syncytium selective projection checks: PASS
+Syncytium real-time control variant checks: PASS
+Syncytium reflex checks: PASS
+Syncytium replica convergence checks: PASS
+Syncytium role service checks: PASS
+Syncytium typed schema checks: PASS
+Syncytium snapshot and replica checks: PASS
+Syncytium soft partition and anti-entropy checks: PASS
+Syncytium semantic repair and speculation checks: PASS
+Syncytium speculative isolation and promotion checks: PASS
+Syncytium topology snapshot adapter: PASS
+Syncytium transactional variant checks: PASS
+Syncytium transaction checks: PASS
+Syncytium variant gaps: PASS
+Syncytium variant policy checks: PASS
+Syncytium variant worker checks: PASS
+Syncytium wiring checks: PASS
+Syncytium suite: PASS (51 suites, 13 variants).
+
+> genos-backend@1.0.0 test:axolotl
+> node tests/test_axolotl_suite.js
+
+Axolotl partial regeneration, restart, isolation, concurrency and rollback: passed
+Axolotl cognitive learning, rejection, durable evidence, promotion and rollback: passed
+Axolotl cognitive reconstruction from owner memory and source confinement: passed
+Axolotl controlled metamorphosis, evidence, freeze, emergency and restart: passed
+Axolotl observed cost, budget refusal and measured stable/plastic comparison: passed
+Axolotl structural selection, partial/global assessment, classic restore and cost constraints: passed
+Axolotl complete strategy dispatch, runtime routing, composition and repeated regeneration: passed
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Axolotl missing-session recovery, interrupted-run resume, structural repair and timeout: passed
+Axolotl: all 8 suites passed.
+
+> genos-backend@1.0.0 test:biome
+> node tests/run_biome_suite.js
+
+Biome ecological allocation checks: PASS
+Biome carrying capacity checks: PASS
+Biome completion adapter: PASS
+Biome contract and persistence checks: PASS
+Biome autonomous cycles, conservation, rollback and proof gates: PASS
+Biome SQLite restart, event revisions, MCP continuation and mission budget isolation: PASS
+All eleven Biome variants execute through persisted multi-tick cycles: PASS
+Biome measured curiosity, construction, stigmergy, phenotype, rewiring and recovery: PASS
+Biome real adapter reservation, refunds, transport/proof separation and replay protection: PASS
+Biome experiment wave persistence, restore and atomic rollback: PASS
+Biome foraging checks: PASS
+Biome MCP executes authorized work; SQLite receipts prevent execution replay: PASS
+Biome mission E2E: real receipts, SQLite restart, simulated no-effect and authorization boundary passed.
+Biome mission loop checks passed.
+Biome niche checks: PASS
+Biome Open-Ended requires candidate-bound evidence and counts new niches once: PASS
+Biome population lineage and measured fitness survive SQLite restart.
+Biome population checks: PASS
+Biome QD offspring requires an admitted elite: PASS
+Biome resource checks: PASS
+Testing BiomeRuntime multi-tick loop...
+Created runtime: biome-cc5c1e9d-1b44-47b3-91a2-30f12e321f86, variant: resource, tick: 0
+Ran 10 ticks
+Final tick: 10, stopCondition: null
+Final state - tick: 10, populations: 0
+Testing different variant - exploration
+Exploration ran 5 ticks
+Testing stop condition - budget exhausted
+Budget test - stopCondition: budget_exhausted
+
+✅ All BiomeRuntime multi-tick loop tests passed!
+Biome sealed spore checks: PASS
+✔ Biome guards both reads and mutations by persisted worker session and tenant (3.6951ms)
+✔ Biome orchestrator needs a child in the same session and workspace (0.5527ms)
+✔ Biome refuses invalid persisted session identity (1.3294ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.4348
+Biome variants maturity, ranking eligibility, budgets, health and simulation boundary: PASS
+Biome variant selection: PASS
+Biome wiring checks: PASS
+Biome suite passed: 26 test programs.
+
+> genos-backend@1.0.0 test:daemon
+> node tests/run_daemon_suite.cjs
+
+PASS test_apoptosis_and_daemon.js
+PASS test_controlled_finding_runner.js
+PASS test_daemon_ablations.js
+PASS test_daemon_autofix_deprecated.js
+PASS test_daemon_cartographer.js
+PASS test_daemon_causal_gate.js
+PASS test_daemon_completion.js
+PASS test_daemon_event_bridge.js
+PASS test_daemon_evidence_view_migration.js
+PASS test_daemon_findings.js
+PASS test_daemon_full_promotion.js
+PASS test_daemon_handoff.js
+PASS test_daemon_handoff_feedback.js
+PASS test_daemon_host_cli.js
+PASS test_daemon_host_process.js
+PASS test_daemon_integration.js
+PASS test_daemon_investigator.js
+PASS test_daemon_legacy_migration.js
+PASS test_daemon_live_protocol.js
+PASS test_daemon_natural_search_adapter.js
+PASS test_daemon_phenotype.js
+PASS test_daemon_production_bridge.js
+PASS test_daemon_promotion.js
+PASS test_daemon_reconciler.js
+PASS test_daemon_reconciler_extended.js
+PASS test_daemon_repair_episode.js
+PASS test_daemon_repair_verification.js
+PASS test_daemon_repo_worker_branch_persistence.js
+PASS test_daemon_report_retention.js
+PASS test_daemon_runtime_contract.js
+PASS test_daemon_scheduler.js
+PASS test_daemon_schemas.js
+PASS test_daemon_scout_colony.js
+PASS test_daemon_stigmergy.js
+PASS test_daemon_territory.js
+PASS test_daemon_territory_interoception.js
+PASS test_daemon_verifier.js
+PASS test_daemon_warm_benchmark.js
+PASS test_holobiont_resident_daemon.js
+PASS test_morphogenesis_control_daemon_findings.js
+PASS test_resident_daemon_runtime.js
+PASS test_rhizome_daemon_adapter.js
+PASS test_topology_daemon_support.js
+Daemon suites: 43/43
+
+> genos-backend@1.0.0 test:capsules
+> node tests/test_capsule_transport.js
+
+Secretstream capsule transport authenticates chunks, context and restore version.
+
+> genos-backend@1.0.0 test:otel
+> node tests/test_telemetry_otlp_bridge.js
+
+OTLP bridge correlates safe counters and strips payload secrets.
+
+> genos-backend@1.0.0 test:workers
+> node tests/run_validation_suite.js workers
+
+
+>>> measured model worker and independent oracle route: test_model_oracle_route_e2e.js
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Measured model worker, independent oracle, AEIS receipt and route learning: passed
+
+>>> worker compliance result gate: test_worker_compliance_summary.js
+Worker compliance requires every kind to execute with current, typed evidence: PASS
+
+>>> worker compliance evidence gate: test_worker_compliance_evidence.js
+Worker compliance binds terminal run state and independent oracle evidence: PASS
+
+>>> persisted worker mission qualification gate: test_worker_mission_qualification_gate.js
+worker mission qualification gate: ok
+
+>>> worker compliance manifest: test_worker_compliance_manifest.js
+Worker compliance manifest records source, environment and benchmark identity: PASS
+
+>>> worker qualification inventory: test_worker_qualification_inventory.js
+Worker qualification inventory: 20 kinds, 26 methods, 0 benchmark cases without an oracle.
+
+>>> bounded code worker evidence: test_worker_code_evidence.js
+Bounded code worker evidence is derived from changed files and executed test results.
+
+>>> bounded code worker qualification language: test_bounded_code_worker_qualification.js
+Bounded code fixture accepts safe Math.floor expressions across both 264-case oracles and rejects executable source outside its language.
+
+>>> local code worker proposal schema and safety: test_local_code_worker.js
+Local code worker safety checks passed.
+
+>>> reflection campaign root-cause guards: test_reflection_campaign_root_causes.js
+Reflection campaign root-cause guards passed.
+
+>>> persisted worker mission promotion and refusal: test_worker_compliance_native_missions.js
+{"milestone":"native-worker-oracles","benchmarkDigest":"sha256:796a1e78638d20c389a4ba209755845b062c01619e8e7edfb451dc7d29c1ded4","missions":[{"runId":"c2-e6ca49514d2e","kind":"formal_worker","exitCode":1,"status":"failed","terminalEvent":"AGENT_FAILED","executionRunBound":true,"artifactValidated":false,"oracleAccepted":false,"oracle":{"status":"not_evaluated","processes":0,"complete":false,"decisionStatus":null,"decisionHash":null,"postconditions":[]},"errorCode":"ORACLE_DOMAIN_UNAVAILABLE"},{"runId":"c2-9e0af38f15d5","kind":"bounded_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"b2171202452e8c5154b005b84b176f8e2ad064bda03c2d47e2746fb9aebfc5ba","postconditions":[{"strategy":"subset_bitset","status":"verified","reason":"subset_postconditions_checked"},{"strategy":"subset_enumeration","status":"verified","reason":"subset_postconditions_checked"}]}},{"runId":"c2-5a4d48692880","kind":"procedural_executor","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"6ecde5672fab6134a99bf178bc2a9b158026df3dea7824f17a419ae6c33d235d","postconditions":[{"strategy":"subset_bitset","status":"verified","reason":"subset_postconditions_checked"},{"strategy":"subset_enumeration","status":"verified","reason":"subset_postconditions_checked"}]}},{"runId":"c2-f8f190f74f38","kind":"scout_cell","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"2301a8bdcb2fd15b0d60456e423b0fad14a1a253f6e4adec367aaf3f497278dc","postconditions":[{"strategy":"scout_index","status":"verified","reason":"scout_literal_matches_recomputed"},{"strategy":"scout_character_scan","status":"verified","reason":"scout_literal_matches_recomputed"}]}},{"runId":"c2-2064426acb58","kind":"resident_daemon","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"b32087252e15e6fa423565b927e5ec88fd60bce917fc2c1408cb1bf8aecfbd52","postconditions":[{"strategy":"monitor_filter","status":"verified","reason":"monitor_threshold_recomputed"},{"strategy":"monitor_count","status":"verified","reason":"monitor_threshold_recomputed"}]}},{"runId":"c2-3815fc992a12","kind":"forensic_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"6ef021f2bae92f156a83c963d9752a58c0f2526aa4e79e3480fa9003ffcb77fe","postconditions":[{"strategy":"forensic_event_map","status":"verified","reason":"declared_causal_links_recomputed"},{"strategy":"forensic_parent_scan","status":"verified","reason":"declared_causal_links_recomputed"}]}},{"runId":"c2-4626b553cab2","kind":"experimental_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"991c3774aade873deb4e9f19e34483ed74e67117967f65c9e79d14bd2ee7fad7","postconditions":[{"strategy":"lpt_greedy_scan","status":"verified","reason":"lpt_measurement_recomputed"},{"strategy":"lpt_load_replay","status":"verified","reason":"lpt_measurement_recomputed"}]}},{"runId":"c2-2538ce027c7f","kind":"synthesis_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"6a6f3c7155154dd7f12edd94cd46bc3812ca739f37b411f31aef37cdc35436df","postconditions":[{"strategy":"synthesis_group_map","status":"verified","reason":"synthesis_recomputed"},{"strategy":"synthesis_pairwise","status":"verified","reason":"synthesis_recomputed"}]}},{"runId":"c2-9668ba97f9fe","kind":"verifier_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"6c64b91ea46314560cf53cf25dc175c336e3a5939f86938b10fec610657b79a9","postconditions":[{"strategy":"verify_subset_bitset","status":"verified","reason":"procedure_verdict_recomputed"},{"strategy":"verify_subset_enumeration","status":"verified","reason":"procedure_verdict_recomputed"}]}},{"runId":"c2-63fed3027e46","kind":"red_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"11c546ae376d39533c82f9222f01b99ff929c5b6930964c34ad8007785915436","postconditions":[{"strategy":"red_subset_bitset","status":"verified","reason":"red_counterexample_recomputed"},{"strategy":"red_subset_enumeration","status":"verified","reason":"red_counterexample_recomputed"}]}},{"runId":"c2-a938d1e01470","kind":"teaching_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"620fa8624b7e256077d78ecb10351a64b8bc83c90ef45e34e8ea1e7783b5167d","postconditions":[{"strategy":"teaching_subset_bitset","status":"verified","reason":"teaching_transfer_recomputed"},{"strategy":"teaching_subset_enumeration","status":"verified","reason":"teaching_transfer_recomputed"}]}},{"runId":"c2-d6047229ba9f","kind":"recovery_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"f9b3a9d8ce81c8f8b48f9934db49e74a9894737b62d0ec85cd489edf66dd82ee","postconditions":[{"strategy":"recovery_state_digest","status":"verified","reason":"checkpoint_state_and_receipt_recomputed"},{"strategy":"recovery_receipt_replay","status":"verified","reason":"checkpoint_state_and_receipt_recomputed"}]}},{"runId":"c2-caaf5e0a509b","kind":"liaison_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"ee50143012a5d6945a3d6b35cd04877879c807a5f2a575a28df777e82ff72da9","postconditions":[{"strategy":"handoff_set_projection","status":"verified","reason":"sourced_handoff_recomputed"},{"strategy":"handoff_scan_projection","status":"verified","reason":"sourced_handoff_recomputed"}]}},{"runId":"c2-7021285a1c1a","kind":"sub_orchestrator","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"91b9fe34cc74ae0bb4cea42eac4af2803d68d3ab629c427f4934c0ad87e6be88","postconditions":[{"strategy":"delegation_manifest_map","status":"verified","reason":"persisted_child_runs_and_evidence_recomputed"},{"strategy":"delegation_child_scan","status":"verified","reason":"persisted_child_runs_and_evidence_recomputed"}]}},{"runId":"c2-d93367602977","kind":"adaptive_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"6e1febe2777b574cc061635e793bf467fa9e8b661c8b7d735eb5101bdf446cdf","postconditions":[{"strategy":"adaptive_trial_map","status":"verified","reason":"adaptive_trials_recomputed"},{"strategy":"adaptive_trial_replay","status":"verified","reason":"adaptive_trials_recomputed"}]}},{"runId":"c2-db077ed2cece","kind":"specialist","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"c60c493293e37fab78ba4ef7027396d125f00ffb9f8ef36147d7d6d850f72539","postconditions":[{"strategy":"niche_receipt_recompute","status":"verified","reason":"niche_scope_and_procedure_recomputed"},{"strategy":"niche_contract_scan","status":"verified","reason":"niche_scope_and_procedure_recomputed"}]}},{"runId":"c2-771b72e02368","kind":"symbiotic_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"a4c51a668d8ba2b3ec3d3d5a4bc1f82d1e1396c2a71662a1d5b2e356f1dbe5fb","postconditions":[{"strategy":"host_receipt_recompute","status":"verified","reason":"host_capability_and_procedure_recomputed"},{"strategy":"host_contract_scan","status":"verified","reason":"host_capability_and_procedure_recomputed"}]}},{"runId":"c2-7af5f8ecfade","kind":"creative_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"a67370736411a0813d8f17fbf3bac0c680b6112ca22ec3ea1858d579d6113278","postconditions":[{"strategy":"creative_cartesian_map","status":"verified","reason":"creative_combinations_recomputed_quality_unverified"},{"strategy":"creative_nested_scan","status":"verified","reason":"creative_combinations_recomputed_quality_unverified"}]}},{"runId":"c2-52698951a4ab","kind":"medical_worker","exitCode":0,"status":"completed","terminalEvent":"AGENT_COMPLETED","executionRunBound":true,"artifactValidated":true,"oracleAccepted":true,"oracle":{"status":"accepted_at_decision","processes":2,"complete":true,"decisionStatus":"completed","decisionHash":"87aee4fc78d1d6ada18fdf4103550075bb79329f20744491b5e4b5bcdd28359c","postconditions":[{"strategy":"medical_consideration_map","status":"verified","reason":"synthetic_considerations_and_sources_recomputed_no_clinical_validation"},{"strategy":"medical_index_scan","status":"verified","reason":"synthetic_considerations_and_sources_recomputed_no_clinical_validation"}]}}]}
+
+>>> Rust and Node worker kind parity: test_worker_kind_registry.js
+Rust and Node worker kind identifiers, families, and artifacts match; runtime projections remain distinct.
+
+>>> worker kind matrix across eight topologies: test_topology_worker_kind_matrix.js
+Topology worker kind matrix, persistence, contracts, and permissions: PASS
+
+>>> worker contract adequacy across roles and methods: test_topology_worker_adequacy.js
+Topology worker adequacy (20 kinds): PASS
+
+>>> native 20-kind execution and evidence: test_worker_native_matrix.js
+Native scout_cell: PASS
+Native resident_daemon: PASS
+Native bounded_worker: PASS
+Native adaptive_worker: PASS
+Native specialist: PASS
+Native procedural_executor: PASS
+Native symbiotic_worker: PASS
+Native verifier_worker: PASS
+Native red_worker: PASS
+Native experimental_worker: PASS
+Native formal_worker: PASS
+Native math_worker: PASS
+Native synthesis_worker: PASS
+Native creative_worker: PASS
+Native medical_worker: PASS
+Native recovery_worker: PASS
+Native forensic_worker: PASS
+Native liaison_worker: PASS
+Native teaching_worker: PASS
+Native sub_orchestrator: PASS
+Native worker matrix: 20/20 executable methods and typed evidence passed.
+
+>>> native worker contract boundaries: test_worker_native_boundaries.js
+Native worker negative paths, exact arithmetic, host/scope/budget boundaries: PASS
+
+>>> native worker lifecycle and guard: test_worker_native_lifecycle.js
+Native lifecycle: evidence persistence, guard halt, cancellation, immutable input and zero usage PASS
+
+>>> multi-mission worker faults and recovery isolation: test_worker_fault_campaign.js
+Worker fault campaign: healthy missions verified across tamper and timeout; faults refused and campaign continued.
+
+>>> worker contract enforcement: test_worker_contract_enforcement.js
+Worker contracts enforce MCP authority and typed evidence artifacts for all 20 kinds.
+
+>>> worker runtime limits: test_worker_runtime_limits.js
+Worker runtime ceilings and unavailable deterministic runners: PASS
+
+>>> worker process CPU budget enforcement: test_worker_cpu_budget.js
+Worker CPU usage is measured and CPU-limited workers are terminated: PASS
+
+>>> procedural and formal execution: test_deterministic_worker_runners.js
+Deterministic worker runners: PASS
+
+>>> native verifier: test_deterministic_worker_verifier.js
+Deterministic verifier worker: PASS
+
+>>> native red worker: test_deterministic_worker_red.js
+Deterministic red worker: PASS
+
+>>> native experiment: test_deterministic_worker_experiment.js
+Deterministic experimental worker: PASS
+
+>>> native synthesis: test_deterministic_worker_synthesis.js
+Deterministic synthesis worker: PASS
+
+>>> native monitor: test_deterministic_worker_monitor.js
+Deterministic resident daemon: PASS
+
+>>> native forensic: test_deterministic_worker_forensic.js
+Deterministic forensic worker: PASS
+
+>>> native scout: test_deterministic_worker_scout.js
+Deterministic scout cell: PASS
+
+>>> native worker observation oracles: test_worker_observation_oracles.js
+Independent worker oracles for observation, delegation, recovery, Lean and tamper refusal: PASS
+
+>>> native structured worker oracles: test_worker_structured_oracles.js
+Five structured worker oracles: independent recomputation and tamper refusal PASS
+
+>>> independent structured benchmark oracles: test_worker_benchmark_structured_oracles.js
+Eight additional worker benchmark oracles pass and reject tampering.
+
+>>> additional worker method benchmark oracles: test_worker_benchmark_method_variants.js
+Bounded procedure, code, exact arithmetic and configured theorem variants pass with mutation refusal.
+
+>>> native formal worker oracle: test_worker_formal_oracle.js
+Formal native oracle skipped: Lean is unavailable.
+
+>>> native teaching: test_deterministic_worker_teaching.js
+Deterministic teaching worker: PASS
+
+>>> bounded sub-orchestration dispatch: test_sub_orchestrator_dispatch.js
+Sub-orchestrator dispatch authenticates persisted callers and restricts child kinds and depth.
+
+Validation profile 'workers' passed: 36 suites in 304137ms.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Assembly retraction HTTP: authorization, tenant isolation, authenticated author, stable replay and historical inspection passed.
+Consumer inspection: tenant isolation, real promotion provenance, tamper refusal and mission admin boundaries passed.
+Sampling controls reach native Ollama; unsupported controls fail explicitly.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+P0 pilot contracts: versioned disjoint splits, bounded code and evidence selection passed.
+
+> genos-backend@1.0.0 test:p1-socle
+> node tests/test_gvx_experiment_manifest.js && node tests/test_gvx_skill_stewardship.js && node tests/test_scientific_claim_lifecycle.js && node tests/test_gvx_runtime_provenance.js && node tests/test_scientific_claim_atomic_consumer.js && node tests/test_mission_authority_envelope.js && node tests/test_execution_authority_v2.js && node tests/test_bounded_worker_delegation.js && node tests/test_mission_outcome_contract.js && node tests/test_mission_outcome_falsification.js && node tests/test_native_oracle_completion.js && node tests/test_native_memory_budget.js && node tests/test_native_oracle_failure_costs.js && node tests/test_native_code_completion.js && node tests/test_paired_causal_replay.js && node tests/test_versioned_causal_state.js && node tests/test_promotion_evidence_dossier.js && node tests/test_counterfactual_mission_qualification.js && npm run test:foundational-qualification && npm run test:foundational-trust && npm run test:foundational-revocation-journal && npm run test:scientific-reference && npm run test:consciousness-boundary && npm run test:cognitive-contracts && npm run test:aide2
+
+P1 L01 manifest: durable linked provenance, registered-plan binding, refusals, legacy compatibility and nursery resume passed.
+GVX skill stewardship registration checks passed.
+P1 L01 claim lifecycle: scope refusals, concurrent stale-head rejection, replay, restart, retained history and corruption detection passed.
+P1 runtime provenance: actual mission and runs, executed procedure receipt, artifacts, dynamic retraction, restart, scope and alteration refusals passed.
+P1 scientific consumer: retraction serialized with wave sealing and inactive replay refused.
+P1 authority: immutable scope, restart, tool/root ceilings, live revocation, refused publication and quiet child stop passed.
+Execution authority v2: canonical envelope, signed binding and read-only legacy migration passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+Delegated native child: real computation completes, while its unverified receipt remains ineligible for promotion.
+P1 native oracle: real sealed run, two distinct algorithms and processes, AEIS signed evidence, scope/content/freshness refusals and explicit domain limits passed.
+Bounded delegation: current authority, expiry, mission membership, two-connection reservation, rollback and lifetime ceilings passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Mission outcome contract and closure: passed
+{"scope":"v2 structural fixtures and in-process bounded subset oracle","wallTimeMs":20.8227,"costScope":{"modelCalls":0,"nativeProcesses":0},"structural":{"validCases":2,"invalidCases":12,"falseAccepts":0,"falseRejects":0},"semantic":{"validCases":4,"invalidCases":8,"falseAccepts":0,"falseRejects":0},"results":[{"id":"accepted","valid":true,"verdict":"verified"},{"id":"constraint-order","valid":true,"verdict":"verified"},{"id":"forged-payload","valid":false,"verdict":"inconclusive"},{"id":"changed-statement","valid":false,"verdict":"inconclusive"},{"id":"changed-domain","valid":false,"verdict":"inconclusive"},{"id":"changed-artifact","valid":false,"verdict":"inconclusive"},{"id":"other-run-attestation","valid":false,"verdict":"inconclusive"},{"id":"other-run-receipt","valid":false,"verdict":"inconclusive"},{"id":"wrong-oracle-domain","valid":false,"verdict":"inconclusive"},{"id":"wrong-verifier","valid":false,"verdict":"inconclusive"},{"id":"expired-attestation","valid":false,"verdict":"inconclusive"},{"id":"missing-receipt","valid":false,"verdict":"inconclusive"},{"id":"tampered-signature","valid":false,"verdict":"inconclusive"},{"id":"same-strategy","valid":false,"verdict":"inconclusive"}],"oracleResults":[{"id":"witness:subset_bitset","valid":true,"verdict":"verified"},{"id":"witness:subset_enumeration","valid":true,"verdict":"verified"},{"id":"no-solution:subset_bitset","valid":true,"verdict":"verified"},{"id":"no-solution:subset_enumeration","valid":true,"verdict":"verified"},{"id":"duplicate-index:subset_bitset","valid":false,"verdict":"refuted"},{"id":"duplicate-index:subset_enumeration","valid":false,"verdict":"refuted"},{"id":"wrong-count:subset_bitset","valid":false,"verdict":"refuted"},{"id":"wrong-count:subset_enumeration","valid":false,"verdict":"refuted"},{"id":"false-no-solution:subset_bitset","valid":false,"verdict":"refuted"},{"id":"false-no-solution:subset_enumeration","valid":false,"verdict":"refuted"},{"id":"false-success:subset_bitset","valid":false,"verdict":"refuted"},{"id":"false-success:subset_enumeration","valid":false,"verdict":"refuted"}]}
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Native completion result {"success":true,"status":"completed","reason":null}
+Native references reject mutation, owner changes and replay; expiration preserves historical decision.
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Memory retraction: actual source withdrawn, retrieval excluded and historical decision retained.
+Memory oracle: real promoted memory, two fresh processes and signed AEIS fidelity; contradictory content and hash-valid false claims rejected.
+Real native approval: human proof required, promotion completed and retry did not consume nonces again.
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Native reservation: concurrent connection receives no second allocation; fresh process reuses sealed attestation.
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+Native budgets: insufficient grant executes no oracle; requested escalation and missing independent quorum refuse completion.
+Native proof budget, sealed reference and nonce ownership verified.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Native reservation: concurrent connection receives no second allocation; fresh process reuses sealed attestation.
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+[TelemetryObserver] Deferred side effect failed: Workspace changed while snapshotting; capture aborted.
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Native memory budget negatives: insufficient grant, contradictory memory, historical freshness and retracted source refused.
+Native memory verification: sealed authority, distinct source/run budgets, two nonces, concurrent reservation, fresh replay and real approval passed.
+[DB] ROLLBACK failed; connection may be stuck in a transaction: SQLITE_MISUSE: Database is closed
+[TelemetryObserver] Deferred side effect failed: SQLITE_MISUSE: Database handle is closed
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+{"schema":"genos.test.oracle-crash-observation/v1","phase":"intent","executionId":"2989339f-ca6e-4faa-9223-bccef017fadb","processId":null,"exitCode":null,"processOutcome":null,"durationMs":null,"durableCosts":{"processes":null,"runtimeMs":null,"observedProcesses":0,"observedRuntimeMs":0,"unresolvedExecutions":1,"complete":false,"reservedExecutions":2,"accountingSchema":"genos.native-oracle-execution/v1","modelTokens":0,"providerUsd":0,"localComputeUsd":null}}
+Real control-plane crash at intent: unknown costs retained, fresh replay refused without relaunch.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+{"schema":"genos.test.oracle-crash-observation/v1","phase":"finished","executionId":"40024ac6-b1ba-46c4-b550-35f1344cb2a6","processId":10660,"exitCode":0,"processOutcome":"verified","durationMs":96,"durableCosts":{"processes":null,"runtimeMs":null,"observedProcesses":0,"observedRuntimeMs":0,"unresolvedExecutions":1,"complete":false,"reservedExecutions":2,"accountingSchema":"genos.native-oracle-execution/v1","modelTokens":0,"providerUsd":0,"localComputeUsd":null}}
+Real control-plane crash at finished: unknown costs retained, fresh replay refused without relaunch.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+[TelemetryObserver] Deferred side effect failed: Workspace changed while snapshotting; capture aborted.
+Valid ledger authentication cannot hide a missing measured-cost field in a new attestation.
+Native oracle failure costs: real post-process retraction stays refused with durable costs and fresh replay.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+Code fresh replay retains the same attestation and costs; wrong scope refused.
+Changed code invalidates current assurance without rewriting historical acceptance or costs.
+Native code: actual artifact, 264 postconditions in two fresh processes, own budget, nonces and real approval passed.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+Code false-success probe: zero exits and forged accept verdict refused by both real postcondition oracles.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+fatal: not a git repository (or any of the parent directories): .git
+[TelemetryObserver] Deferred side effect failed: Workspace changed while snapshotting; capture aborted.
+Unsupported program remains inconclusive and never becomes a generic JavaScript execution.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Real post-process code change refused without losing its observed cost.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Invalid code method refused before run creation: path contains an unsafe path segment.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Invalid code method refused before run creation: path contains an unsafe path segment.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Invalid code method refused before run creation: CODE_ORACLE_PATH_INVALID
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Invalid code method refused before run creation: path must stay relative to its workspace.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Invalid code method refused before run creation: CODE_ORACLE_INPUT_INVALID
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Wrong code hash refused before oracle allocation.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Symlink source refuses external reads.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+An insufficient code verification budget starts no oracle allocation.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 1
+[BudgetCoherence] Budget undefined is missing or invalid (undefined), using default: 60000
+Authentic signed coverage of one case cannot promote a claim covering 264 cases; costs retained and nonces unused.
+Paired replay: two snapshots and three seeds, addressed common draws, known fault at step 1, checkpoint and fresh-process continuation passed.
+Derived analysis and graph revalidate current paired evidence in a transaction and preserve no-authority limits.
+Completed forks with a declared random protocol but no shared observed draw remain unqualified.
+Two real SQLite connections cannot replay the same leased fork concurrently.
+Cached diffs and an old derived analysis cannot hide a new false random observation.
+A valid hash chain with a false random observation cannot establish paired controls.
+Paired replay negatives: scope, actual runner and environment drift, random addresses, immutable events, protocol substitution and downgrade refused.
+Versioned causal state: immutable snapshots, forks, diffs and verified replay passed.
+Promotion evidence: falsification, independence and bounded dispositions passed.
+Counterfactual mission qualification: signed promotion and refusal passed.
+
+> genos-backend@1.0.0 test:foundational-qualification
+> node tests/test_foundational_principles_qualification.js
+
+Foundational principles: 19/19 score 4 in the declared bounded scope.
+QUALIFICATION_STATUS=current;VALID_UNTIL=2026-10-22T21:51:26.008Z
+QUALIFICATION_RECEIPT={"schema":"genos.foundational-principles-qualification-receipt/v3","baselineRevision":"2e30d2bada1b64eeadc38a8cf7f3015f7da1129b","qualificationRevision":"dba80761f1b3365ad733b6a041793322a4cf0f1b","scope":"Mission verticale bornée couvrant l'autorité, l'état causal, la preuve, les leases, les capsules et la qualification contrefactuelle des phases 1 à 6.","score":4,"qualifiedCount":19,"totalCount":19,"status":"qualified-bounded-scope","universalClaim":false,"authorizesPromotion":false,"manifestHash":"84b72c300579a6f71d876531b511e7e1b2469c27a8438de30de8d5ecb536792e","sourceDigest":"c711203bece1b4713001e9138891363c7ccff0e25ce452d8fcd6592bbdaa6e93","evidence":[{"test":"backend/tests/test_execution_authority_v2.js","outputDigest":"8c54685da1e343c95bf718b137d436e7164f587d2c1bf8304b69243773a8b5c2"},{"test":"backend/tests/test_mission_authority_envelope.js","outputDigest":"0c1a0a0e9f9b6ec75078e4363a63796cd07d0b5c47b6e95c14529f60b8f22f82"},{"test":"backend/tests/test_bounded_worker_delegation.js","outputDigest":"6085f4a67c8d47fe5af5e9856256bed140f44067c826608a3381cc3b7dfc13a2"},{"test":"backend/tests/test_versioned_causal_state.js","outputDigest":"a4d57f75f3ecf7aa2049988f5d771cc4577b61b946f842e87f406e6b294448bd"},{"test":"backend/tests/test_promotion_evidence_dossier.js","outputDigest":"5f192d40fabbf8e592f3947995179bd4416e82670989d556546ce93827ce9e55"},{"test":"backend/tests/test_mcp_actor_workspace_resolution.js","outputDigest":"d128764744486806bd48470044b3146b0965bd31b62cfbba9c7832fab858a991"},{"test":"backend/tests/test_trinity_l2_capsules.js","outputDigest":"7c6ac655cf32e203f7fc09a0bb312daf06df28e65b2ce90589608dd2fd72c283"},{"test":"backend/tests/test_counterfactual_mission_qualification.js","outputDigest":"83e70c1d40adef381b4ae87597df4c4900af64e12f7d1390b3cf2e08c35bcfb8"},{"test":"backend/tests/test_foundational_principle_contract.js","outputDigest":"014c082c84d9f0d19f0517912974e3108c9967bfb0d395d506073adff9a00f8e"},{"test":"backend/tests/test_foundational_qualification_lifecycle.js","outputDigest":"338510c5807a25914c8b1858dcecf72cf008888868fee08a67de97fbca94e5d9"},{"test":"backend/tests/test_foundational_qualification_admission.js","outputDigest":"a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"}],"receiptHash":"26c867790bedc0e76a633e9f89b5cccca58bbf44507a31a64a7fee079386a572"}
+
+> genos-backend@1.0.0 test:foundational-trust
+> node tests/test_foundational_trust_registry.js
+
+Foundational trust registry: signed bootstrap, overlap, revocation and recovery PASS.
+
+> genos-backend@1.0.0 test:foundational-revocation-journal
+> node tests/test_foundational_revocation_journal.js
+
+Foundational revocation journal: CAS, recovery, rollback and replication PASS.
+
+> genos-backend@1.0.0 test:scientific-reference
+> node tests/test_scientific_references.js && node tests/test_scientific_propagation.js && node tests/test_scientific_subscriptions.js && node tests/test_scientific_dispatch.js && node tests/test_gcir_scientific_visibility.js && node tests/test_scientific_workflow.js && node tests/test_scientific_receipt_authority.js && node tests/test_scientific_reference_producer.js && node tests/test_scientific_runtime_bootstrap.js
+
+Scientific references: scope, receipt, bytes, restart and retraction checks passed.
+Scientific propagation tests passed
+Scientific prepublication subscription tests passed
+Scientific dispatch tests passed
+G-CIR scientific reference visibility checks passed.
+Scientific workflow: atomic rollback, cascading staleness and outbox passed.
+Scientific receipt authority: Lean replay, restart and tamper checks passed.
+Scientific reference producer: verified runtime publication and closed failure passed.
+Scientific mathematical runtime: gate, authority, workflow and producer passed.
+
+> genos-backend@1.0.0 test:consciousness-boundary
+> node tests/test_consciousness_claim_boundary.js && node tests/test_consciousness_evidence_suite.js && node tests/test_indicator_verification_boundary.js
+
+Consciousness claim boundary: vocabulary, evidence and phenomenal guards passed.
+Consciousness evidence gates and unified suite checks passed.
+Trusted fixture boundary: hashes, indicator/project identity and copied-receipt rejection passed.
+
+> genos-backend@1.0.0 test:cognitive-contracts
+> node tests/test_endogenous_thought_contract.js && node tests/test_cognitive_episode_schema.js && node tests/test_endogenous_thought_store.js && node tests/test_endogenous_thought_detection.js
+
+ETT v1 contracts, transitions, protocol and non-promoting metrics passed.
+Cognitive episode schema and runtime contract parity passed.
+Endogenous thought durable store tests passed.
+Bounded endogenous detection and question tests passed.
+
+> genos-backend@1.0.0 test:aide2
+> node tests/test_aide2_campaign_contract.js && node tests/test_aide2_generation_evaluation.js && node tests/test_aide2_causal_promotion_review.js
+
+AIDE2 campaign contract checks passed.
+AIDE2 generation evaluation checks passed.
+AIDE2 causal promotion review checks passed.
+
+> test:garage
+> node backend/tests/run_validation_suite.js garage
+
+
+>>> Garage Fabric planning: test_garage_fabric.js
+Garage Fabric checks passed.
+
+>>> Garage durable store and concurrency: test_garage_runtime_store.js
+Garage runtime store: durable restart, idempotency, scope, fencing and atomic capacity passed.
+
+>>> Garage durable hierarchy and capacity: test_garage_domains.js
+Garage domains: durable hierarchy, admission caps, active projection and binding fence passed.
+
+>>> Garage runtime dispatch: test_garage_runtime_dispatch.js
+Garage runtime dispatch: ACK rejection, stale lease, backpressure, compensation and fresh authority passed.
+
+>>> Garage typed runtime completion evidence: test_garage_runtime_evidence.js
+Garage evidence: real deterministic solver, typed artifact, current run binding and forged receipt rejection passed.
+
+>>> Garage snapshot freeze thaw: test_garage_runtime_capsules.js
+Garage capsules: real process stop, topology guard, durable payload, corruption rejection, thaw and remaining budget passed.
+
+>>> Garage twelve policies: test_garage_runtime_policies.js
+Garage policies: all twelve modes, bounded aging, fairness, dependencies, lanes and isolation passed.
+
+>>> Garage scoped controls and runtime adoption: test_garage_runtime_control.js
+Garage controls: scoped wake/cancel, honest terminal response, runtime adoption and revoked launch passed.
+
+Validation profile 'garage' passed: 8 suites in 6821ms.
+
+> test:p1-v3
+> node backend/tests/run_p1_v3_suite.cjs
+
+GVX experimental nursery checks passed.
+GVX nursery: real paired forks, manifest, replay, stable resume and current evidence refusal qualified.
+GVX dataset: private evaluator projection excluded before runner call; candidate hash persisted; legacy unqualified.
+GVX signed fixture: candidate input hash required independently of valid signature.
+Failure memory: projects, tenants, explicit global opt-in, trajectories and malformed scopes qualified.
+Failure memory: invalid scope refused before provider request.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+[GenOS Server Error] [Error: SQLITE_ERROR: no such table: genome_decisions] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Live REST/gRPC memory: same scoped data, authenticated principal, membership and key revocation qualified.
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+Actual memory prompt fallback: project preserved under a primary-corpus fault.

@@ -1,0 +1,108 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S07",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "ebf7bbf722b68a3f8e17ba065d02071f481c6727",
+  "expected": [
+    {
+      "relationType": "friend",
+      "direction": "forward"
+    },
+    {
+      "relationType": "colleague",
+      "direction": "forward"
+    },
+    {
+      "relationType": "manager",
+      "direction": "reverse"
+    }
+  ],
+  "genosProfile": {
+    "relationId": "friend",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.95,
+      "interactionCount": 12,
+      "sharedHistory": 0.6,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": null
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend",
+      "colleague",
+      "manager"
+    ],
+    "relations": [
+      {
+        "relationId": "friend",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.95,
+          "interactionCount": 12,
+          "sharedHistory": 0.6,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "forward"
+      },
+      {
+        "relationId": "colleague",
+        "relationType": "colleague",
+        "relationClass": "organizational",
+        "properties": {
+          "familiarity": 0.7,
+          "interactionCount": 5,
+          "sharedHistory": 0.4,
+          "authority": 0.4,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.5,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "forward"
+      },
+      {
+        "relationId": "manager",
+        "relationType": "manager",
+        "relationClass": "organizational",
+        "properties": {
+          "familiarity": 0.5,
+          "interactionCount": 0,
+          "sharedHistory": 0,
+          "authority": 0.8,
+          "trustForDomain": 0.5,
+          "commonGroundEstimate": 0,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.3,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "reverse"
+      }
+    ]
+  },
+  "error": "Model timeout after 90000ms.",
+  "verified": false,
+  "durationMs": 90051
+}

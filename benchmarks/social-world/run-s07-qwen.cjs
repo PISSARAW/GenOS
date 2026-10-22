@@ -46,12 +46,16 @@ function fixtureDb() {
 function saveResult(result) {
   const dir = path.join(__dirname, 'campaigns', 'socialworld-qwen-20261022');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'S07-success.json'), `${JSON.stringify(result, null, 2)}\n`);
+  const fileName = result.status === 'pass' ? 'S07-success.json' : `S07-attempt-${String(result.attempt).padStart(2, '0')}.json`;
+  fs.writeFileSync(path.join(dir, fileName), `${JSON.stringify(result, null, 2)}\n`);
 }
 
 async function main() {
   const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
+  const attemptArg = process.argv.find((arg) => arg.startsWith('--attempt='));
+  const attempt = attemptArg ? Number(attemptArg.split('=')[1]) : 1;
+  if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Attempt must be a positive integer.');
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const profile = await resolver.getRelationProfile('a', 'b', {
     db: fixtureDb(), organizationId: 'socialworld', projectId: 's07'
@@ -64,16 +68,16 @@ async function main() {
       timeoutMs: 90000, organizationId: 'socialworld', projectId: 's07', agentId: 'agent-a' });
     const answer = parseAnswer(response.text);
     const passed = JSON.stringify(canonical(answer)) === JSON.stringify(canonical(EXPECTED));
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed, attempt,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       genosProfile: profile, qwenResponse: response.text, answer,
       verified: passed, oracle: 'exact relation type and direction set from the seeded graph',
-      durationMs: Date.now() - startedAt, testCommand: 'node benchmarks/social-world/run-s07-qwen.cjs --seed=7' };
+      durationMs: Date.now() - startedAt, testCommand: ['node benchmarks/social-world/run-s07-qwen.cjs', '--seed=' + seed, '--attempt=' + attempt].join(' ') };
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed, attempt,
       status: 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       genosProfile: profile, error: error.message, verified: false,
       durationMs: Date.now() - startedAt };
