@@ -11,6 +11,7 @@ const calibrator = require('./securityConfidenceCalibrator');
 const deduplicator = require('./securityAlertDeduplicator');
 const incidents = require('./securityIncidentMemory');
 const world = require('./securityWorldModel');
+const immuneSurveillance = require('./securityImmuneSurveillanceCycle');
 
 const SCOPE = 'security_perception_v1';
 
@@ -112,4 +113,29 @@ async function getWorld(db, tenant, query = {}) {
   return world.query(state.world, query);
 }
 
-module.exports = { SCOPE, registerSensor, observe, getState, recordIncident, recordCalibrationOutcome, updateWorld, getWorld };
+const serviceApi = {
+  SCOPE,
+  registerSensor,
+  observe,
+  getState,
+  recordIncident,
+  recordCalibrationOutcome,
+  updateWorld,
+  getWorld
+};
+
+async function runImmuneSurveillanceWindow(db, tenant, windowSpec = {}) {
+  return immuneSurveillance.runImmuneSurveillanceWindow(serviceApi, { db, tenant }, windowSpec);
+}
+
+async function runImmuneSurveillanceCampaign(db, tenant, campaignSpec = {}) {
+  return immuneSurveillance.runImmuneSurveillanceCampaign(serviceApi, { db, tenant }, campaignSpec);
+}
+
+module.exports = {
+  ...serviceApi,
+  runImmuneSurveillanceWindow,
+  runImmuneSurveillanceCampaign,
+  runAutonomousWindow: runImmuneSurveillanceWindow,
+  runAutonomousCampaign: runImmuneSurveillanceCampaign
+};
