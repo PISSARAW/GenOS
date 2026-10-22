@@ -19,6 +19,8 @@ const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
 const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
   consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
+const workerCodeTestRepair = require('./workerCodeTestRepair');
+const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -321,7 +323,6 @@ async function runGenerationStage(ctx) {
     { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { ...result.schemaViolation, outputExcerpt: String(result.text || '').slice(0, 2048) } });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
-
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
@@ -369,19 +370,21 @@ async function runLocalWorker(db, mission, executionRun) {
   let generation;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
-    generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
-    const evidence = await runEvidenceStage({
-      db, executionRun,
-      result: generation.result,
-      budget: generation.budget,
-      codeWorker: generation.codeWorker,
-      mission: mission,
-      agentName: generation.agentName,
-      nameMeaning: generation.nameMeaning,
-      stageTimings: stageTimings
+    const attempt = await workerCodeTestRepair.run({
+      mission,
+      runAttempt: async (currentMission) => {
+        generation = await runGenerationStage({ db, mission: currentMission, executionRun, stageTimings, identity });
+        const evidence = await runEvidenceStage({ db, executionRun,
+          result: generation.result, budget: generation.budget, codeWorker: generation.codeWorker,
+          mission: currentMission, agentName: generation.agentName,
+          nameMeaning: generation.nameMeaning, stageTimings });
+        return { generation, evidence };
+      },
+      onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, ...retry })
     });
+    generation = attempt.generation;
     return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
-      executionRun, generation, evidence, identity, stageTimings }, publishLocalSuccess);
+      executionRun, generation, evidence: attempt.evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
     await workerIdentity.fail(db, { identity, executionRun, error });
     const usage = generation?.result ? {
@@ -394,5 +397,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await workerIdentity.release(db, identity);
   }
 }
-
 module.exports = { runLocalWorker, generateWorkerResult };
