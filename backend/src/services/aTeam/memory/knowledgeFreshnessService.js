@@ -1,6 +1,8 @@
 'use strict';
 
-const DEFAULT_MAX_AGE_DAYS = 30;
+const DEFAULT_MAX_AGE_DAYS = Number(process.env.GENOS_KNOWLEDGE_MAX_AGE_DAYS) > 0
+  ? Number(process.env.GENOS_KNOWLEDGE_MAX_AGE_DAYS)
+  : 30;
 
 function ageInDays(timestamp, now = Date.now()) {
   const parsed = Date.parse(timestamp || '');
