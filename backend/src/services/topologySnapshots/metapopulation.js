@@ -195,4 +195,9 @@ async function preflightRestore(context, manifest) {
     variant: context.variantId } };
 }
 
-module.exports = { capture, preflightRestore, VARIANT_EVIDENCE };
+async function restore(context, manifest) {
+  return { ok: false, reasons: ['METAPOPULATION_SNAPSHOT_RESTORE_REFUSED',
+    'Snapshot preflight verifies regional state only; demes and migrations are not restored.'] };
+}
+
+module.exports = { capture, preflightRestore, restore, VARIANT_EVIDENCE };
