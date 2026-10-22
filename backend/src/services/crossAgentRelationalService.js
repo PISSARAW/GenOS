@@ -213,7 +213,7 @@ async function listRelations(input) {
      WHERE (source_agent_id = ? OR target_agent_id = ?)
        AND organization_id IS ?
        AND project_id IS ?
-     ORDER BY created_at ASC`,
+     ORDER BY updated_at ASC, id ASC`,
     [safe.agentId, safe.agentId, scope.organizationId, scope.projectId]
   );
   return rows.map(deserializeRelation);
@@ -251,7 +251,7 @@ function deserializeRelation(row) {
     organizationId: row.organization_id,
     projectId: row.project_id,
     provenanceHash: row.provenance_hash,
-    createdAt: row.created_at,
+    createdAt: row.created_at || row.updated_at,
     updatedAt: row.updated_at
   };
 }
