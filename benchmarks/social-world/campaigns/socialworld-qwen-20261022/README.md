@@ -11,7 +11,7 @@
 | Test | État | Preuve |
 |---|---|---|
 | S01 Identité sociale | Réussi avec Qwen 2.5 14B; relations, identités et directions exactes sans ajout | `S01-result.json`; source `8189bcf8` |
-| S02 Voisinage | Non exécuté | — |
+| S02 Voisinage | Réussi avec Qwen 2.5 14B, graine 8; déménagement recalcule les voisins depuis les positions | `S02-result.json`, `S02-attempt-*.json`; source `318a3d7d` |
 | S03 Amitié | Non exécuté | — |
 | S04 Famille | Non exécuté | — |
 | S05 Relations affectives | Non exécuté | — |
