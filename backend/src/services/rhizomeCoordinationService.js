@@ -284,9 +284,9 @@ async function routeToCapability(sessionId, need, options = {}) {
   const routing = { ...(session.variantPolicy.routing || {}) };
   const tau = session.variantPolicy.conductivity?.tau;
   if (routing.temperature === undefined && Number.isFinite(tau)) routing.temperature = tau;
+  if (Number.isFinite(routing.conductivityWeight)) routing.objectiveWeights = { ...(routing.objectiveWeights || {}), conductivity: routing.conductivityWeight };
   return routePlanner.plan(session, need, routingPolicy.constrain(routing, options.routing || options.routingPolicy));
 }
-
 async function evaporateTrails(sessionId, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'TRAILS_EVAPORATED',

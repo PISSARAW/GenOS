@@ -11,7 +11,7 @@ const PROFILES = Object.freeze({
   }),
   routing: Object.freeze({
     conductivity: { alpha: 0.4, beta: 0.2, tau: 0.2, decay: 0.02 },
-    routing: { maxHops: 12, objectiveWeights: { latency: 0.2, cost: 0.2, risk: 0.25, trust: 0.2, freshness: 0.15 } },
+    routing: { maxHops: 12, conductivityWeight: 0.9, objectiveWeights: { latency: 0.2, cost: 0.2, risk: 0.25, trust: 0.2, freshness: 0.15 } },
     growth: { threshold: 0.2 },
     pruning: { enabled: true },
     resilience: { alternatives: 2 },

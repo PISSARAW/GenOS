@@ -18,7 +18,8 @@ function objectiveScore(route, provider, options = {}) {
     + (weights.cost || 0) / (1 + metrics.cost / 100)
     + (weights.risk || 0) * metrics.reliability + (weights.trust || 0) * metrics.trust
     + (weights.freshness || 0) * metrics.freshness + (weights.curiosity || 0) * metrics.novelty
-    + (weights.congestion || 0) * metrics.congestion;
+    + (weights.congestion || 0) * metrics.congestion
+    + (weights.conductivity || 0) * metrics.conductivity;
 }
 
 function routeMetrics(route, provider, options) {
@@ -31,7 +32,8 @@ function routeMetrics(route, provider, options) {
     trust: average(route.edges, (edge) => edge.evidenceQuality),
     freshness: average(route.edges, (edge) => freshnessScore(edge, now)),
     novelty: average(route.edges, (edge) => noveltyScore(edge, lineageSet)),
-    congestion: average(route.edges, (edge) => 1 / (1 + edge.trailState.verifiedFlow))
+    congestion: average(route.edges, (edge) => 1 / (1 + edge.trailState.verifiedFlow)),
+    conductivity: average(route.edges, (edge) => edge.conductivity ?? 0)
   };
 }
 
