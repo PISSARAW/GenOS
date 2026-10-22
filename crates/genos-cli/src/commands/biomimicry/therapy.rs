@@ -125,12 +125,14 @@ struct ClinicalApplication<'a> {
 
 fn apply_claimed_therapy(input: ClinicalApplication<'_>) -> Result<serde_json::Value, String> {
     let ClinicalApplication { auth, operation_id, claim, store } = input;
-    // Réservation durable : re-vérifie que l'autorisation n'a pas été révoquée
-    // entre le claim et l'append du reçu Rust. Fermeture de la fenêtre
-    // identifiée dans le bilan de preuve (validateForCli → append).
-    validate_clinical_reservation(auth)?;
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
     ecosystem.restore_population(store)?;
+    // Le claim durable ordonne l'application avant toute révocation ultérieure.
+    // Revalider son jeton et son lease après restauration, juste avant la mutation.
+    let claim_token = claim["claimToken"]
+        .as_str()
+        .ok_or("clinical application reservation token missing")?;
+    validate_clinical_reservation(auth, operation_id, claim_token)?;
     let receipt = ecosystem.apply_authorized_therapy(auth, store)?;
     complete_backend_application(ClinicalCompletion {
         auth, operation_id, claim_token: claim["claimToken"].as_str().unwrap_or_default(), receipt: &receipt,
@@ -143,11 +145,15 @@ fn apply_claimed_therapy(input: ClinicalApplication<'_>) -> Result<serde_json::V
 /// après le claim et avant l'append du reçu.
 fn validate_clinical_reservation(
     auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    operation_id: &str,
+    claim_token: &str,
 ) -> Result<(), String> {
     let response = backend_authority_request(auth, "validate", json!({
         "missionId": auth.mission_id.to_string(),
         "cellId": auth.cell_id.to_string(),
         "signature": auth.signature.clone(),
+        "operationId": operation_id,
+        "claimToken": claim_token,
     }))?.send()
         .map_err(|_| "clinical reservation validation unavailable")?;
     if !response.status().is_success() {

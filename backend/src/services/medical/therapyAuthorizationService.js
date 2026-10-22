@@ -103,6 +103,32 @@ async function claimApplication(db, input) {
   return claimExistingOrNew(db, { authorization, input, key, scoped });
 }
 
+async function validateApplicationReservation(db, input) {
+  const authorization = await authorizationForApplication(db, {
+    authorizationId: input.authorizationId,
+    missionId: input.missionId,
+    tenant: input.tenant,
+  });
+  if (!authorization) return false;
+  const claims = JSON.parse(authorization.authorization_json);
+  if (!claimsMatchLedger(claims, authorization)
+      || claims.cell_id !== input.cellId || claims.signature !== input.signature) return false;
+  const operationId = clinicalOperationId(input.authorizationId);
+  const reservation = await db.get(`SELECT claim_token, state, lease_until_unix_ms
+    FROM clinical_authorization_applications
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`,
+  input.tenant.organizationId, input.tenant.projectId, input.authorizationId, operationId);
+  return reservation?.claim_token === input.claimToken
+    && (reservation.state === 'completed'
+      || (reservation.state === 'claimed' && reservation.lease_until_unix_ms > Date.now()));
+}
+
+function claimsMatchLedger(claims, row) {
+  return claims.authorization_id === row.authorization_id
+    && claims.mission_id === (row.rust_mission_id || row.mission_id)
+    && claims.cell_id === row.cell_id && claims.signature === row.signature;
+}
+
 function clinicalClaimInput(input) {
   const tenant = input?.tenant;
   const authorizationId = String(input?.authorizationId || '');
@@ -222,5 +248,5 @@ function clinicalSignature(auth) {
   return crypto.createHmac('sha256',secret).update(payload).digest('hex');
 }
 module.exports = { issueAuthorization, inspectAuthorization, revokeAuthorization, authorizationForApplication,
-  claimApplication, completeApplication, clinicalOperationId,
+  claimApplication, validateApplicationReservation, completeApplication, clinicalOperationId,
   signAuthorization,authorizeClinicalMutation,clinicalSignature };

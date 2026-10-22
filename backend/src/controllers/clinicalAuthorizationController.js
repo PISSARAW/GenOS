@@ -31,24 +31,57 @@ async function inspect(req,res,next) {
 async function validateForCli(req, res, next) {
   try {
     const db = await getDatabase();
-    const missionId = String(req.body?.missionId || '').trim();
-    const row = await ledger.authorizationForApplication(db, {
-      authorizationId: req.params.authorizationId, missionId, tenant: req.tenant,
-    });
-    if (!row) return res.status(404).json({ error: { code: 'CLINICAL_AUTHORIZATION_NOT_FOUND' } });
-    if (row.revoked_at_unix_ms !== null) {
-      return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_REVOKED' } });
-    }
-    const claims = JSON.parse(row.authorization_json);
-    const matches = claimsMatchLedger(claims, row)
-      && claims.mission_id === missionId
-      && claims.cell_id === req.body?.cellId
-      && claims.signature === req.body?.signature;
-    if (!matches || !await missionBelongsToTenant(db, missionId, req.tenant)) {
-      return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_SCOPE_MISMATCH' } });
-    }
-    return res.json({ authorized: true, authorizationId: row.authorization_id });
+    const result = await validateCliReservation({ db, req });
+    return res.status(result.status).json(result.body);
   } catch (error) { return next(error); }
+}
+
+async function validateCliReservation(input) {
+  const { db, req } = input;
+  const missionId = String(req.body?.missionId || '').trim();
+  const row = await ledger.authorizationForApplication(db, {
+    authorizationId: req.params.authorizationId, missionId, tenant: req.tenant,
+  });
+  if (!row) return cliValidationFailure(404, 'CLINICAL_AUTHORIZATION_NOT_FOUND');
+  if (!await cliAuthorizationScopeMatches({ db, req, row, missionId })) {
+    return cliValidationFailure(409, 'CLINICAL_AUTHORIZATION_SCOPE_MISMATCH');
+  }
+  return resolveCliReservation({ db, req, row, missionId });
+}
+
+async function cliAuthorizationScopeMatches(input) {
+  const { db, req, row, missionId } = input;
+  const claims = JSON.parse(row.authorization_json);
+  return claimsMatchLedger(claims, row) && claims.mission_id === missionId
+    && claims.cell_id === req.body?.cellId && claims.signature === req.body?.signature
+    && missionBelongsToTenant(db, missionId, req.tenant);
+}
+
+async function resolveCliReservation(input) {
+  const { db, req, row, missionId } = input;
+  if (req.body?.claimToken) return validateClaimToken({ db, req, row, missionId });
+  if (row.revoked_at_unix_ms !== null) return cliValidationFailure(409, 'CLINICAL_AUTHORIZATION_REVOKED');
+  return cliValidationSuccess({ authorized: true, authorizationId: row.authorization_id });
+}
+
+async function validateClaimToken(input) {
+  const { db, req, row, missionId } = input;
+  const reserved = await ledger.validateApplicationReservation(db, {
+    authorizationId: row.authorization_id, missionId,
+    cellId: req.body.cellId, signature: req.body.signature,
+    claimToken: req.body.claimToken, tenant: req.tenant,
+  });
+  if (!reserved) return cliValidationFailure(409, 'CLINICAL_APPLICATION_CLAIM_LOST');
+  return cliValidationSuccess({ authorized: true, authorizationId: row.authorization_id,
+    operationId: ledger.clinicalOperationId(row.authorization_id), reservation: true });
+}
+
+function cliValidationFailure(status, code) {
+  return { status, body: { error: { code } } };
+}
+
+function cliValidationSuccess(body) {
+  return { status: 200, body };
 }
 
 async function claimForCli(req, res, next) {

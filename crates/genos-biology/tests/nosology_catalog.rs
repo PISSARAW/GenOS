@@ -187,6 +187,65 @@ fn every_condition_is_detected_and_resolved_with_complete_evidence() {
 }
 
 #[test]
+fn every_condition_uses_a_strict_threshold_for_each_marker() {
+    for spec in &catalog().conditions {
+        for marker in &spec.markers {
+            let mut patient = cell();
+            patient
+                .clinical
+                .markers
+                .insert(marker.clone(), spec.threshold);
+            assert!(
+                diagnose_markers(&patient.clinical)
+                    .iter()
+                    .all(|diagnosis| !matches!(diagnosis,
+                        Pathology::Nosological { condition, .. } if *condition == spec.id)),
+                "{:?} diagnosed at its threshold for {}",
+                spec.id,
+                marker
+            );
+            patient
+                .clinical
+                .markers
+                .insert(marker.clone(), spec.threshold + 0.000_001);
+            assert!(
+                diagnose_markers(&patient.clinical)
+                    .iter()
+                    .any(|diagnosis| matches!(diagnosis,
+                        Pathology::Nosological { condition, .. } if *condition == spec.id)),
+                "{:?} not diagnosed above threshold for {}",
+                spec.id,
+                marker
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_present_risk_marker_blocks_each_affected_operator_atomically() {
+    for spec in catalog()
+        .therapies
+        .iter()
+        .filter(|therapy| !therapy.side_effects.is_empty())
+    {
+        let mut patient = cell();
+        let target = &spec.targets[0];
+        patient.clinical.markers.insert(target.clone(), 0.75);
+        for effect in &spec.side_effects {
+            patient
+                .clinical
+                .markers
+                .insert(effect.marker.clone(), f64::NAN);
+        }
+        let outcome = apply_systemic_therapy_to_cell(&therapy(&spec.id), &mut patient);
+        assert_eq!(outcome.status, TherapyStatus::Refused, "{}", spec.id);
+        assert_eq!(patient.clinical.markers[target], 0.75, "{}", spec.id);
+        assert!(outcome.marker_changes.is_empty(), "{}", spec.id);
+        assert!(outcome.induced_side_effects.is_empty(), "{}", spec.id);
+    }
+}
+
+#[test]
 fn missing_measurement_cannot_erase_a_previous_diagnosis() {
     let spec = catalog()
         .conditions

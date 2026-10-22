@@ -1,31 +1,28 @@
 # ADR 0327 — Complétion de la nosologie : calibration, porte de promotion et parcours e2e
 
-**Statut** : Proposé
+**Statut** : Accepté — les portes de validation restent ouvertes
 **Date** : 2026-10-22
 **Domaine** : Nosologie, clinique computationnelle et preuves
 **Décideurs** : Équipe GenOS
 
 ## Contexte
 
-L'ADR 0326 a instauré le catalogue versionné `shared/nosology.json` (28 conditions, 9 familles, 48 contrats de marqueurs), le diagnostic par seuil > 0,5, l'application signée et persistante, et l'idempotence. Les tests ciblés passent (103 tests Rust ciblés + contrôles Node).
+L'ADR 0326 a instauré le catalogue versionné `shared/nosology.json` (28 conditions, 9 familles, 48 contrats de marqueurs), le diagnostic par seuil > 0,5, l'application signée et persistante, et l'idempotence. Le dépôt fournit aussi une campagne de calibration sans observations, une agrégation candidate `noisy_or_v2`, ainsi que des contrats exécutables pour les variantes du catalogue. Les valeurs `0.5` et `0.25` restent des défauts d'ingénierie.
 
-Cependant, la nosologie reste incomplète au sens global :
+Les décisions suivantes complètent le contrat logiciel, sans déclarer la calibration ni la promotion terminées :
 - `calibration.status = uncalibrated_engineering_defaults` ; les seuils (0,5) et quantités (0,25) sont des défauts d'ingénierie sans campagne de train/disjoint holdout ni campagne benefit/harm vérifiée.
 - La porte de promotion (`verified_train_and_disjoint_holdout_campaign`, `verified_benefit_harm_campaign`, `verified_common_holdout_against_raw_family_max_and_no_change`) n'est pas franchie.
-- Les contrôles globaux du dépôt sont en échec ou incomplets (`npm test`, `test:worker-workspaces`, `test_consumer_inspection.js`).
-- Le parcours HTTP → Rust complet n'est pas validé dans la campagne en cours.
-- Une fenêtre non protégée existe entre `validateForCli` (réponse HTTP) et l'append du reçu Rust (thérapie CLI directe) : un second processus peut commettre une révocation entre les deux.
-- Certains mécanismes détaillés des fiches spécialisées restent des propositions analogiques sans contrat exécutable associé.
+- `npm --prefix backend test`, `npm test` à la racine et `cargo test --workspace --jobs 1` passent le 2026-10-22. Le gate qualité trouve une violation préexistante et aucune nouvelle. Le bilan de preuve consigne les contrôles exécutés et les limites restantes.
+- Le parcours HTTP → Rust avec reprise après redémarrage a été rejoué le 2026-10-22 et passe (`test:clinical-rust-e2e`).
+- Le CLI lie la revalidation au claim durable, à son jeton et à son lease juste avant l'application. La course est définie par cet ordre : révocation avant claim bloque l'application; claim avant révocation permet à l'opération réservée de terminer ou d'être reprise. Le test du vrai CLI vérifie ces deux ordres, l'idempotence et la reprise après crash. Cela ne revendique pas une transaction distribuée atomique entre SQLite et le journal Rust.
+- Les mécanismes biologiques détaillés des fiches restent des analogies. Seuls les opérateurs logiciels présents dans les contrats du catalogue sont revendiqués.
 
 ## Décision
 
-Mettre en œuvre un plan en 5 agents (A–E) pour passer la nosologie de l'état *implémenté par contrats* à l'état *complet et validé* :
-
-- **Agent A (Calibration et seuils)** : implémenter l'agrégation `noisy_or_v2` en candidate aux côtés de `maximum_v1`, définir les seuils par condition via campagne train/disjoint holdout, les quantités de thérapie via campagne benefit/harm, et mettre à jour `shared/nosology.json` une fois la porte franchie.
-- **Agent B (Validation globale et parcours e2e)** : faire passer `npm --prefix backend test` jusqu'au bout, valider le parcours HTTP → Rust → journal après redémarrage (`test:clinical-rust-e2e`), et corriger ou documenter les tests globaux encore en échec.
-- **Agent C (Mécanismes et opérateurs)** : implémenter les mécanismes détaillés des fiches spécialisées (01–09) et les variantes de marqueurs manquantes, en garantissant les gardes (apoptose, thrombolyse `blood_brain_barrier_integrity > 0,5`, risque invalide bloquant l'application).
-- **Agent D (Sécurité, autorisations, leases)** : implémenter un protocole de réservation durable ordonnant la révocation et supportant les retries concurrents + reprise après crash ; renforcer le lien mission/cellule/génome/empreinte/digest avant signature ; vérifier les leases MCP (`GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS`).
-- **Agent E (Intégration, documentation, preuves)** : générer le catalogue runtime, rédiger le présent ADR, mettre à jour `docs/01-concepts/nosologie/` et `docs/06-qualite-preuves/validation-nosologie.md`, vérifier `check_code_quality.py` (0 dette nouvelle) et l'index ADR.
+- Conserver `maximum_v1` en production et `noisy_or_v2` en candidate shadow. Ne changer les seuils, quantités ou statut de calibration qu'après validation d'observations réelles, indépendantes, signées et disjointes selon la campagne.
+- Traiter chaque variante de marqueur comme un contrat logiciel borné. Refuser l'application sur cellule apoptotique, lorsque la garde de thrombolyse est insuffisante ou lorsqu'un marqueur de risque fourni est invalide.
+- Faire valider par le backend le jeton et le lease du claim juste avant l'application Rust. La révocation bloque tout nouveau claim; un claim antérieur conserve l'autorité de son opération selon les règles de lease et de reprise. Ne pas présenter ce protocole comme une transaction distribuée entre SQLite et le journal.
+- Mettre à jour le catalogue généré, le bilan de preuve et les documents de nosologie avec les résultats réellement observés. Garder les échecs des contrôles globaux visibles et hors des déclarations de promotion.
 
 ## Conséquences
 

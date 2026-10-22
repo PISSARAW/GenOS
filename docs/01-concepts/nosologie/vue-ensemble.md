@@ -1,8 +1,8 @@
 # Nosologie computationnelle — GenOS
 
-- **Statut** : Implémenté pour les contrats de marqueurs et l’application signée persistante.
+- **Statut** : Contrats de marqueurs et application signée persistante implémentés; calibration et promotion restent ouvertes.
 - **Portée** : nosologie logicielle Rust; les mécanismes détaillés des fiches restent partiels.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-22.
 
 
 > Les maladies et médicaments désignent des abstractions logicielles. Les scénarios ne valident ni pathologies réelles ni traitements humains.
@@ -78,13 +78,13 @@ Une tentative autorisée sans cible ou refusée produit également un reçu dura
 
 ## 5. État et validation
 
-Les lots A–G ont introduit les premiers 25 opérateurs. La complétion ajoute le catalogue des 28 conditions, les 19 noms manquants, quatre contrats historiques de marqueurs, les diagnostics des neuf familles, les statuts explicites et la voie persistante autorisée.
+Les lots A–G ont introduit les premiers 25 opérateurs. Le catalogue exécutable contient maintenant 28 conditions, 48 contrats de marqueurs, les variantes manquantes et quatre contrats historiques de marqueurs. Les tests de contrat ciblés parcourent les diagnostics, les gardes, les données absentes ou invalides, les effets secondaires et les reçus persistés. Cela valide le comportement logiciel défini, pas les mécanismes biologiques détaillés des fiches.
 
 Agrégation de pression familiale : `maximum_v1` (référence, production) et `noisy_or_v2` (candidate, implémentée côté Rust dans `crates/genos-biology/src/nosology_catalog.rs`). Les seuils et quantités restent des défauts d'ingénierie (`uncalibrated_engineering_defaults`) jusqu'à ce qu'une campagne train/disjoint holdout et une campagne benefit/harm les vérifient.
 
-Protocole de réservation durable : le CLI Rust re-valide l'autorisation clinique juste avant l'append du reçu (`validate_clinical_reservation` dans `crates/genos-cli/src/commands/biomimicry/therapy.rs`), fermant la fenêtre entre la validation HTTP et l'application Rust identifiée dans le bilan de preuve.
+Protocole de réservation durable : le CLI Rust re-valide l'autorisation clinique juste avant l'append du reçu (`validate_clinical_reservation` dans `crates/genos-cli/src/commands/biomimicry/therapy.rs`). La preuve de non-intercalation et de reprise après crash est décrite séparément dans le bilan; la revalidation seule ne vaut pas preuve d'atomicité.
 
-Le [bilan du 2026-10-06](../../06-qualite-preuves/validation-nosologie.md) rapporte 103 tests Rust ciblés réussis et les contrôles Node ciblés. Les contrôles globaux du dépôt restent en échec ou incomplets; le parcours HTTP → Rust complet reste non validé dans cette campagne. Le [contrat API et CLI](../../03-reference/api-et-contrats.md#autorisation-et-application-cliniques) décrit les formes de paramètres acceptées.
+Le [bilan de preuve](../../06-qualite-preuves/validation-nosologie.md) rapporte les derniers résultats observés, dont le parcours HTTP → Rust avec reprise après redémarrage. Les tests globaux du dépôt passent; le contrôle qualité conserve une violation de baseline et n'ajoute aucune nouvelle. La campagne ne dispose pas d'observations réelles permettant de calibrer les seuils, quantités ou agrégation candidate; la porte de promotion reste fermée. Le [contrat API et CLI](../../03-reference/api-et-contrats.md#autorisation-et-application-cliniques) décrit les formes de paramètres acceptées.
 
 Les tests parcourent chaque condition et chaque contrat : cibles présentes/absentes, données invalides, bornes, sérialisation, rémissions entièrement mesurées, gardes, effets secondaires, absence de résurrection, reçus persistés, restauration et idempotence. Leur exécution et les contrôles globaux du dépôt doivent être rapportés avec leur résultat réel.
 
