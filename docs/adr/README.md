@@ -838,6 +838,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0724](0724-verificateur-causal-remediation.md) | Vérificateur causal des remédiations | Accepté pour les dossiers SHRE clôturés comme corrigés. | -- | -- |
 | [0725](0725-verification-claim-to-evidence.md) | Vérification Claim-to-Evidence et prévention des sophismes d'observation | Accepté | 2026-10-22 | cybersécurité, preuves, épistémologie opérationnelle, traçabilité |
 | [0726](0726-security-specialist-physiology.md) | Security Specialist Physiology | Accepté | 2026-10-22 | -- |
+| [0727a](0727-noyau-autorite-securite-sak.md) | Security Authority Kernel (SAK) et séparation observation / instruction | Accepté | 2026-10-22 | cybersécurité, contrôle d'autorisation, responsabilité, résistance à la falsification |
+| [0727b](0727-security-learning-ontogenesis.md) | Security Learning & Ontogenesis | Accepté | 2026-10-22 | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
