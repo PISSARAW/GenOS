@@ -210,17 +210,15 @@ function scopeOf(scope) {
 function buildSignalData(ctx, decision) {
   const artifactId = ctx.evidence ? ctx.evidence.artifactId : null;
   const utility = decision.meta ? decision.meta.utility : undefined;
-  return {
-    semanticType: ctx.checkpoint,
-    concentration: 0.8,
-    artifactRef: artifactId,
-    content: {
-      checkpoint: ctx.checkpoint,
-      decision: decision.action,
-      reasonCodes: decision.reasonCodes,
-      utility
-    }
+  const content = {
+    checkpoint: ctx.checkpoint, decision: decision.action,
+    reasonCodes: decision.reasonCodes, utility
   };
+  if (typeof ctx.evidence?.publicSummary === 'string' && ctx.evidence.publicSummary.trim()) {
+    content.publicSummary = ctx.evidence.publicSummary.trim();
+  }
+  return { semanticType: ctx.checkpoint, concentration: 0.8,
+    artifactRef: artifactId, content };
 }
 
 async function executeCheckpointSignal(decision, ctx) {
