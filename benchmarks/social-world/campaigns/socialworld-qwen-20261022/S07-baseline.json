@@ -1,0 +1,54 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S07",
+  "phase": "baseline",
+  "status": "fail",
+  "model": "qwen2.5:14b",
+  "sourceCommit": "911327a20218b5534965f92774c1ea2fd1b0386e",
+  "seed": 7,
+  "expectedRelations": [
+    {
+      "direction": "forward",
+      "type": "friend"
+    },
+    {
+      "direction": "forward",
+      "type": "colleague"
+    },
+    {
+      "direction": "reverse",
+      "type": "manager"
+    }
+  ],
+  "oracle": "all persisted pair relations with direction retained",
+  "testCommand": "node backend/tests/test_agent_relation_profiles.js",
+  "testExitCode": 1,
+  "testOutput": "TypeError: Cannot read properties of undefined (reading 'map')\n    at verifyMultipleRelations (D:\\GenOS\\identity-real-llm-worktree\\backend\\tests\\test_agent_relation_profiles.js:73:38)\n    at async Promise.all (index 1)",
+  "qwenRuns": [
+    {
+      "temperature": "default CLI",
+      "verdict": "fail",
+      "expected": [
+        "friend"
+      ],
+      "relationTypes": [
+        "friend",
+        "colleague"
+      ],
+      "reason": "Qwen included colleague, but baseline returns only the primary relation"
+    },
+    {
+      "relationTypes": [
+        "friend"
+      ],
+      "temperature": 0,
+      "seed": 7,
+      "reason": "REST call reflects current resolver output",
+      "expected": [
+        "friend"
+      ],
+      "verdict": "pass"
+    }
+  ],
+  "finding": "getRelationProfile exposes only the most familiar relation and drops colleague and reverse-direction manager edges."
+}

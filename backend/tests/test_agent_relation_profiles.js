@@ -63,6 +63,16 @@ async function verifyPersistedProfile() {
   assert.equal(profile.direction, 'forward');
 }
 
+async function verifyMultipleRelations() {
+  const db = { all: async () => [
+    { id: 'friend', source_agent_id: 'a', target_agent_id: 'b', relation_type: 'friend', relation_class: 'social', metadata_json: '{"familiarity":0.95}' },
+    { id: 'colleague', source_agent_id: 'a', target_agent_id: 'b', relation_type: 'colleague', relation_class: 'organizational', metadata_json: '{"familiarity":0.7}' },
+    { id: 'manager', source_agent_id: 'b', target_agent_id: 'a', relation_type: 'manager', relation_class: 'organizational', metadata_json: '{"familiarity":0.5}' }
+  ] };
+  const profile = await resolver.getRelationProfile('a', 'b', { db, organizationId: 'org', projectId: 'project' });
+  assert.deepEqual(profile.relations.map((relation) => relation.relationType), ['friend', 'colleague', 'manager']);
+  assert.deepEqual(profile.relations.map((relation) => relation.direction), ['forward', 'forward', 'reverse']);
+}
 async function verifyScopedCommunicationRouting() {
   const db = {
     all: async (sql, args) => {
@@ -87,6 +97,6 @@ verifyRelationCatalog();
 verifyVerifierSelection();
 verifyRuntimeVerifierAssignment();
 verifyPartnerSelection();
-Promise.all([verifyPersistedProfile(), verifyScopedCommunicationRouting()])
+Promise.all([verifyPersistedProfile(), verifyMultipleRelations(), verifyScopedCommunicationRouting()])
   .then(() => console.log('Agent relation profile tests passed.'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
