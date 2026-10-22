@@ -47,3 +47,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Après relance autorisée hors sandbox : `node backend/tests/test_native_code_completion.js` et `node backend/tests/test_native_oracle_completion.js` terminent tous deux avec le code 0.
 - Résultats : artefact réel testé, contre-vérification indépendante, refus des liens symboliques hors espace, des faux succès et des coûts/hash altérés; complétion native et budgets scellés vérifiés.
 - Verdict local T01 : réussi pour ces contrats automatisés. Ce n'est pas encore la mission de cinq bugs inconnus du protocole, qui exige un dépôt isolé et un évaluateur externe.
+
+## 2026-10-22 — T02, planification et qualification de mission
+
+- Commandes : `node backend/tests/test_mission_outcome_contract.js`, `node backend/tests/test_mission_outcome_falsification.js`, `node backend/tests/test_counterfactual_mission_qualification.js`.
+- Résultat : trois commandes code 0. Contrat de clôture, falsifications structurelles/sémantiques, oracle de sous-ensemble borné et promotion signée vérifiés; 0 faux positifs et 0 faux négatifs sur les fixtures rapportées.
+- Verdict local T02 : les contrats automatisés de résultat de mission réussissent. La construction complète d'une application depuis un cahier des charges reste à mesurer en mission autonome réelle.
