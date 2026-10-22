@@ -101,3 +101,10 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Relance hors sandbox des mêmes trois commandes : code 0.
 - Budgets scellés, réservation concurrente, délégation limitée à l'autorité et aux plafonds, et suite de capacités morphogénétiques passent.
 - Verdict local T07 : réussi pour les contrats d'adaptation et de budget automatisés.
+
+## 2026-10-22 — T08, premier passage morphogenèse
+
+- Commande : `npm --prefix backend run test:morphogenesis`.
+- Résultat : 106/110 tests passent. Échecs observés : `test_morphogenesis_genome_outcome_evidence.js` et `test_morphogenesis_verified_outcome_store.js` (`MORPHOGENESIS_PAIR_UNQUALIFIED`, mismatch preuve/transition); `test_morphogenesis_network_deployment_parity.js` (`EACCES` loopback); `test_security_morphogenesis.js` (mesure `cpuMs` égale à 0).
+- Les autres scénarios de sélection, persistance, transition et rollback de topologie passent.
+- Verdict : T08 échoue au passage initial; relance hors sandbox en cours pour isoler les échecs système et confirmer les deux incohérences de preuve.
