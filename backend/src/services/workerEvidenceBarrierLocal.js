@@ -19,6 +19,7 @@ const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
 const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
   consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
+const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -316,6 +317,7 @@ async function runGenerationStage(ctx) {
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 
+
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
@@ -326,6 +328,7 @@ async function runEvidenceStage(ctx) {
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
+  if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
   throwIfProposalFailed(proposal);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
