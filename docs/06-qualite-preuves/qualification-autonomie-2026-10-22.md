@@ -41,3 +41,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commande : `node backend/tests/test_native_code_completion.js` puis `node backend/tests/test_native_oracle_completion.js` (le second n'a pas démarré, car le premier a échoué).
 - Résultat observé : les cas de faux succès, de scope et de hash ont été exercés; le test s'est ensuite arrêté avec `EPERM` lors de la création d'un lien symbolique dans son espace temporaire Windows. Code de sortie 1.
 - Ce résultat indique un blocage de permissions du sandbox, pas un verdict de régression du code GenOS. La suite native de T01 reste non qualifiée jusqu'à une relance réussie.
+
+### T01 — déblocage et résultat
+
+- Après relance autorisée hors sandbox : `node backend/tests/test_native_code_completion.js` et `node backend/tests/test_native_oracle_completion.js` terminent tous deux avec le code 0.
+- Résultats : artefact réel testé, contre-vérification indépendante, refus des liens symboliques hors espace, des faux succès et des coûts/hash altérés; complétion native et budgets scellés vérifiés.
+- Verdict local T01 : réussi pour ces contrats automatisés. Ce n'est pas encore la mission de cinq bugs inconnus du protocole, qui exige un dépôt isolé et un évaluateur externe.
