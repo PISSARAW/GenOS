@@ -1,0 +1,183 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S16",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "1902d6abe5ef5804ad158c3b792c7d5ac02b1f85",
+  "expected": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "excluded": [
+      "agent-d"
+    ],
+    "semanticRefs": [
+      "design-review:22"
+    ]
+  },
+  "observed": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "design-review:22"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "scope": "SELECTIVE_MULTICAST",
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "encoding": "semantic-fingerprint",
+    "ttlMs": 60000,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ],
+    "meta": {
+      "utility": 0.56625,
+      "gain": 0.5962500000000001,
+      "cost": 0.03,
+      "breakdown": {
+        "tokens": 0,
+        "cognitiveWake": 0,
+        "fanout": 0,
+        "grounding": 0.03,
+        "contamination": 0,
+        "disclosure": 0
+      },
+      "novelty": 1,
+      "groups": [
+        {
+          "profile": "worker|1",
+          "role": "worker",
+          "members": [
+            "agent-b",
+            "agent-c"
+          ],
+          "unknownRefs": [
+            "design-review:22"
+          ]
+        }
+      ],
+      "escalation": null,
+      "firewall": null,
+      "relationshipRouting": [
+        {
+          "agentId": "agent-b",
+          "relationType": "friend",
+          "relationTypes": [
+            "friend"
+          ],
+          "relations": [
+            {
+              "relationType": "friend",
+              "relationClass": "social",
+              "direction": "forward"
+            }
+          ],
+          "preferredEncoding": "canonical",
+          "grounding": "semantic_ack",
+          "epistemicIndependence": 1,
+          "disclosureLevel": 0.4
+        },
+        {
+          "agentId": "agent-c",
+          "relationType": "colleague",
+          "relationTypes": [
+            "colleague"
+          ],
+          "relations": [
+            {
+              "relationType": "colleague",
+              "relationClass": "organizational",
+              "direction": "forward"
+            }
+          ],
+          "preferredEncoding": "compact",
+          "grounding": "action_ack",
+          "epistemicIndependence": 1,
+          "disclosureLevel": 0.4
+        }
+      ]
+    }
+  },
+  "outcome": {
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s16-multicast",
+    "signalId": "sig_4492b087-cacf-4791-9e1d-1d84500ee75c",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "8a417ce67e3fc499604c9192dd04b2fcb4207785fb69c003a0c5597534e50eec",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-c",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ],
+    "learnResult": null,
+    "decisionAction": "SIGNAL",
+    "recipientCount": 2,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "warmup": {
+    "response": "Here is the requested JSON object:\n\n{\"ready\":true}"
+  },
+  "qwenResponse": "Here is the JSON object with the recipients and semantic references as requested:\n\n{\n  \"recipients\": [\"agent-b\", \"agent-c\"],\n  \"semanticRefs\": [\"design-review:22\"]\n}",
+  "answer": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "design-review:22"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": false,
+  "verified": false,
+  "oracle": "a selective multicast reaches exactly B and C, excludes competent non-member D, and preserves the exact reference",
+  "durationMs": 237513
+}
