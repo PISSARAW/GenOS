@@ -1,0 +1,13 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S23",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "d90389c706057255ad6f81272bc3914f8763c0e1",
+  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "stage": "model-warmup",
+  "warmup": null,
+  "verified": false,
+  "durationMs": 180039
+}
