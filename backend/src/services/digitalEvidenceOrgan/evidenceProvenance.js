@@ -20,10 +20,10 @@ function computeSourceSignature(params, secret) {
 
 function assertTrustedCollector(collectorId, artifactId, trustPolicy) {
   const list = trustPolicy.trustedCollectors;
-  if (Array.isArray(list) && list.length > 0 && !list.includes(collectorId)) {
+  if (!Array.isArray(list) || list.length === 0 || !list.includes(collectorId)) {
     throw deoError(
       'DEO_FORGED_SOURCE',
-      `Collector '${collectorId}' is not in the trusted collectors registry.`,
+      `Collector '${collectorId}' is not in a configured trusted collectors registry.`,
       { collectorId, artifactId },
     );
   }
@@ -31,7 +31,9 @@ function assertTrustedCollector(collectorId, artifactId, trustPolicy) {
 
 function assertValidCollectorSignature(ingestedArtifact, collectorId, trustPolicy) {
   const secrets = trustPolicy.collectorSecrets;
-  if (!secrets || typeof secrets !== 'object') return;
+  if (!secrets || typeof secrets !== 'object') {
+    throw deoError('DEO_FORGED_SOURCE', 'A collector signing key registry is required to authenticate evidence sources.');
+  }
   const secret = secrets[collectorId];
   if (!secret) {
     throw deoError('DEO_FORGED_SOURCE', `No signing key registered for collector '${collectorId}'.`);
@@ -54,12 +56,13 @@ function assertValidCollectorSignature(ingestedArtifact, collectorId, trustPolic
 }
 
 function verifySourceAuthenticity(ingestedArtifact, trustPolicy = {}) {
+  const configuredTrustPolicy = trustPolicy ?? {};
   const meta = ingestedArtifact.sourceMetadata ?? {};
   const collectorId = requireNonEmptyText(meta.collectorId, 'DEO_FORGED_SOURCE', 256);
   const sourceUri = requireNonEmptyText(meta.sourceUri, 'DEO_FORGED_SOURCE', 1024);
 
-  assertTrustedCollector(collectorId, ingestedArtifact.artifactId, trustPolicy);
-  assertValidCollectorSignature(ingestedArtifact, collectorId, trustPolicy);
+  assertTrustedCollector(collectorId, ingestedArtifact.artifactId, configuredTrustPolicy);
+  assertValidCollectorSignature(ingestedArtifact, collectorId, configuredTrustPolicy);
 
   if (meta.claimedSource && meta.claimedSource !== collectorId) {
     throw deoError(

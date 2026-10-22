@@ -5,6 +5,10 @@ const deo = require('../src/services/digitalEvidenceOrgan');
 
 const TRUST_SECRET = 'genos-deo-collector-secret-key-2026-32b';
 const COLLECTOR_ID = 'sensor:dfir-win-01';
+const TRUST_POLICY = Object.freeze({
+  trustedCollectors: [COLLECTOR_ID],
+  collectorSecrets: { [COLLECTOR_ID]: TRUST_SECRET },
+});
 
 function signedSource(artifactId, rawContent, extra = {}) {
   const rawHash = deo.sha256Digest(rawContent);
@@ -94,10 +98,7 @@ function testAllFiveFormatsAndRawPreservation() {
   const dossier = deo.runDigitalEvidenceOrgan(
     { artifacts },
     {
-      trustPolicy: {
-        trustedCollectors: [COLLECTOR_ID],
-        collectorSecrets: { [COLLECTOR_ID]: TRUST_SECRET },
-      },
+      trustPolicy: TRUST_POLICY,
     },
   );
 
@@ -135,6 +136,11 @@ function testMandatoryScenario1CorruptedFiles() {
     () => deo.ingestArtifact({ artifactId: 'bad-csv', format: 'hayabusa_csv', rawContent: 'Timestamp,Computer\n"unterminated,DC01' }),
     { code: 'DEO_CORRUPTED_ARTIFACT' },
   );
+  const corruptBinaryEvtx = Buffer.concat([Buffer.from('ElfFile\0'), Buffer.from('not-an-evtx-chunk')]);
+  assert.throws(
+    () => deo.ingestArtifact({ artifactId: 'bad-binary-evtx', format: 'evtx', rawContent: corruptBinaryEvtx }),
+    (err) => ['DEO_CORRUPTED_ARTIFACT', 'DEO_EVTX_BINARY_PARSER_UNAVAILABLE'].includes(err.code),
+  );
 }
 
 function testMandatoryScenario2DuplicateEvents() {
@@ -163,7 +169,7 @@ function testMandatoryScenario3ContradictoryTimestamps() {
       { artifactId: 'ts-a', format: 'evtx', rawContent: evtxA, sourceMetadata: signedSource('ts-a', evtxA) },
       { artifactId: 'ts-b', format: 'evtx', rawContent: evtxB, sourceMetadata: signedSource('ts-b', evtxB) },
     ],
-  });
+  }, { trustPolicy: TRUST_POLICY });
 
   assert.equal(dossier.conflicts.hasContradictions, true);
   assert.equal(dossier.conflicts.epistemicStance, 'suspended_judgment');
@@ -200,7 +206,7 @@ function testMandatoryScenario5MissingEvidenceAndIntegrity() {
     sourceMetadata: signedSource('art-evtx-int', VALID_EVTX_XML),
   });
   const norm = deo.normalizeIngestedArtifact(ingested);
-  const prov = deo.attachProvenance(ingested, norm);
+  const prov = deo.attachProvenance(ingested, norm, { trustPolicy: TRUST_POLICY });
 
   // Missing raw artifact in vault
   const missingRawCheck = deo.verifyEvidenceIntegrity({ rawArtifacts: new Map(), observations: prov.observations });
@@ -241,6 +247,20 @@ function testMandatoryScenario6ForgedSource() {
   );
 }
 
+function testMissingSourceTrustPolicyFailsClosed() {
+  const ingested = deo.ingestArtifact({
+    artifactId: 'untrusted-policy-artifact',
+    format: 'evtx',
+    rawContent: VALID_EVTX_XML,
+    sourceMetadata: signedSource('untrusted-policy-artifact', VALID_EVTX_XML),
+  });
+  const normalized = deo.normalizeIngestedArtifact(ingested);
+  assert.throws(
+    () => deo.attachProvenance(ingested, normalized),
+    { code: 'DEO_FORGED_SOURCE' },
+  );
+}
+
 function testMandatoryScenario7UnknownEvent() {
   const unknownEvtx = `<Events><Event><System><EventID>99999</EventID><TimeCreated SystemTime="2026-10-22T10:00:00Z" /><Computer>DC01</Computer></System></Event></Events>`;
   const ing = deo.ingestArtifact({ artifactId: 'unk-evtx', format: 'evtx', rawContent: unknownEvtx });
@@ -254,6 +274,7 @@ function testRetentionMinimizationAndRevocation() {
       { artifactId: 'ret-2', format: 'nmap_xml', rawContent: VALID_NMAP_XML, sourceMetadata: signedSource('ret-2', VALID_NMAP_XML) },
     ],
   }, {
+    trustPolicy: TRUST_POLICY,
     retentionPolicy: {
       tier: 'short_term',
       now: '2026-10-23T10:00:00Z',
@@ -284,10 +305,7 @@ function testSealedTrialCorpusValidationCriterion() {
   const result = deo.runDigitalEvidenceOrgan(
     { artifacts: sealedCorpus },
     {
-      trustPolicy: {
-        trustedCollectors: [COLLECTOR_ID],
-        collectorSecrets: { [COLLECTOR_ID]: TRUST_SECRET },
-      },
+      trustPolicy: TRUST_POLICY,
     },
   );
 
@@ -316,6 +334,7 @@ testMandatoryScenario3ContradictoryTimestamps();
 testMandatoryScenario4IncompleteExport();
 testMandatoryScenario5MissingEvidenceAndIntegrity();
 testMandatoryScenario6ForgedSource();
+testMissingSourceTrustPolicyFailsClosed();
 testMandatoryScenario7UnknownEvent();
 testRetentionMinimizationAndRevocation();
 testSealedTrialCorpusValidationCriterion();
