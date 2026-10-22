@@ -2,11 +2,18 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S13",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "595fdb6c64249de7b26a6c75040db37ed8daecc0",
-  "error": "Error: Model timeout after 90000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "stage": "qwen-verification",
+  "sourceCommit": "58643b9397f4b7178cb367f4a60202ab317b580b",
+  "expected": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ]
+  },
   "observed": {
     "action": "SIGNAL",
     "recipients": [
@@ -34,7 +41,7 @@
     "simulated": false,
     "published": true,
     "cycleId": "s13-event",
-    "signalId": "sig_d412f3a5-fd94-4c11-9bd2-a7390f336e37",
+    "signalId": "sig_3e2c5958-d310-4de1-9b60-b9808cb7a6ec",
     "reason": null,
     "deliveryAcknowledgements": [],
     "grounding": {
@@ -71,7 +78,23 @@
     ]
   },
   "signalCount": 0,
-  "enginePass": false,
-  "verified": false,
-  "durationMs": 92590
+  "reconciliationPass": true,
+  "qwenResponse": "Here is the JSON with the requested details:\n\n```json\n{\n  \"action\": \"SIGNAL\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"evidence:bridge-status-19\"],\n  \"resolution\": \"corrected\",\n  \"correctedStatement\": \"The bridge is closed.\",\n  \"evidenceRef\": \"evidence:bridge-status-19\"\n}\n```",
+  "answer": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ],
+    "resolution": "corrected",
+    "correctedStatement": "The bridge is closed.",
+    "evidenceRef": "evidence:bridge-status-19"
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a documented disagreement triggers an evidence-linked challenge to the colleague, and Qwen corrects the claim using the cited signed status",
+  "durationMs": 23784
 }

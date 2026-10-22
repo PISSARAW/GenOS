@@ -22,7 +22,7 @@
 | S10 Entraide | RÈussi avec Qwen 2.5 14B | `S10-result.json`; source `346cc396` |
 | S11 Reprise de contact | RÈussi avec Qwen 2.5 14B; premier essai expirÈ | `S11-attempt-01.json` (timeout), `S11-result.json`; source `c96ae085` |
 | S12 Silence intelligent | RÈussi avec Qwen 2.5 14B aprËs correctif | `S12-result.json`; source `6d691034` |
-| S13 R√©conciliation | Non ex√©cut√© | ‚Äî |
+| S13 RÈconciliation | RÈussi avec Qwen 2.5 14B; premier essai expirÈ | `S13-attempt-01.json` (timeout), `S13-result.json`; source `58643b93` |
 | S14 Curiosit√© sociale | Non ex√©cut√© | ‚Äî |
 | S15 Unicast | Non ex√©cut√© | ‚Äî |
 | S16 Multicast s√©lectif | Non ex√©cut√© | ‚Äî |

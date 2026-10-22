@@ -1,0 +1,77 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S13",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "595fdb6c64249de7b26a6c75040db37ed8daecc0",
+  "error": "Error: Model timeout after 90000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "stage": "qwen-verification",
+  "observed": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "scope": "UNICAST",
+    "encoding": "semantic-fingerprint",
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "execution": {
+    "channel": "SIGNAL",
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s13-event",
+    "signalId": "sig_d412f3a5-fd94-4c11-9bd2-a7390f336e37",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "7e0593e2dd8843335818282f86d041fdb13e5b5a6a0c26355896bc14d959e164",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
+  },
+  "signalCount": 0,
+  "enginePass": false,
+  "verified": false,
+  "durationMs": 92590
+}
