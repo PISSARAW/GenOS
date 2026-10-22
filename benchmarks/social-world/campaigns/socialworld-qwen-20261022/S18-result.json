@@ -1,0 +1,30 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S18",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "d151782c50c786baa4e8a6f0191a0ef91b1d6eab",
+  "expected": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "qwenResponse": "Given that the signal is undefined, I'll provide a JSON object with the specified fields but with placeholder values since no actual signal data was provided:\n\n```json\n{\n  \"type\": \"undefined\",\n  \"locus\": \"undefined\",\n  \"senderAgentId\": \"undefined\",\n  \"semanticRefs\": [\"undefined\"]\n}\n```\n\nIf you have a specific undefined signal or more details, please",
+  "answer": {
+    "type": "undefined",
+    "locus": "undefined",
+    "senderAgentId": "undefined",
+    "semanticRefs": [
+      "undefined"
+    ]
+  },
+  "enginePass": false,
+  "verified": false,
+  "oracle": "a persisted environmental pheromone can be read by locus with authenticated provenance and its exact semantics",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 25428
+}
