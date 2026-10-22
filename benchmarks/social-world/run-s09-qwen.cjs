@@ -8,6 +8,7 @@ const { getDatabase, closeDatabase } = require('../../backend/src/db');
 const relations = require('../../backend/src/services/crossAgentRelationalService');
 const checkpoint = require('../../backend/src/services/communication/communicationCheckpointService');
 const stigmergy = require('../../backend/src/services/epistemic/stigmergyInterProcessBridge');
+const transactiveMemory = require('../../backend/src/services/communication/transactiveMemoryService');
 const modelProvider = require('../../backend/src/services/modelProvider');
 
 const MODEL = 'ollama://qwen2.5:14b';
@@ -27,20 +28,27 @@ function saveResult(result) {
 }
 
 async function createWorld(db) {
+  await transactiveMemory.ensureTables(db);
   await db.run("INSERT INTO agents (id, name, role, status, cognitive_budget, model_tier) VALUES ('agent-a', 'A', 'worker', 'idle', 100, 'Flash')");
   await db.run("INSERT INTO agents (id, name, role, status, cognitive_budget, model_tier) VALUES ('agent-b', 'B', 'worker', 'idle', 100, 'Flash')");
+  await db.run("INSERT INTO agent_expertise (agent_id, domain, competence, reliability, calibration) VALUES ('agent-b', 'weather', 0.95, 0.9, 0.9)");
   await relations.createRelation({ db, id: 's09-friendship', sourceAgentId: 'agent-a', targetAgentId: 'agent-b',
     relationType: 'friend', relationClass: 'social', organizationId: 'socialworld-org',
     projectId: 'socialworld-project', metadata: { familiarity: 0.9, disclosureLevel: 0.3 } });
 }
 
 async function triggerNewEvidence(db) {
+  let delivered = null;
   const receipt = await checkpoint.evaluateCheckpoint({ db, agentId: 'agent-a', checkpoint: 'NEW_EVIDENCE',
-    evidence: { domain: 'weather', artifactId: 'storm-route-7', semanticRefs: ['fact:storm-route-7'],
+    evidence: { domain: 'weather', urgency: 1, artifactId: 'storm-route-7', semanticRefs: ['fact:storm-route-7'],
       summary: 'Verified storm warning affects the route used by agent-b.' },
-    scope: { organizationId: 'socialworld-org', projectId: 'socialworld-project' } });
+    scope: { organizationId: 'socialworld-org', projectId: 'socialworld-project' },
+    communication: { cycleId: 's09-event', transport: { deliver: async (input) => {
+      delivered = input;
+      return { published: true, signalId: input.envelope.messageId, acknowledgements: [] };
+    } } } });
   const signals = await stigmergy.readPheromones({ db, locus: 'checkpoint/weather' });
-  return { receipt, signals };
+  return { receipt, signals, delivered };
 }
 
 async function askQwen(observed, seed) {
@@ -62,10 +70,10 @@ async function main() {
   try {
     db = await getDatabase(':memory:');
     await createWorld(db);
-    const { receipt, signals } = await triggerNewEvidence(db);
-    const observed = { action: receipt.decision.action,
-      recipients: receipt.executed?.recipients || receipt.executed?.recipientAgentIds || [],
-      semanticRefs: signals.flatMap((signal) => signal.communicationEnvelope?.semanticRefs || []) };
+    const { receipt, signals, delivered } = await triggerNewEvidence(db);
+    const observed = { action: receipt.decision.action, recipients: receipt.decision.recipients || [],
+      semanticRefs: delivered?.envelope?.semanticRefs
+        || signals.flatMap((signal) => signal.communicationEnvelope?.semanticRefs || []) };
     const { response, answer } = await askQwen(observed, seed);
     const enginePass = observed.action === EXPECTED.action
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)

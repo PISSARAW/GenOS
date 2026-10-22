@@ -338,7 +338,7 @@ async function tryPrescoped(input, intent, refs) {
   if (intent.risk === 'critical' && input.humanRequired !== false) return null;
   if (globalEligible(intent, input)) return decideGlobalBroadcast(input, intent, refs);
   if (input.receptorTopic) return decideLocalBroadcast(input, intent, refs);
-  if (stigmergyEligible(intent, input)) return decideStigmergy(input, intent, refs);
+
   return null;
 }
 
@@ -361,6 +361,9 @@ async function decideCommunication(input) {
   const requestedCandidates = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
   const informed = await relationshipRouting.profileAudience({ db: input.db, intent, candidates: requestedCandidates,
     ...relationScope(input, intent) });
+  if (informed.length === 0 && stigmergyEligible(intent, input)) {
+    return logAndDecide(input, await decideStigmergy(input, intent, refs));
+  }
   if (informed.length === 0) {
     return logAndDecide(input, silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 }));
   }
