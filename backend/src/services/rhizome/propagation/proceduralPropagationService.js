@@ -8,6 +8,19 @@ function hasLocalEvidence(input) {
     && Array.isArray(input.localValidation.evidenceRefs) && input.localValidation.evidenceRefs.length > 0;
 }
 
+function targetsFor(input) {
+  const depth = Number.isInteger(input.pipelineDepth) ? input.pipelineDepth : null;
+  const rawTargets = input.targets || [input.target];
+  if (Number.isInteger(depth) && depth > 0) return rawTargets.slice(0, depth);
+  return rawTargets;
+}
+
+function compatibilityOk(input, targets) {
+  if (!input.requireCompatibilityTrials) return true;
+  if (targets.length <= 1) return true;
+  return compatibleTargets(targets, input.compatibilityTrials);
+}
+
 function propagate(input) {
   if (!hasLocalEvidence(input)) return { assimilated: false, reason: 'LOCAL_VALIDATION_REQUIRED', value: 0 };
   if (input.requireCausalValidation && !verifiedEvidence(input.causalValidation)) {
@@ -16,10 +29,8 @@ function propagate(input) {
   const value = valueService.value(input);
   if (value <= 0) return { assimilated: false, reason: 'NON_POSITIVE_PROPAGATION_VALUE', value };
   const fragment = propagation.validateFragment(input.fragment, (item) => item.procedure != null);
-  const depth = Number.isInteger(input.pipelineDepth) ? input.pipelineDepth : null;
-  const rawTargets = input.targets || [input.target];
-  const targets = Number.isInteger(depth) && depth > 0 ? rawTargets.slice(0, depth) : rawTargets;
-  if (input.requireCompatibilityTrials && targets.length > 1 && !compatibleTargets(targets, input.compatibilityTrials)) {
+  const targets = targetsFor(input);
+  if (!compatibilityOk(input, targets)) {
     return { assimilated: false, reason: 'COMPATIBILITY_TRIALS_REQUIRED', value };
   }
   return assimilateTargets({ targets, fragment, input, value });

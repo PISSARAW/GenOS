@@ -16,6 +16,18 @@ function proofDigest(bridge, proof) {
   return `sha256:${createHash('sha256').update(fields.join('\u0000')).digest('hex')}`;
 }
 
+function heteroCompatible(input) {
+  const bridge = input.bridge;
+  const proof = input.proof;
+  const threshold = input.session?.variantPolicy?.bridges?.heteroBridgeCompat;
+  if (!Number.isFinite(threshold)) return true;
+  if (!bridge.sourceRepresentation || !bridge.targetRepresentation) return true;
+  if (bridge.sourceRepresentation === bridge.targetRepresentation) return true;
+  const compatibility = Number.isFinite(proof.compatibility) ? proof.compatibility
+    : (Number.isFinite(proof.informationLoss) ? 1 - proof.informationLoss : NaN);
+  return Number.isFinite(compatibility) && compatibility >= threshold;
+}
+
 function validate(input) {
   const proof = objectValue(input.proof, 'BridgeValidationProof');
   const receipt = objectValue(proof.signedReceipt, 'signedReceipt');
@@ -23,14 +35,7 @@ function validate(input) {
   const checks = ['inputAccepted', 'outputValid', 'invariantsPreserved', 'evidencePreserved'];
   if (checks.some((key) => proof[key] !== true) || !evidenceRefs.length) return false;
   const expectedDigest = proofDigest(input.bridge, proof);
-  const bridge = input.bridge;
-  const compatThreshold = input.session?.variantPolicy?.bridges?.heteroBridgeCompat;
-  if (Number.isFinite(compatThreshold) && bridge.sourceRepresentation && bridge.targetRepresentation
-      && bridge.sourceRepresentation !== bridge.targetRepresentation) {
-    const compatibility = Number.isFinite(proof.compatibility) ? proof.compatibility
-      : (Number.isFinite(proof.informationLoss) ? 1 - proof.informationLoss : NaN);
-    if (!Number.isFinite(compatibility) || compatibility < compatThreshold) return false;
-  }
+  if (!heteroCompatible(input)) return false;
   return receipt.resultId === input.bridge.bridgeId && receipt.evidenceDigest === expectedDigest
     && verifierReceipts.validateReceipt(receipt, input.trustedVerifierDigests || []);
 }
