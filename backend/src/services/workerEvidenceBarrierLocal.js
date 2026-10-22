@@ -116,12 +116,6 @@ async function resolveProposal(ctx) {
     requiredPatchMinimumBytes: ctx.requiredPatchMinimumBytes });
 }
 
-function throwIfProposalFailed(proposal) {
-  if (!proposal) return;
-  if (proposal.testStatus !== 'failed') return;
-  throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal: proposal });
-}
-
 function resolveImmuneReport(ctx) {
   return immuneSystem.phagocytoseCodexReport(String(ctx.text), {
     agentName: ctx.agentName,
@@ -333,7 +327,7 @@ async function runEvidenceStage(ctx) {
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
-  throwIfProposalFailed(proposal);
+  require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);

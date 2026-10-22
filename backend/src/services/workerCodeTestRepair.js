@@ -14,6 +14,22 @@ function latencyBudget(mission) {
   return values.length ? Math.min(...values) : 30000;
 }
 
+function tokenBudget(mission) {
+  const value = Number(mission.executionBudget?.tokens);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function consumedTokens(error) {
+  const direct = Number(error.usage?.tokens);
+  if (Number.isSafeInteger(direct) && direct >= 0) return direct;
+  const input = Number(error.usage?.inputTokens);
+  const output = Number(error.usage?.outputTokens);
+  if (Number.isSafeInteger(input) && input >= 0 && Number.isSafeInteger(output) && output >= 0) {
+    return input + output;
+  }
+  return null;
+}
+
 function failureFeedback(error) {
   const tests = error.proposal?.tests || [];
   const result = tests.map((test) => [
@@ -42,21 +58,28 @@ function canRetry(context) {
 async function run(context) {
   const startedAt = Date.now();
   let mission = context.mission;
+  let remainingTokens = tokenBudget(context.mission);
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await context.runAttempt(mission);
     } catch (error) {
       if (!canRetry({ mission: context.mission, error, attempt, startedAt })) throw error;
+      if (remainingTokens > 0) {
+        const consumed = consumedTokens(error);
+        if (consumed === null || consumed >= remainingTokens) throw error;
+        remainingTokens -= consumed;
+      }
       const remainingMs = latencyBudget(context.mission) - (Date.now() - startedAt);
       await context.onRetry?.({ failedAttempt: attempt, error, remainingMs });
       mission = {
         ...context.mission,
         prompt: repairPrompt({ mission: context.mission, error, attempt }),
         timeoutMs: remainingMs,
-        executionBudget: { ...context.mission.executionBudget, latencyMs: remainingMs }
+        executionBudget: { ...context.mission.executionBudget, latencyMs: remainingMs,
+          ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
       };
     }
   }
 }
 
-module.exports = { run, failureFeedback, repairPrompt, latencyBudget };
+module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens };

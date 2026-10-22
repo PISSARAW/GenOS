@@ -2,13 +2,20 @@
 
 const assert = require('node:assert/strict');
 const { run, repairPrompt, failureFeedback } = require('../src/services/workerCodeTestRepair');
+const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 
 const mission = { localCodeWorker: true, prompt: 'Build the pantry app.', timeoutMs: 10000,
   executionBudget: { latencyMs: 10000, tokens: 20000 } };
 const failed = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: {
   tests: [{ command: 'npm test', exitCode: 1, stderr: 'missing Category label' }],
   failedPatchContents: [{ path: 'index.html', content: '<h1>Existing Pantry</h1>' }]
-} });
+}, usage: { inputTokens: 1200, outputTokens: 800, tokens: 2000 } });
+assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
+	{ inputTokens: 1200, outputTokens: 800 }, 2000), (error) => {
+	assert.equal(error.code, 'WORKER_TESTS_FAILED');
+	assert.equal(error.usage.tokens, 2000);
+	return true;
+});
 
 (async () => {
   const prompts = [];
@@ -16,6 +23,7 @@ const failed = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAI
   const result = await run({ mission, onRetry: () => { retries += 1; },
     runAttempt: async (attemptMission) => {
       prompts.push(attemptMission.prompt);
+      if (prompts.length === 2) assert.equal(attemptMission.executionBudget.tokens, 18000);
       if (prompts.length === 1) throw failed;
       return 'passed';
     } });
