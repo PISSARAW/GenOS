@@ -2,9 +2,9 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S16",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "1902d6abe5ef5804ad158c3b792c7d5ac02b1f85",
+  "sourceCommit": "916d25e19fcdcbd4818f0337f22450709e9e14ee",
   "expected": {
     "recipients": [
       "agent-b",
@@ -112,7 +112,7 @@
     "simulated": false,
     "published": true,
     "cycleId": "s16-multicast",
-    "signalId": "sig_4492b087-cacf-4791-9e1d-1d84500ee75c",
+    "signalId": "sig_c7ab9f96-fd41-481d-8b9d-67e023328009",
     "reason": null,
     "deliveryAcknowledgements": [],
     "grounding": {
@@ -176,8 +176,8 @@
     ]
   },
   "humanInstructionsAfterSetup": 0,
-  "enginePass": false,
-  "verified": false,
+  "enginePass": true,
+  "verified": true,
   "oracle": "a selective multicast reaches exactly B and C, excludes competent non-member D, and preserves the exact reference",
-  "durationMs": 237513
+  "durationMs": 5609
 }

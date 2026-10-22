@@ -25,7 +25,7 @@
 | S13 Reconciliation | Reussi avec Qwen 2.5 14B; premier essai expire | `S13-attempt-01.json` (timeout), `S13-result.json`; source `58643b93` |
 | S14 Curiosite sociale | Reussi avec Qwen 2.5 14B | `S14-result.json`; source `ac368cc9` |
 | S15 Unicast | Reussi avec Qwen 2.5 14B; C exclu | `S15-attempt-01.json`, `S15-attempt-02.json` (timeouts), `S15-result.json`; source `56a8a509` |
-| S16 Multicast sélectif | Non exécuté | — |
+| S16 Multicast selectif | Reussi avec Qwen 2.5 14B; D exclu | `S16-attempt-01.json` (predicat du runner), `S16-result.json`; source `916d25e1` |
 | S17 Broadcast / quorum | Non exécuté | — |
 | S18 Stigmergie | Non exécuté | — |
 | S19 Signaux zero-text | Non exécuté | — |
