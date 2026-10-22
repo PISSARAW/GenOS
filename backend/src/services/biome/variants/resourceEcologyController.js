@@ -1,14 +1,17 @@
 'use strict';
 
 const allocator = require('../resources/resourceStewardService');
+const optimizer = require('../resources/productivityWeightOptimizer');
 const { RESOURCE_KEYS } = require('../constants');
 
 function advance(ecology, input) {
   const requested = vector(input.requested);
   const available = input.available ? vector(input.available) : ecology.resourcePool;
+  const optimization = optimizer.optimize(ecology.populations, input.optimization || {});
   return { decision: { requested, available, deficits: deficits(requested, available),
     starvingPopulationIds: starving(ecology), market: marketResult(ecology, input),
-    allocation: allocationResult(ecology, input), productivityFeedback: feedback(ecology.populations) },
+    allocation: allocationResult(ecology, input), productivityFeedback: feedback(ecology.populations),
+    productivityOptimization: optimization },
     action: { type: input.allocate ? 'RESOURCE_ECOSYSTEM_REGULATED' : 'RESOURCE_SCARCITY_ASSESSED', status: 'applied' } };
 }
 
