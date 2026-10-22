@@ -58,7 +58,7 @@ function expressionFor(name) {
 (async () => {
   const db = await getDatabase(process.env.GENOS_DB_PATH);
   await db.exec('CREATE TABLE IF NOT EXISTS morphogenesis_distributed_parity (mission_id TEXT PRIMARY KEY, scenario TEXT NOT NULL, output_digest TEXT NOT NULL, owner TEXT NOT NULL)');
-  const graph = compileExpression(expressionFor(scenario), { mission, globalBudget: { tokens: 120 } });
+  const graph = compileExpression(expressionFor(scenario), { mission, globalBudget: { tokens: 120, growth: 1 } });
   const result = await new MorphologyRuntime({ globalBudget: { tokens: 120 } }).execute(graph, input);
   const outputDigest = crypto.createHash('sha256').update(JSON.stringify(stable(result.output))).digest('hex');
   await db.run('INSERT OR IGNORE INTO morphogenesis_distributed_parity (mission_id, scenario, output_digest, owner) VALUES (?, ?, ?, ?)', [mission, scenario, outputDigest, process.argv[1]]);

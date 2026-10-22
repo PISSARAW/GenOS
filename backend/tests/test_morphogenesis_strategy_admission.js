@@ -160,7 +160,7 @@ function testRegistrationMaturityAndTypedValidationAreMandatory() {
 function testPolicyProposalMustMatchConcretePlanGraph() {
   const different = { ...plan, selectedTopology: 'rhizome',
     morphologyPatch: { graph: compileExpression(topologyExpression('rhizome'),
-      { mission: 'mission', missionId: 'mission-2', globalBudget: { tokens: 50 } }) } };
+      { mission: 'mission', missionId: 'mission-2', globalBudget: { tokens: 50, growth: 1 } }) } };
   const result = admitMorphogenesisStrategy({ ...gates, actualPlan: different });
   assert.equal(result.reason, 'actual_plan_recipe_mismatch');
 }
@@ -168,7 +168,7 @@ function testPolicyProposalMustMatchConcretePlanGraph() {
 function testConcretePlanGraphMustMatchRecipe() {
   const foreignGraph = { ...plan,
     morphologyPatch: { graph: compileExpression(topologyExpression('rhizome'),
-      { mission: 'mission', missionId: 'mission-9', globalBudget: { tokens: 50 } }) } };
+      { mission: 'mission', missionId: 'mission-9', globalBudget: { tokens: 50, growth: 1 } }) } };
   assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: foreignGraph }).reason,
     'actual_plan_graph_mismatch');
   const composite = { ...plan,
@@ -212,10 +212,10 @@ function testPlannerTransitionRejectsGraphMismatch() {
 
 function testPlannerTransitionRejectsUntypedCompositeGraphs() {
   const graph = compileExpression(nestExpression(topologyExpression('a_team'), topologyExpression('rhizome')),
-    { mission: 'mission', missionId: 'mission-composite', globalBudget: { tokens: 50 } });
+    { mission: 'mission', missionId: 'mission-composite', globalBudget: { tokens: 50, growth: 1 } });
   const composite = { ...plannerPlan, morphologyPatch: { graph } };
   assert.equal(admitPlannerTransition({ ...gates, policy: plannerPolicy,
-    actualPlan: composite }).reason, 'typed_topology_validation_missing');
+    actualPlan: composite }).reason, 'topology_capabilities_missing');
 }
 
 function compositePlannerGates(assignments, allocated) {

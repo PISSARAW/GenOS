@@ -9,9 +9,9 @@ const { spawn } = require('node:child_process');
 
 const GRAPH = {
   nodes: [{ nodeId: 'root', kind: 'TOPOLOGY', topology: 'rhizome', variant: null,
-    parentNodeId: null, budget: { tokens: 120 }, lifecycle: 'active' }],
+    parentNodeId: null, budget: { tokens: 120, growth: 1 }, lifecycle: 'active' }],
   edges: [], rootNodeId: 'root', graphId: 'persistent-parity-graph', missionId: 'persistent-parity-mission',
-  globalBudget: { tokens: 120 }
+  globalBudget: { tokens: 120, growth: 1 }
 };
 const INPUT = { problemSpace: ['p1', 'p2'], requirements: ['r1'], work_packages: ['w1'], document: { v: 1 }, operations: [], measurements: { productivity: 1 } };
 

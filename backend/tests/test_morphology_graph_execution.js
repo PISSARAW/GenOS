@@ -11,7 +11,7 @@ const {
 } = require('../src/services/morphogenesis/expression');
 
 const MISSION = 'morphology-graph-execution-gate';
-const BUDGET = { tokens: 120 };
+const BUDGET = { tokens: 120, growth: 1 };
 const INPUT = {
   hypotheses: [{ confidence: 0.8 }, { confidence: 0.2 }],
   evidence: [],
@@ -65,7 +65,7 @@ async function gateSequence() {
     [parallelExpression([topo('trinity'), topo('rhizome')], { mission: MISSION }), gate, topo('a_team')],
     { mission: MISSION }
   );
-  const graph = compileExpression(expression, { mission: MISSION, globalBudget: { tokens: 200 } });
+  const graph = compileExpression(expression, { mission: MISSION, globalBudget: { tokens: 200, growth: 1 } });
   assert.equal(validateMorphologyGraph(graph).valid, true, 'SEQUENCE graph must be structurally valid');
   const runtime = new MorphologyRuntime({ globalBudget: { tokens: 200 } });
   installTopologyPlugins(runtime);

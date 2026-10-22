@@ -55,7 +55,7 @@ function readBody(request) { return new Promise((resolve, reject) => { let body 
     try {
       const payload = JSON.parse(await readBody(request));
       const mission = String(payload.mission || 'network-parity');
-      const graph = compileExpression(topologyExpression('rhizome', null, { mission }), { mission, globalBudget: { tokens: 120 } });
+      const graph = compileExpression(topologyExpression('rhizome', null, { mission }), { mission, globalBudget: { tokens: 120, growth: 1 } });
       const result = await new MorphologyRuntime({ globalBudget: { tokens: 120 } }).execute(graph, input);
       const outputDigest = crypto.createHash('sha256').update(JSON.stringify(stable(result.output))).digest('hex');
       await db.run('INSERT OR IGNORE INTO morphogenesis_network_parity (mission_id, output_digest, deployment) VALUES (?, ?, ?)', [mission, outputDigest, process.env.GENOS_DEPLOYMENT]);

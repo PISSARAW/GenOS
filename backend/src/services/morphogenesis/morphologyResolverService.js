@@ -34,7 +34,7 @@ function resolveMorphology(input = {}) {
     graphId: input.graphId,
     missionId: input.missionId || input.problemId,
     mission: input.problem || input.mission,
-    globalBudget: input.budget,
+    globalBudget: { ...input.budget, growth: input.budget?.growth ?? 1 },
   });
   if (input.rhizomeBranch) graph.nodes.push(createRhizomeBranch({
     parentNodeId: graph.rootNodeId,

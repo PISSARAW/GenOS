@@ -36,7 +36,7 @@ function verifyPlannerBinding() {
   const plan = planner.planMorphogenesis({
     missionId: 'organization-ranking', currentState: { topology: 'a_team', agents: new Map() },
     problemProfile: { domain: 'security', adversarial_risk: 1, risk: 0.8 },
-    budget: { tokens: 8000 }
+    budget: { tokens: 8000, growth: 1 }
   });
   assert.equal(plan.selectedOrganization, 'red_blue_coevolution');
   assert.equal(plan.candidateOrganizations.length, 19);
@@ -53,7 +53,7 @@ function verifyExplicitOverrideAndTransition() {
   const plan = planner.planMorphogenesis({
     missionId: 'organization-explicit', currentState: { topology: 'a_team', agents: new Map() },
     proposedTopology: 'network_silence',
-    problemProfile: { domain: 'security', adversarial_risk: 1 }, budget: { tokens: 4000 }
+    problemProfile: { domain: 'security', adversarial_risk: 1 }, budget: { tokens: 4000, growth: 1 }
   });
   assert.equal(plan.selectedOrganization, 'network_silence');
   assert.equal(plan.controlReceipt.organization.selectedBy, 'explicit');

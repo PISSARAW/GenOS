@@ -114,7 +114,7 @@ function compileAdaptiveGraph(input, outcome) {
   const graph = compileExpression(expr, {
     missionId: input.state.normalizedMission?.missionId || input.orchestratorId,
     mission: input.state.normalizedMission?.prompt || '',
-    globalBudget: { tokens: Number(input.continuation.pool || 0) },
+    globalBudget: { tokens: Number(input.continuation.pool || 0), growth: 1 },
     version: Number(current?.version || 0) + 1,
     status: 'proposed'
   });

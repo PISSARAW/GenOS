@@ -9,7 +9,7 @@ function planFor(topology) {
     missionId: `topology-plan-${topology}`,
     currentState: { topology: 'a_team', agents: new Map() },
     proposedTopology: topology,
-    budget: 5000,
+    budget: { tokens: 5000, growth: 1 },
     mission: `Verify the ${topology} morphology plan.`
   });
 }

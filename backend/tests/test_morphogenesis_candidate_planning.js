@@ -17,7 +17,7 @@ function verifyFullCandidatePlans() {
     currentState: { topology: 'a_team', agents: new Map() },
     proposedTopology: 'red_blue_coevolution',
     problemProfile: { domain: 'security', adversarial_risk: 0.9, uncertainty: 0.8, hypotheses_count: 3 },
-    budget: { tokens: 2000 }
+    budget: { tokens: 2000, growth: 1 }
   });
   assert.equal(plan.selectedOrganization, 'red_blue_coevolution');
   assert.ok(ALL_IDS.includes(plan.selectedTopology));
