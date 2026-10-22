@@ -12,7 +12,9 @@ const validFull = JSON.stringify({
 
 assert.equal(score(run, validFull, fullTreatment).passed, true);
 assert.equal(score(run, validFull.replace('58%', '57%'), fullTreatment).passed, false);
+assert.equal(score(run, validFull.replace('58%', '58'), fullTreatment).passed, false);
 assert.equal(score(run, validFull.replace('decision: defer', 'decision: accept'), fullTreatment).passed, false);
+assert.equal(score(run, validFull.replace('decision: defer', 'decision is defer'), fullTreatment).passed, false);
 assert.equal(score(run, validFull.replace('"worker_self"', '"mission"'), fullTreatment).passed, false);
 
 const maskedRun = { scenario: 'C', arm: 'llm_only' };
