@@ -66,7 +66,7 @@ const ORCHESTRATOR_CORE_LEASE = [
 // - swarmMetricsService: observer
 // Substring lookalikes (e.g. 'reviewer_spoof', 'red_teamer') match nothing.
 const REVIEWER_ROLE_ALLOW_LIST = [
-  'independent_reviewer',
+  'independent_reviewer', 'independent_auditor',
   'security_reviewer',
   'adversarial_reviewer'
 ];
@@ -79,7 +79,7 @@ const OBSERVER_ROLE_ALLOW_LIST = [
   'neutral_observer'
 ];
 
-const RED_ROLE_ALLOW_LIST = ['red_team'];
+const RED_ROLE_ALLOW_LIST = ['red_team', 'threat_analyst'];
 const BLUE_ROLE_ALLOW_LIST = ['blue_team'];
 
 // Benign, well-known MCP tools (mirror of the `mcp_tools` seed) that an

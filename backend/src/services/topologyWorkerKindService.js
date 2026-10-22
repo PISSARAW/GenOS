@@ -33,7 +33,13 @@ const ROLE_REQUIREMENTS = Object.freeze({
   clinical_educator: ['clinical_context'],
   causal_reconstructor: ['analyze', 'causal_analysis'],
   transactional_validator: ['verify'],
-  code_semantic_reviewer: ['verify', 'adversarial_review']
+  code_semantic_reviewer: ['verify', 'adversarial_review'],
+  network_analyst: ['analyze', 'domain_specialization'],
+  windows_analyst: ['analyze', 'domain_specialization'],
+  threat_analyst: ['analyze', 'adversarial_review'],
+  forensic_analyst: ['analyze', 'causal_analysis'],
+  remediation_planner: ['analyze', 'domain_specialization'],
+  independent_auditor: ['analyze', 'verify']
 });
 
 const ROLE_PREFERENCES = Object.freeze({

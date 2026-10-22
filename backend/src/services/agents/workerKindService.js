@@ -78,7 +78,10 @@ const ROLE_ALIASES = Object.freeze({
   baseline_data_engineer: 'bounded_worker', planned_data_engineer: 'specialist',
   data_validation_engineer: 'verifier_worker',
   dramaturg: 'creative_worker', literary_critic: 'verifier_worker',
-  ux_designer: 'specialist', backend_architect: 'specialist', security_engineer: 'specialist'
+  ux_designer: 'specialist', backend_architect: 'specialist', security_engineer: 'specialist',
+  network_analyst: 'specialist', windows_analyst: 'specialist',
+  threat_analyst: 'red_worker', forensic_analyst: 'forensic_worker',
+  remediation_planner: 'specialist', independent_auditor: 'verifier_worker'
 });
 const { artifactInstruction } = require('./workerArtifactContract');
 const { workerPolicy } = require('./workerPolicyService');
