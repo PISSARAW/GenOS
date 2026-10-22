@@ -12,6 +12,7 @@ const SAFE_GENOS_ENV = new Set([
   'GENOS_MCP_SAMPLING_TIMEOUT_MS', 'GENOS_MCP_TOOL_URL',
   'GENOS_COGNITIVE_PHENOTYPE'
 ]);
+const SCOPED_RUNTIME_SECRETS = new Set(['GENOS_GVX_LEDGER_HMAC_SECRET', 'GENOS_TOOL_MEMBRANE_HMAC_SECRET']);
 
 // Variables d'environnement explicitement bloquées pour le runtime enfant
 const BLOCKED_RUNTIME_ENV = new Set(['HOME', 'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE']);
@@ -36,10 +37,19 @@ function addAllowedEnvironment(environment, source) {
   }
 }
 
+function addScopedRuntimeSecrets(environment, source) {
+  for (const name of SCOPED_RUNTIME_SECRETS) {
+    const value = source[name];
+    if (typeof value === 'string' && Buffer.byteLength(value) >= 32) environment[name] = value;
+  }
+}
+
 function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
   const environment = {};
   addAllowedEnvironment(environment, process.env);
-  addAllowedEnvironment(environment, runtimeEnvironment || {});
+  const scopedEnvironment = runtimeEnvironment || {};
+  addAllowedEnvironment(environment, scopedEnvironment);
+  addScopedRuntimeSecrets(environment, scopedEnvironment);
   for (const name of ['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (process.env[name]) environment[name] = process.env[name];
   }

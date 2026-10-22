@@ -66,8 +66,15 @@ function bundledRuntimeEnvironment() {
   return {
     GENOS_BIN: useConfiguredRuntime(configuredGenos, bundledGenos),
     GENOS_MCP_BIN: useConfiguredRuntime(configuredMcp, bundledMcp),
-    GENOS_ORCHESTRATOR_BRIDGE: process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repositoryRoot, 'backend/bin/genos-orchestrate.cjs')
+    GENOS_ORCHESTRATOR_BRIDGE: process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repositoryRoot, 'backend/bin/genos-orchestrate.cjs'),
+    ...scopedRuntimeSigningKeys()
   };
+}
+
+function scopedRuntimeSigningKeys() {
+  const names = ['GENOS_GVX_LEDGER_HMAC_SECRET', 'GENOS_TOOL_MEMBRANE_HMAC_SECRET'];
+  return Object.fromEntries(names.filter((name) => process.env[name])
+    .map((name) => [name, process.env[name]]));
 }
 
 const CODEX_RUNTIME_PATH = path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');

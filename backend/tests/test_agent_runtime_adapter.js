@@ -7,12 +7,31 @@ const previous = process.env.GENOS_AGENT_EXECUTOR;
 const prevBin = process.env.GENOS_BIN;
 const prevMcpBin = process.env.GENOS_MCP_BIN;
 const prevLocalModel = process.env.GENOS_LOCAL_MODEL;
+const prevGvxSecret = process.env.GENOS_GVX_LEDGER_HMAC_SECRET;
+const prevMembraneSecret = process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET;
+const prevMasterSecret = process.env.GENOS_SECRET_KEY;
 
 try {
   delete process.env.GENOS_AGENT_EXECUTOR;
   delete process.env.GENOS_BIN;
   delete process.env.GENOS_MCP_BIN;
   delete process.env.GENOS_LOCAL_MODEL;
+  process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'g'.repeat(64);
+  process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET = 'm'.repeat(64);
+  process.env.GENOS_SECRET_KEY = 'master-key-must-not-propagate';
+  const runtimeEnvironment = adapter.bundledRuntimeEnvironment();
+  assert.equal(runtimeEnvironment.GENOS_GVX_LEDGER_HMAC_SECRET, 'g'.repeat(64));
+  assert.equal(runtimeEnvironment.GENOS_TOOL_MEMBRANE_HMAC_SECRET, 'm'.repeat(64));
+  assert.equal(runtimeEnvironment.GENOS_SECRET_KEY, undefined);
+  const { buildRuntimeEnvironment } = require('../src/services/agentProcessOutcome');
+  const childEnvironment = buildRuntimeEnvironment(runtimeEnvironment, process.cwd(), false);
+  assert.equal(childEnvironment.GENOS_GVX_LEDGER_HMAC_SECRET, 'g'.repeat(64));
+  assert.equal(childEnvironment.GENOS_TOOL_MEMBRANE_HMAC_SECRET, 'm'.repeat(64));
+  assert.equal(childEnvironment.GENOS_SECRET_KEY, undefined);
+  const capsuleEnvironment = require('../src/services/capsuleProcessBoundary')
+    .buildEnvironment(process.cwd(), runtimeEnvironment);
+  assert.equal(capsuleEnvironment.GENOS_GVX_LEDGER_HMAC_SECRET, undefined);
+  assert.equal(capsuleEnvironment.GENOS_TOOL_MEMBRANE_HMAC_SECRET, undefined);
   const defaultExecutable = adapter.configuredExecutable();
   assert.strictEqual(
     defaultExecutable,
@@ -151,4 +170,10 @@ try {
   else process.env.GENOS_MCP_BIN = prevMcpBin;
   if (prevLocalModel === undefined) delete process.env.GENOS_LOCAL_MODEL;
   else process.env.GENOS_LOCAL_MODEL = prevLocalModel;
+  if (prevGvxSecret === undefined) delete process.env.GENOS_GVX_LEDGER_HMAC_SECRET;
+  else process.env.GENOS_GVX_LEDGER_HMAC_SECRET = prevGvxSecret;
+  if (prevMembraneSecret === undefined) delete process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET;
+  else process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET = prevMembraneSecret;
+  if (prevMasterSecret === undefined) delete process.env.GENOS_SECRET_KEY;
+  else process.env.GENOS_SECRET_KEY = prevMasterSecret;
 }

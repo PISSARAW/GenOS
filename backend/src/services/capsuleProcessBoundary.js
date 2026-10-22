@@ -12,7 +12,9 @@ const BLOCKED_CAPSULE_ENV = Object.freeze([
   'GENOS_DB_BOOTSTRAP_SKIP',
   'GENOS_MCP_SAMPLING_URL',
   'GENOS_MCP_TOOL_URL',
-  'GENOS_SOLAR_API_URL'
+  'GENOS_SOLAR_API_URL',
+  'GENOS_GVX_LEDGER_HMAC_SECRET',
+  'GENOS_TOOL_MEMBRANE_HMAC_SECRET'
 ]);
 
 function buildEnvironment(root, requested = {}) {
