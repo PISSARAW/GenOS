@@ -96,7 +96,7 @@ async function main() {
     outcome = result.outcome;
     observed = { recipients: delivered?.envelope?.recipientAgentIds || [],
       semanticRefs: delivered?.envelope?.semanticRefs || [] };
-    enginePass = decision.scope === 'UNICAST'
+    enginePass = decision.scope === 'SELECTIVE_MULTICAST'
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
       && !observed.recipients.includes('agent-d')
       && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
