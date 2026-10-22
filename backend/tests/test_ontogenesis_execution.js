@@ -35,6 +35,18 @@ async function successfulCommit(db, root) {
   assert.strictEqual(fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'module.exports = "initial";\n');
 }
 
+async function sealedTrinitySnapshotsDoNotDirtyIntegration(db, root) {
+  const created = await fixture.project(db, root);
+  const project = await require('../src/services/ontogenesis/projectStore').getProject(db, created.id);
+  const { worktree } = await workspaces.ensureIntegration(project);
+  const snapshot = path.join(worktree, '.genos-agent-worlds', 'trinity-snapshots', 'a'.repeat(32), 'src');
+  fs.mkdirSync(snapshot, { recursive: true });
+  fs.writeFileSync(path.join(snapshot, 'pricing.js'), 'sealed baseline');
+  assert.strictEqual((await workspaces.ensureIntegration(project)).worktree, worktree);
+  fs.writeFileSync(path.join(worktree, 'untracked-source.js'), 'must be rejected');
+  await assert.rejects(workspaces.ensureIntegration(project), /worktree-integration-sale/);
+}
+
 async function rejectedCheck(db, root) {
   const harness = fixture.fakeHarness(db);
   harness.failTests = true;
@@ -76,6 +88,7 @@ async function isolatedTest(test) {
 }
 
 async function main() {
+  await isolatedTest(sealedTrinitySnapshotsDoNotDirtyIntegration);
   await isolatedTest(successfulCommit);
   await isolatedTest(rejectedCheck);
   await isolatedTest(recoverCommit);

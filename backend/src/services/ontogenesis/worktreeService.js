@@ -23,10 +23,24 @@ async function ensureIntegration(project) {
   if (!fs.existsSync(worktree)) await addIntegration(project, worktree);
   const result = await runCommand('git', ['branch', '--show-current'], { cwd: worktree });
   if (result.stdout.trim() !== project.branch) throw new Error('branche-integration-inattendue');
-  const status = await runCommand('git', ['status', '--porcelain'], { cwd: worktree });
-  if (status.stdout.trim()) throw new Error('worktree-integration-sale');
+  const status = await runCommand('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: worktree });
+  assertCleanIntegration(status.stdout);
   const head = await runCommand('git', ['rev-parse', 'HEAD'], { cwd: worktree });
   return { worktree, baseSha: head.stdout.trim() };
+}
+
+function assertCleanIntegration(status) {
+  const entries = String(status || '').split('\0').filter(Boolean);
+  const unexpected = entries.filter((entry) => !isSealedTrinitySnapshot(entry));
+  if (unexpected.length) throw new Error('worktree-integration-sale');
+}
+
+function isSealedTrinitySnapshot(entry) {
+  if (!entry.startsWith('?? ')) return false;
+  const relative = entry.slice(3).replace(/\\/g, '/');
+  const parts = relative.split('/');
+  return /^\.genos-agent-worlds\/trinity-snapshots\/[a-f0-9]{32}\/.+$/i.test(relative)
+    && !parts.some((part) => part === '.' || part === '..');
 }
 
 async function addIntegration(project, worktree) {
@@ -70,4 +84,4 @@ async function copyCandidate(input) {
   }
 }
 
-module.exports = { managedRoot, ensureIntegration, assertCandidate, changedFiles, checkFiles, copyCandidate };
+module.exports = { managedRoot, ensureIntegration, assertCleanIntegration, assertCandidate, changedFiles, checkFiles, copyCandidate };
