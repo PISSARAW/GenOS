@@ -36,6 +36,9 @@ async function executePolicyAction(action, context) {
   const metapopulationId = context.input.metapopulationId;
   return withTransaction(db, async () => {
     if (POLICY_FLAGS[action.type]) await persistDemePolicy({ db, metapopulationId, action });
+    if (action.type === 'REQUIRE_RECEIVER_ATTESTATION') {
+      await persistReceiverAttestation({ db, metapopulationId, action });
+    }
     const event = await store.appendEvent(db, metapopulationId, { type: EVENT_ACTIONS[action.type],
       payload: { ...receipt, actionType: action.type }, actor: context.input.actor || 'metapopulation-runtime',
       occurredAt: new Date().toISOString(), provenance: { source: 'regionalPolicyService' } });
@@ -52,6 +55,22 @@ async function persistDemePolicy(context) {
   policies[action.demeId] = { ...policies[action.demeId], ...POLICY_FLAGS[action.type] };
   await db.run('UPDATE metapopulation_sessions SET regional_memory_json = ? WHERE id = ?',
     JSON.stringify({ ...memory, demePolicies: policies }), metapopulationId);
+}
+
+async function persistReceiverAttestation(context) {
+  const { db, metapopulationId, action } = context;
+  const session = await store.loadSession(db, metapopulationId);
+  const memory = session.regionalMemory || {};
+  const attestations = Array.isArray(memory.attestations) ? [...memory.attestations] : [];
+  const attestation = federation.receiverAttestation({
+    targetRegion: action.targetRegion,
+    propaguleId: action.propaguleId,
+    accepted: action.accepted === true,
+    reason: action.reason || 'RECEIVER_ATTESTATION_REQUIRED'
+  });
+  attestations.push(attestation);
+  await db.run('UPDATE metapopulation_sessions SET regional_memory_json = ? WHERE id = ?',
+    JSON.stringify({ ...memory, attestations }), metapopulationId);
 }
 
 async function policyReceipt(action, context) {
@@ -82,6 +101,12 @@ async function verifyPolicyAction(context) {
   const event = events.find((entry) => entry.revision === item.eventRevision);
   if (event?.type !== EVENT_ACTIONS[expected.type] || event.payload.actionType !== expected.type) return false;
   if (!sameScope(event.payload, expected)) return false;
+  if (expected.type === 'REQUIRE_RECEIVER_ATTESTATION') {
+    const session = await store.loadSession(db, metapopulationId);
+    const attestations = session.regionalMemory?.attestations || [];
+    return attestations.some((entry) => entry.propaguleId === expected.propaguleId
+      && entry.targetRegion === expected.targetRegion);
+  }
   if (!POLICY_FLAGS[expected.type]) return true;
   const session = await store.loadSession(db, metapopulationId);
   const flags = session.regionalMemory.demePolicies?.[expected.demeId];
