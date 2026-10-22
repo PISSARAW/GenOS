@@ -1,0 +1,25 @@
+{
+  "title": "Alerte IDS - aucune attaque confirmee",
+  "date": "2026-10-21",
+  "author": "soc-analyst",
+  "claims": [
+    {
+      "id": "claim-ids-no-attack",
+      "statement": "Aucun evenement observe sur la sonde IDS, donc aucune attaque n a eu lieu.",
+      "evidence": [],
+      "source": "ids-daily-log-2026-10-21"
+    },
+    {
+      "id": "claim-file-untouched",
+      "statement": "Le fichier /etc/passwd est inchangé, il n a donc jamais ete consulte par l attaquant.",
+      "evidence": [
+        "passwd-checksum.sha256"
+      ],
+      "source": "file-integrity-report-2026-10-21"
+    }
+  ],
+  "uncertainties": [
+    "L absence d alerte IDS ne prouve pas l absence d attaque (trafic chiffre, zero-day, hors perimetre).",
+    "Un fichier inchange ne prouve pas qu il n a pas ete consulte en lecture."
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "tool": "nmap",
+  "scanType": "SYN stealth",
+  "timestamp": "2026-10-21T08:00:00Z",
+  "targets": ["10.0.1.10", "10.0.1.11", "10.0.1.12"],
+  "ports": [22, 80, 443, 3389],
+  "results": [
+    {"ip": "10.0.1.10", "port": 22, "state": "open"},
+    {"ip": "10.0.1.10", "port": 80, "state": "open"},
+    {"ip": "10.0.1.10", "port": 443, "state": "open"},
+    {"ip": "10.0.1.10", "port": 3389, "state": "open"},
+    {"ip": "10.0.1.11", "port": 22, "state": "open"},
+    {"ip": "10.0.1.11", "port": 80, "state": "open"},
+    {"ip": "10.0.1.11", "port": 443, "state": "open"},
+    {"ip": "10.0.1.11", "port": 3389, "state": "open"},
+    {"ip": "10.0.1.12", "port": 22, "state": "open"},
+    {"ip": "10.0.1.12", "port": 80, "state": "open"},
+    {"ip": "10.0.1.12", "port": 443, "state": "open"},
+    {"ip": "10.0.1.12", "port": 3389, "state": "open"}
+  ],
+  "summary": "12 ports ouverts detects avant suppression des regles temporaires"
+}

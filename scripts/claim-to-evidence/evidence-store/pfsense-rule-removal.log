@@ -1,0 +1,16 @@
+pfSense rule removal log
+Operator: sec-admin
+Date: 2026-10-21 09:15:00
+
+Rules removed:
+- rule_id: FW-DMZ-TEMP-22, action: pass, proto: tcp, src: WAN, dst: 10.0.1.0/24, port: 22
+- rule_id: FW-DMZ-TEMP-80, action: pass, proto: tcp, src: WAN, dst: 10.0.1.0/24, port: 80
+- rule_id: FW-DMZ-TEMP-443, action: pass, proto: tcp, src: WAN, dst: 10.0.1.0/24, port: 443
+- rule_id: FW-DMZ-TEMP-3389, action: pass, proto: tcp, src: WAN, dst: 10.0.1.0/24, port: 3389
+
+Target verification:
+- scanned IPs: 10.0.1.10, 10.0.1.11, 10.0.1.12 (subset of dst 10.0.1.0/24)
+- scanned ports: 22, 80, 443, 3389 (match removed rule ports)
+- targets match removed rules: confirmed
+
+Status: rules removed and firewall reloaded successfully.

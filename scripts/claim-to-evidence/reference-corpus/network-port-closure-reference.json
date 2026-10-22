@@ -1,0 +1,47 @@
+{
+  "title": "Constat : fermeture de l'exception réseau",
+  "date": "2026-10-21",
+  "author": "equipe-securite-reseau",
+  "scope": "pare-feu pfSense, segment DMZ (10.0.1.10, 10.0.1.11, 10.0.1.12, ports 22, 80, 443, 3389)",
+  "claims": [
+    {
+      "id": "claim-port-state-change",
+      "constat": "fermeture de l'exception réseau",
+      "statement": "Les quatre ports testés sont passés de l'état ouvert à l'état filtré après suppression des règles temporaires.",
+      "expectedEvidence": [
+        "nmap-export-avant.json",
+        "nmap-export-apres.json",
+        "ndiff-rapport.txt",
+        "pfsense-rule-removal.log"
+      ],
+      "evidence": [
+        "nmap-export-avant.json",
+        "nmap-export-apres.json",
+        "ndiff-rapport.txt",
+        "pfsense-rule-removal.log"
+      ],
+      "limit": "La mesure ne démontre pas à elle seule l'absence d'autres chemins réseau.",
+      "source": "rapport-incident-2026-10-21"
+    },
+    {
+      "id": "claim-targets-match",
+      "constat": "correspondance des cibles",
+      "statement": "Les cibles scannées par Nmap correspondent aux règles pfSense retirées (même ensemble d'adresses IP et de ports).",
+      "expectedEvidence": [
+        "nmap-export-avant.json",
+        "nmap-export-apres.json",
+        "pfsense-rule-removal.log"
+      ],
+      "evidence": [
+        "nmap-export-avant.json",
+        "nmap-export-apres.json",
+        "pfsense-rule-removal.log"
+      ],
+      "limit": "La mesure ne démontre pas à elle seule l'absence d'autres chemins réseau.",
+      "source": "rapport-incident-2026-10-21"
+    }
+  ],
+  "limitations": [
+    "La mesure ne démontre pas à elle seule l'absence d'autres chemins réseau."
+  ]
+}

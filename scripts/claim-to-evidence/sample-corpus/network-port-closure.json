@@ -1,0 +1,41 @@
+{
+  "title": "Fermeture de l'exception réseau - ports 22, 80, 443, 3389",
+  "date": "2026-10-21",
+  "author": "equipe-securite-reseau",
+  "scope": "pare-feu pfSense, segment DMZ",
+  "claims": [
+    {
+      "id": "claim-port-state-change",
+      "statement": "Les quatre ports testes sont passes de l etat ouvert a l etat filtre apres suppression des regles temporaires.",
+      "evidence": [
+        "nmap-export-avant.json",
+        "nmap-export-apres.json",
+        "ndiff-rapport.txt",
+        "pfsense-rule-removal.log"
+      ],
+      "source": "rapport-incident-2026-10-21"
+    },
+    {
+      "id": "claim-targets-match",
+      "statement": "Les cibles scannees par Nmap correspondent aux regles pfSense retirees (meme ensemble d adresses IP et de ports).",
+      "evidence": [
+        "nmap-export-avant.json",
+        "pfsense-rule-removal.log"
+      ],
+      "source": "rapport-incident-2026-10-21"
+    },
+    {
+      "id": "claim-no-other-network-paths",
+      "statement": "Aucun autre chemin reseau n permet d atteindre ces ports depuis l exterieur.",
+      "evidence": [],
+      "source": "rapport-incident-2026-10-21",
+      "uncertainty": "La mesure ne demontre pas a elle seule l absence d autres chemins reseau."
+    }
+  ],
+  "uncertainties": [
+    "La mesure ne demontre pas a elle seule l absence d autres chemins reseau."
+  ],
+  "limitations": [
+    "Un seul segment reseau couvert ; pas de preuve sur les VPN, les liens de backup ou le routage interne."
+  ]
+}
