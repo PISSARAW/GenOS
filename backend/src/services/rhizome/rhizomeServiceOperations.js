@@ -119,7 +119,11 @@ function applyLease(input) {
 
 function shortcuts(input) {
   return {
-    planSmallWorldShortcuts: async (sessionId, options = {}) => input.smallWorldTopologyService.plan(await input.getSession(sessionId, options.db), options.maximum),
+    planSmallWorldShortcuts: async (sessionId, options = {}) => {
+      const session = await input.getSession(sessionId, options.db);
+      const maximum = options.maximum ?? session.variantPolicy?.growth?.hubCount;
+      return input.smallWorldTopologyService.plan(session, maximum);
+    },
     admitSmallWorldShortcut: (sessionId, admission, options = {}) => input.mutateSession(sessionId, options, {
       type: 'SMALL_WORLD_SHORTCUT_ADMITTED', payload: { edgeId: admission.candidate?.candidateId, evidenceId: admission.proof?.evidenceId },
       apply: (session) => input.smallWorldTopologyService.admit({ session, candidate: admission.candidate, proof: admission.proof, trustedVerifierDigests: options.trustedVerifierDigests })
