@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { runProcedure } = require('../agents/deterministicWorkerProcedures');
 
 const TOPOLOGY_LIST = Object.freeze([
@@ -18,6 +19,25 @@ const CYBERCORP_USAGE = Object.freeze({
   Metapopulation: 'Comparer des investigations isolees sur plusieurs environnements'
 });
 
+const MISSION_NEED_TO_TOPOLOGY = Object.freeze({
+  specialist_task_distribution: 'ATeam',
+  repartir_taches_specialistes: 'ATeam',
+  compare_three_incident_hypotheses: 'Trinity',
+  comparer_trois_hypotheses_incident: 'Trinity',
+  deliberation_disagreement_abstention: 'Biocenose',
+  deliberation_desaccord_abstention: 'Biocenose',
+  propagate_linked_discoveries: 'Rhizome',
+  propager_decouvertes_analyses_liees: 'Rhizome',
+  shared_investigation_state: 'Syncytium',
+  etat_investigation_partage: 'Syncytium',
+  immune_controlled_tools_adapters: 'Holobionte',
+  encadrer_outils_adaptateurs_immunitaire: 'Holobionte',
+  allocate_cpu_ram_tokens_time: 'Biome',
+  allouer_cpu_ram_tokens_temps: 'Biome',
+  compare_isolated_environments: 'Metapopulation',
+  comparer_investigations_isolees_environnements: 'Metapopulation'
+});
+
 const CORPUS = Object.freeze([
   { values: [3, 5, 7], target: 10, expected: { found: true, indices: [0, 2] } },
   { values: [4, 6], target: 5, expected: { found: false } },
@@ -26,37 +46,53 @@ const CORPUS = Object.freeze([
   { values: [1, 1, 1, 1], target: 4, expected: { found: true, indices: [0, 1, 2, 3] } }
 ]);
 
-const BUDGET = Object.freeze({ tokens: 10000, cycles: 100, timeMs: 30000 });
+const BUDGET = Object.freeze({ cpuMs: 5000, ramMb: 256, tokens: 10000, cycles: 100, timeMs: 30000 });
+const SUCCESS_CRITERIA = Object.freeze({
+  minReliability: 1.0, requireProvenance: true, forbidPermissionEscalation: true, requireBudgetCompliance: true
+});
+const DEFAULT_BOUNDARY = Object.freeze(['read_telemetry', 'inspect_artifact', 'emit_receipt']);
 
-function outputsMatch(actual, expected) {
-  if (!actual || !expected) return false;
-  if (actual.found !== expected.found) return false;
-  if (actual.found && !arraysEqual(actual.indices, expected.indices)) return false;
-  return true;
+function digest(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 function arraysEqual(a, b) {
-  if (a.length !== b.length) return false;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
     if (a[i] !== b[i]) return false;
   }
   return true;
 }
 
-function runSingleShard(shard) {
-  return shard.map((item) => {
-    try {
-      const out = runProcedure({
-        version: 1,
-        methodId: 'subset_sum',
-        parameters: { values: item.values, target: item.target }
-      });
-      const receipt = { receiptId: out.receipt.id, nodeId: 'worker', methodId: out.receipt.methodId, result: out.receipt.result };
-      return { item, output: out.output, receipt, ok: outputsMatch(out.output, item.expected) };
-    } catch (error) {
-      return { item, output: null, receipt: null, ok: false, error: error.message };
-    }
-  });
+function outputsMatch(actual, expected) {
+  if (!actual || !expected || actual.found !== expected.found) return false;
+  if (actual.found) return arraysEqual(actual.indices, expected.indices);
+  return true;
+}
+
+function executeCorpusItem(item, nodeId, permissions) {
+  try {
+    const out = runProcedure({
+      version: 1,
+      methodId: 'subset_sum',
+      parameters: { values: item.values, target: item.target }
+    });
+    const receipt = {
+      receiptId: out.receipt.id,
+      nodeId,
+      methodId: out.receipt.methodId,
+      result: out.receipt.result,
+      provenanceHash: digest({ nodeId, item, receiptId: out.receipt.id }),
+      permissions: [...permissions]
+    };
+    return { item, output: out.output, receipt, ok: outputsMatch(out.output, item.expected) };
+  } catch (error) {
+    return { item, output: null, receipt: null, ok: false, error: error.message };
+  }
+}
+
+function runSingleShard(shard, nodeId = 'worker', permissions = DEFAULT_BOUNDARY) {
+  return shard.map((item) => executeCorpusItem(item, nodeId, permissions));
 }
 
 function distributeCorpus(corpus, workerCount) {
@@ -70,95 +106,58 @@ function distributeCorpus(corpus, workerCount) {
 
 function reliabilityOf(result) {
   if (!result || !result.results) return 0;
-  let ok = 0;
-  let total = 0;
-  for (const shard of result.results) {
-    for (const r of shard) {
-      total += 1;
-      if (r.ok) ok += 1;
-    }
-  }
-  return total === 0 ? 0 : ok / total;
+  const flat = result.results.flat();
+  if (flat.length === 0) return 0;
+  const ok = flat.filter((r) => r.ok).length;
+  return ok / flat.length;
 }
 
 function collectReceipts(result) {
-  const receipts = [];
-  for (const shard of result.results) {
-    for (const r of shard) {
-      if (r.receipt) receipts.push(r.receipt);
-    }
-  }
-  return receipts;
+  return (result?.results ?? []).flat().map((r) => r.receipt).filter(Boolean);
 }
 
 function combineTrinity(results) {
-  let best = results[0];
-  for (let i = 1; i < results.length; i += 1) {
-    const okCount = (r) => r.filter((x) => x.ok).length;
-    if (okCount(results[i]) > okCount(best)) best = results[i];
-  }
+  const score = (shard) => shard.filter((x) => x.ok).length;
+  const best = results.reduce((acc, cur) => (score(cur) > score(acc) ? cur : acc), results[0] ?? []);
   return { ok: best.every((r) => r.ok), results: best, method: 'trinity_best_hypothesis' };
 }
 
 function combineATeam(results) {
-  let allOk = true;
-  for (const shard of results) {
-    for (const r of shard) {
-      if (!r.ok) allOk = false;
-    }
-  }
+  const allOk = results.flat().every((r) => r.ok);
   return { ok: allOk, results, method: 'ateam_integrator_all_correct' };
 }
 
 function combineBiocenose(results) {
-  let okCount = 0;
-  let total = 0;
-  for (const shard of results) {
-    for (const r of shard) {
-      total += 1;
-      if (r.ok) okCount += 1;
-    }
-  }
-  return { ok: okCount >= Math.ceil(total / 2), results, quorum: okCount, total, method: 'biocenose_quorum' };
+  const flat = results.flat();
+  const okCount = flat.filter((r) => r.ok).length;
+  const abstained = flat.filter((r) => r.abstained === true).length;
+  return {
+    ok: okCount >= Math.ceil(flat.length / 2),
+    results,
+    quorum: okCount,
+    abstained,
+    total: flat.length,
+    method: 'biocenose_quorum'
+  };
 }
 
 function combineRhizome(results) {
-  const merged = [];
-  for (const shard of results) {
-    for (const r of shard) {
-      if (r.ok) merged.push(r);
-    }
-  }
+  const merged = results.flat().filter((r) => r.ok);
   return { ok: merged.length > 0, results: merged, method: 'rhizome_merge_discoveries' };
 }
 
 function combineSyncytium(results) {
-  let allOk = true;
-  for (const shard of results) {
-    for (const r of shard) {
-      if (!r.ok) allOk = false;
-    }
-  }
+  const allOk = results.flat().every((r) => r.ok);
   return { ok: allOk, results, method: 'syncytium_converge_shared_state' };
 }
 
 function combineHolobionte(results) {
-  const admitted = [];
-  for (const shard of results) {
-    for (const r of shard) {
-      if (r.ok && r.receipt) admitted.push(r);
-    }
-  }
+  const admitted = results.flat().filter((r) => Boolean(r.ok && r.receipt));
   return { ok: admitted.length > 0, results: admitted, method: 'holobionte_immune_admission' };
 }
 
 function combineBiome(results) {
-  let withinBudget = true;
-  for (const shard of results) {
-    for (const r of shard) {
-      if (!r.ok) withinBudget = false;
-    }
-  }
+  const withinBudget = results.flat().every((r) => r.ok);
   return { ok: withinBudget, results, method: 'biome_bounded_foraging' };
 }
 
@@ -168,11 +167,7 @@ function combineMetapopulation(results) {
     ok: shard.every((r) => r.ok),
     output: shard.map((r) => r.output)
   }));
-  let consistent = true;
-  for (const env of envResults) {
-    if (!env.ok) consistent = false;
-  }
-  return { ok: consistent, results: envResults, method: 'metapopulation_compare_environments' };
+  return { ok: envResults.every((env) => env.ok), results: envResults, method: 'metapopulation_compare_environments' };
 }
 
 const COMBINERS = Object.freeze({
@@ -186,11 +181,28 @@ const COMBINERS = Object.freeze({
   Metapopulation: combineMetapopulation
 });
 
-function runTopology(topologyId, workerCount, corpus) {
-  const shards = distributeCorpus(corpus, workerCount);
-  const results = shards.map((shard) => runSingleShard(shard));
+function matchTopologyToMission(missionNeed) {
+  const key = String(missionNeed ?? '').trim();
+  if (COMBINERS[key]) {
+    return { topology: key, usage: CYBERCORP_USAGE[key], matchedBy: 'topology_name' };
+  }
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const mapped = MISSION_NEED_TO_TOPOLOGY[normalized];
+  if (mapped) {
+    return { topology: mapped, usage: CYBERCORP_USAGE[mapped], matchedBy: 'mission_need' };
+  }
+  const byUsage = TOPOLOGY_LIST.find((t) => CYBERCORP_USAGE[t].toLowerCase() === key.toLowerCase());
+  if (byUsage) {
+    return { topology: byUsage, usage: CYBERCORP_USAGE[byUsage], matchedBy: 'usage_description' };
+  }
+  throw new Error(`Unrecognized CyberCorp mission need: ${missionNeed}`);
+}
+
+function runTopology(topologyId, workerCount, corpus = CORPUS) {
   const combiner = COMBINERS[topologyId];
   if (!combiner) throw new Error(`Unknown topology: ${topologyId}`);
+  const shards = distributeCorpus(corpus, workerCount);
+  const results = shards.map((shard, idx) => runSingleShard(shard, `${topologyId.toLowerCase()}-worker-${idx + 1}`));
   const combined = combiner(results);
   return {
     kind: topologyId,
@@ -199,64 +211,117 @@ function runTopology(topologyId, workerCount, corpus) {
     combined,
     receipts: collectReceipts({ results }),
     budget: BUDGET,
-    usage: CYBERCORP_USAGE[topologyId]
+    successCriteria: SUCCESS_CRITERIA,
+    usage: CYBERCORP_USAGE[topologyId],
+    permissions: [...DEFAULT_BOUNDARY]
   };
 }
 
-function runSingleAgent(corpus) {
-  const results = runSingleShard(corpus);
+function runSingleAgent(corpus = CORPUS) {
+  const results = runSingleShard(corpus, 'single-agent');
   return {
     kind: 'single_agent',
     workerCount: 1,
     results: [results],
     combined: { ok: results.every((r) => r.ok), results, method: 'single_agent_deterministic' },
     receipts: collectReceipts({ results: [results] }),
-    budget: BUDGET
+    budget: BUDGET,
+    successCriteria: SUCCESS_CRITERIA,
+    permissions: [...DEFAULT_BOUNDARY]
   };
 }
 
-function retainSimplestArchitecture(topologyResult, singleAgentResult) {
+function runDeterministicPipeline(corpus = CORPUS) {
+  const results = runSingleShard(corpus, 'deterministic-pipeline');
+  return {
+    kind: 'deterministic_pipeline',
+    workerCount: 1,
+    results: [results],
+    combined: { ok: results.every((r) => r.ok), results, method: 'deterministic_pipeline_stage' },
+    receipts: collectReceipts({ results: [results] }),
+    budget: BUDGET,
+    successCriteria: SUCCESS_CRITERIA,
+    permissions: [...DEFAULT_BOUNDARY]
+  };
+}
+
+function simulateDegradedTopology(topologyId, workerCount, degradedParameters) {
+  const base = runTopology(topologyId, workerCount, degradedParameters?.corpus ?? CORPUS);
+  const failingShards = new Set(degradedParameters?.failingWorkerIndices ?? [0]);
+  const results = base.results.map((shard, idx) => (
+    failingShards.has(idx)
+      ? shard.map((entry) => ({ ...entry, output: { found: false }, ok: false, error: 'DEGRADED_AGENT_OUTPUT' }))
+      : shard
+  ));
+  return {
+    ...base,
+    results,
+    combined: COMBINERS[topologyId](results),
+    receipts: collectReceipts({ results })
+  };
+}
+
+function retainSimplestArchitecture(topologyResult, singleAgentResult, pipelineResult = null) {
   const topologyReliability = reliabilityOf(topologyResult);
   const singleReliability = reliabilityOf(singleAgentResult);
-  if (topologyReliability < singleReliability) {
-    return { architecture: 'direct', reason: 'multi_agent_less_reliable', singleReliability, topologyReliability };
+  const pipelineReliability = pipelineResult ? reliabilityOf(pipelineResult) : singleReliability;
+  const baselineReliability = Math.max(singleReliability, pipelineReliability);
+  if (topologyReliability < baselineReliability) {
+    return {
+      architecture: 'direct',
+      selectedBaseline: pipelineResult && pipelineReliability > singleReliability ? 'deterministic_pipeline' : 'single_agent',
+      reason: 'multi_agent_less_reliable',
+      singleReliability,
+      pipelineReliability,
+      topologyReliability
+    };
   }
   return {
     architecture: topologyResult.kind,
+    selectedBaseline: null,
     reason: 'multi_agent_sufficient',
     singleReliability,
+    pipelineReliability,
     topologyReliability
   };
 }
 
+function compareTopologyWithBaselines(topologyId, workerCount = 6, corpus = CORPUS) {
+  const single = runSingleAgent(corpus);
+  const pipeline = runDeterministicPipeline(corpus);
+  const topology = runTopology(topologyId, workerCount, corpus);
+  const decision = retainSimplestArchitecture(topology, single, pipeline);
+  return {
+    topologyId,
+    usage: CYBERCORP_USAGE[topologyId],
+    sameCorpus: corpus.length === single.results[0].length && corpus.length === pipeline.results[0].length,
+    sameBudget: topology.budget === single.budget && topology.budget === pipeline.budget,
+    sameSuccessCriteria: topology.successCriteria === single.successCriteria && topology.successCriteria === pipeline.successCriteria,
+    single,
+    pipeline,
+    topology,
+    decision
+  };
+}
+
 function simulateWorkerLoss(topologyResult, workerIndex) {
-  const results = [];
-  for (let i = 0; i < topologyResult.results.length; i += 1) {
-    if (i === workerIndex) results.push([]);
-    else results.push(topologyResult.results[i]);
-  }
-  return { ...topologyResult, results, receipts: collectReceipts({ results }) };
+  const results = topologyResult.results.map((shard, idx) => (idx === workerIndex ? [] : shard));
+  const receipts = collectReceipts({ results });
+  return {
+    ...topologyResult,
+    results,
+    receipts,
+    provenancePreserved: assertProvenancePreserved(receipts),
+    noPermissionEscalation: assertNoPermissionEscalation(topologyResult.permissions ?? DEFAULT_BOUNDARY, DEFAULT_BOUNDARY)
+  };
 }
 
 function simulateModelFailure(corpus, failIndex) {
-  const failing = [];
-  for (let i = 0; i < corpus.length; i += 1) {
-    if (i === failIndex) failing.push({ item: corpus[i], output: null, receipt: null, ok: false, error: 'MODEL_FAILURE' });
-    else {
-      try {
-        const out = runProcedure({
-          version: 1,
-          methodId: 'subset_sum',
-          parameters: { values: corpus[i].values, target: corpus[i].target }
-        });
-        const receipt = { receiptId: out.receipt.id, nodeId: 'worker', methodId: out.receipt.methodId, result: out.receipt.result };
-        failing.push({ item: corpus[i], output: out.output, receipt, ok: outputsMatch(out.output, corpus[i].expected) });
-      } catch (error) {
-        failing.push({ item: corpus[i], output: null, receipt: null, ok: false, error: error.message });
-      }
-    }
-  }
-  return failing;
+  return corpus.map((item, idx) => (
+    idx === failIndex
+      ? { item, output: null, receipt: null, ok: false, error: 'MODEL_FAILURE', permissions: [...DEFAULT_BOUNDARY] }
+      : executeCorpusItem(item, `worker-${idx + 1}`, DEFAULT_BOUNDARY)
+  ));
 }
 
 function detectDisagreement(resultA, resultB) {
@@ -264,50 +329,45 @@ function detectDisagreement(resultA, resultB) {
 }
 
 function detectStateConflict(stateA, stateB) {
-  const keysA = Object.keys(stateA || {});
-  const keysB = Object.keys(stateB || {});
-  for (const key of keysA) {
-    if (keysB.includes(key)) return { conflict: true, key };
+  const left = stateA ?? {};
+  const right = stateB ?? {};
+  for (const key of Object.keys(left)) {
+    if (Object.prototype.hasOwnProperty.call(right, key) && JSON.stringify(left[key]) !== JSON.stringify(right[key])) {
+      return { conflict: true, key, leftValue: left[key], rightValue: right[key] };
+    }
   }
   return { conflict: false };
 }
 
-function testRecovery(failedResult, corpus) {
-  const recovered = runTopology(failedResult.kind, Math.max(1, failedResult.workerCount - 1), corpus);
-  return { recovered, receiptsPreserved: recovered.receipts.length > 0 };
+function testRecovery(failedResult, corpus = CORPUS) {
+  const survivingCount = Math.max(1, failedResult.workerCount - 1);
+  const recovered = runTopology(failedResult.kind, survivingCount, corpus);
+  const priorReceipts = failedResult.receipts ?? [];
+  const mergedReceipts = [...priorReceipts, ...recovered.receipts];
+  const permissions = recovered.permissions ?? DEFAULT_BOUNDARY;
+  return {
+    recovered,
+    priorReceiptsCount: priorReceipts.length,
+    receiptsPreserved: recovered.receipts.length > 0 && assertProvenancePreserved(mergedReceipts),
+    provenancePreserved: assertProvenancePreserved(mergedReceipts),
+    noPermissionEscalation: assertNoPermissionEscalation(permissions, DEFAULT_BOUNDARY)
+  };
 }
 
 function assertProvenancePreserved(receipts) {
   if (!Array.isArray(receipts) || receipts.length === 0) return false;
-  for (const receipt of receipts) {
-    if (!receipt || !receipt.receiptId || !receipt.nodeId) return false;
-  }
-  return true;
+  return receipts.every((r) => Boolean(r && r.receiptId && r.nodeId && r.methodId));
 }
 
 function assertNoPermissionEscalation(authority, boundary) {
-  if (!Array.isArray(authority) || !Array.isArray(boundary)) return false;
-  if (authority.includes('*')) return false;
-  for (const a of authority) {
-    if (!boundary.includes(a)) return false;
-  }
-  return true;
+  if (!Array.isArray(authority) || !Array.isArray(boundary) || authority.includes('*')) return false;
+  return authority.every((perm) => boundary.includes(perm));
 }
 
 module.exports = {
-  TOPOLOGY_LIST,
-  CYBERCORP_USAGE,
-  CORPUS,
-  BUDGET,
-  runSingleAgent,
-  runTopology,
-  retainSimplestArchitecture,
-  simulateWorkerLoss,
-  simulateModelFailure,
-  detectDisagreement,
-  detectStateConflict,
-  testRecovery,
-  assertProvenancePreserved,
-  assertNoPermissionEscalation,
-  reliabilityOf
+  TOPOLOGY_LIST, CYBERCORP_USAGE, MISSION_NEED_TO_TOPOLOGY, CORPUS, BUDGET, SUCCESS_CRITERIA,
+  DEFAULT_BOUNDARY, matchTopologyToMission, runSingleAgent, runDeterministicPipeline, runTopology,
+  simulateDegradedTopology, retainSimplestArchitecture, compareTopologyWithBaselines,
+  simulateWorkerLoss, simulateModelFailure, detectDisagreement, detectStateConflict,
+  testRecovery, assertProvenancePreserved, assertNoPermissionEscalation, reliabilityOf
 };

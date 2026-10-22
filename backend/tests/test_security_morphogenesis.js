@@ -4,10 +4,14 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const sm = require('../src/services/morphogenesis/securityMorphogenesis');
 
-test('security morphogenesis exports all required functions', () => {
+test('security morphogenesis exports all required functions and constants', () => {
+  assert.equal(typeof sm.matchTopologyToMission, 'function');
   assert.equal(typeof sm.runSingleAgent, 'function');
+  assert.equal(typeof sm.runDeterministicPipeline, 'function');
   assert.equal(typeof sm.runTopology, 'function');
+  assert.equal(typeof sm.simulateDegradedTopology, 'function');
   assert.equal(typeof sm.retainSimplestArchitecture, 'function');
+  assert.equal(typeof sm.compareTopologyWithBaselines, 'function');
   assert.equal(typeof sm.simulateWorkerLoss, 'function');
   assert.equal(typeof sm.simulateModelFailure, 'function');
   assert.equal(typeof sm.detectDisagreement, 'function');
@@ -19,85 +23,103 @@ test('security morphogenesis exports all required functions', () => {
   assert.equal(sm.TOPOLOGY_LIST.length, 8);
 });
 
-test('same corpus budget and success criteria for all topologies', () => {
+test('all 8 topologies match CyberCorp mission needs accurately', () => {
+  const missionCases = [
+    ['repartir_taches_specialistes', 'ATeam'],
+    ['comparer_trois_hypotheses_incident', 'Trinity'],
+    ['deliberation_desaccord_abstention', 'Biocenose'],
+    ['propager_decouvertes_analyses_liees', 'Rhizome'],
+    ['etat_investigation_partage', 'Syncytium'],
+    ['encadrer_outils_adaptateurs_immunitaire', 'Holobionte'],
+    ['allouer_cpu_ram_tokens_temps', 'Biome'],
+    ['comparer_investigations_isolees_environnements', 'Metapopulation']
+  ];
+  for (const [need, expectedTopology] of missionCases) {
+    const matched = sm.matchTopologyToMission(need);
+    assert.equal(matched.topology, expectedTopology);
+    assert.equal(matched.usage, sm.CYBERCORP_USAGE[expectedTopology]);
+  }
+});
+
+test('same corpus, budget and success criteria across single agent, deterministic pipeline and all 8 topologies', () => {
   const single = sm.runSingleAgent(sm.CORPUS);
+  const pipeline = sm.runDeterministicPipeline(sm.CORPUS);
   assert.equal(single.workerCount, 1);
+  assert.equal(pipeline.workerCount, 1);
   assert.equal(single.budget, sm.BUDGET);
-  assert.equal(single.results.length, 1);
-  assert.equal(single.results[0].length, sm.CORPUS.length);
+  assert.equal(pipeline.budget, sm.BUDGET);
+  assert.equal(single.successCriteria, sm.SUCCESS_CRITERIA);
+  assert.equal(pipeline.successCriteria, sm.SUCCESS_CRITERIA);
 
   for (const topology of sm.TOPOLOGY_LIST) {
-    const result = sm.runTopology(topology, 1, sm.CORPUS);
-    assert.equal(result.budget, sm.BUDGET);
-    assert.equal(result.usage, sm.CYBERCORP_USAGE[topology]);
-    assert.equal(result.kind, topology);
-    assert.equal(result.workerCount, 1);
-    let total = 0;
-    for (const shard of result.results) total += shard.length;
-    assert.equal(total, sm.CORPUS.length);
+    const comparison = sm.compareTopologyWithBaselines(topology, 1, sm.CORPUS);
+    assert.equal(comparison.sameCorpus, true);
+    assert.equal(comparison.sameBudget, true);
+    assert.equal(comparison.sameSuccessCriteria, true);
+    assert.equal(comparison.topology.usage, sm.CYBERCORP_USAGE[topology]);
+    assert.equal(sm.reliabilityOf(comparison.topology), 1);
+    assert.equal(sm.reliabilityOf(comparison.single), 1);
+    assert.equal(sm.reliabilityOf(comparison.pipeline), 1);
   }
 });
 
-test('each topology produces deterministic output matching single agent', () => {
+test('when six agents produce a less reliable response than one, Morphogenesis retains the simplest architecture', () => {
   const single = sm.runSingleAgent(sm.CORPUS);
-  const singleReliability = sm.reliabilityOf(single);
-  assert.equal(singleReliability, 1);
+  const pipeline = sm.runDeterministicPipeline(sm.CORPUS);
+  const degradedSix = sm.simulateDegradedTopology('ATeam', 6, {
+    corpus: sm.CORPUS,
+    failingWorkerIndices: [0, 2]
+  });
+  assert.ok(sm.reliabilityOf(degradedSix) < sm.reliabilityOf(single));
 
-  for (const topology of sm.TOPOLOGY_LIST) {
-    const result = sm.runTopology(topology, 1, sm.CORPUS);
-    assert.equal(sm.reliabilityOf(result), 1);
-    assert.equal(result.combined.ok, true);
-  }
-});
-
-test('six agents less reliable than single agent retains simplest architecture', () => {
-  const single = sm.runSingleAgent(sm.CORPUS);
-  const six = sm.runTopology('ATeam', 6, sm.CORPUS);
-
-  const decision = sm.retainSimplestArchitecture(six, single);
+  const decision = sm.retainSimplestArchitecture(degradedSix, single, pipeline);
+  assert.equal(decision.architecture, 'direct');
+  assert.equal(decision.reason, 'multi_agent_less_reliable');
   assert.equal(decision.singleReliability, 1);
-  assert.ok(decision.topologyReliability <= 1);
-  if (decision.topologyReliability < decision.singleReliability) {
-    assert.equal(decision.architecture, 'direct');
-    assert.equal(decision.reason, 'multi_agent_less_reliable');
-  } else {
-    assert.equal(decision.architecture, 'ATeam');
-    assert.equal(decision.reason, 'multi_agent_sufficient');
-  }
+  assert.equal(decision.pipelineReliability, 1);
+  assert.ok(decision.topologyReliability < 1);
 });
 
-test('all topologies compared to single agent baseline retains appropriate architecture', () => {
+test('all topologies compared against single agent and deterministic pipeline baselines', () => {
   const single = sm.runSingleAgent(sm.CORPUS);
+  const pipeline = sm.runDeterministicPipeline(sm.CORPUS);
   for (const topology of sm.TOPOLOGY_LIST) {
-    const result = sm.runTopology(topology, 6, sm.CORPUS);
-    const decision = sm.retainSimplestArchitecture(result, single);
-    assert.ok(decision.architecture === 'direct' || decision.architecture === topology);
-    assert.ok(typeof decision.singleReliability === 'number');
-    assert.ok(typeof decision.topologyReliability === 'number');
+    const healthySix = sm.runTopology(topology, 6, sm.CORPUS);
+    const healthyDecision = sm.retainSimplestArchitecture(healthySix, single, pipeline);
+    assert.equal(healthyDecision.architecture, topology);
+    assert.equal(healthyDecision.reason, 'multi_agent_sufficient');
+
+    const degradedSix = sm.simulateDegradedTopology(topology, 6, { failingWorkerIndices: [0] });
+    const degradedDecision = sm.retainSimplestArchitecture(degradedSix, single, pipeline);
+    assert.equal(degradedDecision.architecture, 'direct');
+    assert.equal(degradedDecision.reason, 'multi_agent_less_reliable');
   }
 });
 
-test('worker loss does not lose provenance', () => {
+test('worker loss preserves provenance and prevents permission escalation', () => {
   const result = sm.runTopology('Syncytium', 4, sm.CORPUS);
   assert.ok(sm.assertProvenancePreserved(result.receipts));
   const before = result.receipts.length;
 
   const lost = sm.simulateWorkerLoss(result, 0);
+  assert.equal(lost.provenancePreserved, true);
+  assert.equal(lost.noPermissionEscalation, true);
   assert.ok(sm.assertProvenancePreserved(lost.receipts));
-  assert.ok(lost.receipts.length > 0);
-  assert.ok(lost.receipts.length <= before);
+  assert.ok(lost.receipts.length > 0 && lost.receipts.length < before);
 });
 
-test('worker loss recovery preserves receipts and recovers', () => {
+test('worker loss recovery preserves prior and new receipts without permission escalation', () => {
   const result = sm.runTopology('Rhizome', 3, sm.CORPUS);
   const lost = sm.simulateWorkerLoss(result, 1);
   const recovered = sm.testRecovery(lost, sm.CORPUS);
   assert.ok(recovered.recovered);
-  assert.ok(recovered.receiptsPreserved);
+  assert.equal(recovered.receiptsPreserved, true);
+  assert.equal(recovered.provenancePreserved, true);
+  assert.equal(recovered.noPermissionEscalation, true);
   assert.ok(sm.assertProvenancePreserved(recovered.recovered.receipts));
 });
 
-test('model failure is detected and does not corrupt receipts of good workers', () => {
+test('model failure is isolated and does not corrupt receipts or permissions of surviving workers', () => {
   const failing = sm.simulateModelFailure(sm.CORPUS, 2);
   assert.equal(failing[2].ok, false);
   assert.equal(failing[2].error, 'MODEL_FAILURE');
@@ -106,52 +128,34 @@ test('model failure is detected and does not corrupt receipts of good workers', 
   }
   const receipts = failing.filter((r) => r.receipt).map((r) => r.receipt);
   assert.ok(sm.assertProvenancePreserved(receipts));
-});
-
-test('disagreement between two topologies is detected', () => {
-  const a = sm.runTopology('Trinity', 3, sm.CORPUS);
-  const b = sm.runTopology('ATeam', 6, sm.CORPUS);
-  const disagrees = sm.detectDisagreement(a, b);
-  assert.ok(typeof disagrees === 'boolean');
-});
-
-test('state conflict between two workers is detected', () => {
-  const stateA = { worker_1: 'value_a', shared_key: 'x' };
-  const stateB = { worker_2: 'value_b', shared_key: 'y' };
-  const conflict = sm.detectStateConflict(stateA, stateB);
-  assert.ok(conflict.conflict);
-  assert.equal(conflict.key, 'shared_key');
-
-  const stateC = { worker_1: 'value_a' };
-  const stateD = { worker_2: 'value_b' };
-  const noConflict = sm.detectStateConflict(stateC, stateD);
-  assert.ok(!noConflict.conflict);
-});
-
-test('no permission escalation across authority boundary', () => {
-  const authority = ['read', 'write'];
-  const boundary = ['read', 'write', 'admin'];
-  assert.ok(sm.assertNoPermissionEscalation(authority, boundary));
-
-  const escalated = ['read', 'write', 'admin', 'delete'];
-  assert.ok(!sm.assertNoPermissionEscalation(escalated, boundary));
-
-  const wildcard = ['*'];
-  assert.ok(!sm.assertNoPermissionEscalation(wildcard, boundary));
-});
-
-test('all 8 topologies map to a CyberCorp usage', () => {
-  for (const topology of sm.TOPOLOGY_LIST) {
-    assert.ok(sm.CYBERCORP_USAGE[topology]);
-    assert.ok(typeof sm.CYBERCORP_USAGE[topology] === 'string');
-    assert.ok(sm.CYBERCORP_USAGE[topology].length > 0);
+  for (const r of receipts) {
+    assert.ok(sm.assertNoPermissionEscalation(r.permissions, sm.DEFAULT_BOUNDARY));
   }
 });
 
-test('recovery after model failure produces valid result', () => {
-  const failing = sm.simulateModelFailure(sm.CORPUS, 0);
-  const okCount = failing.filter((r) => r.ok).length;
-  assert.ok(okCount > 0);
-  const recovered = sm.runTopology('Biome', 2, sm.CORPUS);
-  assert.equal(recovered.combined.ok, true);
+test('disagreement between topologies and within Biocenose is detected accurately', () => {
+  const a = sm.runTopology('Trinity', 3, sm.CORPUS);
+  const b = sm.simulateDegradedTopology('ATeam', 6, { failingWorkerIndices: [0] });
+  assert.equal(sm.detectDisagreement(a, b), true);
+  assert.equal(sm.detectDisagreement(a, a), false);
+});
+
+test('state conflict between workers detects divergent values and ignores identical values', () => {
+  const stateA = { worker_1: 'value_a', shared_key: 'x' };
+  const stateB = { worker_2: 'value_b', shared_key: 'y' };
+  const conflict = sm.detectStateConflict(stateA, stateB);
+  assert.equal(conflict.conflict, true);
+  assert.equal(conflict.key, 'shared_key');
+
+  const agreeingA = { shared_key: 'same', worker_1: 'a' };
+  const agreeingB = { shared_key: 'same', worker_2: 'b' };
+  assert.equal(sm.detectStateConflict(agreeingA, agreeingB).conflict, false);
+});
+
+test('no permission escalation across authority boundary', () => {
+  const authority = ['read_telemetry', 'inspect_artifact'];
+  const boundary = ['read_telemetry', 'inspect_artifact', 'emit_receipt'];
+  assert.equal(sm.assertNoPermissionEscalation(authority, boundary), true);
+  assert.equal(sm.assertNoPermissionEscalation(['read_telemetry', 'root_exec'], boundary), false);
+  assert.equal(sm.assertNoPermissionEscalation(['*'], boundary), false);
 });
