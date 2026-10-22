@@ -48,24 +48,35 @@ function verifyProbeFailureBoundary() {
 }
 
 async function runIntegrationVerification() {
-  verifyProbeFailureBoundary();
-  console.log('=== VERIFYING MCP REGISTRATION AND STATUS DISPATCH FOR 19 TOOLS ===\n');
-  let verifiedCount = 0;
+  const previousLease = process.env.GENOS_MCP_LEASE;
+  const previousLeaseExpiry = process.env.GENOS_MCP_LEASE_EXPIRES_AT;
+  process.env.GENOS_MCP_LEASE = ALL_19_TOOLS.join(',');
+  process.env.GENOS_MCP_LEASE_EXPIRES_AT = String(Date.now() + 60_000);
+  try {
+    verifyProbeFailureBoundary();
+    console.log('=== VERIFYING MCP REGISTRATION AND STATUS DISPATCH FOR 19 TOOLS ===\n');
+    let verifiedCount = 0;
 
-  for (const toolName of ALL_19_TOOLS) {
-    assert.strictEqual(isRegisteredTool(toolName), true, `Tool ${toolName} must be registered in mcpToolRegistry`);
-    const kind = detectExecutionKind(toolName);
-    assert.strictEqual(kind, 'bio', `Tool ${toolName} must be classified as 'bio' kind`);
-    const dispatchResponse = await dispatchTool(toolName, statusArguments(toolName));
-    assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
-    assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
-    assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must return a successful status for ${toolName}`);
-    console.log(`✅ [MCP STATUS VERIFIED] -> ${toolName} (kind: ${kind}, status: OK)`);
-    verifiedCount++;
+    for (const toolName of ALL_19_TOOLS) {
+      assert.strictEqual(isRegisteredTool(toolName), true, `Tool ${toolName} must be registered in mcpToolRegistry`);
+      const kind = detectExecutionKind(toolName);
+      assert.strictEqual(kind, 'bio', `Tool ${toolName} must be classified as 'bio' kind`);
+      const dispatchResponse = await dispatchTool(toolName, statusArguments(toolName));
+      assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
+      assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
+      assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must return a successful status for ${toolName}`);
+      console.log(`✅ [MCP STATUS VERIFIED] -> ${toolName} (kind: ${kind}, status: OK)`);
+      verifiedCount++;
+    }
+
+    assert.strictEqual(verifiedCount, 19);
+    console.log('\nAll 19 MCP status dispatches returned success; runtime birth was not tested.\n');
+  } finally {
+    if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
+    else process.env.GENOS_MCP_LEASE = previousLease;
+    if (previousLeaseExpiry === undefined) delete process.env.GENOS_MCP_LEASE_EXPIRES_AT;
+    else process.env.GENOS_MCP_LEASE_EXPIRES_AT = previousLeaseExpiry;
   }
-
-  assert.strictEqual(verifiedCount, 19);
-  console.log('\nAll 19 MCP status dispatches returned success; runtime birth was not tested.\n');
 }
 
 runIntegrationVerification().catch(err => {
