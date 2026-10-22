@@ -320,7 +320,7 @@ async function runGenerationStage(ctx) {
     identitySession: ctx.identity.session
   });
   if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
+    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { ...result.schemaViolation, outputExcerpt: String(result.text || '').slice(0, 2048) } });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 

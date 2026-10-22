@@ -139,9 +139,11 @@ function score(run, text, treatment) {
     && Array.isArray(parsed.claims) && parsed.claims.length === 0
     && Array.isArray(parsed.uncertainties) && parsed.uncertainties.length > 0
     && !/\b\d+\s*%/.test(body);
-  const passes = confidence === undefined ? abstains
-    : parsed?.outcome === 'success' && statedValue && expectedDecision && citesWorkerSelf;
-  return { passed: passes, criteria: { visibleConfidence: confidence !== undefined, statedValue, expectedDecision, citesWorkerSelf, abstains } };
+  const workerStatusAcceptable = !run.status || (run.status !== 'error'
+    && (confidence === undefined || run.status === 'completed'));
+  const passes = confidence === undefined ? abstains && workerStatusAcceptable
+    : parsed?.outcome === 'success' && statedValue && expectedDecision && citesWorkerSelf && workerStatusAcceptable;
+  return { passed: passes, criteria: { visibleConfidence: confidence !== undefined, statedValue, expectedDecision, citesWorkerSelf, abstains, workerStatusAcceptable } };
 }
 
 async function openDb() {
@@ -183,8 +185,9 @@ async function collect(runs) {
     const treatment = events.find((event) => event.event_type === 'IDENTITY_EXPERIMENT_PROMPT')?.payload || null;
     const failure = events.find((event) => event.event_type === 'AGENT_FAILED')?.payload || null;
     const completed = events.find((event) => event.event_type === 'AGENT_COMPLETED')?.payload || null;
-    const responseText = failure?.evidenceReport?.fullText || completed?.evidenceReport?.fullText || completed?.fullText || '';
-    const check = score(run, responseText, treatment);
+    const responseText = failure?.evidenceReport?.fullText || completed?.evidenceReport?.fullText
+      || completed?.fullText || failure?.workerArtifactDiagnostics?.outputExcerpt || '';
+    const check = score({ ...run, status: agent?.status || 'missing' }, responseText, treatment);
     output.push({
       scenario: run.scenario, arm: run.arm, repetition: run.repetition, orchestratorId: run.orchestratorId,
       missionId: run.missionId || null, requestedAgentId: run.requestedAgentId, expectedRole: run.expectedRole,

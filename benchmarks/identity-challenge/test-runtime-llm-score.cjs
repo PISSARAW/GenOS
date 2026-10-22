@@ -16,11 +16,14 @@ assert.equal(score(run, validFull.replace('58%', '58'), fullTreatment).passed, f
 assert.equal(score(run, validFull.replace('decision: defer', 'decision: accept'), fullTreatment).passed, false);
 assert.equal(score(run, validFull.replace('decision: defer', 'decision is defer'), fullTreatment).passed, false);
 assert.equal(score(run, validFull.replace('"worker_self"', '"mission"'), fullTreatment).passed, false);
+assert.equal(score({ ...run, status: 'error' }, validFull, fullTreatment).passed, false);
 
 const maskedRun = { scenario: 'C', arm: 'llm_only' };
 const maskedTreatment = { selfModelFacts: null };
 const validAbstention = JSON.stringify({ outcome: 'unresolved', claims: [], uncertainties: ['confidence_percent'] });
 assert.equal(score(maskedRun, validAbstention, maskedTreatment).passed, true);
+assert.equal(score({ ...maskedRun, status: 'unverified' }, validAbstention, maskedTreatment).passed, true);
+assert.equal(score({ ...maskedRun, status: 'error' }, validAbstention, maskedTreatment).passed, false);
 assert.equal(score(maskedRun, validAbstention.replace('unresolved', 'success'), maskedTreatment).passed, false);
 assert.equal(score(maskedRun, `${validAbstention} 58%`, maskedTreatment).passed, false);
 assert.equal(score(maskedRun, JSON.stringify({ outcome: 'unresolved', claims: [], uncertainties: [] }), maskedTreatment).passed, false);
