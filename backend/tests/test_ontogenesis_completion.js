@@ -15,14 +15,28 @@ const { runResidentLoop, loopOptions } = require('../src/services/ontogenesis/re
 
 function invalidConfiguration() {
   const { validateProjectConfig, defaultConfig } = require('../src/services/ontogenesis/configSchema');
+  const thresholds = { criticalPct: 0.12, constrainedPct: 0.18, recoverPct: 0.2 };
   assert.strictEqual(validateProjectConfig(defaultConfig()).ok, true);
+  assert.strictEqual(validateProjectConfig({ memory: { envelopeMb: 2048, reserveMb: 512, thresholds } }).ok, true);
   for (const patch of [{ topologies: [] }, { topologies: ['unknown'] }, { missionBudgets: { tokens: -1 } },
+    { memory: { envelopeMb: 2048, reserveMb: 512, thresholds: { ...thresholds, recoverPct: 0.1 } } },
     { memory: { envelopeMb: Infinity, reserveMb: 0 } }, { checks: [{ program: 'node', args: [false] }] },
     { allowPush: 'true' }, { authority: { allowEdit: 'true', branches: ['*'], paths: ['*'] } }]) {
     assert.strictEqual(validateProjectConfig(patch).ok, false, JSON.stringify(patch));
   }
   assert.throws(() => loopOptions({ intervalMs: -1 }), /intervalle-resident-invalide/);
   assert.throws(() => loopOptions({ maxTicks: NaN }), /nombre-ticks-invalide/);
+}
+
+async function memoryThresholdOverride() {
+  const { memoryState } = require('../src/services/ontogenesis/resourceGuard');
+  const project = { id: 'memory-threshold-test', state: 'PLANNING' };
+  const ctx = { project, config: { memory: { envelopeMb: 2048, reserveMb: 512,
+    thresholds: { criticalPct: 0.12, constrainedPct: 0.18, recoverPct: 0.2 } } } };
+  const db = { get: async () => ({ level: 'constrained', healthy_since: null }), run: async () => ({ changes: 1 }) };
+  const harness = { resources: async () => ({ ownedMb: 128,
+    sample: { freeMb: 6400, totalMb: 28652, freePct: 6400 / 28652, reservationsMb: 0 } }) };
+  assert.strictEqual((await memoryState(db, ctx, harness)).memoryLevel, 'normal');
 }
 
 async function operatorCommands(db, project) {
@@ -208,13 +222,13 @@ async function isolated(test) {
   finally { await db.close(); fs.rmSync(root, { recursive: true, force: true }); }
 }
 
-const scenarios = { invalidConfiguration, operatorCommands, cancellation, pausedCandidate,
+const scenarios = { invalidConfiguration, memoryThresholdOverride, operatorCommands, cancellation, pausedCandidate,
   recovery, failureAccounting, unverifiedDispatch, silentResident };
 
 async function runScenario(name) {
   const test = scenarios[name];
   if (!test) throw new Error('completion-scenario-inconnu');
-  if (['invalidConfiguration', 'silentResident'].includes(name)) await test();
+  if (['invalidConfiguration', 'memoryThresholdOverride', 'silentResident'].includes(name)) await test();
   else await isolated(test);
 }
 
