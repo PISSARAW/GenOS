@@ -1,0 +1,47 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S01",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "8189bcf8d3d14ab05a3dbacf7c599c055d611604",
+  "expected": [
+    {
+      "agentId": "agent-b",
+      "relationType": "friend",
+      "direction": "forward"
+    },
+    {
+      "agentId": "agent-c",
+      "relationType": "neighbor",
+      "direction": "forward"
+    },
+    {
+      "agentId": "agent-d",
+      "relationType": "manager",
+      "direction": "reverse"
+    }
+  ],
+  "answer": [
+    {
+      "agentId": "agent-b",
+      "relationType": "friend",
+      "direction": "forward"
+    },
+    {
+      "agentId": "agent-c",
+      "relationType": "neighbor",
+      "direction": "forward"
+    },
+    {
+      "agentId": "agent-d",
+      "relationType": "manager",
+      "direction": "reverse"
+    }
+  ],
+  "qwenResponse": "Here is the requested JSON object with the relations array based on the provided graph-derived profile:\n\n```json\n{\n  \"relations\": [\n    {\"agentId\": \"agent-b\", \"relationType\": \"friend\", \"direction\": \"forward\"},\n    {\"agentId\": \"agent-c\", \"relationType\": \"neighbor\", \"direction\": \"forward\"},\n    {\"agentId\": \"agent-d\", \"relationType\": \"manager\", \"direction\": \"reverse\"}\n  ]\n}\n```",
+  "verified": true,
+  "oracle": "all graph relations of the subject are reproduced with exact agent identity and direction, without additions",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 11397
+}
