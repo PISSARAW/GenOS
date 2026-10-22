@@ -29,8 +29,11 @@ function quarantine(session, input, trustedDigests) {
   const edges = new Map((session.edges || []).map((edge) => [edge.edgeId, edge]));
   const missing = edgeIds.filter((edgeId) => !edges.has(edgeId));
   if (missing.length) throw Object.assign(new Error(`Unknown Rhizome edges: ${missing.join(', ')}`), { code: 'RHIZOME_EDGE_UNKNOWN' });
+  const duration = Number.isFinite(input.durationMs) ? input.durationMs
+    : (session.variantPolicy?.resilience?.quarantineDuration ?? 300000);
+  const until = new Date(Date.now() + duration).toISOString();
   const updated = (session.edges || []).map((edge) => edgeIds.includes(edge.edgeId)
-    ? { ...edge, status: 'QUARANTINED', quarantine: evidence }
+    ? { ...edge, status: 'QUARANTINED', quarantine: { ...evidence, until, durationMs: duration } }
     : edge);
   return { ...session, edges: updated, graphVersion: session.graphVersion + 1, quarantinedEdgeIds: edgeIds };
 }
