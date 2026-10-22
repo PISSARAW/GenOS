@@ -40,6 +40,7 @@ assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCode
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCodeWorker: false }), false);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'bounded_worker', workerKind: 'bounded_worker', localCodeWorker: true }), true);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'verifier_worker', workerKind: 'verifier_worker', localCodeWorker: true }), false);
+assert.equal(localPrompt.isCodeWorkerMission({ role: 'interview_plan_implementation', workerKind: 'specialist', localCodeWorker: true }), false);
 if (previousCodeWorkers !== undefined) process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS = previousCodeWorkers;
 
 const root = path.resolve(__dirname, '../..');

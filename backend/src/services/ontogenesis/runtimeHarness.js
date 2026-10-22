@@ -118,12 +118,19 @@ function requestFor(input) {
     variant: input.selection.variant,
     timeoutMs: Math.floor(input.budgets.seconds * 600),
     executionBudget: { tokens: input.budgets.tokens, costUsd: input.budgets.usd, latencyMs: Math.floor(input.budgets.seconds * 600) },
-    allowed_commands: checks.map((check) => [check.program, ...check.args].join(' ')),
+    allowed_commands: checks.map(workerAllowedCommand),
     executor: input.config.executor || 'codex', provider: input.config.provider, modelId: input.config.modelId,
     allow_file_edits: input.config.authority?.allowEdit === true,
     explicit_write_lease: input.config.authority?.allowEdit === true,
     git_authority: { localCommit: false, push: false, merge: false, remoteMutation: false }
   };
+}
+
+function workerAllowedCommand(check) {
+  const program = path.basename(check.program || '').toLowerCase();
+  const args = Array.isArray(check.args) ? check.args : [];
+  if (program === 'node.exe' || program === 'node') return ['node', ...args].join(' ');
+  return [check.program, ...args].join(' ');
 }
 
 function requiredWebPatchPaths(input) {

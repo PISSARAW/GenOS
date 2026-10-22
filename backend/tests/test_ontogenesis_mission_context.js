@@ -89,6 +89,12 @@ try {
     selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
     worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: verifyMission });
   assert.strictEqual(implementationTask.localCodeWorker, true);
+  const configuredCheckRequest = requestFor({ id: 'node-check-alias', project: verifyProject,
+    task: { title: 'Implement sumPrices', acceptance_json: '[]', id: 'implementation-task' },
+    selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
+    worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 },
+    config: { checks: [{ program: 'C:\\Program Files\\nodejs\\node.exe', args: ['verify.cjs'] }] }, mission: verifyMission });
+  assert.deepStrictEqual(configuredCheckRequest.allowed_commands, ['node verify.cjs']);
   assert.strictEqual(candidateWorkspace([
     { id: 'run-1', execution_mode: 'orchestrator', status: 'completed', workspace_path: root },
     { id: 'worker-1', execution_mode: 'worker', status: 'completed', workspace_path: root + '/capsule' }

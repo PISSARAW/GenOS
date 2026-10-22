@@ -27,7 +27,7 @@ function codeProposalInstruction() {
 function isCodeWorkerMission(mission) {
   const explicitlyEnabled = mission.localCodeWorker === true
     || mission.executionPolicy?.localCodeWorker === true;
-  const codeRole = /implementation|coder|developer/i.test(mission.role || '');
+  const codeRole = /^(implementation|coder|developer)$/i.test(String(mission.role || '').trim());
   const boundedCodeKind = mission.workerKind === 'bounded_worker';
   return (explicitlyEnabled || process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1')
     && (codeRole || boundedCodeKind);
