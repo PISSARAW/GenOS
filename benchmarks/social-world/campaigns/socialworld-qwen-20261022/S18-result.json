@@ -2,9 +2,9 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S18",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "d151782c50c786baa4e8a6f0191a0ef91b1d6eab",
+  "sourceCommit": "aa7ac62670ec3cecdc619fc83200ad41fd6e0ba8",
   "expected": {
     "type": "epistemic_high_risk",
     "locus": "bridge-east",
@@ -13,18 +13,29 @@
       "hazard:bridge-closed"
     ]
   },
-  "qwenResponse": "Given that the signal is undefined, I'll provide a JSON object with the specified fields but with placeholder values since no actual signal data was provided:\n\n```json\n{\n  \"type\": \"undefined\",\n  \"locus\": \"undefined\",\n  \"senderAgentId\": \"undefined\",\n  \"semanticRefs\": [\"undefined\"]\n}\n```\n\nIf you have a specific undefined signal or more details, please",
-  "answer": {
-    "type": "undefined",
-    "locus": "undefined",
-    "senderAgentId": "undefined",
+  "observed": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
     "semanticRefs": [
-      "undefined"
+      "hazard:bridge-closed"
+    ],
+    "intensity": 0.95,
+    "isRepellent": true,
+    "localOnly": false
+  },
+  "qwenResponse": "Here is the requested information in a JSON object format:\n\n```json\n{\n  \"type\": \"epistemic_high_risk\",\n  \"locus\": \"bridge-east\",\n  \"senderAgentId\": \"agent-a\",\n  \"semanticRefs\": [\"hazard:bridge-closed\"]\n}\n```",
+  "answer": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
+    "semanticRefs": [
+      "hazard:bridge-closed"
     ]
   },
-  "enginePass": false,
-  "verified": false,
+  "enginePass": true,
+  "verified": true,
   "oracle": "a persisted environmental pheromone can be read by locus with authenticated provenance and its exact semantics",
   "humanInstructionsAfterSetup": 0,
-  "durationMs": 25428
+  "durationMs": 6222
 }
