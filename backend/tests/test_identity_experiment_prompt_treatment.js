@@ -20,10 +20,11 @@ assert.doesNotMatch(sheet.workerSelfBlock, /worker self/);
 assert.equal(new Set([full, masked, llm, sheet].map((x) => x.audit.arm)).size, 4);
 assert.equal(promptSha256('prompt').length, 64);
 const localMission = buildLocalMission({ id: 'agent-42', enhancedPrompt: 'Current agent {{AGENT_ID}}',
-  request: { identityExperimentArm: 'genos_full', localModel: 'ollama://qwen2.5:14b' },
+  request: { identityExperimentArm: 'genos_full', identityExperimentSeed: 42, localModel: 'ollama://qwen2.5:14b' },
   missionBudget: {}, requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });
 assert.equal(localMission.prompt, 'Current agent agent-42');
 assert.equal(localMission.identityExperimentArm, 'genos_full');
+assert.equal(localMission.identityExperimentSeed, 42);
 const llmPrompt = buildAnalysisPrompt({ selfIntro: '', workerSelfBlock: '', conscienceBlock: '',
   workerInstruction: 'Keep the evidence boundary.', evidenceRule: 'Return JSON.', agentName: 'GenOS Worker',
   prompt: 'Mission', identityExperimentArm: 'llm_only' });

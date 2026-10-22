@@ -90,6 +90,7 @@ async function generateWorkerResult(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
+    seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
     responseFormat: ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
