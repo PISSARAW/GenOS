@@ -1,11 +1,11 @@
 {
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S25",
-  "seed": 7,
+  "seed": 8,
   "status": "fail",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "eb1c00375e9e75242f235a99e436cac488a4a68a",
-  "error": "Error: Qwen did not return a JSON object.\n    at parseAnswer (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s25-qwen.cjs:25:21)\n    at main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s25-qwen.cjs:104:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "sourceCommit": "61793906fb2ba0d99f59c10be31e3c3022a832f7",
+  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
   "firstHop": {
     "delivered": true,
     "duplicate": false,
@@ -26,7 +26,18 @@
     "relationId": "s25-neighbor",
     "relationType": "neighbor"
   },
-  "qwenResponse": "{\n  \"rootHash\": \"88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f\",\n  \"recipients\": [\"agent-b\", \"agent-c\"],\n ",
+  "observed": {
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "duplicateDetected": true,
+    "rumorRejected": true
+  },
+  "enginePass": true,
+  "qwenResponse": null,
   "verified": false,
-  "durationMs": 40966
+  "stage": "genos-provenance-propagation",
+  "durationMs": 182890
 }
