@@ -4,8 +4,128 @@
   "seed": 7,
   "status": "fail",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "28c63c80ed4ca98f945f95722a4710bc8f6c2bc2",
-  "error": "Error: Model timeout after 90000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "sourceCommit": "955ebde7521047efb83f24b9c960db7a5e7292f3",
+  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "stage": "qwen-warmup",
+  "observed": {
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "scope": "UNICAST",
+    "recipients": [
+      "agent-b"
+    ],
+    "encoding": "semantic-fingerprint",
+    "ttlMs": 60000,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ],
+    "meta": {
+      "utility": 0.5625000000000001,
+      "gain": 0.5775000000000001,
+      "cost": 0.015,
+      "breakdown": {
+        "tokens": 0,
+        "cognitiveWake": 0,
+        "fanout": 0,
+        "grounding": 0.015,
+        "contamination": 0,
+        "disclosure": 0
+      },
+      "novelty": 1,
+      "groups": [
+        {
+          "profile": "worker|1",
+          "role": "worker",
+          "members": [
+            "agent-b"
+          ],
+          "unknownRefs": [
+            "route-plan:17"
+          ]
+        }
+      ],
+      "escalation": null,
+      "firewall": null,
+      "relationshipRouting": [
+        {
+          "agentId": "agent-b",
+          "relationType": "friend",
+          "relationTypes": [
+            "friend"
+          ],
+          "relations": [
+            {
+              "relationType": "friend",
+              "relationClass": "social",
+              "direction": "forward"
+            }
+          ],
+          "preferredEncoding": "canonical",
+          "grounding": "semantic_ack",
+          "epistemicIndependence": 1,
+          "disclosureLevel": 0.4
+        }
+      ]
+    }
+  },
+  "outcome": {
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s15-unicast",
+    "signalId": "sig_104db06d-5e93-4a52-a0a6-74c515c7afd2",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "beae667305e928db1c4eccb1fc679428f6538b702c9ecacf5758405f5934345a",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ],
+    "learnResult": null,
+    "decisionAction": "SIGNAL",
+    "recipientCount": 1,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "enginePass": true,
+  "warmup": null,
   "verified": false,
-  "durationMs": 93693
+  "durationMs": 185807
 }
