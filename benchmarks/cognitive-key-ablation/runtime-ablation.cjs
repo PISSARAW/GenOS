@@ -128,24 +128,23 @@ function readOutcomes(orchestratorIds) {
   })();
 }
 
-function waitForCompletion(orchestratorIds, timeoutMs) {
+function waitForCompletion(runs, timeoutMs) {
   const sqlite = require(path.join(ROOT, 'backend/node_modules/sqlite'));
   const sqlite3 = require(path.join(ROOT, 'backend/node_modules/sqlite3'));
   return (async () => {
     const db = await sqlite.open({ filename: DB_PATH, driver: sqlite3.Database });
     const deadline = Date.now() + timeoutMs;
-    const pending = new Set(orchestratorIds);
+    const pending = new Set(runs.map((run) => run.detachedProcessId).filter(Boolean));
     while (pending.size > 0 && Date.now() < deadline) {
       for (const id of [...pending]) {
-        const agent = await db.get('SELECT status FROM agents WHERE id = ?', id);
-        if (agent && ['completed', 'error', 'failed', 'blocked', 'idle'].includes(agent.status)) {
-          pending.delete(id);
-        }
+        const process = await db.get('SELECT id FROM detached_processes WHERE id = ?', id);
+        if (!process) pending.delete(id);
       }
-      if (pending.size > 0) await new Promise((r) => setTimeout(r, 5000));
+      if (pending.size > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     await db.close();
-    return { completed: orchestratorIds.length - pending.size, timedOut: [...pending] };
+    const timedOut = runs.filter((run) => pending.has(run.detachedProcessId)).map((run) => run.orchestratorId);
+    return { completed: runs.length - timedOut.length, timedOut };
   })();
 }
 
@@ -168,7 +167,7 @@ async function main() {
   }
   console.log(`\n[dispatch] ${launched.length} mission(s) acceptée(s). Attente de complétion (max ${config.timeout}s)...`);
 
-  const wait = await waitForCompletion(launched.map((l) => l.orchestratorId), config.timeout * 1000);
+  const wait = await waitForCompletion(launched, config.timeout * 1000);
   console.log(`[attente] ${wait.completed}/${launched.length} terminées${wait.timedOut.length ? ` (timeout: ${wait.timedOut.length})` : ''}`);
 
   const { outcomes, registry } = await readOutcomes(launched.map((l) => l.orchestratorId));
