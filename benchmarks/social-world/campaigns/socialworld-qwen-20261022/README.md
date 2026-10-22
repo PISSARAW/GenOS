@@ -26,7 +26,7 @@
 | S14 Curiosite sociale | Reussi avec Qwen 2.5 14B | `S14-result.json`; source `ac368cc9` |
 | S15 Unicast | Reussi avec Qwen 2.5 14B; C exclu | `S15-attempt-01.json`, `S15-attempt-02.json` (timeouts), `S15-result.json`; source `56a8a509` |
 | S16 Multicast selectif | Reussi avec Qwen 2.5 14B; D exclu | `S16-attempt-01.json` (predicat du runner), `S16-result.json`; source `916d25e1` |
-| S17 Broadcast / quorum | Non exÃ©cutÃ© | â€” |
+| S17 Broadcast / quorum | Reussi avec Qwen 2.5 14B; A exclu, quorum B/C acquitte | `S17-result.json`, `S17-*.json` (echec fixture); source `cace91f1` |
 | S18 Stigmergie | Non exÃ©cutÃ© | â€” |
 | S19 Signaux zero-text | Non exÃ©cutÃ© | â€” |
 | S20 Communication structurÃ©e | Non exÃ©cutÃ© | â€” |
@@ -52,8 +52,9 @@ Le run complet a rÃ©ussi avec Qwen 2.5 14B au commit source `faf11840`. Qwen a r
 
 ## S09: initiative sociale
 
-Le premier essai a déposé le fait dans la stigmergie sans destinataire. Le correctif évalue maintenant l'audience experte et ses relations avant le repli stigmergique, applique l'urgence bornée portée par l'événement, et inclut les destinataires dans le reçu du checkpoint. Le run post-correctif a livré en unicast à `agent-b`, ami et expert du domaine qui ne connaissait pas la référence `fact:storm-route-7`; Qwen a reproduit exactement action, destinataire et référence. S12 a été rejoué sur le même commit et confirme le silence lorsque la référence est absente.
+Le premier essai a dï¿½posï¿½ le fait dans la stigmergie sans destinataire. Le correctif ï¿½value maintenant l'audience experte et ses relations avant le repli stigmergique, applique l'urgence bornï¿½e portï¿½e par l'ï¿½vï¿½nement, et inclut les destinataires dans le reï¿½u du checkpoint. Le run post-correctif a livrï¿½ en unicast ï¿½ `agent-b`, ami et expert du domaine qui ne connaissait pas la rï¿½fï¿½rence `fact:storm-route-7`; Qwen a reproduit exactement action, destinataire et rï¿½fï¿½rence. S12 a ï¿½tï¿½ rejouï¿½ sur le mï¿½me commit et confirme le silence lorsque la rï¿½fï¿½rence est absente.
 
 ## S11: reprise de contact
 
-Le premier essai a expiré pendant la requête Qwen alors que Qwen Coder 32B avait repris presque toute la VRAM. Après arrêt autorisé du modèle bloqué et amélioration du rapport d'erreur, le run complet a réussi: l'événement d'échéance `HANDOFF_REQUESTED` a déclenché un unicast au collaborateur précédent, avec la référence de suivi exacte. Qwen a reproduit la décision.
+Le premier essai a expirï¿½ pendant la requï¿½te Qwen alors que Qwen Coder 32B avait repris presque toute la VRAM. Aprï¿½s arrï¿½t autorisï¿½ du modï¿½le bloquï¿½ et amï¿½lioration du rapport d'erreur, le run complet a rï¿½ussi: l'ï¿½vï¿½nement d'ï¿½chï¿½ance `HANDOFF_REQUESTED` a dï¿½clenchï¿½ un unicast au collaborateur prï¿½cï¿½dent, avec la rï¿½fï¿½rence de suivi exacte. Qwen a reproduit la dï¿½cision.
+
