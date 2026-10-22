@@ -30,10 +30,10 @@ function promptFor(profile) {
     'Return JSON with a relations array. Each item must contain relationType, direction and sharedHistory.'].join('\n\n');
 }
 
-function saveResult(result) {
+function saveResult(result, filename = 'S23-result.json') {
   const dir = path.join(__dirname, 'campaigns', 'socialworld-qwen-20261022');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'S23-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(path.join(dir, filename), `${JSON.stringify(result, null, 2)}\n`);
 }
 
 async function warmModel(seed) {
@@ -71,14 +71,29 @@ async function main() {
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const startedAt = Date.now();
+  const deterministicOnly = process.argv.includes('--deterministic-only');
   let warmup = null;
+  let previousMission = null;
+  let resumedMission = null;
+  let deterministicPass = false;
   try {
-    warmup = await warmModel(seed);
-    const { previousMission, resumedMission } = await buildMissionProfiles();
-    const deterministicPass = previousMission.relationType === 'friend'
+    ({ previousMission, resumedMission } = await buildMissionProfiles());
+    deterministicPass = previousMission.relationType === 'friend'
       && resumedMission.relationType === 'friend'
       && resumedMission.relations[0].properties.lastInteraction === 'mission-1:shared-evidence-42';
     if (!deterministicPass) throw new Error('Social relation or its evidence did not survive the mission transition.');
+    if (deterministicOnly) {
+      const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S23', seed,
+        status: 'pass', model: null, sourceCommit, expected: EXPECTED,
+        missionTransitions: ['mission-1', 'mission-2'], humanInstructionsAfterSetup: 0,
+        previousMission, resumedMission, deterministicPass, verified: true,
+        oracle: 'GenOS persists the relation and its evidence across mission contexts',
+        durationMs: Date.now() - startedAt };
+      saveResult(result, 'S23-genos-result.json');
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return;
+    }
+    warmup = await warmModel(seed);
     const response = await modelProvider.generate({ model: MODEL, prompt: promptFor(resumedMission),
       seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 80, timeoutMs: 90000,
       organizationId: 'socialworld-org', projectId: 'socialworld-project', agentId: 'agent-a' });
@@ -98,8 +113,9 @@ async function main() {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S23', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
       stage: warmup ? 'social-response' : 'model-warmup', warmup,
-      verified: false, durationMs: Date.now() - startedAt };
-    saveResult(result);
+      previousMission, resumedMission, deterministicPass, verified: false,
+      durationMs: Date.now() - startedAt };
+    saveResult(result, deterministicOnly ? 'S23-genos-result.json' : 'S23-result.json');
     process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
     process.exitCode = 1;
   }
