@@ -1,0 +1,93 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NetworkAnalyst",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "network-analyst",
+    "name": "NetworkAnalyst",
+    "name_meaning": "Qualifie le réseau, le routage, les ports et le pare-feu pfSense d'un périmètre donné.",
+    "cell_id": "a1b2c3d4-1111-4222-aaaa-1234567890ab"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["network-inspect", "route-table", "port-inventory", "pfsense-rules", "dns-resolution"]
+  },
+  "objectives": {
+    "primary": "Produire un inventaire vérifiable des interfaces, des routes, des ports ouverts et des règles pfSense, avec preuves de capture, pour qualification de la surface réseau.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/03-reference/outils-mcp.md",
+    "concepts": ["interfaces et adresses IP", "table de routage et passerelles", "ports ouverts et états de connexion", "règles pfSense (alias, NAT, filtrage)", "résolution DNS et parcours"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Lister les interfaces réseau et leurs adresses IP/MAC",
+    "Dump la table de routage et identifier les passerelles par défaut",
+    "Inventorier les ports ouverts et les états de connexion TCP/UDP",
+    "Exporter les règles de filtrage et de NAT pfSense avec sources/destinations/ports",
+    "Vérifier la résolution DNS et le parcours vers des cibles connues"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["network-inspect", "route-table", "port-inventory", "pfsense-rules", "dns-resolution"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NetworkAnalyst",
+  "name_meaning": "Qualifie le réseau, le routage, les ports et le pare-feu pfSense d'un périmètre donné.",
+  "role": "network-analyst",
+  "cell_id": "a1b2c3d4-1111-4222-aaaa-1234567890ab",
+  "exit_contract": {
+    "artefact": "rapport-topologie-reseau.json signé",
+    "verifiable_par": "recapture indépendante des mêmes interfaces/routes/ports/règles",
+    "criteres": [
+      "Chaque entrée porte un hash de capture et une source identifiable",
+      "Aucune règle pfSense ni port n'est omis sans justification",
+      "Le rapport est reproductible à l'identique sur un même périmètre"
+    ]
+  }
+}

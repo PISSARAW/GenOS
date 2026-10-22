@@ -1,0 +1,93 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RemediationPlanner",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "remediation-planner",
+    "name": "RemediationPlanner",
+    "name_meaning": "Propose un plan de remédiation avec solutions, dépendances et conséquences pour chaque hypothèse d'incident qualifiée.",
+    "cell_id": "e5f6a7b8-5555-4666-eeee-5678901234ef"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["remediation-plan", "dependency-graph", "impact-analysis", "rollback-plan", "consequence-matrix"]
+  },
+  "objectives": {
+    "primary": "Proposer, pour chaque hypothèse d'incident qualifiée, un plan de remédiation contenant les solutions, leurs dépendances et leurs conséquences (impact et rollback).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/03-reference/outils-mcp.md",
+    "concepts": ["action de remédiation et solution technique", "graphe de dépendances entre actions", "analyse d'impact sur les services et utilisateurs", "plan de rollback si l'action échoue ou aggrave", "matrice des conséquences (bénéfice/risque)"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Lister les solutions de remédiation applicables à une hypothèse qualifiée",
+    "Construire le graphe de dépendances entre les actions de remédiation",
+    "Analyser l'impact de chaque action sur les services et les utilisateurs",
+    "Définir un plan de rollback pour chaque action (annulation et restauration)",
+    "Produire une matrice conséquence (bénéfice de sécurité vs risque d'exploitation)"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["remediation-plan", "dependency-graph", "impact-analysis", "rollback-plan", "consequence-matrix"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RemediationPlanner",
+  "name_meaning": "Propose un plan de remédiation avec solutions, dépendances et conséquences pour chaque hypothèse d'incident qualifiée.",
+  "role": "remediation-planner",
+  "cell_id": "e5f6a7b8-5555-4666-eeee-5678901234ef",
+  "exit_contract": {
+    "artefact": "plan-remediation.json signé",
+    "verifiable_par": "re-examen indépendant des dépendances, impacts et rollback de chaque action",
+    "criteres": [
+      "Chaque action a ses dépendances listées, son impact évalué et un rollback défini",
+      "Aucune action ne propose de modifier un système sans conséquence documentée",
+      "Le plan est ordonnable et aucune dépendance n'est circulaire non résolue"
+    ]
+  }
+}
