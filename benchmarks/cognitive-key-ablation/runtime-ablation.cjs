@@ -79,6 +79,7 @@ function runMission(mission, arm, config) {
   if (arm === 'E') env.GENOS_COGNITIVE_PHENOTYPE = '1';
   const payload = JSON.stringify({
     mission,
+    workspaceRoot: ROOT,
     background: true,
     timeoutMs: config.timeout * 1000
   });
@@ -103,7 +104,7 @@ function readOutcomes(orchestratorIds) {
     const db = await sqlite.open({ filename: DB_PATH, driver: sqlite3.Database });
     const outcomes = [];
     for (const orchestratorId of orchestratorIds) {
-      const agent = await db.get('SELECT status FROM agents WHERE id = ?', orchestratorId);
+      const agent = await db.get('SELECT status, current_task FROM agents WHERE id = ?', orchestratorId);
       const events = await db.all(
         `SELECT payload_json, event_type FROM telemetry_events
          WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','WORKER_DOSSIER','COGNITIVE_SYNTHESIS_COMPLETED','COGNITIVE_PERFORMANCE_RECORDED')
@@ -116,6 +117,7 @@ function readOutcomes(orchestratorIds) {
       outcomes.push({
         orchestratorId,
         status: agent ? agent.status : 'unknown',
+        terminalDetail: agent?.current_task || null,
         cognitiveEvents: events.length,
         workerReports: dossierEvents.length
       });
