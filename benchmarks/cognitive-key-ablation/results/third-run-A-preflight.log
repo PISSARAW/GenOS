@@ -1,0 +1,9 @@
+McpError: MCP error -32000: Connection closed
+    at McpError.fromError (file:///D:/GenOS/identity-real-llm-worktree/mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js:2048:16)
+    at Client._onclose (file:///D:/GenOS/identity-real-llm-worktree/mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:263:32)
+    at _transport.onclose (file:///D:/GenOS/identity-real-llm-worktree/mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:223:18)
+    at ChildProcess.<anonymous> (file:///D:/GenOS/identity-real-llm-worktree/mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js:85:31)
+    at ChildProcess.emit (node:events:509:28)
+    at cp.emit (D:\GenOS\identity-real-llm-worktree\mcp\node_modules\cross-spawn\lib\enoent.js:34:29)
+    at maybeClose (node:internal/child_process:1124:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:306:5)

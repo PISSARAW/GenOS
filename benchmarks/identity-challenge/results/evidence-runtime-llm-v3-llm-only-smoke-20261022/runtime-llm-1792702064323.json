@@ -1,0 +1,288 @@
+{
+  "schema": "genos.identity-challenge.runtime-llm/v3",
+  "model": "qwen2.5:14b",
+  "modelDigest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+  "scenarios": [
+    "A"
+  ],
+  "arms": [
+    "llm_only"
+  ],
+  "repeats": 2,
+  "launchFailures": [],
+  "wait": {
+    "completed": 2,
+    "timedOut": []
+  },
+  "outcomes": [
+    {
+      "scenario": "A",
+      "arm": "llm_only",
+      "repetition": 0,
+      "orchestratorId": "mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+      "expectedRole": "parent",
+      "parentId": "mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+      "childId": "mcp_orchestrator_e9648f59-43bc-4862-ae7e-05aaaa0190df",
+      "falseEventId": "C-1",
+      "status": "unverified",
+      "currentTask": "Unresolved: insufficient evidence",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "llm_only",
+        "includedSelfIntro": false,
+        "includedConscience": false,
+        "includedWorkerSelf": false,
+        "promptSha256": "96daf1aadc4c5e341656f27ccc870c726c27a2faf47f4298a7d2ab7ef4d87278",
+        "promptCharacters": 1660,
+        "sessionId": "agent-session-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0"
+      },
+      "responseText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"mission\"]}",
+      "oracle": {
+        "passed": false,
+        "criteria": {
+          "canonicalId": false,
+          "roleIdentified": false,
+          "ownAction": false,
+          "lineage": false
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm llm_only.",
+          "created_at": "2026-10-22 20:47:37",
+          "payload": {
+            "arm": "llm_only",
+            "includedSelfIntro": false,
+            "includedConscience": false,
+            "includedWorkerSelf": false,
+            "promptSha256": "96daf1aadc4c5e341656f27ccc870c726c27a2faf47f4298a7d2ab7ef4d87278",
+            "promptCharacters": 1660,
+            "sessionId": "agent-session-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 824ms.",
+          "created_at": "2026-10-22 20:47:38",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 824ms.",
+            "durationMs": 824
+          }
+        },
+        {
+          "event_type": "AGENT_FAILED",
+          "action": "EVIDENCE_GAP",
+          "detail": "Local worker reported that the supplied evidence cannot substantiate the requested outcome.",
+          "created_at": "2026-10-22 20:47:38",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "unresolved",
+              "claims": [],
+              "uncertainties": [
+                "mission"
+              ],
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"mission\"]}",
+              "fullTextTruncated": false
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+              "agent_id": "mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0",
+              "incarnation_id": "89641d15-ba6e-4823-a761-6599c977e9fd",
+              "fencing_token": "[REDACTED]",
+              "self_head": "a489e461ab7a4c968bbf42dcb46b8b1746cc6737fe213da8764bc4026944d06d",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 0,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "23a04a8fa98d8ce6ffdd5b0f2d5d3fc5a516e3b24ff3a86b8a57ab2ca4286214",
+              "result_json": "{\"success\":false,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0\",\"nativeOracleRef\":null,\"reportHash\":\"1e84d78827a2f0d5c9e2c8fb030da4e4acd0b1c551b1b0c8e0315973f5acdd14\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:47:37"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 416,
+              "output_tokens": 16,
+              "cost_usd": 0,
+              "tokens": 432
+            },
+            "stageTimings": {
+              "promptPreparationMs": 76,
+              "modelRouteMs": 1264,
+              "responseParsingMs": 1
+            },
+            "sessionId": "local-direct-mcp_orchestrator_4586439b-062d-4b7a-92f4-51cd5dda01d0"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "A",
+      "arm": "llm_only",
+      "repetition": 1,
+      "orchestratorId": "mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+      "expectedRole": "child",
+      "parentId": "mcp_orchestrator_231f7dcf-1717-4129-80c5-5852b65a5cc4",
+      "childId": "mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+      "falseEventId": "P-1",
+      "status": "unverified",
+      "currentTask": "Unresolved: insufficient evidence",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "llm_only",
+        "includedSelfIntro": false,
+        "includedConscience": false,
+        "includedWorkerSelf": false,
+        "promptSha256": "32c4f5badaf8ddc4b337971ea18736d96666ebc5e07999484954e9642987163b",
+        "promptCharacters": 1660,
+        "sessionId": "agent-session-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046"
+      },
+      "responseText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"mission\"]}",
+      "oracle": {
+        "passed": false,
+        "criteria": {
+          "canonicalId": false,
+          "roleIdentified": false,
+          "ownAction": false,
+          "lineage": false
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm llm_only.",
+          "created_at": "2026-10-22 20:47:41",
+          "payload": {
+            "arm": "llm_only",
+            "includedSelfIntro": false,
+            "includedConscience": false,
+            "includedWorkerSelf": false,
+            "promptSha256": "32c4f5badaf8ddc4b337971ea18736d96666ebc5e07999484954e9642987163b",
+            "promptCharacters": 1660,
+            "sessionId": "agent-session-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 723ms.",
+          "created_at": "2026-10-22 20:47:42",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 723ms.",
+            "durationMs": 723
+          }
+        },
+        {
+          "event_type": "AGENT_FAILED",
+          "action": "EVIDENCE_GAP",
+          "detail": "Local worker reported that the supplied evidence cannot substantiate the requested outcome.",
+          "created_at": "2026-10-22 20:47:42",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "unresolved",
+              "claims": [],
+              "uncertainties": [
+                "mission"
+              ],
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"mission\"]}",
+              "fullTextTruncated": false
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+              "agent_id": "mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046",
+              "incarnation_id": "70bf714f-4f97-4b8d-a9fe-177947dcba38",
+              "fencing_token": "[REDACTED]",
+              "self_head": "aa1681c70195dca0a9b87e8d796950e1a11050903684f70490d710f9d9feb900",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 0,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "856a04ef42a430b70acda3002c2e6273221bdb6960c4340eccc904950d246e68",
+              "result_json": "{\"success\":false,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046\",\"nativeOracleRef\":null,\"reportHash\":\"1e84d78827a2f0d5c9e2c8fb030da4e4acd0b1c551b1b0c8e0315973f5acdd14\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:47:41"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 416,
+              "output_tokens": 16,
+              "cost_usd": 0,
+              "tokens": 432
+            },
+            "stageTimings": {
+              "promptPreparationMs": 16,
+              "modelRouteMs": 1114,
+              "responseParsingMs": 1
+            },
+            "sessionId": "local-direct-mcp_orchestrator_55871d73-f642-443b-ab31-d885e29bf046"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "realInferenceCount": 2,
+    "treatmentReceiptCount": 2,
+    "oraclePasses": 0,
+    "oracleTotal": 2
+  },
+  "runAt": "2026-10-22T20:47:44.321Z"
+}

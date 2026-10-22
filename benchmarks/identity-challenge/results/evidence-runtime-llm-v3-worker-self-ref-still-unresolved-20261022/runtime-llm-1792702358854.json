@@ -1,0 +1,171 @@
+{
+  "schema": "genos.identity-challenge.runtime-llm/v3",
+  "model": "qwen2.5:14b",
+  "modelDigest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+  "scenarios": [
+    "C"
+  ],
+  "arms": [
+    "genos_full"
+  ],
+  "repeats": 1,
+  "launchFailures": [],
+  "wait": {
+    "completed": 1,
+    "timedOut": []
+  },
+  "outcomes": [
+    {
+      "scenario": "C",
+      "arm": "genos_full",
+      "repetition": 0,
+      "orchestratorId": "mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d",
+      "expectedRole": null,
+      "parentId": "mcp_orchestrator_fa4d638c-f11c-456e-854c-fe7500ba7258",
+      "childId": "mcp_orchestrator_fa4d638c-f11c-456e-854c-fe7500ba7258",
+      "falseEventId": "P-1",
+      "status": "unverified",
+      "currentTask": "Unresolved: insufficient evidence",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "genos_full",
+        "includedSelfIntro": true,
+        "includedConscience": true,
+        "includedWorkerSelf": true,
+        "selfModelFacts": {
+          "calibratedConfidencePercent": 58
+        },
+        "allowedEvidenceRefs": [
+          "mission",
+          "worker_self"
+        ],
+        "promptSha256": "59f003ea767495115bbcff83f6c7704b3254fff468cc0a30426f40edfa693b53",
+        "promptCharacters": 3404,
+        "sessionId": "agent-session-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d"
+      },
+      "responseText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"confidence_percent\"]}",
+      "oracle": {
+        "passed": false,
+        "criteria": {
+          "visibleConfidence": true,
+          "statedValue": false,
+          "expectedDecision": false,
+          "abstains": true
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm genos_full.",
+          "created_at": "2026-10-22 20:52:36",
+          "payload": {
+            "arm": "genos_full",
+            "includedSelfIntro": true,
+            "includedConscience": true,
+            "includedWorkerSelf": true,
+            "selfModelFacts": {
+              "calibratedConfidencePercent": 58
+            },
+            "allowedEvidenceRefs": [
+              "mission",
+              "worker_self"
+            ],
+            "promptSha256": "59f003ea767495115bbcff83f6c7704b3254fff468cc0a30426f40edfa693b53",
+            "promptCharacters": 3404,
+            "sessionId": "agent-session-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 970ms.",
+          "created_at": "2026-10-22 20:52:37",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 970ms.",
+            "durationMs": 970
+          }
+        },
+        {
+          "event_type": "AGENT_FAILED",
+          "action": "EVIDENCE_GAP",
+          "detail": "Local worker reported that the supplied evidence cannot substantiate the requested outcome.",
+          "created_at": "2026-10-22 20:52:38",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "unresolved",
+              "claims": [],
+              "uncertainties": [
+                "confidence_percent"
+              ],
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"confidence_percent\"]}",
+              "fullTextTruncated": false
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d",
+              "agent_id": "mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d",
+              "incarnation_id": "5e61e080-3308-4e13-a7f3-5caa175b7350",
+              "fencing_token": "[REDACTED]",
+              "self_head": "b90f6311a6fca7b2d755f1da86b8c737b6bae4223a91ed01ae483efdafeb86f6",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 0,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "9e401c16409038ad73dcb988e07a0a84d48e63ed6c38e424fb46008f00d1f5f1",
+              "result_json": "{\"success\":false,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d\",\"nativeOracleRef\":null,\"reportHash\":\"9e95cd938e9ca137caf4ec3d0c7b58799870fa29304f0951dd0dc9bc7c5fe143\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:52:36"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 865,
+              "output_tokens": 19,
+              "cost_usd": 0,
+              "tokens": 884
+            },
+            "stageTimings": {
+              "promptPreparationMs": 5,
+              "modelRouteMs": 1232,
+              "responseParsingMs": 1
+            },
+            "sessionId": "local-direct-mcp_orchestrator_584cf225-73b1-4214-a492-7e8d3837386d"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "realInferenceCount": 1,
+    "treatmentReceiptCount": 1,
+    "oraclePasses": 0,
+    "oracleTotal": 1
+  },
+  "runAt": "2026-10-22T20:52:38.853Z"
+}

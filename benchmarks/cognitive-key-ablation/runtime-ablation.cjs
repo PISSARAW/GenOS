@@ -29,10 +29,11 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '../..');
 const ORCHESTRATE = path.join(ROOT, 'backend/bin/genos-orchestrate.cjs');
-const DB_PATH = path.join(ROOT, 'backend/genos.db');
+const DB_PATH = process.env.GENOS_DB_PATH || path.join(ROOT, '.genos/data/operational/genos.db');
 
 const MISSIONS = [
   'Diagnose why a distributed cache serves stale reads after failover. The causal uncertainty persists: separate observed regularity from cause, propose the most likely cause, and list the tests that would verify or refute each claim.',
@@ -69,19 +70,27 @@ function runMission(mission, arm, config) {
     OLLAMA_MODEL: config.model,
     GENOS_AGENT_EXECUTOR: 'local',
     GENOS_OLLAMA_ENDPOINT: 'http://127.0.0.1:11434/v1/chat/completions',
-    GENOS_RUNNER_LOG_DIR: path.join(ROOT, '.genos/runner-logs')
+    GENOS_RUNNER_LOG_DIR: path.join(ROOT, '.genos/runner-logs'),
+    GENOS_DB_PATH: DB_PATH,
+    GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || crypto.randomBytes(32).toString('hex'),
+    GENOS_LOCAL_MODEL: config.model,
+    GENOS_DEFAULT_MODEL: 'ollama://' + config.model
   };
   if (arm === 'E') env.GENOS_COGNITIVE_PHENOTYPE = '1';
   const payload = JSON.stringify({
     mission,
+    workspaceRoot: ROOT,
+    localModel: 'ollama://' + config.model,
+    localRoutingPolicy: { primary: 'ollama://' + config.model, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true },
     background: true,
     timeoutMs: config.timeout * 1000
   });
   console.log(`[${arm}] mission lancée: ${mission.slice(0, 60)}...`);
-  const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, timeout: 30000 });
+  const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, cwd: ROOT, timeout: 120000 });
   if (result.status !== 0) {
-    console.error(`[${arm}] refus de mission: ${(result.stderr || '').slice(0, 200)}`);
-    return null;
+    const failure = { launchError: result.error?.message || `exit ${result.status}`, stdout: (result.stdout || '').slice(-4000), stderr: (result.stderr || '').slice(-4000) };
+    console.error(`[${arm}] refus de mission: ${failure.launchError} ${(failure.stderr || failure.stdout).slice(0, 200)}`);
+    return failure;
   }
   try {
     return JSON.parse(result.stdout);
@@ -97,7 +106,7 @@ function readOutcomes(orchestratorIds) {
     const db = await sqlite.open({ filename: DB_PATH, driver: sqlite3.Database });
     const outcomes = [];
     for (const orchestratorId of orchestratorIds) {
-      const agent = await db.get('SELECT status FROM agents WHERE id = ?', orchestratorId);
+      const agent = await db.get('SELECT status, current_task FROM agents WHERE id = ?', orchestratorId);
       const events = await db.all(
         `SELECT payload_json, event_type FROM telemetry_events
          WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','WORKER_DOSSIER','COGNITIVE_SYNTHESIS_COMPLETED','COGNITIVE_PERFORMANCE_RECORDED')
@@ -110,34 +119,34 @@ function readOutcomes(orchestratorIds) {
       outcomes.push({
         orchestratorId,
         status: agent ? agent.status : 'unknown',
+        terminalDetail: agent?.current_task || null,
         cognitiveEvents: events.length,
         workerReports: dossierEvents.length
       });
     }
-    const registry = await db.all('SELECT recipe_id, context, runs, observed_gain, useful_dossiers FROM cognitive_recipe_performance');
+    const registry = await db.all('SELECT recipe_id, context, runs, observed_gain, useful_dossiers FROM cognitive_recipe_performance').catch(() => []);
     await db.close();
     return { outcomes, registry };
   })();
 }
 
-function waitForCompletion(orchestratorIds, timeoutMs) {
+function waitForCompletion(runs, timeoutMs) {
   const sqlite = require(path.join(ROOT, 'backend/node_modules/sqlite'));
   const sqlite3 = require(path.join(ROOT, 'backend/node_modules/sqlite3'));
   return (async () => {
     const db = await sqlite.open({ filename: DB_PATH, driver: sqlite3.Database });
     const deadline = Date.now() + timeoutMs;
-    const pending = new Set(orchestratorIds);
+    const pending = new Set(runs.map((run) => run.detachedProcessId).filter(Boolean));
     while (pending.size > 0 && Date.now() < deadline) {
       for (const id of [...pending]) {
-        const agent = await db.get('SELECT status FROM agents WHERE id = ?', id);
-        if (agent && ['completed', 'error', 'failed', 'blocked', 'idle'].includes(agent.status)) {
-          pending.delete(id);
-        }
+        const process = await db.get('SELECT id FROM detached_processes WHERE id = ?', id);
+        if (!process) pending.delete(id);
       }
-      if (pending.size > 0) await new Promise((r) => setTimeout(r, 5000));
+      if (pending.size > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     await db.close();
-    return { completed: orchestratorIds.length - pending.size, timedOut: [...pending] };
+    const timedOut = runs.filter((run) => pending.has(run.detachedProcessId)).map((run) => run.orchestratorId);
+    return { completed: runs.length - timedOut.length, timedOut };
   })();
 }
 
@@ -149,16 +158,18 @@ async function main() {
   preheat(config.model);
 
   const launched = [];
+  const launchFailures = [];
   // Ordre alterné A, E, A, E… pour neutraliser la dérive entre bras
   for (let i = 0; i < missions.length; i += 1) {
     for (const arm of ['A', 'E']) {
       const handle = runMission(missions[i], arm, config);
-      if (handle) launched.push({ arm, missionIndex: i, ...handle });
+      if (handle?.launchError) launchFailures.push({ arm, missionIndex: i, ...handle });
+      else if (handle) launched.push({ arm, missionIndex: i, ...handle });
     }
   }
   console.log(`\n[dispatch] ${launched.length} mission(s) acceptée(s). Attente de complétion (max ${config.timeout}s)...`);
 
-  const wait = await waitForCompletion(launched.map((l) => l.orchestratorId), config.timeout * 1000);
+  const wait = await waitForCompletion(launched, config.timeout * 1000);
   console.log(`[attente] ${wait.completed}/${launched.length} terminées${wait.timedOut.length ? ` (timeout: ${wait.timedOut.length})` : ''}`);
 
   const { outcomes, registry } = await readOutcomes(launched.map((l) => l.orchestratorId));
@@ -180,6 +191,7 @@ async function main() {
     model: config.model,
     missions: missions.length,
     launched: launched.map((l) => ({ arm: l.arm, mission: l.missionIndex, orchestratorId: l.orchestratorId })),
+    launchFailures,
     outcomes,
     registry,
     completed: wait.completed,

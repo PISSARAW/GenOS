@@ -47,18 +47,19 @@ function isOrchestratorMission(mission) {
   return false;
 }
 
-function resolveMaxTokens(budget, prompt) {
-  if (budget <= 0) return undefined;
-  return budget - estimatePromptTokens(prompt);
-}
+function resolveMaxTokens(budget, prompt, identityExperimentScenario) { if (budget <= 0) return undefined; const remaining = budget - estimatePromptTokens(prompt); return identityExperimentScenario ? Math.min(remaining, 1024) : remaining; }
 function missionEvidenceRefs(mission) {
   const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
   return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
 }
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
+function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [], identityExperimentScenario: mission.identityExperimentScenario, specialtyNiche: mission.specialtyNiche }); }
 function sourceReferenceInstruction(mission) {
   const refs = missionEvidenceRefs(mission);
-  return `Use only these exact evidence references: ${JSON.stringify(refs)}. `
+  const sourceDescriptions = [];
+  if (refs.includes('worker_self')) sourceDescriptions.push('"worker_self" is the canonical WorkerSelf block shown in this prompt');
+  if (refs.includes('identity_sheet')) sourceDescriptions.push('"identity_sheet" is the minimal identity sheet shown in this prompt');
+  const description = sourceDescriptions.length ? ` Source meanings: ${sourceDescriptions.join('; ')}.` : '';
+  return `Use only these exact evidence references: ${JSON.stringify(refs)}.${description} `
     + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
     + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
 }
@@ -90,6 +91,7 @@ async function generateWorkerResult(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
+    seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
     responseFormat: ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
@@ -241,16 +243,29 @@ async function runGenerationStage(ctx) {
   throwIfPromptOverBudget(estimate, budget);
   const agentName = resolveAgentName(ctx.mission);
   const nameMeaning = resolveNameMeaning(ctx.mission, agentName);
-  const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, ctx.mission.role);
+  let selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, ctx.mission.role);
   const conscienceState = await agentConscience.loadConscienceState(ctx.db, ctx.mission.agentId);
-  const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
+  let conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
   const workerModel = resolveWorkerModel(ctx.mission);
-  const wsBlock = ctx.identity.prompt;
+  let wsBlock = ctx.identity.prompt;
+  let identityExperimentAudit = null;
+  const experimentArm = ctx.mission.identityExperimentArm;
+  if (experimentArm) {
+    const treatment = require('./identityExperimentPromptTreatment').applyIdentityExperimentTreatment({
+      arm: experimentArm, agentId: ctx.mission.agentId, agentName, role: ctx.mission.role,
+      selfIntro, conscienceBlock, workerSelfBlock: wsBlock
+    });
+    selfIntro = treatment.selfIntro;
+    conscienceBlock = treatment.conscienceBlock;
+    wsBlock = treatment.workerSelfBlock;
+    identityExperimentAudit = treatment.audit;
+  }
   const workerKinds = require('./agents/workerKindService');
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
     prompt: ctx.mission.prompt, scope: ctx.mission.workspaceRoot,
     orchestratorAgentId: ctx.mission.orchestratorAgentId,
+    specialtyNiche: ctx.mission.specialtyNiche,
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
@@ -268,11 +283,25 @@ async function runGenerationStage(ctx) {
     agentName: agentName,
     prompt: ctx.mission.prompt,
     workerSelfBlock: wsBlock,
+    identityExperimentArm: experimentArm || null,
     workspaceContext: workspaceContext,
     workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
       sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
+  if (identityExperimentAudit) {
+    const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
+      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
+        ...identityExperimentAudit,
+        identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
+        identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
+        allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
+        promptText,
+        promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
+        promptCharacters: promptText.length
+      }, 'info', 'running');
+    await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
+  }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
   const result = await generateWorkerResult({
     db: ctx.db,
@@ -280,7 +309,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxTokens(budget, promptText),
+    maxTokens: resolveMaxTokens(budget, promptText, ctx.mission.identityExperimentScenario),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
@@ -289,7 +318,7 @@ async function runGenerationStage(ctx) {
     identitySession: ctx.identity.session
   });
   if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
+    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { ...result.schemaViolation, outputExcerpt: String(result.text || '').slice(0, 2048) } });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 

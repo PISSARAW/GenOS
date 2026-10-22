@@ -12,7 +12,7 @@ function requestedWorkspace(request) {
 }
 
 function requestedModel(request) {
-  return request.modelId || request.model_id || process.env.GENOS_LOCAL_MODEL
+  return request.localModel || request.local_model || request.modelId || request.model_id || process.env.GENOS_LOCAL_MODEL
     || process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b';
 }
 
@@ -20,15 +20,34 @@ function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
+  const localModel = requestedModel(request);
+  const identityExperimentArm = request.identityExperimentArm || request.identity_experiment_arm || null;
+  const requestedIdentityScenario = request.identityExperimentScenario || request.identity_experiment_scenario || null;
+  const identityExperimentScenario = identityExperimentArm
+    && ['A', 'B', 'C'].includes(requestedIdentityScenario) ? requestedIdentityScenario : null;
+  const identityExperimentWorker = Boolean(identityExperimentScenario);
+  const allowedEvidenceRefs = ['mission'];
+  if (identityExperimentArm === 'genos_full') allowedEvidenceRefs.push('worker_self');
+  if (identityExperimentArm === 'identity_sheet') allowedEvidenceRefs.push('identity_sheet');
+  const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
+    primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
+    fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
+  };
+  const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
-    prompt: enhancedPrompt, currentTask: enhancedPrompt, role: 'implementation',
-    workerKind: 'bounded_worker', executionMode: 'worker',
+    prompt, currentTask: prompt, role: 'implementation',
+    workerKind: identityExperimentWorker ? 'specialist' : 'bounded_worker',
+    specialtyNiche: identityExperimentWorker ? 'identity continuity and causal self-model analysis' : undefined,
+    identityExperimentScenario,
+    executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
-    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
+    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs,
     requiredPatchPaths: request.requiredPatchPaths,
     requiredPatchMarkers: request.requiredPatchMarkers,
     requiredPatchMinimumBytes: request.requiredPatchMinimumBytes,
-    localModel: requestedModel(request), timeoutMs: requestTimeoutMs,
+    localModel, localRoutingPolicy, identityExperimentArm,
+    identityExperimentSeed: Number.isInteger(request.identityExperimentSeed) ? request.identityExperimentSeed : undefined,
+    timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
       costUsd: missionBudget.costUsd || 0,
       latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },

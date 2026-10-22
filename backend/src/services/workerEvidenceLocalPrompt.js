@@ -2,12 +2,13 @@
 
 function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
-    codeWorker, orchestrator, agentName, prompt, workspaceContext } = context;
+    codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
   const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
   const intro = [selfIntro, workerSelfBlock || '', conscienceBlock, workerBlock].filter(Boolean).join('\n');
   if (codeWorker) return `${intro}\n${requiredPatchInstruction(context.requiredPatchPaths, context.requiredPatchMarkers, context.requiredPatchMinimumBytes)}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
-  return `${intro}\nYou are a bounded GenOS local worker (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}`;
+  const workerLabel = identityExperimentArm === 'llm_only' ? 'a bounded language-model worker' : 'a bounded GenOS local worker';
+  return `${intro}\nYou are ${workerLabel} (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}`;
 }
 
 function requiredPatchInstruction(paths, markers, minimumBytes) {

@@ -52,6 +52,10 @@ function summariesOf(candidates) {
   return candidates.map((candidate) => ({
     agentId: candidate.agentId,
     relationType: candidate.communicationProfile.relationType,
+    relationTypes: candidate.communicationProfile.relationTypes || [],
+    relations: (candidate.communicationProfile.relations || []).map((relation) => ({
+      relationType: relation.relationType, relationClass: relation.relationClass, direction: relation.direction
+    })),
     preferredEncoding: candidate.communicationProfile.preferredEncoding,
     grounding: candidate.communicationProfile.recommendedGrounding,
     epistemicIndependence: candidate.communicationProfile.epistemicIndependence,

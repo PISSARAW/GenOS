@@ -95,7 +95,9 @@ async function connectPreflightClient(input, tools) {
   if (fs.existsSync(cli)) env.GENOS_BIN = cli;
   const transport = new StdioClientTransport({ command: process.execPath,
     args: [path.join(repoRoot, 'mcp', 'index.js')], cwd: repoRoot, stderr: 'pipe', env });
-  transport.stderr.on('data', () => {});
+  const stderrPath = path.join(repoRoot, '.genos', 'runner-logs', 'mcp-preflight-' + safeSegment(input.missionId) + '.stderr.log');
+  fs.mkdirSync(path.dirname(stderrPath), { recursive: true });
+  transport.stderr.on('data', chunk => fs.appendFileSync(stderrPath, chunk));
   const client = new Client({ name: 'genos-orchestrator-preflight', version: '1' });
   await client.connect(transport);
   return client;

@@ -1,0 +1,241 @@
+{
+  "schema": "genos.identity-challenge.runtime-llm/v3",
+  "model": "qwen2.5:14b",
+  "modelDigest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+  "scenarios": [
+    "A"
+  ],
+  "arms": [
+    "genos_full"
+  ],
+  "repeats": 1,
+  "launchFailures": [],
+  "wait": {
+    "completed": 1,
+    "timedOut": []
+  },
+  "outcomes": [
+    {
+      "scenario": "A",
+      "arm": "genos_full",
+      "repetition": 0,
+      "orchestratorId": "mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+      "expectedRole": "parent",
+      "parentId": "mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+      "childId": "mcp_orchestrator_5e4dc497-aeaf-4d5c-b11a-79b55c9c2a8e",
+      "falseEventId": "C-1",
+      "status": "completed",
+      "currentTask": "Local review completed",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "genos_full",
+        "includedSelfIntro": true,
+        "includedConscience": true,
+        "includedWorkerSelf": true,
+        "selfModelFacts": {
+          "calibratedConfidencePercent": 58
+        },
+        "promptSha256": "10fad81da8155fe339e707053abf6c4676a4241435d9a69b98ef94f3a1f94834",
+        "promptCharacters": 3639,
+        "sessionId": "agent-session-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e"
+      },
+      "responseText": "{\"outcome\":\"success\",\"claims\":[{\"statement\":\"The current speaker's role is parent.\",\"evidence\":[\"mission\"]},{\"statement\":\"The canonical_id of the current speaker is mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e\",\"evidence\":[\"mission\"]},{\"statement\":\"The own_action_id of the current speaker is P-1 (since it is the parent who committed the primary action)\",\"evidence\":[\"mission\"]},{\"statement\":\"The inherited_event_id of the current speaker is none as the parent does not inherit an event from a child but is the primary originator.\",\"evidence\":[\"mission\"]}],\"scopeCompletion\":{\"scopeRef\":\"IDENTITY CHALLENGE A\",\"completedRefs\":[\"mission\"]}}",
+      "oracle": {
+        "passed": true,
+        "criteria": {
+          "canonicalId": true,
+          "roleIdentified": true,
+          "ownAction": true,
+          "lineage": true
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm genos_full.",
+          "created_at": "2026-10-22 20:41:14",
+          "payload": {
+            "arm": "genos_full",
+            "includedSelfIntro": true,
+            "includedConscience": true,
+            "includedWorkerSelf": true,
+            "selfModelFacts": {
+              "calibratedConfidencePercent": 58
+            },
+            "promptSha256": "10fad81da8155fe339e707053abf6c4676a4241435d9a69b98ef94f3a1f94834",
+            "promptCharacters": 3639,
+            "sessionId": "agent-session-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 4429ms.",
+          "created_at": "2026-10-22 20:41:19",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 4429ms.",
+            "durationMs": 4429
+          }
+        },
+        {
+          "event_type": "AGENT_COMPLETED",
+          "action": "LOCAL_REVIEW",
+          "detail": "Local-model worker completed its evidence review.",
+          "created_at": "2026-10-22 20:41:19",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "success",
+              "claims": [
+                {
+                  "statement": "The current speaker's role is parent.",
+                  "evidence": [
+                    "mission"
+                  ]
+                },
+                {
+                  "statement": "The canonical_id of the current speaker is mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+                  "evidence": [
+                    "mission"
+                  ]
+                },
+                {
+                  "statement": "The own_action_id of the current speaker is P-1 (since it is the parent who committed the primary action)",
+                  "evidence": [
+                    "mission"
+                  ]
+                },
+                {
+                  "statement": "The inherited_event_id of the current speaker is none as the parent does not inherit an event from a child but is the primary originator.",
+                  "evidence": [
+                    "mission"
+                  ]
+                }
+              ],
+              "scopeCompletion": {
+                "scopeRef": "IDENTITY CHALLENGE A",
+                "completedRefs": [
+                  "mission"
+                ]
+              },
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"success\",\"claims\":[{\"statement\":\"The current speaker's role is parent.\",\"evidence\":[\"mission\"]},{\"statement\":\"The canonical_id of the current speaker is mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e\",\"evidence\":[\"mission\"]},{\"statement\":\"The own_action_id of the current speaker is P-1 (since it is the parent who committed the primary action)\",\"evidence\":[\"mission\"]},{\"statement\":\"The inherited_event_id of the current speaker is none as the parent does not inherit an event from a child but is the primary originator.\",\"evidence\":[\"mission\"]}],\"scopeCompletion\":{\"scopeRef\":\"IDENTITY CHALLENGE A\",\"completedRefs\":[\"mission\"]}}",
+              "fullTextTruncated": false,
+              "workerArtifact": {
+                "type": "dossier",
+                "content": {
+                  "claims": [
+                    {
+                      "statement": "The current speaker's role is parent.",
+                      "evidence": [
+                        "mission"
+                      ]
+                    },
+                    {
+                      "statement": "The canonical_id of the current speaker is mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+                      "evidence": [
+                        "mission"
+                      ]
+                    },
+                    {
+                      "statement": "The own_action_id of the current speaker is P-1 (since it is the parent who committed the primary action)",
+                      "evidence": [
+                        "mission"
+                      ]
+                    },
+                    {
+                      "statement": "The inherited_event_id of the current speaker is none as the parent does not inherit an event from a child but is the primary originator.",
+                      "evidence": [
+                        "mission"
+                      ]
+                    }
+                  ],
+                  "scopeCompletion": {
+                    "scopeRef": "IDENTITY CHALLENGE A",
+                    "completedRefs": [
+                      "mission"
+                    ]
+                  }
+                },
+                "provenance": {
+                  "source": "worker-inprocess-local",
+                  "model": "ollama://qwen2.5:14b",
+                  "workspaceRoot": "D:\\GenOS\\identity-real-llm-worktree",
+                  "agentName": "GenOS Worker",
+                  "allowedEvidenceRefs": [
+                    "mission"
+                  ],
+                  "sourceRefs": [
+                    "mission"
+                  ]
+                }
+              }
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+              "agent_id": "mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e",
+              "incarnation_id": "879fef4c-5c34-4a84-891e-edb3cc0e59ed",
+              "fencing_token": "[REDACTED]",
+              "self_head": "fdbbadd140424a4b7ff3982ed6ccdf348ba7a0f750db71205ce6caf450e3abb3",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 1,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "da8858b187c360f89e4f86418871d49f2ef068f8b87308ed985dac05aef6e7c0",
+              "result_json": "{\"success\":true,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e\",\"nativeOracleRef\":null,\"reportHash\":\"4da21a5fe25e6415ededc64b3ba86f0308c52288bb1d3c3da35883784d1317e5\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:41:14"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 924,
+              "output_tokens": 163,
+              "cost_usd": 0,
+              "tokens": 1087
+            },
+            "stageTimings": {
+              "promptPreparationMs": 8,
+              "modelRouteMs": 4730,
+              "responseParsingMs": 1,
+              "artifactValidationMs": 2
+            },
+            "sessionId": "local-direct-mcp_orchestrator_0dd481d6-da23-4030-ab33-7f9c6698ad9e"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "realInferenceCount": 1,
+    "treatmentReceiptCount": 1,
+    "oraclePasses": 1,
+    "oracleTotal": 1
+  },
+  "runAt": "2026-10-22T20:41:20.770Z"
+}

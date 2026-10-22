@@ -20,6 +20,12 @@ function homeostasisStateId(missionId) {
   return `homeostasis_state_${missionId || 'unknown'}_${crypto.randomUUID()}`;
 }
 
+function requiresTestSuiteEvidence(mission) {
+  if (mission?.requiresTestSuite === true || mission?.requires_test_suite === true) return true;
+  const objective = String(mission?.objective || '');
+  return /\b(?:run|execute|rerun|write|add|fix|make)\b.{0,48}\btests?\b/i.test(objective)
+    || /\btests?\b.{0,48}\b(?:must|should|need to|have to)\s+(?:pass|run|execute)\b/i.test(objective);
+}
 function buildDefaultFunctionalInvariants(mission) {
   const invariants = [];
   const goal = (mission?.objective || '').toLowerCase();
@@ -57,7 +63,7 @@ function buildDefaultFunctionalInvariants(mission) {
       verifier: { type: 'context.list_empty', path: 'structuralChecks.forbiddenFilesChanged' }
     });
   }
-  if (goal.includes('test') || goal.includes('valid')) {
+  if (requiresTestSuiteEvidence(mission)) {
     invariants.push({
       id: 'tests_pass',
       kind: 'structural',
@@ -74,7 +80,7 @@ function defaultEvidenceRequirements(mission) {
   if (goal.includes('proof') || goal.includes('preuve') || goal.includes('evidence')) {
     required.push('evidence_report');
   }
-  if (goal.includes('test')) {
+  if (requiresTestSuiteEvidence(mission)) {
     required.push('test_suite_passed');
   }
   return required;
@@ -290,6 +296,7 @@ module.exports = {
   homeostasisId,
   buildMissionHomeostasis,
   buildDefaultFunctionalInvariants,
+  requiresTestSuiteEvidence,
   defaultEvidenceRequirements,
   attachHomeostasisToOrganism,
   evaluateMissionHomeostasis,
