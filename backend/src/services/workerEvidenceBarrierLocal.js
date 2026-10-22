@@ -241,11 +241,23 @@ async function runGenerationStage(ctx) {
   throwIfPromptOverBudget(estimate, budget);
   const agentName = resolveAgentName(ctx.mission);
   const nameMeaning = resolveNameMeaning(ctx.mission, agentName);
-  const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, ctx.mission.role);
+  let selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, ctx.mission.role);
   const conscienceState = await agentConscience.loadConscienceState(ctx.db, ctx.mission.agentId);
-  const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
+  let conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
   const workerModel = resolveWorkerModel(ctx.mission);
-  const wsBlock = ctx.identity.prompt;
+  let wsBlock = ctx.identity.prompt;
+  let identityExperimentAudit = null;
+  const experimentArm = ctx.mission.identityExperimentArm;
+  if (experimentArm) {
+    const treatment = require('./identityExperimentPromptTreatment').applyIdentityExperimentTreatment({
+      arm: experimentArm, agentId: ctx.mission.agentId, agentName, role: ctx.mission.role,
+      selfIntro, conscienceBlock, workerSelfBlock: wsBlock
+    });
+    selfIntro = treatment.selfIntro;
+    conscienceBlock = treatment.conscienceBlock;
+    wsBlock = treatment.workerSelfBlock;
+    identityExperimentAudit = treatment.audit;
+  }
   const workerKinds = require('./agents/workerKindService');
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -268,11 +280,21 @@ async function runGenerationStage(ctx) {
     agentName: agentName,
     prompt: ctx.mission.prompt,
     workerSelfBlock: wsBlock,
+    identityExperimentArm: experimentArm || null,
     workspaceContext: workspaceContext,
     workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
       sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
+  if (identityExperimentAudit) {
+    const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
+      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
+        ...identityExperimentAudit,
+        promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
+        promptCharacters: promptText.length
+      }, 'info', 'running');
+    await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
+  }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
   const result = await generateWorkerResult({
     db: ctx.db,

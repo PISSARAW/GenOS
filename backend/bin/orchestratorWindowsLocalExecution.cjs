@@ -25,12 +25,13 @@ function buildLocalMission(input) {
     primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
     fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
   };
+  const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
-    prompt: enhancedPrompt, currentTask: enhancedPrompt, role: 'implementation',
+    prompt, currentTask: prompt, role: 'implementation',
     workerKind: 'bounded_worker', executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
-    localModel, localRoutingPolicy, timeoutMs: requestTimeoutMs,
+    localModel, localRoutingPolicy, identityExperimentArm: request.identityExperimentArm || request.identity_experiment_arm || null, timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
       costUsd: missionBudget.costUsd || 0,
       latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },
@@ -93,4 +94,4 @@ async function runWindowsLocalExecution(input) {
   return true;
 }
 
-module.exports = { runWindowsLocalExecution };
+module.exports = { runWindowsLocalExecution, buildLocalMission };
