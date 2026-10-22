@@ -2,11 +2,16 @@
 
 function availableBudget(session) {
   const raw = session.budgets?.growth ?? session.budgets?.default ?? 0;
-  const reserve = session.variantPolicy?.growth?.growthReserveRatio;
-  if (Number.isFinite(reserve) && reserve > 0 && reserve < 1) {
-    return raw * (1 - reserve);
+  let value = raw;
+  const growthReserve = session.variantPolicy?.growth?.growthReserveRatio;
+  if (Number.isFinite(growthReserve) && growthReserve > 0 && growthReserve < 1) {
+    value *= (1 - growthReserve);
   }
-  return raw;
+  const recoveryReserve = session.variantPolicy?.resilience?.recoveryReserveRatio;
+  if (Number.isFinite(recoveryReserve) && recoveryReserve > 0 && recoveryReserve < 1) {
+    value *= (1 - recoveryReserve);
+  }
+  return value;
 }
 
 function fitsBudget(session, candidate) {
