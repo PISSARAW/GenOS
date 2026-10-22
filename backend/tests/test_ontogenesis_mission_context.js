@@ -80,6 +80,15 @@ try {
     selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
     worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: repairMission });
   assert.strictEqual(repairRequest.localCodeWorker, true);
+
+  const verifyProject = { root_path: root, objective: 'Verify the configured acceptance command for the project' };
+  const verifyMission = compileMission(verifyProject);
+  assert.strictEqual(verifyMission.kind, 'verify');
+  const implementationTask = requestFor({ id: 'verify-project-implementation-task', project: verifyProject,
+    task: { title: 'Implement sumPrices and verify its behavior', acceptance_json: '[]', id: 'implementation-task' },
+    selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
+    worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: verifyMission });
+  assert.strictEqual(implementationTask.localCodeWorker, true);
   assert.strictEqual(candidateWorkspace([
     { id: 'run-1', execution_mode: 'orchestrator', status: 'completed', workspace_path: root },
     { id: 'worker-1', execution_mode: 'worker', status: 'completed', workspace_path: root + '/capsule' }

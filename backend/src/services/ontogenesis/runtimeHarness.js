@@ -84,6 +84,10 @@ function requestFor(input) {
   const checks = input.config.checks || [];
   const roles = input.selection.workerRoles || [];
   const mission = input.mission || {};
+  const taskIntent = `${input.task?.kind || ''} ${input.task?.title || ''} ${input.task?.goal || ''}`
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const isCodeTask = ['implement', 'repair'].includes(mission.kind)
+    || /\b(?:implement(?:ation|er|ing)?|repair|fix|bug|patch|corrig(?:er|e|é))\b/i.test(taskIntent);
   const plan = mission.plan || {};
   return {
     id: input.id, missionId: `mission_${input.id}`,
@@ -92,7 +96,7 @@ function requestFor(input) {
     workspaceId: 'ws-local',
     workspaceProvisioned: true,
     capsuleRoot: path.join(path.dirname(path.resolve(input.worktree)), 'capsules'),
-    localCodeWorker: ['implement', 'repair'].includes(mission.kind),
+    localCodeWorker: isCodeTask,
     requiredPatchPaths: requiredWebPatchPaths(input),
     requiredPatchMarkers: requiredWebPatchMarkers(input),
     requiredPatchMinimumBytes: requiredWebPatchMinimumBytes(input),
