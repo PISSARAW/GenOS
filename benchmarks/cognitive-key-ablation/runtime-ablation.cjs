@@ -29,10 +29,11 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '../..');
 const ORCHESTRATE = path.join(ROOT, 'backend/bin/genos-orchestrate.cjs');
-const DB_PATH = path.join(ROOT, 'backend/genos.db');
+const DB_PATH = process.env.GENOS_DB_PATH || path.join(ROOT, '.genos/data/operational/genos.db');
 
 const MISSIONS = [
   'Diagnose why a distributed cache serves stale reads after failover. The causal uncertainty persists: separate observed regularity from cause, propose the most likely cause, and list the tests that would verify or refute each claim.',
@@ -69,7 +70,11 @@ function runMission(mission, arm, config) {
     OLLAMA_MODEL: config.model,
     GENOS_AGENT_EXECUTOR: 'local',
     GENOS_OLLAMA_ENDPOINT: 'http://127.0.0.1:11434/v1/chat/completions',
-    GENOS_RUNNER_LOG_DIR: path.join(ROOT, '.genos/runner-logs')
+    GENOS_RUNNER_LOG_DIR: path.join(ROOT, '.genos/runner-logs'),
+    GENOS_DB_PATH: DB_PATH,
+    GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || crypto.randomBytes(32).toString('hex'),
+    GENOS_LOCAL_MODEL: config.model,
+    GENOS_DEFAULT_MODEL: 'ollama://' + config.model
   };
   if (arm === 'E') env.GENOS_COGNITIVE_PHENOTYPE = '1';
   const payload = JSON.stringify({
@@ -78,10 +83,11 @@ function runMission(mission, arm, config) {
     timeoutMs: config.timeout * 1000
   });
   console.log(`[${arm}] mission lancée: ${mission.slice(0, 60)}...`);
-  const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, timeout: 30000 });
+  const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, cwd: ROOT, timeout: 120000 });
   if (result.status !== 0) {
-    console.error(`[${arm}] refus de mission: ${(result.stderr || '').slice(0, 200)}`);
-    return null;
+    const failure = { launchError: result.error?.message || `exit ${result.status}`, stdout: (result.stdout || '').slice(-4000), stderr: (result.stderr || '').slice(-4000) };
+    console.error(`[${arm}] refus de mission: ${failure.launchError} ${(failure.stderr || failure.stdout).slice(0, 200)}`);
+    return failure;
   }
   try {
     return JSON.parse(result.stdout);
@@ -114,7 +120,7 @@ function readOutcomes(orchestratorIds) {
         workerReports: dossierEvents.length
       });
     }
-    const registry = await db.all('SELECT recipe_id, context, runs, observed_gain, useful_dossiers FROM cognitive_recipe_performance');
+    const registry = await db.all('SELECT recipe_id, context, runs, observed_gain, useful_dossiers FROM cognitive_recipe_performance').catch(() => []);
     await db.close();
     return { outcomes, registry };
   })();
@@ -149,11 +155,13 @@ async function main() {
   preheat(config.model);
 
   const launched = [];
+  const launchFailures = [];
   // Ordre alterné A, E, A, E… pour neutraliser la dérive entre bras
   for (let i = 0; i < missions.length; i += 1) {
     for (const arm of ['A', 'E']) {
       const handle = runMission(missions[i], arm, config);
-      if (handle) launched.push({ arm, missionIndex: i, ...handle });
+      if (handle?.launchError) launchFailures.push({ arm, missionIndex: i, ...handle });
+      else if (handle) launched.push({ arm, missionIndex: i, ...handle });
     }
   }
   console.log(`\n[dispatch] ${launched.length} mission(s) acceptée(s). Attente de complétion (max ${config.timeout}s)...`);
@@ -180,6 +188,7 @@ async function main() {
     model: config.model,
     missions: missions.length,
     launched: launched.map((l) => ({ arm: l.arm, mission: l.missionIndex, orchestratorId: l.orchestratorId })),
+    launchFailures,
     outcomes,
     registry,
     completed: wait.completed,
