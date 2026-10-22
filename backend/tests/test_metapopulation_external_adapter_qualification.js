@@ -27,6 +27,36 @@ async function run() {
   assert.equal(thrown.qualified, false);
   assert.equal(thrown.reason, 'boom');
 
+  const solverValid = await qualification.qualifySolverAdapter(async () => ({
+    demeId: 'deme-a', solverId: 'sat', problemRef: 'problem-1', seed: 'seed-1',
+    objective: 0.9, incumbentRef: 'inc-1', evidenceRef: 'evidence-1', provenance: { solver: 'external' },
+    counterexampleRefs: [], iterations: 10
+  }));
+  assert.equal(solverValid.qualified, true);
+
+  const solverMissing = await qualification.qualifySolverAdapter(async () => ({ demeId: 'deme-a' }));
+  assert.equal(solverMissing.qualified, false);
+
+  const fitnessValid = await qualification.qualifyFitnessEvaluator(async () => ({ fitness: 0.7, evidenceRef: 'fitness-evidence', provenance: { evaluator: 'external' } }));
+  assert.equal(fitnessValid.qualified, true);
+
+  const receipt = await qualification.qualifyAdapterReceiptReplay({
+    adapterName: 'migrationAdapter',
+    invoke: async (context) => ({ receiptId: 'receipt-1', idempotencyKey: context.idempotencyKey }),
+    context: { metapopulationId: 'session-1' },
+    idempotencyKey: 'key-1'
+  });
+  assert.equal(receipt.qualified, true);
+
+  const nonReplayed = await qualification.qualifyAdapterReceiptReplay({
+    adapterName: 'migrationAdapter',
+    invoke: async (context) => ({ receiptId: Math.random().toString(), idempotencyKey: context.idempotencyKey }),
+    context: { metapopulationId: 'session-1' },
+    idempotencyKey: 'key-2'
+  });
+  assert.equal(nonReplayed.qualified, false);
+  assert.equal(nonReplayed.reason, 'RECEIPT_NOT_REPLAYED');
+
   console.log('Metapopulation external adapter qualification: PASS');
 }
 
