@@ -15,6 +15,8 @@ const observer = require('./ecosystemObserver');
 const interactions = require('./ecologicalInteractions');
 const biofilm = require('../../biofilmMatrixService');
 const goalOracle = require('../contracts/goalVerificationReceipt');
+const mutationOracle = require('../contracts/mutationVerificationReceipt');
+const { digest } = require('../../evidenceContractService');
 
 async function advance(session, input, options) {
   validateInput(input);
@@ -39,6 +41,7 @@ async function advance(session, input, options) {
   const measurements = observer.measure(ecology);
   await verifyGoal(session, measurements, { ...options,
     goalEvidenceRefs: input.evidenceRefs || [] });
+  await verifyMutation(session, { input, measurements, options });
   runtime.stopCondition = ecologicalStop(session, measurements);
   ecology.ecologicalState.health = measurements.health;
   ecology.status = ecologyStatus(runtime);
@@ -50,7 +53,8 @@ async function advance(session, input, options) {
   return { tick: runtime.tick, observations: measurements, decision: variant.decision,
     action: variant.action, actions, actionResult: { status: 'applied' }, measurements,
     shouldStop: Boolean(runtime.stopCondition), stopCondition: runtime.stopCondition,
-    goalVerification: runtime.goalVerification || null };
+    goalVerification: runtime.goalVerification || null,
+    mutationVerification: runtime.mutationVerification };
 }
 
 function validateInput(input) {
@@ -166,6 +170,41 @@ function goalReceipt(result, expected, unhealthy) {
       && result.verified === true && trusted,
     sessionId: expected.sessionId, tick: expected.tick,
     missionId: expected.missionId, producerId: expected.producerId,
+    evidenceRefs: evidence ? expected.evidenceRefs : [],
+    oracleReceipt: result?.oracleReceipt || null };
+}
+
+async function verifyMutation(session, context) {
+  const { input, measurements, options } = context;
+  const runtime = session.ecology.ecologicalState.runtime;
+  if (typeof options.verifyMutation !== 'function') {
+    runtime.mutationVerification = null;
+    return;
+  }
+  const missionId = options.missionId || session.missionId || null;
+  const producerId = options.producerId || null;
+  const evidenceRefs = input.evidenceRefs || [];
+  const request = { sessionId: session.sessionId, tick: runtime.tick,
+    missionId, producerId,
+    evidenceRefs,
+    measurements, ecology: session.ecology, revision: session.revision || null };
+  const result = await require('./boundedInvocation').invoke(options.verifyMutation,
+    structuredClone(request), options);
+  const stateHash = digest(session.ecology);
+  runtime.mutationVerification = mutationReceipt(result, request, stateHash);
+}
+
+function mutationReceipt(result, expected, stateHash) {
+  const matched = result?.sessionId === expected.sessionId && result?.tick === expected.tick;
+  const evidence = Array.isArray(result?.evidenceRefs)
+    && result.evidenceRefs.some(ref => typeof ref === 'string' && ref.trim());
+  const candidate = { ...expected, verified: true, health: expected.measurements.health,
+    revision: expected.revision, stateHash };
+  const trusted = mutationOracle.assess(result?.oracleReceipt, candidate).verified;
+  return { verified: matched && evidence && result?.verified === true && trusted,
+    sessionId: expected.sessionId, tick: expected.tick,
+    missionId: expected.missionId, producerId: expected.producerId,
+    revision: expected.revision, stateHash,
     evidenceRefs: evidence ? expected.evidenceRefs : [],
     oracleReceipt: result?.oracleReceipt || null };
 }
