@@ -59,3 +59,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commande : `npm --prefix backend run test:shev`.
 - Résultat : projet, arbitrage endogène et fraîcheur des données passent; le quatrième scénario s'arrête sur `git init` temporaire avec `Permission denied` dans le sandbox. Code de sortie 1.
 - Verdict : passage partiel, aucun verdict sur le reste de SHEV. Relance de la suite requise hors sandbox.
+
+### T03 — résultat après déblocage
+
+- Relance : `npm --prefix backend run test:shev`, hors sandbox; code de sortie 0.
+- Les 18 scénarios SHEV passent, dont initiative signée, fraîcheur des données, récupération, budgets, arrêt, reprise durable, progression réservée et CLI de campagne.
+- Verdict local T03 : les contrats SHEV passent. Le test de campagne longitudinal est explicitement protocol-only; aucun résultat de terrain n'est revendiqué.
