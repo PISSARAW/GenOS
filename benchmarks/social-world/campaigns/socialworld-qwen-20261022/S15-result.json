@@ -2,11 +2,20 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S15",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "955ebde7521047efb83f24b9c960db7a5e7292f3",
-  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "stage": "qwen-warmup",
+  "sourceCommit": "56a8a50957758297f544c2b72cf170b3e99bafaa",
+  "expected": {
+    "recipients": [
+      "agent-b"
+    ],
+    "excluded": [
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
   "observed": {
     "recipients": [
       "agent-b"
@@ -81,7 +90,7 @@
     "simulated": false,
     "published": true,
     "cycleId": "s15-unicast",
-    "signalId": "sig_104db06d-5e93-4a52-a0a6-74c515c7afd2",
+    "signalId": "sig_095ba233-756e-4ed3-9129-a233931556db",
     "reason": null,
     "deliveryAcknowledgements": [],
     "grounding": {
@@ -124,8 +133,21 @@
       "RECIPIENT_EXPERT"
     ]
   },
+  "warmup": {
+    "response": "Here is the requested JSON object:\n\n{\"ready\":true}"
+  },
+  "qwenResponse": "Here is the JSON object with the recipients and semanticRefs as requested:\n\n{\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"route-plan:17\"]\n}",
+  "answer": {
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
   "enginePass": true,
-  "warmup": null,
-  "verified": false,
-  "durationMs": 185807
+  "verified": true,
+  "oracle": "A live unicast reaches B with the exact reference and does not inform C",
+  "durationMs": 13265
 }

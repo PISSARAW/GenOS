@@ -18,13 +18,13 @@
 | S06 Hi√©rarchie | Non ex√©cut√© | ‚Äî |
 | S07 Relations multiples | R√©ussi | `S07-result.json`, commit `06fbd41e` |
 | S08 Inconnu et usurpation | Non ex√©cut√© | ‚Äî |
-| S09 Initiative sociale | RÈussi avec Qwen 2.5 14B aprËs correctif | `S09-attempt-01.json` (Èchec), `S09-result.json`; source `6d691034` |
-| S10 Entraide | RÈussi avec Qwen 2.5 14B | `S10-result.json`; source `346cc396` |
-| S11 Reprise de contact | RÈussi avec Qwen 2.5 14B; premier essai expirÈ | `S11-attempt-01.json` (timeout), `S11-result.json`; source `c96ae085` |
-| S12 Silence intelligent | RÈussi avec Qwen 2.5 14B aprËs correctif | `S12-result.json`; source `6d691034` |
-| S13 RÈconciliation | RÈussi avec Qwen 2.5 14B; premier essai expirÈ | `S13-attempt-01.json` (timeout), `S13-result.json`; source `58643b93` |
+| S09 Initiative sociale | Reussi avec Qwen 2.5 14B apres correctif | `S09-attempt-01.json` (echec), `S09-result.json`; source `6d691034` |
+| S10 Entraide | Reussi avec Qwen 2.5 14B | `S10-result.json`; source `346cc396` |
+| S11 Reprise de contact | Reussi avec Qwen 2.5 14B; premier essai expire | `S11-attempt-01.json` (timeout), `S11-result.json`; source `c96ae085` |
+| S12 Silence intelligent | Reussi avec Qwen 2.5 14B apres correctif | `S12-result.json`; source `6d691034` |
+| S13 Reconciliation | Reussi avec Qwen 2.5 14B; premier essai expire | `S13-attempt-01.json` (timeout), `S13-result.json`; source `58643b93` |
 | S14 Curiosite sociale | Reussi avec Qwen 2.5 14B | `S14-result.json`; source `ac368cc9` |
-| S15 Unicast | Non ex√©cut√© | ‚Äî |
+| S15 Unicast | Reussi avec Qwen 2.5 14B; C exclu | `S15-attempt-01.json`, `S15-attempt-02.json` (timeouts), `S15-result.json`; source `56a8a509` |
 | S16 Multicast s√©lectif | Non ex√©cut√© | ‚Äî |
 | S17 Broadcast / quorum | Non ex√©cut√© | ‚Äî |
 | S18 Stigmergie | Non ex√©cut√© | ‚Äî |
