@@ -52,8 +52,8 @@ Chaque agent a un périmètre circonscrit, des livrables et un critère de réus
 **Rôle** : valider les contrôles globaux du dépôt et le parcours HTTP → Rust complet.
 
 **Périmètre**
-- ~~Faire passer `npm test` (hors sandbox) jusqu’au bout~~ → Timeout sur `test:workers` (`test_worker_compliance_native_missions.js`) après ~5 min.
-- `test_consumer_inspection.js` : attend HTTP 200, reçoit 403 `UNAUTHORIZED_PROMOTION` pour un reçu d’approbation invalide (bilan du 2026-10-14, inchangé). Non résolu dans cette campagne.
+- ~~Faire passer `npm test` (hors sandbox) jusqu’au bout~~ → Timeout sur `test:workers` (`test_worker_compliance_native_missions.js`) après ~5 min. Ce timeout est préexistant et sans lien avec la nosologie.
+- `test_consumer_inspection.js` : passe individuellement (approve → 200, pas de 403 `UNAUTHORIZED_PROMOTION`). Le 403 signalé dans l'AGENTS.md n'est pas reproductible sur l'état actuel du code. Le test n'est jamais atteint dans `npm test` car il s'exécute après `test:workers` qui timeout.
 - Valider le parcours HTTP → Rust → journal après redémarrage (`test:clinical-rust-e2e`).
 - Corriger ou documenter les tests globaux encore en échec/incomplet.
 - Automatiser la reproduction des commandes du catalogue runtime.
