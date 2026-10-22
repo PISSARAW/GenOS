@@ -179,6 +179,11 @@ function testCompleteAssemblyAndExport(rootDir) {
   const verifiedDisk = sere.verifyExportedSereBundle(exportDir);
   assert.equal(verifiedDisk.verified, true);
   assert.equal(verifiedDisk.dossierHash, report.dossier.dossierHash);
+  const presentationPath = path.join(exportDir, 'presentation.json');
+  const originalPresentation = fs.readFileSync(presentationPath, 'utf8');
+  fs.writeFileSync(presentationPath, `${originalPresentation} `, 'utf8');
+  assert.throws(() => sere.verifyExportedSereBundle(exportDir), { code: 'SERE_EXPORTED_FILE_TAMPERED' });
+  fs.writeFileSync(presentationPath, originalPresentation, 'utf8');
   return { report, exportDir };
 }
 
@@ -261,9 +266,68 @@ function testRemediationCampaignBridge() {
     ...['verifier-a', 'verifier-b'].map((id) => buildCampaignVerifierReceipt(byFamily.structural_fix, id, false))
   ];
   const adjudication = adjudicator.adjudicateCampaign(campaign, receipts);
-  const bundle = sere.assembleReportFromRemediationCampaign({ mandate: sampleMandate(), batch, graph, campaign, receipts, adjudication });
+  const baseEvidence = sampleReportInput();
+  const receiptObservations = receipts.map((receipt, index) => ({
+    id: `obs-campaign-receipt-${index + 1}`,
+    source: 'verifier_receipt',
+    producerId: campaign.producerId,
+    verifierId: receipt.verifierId,
+    observedAt: `2026-10-22T09:40:0${index}.000Z`,
+    target: 'src/users.js',
+    severity: receipt.status === 'verified' ? 'info' : 'warning',
+    summary: `Recorded verifier result for ${receipt.candidateId}.`,
+    artifactRef: receipt.evidenceRef,
+    artifactHash: receipt.receiptHash,
+    metrics: receipt.checks.metrics
+  }));
+  const chronology = [
+    ...baseEvidence.chronology,
+    ...receiptObservations.map((observation, index) => ({
+      id: `evt-campaign-receipt-${index + 1}`,
+      occurredAt: observation.observedAt,
+      sequence: 5 + index,
+      phase: 'verification',
+      kind: 'independent_verifier_receipt',
+      actorId: observation.verifierId,
+      summary: observation.summary,
+      evidenceRefs: [observation.id]
+    }))
+  ];
+  const reportEvidence = {
+    observations: [...baseEvidence.observations, ...receiptObservations],
+    chronology,
+    unknowns: baseEvidence.hypotheses.unknowns,
+    actions: baseEvidence.actions,
+    beforeAfter: baseEvidence.beforeAfter,
+    visibilityLimitations: baseEvidence.visibilityLimitations.map((lim) => ({
+      ...lim,
+      affectedHypothesisIds: [`hyp-${byFamily.structural_fix.id}`]
+    })),
+    decisions: baseEvidence.decisions.map((decision) => ({
+      ...decision,
+      evidenceRefs: ['obs-verif-1', `hyp-${byFamily.structural_fix.id}`, 'diff-users-1', 'lim-no-prod-traffic']
+    }))
+  };
+  const bridgeInput = {
+    reportId: 'sere-campaign-bridge', mandate: sampleMandate(), campaign, receipts, adjudication,
+    reportEvidence
+  };
+  assert.throws(
+    () => sere.assembleReportFromRemediationCampaign({ ...bridgeInput, reportEvidence: undefined }),
+    { code: 'SERE_CAMPAIGN_REPORT_EVIDENCE_REQUIRED' },
+  );
+  assert.throws(
+    () => sere.assembleReportFromRemediationCampaign({
+      ...bridgeInput, adjudication: { ...adjudication, outcomes: [] }
+    }),
+    { code: 'SERE_CAMPAIGN_ADJUDICATION_MISMATCH' },
+  );
+  const bundle = sere.assembleReportFromRemediationCampaign(bridgeInput);
   assert.equal(bundle.verification.status, 'verified');
   assert.equal(bundle.presentationCheck.ok, true);
+  assert.equal(bundle.dossier.chronology.items.some((event) => event.id === 'evt-campaign-receipt-1'), true);
+  assert.equal(bundle.dossier.actions.executed.length, reportEvidence.actions.executed.length);
+  assert.equal(bundle.dossier.observations.items.some((item) => item.observedAt === '2026-10-22T09:40:00.000Z'), true);
 }
 
 function main() {

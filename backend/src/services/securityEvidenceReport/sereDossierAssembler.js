@@ -5,7 +5,6 @@ const {
   AUTHORITY_MODEL,
   failure,
   text,
-  computeDigest,
   fingerprint
 } = require('./serePrimitives');
 const {
@@ -20,6 +19,7 @@ const {
   normalizeVisibilityLimitations,
   normalizeDecisions
 } = require('./sereOperationalSections');
+const { adjudicateCampaign } = require('../securityRemediation/campaignAdjudicator');
 
 function assembleSereDossier(input) {
   if (!input || typeof input !== 'object') throw failure('SERE_INPUT_REQUIRED');
@@ -62,50 +62,10 @@ function assembleSereDossier(input) {
   return { ...body, dossierHash: fingerprint(body) };
 }
 
-function campaignAlertObservations(batch, baseTimeMs) {
-  return (batch?.alerts || []).map((alert, index) => ({
-    id: `obs-alert-${index + 1}`,
-    source: alert.source || 'scanner',
-    producerId: `scanner:${alert.ruleId}`,
-    verifierId: null,
-    observedAt: new Date(baseTimeMs + index * 1000).toISOString(),
-    target: alert.location.path,
-    severity: alert.severity,
-    summary: `[${alert.ruleId}] ${alert.message}`,
-    artifactRef: `antigen://${alert.antigenHash}`,
-    artifactHash: alert.antigenHash,
-    metrics: { line: alert.location.line, cwes: alert.cwes }
-  }));
-}
-
-function toReceiptObservation(receipt, index, ctx) {
-  const candidate = ctx.candidates.get(receipt.candidateId) ?? {};
-  const severity = receipt.status === 'verified' ? 'info' : 'warning';
-  return {
-    id: `obs-receipt-${index + 1}`,
-    source: 'verifier_receipt',
-    producerId: candidate.producerId ?? 'campaign-producer',
-    verifierId: receipt.verifierId,
-    observedAt: new Date(ctx.baseTimeMs + 60000 + index * 1000).toISOString(),
-    target: candidate.target ?? 'workspace',
-    severity,
-    summary: `Verifier ${receipt.verifierId} evaluated ${receipt.candidateId} as ${receipt.status}`,
-    artifactRef: receipt.evidenceRef,
-    artifactHash: receipt.receiptHash,
-    metrics: receipt.checks?.metrics ?? {}
-  };
-}
-
-function campaignReceiptObservations(campaign, receipts, baseTimeMs) {
-  const candidates = new Map((campaign?.candidates ?? []).map((item) => [item.id, item]));
-  const ctx = { candidates, baseTimeMs };
-  return (receipts ?? []).map((receipt, index) => toReceiptObservation(receipt, index, ctx));
-}
-
 function mapCampaignConfirmations(outcome, supporting, receiptObsByHash) {
   return supporting.map((rec, idx) => ({
     id: `conf-${outcome.candidateId}-${idx + 1}`,
-    observationId: receiptObsByHash.get(rec.receiptHash) ?? 'obs-receipt-1',
+    observationId: receiptObsByHash.get(rec.receiptHash),
     verifierId: rec.verifierId,
     independent: true,
     rationale: `Scanner=${rec.checks.scannerOutcome}, reproduction=${rec.checks.safePathReproduction}`,
@@ -116,7 +76,7 @@ function mapCampaignConfirmations(outcome, supporting, receiptObsByHash) {
 function mapCampaignRefutations(outcome, refuting, receiptObsByHash) {
   return refuting.map((rec, idx) => ({
     id: `ref-${outcome.candidateId}-${idx + 1}`,
-    observationId: receiptObsByHash.get(rec.receiptHash) ?? 'obs-receipt-1',
+    observationId: receiptObsByHash.get(rec.receiptHash),
     verifierId: rec.verifierId,
     independent: true,
     counterexample: `Verification refuted candidate ${outcome.candidateId}: ${outcome.reasons.join(', ')}`,
@@ -149,102 +109,67 @@ function buildCampaignHypothesisEntry(outcome, receiptObsByHash, unknowns) {
   };
 }
 
-function buildCampaignInputFromArtifacts(input) {
-  const baseTimeMs = Date.parse(input.mandate?.issuedAt || '2026-10-22T12:00:00Z');
-  const alertObs = campaignAlertObservations(input.batch, baseTimeMs);
-  const targetDefault = alertObs[0]?.target || 'workspace';
-  const enrichedCampaign = {
-    ...input.campaign,
-    candidates: (input.campaign?.candidates || []).map((item) => ({ ...item, target: item.target || targetDefault }))
-  };
-  const receiptObs = campaignReceiptObservations(enrichedCampaign, input.receipts, baseTimeMs);
-  const observations = [...alertObs, ...receiptObs];
-  const receiptObsByHash = new Map(receiptObs.map((obs) => [obs.artifactHash, obs.id]));
+function buildCampaignHypotheses(input) {
+  const observations = input.reportEvidence.observations;
+  const receiptObsByHash = new Map(observations.map((obs) => [obs.artifactHash, obs.id]));
   const unknowns = {
-    firstCandidateId: input.adjudication?.outcomes?.[0]?.candidateId,
-    items: input.unknowns || [{
-      id: 'unk-live-exploit',
-      area: 'production-runtime',
-      description: 'Live exploit payloads were not executed outside the isolated copy-on-write fixture.',
-      impact: 'Production-specific WAF or hardware timing side-effects remain outside fixture scope.',
-      mitigationRef: 'lim-isolated-fixture'
-    }]
+    firstCandidateId: input.adjudication.outcomes?.[0]?.candidateId,
+    items: input.reportEvidence.unknowns
   };
   const hypotheses = (input.adjudication?.outcomes || []).map(
     (outcome) => buildCampaignHypothesisEntry(outcome, receiptObsByHash, unknowns)
   );
-  return { baseTimeMs, targetDefault, enrichedCampaign, observations, hypotheses };
+  return { observations, hypotheses };
 }
 
-function buildCampaignOperationalInput(input, context) {
-  const { baseTimeMs, targetDefault, enrichedCampaign, observations } = context;
-  const authorized = enrichedCampaign.candidates.map((cand) => ({
-    id: `auth-${cand.id}`,
-    actionType: 'isolated_verification',
-    target: cand.target,
-    commandOrTool: `capsule:${cand.isolation?.workspaceId || cand.id}`,
-    authorizedBy: input.mandate.issuer,
-    leaseRef: `lease:${cand.id}`
-  }));
-  const executed = enrichedCampaign.candidates.map((cand, idx) => ({
-    id: `exec-${cand.id}`,
-    authorizedActionId: `auth-${cand.id}`,
-    actionType: 'isolated_verification',
-    target: cand.target,
-    actorId: cand.producerId || 'campaign-runner',
-    executedAt: new Date(baseTimeMs + 30000 + idx * 1000).toISOString(),
-    status: cand.status === 'blocked_by_negative_memory' ? 'blocked' : 'succeeded',
-    receiptRef: `campaign://${enrichedCampaign.campaignHash}/${cand.id}`,
-    receiptHash: computeDigest(`${enrichedCampaign.campaignHash}:${cand.id}`)
-  }));
-  const rec = input.adjudication.recommendations[0];
-  const control = input.adjudication.outcomes.find((item) => item.family === 'control');
-  const beforeDigest = control?.receipts?.[0]?.receiptHash || computeDigest('control-baseline');
-  const afterDigest = rec?.receipts?.[0]?.receiptHash || beforeDigest;
-  const beforeAfter = [{
-    id: 'diff-remediation-1',
-    target: targetDefault,
-    category: 'alerts',
-    before: { snapshotId: 'snap-control', digest: beforeDigest, summary: 'Baseline control alert state', metrics: control?.receipts?.[0]?.checks?.metrics || {} },
-    after: { snapshotId: `snap-${rec?.candidateId || 'after'}`, digest: afterDigest, summary: 'Post-remediation candidate state', metrics: rec?.metrics || {} },
-    delta: { changed: beforeDigest !== afterDigest, summary: `Recommended candidate ${rec?.candidateId || 'none'} reduced remaining alerts`, added: ['parameterized_query_guard'], removed: ['raw_sql_concatenation'], metricDelta: rec?.metrics || {} },
-    actionIds: [`exec-${rec?.candidateId || enrichedCampaign.candidates[0].id}`],
-    verifierId: rec?.receipts?.[0]?.verifierId || 'verifier-a',
-    verifierReceiptHash: afterDigest
-  }];
-  const chronology = [
-    { id: 'evt-1-ingest', occurredAt: new Date(baseTimeMs + 1000).toISOString(), sequence: 1, phase: 'observation', kind: 'alert_ingestion', actorId: 'security-ingestor', summary: 'Ingested canonical security alerts', evidenceRefs: [observations[0].id] },
-    { id: 'evt-2-execute', occurredAt: new Date(baseTimeMs + 35000).toISOString(), sequence: 2, phase: 'action', kind: 'candidate_execution', actorId: 'campaign-runner', summary: 'Executed isolated remediation candidates', evidenceRefs: [executed[0].id] },
-    { id: 'evt-3-verify', occurredAt: new Date(baseTimeMs + 65000).toISOString(), sequence: 3, phase: 'verification', kind: 'independent_verification', actorId: 'verifier-quorum', summary: 'Verified candidates against control baseline', evidenceRefs: ['diff-remediation-1'] }
-  ];
-  return { actions: { authorized, executed }, beforeAfter, chronology };
+function buildCampaignOperationalInput(input) {
+  const evidence = input.reportEvidence;
+  return {
+    chronology: evidence.chronology,
+    actions: evidence.actions,
+    beforeAfter: evidence.beforeAfter,
+    visibilityLimitations: evidence.visibilityLimitations,
+    decisions: evidence.decisions
+  };
+}
+
+function verifyCampaignArtifacts(input) {
+  const body = { ...input.campaign };
+  delete body.campaignHash;
+  if (input.campaign.campaignHash !== fingerprint(body)) {
+    throw failure('SERE_CAMPAIGN_HASH_INVALID');
+  }
+  const rebuilt = adjudicateCampaign(input.campaign, input.receipts);
+  const suppliedAdjudication = { ...input.adjudication };
+  delete suppliedAdjudication.adjudicationHash;
+  if (rebuilt.adjudicationHash !== input.adjudication.adjudicationHash
+      || fingerprint(suppliedAdjudication) !== rebuilt.adjudicationHash
+      || input.adjudication.campaignHash !== input.campaign.campaignHash) {
+    throw failure('SERE_CAMPAIGN_ADJUDICATION_MISMATCH');
+  }
+}
+
+function assertCampaignInput(input) {
+  if (!input?.mandate || !input?.campaign || !input?.adjudication || !Array.isArray(input.receipts)) {
+    throw failure('SERE_CAMPAIGN_ARTIFACTS_REQUIRED');
+  }
+}
+
+function assertCampaignReportEvidence(evidence) {
+  const requiredLists = ['observations', 'chronology', 'unknowns', 'beforeAfter', 'visibilityLimitations', 'decisions'];
+  if (!evidence || requiredLists.some((key) => !Array.isArray(evidence[key]) || !evidence[key].length)
+      || !evidence.actions || !Array.isArray(evidence.actions.authorized)
+      || !Array.isArray(evidence.actions.executed)) {
+    throw failure('SERE_CAMPAIGN_REPORT_EVIDENCE_REQUIRED');
+  }
 }
 
 function fromRemediationCampaign(input) {
-  if (!input?.mandate || !input?.batch || !input?.campaign || !input?.adjudication) {
-    throw failure('SERE_CAMPAIGN_ARTIFACTS_REQUIRED');
-  }
-  const built = buildCampaignInputFromArtifacts(input);
-  const operational = buildCampaignOperationalInput(input, built);
-  const visibilityLimitations = input.visibilityLimitations || [{
-    id: 'lim-isolated-fixture',
-    scope: built.targetDefault,
-    category: 'environment_isolation',
-    description: 'Verification ran inside a network-disabled copy-on-write fixture without live traffic.',
-    reason: 'Safety rule forbids live target access and exploit execution.',
-    impactOnConclusion: 'Confirms code-level path blocking in fixture; requires staging gate before production.',
-    affectedHypothesisIds: [built.hypotheses[0]?.id].filter(Boolean)
-  }];
-  const decisions = input.decisions || [{
-    id: 'dec-campaign-1',
-    title: 'Adjudicate remediation candidate for promotion gate review',
-    disposition: 'hold_promotion',
-    responsible: { actorId: 'sec-lead-1', name: 'Security Lead', role: 'security_adjudicator', authorityRef: 'mandate://security-board' },
-    decidedAt: new Date(built.baseTimeMs + 90000).toISOString(),
-    rationale: 'Candidate passed independent verifier quorum in fixture; hold for human promotion gate.',
-    evidenceRefs: ['diff-remediation-1', built.hypotheses[0]?.id].filter(Boolean),
-    receiptHash: input.adjudication.adjudicationHash
-  }];
+  assertCampaignInput(input);
+  verifyCampaignArtifacts(input);
+  assertCampaignReportEvidence(input.reportEvidence);
+  const built = buildCampaignHypotheses(input);
+  const operational = buildCampaignOperationalInput(input);
   return assembleSereDossier({
     reportId: input.reportId || `sere-${input.adjudication.adjudicationHash.slice(0, 12)}`,
     mandate: input.mandate,
@@ -253,8 +178,8 @@ function fromRemediationCampaign(input) {
     hypotheses: { items: built.hypotheses },
     actions: operational.actions,
     beforeAfter: operational.beforeAfter,
-    visibilityLimitations,
-    decisions
+    visibilityLimitations: operational.visibilityLimitations,
+    decisions: operational.decisions
   });
 }
 

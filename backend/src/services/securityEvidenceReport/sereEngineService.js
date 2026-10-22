@@ -108,6 +108,7 @@ function exportSereBundle(bundle, outputDir) {
     markdownFile: 'jury-report.md',
     htmlFile: 'jury-report.html'
   };
+  const presentationJson = canonicalJson(presentationMeta);
   const manifestBody = {
     schema: 'genos.security-evidence-report-manifest/v1',
     reportId: bundle.reportId,
@@ -119,6 +120,7 @@ function exportSereBundle(bundle, outputDir) {
     files: {
       dossier: { path: 'dossier.json', sha256: computeDigest(dossierJson), authoritative: true },
       verification: { path: 'verification.json', sha256: computeDigest(verificationJson), authoritative: true },
+      presentation: { path: 'presentation.json', sha256: computeDigest(presentationJson), authoritative: false },
       juryMarkdown: { path: 'jury-report.md', sha256: bundle.juryDocument.markdownDigest, authoritative: false },
       juryHtml: { path: 'jury-report.html', sha256: bundle.juryDocument.htmlDigest, authoritative: false }
     },
@@ -127,7 +129,7 @@ function exportSereBundle(bundle, outputDir) {
   const manifest = { ...manifestBody, manifestHash: fingerprint(manifestBody) };
   fs.writeFileSync(path.join(outputDir, 'dossier.json'), dossierJson, 'utf8');
   fs.writeFileSync(path.join(outputDir, 'verification.json'), verificationJson, 'utf8');
-  fs.writeFileSync(path.join(outputDir, 'presentation.json'), canonicalJson(presentationMeta), 'utf8');
+  fs.writeFileSync(path.join(outputDir, 'presentation.json'), presentationJson, 'utf8');
   fs.writeFileSync(path.join(outputDir, 'jury-report.md'), bundle.juryDocument.markdown, 'utf8');
   fs.writeFileSync(path.join(outputDir, 'jury-report.html'), bundle.juryDocument.html, 'utf8');
   fs.writeFileSync(path.join(outputDir, 'manifest.json'), canonicalJson(manifest), 'utf8');
@@ -137,40 +139,83 @@ function exportSereBundle(bundle, outputDir) {
 function verifyExportedFiles(outputDir, manifest) {
   const dossierRaw = fs.readFileSync(path.join(outputDir, 'dossier.json'), 'utf8');
   const verificationRaw = fs.readFileSync(path.join(outputDir, 'verification.json'), 'utf8');
+  const presentationRaw = fs.readFileSync(path.join(outputDir, 'presentation.json'), 'utf8');
   const markdownRaw = fs.readFileSync(path.join(outputDir, 'jury-report.md'), 'utf8');
   const htmlRaw = fs.readFileSync(path.join(outputDir, 'jury-report.html'), 'utf8');
   const fileDigestChecks = [
     computeDigest(dossierRaw) === manifest.files?.dossier?.sha256,
     computeDigest(verificationRaw) === manifest.files?.verification?.sha256,
+    computeDigest(presentationRaw) === manifest.files?.presentation?.sha256,
     computeDigest(markdownRaw) === manifest.files?.juryMarkdown?.sha256,
     computeDigest(htmlRaw) === manifest.files?.juryHtml?.sha256,
     manifest.files?.dossier?.authoritative === true,
     manifest.files?.verification?.authoritative === true,
+    manifest.files?.presentation?.authoritative === false,
     manifest.files?.juryMarkdown?.authoritative === false,
     manifest.files?.juryHtml?.authoritative === false
   ];
   if (fileDigestChecks.some((check) => !check)) {
     throw failure('SERE_EXPORTED_FILE_TAMPERED');
   }
-  return { dossierRaw, verificationRaw, markdownRaw, htmlRaw };
+  return { dossierRaw, verificationRaw, presentationRaw, markdownRaw, htmlRaw };
 }
 
-function verifyExportedSereBundle(outputDir) {
+function hasValidManifestShape(manifest) {
+  const checks = [
+    manifest.schema === 'genos.security-evidence-report-manifest/v1',
+    manifest.promotionEligible === false,
+    canonicalJson(manifest.authorityModel) === canonicalJson(AUTHORITY_MODEL),
+    manifest.files?.dossier?.path === 'dossier.json',
+    manifest.files?.verification?.path === 'verification.json',
+    manifest.files?.presentation?.path === 'presentation.json',
+    manifest.files?.juryMarkdown?.path === 'jury-report.md',
+    manifest.files?.juryHtml?.path === 'jury-report.html'
+  ];
+  return checks.every(Boolean);
+}
+
+function readAndVerifyManifest(outputDir) {
   const manifestRaw = fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8');
   const manifest = parseCanonical(manifestRaw, 'SERE_MANIFEST_INVALID');
+  if (!hasValidManifestShape(manifest)) throw failure('SERE_MANIFEST_SCHEMA_INVALID');
   const manifestCopy = { ...manifest };
   delete manifestCopy.manifestHash;
   if (manifest.manifestHash !== fingerprint(manifestCopy)) {
     throw failure('SERE_MANIFEST_HASH_MISMATCH');
   }
-  const { dossierRaw, verificationRaw, markdownRaw, htmlRaw } = verifyExportedFiles(outputDir, manifest);
+  return manifest;
+}
+
+function verifyManifestBindings({ manifest, dossier, storedVerification, recomputedVerification }) {
+  const bindingsMatch = manifest.reportId === dossier.reportId
+    && manifest.dossierHash === dossier.dossierHash
+    && manifest.verificationHash === recomputedVerification.verificationHash;
+  const verificationMatches = recomputedVerification.status === 'verified'
+    && recomputedVerification.verificationHash === storedVerification.verificationHash;
+  if (!bindingsMatch || !verificationMatches) throw failure('SERE_EXPORTED_VERIFICATION_MISMATCH');
+}
+
+function verifyPresentationMetadata({ manifest, presentationRaw, reconstructedPresentation }) {
+  const presentationMeta = parseCanonical(presentationRaw, 'SERE_PRESENTATION_CANONICAL_INVALID');
+  const expectedPresentationMeta = {
+    ...reconstructedPresentation,
+    markdownFile: 'jury-report.md',
+    htmlFile: 'jury-report.html'
+  };
+  const metadataMatches = canonicalJson(presentationMeta) === canonicalJson(expectedPresentationMeta)
+    && manifest.presentationHash === reconstructedPresentation.presentationHash;
+  if (!metadataMatches) throw failure('SERE_EXPORTED_PRESENTATION_METADATA_MISMATCH');
+}
+
+function verifyExportedSereBundle(outputDir) {
+  const manifest = readAndVerifyManifest(outputDir);
+  const { dossierRaw, verificationRaw, presentationRaw, markdownRaw, htmlRaw } = verifyExportedFiles(outputDir, manifest);
   const dossier = parseCanonical(dossierRaw, 'SERE_DOSSIER_CANONICAL_INVALID');
   const storedVerification = parseCanonical(verificationRaw, 'SERE_VERIFICATION_CANONICAL_INVALID');
   const recomputedVerification = verifySereDossier(dossier, { verifierId: storedVerification.verifierId });
-  if (recomputedVerification.status !== 'verified' || recomputedVerification.verificationHash !== storedVerification.verificationHash) {
-    throw failure('SERE_EXPORTED_VERIFICATION_MISMATCH');
-  }
+  verifyManifestBindings({ manifest, dossier, storedVerification, recomputedVerification });
   const reconstructedPresentation = renderJuryDocument(dossier, recomputedVerification);
+  verifyPresentationMetadata({ manifest, presentationRaw, reconstructedPresentation });
   if (reconstructedPresentation.markdown !== markdownRaw || reconstructedPresentation.html !== htmlRaw) {
     throw failure('SERE_EXPORTED_PRESENTATION_DRIFT');
   }

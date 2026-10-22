@@ -43,7 +43,7 @@ Le moteur produit systématiquement deux représentations liées :
 
 - un **dossier structuré vérifiable par machine** (`genos.security-evidence-report-dossier/v1`)
   accompagné de son reçu de vérification (`genos.security-evidence-report-verification/v1`)
-  et d’un export sur disque (`dossier.json`, `verification.json`, `manifest.json`) ;
+  et d’un export sur disque (`dossier.json`, `verification.json`, `presentation.json`, `manifest.json`) ;
 - un **document lisible pour le jury** (`genos.security-evidence-report-presentation/v1`,
   `jury-report.md` et `jury-report.html` prêt pour impression/PDF), projeté
   strictement depuis le dossier scellé.
@@ -63,6 +63,12 @@ Le moteur produit systématiquement deux représentations liées :
   `[hyp:...]`, `[act-exec:...]`, `[diff:...]`, `[lim:...]`, `[dec:...]`,
   `[resp:...]`) est vérifiée contre le dossier machine ; aucune omission ni
   invention n’est tolérée.
+- **Pont campagne sans faits synthétiques** : l'adjudication est recalculée depuis
+  la campagne et ses reçus. Le pont exige les observations horodatées, la
+  chronologie, les autorisations, les exécutions, les différences, les limites
+  et les décisions comme preuves fournies ; il ne fabrique plus ces éléments.
+- **Export lié** : le manifeste vérifie aussi `presentation.json` et lie ses
+  empreintes au dossier et au reçu de vérification recalculé.
 - **Non-promotion** : `promotionEligible` et `authorizesPromotion` restent à
   `false`.
 
