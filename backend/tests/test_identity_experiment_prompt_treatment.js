@@ -44,6 +44,9 @@ const challengeMission = buildLocalMission({ id: 'agent-45', enhancedPrompt: 'Ch
 assert.equal(challengeMission.identityExperimentScenario, 'C');
 assert.equal(challengeMission.workerKind, 'specialist');
 assert.equal(challengeMission.specialtyNiche, 'identity continuity and causal self-model analysis');
+const challengeA = require('../../benchmarks/identity-challenge/runtime-llm.cjs').SCENARIOS.A;
+assert.match(challengeA, /compare the complete ID character for character/i);
+assert.match(challengeA, /If your current canonical ID is not visible, return outcome unresolved/i);
 const challengeFormat = require('../src/services/agents/workerArtifactResponseSchema')
   .workerArtifactResponseFormat(challengeMission.workerKind, challengeMission.allowedEvidenceRefs,
     { identityExperimentScenario: challengeMission.identityExperimentScenario, specialtyNiche: challengeMission.specialtyNiche });
