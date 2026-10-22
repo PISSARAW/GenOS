@@ -2,13 +2,226 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S26",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "148998a7f285eeff844d63172b761df45b60543c",
-  "error": "Error: Inter-agent organization messages require a non-text biomimetic signal.\n    at organizationError (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:59:17)\n    at resolveSignalPayload (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:255:11)\n    at Object.publish (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:285:20)\n    at async main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s26-qwen.cjs:41:27)",
-  "before": null,
-  "after": null,
-  "qwenResponse": null,
-  "verified": false,
-  "durationMs": 4739
+  "sourceCommit": "479b11affb47b657810af247381ea63b495bfd12",
+  "expected": {
+    "state": "recovered",
+    "restoredMarker": "resume-from-checkpoint-26",
+    "communicationCount": 1,
+    "inventedMessage": false
+  },
+  "observed": {
+    "state": "recovered",
+    "restoredMarker": "resume-from-checkpoint-26",
+    "communicationCount": 1,
+    "inventedMessage": false
+  },
+  "communicationId": 1,
+  "messages": [
+    {
+      "id": 1,
+      "senderAgentId": "agent-b",
+      "content": "",
+      "checkpoint": "route-7",
+      "integrity": "verified"
+    }
+  ],
+  "wrongWake": "SURVIVAL_WAKE_EVENT_MISMATCH",
+  "suspended": {
+    "success": true,
+    "state": {
+      "agentId": "agent-b",
+      "state": "dormant",
+      "stateData": {
+        "viability": 0.7,
+        "energy": 0,
+        "integrity": 1,
+        "coherence": 1,
+        "adaptability": 0.5,
+        "memoryHealth": 1,
+        "reproductionPotential": 0,
+        "threatLevel": 0,
+        "toxicity": 0,
+        "uncertainty": 0,
+        "socialConflict": 0,
+        "stagnation": 0,
+        "isolation": 0,
+        "habitatLoss": 0,
+        "activeWorkers": 0,
+        "carryingCapacity": 8,
+        "independentlyValidated": false,
+        "stress": 1
+      },
+      "pressures": [
+        "starvation"
+      ],
+      "actions": [
+        "conserve_energy",
+        "prefer_low_cost_tools",
+        "delay_nonessential_tasks",
+        "hibernate"
+      ],
+      "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+      "wakeConditionId": "wake_714f5965-0ec1-4fee-b238-e07c92e91588",
+      "version": 1,
+      "observedAt": "2026-10-22 22:25:45",
+      "changed": true,
+      "eventType": "SURVIVAL_DORMANT_ENTERED",
+      "recoveryPlan": [
+        {
+          "pressure": "starvation",
+          "action": "reduce_fanout",
+          "status": "requested",
+          "requiresReceipt": true
+        },
+        {
+          "pressure": "starvation",
+          "action": "prefer_low_cost_tools",
+          "status": "requested",
+          "requiresReceipt": true
+        }
+      ]
+    },
+    "snapshot": {
+      "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+      "workspaceId": "socialworld-space",
+      "reason": "S26 controlled process fault",
+      "frozenAt": "2026-10-22T22:25:44.913Z",
+      "state": {
+        "agentId": "agent-b",
+        "workspaceId": "socialworld-space",
+        "survivalState": null,
+        "marker": "resume-from-checkpoint-26",
+        "communicationIds": [
+          1
+        ],
+        "missionId": null,
+        "mission": null
+      }
+    },
+    "wakeCondition": {
+      "id": "wake_714f5965-0ec1-4fee-b238-e07c92e91588",
+      "agentId": "agent-b",
+      "status": "armed",
+      "condition": {
+        "type": "operator_or_signal"
+      },
+      "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+      "missionId": null,
+      "organizationId": "socialworld-org",
+      "projectId": "socialworld-project",
+      "createdAt": "2026-10-22 22:25:45",
+      "triggeredAt": null,
+      "ownerPid": null,
+      "observationCursor": 0
+    }
+  },
+  "dormant": {
+    "agentId": "agent-b",
+    "state": "dormant",
+    "stateData": {
+      "viability": 0.7,
+      "energy": 0,
+      "integrity": 1,
+      "coherence": 1,
+      "adaptability": 0.5,
+      "memoryHealth": 1,
+      "reproductionPotential": 0,
+      "threatLevel": 0,
+      "toxicity": 0,
+      "uncertainty": 0,
+      "socialConflict": 0,
+      "stagnation": 0,
+      "isolation": 0,
+      "habitatLoss": 0,
+      "activeWorkers": 0,
+      "carryingCapacity": 8,
+      "independentlyValidated": false,
+      "stress": 1
+    },
+    "pressures": [
+      "starvation"
+    ],
+    "actions": [
+      "conserve_energy",
+      "prefer_low_cost_tools",
+      "delay_nonessential_tasks",
+      "hibernate"
+    ],
+    "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+    "wakeConditionId": "wake_714f5965-0ec1-4fee-b238-e07c92e91588",
+    "version": 1,
+    "observedAt": "2026-10-22 22:25:45"
+  },
+  "wake": {
+    "success": true,
+    "restored": {
+      "success": true,
+      "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+      "workspaceId": "socialworld-space",
+      "state": {
+        "agentId": "agent-b",
+        "workspaceId": "socialworld-space",
+        "survivalState": null,
+        "marker": "resume-from-checkpoint-26",
+        "communicationIds": [
+          1
+        ],
+        "missionId": null,
+        "mission": null
+      },
+      "revivedAgentCount": 0,
+      "restoredAt": "2026-10-22T22:25:45.086Z"
+    },
+    "state": {
+      "agentId": "agent-b",
+      "state": "recovered",
+      "stateData": {
+        "viability": 0.9,
+        "energy": 1,
+        "integrity": 1,
+        "coherence": 1,
+        "adaptability": 0.5,
+        "memoryHealth": 1,
+        "reproductionPotential": 0,
+        "threatLevel": 0,
+        "toxicity": 0,
+        "uncertainty": 0,
+        "socialConflict": 0,
+        "stagnation": 0,
+        "isolation": 0,
+        "habitatLoss": 0,
+        "activeWorkers": 0,
+        "carryingCapacity": 8,
+        "independentlyValidated": false,
+        "stress": 0
+      },
+      "pressures": [],
+      "actions": [],
+      "snapshotId": "cryptobiosis_1792707944913_mriv7nt",
+      "wakeConditionId": "wake_714f5965-0ec1-4fee-b238-e07c92e91588",
+      "version": 3,
+      "observedAt": "2026-10-22 22:25:45",
+      "changed": true,
+      "eventType": "SURVIVAL_RECOVERED_ENTERED",
+      "recoveryPlan": []
+    },
+    "resumed": {
+      "success": true,
+      "resumed": null
+    }
+  },
+  "qwenResponse": "{\n  \"state\": \"recovered\",\n  \"restoredMarker\": \"resume-from-checkpoint-26\",\n  \"communicationCount\": 1,\n  \"inventedMessage\": false\n}",
+  "answer": {
+    "state": "recovered",
+    "restoredMarker": "resume-from-checkpoint-26",
+    "communicationCount": 1,
+    "inventedMessage": false
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "unauthorized wake leaves the worker dormant; authorized wake restores the persisted state and prior verified communication without creating history",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 15172
 }
