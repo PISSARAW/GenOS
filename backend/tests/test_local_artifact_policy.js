@@ -9,8 +9,9 @@ assert.match(readOnlyInstruction, /File writes are forbidden/);
 assert.match(readOnlyInstruction, /Do not use \[ARTIFACT\] tags/);
 assert.match(localArtifactInstruction(true), /\[ARTIFACT: path\/to\/file\]/);
 
-const content = { claims: [{ statement: 'Verified worker claim', evidence: ['receipt:r1'] }] };
-const tagged = `[ARTIFACT: dossiers/worker.json]${JSON.stringify({ claims: content.claims })}[/ARTIFACT]`;
+const content = { claims: [{ statement: 'Verified worker claim', evidence: ['receipt:r1'] }],
+  specialtyAssessment: { niche: 'read-only artifact handling', inScope: true, evidence: ['receipt:r1'] } };
+const tagged = `[ARTIFACT: dossiers/worker.json]${JSON.stringify(content)}[/ARTIFACT]`;
 const result = inspectWorkerArtifact('specialist', tagged, { source: 'test' });
 assert.equal(result.issues.length, 0);
 assert.equal(result.artifact.type, 'dossier');
