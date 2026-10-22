@@ -32,7 +32,7 @@
 | S20 Communication structurée | Non exécuté | — |
 | S21 Dialectes et langage | Non exécuté | — |
 | S22 Communication humaine | Non exécuté | — |
-| S23 Mémoire intermissions | Composant corrigé; preuve Qwen bloquée | échecs `S23-attempt-01.json`, `S23-attempt-02.json`, `S23-result.json` |
+| S23 Mémoire intermissions | GenOS déterministe réussi; reprise Qwen en cours | `S23-genos-result.json`; échecs Qwen `S23-attempt-01.json`, `S23-attempt-02.json`, `S23-result.json` |
 | S24 Évolution des relations | Non exécuté | — |
 | S25 Transmission sociale | Non exécuté | — |
 | S26 Pannes et reprise | Non exécuté | — |
@@ -45,4 +45,5 @@ Le premier passage a révélé que `crossAgentRelationalService` triait les rela
 
 Le runner de campagne a ensuite atteint Qwen mais le modèle a expiré pendant son préchauffage après 90 s puis 180 s. Une requête directe de huit tokens à l'API locale a également expiré après 60 s. Au constat, `ollama ps` signalait `qwen2.5-coder:32b` en état `Stopping...`; la RTX A4500 utilisait 19 692 MiB sur 20 470 MiB. Ces éléments indiquent un blocage/épuisement des ressources Ollama indépendant du scénario GenOS. Aucun arrêt forcé de ce processus n'a été effectué.
 
-Tant que Qwen ne répond pas à l'API locale, S23 ne constitue pas une réussite de campagne. Le test déterministe de persistance devra aussi être capturé dans un rapport distinct d'un résultat LLM.
+Le rapport `S23-genos-result.json` confirme la persistance déterministe de GenOS au commit `b10d0726`. Après autorisation de l'utilisateur, le runner Ollama bloqué a été arrêté; la mémoire GPU est revenue à 1 557 MiB utilisés sur 20 470 MiB. Le volet Qwen doit encore être relancé et réussi pour déclarer S23 entièrement réussi.
+

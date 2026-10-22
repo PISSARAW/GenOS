@@ -1,0 +1,110 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S23",
+  "seed": 7,
+  "status": "pass",
+  "model": null,
+  "sourceCommit": "b10d072660a28678b8fbab0cca5d33191cbb9c02",
+  "expected": [
+    {
+      "relationType": "friend",
+      "direction": "forward",
+      "sharedHistory": 0.65
+    }
+  ],
+  "missionTransitions": [
+    "mission-1",
+    "mission-2"
+  ],
+  "humanInstructionsAfterSetup": 0,
+  "previousMission": {
+    "relationId": "s23-friendship",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.82,
+      "interactionCount": 8,
+      "sharedHistory": 0.65,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": "mission-1:shared-evidence-42"
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend"
+    ],
+    "relations": [
+      {
+        "relationId": "s23-friendship",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.82,
+          "interactionCount": 8,
+          "sharedHistory": 0.65,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": "mission-1:shared-evidence-42"
+        },
+        "direction": "forward"
+      }
+    ]
+  },
+  "resumedMission": {
+    "relationId": "s23-friendship",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.82,
+      "interactionCount": 8,
+      "sharedHistory": 0.65,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": "mission-1:shared-evidence-42"
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend"
+    ],
+    "relations": [
+      {
+        "relationId": "s23-friendship",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.82,
+          "interactionCount": 8,
+          "sharedHistory": 0.65,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": "mission-1:shared-evidence-42"
+        },
+        "direction": "forward"
+      }
+    ]
+  },
+  "deterministicPass": true,
+  "verified": true,
+  "oracle": "GenOS persists the relation and its evidence across mission contexts",
+  "durationMs": 2307
+}
