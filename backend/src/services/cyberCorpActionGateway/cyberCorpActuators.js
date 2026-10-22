@@ -271,7 +271,7 @@ async function qualifyShreIsolatedVmCycle(db, tenant) {
     createdBy: 'agent:remediation-planner'
   });
 
-  await shreWorkflow.plan(db, tenant, created.caseId, {
+  await shreWorkflow.plan(db, tenant, { caseId: created.caseId, input: {
     minimalChange: 'Enable networkIsolation and disable RDP on srv-fin-02-sandbox',
     expectedImpact: 'Isolates sandbox VM from lateral SMB/RDP paths',
     rollbackPlan: 'Restore verified snapshot backup test-vm-backup.json',
@@ -282,23 +282,23 @@ async function qualifyShreIsolatedVmCycle(db, tenant) {
       allowedPaths: ['settings/networkIsolation', 'settings/rdpEnabled'],
       requiredSecurityControls: ['host_firewall', 'edr_sensor', 'smb_signing']
     }
-  });
+  } });
 
   await shreWorkflow.simulate(db, tenant, created.caseId);
-  await shreWorkflow.authorize(db, tenant, created.caseId, {
+  await shreWorkflow.authorize(db, tenant, { caseId: created.caseId, input: {
     humanApproval: {
       approved: true,
       approverId: 'operator:secops-commander',
       evidenceRef: 'approval:secops-ticket-001'
     }
-  });
+  } });
   await shreWorkflow.apply(db, tenant, created.caseId);
   const afterApplyDigest = vmActuator.getStateDigest();
   await shreWorkflow.counterTest(db, tenant, created.caseId);
   const verifiedCase = await shreWorkflow.verifyCausalRemediation(db, tenant, created.caseId);
-  const closedCase = await shreWorkflow.close(db, tenant, created.caseId, {
+  const closedCase = await shreWorkflow.close(db, tenant, { caseId: created.caseId, input: {
     decision: 'remediation_verified_and_closed'
-  });
+  } });
 
   const rollbackResult = await vmActuator.rollback();
   const afterRollbackDigest = vmActuator.getStateDigest();

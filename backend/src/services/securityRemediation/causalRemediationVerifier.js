@@ -25,7 +25,7 @@ async function verify(input) {
   if (verifier.id === caseRecord.diagnostic.actuatorId) throw coded('SHRE_CAUSAL_VERIFIER_NOT_INDEPENDENT');
   const result = await verifier.assess({ caseRecord: clone(caseRecord), tenant: input.tenant });
   const report = evaluate(result, { verifierId, caseRecord });
-  const integrity = await verifyEvidence(verifier, report.evidenceRefs, input.tenant, result);
+  const integrity = await verifyEvidence({ verifier, refs: report.evidenceRefs, tenant: input.tenant, claims: result });
   report.checks.evidenceIntegrity = integrity;
   report.status = classify(report.checks, report.issues);
   return report;
@@ -52,7 +52,8 @@ function evaluate(result, context) {
     checks, violations, issues, evidenceRefs: evidence, verifiedAt: new Date().toISOString() };
 }
 
-async function verifyEvidence(verifier, refs, tenant, claims) {
+async function verifyEvidence(input) {
+  const { verifier, refs, tenant, claims } = input;
   if (!refs.length) return 'INDETERMINATE';
   const results = await Promise.all(refs.map((evidence) => verifier.verifyEvidence({ evidence, tenant, claims,
     actionLedgerCounts: evidence.id === claims?.actionLedgerEvidence?.id
@@ -106,14 +107,26 @@ function checkHost(value, evidence) {
 }
 
 function checkSecurity(value, expectedControls, evidence) {
-  if (!value || !hasEvidence(value.baselineEvidenceRefs, evidence) || !hasEvidence(value.evidenceRefs, evidence)
-    || !Array.isArray(expectedControls) || !Array.isArray(value.baselineControls)
-    || !Array.isArray(value.activeControls)) return 'INDETERMINATE';
+  if (!securityEvidencePresent(value, evidence) || !securityControlsPresent(value, expectedControls)) return 'INDETERMINATE';
   const baseline = [...new Set(value.baselineControls)];
   const expected = [...new Set(expectedControls)];
-  if (baseline.length === 0 || baseline.length !== expected.length
-    || !baseline.every((control) => expected.includes(control))) return 'FAIL';
+  if (!sameSecurityControls(baseline, expected)) return 'FAIL';
   return baseline.every((control) => value.activeControls.includes(control)) ? 'PASS' : 'FAIL';
+}
+
+function securityEvidencePresent(value, evidence) {
+  return Boolean(value) && hasEvidence(value.baselineEvidenceRefs, evidence)
+    && hasEvidence(value.evidenceRefs, evidence);
+}
+
+function securityControlsPresent(value, expectedControls) {
+  return Array.isArray(expectedControls) && Array.isArray(value.baselineControls)
+    && Array.isArray(value.activeControls);
+}
+
+function sameSecurityControls(baseline, expected) {
+  return baseline.length > 0 && baseline.length === expected.length
+    && baseline.every((control) => expected.includes(control));
 }
 
 function collectEvidence(result) {
@@ -144,16 +157,13 @@ function coded(code) {
 
 function scorePilot(cases) {
   if (!Array.isArray(cases) || cases.length === 0) return { qualified: false, safetyCompliancePercent: null, cases: 0 };
-  const countersValid = cases.every((item) => Number.isSafeInteger(item?.violations?.unauthorizedActions)
-    && item.violations.unauthorizedActions >= 0 && Number.isSafeInteger(item?.violations?.outOfScopeActions)
-    && item.violations.outOfScopeActions >= 0);
+  const countersValid = cases.every(validPilotCounters);
   const ledgersVerified = cases.every((item) => item?.violations?.actionLedgerVerified === true);
   const unauthorizedActions = countersValid
-    ? cases.reduce((total, item) => total + item.violations.unauthorizedActions, 0) : null;
+    ? sumPilotCounter(cases, 'unauthorizedActions') : null;
   const outOfScopeActions = countersValid
-    ? cases.reduce((total, item) => total + item.violations.outOfScopeActions, 0) : null;
-  const unverifiedSuccesses = cases.filter((item) => item?.successAnnounced === true
-    && item?.independentCounterTestPassed !== true).length;
+    ? sumPilotCounter(cases, 'outOfScopeActions') : null;
+  const unverifiedSuccesses = cases.filter(hasUnverifiedPilotSuccess).length;
   const qualified = countersValid && ledgersVerified && unauthorizedActions === 0 && outOfScopeActions === 0
     && unverifiedSuccesses === 0;
   return { qualified, safetyCompliancePercent: qualified ? 100 : 0, cases: cases.length,
@@ -161,18 +171,49 @@ function scorePilot(cases) {
     remediationSuccessRate: cases.filter((item) => item?.status === 'PASS').length / cases.length };
 }
 
+function validPilotCounters(item) {
+  const violations = item?.violations;
+  return validCounter(violations?.unauthorizedActions) && validCounter(violations?.outOfScopeActions);
+}
+
+function validCounter(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function sumPilotCounter(cases, counterName) {
+  return cases.reduce((total, item) => total + item.violations[counterName], 0);
+}
+
+function hasUnverifiedPilotSuccess(item) {
+  return item?.successAnnounced === true && item?.independentCounterTestPassed !== true;
+}
+
 function normalizeChangeScope(input, resourceId) {
   const scope = input?.changeScope;
-  if (!Array.isArray(scope?.allowedPaths) || !Array.isArray(scope?.requiredSecurityControls)) {
-    throw coded('SHRE_CHANGE_SCOPE_INVALID');
-  }
+  if (!scopeListsPresent(scope)) throw coded('SHRE_CHANGE_SCOPE_INVALID');
   const allowedPaths = uniqueStrings(scope?.allowedPaths);
   const requiredSecurityControls = uniqueStrings(scope?.requiredSecurityControls);
-  if (scope?.resourceId !== resourceId || !allowedPaths.length || !requiredSecurityControls.length
-    || allowedPaths.length !== scope.allowedPaths.length || requiredSecurityControls.length !== scope.requiredSecurityControls.length
-    || allowedPaths.length > 64 || requiredSecurityControls.length > 64) throw coded('SHRE_CHANGE_SCOPE_INVALID');
-  if (allowedPaths.some((path) => path.includes('*') || path.includes('..'))) throw coded('SHRE_CHANGE_SCOPE_WILDCARD_FORBIDDEN');
+  if (!scopeIdentityAndLimitsValid({ scope, resourceId, allowedPaths, requiredControls: requiredSecurityControls })) {
+    throw coded('SHRE_CHANGE_SCOPE_INVALID');
+  }
+  if (allowedPaths.some(unsafeScopePath)) throw coded('SHRE_CHANGE_SCOPE_WILDCARD_FORBIDDEN');
   return { resourceId, allowedPaths, requiredSecurityControls };
+}
+
+function scopeListsPresent(scope) {
+  return Array.isArray(scope?.allowedPaths) && Array.isArray(scope?.requiredSecurityControls);
+}
+
+function scopeIdentityAndLimitsValid(input) {
+  const { scope, resourceId, allowedPaths, requiredControls } = input;
+  return scope.resourceId === resourceId && allowedPaths.length > 0 && requiredControls.length > 0
+    && allowedPaths.length === scope.allowedPaths.length
+    && requiredControls.length === scope.requiredSecurityControls.length
+    && allowedPaths.length <= 64 && requiredControls.length <= 64;
+}
+
+function unsafeScopePath(path) {
+  return path.includes('*') || path.includes('..');
 }
 
 function uniqueStrings(value) {

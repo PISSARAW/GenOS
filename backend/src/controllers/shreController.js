@@ -19,17 +19,18 @@ function endpoint(operation) {
 const create = endpoint((db, tenant, req) => workflow.createDiagnostic(db, tenant, {
   ...req.body, createdBy: req.user?.keyId || req.user?.username
 }));
-const plan = endpoint((db, tenant, req) => workflow.plan(db, tenant, req.params.caseId, req.body));
+const plan = endpoint((db, tenant, req) => workflow.plan(db, tenant, { caseId: req.params.caseId, input: req.body }));
 const simulate = endpoint((db, tenant, req) => workflow.simulate(db, tenant, req.params.caseId));
-const authorize = endpoint((db, tenant, req) => workflow.authorize(db, tenant, req.params.caseId, {
-  humanApproval: { approved: req.body?.humanApproval?.approved === true,
-    approverId: req.user?.keyId || req.user?.username, evidenceRef: req.body?.humanApproval?.evidenceRef }
+const authorize = endpoint((db, tenant, req) => workflow.authorize(db, tenant, {
+  caseId: req.params.caseId,
+  input: { humanApproval: { approved: req.body?.humanApproval?.approved === true,
+    approverId: req.user?.keyId || req.user?.username, evidenceRef: req.body?.humanApproval?.evidenceRef } }
 }));
 const apply = endpoint((db, tenant, req) => workflow.apply(db, tenant, req.params.caseId));
 const counterTest = endpoint((db, tenant, req) => workflow.counterTest(db, tenant, req.params.caseId));
 const causalVerify = endpoint((db, tenant, req) => workflow.verifyCausalRemediation(db, tenant, req.params.caseId));
-const close = endpoint((db, tenant, req) => workflow.close(db, tenant, req.params.caseId, req.body));
-const rollback = endpoint((db, tenant, req) => workflow.rollback(db, tenant, req.params.caseId, req.body));
+const close = endpoint((db, tenant, req) => workflow.close(db, tenant, { caseId: req.params.caseId, input: req.body }));
+const rollback = endpoint((db, tenant, req) => workflow.rollback(db, tenant, { caseId: req.params.caseId, input: req.body }));
 const getCase = endpoint((db, tenant, req) => workflow.getCase(db, tenant, req.params.caseId));
 
 module.exports = { create, plan, simulate, authorize, apply, counterTest, causalVerify, close, rollback, getCase };

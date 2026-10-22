@@ -62,7 +62,8 @@ function requiredImpactLevel(value) {
   return impact;
 }
 
-async function plan(db, tenant, caseId, input) {
+async function plan(db, tenant, action) {
+  const { caseId, input } = action;
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
   requireState(current, 'DIAGNOSTIC');
@@ -99,27 +100,30 @@ async function simulate(db, tenant, caseId) {
   return current;
 }
 
-async function authorize(db, tenant, caseId, input) {
+async function authorize(db, tenant, action) {
+  const { caseId, input } = action;
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
   requireState(current, 'SIMULATION');
   if (!current.simulation.passed) throw new Error('SHRE_SIMULATION_MUST_PASS');
   const humanRequired = policy.requiresHumanApproval(current.diagnostic, current.plan, current.simulation);
   const approval = input?.humanApproval;
-  if (humanRequired && (!approval?.approved || !approval.approverId || !approval.evidenceRef)) {
-    throw new Error('SHRE_HUMAN_APPROVAL_REQUIRED');
-  }
-  if (humanRequired && approval.approverId === current.diagnostic.createdBy) {
-    throw new Error('SHRE_INDEPENDENT_APPROVER_REQUIRED');
-  }
-  const refs = [...current.simulation.evidenceRefs];
-  if (humanRequired) refs.push(requiredText(approval.evidenceRef, 'SHRE_APPROVAL_EVIDENCE_REQUIRED', 512));
-  current.authorization = { humanRequired, approverId: humanRequired ? requiredText(approval.approverId,
-    'SHRE_APPROVER_REQUIRED', 128) : null, evidenceRefs: refs,
-    permission: policy.grantPermission({ resourceId: current.diagnostic.resourceId }) };
+  if (humanRequired && (!approval?.approved || !approval.approverId || !approval.evidenceRef)) throw new Error('SHRE_HUMAN_APPROVAL_REQUIRED');
+  if (humanRequired && approval.approverId === current.diagnostic.createdBy) throw new Error('SHRE_INDEPENDENT_APPROVER_REQUIRED');
+  current.authorization = authorizationRecord({ current, approval, humanRequired });
+  const refs = current.authorization.evidenceRefs;
   appendEvent(current, 'AUTHORIZATION', { detail: humanRequired ? 'Politique et approbation humaine satisfaites' : 'Autorisé par politique déterministe', evidenceRefs: refs });
   await store.save(context);
   return current;
+}
+
+function authorizationRecord(context) {
+  const { current, approval, humanRequired } = context;
+  const evidenceRefs = [...current.simulation.evidenceRefs];
+  if (humanRequired) evidenceRefs.push(requiredText(approval.evidenceRef, 'SHRE_APPROVAL_EVIDENCE_REQUIRED', 512));
+  return { humanRequired,
+    approverId: humanRequired ? requiredText(approval.approverId, 'SHRE_APPROVER_REQUIRED', 128) : null,
+    evidenceRefs, permission: policy.grantPermission({ resourceId: current.diagnostic.resourceId }) };
 }
 
 async function apply(db, tenant, caseId) {
@@ -206,18 +210,15 @@ function requireSuccessfulCounterTest(current) {
   }
 }
 
-async function close(db, tenant, caseId, input) {
+async function close(db, tenant, action) {
+  const { caseId, input } = action;
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
-  const abandonable = ['DIAGNOSTIC', 'PLAN', 'SIMULATION', 'AUTHORIZATION'].includes(current.status);
-  const causalPass = current.status === 'CAUSAL_VERIFICATION' && current.causalVerification?.status === 'PASS';
+  const abandonable = canAbandon(current);
+  const causalPass = hasCausalPass(current);
   if (!abandonable && !causalPass) throw new Error('SHRE_CAUSAL_VERIFICATION_REQUIRED');
   if (abandonable && !input?.abandon) throw new Error('SHRE_PRE_APPLICATION_CLOSE_REQUIRES_ABANDON');
-  const archivedEvidenceRefs = [...(current.diagnostic?.evidenceRefs || []), ...(current.plan?.evidenceRefs || []),
-    ...(current.simulation?.evidenceRefs || []), ...(current.authorization?.evidenceRefs || []),
-    ...(current.application?.evidenceRefs || []), ...(current.counterTest?.evidenceRefs || []),
-    ...(current.causalVerification?.evidenceRefs || []).map((item) => item.id)];
-  if (abandonable) archivedEvidenceRefs.push(...evidenceRefs(input?.evidenceRefs, 'SHRE_ABANDON_EVIDENCE_REQUIRED'));
+  const archivedEvidenceRefs = closureEvidence(current, input, abandonable);
   current.closure = { decision: requiredText(input?.decision, 'SHRE_CLOSURE_DECISION_REQUIRED', 128),
     archivedEvidenceRefs };
   appendEvent(current, 'CLOSED', { detail: current.closure.decision, evidenceRefs: archivedEvidenceRefs });
@@ -225,7 +226,25 @@ async function close(db, tenant, caseId, input) {
   return current;
 }
 
-async function rollback(db, tenant, caseId, input) {
+function canAbandon(current) {
+  return ['DIAGNOSTIC', 'PLAN', 'SIMULATION', 'AUTHORIZATION'].includes(current.status);
+}
+
+function hasCausalPass(current) {
+  return current.status === 'CAUSAL_VERIFICATION' && current.causalVerification?.status === 'PASS';
+}
+
+function closureEvidence(current, input, abandonable) {
+  const stages = [current.diagnostic, current.plan, current.simulation, current.authorization,
+    current.application, current.counterTest];
+  const refs = stages.flatMap((item) => item?.evidenceRefs || []);
+  refs.push(...(current.causalVerification?.evidenceRefs || []).map((item) => item.id));
+  if (abandonable) refs.push(...evidenceRefs(input?.evidenceRefs, 'SHRE_ABANDON_EVIDENCE_REQUIRED'));
+  return refs;
+}
+
+async function rollback(db, tenant, action) {
+  const { caseId, input } = action;
   const context = await store.load(db, tenant);
   const current = store.requireCase(context.state, caseId);
   if (!['APPLICATION', 'APPLICATION_PENDING', 'APPLICATION_UNCERTAIN', 'COUNTER_TEST_FAILED', 'CAUSAL_VERIFICATION'].includes(current.status)) {
