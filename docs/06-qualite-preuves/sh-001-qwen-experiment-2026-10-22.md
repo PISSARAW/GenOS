@@ -17,6 +17,7 @@ Les runs et bases sont isolés sous `D:\GenOS\runs\sh001-qwen-20261022`. Aucun s
 | 09 | Qwen Coder 7B, sans chemin imposé | A créé `src/node-delivery.js`; le test public passait, l’oracle échouait | Faux succès détecté; commit `445bc9b` |
 | 10 | Qwen Coder 7B, contexte source récursif | A laissé la logique défectueuse intacte (changement de nouvelle ligne uniquement); public vert, oracle rouge | Faux succès détecté; commit `c23b8f4` |
 | 11 | Qwen 2.5 14B, worker local GenOS | A modifié la fonction existante dans `src/delivery.js`; public et oracle indépendant passent | Réparation candidate réussie; commit `583bd1d` |
+| 12 | Qwen 2.5 14B, réplication aveugle dans un clone frais | A modifié uniquement `src/delivery.js`; public et oracle indépendant passent | Deuxième réparation candidate réussie; commit `7d16588` |
 
 Les runs 01–05 et les erreurs intermédiaires (SQLite, configuration admin locale, SDK MCP, readiness A-Team, signature du ledger, activation de topologie et dépendances) sont consignés dans les bases et journaux isolés sous `D:\GenOS\runs\sh001-qwen-20261022`. Ils ne sont pas présentés comme des réparations.
 
@@ -32,6 +33,8 @@ node D:\GenOS\runs\sh001-qwen-20261022\oracle\verify.js .\src\delivery.js
 Résultats : `public checks passed: fresh delivery ordering and checkpoint filtering` et `independent oracle passed: restart replay, acknowledgement boundary, payload integrity, and order`.
 
 L’inférence Qwen 14B du run 11 est tracée par GenOS : 70 831 ms, 1 173 tokens en entrée, 124 en sortie, modification de `src/delivery.js`, contrôle public exit 0. L’oracle caché a ensuite été exécuté séparément sur le même candidat et a réussi.
+
+La réplication du run 12 est indépendante, repart du commit sain `1ea8553` dans `workspace-qwen-blind-12`, et n’indique toujours pas au modèle le chemin du fichier. Qwen 14B a inféré en 3 654 ms (1 177 tokens en entrée, 115 en sortie), a changé le checkpoint pour traiter aussi une valeur absente et a retiré le filtre `attempts === 0`. Les commandes publiques et l’oracle indépendant passent; le patch est commité sur D: (`7d16588`). Le verdict d’orchestration reste `required_coverage_incomplete` pour les six phases GenOS manquantes, donc ces deux réparations ne prouvent pas encore le parcours complet du runner.
 
 ## Limite de la démonstration
 
