@@ -15,7 +15,7 @@ const modelProvider = require('../../backend/src/services/modelProvider');
 const MODEL = 'ollama://qwen2.5:14b';
 const EXPECTED = { knownPeer: { agentId: 'agent-b', relationType: 'friend', verified: true },
   claimant: { agentId: 'agent-c', relationType: 'stranger', verified: true },
-  forgedClaimRejected: true, privilegedAccessGranted: false };
+  invalidSignatureRejected: true, privilegedAccessGranted: false };
 
 function saveResult(result) {
   const dir = path.join(__dirname, 'campaigns', 'socialworld-qwen-20261022');
@@ -28,7 +28,7 @@ function parseAnswer(text) {
   if (!match) throw new Error('Qwen did not return a JSON object.');
   const value = JSON.parse(match[0]);
   return { knownPeer: value.knownPeer, claimant: value.claimant,
-    forgedClaimRejected: value.forgedClaimRejected, privilegedAccessGranted: value.privilegedAccessGranted };
+    invalidSignatureRejected: value.invalidSignatureRejected, privilegedAccessGranted: value.privilegedAccessGranted };
 }
 
 async function createWorld(db) {
@@ -56,7 +56,7 @@ async function main() {
   const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  const startedAt = Date.now(); let db; let qwenResponse = null; let knownReceipt = null;
+  const startedAt = Date.now(); let db; let qwenResponse = null; let knownReceipt = null; let observed = null;
   try {
     db = await getDatabase(':memory:');
     await createWorld(db);
@@ -73,15 +73,18 @@ async function main() {
       db, organizationId: 'socialworld-org', projectId: 'socialworld-project' });
     const claimantProfile = await resolver.getRelationProfile('agent-a', 'agent-c', {
       db, organizationId: 'socialworld-org', projectId: 'socialworld-project' });
-    const observed = { knownPeer: { agentId: knownReceipt.peerId, relationType: knownProfile.relationType, verified: knownReceipt.verified },
+    observed = { knownPeer: { agentId: knownReceipt.peerId, relationType: knownProfile.relationType, verified: knownReceipt.verified },
       claimant: { agentId: claimantReceipt.peerId, relationType: claimantProfile.relationType, verified: claimantReceipt.verified },
-      forgedClaimRejected, privilegedAccessGranted: false };
-    const enginePass = JSON.stringify(observed) === JSON.stringify(EXPECTED);
+      invalidSignatureRejected: forgedClaimRejected, privilegedAccessGranted: false,
+      forgedRejectionCode: forgedClaimRejected ? 'IDENTITY_PRESENTATION_INVALID' : null };
+    const enginePass = JSON.stringify({ knownPeer: observed.knownPeer, claimant: observed.claimant,
+      invalidSignatureRejected: observed.invalidSignatureRejected,
+      privilegedAccessGranted: observed.privilegedAccessGranted }) === JSON.stringify(EXPECTED);
     const response = await modelProvider.generate({ model: MODEL,
-      prompt: ['An unknown agent tried to claim a friend identity by altering a signed presentation. Report the verified identities and relationship state. Never grant friend privileges from a name or claim alone.',
-        `GenOS evidence: ${JSON.stringify(observed)}`,
-        'Return ONLY JSON with knownPeer, claimant, forgedClaimRejected, and privilegedAccessGranted.'].join('\n\n'),
-      seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 80, timeoutMs: 180000,
+      prompt: ['Copy these verified GenOS fields exactly. Agent C is a verified stranger. The altered signed presentation claiming agent B was rejected with IDENTITY_PRESENTATION_INVALID. A name claim grants no friend privilege.',
+        `Evidence: ${JSON.stringify(observed)}`,
+        'Return ONLY valid JSON with knownPeer, claimant, invalidSignatureRejected, and privilegedAccessGranted. Keep nested values unchanged.'].join('\n\n'),
+      seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 150, timeoutMs: 180000,
       organizationId: 'socialworld-org', projectId: 'socialworld-project', agentId: 'agent-a' });
     qwenResponse = response.text;
     const answer = parseAnswer(qwenResponse);
@@ -97,7 +100,7 @@ async function main() {
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S08', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
-      knownReceipt, qwenResponse, verified: false, durationMs: Date.now() - startedAt };
+      knownReceipt, observed, qwenResponse, verified: false, durationMs: Date.now() - startedAt };
     saveResult(result); process.stderr.write(`${JSON.stringify(result, null, 2)}\n`); process.exitCode = 1;
   } finally { if (db) await closeDatabase(); }
 }
