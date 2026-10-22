@@ -12,7 +12,7 @@ function requestedWorkspace(request) {
 }
 
 function requestedModel(request) {
-  return request.modelId || request.model_id || process.env.GENOS_LOCAL_MODEL
+  return request.localModel || request.local_model || request.modelId || request.model_id || process.env.GENOS_LOCAL_MODEL
     || process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b';
 }
 
@@ -20,12 +20,17 @@ function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
+  const localModel = requestedModel(request);
+  const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
+    primary: localModel.startsWith('ollama://') ? localModel : "ollama://",
+    fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
+  };
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
     prompt: enhancedPrompt, currentTask: enhancedPrompt, role: 'implementation',
     workerKind: 'bounded_worker', executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
-    localModel: requestedModel(request), timeoutMs: requestTimeoutMs,
+    localModel, localRoutingPolicy, timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
       costUsd: missionBudget.costUsd || 0,
       latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },
