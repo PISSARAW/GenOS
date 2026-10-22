@@ -80,6 +80,8 @@ function runMission(mission, arm, config) {
   const payload = JSON.stringify({
     mission,
     workspaceRoot: ROOT,
+    localModel: 'ollama://' + config.model,
+    localRoutingPolicy: { primary: 'ollama://' + config.model, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true },
     background: true,
     timeoutMs: config.timeout * 1000
   });

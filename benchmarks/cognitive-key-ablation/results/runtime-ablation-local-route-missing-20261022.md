@@ -2,7 +2,7 @@
 
 - Date : 2026-10-22 (UTC : 20:05)
 - Révision : `1e7669128`
-- Rapport runner : `runtime-ablation-1792699560xxx.json` — rapport exact à lister dans la console du run.
+- Rapport runner : `runtime-ablation-1792699561256.json` — rapport exact à lister dans la console du run.
 - Modèle visé : `qwen2.5:14b` via Ollama, digest `7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6`.
 - Résultat : ÉCHEC, 2/2 orchestrateurs terminés en erreur avant l’inférence, aucun dossier ni événement cognitif.
 
