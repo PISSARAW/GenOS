@@ -33,7 +33,7 @@
 | S21 Dialectes et langage | Reussi avec Qwen 2.5 14B; symbole versionne decode, terme inconnu dirige vers fallback | `S21-result.json`; source `315bb1fd` |
 | S22 Communication humaine | Reussi avec Qwen 2.5 14B; relais limite au perimetre explicitement approuve | `S22-result.json`; source `04b14d21` |
 | S23 Mémoire intermissions | Réussi avec GenOS et Qwen 2.5 14B | `S23-genos-result.json`, `S23-result.json`; source `faf11840` |
-| S24 Évolution des relations | Non exécuté | — |
+| S24 Évolution des relations | Réussi | Qwen 14B: confiance calculée sur cinq évaluations vérifiées et abaissée après trois échecs; `S24-result.json` (`07c526a8`) |
 | S25 Transmission sociale | Non exécuté | — |
 | S26 Pannes et reprise | Non exécuté | — |
 | S27 Société mult topologique | Non exécuté | — |
