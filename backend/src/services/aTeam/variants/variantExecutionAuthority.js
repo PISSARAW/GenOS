@@ -199,6 +199,10 @@ module.exports = {
     const roles = icsPolicy.mandatory_ics_roles.roles;
     this.recordEvidence('ics_roles', { roles, allAssigned: icsPolicy.mandatory_ics_roles.allAssigned });
 
+    if (!icsPolicy.mandatory_ics_roles.allAssigned) {
+      throw coded('Incident command requires all mandatory ICS roles to be assigned.', 'ATEAM_ICS_ROLES_INCOMPLETE');
+    }
+
     const events = this.mission.incidentEvents || [];
     let state = { status: 'ACTIVE', period: 1, timeline: [], latestSitrep: null };
 
