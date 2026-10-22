@@ -33,7 +33,6 @@ const variantPolicyService = require('./rhizome/variants/variantPolicyService');
 const pruningExecutorService = require('./rhizome/pruning/pruningExecutorService');
 const nestedTopologyService = require('./rhizome/nested/nestedTopologyService');
 const rhizomeServiceOperations = require('./rhizome/rhizomeServiceOperations');
-
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
   rootless_coordinator: ['coordination'],
@@ -284,6 +283,7 @@ async function routeToCapability(sessionId, need, options = {}) {
   const tau = session.variantPolicy.conductivity?.tau;
   if (routing.temperature === undefined && Number.isFinite(tau)) routing.temperature = tau;
   if (Number.isFinite(routing.conductivityWeight)) routing.objectiveWeights = { ...(routing.objectiveWeights || {}), conductivity: routing.conductivityWeight };
+  if (session.variantPolicy.conductivity?.scoutPriority === 'max') routing.curiosityWeight = (routing.curiosityWeight || 0) + 0.1;
   return routePlanner.plan(session, need, routingPolicy.constrain(routing, options.routing || options.routingPolicy));
 }
 async function evaporateTrails(sessionId, options = {}) {
