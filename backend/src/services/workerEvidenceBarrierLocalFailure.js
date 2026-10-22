@@ -20,7 +20,7 @@ async function publish(ctx) {
     { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel,
       workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics,
       proposalTests: ctx.error.proposal?.tests,
-      appliedFiles: ctx.error.proposal?.appliedFiles, usage: ctx.usage,
+      appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.usage,
       stageTimings: ctx.stageTimings }, 'warning', state.status);
   require('./agentEvidenceService').recordWorkerEvidence(ctx.mission, failed);
   ctx.reportMilestone(ctx.mission, failed);
