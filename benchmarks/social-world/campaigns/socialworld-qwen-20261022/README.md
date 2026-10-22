@@ -23,7 +23,7 @@
 | S11 Reprise de contact | R�ussi avec Qwen 2.5 14B; premier essai expir� | `S11-attempt-01.json` (timeout), `S11-result.json`; source `c96ae085` |
 | S12 Silence intelligent | R�ussi avec Qwen 2.5 14B apr�s correctif | `S12-result.json`; source `6d691034` |
 | S13 R�conciliation | R�ussi avec Qwen 2.5 14B; premier essai expir� | `S13-attempt-01.json` (timeout), `S13-result.json`; source `58643b93` |
-| S14 Curiosité sociale | Non exécuté | — |
+| S14 Curiosite sociale | Reussi avec Qwen 2.5 14B | `S14-result.json`; source `ac368cc9` |
 | S15 Unicast | Non exécuté | — |
 | S16 Multicast sélectif | Non exécuté | — |
 | S17 Broadcast / quorum | Non exécuté | — |

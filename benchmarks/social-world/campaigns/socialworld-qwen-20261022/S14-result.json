@@ -1,0 +1,42 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S14",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "ac368cc969fdd2a61c31d3b07d5b645857720160",
+  "selectedDomain": {
+    "selectedDomainId": "neighbor:agent-b:cartography",
+    "curiosityScore": 0.2663,
+    "ranking": [
+      {
+        "domainId": "neighbor:agent-b:cartography",
+        "curiosityScore": 0.2663
+      },
+      {
+        "domainId": "neighbor:agent-b:personal-life",
+        "curiosityScore": 0
+      }
+    ]
+  },
+  "qwenResponse": "{\n  \"topic\": \"cartography\",\n  \"question\": \"Could you demonstrate how to create a detailed topographic map of an area using modern cartography techniques?\"\n}",
+  "qwenQuestion": {
+    "topic": "cartography",
+    "question": "Could you demonstrate how to create a detailed topographic map of an area using modern cartography techniques?"
+  },
+  "observed": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "question:neighbor:cartography"
+    ],
+    "publicSummary": "Could you demonstrate how to create a detailed topographic map of an area using modern cartography techniques?"
+  },
+  "questionCount": 1,
+  "humanInstructionsAfterSetup": 0,
+  "verified": true,
+  "oracle": "curiosity selects one useful unknown neighbor skill and sends one optional question only to that neighbor",
+  "durationMs": 79158
+}
