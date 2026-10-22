@@ -12,12 +12,12 @@ Le module Morphogenèse expose un `MorphogeneticConfig` (documenté à `docs/02-
 
 | Paramètre | Valeur par défaut | Lieu de définition |
 |-----------|-------------------|--------------------|
-| `defaultTopology` | `Trinity` | doc §12 ; code : fallback `'default'` / `'single_agent'` selon les sélecteurs |
-| `overcommitRatio` | `1.5` | `backend/src/services/morphogenesis/barriers/budgetBarrier.js#L3` |
-| `memoryRetention` | `30 days` | `backend/src/services/morphogenesis/memory/morphologyPriorFreshness.js#L8` (`30 * 86400000` ms) |
-| `firewallPolicy` | `STRICT` | doc §12 ; exemple de code `InformationFirewallManager` utilise `constructor(policy = 'STANDARD')` (§17.4) |
+| `defaultTopology` | `Trinity` | `backend/src/services/morphogenesis/roles/morphogeneticController.js` (`DEFAULT_CONFIG.defaultTopology`) |
+| `overcommitRatio` | `1.5` | `backend/src/services/morphogenesis/barriers/budgetBarrier.js` (`DEFAULT_OVERCOMMIT_RATIO`) |
+| `memoryRetention` | `30 days` | `backend/src/services/morphogenesis/memory/morphologyPriorFreshness.js` (`DEFAULT_HALF_LIFE_MS = 30 * 86400000` ms) et `roles/morphologyMemory.js` |
+| `firewallPolicy` | `STRICT` | `backend/src/services/morphogenesis/firewalls/firewallTypes.js` (`DEFAULT_FIREWALL_POLICY`) et `roles/informationFirewallManager.js` |
 
-Aucun commentaire de code, aucun ADR et aucun test ne begründe le choix de ces valeurs précises. De plus, il existe une incohérence : le doc annonce `STRICT` alors que l'exemple de code `InformationFirewallManager` (`morphogenese.md` §17.4, ligne 1148) default sur `'STANDARD'`, et il n'existe pas de constante `DEFAULT_FIREWALL_POLICY` dans `backend/src/services/morphogenesis/firewalls/`.
+Avant cet ADR, aucun commentaire de code ni test ne justifiait le choix de ces valeurs précises, et il existait une incohérence entre la documentation (`STRICT` en §12 vs `'STANDARD'` dans l'exemple §17.4) et le code.
 
 ## Décision
 
@@ -44,7 +44,7 @@ Ces valeurs sont des **défauts révisables** : elles peuvent être overriden pa
 ### Négatives
 
 - Aucun des quatre choix n'est étayé par des mesures de production ; ils reposent sur une inférence d'ingénierie, pas sur des benchmarks. Ils doivent être considérés comme des hypothèses à valider.
-- L'ajout de commentaires dans `budgetBarrier.js`, `morphologyPriorFreshness.js` et le contrôleur morphogénétique est nécessaire pour que la justification survive à la lecture du code (hors du périmètre de cet ADR, cf. étapes de mise en œuvre).
+- Les commentaires justificatifs et constantes canoniques sont portés directement par `budgetBarrier.js`, `morphologyPriorFreshness.js`, `firewallTypes.js`, `morphogeneticController.js`, `informationFirewallManager.js` et `morphologyMemory.js`.
 
 ## Alternatives
 
@@ -52,10 +52,10 @@ Ces valeurs sont des **défauts révisables** : elles peuvent être overriden pa
 - **Choisir d'autres valeurs** (ex. `overcommitRatio = 2.0`, `memoryRetention = 7 days`) : rejeté pour l'instant, faute de données de production justifiant un changement ; les valeurs actuelles sont conservées mais désormais documentées.
 - **Documenter uniquement dans le doc** : rejeté, insuffisant ; le code source doit porter le raisonnement à proximité des constantes.
 
-## Étapes de mise en œuvre (hors ADR)
+## Mise en œuvre
 
-1. Ajouter un commentaire de justification dans `budgetBarrier.js` (`DEFAULT_OVERCOMMIT_RATIO = 1.5`).
-2. Ajouter un commentaire de justification dans `morphologyPriorFreshness.js` (`30 * 86400000` ms).
-3. Aligner `InformationFirewallManager` (doc §17.4) sur `policy = 'STRICT'` et ajouter un commentaire dans le module de firewalls concerné.
-4. Mettre à jour `morphogenese.md` §12 : remplacer la colonne « Description » par une justification réelle pour `overcommitRatio`, `memoryRetention` et `firewallPolicy`.
+1. `budgetBarrier.js` exporte `DEFAULT_OVERCOMMIT_RATIO = 1.5` avec justification commentée et validation stricte des ratios.
+2. `morphologyPriorFreshness.js` exporte `DEFAULT_HALF_LIFE_MS = 30 * 86400000` ms et `roles/morphologyMemory.js` applique `DEFAULT_MEMORY_RETENTION_DAYS = 30` et `DEFAULT_MAX_ENTRIES = 10000`.
+3. `firewallTypes.js` et `roles/informationFirewallManager.js` exposent `DEFAULT_FIREWALL_POLICY = 'STRICT'` (aligné sur `morphogenese.md` §12 et §17.4).
+4. `roles/morphogeneticController.js` expose l'intégralité du `MorphogeneticConfig` (`defaultTopology = 'Trinity'`, `overcommitRatio = 1.5`, `memoryRetention = 30`, `firewallPolicy = 'STRICT'`, `timescaleConfig`).
 5. Réviser ces valeurs après une période d'observation en production ou sur incident de budget/mémoire.

@@ -5,11 +5,13 @@ const privacyFirewall = require('../firewalls/privacyFirewall');
 const authorityFirewall = require('../firewalls/authorityFirewall');
 const stateFirewall = require('../firewalls/stateFirewall');
 const firewallManager = require('../firewalls/informationFirewallManager');
+const { FIREWALL_CONTROLS, DEFAULT_FIREWALL_POLICY } = require('../firewalls/firewallTypes');
 
 const INDEPENDENCE_FIREWALL = 'INDEPENDENCE';
 const PRIVACY_FIREWALL = 'PRIVACY';
 const AUTHORITY_FIREWALL = 'AUTHORITY';
 const STATE_FIREWALL = 'STATE';
+const FIREWALL_POLICIES = Object.freeze(['PERMISSIVE', 'STANDARD', 'STRICT']);
 
 const FIREWALLS = Object.freeze({
   [INDEPENDENCE_FIREWALL]: independenceFirewall,
@@ -44,12 +46,28 @@ function enforceAll(graph, edge, context) {
   };
 }
 
+function createInformationFirewallManager(policy = DEFAULT_FIREWALL_POLICY) {
+  const normalized = String(policy || DEFAULT_FIREWALL_POLICY).toUpperCase();
+  if (!FIREWALL_POLICIES.includes(normalized)) {
+    throw new Error(`Unsupported firewall policy: ${policy}`);
+  }
+  return {
+    policy: normalized,
+    firewalls: FIREWALLS,
+    enforceAll: (graph, edge, context) => enforceAll(graph, edge, context)
+  };
+}
+
 module.exports = {
   INDEPENDENCE_FIREWALL,
   PRIVACY_FIREWALL,
   AUTHORITY_FIREWALL,
   STATE_FIREWALL,
+  FIREWALL_CONTROLS,
+  DEFAULT_FIREWALL_POLICY,
+  FIREWALL_POLICIES,
   FIREWALLS,
+  createInformationFirewallManager,
   createFirewallEdge: firewallManager.createFirewallEdge,
   attachFirewall: firewallManager.attachFirewall,
   hasFirewall: firewallManager.hasFirewall,

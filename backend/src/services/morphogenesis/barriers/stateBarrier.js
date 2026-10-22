@@ -1,18 +1,23 @@
 'use strict';
 
-const FORBIDDEN_PAIRS = [
+const FORBIDDEN_PAIRS = Object.freeze([
   ['syncytium', 'parallel'],
   ['parallel', 'syncytium'],
   ['holobionte', 'parallel'],
   ['parallel', 'holobionte']
-];
+]);
 
 function stateTopologyOf(contract) {
-  return contract && contract.stateModel && contract.stateModel.topology;
+  if (typeof contract === 'string') return contract;
+  const model = contract && contract.stateModel;
+  if (typeof model === 'string') return model;
+  return (model && (model.topology || model.writes)) || (contract && (contract.topology || contract.topologyId)) || null;
 }
 
 function isForbidden(a, b) {
-  return FORBIDDEN_PAIRS.some((pair) => pair[0] === String(a).toLowerCase() && pair[1] === String(b).toLowerCase());
+  const left = String(a || '').toLowerCase();
+  const right = String(b || '').toLowerCase();
+  return FORBIDDEN_PAIRS.some((pair) => pair[0] === left && pair[1] === right);
 }
 
 function check(parentContract, childContract) {
@@ -27,4 +32,4 @@ function check(parentContract, childContract) {
   return { valid: true };
 }
 
-module.exports = { check };
+module.exports = { FORBIDDEN_PAIRS, isForbidden, check };

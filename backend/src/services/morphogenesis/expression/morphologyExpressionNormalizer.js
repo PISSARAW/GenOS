@@ -20,9 +20,19 @@ function normalizeNode(node) {
   return node;
 }
 
+function canonicalTopologyName(raw) {
+  const cleaned = String(raw || '').trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[-\s]+/g, '_');
+  if (cleaned === 'ateam' || cleaned === 'a_team') return 'a_team';
+  return cleaned;
+}
+
 function normalizeTopology(node) {
   const normalized = { ...node };
-  normalized.topology = String(normalized.topology || '').toLowerCase().trim();
+  normalized.topology = canonicalTopologyName(normalized.topology);
   if (normalized.variant) normalized.variant = String(normalized.variant).toLowerCase().trim();
   normalized.nodeKind = 'TOPOLOGY';
   normalized.kind = 'TOPOLOGY';

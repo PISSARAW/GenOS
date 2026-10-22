@@ -4,8 +4,8 @@
  * @deprecated Use backend/src/services/counterfactual/comparison.js
  */
 
-const comparison = require('../../counterfactual/comparison');
-const promotion = require('../../counterfactual/promotion');
+const comparison = require('../counterfactual/comparison');
+const promotion = require('../counterfactual/promotion');
 
 module.exports = {
   compareEffects: comparison.compareEffects,

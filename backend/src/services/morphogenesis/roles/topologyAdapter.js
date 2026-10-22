@@ -11,24 +11,32 @@ function defaultFidelity(outputs, validInputs) {
   const total = Array.isArray(outputs) ? outputs.length : 1;
   if (total === 0) return 1;
   const valid = Array.isArray(validInputs) ? validInputs.length : total;
-  return Math.min(1, valid / total);
+  return Math.max(0, Math.min(1, valid / total));
 }
 
 function defaultStateMapper(state, fromBoundary, toBoundary) {
   return { ...(state || {}), fromBoundary, toBoundary };
 }
 
+function resolveThreshold(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 1 ? numeric : DEFAULT_FIDELITY_THRESHOLD;
+}
+
 function translate(input, adapter) {
+  const req = input || {};
   const phi = adapter.phi_translate || defaultTranslate;
-  const adapted = phi(input.payload || {}, input.fromTopology, input.toTopology);
+  const adapted = phi(req.payload || {}, req.fromTopology, req.toTopology);
   const fidelityFn = adapter.fidelityFn || defaultFidelity;
-  const score = fidelityFn(adapted, input.payload || {});
+  const outputs = Array.isArray(req.outputs) ? req.outputs : req.payload || {};
+  const validInputs = Array.isArray(req.validInputs) ? req.validInputs : adapted;
+  const score = fidelityFn(outputs, validInputs);
   return {
     adapted,
     fidelity: score,
-    admitted: score >= (adapter.threshold || DEFAULT_FIDELITY_THRESHOLD),
-    fromTopology: input.fromTopology,
-    toTopology: input.toTopology,
+    admitted: score >= adapter.threshold,
+    fromTopology: req.fromTopology,
+    toTopology: req.toTopology,
     latencyMs: adapter.latency
   };
 }
@@ -50,7 +58,7 @@ function validateSemantics(adapted, inputContract) {
   const schema = contract.schema || {};
   const missing = [];
   for (const field of Object.keys(schema)) {
-    if (schema[field].required && adapted[field] === undefined) missing.push(field);
+    if (schema[field].required && (!adapted || adapted[field] === undefined)) missing.push(field);
   }
   return { valid: missing.length === 0, missing };
 }
@@ -58,9 +66,9 @@ function validateSemantics(adapted, inputContract) {
 function createTopologyAdapter(input = {}) {
   const phi_translate = input.phi_translate || defaultTranslate;
   const fidelityFn = input.fidelity || defaultFidelity;
-  const latency = Number(input.latency || DEFAULT_LATENCY_BUDGET_MS);
+  const latency = Number.isFinite(Number(input.latency)) ? Number(input.latency) : DEFAULT_LATENCY_BUDGET_MS;
   const stateMapper = input.stateMapper || defaultStateMapper;
-  const threshold = Number(input.fidelityThreshold || DEFAULT_FIDELITY_THRESHOLD);
+  const threshold = resolveThreshold(input.fidelityThreshold);
   const adapter = { phi_translate, fidelityFn, latency, stateMapper, threshold };
   return {
     phi_translate,
@@ -68,7 +76,7 @@ function createTopologyAdapter(input = {}) {
     latency,
     stateMapper,
     threshold,
-    translate: (input) => translate(input, adapter),
+    translate: (req) => translate(req, adapter),
     fidelityScore: (outputs, validInputs) => fidelityScore(outputs, validInputs, adapter.fidelityFn),
     meetsThreshold: (score) => meetsThreshold(score, adapter.threshold),
     mapState: (state, fromBoundary, toBoundary) => mapState({ state, fromBoundary, toBoundary }, adapter.stateMapper),

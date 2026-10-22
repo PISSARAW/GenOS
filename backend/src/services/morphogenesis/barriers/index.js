@@ -6,9 +6,9 @@ const evidenceBarrier = require('./evidenceBarrier');
 const budgetBarrier = require('./budgetBarrier');
 const lifecycleBarrier = require('./lifecycleBarrier');
 
-function checkAll(pairs, contracts, config = {}) {
+function checkAll(pairs = [], contracts = [], config = {}) {
   const results = [];
-  for (const pair of pairs) {
+  for (const pair of Array.isArray(pairs) ? pairs : []) {
     const [parent, child] = pair;
     results.push({ barrier: 'authority', ...authorityBarrier.check(parent, child) });
     results.push({ barrier: 'state', ...stateBarrier.check(parent, child) });

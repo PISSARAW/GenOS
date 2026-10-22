@@ -11,8 +11,8 @@ function validateMorphologyGraph(graph, config = {}) {
   const nodes = Array.isArray(graph && graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph && graph.edges) ? graph.edges : [];
   const byId = new Map(nodes.map((node) => [node.nodeId, node]));
-  const maxChildren = Number.isInteger(config.maxChildren) ? config.maxChildren : DEFAULT_MAX_CHILDREN;
-  const maxDepth = Number.isInteger(config.maxDepth) ? config.maxDepth : DEFAULT_MAX_DEPTH;
+  const maxChildren = resolveBound(config.maxChildren, graph && graph.maxChildren, DEFAULT_MAX_CHILDREN);
+  const maxDepth = resolveBound(config.maxDepth, graph && graph.maxDepth, DEFAULT_MAX_DEPTH);
   errors.push(...graphIdentityErrors(graph, nodes, byId));
   errors.push(...nodeParentErrors(graph, nodes, byId));
   errors.push(...edgeErrors(edges, byId));
@@ -23,6 +23,12 @@ function validateMorphologyGraph(graph, config = {}) {
   if (hasContainmentCycle(nodes, edges)) errors.push('containment relationships must be acyclic');
   if (hasAuthorityCycle(edges)) errors.push('authority relationships must be acyclic (DAG)');
   return { valid: errors.length === 0, errors };
+}
+
+function resolveBound(configValue, graphValue, fallback) {
+  if (Number.isInteger(configValue)) return configValue;
+  if (Number.isInteger(graphValue)) return graphValue;
+  return fallback;
 }
 
 function graphIdentityErrors(graph, nodes, byId) {
@@ -65,24 +71,33 @@ function firewallErrors(edge) {
 }
 
 function hasContainmentCycle(nodes, edges = []) {
+  if (hasParentConflictOrCycle(nodes, edges)) return true;
+  return hasDirectedCycle(buildChildSets(nodes, edges));
+}
+
+function hasParentConflictOrCycle(nodes, edges) {
   const parents = new Map();
   for (const node of nodes) {
     if (node.parentNodeId) parents.set(node.nodeId, node.parentNodeId);
   }
   for (const edge of edges) {
-    if (edge.type === 'CONTAINS') {
-      if (parents.has(edge.toNodeId) && parents.get(edge.toNodeId) !== edge.fromNodeId) return true;
-      parents.set(edge.toNodeId, edge.fromNodeId);
-    }
+    if (edge.type !== 'CONTAINS') continue;
+    if (parents.has(edge.toNodeId) && parents.get(edge.toNodeId) !== edge.fromNodeId) return true;
+    parents.set(edge.toNodeId, edge.fromNodeId);
   }
   for (const node of nodes) {
-    const visited = new Set([node.nodeId]);
-    let parent = parents.get(node.nodeId);
-    while (parent) {
-      if (visited.has(parent)) return true;
-      visited.add(parent);
-      parent = parents.get(parent);
-    }
+    if (walksParentCycle(node.nodeId, parents)) return true;
+  }
+  return false;
+}
+
+function walksParentCycle(startId, parents) {
+  const visited = new Set([startId]);
+  let parent = parents.get(startId);
+  while (parent) {
+    if (visited.has(parent)) return true;
+    visited.add(parent);
+    parent = parents.get(parent);
   }
   return false;
 }
@@ -134,7 +149,7 @@ function maxDepthErrors(childSets, rootNodeId, maxDepth) {
   for (let i = 0; i < queue.length; i += 1) {
     const nodeId = queue[i];
     const d = depth.get(nodeId);
-    if (d >= maxDepth) errors.push(`node ${nodeId} exceeds MaxDepth (depth ${d} >= ${maxDepth})`);
+    if (d > maxDepth) errors.push(`node ${nodeId} exceeds MaxDepth (depth ${d} > ${maxDepth})`);
     const children = childSets.get(nodeId);
     if (children) {
       for (const childId of children) {
@@ -156,6 +171,10 @@ function hasAuthorityCycle(edges) {
     succ.add(edge.toNodeId);
     adj.set(edge.fromNodeId, succ);
   }
+  return hasDirectedCycle(adj);
+}
+
+function hasDirectedCycle(adj) {
   const color = new Map();
   for (const start of adj.keys()) {
     if (color.get(start) === 2) continue;

@@ -2,7 +2,7 @@
 
 const CHANGE_FACTORS = Object.freeze(['models', 'repository', 'provider', 'toolset', 'successRate']);
 
-// Half-life par défaut des priors morphologiques : 30 jours (30 * 86400000 ms).
+// Half-life par défaut des priors morphologiques : 30 jours (30 * 86400000 ms, ADR 0720).
 // Un mois constitue un cycle d'observation suffisant pour qu'un prior perde de
 // sa confiance sans être purgé prématurément, tout en évitant l'accumulation
 // indéfinie d'entrées obsolètes. Révisable via prior.halfLifeMs.
@@ -16,4 +16,4 @@ function assessPriorFreshness(prior = {}, current = {}, now = Date.now()) {
   return { confidence, staleReasons, reusable: confidence >= 0.35 };
 }
 
-module.exports = { CHANGE_FACTORS, assessPriorFreshness };
+module.exports = { CHANGE_FACTORS, DEFAULT_HALF_LIFE_MS, assessPriorFreshness };

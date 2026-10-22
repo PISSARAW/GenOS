@@ -7,6 +7,7 @@ const { checkEvidence } = require('../typing/evidenceCompatibility');
 const { checkIndependence } = require('../typing/independenceCompatibility');
 const { checkResources } = require('../typing/resourceCompatibility');
 const { checkLifecycle } = require('../typing/lifecycleCompatibility');
+const budgetBarrier = require('../barriers/budgetBarrier');
 
 const ARITY = Object.freeze({
   NEST: { min: 2, max: 2 },
@@ -28,7 +29,14 @@ function checkGraph(input) {
   const results = formalResults();
   checkRoot(graph, errors);
   checkNodes(graph, errors);
-  checkFormalCompatibility({ graph, contracts, errors, results });
+  checkFormalCompatibility({
+    graph,
+    contracts,
+    globalBudget: input.globalBudget,
+    overcommitRatio: input.config && input.config.overcommitRatio,
+    errors,
+    results
+  });
   return { valid: errors.length === 0, errors, ...results };
 }
 
@@ -44,43 +52,42 @@ function formalResults() {
   };
 }
 
+function applyCheckResult(errors, results, spec) {
+  if (spec.found.length > 0) {
+    results[spec.flag] = false;
+    errors.push(...spec.found);
+  }
+}
+
+function hasNumericBudget(raw) {
+  if (Number.isFinite(raw)) return true;
+  return Boolean(raw && typeof raw === 'object' && Number.isFinite(raw.tokens));
+}
+
+function leafNodesOf(nodes) {
+  const parentIds = new Set(nodes.map((n) => n.parentNodeId).filter(Boolean));
+  return nodes.filter((n) => !parentIds.has(n.nodeId) && (!n.children || n.children.length === 0));
+}
+
+function checkOvercommitBudget(context) {
+  const { graph, globalBudget, overcommitRatio } = context;
+  const budget = globalBudget ?? (graph && graph.globalBudget);
+  if (!hasNumericBudget(budget)) return [];
+  const ratio = overcommitRatio ?? (graph && graph.overcommitRatio);
+  const check = budgetBarrier.check(leafNodesOf(graph.nodes || []), budget, ratio);
+  return check.valid ? [] : [check.reason];
+}
+
 function checkFormalCompatibility(context) {
   const { graph, contracts, errors, results } = context;
-  const authorityErrors = checkAuthority(graph);
-  if (authorityErrors.length > 0) {
-    results.authorityCompatible = false;
-    errors.push(...authorityErrors);
-  }
-  const stateErrors = checkState(graph);
-  if (stateErrors.length > 0) {
-    results.stateSemanticsCompatible = false;
-    errors.push(...stateErrors);
-  }
-  const privacyErrors = checkPrivacy(graph);
-  if (privacyErrors.length > 0) {
-    results.privacyBoundariesCompatible = false;
-    errors.push(...privacyErrors);
-  }
-  const evidenceErrors = checkEvidence(graph);
-  if (evidenceErrors.length > 0) {
-    results.evidenceContractCompatible = false;
-    errors.push(...evidenceErrors);
-  }
-  const independenceErrors = checkIndependence(graph, contracts);
-  if (independenceErrors.length > 0) {
-    results.independencePreserved = false;
-    errors.push(...independenceErrors);
-  }
-  const resourceErrors = checkResources(graph);
-  if (resourceErrors.length > 0) {
-    results.resourceBudgetValid = false;
-    errors.push(...resourceErrors);
-  }
-  const lifecycleErrors = checkLifecycle(graph, contracts);
-  if (lifecycleErrors.length > 0) {
-    results.lifecycleCoherent = false;
-    errors.push(...lifecycleErrors);
-  }
+  applyCheckResult(errors, results, { flag: 'authorityCompatible', found: checkAuthority(graph) });
+  applyCheckResult(errors, results, { flag: 'stateSemanticsCompatible', found: checkState(graph) });
+  applyCheckResult(errors, results, { flag: 'privacyBoundariesCompatible', found: checkPrivacy(graph) });
+  applyCheckResult(errors, results, { flag: 'evidenceContractCompatible', found: checkEvidence(graph) });
+  applyCheckResult(errors, results, { flag: 'independencePreserved', found: checkIndependence(graph, contracts) });
+  const resourceErrors = [...checkResources(graph), ...checkOvercommitBudget(context)];
+  applyCheckResult(errors, results, { flag: 'resourceBudgetValid', found: resourceErrors });
+  applyCheckResult(errors, results, { flag: 'lifecycleCoherent', found: checkLifecycle(graph, contracts) });
 }
 
 function checkRoot(graph, errors) {

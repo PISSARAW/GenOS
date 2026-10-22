@@ -1,5 +1,7 @@
 'use strict';
 
+const { errorAmplification } = require('../epidemiology/errorAmplificationService');
+
 function registerError(error, errorRegistry) {
   const entry = {
     errorId: error && error.errorId ? String(error.errorId) : `err-${Date.now()}`,
@@ -24,39 +26,54 @@ function recordTransmission(transmission, state) {
 function neighborsOf(nodeId, transmissionGraph) {
   const result = [];
   for (const [key, edges] of transmissionGraph) {
-    const [source] = key.split('->');
+    const [source, target] = key.split('->');
     if (source === nodeId) {
-      const target = key.split('->')[1];
       for (const edge of edges) result.push({ target, errorId: edge.errorId });
     }
   }
   return result;
 }
 
-function assessPropagation(errorId, transmissionGraph) {
-  const visited = new Set();
-  const queue = [];
+function seedSources(errorId, transmissionGraph) {
+  const sources = new Set();
+  const targets = new Set();
   for (const [key, edges] of transmissionGraph) {
     if (edges.some((edge) => edge.errorId === errorId)) {
-      const [source] = key.split('->');
-      if (!visited.has(source)) {
-        visited.add(source);
-        queue.push(source);
-      }
+      const [source, target] = key.split('->');
+      sources.add(source);
+      targets.add(target);
     }
   }
-  let reachable = 0;
+  const roots = new Set([...sources].filter((s) => !targets.has(s)));
+  return roots.size > 0 ? roots : sources;
+}
+
+function assessPropagation(errorId, transmissionGraph) {
+  const primarySources = seedSources(errorId, transmissionGraph);
+  const visited = new Set(primarySources);
+  const queue = [...primarySources];
+  const secondary = new Set();
   while (queue.length > 0) {
     const node = queue.shift();
-    reachable += 1;
     for (const neighbor of neighborsOf(node, transmissionGraph)) {
-      if (!visited.has(neighbor.target)) {
-        visited.add(neighbor.target);
-        queue.push(neighbor.target);
+      if (neighbor.errorId === errorId || !neighbor.errorId) {
+        secondary.add(neighbor.target);
+        if (!visited.has(neighbor.target)) {
+          visited.add(neighbor.target);
+          queue.push(neighbor.target);
+        }
       }
     }
   }
-  return { errorId, reachableNodes: reachable, risk: reachable > 0 ? 'propagating' : 'contained' };
+  const reachable = visited.size;
+  const amp = errorAmplification(primarySources.size, secondary.size);
+  return {
+    errorId,
+    reachableNodes: reachable,
+    secondaryNodes: secondary.size,
+    R_error: amp.ratio,
+    risk: secondary.size > 0 ? 'propagating' : 'contained'
+  };
 }
 
 function contain(errorId, policy, containmentPolicy) {
