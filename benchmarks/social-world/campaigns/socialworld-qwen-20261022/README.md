@@ -31,7 +31,7 @@
 | S19 Signaux zero-text | Reussi avec Qwen 2.5 14B; ligand declenche cascade sans contenu textuel | `S19-result.json`; source `7b3439f4` |
 | S20 Communication structurée | Non exécuté | — |
 | S21 Dialectes et langage | Reussi avec Qwen 2.5 14B; symbole versionne decode, terme inconnu dirige vers fallback | `S21-result.json`; source `315bb1fd` |
-| S22 Communication humaine | Non exécuté | — |
+| S22 Communication humaine | Reussi avec Qwen 2.5 14B; relais limite au perimetre explicitement approuve | `S22-result.json`; source `04b14d21` |
 | S23 Mémoire intermissions | Réussi avec GenOS et Qwen 2.5 14B | `S23-genos-result.json`, `S23-result.json`; source `faf11840` |
 | S24 Évolution des relations | Non exécuté | — |
 | S25 Transmission sociale | Non exécuté | — |
@@ -57,6 +57,7 @@ Le premier essai a d�pos� le fait dans la stigmergie sans destinataire. Le c
 ## S11: reprise de contact
 
 Le premier essai a expir� pendant la requ�te Qwen alors que Qwen Coder 32B avait repris presque toute la VRAM. Apr�s arr�t autoris� du mod�le bloqu� et am�lioration du rapport d'erreur, le run complet a r�ussi: l'�v�nement d'�ch�ance `HANDOFF_REQUESTED` a d�clench� un unicast au collaborateur pr�c�dent, avec la r�f�rence de suivi exacte. Qwen a reproduit la d�cision.
+
 
 
 
