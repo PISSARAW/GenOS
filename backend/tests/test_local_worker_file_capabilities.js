@@ -42,6 +42,15 @@ function checkFileReading(capsule) {
   assert.equal(built.fileHashes['buggy-sum.js'], excerpt.sha256);
 }
 
+function checkEmptyWorkspaceBootstrap() {
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-local-worker-empty-'));
+  try {
+    const built = runtime.buildWorkspaceContext(empty);
+    assert.match(built.text, /For a create\/build task, scaffold from scratch/);
+    assert.match(built.text, /For modification or review tasks/);
+  } finally { fs.rmSync(empty, { recursive: true, force: true }); }
+}
+
 function checkSizeRefusal(capsule) {
   fs.writeFileSync(path.join(capsule, 'big.txt'), 'x'.repeat(40000));
   const excerpt = runtime.readWorkspaceFileExcerpt(capsule, 'big.txt');
@@ -130,6 +139,7 @@ async function main() {
   const capsule = freshCapsule();
   try {
     checkFileReading(capsule);
+    checkEmptyWorkspaceBootstrap();
     checkSizeRefusal(capsule);
     checkPathConfinement(capsule);
     checkArtifactApplication(capsule);
