@@ -1,72 +1,107 @@
 {
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S02",
-  "seed": 7,
-  "status": "fail",
+  "seed": 8,
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "a9272bd8d8ae14b848ca00776d4ce9177c8c2063",
-  "error": "SyntaxError: Expected ',' or ']' after array element in JSON at position 175 (line 4 column 78)\n    at JSON.parse (<anonymous>)\n    at parseAnswer (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s02-qwen.cjs:22:22)\n    at main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s02-qwen.cjs:74:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "before": {
+  "sourceCommit": "318a3d7d27611c12b2cfe96a535df1781f84cfb8",
+  "expected": [
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-c",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-d",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-c",
+      "targetAgentId": "agent-d",
+      "distance": 1
+    }
+  ],
+  "observed": [
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-c",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-d",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-c",
+      "targetAgentId": "agent-d",
+      "distance": 1
+    }
+  ],
+  "before": [
+    {
+      "sourceAgentId": "agent-a",
+      "targetAgentId": "agent-b",
+      "distance": 1
+    },
+    {
+      "sourceAgentId": "agent-c",
+      "targetAgentId": "agent-d",
+      "distance": 1
+    }
+  ],
+  "changes": {
+    "created": 2,
+    "removed": 1,
+    "retained": 1
+  },
+  "preservedFriend": {
+    "id": "s02-friendship",
+    "sourceAgentId": "agent-a",
+    "targetAgentId": "agent-d",
+    "relationType": "friend",
+    "relationClass": "social",
+    "metadata": {
+      "familiarity": 0.7,
+      "interactionCount": 12,
+      "sharedHistory": 0.6,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": null
+    },
     "organizationId": "socialworld-org",
     "projectId": "socialworld-project",
-    "radius": 2,
-    "agents": [
-      "agent-a",
-      "agent-b",
-      "agent-c",
-      "agent-d"
-    ],
-    "neighbors": [
-      {
-        "sourceAgentId": "agent-a",
-        "targetAgentId": "agent-b",
-        "distance": 1
-      },
-      {
-        "sourceAgentId": "agent-c",
-        "targetAgentId": "agent-d",
-        "distance": 1
-      }
-    ],
-    "changes": {
-      "created": 2,
-      "removed": 0,
-      "retained": 0
-    }
+    "provenanceHash": null,
+    "createdAt": "2026-10-22 21:54:22",
+    "updatedAt": "2026-10-22 21:54:22"
   },
-  "after": {
-    "organizationId": "socialworld-org",
-    "projectId": "socialworld-project",
-    "radius": 2,
-    "agents": [
-      "agent-a",
-      "agent-b",
-      "agent-c",
-      "agent-d"
-    ],
-    "neighbors": [
-      {
-        "sourceAgentId": "agent-b",
-        "targetAgentId": "agent-c",
-        "distance": 0.5
-      },
-      {
-        "sourceAgentId": "agent-b",
-        "targetAgentId": "agent-d",
-        "distance": 0.5
-      },
-      {
-        "sourceAgentId": "agent-c",
-        "targetAgentId": "agent-d",
-        "distance": 1
-      }
-    ],
-    "changes": {
-      "created": 2,
-      "removed": 1,
-      "retained": 1
+  "qwenResponse": "{\n  \"neighbors\": [\n    {\"sourceAgentId\":\"agent-b\",\"targetAgentId\":\"agent-c\",\"distance\":0.5},\n    {\"sourceAgentId\":\"agent-b\",\"targetAgentId\":\"agent-d\",\"distance\":0.5},\n    {\"sourceAgentId\":\"agent-c\",\"targetAgentId\":\"agent-d\",\"distance\":1}\n  ]\n}",
+  "answer": [
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-c",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-b",
+      "targetAgentId": "agent-d",
+      "distance": 0.5
+    },
+    {
+      "sourceAgentId": "agent-c",
+      "targetAgentId": "agent-d",
+      "distance": 1
     }
-  },
-  "verified": false,
-  "durationMs": 59736
+  ],
+  "enginePass": true,
+  "verified": true,
+  "oracle": "moving B removes former A-B neighborhood and recalculates B-C, B-D, C-D by measured Euclidean distance while retaining independent friendship",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 40901
 }
