@@ -115,3 +115,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Le scénario loopback et la mesure CPU passent hors sandbox; ces deux échecs initiaux étaient dus à l'environnement.
 - Les deux erreurs persistantes ont la même cause : les fixtures de `test_morphogenesis_genome_outcome_evidence.js` et `test_morphogenesis_verified_outcome_store.js` omettent `variant` dans les résultats worker alors que le reçu de transition lie le worker à `variant: pareto`. Le validateur échoue donc correctement en fail-closed.
 - Action : compléter les fixtures avec l'identité de variante scellée, puis relancer les tests ciblés et la suite.
+
+### T08 — après correction des fixtures
+
+- Les tests ciblés de preuve et de stockage terminent avec le code 0 après ajout de `variant: pareto` aux résultats worker.
+- La suite complète hors sandbox termine à 109/110 : toutes les erreurs de transition et de loopback sont résolues; seul `test_security_morphogenesis.js` échoue encore sur `cpuMs > 0`.
+- La mesure vient de `process.cpuUsage()` en microsecondes; ce scénario déterministe peut durer moins d'une unité mesurable sur l'hôte. Le résultat 0 est une valeur mesurée valide, pas un dépassement de budget. L'assertion doit vérifier un nombre fini non négatif, sans imposer une consommation minimale artificielle.
