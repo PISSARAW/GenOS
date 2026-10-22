@@ -1,6 +1,6 @@
 const SAFE_CARGO_OPTIONS = new Set(['--lib', '--workspace', '--quiet', '--offline', '--all-features']);
 const SAFE_ARGUMENT = /^[A-Za-z0-9_./:-]+$/;
-const SAFE_NODE_SCRIPT = /^[A-Za-z0-9_./:-]+\.m?js$/;
+const SAFE_NODE_SCRIPT = /^[A-Za-z0-9_./:-]+\.(?:[cm]?js)$/;
 const NODE_TEST_NAME = /(test|spec|check|verify)/i;
 const BASE_COMMANDS = new Set(['npm test', 'npm run check', 'pytest', 'cargo test']);
 const MAX_COMMAND_LENGTH = 512;

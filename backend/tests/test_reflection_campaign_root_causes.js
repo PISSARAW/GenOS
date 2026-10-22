@@ -7,6 +7,7 @@ const profiler = require('../src/services/requestProfilerService');
 const artifacts = require('../src/services/agents/workerArtifactContract');
 const schemas = require('../src/services/agents/workerArtifactResponseSchema');
 const localPrompt = require('../src/services/workerEvidenceLocalPrompt');
+const commandPolicy = require('../src/services/sandboxCommandPolicy');
 
 function profile(text) {
   return profiler.profileRequest({ mission: `${text}\nCréer un snapshot. Écris answer.md.` }).profile;
@@ -41,6 +42,7 @@ assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCode
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'bounded_worker', workerKind: 'bounded_worker', localCodeWorker: true }), true);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'verifier_worker', workerKind: 'verifier_worker', localCodeWorker: true }), false);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'interview_plan_implementation', workerKind: 'specialist', localCodeWorker: true }), false);
+assert.equal(commandPolicy.isAllowedSandboxTestCommand('node verify.cjs'), true);
 const codePrompt = localPrompt.buildAnalysisPrompt({ codeWorker: true, allowedCommands: ['node verify.cjs'],
   prompt: 'Implement sumPrices.', agentName: 'Bounded worker', workspaceContext: 'src/pricing.js' });
 assert.match(codePrompt, /exact allowlist: \["node verify\.cjs"\]/);
