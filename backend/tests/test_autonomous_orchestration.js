@@ -4,6 +4,17 @@ const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationSe
 const { assertAutonomyPlanExecutable, applyExecutionPolicy } = require('../src/services/agentRuntimeAdapter/missionPlanning');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 const { ORCHESTRATOR_CORE_LEASE } = require('../src/services/toolLeasePolicy');
+const { modeFlags } = require('../src/services/autonomousOrchestrationService/modeFlags');
+
+const candidateOnlyMutation = {
+  selected_strategy: { primary: 'plan_execute_verify' },
+  strategy_portfolio: [{ id: 'plan_execute_verify' }, { id: 'mutated_incident_universes' }]
+};
+assert.equal(modeFlags(candidateOnlyMutation).evolution, false,
+  'an unselected mutation candidate must not require the mutation runtime');
+assert.equal(modeFlags({ selected_strategy: { primary: 'genetic_strategy_algorithm' },
+  strategy_portfolio: [{ id: 'genetic_strategy_algorithm' }] }).evolution, true,
+'a selected evolution strategy must require its controlled mutation phase');
 
 const planningContract = buildStrategyContract({
   problem: 'Plan a deterministic block-world task under action constraints.',

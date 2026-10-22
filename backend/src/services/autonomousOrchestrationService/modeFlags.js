@@ -1,12 +1,13 @@
 const { listStrategies } = require('../../strategies/strategyRegistry');
 
 function selected(contract, id) {
-  return (contract.strategy_portfolio || []).some((strategy) => strategy.id === id);
+  return contract.selected_strategy?.primary === id;
 }
 
 function hasTrait(contract, trait) {
-  const registry = new Map(listStrategies().map((strategy) => [strategy.id, strategy]));
-  return (contract.strategy_portfolio || []).some((strategy) => registry.get(strategy.id)?.traits.includes(trait));
+  const primary = contract.selected_strategy?.primary;
+  const strategy = listStrategies().find((entry) => entry.id === primary);
+  return Boolean(strategy?.traits.includes(trait));
 }
 
 function modeFlags(contract) {
