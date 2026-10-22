@@ -82,6 +82,7 @@ function launch(scenario, arm, repetition, config) {
     identityExperimentArm: arm,
     identityExperimentScenario: scenario,
     identityExperimentSeed: 20261022 + Object.keys(SCENARIOS).indexOf(scenario) * 100 + repetition,
+    executionBudget: { tokens: 8192, costUsd: 1, latencyMs: Math.max(1000, config.timeout * 1000 - 4000) },
     background: true,
     timeoutMs: config.timeout * 1000
   });

@@ -22,10 +22,13 @@ assert.equal(new Set([full, masked, llm, sheet].map((x) => x.audit.arm)).size, 4
 assert.equal(promptSha256('prompt').length, 64);
 const localMission = buildLocalMission({ id: 'agent-42', enhancedPrompt: 'Current agent {{AGENT_ID}}',
   request: { identityExperimentArm: 'genos_full', identityExperimentSeed: 42, localModel: 'ollama://qwen2.5:14b' },
-  missionBudget: {}, requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });
+  missionBudget: { tokens: 8192, costUsd: 1, latencyMs: 26000 }, requestTimeoutMs: 30000,
+  allowedCommands: [], allowFileEdits: false });
 assert.equal(localMission.prompt, 'Current agent agent-42');
 assert.equal(localMission.identityExperimentArm, 'genos_full');
 assert.equal(localMission.identityExperimentSeed, 42);
+assert.equal(localMission.executionBudget.costUsd, 1);
+assert.equal(localMission.executionBudget.tokens, 8192);
 assert.deepEqual(localMission.allowedEvidenceRefs, ['mission', 'worker_self']);
 const sheetMission = buildLocalMission({ id: 'agent-43', enhancedPrompt: 'Mission',
   request: { identityExperimentArm: 'identity_sheet' }, missionBudget: {}, requestTimeoutMs: 30000,
