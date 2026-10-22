@@ -137,6 +137,11 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
       await assertNoSymlinkPath(workspaceRoot, destination);
       await fs.writeFile(destination, patch.content, 'utf8');
     }
+    const appliedFiles = await Promise.all(proposal.patches.map(async (patch) => {
+      const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
+      const stat = await fs.stat(destination);
+      return { path: patch.path, bytes: stat.size, absolutePath: destination };
+    }));
     tests = [];
     for (const command of proposal.tests) tests.push(await runTest(command, workspaceRoot));
   } catch (error) {
@@ -145,7 +150,8 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
   }
   if (tests.some((test) => test.exitCode !== 0)) {
     await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })),
+      appliedFiles, evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
