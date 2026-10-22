@@ -71,6 +71,15 @@ try {
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
   assert.deepStrictEqual(request.worker_assignments.specialist.workerRequirements.requiredCapabilities,
     ['execute', 'analyze', 'domain_specialization']);
+
+  const repairProject = { root_path: root, objective: 'Fix les totaux de prix après le changement de signature runtime' };
+  const repairMission = compileMission(repairProject);
+  assert.strictEqual(repairMission.kind, 'repair');
+  const repairRequest = requestFor({ id: 'repair-run', project: repairProject,
+    task: { title: 'Fix les totaux', acceptance_json: '[]', id: 'repair-task' },
+    selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
+    worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: repairMission });
+  assert.strictEqual(repairRequest.localCodeWorker, true);
   assert.strictEqual(candidateWorkspace([
     { id: 'run-1', execution_mode: 'orchestrator', status: 'completed', workspace_path: root },
     { id: 'worker-1', execution_mode: 'worker', status: 'completed', workspace_path: root + '/capsule' }

@@ -38,6 +38,8 @@ const previousCodeWorkers = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS;
 delete process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS;
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCodeWorker: true }), true);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCodeWorker: false }), false);
+assert.equal(localPrompt.isCodeWorkerMission({ role: 'bounded_worker', workerKind: 'bounded_worker', localCodeWorker: true }), true);
+assert.equal(localPrompt.isCodeWorkerMission({ role: 'verifier_worker', workerKind: 'verifier_worker', localCodeWorker: true }), false);
 if (previousCodeWorkers !== undefined) process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS = previousCodeWorkers;
 
 const root = path.resolve(__dirname, '../..');

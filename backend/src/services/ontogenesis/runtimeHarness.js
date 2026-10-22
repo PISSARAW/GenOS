@@ -92,7 +92,7 @@ function requestFor(input) {
     workspaceId: 'ws-local',
     workspaceProvisioned: true,
     capsuleRoot: path.join(path.dirname(path.resolve(input.worktree)), 'capsules'),
-    localCodeWorker: mission.kind === 'implement',
+    localCodeWorker: ['implement', 'repair'].includes(mission.kind),
     requiredPatchPaths: requiredWebPatchPaths(input),
     requiredPatchMarkers: requiredWebPatchMarkers(input),
     requiredPatchMinimumBytes: requiredWebPatchMinimumBytes(input),
