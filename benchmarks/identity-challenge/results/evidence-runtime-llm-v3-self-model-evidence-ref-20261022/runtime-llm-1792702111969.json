@@ -1,0 +1,163 @@
+{
+  "schema": "genos.identity-challenge.runtime-llm/v3",
+  "model": "qwen2.5:14b",
+  "modelDigest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+  "scenarios": [
+    "C"
+  ],
+  "arms": [
+    "genos_full"
+  ],
+  "repeats": 1,
+  "launchFailures": [],
+  "wait": {
+    "completed": 1,
+    "timedOut": []
+  },
+  "outcomes": [
+    {
+      "scenario": "C",
+      "arm": "genos_full",
+      "repetition": 0,
+      "orchestratorId": "mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd",
+      "expectedRole": null,
+      "parentId": "mcp_orchestrator_a3983c4f-7742-4806-ba3b-2100131262e9",
+      "childId": "mcp_orchestrator_a3983c4f-7742-4806-ba3b-2100131262e9",
+      "falseEventId": "P-1",
+      "status": "unverified",
+      "currentTask": "Unresolved: insufficient evidence",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "genos_full",
+        "includedSelfIntro": true,
+        "includedConscience": true,
+        "includedWorkerSelf": true,
+        "selfModelFacts": {
+          "calibratedConfidencePercent": 58
+        },
+        "promptSha256": "5a8b0d5e5080a9eb3f28e2fa69f285458d35edeb6e42e4e8da276d497053d592",
+        "promptCharacters": 3257,
+        "sessionId": "agent-session-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd"
+      },
+      "responseText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"confidence_percent\"]}",
+      "oracle": {
+        "passed": false,
+        "criteria": {
+          "visibleConfidence": true,
+          "statedValue": false,
+          "expectedDecision": false,
+          "abstains": true
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm genos_full.",
+          "created_at": "2026-10-22 20:48:29",
+          "payload": {
+            "arm": "genos_full",
+            "includedSelfIntro": true,
+            "includedConscience": true,
+            "includedWorkerSelf": true,
+            "selfModelFacts": {
+              "calibratedConfidencePercent": 58
+            },
+            "promptSha256": "5a8b0d5e5080a9eb3f28e2fa69f285458d35edeb6e42e4e8da276d497053d592",
+            "promptCharacters": 3257,
+            "sessionId": "agent-session-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 1183ms.",
+          "created_at": "2026-10-22 20:48:30",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 1183ms.",
+            "durationMs": 1183
+          }
+        },
+        {
+          "event_type": "AGENT_FAILED",
+          "action": "EVIDENCE_GAP",
+          "detail": "Local worker reported that the supplied evidence cannot substantiate the requested outcome.",
+          "created_at": "2026-10-22 20:48:30",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "unresolved",
+              "claims": [],
+              "uncertainties": [
+                "confidence_percent"
+              ],
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"unresolved\",\"claims\":[],\"uncertainties\":[\"confidence_percent\"]}",
+              "fullTextTruncated": false
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd",
+              "agent_id": "mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd",
+              "incarnation_id": "a736259a-31cf-41eb-9e17-ced687f22e46",
+              "fencing_token": "[REDACTED]",
+              "self_head": "e266e2e5b6b1ca805fa3ba0830780f744f8ab9aaa16e603a972f00cbba4da256",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 0,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "7765f779bf574e304861a0b64d9b9a0f8ca3cf2db11a2388d3b0f2f8324867a1",
+              "result_json": "{\"success\":false,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd\",\"nativeOracleRef\":null,\"reportHash\":\"9e95cd938e9ca137caf4ec3d0c7b58799870fa29304f0951dd0dc9bc7c5fe143\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:48:29"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 828,
+              "output_tokens": 19,
+              "cost_usd": 0,
+              "tokens": 847
+            },
+            "stageTimings": {
+              "promptPreparationMs": 6,
+              "modelRouteMs": 1398,
+              "responseParsingMs": 1
+            },
+            "sessionId": "local-direct-mcp_orchestrator_a27cf46b-6c4b-4cf6-b553-e5a89cbec3dd"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "realInferenceCount": 1,
+    "treatmentReceiptCount": 1,
+    "oraclePasses": 0,
+    "oracleTotal": 1
+  },
+  "runAt": "2026-10-22T20:48:31.967Z"
+}
