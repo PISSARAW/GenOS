@@ -248,9 +248,12 @@ function compareCcGenos001Replay(primaryRun, replayRun) {
 }
 
 function evaluateCcGenos001Conditions(primaryRun, replayComparison) {
+  const dossier = primaryRun.deoDossier;
   return Object.freeze({
-    deoScenarioExportsImported: primaryRun.deoDossier.ingestedArtifacts.length === 5
-      && primaryRun.deoDossier.extractionFidelity.zeroEventsLost === true,
+    deoScenarioExportsImported: dossier.ingestedArtifacts.length === 5
+      && dossier.rejectedArtifacts.length === 0
+      && dossier.integrity.intact === true
+      && dossier.extractionFidelity.zeroEventsLost === true,
     aTeamSpecialistsCollaborated: primaryRun.aTeamCollaboration.specialists.length === 6
       && primaryRun.aTeamCollaboration.handoffCount === 12,
     trinityComparedContradictoryHypotheses: primaryRun.trinityComparison.topology === 'Trinity'
@@ -266,9 +269,13 @@ function evaluateCcGenos001Conditions(primaryRun, replayComparison) {
 }
 
 function hasRealCyberCorpExports(primaryRun) {
+  const dossier = primaryRun.deoDossier;
   const realExportSet = new Set(['evtx', 'nmap_xml', 'hayabusa_csv', 'gpo_report', 'conftest']);
-  const externalFormats = new Set(primaryRun.deoDossier.ingestedArtifacts.map((item) => item.format));
+  const externalFormats = new Set(dossier.ingestedArtifacts.map((item) => item.format));
   return primaryRun.evidenceSource === 'externally_collected'
+    && dossier.ingestedArtifacts.length === 5
+    && dossier.rejectedArtifacts.length === 0
+    && dossier.integrity.intact === true
     && [...realExportSet].every((format) => externalFormats.has(format));
 }
 
