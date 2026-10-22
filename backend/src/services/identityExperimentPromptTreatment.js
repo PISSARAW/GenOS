@@ -8,7 +8,10 @@ function applyIdentityExperimentTreatment(input) {
     throw new Error('Identity experiment prompt treatments require GENOS_IDENTITY_EXPERIMENT=1');
   }
   const base = { selfIntro: input.selfIntro || '', conscienceBlock: input.conscienceBlock || '', workerSelfBlock: input.workerSelfBlock || '' };
-  if (arm === 'genos_full') return { ...base, audit: { arm, includedSelfIntro: Boolean(base.selfIntro), includedConscience: Boolean(base.conscienceBlock), includedWorkerSelf: Boolean(base.workerSelfBlock) } };
+  const confidenceMatch = base.workerSelfBlock.match(/Confiance calibrée\s*:\s*(\d+)%/i);
+  const selfModelFacts = arm === 'genos_full' && confidenceMatch
+    ? { calibratedConfidencePercent: Number(confidenceMatch[1]) } : null;
+  if (arm === 'genos_full') return { ...base, audit: { arm, includedSelfIntro: Boolean(base.selfIntro), includedConscience: Boolean(base.conscienceBlock), includedWorkerSelf: Boolean(base.workerSelfBlock), selfModelFacts } };
   if (arm === 'self_model_masked') return { ...base, workerSelfBlock: '', audit: { arm, includedSelfIntro: Boolean(base.selfIntro), includedConscience: Boolean(base.conscienceBlock), includedWorkerSelf: false } };
   if (arm === 'llm_only') return { selfIntro: '', conscienceBlock: '', workerSelfBlock: '', audit: { arm, includedSelfIntro: false, includedConscience: false, includedWorkerSelf: false } };
   const sheet = `[IDENTITY SHEET]\n- Canonical agent ID: ${input.agentId}\n- Name: ${input.agentName}\n- Role: ${input.role}\n- No capability, history, or calibration data is supplied.`;
