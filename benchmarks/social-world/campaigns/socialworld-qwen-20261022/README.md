@@ -10,7 +10,7 @@
 
 | Test | État | Preuve |
 |---|---|---|
-| S01 Identité sociale | Non exécuté | — |
+| S01 Identité sociale | Réussi avec Qwen 2.5 14B; relations, identités et directions exactes sans ajout | `S01-result.json`; source `8189bcf8` |
 | S02 Voisinage | Non exécuté | — |
 | S03 Amitié | Non exécuté | — |
 | S04 Famille | Non exécuté | — |
@@ -29,7 +29,7 @@
 | S17 Broadcast / quorum | Reussi avec Qwen 2.5 14B; A exclu, quorum B/C acquitte | `S17-result.json`, `S17-*.json` (echec fixture); source `cace91f1` |
 | S18 Stigmergie | Reussi avec Qwen 2.5 14B; pheromone persistee, lue et provenance verifiee | `S18-result.json`, premier echec conserve; source `aa7ac626` |
 | S19 Signaux zero-text | Reussi avec Qwen 2.5 14B; ligand declenche cascade sans contenu textuel | `S19-result.json`; source `7b3439f4` |
-| S20 Communication structurée | Non exécuté | — |
+| S20 Communication structurée | Réussi avec Qwen 2.5 14B; enveloppe vérifiée, falsification rejetée | `S20-result.json`; source `456f32fb` |
 | S21 Dialectes et langage | Reussi avec Qwen 2.5 14B; symbole versionne decode, terme inconnu dirige vers fallback | `S21-result.json`; source `315bb1fd` |
 | S22 Communication humaine | Reussi avec Qwen 2.5 14B; relais limite au perimetre explicitement approuve | `S22-result.json`; source `04b14d21` |
 | S23 Mémoire intermissions | Réussi avec GenOS et Qwen 2.5 14B | `S23-genos-result.json`, `S23-result.json`; source `faf11840` |
