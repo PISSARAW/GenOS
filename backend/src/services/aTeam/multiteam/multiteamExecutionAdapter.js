@@ -33,7 +33,7 @@ async function executeSubteam(input = {}) {
       executeTeam: input.executeTeam,
       launch: (member) => (typeof input.launchWorker === 'function'
         ? input.launchWorker(member, input)
-        : Promise.resolve(true)),
+        : defaultLaunch(member, input)),
       onBlocked: (member, reason) => markBlocked(input, member.workerId, reason),
       options: { skipWorkerIds, pollMs: input.pollMs || 500,
         timeoutMs: input.timeoutMs || 15 * 60 * 1000 }
@@ -58,11 +58,46 @@ async function executeSubteam(input = {}) {
   }
 }
 
+async function defaultLaunch(member, input) {
+  const garage = require('../../workerGarageService');
+  const agentRuntimeAdapter = require('../../agentRuntimeAdapter');
+  const agentId = member.workerId || member.agentId;
+  const assignment = { ...member, agentId, prompt: member.mission || member.prompt || '' };
+  await garage.reserveSlot(input.db, { orchestratorId: input.orchestratorId, workerId: agentId,
+    name: member.name || member.label || member.role, role: member.role || 'worker',
+    mission: assignment.prompt });
+  try {
+    await agentRuntimeAdapter.startMission(assignment);
+    return true;
+  } catch (error) {
+    await garage.releaseSlot(input.db, { orchestratorId: input.orchestratorId, workerId: agentId });
+    throw error;
+  }
+}
+
 function markBlocked(input, workerId, reason) {
   if (typeof input.markBlocked === 'function') return input.markBlocked(workerId, reason);
   try { require('../../agentOrchestrationState').updateAgent(workerId, 'blocked', JSON.stringify(reason)); } catch (_) {}
 }
 
+const { createProgramRun, advanceProgramRun } = require('./programRuntimeService');
+
+async function executeMultiteamProgram(input = {}) {
+  if (!input.db) throw coded('A database handle is required.', 'ATEAM_MTS_DB_REQUIRED');
+  const program = await createProgramRun(input);
+  const executeTeam = async (teamInput) => executeSubteam({
+    db: input.db, orchestratorId: input.orchestratorId,
+    childRunId: teamInput.childRunId, skipWorkerIds: teamInput.skipWorkerIds,
+    launchWorker: input.launchWorker, markBlocked: input.markBlocked,
+    timeoutMs: input.timeoutMs, pollMs: input.pollMs
+  });
+  const summary = await advanceProgramRun({
+    db: input.db, programId: program.programId, orchestratorId: input.orchestratorId,
+    executeTeam, timeoutMs: input.timeoutMs
+  });
+  return { programId: program.programId, ...summary };
+}
+
 function coded(message, code) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { executeSubteam };
+module.exports = { executeSubteam, executeMultiteamProgram };
