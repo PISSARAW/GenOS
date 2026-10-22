@@ -39,7 +39,7 @@ async function main() {
       payload: { alert: 'Bridge closed; use the eastern route.' }
     }, { db });
     const pheromones = await stigmergy.readPheromones({ db, locus: EXPECTED.locus });
-    const pheromone = pheromones.find((item) => item.signalId === deposited.signalId);
+    const pheromone = pheromones.find((item) => item.communicationEnvelope?.messageId === deposited.signalId);
     observed = pheromone && { type: pheromone.type, locus: pheromone.locus,
       senderAgentId: pheromone.communicationEnvelope?.senderAgentId,
       semanticRefs: pheromone.communicationEnvelope?.semanticRefs || [], intensity: pheromone.intensity,
