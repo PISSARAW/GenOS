@@ -78,32 +78,51 @@ function constraintFailure(worker, member, report) {
   };
 }
 
-function ownershipFailures({ workers, dossiers, byWorker }) {
+function collectArtifactOwners(workers, byWorker) {
   const artifactOwners = new Map();
   for (const worker of Array.isArray(workers) ? workers : []) {
     const report = latestReport(byWorker.get(worker.agentId));
     if (!report) continue;
-    for (const artifact of Array.isArray(report.artifacts) ? report.artifacts : []) {
-      const key = String(artifact || '').trim();
-      if (!key) continue;
-      if (!artifactOwners.has(key)) artifactOwners.set(key, []);
-      artifactOwners.get(key).push(worker.agentId);
-    }
+    addArtifacts(artifactOwners, report.artifacts, worker.agentId);
   }
+  return artifactOwners;
+}
+
+function addArtifacts(artifactOwners, artifacts, ownerId) {
+  for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
+    const key = String(artifact || '').trim();
+    if (!key) continue;
+    if (!artifactOwners.has(key)) artifactOwners.set(key, []);
+    artifactOwners.get(key).push(ownerId);
+  }
+}
+
+function ownershipFailures({ workers, byWorker }) {
+  const artifactOwners = collectArtifactOwners(workers, byWorker);
   const failures = [];
   for (const [artifact, owners] of artifactOwners.entries()) {
-    if (owners.length > 1) {
-      failures.push({
-        code: 'DUPLICATE_ARTIFACT_OWNERSHIP',
-        workerId: owners[1],
-        domain: null,
-        scope: artifact,
-        ownerId: owners[0],
-        message: `Artifact '${artifact}' is claimed by multiple workers (${owners.join(', ')}); ownership must be unique.`
-      });
-    }
+    if (owners.length <= 1) continue;
+    failures.push({
+      code: 'DUPLICATE_ARTIFACT_OWNERSHIP',
+      workerId: owners[1],
+      domain: null,
+      scope: artifact,
+      ownerId: owners[0],
+      message: `Artifact '${artifact}' is claimed by multiple workers (${owners.join(', ')}); ownership must be unique.`
+    });
   }
   return failures;
+}
+
+function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {
+  const member = memberForWorker(worker, memberList, index);
+  const report = latestReport(byWorker.get(worker.agentId));
+  if (!report) return;
+  failures.push(...authorityFailures({ worker, member }, report, memberList));
+  const contamination = contaminationFailure({ worker, member, report, teamDomains });
+  if (contamination) failures.push(contamination);
+  const constraint = constraintFailure(worker, member, report);
+  if (constraint) integrationFailures.push(constraint);
 }
 
 function memberForWorker(worker, members, index) {
@@ -120,18 +139,9 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
   const failures = [];
   const integrationFailures = [];
 
-  workerList.forEach((worker, index) => {
-    const member = memberForWorker(worker, memberList, index);
-    const report = latestReport(byWorker.get(worker.agentId));
-    if (!report) return;
-    failures.push(...authorityFailures({ worker, member }, report, memberList));
-    const contamination = contaminationFailure({ worker, member, report, teamDomains });
-    if (contamination) failures.push(contamination);
-    const constraints = constraintFailure(worker, member, report);
-    if (constraints) integrationFailures.push(constraints);
-  });
+  workerList.forEach((worker, index) => processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }));
 
-  failures.push(...ownershipFailures({ workers: workerList, dossiers, byWorker }));
+  failures.push(...ownershipFailures({ workers: workerList, byWorker }));
 
   return { failures, integrationFailures, observerReport: { failures, integrationFailures } };
 }
