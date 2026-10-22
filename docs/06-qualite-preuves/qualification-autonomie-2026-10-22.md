@@ -71,3 +71,15 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commande : `npm --prefix backend run test:quality`.
 - Résultat : code 0; les 12 tests de qualité du backend passent.
 - Le gate source `python scripts/ci/check_code_quality.py` reste en échec avec les 14 violations consignées plus haut; ces contrôles mesurent des règles différentes. T04 n'est donc que partiellement qualifié au niveau du dépôt.
+
+## 2026-10-22 — T05, résilience
+
+- Commandes : `node backend/tests/test_organism_restore_recovery.js` et `node backend/tests/test_organism_restore_sigkill.js`.
+- Résultat : les deux terminent avec le code 0; récupération après crash et après `SIGKILL` vérifiée.
+- Verdict local T05 : réussi pour ces scénarios de reprise automatisés.
+
+## 2026-10-22 — T06, continuité, premier passage
+
+- Commandes : `node backend/tests/test_mission_continuity.js`, `node backend/tests/test_organism_shared_mission_checkpoint.js`, puis `node backend/tests/test_organism_orchestrator_checkpoint.js`.
+- Résultat : 21 contrôles de continuité passent; le checkpoint partagé échoue sur un `EPERM` lors du renommage atomique du fichier `orchestration.head.json` dans Temp. Code 1; le troisième test n'a pas démarré.
+- Verdict : T06 partiellement vérifié; relance hors sandbox nécessaire pour dissocier un blocage de permission d'un défaut GenOS.
