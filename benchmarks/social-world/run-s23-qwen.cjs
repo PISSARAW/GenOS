@@ -36,6 +36,17 @@ function saveResult(result) {
   fs.writeFileSync(path.join(dir, 'S23-result.json'), `${JSON.stringify(result, null, 2)}\n`);
 }
 
+async function warmModel(seed) {
+  const startedAt = Date.now();
+  const response = await modelProvider.generate({ model: MODEL,
+    prompt: 'Return exactly this JSON object: {"ready":true}', seed, temperature: 0,
+    enforceSchema: false, stream: false, maxTokens: 20, timeoutMs: 180000,
+    organizationId: 'socialworld-org', projectId: 'socialworld-project', agentId: 'agent-a' });
+  const match = String(response.text || '').match(/\{[\s\S]*\}/);
+  if (!match || JSON.parse(match[0]).ready !== true) throw new Error('Qwen warmup response was invalid.');
+  return { model: MODEL, durationMs: Date.now() - startedAt, response: response.text };
+}
+
 async function buildMissionProfiles() {
   const db = await getDatabase(':memory:');
   try {
@@ -60,23 +71,23 @@ async function main() {
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const startedAt = Date.now();
+  let warmup = null;
   try {
-    const profiles = await buildMissionProfiles();
-    const { previousMission, resumedMission } = profiles;
+    warmup = await warmModel(seed);
+    const { previousMission, resumedMission } = await buildMissionProfiles();
     const deterministicPass = previousMission.relationType === 'friend'
       && resumedMission.relationType === 'friend'
       && resumedMission.relations[0].properties.lastInteraction === 'mission-1:shared-evidence-42';
     if (!deterministicPass) throw new Error('Social relation or its evidence did not survive the mission transition.');
-    const prompt = promptFor(resumedMission);
-    const response = await modelProvider.generate({ model: MODEL, prompt, seed, temperature: 0,
-      enforceSchema: false, stream: false, maxTokens: 100, timeoutMs: 90000,
+    const response = await modelProvider.generate({ model: MODEL, prompt: promptFor(resumedMission),
+      seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 80, timeoutMs: 90000,
       organizationId: 'socialworld-org', projectId: 'socialworld-project', agentId: 'agent-a' });
     const answer = parseAnswer(response.text);
     const passed = JSON.stringify(answer) === JSON.stringify(EXPECTED);
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S23', seed,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       missionTransitions: ['mission-1', 'mission-2'], humanInstructionsAfterSetup: 0,
-      previousMission, resumedMission, qwenResponse: response.text, answer,
+      warmup, previousMission, resumedMission, qwenResponse: response.text, answer,
       deterministicPass, verified: passed,
       oracle: 'persisted relation type, direction and shared history must match the seeded evidence',
       durationMs: Date.now() - startedAt };
@@ -86,6 +97,7 @@ async function main() {
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S23', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
+      stage: warmup ? 'social-response' : 'model-warmup', warmup,
       verified: false, durationMs: Date.now() - startedAt };
     saveResult(result);
     process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -94,4 +106,3 @@ async function main() {
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
-
