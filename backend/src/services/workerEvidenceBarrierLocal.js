@@ -47,10 +47,7 @@ function isOrchestratorMission(mission) {
   return false;
 }
 
-function resolveMaxTokens(budget, prompt) {
-  if (budget <= 0) return undefined;
-  return budget - estimatePromptTokens(prompt);
-}
+function resolveMaxTokens(budget, prompt, identityExperimentScenario) { if (budget <= 0) return undefined; const remaining = budget - estimatePromptTokens(prompt); return identityExperimentScenario ? Math.min(remaining, 1024) : remaining; }
 function missionEvidenceRefs(mission) {
   const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
   return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
@@ -311,7 +308,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxTokens(budget, promptText),
+    maxTokens: resolveMaxTokens(budget, promptText, ctx.mission.identityExperimentScenario),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
