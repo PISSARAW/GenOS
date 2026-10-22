@@ -128,6 +128,7 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
   let tests;
+  let appliedFiles = [];
   try {
     for (const patch of proposal.patches) {
       const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
@@ -137,7 +138,7 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
       await assertNoSymlinkPath(workspaceRoot, destination);
       await fs.writeFile(destination, patch.content, 'utf8');
     }
-    const appliedFiles = await Promise.all(proposal.patches.map(async (patch) => {
+    appliedFiles = await Promise.all(proposal.patches.map(async (patch) => {
       const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
       const stat = await fs.stat(destination);
       return { path: patch.path, bytes: stat.size, absolutePath: destination };
