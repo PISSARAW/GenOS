@@ -213,6 +213,37 @@ function listPolicies() {
   return DEFINITIONS.map((item) => ({ id: item.id, requiredCapabilities: [...item.capabilities] }));
 }
 
+const VARIANT_PRECONDITIONS = Object.freeze({
+  hard: (configuration) => Array.isArray(configuration?.invariants) || Object.keys(configuration?.fields || {}).length > 0
+    ? [] : ['HARD_REQUIRES_FIELDS_OR_INVARIANTS'],
+  hierarchical: (configuration) => {
+    const missing = [];
+    if (!Array.isArray(configuration?.regions) || !configuration.regions.length) missing.push('HIERARCHICAL_REQUIRES_REGIONS');
+    if (!configuration?.sharedContracts || (!Array.isArray(configuration.sharedContracts) && !Object.keys(configuration.sharedContracts).length)) missing.push('HIERARCHICAL_REQUIRES_SHARED_CONTRACTS');
+    return missing;
+  },
+  humanAi: (configuration) => Array.isArray(configuration?.nuclei) && configuration.nuclei.some((nucleus) => nucleus.kind === 'human')
+    ? [] : ['HUMAN_AI_REQUIRES_HUMAN_NUCLEUS'],
+  realtimeControl: (configuration) => Object.keys(configuration?.fields || {}).length > 0 ? [] : ['REALTIME_REQUIRES_FIELDS'],
+  soft: () => [],
+  code: () => [],
+  document: () => [],
+  graph: () => [],
+  transactional: () => [],
+  epistemic: () => [],
+  blackboard: () => [],
+  localFirst: () => [],
+  speculative: () => []
+});
+
+function verifyVariantPreconditions(variantId, configuration = {}) {
+  const id = canonicalPolicyId(variantId);
+  const checker = VARIANT_PRECONDITIONS[id];
+  if (!checker) return { ok: false, missing: ['UNKNOWN_VARIANT'] };
+  const missing = checker(configuration);
+  return { ok: missing.length === 0, missing };
+}
+
 function selectPolicy(mission, context = {}) {
   if (context.variantId) return getPolicy(context.variantId);
   const ranking = Object.values(POLICIES).map((policy) => ({ policy, fit: policy.analyzeFit(mission, context) }));
@@ -279,5 +310,5 @@ function policySummary(input) {
 }
 
 module.exports = {
-  POLICY_PRIORITY, createPolicy, getPolicy, listPolicies, selectPolicy, createVariantPolicyService
+  POLICY_PRIORITY, createPolicy, getPolicy, listPolicies, selectPolicy, createVariantPolicyService, verifyVariantPreconditions, VARIANT_PRECONDITIONS
 };

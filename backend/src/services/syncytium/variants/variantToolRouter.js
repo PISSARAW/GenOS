@@ -6,7 +6,7 @@ const ACTIONS = Object.freeze({
   document: ['insertDocumentBlock', 'updateDocumentBlock', 'deleteDocumentBlock', 'addDocumentComment', 'retractDocumentComment', 'undoDocumentOperation', 'documentSnapshot'],
   code: ['applyCodeChange', 'recordCodeTestResult', 'recordCodeBuildState', 'acquireFileLock', 'releaseFileLock', 'verifyMergeGate', 'codeSnapshot'],
   blackboard: ['postProblem', 'postEvidence', 'requestVerification', 'reportUnresolvedDependency', 'publishBlackboardResult', 'readBlackboard'],
-  graph: ['addGraphNode', 'updateGraphNode', 'removeGraphNode', 'addGraphEdge', 'removeGraphEdge', 'graphSnapshot', 'projectGraph'],
+  graph: ['addGraphNode', 'updateGraphNode', 'removeGraphNode', 'addGraphEdge', 'removeGraphEdge', 'graphSnapshot', 'projectGraph', 'detectGraphCycles'],
   epistemic: ['addEpistemicClaim', 'addEpistemicEvidence', 'addEpistemicRefutation', 'recordEpistemicUncertainty', 'verifyEpistemicClaim', 'updateEpistemicConfidence', 'epistemicSnapshot'],
   transactional: ['reserveResources', 'releaseReservation', 'sweepExpiredReservations', 'detectReservationDeadlock', 'transactionalSnapshot'],
   localFirst: ['recordHybridClock', 'syncPeer', 'partitionOffline', 'reconcileQueue', 'checkOfflineBudget', 'listReplicas', 'localFirstSnapshot'],

@@ -11,7 +11,8 @@ function createGraphVariantService(syncytium) {
     addGraphEdge: (sessionId, request) => mutateGraph({ sessionId, request, collection: 'graph_edges', idField: 'edgeId', syncytium }),
     removeGraphEdge: (sessionId, request) => mutateGraph({ sessionId, request, collection: 'graph_edges', idField: 'edgeId', action: 'delete', syncytium }),
     graphSnapshot: (sessionId, options = {}) => graphSnapshot(sessionId, options, syncytium),
-    projectGraph: (sessionId, query, options = {}) => projectGraph({ sessionId, query, options, syncytium })
+    projectGraph: (sessionId, query, options = {}) => projectGraph({ sessionId, query, options, syncytium }),
+    detectGraphCycles: (sessionId, options = {}) => detectGraphCycles(sessionId, options, syncytium)
   };
 }
 
@@ -54,6 +55,39 @@ async function projectGraph(context) {
       edges: edges.filter((edge) => reachable.has(edge.source) && reachable.has(edge.target))
     }
   };
+}
+
+async function detectGraphCycles(sessionId, options, syncytium) {
+  const snapshot = await graphSnapshot(sessionId, options, syncytium);
+  const nodes = new Set(snapshot.graph.nodes.map((node) => node.nodeId));
+  const edges = snapshot.graph.edges;
+  const danglingEdges = edges.filter((edge) => !nodes.has(edge.source) || !nodes.has(edge.target));
+  const adjacency = new Map();
+  nodes.forEach((nodeId) => adjacency.set(nodeId, []));
+  edges.forEach((edge) => {
+    if (nodes.has(edge.source) && nodes.has(edge.target)) {
+      adjacency.get(edge.source).push(edge.target);
+    }
+  });
+  const color = new Map();
+  const cycles = [];
+  function visit(node, path) {
+    color.set(node, 1);
+    const neighbors = adjacency.get(node) || [];
+    for (const next of neighbors) {
+      if (color.get(next) === 1) {
+        const index = path.indexOf(next);
+        if (index >= 0) cycles.push(path.slice(index).concat(next));
+      } else if (color.get(next) !== 2) {
+        visit(next, path.concat(next));
+      }
+    }
+    color.set(node, 2);
+  }
+  nodes.forEach((nodeId) => {
+    if (!color.has(nodeId)) visit(nodeId, [nodeId]);
+  });
+  return { cycles, danglingEdges, hasCycle: cycles.length > 0, hasDangling: danglingEdges.length > 0 };
 }
 
 function validateQuery(query) {
