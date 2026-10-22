@@ -21,6 +21,7 @@ const TYPE_OVERRIDES = Object.freeze({
 
 const STRANGER_PROFILE = Object.freeze({
   relationType: null, relationClass: null, direction: 'unknown',
+  relationTypes: [], relations: [],
   inheritedContext: 'none', dialectProbability: 'low', explanationRequirement: 'high',
   epistemicIndependence: 1, errorCorrelation: 0, authority: 0, disclosureLevel: 0.3,
   preferredEncoding: 'canonical', recommendedGrounding: 'semantic_ack', explicitAssumptions: true
@@ -115,14 +116,29 @@ function adjustForDirection(ctx) {
   return ctx.profile;
 }
 
+function aggregateRelations(primary, relations) {
+  const values = (key) => relations.map((relation) => relation[key]);
+  return {
+    ...primary,
+    relationTypes: [...new Set(relations.map((relation) => relation.relationType))],
+    relations,
+    epistemicIndependence: Math.min(...values('epistemicIndependence')),
+    errorCorrelation: Math.max(...values('errorCorrelation')),
+    disclosureLevel: Math.min(...values('disclosureLevel'))
+  };
+}
+
 async function deriveProfile(input) {
   const db = await resolveDb(input.db);
   const matches = await pairRelations({ db, fromId: input.fromAgentId, toId: input.toAgentId,
     organizationId: input.organizationId, projectId: input.projectId });
   if (matches.length === 0) return Object.assign({}, STRANGER_PROFILE);
+  const relations = matches.map(baseProfileOf);
   const primary = pickPrimary(matches);
   const roles = await rolesOf(db, input.fromAgentId, input.toAgentId);
-  return adjustForDirection({ profile: baseProfileOf(primary), roles, fromId: input.fromAgentId, toId: input.toAgentId });
+  const profile = adjustForDirection({ profile: baseProfileOf(primary), roles,
+    fromId: input.fromAgentId, toId: input.toAgentId });
+  return aggregateRelations(profile, relations);
 }
 
 module.exports = { STRANGER_PROFILE, deriveProfile };

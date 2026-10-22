@@ -72,6 +72,22 @@ async function verifyMultipleRelations() {
   const profile = await resolver.getRelationProfile('a', 'b', { db, organizationId: 'org', projectId: 'project' });
   assert.deepEqual(profile.relations.map((relation) => relation.relationType), ['friend', 'colleague', 'manager']);
   assert.deepEqual(profile.relations.map((relation) => relation.direction), ['forward', 'forward', 'reverse']);
+  assert.deepEqual(profile.relationTypes, ['friend', 'colleague', 'manager']);
+}
+
+async function verifyCommunicationMultipleRelations() {
+  const rows = [
+    { id: 'friend', source_agent_id: 'a', target_agent_id: 'b', relation_type: 'friend', relation_class: 'social', metadata_json: '{"familiarity":0.95,"disclosureLevel":0.4}' },
+    { id: 'colleague', source_agent_id: 'a', target_agent_id: 'b', relation_type: 'colleague', relation_class: 'organizational', metadata_json: '{"familiarity":0.7,"disclosureLevel":0.5}' },
+    { id: 'manager', source_agent_id: 'b', target_agent_id: 'a', relation_type: 'manager', relation_class: 'organizational', metadata_json: '{"familiarity":0.5,"disclosureLevel":0.3}' }
+  ];
+  const db = { all: async (sql) => sql.includes('FROM agents') ? [{ id: 'a', role: 'worker' }, { id: 'b', role: 'manager' }] : rows };
+  const profile = await require('../src/services/communication/relationshipCommunicationProfileService').deriveProfile({
+    db, fromAgentId: 'a', toAgentId: 'b', organizationId: 'org', projectId: 'project'
+  });
+  assert.deepEqual(profile.relationTypes, ['friend', 'colleague', 'manager']);
+  assert.deepEqual(profile.relations.map((relation) => relation.direction), ['forward', 'forward', 'reverse']);
+  assert.equal(profile.disclosureLevel, 0.3);
 }
 async function verifyScopedCommunicationRouting() {
   const db = {
@@ -97,6 +113,6 @@ verifyRelationCatalog();
 verifyVerifierSelection();
 verifyRuntimeVerifierAssignment();
 verifyPartnerSelection();
-Promise.all([verifyPersistedProfile(), verifyMultipleRelations(), verifyScopedCommunicationRouting()])
+Promise.all([verifyPersistedProfile(), verifyMultipleRelations(), verifyCommunicationMultipleRelations(), verifyScopedCommunicationRouting()])
   .then(() => console.log('Agent relation profile tests passed.'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -71,20 +71,29 @@ function relationOrder(left, right) {
   return (right.metadata.familiarity || 0) - (left.metadata.familiarity || 0);
 }
 
-async function getRelationProfile(agentA, agentB, context = {}) {
+function profileOfRelation(relation, agentA) {
+  return {
+    relationId: relation.id,
+    relationType: relation.relationType,
+    relationClass: relation.relationClass,
+    properties: { ...deriveProperties(relation.relationType), ...relation.metadata },
+    direction: relation.sourceAgentId === agentA ? 'forward' : 'reverse'
+  };
+}
+
+async function getRelationProfiles(agentA, agentB, context = {}) {
   const relations = await listRelations({ ...context, agentId: agentA });
   const matches = relations.filter((relation) =>
     (relation.sourceAgentId === agentA && relation.targetAgentId === agentB)
     || (relation.sourceAgentId === agentB && relation.targetAgentId === agentA));
-  if (!matches.length) return strangerProfile();
   matches.sort(relationOrder);
-  const primary = matches[0];
-  return {
-    relationType: primary.relationType,
-    relationClass: primary.relationClass,
-    properties: { ...deriveProperties(primary.relationType), ...primary.metadata },
-    direction: primary.sourceAgentId === agentA ? 'forward' : 'reverse'
-  };
+  return matches.map((relation) => profileOfRelation(relation, agentA));
+}
+
+async function getRelationProfile(agentA, agentB, context = {}) {
+  const relations = await getRelationProfiles(agentA, agentB, context);
+  if (!relations.length) return strangerProfile();
+  return { ...relations[0], relationTypes: [...new Set(relations.map((relation) => relation.relationType))], relations };
 }
 
 module.exports = {
@@ -94,6 +103,7 @@ module.exports = {
   selectPartner,
   scoreRelation,
   getRelationProfile,
+  getRelationProfiles,
   isLineageRelation,
   getExtendedProperties
 };
