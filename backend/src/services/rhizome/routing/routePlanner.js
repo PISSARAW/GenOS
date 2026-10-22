@@ -9,7 +9,8 @@ const articulationPoints = require('../analytics/articulationPointService');
 function activeNodes(session, policy) {
   return (session.nodes || []).filter((node) => ['ACTIVE', 'AVAILABLE'].includes(node.state)
     && node.availability?.status !== 'UNAVAILABLE'
-    && (!policy.privateOnly || isPrivateNode(node)));
+    && (!policy.privateOnly || isPrivateNode(node))
+    && (policy.trustBound === undefined || (node.reliability ?? 0) >= policy.trustBound));
 }
 
 function isPrivateNode(node) {
