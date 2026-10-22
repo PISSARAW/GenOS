@@ -1,0 +1,136 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S28",
+  "model": "ollama://qwen2.5:14b",
+  "seeds": 20,
+  "passed": 20,
+  "failed": 0,
+  "cyclesPerSeed": 1000,
+  "agentsPerSeed": 24,
+  "topologyStepsPerSeed": 4000,
+  "allFinite": true,
+  "allShocksRecovered": true,
+  "maximumRadiusAcrossSeeds": 5.9517,
+  "seedReports": [
+    {
+      "seed": 1,
+      "status": "pass",
+      "sourceCommit": "6b3f98fc67277f4bd1ef772f3054c97e2ed05068",
+      "durationMs": 2693
+    },
+    {
+      "seed": 2,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2230
+    },
+    {
+      "seed": 3,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2694
+    },
+    {
+      "seed": 4,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2224
+    },
+    {
+      "seed": 5,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2085
+    },
+    {
+      "seed": 6,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2182
+    },
+    {
+      "seed": 7,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2786
+    },
+    {
+      "seed": 8,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2231
+    },
+    {
+      "seed": 9,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2188
+    },
+    {
+      "seed": 10,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2367
+    },
+    {
+      "seed": 11,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2503
+    },
+    {
+      "seed": 12,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2178
+    },
+    {
+      "seed": 13,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2118
+    },
+    {
+      "seed": 14,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 1901
+    },
+    {
+      "seed": 15,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 3269
+    },
+    {
+      "seed": 16,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2167
+    },
+    {
+      "seed": 17,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2135
+    },
+    {
+      "seed": 18,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2445
+    },
+    {
+      "seed": 19,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2375
+    },
+    {
+      "seed": 20,
+      "status": "pass",
+      "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+      "durationMs": 2278
+    }
+  ]
+}
