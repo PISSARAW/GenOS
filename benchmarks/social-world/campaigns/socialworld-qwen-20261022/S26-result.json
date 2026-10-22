@@ -1,0 +1,14 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S26",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "148998a7f285eeff844d63172b761df45b60543c",
+  "error": "Error: Inter-agent organization messages require a non-text biomimetic signal.\n    at organizationError (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:59:17)\n    at resolveSignalPayload (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:255:11)\n    at Object.publish (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\dynamicOrganizationService.js:285:20)\n    at async main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s26-qwen.cjs:41:27)",
+  "before": null,
+  "after": null,
+  "qwenResponse": null,
+  "verified": false,
+  "durationMs": 4739
+}
