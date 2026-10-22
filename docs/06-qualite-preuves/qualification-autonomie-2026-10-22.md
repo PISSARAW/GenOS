@@ -156,3 +156,14 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commande : `npm test`, lancée depuis le dépôt source `C:\Users\Shadow\Documents\GitHub\GenOS` avec `TEMP` et `TMP` pointés vers `D:\GenOS\runs\autonomy-proof-2026-10-22`.
 - Résultat : code 0. Les suites racines biologie (8/8), worker workspaces, backend (57 vérifications de l'API, snapshots, autorités, AEIS, Syncytium, Axolotl, Biome, daemon 43/43, capsules, OTel, workers 36 suites et P1 socle), garage (8 suites) et P1 v3 se terminent.
 - Notes : le test worker formel indique que Lean n'est pas installé et saute cette exécution; des erreurs simulées de persistence/fixtures apparaissent dans les journaux, mais aucune n'interrompt la suite. La commande globale reste réussie.
+
+## Test global Rust — 2026-10-22
+
+- Commande : `cargo test --workspace`, avec `TEMP` et `TMP` pointés sur `D:\GenOS\runs\autonomy-proof-2026-10-22`.
+- Résultat : code 0; toutes les suites unitaires, intégration, processus et doc-tests du workspace terminent sans échec.
+- Des avertissements Rust `unused_imports`/`unused_variables` sont présents à la compilation; ils ne bloquent aucun test.
+
+## Épreuves longues restantes
+
+- T11 (7 jours) et T12 (30 jours) n'ont pas été lancées : les descriptions fournissent une durée et un critère général, mais pas les projets autorisés, le mandat de maintenance, les budgets ni les règles de changement des actifs sur D:. Ces informations sont requises pour définir des campagnes sûres et comparables.
+- La qualification actuelle porte sur les suites locales et ne vaut pas réussite des deux épreuves de terrain.
