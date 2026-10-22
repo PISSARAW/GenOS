@@ -65,7 +65,8 @@ async function main() {
     knownReceipt = await peers.recognize(db, { observerId: 'agent-a', presentation: knownPresentation, operationId: 's08-known-b' });
     const claimantPresentation = await peers.present(db, { session: sessions['agent-c'], audienceId: 'agent-a' });
     const claimantReceipt = await peers.recognize(db, { observerId: 'agent-a', presentation: claimantPresentation, operationId: 's08-claimant-c' });
-    const forgedPresentation = { ...claimantPresentation, body: { ...claimantPresentation.body, agentId: 'agent-b' } };
+    const forgedPresentation = { ...claimantPresentation, body: { ...claimantPresentation.body,
+      agentId: 'agent-b', nonce: 's08-fresh-forged-nonce' } };
     let forgedClaimRejected = false;
     try { await peers.recognize(db, { observerId: 'agent-a', presentation: forgedPresentation, operationId: 's08-forged-b' }); }
     catch (error) { forgedClaimRejected = error.code === 'IDENTITY_PRESENTATION_INVALID'; }
