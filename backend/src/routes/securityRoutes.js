@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const securityController = require('../controllers/securityController');
 const securityPerceptionController = require('../controllers/securityPerceptionController');
+const shreController = require('../controllers/shreController');
 const { requireRole, requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const { issueCsrfToken } = require('../middleware/security');
@@ -26,4 +27,13 @@ router.post('/security/asp/calibration', requirePermission('security:manage'), r
 router.post('/security/asp/world', requirePermission('security:manage'), requireTenantScope({ write: true }), securityPerceptionController.updateWorld);
 router.get('/security/asp/world', requirePermission('read'), requireTenantScope(), securityPerceptionController.getWorld);
 
+router.post('/security/shre/cases', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.create);
+router.get('/security/shre/cases/:caseId', requirePermission('read'), requireTenantScope(), shreController.getCase);
+router.post('/security/shre/cases/:caseId/plan', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.plan);
+router.post('/security/shre/cases/:caseId/simulate', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.simulate);
+router.post('/security/shre/cases/:caseId/authorize', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.authorize);
+router.post('/security/shre/cases/:caseId/apply', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.apply);
+router.post('/security/shre/cases/:caseId/counter-test', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.counterTest);
+router.post('/security/shre/cases/:caseId/close', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.close);
+router.post('/security/shre/cases/:caseId/rollback', requirePermission('security:manage'), requireTenantScope({ write: true }), shreController.rollback);
 module.exports = router;
