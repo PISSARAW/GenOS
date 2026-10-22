@@ -23,6 +23,14 @@ function validate(input) {
   const checks = ['inputAccepted', 'outputValid', 'invariantsPreserved', 'evidencePreserved'];
   if (checks.some((key) => proof[key] !== true) || !evidenceRefs.length) return false;
   const expectedDigest = proofDigest(input.bridge, proof);
+  const bridge = input.bridge;
+  const compatThreshold = input.session?.variantPolicy?.bridges?.heteroBridgeCompat;
+  if (Number.isFinite(compatThreshold) && bridge.sourceRepresentation && bridge.targetRepresentation
+      && bridge.sourceRepresentation !== bridge.targetRepresentation) {
+    const compatibility = Number.isFinite(proof.compatibility) ? proof.compatibility
+      : (Number.isFinite(proof.informationLoss) ? 1 - proof.informationLoss : NaN);
+    if (!Number.isFinite(compatibility) || compatibility < compatThreshold) return false;
+  }
   return receipt.resultId === input.bridge.bridgeId && receipt.evidenceDigest === expectedDigest
     && verifierReceipts.validateReceipt(receipt, input.trustedVerifierDigests || []);
 }
