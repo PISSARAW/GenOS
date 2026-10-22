@@ -145,7 +145,7 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
   }
   if (tests.some((test) => test.exitCode !== 0)) {
     await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)

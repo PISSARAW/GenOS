@@ -93,6 +93,7 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			text: JSON.stringify({ ...proposal, patches: [{ path: 'src/lib.rs', content: 'after' }], tests: ['pytest'] }) });
 		assert.equal(failed.rolledBack, true);
 		assert.equal(failed.testStatus, 'failed');
+		assert.deepEqual(failed.failedPatchContents, [{ path: 'src/lib.rs', content: 'after' }]);
 		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before');
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
