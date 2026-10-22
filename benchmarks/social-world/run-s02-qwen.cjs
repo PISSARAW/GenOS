@@ -47,6 +47,7 @@ async function main() {
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const startedAt = Date.now(); let db; let before = null; let after = null;
+  let observed = null; let enginePass = false; let qwenResponse = null;
   try {
     db = await getDatabase(':memory:');
     await createWorld(db);
@@ -59,8 +60,8 @@ async function main() {
       { sourceAgentId: 'agent-c', targetAgentId: 'agent-d', distance: 1 }
     ];
     const edgeRows = await db.all("SELECT source_agent_id AS sourceAgentId, target_agent_id AS targetAgentId, json_extract(metadata_json, '$.distance') AS distance FROM agent_relations WHERE relation_type = 'neighbor' ORDER BY source_agent_id, target_agent_id");
-    const observed = edgeRows.map((edge) => ({ ...edge, distance: Number(edge.distance) }));
-    const enginePass = JSON.stringify(canonical(observed)) === JSON.stringify(canonical(expected))
+    observed = edgeRows.map((edge) => ({ ...edge, distance: Number(edge.distance) }));
+    enginePass = JSON.stringify(canonical(observed)) === JSON.stringify(canonical(expected))
       && !observed.some((edge) => edge.sourceAgentId === 'agent-a' || edge.targetAgentId === 'agent-a')
       && friend.relationType === 'friend'
       && after.changes.removed === 1;
@@ -68,15 +69,16 @@ async function main() {
       prompt: ['A resident moved. Copy the exact neighbor pairs and distances recalculated by GenOS from positions; do not use the former zone labels.',
         `Before move: ${JSON.stringify(before.neighbors)}`,
         `After move: ${JSON.stringify(observed)}`,
-        'Return one JSON object with neighbors as objects containing sourceAgentId, targetAgentId, and distance.'].join('\n\n'),
+        'Return ONLY valid JSON in this exact shape: {"neighbors":[{"sourceAgentId":"agent-b","targetAgentId":"agent-c","distance":0.5}]}. Distances must be JSON numbers, with no units or commentary. Include every after-move neighbor exactly once.'].join('\n\n'),
       seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 100, timeoutMs: 180000,
       organizationId: SCOPE.organizationId, projectId: SCOPE.projectId, agentId: 'agent-a' });
-    const answer = parseAnswer(response.text);
+    qwenResponse = response.text;
+    const answer = parseAnswer(qwenResponse);
     const passed = enginePass && JSON.stringify(canonical(answer)) === JSON.stringify(canonical(expected));
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S02', seed,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected, observed,
       before: before.neighbors, changes: after.changes, preservedFriend: friend,
-      qwenResponse: response.text, answer, enginePass, verified: passed,
+      qwenResponse, answer, enginePass, verified: passed,
       oracle: 'moving B removes former A-B neighborhood and recalculates B-C, B-D, C-D by measured Euclidean distance while retaining independent friendship',
       humanInstructionsAfterSetup: 0, durationMs: Date.now() - startedAt };
     saveResult(result); process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -84,7 +86,9 @@ async function main() {
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S02', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
-      before, after, verified: false, durationMs: Date.now() - startedAt };
+      before, after, observed, enginePass, qwenResponse, verified: false,
+      stage: qwenResponse ? 'qwen-verification' : 'genos-neighbor-recalculation',
+      durationMs: Date.now() - startedAt };
     saveResult(result); process.stderr.write(`${JSON.stringify(result, null, 2)}\n`); process.exitCode = 1;
   } finally { if (db) await closeDatabase(); }
 }
