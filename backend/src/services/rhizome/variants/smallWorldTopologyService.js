@@ -14,6 +14,14 @@ const MONOCULTURE = {
   fallbackTrafficWeight: 1
 };
 
+function filterByHubConnectivity(byTraffic, session) {
+  const hubConnectivity = session.variantPolicy?.growth?.hubConnectivity;
+  const maxTraffic = byTraffic.reduce((value, item) => Math.max(value, item.traffic), 0);
+  if (!Number.isFinite(hubConnectivity) || maxTraffic <= 0) return;
+  const connected = byTraffic.filter((item) => item.traffic >= hubConnectivity * maxTraffic);
+  if (connected.length) byTraffic.splice(0, byTraffic.length, ...connected);
+}
+
 function plan(session, maximum = 4) {
   if (session.variant !== 'small_world') return [];
 
@@ -23,6 +31,8 @@ function plan(session, maximum = 4) {
 
   const byTraffic = [...candidates.values()].sort((left, right) => right.traffic - left.traffic
     || left.candidateId.localeCompare(right.candidateId));
+
+  filterByHubConnectivity(byTraffic, session);
 
   const betweenness = approximateBetweenness(session);
   if (!betweenness || byTraffic.length <= 1) return byTraffic.slice(0, Math.max(1, maximum));
