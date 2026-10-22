@@ -41,6 +41,10 @@ assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCode
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'bounded_worker', workerKind: 'bounded_worker', localCodeWorker: true }), true);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'verifier_worker', workerKind: 'verifier_worker', localCodeWorker: true }), false);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'interview_plan_implementation', workerKind: 'specialist', localCodeWorker: true }), false);
+const codePrompt = localPrompt.buildAnalysisPrompt({ codeWorker: true, allowedCommands: ['node verify.cjs'],
+  prompt: 'Implement sumPrices.', agentName: 'Bounded worker', workspaceContext: 'src/pricing.js' });
+assert.match(codePrompt, /exact allowlist: \["node verify\.cjs"\]/);
+assert.doesNotMatch(codePrompt, /"tests":\["npm test"\]/);
 if (previousCodeWorkers !== undefined) process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS = previousCodeWorkers;
 
 const root = path.resolve(__dirname, '../..');

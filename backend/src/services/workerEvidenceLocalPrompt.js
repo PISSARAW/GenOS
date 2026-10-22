@@ -2,8 +2,10 @@
 
 function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
-    codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
-  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
+    codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm,
+    allowedCommands } = context;
+  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction(allowedCommands) : evidenceRule]
+    .filter(Boolean).join('\n');
   const intro = [selfIntro, workerSelfBlock || '', conscienceBlock, workerBlock].filter(Boolean).join('\n');
   if (codeWorker) return `${intro}\n${requiredPatchInstruction(context.requiredPatchPaths, context.requiredPatchMarkers, context.requiredPatchMinimumBytes)}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
@@ -20,8 +22,13 @@ function requiredPatchInstruction(paths, markers, minimumBytes) {
   return `The patch proposal MUST include each required path exactly once: ${JSON.stringify(paths)}.${markerText}${sizeText}`;
 }
 
-function codeProposalInstruction() {
-  return 'Return exactly one JSON object with schema {"format":"genos.file-replacement/v1","patches":[{"path":"src/file.ext","content":"complete file content"}],"tests":["npm test"],"evidence":"reason for the change"}. Use 1-12 patches and 1-2 allow-listed test commands (npm test, npm run check, pytest, or cargo test with supported options). Do not add keys or prose. Never claim a test passed unless the worker executes it.';
+function codeProposalInstruction(allowedCommands = []) {
+  const commands = [...new Set(allowedCommands.filter((command) => typeof command === 'string' && command.trim()))];
+  const tests = commands.length ? [commands[0]] : ['npm test'];
+  const testRule = commands.length
+    ? `The tests array MUST contain exactly one command from this exact allowlist: ${JSON.stringify(commands)}. Do not substitute another command.`
+    : 'Use one allow-listed test command.';
+  return `Return exactly one JSON object with schema ${JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{ path: 'src/file.ext', content: 'complete file content' }], tests, evidence: 'reason for the change' })}. Use 1-12 patches. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
 }
 
 function isCodeWorkerMission(mission) {

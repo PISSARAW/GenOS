@@ -277,6 +277,7 @@ async function runGenerationStage(ctx) {
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
+    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
     orchestrator: isOrchestratorMission(ctx.mission),
     selfIntro: selfIntro,
     conscienceBlock: conscienceBlock,
