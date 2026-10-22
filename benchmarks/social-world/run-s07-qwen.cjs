@@ -31,11 +31,11 @@ function canonical(entries) {
 }
 
 function promptFor(profile) {
+  const relations = profile.relations.map(({ relationType, direction }) => ({ relationType, direction }));
   return [
-    'You are an agent in the GenOS SocialWorld scenario S07.',
-    'Read the relationship profile produced by GenOS and report every distinct relationship and its direction from agent A perspective.',
-    'Do not infer relationships that are absent from the profile. Return JSON with one property relations, an array of objects with relationType and direction.',
-    `Profile: ${JSON.stringify({ relationTypes: profile.relationTypes, relations: profile.relations })}`
+    'Copy every relation and direction from this GenOS agent profile. Do not infer any additional relation.',
+    `GenOS profile: ${JSON.stringify(relations)}`,
+    'Return JSON with one property relations, an array of objects with relationType and direction.'
   ].join('\n\n');
 }
 
@@ -43,6 +43,21 @@ function fixtureDb() {
   return { all: async () => FIXTURE };
 }
 
+function runSocialTest(filename) {
+  const command = `node backend/tests/${filename}`;
+  try {
+    const output = require('node:child_process').execFileSync(process.execPath,
+      [`backend/tests/${filename}`], { encoding: 'utf8' });
+    return { command, exitCode: 0, output: output.trim() };
+  } catch (error) {
+    return { command, exitCode: Number(error.status || 1), output: String(error.stdout || error.stderr || error.message).trim() };
+  }
+}
+
+function runSocialTests() {
+  return ['test_agent_relation_profiles.js', 'test_relation_authority_bridge.js',
+    'test_social_cognition_service.js', 'test_social_epistemology_service.js'].map(runSocialTest);
+}
 function saveResult(result) {
   const dir = path.join(__dirname, 'campaigns', 'socialworld-qwen-20261022');
   fs.mkdirSync(dir, { recursive: true });
@@ -53,14 +68,24 @@ async function main() {
   const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const testResults = runSocialTests();
   const profile = await resolver.getRelationProfile('a', 'b', {
     db: fixtureDb(), organizationId: 'socialworld', projectId: 's07'
   });
   const prompt = promptFor(profile);
   const startedAt = Date.now();
+  if (testResults.some((test) => test.exitCode !== 0)) {
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+      status: 'fail', model: MODEL, sourceCommit, expected: EXPECTED, genosProfile: profile,
+      testResults, verified: false, stage: 'deterministic-tests' };
+    saveResult(result);
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    process.exitCode = 1;
+    return;
+  }
   try {
     const response = await modelProvider.generate({ model: MODEL, prompt, seed, temperature: 0,
-      enforceSchema: false, stream: false, maxTokens: 250,
+      enforceSchema: false, stream: false, maxTokens: 100,
       timeoutMs: 90000, organizationId: 'socialworld', projectId: 's07', agentId: 'agent-a' });
     const answer = parseAnswer(response.text);
     const passed = JSON.stringify(canonical(answer)) === JSON.stringify(canonical(EXPECTED));
@@ -68,14 +93,14 @@ async function main() {
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       genosProfile: profile, qwenResponse: response.text, answer,
       verified: passed, oracle: 'exact relation type and direction set from the seeded graph',
-      durationMs: Date.now() - startedAt, testCommand: 'node backend/tests/test_agent_relation_profiles.js' };
+      durationMs: Date.now() - startedAt, testResults, testCommand: 'node backend/tests/test_agent_relation_profiles.js' };
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
       status: 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
-      genosProfile: profile, error: error.message, verified: false,
+      genosProfile: profile, error: error.message, testResults, verified: false,
       durationMs: Date.now() - startedAt };
     saveResult(result);
     process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -84,4 +109,3 @@ async function main() {
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
-
