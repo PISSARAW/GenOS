@@ -1,0 +1,100 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S22",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "04b14d21c5deddedac1dc54877accd21b95372fd",
+  "expected": {
+    "human": "human-operator",
+    "approved": true,
+    "relay": {
+      "event": "bridge_status",
+      "state": "closed",
+      "recipients": [
+        "agent-b"
+      ],
+      "semanticRefs": [
+        "hazard:bridge-closed"
+      ]
+    }
+  },
+  "inboundEnvelope": {
+    "version": 1,
+    "messageId": "socialworld-s22-request",
+    "kind": "organization_message",
+    "senderAgentId": "agent-a",
+    "recipientMode": "targeted",
+    "recipientAgentIds": [
+      "human-operator"
+    ],
+    "channel": "human-review",
+    "modality": "text",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [],
+    "scope": null,
+    "createdAt": "2026-10-22T21:48:57.132Z",
+    "expiresAt": null,
+    "groundingRequired": "human_confirmation",
+    "payloadDigest": "sha256:b79394d2f449ba897fae3fda9f54d1e3a2009357c44ceafdf7ccb5910e9c15ec"
+  },
+  "replyEnvelope": {
+    "version": 1,
+    "messageId": "socialworld-s22-human-reply",
+    "kind": "organization_message",
+    "senderAgentId": "human-operator",
+    "recipientMode": "targeted",
+    "recipientAgentIds": [
+      "agent-a"
+    ],
+    "channel": "human-review",
+    "modality": "text",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [],
+    "scope": null,
+    "createdAt": "2026-10-22T21:48:57.133Z",
+    "expiresAt": null,
+    "groundingRequired": "human_confirmation",
+    "payloadDigest": "sha256:fe0df0e60cbeb0478a14bf72894831b3d726bd5bfc51e38a39bb645c116a9cb4"
+  },
+  "observed": {
+    "human": "human-operator",
+    "approved": true,
+    "relay": {
+      "event": "bridge_status",
+      "state": "closed",
+      "recipients": [
+        "agent-b"
+      ],
+      "semanticRefs": [
+        "hazard:bridge-closed"
+      ]
+    },
+    "consentVerified": true,
+    "requiredGrounding": "human_confirmation"
+  },
+  "qwenResponse": "Here is the requested information in a JSON object format:\n\n```json\n{\n  \"human\": \"human-operator\",\n  \"approved\": true,\n  \"relay\": {\n    \"event\": \"bridge_status\",\n    \"state\": \"closed\",\n    \"recipients\": [\"agent-b\"],\n    \"semanticRefs\": [\"hazard:bridge-closed\"]\n  }\n}\n```",
+  "answer": {
+    "human": "human-operator",
+    "approved": true,
+    "relay": {
+      "event": "bridge_status",
+      "state": "closed",
+      "recipients": [
+        "agent-b"
+      ],
+      "semanticRefs": [
+        "hazard:bridge-closed"
+      ]
+    }
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "GenOS routes a request to a human and relays only the scope explicitly approved in a verified response",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 2260
+}
