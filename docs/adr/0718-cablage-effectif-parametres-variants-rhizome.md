@@ -63,15 +63,20 @@ restent inchangés.
 - `heteroBridgeCompat` refuse un pont hétérogène dont la compatibilité dérivée est sous
   le seuil.
 
-### Paramètres encore non câblés
-- `self_healing.autoReconfigure` : aucune reconfiguration automatique au-delà de la
-  réparation manuelle.
-- `small_world.hubCount` et `hubConnectivity` : la sélection de hubs observés n'utilise pas
-  ces seuils.
-- `procedural.algorithmSeed` : non consommé, la propagation reste déterministe par tri.
-- `exploratory.scoutPriority` : transmis mais ne biaise pas encore la recherche de chemins.
+### Paramètres complémentaires câblés dans la même itération
+- `self_healing.autoReconfigure` : gate le passage multi-tours de `routeRepairService.repair`
+  (un seul tour si désactivé).
+- `small_world.hubCount` : limite le nombre de raccourcis planifiés par
+  `planSmallWorldShortcuts`.
+- `small_world.hubConnectivity` : filtre les candidats de raccourci sous le seuil de
+  connectivité relative.
+- `procedural.algorithmSeed` : ordonne déterministiquement les cibles de propagation
+  (`deterministic`).
+- `exploratory.scoutPriority` : biaise le routage vers les routes nouvelles
+  (`curiosityWeight` augmenté).
 
-Ces points restants sont différés à une itération ultérieure avec tests dédiés.
+Tous les paramètres déclarés dans `variantPolicyService.js` sont désormais consommés par
+le runtime.
 
 ## Alternatives
 
