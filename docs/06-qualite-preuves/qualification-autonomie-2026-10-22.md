@@ -89,3 +89,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Relance hors sandbox : `node backend/tests/test_organism_shared_mission_checkpoint.js` puis `node backend/tests/test_organism_orchestrator_checkpoint.js`; code 0.
 - Cohorte de mission partagée et intégrité des références de checkpoint Rust passent.
 - Verdict local T06 : continuité et checkpoints automatisés validés; l'épreuve de coupure brutale est couverte par T05.
+
+## 2026-10-22 — T07, adaptation, premier passage
+
+- Commandes : `node backend/tests/test_native_memory_budget.js`, `node backend/tests/test_bounded_worker_delegation.js`, `node backend/tests/test_morphogenesis_capabilities.js`.
+- Résultat : code 0 pour les trois tests; budgets, délégation bornée et capacités de morphogenèse passent.
+- Réserve : les premières étapes ont signalé des échecs de télémétrie différée (`EPERM`/`ENOENT`) sur des snapshots temporaires. Relance hors sandbox nécessaire pour confirmer la persistance.
