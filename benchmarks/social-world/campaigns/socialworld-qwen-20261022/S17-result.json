@@ -1,0 +1,17 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S17",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "b9a4bbbb780cd8d164e0039c9336a5fb1744e95c",
+  "error": "Error: SQLITE_CONSTRAINT: workspace project does not belong to organization\n--> in Statement#run([Function: replacement])\n    at Database.<anonymous> (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite3\\lib\\sqlite3.js:76:19)\n    at Database.<anonymous> (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite3\\lib\\sqlite3.js:20:19)\n    at D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite\\build\\Database.js:96:21\n    at new Promise (<anonymous>)\n    at Database.run (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite\\build\\Database.js:94:16)\n    at D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:110:46\n    at withWriteRetry (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:142:20)\n    at db.run (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:110:25)",
+  "stage": "genos-broadcast",
+  "observed": null,
+  "decision": null,
+  "outcome": null,
+  "enginePass": false,
+  "warmup": null,
+  "verified": false,
+  "durationMs": 3609
+}
