@@ -116,7 +116,7 @@ async function main() {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S25', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
       firstHop, secondHop, observed, enginePass, qwenResponse, verified: false,
-      stage: qwenResponse ? 'qwen-verification' : 'genos-provenance-propagation', durationMs: Date.now() - startedAt };
+      stage: enginePass ? 'qwen-verification' : 'genos-provenance-propagation', durationMs: Date.now() - startedAt };
     saveResult(result); process.stderr.write(`${JSON.stringify(result, null, 2)}\n`); process.exitCode = 1;
   } finally { if (db) await closeDatabase(); }
 }
