@@ -15,7 +15,7 @@ pub(super) fn unavailable(agent_id: &str, therapy_type: &str) -> serde_json::Val
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_therapy, unavailable};
+    use super::{parse_therapy, unavailable, validate_reservation_response};
 
     #[test]
     fn parses_catalog_identifiers_and_parameterized_json() {
@@ -41,6 +41,26 @@ mod tests {
         assert_eq!(result["success"], false);
         assert_eq!(result["status"], "not_executed");
         assert_eq!(result["treatment_administered"], false);
+    }
+
+    #[test]
+    fn reservation_response_accepts_authorized_true() {
+        let authorized = serde_json::json!({ "authorized": true });
+        assert!(validate_reservation_response(&authorized).is_ok());
+    }
+
+    #[test]
+    fn reservation_response_rejects_authorized_false() {
+        let not_authorized = serde_json::json!({ "authorized": false });
+        let err = validate_reservation_response(&not_authorized).unwrap_err();
+        assert!(err.contains("revoked before application"));
+    }
+
+    #[test]
+    fn reservation_response_rejects_missing_authorized() {
+        let missing = serde_json::json!({});
+        let err = validate_reservation_response(&missing).unwrap_err();
+        assert!(err.contains("revoked before application"));
     }
 }
 
@@ -105,6 +125,10 @@ struct ClinicalApplication<'a> {
 
 fn apply_claimed_therapy(input: ClinicalApplication<'_>) -> Result<serde_json::Value, String> {
     let ClinicalApplication { auth, operation_id, claim, store } = input;
+    // Réservation durable : re-vérifie que l'autorisation n'a pas été révoquée
+    // entre le claim et l'append du reçu Rust. Fermeture de la fenêtre
+    // identifiée dans le bilan de preuve (validateForCli → append).
+    validate_clinical_reservation(auth)?;
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
     ecosystem.restore_population(store)?;
     let receipt = ecosystem.apply_authorized_therapy(auth, store)?;
@@ -112,6 +136,35 @@ fn apply_claimed_therapy(input: ClinicalApplication<'_>) -> Result<serde_json::V
         auth, operation_id, claim_token: claim["claimToken"].as_str().unwrap_or_default(), receipt: &receipt,
     })?;
     Ok(receipt)
+}
+
+/// Valide la réservation clinique juste avant l'application effective.
+/// Appelle le backend `/validate` pour détecter une révocation survenue
+/// après le claim et avant l'append du reçu.
+fn validate_clinical_reservation(
+    auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
+) -> Result<(), String> {
+    let response = backend_authority_request(auth, "validate", json!({
+        "missionId": auth.mission_id.to_string(),
+        "cellId": auth.cell_id.to_string(),
+        "signature": auth.signature.clone(),
+    }))?.send()
+        .map_err(|_| "clinical reservation validation unavailable")?;
+    if !response.status().is_success() {
+        return Err(backend_rejection(response));
+    }
+    let result: serde_json::Value = response.json()
+        .map_err(|_| "clinical backend returned invalid reservation state")?;
+    validate_reservation_response(&result)
+}
+
+/// Valide le corps de la réponse de réservation clinique.
+/// Retourne une erreur si l'autorisation a été révoquée ou si l'état est invalide.
+fn validate_reservation_response(result: &serde_json::Value) -> Result<(), String> {
+    if result["authorized"] != true {
+        return Err("clinical reservation revoked before application".into());
+    }
+    Ok(())
 }
 
 fn therapy_result(receipt: serde_json::Value) -> serde_json::Value {

@@ -1,6 +1,6 @@
 # Validation de la nosologie computationnelle
 
-Date initiale : 2026-10-06; revue complémentaire : 2026-10-14. Périmètre : catalogue des 28 conditions, neuf familles, 48 contrats de marqueurs et 59 variantes SystemicTherapy.
+Date initiale : 2026-10-06; revue complémentaire : 2026-10-14; revue d'implémentation : 2026-10-22. Périmètre : catalogue des 28 conditions, neuf familles, 48 contrats de marqueurs et 59 variantes SystemicTherapy.
 
 ## Résultats observés
 
@@ -13,8 +13,12 @@ Date initiale : 2026-10-06; revue complémentaire : 2026-10-14. Périmètre : ca
 | node scripts/docs/generate-nosology-catalog.mjs --check | Réussi : document synchronisé avec shared/nosology.json. |
 | python scripts/ci/check_adr_index.py | Réussi sur le dossier courant : 384 fichiers, 384 lignes, aucun problème. |
 | Hooks des commits de code | Réussis : 15 puis 8 fichiers source vérifiés, aucune violation ni dette nouvelle. Blocs Receipt vérifiés. |
-| cargo test --workspace --bin genos commands::biomimicry::therapy::tests --offline --jobs 1 | 2 réussis : parsing des variantes et paramètres, absence de succès sans exécution. |
-| Parcours HTTP → Rust → journal après redémarrage | Réussi le 2026-10-14 : `npm --prefix backend run test:clinical-rust-e2e` valide l'upload signé, la reprise après redémarrage, la réparation d'une livraison hors ligne et l'idempotence. Un reçu organisme n'inclut maintenant cellule et génome que si les deux sont liés. |
+|cargo test --workspace --bin genos commands::biomimicry::therapy::tests --offline --jobs 1 | 5 réussis : parsing des variantes et paramètres, absence de succès sans exécution, validation de la réponse de réservation clinique (3 cas : autorisé, refusé, champ manquant).
+| Agrégation `noisy_or_v2` côté Rust | 8 tests unitaires : liste vide, valeur unique, plusieurs valeurs, ignorent les non-normalisés, borne à 1 (`crates/genos-biology/src/nosology_catalog.rs`).
+| Campagne de calibration (infrastructure) | `scripts/campagne-calibration-nosologie.cjs` généré ; 28 conditions, 48 thérapies, 9 familles ; seuil 0,5 et quantité 0,25 identifiés comme défauts d’ingénierie non calibrés ; statut `pending_real_observations` (`docs/06-qualite-preuves/campagnes/campagne-calibration-nosologie.json`).
+| Protocole de réservation durable (CLI) | `validate_clinical_reservation` re-vérifie l'autorisation via le backend `/validate` avant l'append du reçu Rust ; ferme la fenêtre de révocation concurrente entre `validateForCli` et l'application (`crates/genos-cli/src/commands/biomimicry/therapy.rs`). |
+| Parcours HTTP → Rust → journal après redémarrage | Réussi le 2026-10-14 : `npm --prefix backend run test:clinical-rust-e2e` valide l'upload signé, la reprise après redémarrage, la réparation d'une livraison hors ligne et l'idempotence. Un reçu organisme n'inclut maintenant cellule et génome que si les deux sont liés.
+| Contrôles globaux `npm --prefix backend test` | Timeout sur `test:workers` (`test_worker_compliance_native_missions.js`) après ~5 min. `test_consumer_inspection.js` attend HTTP 200 et reçoit 403 `UNAUTHORIZED_PROMOTION` pour un reçu d'approbation invalide (bilan du 2026-10-14, inchangé). Non résolu dans cette campagne. |
 | Autorisation liée à l'état clinique cible | Le contrôle source exige mission, cellule, génome, empreinte et digest d'état concordants. Le test `authorization_rejects_a_same_mission_receipt_without_target_state` passe dans la suite API. |
 
 ## Revue de la révocation concurrente — 2026-10-15

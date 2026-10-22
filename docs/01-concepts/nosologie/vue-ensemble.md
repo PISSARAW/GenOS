@@ -80,6 +80,10 @@ Une tentative autorisée sans cible ou refusée produit également un reçu dura
 
 Les lots A–G ont introduit les premiers 25 opérateurs. La complétion ajoute le catalogue des 28 conditions, les 19 noms manquants, quatre contrats historiques de marqueurs, les diagnostics des neuf familles, les statuts explicites et la voie persistante autorisée.
 
+Agrégation de pression familiale : `maximum_v1` (référence, production) et `noisy_or_v2` (candidate, implémentée côté Rust dans `crates/genos-biology/src/nosology_catalog.rs`). Les seuils et quantités restent des défauts d'ingénierie (`uncalibrated_engineering_defaults`) jusqu'à ce qu'une campagne train/disjoint holdout et une campagne benefit/harm les vérifient.
+
+Protocole de réservation durable : le CLI Rust re-valide l'autorisation clinique juste avant l'append du reçu (`validate_clinical_reservation` dans `crates/genos-cli/src/commands/biomimicry/therapy.rs`), fermant la fenêtre entre la validation HTTP et l'application Rust identifiée dans le bilan de preuve.
+
 Le [bilan du 2026-10-06](../../06-qualite-preuves/validation-nosologie.md) rapporte 103 tests Rust ciblés réussis et les contrôles Node ciblés. Les contrôles globaux du dépôt restent en échec ou incomplets; le parcours HTTP → Rust complet reste non validé dans cette campagne. Le [contrat API et CLI](../../03-reference/api-et-contrats.md#autorisation-et-application-cliniques) décrit les formes de paramètres acceptées.
 
 Les tests parcourent chaque condition et chaque contrat : cibles présentes/absentes, données invalides, bornes, sérialisation, rémissions entièrement mesurées, gardes, effets secondaires, absence de résurrection, reçus persistés, restauration et idempotence. Leur exécution et les contrôles globaux du dépôt doivent être rapportés avec leur résultat réel.

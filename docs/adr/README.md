@@ -396,8 +396,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0326a](0326-audits-philosophiques-executables-et-preuves.md) | Audits philosophiques exécutables et preuves bornées | Voir le fichier | -- | -- |
 | [0326b](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0327a](0327-aeis-preuves-et-autorite-persistante.md) | AEIS : preuves exécutables et autorité persistante | Voir le fichier | -- | -- |
-| [0327b](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
-| [0327c](0327-trinity-comparaison-recherche-et-assemblage.md) | Comparaison commune, recherche et assemblage Trinity | Accepté | 2026-10-06 | Trinity, preuves, recherche expérimentale |
+| [0327b](0327-completion-nosologie-calibration-promotion.md) | Complétion de la nosologie : calibration, porte de promotion et parcours e2e | Proposé | 2026-10-22 | Nosologie, clinique computationnelle et preuves |
+| [0327c](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
+| [0327d](0327-trinity-comparaison-recherche-et-assemblage.md) | Comparaison commune, recherche et assemblage Trinity | Accepté | 2026-10-06 | Trinity, preuves, recherche expérimentale |
 | [0328a](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
 | [0328b](0328-laboratoire-qualite-diversite.md) | Laboratoire qualité-diversité et évolution bornée | Accepté | 2026-10-06 | morphogenèse, GVX, évaluation expérimentale |
 | [0329a](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
@@ -825,6 +826,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0715](0715-ontogenese-levee-blocages-autonomisation.md) | Ontogenèse : levée des blocages et autonomisation partielle | Proposé | 2026-10-21 | Ontogenèse, orchestration, exécution, Git, sécurité |
 | [0716](0716-budget-tokens-par-role-et-reserve-elastique.md) | Budget de tokens par rôle et réserve orchestrateur élastique | Accepté | 2026-10-21 | Orchestration, workers, budgets, topologies, preuve |
 | [0717](0717-parite-worker-mathematique-et-preuve-formelle.md) | Parité du worker mathématique et preuve formelle | Voir le fichier | -- | -- |
+| [0718](0718-cablage-effectif-parametres-variants-rhizome.md) | Câblage effectif des paramètres de variants Rhizome | Voir le fichier | -- | -- |
+| [0719](0719-ateam-variant-gates-et-executeur-multiteam.md) | A-Team : durcissement des gates de variantes et feuille de route de l'exécuteur multiteam | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

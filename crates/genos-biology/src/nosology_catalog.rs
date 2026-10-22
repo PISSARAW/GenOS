@@ -95,3 +95,72 @@ pub fn condition_spec(condition: NosologicalCondition) -> &'static ConditionSpec
 pub fn normalized(value: f64) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
 }
+
+/// Agrégation candidate `noisy_or_v2` : 1 - ∏(1 - p_i) sur les signaux normalisés.
+/// Retourne 0.0 sur une liste vide, et borne le résultat à [0, 1].
+pub fn family_pressure_noisy_or_v2(values: &[f64]) -> f64 {
+    let mut complement = 1.0_f64;
+    for &value in values {
+        if normalized(value) {
+            complement *= 1.0 - value;
+        }
+    }
+    (1.0 - complement).clamp(0.0, 1.0)
+}
+
+/// Agrégation de référence `maximum_v1` : max des signaux normalisés, ou 0.0 si vide.
+pub fn family_pressure_maximum_v1(values: &[f64]) -> f64 {
+    values
+        .iter()
+        .copied()
+        .filter(|&value| normalized(value))
+        .fold(0.0_f64, f64::max)
+        .clamp(0.0, 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn family_pressure_noisy_or_v2_empty_returns_zero() {
+        assert_eq!(family_pressure_noisy_or_v2(&[]), 0.0);
+    }
+
+    #[test]
+    fn family_pressure_noisy_or_v2_single_value() {
+        assert!((family_pressure_noisy_or_v2(&[0.5]) - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn family_pressure_noisy_or_v2_multiple_values() {
+        // 1 - (1-0.5)*(1-0.5) = 1 - 0.25 = 0.75
+        assert!((family_pressure_noisy_or_v2(&[0.5, 0.5]) - 0.75).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn family_pressure_noisy_or_v2_ignores_unnormalized() {
+        assert!((family_pressure_noisy_or_v2(&[0.5, f64::NAN, 2.0, -1.0]) - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn family_pressure_noisy_or_v2_bounded_to_one() {
+        let result = family_pressure_noisy_or_v2(&[1.0, 1.0, 0.9]);
+        assert!((result - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn family_pressure_maximum_v1_empty_returns_zero() {
+        assert_eq!(family_pressure_maximum_v1(&[]), 0.0);
+    }
+
+    #[test]
+    fn family_pressure_maximum_v1_returns_max() {
+        assert!((family_pressure_maximum_v1(&[0.2, 0.7, 0.3]) - 0.7).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn family_pressure_maximum_v1_ignores_unnormalized() {
+        assert!((family_pressure_maximum_v1(&[0.2, f64::NAN, 0.7]) - 0.7).abs() < f64::EPSILON);
+    }
+}
