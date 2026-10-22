@@ -1,11 +1,28 @@
 {
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S25",
-  "seed": 8,
-  "status": "fail",
+  "seed": 9,
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "61793906fb2ba0d99f59c10be31e3c3022a832f7",
-  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "sourceCommit": "1f2e9a2aaf867b4df1bc8535e0021a0e475fc61a",
+  "expected": {
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "duplicateDetected": true,
+    "rumorRejected": true
+  },
+  "observed": {
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "duplicateDetected": true,
+    "rumorRejected": true
+  },
   "firstHop": {
     "delivered": true,
     "duplicate": false,
@@ -26,7 +43,21 @@
     "relationId": "s25-neighbor",
     "relationType": "neighbor"
   },
-  "observed": {
+  "duplicate": {
+    "delivered": false,
+    "duplicate": true,
+    "receiptId": "social-receipt-da37eafca85216f1b31805669b3fd2e418b106cdf8951835f41f578fcace3fda",
+    "sourceHash": "0054f4df767332898a6da3cf2b8082cf87780237b96dfee0777be1371472e5e0",
+    "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
+    "transmissionHash": "72cb4fb3590bb1f41fb5b2854e2b0962f1ae31bb3d7211ffae95c502e029446a",
+    "relationId": "s25-neighbor",
+    "relationType": "neighbor"
+  },
+  "chainValid": true,
+  "linked": true,
+  "rumorRejected": true,
+  "qwenResponse": "{\n  \"rootHash\": \"88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f\",\n  \"recipients\": [\"agent-b\", \"agent-c\"],\n  \"duplicateDetected\": true,\n  \"rumorRejected\": true\n}",
+  "answer": {
     "rootHash": "88b0d5a0535c7a3551c8d2acf24aa26516270e3dbbb28e3688aa0f72f181939f",
     "recipients": [
       "agent-b",
@@ -36,8 +67,8 @@
     "rumorRejected": true
   },
   "enginePass": true,
-  "qwenResponse": null,
-  "verified": false,
-  "stage": "genos-provenance-propagation",
-  "durationMs": 182890
+  "verified": true,
+  "oracle": "friend and neighbor hops preserve the verified root provenance; a repeated root is deduplicated and an invalid source hash is rejected",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 7561
 }
