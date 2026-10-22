@@ -1,0 +1,227 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S24",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "07c526a8322a20762540f9b729fa294f2d1cae78",
+  "expected": {
+    "successCount": 2,
+    "failureCount": 3,
+    "trust": 0.428571,
+    "decreasedAfterFailure": true
+  },
+  "observed": {
+    "successCount": 2,
+    "failureCount": 3,
+    "trust": 0.428571,
+    "decreasedAfterFailure": true
+  },
+  "trajectory": [
+    {
+      "relationId": "s24-collaboration",
+      "domain": "navigation",
+      "evaluationRunId": "s24-eval-1",
+      "current": {
+        "success": true,
+        "oracleRef": "oracle:s24-eval-1",
+        "id": "s24-eval-1"
+      },
+      "outcomes": [
+        {
+          "id": "s24-eval-1",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-1"
+        }
+      ],
+      "successes": 1,
+      "failures": 0,
+      "trust": 0.666667,
+      "persisted": true
+    },
+    {
+      "relationId": "s24-collaboration",
+      "domain": "navigation",
+      "evaluationRunId": "s24-eval-2",
+      "current": {
+        "success": true,
+        "oracleRef": "oracle:s24-eval-2",
+        "id": "s24-eval-2"
+      },
+      "outcomes": [
+        {
+          "id": "s24-eval-1",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-1"
+        },
+        {
+          "id": "s24-eval-2",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-2"
+        }
+      ],
+      "successes": 2,
+      "failures": 0,
+      "trust": 0.75,
+      "persisted": true
+    },
+    {
+      "relationId": "s24-collaboration",
+      "domain": "navigation",
+      "evaluationRunId": "s24-eval-3",
+      "current": {
+        "success": false,
+        "oracleRef": "oracle:s24-eval-3",
+        "id": "s24-eval-3"
+      },
+      "outcomes": [
+        {
+          "id": "s24-eval-1",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-1"
+        },
+        {
+          "id": "s24-eval-2",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-2"
+        },
+        {
+          "id": "s24-eval-3",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-3"
+        }
+      ],
+      "successes": 2,
+      "failures": 1,
+      "trust": 0.6,
+      "persisted": true
+    },
+    {
+      "relationId": "s24-collaboration",
+      "domain": "navigation",
+      "evaluationRunId": "s24-eval-4",
+      "current": {
+        "success": false,
+        "oracleRef": "oracle:s24-eval-4",
+        "id": "s24-eval-4"
+      },
+      "outcomes": [
+        {
+          "id": "s24-eval-1",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-1"
+        },
+        {
+          "id": "s24-eval-2",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-2"
+        },
+        {
+          "id": "s24-eval-3",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-3"
+        },
+        {
+          "id": "s24-eval-4",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-4"
+        }
+      ],
+      "successes": 2,
+      "failures": 2,
+      "trust": 0.5,
+      "persisted": true
+    },
+    {
+      "relationId": "s24-collaboration",
+      "domain": "navigation",
+      "evaluationRunId": "s24-eval-5",
+      "current": {
+        "success": false,
+        "oracleRef": "oracle:s24-eval-5",
+        "id": "s24-eval-5"
+      },
+      "outcomes": [
+        {
+          "id": "s24-eval-1",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-1"
+        },
+        {
+          "id": "s24-eval-2",
+          "success": true,
+          "oracleRef": "oracle:s24-eval-2"
+        },
+        {
+          "id": "s24-eval-3",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-3"
+        },
+        {
+          "id": "s24-eval-4",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-4"
+        },
+        {
+          "id": "s24-eval-5",
+          "success": false,
+          "oracleRef": "oracle:s24-eval-5"
+        }
+      ],
+      "successes": 2,
+      "failures": 3,
+      "trust": 0.428571,
+      "persisted": true
+    }
+  ],
+  "unverifiedRejected": true,
+  "persistedRelation": {
+    "id": "s24-collaboration",
+    "sourceAgentId": "agent-a",
+    "targetAgentId": "agent-b",
+    "relationType": "collaborator",
+    "relationClass": "collaborative",
+    "metadata": {
+      "familiarity": 0.6,
+      "interactionCount": 5,
+      "sharedHistory": 0.5,
+      "authority": 0.5,
+      "trustForDomain": 0.7,
+      "commonGroundEstimate": 0.6,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.5,
+      "preferredDialect": null,
+      "lastInteraction": null,
+      "trustByDomain": {
+        "navigation": 0.428571
+      },
+      "learningEvidence": {
+        "navigation": [
+          "s24-eval-1",
+          "s24-eval-2",
+          "s24-eval-3",
+          "s24-eval-4",
+          "s24-eval-5"
+        ]
+      }
+    },
+    "organizationId": "socialworld-org",
+    "projectId": "socialworld-project",
+    "provenanceHash": null,
+    "createdAt": "2026-10-22 22:14:14",
+    "updatedAt": "2026-10-22 22:14:14"
+  },
+  "qwenResponse": "{\n  \"successCount\": 2,\n  \"failureCount\": 3,\n  \"trust\": 0.428571,\n  \"decreasedAfterFailure\": true\n}",
+  "answer": {
+    "successCount": 2,
+    "failureCount": 3,
+    "trust": 0.428571,
+    "decreasedAfterFailure": true
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "domain trust is recomputed from scoped, oracle-linked binary evaluations and decreases after verified failures",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 66105
+}
