@@ -27,7 +27,7 @@
 | S15 Unicast | Reussi avec Qwen 2.5 14B; C exclu | `S15-attempt-01.json`, `S15-attempt-02.json` (timeouts), `S15-result.json`; source `56a8a509` |
 | S16 Multicast selectif | Reussi avec Qwen 2.5 14B; D exclu | `S16-attempt-01.json` (predicat du runner), `S16-result.json`; source `916d25e1` |
 | S17 Broadcast / quorum | Reussi avec Qwen 2.5 14B; A exclu, quorum B/C acquitte | `S17-result.json`, `S17-*.json` (echec fixture); source `cace91f1` |
-| S18 Stigmergie | Non exécuté | — |
+| S18 Stigmergie | Reussi avec Qwen 2.5 14B; pheromone persistee, lue et provenance verifiee | `S18-result.json`, premier echec conserve; source `aa7ac626` |
 | S19 Signaux zero-text | Non exécuté | — |
 | S20 Communication structurée | Non exécuté | — |
 | S21 Dialectes et langage | Non exécuté | — |
@@ -57,4 +57,5 @@ Le premier essai a d�pos� le fait dans la stigmergie sans destinataire. Le c
 ## S11: reprise de contact
 
 Le premier essai a expir� pendant la requ�te Qwen alors que Qwen Coder 32B avait repris presque toute la VRAM. Apr�s arr�t autoris� du mod�le bloqu� et am�lioration du rapport d'erreur, le run complet a r�ussi: l'�v�nement d'�ch�ance `HANDOFF_REQUESTED` a d�clench� un unicast au collaborateur pr�c�dent, avec la r�f�rence de suivi exacte. Qwen a reproduit la d�cision.
+
 
