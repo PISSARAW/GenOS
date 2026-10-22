@@ -161,6 +161,9 @@ function plan(session, value, policy = {}) {
   const candidates = buildAlternatives({ paths, nodes, need, policy, session });
   const limit = Number.isInteger(policy.alternatives) ? Math.max(1, policy.alternatives) : candidates.length;
   const alternatives = chooseAlternatives(candidates, policy, limit);
+  if (Number.isInteger(policy.minRedundantPaths) && alternatives.length < policy.minRedundantPaths) {
+    return { needId: need.needId, capability: need.capability, selected: false, verdict: 'insufficient_redundancy', alternatives, search: found.search };
+  }
   if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: found.search.exhausted ? 'search_budget_exhausted' : 'unreachable', alternatives: [], search: found.search };
   return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', ...probabilistic.select(alternatives, policy), alternatives, search: found.search };
 }
