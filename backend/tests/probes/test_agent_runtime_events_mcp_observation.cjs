@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { observeGenosTools } = require('../../bin/agent-runtime-events.cjs');
 const { assertSuccessfulTool, assertPreflightContext,
-  preflightEnvironment } = require('../../bin/orchestratorMcpPreflight.cjs');
+  preflightEnvironment, prepareToolArguments, PREFLIGHT_TOOLS } = require('../../bin/orchestratorMcpPreflight.cjs');
 const { encodeMission, decodeMissionInput } = require('../../src/services/runtimeProtocol');
 
 const state = {
@@ -49,6 +49,15 @@ const environment = preflightEnvironment({ repoRoot: 'repo-root', workspaceRoot:
   ['genos_snapshot']);
 assert.equal(environment.GENOS_REPO_ROOT, 'repo-root');
 assert.equal(environment.GENOS_WORKSPACE_ROOT, 'workspace-root');
+assert.equal(environment.GENOS_AGENT_ID, undefined, 'missing agent identity remains unavailable in unit fixtures');
+assert(PREFLIGHT_TOOLS.has('genos_diagnose'));
+assert.deepEqual(prepareToolArguments({ task: 'delivery recovery', hypotheses: [{
+  statement: 'A restart omits messages beyond the checkpoint.'
+}] }, 'genos_diagnose').args.hypotheses, [{
+  statement: 'A restart omits messages beyond the checkpoint.'
+}]);
+assert.throws(() => prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose'),
+  error => error.code === 'ORCHESTRATOR_PREFLIGHT_HYPOTHESES_MISSING');
 
 const missionFrame = encodeMission({ agentId: 'orchestrator', missionId: 'mission-preflight-binding', prompt: 'synthesize' });
 assert.equal(decodeMissionInput(missionFrame).missionId, 'mission-preflight-binding',

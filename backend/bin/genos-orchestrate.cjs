@@ -254,11 +254,13 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
   const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
+  const preflightTools = require('./orchestratorMcpPreflight.cjs').baselineTools(autonomyPlan);
   const preflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPreflight({
     db, orchestratorId: id, missionId, task, repoRoot: path.resolve(__dirname, '../..'),
     workspaceRoot: request.workspaceRoot || request.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent,
-    tools: autonomyPlan.phases[0]?.requiredTools || []
+    tools: preflightTools,
+    hypotheses: request.diagnosticHypotheses || request.diagnostic_hypotheses
   });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
@@ -268,7 +270,7 @@ async function runOrchestratedMission(db, episodeRuntime) {
       db, id, missionId, task, enhancedPrompt, request, missionBudget,
       requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
       nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
-      finalizeOrchestratedMission
+      finalizeOrchestratedMission, preflight
     });
     return;
   }

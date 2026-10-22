@@ -86,3 +86,19 @@ Deux contrôles de basculement Rhizome passent (`test_rhizome_runtime_recovery.j
 | T08 — adaptation | Aucun essai réservé comparant performance avec et sans mémoire d’expériences | À lancer; requiert protocole et cas inédits gelés avant exécution |
 
 Ainsi, les preuves actuelles couvrent des récupérations locales et une réparation SH-001 observée; les T01, T03, T04 et T05 demeurent partiellement simulés, T07/T08 ne sont pas exécutés, et aucun résultat ne qualifie une campagne longitudinale de 72 h.
+
+## Relance Qwen 14B et fermeture de couverture (22 octobre 2026)
+
+Le runner Windows a été modifié pour enregistrer les primitives GenOS réellement exécutées avant et après le worker. Un test MCP stdio intégral sur une base temporaire confirme les reçus durables de `genos_search_failures`, `genos_diagnose`, `genos_snapshot`, `genos_hypothesis_evidence`, `genos_evaluate_trajectories`, `genos_replay` et `genos_record_decision`. Le verdict de couverture est `required-coverage-complete`; le test MCP utilise un worker fixture et ne prétend pas prouver une réparation Qwen.
+
+Les tentatives Qwen supplémentaires sont conservées séparément sous `D:\GenOS\runs\sh001-qwen-20261022` :
+
+- Run 13b : le runner utilise par défaut `localhost:11434`; l’inférence a fini par échouer par `fetch failed` après environ 309 s. Le test local GET des tags répondait, mais cela ne prouvait pas le chemin POST du runner.
+- Diagnostic réseau : une requête courte sur l’API compatible OpenAI à `http://127.0.0.1:11434/v1/chat/completions` a renvoyé `QWEN-READY` avec `qwen2.5:14b`. Cet endpoint IPv4 a été fourni explicitement à l’essai suivant.
+- Run 13c : Qwen a répondu en 26 070 ms, mais son candidat échouait à `node checks/verify.js` avec `SyntaxError: Unexpected identifier 'strict'` à la première ligne de `src/delivery.js`. Le runner a annulé le patch; le modèle n’a consommé que 1 322 tokens et aucun changement n’a été promu.
+- Préparation 13d : une première commande de relance a utilisé la mauvaise propriété JSON et a été interrompue; elle n’a pas lancé le worker. La correction a ensuite rencontré l’identité mission déjà consommée dans la base isolée, d’où un refus `Mission succession requires the current orchestrator`. Ces erreurs de harnais sont conservées dans les sorties locales.
+- Run 13e : base neuve, workspace 13d reparti du commit scellé `1ea8553`, endpoint IPv4 et instruction explicite de préserver la directive `'use strict';`. Qwen 14B a répondu en 139 024 ms (1 177 tokens en entrée, 145 en sortie), a retiré le filtre fautif `message.attempts === 0` et le contrôle public a réussi. L’oracle indépendant a ensuite réussi séparément : `restart replay, acknowledgement boundary, payload integrity, and order`. Le patch est commité dans le clone D : `630b58c` (`[SH-001] Accept Qwen restart recovery fix`).
+
+Le verdict de l’orchestrateur 13e demeure `success:false`, `verdict:homeostasis_continuation`: le worker de continuation n’a pas pu démarrer (`startFailed:true`, invariant `tests_pass` non satisfait), alors que le rapport du worker initial et les deux commandes indépendantes démontrent que le candidat satisfait le test public et l’oracle caché. Les sept reçus d’outils sont néanmoins présents. Ainsi, la réparation du bug est démontrée indépendamment, et la couverture MCP est complète, mais le verdict de mission de bout en bout reste explicitement non réussi tant que le chemin de continuation homeostasis n’est pas réparé.
+
+Le test direct Qwen a isolé le routage `localhost` comme cause probable du `fetch failed`; l’endpoint IPv4 a permis l’inférence. Il n’est pas encore établi si `localhost` échouait par résolution IPv6, par arrêt du modèle ou par une autre condition transitoire. Le run 13c a aussi révélé que le garde-fou rollback fonctionne sur une proposition syntaxiquement invalide.

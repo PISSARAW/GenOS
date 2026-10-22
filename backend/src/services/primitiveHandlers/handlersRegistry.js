@@ -180,6 +180,7 @@ const HANDLERS = {
   pareto_frontier: evolution.paretoSelect,
   pareto: evolution.paretoSelect,
   multi_objective_evaluation: evolution.paretoSelect,
+  evaluate_trajectories: evolution.paretoSelect,
   utopia_distance: evolution.paretoSelect,
   speciation: evolution.speciation,
   niche_preservation: evolution.speciation,

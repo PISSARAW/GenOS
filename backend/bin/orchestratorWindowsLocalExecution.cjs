@@ -52,7 +52,7 @@ async function runWindowsLocalExecution(input) {
   const { db, id, missionId, task, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
     nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
-    finalizeOrchestratedMission } = input;
+    finalizeOrchestratedMission, preflight } = input;
   process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
   const { runLocalWorker } = require('../src/services/workerEvidenceBarrierLocal');
   const { validScope } = require('../src/services/missionModelBudgetScope');
@@ -82,7 +82,24 @@ async function runWindowsLocalExecution(input) {
 
   const localMission = buildLocalMission({ ...input, orchestratorAgentId });
   localMission.modelBudgetScope = scope;
+  const workerStartedAt = Date.now();
   const localResult = await runLocalWorker(db, localMission, { id: executionRunId });
+  let postflight = { observedTools: [], receipts: [] };
+  try {
+    postflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight({
+      db, orchestratorId: id, missionId, task,
+      repoRoot: path.resolve(__dirname, '../..'),
+      workspaceRoot: requestedWorkspace(request), preflight, localResult,
+      workerElapsedMs: Date.now() - workerStartedAt
+    });
+  } catch (error) {
+    require('../src/services/telemetryObserver').emitEvent({
+      eventType: 'ORCHESTRATOR_POSTFLIGHT_FAILED', agentId: id, action: error.tool || error.code || 'POSTFLIGHT',
+      detail: error.message, severity: 'warning',
+      payload: { missionId, executionRunId, code: error.code || null, tool: error.tool || null,
+        observedTools: postflight.observedTools }
+    });
+  }
   const agents = localAgents(id, localResult);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
