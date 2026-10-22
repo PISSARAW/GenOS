@@ -134,3 +134,10 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Résultat : code 0; les 14 contrats ETT passent, dont multicycle, reprise après crash, budget cumulatif, apprentissage borné, admission, file de travail et vérification indépendante.
 - Des requêtes vectorielles/FTS de fixtures journalisent des tables absentes; les tests confirment le comportement de repli et terminent avec le code 0.
 - Verdict local T09 : apprentissage et frontières de preuve automatisés validés. La comparaison expérimentale de cinq erreurs d'entraînement avec vingt cas externes réservés n'est pas réalisée par cette suite.
+
+## 2026-10-22 — T10, autorité et abstention
+
+- Commandes : `npm --prefix backend run test:authority`, `node backend/tests/test_security_authority_kernel.js`, `node backend/tests/test_security_remediation_e2e.js`, `node backend/tests/test_security_remediation_campaign.js`, `node backend/tests/test_mission_authority_envelope.js`, `node backend/tests/test_execution_authority_v2.js`.
+- Résultat : code 0; contrôles d'autorité Cedar, pont de relations, délégation Biscuit, kernel d'autorité, campagne de remédiation, enveloppe canonique et migration en lecture seule passent.
+- Réserve observée : un événement télémétrique échoue sur `gvx-ledger-chain-invalid:control-plane-mac-mismatch` pendant le test d'e2e; le contrat d'autorité passe mais cette persistance mérite vérification au test d'intégration global.
+- Verdict local T10 : réussi pour les contrats ciblés, sous cette réserve de télémétrie.
