@@ -86,10 +86,10 @@ async function main() {
     observed = { action: decision.action, recipients: decision.recipients || [],
       semanticRefs: delivered?.envelope?.semanticRefs
         || signals.flatMap((signal) => signal.communicationEnvelope?.semanticRefs || []) };
-    const { response, answer } = await askQwen(observed, seed);
     enginePass = observed.action === EXPECTED.action
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
       && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
+    const { response, answer } = await askQwen(observed, seed);
     const qwenPass = answer.action === observed.action
       && JSON.stringify(answer.recipients) === JSON.stringify(observed.recipients)
       && JSON.stringify(answer.semanticRefs) === JSON.stringify(observed.semanticRefs);
