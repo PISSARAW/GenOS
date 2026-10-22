@@ -322,12 +322,12 @@ async function signalCapability(sessionId, ligand, options = {}) {
     apply: (session) => ligandService.publish(session, ligand)
   });
 }
-
 function propagateProcedure(input) {
   const policy = input.variant ? variantPolicyService.resolve(input.variant).propagation : null;
   return propagationService.propagate({
     ...input, requireCausalValidation: policy?.requireCausalValidation === true,
-    requireCompatibilityTrials: policy?.requireCompatibilityTrials === true
+    requireCompatibilityTrials: policy?.requireCompatibilityTrials === true,
+    pipelineDepth: policy?.pipelineDepth, algorithmSeed: policy?.algorithmSeed
   });
 }
 

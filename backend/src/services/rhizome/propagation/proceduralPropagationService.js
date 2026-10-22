@@ -16,7 +16,9 @@ function propagate(input) {
   const value = valueService.value(input);
   if (value <= 0) return { assimilated: false, reason: 'NON_POSITIVE_PROPAGATION_VALUE', value };
   const fragment = propagation.validateFragment(input.fragment, (item) => item.procedure != null);
-  const targets = input.targets || [input.target];
+  const depth = Number.isInteger(input.pipelineDepth) ? input.pipelineDepth : null;
+  const rawTargets = input.targets || [input.target];
+  const targets = Number.isInteger(depth) && depth > 0 ? rawTargets.slice(0, depth) : rawTargets;
   if (input.requireCompatibilityTrials && targets.length > 1 && !compatibleTargets(targets, input.compatibilityTrials)) {
     return { assimilated: false, reason: 'COMPATIBILITY_TRIALS_REQUIRED', value };
   }
