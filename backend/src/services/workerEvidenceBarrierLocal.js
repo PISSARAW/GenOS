@@ -296,6 +296,7 @@ async function runGenerationStage(ctx) {
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
         ...identityExperimentAudit,
         allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
+        promptText,
         promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
         promptCharacters: promptText.length
       }, 'info', 'running');
