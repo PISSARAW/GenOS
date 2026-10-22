@@ -12,6 +12,7 @@ const { workerFailure } = require('./failurePolicy');
 const { verifyPhilosophicalObservations } = require('./philosophicalObservationService');
 const operationJournal = require('./operationJournal');
 const daemonStewardship = require('./daemonStewardshipService');
+const ledger = require('./ledgerService');
 
 async function beginIntegrationOperation(db, run) {
   const operation = await operationJournal.prepareOperation(db, {
@@ -134,8 +135,14 @@ async function verifyRecovered(ctx, run, sha) {
 }
 
 async function completeIntegration(db, ctx, input) {
+  const result = JSON.parse(input.run.result_json || '{}');
+  const task = await db.get('SELECT attempt FROM ontogenesis_backlog WHERE id = ?', [input.run.task_id]);
   await withTransaction(db, async () => {
     await finalizeExecution(db, { run: input.run, phase: 'integrated' });
+    await ledger.recordOutcome(db, { projectId: ctx.project.id, executionId: input.run.id,
+      taskId: input.run.task_id, attempt: task ? task.attempt + 1 : null, outcome: 'succeeded',
+      topology: input.run.topology, commitSha: input.sha, treeHash: result.treeHash,
+      proofRefs: result.proofs || [] });
     await db.run("UPDATE ontogenesis_backlog SET status = 'done' WHERE id = ?", [input.run.task_id]);
     await db.run("UPDATE ontogenesis_runs SET status = 'integrated' WHERE id = ?", [input.run.id]);
     await db.run("UPDATE ontogenesis_projects SET state = 'PLANNING' WHERE id = ?", [ctx.project.id]);

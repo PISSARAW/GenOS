@@ -60,8 +60,9 @@ async function missionSettlement(db) {
   assert.strictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: false }, { context: { evidence: [] } }), null);
   assert.strictEqual(completion.settled([]), false);
   assert.strictEqual(completion.settled([{ status: 'completed', runtime_pid: 42 }]), false);
-  await db.exec('CREATE TABLE agents (id TEXT PRIMARY KEY, parent_agent_id TEXT, status TEXT, runtime_pid INTEGER)');
-  await db.run("INSERT INTO agents VALUES ('root', NULL, 'completed', NULL), ('child', 'root', 'running', 42)");
+  await db.exec('CREATE TABLE workspaces (id TEXT PRIMARY KEY, path TEXT)');
+  await db.exec('CREATE TABLE agents (id TEXT PRIMARY KEY, parent_agent_id TEXT, status TEXT, runtime_pid INTEGER, workspace_id TEXT)');
+  await db.run("INSERT INTO agents VALUES ('root', NULL, 'completed', NULL, NULL), ('child', 'root', 'running', 42, NULL)");
   assert.strictEqual(completion.settled(await completion.missionAgents(db, 'root')), false);
   const timer = setTimeout(() => { db.run("UPDATE agents SET status = 'completed', runtime_pid = NULL WHERE id = 'child'").catch(() => {}); }, 50);
   try {

@@ -15,14 +15,40 @@ async function nextSeq(db, projectId) {
 }
 
 async function appendEntry(db, input) {
-  const seq = await nextSeq(db, input.projectId);
   const id = input.id || `led_${crypto.randomUUID()}`;
+  const payload = JSON.stringify(input.payload || {});
+  if (input.id) {
+    const existing = await db.get('SELECT project_id, seq, kind, payload_json FROM ontogenesis_ledger WHERE id = ?', [id]);
+    if (existing) {
+      if (existing.project_id !== input.projectId || existing.kind !== input.kind || existing.payload_json !== payload) {
+        throw new Error('ledger-idempotence-conflit');
+      }
+      return { id, seq: existing.seq, replayed: true };
+    }
+  }
+  const seq = await nextSeq(db, input.projectId);
   await db.run(
     `INSERT INTO ontogenesis_ledger (id, project_id, seq, kind, payload_json)
      VALUES (?, ?, ?, ?, ?)`,
-    [id, input.projectId, seq, input.kind, JSON.stringify(input.payload || {})]
+    [id, input.projectId, seq, input.kind, payload]
   );
-  return { id, seq };
+  return { id, seq, replayed: false };
+}
+
+async function recordOutcome(db, input) {
+  const outcome = input.outcome;
+  if (!['succeeded', 'failed'].includes(outcome)) throw new Error('ledger-outcome-invalide');
+  const executionId = String(input.executionId || '');
+  if (!executionId) throw new Error('ledger-execution-requise');
+  return appendEntry(db, {
+    id: `onto_attempt_${executionId}`,
+    projectId: input.projectId,
+    kind: `attempt_${outcome}`,
+    payload: { schemaVersion: 1, executionId, taskId: input.taskId,
+      attempt: input.attempt ?? null, outcome, topology: input.topology || null,
+      commitSha: input.commitSha || null, treeHash: input.treeHash || null,
+      proofRefs: input.proofRefs || [], reason: input.reason ? String(input.reason).slice(0, 1000) : null }
+  });
 }
 
 async function listSince(db, input) {
@@ -68,4 +94,4 @@ function spendVsBudget(budgets, spend) {
   return { within: overruns.length === 0, overruns };
 }
 
-module.exports = { appendEntry, listSince, recordSpend, getSpend, spendVsBudget };
+module.exports = { appendEntry, recordOutcome, listSince, recordSpend, getSpend, spendVsBudget };

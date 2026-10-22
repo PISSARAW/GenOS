@@ -29,6 +29,15 @@ async function memoryDb() {
   const other = await ledger.listSince(db, { projectId: 'p2', sinceSeq: 0 });
   assert.strictEqual(other.length, 0);
 
+  const outcome = { projectId: 'p1', executionId: 'run-1', taskId: 'task-1', attempt: 1,
+    outcome: 'failed', topology: 'a_team', reason: 'verification-rejected' };
+  assert.strictEqual((await ledger.recordOutcome(db, outcome)).replayed, false);
+  assert.strictEqual((await ledger.recordOutcome(db, outcome)).replayed, true);
+  assert.strictEqual((await ledger.listSince(db, { projectId: 'p1', sinceSeq: 0 }))
+    .filter((row) => row.kind === 'attempt_failed').length, 1);
+  await assert.rejects(ledger.recordOutcome(db, { ...outcome, reason: 'different-result' }),
+    /ledger-idempotence-conflit/);
+
   // Dépenses cumulées et comparaison aux budgets.
   assert.deepStrictEqual(await ledger.getSpend(db, 'p1'), { tokens: 0, usd: 0, seconds: 0 });
   await ledger.recordSpend(db, { projectId: 'p1', tokens: 1000, usd: 0.1, seconds: 12 });

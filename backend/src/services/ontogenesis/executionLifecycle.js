@@ -6,6 +6,7 @@ const { recordMemory } = require('./memoryService');
 const { notify } = require('./notificationService');
 const { failureState } = require('./failurePolicy');
 const daemonStewardship = require('./daemonStewardshipService');
+const ledger = require('./ledgerService');
 
 async function stopExecution(db, ctx, harness) {
   const run = await activeExecution(db, ctx.project.id);
@@ -62,6 +63,7 @@ async function settleFailedExecution(db, ctx, error) {
   const run = await activeExecution(db, ctx.project.id);
   if (run) {
     await finalizeExecution(db, { run, phase: 'failed' });
+    await recordFailedOutcome(db, { projectId: ctx.project.id, run, reason: error.message });
     await bumpAttempt(db, run.task_id);
     await setTaskStatus(db, { taskId: run.task_id, status: 'todo' });
     await db.run("UPDATE ontogenesis_runs SET status = 'unverified' WHERE id = ?", [run.id]);
@@ -74,6 +76,15 @@ async function settleFailedExecution(db, ctx, error) {
   await setProjectState(db, { projectId: ctx.project.id, state });
   await notify(db, { projectId: ctx.project.id, kind: 'blocked', payload: { reason: error.message } });
   return { state, note: error.message };
+}
+
+async function recordFailedOutcome(db, input) {
+  const task = await db.get('SELECT attempt FROM ontogenesis_backlog WHERE id = ?', [input.run.task_id]);
+  let result = {};
+  try { result = JSON.parse(input.run.result_json || '{}'); } catch (_) {}
+  await ledger.recordOutcome(db, { projectId: input.projectId, executionId: input.run.id,
+    taskId: input.run.task_id, attempt: task ? task.attempt + 1 : null, outcome: 'failed',
+    topology: input.run.topology, treeHash: result.treeHash, proofRefs: result.proofs || [], reason: input.reason });
 }
 
 module.exports = { haltForControl, observeExecution, failExecution, stopExecution };

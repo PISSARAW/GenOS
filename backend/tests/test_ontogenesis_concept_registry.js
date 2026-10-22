@@ -23,7 +23,7 @@ if (selected.includes('registry')) {
   assert.ok(web.domains.includes('epistemology'));
   assert.ok(web.operational.length > 0);
   assert.ok(web.unavailable.length > 0);
-  assert.strictEqual(web.coverage.inventory, 711);
+  assert.strictEqual(web.coverage.inventory, 712);
   assert.strictEqual(web.coverage.documentationOnly, 0);
   assert.strictEqual(web.coverage.registryRuntime, runtimeRegistry.getRegistrySize());
   assert.strictEqual(web.coverage.registryPhilosophy,

@@ -29,6 +29,9 @@ async function successfulCommit(db, root) {
   assert.strictEqual(harness.launches, 1);
   assert.strictEqual(await activeExecution(db, ctx.project.id), undefined);
   assert.strictEqual((await db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [ctx.project.task])).status, 'done');
+  const success = await db.get("SELECT kind, payload_json FROM ontogenesis_ledger WHERE project_id = ? AND kind = 'attempt_succeeded'", [ctx.project.id]);
+  assert.strictEqual(success.kind, 'attempt_succeeded');
+  assert.strictEqual(JSON.parse(success.payload_json).commitSha, outcome.sha);
   assert.strictEqual(fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'module.exports = "initial";\n');
 }
 
@@ -41,6 +44,9 @@ async function rejectedCheck(db, root) {
   const git = integration.createShellGit();
   assert.strictEqual(await integration.currentSha(git, run.worktree), run.base_sha);
   assert.strictEqual((await db.get('SELECT phase FROM ontogenesis_execution WHERE id = ?', [run.id])).phase, 'failed');
+  const failure = await db.get("SELECT kind, payload_json FROM ontogenesis_ledger WHERE project_id = ? AND kind = 'attempt_failed'", [ctx.project.id]);
+  assert.strictEqual(failure.kind, 'attempt_failed');
+  assert.strictEqual(JSON.parse(failure.payload_json).executionId, run.id);
 }
 
 async function recoverCommit(db, root) {
