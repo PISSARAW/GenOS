@@ -14,7 +14,7 @@
 | S02 Voisinage | Réussi avec Qwen 2.5 14B, graine 8; déménagement recalcule les voisins depuis les positions | `S02-result.json`, `S02-attempt-*.json`; source `318a3d7d` |
 | S03 Amitié | Réussi avec Qwen 2.5 14B; l’ami rappelle l’événement partagé, l’inconnu reste stranger | S03-result.json; source 62e262cb |
 | S04 Famille | Réussi avec Qwen 2.5 14B; parents, générations, fratrie, jumeau et enfant orientés exacts | S04-result.json; source 7b27471f |
-| S05 Relations affectives | Non exécuté | — |
+| S05 Relations affectives | Réussi avec Qwen 2.5 14B; changement partner→friend, divulgation réduite, aucun sentiment ou privilège privé inféré | S05-result.json; source e85c520e |
 | S06 Hiérarchie | Non exécuté | — |
 | S07 Relations multiples | Réussi | `S07-result.json`, commit `06fbd41e` |
 | S08 Inconnu et usurpation | Non exécuté | — |
