@@ -84,6 +84,13 @@ module.exports = {
       promotionBlocked: proposals.length > 0
     });
 
+    if (proposals.length > 0) {
+      throw coded(
+        `Boundary spanner requires validated interface contracts; ${proposals.length} proposal(s) pending.`,
+        'ATEAM_BOUNDARY_PROPOSAL_REQUIRED'
+      );
+    }
+
     for (const contract of validated) {
       this.recordEvidence('dual_validation', {
         boundaryId: contract.boundaryId,
