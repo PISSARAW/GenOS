@@ -80,6 +80,7 @@ function launch(scenario, arm, repetition, config) {
     localModel: `ollama://${config.model}`,
     localRoutingPolicy: { primary: `ollama://${config.model}`, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true },
     identityExperimentArm: arm,
+    identityExperimentScenario: scenario,
     identityExperimentSeed: 20261022 + Object.keys(SCENARIOS).indexOf(scenario) * 100 + repetition,
     background: true,
     timeoutMs: config.timeout * 1000

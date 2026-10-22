@@ -268,6 +268,7 @@ async function runGenerationStage(ctx) {
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
     prompt: ctx.mission.prompt, scope: ctx.mission.workspaceRoot,
     orchestratorAgentId: ctx.mission.orchestratorAgentId,
+    specialtyNiche: ctx.mission.specialtyNiche,
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
@@ -295,6 +296,7 @@ async function runGenerationStage(ctx) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
         ...identityExperimentAudit,
+        identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
         allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
         promptText,
         promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),

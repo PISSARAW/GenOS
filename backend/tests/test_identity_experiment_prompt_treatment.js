@@ -35,6 +35,22 @@ const llmMission = buildLocalMission({ id: 'agent-44', enhancedPrompt: 'Mission'
   request: { identityExperimentArm: 'llm_only' }, missionBudget: {}, requestTimeoutMs: 30000,
   allowedCommands: [], allowFileEdits: false });
 assert.deepEqual(llmMission.allowedEvidenceRefs, ['mission']);
+const challengeMission = buildLocalMission({ id: 'agent-45', enhancedPrompt: 'Challenge C',
+  request: { identityExperimentArm: 'genos_full', identityExperimentScenario: 'C' }, missionBudget: {},
+  requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });
+assert.equal(challengeMission.identityExperimentScenario, 'C');
+assert.equal(challengeMission.workerKind, 'specialist');
+assert.equal(challengeMission.specialtyNiche, 'identity continuity and causal self-model analysis');
+const challengeFormat = require('../src/services/agents/workerArtifactResponseSchema')
+  .workerArtifactResponseFormat(challengeMission.workerKind, challengeMission.allowedEvidenceRefs);
+assert.ok(challengeFormat.schema.properties.specialtyAssessment);
+assert.ok(challengeFormat.schema.allOf[0].then.required.includes('specialtyAssessment'));
+assert.ok(!challengeFormat.schema.properties.scopeCompletion);
+const invalidScenario = buildLocalMission({ id: 'agent-46', enhancedPrompt: 'Mission',
+  request: { identityExperimentArm: 'genos_full', identityExperimentScenario: 'D' }, missionBudget: {},
+  requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });
+assert.equal(invalidScenario.workerKind, 'bounded_worker');
+assert.equal(invalidScenario.identityExperimentScenario, null);
 const llmPrompt = buildAnalysisPrompt({ selfIntro: '', workerSelfBlock: '', conscienceBlock: '',
   workerInstruction: 'Keep the evidence boundary.', evidenceRule: 'Return JSON.', agentName: 'GenOS Worker',
   prompt: 'Mission', identityExperimentArm: 'llm_only' });

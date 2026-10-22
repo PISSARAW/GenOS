@@ -22,6 +22,10 @@ function buildLocalMission(input) {
   const localCodeWorker = requestedCodeWorker(request);
   const localModel = requestedModel(request);
   const identityExperimentArm = request.identityExperimentArm || request.identity_experiment_arm || null;
+  const requestedIdentityScenario = request.identityExperimentScenario || request.identity_experiment_scenario || null;
+  const identityExperimentScenario = identityExperimentArm
+    && ['A', 'B', 'C'].includes(requestedIdentityScenario) ? requestedIdentityScenario : null;
+  const identityExperimentWorker = Boolean(identityExperimentScenario);
   const allowedEvidenceRefs = ['mission'];
   if (identityExperimentArm === 'genos_full') allowedEvidenceRefs.push('worker_self');
   if (identityExperimentArm === 'identity_sheet') allowedEvidenceRefs.push('identity_sheet');
@@ -32,7 +36,10 @@ function buildLocalMission(input) {
   const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
     prompt, currentTask: prompt, role: 'implementation',
-    workerKind: 'bounded_worker', executionMode: 'worker',
+    workerKind: identityExperimentWorker ? 'specialist' : 'bounded_worker',
+    specialtyNiche: identityExperimentWorker ? 'identity continuity and causal self-model analysis' : undefined,
+    identityExperimentScenario,
+    executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs,
     localModel, localRoutingPolicy, identityExperimentArm,
