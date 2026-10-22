@@ -833,6 +833,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0721a](0721-digital-evidence-organ.md) | Digital Evidence Organ (DEO) : ingestion, normalisation et intégrité des preuves numériques | Accepté | 2026-10-22 | épistémologie, preuves numériques, DFIR, conformité, provenance |
 | [0721b](0721-moteur-rapports-preuves-securite-sere.md) | Moteur de rapports de preuves de sécurité (SERE) | Accepté | 2026-10-22 | sécurité, preuves, vérification déterministe, rapports jury |
 | [0722](0722-security-homeostatic-recovery.md) | Security Homeostatic Recovery Engine | Accepté pour l'implémentation initiale. | -- | -- |
+| [0723](0723-cybercorp-action-gateway.md) | CyberCorp Action Gateway | Accepté pour le pilote. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

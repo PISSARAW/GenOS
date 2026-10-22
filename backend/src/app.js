@@ -28,6 +28,7 @@ const swarmRoutes = require('./routes/swarmRoutes');
 const mcpRoutes = require('./routes/mcpRoutes');
 const incidentRoutes = require('./routes/incidentRoutes');
 const securityRoutes = require('./routes/securityRoutes');
+const cyberCorpActionRoutes = require('./routes/cyberCorpActionRoutes');
 const arenaRoutes = require('./routes/arenaRoutes');
 const resilienceRoutes = require('./routes/resilienceRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
@@ -202,6 +203,7 @@ function createApp() {
   app.use('/api/qd', qdProxyRoutes);
   app.use('/api', incidentRoutes);
   app.use('/api', securityRoutes);
+  app.use('/api/security/cybercorp', cyberCorpActionRoutes);
   app.use('/api', actionGenomeRoutes);
 
   // 4. Error Handling
