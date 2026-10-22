@@ -31,12 +31,23 @@ function parseArgs() {
   return out;
 }
 
-function preheat(model) {
-  const result = spawnSync('curl', ['-s', '--max-time', '180', 'http://127.0.0.1:11434/api/generate',
-    '-d', JSON.stringify({ model, prompt: 'Return only READY.', stream: false, keep_alive: 1800 })], { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error(`Ollama preheat failed: ${result.stderr || result.error?.message}`);
-  const response = JSON.parse(result.stdout || '{}');
-  if (!response.response) throw new Error(`Ollama returned no preheat response: ${(result.stdout || '').slice(0, 300)}`);
+async function preheat(model) {
+  let response;
+  try {
+    const http = await fetch('http://127.0.0.1:11434/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model, prompt: 'Return only READY.', stream: false, keep_alive: 1800 }),
+      signal: AbortSignal.timeout(180000)
+    });
+    const raw = await http.text();
+    if (!http.ok) throw new Error(`HTTP ${http.status}: ${raw.slice(0, 1000)}`);
+    response = JSON.parse(raw);
+    if (response.error) throw new Error(response.error);
+  } catch (error) {
+    throw new Error(`Ollama preheat for ${model} failed: ${error.name || 'Error'}: ${error.message || String(error)}`);
+  }
+  if (!response.response) throw new Error(`Ollama preheat for ${model} returned no response: ${JSON.stringify(response).slice(0, 1000)}`);
   console.log(`[preheat] ${model} loaded; ${response.eval_count || 0} warmup tokens.`);
 }
 
@@ -170,7 +181,7 @@ async function collect(runs) {
 
 async function main() {
   const config = parseArgs();
-  preheat(config.model);
+  await preheat(config.model);
   const launched = [];
   const launchFailures = [];
   const scenarios = config.scenario ? [config.scenario] : Object.keys(SCENARIOS);
