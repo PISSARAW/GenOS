@@ -2,10 +2,95 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S11",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "6472c2f969d3b99bec0fb57a63e970884cb37111",
-  "error": "Error: Model timeout after 90000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "verified": false,
-  "durationMs": 92446
+  "sourceCommit": "c96ae08544a00ea267e7130b48bd2d461cfae79a",
+  "expected": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "followup:collaboration-8"
+    ]
+  },
+  "observed": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "followup:collaboration-8"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "scope": "UNICAST",
+    "encoding": "semantic-fingerprint",
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "execution": {
+    "channel": "SIGNAL",
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s11-event",
+    "signalId": "sig_52a0bd3b-8668-4fbf-8152-b7397aec3ad1",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "8a024709ae1eaecbd669b9957eb78ecee41b6c16ca59efe95c3ca43607a7e31f",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
+  },
+  "signalCount": 0,
+  "qwenResponse": "{\n  \"action\": \"SIGNAL\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"followup:collaboration-8\"]\n}",
+  "answer": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "followup:collaboration-8"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a justified collaboration deadline triggers a unicast follow-up to the prior collaborator with its exact event reference",
+  "durationMs": 5397
 }

@@ -18,10 +18,10 @@
 | S06 HiÃ©rarchie | Non exÃ©cutÃ© | â€” |
 | S07 Relations multiples | RÃ©ussi | `S07-result.json`, commit `06fbd41e` |
 | S08 Inconnu et usurpation | Non exÃ©cutÃ© | â€” |
-| S09 Initiative sociale | Non exÃ©cutÃ© | â€” |
-| S10 Entraide | Non exÃ©cutÃ© | â€” |
-| S11 Reprise de contact | Non exÃ©cutÃ© | â€” |
-| S12 Silence intelligent | RÃ©ussi avec Qwen 2.5 14B | `S12-result.json`; source `c4533bc2` |
+| S09 Initiative sociale | Réussi avec Qwen 2.5 14B après correctif | `S09-attempt-01.json` (échec), `S09-result.json`; source `6d691034` |
+| S10 Entraide | Réussi avec Qwen 2.5 14B | `S10-result.json`; source `346cc396` |
+| S11 Reprise de contact | Réussi avec Qwen 2.5 14B; premier essai expiré | `S11-attempt-01.json` (timeout), `S11-result.json`; source `c96ae085` |
+| S12 Silence intelligent | Réussi avec Qwen 2.5 14B après correctif | `S12-result.json`; source `6d691034` |
 | S13 RÃ©conciliation | Non exÃ©cutÃ© | â€” |
 | S14 CuriositÃ© sociale | Non exÃ©cutÃ© | â€” |
 | S15 Unicast | Non exÃ©cutÃ© | â€” |
@@ -53,3 +53,7 @@ Le run complet a rÃ©ussi avec Qwen 2.5 14B au commit source `faf11840`. Qwen a r
 ## S09: initiative sociale
 
 Le premier essai a déposé le fait dans la stigmergie sans destinataire. Le correctif évalue maintenant l'audience experte et ses relations avant le repli stigmergique, applique l'urgence bornée portée par l'événement, et inclut les destinataires dans le reçu du checkpoint. Le run post-correctif a livré en unicast à `agent-b`, ami et expert du domaine qui ne connaissait pas la référence `fact:storm-route-7`; Qwen a reproduit exactement action, destinataire et référence. S12 a été rejoué sur le même commit et confirme le silence lorsque la référence est absente.
+
+## S11: reprise de contact
+
+Le premier essai a expiré pendant la requête Qwen alors que Qwen Coder 32B avait repris presque toute la VRAM. Après arrêt autorisé du modèle bloqué et amélioration du rapport d'erreur, le run complet a réussi: l'événement d'échéance `HANDOFF_REQUESTED` a déclenché un unicast au collaborateur précédent, avec la référence de suivi exacte. Qwen a reproduit la décision.
