@@ -760,14 +760,14 @@ $$\text{MorphogeneticConfig} = \langle \; \text{maxChildren}, \; \text{maxDepth}
 |-----------|------------------|-------------|
 | `maxChildren` | 8 | Nombre maximal de sous-nœuds par nœud |
 | `maxDepth` | 6 | Profondeur maximale du graphe |
-| `defaultTopology` | Trinity | Topology par défaut pour les nœuds non spécifiés |
-| `overcommitRatio` | 1.5 | Facteur de sur-allocation autorisé |
+| `defaultTopology` | Trinity | Topologie de comparaison d'hypothèses (trois mondes, expérience contrôlée). Choix le plus neutre pour un nœud non spécifié : elle force une comparaison contradictoire avant toute promotion, sans privilégier l'exploration ni l'exploitation exclusive. |
+| `overcommitRatio` | 1.5 | Marge de 50 % au-dessus du budget global. Absorbe les pics de demande transitoires sans refuser immédiatement les contrats, tout en conservant une borne dure contre la sur-allocation unbounded. |
 | `hysteresisMargin` | 0.1 | Marge d'hystérésis (10% de l'utilité courante) |
 | `bridgeThreshold` | 0.85 | Seuil de fidélité pour BRIDGE |
 | `typeCheckOnTransition` | true | Exécuter le type checker à chaque transition |
-| `memoryRetention` | 30 days | Durée de rétention des entrées mémoire |
+| `memoryRetention` | 30 days | Half-life de décroissance des priors morphologiques (30 jours). Cycle d'observation suffisant pour qu'un prior perde de sa confiance sans purge prématurée, tout en évitant l'accumulation d'entrées obsolètes. |
 | `antiFlapWindow` | 300s | Fenêtre anti-flapping minimale entre transitions |
-| `firewallPolicy` | STRICT | Politique des pare-feux (PERMISSIVE, STANDARD, STRICT) |
+| `firewallPolicy` | STRICT | Politique des pare-feux (PERMISSIVE, STANDARD, STRICT). Posture fail-closed : tout ce qui n'est pas explicitement autorisé est bloqué. |
 
 ### 12.1 Configuration Multi-timescale
 
@@ -1145,7 +1145,7 @@ class MorphogeneticController {
 
 ```javascript
 class InformationFirewallManager {
-  constructor(policy = 'STANDARD') {
+  constructor(policy = 'STRICT') {
     this.policy = policy;
     this.firewalls = {
       INDEPENDENCE_FIREWALL: new IndependenceFirewall(policy),

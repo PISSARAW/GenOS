@@ -2,6 +2,11 @@
 
 const FIREWALL_CONTROLS = Object.freeze(['INDEPENDENCE', 'STATE', 'PRIVACY', 'AUTHORITY']);
 
+// Politique par défaut des pare-feux informationnels : STRICT.
+// Posture fail-closed : tout ce qui n'est pas explicitement autorisé est bloqué.
+// Aligné sur docs/02-orchestration/topologies/morphogenese.md §12 et §17.4.
+const DEFAULT_FIREWALL_POLICY = 'STRICT';
+
 function controlsFirewall(edge, control) {
   return edge && edge.type === 'FIREWALL'
     && Array.isArray(edge.properties && edge.properties.controls)
@@ -17,4 +22,4 @@ function findFirewall(graph, endpoints, control) {
   )) || null;
 }
 
-module.exports = { FIREWALL_CONTROLS, controlsFirewall, findFirewall };
+module.exports = { FIREWALL_CONTROLS, DEFAULT_FIREWALL_POLICY, controlsFirewall, findFirewall };
