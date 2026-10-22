@@ -34,6 +34,22 @@ async function qualifyExternalAdapters(options = {}) {
   const results = [];
   results.push(await externalAdapterQualification.qualifyExternalAdapter('evaluateColonization', options.evaluateColonization,
     { metapopulationId: options.metapopulationId }));
+  if (options.solverSearch) {
+    results.push(await externalAdapterQualification.qualifySolverAdapter(options.solverSearch,
+      { metapopulationId: options.metapopulationId }));
+  }
+  if (options.fitnessEvaluator) {
+    results.push(await externalAdapterQualification.qualifyFitnessEvaluator(options.fitnessEvaluator,
+      { metapopulationId: options.metapopulationId }));
+  }
+  if (typeof options.migrationAdapterAssimilate === 'function') {
+    results.push(await externalAdapterQualification.qualifyAdapterReceiptReplay({
+      adapterName: 'migrationAdapter',
+      invoke: options.migrationAdapterAssimilate,
+      context: { metapopulationId: options.metapopulationId },
+      idempotencyKey: options.migrationAdapterIdempotencyKey || 'qualification-replay-key'
+    }));
+  }
   return { qualified: results.every((item) => item.qualified), adapters: results };
 }
 
