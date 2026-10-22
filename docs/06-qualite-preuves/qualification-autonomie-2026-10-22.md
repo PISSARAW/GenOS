@@ -149,3 +149,4 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Après ces changements, le gate n'identifie plus de violation dans ces fichiers. Il retourne encore le code 1 pour `backend/src/controllers/clinicalAuthorizationController.js` (complexité 12>10), fichier apparu comme modification non committée en parallèle et laissé intact.
 - Syntaxe JavaScript : `node --check` passe sur les cinq fichiers modifiés.
 - Tests après refactorisation : `npm --prefix backend run test:security-remediation` termine avec le code 0 (ingestion, graphe d'antigènes, planification et e2e).
+- Premier commit du refactor refusé par le hook de reçu : les commits `[REFACTOR]` doivent terminer par la liste exacte des fichiers stagés. Code qualité passé; seul le format du message manquait. Nouveau commit avec reçu requis.
