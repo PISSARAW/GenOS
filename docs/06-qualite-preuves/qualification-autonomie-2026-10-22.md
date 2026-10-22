@@ -108,3 +108,10 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Résultat : 106/110 tests passent. Échecs observés : `test_morphogenesis_genome_outcome_evidence.js` et `test_morphogenesis_verified_outcome_store.js` (`MORPHOGENESIS_PAIR_UNQUALIFIED`, mismatch preuve/transition); `test_morphogenesis_network_deployment_parity.js` (`EACCES` loopback); `test_security_morphogenesis.js` (mesure `cpuMs` égale à 0).
 - Les autres scénarios de sélection, persistance, transition et rollback de topologie passent.
 - Verdict : T08 échoue au passage initial; relance hors sandbox en cours pour isoler les échecs système et confirmer les deux incohérences de preuve.
+
+### T08 — relance hors sandbox
+
+- Même commande, hors sandbox : 108/110 tests passent.
+- Le scénario loopback et la mesure CPU passent hors sandbox; ces deux échecs initiaux étaient dus à l'environnement.
+- Les deux erreurs persistantes ont la même cause : les fixtures de `test_morphogenesis_genome_outcome_evidence.js` et `test_morphogenesis_verified_outcome_store.js` omettent `variant` dans les résultats worker alors que le reçu de transition lie le worker à `variant: pareto`. Le validateur échoue donc correctement en fail-closed.
+- Action : compléter les fixtures avec l'identité de variante scellée, puis relancer les tests ciblés et la suite.
