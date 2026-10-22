@@ -1,0 +1,11 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S23",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "c6a73443daa88de2b44eb9757c5f9766e9bc45d1",
+  "error": "Error: SQLITE_ERROR: no such column: created_at",
+  "verified": false,
+  "durationMs": 2018
+}
