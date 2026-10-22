@@ -8,6 +8,11 @@ function hasLocalEvidence(input) {
     && Array.isArray(input.localValidation.evidenceRefs) && input.localValidation.evidenceRefs.length > 0;
 }
 
+function orderTargets(targets, seed) {
+  if (seed !== 'deterministic') return targets;
+  return [...targets].sort((left, right) => String(left?.id ?? left).localeCompare(String(right?.id ?? right)));
+}
+
 function targetsFor(input) {
   const depth = Number.isInteger(input.pipelineDepth) ? input.pipelineDepth : null;
   const rawTargets = input.targets || [input.target];
@@ -29,11 +34,11 @@ function propagate(input) {
   const value = valueService.value(input);
   if (value <= 0) return { assimilated: false, reason: 'NON_POSITIVE_PROPAGATION_VALUE', value };
   const fragment = propagation.validateFragment(input.fragment, (item) => item.procedure != null);
-  const targets = targetsFor(input);
-  if (!compatibilityOk(input, targets)) {
+  const ordered = orderTargets(targetsFor(input), input.algorithmSeed);
+  if (!compatibilityOk(input, ordered)) {
     return { assimilated: false, reason: 'COMPATIBILITY_TRIALS_REQUIRED', value };
   }
-  return assimilateTargets({ targets, fragment, input, value });
+  return assimilateTargets({ targets: ordered, fragment, input, value });
 }
 
 function assimilateTargets(context) {
