@@ -1,0 +1,72 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S02",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "a9272bd8d8ae14b848ca00776d4ce9177c8c2063",
+  "error": "SyntaxError: Expected ',' or ']' after array element in JSON at position 175 (line 4 column 78)\n    at JSON.parse (<anonymous>)\n    at parseAnswer (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s02-qwen.cjs:22:22)\n    at main (D:\\GenOS\\socialworld-qwen-campaign\\benchmarks\\social-world\\run-s02-qwen.cjs:74:20)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "before": {
+    "organizationId": "socialworld-org",
+    "projectId": "socialworld-project",
+    "radius": 2,
+    "agents": [
+      "agent-a",
+      "agent-b",
+      "agent-c",
+      "agent-d"
+    ],
+    "neighbors": [
+      {
+        "sourceAgentId": "agent-a",
+        "targetAgentId": "agent-b",
+        "distance": 1
+      },
+      {
+        "sourceAgentId": "agent-c",
+        "targetAgentId": "agent-d",
+        "distance": 1
+      }
+    ],
+    "changes": {
+      "created": 2,
+      "removed": 0,
+      "retained": 0
+    }
+  },
+  "after": {
+    "organizationId": "socialworld-org",
+    "projectId": "socialworld-project",
+    "radius": 2,
+    "agents": [
+      "agent-a",
+      "agent-b",
+      "agent-c",
+      "agent-d"
+    ],
+    "neighbors": [
+      {
+        "sourceAgentId": "agent-b",
+        "targetAgentId": "agent-c",
+        "distance": 0.5
+      },
+      {
+        "sourceAgentId": "agent-b",
+        "targetAgentId": "agent-d",
+        "distance": 0.5
+      },
+      {
+        "sourceAgentId": "agent-c",
+        "targetAgentId": "agent-d",
+        "distance": 1
+      }
+    ],
+    "changes": {
+      "created": 2,
+      "removed": 1,
+      "retained": 1
+    }
+  },
+  "verified": false,
+  "durationMs": 59736
+}
