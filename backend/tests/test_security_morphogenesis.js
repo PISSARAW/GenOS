@@ -61,6 +61,10 @@ test('same corpus, budget and success criteria across single agent, deterministi
     assert.equal(sm.reliabilityOf(comparison.single), 1);
     assert.equal(sm.reliabilityOf(comparison.pipeline), 1);
   }
+  const sixWorkers = sm.runTopology('ATeam', 6, sm.CORPUS);
+  assert.equal(sixWorkers.results.length, 6, 'idle workers remain represented in the paired run');
+  assert.equal(sm.compareTopologyWithBaselines('ATeam').sameCorpus, true);
+  assert.throws(() => sm.runTopology('ATeam', 0, sm.CORPUS), /positive integer/);
 });
 
 test('when six agents produce a less reliable response than one, Morphogenesis retains the simplest architecture', () => {
@@ -103,9 +107,11 @@ test('worker loss preserves provenance and prevents permission escalation', () =
 
   const lost = sm.simulateWorkerLoss(result, 0);
   assert.equal(lost.provenancePreserved, true);
+  assert.equal(lost.receiptsPreserved, true);
   assert.equal(lost.noPermissionEscalation, true);
   assert.ok(sm.assertProvenancePreserved(lost.receipts));
-  assert.ok(lost.receipts.length > 0 && lost.receipts.length < before);
+  assert.equal(lost.receipts.length, before, 'the archived receipts remain available after worker loss');
+  assert.ok(lost.activeReceipts.length > 0 && lost.activeReceipts.length < before);
 });
 
 test('worker loss recovery preserves prior and new receipts without permission escalation', () => {
@@ -158,4 +164,15 @@ test('no permission escalation across authority boundary', () => {
   assert.equal(sm.assertNoPermissionEscalation(authority, boundary), true);
   assert.equal(sm.assertNoPermissionEscalation(['read_telemetry', 'root_exec'], boundary), false);
   assert.equal(sm.assertNoPermissionEscalation(['*'], boundary), false);
+});
+
+test('receipt provenance covers input, output and permissions and rejects tampering', () => {
+  const receipt = sm.runSingleAgent(sm.CORPUS).receipts[0];
+  assert.equal(sm.assertProvenancePreserved([receipt]), true);
+  assert.equal(sm.assertProvenancePreserved([{ ...receipt, outputHash: 'tampered' }]), false);
+  assert.equal(sm.assertNoPermissionEscalation(['*'], sm.DEFAULT_BOUNDARY), false);
+});
+
+test('state conflict comparison is independent of object key ordering', () => {
+  assert.equal(sm.detectStateConflict({ shared: { a: 1, b: 2 } }, { shared: { b: 2, a: 1 } }).conflict, false);
 });

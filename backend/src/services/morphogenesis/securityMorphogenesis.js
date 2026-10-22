@@ -1,7 +1,8 @@
 'use strict';
 
-const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 const { runProcedure } = require('../agents/deterministicWorkerProcedures');
+const evidence = require('./securityMorphogenesisEvidence');
 
 const TOPOLOGY_LIST = Object.freeze([
   'Trinity', 'ATeam', 'Biocenose', 'Rhizome', 'Syncytium',
@@ -52,10 +53,6 @@ const SUCCESS_CRITERIA = Object.freeze({
 });
 const DEFAULT_BOUNDARY = Object.freeze(['read_telemetry', 'inspect_artifact', 'emit_receipt']);
 
-function digest(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
-
 function arraysEqual(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
@@ -77,14 +74,7 @@ function executeCorpusItem(item, nodeId, permissions) {
       methodId: 'subset_sum',
       parameters: { values: item.values, target: item.target }
     });
-    const receipt = {
-      receiptId: out.receipt.id,
-      nodeId,
-      methodId: out.receipt.methodId,
-      result: out.receipt.result,
-      provenanceHash: digest({ nodeId, item, receiptId: out.receipt.id }),
-      permissions: [...permissions]
-    };
+    const receipt = evidence.createReceipt({ output: out, nodeId, item, permissions });
     return { item, output: out.output, receipt, ok: outputsMatch(out.output, item.expected) };
   } catch (error) {
     return { item, output: null, receipt: null, ok: false, error: error.message };
@@ -96,12 +86,13 @@ function runSingleShard(shard, nodeId = 'worker', permissions = DEFAULT_BOUNDARY
 }
 
 function distributeCorpus(corpus, workerCount) {
+  if (!Number.isInteger(workerCount) || workerCount < 1) throw new Error('Worker count must be a positive integer.');
   const shards = [];
   for (let i = 0; i < workerCount; i += 1) shards.push([]);
   for (let i = 0; i < corpus.length; i += 1) {
     shards[i % workerCount].push(corpus[i]);
   }
-  return shards.filter((s) => s.length > 0);
+  return shards;
 }
 
 function reliabilityOf(result) {
@@ -250,7 +241,7 @@ function simulateDegradedTopology(topologyId, workerCount, degradedParameters) {
   const failingShards = new Set(degradedParameters?.failingWorkerIndices ?? [0]);
   const results = base.results.map((shard, idx) => (
     failingShards.has(idx)
-      ? shard.map((entry) => ({ ...entry, output: { found: false }, ok: false, error: 'DEGRADED_AGENT_OUTPUT' }))
+      ? shard.map((entry) => ({ ...entry, output: { found: false }, receipt: null, ok: false, error: 'DEGRADED_AGENT_OUTPUT' }))
       : shard
   ));
   return {
@@ -294,9 +285,13 @@ function compareTopologyWithBaselines(topologyId, workerCount = 6, corpus = CORP
   return {
     topologyId,
     usage: CYBERCORP_USAGE[topologyId],
-    sameCorpus: corpus.length === single.results[0].length && corpus.length === pipeline.results[0].length,
-    sameBudget: topology.budget === single.budget && topology.budget === pipeline.budget,
-    sameSuccessCriteria: topology.successCriteria === single.successCriteria && topology.successCriteria === pipeline.successCriteria,
+    sameCorpus: evidence.sameCorpus({ expected: corpus, actual: single.results[0].map((entry) => entry.item) })
+      && evidence.sameCorpus({ expected: corpus, actual: pipeline.results[0].map((entry) => entry.item) })
+      && evidence.sameCorpus({ expected: corpus, actual: topology.results.flat().map((entry) => entry.item) }),
+    sameBudget: isDeepStrictEqual(topology.budget, single.budget)
+      && isDeepStrictEqual(topology.budget, pipeline.budget),
+    sameSuccessCriteria: isDeepStrictEqual(topology.successCriteria, single.successCriteria)
+      && isDeepStrictEqual(topology.successCriteria, pipeline.successCriteria),
     single,
     pipeline,
     topology,
@@ -305,14 +300,19 @@ function compareTopologyWithBaselines(topologyId, workerCount = 6, corpus = CORP
 }
 
 function simulateWorkerLoss(topologyResult, workerIndex) {
+  const lostShard = topologyResult.results[workerIndex] ?? [];
   const results = topologyResult.results.map((shard, idx) => (idx === workerIndex ? [] : shard));
-  const receipts = collectReceipts({ results });
+  const activeReceipts = collectReceipts({ results });
+  const receipts = topologyResult.receipts ?? [...activeReceipts, ...collectReceipts({ results: [lostShard] })];
   return {
     ...topologyResult,
     results,
     receipts,
-    provenancePreserved: assertProvenancePreserved(receipts),
-    noPermissionEscalation: assertNoPermissionEscalation(topologyResult.permissions ?? DEFAULT_BOUNDARY, DEFAULT_BOUNDARY)
+    activeReceipts,
+    combined: COMBINERS[topologyResult.kind](results),
+    provenancePreserved: evidence.assertProvenancePreserved(receipts),
+    receiptsPreserved: evidence.containsAllReceipts(topologyResult.receipts ?? [], receipts),
+    noPermissionEscalation: evidence.assertNoPermissionEscalation(topologyResult.permissions ?? DEFAULT_BOUNDARY, DEFAULT_BOUNDARY)
   };
 }
 
@@ -325,19 +325,10 @@ function simulateModelFailure(corpus, failIndex) {
 }
 
 function detectDisagreement(resultA, resultB) {
-  return JSON.stringify(resultA.combined) !== JSON.stringify(resultB.combined);
+  return !isDeepStrictEqual(resultA.combined, resultB.combined);
 }
 
-function detectStateConflict(stateA, stateB) {
-  const left = stateA ?? {};
-  const right = stateB ?? {};
-  for (const key of Object.keys(left)) {
-    if (Object.prototype.hasOwnProperty.call(right, key) && JSON.stringify(left[key]) !== JSON.stringify(right[key])) {
-      return { conflict: true, key, leftValue: left[key], rightValue: right[key] };
-    }
-  }
-  return { conflict: false };
-}
+const { detectStateConflict } = evidence;
 
 function testRecovery(failedResult, corpus = CORPUS) {
   const survivingCount = Math.max(1, failedResult.workerCount - 1);
@@ -348,21 +339,13 @@ function testRecovery(failedResult, corpus = CORPUS) {
   return {
     recovered,
     priorReceiptsCount: priorReceipts.length,
-    receiptsPreserved: recovered.receipts.length > 0 && assertProvenancePreserved(mergedReceipts),
-    provenancePreserved: assertProvenancePreserved(mergedReceipts),
-    noPermissionEscalation: assertNoPermissionEscalation(permissions, DEFAULT_BOUNDARY)
+    receiptsPreserved: priorReceipts.length > 0 && evidence.containsAllReceipts(priorReceipts, mergedReceipts),
+    provenancePreserved: evidence.assertProvenancePreserved(mergedReceipts),
+    noPermissionEscalation: evidence.assertNoPermissionEscalation(permissions, DEFAULT_BOUNDARY)
   };
 }
 
-function assertProvenancePreserved(receipts) {
-  if (!Array.isArray(receipts) || receipts.length === 0) return false;
-  return receipts.every((r) => Boolean(r && r.receiptId && r.nodeId && r.methodId));
-}
-
-function assertNoPermissionEscalation(authority, boundary) {
-  if (!Array.isArray(authority) || !Array.isArray(boundary) || authority.includes('*')) return false;
-  return authority.every((perm) => boundary.includes(perm));
-}
+const { assertProvenancePreserved, assertNoPermissionEscalation } = evidence;
 
 module.exports = {
   TOPOLOGY_LIST, CYBERCORP_USAGE, MISSION_NEED_TO_TOPOLOGY, CORPUS, BUDGET, SUCCESS_CRITERIA,

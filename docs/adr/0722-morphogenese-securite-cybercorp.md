@@ -42,9 +42,10 @@ le pipeline déterministe (`topologyReliability < baselineReliability`),
 
 ## Invariants de résilience et de sécurité
 
-- **Perte de worker** (`simulateWorkerLoss`) : les reçus des workers survivants
-  conservent leur provenance (`provenanceHash`, `receiptId`, `nodeId`) sans
-  escalade de permission.
+- **Perte de worker** (`simulateWorkerLoss`) : les reçus archivés restent
+  disponibles, tandis que `activeReceipts` distingue ceux des workers encore
+  actifs. Chaque hash de provenance engage l'identifiant, le worker, la méthode,
+  les empreintes d'entrée et de sortie et les permissions.
 - **Panne du modèle** (`simulateModelFailure`) : l'erreur `MODEL_FAILURE` reste
   isolée au nœud défaillant sans corrompre les reçus ni élargir les droits des
   autres workers.
@@ -54,6 +55,9 @@ le pipeline déterministe (`topologyReliability < baselineReliability`),
 - **Reprise** (`testRecovery`) : la reprise préserve la chaîne des reçus
   antérieurs et nouveaux tout en maintenant la frontière de permissions
   (`assertNoPermissionEscalation`).
+- Les comparaisons gardent les workers inactifs dans le résultat, valident le
+  compte de workers et comparent structurellement corpus, budget et critères.
+  Les conflits d'état sont comparés sans dépendre de l'ordre des clés JSON.
 
 ## Validation
 
