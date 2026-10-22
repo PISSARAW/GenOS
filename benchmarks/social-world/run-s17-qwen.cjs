@@ -27,6 +27,8 @@ function saveResult(result) {
 }
 
 async function createWorld(db) {
+  await db.run("INSERT INTO organizations (id, name) VALUES ('socialworld-org', 'SocialWorld')");
+  await db.run("INSERT INTO projects (id, organization_id, name, status) VALUES ('socialworld-project', 'socialworld-org', 'SocialWorld', 'active')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('socialworld-space', 'SocialWorld', 'D:/GenOS/SocialWorld', 'socialworld-org', 'socialworld-project')");
   for (const [id, name, mode, status] of [
     ['agent-a', 'A', 'orchestrator', 'idle'], ['agent-b', 'B', 'worker', 'idle'],
