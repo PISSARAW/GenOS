@@ -111,8 +111,23 @@ function responseOptions(options) {
   if (typeof options !== 'object') return { diagnosis: options === true, missionCriteria: [], handoffs: [] };
   return { diagnosis: options.diagnosis === true,
     missionCriteria: Array.isArray(options.missionCriteria) ? options.missionCriteria : [],
+    identityExperimentScenario: ['A', 'B', 'C'].includes(options.identityExperimentScenario)
+      ? options.identityExperimentScenario : null,
+    specialtyNiche: typeof options.specialtyNiche === 'string' ? options.specialtyNiche : null,
     handoffs: Array.isArray(options.handoffs)
       ? options.handoffs.filter((handoff) => handoff?.handoffId && handoff?.digest) : [] };
+}
+
+function identityExperimentResponseFormat(refs, specialtyNiche) {
+  const assessment = dossierProperties('specialist', refs, false).specialtyAssessment;
+  if (specialtyNiche) assessment.properties.niche.const = specialtyNiche;
+  const schema = object({
+    outcome: { enum: ['success', 'unresolved'] },
+    claims: { type: 'array', items: claimSchema(refs) },
+    uncertainties: { type: 'array', items: { type: 'string', minLength: 1 } },
+    specialtyAssessment: assessment
+  }, ['outcome', 'claims', 'uncertainties', 'specialtyAssessment']);
+  return { name: 'genos_identity_experiment_response', schema };
 }
 
 function attachMissionRequirements(target, opts, refs) {
@@ -132,6 +147,9 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   const resolved = require('./workerKindService').resolveWorkerKind(kind);
   const artifactType = kindDefinition(resolved).artifact;
   const refs = referenceList(allowedEvidenceRefs);
+  if (opts.identityExperimentScenario && resolved === 'specialist') {
+    return identityExperimentResponseFormat(refs, opts.specialtyNiche);
+  }
   const properties = {
     outcome: { enum: ['success', 'unresolved'] },
     claims: { type: 'array', items: claimSchema(refs) },

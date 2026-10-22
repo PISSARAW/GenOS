@@ -42,10 +42,14 @@ assert.equal(challengeMission.identityExperimentScenario, 'C');
 assert.equal(challengeMission.workerKind, 'specialist');
 assert.equal(challengeMission.specialtyNiche, 'identity continuity and causal self-model analysis');
 const challengeFormat = require('../src/services/agents/workerArtifactResponseSchema')
-  .workerArtifactResponseFormat(challengeMission.workerKind, challengeMission.allowedEvidenceRefs);
+  .workerArtifactResponseFormat(challengeMission.workerKind, challengeMission.allowedEvidenceRefs,
+    { identityExperimentScenario: challengeMission.identityExperimentScenario, specialtyNiche: challengeMission.specialtyNiche });
 assert.ok(challengeFormat.schema.properties.specialtyAssessment);
-assert.ok(challengeFormat.schema.allOf[0].then.required.includes('specialtyAssessment'));
+assert.ok(challengeFormat.schema.required.includes('specialtyAssessment'));
+assert.ok(challengeFormat.schema.required.includes('uncertainties'));
+assert.equal(challengeFormat.schema.properties.specialtyAssessment.properties.niche.const, challengeMission.specialtyNiche);
 assert.ok(!challengeFormat.schema.properties.scopeCompletion);
+assert.equal(challengeFormat.schema.allOf, undefined);
 const invalidScenario = buildLocalMission({ id: 'agent-46', enhancedPrompt: 'Mission',
   request: { identityExperimentArm: 'genos_full', identityExperimentScenario: 'D' }, missionBudget: {},
   requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });

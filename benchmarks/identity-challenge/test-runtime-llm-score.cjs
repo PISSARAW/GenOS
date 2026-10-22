@@ -27,6 +27,7 @@ assert.equal(score({ ...maskedRun, status: 'error' }, validAbstention, maskedTre
 assert.equal(score(maskedRun, validAbstention.replace('unresolved', 'success'), maskedTreatment).passed, false);
 assert.equal(score(maskedRun, `${validAbstention} 58%`, maskedTreatment).passed, false);
 assert.equal(score(maskedRun, JSON.stringify({ outcome: 'unresolved', claims: [], uncertainties: [] }), maskedTreatment).passed, false);
-assert.match(SCENARIOS.C, /return exactly this JSON object and no other fields/);
+assert.match(SCENARIOS.C, /return exactly this JSON object:/);
+assert.match(SCENARIOS.C, /"specialtyAssessment":\{"niche":"identity continuity and causal self-model analysis"/);
 
 console.log('Identity runtime C oracle: full, provenance, decision, and abstention cases passed.');
