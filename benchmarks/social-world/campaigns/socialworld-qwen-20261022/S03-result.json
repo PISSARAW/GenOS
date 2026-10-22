@@ -1,0 +1,56 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S03",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "62e262cb38e05b9e3aeb033b042f054e0a0efb0c",
+  "expected": [
+    {
+      "agentId": "agent-b",
+      "relationType": "friend",
+      "sharedEvents": [
+        "bridge-map:shared-11"
+      ]
+    },
+    {
+      "agentId": "agent-c",
+      "relationType": "stranger",
+      "sharedEvents": []
+    }
+  ],
+  "profiles": [
+    {
+      "agentId": "agent-b",
+      "relationType": "friend",
+      "sharedEvents": [
+        "bridge-map:shared-11"
+      ]
+    },
+    {
+      "agentId": "agent-c",
+      "relationType": "stranger",
+      "sharedEvents": []
+    }
+  ],
+  "answer": [
+    {
+      "agentId": "agent-b",
+      "relationType": "friend",
+      "sharedEvents": [
+        "bridge-map:shared-11"
+      ]
+    },
+    {
+      "agentId": "agent-c",
+      "relationType": "stranger",
+      "sharedEvents": []
+    }
+  ],
+  "qwenResponse": "{\"relationships\":[{\"agentId\":\"agent-b\",\"relationType\":\"friend\",\"sharedEvents\":[\"bridge-map:shared-11\"]},{\"agentId\":\"agent-c\",\"relationType\":\"stranger\",\"sharedEvents\":[]}]}.",
+  "databasePass": true,
+  "verified": true,
+  "oracle": "a friend retains its shared event while an unlinked agent remains a stranger with no shared history",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 24037
+}
