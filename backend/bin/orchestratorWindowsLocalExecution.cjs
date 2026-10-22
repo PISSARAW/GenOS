@@ -22,7 +22,7 @@ function buildLocalMission(input) {
   const localCodeWorker = requestedCodeWorker(request);
   const localModel = requestedModel(request);
   const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
-    primary: localModel.startsWith('ollama://') ? localModel : "ollama://",
+    primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
     fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
   };
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
