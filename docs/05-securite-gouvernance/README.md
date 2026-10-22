@@ -4,6 +4,7 @@ Contrôle d'accès, conformité, isolation d'exécution et multi-tenant.
 
 - [securite.md](securite.md) — authentification, réseau, secrets, CORS, endpoints, audit.
 - [remediation-securite-immunitaire.md](remediation-securite-immunitaire.md) — alertes SARIF bornées, clusters causaux, candidats contrefactuels, adjudication indépendante et mémoire négative.
+- [moteur-rapports-preuves-securite-sere.md](moteur-rapports-preuves-securite-sere.md) — Security Evidence Report Engine (SERE) : assemblage des 8 piliers, dossier machine vérifiable et document jury sans autorité propre.
 - [identite-et-autorite.md](identite-et-autorite.md) — identités, autorité, scopes tenants, rôles.
 - [conformite-et-gouvernance.md](conformite-et-gouvernance.md) — gouvernance, contraintes de conformité, supervision.
 - [sandbox-execution-code.md](sandbox-execution-code.md) — sandbox, isolation, limites d'exécution.

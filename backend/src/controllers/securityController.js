@@ -5,6 +5,7 @@
 const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const sereEngine = require('../services/securityEvidenceReport/sereEngineService');
 const { getDatabase } = require('../db');
 const fs = require('fs/promises');
 const path = require('path');
@@ -96,9 +97,38 @@ function getSecurityStatus(req, res) {
   });
 }
 
+function assembleEvidenceReport(req, res) {
+  try {
+    const bundle = sereEngine.assembleSecurityEvidenceReport(req.body || {}, req.body?.options || {});
+    return res.json(bundle);
+  } catch (error) {
+    return res.status(400).json({
+      error: { code: error.code || 'SERE_ASSEMBLY_FAILED', message: error.message },
+      verification: error.verification || null
+    });
+  }
+}
+
+function verifyEvidenceReport(req, res) {
+  try {
+    const candidate = req.body?.dossier || req.body;
+    const verification = sereEngine.verifySereDossier(candidate, req.body?.options || {});
+    const presentation = req.body?.juryDocument
+      ? sereEngine.verifyJuryPresentation(candidate, req.body.juryDocument)
+      : null;
+    return res.json({ verification, presentation });
+  } catch (error) {
+    return res.status(400).json({
+      error: { code: error.code || 'SERE_VERIFICATION_FAILED', message: error.message }
+    });
+  }
+}
+
 module.exports = {
   triggerKillSwitch,
   resetKillSwitch,
   globalHalt,
-  getSecurityStatus
+  getSecurityStatus,
+  assembleEvidenceReport,
+  verifyEvidenceReport
 };

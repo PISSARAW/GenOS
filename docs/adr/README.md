@@ -764,7 +764,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0638](0638-paquets-signes-du-registre-de-confiance.md) | Paquets signés du registre de confiance | Accepté | 2026-10-18 | confiance, révocation, déploiement, récupération |
 | [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, blobs ; catalogue étendu par ADR 0643 | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
 | [0640](0640-journal-revocation-ancre-durable.md) | Journal de révocation à ancre durable | Accepté | 2026-10-18 | révocation, durabilité, anti-rollback, réplication |
-| [0641](0641-canonisation-des-sources-de-qualification.md) | Canonisation des sources de qualification | Accepté | 2026-10-18 | preuve, reproductibilité, qualification fondatrice |
+| [0641a](0641-canonisation-des-sources-de-qualification.md) | Canonisation des sources de qualification | Accepté | 2026-10-18 | preuve, reproductibilité, qualification fondatrice |
+| [0641b](0641-perception-securite-autonome.md) | Perception autonome de la sécurité et modèle de monde | Accepté pour l'implémentation initiale. | -- | -- |
 | [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
 | [0644](0644-calibration-et-projection-nosologique-traçable.md) | Calibration et projection nosologique traçable | Accepté | 2026-10-18 | -- |
@@ -828,6 +829,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0717](0717-parite-worker-mathematique-et-preuve-formelle.md) | Parité du worker mathématique et preuve formelle | Voir le fichier | -- | -- |
 | [0718](0718-cablage-effectif-parametres-variants-rhizome.md) | Câblage effectif des paramètres de variants Rhizome | Voir le fichier | -- | -- |
 | [0719](0719-ateam-variant-gates-et-executeur-multiteam.md) | A-Team : durcissement des gates de variantes et feuille de route de l'exécuteur multiteam | Voir le fichier | -- | -- |
+| [0720](0720-valeurs-par-defaut-morphogenese.md) | Valeurs par défaut de la configuration Morphogenèse | Accepté | 2026-10-22 | Morphogenèse, configuration, seuils par défaut |
+| [0721a](0721-digital-evidence-organ.md) | Digital Evidence Organ (DEO) : ingestion, normalisation et intégrité des preuves numériques | Accepté | 2026-10-22 | épistémologie, preuves numériques, DFIR, conformité, provenance |
+| [0721b](0721-moteur-rapports-preuves-securite-sere.md) | Moteur de rapports de preuves de sécurité (SERE) | Accepté | 2026-10-22 | sécurité, preuves, vérification déterministe, rapports jury |
+| [0722](0722-security-homeostatic-recovery.md) | Security Homeostatic Recovery Engine | Accepté pour l'implémentation initiale. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
