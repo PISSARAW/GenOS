@@ -840,6 +840,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0726](0726-security-specialist-physiology.md) | Security Specialist Physiology | Accepté | 2026-10-22 | -- |
 | [0727a](0727-noyau-autorite-securite-sak.md) | Security Authority Kernel (SAK) et séparation observation / instruction | Accepté | 2026-10-22 | cybersécurité, contrôle d'autorisation, responsabilité, résistance à la falsification |
 | [0727b](0727-security-learning-ontogenesis.md) | Security Learning & Ontogenesis | Accepté | 2026-10-22 | -- |
+| [0728](0728-laboratoire-qualification-securite-sqlab.md) | Security Qualification Laboratory (SQLab) et référentiel C0–C5 | Accepté | 2026-10-22 | cybersécurité, qualification, reproductibilité, preuves de fonctionnement réel |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
