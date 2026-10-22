@@ -1,7 +1,8 @@
 'use strict';
 
 const MAX_TEST_RETRIES = 2;
-const MAX_FAILURE_TEXT = 8000;
+const MAX_FAILURE_TEXT = 20000;
+const MAX_CANDIDATE_TEXT = 12000;
 
 function isCodeWorker(mission) {
   return mission.localCodeWorker === true || mission.executionPolicy?.localCodeWorker === true;
@@ -15,12 +16,16 @@ function latencyBudget(mission) {
 
 function failureFeedback(error) {
   const tests = error.proposal?.tests || [];
-  return tests.map((test) => [
+  const result = tests.map((test) => [
     `Command: ${test.command || 'unknown'}`,
     `Exit code: ${test.exitCode}`,
     test.stdout ? `stdout:\n${test.stdout}` : '',
     test.stderr ? `stderr:\n${test.stderr}` : ''
-  ].filter(Boolean).join('\n')).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+  ].filter(Boolean).join('\n')).join('\n\n');
+  const patches = error.proposal?.failedPatchContents || [];
+  const candidate = patches.map((patch) => `Rolled-back candidate ${patch.path}:\n${patch.content}`)
+    .join('\n\n').slice(0, MAX_CANDIDATE_TEXT);
+  return [result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
 function repairPrompt(context) {
