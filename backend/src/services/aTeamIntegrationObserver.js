@@ -78,6 +78,34 @@ function constraintFailure(worker, member, report) {
   };
 }
 
+function ownershipFailures({ workers, dossiers, byWorker }) {
+  const artifactOwners = new Map();
+  for (const worker of Array.isArray(workers) ? workers : []) {
+    const report = latestReport(byWorker.get(worker.agentId));
+    if (!report) continue;
+    for (const artifact of Array.isArray(report.artifacts) ? report.artifacts : []) {
+      const key = String(artifact || '').trim();
+      if (!key) continue;
+      if (!artifactOwners.has(key)) artifactOwners.set(key, []);
+      artifactOwners.get(key).push(worker.agentId);
+    }
+  }
+  const failures = [];
+  for (const [artifact, owners] of artifactOwners.entries()) {
+    if (owners.length > 1) {
+      failures.push({
+        code: 'DUPLICATE_ARTIFACT_OWNERSHIP',
+        workerId: owners[1],
+        domain: null,
+        scope: artifact,
+        ownerId: owners[0],
+        message: `Artifact '${artifact}' is claimed by multiple workers (${owners.join(', ')}); ownership must be unique.`
+      });
+    }
+  }
+  return failures;
+}
+
 function memberForWorker(worker, members, index) {
   return members.find((member) => member.agentId === worker.agentId
     || member.workerId === worker.agentId || member.role === worker.role)
@@ -102,6 +130,8 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
     const constraints = constraintFailure(worker, member, report);
     if (constraints) integrationFailures.push(constraints);
   });
+
+  failures.push(...ownershipFailures({ workers: workerList, dossiers, byWorker }));
 
   return { failures, integrationFailures, observerReport: { failures, integrationFailures } };
 }
