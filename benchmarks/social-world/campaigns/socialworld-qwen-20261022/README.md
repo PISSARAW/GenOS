@@ -35,7 +35,7 @@
 | S23 Mémoire intermissions | Réussi avec GenOS et Qwen 2.5 14B | `S23-genos-result.json`, `S23-result.json`; source `faf11840` |
 | S24 Évolution des relations | Réussi | Qwen 14B: confiance calculée sur cinq évaluations vérifiées et abaissée après trois échecs; `S24-result.json` (`07c526a8`) |
 | S25 Transmission sociale | Réussi | Qwen 14B, deux sauts friend→neighbor, chaîne de provenance vérifiée, doublon dédupliqué et rumeur rejetée; `S25-result.json` (graine 9) |
-| S26 Pannes et reprise | Non exécuté | — |
+| S26 Pannes et reprise | Réussi | Qwen 14B, réveil non autorisé refusé, état persistant restauré après signal autorisé et message antérieur vérifié conservé; S26-result.json |
 | S27 Société mult topologique | Non exécuté | — |
 | S28 Autonomie et robustesse (1 000 cycles) | Non exécuté | — |
 
