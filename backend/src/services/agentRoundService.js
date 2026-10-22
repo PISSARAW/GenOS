@@ -45,6 +45,7 @@ function transitionResultMetadata(mission, event) {
 function workerBindingMetadata(mission) {
   return { transitionId: mission.budgetRound?.transitionId || null,
     workerKind: mission.workerKind || null, topology: mission.morphologyTopology || null,
+    variant: mission.morphologyVariant || null,
     allocatedTokens: Number(mission.executionBudget?.tokens || 0) };
 }
 

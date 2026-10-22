@@ -29,11 +29,16 @@ async function verifySealedReceipt() {
   receipt.queuedWorkerIds = ['worker-a'];
   assert.equal(verifyTransitionReceipt(receipt), true);
   const result = { agentId: 'worker-a', transitionId: receipt.transitionId, workerKind: 'scout_cell',
-    topology: 'biocenose', allocatedTokens: 25 };
+    topology: 'biocenose', variant: 'default', allocatedTokens: 25 };
   assert.equal(resultMatchesTransition(result, receipt), true,
-    'the same admitted graph and allocated worker are linked through the result');
+    'the same admitted graph, variant, and allocated worker are linked through the result');
   assert.equal(resultMatchesTransition({ ...result, topology: 'rhizome' }, receipt), false,
     'a worker launched with a different topology cannot inherit this transition verdict');
+  assert.equal(resultMatchesTransition({ ...result, variant: 'resilient' }, receipt), false,
+    'a worker launched with a different variant cannot inherit this transition verdict');
+  const { variant, ...withoutVariant } = result;
+  assert.equal(resultMatchesTransition(withoutVariant, receipt), false,
+    'a worker result without its variant cannot satisfy the sealed transition');
   const transitionBoundResults = require('../src/services/morphogenesis/missionResolutionReceipt')
     .transitionBoundResults;
   const state = { plan: { morphogenesisEpochStatus: { transition: receipt } },

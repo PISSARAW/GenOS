@@ -254,6 +254,7 @@ function resultMatchesTransition(result, receipt) {
   if (!verifyTransitionReceipt(receipt) || result?.transitionId !== receipt.transitionId) return false;
   return receipt.identity.bindings.some((binding) => binding.workerId === result.agentId
     && binding.workerKind === result.workerKind && binding.topology === result.topology
+    && binding.variant === result.variant
     && binding.tokens === result.allocatedTokens);
 }
 

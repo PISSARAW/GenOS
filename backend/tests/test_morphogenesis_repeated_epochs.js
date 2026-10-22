@@ -60,9 +60,13 @@ function verifyRoundBarrierAndStaleEpochRejection() {
       { eventType: 'AGENT_COMPLETED', payload: {} }), null, 'late events from a prior epoch are ignored');
     assert.equal(registerRoundResult({ agentId: 'w1', budgetRound: { stage: 'morphogenesis_epoch', epoch: 2, orchestratorId: id } },
       { eventType: 'AGENT_COMPLETED', payload: {} }), null);
-    const completed = registerRoundResult({ agentId: 'w2', budgetRound: { stage: 'morphogenesis_epoch', epoch: 2, orchestratorId: id } },
+    const completed = registerRoundResult({ agentId: 'w2', workerKind: 'scout_cell',
+      morphologyTopology: 'biocenose', morphologyVariant: 'default', executionBudget: { tokens: 12 },
+      budgetRound: { stage: 'morphogenesis_epoch', epoch: 2, orchestratorId: id } },
       { eventType: 'AGENT_COMPLETED', payload: {} });
     assert.equal(completed.state, state);
+    assert.equal(state.results.get('w2').variant, 'default',
+      'round results preserve the worker variant for transition receipt matching');
     assert.equal(state.advanced, true, 'the next epoch is evaluated only after every dispatched worker reports');
     assert.equal(registerRoundResult({ agentId: 'w1', budgetRound: { stage: 'morphogenesis_epoch', epoch: 2, orchestratorId: id } },
       { eventType: 'AGENT_COMPLETED', payload: {} }), null, 'duplicate reports cannot advance the same epoch twice');
