@@ -29,6 +29,13 @@ assert.equal(webResponseFormat.schema.properties.patches.maxItems, 3);
 assert.deepEqual(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.allOf,
 	[{ pattern: 'data-reveal' }]);
 assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.minLength, 4500);
+const pathOnlyResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test'],
+	requiredPatchPaths: ['index.html'], requiredPatchMinimumBytes: { 'index.html': 1200 } });
+const pathOnlyContentSchema = pathOnlyResponseFormat.schema.properties.patches.allOf[0]
+	.contains.properties.content;
+assert.equal(pathOnlyContentSchema.minLength, 1200);
+assert.equal(Object.hasOwn(pathOnlyContentSchema, 'allOf'), false,
+	'omit allOf when no required patch markers exist');
 assert.deepEqual(require('../src/services/modelProviderRequest').buildRequestBody({
 	provider: 'ollama', modelName: 'fixture', prompt: 'Return a proposal.', outputLimit: 128,
 	stream: false, nativeOllama: true, responseFormat

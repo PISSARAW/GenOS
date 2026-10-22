@@ -173,12 +173,13 @@ function proposalResponseFormat(options = {}) {
     format.schema.properties.patches.minItems = paths.length;
     format.schema.properties.patches.maxItems = paths.length;
     format.schema.properties.patches.items.properties.path.enum = paths;
-    format.schema.properties.patches.allOf = paths.map((requiredPath) => ({
-      contains: { type: 'object', properties: { path: { const: requiredPath },
-        content: { type: 'string', minLength: resolved.requiredPatchMinimumBytes[requiredPath] || 0,
-          allOf: markerPatterns(resolved.requiredPatchMarkers[requiredPath]) } },
-      required: ['path', 'content'] }
-    }));
+    format.schema.properties.patches.allOf = paths.map((requiredPath) => {
+      const content = { type: 'string', minLength: resolved.requiredPatchMinimumBytes[requiredPath] || 0 };
+      const markers = markerPatterns(resolved.requiredPatchMarkers[requiredPath]);
+      if (markers.length) content.allOf = markers;
+      return { contains: { type: 'object', properties: { path: { const: requiredPath }, content },
+        required: ['path', 'content'] } };
+    });
   }
   return format;
 }
