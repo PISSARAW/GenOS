@@ -2,12 +2,122 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S23",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "d90389c706057255ad6f81272bc3914f8763c0e1",
-  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "stage": "model-warmup",
-  "warmup": null,
-  "verified": false,
-  "durationMs": 180039
+  "sourceCommit": "faf11840d24f7f67223f02336a22b3302cf45490",
+  "expected": [
+    {
+      "relationType": "friend",
+      "direction": "forward",
+      "sharedHistory": 0.65
+    }
+  ],
+  "missionTransitions": [
+    "mission-1",
+    "mission-2"
+  ],
+  "humanInstructionsAfterSetup": 0,
+  "warmup": {
+    "model": "ollama://qwen2.5:14b",
+    "durationMs": 732,
+    "response": "Here is the requested JSON object:\n\n{\"ready\":true}"
+  },
+  "previousMission": {
+    "relationId": "s23-friendship",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.82,
+      "interactionCount": 8,
+      "sharedHistory": 0.65,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": "mission-1:shared-evidence-42"
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend"
+    ],
+    "relations": [
+      {
+        "relationId": "s23-friendship",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.82,
+          "interactionCount": 8,
+          "sharedHistory": 0.65,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": "mission-1:shared-evidence-42"
+        },
+        "direction": "forward"
+      }
+    ]
+  },
+  "resumedMission": {
+    "relationId": "s23-friendship",
+    "relationType": "friend",
+    "relationClass": "social",
+    "properties": {
+      "familiarity": 0.82,
+      "interactionCount": 8,
+      "sharedHistory": 0.65,
+      "authority": 0.3,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.4,
+      "preferredDialect": null,
+      "lastInteraction": "mission-1:shared-evidence-42"
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "friend"
+    ],
+    "relations": [
+      {
+        "relationId": "s23-friendship",
+        "relationType": "friend",
+        "relationClass": "social",
+        "properties": {
+          "familiarity": 0.82,
+          "interactionCount": 8,
+          "sharedHistory": 0.65,
+          "authority": 0.3,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.4,
+          "preferredDialect": null,
+          "lastInteraction": "mission-1:shared-evidence-42"
+        },
+        "direction": "forward"
+      }
+    ]
+  },
+  "qwenResponse": "```json\n{\n  \"relations\": [\n    {\n      \"relationType\": \"friend\",\n      \"direction\": \"forward\",\n      \"sharedHistory\": 0.65\n    }\n  ]\n}\n```",
+  "answer": [
+    {
+      "relationType": "friend",
+      "direction": "forward",
+      "sharedHistory": 0.65
+    }
+  ],
+  "deterministicPass": true,
+  "verified": true,
+  "oracle": "persisted relation type, direction and shared history must match the seeded evidence",
+  "durationMs": 4459
 }
