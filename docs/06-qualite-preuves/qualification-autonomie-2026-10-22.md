@@ -83,3 +83,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commandes : `node backend/tests/test_mission_continuity.js`, `node backend/tests/test_organism_shared_mission_checkpoint.js`, puis `node backend/tests/test_organism_orchestrator_checkpoint.js`.
 - Résultat : 21 contrôles de continuité passent; le checkpoint partagé échoue sur un `EPERM` lors du renommage atomique du fichier `orchestration.head.json` dans Temp. Code 1; le troisième test n'a pas démarré.
 - Verdict : T06 partiellement vérifié; relance hors sandbox nécessaire pour dissocier un blocage de permission d'un défaut GenOS.
+
+### T06 — résultat après déblocage
+
+- Relance hors sandbox : `node backend/tests/test_organism_shared_mission_checkpoint.js` puis `node backend/tests/test_organism_orchestrator_checkpoint.js`; code 0.
+- Cohorte de mission partagée et intégrité des références de checkpoint Rust passent.
+- Verdict local T06 : continuité et checkpoints automatisés validés; l'épreuve de coupure brutale est couverte par T05.
