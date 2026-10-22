@@ -61,7 +61,8 @@ async function main() {
   const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  const startedAt = Date.now(); let db; let firstHop = null; let secondHop = null; let qwenResponse = null;
+  const startedAt = Date.now(); let db; let firstHop = null; let secondHop = null;
+  let qwenResponse = null; let observed = null; let enginePass = false;
   try {
     db = await getDatabase(':memory:');
     await createWorld(db);
@@ -89,16 +90,16 @@ async function main() {
       SCOPE.organizationId, SCOPE.projectId);
     const expected = { rootHash: source.payloadHash, recipients: ['agent-b', 'agent-c'],
       duplicateDetected: true, rumorRejected: true };
-    const observed = { rootHash: secondHop.rootHash, recipients: receipts.map((row) => row.recipientAgentId),
+    observed = { rootHash: secondHop.rootHash, recipients: receipts.map((row) => row.recipientAgentId),
       duplicateDetected: duplicate.duplicate, rumorRejected };
-    const enginePass = firstHop.rootHash === source.payloadHash && secondHop.rootHash === source.payloadHash
+    enginePass = firstHop.rootHash === source.payloadHash && secondHop.rootHash === source.payloadHash
       && firstHop.delivered && secondHop.delivered && duplicate.duplicate && !duplicate.delivered
       && rumorRejected && chainValid && linked && receipts.length === 2;
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Copy the GenOS social evidence propagation result. The same source reached B then neighbor C; a duplicate to C was detected and a forged provenance rumor was rejected.',
-        `Evidence: ${JSON.stringify({ ...observed, chainValid, firstHop, secondHop, duplicate })}`,
+        `Evidence: ${JSON.stringify(observed)}`,
         'Return ONLY valid JSON with rootHash, recipients, duplicateDetected, and rumorRejected.'].join('\n\n'),
-      seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 80, timeoutMs: 180000,
+      seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 180, timeoutMs: 180000,
       organizationId: SCOPE.organizationId, projectId: SCOPE.projectId, agentId: 'agent-a' });
     qwenResponse = response.text;
     const answer = parseAnswer(qwenResponse);
@@ -114,7 +115,8 @@ async function main() {
   } catch (error) {
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S25', seed,
       status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
-      firstHop, secondHop, qwenResponse, verified: false, durationMs: Date.now() - startedAt };
+      firstHop, secondHop, observed, enginePass, qwenResponse, verified: false,
+      stage: qwenResponse ? 'qwen-verification' : 'genos-provenance-propagation', durationMs: Date.now() - startedAt };
     saveResult(result); process.stderr.write(`${JSON.stringify(result, null, 2)}\n`); process.exitCode = 1;
   } finally { if (db) await closeDatabase(); }
 }
