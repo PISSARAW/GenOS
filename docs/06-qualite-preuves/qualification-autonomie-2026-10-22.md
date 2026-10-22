@@ -127,3 +127,10 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Après ajustement de l'assertion à une mesure finie et non négative, `node backend/tests/test_security_morphogenesis.js` passe (14/14).
 - Relance complète hors sandbox : `npm --prefix backend run test:morphogenesis`, code 0, 110/110 tests.
 - T08 réussi au niveau des contrats et scénarios automatisés; le passage réel et répété entre recherche, développement et validation dans une mission externe reste à mesurer.
+
+## 2026-10-22 — T09, apprentissage et cas réservés
+
+- Commande : `npm --prefix backend run test:ett`.
+- Résultat : code 0; les 14 contrats ETT passent, dont multicycle, reprise après crash, budget cumulatif, apprentissage borné, admission, file de travail et vérification indépendante.
+- Des requêtes vectorielles/FTS de fixtures journalisent des tables absentes; les tests confirment le comportement de repli et terminent avec le code 0.
+- Verdict local T09 : apprentissage et frontières de preuve automatisés validés. La comparaison expérimentale de cinq erreurs d'entraînement avec vingt cas externes réservés n'est pas réalisée par cette suite.
