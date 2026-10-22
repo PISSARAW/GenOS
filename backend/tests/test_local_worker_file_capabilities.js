@@ -31,6 +31,8 @@ function dossierReply() {
 }
 
 function checkFileReading(capsule) {
+  fs.mkdirSync(path.join(capsule, 'src'));
+  fs.writeFileSync(path.join(capsule, 'src', 'delivery.js'), 'function pendingAfterRestart(queue) { return queue; }');
   const excerpt = runtime.readWorkspaceFileExcerpt(capsule, 'buggy-sum.js');
   const expected = fs.readFileSync(path.join(capsule, 'buggy-sum.js'));
   assert.equal(excerpt.refused, undefined);
@@ -40,6 +42,8 @@ function checkFileReading(capsule) {
   assert.match(built.text, /\[FICHIER buggy-sum\.js \| sha256=[a-f0-9]{64}\]/);
   assert.match(built.text, /first - second/);
   assert.equal(built.fileHashes['buggy-sum.js'], excerpt.sha256);
+  assert.match(built.text, /\[FICHIER src[\\/]delivery\.js \| sha256=[a-f0-9]{64}\]/);
+  assert.match(built.text, /pendingAfterRestart/);
 }
 
 function checkSizeRefusal(capsule) {

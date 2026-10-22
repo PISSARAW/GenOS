@@ -261,13 +261,9 @@ function buildWorkspaceContext(workspaceRoot) {
   const fs = require('fs');
   const root = path.resolve(workspaceRoot || process.cwd());
   const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(root);
-  let names = '';
-  let candidates = [];
-  try {
-    candidates = fs.readdirSync(root).filter((entry) => !entry.startsWith('.') && entry !== 'node_modules' && entry !== 'dist').slice(0, LOCAL_WORKER_FILE_BUDGET.maxFiles);
-    names = candidates.join(', ');
-  } catch (e) { names = '(illisible)'; }
-  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers à la racine : ${names}\n\n`;
+  const candidates = require('../src/services/localWorkspaceFileCandidates')(
+    root, LOCAL_WORKER_FILE_BUDGET.maxFiles);
+  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers du workspace : ${candidates.join(', ')}\n\n`;
   const fileHashes = {};
   let total = 0;
   for (const name of candidates) {
@@ -320,7 +316,8 @@ function readBoundedFile(fs, target, cap) {
 function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits) {
   if (!allowFileEdits) return [];
   const found = [...String(reply).matchAll(/\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi)];
-  require('../src/services/localArtifactWriter').writeArtifacts(reply, { workspaceRoot, allowFileEdits });
+  const result = require('../src/services/localArtifactWriter').writeArtifacts(reply, { workspaceRoot, allowFileEdits });
+  if (result.rejected.length) throw new Error(result.rejected[0].issues.join(', '));
   return found.map((match) => match[1].trim());
 }
 function requestedTestCommands(reply) {

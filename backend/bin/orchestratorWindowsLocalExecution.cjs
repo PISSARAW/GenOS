@@ -25,6 +25,9 @@ function buildLocalMission(input) {
     workerKind: 'bounded_worker', executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
+    requiredPatchPaths: request.requiredPatchPaths,
+    requiredPatchMarkers: request.requiredPatchMarkers,
+    requiredPatchMinimumBytes: request.requiredPatchMinimumBytes,
     localModel: requestedModel(request), timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
       costUsd: missionBudget.costUsd || 0,
@@ -88,4 +91,4 @@ async function runWindowsLocalExecution(input) {
   return true;
 }
 
-module.exports = { runWindowsLocalExecution };
+module.exports = { runWindowsLocalExecution, buildLocalMission };
