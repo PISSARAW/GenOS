@@ -52,7 +52,7 @@ function verifiedGenomeOutcome() {
     workspaceId: 'candidate-workspace', quality: 0.8, tokens: 500, latencyMs: 500,
     transitionId: transitionReceipt.transitionId,
     workerResults: [{ agentId: workerId, workerKind: 'scout_cell', topology: 'trinity',
-      allocatedTokens: 100, transitionId: transitionReceipt.transitionId,
+      variant: 'pareto', allocatedTokens: 100, transitionId: transitionReceipt.transitionId,
       status: 'completed', genomeContentHash: candidateHash }] });
   const control = signedAttempt({ ...shared, id: 'control-attempt',
     workspaceId: 'control-workspace', quality: 0.3, tokens: 400, latencyMs: 400,
