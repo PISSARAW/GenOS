@@ -21,6 +21,10 @@ function buildLocalMission(input) {
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
   const localModel = requestedModel(request);
+  const identityExperimentArm = request.identityExperimentArm || request.identity_experiment_arm || null;
+  const allowedEvidenceRefs = ['mission'];
+  if (identityExperimentArm === 'genos_full') allowedEvidenceRefs.push('worker_self');
+  if (identityExperimentArm === 'identity_sheet') allowedEvidenceRefs.push('identity_sheet');
   const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
     primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
     fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
@@ -30,8 +34,8 @@ function buildLocalMission(input) {
     prompt, currentTask: prompt, role: 'implementation',
     workerKind: 'bounded_worker', executionMode: 'worker',
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
-    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: ['mission'],
-    localModel, localRoutingPolicy, identityExperimentArm: request.identityExperimentArm || request.identity_experiment_arm || null,
+    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs,
+    localModel, localRoutingPolicy, identityExperimentArm,
     identityExperimentSeed: Number.isInteger(request.identityExperimentSeed) ? request.identityExperimentSeed : undefined,
     timeoutMs: requestTimeoutMs,
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,

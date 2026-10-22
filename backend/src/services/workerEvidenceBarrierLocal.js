@@ -58,7 +58,11 @@ function missionEvidenceRefs(mission) {
 function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
 function sourceReferenceInstruction(mission) {
   const refs = missionEvidenceRefs(mission);
-  return `Use only these exact evidence references: ${JSON.stringify(refs)}. `
+  const sourceDescriptions = [];
+  if (refs.includes('worker_self')) sourceDescriptions.push('"worker_self" is the canonical WorkerSelf block shown in this prompt');
+  if (refs.includes('identity_sheet')) sourceDescriptions.push('"identity_sheet" is the minimal identity sheet shown in this prompt');
+  const description = sourceDescriptions.length ? ` Source meanings: ${sourceDescriptions.join('; ')}.` : '';
+  return `Use only these exact evidence references: ${JSON.stringify(refs)}.${description} `
     + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
     + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
 }
@@ -291,6 +295,7 @@ async function runGenerationStage(ctx) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
         ...identityExperimentAudit,
+        allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
         promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
         promptCharacters: promptText.length
       }, 'info', 'running');

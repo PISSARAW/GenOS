@@ -26,6 +26,15 @@ const localMission = buildLocalMission({ id: 'agent-42', enhancedPrompt: 'Curren
 assert.equal(localMission.prompt, 'Current agent agent-42');
 assert.equal(localMission.identityExperimentArm, 'genos_full');
 assert.equal(localMission.identityExperimentSeed, 42);
+assert.deepEqual(localMission.allowedEvidenceRefs, ['mission', 'worker_self']);
+const sheetMission = buildLocalMission({ id: 'agent-43', enhancedPrompt: 'Mission',
+  request: { identityExperimentArm: 'identity_sheet' }, missionBudget: {}, requestTimeoutMs: 30000,
+  allowedCommands: [], allowFileEdits: false });
+assert.deepEqual(sheetMission.allowedEvidenceRefs, ['mission', 'identity_sheet']);
+const llmMission = buildLocalMission({ id: 'agent-44', enhancedPrompt: 'Mission',
+  request: { identityExperimentArm: 'llm_only' }, missionBudget: {}, requestTimeoutMs: 30000,
+  allowedCommands: [], allowFileEdits: false });
+assert.deepEqual(llmMission.allowedEvidenceRefs, ['mission']);
 const llmPrompt = buildAnalysisPrompt({ selfIntro: '', workerSelfBlock: '', conscienceBlock: '',
   workerInstruction: 'Keep the evidence boundary.', evidenceRule: 'Return JSON.', agentName: 'GenOS Worker',
   prompt: 'Mission', identityExperimentArm: 'llm_only' });
