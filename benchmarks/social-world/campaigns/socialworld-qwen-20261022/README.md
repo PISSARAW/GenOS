@@ -34,9 +34,9 @@
 | S22 Communication humaine | Reussi avec Qwen 2.5 14B; relais limite au perimetre explicitement approuve | `S22-result.json`; source `04b14d21` |
 | S23 Mémoire intermissions | Réussi avec GenOS et Qwen 2.5 14B | `S23-genos-result.json`, `S23-result.json`; source `faf11840` |
 | S24 Évolution des relations | Réussi | Qwen 14B: confiance calculée sur cinq évaluations vérifiées et abaissée après trois échecs; `S24-result.json` (`07c526a8`) |
-| S25 Transmission sociale | Réussi | Qwen 14B, deux sauts friend→neighbor, chaîne de provenance vérifiée, doublon dédupliqué et rumeur rejetée; `S25-result.json` (graine 9) |
-| S26 Pannes et reprise | Réussi | Qwen 14B, réveil non autorisé refusé, état persistant restauré après signal autorisé et message antérieur vérifié conservé; S26-result.json |
-| S27 Société multi-topologique | Réussi | Qwen 14B, 19 organisations et 19 sorties topologiques, comportements spécialisés et quorum vérifiés; S27-result.json (graine 8) |
+| S25 Transmission sociale | Réussi | Deux échecs Qwen conservés (`S25-attempt-01/02.json`), puis Qwen 14B valide deux sauts friend→neighbor, la provenance, la déduplication et le rejet de rumeur (`S25-result.json`, graine 9) |
+| S26 Pannes et reprise | Réussi | Échec de fixture texte conservé (`S26-attempt-01.json`), puis réveil autorisé restaure l’état et le message vérifié (`S26-result.json`) |
+| S27 Société multi-topologique | Réussi | Prédicat de route erroné conservé (`S27-attempt-01.json`), corrigé; Qwen confirme 19 organisations et sorties topologiques (`S27-result.json`, graine 8) |
 | S28 Autonomie et robustesse (1 000 cycles) | Réussi, 20/20 graines | Qwen 14B, 24 agents × 1 000 cycles, 4 000 étapes topologiques par graine, 9 chocs récupérés à chaque fois; `S28-summary.json` et `S28-seed-*-result.json` |
 
 ## S23: diagnostic reproductible
