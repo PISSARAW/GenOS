@@ -264,7 +264,6 @@ async function inspectCapabilityNeed(sessionId, need, options = {}) {
     }
   });
 }
-
 async function planGrowth(sessionId, gapId, options = {}) {
   const session = await getSession(sessionId, options.db);
   const gap = session.openGaps.find((item) => item.gapId === gapId);
@@ -273,7 +272,6 @@ async function planGrowth(sessionId, gapId, options = {}) {
   return growthPlanner.plan({ session, gap, values: options.candidates,
     options: { ...scopedOptions, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
 }
-
 async function admitGrowthCandidate(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'GROWTH_ADMITTED',
@@ -281,10 +279,12 @@ async function admitGrowthCandidate(sessionId, input, options = {}) {
     apply: (session) => growthAdmission.apply(session, input, options.admissionPolicy)
   });
 }
-
 async function routeToCapability(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return routePlanner.plan(session, need, routingPolicy.constrain(session.variantPolicy.routing, options.routing || options.routingPolicy));
+  const routing = { ...(session.variantPolicy.routing || {}) };
+  const tau = session.variantPolicy.conductivity?.tau;
+  if (routing.temperature === undefined && Number.isFinite(tau)) routing.temperature = tau;
+  return routePlanner.plan(session, need, routingPolicy.constrain(routing, options.routing || options.routingPolicy));
 }
 
 async function evaporateTrails(sessionId, options = {}) {
