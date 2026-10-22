@@ -97,6 +97,11 @@ async function runMission(state, services) {
     applyWorkerArtifacts(reply, state.workspaceRoot, state.allowFileEdits);
     await require('../src/services/runtimeFileWriteIpc').flush();
     state.commandProofs = await collectCommandProofs(reply, state.workspaceRoot, state.executionPolicy);
+    const testReceipt = require('../src/services/codeTestExecutionReceipt').buildReceipt({
+      agentId: state.mission.agentId, missionId: state.mission.missionId,
+      workspaceRoot: state.workspaceRoot, proofs: state.commandProofs
+    });
+    if (testReceipt) emitEvent(state, testReceipt);
     if (state.resumeCheckpoint?.phase !== 'evaluated') {
       await checkpoint.save(state, 'evaluating', reply);
       await runPostPipeline(services, state, reply);
