@@ -36,7 +36,7 @@
 | S24 Évolution des relations | Réussi | Qwen 14B: confiance calculée sur cinq évaluations vérifiées et abaissée après trois échecs; `S24-result.json` (`07c526a8`) |
 | S25 Transmission sociale | Réussi | Qwen 14B, deux sauts friend→neighbor, chaîne de provenance vérifiée, doublon dédupliqué et rumeur rejetée; `S25-result.json` (graine 9) |
 | S26 Pannes et reprise | Réussi | Qwen 14B, réveil non autorisé refusé, état persistant restauré après signal autorisé et message antérieur vérifié conservé; S26-result.json |
-| S27 Société mult topologique | Non exécuté | — |
+| S27 Société multi-topologique | Réussi | Qwen 14B, 19 organisations et 19 sorties topologiques, comportements spécialisés et quorum vérifiés; S27-result.json (graine 8) |
 | S28 Autonomie et robustesse (1 000 cycles) | Non exécuté | — |
 
 ## S23: diagnostic reproductible
