@@ -45,6 +45,10 @@ async function initializeSchema(db) {
     hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0,
     last_signal_type TEXT
   )`);
+  await db.exec(`CREATE TABLE IF NOT EXISTS detached_processes (
+    id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT,
+    command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
   await addOptionalColumns(db, OPTIONAL_COLUMN_STATEMENTS);
   await require('./migrations/migrateOrchestrationReceipts').migrateOrchestrationReceipts(db);
   await applyVersionedMigrations(db);

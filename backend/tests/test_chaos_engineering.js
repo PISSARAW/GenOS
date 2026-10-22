@@ -3,9 +3,31 @@
  */
 
 const assert = require('assert');
+const { spawn } = require('node:child_process');
 const { getDatabase } = require('../src/db');
 const chaosService = require('../src/services/chaosEngineeringService');
 const { activeProcesses } = require('../src/services/agentOrchestrationState');
+let disposableChild = null;
+
+function launchDisposableWorker() {
+  return spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    stdio: 'ignore', windowsHide: true
+  });
+}
+
+function waitForWorkerExit(child) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Disposable chaos worker did not exit.')), 10000);
+    child.once('exit', (code, signal) => {
+      clearTimeout(timer);
+      resolve({ code, signal });
+    });
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
 
 async function testChaosEngineering() {
   console.log('--- Testing Chaos Engineering & Regeneration Steward ---');
@@ -47,14 +69,15 @@ async function testChaosEngineering() {
     `node_${workerId}`, wsId, workerId
   );
 
-  // Simulate active process in map
-  const dummyChild = {
-    pid: 77777,
-    exitCode: null,
-    signalCode: null,
-    kill: (signal) => { dummyChild.signalCode = signal; }
-  };
-  activeProcesses.set(workerId, { child: dummyChild });
+  // Own a real disposable process so the live drill proves OS termination.
+  const child = launchDisposableWorker();
+  disposableChild = child;
+  await new Promise((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+  const workerExit = waitForWorkerExit(child);
+  activeProcesses.set(workerId, { child });
 
   // 1. Dry run chaos injection
   const dryResult = await chaosService.injectChaos({
@@ -65,7 +88,7 @@ async function testChaosEngineering() {
   assert(dryResult.success, 'Dry run chaos should succeed');
   assert.equal(dryResult.dryRun, true);
   assert.equal(dryResult.targetAgent.id, workerId);
-  assert.equal(dryResult.targetAgent.pid, 77777);
+  assert.equal(dryResult.targetAgent.pid, child.pid);
   assert.equal(dryResult.lineage.parentAgentId, orchestratorId);
   assert.equal(dryResult.lineage.relation, 'fork');
   assert.equal(dryResult.regenerationSteward.activated, false, 'Dry run must not claim the steward ran');
@@ -79,11 +102,14 @@ async function testChaosEngineering() {
     reason: 'Live Process Termination'
   });
   assert(liveResult.success, 'Live chaos injection should succeed');
-  assert.equal(liveResult.targetAgent.pid, 77777);
+  assert.equal(liveResult.targetAgent.pid, child.pid);
   assert.equal(liveResult.lineage.parentAgentId, orchestratorId);
   assert.equal(liveResult.regenerationSteward.strategy, 'lineage_reconstruction');
   assert.equal(liveResult.regenerationSteward.activated, true, 'Steward only activates after a real kill');
-  console.log('✓ Live chaos successfully executed and triggered Regeneration Steward reconstruction');
+  const exit = await workerExit;
+  disposableChild = null;
+  assert.ok(exit.code !== null || exit.signal !== null, 'OS must confirm the worker process exited');
+  console.log(`✓ Live chaos terminated OS process ${child.pid} (${exit.signal || `exit ${exit.code}`})`);
 
   // 3. No live process: the service must report failure instead of
   // fabricating a PID and a successful regeneration.
@@ -131,7 +157,12 @@ async function testChaosEngineering() {
 if (require.main === module) {
   testChaosEngineering()
     .then(() => process.exit(0))
-    .catch((err) => {
+    .catch(async (err) => {
+      if (disposableChild?.exitCode === null && !disposableChild.signalCode) {
+        const stopped = waitForWorkerExit(disposableChild);
+        disposableChild.kill('SIGKILL');
+        await stopped.catch(() => {});
+      }
       console.error('Chaos Engineering test failed:', err);
       process.exit(1);
     });

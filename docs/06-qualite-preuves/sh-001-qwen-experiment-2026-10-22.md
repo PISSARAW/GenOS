@@ -45,3 +45,24 @@ Le worker local a produit une réparation correcte, mais le verdict final du run
 - Tests ciblés réussis : `backend/tests/test_windows_local_worker_load.js`, `backend/tests/test_local_code_worker.js`, `backend/tests/test_local_worker_file_capabilities.js`. Qualité : `python scripts/ci/check_code_quality.py`, 7 293 fichiers, zéro violation nouvelle.
 
 Ces corrections améliorent la qualité des prochains essais, mais ne résolvent pas encore la lacune de couverture du runner direct.
+
+## Expériences de récupération supplémentaires (suite du 22 octobre)
+
+Les six commandes du brief ont été exécutées depuis le dépôt backend et ont réussi :
+
+- `test_shev_healing_contract.js` — phases durables, preuves et verrouillage terminal.
+- `test_shev_healing_integration.js` — tick, ontogenèse, effet et fenêtre longitudinale.
+- `test_physiological_arc_closed_loop.js` — connexions de la boucle physiologique.
+- `test_sre_healing_policy.js` — 10/10 cas, dont abstention, disjoncteur, effet indépendant et rollback demandé.
+- `test_sre_healing_store.js` — 3/3 cas de persistance et transitions immuables.
+- `test_security_qualification_lab.js` — PASS.
+
+Ces scripts restent des tests logiciels; leurs fixtures ne constituent pas une campagne de terrain ou un actionneur Hyper-V réel. En particulier, le laboratoire de sécurité manipule l’état de VM simulé décrit par le brief.
+
+Une injection de panne de processus distincte a aussi réussi : `node backend/tests/search/test_natural_search_crash.js` force la sortie du processus enfant avec le code 17, rouvre la base et prouve que le checkpoint faisant autorité restaure une projection partielle, tout en refusant un écrivain périmé. Ce résultat qualifie une récupération après arrêt de processus pour le sous-système Natural Search; il ne prouve pas la reprise d’une mission worker complète.
+
+Une campagne worker réelle, en processus enfants et bases jetables, a fourni deux bras comparables. Le bras témoin `D:\GenOS\runs\sh001-qwen-20261022\worker-fault-control-20261022.json` qualifie `verifier_worker` et `recovery_worker` tous deux `verified` (`independent_quorum`, exit 0; runs `q-7a754f2a7974` et `q-d94fa524b995`). Le bras d’injection `D:\GenOS\runs\sh001-qwen-20261022\worker-fault-campaign-20261022.json` altère la preuve du premier et force le timeout du second. Il obtient `oracle_proof_invalid` et `mission_evidence_missing` avec `conforms:true` pour les deux runs (`q-7dc1cc3992d8`, `q-37e06246939e`). Ce sont des réussites du contrôle de faute : aucune mission n’est qualifiée comme guérie à partir d’une preuve altérée ou absente. Les workers de cette campagne utilisent des politiques déterministes d’essai; cette expérience n’utilise pas Qwen.
+
+Enfin, le premier lancement réel du drill chaos avait révélé `SQLITE_ERROR: no such table: detached_processes` sur une base fraîche. Le chemin de refus des PID non gérés supposait une table créée uniquement à la demande par un autre outil. Le test utilisait auparavant un worker factice, donc n’exerçait jamais l’actionneur OS. Le test utilise maintenant un processus Node jetable réel et attend son événement `exit`; le schéma de démarrage crée désormais la table canonique. Avec une base temporaire fraîche, le drill a terminé le PID enfant réel (SIGTERM), a rapporté honnêtement l’absence de processus vivant, résolu le PID persisté en mode dry-run et refusé les PID arbitraires. Ce drill vérifie la terminaison contrôlée et les refus; le « Regeneration Steward » reste seulement annoncé comme activé par ce chemin, et la préservation/reprise effective de la mission n’est pas encore prouvée par ce test.
+
+L’audit global `test_schema_drift.js` n’a pas pu servir d’oracle : lancé directement, il échouait d’abord avant assertions (`test is not defined`; `expect` global absent). Une adaptation temporaire au runner Node a ensuite révélé une divergence préexistante importante de son catalogue : plusieurs centaines de tables générées sont classées « orphelines » et 16 entrées déclarées canoniques sont absentes. Cette adaptation a été retirée; la correction `detached_processes` est vérifiée directement par le drill chaos sur une base fraîche. Le catalogue global reste à réparer avant de réutiliser ce test comme preuve.
