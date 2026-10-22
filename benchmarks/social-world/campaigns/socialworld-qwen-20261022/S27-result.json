@@ -1,10 +1,10 @@
 {
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S27",
-  "seed": 7,
-  "status": "fail",
+  "seed": 8,
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "0cd192a72b3de82c8e287b7c1f4157df716c821c",
+  "sourceCommit": "03757e4dd76a39ee34ad9c5b5d3b6fe2c74d1e57",
   "expected": {
     "algorithmCount": 19,
     "uniqueTopologies": 19,
@@ -319,7 +319,7 @@
     "wolves": true,
     "quorum": true,
     "independentCritics": true,
-    "route": false
+    "route": true
   },
   "qwenResponse": "{\n  \"algorithmCount\": 19,\n  \"uniqueTopologies\": 19,\n  \"distinctBehaviors\": 18,\n  \"quorumReached\": true\n}",
   "answer": {
@@ -328,9 +328,9 @@
     "distinctBehaviors": 18,
     "quorumReached": true
   },
-  "enginePass": false,
-  "verified": false,
+  "enginePass": true,
+  "verified": true,
   "oracle": "nineteen organization algorithms produce distinct topology outputs with working boids, fish school, slime mould, grey wolf, blind review, quorum and mycelial route behavior",
   "humanInstructionsAfterSetup": 0,
-  "durationMs": 2103
+  "durationMs": 2461
 }
