@@ -1,5 +1,7 @@
 'use strict';
 
+const nestedTopologyService = require('../nested/nestedTopologyService');
+
 function advance(ecology, state, input) {
   const communities = buildCommunities(ecology, input.memberships);
   const scales = {
@@ -11,9 +13,10 @@ function advance(ecology, state, input) {
   const feedback = { upward: upwardFeedback(ecology), downward: downwardFeedback(ecology, input.environmentConstraints) };
   const previous = state.scaleState || {};
   const emergence = detectEmergence(previous, scales);
+  const nestedTopologies = generateNestedTopologies(input, emergence);
   return { state: { ...state, scaleState: scales, scaleHistory: [...(state.scaleHistory || []), scales].slice(-100) },
-    decision: { scales, feedback, emergence },
-    action: { type: emergence.length ? 'CROSS_SCALE_EMERGENCE_DETECTED' : 'CROSS_SCALE_FEEDBACK_APPLIED', status: 'applied' } };
+    decision: { scales, feedback, emergence, nestedTopologies },
+    action: { type: nestedTopologies.length ? 'NESTED_TOPOLOGIES_GENERATED' : (emergence.length ? 'CROSS_SCALE_EMERGENCE_DETECTED' : 'CROSS_SCALE_FEEDBACK_APPLIED'), status: 'applied' } };
 }
 
 function buildCommunities(ecology, memberships) {
@@ -65,6 +68,17 @@ function policy(input, level, fallback) {
 function detectEmergence(previous, current) {
   const oldCommunities = previous.community?.count || 0;
   return current.community.count > oldCommunities ? [{ type: 'COMMUNITY_FORMED', count: current.community.count }] : [];
+}
+
+function generateNestedTopologies(input, emergence) {
+  const shouldGenerate = input.generateNestedTopologies === true || (Array.isArray(emergence) && emergence.length > 0 && input.autoNest !== false);
+  if (!shouldGenerate) return [];
+  const proposal = nestedTopologyService.propose({
+    missionId: input.missionId, mission: input.mission, problem: input.problem || input.mission,
+    needKind: input.nestNeedKind, currentTopology: 'biome', budget: input.budget,
+    capabilities: input.capabilities
+  });
+  return [nestedTopologyService.candidateNode(input, proposal)];
 }
 
 module.exports = { advance, enforceCaps };
