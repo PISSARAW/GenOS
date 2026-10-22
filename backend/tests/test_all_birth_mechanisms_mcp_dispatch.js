@@ -1,11 +1,11 @@
 /**
- * Comprehensive Integration Test:
- * Verifies that ALL 19 multiple-birth, embryology, and animal reproduction biomimicry tools
- * are properly wired and executable via the central mcpToolRegistry.dispatchTool() interface.
+ * Integration test for MCP registration and status dispatch of 19 biomimicry tools.
+ * Status dispatch does not prove that these tools create executable runtime agents.
  */
 
 const assert = require('assert');
 const { dispatchTool, isRegisteredTool, detectExecutionKind } = require('../src/services/mcpToolRegistry');
+const { probeBioFeature } = require('../src/services/mcpBioTools/featureProbe');
 
 const ALL_19_TOOLS = [
   'genos_biomimicry_thalamic_bridge',
@@ -34,37 +34,38 @@ function statusArguments(toolName) {
     genos_biomimicry_thalamic_bridge: { bridge_id: 'mcp-status-bridge' },
     genos_biomimicry_conjoined_twin_bind: { pair_id: 'mcp-status-pair' },
     genos_biomimicry_mirror_twin_fork: { pair_id: 'mcp-status-pair' },
-    genos_biomimicry_parasitic_graft: { host_id: 'mcp-status-host' },
+    genos_biomimicry_parasitic_graft: { host_id: 'mcp-status-host' }
   };
   return { action: 'status', ...(identifiers[toolName] || {}) };
 }
 
-async function runIntegrationVerification() {
-  console.log('=== VERIFYING FULL MCP WIRING FOR ALL 19 BIOMIMETIC TOOLS ===\n');
+function verifyProbeFailureBoundary() {
+  const unsupported = () => { throw new Error("Unknown biomimicry feature 'fixture'."); };
+  const denied = () => { throw new Error('permission denied'); };
+  assert.strictEqual(probeBioFeature(unsupported, 'genos biomimicry bio-feature --feature fixture --action status').cliFailed, false);
+  assert.strictEqual(probeBioFeature(unsupported, 'genos biomimicry bio-feature --feature fixture --action fuse').cliFailed, true);
+  assert.strictEqual(probeBioFeature(denied, 'genos biomimicry bio-feature --feature fixture --action status').cliFailed, true);
+}
 
+async function runIntegrationVerification() {
+  verifyProbeFailureBoundary();
+  console.log('=== VERIFYING MCP REGISTRATION AND STATUS DISPATCH FOR 19 TOOLS ===\n');
   let verifiedCount = 0;
 
   for (const toolName of ALL_19_TOOLS) {
-    // 1. Check registration
-    const isRegistered = isRegisteredTool(toolName);
-    assert.strictEqual(isRegistered, true, `Tool ${toolName} must be registered in mcpToolRegistry`);
-
-    // 2. Check execution kind detection
+    assert.strictEqual(isRegisteredTool(toolName), true, `Tool ${toolName} must be registered in mcpToolRegistry`);
     const kind = detectExecutionKind(toolName);
     assert.strictEqual(kind, 'bio', `Tool ${toolName} must be classified as 'bio' kind`);
-
-    // 3. Dispatch through central MCP registry
     const dispatchResponse = await dispatchTool(toolName, statusArguments(toolName));
     assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
     assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
-    assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must execute status successfully`);
-
-    console.log(`✅ [MCP DISPATCH VERIFIED] -> ${toolName} (kind: ${kind}, status: OK)`);
+    assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must return a successful status for ${toolName}`);
+    console.log(`✅ [MCP STATUS VERIFIED] -> ${toolName} (kind: ${kind}, status: OK)`);
     verifiedCount++;
   }
 
   assert.strictEqual(verifiedCount, 19);
-  console.log(`\n🎉 ALL 19 BIOMIMETIC TOOLS ARE 100% WIRED, REGISTERED, AND OPERATIONAL VIA MCP DISPATCH!\n`);
+  console.log('\nAll 19 MCP status dispatches returned success; runtime birth was not tested.\n');
 }
 
 runIntegrationVerification().catch(err => {
