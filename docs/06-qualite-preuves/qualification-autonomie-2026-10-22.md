@@ -95,3 +95,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Commandes : `node backend/tests/test_native_memory_budget.js`, `node backend/tests/test_bounded_worker_delegation.js`, `node backend/tests/test_morphogenesis_capabilities.js`.
 - Résultat : code 0 pour les trois tests; budgets, délégation bornée et capacités de morphogenèse passent.
 - Réserve : les premières étapes ont signalé des échecs de télémétrie différée (`EPERM`/`ENOENT`) sur des snapshots temporaires. Relance hors sandbox nécessaire pour confirmer la persistance.
+
+### T07 — résultat après déblocage
+
+- Relance hors sandbox des mêmes trois commandes : code 0.
+- Budgets scellés, réservation concurrente, délégation limitée à l'autorité et aux plafonds, et suite de capacités morphogénétiques passent.
+- Verdict local T07 : réussi pour les contrats d'adaptation et de budget automatisés.
