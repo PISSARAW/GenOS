@@ -38,7 +38,7 @@ async function main() {
   const startedAt = Date.now(); let db; let qwenResponse = null; let before = null; let after = null;
   try {
     db = await getDatabase(':memory:'); await setup(db);
-    const communication = await organizations.publish(db, { orchestratorId: 'agent-a', senderAgentId: 'agent-b', recipientAgentId: 'agent-c', kind: 'evidence', content: 'checkpoint:route-7', payload: { checkpoint: 'route-7', sequence: 1 } });
+    const communication = await organizations.publish(db, { orchestratorId: 'agent-a', senderAgentId: 'agent-b', recipientAgentId: 'agent-c', kind: 'evidence', content: 'checkpoint:route-7', payload: { checkpoint: 'route-7', sequence: 1 }, signalType: 'ligand', signalData: { checkpoint: 'route-7', sequence: 1 } });
     before = await organizations.inbox(db, { orchestratorId: 'agent-a', requesterAgentId: 'agent-c' });
     const suspended = await survival.suspend(db, { agentId: 'agent-b', workspaceId: 'socialworld-space', organizationId: SCOPE.organizationId, projectId: SCOPE.projectId, reason: 'S26 controlled process fault', statePayload: { marker: 'resume-from-checkpoint-26', communicationIds: [communication.id] }, wakeCondition: { type: 'operator_or_signal' } });
     const wrongWake = await survival.wake(db, { agentId: 'agent-b', workspaceId: 'socialworld-space', wakeConditionId: suspended.wakeCondition.id, event: { type: 'operator_signal', authorized: false } });
