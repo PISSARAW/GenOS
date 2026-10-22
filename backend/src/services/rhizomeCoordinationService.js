@@ -133,7 +133,6 @@ function rehydrate(record, graph = {}) {
     matrix: restoreMatrix(state),
     members: normalizeMembers(Array.isArray(state.members) ? state.members : []) };
 }
-
 async function composeRhizome(mission, options = {}) {
   const goal = String(mission || '').trim();
   if (!goal) {
@@ -146,6 +145,7 @@ async function composeRhizome(mission, options = {}) {
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const variant = variantPolicyService.selectForMission(goal, options);
   const sessionId = `rhizome-${randomUUID()}`;
+  const growthLimits = options.growthLimits || (variant.name === 'sparse' ? { maxBranches: 4, maxDepth: 4, minBranchBudget: 2000, maxDensity: variant.pruning?.maxDensity } : undefined);
   const session = {
     ...normalizeRhizomeSession({
       rhizomeId: sessionId,
@@ -161,7 +161,7 @@ async function composeRhizome(mission, options = {}) {
       repairScars: options.repairScars,
       routeLineage: options.routeLineage,
       routeResults: options.routeResults,
-      growthLimits: options.growthLimits,
+      growthLimits,
       budgets: options.budgets,
       status: options.status
     }),
