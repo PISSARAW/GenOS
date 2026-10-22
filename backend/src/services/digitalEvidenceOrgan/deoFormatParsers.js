@@ -1,12 +1,11 @@
 'use strict';
 
-const { deoError, requireNonEmptyText } = require('./deoContract');
-const { execFileSync } = require('node:child_process');
-const { mkdtempSync, writeFileSync, rmSync } = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-
-const ELF_EVTX_MAGIC = Buffer.from('ElfFile\0', 'ascii');
+const { deoError } = require('./deoContract');
+const {
+  ELF_EVTX_MAGIC,
+  parseBinaryEvtxWithFidelity,
+  parseGpoZaurrJson,
+} = require('./deoBinaryEvtxAndGpoZaurr');
 
 function extractXmlAttr(fragment, attrName) {
   const match = new RegExp(`${attrName}\\s*=\\s*["']([^"']*)["']`, 'i').exec(fragment);
@@ -143,27 +142,7 @@ function parseEvtxPayload(rawBytes) {
 }
 
 function parseBinaryEvtx(rawBytes) {
-  if (process.platform !== 'win32') {
-    throw deoError('DEO_EVTX_BINARY_PARSER_UNAVAILABLE', 'Binary EVTX parsing requires the Windows Event Log utility.');
-  }
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), 'genos-deo-evtx-'));
-  const filePath = path.join(tempDir, 'evidence.evtx');
-  try {
-    writeFileSync(filePath, rawBytes, { flag: 'wx' });
-    const xml = execFileSync('wevtutil.exe', ['qe', filePath, '/lf:true', '/f:xml'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: 120000,
-      maxBuffer: 128 * 1024 * 1024,
-    }).trim();
-    return parseEvtxXmlText(xml);
-  } catch (err) {
-    if (err.code?.startsWith('DEO_')) throw err;
-    throw deoError('DEO_CORRUPTED_ARTIFACT', `Windows rejected or could not fully export binary EVTX: ${err.message}`);
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
+  return parseBinaryEvtxWithFidelity(rawBytes, parseEvtxXmlEvent, parseEvtxXmlText);
 }
 
 function extractNmapPorts(hostXml) {
@@ -341,13 +320,6 @@ function parseGpoXml(text) {
   return policies;
 }
 
-function validateGpoJsonRoot(parsed) {
-  const hasFields = Boolean(parsed?.gpoName) && Boolean(parsed?.domain) && Boolean(parsed?.generatedAt);
-  if (!hasFields || !Array.isArray(parsed?.settings) || parsed.settings.length === 0) {
-    throw deoError('DEO_INCOMPLETE_EXPORT', 'GPO JSON report requires gpoName, domain, generatedAt, and non-empty settings.');
-  }
-}
-
 function parseGpoJson(text) {
   let parsed;
   try {
@@ -355,18 +327,7 @@ function parseGpoJson(text) {
   } catch (err) {
     throw deoError('DEO_CORRUPTED_ARTIFACT', `Corrupted GPO JSON report: ${err.message}`);
   }
-  validateGpoJsonRoot(parsed);
-  return parsed.settings.map((setting, idx) => ({
-    gpoName: String(parsed.gpoName),
-    domain: String(parsed.domain),
-    host: String(setting.host ?? parsed.host ?? parsed.domain),
-    timestamp: String(setting.timestamp ?? parsed.generatedAt),
-    policyPath: requireNonEmptyText(setting.policyPath, 'DEO_GPO_POLICY_PATH_REQUIRED'),
-    settingName: requireNonEmptyText(setting.settingName, 'DEO_GPO_SETTING_REQUIRED'),
-    state: String(setting.state ?? 'Configured'),
-    user: setting.principal ?? parsed.user ?? null,
-    index: idx,
-  }));
+  return parseGpoZaurrJson(parsed);
 }
 
 function parseGpoReportPayload(rawBytes) {

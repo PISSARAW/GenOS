@@ -27,6 +27,9 @@ const {
   evaluateAuthorization,
   runActuatorWithPermit
 } = require('./sakEvaluator');
+const {
+  runSakAdversarialCampaign
+} = require('./sakAdversarialCampaign');
 
 function registerPrincipalInState(state, principalSpec = {}) {
   const record = validatePrincipalRegistration(principalSpec);
@@ -154,7 +157,8 @@ function createSecurityAuthorityKernel(options = {}) {
     rawIdToKind: new Map(),
     grants: new Map(),
     revokedGrants: new Map(),
-    revokedPrincipals: new Map()
+    revokedPrincipals: new Map(),
+    consumedPermits: new Set()
   };
 
   return Object.freeze({
@@ -177,6 +181,7 @@ module.exports = {
   PRINCIPAL_KINDS,
   ALLOWED_SECURITY_OPERATIONS,
   createSecurityAuthorityKernel,
+  runSakAdversarialCampaign: () => runSakAdversarialCampaign(createSecurityAuthorityKernel),
   ingestObservedData,
   assertInstructionSeparation,
   detectLogOrReportInjection,

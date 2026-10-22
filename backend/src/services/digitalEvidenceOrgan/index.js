@@ -16,6 +16,7 @@ const {
   decodeTypedBinary,
 } = require('./deoContract');
 const { ingestArtifact } = require('./evidenceIngestion');
+const { buildBinaryEvtxBuffer } = require('./deoBinaryEvtxAndGpoZaurr');
 const { KNOWN_EVTX_EVENT_IDS, normalizeIngestedArtifact } = require('./evidenceNormalizer');
 const { computeSourceSignature, verifySourceAuthenticity, attachProvenance } = require('./evidenceProvenance');
 const { correlateObservations } = require('./evidenceCorrelator');
@@ -50,6 +51,29 @@ function ingestSingleArtifactEntry(entry, state, options) {
     rawByteLength: ingested.rawByteLength,
     observationCount: withProvenance.observations.length,
     duplicateCount: normalized.duplicateCount,
+    extractionFidelity: normalized.extractionFidelity,
+  });
+}
+
+function summarizeCorpusFidelity(ingestedArtifacts) {
+  let totalDeclaredRecords = 0;
+  let totalExtractedRecords = 0;
+  let totalLostEvents = 0;
+  for (const art of ingestedArtifacts) {
+    const fid = art.extractionFidelity ?? {};
+    totalDeclaredRecords += Number(fid.declaredRecordCount ?? art.observationCount ?? 0);
+    totalExtractedRecords += Number(fid.extractedRecordCount ?? art.observationCount ?? 0);
+    totalLostEvents += Number(fid.lostEventCount ?? 0);
+  }
+  const overallFidelityRate = totalDeclaredRecords > 0
+    ? Number((totalExtractedRecords / totalDeclaredRecords).toFixed(4))
+    : 1;
+  return Object.freeze({
+    totalDeclaredRecords,
+    totalExtractedRecords,
+    totalLostEvents,
+    overallFidelityRate,
+    zeroEventsLost: totalLostEvents === 0,
   });
 }
 
@@ -141,6 +165,7 @@ function runDigitalEvidenceOrgan(corpusInput = {}, options = {}) {
     rejectedArtifacts: state.rejectedArtifacts,
     observations: uniqueObservations,
     duplicateCount: state.duplicateCount + crossDuplicates,
+    extractionFidelity: summarizeCorpusFidelity(state.ingestedArtifacts),
     correlations,
     conflicts,
     integrity,
@@ -174,6 +199,7 @@ module.exports = {
   encodeTypedBinary,
   decodeTypedBinary,
   ingestArtifact,
+  buildBinaryEvtxBuffer,
   normalizeIngestedArtifact,
   computeSourceSignature,
   verifySourceAuthenticity,

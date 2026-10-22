@@ -5,7 +5,8 @@ const {
   fingerprint
 } = require('./sakPrimitives');
 const {
-  assertInstructionSeparation
+  assertInstructionSeparation,
+  detectLogOrReportInjection
 } = require('./observationInstructionBarrier');
 const {
   assertExpectedPrincipalKind,
@@ -63,14 +64,60 @@ function checkGrantValidity(state, grant, requestContext) {
   return { ok: true };
 }
 
+function hasMatchingRevokedGrant(state, requestContext) {
+  for (const grant of state.grants.values()) {
+    if (doesGrantMatchScope(grant, requestContext) && state.revokedGrants.has(grant.grantId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function selectCandidateGrant(state, requestContext) {
   if (requestContext.grantId) {
     return state.grants.get(requestContext.grantId) || null;
   }
+  const matching = [];
   for (const grant of state.grants.values()) {
-    if (doesGrantMatchScope(grant, requestContext)) return grant;
+    if (doesGrantMatchScope(grant, requestContext)) matching.push(grant);
   }
-  return null;
+  if (matching.length > 1 && hasMatchingRevokedGrant(state, requestContext)) {
+    return matching.find((g) => state.revokedGrants.has(g.grantId)) || matching[0];
+  }
+  return matching[0] || null;
+}
+
+function assertNoIndirectCall(request) {
+  if (request.callerAgentId && request.callerAgentId !== request.agentId) {
+    throw sakFailure('SAK_INDIRECT_CALL_DENIED', 'Indirect or proxy agent invocation is forbidden.');
+  }
+  if (Array.isArray(request.callChain) && request.callChain.some((caller) => caller !== request.agentId)) {
+    throw sakFailure('SAK_INDIRECT_CALL_DENIED', 'Delegated call chain across unverified principals is forbidden.');
+  }
+}
+
+function assertTrustedToolContext(request) {
+  if (request.toolContext?.compromised === true || request.toolContext?.unverifiedOutput === true) {
+    throw sakFailure('SAK_COMPROMISED_TOOL_BLOCKED', 'Compromised or unverified tool adapter context blocked.');
+  }
+  if (typeof request.toolOutput === 'string' && detectLogOrReportInjection(request.toolOutput).detected) {
+    throw sakFailure('SAK_COMPROMISED_TOOL_BLOCKED', 'Tool output contains injected directive patterns.');
+  }
+}
+
+function assertConsistentExecutionState(request) {
+  if (request.conflictingPolicy === true) {
+    throw sakFailure('SAK_PERMISSION_CONFLICT_DENIED', 'Conflicting permission policies fail closed.');
+  }
+  if (request.recoveryState?.corrupted === true || request.recoveryState?.unverifiedSnapshot === true) {
+    throw sakFailure('SAK_RECOVERY_STATE_INVALID', 'Cannot authorize under corrupted or unverified recovery state.');
+  }
+}
+
+function assertNoIndirectOrCompromisedContext(request) {
+  assertNoIndirectCall(request);
+  assertTrustedToolContext(request);
+  assertConsistentExecutionState(request);
 }
 
 function verifyActivePrincipals(state, request) {
@@ -89,6 +136,7 @@ function evaluatePreChecks(state, request) {
     return { ok: false, code: 'SAK_MODEL_BYPASS_ATTEMPT', message: `Model attempted bypass via ${bypassFlag}` };
   }
   try {
+    assertNoIndirectOrCompromisedContext(request);
     assertInstructionSeparation(request);
     const { agent, actuator } = verifyActivePrincipals(state, request);
     return { ok: true, agent, actuator };
@@ -117,6 +165,9 @@ function validatePermitForExecution(state, executionRequest, nowMs) {
   }
   if (isAnyPermitPrincipalRevoked(state, permit)) {
     throw sakFailure('SAK_PRINCIPAL_REVOKED', 'Principal associated with permit has been revoked.');
+  }
+  if (state.consumedPermits?.has(permit.permitId)) {
+    throw sakFailure('SAK_PERMIT_REPLAY_DENIED', `Permit ${permit.permitId} has already been consumed.`);
   }
   const validity = checkGrantValidity(state, grant, { ...executionRequest, nowMs });
   if (!validity.ok) {
@@ -204,12 +255,36 @@ function invokeActuatorHandler(actuatorHandler, permit) {
   });
 }
 
+function assertTrustedActuatorOutput(output) {
+  if (typeof output?.injectedDirective === 'string' || output?.compromisedCallback === true) {
+    throw sakFailure('SAK_COMPROMISED_TOOL_BLOCKED', 'Actuator callback attempted compromised secondary action.');
+  }
+}
+
+function appendBlockedExecution(context) {
+  const { state, request, nowMs, error } = context;
+  state.authLog.append({
+    eventType: 'actuator_execution_blocked',
+    decision: 'deny',
+    reasonCode: error.code ?? 'SAK_EXECUTION_DENIED',
+    timestampMs: nowMs,
+    principalIds: { agentId: request?.agentId ?? null, actuatorId: request?.actuatorId ?? null },
+    target: request?.target ?? null,
+    operation: request?.operation ?? null,
+    grantId: request?.permit?.grantId ?? null,
+    details: { errorMessage: error.message }
+  });
+}
+
 function runActuatorWithPermit(state, executionRequest = {}, actuatorHandler) {
   const nowMs = Number.isFinite(executionRequest.nowMs) ? Number(executionRequest.nowMs) : Date.now();
   try {
+    assertNoIndirectOrCompromisedContext(executionRequest);
     assertInstructionSeparation(executionRequest);
     const { permit, grant } = validatePermitForExecution(state, executionRequest, nowMs);
     const output = invokeActuatorHandler(actuatorHandler, permit);
+    assertTrustedActuatorOutput(output);
+    state.consumedPermits?.add(permit.permitId);
     const auditEntry = state.authLog.append({
       eventType: 'actuator_executed',
       decision: 'allow',
@@ -223,20 +298,7 @@ function runActuatorWithPermit(state, executionRequest = {}, actuatorHandler) {
     });
     return Object.freeze({ executed: true, permitId: permit.permitId, output, auditEntry });
   } catch (err) {
-    state.authLog.append({
-      eventType: 'actuator_execution_blocked',
-      decision: 'deny',
-      reasonCode: err.code ?? 'SAK_EXECUTION_DENIED',
-      timestampMs: nowMs,
-      principalIds: {
-        agentId: executionRequest?.agentId ?? null,
-        actuatorId: executionRequest?.actuatorId ?? null
-      },
-      target: executionRequest?.target ?? null,
-      operation: executionRequest?.operation ?? null,
-      grantId: executionRequest?.permit?.grantId ?? null,
-      details: { errorMessage: err.message }
-    });
+    appendBlockedExecution({ state, request: executionRequest, nowMs, error: err });
     throw err;
   }
 }

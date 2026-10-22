@@ -26,6 +26,9 @@ const {
 const {
   getReferenceQualificationCorpus
 } = require('./sqlabCorpus');
+const {
+  runMissionCcGenos001: executeMissionCcGenos001
+} = require('./missionCcGenos001');
 
 const REQUIRED_DOSSIER_SECTIONS = Object.freeze([
   'environmentManifest',
@@ -178,5 +181,6 @@ module.exports = {
   runScenarioQualification,
   verifyQualificationDossier,
   runQualificationCampaign,
-  getReferenceQualificationCorpus
+  getReferenceQualificationCorpus,
+  runMissionCcGenos001: (options) => executeMissionCcGenos001(runScenarioQualification, options)
 };

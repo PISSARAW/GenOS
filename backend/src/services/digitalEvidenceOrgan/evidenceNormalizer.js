@@ -7,19 +7,25 @@ const {
   parseIsoTimestamp,
 } = require('./deoContract');
 const { canonicalValue } = require('../stateFingerprint');
+const { computeExtractionFidelity } = require('./deoBinaryEvtxAndGpoZaurr');
 
 const KNOWN_EVTX_EVENT_IDS = Object.freeze({
   1: { category: 'process_creation', severity: 'medium', label: 'Sysmon Process Creation' },
   3: { category: 'network_connection', severity: 'low', label: 'Sysmon Network Connection' },
+  22: { category: 'dns_query', severity: 'low', label: 'Sysmon DNS Query' },
   1102: { category: 'audit_log_cleared', severity: 'critical', label: 'Audit Log Cleared' },
   4624: { category: 'authentication_success', severity: 'info', label: 'Account Logon Success' },
   4625: { category: 'authentication_failure', severity: 'medium', label: 'Account Logon Failure' },
+  4662: { category: 'directory_service_access', severity: 'high', label: 'Operation Performed on Active Directory Object' },
   4672: { category: 'privilege_escalation', severity: 'high', label: 'Special Privileges Assigned' },
   4688: { category: 'process_creation', severity: 'low', label: 'Process Creation' },
   4697: { category: 'service_installation', severity: 'high', label: 'Service Installed' },
   4698: { category: 'scheduled_task', severity: 'high', label: 'Scheduled Task Created' },
   4720: { category: 'account_management', severity: 'high', label: 'User Account Created' },
   4732: { category: 'group_modification', severity: 'high', label: 'Member Added to Security Group' },
+  5140: { category: 'network_share_access', severity: 'medium', label: 'Network Share Object Accessed' },
+  5145: { category: 'network_share_access', severity: 'medium', label: 'Network Share Object Checked' },
+  5156: { category: 'network_connection', severity: 'low', label: 'Windows Filtering Platform Permitted Connection' },
   7045: { category: 'service_installation', severity: 'high', label: 'New Service Installed' },
 });
 
@@ -235,6 +241,11 @@ function normalizeIngestedArtifact(ingestedArtifact) {
     observations: [...uniqueByHash.values()],
     duplicateCount: duplicateIds.length,
     duplicateObservationIds: duplicateIds,
+    extractionFidelity: computeExtractionFidelity(
+      ingestedArtifact.parsedRecords,
+      uniqueByHash.size,
+      duplicateIds.length
+    ),
   });
 }
 

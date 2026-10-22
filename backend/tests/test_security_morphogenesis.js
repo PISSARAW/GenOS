@@ -176,3 +176,26 @@ test('receipt provenance covers input, output and permissions and rejects tamper
 test('state conflict comparison is independent of object key ordering', () => {
   assert.equal(sm.detectStateConflict({ shared: { a: 1, b: 2 } }, { shared: { b: 2, a: 1 } }).conflict, false);
 });
+
+test('CyberCorp Windows, AD, pfSense and Sysmon scenario fixtures run through DEO with process measurements', () => {
+  const domains = sm.CORPUS.map((m) => m.domain);
+  assert.deepEqual(domains, ['windows', 'active_directory', 'pfsense', 'sysmon', 'cross_domain']);
+
+  const ateam = sm.runTopology('ATeam', 4, sm.CORPUS);
+  const trinity = sm.runTopology('Trinity', 3, sm.CORPUS);
+  assert.equal(ateam.combined.ok, true);
+  assert.equal(trinity.combined.ok, true);
+  assert.equal(ateam.measuredBudget.withinBudget, true);
+  assert.ok(ateam.measuredBudget.cpuMs > 0);
+  assert.equal(ateam.measuredBudget.tokens, 0);
+
+  const flatEntries = ateam.results.flat();
+  assert.equal(flatEntries.length, 5);
+  for (const entry of flatEntries) {
+    assert.equal(entry.ok, true);
+    assert.equal(entry.cyberCorpEvidence.deoIntact, true);
+    assert.equal(entry.cyberCorpEvidence.matchingHost, true);
+    assert.equal(entry.cyberCorpEvidence.extractionFidelityRate, 1);
+    assert.ok(entry.cyberCorpEvidence.lptReceiptId.startsWith('solver://sha256:'));
+  }
+});

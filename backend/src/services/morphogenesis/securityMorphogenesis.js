@@ -3,6 +3,11 @@
 const { isDeepStrictEqual } = require('node:util');
 const { runProcedure } = require('../agents/deterministicWorkerProcedures');
 const evidence = require('./securityMorphogenesisEvidence');
+const {
+  CYBERCORP_MISSION_CORPUS,
+  executeCyberCorpEvidenceStage,
+  measureShardBudget,
+} = require('./securityMorphogenesisCyberCorp');
 
 const TOPOLOGY_LIST = Object.freeze([
   'Trinity', 'ATeam', 'Biocenose', 'Rhizome', 'Syncytium',
@@ -39,13 +44,7 @@ const MISSION_NEED_TO_TOPOLOGY = Object.freeze({
   comparer_investigations_isolees_environnements: 'Metapopulation'
 });
 
-const CORPUS = Object.freeze([
-  { values: [3, 5, 7], target: 10, expected: { found: true, indices: [0, 2] } },
-  { values: [4, 6], target: 5, expected: { found: false } },
-  { values: [1, 2, 3, 4, 5], target: 9, expected: { found: true, indices: [1, 2, 3] } },
-  { values: [10, 20, 30], target: 60, expected: { found: true, indices: [0, 1, 2] } },
-  { values: [1, 1, 1, 1], target: 4, expected: { found: true, indices: [0, 1, 2, 3] } }
-]);
+const CORPUS = CYBERCORP_MISSION_CORPUS;
 
 const BUDGET = Object.freeze({ cpuMs: 5000, ramMb: 256, tokens: 10000, cycles: 100, timeMs: 30000 });
 const SUCCESS_CRITERIA = Object.freeze({
@@ -63,22 +62,47 @@ function arraysEqual(a, b) {
 
 function outputsMatch(actual, expected) {
   if (!actual || !expected || actual.found !== expected.found) return false;
-  if (actual.found) return arraysEqual(actual.indices, expected.indices);
+  if (actual.found && !arraysEqual(actual.indices, expected.indices)) return false;
   return true;
 }
 
 function executeCorpusItem(item, nodeId, permissions) {
   try {
-    const out = runProcedure({
+    const cyberCorpEvidence = executeCyberCorpEvidenceStage(item);
+    const out = cyberCorpEvidence ? null : runProcedure({
       version: 1,
       methodId: 'subset_sum',
       parameters: { values: item.values, target: item.target }
     });
-    const receipt = evidence.createReceipt({ output: out, nodeId, item, permissions });
-    return { item, output: out.output, receipt, ok: outputsMatch(out.output, item.expected) };
+    const combinedOutput = cyberCorpEvidence
+      ? { verified: matchesCyberCorpEvidence(cyberCorpEvidence, item), cyberCorpEvidence }
+      : out.output;
+    const receiptInput = cyberCorpEvidence
+      ? {
+          output: combinedOutput,
+          receipt: {
+            id: cyberCorpEvidence.lptReceiptId,
+            methodId: 'cybercorp_evidence_verification',
+            result: combinedOutput
+          }
+        }
+      : out;
+    const receipt = evidence.createReceipt({ output: receiptInput, nodeId, item, permissions });
+    return {
+      item,
+      output: combinedOutput,
+      cyberCorpEvidence,
+      receipt,
+      ok: cyberCorpEvidence ? combinedOutput.verified : outputsMatch(out.output, item.expected)
+    };
   } catch (error) {
-    return { item, output: null, receipt: null, ok: false, error: error.message };
+    return { item, output: null, cyberCorpEvidence: null, receipt: null, ok: false, error: error.message };
   }
+}
+
+function matchesCyberCorpEvidence(result, item) {
+  return Boolean(result.deoIntact && result.matchingHost && result.enoughObs
+    && result.findingId === item.expected?.expectedFinding);
 }
 
 function runSingleShard(shard, nodeId = 'worker', permissions = DEFAULT_BOUNDARY) {
@@ -192,6 +216,7 @@ function matchTopologyToMission(missionNeed) {
 function runTopology(topologyId, workerCount, corpus = CORPUS) {
   const combiner = COMBINERS[topologyId];
   if (!combiner) throw new Error(`Unknown topology: ${topologyId}`);
+  const measurement = { cpuStart: process.cpuUsage(), startNs: process.hrtime.bigint() };
   const shards = distributeCorpus(corpus, workerCount);
   const results = shards.map((shard, idx) => runSingleShard(shard, `${topologyId.toLowerCase()}-worker-${idx + 1}`));
   const combined = combiner(results);
@@ -202,6 +227,7 @@ function runTopology(topologyId, workerCount, corpus = CORPUS) {
     combined,
     receipts: collectReceipts({ results }),
     budget: BUDGET,
+    measuredBudget: measureShardBudget(results, BUDGET, measurement),
     successCriteria: SUCCESS_CRITERIA,
     usage: CYBERCORP_USAGE[topologyId],
     permissions: [...DEFAULT_BOUNDARY]
@@ -209,6 +235,7 @@ function runTopology(topologyId, workerCount, corpus = CORPUS) {
 }
 
 function runSingleAgent(corpus = CORPUS) {
+  const measurement = { cpuStart: process.cpuUsage(), startNs: process.hrtime.bigint() };
   const results = runSingleShard(corpus, 'single-agent');
   return {
     kind: 'single_agent',
@@ -217,12 +244,14 @@ function runSingleAgent(corpus = CORPUS) {
     combined: { ok: results.every((r) => r.ok), results, method: 'single_agent_deterministic' },
     receipts: collectReceipts({ results: [results] }),
     budget: BUDGET,
+    measuredBudget: measureShardBudget([results], BUDGET, measurement),
     successCriteria: SUCCESS_CRITERIA,
     permissions: [...DEFAULT_BOUNDARY]
   };
 }
 
 function runDeterministicPipeline(corpus = CORPUS) {
+  const measurement = { cpuStart: process.cpuUsage(), startNs: process.hrtime.bigint() };
   const results = runSingleShard(corpus, 'deterministic-pipeline');
   return {
     kind: 'deterministic_pipeline',
@@ -231,6 +260,7 @@ function runDeterministicPipeline(corpus = CORPUS) {
     combined: { ok: results.every((r) => r.ok), results, method: 'deterministic_pipeline_stage' },
     receipts: collectReceipts({ results: [results] }),
     budget: BUDGET,
+    measuredBudget: measureShardBudget([results], BUDGET, measurement),
     successCriteria: SUCCESS_CRITERIA,
     permissions: [...DEFAULT_BOUNDARY]
   };
@@ -348,7 +378,7 @@ function testRecovery(failedResult, corpus = CORPUS) {
 const { assertProvenancePreserved, assertNoPermissionEscalation } = evidence;
 
 module.exports = {
-  TOPOLOGY_LIST, CYBERCORP_USAGE, MISSION_NEED_TO_TOPOLOGY, CORPUS, BUDGET, SUCCESS_CRITERIA,
+  TOPOLOGY_LIST, CYBERCORP_USAGE, MISSION_NEED_TO_TOPOLOGY, CORPUS, CYBERCORP_MISSION_CORPUS, BUDGET, SUCCESS_CRITERIA,
   DEFAULT_BOUNDARY, matchTopologyToMission, runSingleAgent, runDeterministicPipeline, runTopology,
   simulateDegradedTopology, retainSimplestArchitecture, compareTopologyWithBaselines,
   simulateWorkerLoss, simulateModelFailure, detectDisagreement, detectStateConflict,

@@ -327,6 +327,42 @@ function testSealedTrialCorpusValidationCriterion() {
   assert.equal(result.promotionGate.promotionEligible, false);
 }
 
+function testBinaryEvtxGpoZaurrAndExtractionFidelity() {
+  const binaryEvtx = deo.buildBinaryEvtxBuffer([
+    { recordId: 101, eventId: 4624, timestamp: '2026-10-22T10:00:00Z', host: 'SRV-FIN-02.cybercorp.local', channel: 'Security', data: { TargetUserName: 'svc-deploy-redacted', IpAddress: '10.20.10.44' } },
+    { recordId: 102, eventId: 5140, timestamp: '2026-10-22T10:00:05Z', host: 'SRV-FIN-02.cybercorp.local', channel: 'Security', data: { SubjectUserName: 'svc-deploy-redacted', ShareName: '\\\\*\\ADMIN$' } },
+    { recordId: 103, eventId: 3, timestamp: '2026-10-22T10:00:06Z', host: 'SRV-FIN-02.cybercorp.local', channel: 'Microsoft-Windows-Sysmon/Operational', data: { User: 'svc-deploy-redacted', Image: 'C:\\Windows\\System32\\rundll32.exe' } },
+  ]);
+  assert.equal(binaryEvtx.subarray(0, 8).toString('ascii'), 'ElfFile\0');
+
+  const gpoZaurrJson = JSON.stringify({
+    GPOName: 'CyberCorp-Tier0-DC-Hardening',
+    DomainName: 'cybercorp.local',
+    GeneratedAt: '2026-10-22T10:02:00Z',
+    DeclaredSettingCount: 2,
+    GPOSettings: [
+      { Computer: 'DC01.cybercorp.local', PolicyPath: 'Computer/Policies/WindowsSettings/SecuritySettings/LocalPolicies/UserRightsAssignment', SettingName: 'SeDebugPrivilege', State: 'Disabled', Principal: 'svc-deploy-redacted' },
+      { Computer: 'DC01.cybercorp.local', PolicyPath: 'Computer/Policies/WindowsSettings/SecuritySettings/LocalPolicies/SecurityOptions', SettingName: 'MicrosoftNetworkServerDigitallySignCommunicationsAlways', State: 'Enabled', Principal: 'SYSTEM' },
+    ],
+  });
+
+  const dossier = deo.runDigitalEvidenceOrgan({
+    artifacts: [
+      { artifactId: 'cc-bin-evtx', format: 'evtx', rawContent: binaryEvtx, sourceMetadata: signedSource('cc-bin-evtx', binaryEvtx) },
+      { artifactId: 'cc-gpozaurr', format: 'gpo_report', rawContent: gpoZaurrJson, sourceMetadata: signedSource('cc-gpozaurr', gpoZaurrJson) },
+      { artifactId: 'cc-lab-nmap', format: 'nmap_xml', rawContent: VALID_NMAP_XML, sourceMetadata: signedSource('cc-lab-nmap', VALID_NMAP_XML) },
+    ],
+  }, { trustPolicy: TRUST_POLICY });
+
+  assert.equal(dossier.ingestedArtifacts.length, 3);
+  assert.equal(dossier.observations.length, 6);
+  assert.equal(dossier.extractionFidelity.totalDeclaredRecords, 6);
+  assert.equal(dossier.extractionFidelity.totalExtractedRecords, 6);
+  assert.equal(dossier.extractionFidelity.totalLostEvents, 0);
+  assert.equal(dossier.extractionFidelity.overallFidelityRate, 1);
+  assert.equal(dossier.extractionFidelity.zeroEventsLost, true);
+}
+
 testAllFiveFormatsAndRawPreservation();
 testMandatoryScenario1CorruptedFiles();
 testMandatoryScenario2DuplicateEvents();
@@ -338,5 +374,6 @@ testMissingSourceTrustPolicyFailsClosed();
 testMandatoryScenario7UnknownEvent();
 testRetentionMinimizationAndRevocation();
 testSealedTrialCorpusValidationCriterion();
+testBinaryEvtxGpoZaurrAndExtractionFidelity();
 
 process.stdout.write('Digital Evidence Organ (DEO) suite: PASS (100% sealed corpus validated, 0 silent promotions).\n');
