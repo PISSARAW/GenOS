@@ -1,0 +1,201 @@
+{
+  "schema": "genos.identity-challenge.runtime-llm/v3",
+  "model": "qwen2.5:14b",
+  "modelDigest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+  "scenarios": [
+    "A"
+  ],
+  "arms": [
+    "identity_sheet"
+  ],
+  "repeats": 1,
+  "launchFailures": [],
+  "wait": {
+    "completed": 1,
+    "timedOut": []
+  },
+  "outcomes": [
+    {
+      "scenario": "A",
+      "arm": "identity_sheet",
+      "repetition": 0,
+      "orchestratorId": "mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+      "missionId": null,
+      "requestedAgentId": "mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+      "expectedRole": "parent",
+      "parentId": "mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+      "childId": "mcp_orchestrator_8a42b29d-fab0-48de-9087-b38d9dc643c3",
+      "falseEventId": "C-1",
+      "status": "completed",
+      "currentTask": "Local review completed",
+      "modelInferenceCompleted": true,
+      "treatment": {
+        "arm": "identity_sheet",
+        "includedSelfIntro": false,
+        "includedConscience": false,
+        "includedWorkerSelf": true,
+        "sheetOnly": true,
+        "promptSha256": "f98931117f7e8419dc7464fbe17998067b53685f2291c0faab670ae46df8aea8",
+        "promptCharacters": 1856,
+        "sessionId": "agent-session-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e"
+      },
+      "responseText": "{\"outcome\":\"success\",\"claims\":[{\"statement\":\"The current agent's role is 'implementation' with canonical_id 'mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e', indicating it is the parent that did not undergo a fork.\",\"evidence\":[\"mission\"]}],\"scopeCompletion\":{\"scopeRef\":\"IDENTITY_CHALLENGE_A\",\"completedRefs\":[\"mission\"]}}",
+      "oracle": {
+        "passed": false,
+        "criteria": {
+          "canonicalId": true,
+          "roleIdentified": true,
+          "ownAction": false,
+          "lineage": true
+        }
+      },
+      "genosVerdict": null,
+      "genosFailure": null,
+      "events": [
+        {
+          "event_type": "IDENTITY_EXPERIMENT_PROMPT",
+          "action": "PROMPT_TREATMENT",
+          "detail": "Applied identity experiment arm identity_sheet.",
+          "created_at": "2026-10-22 20:46:52",
+          "payload": {
+            "arm": "identity_sheet",
+            "includedSelfIntro": false,
+            "includedConscience": false,
+            "includedWorkerSelf": true,
+            "sheetOnly": true,
+            "promptSha256": "f98931117f7e8419dc7464fbe17998067b53685f2291c0faab670ae46df8aea8",
+            "promptCharacters": 1856,
+            "sessionId": "agent-session-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e"
+          }
+        },
+        {
+          "event_type": "INFERENCE_COMPLETED",
+          "action": "INFERENCE",
+          "detail": "Completed in 2694ms.",
+          "created_at": "2026-10-22 20:46:55",
+          "payload": {
+            "provider": "ollama",
+            "priority": "bulk",
+            "running": 1,
+            "limit": 4,
+            "queued": 0,
+            "capacity": 256,
+            "providers": [
+              {
+                "provider": "ollama",
+                "queued": 0,
+                "running": 1
+              }
+            ],
+            "detail": "Completed in 2694ms.",
+            "durationMs": 2694
+          }
+        },
+        {
+          "event_type": "AGENT_COMPLETED",
+          "action": "LOCAL_REVIEW",
+          "detail": "Local-model worker completed its evidence review.",
+          "created_at": "2026-10-22 20:46:55",
+          "payload": {
+            "executionRunId": "local-direct-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+            "model": "ollama://qwen2.5:14b",
+            "provider": "ollama",
+            "evidenceReport": {
+              "outcome": "success",
+              "claims": [
+                {
+                  "statement": "The current agent's role is 'implementation' with canonical_id 'mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e', indicating it is the parent that did not undergo a fork.",
+                  "evidence": [
+                    "mission"
+                  ]
+                }
+              ],
+              "scopeCompletion": {
+                "scopeRef": "IDENTITY_CHALLENGE_A",
+                "completedRefs": [
+                  "mission"
+                ]
+              },
+              "author": {
+                "name": "GenOS Worker",
+                "meaning": "Spécialiste autonome",
+                "role": "implementation"
+              },
+              "fullText": "{\"outcome\":\"success\",\"claims\":[{\"statement\":\"The current agent's role is 'implementation' with canonical_id 'mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e', indicating it is the parent that did not undergo a fork.\",\"evidence\":[\"mission\"]}],\"scopeCompletion\":{\"scopeRef\":\"IDENTITY_CHALLENGE_A\",\"completedRefs\":[\"mission\"]}}",
+              "fullTextTruncated": false,
+              "workerArtifact": {
+                "type": "dossier",
+                "content": {
+                  "claims": [
+                    {
+                      "statement": "The current agent's role is 'implementation' with canonical_id 'mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e', indicating it is the parent that did not undergo a fork.",
+                      "evidence": [
+                        "mission"
+                      ]
+                    }
+                  ],
+                  "scopeCompletion": {
+                    "scopeRef": "IDENTITY_CHALLENGE_A",
+                    "completedRefs": [
+                      "mission"
+                    ]
+                  }
+                },
+                "provenance": {
+                  "source": "worker-inprocess-local",
+                  "model": "ollama://qwen2.5:14b",
+                  "workspaceRoot": "D:\\GenOS\\identity-real-llm-isolated",
+                  "agentName": "GenOS Worker",
+                  "allowedEvidenceRefs": [
+                    "mission"
+                  ],
+                  "sourceRefs": [
+                    "mission"
+                  ]
+                }
+              }
+            },
+            "identityReceipt": {
+              "decision_id": "worker:local-direct-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+              "agent_id": "mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e",
+              "incarnation_id": "6a2a9641-93a4-4c16-9c97-d43af80454e3",
+              "fencing_token": "[REDACTED]",
+              "self_head": "ec38f8a971cf4a77eda4bd8c86ec329b39a7595a54a060fc91bec2f178cf33e6",
+              "peer_id": null,
+              "peer_head": null,
+              "domain": "worker",
+              "prediction": null,
+              "outcome": 1,
+              "attribution": "self",
+              "dimensions_json": "[\"existence\",\"continuity\",\"characteristics\",\"currentState\"]",
+              "request_hash": "24c44163a1cfdd4b4859bcecaf3ade38cfa675e8e4bf94ff0e6fe8c3e2863a13",
+              "result_json": "{\"success\":true,\"attribution\":\"self\",\"evidenceRef\":{\"executionRunId\":\"local-direct-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e\",\"nativeOracleRef\":null,\"reportHash\":\"9410af1801e534170edfadb7d0bee9444c4390b4b3312d7e453dc97beb5d34e6\",\"verification\":\"runtime_evidence_barrier\"}}",
+              "created_at": "2026-10-22 20:46:52"
+            },
+            "proposal": null,
+            "usage": {
+              "input_tokens": 465,
+              "output_tokens": 83,
+              "cost_usd": 0,
+              "tokens": 548
+            },
+            "stageTimings": {
+              "promptPreparationMs": 25,
+              "modelRouteMs": 3194,
+              "responseParsingMs": 1,
+              "artifactValidationMs": 3
+            },
+            "sessionId": "local-direct-mcp_orchestrator_d106456b-5338-4765-a212-0e1074b59f7e"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "realInferenceCount": 1,
+    "treatmentReceiptCount": 1,
+    "oraclePasses": 0,
+    "oracleTotal": 1
+  },
+  "runAt": "2026-10-22T20:46:56.607Z"
+}
