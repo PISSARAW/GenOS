@@ -2,16 +2,145 @@
   "campaignId": "socialworld-qwen-20261022",
   "scenario": "S17",
   "seed": 7,
-  "status": "fail",
+  "status": "pass",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "b9a4bbbb780cd8d164e0039c9336a5fb1744e95c",
-  "error": "Error: SQLITE_CONSTRAINT: workspace project does not belong to organization\n--> in Statement#run([Function: replacement])\n    at Database.<anonymous> (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite3\\lib\\sqlite3.js:76:19)\n    at Database.<anonymous> (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite3\\lib\\sqlite3.js:20:19)\n    at D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite\\build\\Database.js:96:21\n    at new Promise (<anonymous>)\n    at Database.run (D:\\GenOS\\identity-real-llm-worktree\\backend\\node_modules\\sqlite\\build\\Database.js:94:16)\n    at D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:110:46\n    at withWriteRetry (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:142:20)\n    at db.run (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\db\\index.js:110:25)",
-  "stage": "genos-broadcast",
-  "observed": null,
-  "decision": null,
-  "outcome": null,
-  "enginePass": false,
-  "warmup": null,
-  "verified": false,
-  "durationMs": 3609
+  "sourceCommit": "cace91f1f5e67f0d6ad88fe2872341dbcca30c18",
+  "expected": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "excluded": [
+      "agent-d"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "observed": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "acknowledgements": [
+      "agent-b",
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "scope": "GLOBAL_BROADCAST",
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "encoding": "semantic-fingerprint",
+    "grounding": "verified_ack",
+    "ttlMs": 60000,
+    "reasonCodes": [
+      "BROADCAST_FANOUT",
+      "COGNITIVE_WAKE"
+    ],
+    "meta": {
+      "utility": 0.21718749999999998,
+      "gain": 0.26718749999999997,
+      "cost": 0.05,
+      "breakdown": {
+        "tokens": 0,
+        "cognitiveWake": 0,
+        "fanout": 0,
+        "grounding": 0.05,
+        "contamination": 0,
+        "disclosure": 0
+      },
+      "variants": 1,
+      "fleetSize": 2
+    }
+  },
+  "outcome": {
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s17-broadcast",
+    "signalId": "sig_11206139-ea2c-456a-aea7-dc9f318c7d16",
+    "reason": null,
+    "deliveryAcknowledgements": [
+      {
+        "recipientAgentId": "agent-b",
+        "groundingLevel": "verified_ack",
+        "status": "acked",
+        "evidenceHash": "sha256:verified"
+      },
+      {
+        "recipientAgentId": "agent-c",
+        "groundingLevel": "verified_ack",
+        "status": "acked",
+        "evidenceHash": "sha256:verified"
+      }
+    ],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 2,
+      "required": "verified_ack",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "c8acc00bfd5f6edcbfea69bf6a69fe2c5b89fe15b11c1c16f5cc5cd2eeef8423",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-c",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
+  },
+  "warmup": {
+    "response": "Ready"
+  },
+  "qwenResponse": "Here is the JSON with the exact recipients, acknowledgements, and semanticRefs from the provided GenOS broadcast:\n\n```json\n{\n  \"recipients\": [\"agent-b\", \"agent-c\"],\n  \"acknowledgements\": [\"agent-b\", \"agent-c\"],\n  \"semanticRefs\": [\"hazard:bridge-closed\"]\n}\n```",
+  "answer": {
+    "recipients": [
+      "agent-b",
+      "agent-c"
+    ],
+    "acknowledgements": [
+      "agent-b",
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a global safety announcement reaches eligible project workers once each with verified acknowledgements",
+  "durationMs": 134378
 }
