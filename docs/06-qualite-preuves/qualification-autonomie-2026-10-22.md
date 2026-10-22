@@ -65,3 +65,9 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 - Relance : `npm --prefix backend run test:shev`, hors sandbox; code de sortie 0.
 - Les 18 scénarios SHEV passent, dont initiative signée, fraîcheur des données, récupération, budgets, arrêt, reprise durable, progression réservée et CLI de campagne.
 - Verdict local T03 : les contrats SHEV passent. Le test de campagne longitudinal est explicitement protocol-only; aucun résultat de terrain n'est revendiqué.
+
+## 2026-10-22 — T04, autocritique et qualité
+
+- Commande : `npm --prefix backend run test:quality`.
+- Résultat : code 0; les 12 tests de qualité du backend passent.
+- Le gate source `python scripts/ci/check_code_quality.py` reste en échec avec les 14 violations consignées plus haut; ces contrôles mesurent des règles différentes. T04 n'est donc que partiellement qualifié au niveau du dépôt.
