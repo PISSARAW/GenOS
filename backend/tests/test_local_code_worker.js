@@ -50,6 +50,11 @@ const numericRepairFeedback = failureFeedback({ proposal: {
 } });
 assert.match(numericRepairFeedback, /Number\.parseInt accepts a valid numeric prefix/);
 assert.match(numericRepairFeedback, /validate the entire trimmed input/);
+const fixedPrecisionFeedback = failureFeedback({ proposal: {
+	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
+	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
+} });
+assert.match(fixedPrecisionFeedback, /Keep the requested trailing zeroes from toFixed/);
 const editProposal = parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"before","replace":"after"}]}],"tests":["pytest"],"evidence":"minimal exact edit"}');
 assert.equal(editProposal.patches[0].edits[0].find, 'before');
 assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"","replace":"after"}]}],"tests":["pytest"],"evidence":"empty anchor"}'), /Unsafe patch proposal/);
