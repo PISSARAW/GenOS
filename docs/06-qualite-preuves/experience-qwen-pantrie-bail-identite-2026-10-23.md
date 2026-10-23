@@ -448,3 +448,16 @@ Le résultat reste **non démontré par Qwen**. Le correctif de routage n’est 
 
 Enregistrements GenOS associés : run23 échec `7d3970ee-85c3-44a3-9824-dea4c304aab7`; run24 échec `50a2a1af-ff36-448e-b8bb-3da587980db8`; correctif de routage unitairement vérifié `28b10ec4-aed5-4c04-94f0-5d530ddaf9c4`. Ces expériences sont des mémoires de provenance et ne certifient pas le succès de la réparation.
 Run22 est aussi persisté dans GenOS sous `a5f7dc28-2976-424b-b3bb-7af780641c1f` (route échouée avant patch).
+
+## Vérifications locales recommandées par le rapport joint
+
+Sur la tête saine D: après les correctifs SH-001, les six commandes du rapport ont passé (code de sortie 0) :
+
+- `test_shev_healing_contract.js` — phases durables, preuves et clôture terminale.
+- `test_shev_healing_integration.js` — tick, Ontogenesis, effet et preuve longitudinale.
+- `test_physiological_arc_closed_loop.js` — connexions A à D de la boucle physiologique.
+- `test_sre_healing_policy.js` — 10/10 cas, dont abstention budgétaire et vérification longitudinale.
+- `test_sre_healing_store.js` — 3/3 cas sur les reçus immuables et transitions hash-chainées.
+- `test_security_qualification_lab.js` — PASS du laboratoire de qualification simulé.
+
+Ces tests prouvent les contrats locaux et la simulation du labo. Ils ne prouvent pas une réparation sur VM Hyper-V, une campagne terrain de 72 h, ni une réparation SH-001 générée par Qwen. Les clients GenOS parallèles occupaient encore Ollama; aucun nouveau run Qwen n’a été lancé dans cette fenêtre.
