@@ -4,6 +4,9 @@ const os = require('os');
 const path = require('path');
 const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
+const originalConsoleLog = console.log;
+const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
+console.log = originalConsoleLog;
 assert.equal(safePath('src/lib.rs'), true);
 assert.equal(safePath('tests/security.rs'), false);
 assert.equal(safePath('src/lib.test.js'), false);
@@ -81,6 +84,24 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
+		const contextRoot = path.join(root, 'context');
+		await fs.mkdir(path.join(contextRoot, 'backend', 'tests'), { recursive: true });
+		await fs.mkdir(path.join(contextRoot, 'backend', 'src', 'services'), { recursive: true });
+		await fs.writeFile(path.join(contextRoot, 'Cargo.toml'), '[package]');
+		await fs.writeFile(path.join(contextRoot, 'backend', 'tests', 'test_regression.js'),
+			"require('../src/services/repair');\nassert.throws(() => repair());");
+		await fs.writeFile(path.join(contextRoot, 'backend', 'src', 'services', 'repair.js'),
+			'module.exports = function repair() {};');
+		const workspaceContext = buildWorkspaceContext(contextRoot, {
+			allowedCommands: ['node backend/tests/test_regression.js']
+		}).text;
+		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'tests', 'test_regression.js')}`),
+			'context includes the allow-listed failing regression test');
+		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'src', 'services', 'repair.js')}`),
+			'context includes the production module imported by that test');
+		assert(workspaceContext.indexOf(`[FICHIER ${path.join('backend', 'tests', 'test_regression.js')}`)
+			< workspaceContext.indexOf('[FICHIER Cargo.toml'),
+		'test and imported implementation take priority over unrelated root files');
 		await assert.rejects(
 			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
 				text: JSON.stringify({ ...proposal, tests: ['node malicious.js'] }) }),

@@ -259,7 +259,9 @@ async function runGenerationStage(ctx) {
     workerAssignment: ctx.mission.workerAssignment
   });
   const workspaceContext = codeWorker
-    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot).text
+    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
+      allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
+    }).text
     : '';
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,

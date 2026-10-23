@@ -40,7 +40,9 @@ async function main(rawInput) {
   intraEpochInbox.bind(mission.agentId);
   const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
-  const built = buildWorkspaceContext(workspaceRoot);
+  const built = buildWorkspaceContext(workspaceRoot, {
+    allowedCommands: mission.allowedCommands || mission.executionPolicy?.allowedCommands || []
+  });
   const contextStr = built.text;
   const agentIdentity = require('../src/services/agentIdentityService');
   const agentConscience = require('../src/services/agentConscienceService');
@@ -257,17 +259,13 @@ async function loadConscienceBlock(mission, agentConscience) {
   return helper.loadConscienceText(null, mission.agentId, agentConscience);
 }
 const LOCAL_WORKER_FILE_BUDGET = { maxFileBytes: 32768, maxTotalBytes: 131072, maxFiles: 12 };
-function buildWorkspaceContext(workspaceRoot) {
+function buildWorkspaceContext(workspaceRoot, options = {}) {
   const fs = require('fs');
   const root = path.resolve(workspaceRoot || process.cwd());
   const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(root);
-  let names = '';
-  let candidates = [];
-  try {
-    candidates = fs.readdirSync(root).filter((entry) => !entry.startsWith('.') && entry !== 'node_modules' && entry !== 'dist').slice(0, LOCAL_WORKER_FILE_BUDGET.maxFiles);
-    names = candidates.join(', ');
-  } catch (e) { names = '(illisible)'; }
-  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers à la racine : ${names}\n\n`;
+  const candidates = require('./local-code-workspace-context.cjs').collectWorkspaceContextPaths(
+    root, options.allowedCommands || [], readWorkspaceFileExcerpt, LOCAL_WORKER_FILE_BUDGET.maxFiles, fs);
+  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers analysés (tests autorisés et leurs imports en premier) : ${candidates.join(', ')}\n\n`;
   const fileHashes = {};
   let total = 0;
   for (const name of candidates) {
