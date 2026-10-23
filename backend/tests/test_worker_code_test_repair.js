@@ -91,6 +91,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const searchPlan = repairPlan(searchFailure);
   assert.deepEqual(searchPlan, { kind: 'ensure_search_input_label', label: 'Search' });
+  const bestBeforeFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'locator.fill: waiting for getByLabel(/best.before/i)'
+  }] }, usage: { tokens: 50 } });
+  const bestBeforePlan = repairPlan(bestBeforeFailure);
+  assert.deepEqual(bestBeforePlan, { kind: 'ensure_best_before_input_label', label: 'Best-before date' });
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
     path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option></select><input id="search" placeholder="Search items">'
   }], tests: ['npm test'], evidence: 'test fixture' });
@@ -102,6 +108,11 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(repairedContent, /<button>Delete Oats<\/button>/);
   assert.match(repairedContent, /<select id="filter" aria-label="Filter category"><option>All<\/option><option value="Food">Food<\/option>/);
   assert.match(repairedContent, /<input id="search" placeholder="Search items" aria-label="Search">/);
+  const bestBeforeProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<label for="best_before">Best-before date:</label><input type="date" id="best_before">'
+  }] });
+  assert.match(JSON.parse(applyRepairPlan(bestBeforeProposal, bestBeforePlan)).patches[0].content,
+    /<input type="date" id="best_before" aria-label="Best-before date">/);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   const categoryOnlyContent = JSON.parse(applyRepairPlan(proposalText, plan)).patches[0].content;
   assert.match(categoryOnlyContent, /<select id="category" aria-label="Category">/);

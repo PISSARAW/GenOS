@@ -32,6 +32,9 @@ function consumedTokens(error) {
 
 function locatorRepairHint(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
+    return 'The best-before date input has no accessible name matching Best-before. Keep its visible associated label and also set aria-label="Best-before date" on the date input.';
+  }
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements|\[object HTMLInputElement\]/i.test(output)) {
     return 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. The increment button must exist only inside the rendered item row after Add Item; remove any standalone/prototype increment button from the initial accessible DOM. In the item row, give the action the exact accessible name "Increase quantity for Oats" using the item name string. Do not put that action label on a form control or prototype button.';
   }
@@ -64,6 +67,9 @@ function locatorRepairHint(error) {
 
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
+    return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
+  }
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return { kind: 'ensure_accessible_select_label', label: 'Category' };
   }
@@ -100,6 +106,8 @@ function applyRepairPlan(text, plan) {
         content = labelFilterSelect(content, item.label);
       } else if (item.kind === 'ensure_search_input_label') {
         content = labelSearchInput(content, item.label);
+      } else if (item.kind === 'ensure_best_before_input_label') {
+        content = labelBestBeforeInput(content, item.label);
       }
     }
     if (content !== patch.content) {
@@ -226,6 +234,15 @@ function labelSearchInput(content, label) {
   const target = inputs.find((input) => /\b(?:id|name|placeholder)\s*=\s*["'][^"']*search/i.test(input[0])
     || /\btype\s*=\s*["']search["']/i.test(input[0]))
     || inputs.filter((input) => !/\btype\s*=\s*["'](?:date|number|hidden)["']/i.test(input[0])).at(-1);
+  if (!target) return content;
+  const nextInput = replaceAccessibleName(target[0], label);
+  return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
+}
+
+function labelBestBeforeInput(content, label) {
+  const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
+  const target = inputs.find((input) => /\btype\s*=\s*["']date["']/i.test(input[0]))
+    || inputs.find((input) => /\b(?:id|name)\s*=\s*["'][^"']*best.?before/i.test(input[0]));
   if (!target) return content;
   const nextInput = replaceAccessibleName(target[0], label);
   return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
