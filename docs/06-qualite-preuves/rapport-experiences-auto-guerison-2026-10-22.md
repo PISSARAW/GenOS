@@ -69,3 +69,15 @@ Pour éviter que la réponse structurée Ollama refuse certains schémas `allOf/
 ### Portée des résultats
 
 Cette série démontre que le worker D: peut appeler Qwen 32B, recevoir de vrais candidats, exécuter Playwright, transmettre les assertions au retry et préserver les échecs. Elle ne démontre pas T02 réussi: aucune tentative de cette série n’a atteint `test_suite_passed` et aucune n’a franchi la porte de complétion. Le succès de la suite locale du worker valide le contrat de sûreté, pas l’app Pantry. Les expériences T01–T08 et le critère SH-001 restent à qualifier séparément.
+
+## Complément Qwen 14B — tentatives 47–49
+
+Ces essais utilisent également le CLI `identity-real-llm-isolated` sur D: et le même workspace Playwright isolé. Qwen 14B a réduit la latence de génération à quelques secondes par candidat, mais n’a pas encore passé l’oracle.
+
+| Tentative | Résultat Playwright/worker | Qualification |
+| --- | --- | --- |
+| 47 | Trois propositions (`index.html` de 1 935, 2 055 et 4 044 octets), deux retries. Les deux premières échouent au locator exact `getByLabel(/^category$/i)`; la dernière échoue à `getByRole('button', {name:/add item/i})`. Gate `evidence_missing`. | Échec applicatif vérifié, aucun succès de mission. |
+| 48 | Le premier candidat de 1 300 octets atteint Playwright et échoue au locator `Category`. Au retry, le contrat de patch rejette la proposition car le contenu n’a pas le marqueur textuel `id="category"`; le contrôle du navigateur ne tourne pas sur cette proposition. | Échec initial de l’application suivi d’un faux négatif de marqueur; porte de mission bloquée. |
+| 49 | Le premier appel Qwen écrit une proposition de retry après un `npm test` en échec. Le second appel est visible comme lancé, puis la session de CLI se termine sans événement terminal ni diagnostic Playwright exploitable. Ollama est ensuite observé en train de servir une autre mission D: (`autonomy-proof-t02-20261023-direct-d-repair-8`), ce qui rend l’attribution d’un éventuel résultat tardif incertaine. | Non concluant après un échec et un retry commencé; pas de succès revendiqué. |
+
+Le manifeste 49 retire le marqueur textuel `id="category"` et demande au navigateur d’évaluer les noms accessibles, mais l’appel Qwen suivant n’a pas produit de reçu final. La correction du schéma source elle-même reste testée par `node backend/tests/test_local_code_worker.js` (réussi). À ce stade, aucun run Qwen 32B/14B de cette série n’a passé tous les contrôles Pantry, et le rapport conserve les erreurs Oracle/contrat séparément des échecs de l’application.
