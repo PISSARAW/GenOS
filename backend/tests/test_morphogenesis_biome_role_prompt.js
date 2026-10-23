@@ -89,6 +89,8 @@ assert.match(stewardMission, /First check feasibility: total weight=24; aggregat
 assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
 assert.match(stewardMission, /When aggregate capacity is exact, every chosen subset must sum to 8/);
 assert.match(stewardMission, /otherwise do not force bins to be full/);
+assert.match(stewardMission, /Build each bin with a running subtotal/);
+assert.match(stewardMission, /reject that placement immediately if the new subtotal exceeds 8/);
 assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to another subset/);
 assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
