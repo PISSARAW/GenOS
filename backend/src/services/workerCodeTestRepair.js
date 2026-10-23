@@ -39,54 +39,60 @@ function repairPlan(error) {
 
 function applyRepairPlan(text, plan) {
   const plans = (Array.isArray(plan) ? plan : [plan]).filter((item) => item?.label);
-  if (!plans.length) return text;
-  const match = String(text || '').match(/\{[\s\S]*\}/);
-  if (!match) return text;
-  let proposal;
-  try { proposal = JSON.parse(match[0]); } catch (_) { return text; }
+  const parsed = parseProposal(text, plans);
+  if (!parsed) return text;
+  const { match, proposal } = parsed;
   let changed = false;
   for (const patch of proposal.patches || []) {
-    if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') continue;
-    let content = patch.content;
-    for (const item of plans) {
-      if (item.kind === 'ensure_accessible_select_label') {
-        content = labelCategorySelect(content, item.label);
-        content = labelFilterSelect(content, 'Filter category');
-      } else if (item.kind === 'ensure_accessible_button_label') {
-        content = labelIncreaseButton(content, item.label);
-      } else if (item.kind === 'ensure_quantity_action_label') {
-        content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
-        content = content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
-        content = labelIncreaseButton(content, item.label);
-      } else if (item.kind === 'ensure_quantity_field_after_reload') content = require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(content);
-      else if (item.kind === 'ensure_unique_item_name_locator') {
-        content = content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
-      } else if (item.kind === 'ensure_filter_select_label') {
-        content = labelFilterSelect(content, item.label);
-      } else if (item.kind === 'ensure_search_input_label') {
-        content = labelSearchInput(content, item.label);
-      } else if (item.kind === 'ensure_best_before_input_label') {
-        content = labelBestBeforeInput(content, item.label);
-      } else if (item.kind === 'ensure_item_name_input_label') {
-        content = require('./workerCodeItemNameRepair').labelItemNameInput(content, item.label);
-      } else if (item.kind === 'ensure_search_filter_behavior') {
-        content = ensureSearchFilterBehavior(content);
-      } else if (item.kind === 'ensure_local_storage_mutations') {
-        content = ensureLocalStorageMutations(content);
-      } else if (item.kind === 'ensure_json_export') {
-        content = require('./workerCodeExportRepair').ensureJsonExport(content);
-      } else if (item.kind === 'ensure_add_item_behavior') {
-        content = require('./workerCodeAddRepair').ensureAddItemBehavior(content);
-      } else if (item.kind === 'ensure_quantity_increment_behavior') {
-        content = require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(content);
-      }
-    }
-    if (content !== patch.content) {
-      patch.content = content;
-      changed = true;
-    }
+    const content = applyPatchRepairs(patch, plans);
+    if (content !== null && content !== patch.content) { patch.content = content; changed = true; }
   }
   return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
+}
+
+function parseProposal(text, plans) {
+  if (!plans.length) return null;
+  const match = String(text || '').match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return { match, proposal: JSON.parse(match[0]) }; } catch (_) { return null; }
+}
+
+function applyPatchRepairs(patch, plans) {
+  if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') return null;
+  return plans.reduce((content, item) => applyOneRepair(content, item), patch.content);
+}
+
+function applyOneRepair(content, item) {
+  const handlers = {
+    ensure_accessible_select_label: (value) => labelFilterSelect(labelCategorySelect(value, item.label), 'Filter category'),
+    ensure_accessible_button_label: (value) => labelIncreaseButton(value, item.label),
+    ensure_quantity_action_label: (value) => cleanQuantityActions(value, item.label),
+    ensure_quantity_field_after_reload: (value) => require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(value),
+    ensure_unique_item_name_locator: cleanDuplicateItemName,
+    ensure_filter_select_label: (value) => labelFilterSelect(value, item.label),
+    ensure_search_input_label: (value) => labelSearchInput(value, item.label),
+    ensure_best_before_input_label: (value) => labelBestBeforeInput(value, item.label),
+    ensure_item_name_input_label: (value) => require('./workerCodeItemNameRepair').labelItemNameInput(value, item.label),
+    ensure_search_filter_behavior: ensureSearchFilterBehavior,
+    ensure_local_storage_mutations: ensureLocalStorageMutations,
+    ensure_json_export: (value) => require('./workerCodeExportRepair').ensureJsonExport(value),
+    ensure_add_item_behavior: (value) => require('./workerCodeAddRepair').ensureAddItemBehavior(value),
+    ensure_quantity_increment_behavior: (value) => require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)
+  };
+  return handlers[item.kind] ? handlers[item.kind](content) : content;
+}
+
+function cleanQuantityActions(content, label) {
+  const withoutInputs = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening)
+    ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
+  const withoutFixtures = withoutInputs.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi,
+    (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
+  return labelIncreaseButton(withoutFixtures, label);
+}
+
+function cleanDuplicateItemName(content) {
+  return content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
+    ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
 }
 
 function replaceAccessibleName(opening, label) {
@@ -297,35 +303,52 @@ function canRetry(context) {
 }
 
 async function run(context) {
-  const startedAt = Date.now();
-  let mission = context.mission;
-  let remainingTokens = tokenBudget(context.mission);
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await context.runAttempt(mission);
-    } catch (error) {
-      if (!canRetry({ mission: context.mission, error, attempt, startedAt })) throw error;
-      if (remainingTokens > 0) {
-        const consumed = consumedTokens(error);
-        if (consumed === null || consumed >= remainingTokens) throw error;
-        remainingTokens -= consumed;
-      }
-      const remainingMs = latencyBudget(context.mission) - (Date.now() - startedAt);
-      await context.onRetry?.({ failedAttempt: attempt, error, remainingMs });
-      const previousPlans = mission.codeRepairPlans || (mission.codeRepairPlan ? [mission.codeRepairPlan] : []);
-      const nextPlan = repairPlan(error);
-      const codeRepairPlans = nextPlan && !previousPlans.some((item) => item.kind === nextPlan.kind && item.label === nextPlan.label)
-        ? [...previousPlans, nextPlan] : previousPlans;
-      mission = {
-        ...context.mission,
-        prompt: repairPrompt({ mission: context.mission, error, attempt }),
-        ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
-        timeoutMs: remainingMs,
-        executionBudget: { ...context.mission.executionBudget, latencyMs: remainingMs,
-          ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
-      };
-    }
+  const state = { startedAt: Date.now(), mission: context.mission,
+    remainingTokens: tokenBudget(context.mission), attempt: 0 };
+  while (true) {
+    state.attempt += 1;
+    const result = await captureAttempt(context, state.mission);
+    if (Object.hasOwn(result, 'value')) return result.value;
+    await retryAfterFailure({ context, state, error: result.error });
   }
+}
+
+async function captureAttempt(context, mission) {
+  try { return { value: await context.runAttempt(mission) }; }
+  catch (error) { return { error }; }
+}
+
+async function retryAfterFailure(input) {
+  const { context, state, error } = input;
+  if (!canRetry({ mission: context.mission, error, attempt: state.attempt, startedAt: state.startedAt })) throw error;
+  state.remainingTokens = remainingTokensAfter(error, state.remainingTokens);
+  const remainingMs = latencyBudget(context.mission) - (Date.now() - state.startedAt);
+  await context.onRetry?.({ failedAttempt: state.attempt, error, remainingMs });
+  state.mission = nextMission({ base: context.mission, current: state.mission, error,
+    attempt: state.attempt, remainingMs, remainingTokens: state.remainingTokens });
+}
+
+function remainingTokensAfter(error, remainingTokens) {
+  if (remainingTokens <= 0) return remainingTokens;
+  const consumed = consumedTokens(error);
+  if (consumed === null || consumed >= remainingTokens) throw error;
+  return remainingTokens - consumed;
+}
+
+function nextMission(input) {
+  const { base, current, error, attempt, remainingMs, remainingTokens } = input;
+  const previousPlans = current.codeRepairPlans || (current.codeRepairPlan ? [current.codeRepairPlan] : []);
+  const nextPlan = repairPlan(error);
+  const alreadyPlanned = nextPlan && previousPlans.some((item) => item.kind === nextPlan.kind && item.label === nextPlan.label);
+  const codeRepairPlans = nextPlan && !alreadyPlanned ? [...previousPlans, nextPlan] : previousPlans;
+  return {
+    ...base,
+    prompt: repairPrompt({ mission: base, error, attempt }),
+    ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
+    timeoutMs: remainingMs,
+    executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
+      ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
+  };
 }
 
 module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens,
