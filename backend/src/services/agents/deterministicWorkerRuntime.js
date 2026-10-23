@@ -20,6 +20,9 @@ async function publish(db, mission, event) {
     throw failure;
   }
   recordWorkerEvidence(mission, event);
+  if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {
+    await require('../agentRoundService').advanceAutonomousRound(mission, event);
+  }
 }
 
 async function complete(context, executionRun, result) {

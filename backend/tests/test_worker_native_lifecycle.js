@@ -8,6 +8,7 @@ const evidence = require('../src/services/agentEvidenceService');
 const statuses = [];
 const events = [];
 const writes = [];
+const roundEvents = [];
 let haltEvidence = false;
 state.updateAgent = async (_id, status) => { statuses.push(status); return true; };
 state.emit = (...args) => {
@@ -25,6 +26,8 @@ strategy.recordExecutionEvent = async (_db, _agentId, event) => {
 require('../src/services/regulation/regulatorySupervisorService').ensureFunctional = async () => ({ recovered: false });
 // Execution authority is covered by integration tests with sealed SQLite runs.
 require('../src/services/missionEnvelopeAuthority').assertRun = async () => ({ status: 'authorized' });
+const rounds = require('../src/services/agentRoundService');
+rounds.advanceAutonomousRound = async (_mission, event) => { roundEvents.push(event.eventType); };
 const { runDeterministicWorker } = require('../src/services/agents/deterministicWorkerRuntime');
 const legacyDatabase = { get: async () => undefined };
 
@@ -43,6 +46,7 @@ async function main() {
   assert.deepEqual(events.map((item) => item.eventType), ['DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED']);
   assert.equal(events[2].payload.usage.tokens, 0);
   assert.ok(writes.indexOf('database:EVIDENCE_REPORT') < writes.indexOf('database:AGENT_COMPLETED'));
+  assert.deepEqual(roundEvents, ['AGENT_COMPLETED']);
   reset();
   haltEvidence = true;
   const halted = await runDeterministicWorker(legacyDatabase, mission, run);
