@@ -22,6 +22,14 @@ const persistedContract = buildWorkerContract({
   request: { execution_budget: { tokens: 20000 } }
 });
 assert.equal(persistedContract.resources.maxTokens, 20000);
+const coordinatedQuality = buildWorkerContract({
+  workerKinds: require('../src/services/agents/workerKindService'),
+  workerKind: 'bounded_worker',
+  context: { task: 'fix booking validation', orchestratorId: 'root' },
+  request: { communicationRequired: true, execution_budget: { tokens: 40000 } }
+});
+assert.equal(coordinatedQuality.mission.communicationRequired, true);
+assert.equal(coordinatedQuality.resources.maxTokens, 40000);
 const coordinatedForensic = buildWorkerContract({
   workerKinds: require('../src/services/agents/workerKindService'),
   workerKind: 'forensic_worker',
