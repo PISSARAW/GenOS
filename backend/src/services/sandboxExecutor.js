@@ -61,6 +61,7 @@ function commandInvocation(command) {
     const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
     return { program: process.execPath, args: [npmCli, ...commandArgs] };
   }
+  if (commandName === 'node') return { program: process.execPath, args: commandArgs };
   if (commandName === 'cargo') return { program: 'cargo', args: commandArgs };
   if (commandName === 'pytest') return { program: 'pytest', args: commandArgs };
   if (commandName === 'echo') return { program: process.execPath, args: ['-e', 'process.stdout.write(process.argv.slice(1).join(" "))', ...commandArgs] };

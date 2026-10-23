@@ -59,6 +59,23 @@ async function run() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  await test('sandboxExecutor exécute un contrôle Node autorisé', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-node-check-'));
+    fs.mkdirSync(path.join(tmpDir, 'checks'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'checks', 'verify.js'), 'process.stdout.write("verified\\n");\n');
+    try {
+      const result = await runIsolated({ command: 'node checks/verify.js', cwd: tmpDir, timeoutMs: 10000 });
+      assert.strictEqual(result.exitCode, 0, result.stderr);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.stdout, 'verified\n');
+    } finally {
+      const resolved = path.resolve(tmpDir);
+      assert.strictEqual(path.dirname(resolved), path.resolve(os.tmpdir()));
+      assert.ok(path.basename(resolved).startsWith('genos-node-check-'));
+      fs.rmSync(resolved, { recursive: true, force: true });
+    }
+  });
+
   // 2. sandboxExecutor rejette une commande non-whitelisted
   await test('sandboxExecutor rejette rm -rf /', async () => {
     let threw = false;
