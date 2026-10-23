@@ -173,9 +173,17 @@ function decideCapabilityMismatch(report) {
 
 function decideMutatedOutput(report) {
   if (report.category === 'mutated_output') {
+    if (report.attempt === 1) {
+      return { action: 'fork_worker', terminal: false, retry: true, identity: 'new', role: 'independent_reviewer',
+        reason: 'The repaired worker still produced malformed output; fork an independent branch with the validator feedback.' };
+    }
+    if (report.attempt >= 2) {
+      return { action: 'replace_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
+        reason: 'Repeated malformed output exhausted mutation and fork strategies; replace the worker profile for the final bounded attempt.' };
+    }
     return {
-      action: 'mutate_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
-      reason: 'The previous worker output mutated or suffered structural apoptosis; triggering cognitive molting with structural chaperone guidance.'
+      action: 'mutate_worker', terminal: false, retry: true, identity: 'same',
+      reason: 'The previous worker output was malformed; repair it once in the existing identity with structural chaperone guidance.'
     };
   }
   return null;

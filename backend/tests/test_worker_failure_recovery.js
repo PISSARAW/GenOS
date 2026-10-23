@@ -17,6 +17,14 @@ assert.equal(recovery.decideRecovery(report('unresolved_task', 1)).action, 'fork
 assert.equal(recovery.decideRecovery(report('unresolved_task', 2)).action, 'replace_worker');
 assert.equal(recovery.decideRecovery(report('capability_mismatch', 0)).action, 'replace_worker');
 assert.equal(recovery.decideRecovery(report('falsified_hypothesis', 0)).action, 'fork_worker');
+assert.deepEqual(
+  [0, 1, 2].map((attempt) => {
+    const decision = recovery.decideRecovery(report('mutated_output', attempt));
+    return [decision.action, decision.identity];
+  }),
+  [['mutate_worker', 'same'], ['fork_worker', 'new'], ['replace_worker', 'new']],
+  'repeated malformed outputs must evolve through distinct repair, fork, and replacement strategies'
+);
 
 const exhausted = recovery.decideRecovery(report('unresolved_task', 3));
 assert.equal(exhausted.action, 'escalate_unresolved');
