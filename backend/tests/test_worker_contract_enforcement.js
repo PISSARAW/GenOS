@@ -45,6 +45,19 @@ const KIND_CONTENT = {
 
 assert.equal(workerComplianceScenario('red_worker').receipt.testPassed, true);
 assert.equal(workerComplianceScenario('formal_worker').receipt.fixtureOnly, true);
+const redMission = buildWorkerMission({ workerKind: 'red_worker', prompt: 'Review the assigned patch adversarially.' });
+assert.match(redMission.prompt, /Use verdict "reject" only when at least one counterexample was reproduced/);
+assert.match(redMission.prompt, /If no counterexample was reproduced, use verdict "unresolved"/);
+const noFindingReport = { workerId: 'red-no-finding', events: [{ evidenceReport: { outcome: 'success',
+  claims: [{ statement: 'No counterexample reproduced.', evidence: ['review-ref'] }],
+  workerArtifact: { type: 'verification_report', content: { testedClaim: 'Patch has a security defect.',
+    verificationMethod: 'Adversarial checks', verdict: 'unresolved', reproductionSteps: ['Run assigned checks'],
+    evidence: ['review-ref'], counterexamples: [] }, provenance: { sourceRefs: ['review-ref'] } } } }] };
+assert.doesNotThrow(() => validateWorkerDossiers([noFindingReport], [{ agentId: 'red-no-finding', workerContract: redMission.workerContract }]));
+assert.throws(() => validateWorkerDossiers([{ workerId: 'red-false-reject', events: [{ evidenceReport: {
+  ...noFindingReport.events[0].evidenceReport, workerArtifact: { ...noFindingReport.events[0].evidenceReport.workerArtifact,
+    content: { ...noFindingReport.events[0].evidenceReport.workerArtifact.content, verdict: 'reject' } } } }] }],
+[{ agentId: 'red-false-reject', workerContract: redMission.workerContract }]), { code: 'INVALID_WORKER_ARTIFACT' });
 assert.equal(workerComplianceScenario('formal_worker').receipt.result, undefined);
 assert.equal(workerComplianceScenario('forensic_worker').receipt.events[1].ready, false);
 assert.equal(workerComplianceScenario('medical_worker').receipt.realPatient, false);

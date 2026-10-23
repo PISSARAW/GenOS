@@ -43,6 +43,12 @@ function artifactInstruction(contract) {
 }
 
 function customInstruction(kind, contract) {
+  if (kind === 'red_worker') {
+    const report = { ...CONTENT_TEMPLATES.verification_report, verdict: 'unresolved', counterexamples: [] };
+    const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+      workerArtifact: { type: 'verification_report', content: report, provenance: { sourceRefs: ['<source-ref>'] } } };
+    return 'Return one JSON object matching the schema below. Keep the artifact under workerArtifact; its type must be verification_report. Do not put type or content at the root. Perform only evidence-backed adversarial checks. Use verdict "reject" only when at least one counterexample was reproduced and its evidence is included. If no counterexample was reproduced, use verdict "unresolved" and an empty counterexamples array; never invent an attack or result. Schema: ' + JSON.stringify(output);
+  }
   if (kind === 'resident_daemon') return schemaInstruction('Report only observations from the assigned territory, with a timestamp and source references.', { territoryReport: { territoryId: '<assigned-territory>', observedAt: '<ISO-8601>', sourceRefs: ['<source-ref>'] } });
   if (kind === 'bounded_worker') return schemaInstruction('Complete only the assigned scope. Report its scope reference and references to completed outputs.', { scopeCompletion: { scopeRef: '<assigned-scope-ref>', completedRefs: ['<result-ref>'] } });
   if (kind === 'adaptive_worker') return schemaInstruction('Use only strategies declared by the contract and record each strategy decision with its reason and evidence.', { strategyTrace: [{ strategy: '<contract-strategy>', decision: 'retained', reason: '<reason>', evidence: ['<evidence-ref>'] }] });
