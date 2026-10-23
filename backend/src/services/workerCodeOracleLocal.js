@@ -5,9 +5,10 @@ const execution = require('./strategyExecutionService');
 
 async function prepare(input) {
   const { db, mission, executionRun, evidenceReport } = input;
-  if (!mission.workerContract?.mission?.codeVerificationContract) return null;
-  const observation = emit(mission.agentId, 'EVIDENCE_REPORT', 'LOCAL_CODE_PROPOSAL',
-    'Local code proposal and passing tests persisted before independent verification.',
+  const codeProposal = Boolean(mission.workerContract?.mission?.codeVerificationContract);
+  const observation = emit(mission.agentId, 'EVIDENCE_REPORT', codeProposal ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW',
+    codeProposal ? 'Local code proposal and passing tests persisted before independent verification.'
+      : 'Local worker evidence persisted before independent verification.',
     { executionRunId: executionRun.id, evidenceReport }, 'info', 'running');
   const progress = await execution.recordExecutionEvent(db, mission.agentId, observation);
   if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED' });
