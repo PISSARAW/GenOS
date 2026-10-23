@@ -307,6 +307,9 @@ function failureFeedback(error, mission = {}) {
   const patches = error.proposal?.failedPatchContents || [];
   const candidate = patches.map((patch) => `Rolled-back candidate ${patch.path}:\n${patch.content}`)
     .join('\n\n').slice(0, MAX_CANDIDATE_TEXT);
+  const patchDiagnostics = require('./workerCodeTestRepairTelemetry').summarizeFailedPatches(error);
+  const focusedCode = patchDiagnostics.flatMap((patch) => patch.logic || []).join('\n');
+  const codeContext = focusedCode ? `Functions related to the failing assertions:\n${focusedCode}` : '';
   const diagnostics = error.workerArtifactDiagnostics;
   const schemaFeedback = diagnostics ? [
     `Worker output contract rejected (${error.code || 'unknown'}): ${diagnostics.error || error.message}`,
@@ -315,7 +318,7 @@ function failureFeedback(error, mission = {}) {
   ].filter(Boolean).join('\n') : '';
   const schemaHint = require('./workerCodeTestRepairSchemaFeedback').build(error, mission);
   const locatorHint = locatorRepairHint(error);
-  return [locatorHint, schemaHint, schemaFeedback, result, candidate].filter(Boolean)
+  return [locatorHint, schemaHint, schemaFeedback, result, codeContext, candidate].filter(Boolean)
     .join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
