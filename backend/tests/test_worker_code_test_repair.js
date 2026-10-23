@@ -285,6 +285,9 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedIncrement = JSON.parse(applyRepairPlan(incrementCandidate, incrementPlan)).patches[0].content;
   assert.match(repairedIncrement, /genosQuantityIncrementRepair/);
   assert.match(repairedIncrement, /item\.quantity=Number\(item\.quantity\)\+1/);
+  assert.match(repairedIncrement, /if\(!item\)\{item=\{name,itemName:name,category:/);
+  assert.match(repairedIncrement, /items\.push\(item\)/);
+  assert.match(repairedIncrement, /quantityCell\.textContent=String\(item\.quantity\)/);
   const exportFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
     stderr: "page.waitForEvent('download'): Timeout 4000ms exceeded while waiting for event \"download\" at tests/acceptance.cjs:28:44"
   }] } });
