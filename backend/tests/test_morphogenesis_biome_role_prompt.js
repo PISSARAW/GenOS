@@ -36,7 +36,7 @@ assert.match(observer, /item1=1,item2=3,item3=2;groups=3;max=8/);
 const observerMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'environment_mapper' } },
 'Repartis item1=2, item2=3 en 3 groupes, plafond de 8.\nRéponds au schéma de preuve GenOS complet: outcome=success.');
-assert.match(observerMission, /item1=2;groups=3;max=8/);
+assert.match(observerMission, /item1=2,item2=3;groups=3;max=8/);
 assert.match(observerMission, /\"observations\"/);
 assert.doesNotMatch(observerMission, /Phase 1|sans concertation|Contrainte revelee/);
 assert.doesNotMatch(observerMission, /Réponds au schéma de preuve GenOS complet/);
