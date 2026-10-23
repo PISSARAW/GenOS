@@ -140,6 +140,8 @@ function labelCategorySelect(content, label) {
 }
 
 function labelIncreaseButton(content, label) {
+  const dynamicContent = labelDynamicIncreaseButton(content, label);
+  if (dynamicContent !== content) return dynamicContent;
   const buttons = [...content.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi)];
   const dynamic = buttons.find((button) => /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(button[0])
     && /(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])
@@ -172,6 +174,30 @@ function labelIncreaseButton(content, label) {
     ? label.replace(/\bOats\b/g, '${itemName}') : label;
   const nextButton = replaceAccessibleName(opening, dynamicLabel) + target[0].slice(opening.length);
   return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
+}
+
+function labelDynamicIncreaseButton(content, label) {
+  const scripts = [...content.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)];
+  for (const script of scripts) {
+    const code = script[1];
+    const itemVariable = code.match(/\.forEach\s*\(\s*\(?\s*([A-Za-z_$][\w$]*)\s*(?:,|\))/i)?.[1]
+      || code.match(/\.map\s*\(\s*\(?\s*([A-Za-z_$][\w$]*)\s*(?:,|\))/i)?.[1];
+    if (!itemVariable) continue;
+    const buttons = [...code.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*document\.createElement\(\s*(['"])button\2\s*\)\s*;?/gi)];
+    for (const button of buttons) {
+      const variable = button[1];
+      const nearby = code.slice(button.index, button.index + 900);
+      if (!/(?:increase|increment|\+|▲|↑)/i.test(nearby)
+        || new RegExp(`${variable}\\.(?:setAttribute|ariaLabel)[^;]{0,180}Increase quantity`, 'i').test(nearby)) continue;
+      const dynamicLabel = label.replace(/\bOats\b/g, `\${${itemVariable}.name}`);
+      const statement = `\n${variable}.setAttribute('aria-label', \`${dynamicLabel}\`);`;
+      const insertion = button.index + button[0].length;
+      const nextCode = code.slice(0, insertion) + statement + code.slice(insertion);
+      const nextScript = script[0].replace(code, nextCode);
+      return content.slice(0, script.index) + nextScript + content.slice(script.index + script[0].length);
+    }
+  }
+  return content;
 }
 
 function labelFilterSelect(content, label) {

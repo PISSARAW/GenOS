@@ -113,6 +113,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const dynamicButtonContent = JSON.parse(applyRepairPlan(dynamicButtonProposal, buttonPlan)).patches[0].content;
   assert.doesNotMatch(dynamicButtonContent.match(/<button id="oats-increase"[^>]*>/)[0], /quantity/i);
   assert.match(dynamicButtonContent, /<button id="\$\{itemName\}-increase" aria-label="Increase quantity for \$\{itemName\}">/);
+  const generatedActionProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<script>pantryItems.forEach((item, index) => { const increaseBtn = document.createElement(\'button\'); increaseBtn.textContent = \'Increase quantity\'; increaseBtn.onclick = () => increaseQuantity(index); });</script>'
+  }] });
+  const generatedActionContent = JSON.parse(applyRepairPlan(generatedActionProposal, buttonPlan)).patches[0].content;
+  assert.match(generatedActionContent, /increaseBtn\.setAttribute\('aria-label', `Increase quantity for \$\{item\.name\}`\);/);
+  assert.match(generatedActionContent, /increaseBtn\.textContent = 'Increase quantity';/);
   let repairPlanAttempts = 0;
   await run({ mission, runAttempt: async (attemptMission) => {
     repairPlanAttempts += 1;
