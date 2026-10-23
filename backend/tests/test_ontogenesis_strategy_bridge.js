@@ -47,14 +47,16 @@ assert.deepStrictEqual(runtimeContext.requiredPatchMarkers, { 'index.html': ['id
 assert.strictEqual(runtimeContext.unrelated, undefined);
 const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_committee', requiredTools: ['genos_snapshot'] }, {
   topologyContract: { mode: 'a_team', organization: 'specialist_expert_committee', required: ['SIGNALING_BUS'] },
+  requiredTools: ['genos_change_organization'],
   conceptLeaseCandidates: [{ tools: ['genos_worker_publish', 'genos_orchestrate'] }]
 });
 assert.deepStrictEqual(plan.capabilityContract.required, ['SIGNALING_BUS']);
 assert.deepStrictEqual(conceptTools({ conceptLeaseCandidates: [{ tools: ['genos_worker_publish', 'genos_orchestrate'] }] }), ['genos_worker_publish']);
-assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot']);
+assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot', 'genos_change_organization']);
 assert.deepStrictEqual(plan.conceptTools, ['genos_worker_publish']);
 const lease = orchestratorLeaseForPlan(plan);
 assert.ok(lease.includes('genos_worker_publish'));
+assert.ok(lease.includes('genos_change_organization'));
 assert.ok(!lease.includes('genos_orchestrate'));
 const decisionStrategy = strategyForMission('decide');
 assert.strictEqual(decisionStrategy.id, 'pareto_frontier_concept');
