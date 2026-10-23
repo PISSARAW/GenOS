@@ -102,3 +102,10 @@ Le correctif qui répare le nom accessible Item name (`88ff43359`) a été commi
 Retry47 a exécuté vingt contre-tests Qwen7B avec la suite Playwright complète. Les échecs initiaux concernaient Add Item et les contrôles accessibles. Au test terminal, Playwright atteint le formulaire mais `getByLabel(/item name/i)` correspond à deux éléments: le label visible et l’input, tous deux portant `aria-label="Item name"` (`acceptance.cjs:15:14`). La mission termine `failed` et `MISSION_COMPLETION_BLOCKED` avec homeostasis `unstable`; aucun oracle complet vert. Reçu: `genos-direct-d-20261023-retry47.db`, `AGENT_FAILED`, `npm test` exit 1.
 
 `d1ba69982` ajoutait la sélection du bouton `#add-item`/texte `Add Item`, mais était postérieur au démarrage de retry47. Le dernier correctif `0c413029b`, également postérieur, enlève le nom accessible redondant du label tout en le gardant sur l’input; il passe le test ciblé et le gate qualité. Les deux correctifs attendent un nouveau run Qwen complet.
+
+
+## Retry48 — progrès jusqu’à la persistance et l’export, puis régression Add Item
+
+Retry48 a réellement lancé Qwen7B et vingt réparations contre la suite Playwright T02. Les tentatives 3–4 ont atteint le contrôle de persistance après reload; d’autres ont atteint le téléchargement et le locator Quantity après rechargement. Les candidats ont ensuite régressé vers Add Item. Au candidat terminal, la ligne Oats reste absente après soumission (`acceptance.cjs:19:10`, `0 !== 1`); `npm test` sort 1, mission `failed`, gate `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`). Pas de succès complet. Reçu: `genos-direct-d-20261023-retry48.db`, `AGENT_FAILED`, final candidat de 7748 octets.
+
+Retry48 a chargé `d1ba69982` mais a commencé avant les correctifs `9c7368c93` (routage de persistance vers Increase) et `6254d43c6` (état local imbriqué et rendu paramétré). Les diagnostics montrent un état `state` créé dans un gestionnaire submit imbriqué, que la détection top-level ne trouvait pas. Ces derniers correctifs sont ciblés sur les causes constatées et doivent être retestés par retry49.
