@@ -21,6 +21,9 @@ assert.match(unsafeProposalError.workerArtifactDiagnostics.outputExcerpt, /tests
 assert.equal(unsafeProposalError.usage.tokens, 100);
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
+const editProposal = parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"before","replace":"after"}]}],"tests":["pytest"],"evidence":"minimal exact edit"}');
+assert.equal(editProposal.patches[0].edits[0].find, 'before');
+assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"","replace":"after"}]}],"tests":["pytest"],"evidence":"empty anchor"}'), /Unsafe patch proposal/);
 const responseFormat = proposalResponseFormat();
 assert.equal(responseFormat.schema.additionalProperties, false);
 assert.deepEqual(responseFormat.schema.required, ['format', 'patches', 'tests', 'evidence']);
@@ -105,6 +108,19 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			/symlink/
 		);
 		await fs.mkdir(path.join(root, 'src'), { recursive: true });
+		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');
+		const editFailure = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
+			text: JSON.stringify({ ...editProposal, patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }] }) });
+		assert.equal(editFailure.rolledBack, true);
+		assert.deepEqual(editFailure.failedPatchContents, [{ path: 'src/lib.rs', content: 'after' }]);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before',
+			'exact edit is rolled back after its test fails');
+		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before before');
+		await assert.rejects(executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
+			text: JSON.stringify({ ...editProposal, patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }] }) }),
+		/anchor must occur once/);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before before',
+			'ambiguous exact edit does not modify the file');
 		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');
 		const failed = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
 			text: JSON.stringify({ ...proposal, patches: [{ path: 'src/lib.rs', content: 'after' }], tests: ['pytest'] }) });

@@ -12,10 +12,12 @@ const FORBIDDEN_NAMES = /(^|\/)(Cargo\.toml|Cargo\.lock|package\.json|package-lo
 const PROPOSAL_RESPONSE_FORMAT = Object.freeze({ name: 'genos_file_replacement_v1', schema: Object.freeze({
   type: 'object', additionalProperties: false,
   properties: {
-    format: { type: 'string', enum: ['genos.file-replacement/v1'] },
+    format: { type: 'string', enum: ['genos.file-replacement/v1', 'genos.file-edits/v1'] },
     patches: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object',
-      additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' } },
-      required: ['path', 'content'] } },
+      additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' },
+        edits: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'object', additionalProperties: false,
+          properties: { find: { type: 'string' }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
+      anyOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
     tests: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } },
     evidence: { type: 'string' }
   }, required: ['format', 'patches', 'tests', 'evidence']
@@ -130,6 +132,7 @@ async function runTest(command, root) {
 async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
   const proposal = parseProposal(text, usage);
+  await materializePatchEdits(workspaceRoot, proposal);
   assertRequiredPatchContract(proposal, requiredPatchPaths, {
     markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
   for (const command of proposal.tests) {
@@ -195,7 +198,7 @@ function proposalResponseFormat(options = {}) {
       const markers = markerPatterns(resolved.requiredPatchMarkers[requiredPath]);
       if (markers.length) content.allOf = markers;
       return { contains: { type: 'object', properties: { path: { const: requiredPath }, content },
-        required: ['path', 'content'] } };
+        required: ['path'] } };
     });
   }
   return format;
@@ -211,12 +214,40 @@ module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath
   restorePatchState, proposalResponseFormat, assertRequiredPatchContract };
 
 function assertProposalSchema(proposal) {
-  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !['genos.file-replacement/v1', 'genos.file-edits/v1'].includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
 }
 
 function assertProposalPatches(proposal) {
   for (const patch of proposal.patches) {
-    if (!patch || Object.keys(patch).some((key) => !['path', 'content'].includes(key)) || !safePath(patch.path) || typeof patch.content !== 'string' || Buffer.byteLength(patch.content) > 200000) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+    if (!patch || Object.keys(patch).some((key) => !['path', 'content', 'edits'].includes(key)) || !safePath(patch.path)) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+    const hasContent = typeof patch.content === 'string' && !Object.hasOwn(patch, 'edits');
+    const hasEdits = Array.isArray(patch.edits) && !Object.hasOwn(patch, 'content')
+      && patch.edits.length > 0 && patch.edits.length <= 8
+      && patch.edits.every((edit) => edit && Object.keys(edit).every((key) => ['find', 'replace'].includes(key))
+        && typeof edit.find === 'string' && edit.find.length > 0 && Buffer.byteLength(edit.find) <= 10000
+        && typeof edit.replace === 'string' && Buffer.byteLength(edit.replace) <= 10000);
+    if ((!hasContent && !hasEdits) || (hasContent && Buffer.byteLength(patch.content) > 200000)) {
+      throw new Error(`Unsafe patch proposal for '${patch.path}'. Provide either full content or bounded exact edits.`);
+    }
+  }
+}
+
+async function materializePatchEdits(workspaceRoot, proposal) {
+  for (const patch of proposal.patches) {
+    if (!Array.isArray(patch.edits)) continue;
+    const target = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
+    if (!target.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
+    await assertNoSymlinkPath(workspaceRoot, target);
+    let content = await fs.readFile(target, 'utf8');
+    for (const edit of patch.edits) {
+      const first = content.indexOf(edit.find);
+      if (first < 0 || content.indexOf(edit.find, first + edit.find.length) >= 0) {
+        throw new Error(`Exact edit anchor must occur once in '${patch.path}'.`);
+      }
+      content = content.slice(0, first) + edit.replace + content.slice(first + edit.find.length);
+    }
+    patch.content = content;
+    delete patch.edits;
   }
 }
 
