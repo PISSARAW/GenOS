@@ -51,11 +51,12 @@ const clean = [
     { agentId: 'security-worker', memberId: 'member-security', label: 'security', role: 'security_reviewer', dependsOn: ['quality'] }
   ];
   const handoffWorkers = handoffMembers.map((member) => ({ agentId: member.agentId, role: member.role }));
-  const handoffReport = { outcome: 'success', artifacts: [upstreamCommit], claims: [{ statement: 'Reviewed the received commit.', evidence: ['review-proof'] }],
+  const upstreamArtifacts = [upstreamCommit, 'src/site.js', 'test/public-contract.cjs'];
+  const handoffReport = { outcome: 'success', artifacts: upstreamArtifacts, claims: [{ statement: 'Reviewed the received commit.', evidence: ['review-proof'] }],
     integrationConstraints: ['Preserve the upstream interface.'], tests: [{ passed: true, evidenceRefs: ['review-proof'] }],
     handoffEvaluations: [{ handoffId: 'work:member-quality:0->work:member-security:0:1', digest: 'b'.repeat(64), version: 1, passed: true, evidenceRefs: ['review-proof'] }] };
   const handoffDossiers = [
-    { workerId: 'quality-worker', events: [report('Implemented the required patch.', { artifacts: [upstreamCommit] })] },
+    { workerId: 'quality-worker', events: [report('Implemented the required patch.', { artifacts: upstreamArtifacts })] },
     { workerId: 'security-worker', events: [report('Reviewed the security boundary.', handoffReport)] }
   ];
   const inherited = observeAteamIntegration({ members: handoffMembers, workers: handoffWorkers, dossiers: handoffDossiers });

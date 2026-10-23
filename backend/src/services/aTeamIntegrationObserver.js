@@ -100,12 +100,13 @@ function addArtifacts(artifactOwners, artifacts, ownerId) {
 function ownershipFailures({ workers, byWorker, members }) {
   const artifactOwners = collectArtifactOwners(workers, byWorker);
   const membersByWorker = new Map((members || []).map((member) => [member.agentId || member.workerId, member]));
+  const membersById = new Map((members || []).map((member) => [member.memberId, member]));
   const failures = [];
   for (const [artifact, owners] of artifactOwners.entries()) {
     const producers = owners.filter((workerId) => {
       const report = latestReport(byWorker.get(workerId));
       const member = membersByWorker.get(workerId) || {};
-      return !isAcceptedHandoffInput(report, member, artifact);
+      return !isAcceptedHandoffInput({ report, member, artifact, membersById, byWorker, ownerIds: owners });
     });
     if (producers.length <= 1) continue;
     failures.push({
@@ -120,17 +121,28 @@ function ownershipFailures({ workers, byWorker, members }) {
   return failures;
 }
 
-function isAcceptedHandoffInput(report, member, artifact) {
-  if (!/^(?:git|commit):[a-f0-9]{40}$/i.test(String(artifact))) return false;
-  const memberId = member.memberId;
-  if (!memberId) return false;
+function artifactKey(item) {
+  return String(typeof item === 'string' ? item : item?.uri || item?.ref || item?.artifactId || item?.id || '').trim();
+}
+
+function isAcceptedHandoffInput(input) {
+  const { report, member, artifact, membersById, byWorker, ownerIds } = input;
+  const targetId = member.memberId;
+  if (!targetId) return false;
   const evaluations = Array.isArray(report?.handoffEvaluations) ? report.handoffEvaluations : [];
-  return evaluations.some((evaluation) => evaluation.passed === true
-    && typeof evaluation.handoffId === 'string'
-    && evaluation.handoffId.includes(`->work:${memberId}:`)
-    && /^[a-f0-9]{64}$/i.test(String(evaluation.digest || ''))
-    && Number.isSafeInteger(evaluation.version) && evaluation.version > 0
-    && Array.isArray(evaluation.evidenceRefs) && evaluation.evidenceRefs.length > 0);
+  return evaluations.some((evaluation) => {
+    if (evaluation.passed !== true || !/^[a-f0-9]{64}$/i.test(String(evaluation.digest || ''))
+      || !Number.isSafeInteger(evaluation.version) || evaluation.version < 1
+      || !Array.isArray(evaluation.evidenceRefs) || evaluation.evidenceRefs.length === 0) return false;
+    const identity = /^work:([^:]+):\d+->work:([^:]+):\d+:\d+$/.exec(evaluation.handoffId || '');
+    if (!identity || identity[2] !== targetId) return false;
+    const producer = membersById.get(identity[1]);
+    const producerId = producer?.agentId || producer?.workerId;
+    if (!producerId || !ownerIds.includes(producerId)) return false;
+    const producerReport = latestReport(byWorker.get(producerId));
+    return (Array.isArray(producerReport?.artifacts) ? producerReport.artifacts : [])
+      .some((item) => artifactKey(item) === artifact);
+  });
 }
 
 function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {
