@@ -1,0 +1,39 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S28",
+  "seed": 4,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "a1f8a528fa0227fdd3dc2c752d73669db93eba70",
+  "expected": {
+    "cycles": 1000,
+    "agents": 24,
+    "topologySteps": 4000,
+    "shocksRecovered": 9,
+    "finiteState": true
+  },
+  "observed": {
+    "cycles": 1000,
+    "agents": 24,
+    "topologySteps": 4000,
+    "shocksInjected": 9,
+    "shocksRecovered": 9,
+    "finiteState": true,
+    "relationshipEdges": 48,
+    "maximumRadius": 5.9162,
+    "finalMeanFitness": 3.1906
+  },
+  "qwenResponse": "{\n  \"cycles\": 1000,\n  \"agents\": 24,\n  \"topologySteps\": 4000,\n  \"shocksRecovered\": 9,\n  \"finiteState\": true\n}",
+  "answer": {
+    "cycles": 1000,
+    "agents": 24,
+    "topologySteps": 4000,
+    "shocksRecovered": 9,
+    "finiteState": true
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "24 agents execute four GenOS topology algorithms for 1,000 bounded cycles; all nine injected shocks recover with finite state and stable population/relations",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 2224
+}

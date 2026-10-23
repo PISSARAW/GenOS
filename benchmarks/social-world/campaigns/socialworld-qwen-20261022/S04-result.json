@@ -1,0 +1,89 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S04",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "e58e177e05be096c0bc8dd89b6d79f2cb6b858b7",
+  "expected": {
+    "agentId": "agent-a",
+    "parents": [
+      "agent-p"
+    ],
+    "ancestors": [
+      {
+        "agentId": "agent-p",
+        "generations": 1
+      },
+      {
+        "agentId": "agent-g",
+        "generations": 2
+      }
+    ],
+    "siblings": [
+      "agent-s"
+    ],
+    "twins": [
+      "agent-t"
+    ],
+    "children": [
+      "agent-c"
+    ]
+  },
+  "observed": {
+    "agentId": "agent-a",
+    "parents": [
+      "agent-p"
+    ],
+    "ancestors": [
+      {
+        "agentId": "agent-p",
+        "generations": 1
+      },
+      {
+        "agentId": "agent-g",
+        "generations": 2
+      }
+    ],
+    "siblings": [
+      "agent-s"
+    ],
+    "twins": [
+      "agent-t"
+    ],
+    "children": [
+      "agent-c"
+    ]
+  },
+  "answer": {
+    "agentId": "agent-a",
+    "parents": [
+      "agent-p"
+    ],
+    "ancestors": [
+      {
+        "agentId": "agent-p",
+        "generations": 1
+      },
+      {
+        "agentId": "agent-g",
+        "generations": 2
+      }
+    ],
+    "siblings": [
+      "agent-s"
+    ],
+    "twins": [
+      "agent-t"
+    ],
+    "children": [
+      "agent-c"
+    ]
+  },
+  "qwenResponse": "{\n  \"agentId\": \"agent-a\",\n  \"parents\": [\"agent-p\"],\n  \"ancestors\": [\n    {\"agentId\": \"agent-p\", \"generations\": 1},\n    {\"agentId\": \"agent-g\", \"generations\": 2}\n  ],\n  \"siblings\": [\"agent-s\"],\n  \"twins\": [\"agent-t\"],\n  \"children\": [\"agent-c\"]\n}",
+  "enginePass": true,
+  "verified": true,
+  "oracle": "directed lineage yields correct parent/child/sibling/twin identities and a two-generation ancestor without cross-scope edges",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 51821
+}

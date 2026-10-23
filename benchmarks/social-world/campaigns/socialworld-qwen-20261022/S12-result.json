@@ -1,0 +1,43 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S12",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "6d691034ad451916f5a04ffb783ccc65eba233b8",
+  "expected": {
+    "action": "SILENCE",
+    "reasonCodes": [
+      "TOKEN_SAVINGS"
+    ]
+  },
+  "decision": {
+    "action": "SILENCE",
+    "scope": "SELF",
+    "recipients": [],
+    "encoding": "semantic-fingerprint",
+    "grounding": "none",
+    "ttlMs": 0,
+    "reasonCodes": [
+      "TOKEN_SAVINGS"
+    ],
+    "meta": {
+      "stage": "utility",
+      "utility": -0.0006,
+      "gain": 0,
+      "cost": 0.0006
+    }
+  },
+  "qwenResponse": "{\n  \"action\": \"SILENCE\",\n  \"reasonCodes\": [\"TOKEN_SAVINGS\"]\n}",
+  "answer": {
+    "action": "SILENCE",
+    "reasonCodes": [
+      "TOKEN_SAVINGS"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "empty social evidence produces silence and no recipients",
+  "durationMs": 3413
+}

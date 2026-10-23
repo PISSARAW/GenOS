@@ -1,0 +1,32 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S21",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "315bb1fde039210bba81cd29b924d15b65e9d305",
+  "expected": {
+    "symbol": "BRIDGE_CLOSED",
+    "canonicalMeaning": "bridge is closed; route via east",
+    "fallbackRequired": true
+  },
+  "observed": {
+    "symbol": "BRIDGE_CLOSED",
+    "canonicalMeaning": "bridge is closed; route via east",
+    "fallbackRequired": true,
+    "dialectId": "dialect-agent-a-agent-b-safety",
+    "version": 2,
+    "semanticFingerprint": "sha256:6f6fd0487748514d64a3076e198a9d093b40b27386b5773a8aa767af0344a48a"
+  },
+  "qwenResponse": "Here is the requested information in a JSON object format:\n\n```json\n{\n  \"symbol\": \"BRIDGE_CLOSED\",\n  \"canonicalMeaning\": \"bridge is closed; route via east\",\n  \"fallbackRequired\": true\n}\n```",
+  "answer": {
+    "symbol": "BRIDGE_CLOSED",
+    "canonicalMeaning": "bridge is closed; route via east",
+    "fallbackRequired": true
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a pair shares a versioned symbolic dialect with canonical fallback for unknown terms",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 4941
+}

@@ -1,0 +1,96 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S10",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "346cc396bfbf32d1416a31e9d8d0d1e2d4b43df8",
+  "expected": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "blocker:missing-map"
+    ]
+  },
+  "observed": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "blocker:missing-map"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "scope": "UNICAST",
+    "encoding": "semantic-fingerprint",
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "execution": {
+    "channel": "SIGNAL",
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s10-event",
+    "signalId": "sig_cdbb5eab-717f-43cf-aabc-2efee6cf687a",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "9735d51a8663467116f2f758d3a536dcca90244f85de3b09f256d06bb39b8272",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
+  },
+  "signalCount": 0,
+  "qwenResponse": "{\n  \"action\": \"SIGNAL\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"blocker:missing-map\"]\n}",
+  "answer": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "blocker:missing-map"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "BLOCKER_DETECTED sends an authorized, relevant help request to the expert colleague with its exact blocker reference",
+  "durationMs": 3477
+}

@@ -1,0 +1,59 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S06",
+  "seed": 7,
+  "status": "fail",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "ccbf9bf78164c75dd2902138d6e65394876a6fc9",
+  "error": "Error: Model timeout after 180000ms.\n    at generateDirect (D:\\GenOS\\socialworld-qwen-campaign\\backend\\src\\services\\modelProvider.js:282:44)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "profile": {
+    "relationId": "s06-colleague",
+    "relationType": "manager",
+    "relationClass": "organizational",
+    "properties": {
+      "familiarity": 0.5,
+      "interactionCount": 5,
+      "sharedHistory": 0.4,
+      "authority": 0.4,
+      "trustForDomain": 0.6,
+      "commonGroundEstimate": 0.5,
+      "epistemicIndependence": 1,
+      "errorCorrelation": 0,
+      "disclosureLevel": 0.5,
+      "preferredDialect": null,
+      "lastInteraction": null
+    },
+    "direction": "forward",
+    "relationTypes": [
+      "manager"
+    ],
+    "relations": [
+      {
+        "relationId": "s06-colleague",
+        "relationType": "manager",
+        "relationClass": "organizational",
+        "properties": {
+          "familiarity": 0.5,
+          "interactionCount": 5,
+          "sharedHistory": 0.4,
+          "authority": 0.4,
+          "trustForDomain": 0.6,
+          "commonGroundEstimate": 0.5,
+          "epistemicIndependence": 1,
+          "errorCorrelation": 0,
+          "disclosureLevel": 0.5,
+          "preferredDialect": null,
+          "lastInteraction": null
+        },
+        "direction": "forward"
+      }
+    ]
+  },
+  "controlError": {
+    "code": "AGENT_CONTROL_FORBIDDEN",
+    "message": "Only the target or its orchestrator may control this agent."
+  },
+  "qwenResponse": null,
+  "verified": false,
+  "durationMs": 183861
+}

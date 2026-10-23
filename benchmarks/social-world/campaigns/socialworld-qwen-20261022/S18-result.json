@@ -1,0 +1,41 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S18",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "aa7ac62670ec3cecdc619fc83200ad41fd6e0ba8",
+  "expected": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "observed": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "intensity": 0.95,
+    "isRepellent": true,
+    "localOnly": false
+  },
+  "qwenResponse": "Here is the requested information in a JSON object format:\n\n```json\n{\n  \"type\": \"epistemic_high_risk\",\n  \"locus\": \"bridge-east\",\n  \"senderAgentId\": \"agent-a\",\n  \"semanticRefs\": [\"hazard:bridge-closed\"]\n}\n```",
+  "answer": {
+    "type": "epistemic_high_risk",
+    "locus": "bridge-east",
+    "senderAgentId": "agent-a",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ]
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a persisted environmental pheromone can be read by locus with authenticated provenance and its exact semantics",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 6222
+}

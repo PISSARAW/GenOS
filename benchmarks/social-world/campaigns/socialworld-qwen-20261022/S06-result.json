@@ -1,0 +1,40 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S06",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "ce6e9222798055e6b211144cd68c9884ff583153",
+  "expected": {
+    "relationType": "manager",
+    "direction": "forward",
+    "relationGrantsControl": false,
+    "actualControlAllowed": false
+  },
+  "observed": {
+    "relationType": "manager",
+    "direction": "forward",
+    "relationGrantsControl": false,
+    "actualControlAllowed": false
+  },
+  "controlError": {
+    "code": "AGENT_CONTROL_FORBIDDEN",
+    "message": "Only the target or its orchestrator may control this agent."
+  },
+  "bridgeTest": {
+    "exitCode": 0,
+    "output": "Relation authority bridge tests passed."
+  },
+  "qwenResponse": "{\n  \"relationType\": \"manager\",\n  \"direction\": \"forward\",\n  \"relationGrantsControl\": false,\n  \"actualControlAllowed\": false\n}",
+  "answer": {
+    "relationType": "manager",
+    "direction": "forward",
+    "relationGrantsControl": false,
+    "actualControlAllowed": false
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "hierarchical relationship is recognized but only explicit runtime delegation grants actual control",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 29148
+}

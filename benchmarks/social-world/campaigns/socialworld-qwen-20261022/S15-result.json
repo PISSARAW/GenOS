@@ -1,0 +1,153 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S15",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "56a8a50957758297f544c2b72cf170b3e99bafaa",
+  "expected": {
+    "recipients": [
+      "agent-b"
+    ],
+    "excluded": [
+      "agent-c"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
+  "observed": {
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "scope": "UNICAST",
+    "recipients": [
+      "agent-b"
+    ],
+    "encoding": "semantic-fingerprint",
+    "ttlMs": 60000,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ],
+    "meta": {
+      "utility": 0.5625000000000001,
+      "gain": 0.5775000000000001,
+      "cost": 0.015,
+      "breakdown": {
+        "tokens": 0,
+        "cognitiveWake": 0,
+        "fanout": 0,
+        "grounding": 0.015,
+        "contamination": 0,
+        "disclosure": 0
+      },
+      "novelty": 1,
+      "groups": [
+        {
+          "profile": "worker|1",
+          "role": "worker",
+          "members": [
+            "agent-b"
+          ],
+          "unknownRefs": [
+            "route-plan:17"
+          ]
+        }
+      ],
+      "escalation": null,
+      "firewall": null,
+      "relationshipRouting": [
+        {
+          "agentId": "agent-b",
+          "relationType": "friend",
+          "relationTypes": [
+            "friend"
+          ],
+          "relations": [
+            {
+              "relationType": "friend",
+              "relationClass": "social",
+              "direction": "forward"
+            }
+          ],
+          "preferredEncoding": "canonical",
+          "grounding": "semantic_ack",
+          "epistemicIndependence": 1,
+          "disclosureLevel": 0.4
+        }
+      ]
+    }
+  },
+  "outcome": {
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s15-unicast",
+    "signalId": "sig_095ba233-756e-4ed3-9129-a233931556db",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "beae667305e928db1c4eccb1fc679428f6538b702c9ecacf5758405f5934345a",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ],
+    "learnResult": null,
+    "decisionAction": "SIGNAL",
+    "recipientCount": 1,
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "warmup": {
+    "response": "Here is the requested JSON object:\n\n{\"ready\":true}"
+  },
+  "qwenResponse": "Here is the JSON object with the recipients and semanticRefs as requested:\n\n{\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"route-plan:17\"]\n}",
+  "answer": {
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "route-plan:17"
+    ]
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "A live unicast reaches B with the exact reference and does not inform C",
+  "durationMs": 13265
+}

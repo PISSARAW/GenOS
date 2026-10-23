@@ -88,7 +88,8 @@ function buildIntent(ctx) {
     senderAgentId: ctx.agentId,
     purpose: PURPOSE_MAP[ctx.checkpoint] || 'inform',
     risk: RISK_MAP[ctx.checkpoint] || 'low',
-    urgency: URGENCY_MAP[ctx.checkpoint] || 0.5,
+    urgency: Number.isFinite(evidence.urgency) && evidence.urgency >= 0 && evidence.urgency <= 1
+      ? evidence.urgency : URGENCY_MAP[ctx.checkpoint] || 0.5,
     domain: evidence.domain || 'general',
     requiresAction: ACTION_MAP[ctx.checkpoint] || false,
     semanticRefs: evidence.semanticRefs || [],
@@ -100,6 +101,8 @@ function buildPolicyInput(ctx, intent, manifest) {
   return {
     db: ctx.db,
     intent,
+    organizationId: ctx.scope?.organizationId,
+    projectId: ctx.scope?.projectId,
     trigger: ctx.checkpoint,
     receptorTopic: receptorTopicFor(intent, manifest),
     allowGlobal: ctx.checkpoint === 'BLOCKER_DETECTED',
@@ -137,6 +140,7 @@ function buildReceipt(ctx, decision) {
     timestamp: new Date().toISOString(),
     decision: {
       action: decision.action,
+      recipients: decision.recipients || [],
       scope: decision.scope,
       encoding: decision.encoding,
       reasonCodes: decision.reasonCodes || []
@@ -206,17 +210,15 @@ function scopeOf(scope) {
 function buildSignalData(ctx, decision) {
   const artifactId = ctx.evidence ? ctx.evidence.artifactId : null;
   const utility = decision.meta ? decision.meta.utility : undefined;
-  return {
-    semanticType: ctx.checkpoint,
-    concentration: 0.8,
-    artifactRef: artifactId,
-    content: {
-      checkpoint: ctx.checkpoint,
-      decision: decision.action,
-      reasonCodes: decision.reasonCodes,
-      utility
-    }
+  const content = {
+    checkpoint: ctx.checkpoint, decision: decision.action,
+    reasonCodes: decision.reasonCodes, utility
   };
+  if (typeof ctx.evidence?.publicSummary === 'string' && ctx.evidence.publicSummary.trim()) {
+    content.publicSummary = ctx.evidence.publicSummary.trim();
+  }
+  return { semanticType: ctx.checkpoint, concentration: 0.8,
+    artifactRef: artifactId, content };
 }
 
 async function executeCheckpointSignal(decision, ctx) {

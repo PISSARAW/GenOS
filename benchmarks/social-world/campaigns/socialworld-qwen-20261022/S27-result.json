@@ -1,0 +1,336 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S27",
+  "seed": 8,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "03757e4dd76a39ee34ad9c5b5d3b6fe2c74d1e57",
+  "expected": {
+    "algorithmCount": 19,
+    "uniqueTopologies": 19,
+    "distinctBehaviors": 18,
+    "quorumReached": true
+  },
+  "observed": {
+    "algorithmCount": 19,
+    "uniqueTopologies": 19,
+    "distinctBehaviors": 18,
+    "quorumReached": true
+  },
+  "algorithms": [
+    {
+      "organization": "specialist_expert_committee",
+      "result": {
+        "organization": "specialist_expert_committee",
+        "hub": "socialworld",
+        "spokes": [
+          "a",
+          "b",
+          "c"
+        ]
+      }
+    },
+    {
+      "organization": "blind_adversarial_review",
+      "result": {
+        "organization": "blind_adversarial_review",
+        "pairs": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            "c"
+          ]
+        ],
+        "anonymous": true
+      }
+    },
+    {
+      "organization": "red_blue_coevolution",
+      "result": {
+        "organization": "red_blue_coevolution",
+        "red": [
+          "a"
+        ],
+        "blue": [
+          "b"
+        ]
+      }
+    },
+    {
+      "organization": "brier_weighted_consensus",
+      "result": {
+        "organization": "brier_weighted_consensus",
+        "weightedSupport": 0,
+        "meanBrier": null,
+        "participantCount": 0,
+        "resolvedCount": 0
+      }
+    },
+    {
+      "organization": "quorum_with_abstention",
+      "result": {
+        "organization": "quorum_with_abstention",
+        "reached": true,
+        "support": 1,
+        "abstentions": 1
+      }
+    },
+    {
+      "organization": "stigmergy",
+      "result": {
+        "organization": "stigmergy",
+        "dominant": null
+      }
+    },
+    {
+      "organization": "energy_huddle",
+      "result": {
+        "organization": "energy_huddle",
+        "allocations": [
+          {
+            "id": "p1",
+            "budget": 75
+          },
+          {
+            "id": "p2",
+            "budget": 25
+          }
+        ]
+      }
+    },
+    {
+      "organization": "flocking_boids",
+      "result": {
+        "organization": "flocking_boids",
+        "agents": [
+          {
+            "id": "a",
+            "heading": 0.05,
+            "vector": {
+              "x": 0.1,
+              "y": 0.03333333333333333
+            }
+          },
+          {
+            "id": "b",
+            "heading": 0.05,
+            "vector": {
+              "x": 0,
+              "y": -0.06666666666666668
+            }
+          },
+          {
+            "id": "c",
+            "heading": 0.9,
+            "vector": {
+              "x": -0.1,
+              "y": 0.03333333333333333
+            }
+          }
+        ]
+      }
+    },
+    {
+      "organization": "fish_school_search",
+      "result": {
+        "organization": "fish_school_search",
+        "barycenter": {
+          "x": 1.1666666666666667,
+          "y": 0.5
+        },
+        "individuals": [
+          {
+            "id": "a",
+            "volitive": {
+              "x": 0.5833333333333334,
+              "y": 0.25
+            }
+          },
+          {
+            "id": "b",
+            "volitive": {
+              "x": 0.08333333333333337,
+              "y": -0.25
+            }
+          },
+          {
+            "id": "c",
+            "volitive": {
+              "x": -0.41666666666666663,
+              "y": 0.25
+            }
+          }
+        ]
+      }
+    },
+    {
+      "organization": "slime_mould_network",
+      "result": {
+        "organization": "slime_mould_network",
+        "edges": [
+          {
+            "id": "e1",
+            "conductivity": 0.55
+          },
+          {
+            "id": "e2",
+            "conductivity": 0.27
+          }
+        ]
+      }
+    },
+    {
+      "organization": "grey_wolf_optimizer",
+      "result": {
+        "organization": "grey_wolf_optimizer",
+        "pack": [
+          {
+            "id": "b",
+            "role": "alpha",
+            "position": {
+              "x": 1,
+              "y": 1
+            }
+          },
+          {
+            "id": "c",
+            "role": "beta",
+            "position": {
+              "x": 2,
+              "y": 0
+            }
+          },
+          {
+            "id": "a",
+            "role": "delta",
+            "position": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "organization": "network_silence",
+      "result": {
+        "organization": "network_silence",
+        "silent": true,
+        "buffered": 3
+      }
+    },
+    {
+      "organization": "strategy_arena",
+      "result": {
+        "organization": "strategy_arena",
+        "competitors": [
+          "a",
+          "b",
+          "c"
+        ],
+        "mode": "isolated_tournament",
+        "selectionRule": "pareto_then_promotion",
+        "evidenceGate": true
+      }
+    },
+    {
+      "organization": "competitive_arena",
+      "result": {
+        "organization": "competitive_arena",
+        "competitors": [
+          "b",
+          "c",
+          "a"
+        ],
+        "mode": "isolated_comparison",
+        "selectionRule": "evidence_weighted_ranking",
+        "evidenceGate": true
+      }
+    },
+    {
+      "organization": "hierarchical_merge",
+      "result": {
+        "organization": "hierarchical_merge",
+        "root": "a",
+        "children": [
+          "b",
+          "c"
+        ]
+      }
+    },
+    {
+      "organization": "isolated_recovery",
+      "result": {
+        "organization": "isolated_recovery",
+        "isolated": [
+          "a",
+          "b",
+          "c"
+        ],
+        "plan": [
+          "observer"
+        ]
+      }
+    },
+    {
+      "organization": "memory_compilation",
+      "result": {
+        "organization": "memory_compilation",
+        "facts": [
+          "f1"
+        ]
+      }
+    },
+    {
+      "organization": "dynamic_polyethism",
+      "result": {
+        "organization": "dynamic_polyethism",
+        "roleGradient": [
+          {
+            "id": "b",
+            "rank": 1
+          },
+          {
+            "id": "c",
+            "rank": 2
+          },
+          {
+            "id": "a",
+            "rank": 3
+          }
+        ]
+      }
+    },
+    {
+      "organization": "mycelial_routing",
+      "result": {
+        "organization": "mycelial_routing",
+        "need": "web",
+        "route": "a"
+      }
+    }
+  ],
+  "outputShapes": {
+    "flocking": true,
+    "fish": true,
+    "slime": true,
+    "wolves": true,
+    "quorum": true,
+    "independentCritics": true,
+    "route": true
+  },
+  "qwenResponse": "{\n  \"algorithmCount\": 19,\n  \"uniqueTopologies\": 19,\n  \"distinctBehaviors\": 18,\n  \"quorumReached\": true\n}",
+  "answer": {
+    "algorithmCount": 19,
+    "uniqueTopologies": 19,
+    "distinctBehaviors": 18,
+    "quorumReached": true
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "nineteen organization algorithms produce distinct topology outputs with working boids, fish school, slime mould, grey wolf, blind review, quorum and mycelial route behavior",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 2461
+}

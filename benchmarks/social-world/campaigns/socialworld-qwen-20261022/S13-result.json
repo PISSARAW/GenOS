@@ -1,0 +1,100 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S13",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "58643b9397f4b7178cb367f4a60202ab317b580b",
+  "expected": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ]
+  },
+  "observed": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ]
+  },
+  "decision": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "scope": "UNICAST",
+    "encoding": "semantic-fingerprint",
+    "reasonCodes": [
+      "COMMON_GROUND_LOW",
+      "RECIPIENT_EXPERT"
+    ]
+  },
+  "execution": {
+    "channel": "SIGNAL",
+    "executed": true,
+    "simulated": false,
+    "published": true,
+    "cycleId": "s13-event",
+    "signalId": "sig_3e2c5958-d310-4de1-9b60-b9808cb7a6ec",
+    "reason": null,
+    "deliveryAcknowledgements": [],
+    "grounding": {
+      "satisfied": true,
+      "acknowledged": 0,
+      "required": "none",
+      "source": "adapter_reported"
+    },
+    "recipientKnew": null,
+    "actionTaken": null,
+    "comparisonKey": "7e0593e2dd8843335818282f86d041fdb13e5b5a6a0c26355896bc14d959e164",
+    "tokensUsed": null,
+    "tokensProjected": 0,
+    "tokensMeasured": false,
+    "usageReceiptId": null,
+    "tokenStatus": "unknown",
+    "tokenCoverage": "unmeasured",
+    "usageProvenance": "adapter_reported",
+    "participantUsage": [
+      {
+        "agentId": "agent-a",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      },
+      {
+        "agentId": "agent-b",
+        "generationTokens": null,
+        "controlTokens": null,
+        "generationReceiptIds": [],
+        "controlReceiptIds": []
+      }
+    ]
+  },
+  "signalCount": 0,
+  "reconciliationPass": true,
+  "qwenResponse": "Here is the JSON with the requested details:\n\n```json\n{\n  \"action\": \"SIGNAL\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"evidence:bridge-status-19\"],\n  \"resolution\": \"corrected\",\n  \"correctedStatement\": \"The bridge is closed.\",\n  \"evidenceRef\": \"evidence:bridge-status-19\"\n}\n```",
+  "answer": {
+    "action": "SIGNAL",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "evidence:bridge-status-19"
+    ],
+    "resolution": "corrected",
+    "correctedStatement": "The bridge is closed.",
+    "evidenceRef": "evidence:bridge-status-19"
+  },
+  "humanInstructionsAfterSetup": 0,
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a documented disagreement triggers an evidence-linked challenge to the colleague, and Qwen corrects the claim using the cited signed status",
+  "durationMs": 23784
+}

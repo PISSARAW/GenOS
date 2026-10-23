@@ -1,0 +1,32 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S19",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "7b3439f45fbdb61248b08744e078d31be50fc5c0",
+  "expected": {
+    "triggered": true,
+    "cascadeSignal": "hazard_response",
+    "delta": 0.45
+  },
+  "observed": {
+    "triggered": true,
+    "cascadeSignal": "hazard_response",
+    "delta": 0.45,
+    "transportType": "ligand",
+    "textContent": "",
+    "evidenceRef": "hazard:bridge-closed"
+  },
+  "qwenResponse": "Here is the requested JSON object containing the specified fields:\n\n{\n  \"triggered\": true,\n  \"cascadeSignal\": \"hazard_response\",\n  \"delta\": 0.45\n}",
+  "answer": {
+    "triggered": true,
+    "cascadeSignal": "hazard_response",
+    "delta": 0.45
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a binary ligand reaches a matching receptor and triggers the configured cascade with no text transport",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 2383
+}

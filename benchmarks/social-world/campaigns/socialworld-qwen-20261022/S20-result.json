@@ -1,0 +1,90 @@
+{
+  "campaignId": "socialworld-qwen-20261022",
+  "scenario": "S20",
+  "seed": 7,
+  "status": "pass",
+  "model": "ollama://qwen2.5:14b",
+  "sourceCommit": "456f32fba604a74eae52d0cc1d0ec41d91607e31",
+  "expected": {
+    "event": "bridge_status",
+    "state": "closed",
+    "owner": "agent-a",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [
+      "route-plan:v3"
+    ]
+  },
+  "observed": {
+    "event": "bridge_status",
+    "state": "closed",
+    "owner": "agent-a",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [
+      "route-plan:v3"
+    ],
+    "modality": "structured",
+    "digestValid": true,
+    "tamperRejected": true
+  },
+  "envelope": {
+    "version": 1,
+    "messageId": "socialworld-s20-event",
+    "kind": "signal",
+    "senderAgentId": "agent-a",
+    "recipientMode": "targeted",
+    "recipientAgentIds": [
+      "agent-b"
+    ],
+    "channel": "structured-event",
+    "modality": "structured",
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [
+      "route-plan:v3"
+    ],
+    "scope": {
+      "organizationId": "socialworld-org",
+      "projectId": "socialworld-project"
+    },
+    "createdAt": "2026-10-22T21:47:02.975Z",
+    "expiresAt": null,
+    "groundingRequired": "verified_ack",
+    "payloadDigest": "sha256:478182af43aa5337e7b937c234aaf970bda67b61cada5597eac8a5d49565e501"
+  },
+  "tamperCheck": {
+    "valid": false,
+    "reason": "payload_digest_mismatch",
+    "errors": []
+  },
+  "qwenResponse": "{\n  \"event\": \"bridge_status\",\n  \"state\": \"closed\",\n  \"owner\": \"agent-a\",\n  \"recipients\": [\"agent-b\"],\n  \"semanticRefs\": [\"hazard:bridge-closed\"],\n  \"artifactRefs\": [\"route-plan:v3\"]\n}",
+  "answer": {
+    "event": "bridge_status",
+    "state": "closed",
+    "owner": "agent-a",
+    "recipients": [
+      "agent-b"
+    ],
+    "semanticRefs": [
+      "hazard:bridge-closed"
+    ],
+    "artifactRefs": [
+      "route-plan:v3"
+    ]
+  },
+  "enginePass": true,
+  "verified": true,
+  "oracle": "a structured event carries references, recipient and a digest that rejects payload tampering",
+  "humanInstructionsAfterSetup": 0,
+  "durationMs": 42880
+}
