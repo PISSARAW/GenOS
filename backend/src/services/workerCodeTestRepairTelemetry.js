@@ -16,10 +16,16 @@ function summarizeFailedPatches(error) {
       .slice(0, 12).map((match) => match[0].replace(/\s+/g, ' ').slice(0, 300));
     const logic = [];
     for (const script of source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
+      const code = script[1];
+      for (const marker of ['function handleAddItem', 'function addNewItem', 'function renderItem',
+        'function increaseQuantity', 'function handleFilterChange', 'function handleSearch']) {
+        const index = code.toLowerCase().indexOf(marker.toLowerCase());
+        if (index >= 0) logic.push(code.slice(index, Math.min(code.length, index + 1200)).replace(/\s+/g, ' '));
+      }
       for (const marker of ['addEventListener', 'onsubmit', 'localStorage', 'addItem', 'render(']) {
-        const index = script[1].toLowerCase().indexOf(marker.toLowerCase());
+        const index = code.toLowerCase().indexOf(marker.toLowerCase());
         if (index < 0) continue;
-        logic.push(script[1].slice(Math.max(0, index - 120), Math.min(script[1].length, index + 280)).replace(/\s+/g, ' '));
+        logic.push(code.slice(Math.max(0, index - 120), Math.min(code.length, index + 280)).replace(/\s+/g, ' '));
       }
     }
     return { path: patch.path, bytes: Buffer.byteLength(source, 'utf8'), controls, roles,
