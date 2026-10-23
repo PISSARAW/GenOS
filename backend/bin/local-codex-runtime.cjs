@@ -206,7 +206,9 @@ function emitCompletion(state, reply) {
   emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: completionEvidencePayload(state, report) });
 }
 function completionEvidencePayload(state, report) {
-  return { ...(state.observedRoute || {}), evidenceReport: report };
+  const capsule = state.mission?.runtimeCapsule || parseJson(state.mission?.genosCapsuleJson);
+  const snapshot = typeof capsule?.snapshotPath === 'string' ? capsule.snapshotPath.trim() : '';
+  return { ...(state.observedRoute || {}), evidenceReport: report, ...(snapshot ? { snapshot } : {}) };
 }
 function attachProofTests(report, proofs) {
   const executed = (proofs || []).filter((proof) => proof && proof.executed);
@@ -346,4 +348,4 @@ function emitEvent(state, event) {
   });
   process.stdout.write(encodeEvent(event));
 }
-module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs };
+module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs, completionEvidencePayload };
