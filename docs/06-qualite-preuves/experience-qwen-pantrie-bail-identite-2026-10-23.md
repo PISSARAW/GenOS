@@ -76,3 +76,8 @@ Le plan `ensure_quantity_field_after_reload` renommant le bouton en `Increase Oa
 ## Retry43 — locator trouvé, quantité non incrémentée
 
 Retry43 exécute le Playwright réel sur Qwen7B avec la suite T02 inchangée. Après vingt réparations, le candidat terminal échoue à `acceptance.cjs:24:10`: le clic sur Increase a lieu, mais aucun texte ne correspond à Oats quantité 3. Mission `AGENT_FAILED`, gate homeostasis bloqué; pas de reçu Playwright vert. Le run démontre une progression jusqu’à l’action, pas un comportement d’incrément durable.
+
+
+## Retry44 — incrément et persistance progressent, export échoue
+
+Retry44 a réellement passé des candidats à travers Category, Search, Add Item, clic Increase, quantité 3, rechargement et persistance; les erreurs restantes se sont déplacées vers `acceptance.cjs:28:44`. Le run termine après 20 réparations par un timeout réel `page.waitForEvent: ... waiting for event "download"`, `AGENT_FAILED` et gate homeostasis bloqué. Aucun succès complet. Les diagnostics du candidat révèlent que le bouton Export était un submit dans le formulaire, susceptible d’annuler le téléchargement. `fb60e46da` force le bouton de téléchargement en `type="button"`; ce fix est postérieur au chargement du processus retry44 et doit être retesté par retry45.
