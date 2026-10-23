@@ -122,9 +122,11 @@ function testCompilerFailureClosed() {
 function testTopologyCapabilitiesComeFromAuditedPlatformRegistry() {
   const ctx = context([{ workerKind: 'verifier_worker', capabilities: ['invented_worker_claim'] }]);
   const available = strategyInput(ctx).availableTopologyCapabilities;
-  const operational = require('../src/services/capabilityAccessMatrix').fullMatrix()
-    .filter((entry) => entry.state === 'operationnel').map((entry) => entry.capability);
+  const matrix = require('../src/services/capabilityAccessMatrix');
+  const operational = matrix.operationalTopologyCapabilities();
   assert.deepEqual(available, operational);
+  assert.deepEqual(require('../src/services/morphogenesis/morphogenesisEpochDecisionService')
+    .topologyCapabilities({}), operational);
   assert.equal(available.includes('invented_worker_claim'), false);
 }
 
@@ -132,6 +134,8 @@ function testExplicitTopologyCapabilityInventoryIsPreserved() {
   const ctx = context();
   ctx.normalizedMission.topologyCapabilityInventory = { available: [] };
   assert.deepEqual(strategyInput(ctx).availableTopologyCapabilities, []);
+  assert.deepEqual(require('../src/services/morphogenesis/morphogenesisEpochDecisionService')
+    .topologyCapabilities(ctx.normalizedMission), []);
 }
 
 testCompatibleAttachment();

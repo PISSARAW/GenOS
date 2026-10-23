@@ -91,7 +91,12 @@ function currentPolicyTopology(plan) { return plan.morphogenesisPlan?.selectedTo
 
 function currentPolicyVariant(plan) { return plan.morphogenesisPlan?.selectedVariant || 'default'; }
 
-function topologyCapabilities(mission) { return mission.topologyCapabilityInventory?.available || null; }
+function topologyCapabilities(mission = {}) {
+  const declared = mission.topologyCapabilityInventory?.available
+    ?? mission.missionCapabilityPlan?.availableTopologyCapabilities;
+  if (Array.isArray(declared)) return [...declared];
+  return require('../capabilityAccessMatrix').operationalTopologyCapabilities();
+}
 
 function coordinationPolicyOf(worker) { return worker.coordinationPolicy || worker.coordination_policy || {}; }
 
@@ -233,4 +238,4 @@ function withIntraEpoch(input, diagnosis) {
 }
 
 module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups,
-  communicationMissionFor, rosterReductionPlan };
+  communicationMissionFor, rosterReductionPlan, topologyCapabilities };

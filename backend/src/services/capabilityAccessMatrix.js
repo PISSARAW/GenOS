@@ -151,6 +151,11 @@ function fullMatrix() {
   return topologyCapabilities.GENOS_CAPABILITIES.map(accessFor);
 }
 
+function operationalTopologyCapabilities() {
+  return fullMatrix().filter((entry) => entry.state === STATE_OPERATIONAL)
+    .map((entry) => entry.capability);
+}
+
 function auditMode(mode) {
   const contract = topologyCapabilities.capabilitiesForMode(mode);
   const required = contract ? contract.required : [];
@@ -186,6 +191,7 @@ module.exports = {
   DAEMON_FORBIDDEN,
   accessFor,
   fullMatrix,
+  operationalTopologyCapabilities,
   auditModes,
   auditMode,
   toolReadiness,

@@ -62,9 +62,7 @@ function topologyCapabilities(mission, plan) {
   // Morphogenesis admission needs platform capabilities, not capabilities
   // inferred from the workers proposed to run the mission. Use the audited
   // operational capability registry as the authoritative fallback.
-  return require('../capabilityAccessMatrix').fullMatrix()
-    .filter((entry) => entry.state === 'operationnel')
-    .map((entry) => entry.capability);
+  return require('../capabilityAccessMatrix').operationalTopologyCapabilities();
 }
 
 function missionText(mission) { return mission.prompt || mission.currentTask || ''; }
