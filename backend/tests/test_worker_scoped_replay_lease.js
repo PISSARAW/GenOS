@@ -43,12 +43,12 @@ async function main() {
     assert.equal(otherWorker.lease.tools.includes('genos_replay'), false, 'a different worker cannot borrow the capsule lease');
     assert.equal(directToolLeaseAllows('genos_replay'), false, 'the global direct lease remains denied');
     const registry = require('../src/services/mcpToolRegistry');
-    const validation = { registry, toolName: 'genos_replay', args: { snapshot: ownedSnapshot },
+    const validation = { registry, toolName: 'genos_replay', args: { snapshot: 'snap-a' },
       executionKind: registry.detectExecutionKind('genos_replay'), scopedReplayAllowed: true };
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), true, 'the exact scoped flag passes local dispatch');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: ownedSnapshot }, true), null,
+    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: 'snap-a' }, true), null,
       'the transport revalidation accepts the scoped owner grant');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: ownedSnapshot }, false).code,
+    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: 'snap-a' }, false).code,
       'MCP_TOOL_LEASE_DENIED', 'the transport still denies replay without scoped proof');
     process.env.GENOS_MCP_DISABLED_TOOLS = 'genos_replay';
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), false, 'disabled replay cannot use the scoped grant');
