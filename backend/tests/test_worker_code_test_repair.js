@@ -104,6 +104,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedContent = JSON.parse(repairedText).patches[0].content;
   assert.match(repairedContent,
     /<select id="category" aria-label="Category">/);
+  const singleCategoryProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<select id="category"><option value="Food">Food</option></select>'
+  }] });
+  const singleCategoryRepair = JSON.parse(applyRepairPlan(singleCategoryProposal, plan)).patches[0].content;
+  assert.match(singleCategoryRepair, /<select id="category" aria-label="Category">/);
+  assert.match(singleCategoryRepair, /<select id="filterCategory" aria-label="Filter category"><option value="all">All<\/option><option value="Food">Food<\/option><\/select>/);
   assert.match(repairedContent, /<button aria-label="Increase quantity for Oats">\+/);
   const itemNameButton = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button onclick="increaseQuantity(\'${item.itemName}\')">Increase</button>'
@@ -244,6 +250,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] });
   assert.doesNotMatch(JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content,
     /aria-label="Increase quantity for Oats"/);
+  const quantityRowProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<form><input type="number" aria-label="Quantity"></form><div><input type="number" aria-label="Quantity for Oats"><button aria-label="Increase quantity for Oats">Increase</button></div>'
+  }] });
+  const quantityRowContent = JSON.parse(applyRepairPlan(quantityRowProposal, quantityReloadPlan)).patches[0].content;
+  assert.match(quantityRowContent, /<input type="number" aria-label="Quantity">/);
+  assert.match(quantityRowContent, /aria-label="Item count"/);
+  assert.match(quantityRowContent, /aria-label="Increase Oats"/);
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:

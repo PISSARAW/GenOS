@@ -119,7 +119,7 @@ function applyRepairPlan(text, plan) {
         content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
         content = content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
         content = labelIncreaseButton(content, item.label);
-      } else if (item.kind === 'ensure_quantity_field_after_reload') content = content.replace(/<button\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
+      } else if (item.kind === 'ensure_quantity_field_after_reload') content = require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(content);
       else if (item.kind === 'ensure_unique_item_name_locator') {
         content = content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
       } else if (item.kind === 'ensure_filter_select_label') {
@@ -236,24 +236,7 @@ function labelDynamicIncreaseButton(content, label) {
 }
 
 function labelFilterSelect(content, label) {
-  const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
-  const selects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
-  const outsideForm = (select) => !forms.some((form) => select.index >= form.index
-    && select.index < form.index + form[0].length);
-  const target = selects.find((select) => outsideForm(select)
-    && (/\bid\s*=\s*["'][^"']*(?:filter|search)[^"']*["']/i.test(select[0])
-      || /<option\b[^>]*>\s*(?:All|Any|Every)/i.test(select[0])))
-    || selects.find((select) => outsideForm(select))
-    || selects[1];
-  if (!target) return content;
-  const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
-  if (!opening) return content;
-  let nextSelect = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
-  if (!/<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(nextSelect)
-    && !/<option\b[^>]*value\s*=\s*["']Food["']/i.test(nextSelect)) {
-    nextSelect = nextSelect.replace(/<\/select\s*>/i, '<option value="Food">Food</option></select>');
-  }
-  return content.slice(0, target.index) + nextSelect + content.slice(target.index + target[0].length);
+  return require('./workerCodeSelectRepair').labelFilterSelect(content, label);
 }
 
 function labelSearchInput(content, label) {
