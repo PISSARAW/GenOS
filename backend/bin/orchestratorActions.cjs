@@ -343,7 +343,7 @@ function workerPolicy(request = {}) {
   let inherited;
   if (explicitCommands !== undefined) inherited = normalizeAllowedCommands(explicitCommands) || [];
   else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
-  return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')), gqwfV2: policy.gqwfV2 === true, gqwfMaterializer: policy.gqwfMaterializer };
+  return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, ...(Array.isArray(firstPresent(request.allowed_write_paths, request.allowedWritePaths, policy.allowedWritePaths)) ? { allowedWritePaths: firstPresent(request.allowed_write_paths, request.allowedWritePaths, policy.allowedWritePaths) } : {}), silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')), gqwfV2: policy.gqwfV2 === true, gqwfMaterializer: policy.gqwfMaterializer };
 }
 async function handleWorker({ db, context }) {
   const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);

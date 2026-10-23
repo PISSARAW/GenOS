@@ -91,6 +91,14 @@ function checkArtifactApplication(capsule) {
   const applied = runtime.applyWorkerArtifacts(`[ARTIFACT: buggy-sum.js]${FIXED_SUM}[/ARTIFACT]`, capsule, true);
   assert.deepEqual(applied, ['buggy-sum.js']);
   assert.equal(fs.readFileSync(path.join(capsule, 'buggy-sum.js'), 'utf8'), FIXED_SUM.trim());
+  fs.writeFileSync(path.join(capsule, 'verify.cjs'), 'authoritative verifier');
+  assert.throws(() => runtime.applyWorkerArtifacts(
+    '[ARTIFACT: verify.cjs]model-controlled verifier[/ARTIFACT]', capsule, true, ['src/']),
+  /not_authorized/);
+  assert.equal(fs.readFileSync(path.join(capsule, 'verify.cjs'), 'utf8'), 'authoritative verifier');
+  assert.deepEqual(runtime.applyWorkerArtifacts(
+    '[ARTIFACT: src/pricing.js]module.exports = { sumPrices() {} }[/ARTIFACT]', capsule, true, ['src/']),
+  ['src/pricing.js']);
   assert.equal(fs.existsSync(path.join(path.dirname(capsule), 'escape.js')), false);
 }
 
@@ -104,9 +112,9 @@ async function checkSandboxExecution(capsule) {
   const refused = await runtime.collectCommandProofs(JSON.stringify({ tests: ['node test-sum.js'] }), capsule, { allowedCommands: ['npm test'] });
   assert.equal(refused[0].executed, false);
   assert.equal(refused[0].reason, 'not_in_allowed_commands');
-  const unsupported = await runtime.collectCommandProofs(JSON.stringify({ tests: ['node test-sum.js'] }), capsule, { allowedCommands: ['node test-sum.js'] });
-  assert.equal(unsupported[0].executed, false);
-  assert.equal(unsupported[0].reason, 'executor_refused');
+  const supportedTest = await runtime.collectCommandProofs(JSON.stringify({ tests: ['node test-sum.js'] }), capsule, { allowedCommands: ['node test-sum.js'] });
+  assert.equal(supportedTest[0].executed, true);
+  assert.notEqual(supportedTest[0].exitCode, 0);
   const dangerous = await runtime.collectCommandProofs(JSON.stringify({ tests: ['rm -rf /'] }), capsule, { allowedCommands: ['rm -rf /'] });
   assert.equal(dangerous[0].executed, false);
   assert.equal(dangerous[0].reason, 'not_allowlisted');

@@ -258,6 +258,9 @@ function applyExecutionPolicy(ctx) {
       ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
       : [],
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
+    ...(Array.isArray(normalizedMission.executionPolicy?.allowedWritePaths)
+      ? { allowedWritePaths: [...new Set(normalizedMission.executionPolicy.allowedWritePaths
+        .map((value) => String(value).trim()).filter(Boolean))] } : {}),
     gqwfV2: normalizedMission.executionPolicy?.gqwfV2 === true,
     gqwfMaterializer: normalizedMission.executionPolicy?.gqwfMaterializer,
     explicitWriteLease: normalizedMission.executionPolicy?.explicitWriteLease === true,

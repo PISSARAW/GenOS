@@ -8,6 +8,8 @@ const readOnlyInstruction = localArtifactInstruction(false);
 assert.match(readOnlyInstruction, /File writes are forbidden/);
 assert.match(readOnlyInstruction, /Do not use \[ARTIFACT\] tags/);
 assert.match(localArtifactInstruction(true), /\[ARTIFACT: path\/to\/file\]/);
+assert.match(localArtifactInstruction(true, ['src/']), /Only write files under these authorized paths: src\//);
+assert.match(localArtifactInstruction(true, []), /No file paths are authorized for writing/);
 
 const content = { claims: [{ statement: 'Verified worker claim', evidence: ['receipt:r1'] }],
   specialtyAssessment: { niche: 'read-only artifact handling', inScope: true, evidence: ['receipt:r1'] } };

@@ -94,7 +94,8 @@ async function runMission(state, services) {
       await captureBarrier.safePoint('generated');
     }
     reply = await refreshObservedReply(state, reply, { generate, checkpoint });
-    applyWorkerArtifacts(reply, state.workspaceRoot, state.allowFileEdits);
+    applyWorkerArtifacts(reply, state.workspaceRoot, state.allowFileEdits,
+      state.executionPolicy.allowedWritePaths);
     await require('../src/services/runtimeFileWriteIpc').flush();
     state.commandProofs = await collectCommandProofs(reply, state.workspaceRoot, state.executionPolicy);
     const testReceipt = require('../src/services/codeTestExecutionReceipt').buildReceipt({
@@ -245,7 +246,8 @@ Si une source nécessaire manque, signale précisément cette limite. N'invente 
 ${state.conscienceBlock}
 ${state.agentSelfBlock || ''}
 ${state.workerSelfBlock || ''}
-${state.memoryBlock}${state.strategyContext}${localArtifactInstruction(state.allowFileEdits)}
+${state.memoryBlock}${state.strategyContext}${localArtifactInstruction(state.allowFileEdits,
+    state.executionPolicy.allowedWritePaths)}
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 ${state.contextStr}Requête de l'utilisateur : ${state.prompt}\n\n${evidenceInstruction}`;
 }
@@ -261,10 +263,11 @@ async function loadConscienceBlock(mission, agentConscience) {
   const helper = require('../src/services/agentSelfBlocks');
   return helper.loadConscienceText(null, mission.agentId, agentConscience);
 }
-function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits) {
+function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits, allowedWritePaths) {
   if (!allowFileEdits) return [];
   const found = [...String(reply).matchAll(/\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi)];
-  const result = require('../src/services/localArtifactWriter').writeArtifacts(reply, { workspaceRoot, allowFileEdits });
+  const result = require('../src/services/localArtifactWriter').writeArtifacts(reply,
+    { workspaceRoot, allowFileEdits, allowedWritePaths });
   if (result.rejected.length) {
     const details = result.rejected.map(item => `${item.name}: ${item.issues.join(', ')}`).join('; ');
     throw new Error(`Worker artifact rejected: ${details}`);

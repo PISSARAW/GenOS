@@ -88,6 +88,13 @@ try {
     config: { checks: [{ program: 'node', args: ['verify.cjs'] }] }, mission: repairMission });
   assert.strictEqual(fundedCodeRequest.executionBudget.minimumWorkerTokens, 12000,
     'code missions fund a verifier-repair pass for each local worker when the mission budget allows it');
+  const scopedCodeRequest = requestFor({ id: 'scoped-code-run', project: repairProject,
+    task: { title: 'Implement sumPrices', acceptance_json: '[]', id: 'scoped-code-task' },
+    selection: { topology: 'trinity', variant: 'controlled', workerRoles: ['bounded_worker'] },
+    worktree: root, budgets: { seconds: 600, tokens: 80000, usd: 0.5 },
+    config: { authority: { allowEdit: true, paths: ['src/'] } }, mission: repairMission });
+  assert.deepStrictEqual(scopedCodeRequest.allowed_write_paths, ['src/'],
+    'code workers receive the project authority path scope');
 
   const verifyProject = { root_path: root, objective: 'Verify the configured acceptance command for the project' };
   const verifyMission = compileMission(verifyProject);

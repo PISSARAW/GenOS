@@ -58,7 +58,21 @@ function validateArtifactPath(entry, state) {
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     return [`artifact.path.escapes:${entry.name}`];
   }
+  if (Array.isArray(state.allowedWritePaths)
+      && !state.allowedWritePaths.some((prefix) => matchesAllowedPrefix(relative, prefix, state.workspaceRoot))) {
+    return [`artifact.path.not_authorized:${entry.name}`];
+  }
   return [];
+}
+
+function matchesAllowedPrefix(relative, prefix, workspaceRoot) {
+  const value = String(prefix || '').trim();
+  if (!value) return false;
+  const resolved = path.resolve(workspaceRoot, value);
+  const allowed = path.relative(workspaceRoot, resolved).replace(/\\/g, '/').replace(/\/+$/, '');
+  const target = String(relative).replace(/\\/g, '/');
+  if (allowed.startsWith('../') || path.isAbsolute(allowed)) return false;
+  return allowed === '' || target === allowed || target.startsWith(`${allowed}/`);
 }
 
 function validateArtifactEntry(entry, state) {
@@ -101,4 +115,4 @@ function writeArtifacts(reply, state) {
   return { written, rejected };
 }
 
-module.exports = { writeArtifacts, extractArtifacts, validateArtifactEntry, writeArtifact };
+module.exports = { writeArtifacts, extractArtifacts, validateArtifactEntry, validateArtifactPath, writeArtifact };

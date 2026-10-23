@@ -7,15 +7,11 @@ function buildWorkspaceContext(workspaceRoot) {
   const fs = require('fs');
   const root = path.resolve(workspaceRoot || process.cwd());
   const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(root);
-  let names = '';
-  let candidates = [];
-  try {
-    candidates = fs.readdirSync(root).filter((entry) => !entry.startsWith('.') && entry !== 'node_modules' && entry !== 'dist').slice(0, LOCAL_WORKER_FILE_BUDGET.maxFiles);
-    names = candidates.join(', ');
-  } catch (e) { names = '(illisible)'; }
+  const candidates = listWorkspaceFiles(fs, root, LOCAL_WORKER_FILE_BUDGET.maxFiles);
+  const names = candidates.join(', ') || '(aucun)';
   const bootstrapHint = candidates.some(name => hasRootImplementationFile(fs, root, name)) ? ''
-    : '\n[WORKSPACE INITIALIZATION] No root-level implementation source files were found. For a create/build task, scaffold from scratch using the mission requirements; an empty starter workspace is not a blocker. For modification or review tasks, report the specific missing source instead of inventing it.';
-  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers à la racine : ${names}${bootstrapHint}\n\n`;
+    : '\n[WORKSPACE INITIALIZATION] No implementation source files were found. For a create/build task, scaffold from scratch using the mission requirements; an empty starter workspace is not a blocker. For modification or review tasks, report the specific missing source instead of inventing it.';
+  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers du workspace : ${names}${bootstrapHint}\n\n`;
   const fileHashes = {};
   let total = 0;
   for (const name of candidates) {
@@ -25,6 +21,25 @@ function buildWorkspaceContext(workspaceRoot) {
     if (!excerpt.refused && total < LOCAL_WORKER_FILE_BUDGET.maxTotalBytes) total += excerpt.bytes;
   }
   return { text, fileHashes };
+}
+function listWorkspaceFiles(fs, root, limit) {
+  const skipped = new Set(['.git', '.genos', 'node_modules', 'dist', 'build', 'coverage', 'target']);
+  const files = [];
+  function visit(directory, depth) {
+    if (depth > 4 || files.length >= limit) return;
+    let entries;
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch (_) { return; }
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      if (files.length >= limit) break;
+      if (entry.name.startsWith('.') || skipped.has(entry.name) || entry.isSymbolicLink()) continue;
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolute, depth + 1);
+      else if (entry.isFile()) files.push(path.relative(root, absolute));
+    }
+  }
+  visit(root, 0);
+  return files;
 }
 function hasRootImplementationFile(fs, root, name) {
   if (!/\.(?:html?|css|[cm]?js|jsx?|tsx?|py|rs|go|java|cs|rb|php)$/i.test(name)) return false;

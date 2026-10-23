@@ -152,6 +152,8 @@ function requestFor(input) {
     allowed_commands: checks.map(workerAllowedCommand),
     executor: input.config.executor || 'codex', provider: input.config.provider, modelId: input.config.modelId,
     allow_file_edits: input.config.authority?.allowEdit === true,
+    allowed_write_paths: Array.isArray(input.config.authority?.paths)
+      ? [...input.config.authority.paths] : undefined,
     explicit_write_lease: input.config.authority?.allowEdit === true,
     git_authority: { localCommit: false, push: false, merge: false, remoteMutation: false }
   };
