@@ -85,6 +85,8 @@ assert.match(stewardMission, /Total=24; each group must sum exactly 8/);
 assert.match(stewardMission, /Use all 9 items exactly once/);
 assert.match(stewardMission, /largest value 5 first and reserve a complement of 3/);
 assert.match(stewardMission, /complete GenOS dossier/);
+assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>\"\],\[\"<item-id>\"\],\[\"<item-id>\"\]\]/);
+assert.match(stewardMission, /bins are arrays of exact item identifiers, never weights/);
 assert.match(stewardMission, /only the compact candidate JSON object in claims\[0\]\.statement/);
 assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
 assert.match(stewardMission, /Verify item count and every total/);

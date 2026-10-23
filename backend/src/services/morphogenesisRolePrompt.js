@@ -91,7 +91,8 @@ function morphogenesisMissionPrompt(assignment, mission) {
   const largest = Math.max(...facts.items.map((item) => item.value));
   const fitHint = exactTotal && largest > 0 && largest <= facts.capacity
     ? ` Place the largest value ${largest} first and reserve a complement of ${facts.capacity - largest}; backtrack rather than omit any item.` : '';
-  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return a complete GenOS dossier: {"outcome":"success","claims":[{"statement":"<candidate JSON object>","evidence":["mission"]}],"specialtyAssessment":{"niche":"biome:resource_steward","inScope":true,"evidence":["mission"]}}. Put only the compact candidate JSON object in claims[0].statement; do not put bins at the report root or replace the candidate with prose. Verify item count and every total before claiming success.`;
+  const candidateShape = JSON.stringify({ bins: Array.from({ length: facts.groups }, () => ['<item-id>']) });
+  return `Partition ${summary}. Required candidate shape (bins are arrays of exact item identifiers, never weights): ${candidateShape}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return a complete GenOS dossier: {"outcome":"success","claims":[{"statement":"<candidate JSON object>","evidence":["mission"]}],"specialtyAssessment":{"niche":"biome:resource_steward","inScope":true,"evidence":["mission"]}}. Put only the compact candidate JSON object in claims[0].statement; do not put bins at the report root or replace the candidate with prose. Verify item count and every total before claiming success.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
