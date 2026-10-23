@@ -97,21 +97,40 @@ function addArtifacts(artifactOwners, artifacts, ownerId) {
   }
 }
 
-function ownershipFailures({ workers, byWorker }) {
+function ownershipFailures({ workers, byWorker, members }) {
   const artifactOwners = collectArtifactOwners(workers, byWorker);
+  const membersByWorker = new Map((members || []).map((member) => [member.agentId || member.workerId, member]));
   const failures = [];
   for (const [artifact, owners] of artifactOwners.entries()) {
-    if (owners.length <= 1) continue;
+    const producers = owners.filter((workerId) => {
+      const report = latestReport(byWorker.get(workerId));
+      const member = membersByWorker.get(workerId) || {};
+      return !isAcceptedHandoffInput(report, member, artifact);
+    });
+    if (producers.length <= 1) continue;
     failures.push({
       code: 'DUPLICATE_ARTIFACT_OWNERSHIP',
-      workerId: owners[1],
+      workerId: producers[1],
       domain: null,
       scope: artifact,
-      ownerId: owners[0],
-      message: `Artifact '${artifact}' is claimed by multiple workers (${owners.join(', ')}); ownership must be unique.`
+      ownerId: producers[0],
+      message: `Artifact '${artifact}' is claimed by multiple workers (${producers.join(', ')}); ownership must be unique.`
     });
   }
   return failures;
+}
+
+function isAcceptedHandoffInput(report, member, artifact) {
+  if (!/^(?:git|commit):[a-f0-9]{40}$/i.test(String(artifact))) return false;
+  const memberId = member.memberId;
+  if (!memberId) return false;
+  const evaluations = Array.isArray(report?.handoffEvaluations) ? report.handoffEvaluations : [];
+  return evaluations.some((evaluation) => evaluation.passed === true
+    && typeof evaluation.handoffId === 'string'
+    && evaluation.handoffId.includes(`->work:${memberId}:`)
+    && /^[a-f0-9]{64}$/i.test(String(evaluation.digest || ''))
+    && Number.isSafeInteger(evaluation.version) && evaluation.version > 0
+    && Array.isArray(evaluation.evidenceRefs) && evaluation.evidenceRefs.length > 0);
 }
 
 function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {
@@ -141,7 +160,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
 
   workerList.forEach((worker, index) => processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }));
 
-  failures.push(...ownershipFailures({ workers: workerList, byWorker }));
+  failures.push(...ownershipFailures({ workers: workerList, byWorker, members: memberList }));
 
   return { failures, integrationFailures, observerReport: { failures, integrationFailures } };
 }

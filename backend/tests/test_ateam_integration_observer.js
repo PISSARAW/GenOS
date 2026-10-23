@@ -45,6 +45,27 @@ const clean = [
   assert.equal(contaminatedPlan.aTeam.integration.failures[0].code, 'WORKER_DOMAIN_CONTAMINATION');
 
   // Missing integration constraints on the consumer.
+  const upstreamCommit = 'git:' + 'a'.repeat(40);
+  const handoffMembers = [
+    { agentId: 'quality-worker', memberId: 'member-quality', label: 'quality', role: 'quality_engineer', dependsOn: [] },
+    { agentId: 'security-worker', memberId: 'member-security', label: 'security', role: 'security_reviewer', dependsOn: ['quality'] }
+  ];
+  const handoffWorkers = handoffMembers.map((member) => ({ agentId: member.agentId, role: member.role }));
+  const handoffReport = { outcome: 'success', artifacts: [upstreamCommit], claims: [{ statement: 'Reviewed the received commit.', evidence: ['review-proof'] }],
+    integrationConstraints: ['Preserve the upstream interface.'], tests: [{ passed: true, evidenceRefs: ['review-proof'] }],
+    handoffEvaluations: [{ handoffId: 'work:member-quality:0->work:member-security:0:1', digest: 'b'.repeat(64), version: 1, passed: true, evidenceRefs: ['review-proof'] }] };
+  const handoffDossiers = [
+    { workerId: 'quality-worker', events: [report('Implemented the required patch.', { artifacts: [upstreamCommit] })] },
+    { workerId: 'security-worker', events: [report('Reviewed the security boundary.', handoffReport)] }
+  ];
+  const inherited = observeAteamIntegration({ members: handoffMembers, workers: handoffWorkers, dossiers: handoffDossiers });
+  assert.equal(inherited.failures.some((failure) => failure.code === 'DUPLICATE_ARTIFACT_OWNERSHIP'), false,
+    'a verified consumer handoff does not claim ownership of the upstream Git commit');
+  handoffDossiers[1].events[0].evidenceReport.handoffEvaluations[0].passed = false;
+  const unaccepted = observeAteamIntegration({ members: handoffMembers, workers: handoffWorkers, dossiers: handoffDossiers });
+  assert.equal(unaccepted.failures.some((failure) => failure.code === 'DUPLICATE_ARTIFACT_OWNERSHIP'), true,
+    'an unaccepted duplicate artifact remains an ownership violation');
+
   const noConstraints = [ clean[0], clean[1], { workerId: 'w3', events: [report('Integrated evidence')] } ];
   const missing = observeAteamIntegration({ members, workers, dossiers: noConstraints });
   assert.equal(missing.integrationFailures[0].code, 'WORKER_INTEGRATION_CONSTRAINT_MISSING');
