@@ -148,3 +148,9 @@ Retry53 a enregistré dix appels fournisseur Qwen et neuf réparations locales, 
 Retry54 a enregistré 21 appels Qwen7B et 20 réparations locales, puis atteint l’oracle Playwright. Le candidat terminal (4978 octets) échoue à `acceptance.cjs:26:10`, assertion `updated quantity persists`: la quantité incrémentée ne survit pas au reload. `npm test` sort 1; SQLite consigne `AGENT_FAILED` à 10:19:52 UTC et `MISSION_COMPLETION_BLOCKED` avec `homeostasis=unstable`. Aucun succès T02 complet. Reçu: `genos-direct-d-20261023-retry54.db`.
 
 Les diagnostics d’essais antérieurs montrent un candidat qui changeait le texte de la cellule et l’objet `items[row.rowIndex-1]`, sans sauvegarder l’état canonique dans `localStorage`. La réparation de persistance doit être validée indépendamment avant d’attribuer une prochaine régression à Qwen.
+
+## Retry55 — échec terminal de l’ajout d’article
+
+Retry55 a utilisé le fournisseur réel `ollama://qwen2.5-coder:7b` dans le workspace D: et enregistré 21 appels fournisseur ainsi que 20 contre-tests `npm test`. Le dernier candidat (6089 octets) échoue à `acceptance.cjs:19:10`: après soumission, aucune ligne Oats n’est rendue (`0 !== 1`). La tentative précédente échouait au champ Quantity sans nom accessible (`acceptance.cjs:15:38`). Le processus a annulé le patch final et marqué `AGENT_FAILED`; `MISSION_COMPLETION_BLOCKED` à 10:26:46 UTC avec homeostasis `unstable`. Aucun succès T02 complet. Reçu terminal: `genos-direct-d-20261023-retry55.db`; 21 provider calls, 20 réparations locales.
+
+Les diagnostics des propositions montrent des handlers Add Item dupliqués ou incompatibles (écouteurs click et submit superposés, fonction de sauvegarde non déclarée ou appelée avec un tableau d’un seul article). Le défaut autonome de transformation/réparation d’ajout reste à corriger et à retester.
