@@ -1,11 +1,22 @@
 'use strict';
 
+function exportButtonLabel(button) {
+  const opening = button[0].match(/^<button\b[^>]*>/i)?.[0] || '';
+  const accessible = opening.match(/\baria-label\s*=\s*(["'])(.*?)\1/i);
+  const visible = button[0].slice(opening.length).replace(/<\/button\s*>/i, '').replace(/<[^>]+>/g, ' ').trim();
+  return accessible ? accessible[2] : visible;
+}
+
+function findExportButton(source) {
+  return [...source.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi)]
+    .find((button) => /(?:export\s*(?:json|csv)|download)/i.test(exportButtonLabel(button)));
+}
+
 function ensureJsonExport(content) {
   const source = String(content || '');
   const stateName = source.match(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\[\s*\]/i)?.[1] || 'pantry';
   const storageKey = source.match(/localStorage\.getItem\(\s*(["'])([^"']+)\1/i)?.[2] || 'pantry';
-  const buttonPattern = /<button\b[^>]*>[\s\S]*?(?:export\s*(?:json|csv)|download)[\s\S]*?<\/button\s*>/i;
-  const button = buttonPattern.exec(source);
+  const button = findExportButton(source);
   const handler = 'exportPantryJSON()';
   let repaired = source;
   if (button) {
