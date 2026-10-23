@@ -64,6 +64,14 @@ async function runOrchestratorMcpPreflight(input) {
   return { observedTools: receipts.map(receipt => receipt.tool), receipts };
 }
 
+function buildOrchestratorPreflightInput(input) {
+  const request = input.request || {};
+  return { db: input.db, orchestratorId: input.orchestratorId, missionId: input.missionId,
+    task: input.task, repoRoot: input.repoRoot,
+    workspaceRoot: request.workspaceRoot || request.workspace_root || input.workspaceRoot,
+    snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent || input.snapshotAgent,
+    hypotheses: request.hypotheses, tools: input.tools };
+}
 function assertPreflightContext(input) {
   const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
   if (!db || !orchestratorId || !missionId || !repoRoot || !workspaceRoot) {
@@ -149,4 +157,4 @@ function pathToFileURL(filePath) {
 }
 
 module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
-  assertPreflightContext, preflightEnvironment };
+  assertPreflightContext, preflightEnvironment, buildOrchestratorPreflightInput };

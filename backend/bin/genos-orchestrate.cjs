@@ -254,12 +254,12 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
   const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
-  const preflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPreflight({
-    db, orchestratorId: id, missionId, task, repoRoot: path.resolve(__dirname, '../..'),
-    workspaceRoot: request.workspaceRoot || request.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-    snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent,
-    tools: autonomyPlan.phases[0]?.requiredTools || []
-  });
+  const preflightBridge = require('./orchestratorMcpPreflight.cjs');
+  const preflight = await preflightBridge.runOrchestratorMcpPreflight(
+    preflightBridge.buildOrchestratorPreflightInput({ db, orchestratorId: id, missionId, task,
+      repoRoot: path.resolve(__dirname, '../..'), request,
+      workspaceRoot: process.env.GENOS_WORKSPACE_ROOT,
+      tools: autonomyPlan.phases[0]?.requiredTools || [] }));
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
