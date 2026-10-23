@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { run, repairPrompt, failureFeedback } = require('../src/services/workerCodeTestRepair');
+const { run, repairPrompt, failureFeedback, locatorRepairHint } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
 
@@ -53,6 +53,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
   assert.match(failureFeedback(failed), /Exit code: 1/);
+  const categoryFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'locator.selectOption: Timeout 4000ms exceeded. waiting for getByLabel(/^category$/i)'
+  }] } });
+  assert.match(locatorRepairHint(categoryFailure), /<label for="category">Category<\/label>/);
+  assert.match(failureFeedback(categoryFailure), /label that control Filter category/);
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {

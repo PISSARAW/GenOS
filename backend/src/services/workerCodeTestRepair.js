@@ -30,6 +30,14 @@ function consumedTokens(error) {
   return null;
 }
 
+function locatorRepairHint(error) {
+  const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
+    return 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.';
+  }
+  return '';
+}
+
 function failureFeedback(error) {
   const tests = error.proposal?.tests || [];
   const result = tests.map((test) => [
@@ -47,7 +55,8 @@ function failureFeedback(error) {
     Array.isArray(diagnostics.violations) ? diagnostics.violations.join('\n') : '',
     diagnostics.outputExcerpt ? `Rejected output excerpt:\n${diagnostics.outputExcerpt}` : ''
   ].filter(Boolean).join('\n') : '';
-  return [result, candidate, schemaFeedback].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+  const locatorHint = locatorRepairHint(error);
+  return [result, candidate, schemaFeedback, locatorHint].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
 function repairPrompt(context) {
@@ -92,4 +101,4 @@ async function run(context) {
   }
 }
 
-module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens };
+module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint };
