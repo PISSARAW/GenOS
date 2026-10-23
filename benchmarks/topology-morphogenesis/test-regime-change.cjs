@@ -86,6 +86,8 @@ test('le plan fige actuel est pilote, non confirmatoire', () => {
   const plan = JSON.parse(fs.readFileSync(path.join(__dirname, 'regime-change-plan.json'), 'utf8'));
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, plan.taskSetFile), 'utf8'));
   assert.equal(plan.evidenceGrade, 'pilot');
+  assert.ok(plan.executionBudget.minimumWorkerTokens >= 1000, 'worker token floor must cover observed morphology prompts');
+  assert.equal(plan.executionBudget.minimumWorkerTokens, data.budgets.minimumWorkerTokens);
   assert.equal(plan.requiredRepetitions, 3);
   const result = qualification.qualifyRegimePlan(plan, data.tasks);
   assert.equal(result.grade, 'pilot');
