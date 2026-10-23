@@ -5,7 +5,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const helpers = require('./orchestratorMissionHelpers.cjs');
 const { updateExecution } = require('../src/services/ontogenesis/executionStore');
-const { waitForMission, completionGate, candidateWorkspace } = require('../src/services/ontogenesis/missionCompletion');
+const { waitForMission, completionGate, candidateWorkspace, candidateWorkspaces, selectVerifiedCandidate } = require('../src/services/ontogenesis/missionCompletion');
 
 async function main() {
   const operationId = process.argv[3];
@@ -39,12 +39,17 @@ async function runMission(db, request) {
       missionId: request.missionId, request, policyRequest: request, allowedCommands: request.allowed_commands,
       allowFileEdits: request.allow_file_edits === true, runtime });
     const agents = await waitForMission(db, request, { stopped: () => stopping });
-    const candidateWorktree = candidateWorkspace(agents, request.id);
-    const verifierReceipt = request.requiresEvidenceBeforePromotion === false ? null
-      : await require('../src/services/ontogenesis/missionVerifierReceiptService').createReceipt({
-        missionId: request.id, workspaceRoot: candidateWorktree, checks: request.verifierChecks,
-        allowExecution: request.allowVerifierExecution, timeoutMs: request.verifierTimeoutMs
-      });
+    const receiptService = require('../src/services/ontogenesis/missionVerifierReceiptService');
+    let candidateWorktree = candidateWorkspace(agents, request.id);
+    let verifierReceipt = null;
+    if (request.requiresEvidenceBeforePromotion !== false) {
+      const selected = await selectVerifiedCandidate({ candidates: candidateWorkspaces(agents, request.id),
+        missionId: request.id, checks: request.verifierChecks, allowExecution: request.allowVerifierExecution,
+        timeoutMs: request.verifierTimeoutMs, createReceipt: receiptService.createReceipt,
+        validateReceipt: receiptService.validateReceipt });
+      candidateWorktree = selected.candidateWorktree;
+      verifierReceipt = selected.verifierReceipt;
+    }
     const gate = await completionGate(db, { request, agents, verifierReceipt, candidateWorktree });
     const success = !stopping && gate.allowed === true;
     await updateExecution(db, { id: request.id, phase: 'finished', result: { success, candidateWorktree, completionGate: gate } });
