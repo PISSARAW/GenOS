@@ -29,6 +29,13 @@ const exhausted = selector.selectNextTask([
   { id: 'a', status: 'todo', priority: 9, attempt: 3, depends_on_json: '[]' }
 ]);
 assert.strictEqual(exhausted.blocked, 'tentatives-epuisees');
+const extendedRetry = selector.selectNextTask([
+  { id: 'a', status: 'todo', priority: 9, attempt: 3, depends_on_json: '[]' }
+], { maxAttempts: 4 });
+assert.strictEqual(extendedRetry.task.id, 'a');
+assert.strictEqual(selector.selectNextTask([
+  { id: 'a', status: 'todo', priority: 9, attempt: 4, depends_on_json: '[]' }
+], { maxAttempts: 4 }).blocked, 'tentatives-epuisees');
 assert.strictEqual(selector.selectNextTask([]).blocked, 'backlog-vide');
 
 // Boucle : planification, budgets, ressources, contrôle.

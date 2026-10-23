@@ -79,4 +79,29 @@ async function reviseBudgets(db, input) {
   });
 }
 
-module.exports = { requireProject, addOperatorTask, sendMessage, reprioritize, reviseBudgets };
+async function reviseAttemptLimit(db, input) {
+  if (typeof input.reason !== 'string' || !input.reason.trim()) throw new Error('raison-requise');
+  if (!Number.isSafeInteger(input.maxAttempts) || input.maxAttempts < 1 || input.maxAttempts > 10) {
+    throw new Error('max-attempts-invalide');
+  }
+  return withTransaction(db, async () => {
+    const project = await requireProject(db, input.projectId);
+    if (await activeExecution(db, input.projectId)) throw new Error('execution-en-cours');
+    const claim = await db.get("SELECT project_id FROM ontogenesis_claims WHERE project_id = ? AND julianday(expires_at) > julianday('now')", [input.projectId]);
+    if (claim) throw new Error('claim-actif');
+    const config = JSON.parse(project.config_json);
+    const updated = validateProjectConfig({ ...config,
+      durability: { ...config.durability, maxAttempts: input.maxAttempts } });
+    if (!updated.ok) throw new Error(`configuration-invalide:${updated.errors.join(',')}`);
+    await recordMemory(db, { projectId: input.projectId, kind: 'decision', content: input.reason,
+      provenance: { action: 'revise-attempt-limit', previous: config.durability.maxAttempts || 3,
+        maxAttempts: updated.config.durability.maxAttempts } });
+    await db.run("UPDATE ontogenesis_projects SET config_json = ?, updated_at = datetime('now') WHERE id = ?",
+      [JSON.stringify(updated.config), input.projectId]);
+    await postEvent(db, { projectId: input.projectId, type: 'user_reply',
+      payload: { reason: 'limite-tentatives-revisee', maxAttempts: updated.config.durability.maxAttempts } });
+    return updated.config.durability.maxAttempts;
+  });
+}
+
+module.exports = { requireProject, addOperatorTask, sendMessage, reprioritize, reviseBudgets, reviseAttemptLimit };

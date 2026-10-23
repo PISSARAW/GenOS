@@ -27,9 +27,13 @@ function isDepDone(dep, byId) {
   return Boolean(found) && found.status === 'done';
 }
 
-function isRunnable(task, byId) {
+function normalizedMaxAttempts(value) {
+  return Number.isSafeInteger(value) && value > 0 && value <= 10 ? value : MAX_ATTEMPTS;
+}
+
+function isRunnable(task, byId, maxAttempts) {
   if (task.status !== 'todo') return false;
-  if (task.attempt >= MAX_ATTEMPTS) return false;
+  if (task.attempt >= maxAttempts) return false;
   const parsed = parseDeps(task);
   if (parsed.corrupt) return false;
   return parsed.deps.every((dep) => isDepDone(dep, byId));
@@ -46,8 +50,8 @@ function comparePriority(left, right) {
   return String(left?.id || '').localeCompare(String(right?.id || ''));
 }
 
-function blockedReason(tasks) {
-  if (tasks.some((task) => task.status === 'todo' && task.attempt >= MAX_ATTEMPTS)) {
+function blockedReason(tasks, maxAttempts) {
+  if (tasks.some((task) => task.status === 'todo' && task.attempt >= maxAttempts)) {
     return 'tentatives-epuisees';
   }
   if (tasks.some(isCorrupt)) return 'dependances-invalides';
@@ -57,12 +61,13 @@ function blockedReason(tasks) {
   return 'backlog-vide';
 }
 
-function selectNextTask(tasks) {
+function selectNextTask(tasks, options = {}) {
   const rows = tasks || [];
+  const maxAttempts = normalizedMaxAttempts(options.maxAttempts);
   const byId = new Map(rows.map((task) => [task.id, task]));
-  const runnable = rows.filter((task) => isRunnable(task, byId));
+  const runnable = rows.filter((task) => isRunnable(task, byId, maxAttempts));
   if (runnable.length > 0) return { task: topPriority(runnable) };
-  return { blocked: blockedReason(rows) };
+  return { blocked: blockedReason(rows, maxAttempts) };
 }
 
-module.exports = { MAX_ATTEMPTS, selectNextTask };
+module.exports = { MAX_ATTEMPTS, normalizedMaxAttempts, selectNextTask };

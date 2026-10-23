@@ -69,7 +69,9 @@ async function settleFailedExecution(db, ctx, error) {
     await db.run("UPDATE ontogenesis_runs SET status = 'unverified' WHERE id = ?", [run.id]);
   }
   await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: error.message, provenance: { operationId: run && run.id, topology: run && run.topology, taskId: run && run.task_id } });
-  const state = await failureState(db, run, error);
+  let config = {};
+  try { config = JSON.parse(ctx.project.config_json || '{}'); } catch (_) {}
+  const state = await failureState(db, run, error, config.durability?.maxAttempts);
   if (run) await daemonStewardship.recordFailure(db, {
     projectId: ctx.project.id, taskId: run.task_id, reason: error.message
   }).catch(() => ({ recorded: false }));

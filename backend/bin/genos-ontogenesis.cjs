@@ -43,6 +43,7 @@ function usage() {
   console.log('  message --project ID --body TXT');
   console.log('  priority --project ID --task ID --priority N');
   console.log('  budgets --project ID --tokens N --usd N --seconds N --reason TXT');
+  console.log('  attempt-limit --project ID --max-attempts N --reason TXT');
   console.log('  event --project ID --type TYPE [--payload JSON]');
   console.log('  ack --project ID --notification ID');
   console.log('  prune --project ID [--days N] [--artifacts]');

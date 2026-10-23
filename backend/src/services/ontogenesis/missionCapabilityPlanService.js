@@ -27,7 +27,7 @@ function buildEvidenceContract(task, mission) {
 
 function buildRecoveryContract(config) {
   return {
-    maxAttempts: 3,
+    maxAttempts: config.durability?.maxAttempts || 3,
     retry: 'bounded',
     rollback: true,
     deadLetter: 'WAITING_INPUT',

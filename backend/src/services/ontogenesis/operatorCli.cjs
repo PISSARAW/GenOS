@@ -41,6 +41,12 @@ async function budgets(db, options) {
   console.log(JSON.stringify(result));
 }
 
+async function attemptLimit(db, options) {
+  const maxAttempts = await operator.reviseAttemptLimit(db, { projectId: projectId(options),
+    maxAttempts: Number(options['max-attempts']), reason: options.reason });
+  console.log(JSON.stringify({ maxAttempts }));
+}
+
 async function event(db, options) {
   const id = projectId(options);
   await operator.requireProject(db, id);
@@ -65,4 +71,5 @@ async function ack(db, options) {
   console.log(JSON.stringify({ acknowledged: row.id }));
 }
 
-module.exports = { task, tasks, message, priority, budgets, event, notifications: notes, ack };
+module.exports = { task, tasks, message, priority, budgets, 'attempt-limit': attemptLimit,
+  event, notifications: notes, ack };

@@ -2,10 +2,11 @@
 
 const { MAX_ATTEMPTS } = require('./taskSelector');
 
-async function failureState(db, run, error) {
+async function failureState(db, run, error, maxAttempts = MAX_ATTEMPTS) {
   if (!run || error.retryable !== true) return 'WAITING_INPUT';
   const task = await db.get('SELECT attempt FROM ontogenesis_backlog WHERE id = ?', [run.task_id]);
-  return task && task.attempt < MAX_ATTEMPTS ? 'PLANNING' : 'WAITING_INPUT';
+  const limit = require('./taskSelector').normalizedMaxAttempts(maxAttempts);
+  return task && task.attempt < limit ? 'PLANNING' : 'WAITING_INPUT';
 }
 
 function workerFailure(result) {

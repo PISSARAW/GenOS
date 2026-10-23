@@ -34,7 +34,7 @@ async function testMigration() {
   assert.strictEqual(row.config_version, 2);
   assert.strictEqual(config.version, 2);
   assert.strictEqual(config.authority, undefined);
-  assert.deepStrictEqual(config.durability, { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' });
+  assert.deepStrictEqual(config.durability, { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate', maxAttempts: 3 });
   assert.strictEqual(config.publication.enabled, false);
   assert.strictEqual(config.merge.enabled, false);
   await db.close();
@@ -77,6 +77,9 @@ async function main() {
   const migrated = migrateProjectConfig(legacyConfig());
   assert.strictEqual(validateProjectConfig(migrated).ok, true);
   assert.strictEqual(validateProjectConfig(legacyConfig()).ok, false);
+  const outOfRangeAttempts = validateProjectConfig({ ...defaultConfig(),
+    durability: { ...defaultConfig().durability, maxAttempts: 11 } });
+  assert.strictEqual(outOfRangeAttempts.ok, false);
   await testMigration();
   await testStores();
   console.log('Ontogenesis durable foundation checks passed.');

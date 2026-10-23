@@ -40,6 +40,7 @@ async function main() {
     assert.strictEqual(status.control, 'paused');
     assert.strictEqual(status.pendingInbox, 0);
     invoke(context, ['budgets', ...flags, '--tokens', '180000', '--usd', '2', '--seconds', '400', '--reason', 'Operator decision']);
+    assert.match(invoke(context, ['attempt-limit', ...flags, '--max-attempts', '4', '--reason', 'One bounded recovery attempt']), /"maxAttempts":4/);
     invoke(context, ['resume', ...flags]);
     invoke(context, ['stop', ...flags]);
     assert.strictEqual(JSON.parse(invoke(context, ['tick', ...flags])).state, 'STOPPED');

@@ -94,8 +94,11 @@ async function loadContext(db, input) {
   if (!project) throw new Error('projet-introuvable');
   const control = await getControl(db, input.projectId);
   const tasks = await listTasks(db, input.projectId);
+  const config = configOf(project);
   const memoryLevel = classifyLevel(sampleMemory({ reservationsMb: 0 }), memoryOptionsOf(project));
-  const ctx = { project, control, tasks, config: configOf(project), selection: selectNextTask(tasks), memoryLevel, budgetsOk: true, harness: input.harness };
+  const ctx = { project, control, tasks, config,
+    selection: selectNextTask(tasks, { maxAttempts: config.durability?.maxAttempts }),
+    memoryLevel, budgetsOk: true, harness: input.harness };
   if (input.harness) Object.assign(ctx, await budgetState(db, ctx), await memoryState(db, ctx, input.harness));
   return ctx;
 }

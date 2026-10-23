@@ -22,7 +22,7 @@ function defaultConfig() {
     memory: { envelopeMb: 2048, reserveMb: 512 },
     allowPush: false,
     allowMerge: false,
-    durability: { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' },
+    durability: { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate', maxAttempts: 3 },
     retention: { artifactsDays: 30, evidenceDays: 365, quarantineDays: 7 },
     daemonStewardship: {
       enabled: true, autoEnqueue: true, eligibleStatuses: ['REPAIRABLE'],
@@ -98,6 +98,9 @@ function checkDurability(config, errors) {
   if (!isPlainObject(durability)) return errors.push('durability-requise');
   if (durability.recoveryPolicy !== 'reconcile') errors.push('durability.recoveryPolicy-invalide');
   if (durability.ambiguousOutcome !== 'escalate') errors.push('durability.ambiguousOutcome-invalide');
+  if (!Number.isSafeInteger(durability.maxAttempts) || durability.maxAttempts < 1 || durability.maxAttempts > 10) {
+    errors.push('durability.maxAttempts-invalide');
+  }
 }
 
 function checkRetention(config, errors) {
@@ -149,6 +152,7 @@ function validateProjectConfig(input) {
   config.daemonStewardship = {
     ...defaultConfig().daemonStewardship, ...(input?.daemonStewardship || {})
   };
+  config.durability = { ...defaultConfig().durability, ...(input?.durability || {}) };
   if (input && input.branch && !input.authority) config.authority.branches = [config.branch];
   const errors = [];
   checkCore(config, errors);
