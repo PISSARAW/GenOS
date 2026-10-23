@@ -56,7 +56,7 @@ function failureFeedback(error) {
     diagnostics.outputExcerpt ? `Rejected output excerpt:\n${diagnostics.outputExcerpt}` : ''
   ].filter(Boolean).join('\n') : '';
   const locatorHint = locatorRepairHint(error);
-  return [result, candidate, schemaFeedback, locatorHint].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+  return [locatorHint, schemaFeedback, result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
 function repairPrompt(context) {

@@ -59,6 +59,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] } });
   assert.match(locatorRepairHint(categoryFailure), /<label for="category">Category<\/label>/);
   assert.match(failureFeedback(categoryFailure), /label that control Filter category/);
+  assert.ok(failureFeedback(categoryFailure).indexOf('exact accessible Category control')
+    < failureFeedback(categoryFailure).indexOf('locator.selectOption'));
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
