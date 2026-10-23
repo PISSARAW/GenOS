@@ -339,7 +339,7 @@ function applyCommonClosure(ctx) {
     { id: 'report_gate_clear', passed: !(ctx.autonomyPlan?.reportGateViolations || []).length }
   ];
   const input = closureAdapter.buildClosureInput({ missionId, topology: topology.id,
-    producerId: ctx.agentId, workers: ctx.workers, dossiers: ctx.dossiers, invariants,
+    producerId: ctx.agentId, workers: closureAdapter.resolveRequiredWorkers(ctx.workers, ctx.dossiers), dossiers: ctx.dossiers, invariants,
     barrierStatus: ctx.partial ? 'partial' : 'complete' });
   const result = closeMission(input);
   ctx.autonomyPlan.missionClosure = result;
@@ -390,7 +390,6 @@ async function finishSatisfiedBarrier(ctx) {
     autonomyPlan: ctx.autonomyPlan
   });
 }
-
 module.exports = {
   isUsablePartialDossier,
   selectUsablePartialDossiers,

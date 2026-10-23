@@ -84,6 +84,20 @@ function verifyWorkerBarrierAdapter() {
   const replayInput = dossierAdapter.buildClosureInput({ missionId: 'mission-barrier', producerId: 'root',
     workers, dossiers: replayDossier, invariants: [{ id: 'dossiers_valid', passed: true }] });
   assert.equal(closeMission(replayInput).verdict, 'succeeded');
+  const failedOriginal = { workerId: 'worker-old', role: 'resource_steward', events: [{
+    eventType: 'AGENT_FAILED', executionRunId: 'run-old', evidenceReport: { outcome: 'failure' }
+  }] };
+  const verifiedReplacement = { workerId: 'worker-replacement', role: 'resource_steward', events: [{
+    eventType: 'AGENT_COMPLETED', executionRunId: 'run-replacement', snapshot: replay.snapshot,
+    replayReceipt: { ...replay, snapshot: replay.snapshot },
+    evidenceReport: { outcome: 'success', claims: [{ statement: 'recovered', evidence: ['mission'] }] }
+  }] };
+  assert.deepEqual(dossierAdapter.resolveRequiredWorkers([{ agentId: 'worker-old', role: 'resource_steward' }],
+    [failedOriginal, verifiedReplacement]), [{ agentId: 'worker-replacement', role: 'resource_steward' }],
+  'a verified recovery worker replaces the failed member in the closure roster');
+  assert.deepEqual(dossierAdapter.resolveRequiredWorkers([{ agentId: 'worker-old', role: 'resource_steward' }],
+    [failedOriginal]), [{ agentId: 'worker-old', role: 'resource_steward' }],
+  'an unverified failure cannot disappear from the required roster');
   const invalidReplay = dossierAdapter.buildClosureInput({ missionId: 'mission-barrier', producerId: 'root',
     workers, dossiers: [{ ...replayDossier[0], events: [{ ...replayDossier[0].events[0],
       replayReceipt: { ...replay, execution_replayed: false } }] }],
