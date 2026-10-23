@@ -204,6 +204,7 @@ const suites = {
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
     ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],
+    ['A-Team typed Git handoff across isolated worker capsules', 'test_a_team_workspace_handoff.js'],
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
     ['worker runtime limits', 'test_worker_runtime_limits.js'],
     ['worker process CPU budget enforcement', 'test_worker_cpu_budget.js'],
