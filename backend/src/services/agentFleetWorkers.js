@@ -52,7 +52,6 @@ function manifestFallbackCaps(assignment) {
     return Array.isArray(assignment.capabilities) ? assignment.capabilities : [];
   }
 }
-
 function assignmentCapabilities(assignment) {
   return Array.isArray(assignment.capabilities) && assignment.capabilities.length
     ? [...new Set(assignment.capabilities)]
@@ -150,6 +149,7 @@ async function includePersistedWorkers(db, parentId, context) {
 }
 
 const { validateAssignments } = require('./workerAssignmentValidation');
+const { morphogenesisRoleInstruction } = require('./morphogenesisRolePrompt');
 
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
@@ -191,7 +191,7 @@ function buildWorkerPrompt(details) {
     workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
     context.mission.prompt || context.parent.current_task || 'Autonomous task execution',
-    `Assigned branch: ${assignment.label}.`,
+    `${morphogenesisRoleInstruction(assignment) ? `${morphogenesisRoleInstruction(assignment)}\n` : ''}Assigned branch: ${assignment.label}.`,
     dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
