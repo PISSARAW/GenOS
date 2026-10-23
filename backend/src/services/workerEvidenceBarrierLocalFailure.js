@@ -5,6 +5,7 @@ const agentRecoveryService = require('./agentRecoveryService');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const { emit, updateAgent } = require('./agentOrchestrationState');
+const { shouldUpdateAgentTerminalStatus } = require('./workerEvidenceBarrierLocalLifecycle');
 
 function failureState(error) {
   const blocked = error.code === 'BUDGET_EXHAUSTED' || /budget|timeout/i.test(error.message);
@@ -15,12 +16,15 @@ function failureState(error) {
 
 async function publish(ctx) {
   const state = failureState(ctx.error);
-  await updateAgent(ctx.mission.agentId, state.status, ctx.error.message);
-  const failed = emit(ctx.mission.agentId, state.eventType, state.action, ctx.error.message,
+  const deferred = !shouldUpdateAgentTerminalStatus(ctx.mission);
+  if (!deferred) await updateAgent(ctx.mission.agentId, state.status, ctx.error.message);
+  const eventType = deferred ? 'LOCAL_WORKER_FAILED' : state.eventType;
+  const failed = emit(ctx.mission.agentId, eventType, state.action, ctx.error.message,
     { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel,
       workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics,
       proposalTests: ctx.error.proposal?.tests, usage: ctx.usage,
-      stageTimings: ctx.stageTimings }, 'warning', state.status);
+      stageTimings: ctx.stageTimings,
+      ...(deferred ? { deferredTerminalEventType: state.eventType } : {}) }, 'warning', deferred ? 'running' : state.status);
   require('./agentEvidenceService').recordWorkerEvidence(ctx.mission, failed);
   ctx.reportMilestone(ctx.mission, failed);
   if (!ctx.error.terminalReceiptPublished) {

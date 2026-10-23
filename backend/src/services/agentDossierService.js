@@ -71,7 +71,7 @@ function runtimeOrganizations(events) {
 
 function memoryRecords(events) {
   return events.filter((event) => {
-    if (['EVIDENCE_REPORT', 'AGENT_COMPLETED', 'LOCAL_WORKER_COMPLETED'].includes(event.eventType)) return true;
+    if (['EVIDENCE_REPORT', 'AGENT_COMPLETED', 'LOCAL_WORKER_COMPLETED', 'LOCAL_WORKER_FAILED'].includes(event.eventType)) return true;
     return /MEMORY|EXPERIENCE|DECISION/.test(event.eventType);
   }).map((event) => ({
     id: `event-${event.id}`,

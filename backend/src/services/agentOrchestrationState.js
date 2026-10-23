@@ -31,6 +31,7 @@ const activeWorkerBarriers = new Map();
 const TERMINAL_AGENT_STATUSES = new Set(['completed', 'failed', 'unverified', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const WORKER_EVIDENCE_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
+  'LOCAL_WORKER_COMPLETED', 'LOCAL_WORKER_FAILED',
   'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN',
   'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'
 ]);

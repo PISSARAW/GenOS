@@ -1,24 +1,28 @@
 'use strict';
 
 const { emit, updateAgent } = require('./agentOrchestrationState');
+const { shouldUpdateAgentTerminalStatus } = require('./workerEvidenceBarrierLocalLifecycle');
 
 async function emitLocalCompleted(ctx, publishSuccess) {
   const terminalStatus = ctx.unresolved ? 'unverified' : 'completed';
-  await updateAgent(ctx.mission.agentId, terminalStatus, ctx.statusText);
+  const deferred = !shouldUpdateAgentTerminalStatus(ctx.mission);
+  if (!deferred) await updateAgent(ctx.mission.agentId, terminalStatus, ctx.statusText);
   if (!ctx.unresolved) emit(ctx.mission.agentId, 'EVIDENCE_REPORT', 'VALIDATE_EVIDENCE',
     'Validated local worker evidence report.', {
       executionRunId: ctx.executionRun.id, evidenceReport: ctx.evidenceReport,
       nativeOracleRef: ctx.nativeOracleRef, identityReceipt: ctx.identityReceipt
-    }, 'info', 'completed');
-  const completed = emit(ctx.mission.agentId, ctx.eventType, ctx.kind, ctx.detail, {
+    }, 'info', deferred ? 'running' : 'completed');
+  const eventType = deferred ? 'LOCAL_WORKER_COMPLETED' : ctx.eventType;
+  const completed = emit(ctx.mission.agentId, eventType, ctx.kind, ctx.detail, {
     executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
     evidenceReport: ctx.evidenceReport,
     identityReceipt: ctx.identityReceipt,
     snapshot: ctx.mission.runtimeCapsule?.snapshotPath,
     ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
     noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
-    stageTimings: ctx.stageTimings
-  }, ctx.unresolved ? 'warning' : 'info', terminalStatus);
+    stageTimings: ctx.stageTimings,
+    ...(deferred ? { deferredTerminalEventType: ctx.eventType } : {})
+  }, ctx.unresolved ? 'warning' : 'info', deferred ? 'running' : terminalStatus);
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
   return completed;
 }

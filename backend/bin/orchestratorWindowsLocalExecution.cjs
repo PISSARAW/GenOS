@@ -40,6 +40,7 @@ function buildLocalMission(input) {
     specialtyNiche: identityExperimentWorker ? 'identity continuity and causal self-model analysis' : undefined,
     identityExperimentScenario,
     executionMode: 'worker',
+    deferAgentTerminalStatus: true,
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs,
     requiredPatchPaths: request.requiredPatchPaths,
