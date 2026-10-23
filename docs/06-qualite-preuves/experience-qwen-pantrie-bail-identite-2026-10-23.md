@@ -81,3 +81,8 @@ Retry43 exécute le Playwright réel sur Qwen7B avec la suite T02 inchangée. Ap
 ## Retry44 — incrément et persistance progressent, export échoue
 
 Retry44 a réellement passé des candidats à travers Category, Search, Add Item, clic Increase, quantité 3, rechargement et persistance; les erreurs restantes se sont déplacées vers `acceptance.cjs:28:44`. Le run termine après 20 réparations par un timeout réel `page.waitForEvent: ... waiting for event "download"`, `AGENT_FAILED` et gate homeostasis bloqué. Aucun succès complet. Les diagnostics du candidat révèlent que le bouton Export était un submit dans le formulaire, susceptible d’annuler le téléchargement. `fb60e46da` force le bouton de téléchargement en `type="button"`; ce fix est postérieur au chargement du processus retry44 et doit être retesté par retry45.
+
+
+## Retry45 — interruption identité avant reçu terminal
+
+Retry45 a progressé jusqu’aux contre-tests d’incrément; des candidats échouent ensuite à la persistance après reload (`acceptance.cjs:26:10`). Après le démarrage d’une nouvelle inférence, le processus terminal retourne `IDENTITY_SESSION_STALE` pendant le relâchement du worker. La mission reste active dans SQLite, sans résultat terminal ni preuve de complétion: classée interruption. La correction du ciblage accessible Export (`f53b78884`) est postérieure au démarrage de retry45 et n’a pas été qualifiée par cette exécution.
