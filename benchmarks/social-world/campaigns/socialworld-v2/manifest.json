@@ -1,0 +1,61 @@
+{
+  "campaignId": "socialworld-v2",
+  "version": 2,
+  "status": "planned",
+  "sourceCampaign": "socialworld-qwen-20261022",
+  "minimumSeeds": 20,
+  "passThreshold": 18,
+  "arms": [
+    "genos-full",
+    "static-social-graph",
+    "llm-with-memory",
+    "genos-without-relational-physiology"
+  ],
+  "scenarios": [
+    {
+      "id": "V2-01",
+      "name": "autonomous-friend-dialogue",
+      "status": "planned",
+      "minimumAlternatingTurns": 4,
+      "minimumMemoryMutations": 2,
+      "requiredEvidence": ["delivery-receipts", "memory-before-after", "source-references"]
+    },
+    {
+      "id": "V2-02",
+      "name": "spontaneous-24-agent-social-life",
+      "status": "planned",
+      "agents": 24,
+      "cycles": 1000,
+      "minimumInitiatives": 3,
+      "minimumDistinctRecipients": 2,
+      "minimumReciprocalInteractions": 1,
+      "requiredEvidence": ["event-log", "delivery-receipts", "memory-or-relation-mutations", "budget-ledger"]
+    },
+    {
+      "id": "V2-03",
+      "name": "durable-memory-after-process-restart",
+      "status": "planned",
+      "requiredEvidence": ["durable-database-path", "process-boundaries", "event-identifiers", "source-references", "fresh-database-negative-control"]
+    },
+    {
+      "id": "V2-04",
+      "name": "trust-from-authenticated-events",
+      "status": "planned",
+      "requiredEvidence": ["independent-verifier-receipts", "duplicate-rejection", "invalid-receipt-rejection", "trust-before-after", "subsequent-decision"]
+    },
+    {
+      "id": "V2-05",
+      "name": "social-morphogenesis-with-invariants",
+      "status": "planned",
+      "minimumOrganizationTransitions": 2,
+      "requiredInvariants": ["agent-identity", "valid-relations", "permissions", "provenance"],
+      "requiredEvidence": ["transition-log", "invariant-checks", "post-transition-collaboration-receipts"]
+    }
+  ],
+  "reportSchemaRequired": [
+    "campaignId", "scenario", "arm", "seed", "attempt", "sourceCommit",
+    "runtimeVersion", "model", "configHash", "status", "startedAt", "durationMs",
+    "inputs", "observed", "oracle", "evidenceRefs", "violations", "limitations"
+  ],
+  "allowedStatuses": ["pass", "fail", "inconclusive"]
+}
