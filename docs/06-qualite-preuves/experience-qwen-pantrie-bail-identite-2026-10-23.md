@@ -484,3 +484,12 @@ Cinq appels Qwen ont été exécutés en 30 minutes. Les tentatives 1 et 2 ont �
 Aucun reçu positif n’existe dans la DB runtime `D:\GenOS\runs\sh001-runtime-qwen-20261024-run26\genos.db`. La mission finit `success=false`, verdict `failed`, et garde les preuves `evidence_report` et `test_suite_passed` manquantes. La branche capsule conserve le dernier candidat invalide et le rapport détaillé sous commit d’échec `e3d00716d` (`codex/sh001-qwen-run26`). Aucun oracle privé n’a été consulté.
 
 Run26 ne remet pas en cause le reçu positif du run25: il documente une répétition distincte qui n’a pas trouvé de réparation. La limite de 30 minutes est insuffisante pour les longues sorties observées; le prochain essai doit recevoir une fenêtre plus longue et éviter de réintroduire la référence hors portée.
+
+## SH-001 Run27 — six sorties Qwen, deux tests négatifs, schéma final invalide
+
+Run réel sur D: `sh001-qwen-20261024-real-run27`, Qwen2.5-Coder 32B, capsule basée sur `ba49fccf8`, avec lésion de provenance committée `850ef8d28`. Le test public était rouge avant dispatch à `Missing expected exception` ligne 51.
+
+Six inférences ont complété (entrée/sortie: `13176/201`, `13609/201`, `14042/1046`, `15843/834`, `8194/1032`, `8194/1118`). Le ledger ne signale pas d’erreur fournisseur. Deux reçus publics sont persistés, tous deux négatifs: `test_50209b12-8c02-4b6c-82f9-e1447d2163a3` et `test_a5edc864-b4a6-49a7-862c-9a219ebd9359`. Aucun reçu positif. La mission a fini `success=false`; le worker a échoué sur `Model output did not satisfy the requested worker evidence schema`, et la clôture n’avait ni `evidence_report` ni `test_suite_passed`.
+
+Le rejeu exact du test public contre le candidat final a échoué immédiatement: `TypeError: attachWorkerArtifact is not a function` à la ligne 12. Le patch final a supprimé `module.exports`, changé les signatures et affaibli la provenance, donc il ne constitue pas une réparation. Échec conservé avec le code Qwen et rapport `SH-001-RUN27-RESULTS.md`, commit capsule `ee71b79ef` sur `codex/sh001-qwen-run27`. L’orchestrateur a aussi émis `ORCHESTRATOR_NOT_FOUND` pour une décision de récupération. Aucun oracle privé consulté; aucun succès n’est revendiqué.
+
