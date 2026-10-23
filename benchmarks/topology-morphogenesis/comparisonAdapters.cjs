@@ -256,7 +256,7 @@ async function genosFull(task, state) {
   const budget = { tokens: state.budget.tokens, latencyMs: state.budget.latencyMs,
     minimumWorkerTokens: state.minimumWorkerTokens || 800,
     workerShare: state.workerShare || 0.7 };
-  const payload = applyTopologyForcing({ action: 'orchestrate', executor: 'local',
+  const payload = applyTopologyForcing({ action: 'orchestrate',
     autonomous_orchestration: resolvedAutonomous(condition),
     mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
     timeoutMs: state.budget.latencyMs, execution_budget: budget,
@@ -265,7 +265,7 @@ async function genosFull(task, state) {
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
-    GENOS_AGENT_EXECUTOR: 'local', GENOS_LOCAL_MODEL: state.model,
+    GENOS_AGENT_EXECUTOR: '', GENOS_LOCAL_MODEL: state.model,
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
     GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
     GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
