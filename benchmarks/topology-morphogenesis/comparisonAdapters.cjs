@@ -103,7 +103,9 @@ async function conditionalRouter(task, state) {
 }
 
 function parseJson(text) {
-  try { return JSON.parse(text); } catch { return null; }
+  try { return JSON.parse(text); } catch { /* The GenOS worker schema may wrap the answer in a claim. */ }
+  const match = String(text || '').match(/\{[\s\S]*\}/);
+  try { return match ? JSON.parse(match[0]) : null; } catch { return null; }
 }
 
 function parseGenosReceipt(stdout) {
@@ -258,7 +260,11 @@ async function genosFull(task, state) {
     workerShare: state.workerShare || 0.7 };
   const payload = applyTopologyForcing({ action: 'orchestrate', executor: 'local',
     autonomous_orchestration: resolvedAutonomous(condition),
-    mission: task.prompt, timeoutMs: state.budget.latencyMs, execution_budget: budget,
+    mission: `${task.prompt}\nDans ta réponse GenOS, inclus l'objet JSON final intégral dans l'énoncé de la première claim afin qu'un oracle indépendant puisse le vérifier.`,
+    timeoutMs: state.budget.latencyMs, execution_budget: budget,
+    successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
+    invariants: [{ id: 'mission_outcome_success', kind: 'mission_outcome',
+      label: 'La mission produit une réponse vérifiable par son oracle.' }],
     tool_lease: [], allowed_commands: [], allow_file_edits: false,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
@@ -277,7 +283,10 @@ async function genosFull(task, state) {
     throw error;
   }
   const usage = result.token_usage;
-  const tokens = Number(usage.totalTokens ?? NaN);
+  const evidenceUsage = (result.telemetry || []).filter(event => event.event_type === 'EVIDENCE_REPORT')
+    .map(event => { try { return Number(JSON.parse(event.payload_json || '{}').evidenceReport?.usage?.tokens); } catch { return NaN; } })
+    .find(Number.isFinite);
+  const tokens = Number(usage.totalTokens) > 0 ? Number(usage.totalTokens) : evidenceUsage;
   if (!Number.isFinite(tokens)) {
     const error = new Error('GenOS receipt lacks measured total tokens.');
     error.result = { receipt: result, execution };
