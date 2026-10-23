@@ -9,7 +9,7 @@ function morphogenesisRoleInstruction(assignment) {
     return 'Morphogenesis role: Biome environment mapper. Observe the entities, values, units, and constraints stated in the mission. Return only evidence-grounded structured observations in the required scout_observation artifact; do not produce or claim the final solution.';
   }
   if (role === 'resource_steward') {
-    return 'Morphogenesis role: Biome resource steward. Solve the assigned allocation task. Put the complete candidate JSON in the GenOS evidence claim statement, not at the report root. Use exact item identifiers (item1, item2, etc.), never weights or indices. Verify every item appears exactly once and all capacities before claiming success.';
+    return 'Morphogenesis role: Biome resource steward. This exact allocation task is within your assigned niche; do not mark it out of scope because it needs calculation. Solve the allocation task. Put the complete candidate JSON in the GenOS evidence claim statement, not at the report root. Use exact item identifiers (item1, item2, etc.) as quoted JSON strings ("item1"), never bare tokens, weights, or indices. Verify every item appears exactly once and all capacities before claiming success.';
   }
   return null;
 }
@@ -142,7 +142,7 @@ function morphogenesisMissionPrompt(assignment, mission) {
     ? ` Total=${total}; combined capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}, so each bin must total exactly ${facts.capacity}. Compare each bin with ${facts.capacity}, never the combined total with one bin.`
     : ` Total=${total}; combined capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}; each bin must total at most ${facts.capacity}. Compare each bin separately.`;
   const repair = require('./morphogenesis/biomeAllocationFeedback').recoveryInstruction(source);
-  return `${summary}. Partition into ${facts.groups} non-empty bins. Use each item once; totals must stay at or below ${facts.capacity}.${exactTotal} Search weights descending with backtracking; place only if they fit, skip bins with equal capacity, and backtrack on dead ends. Recalculate each bin. Claim impossibility only after exhaustive search.${repair} Return one GenOS dossier with exactly one claim: claims[0].statement contains only {"bins":[[item IDs],[item IDs],...]} with exactly ${facts.groups} inner arrays, never strings; evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
+  return `${summary}. Partition into ${facts.groups} non-empty bins. Use each item once; totals must stay at or below ${facts.capacity}.${exactTotal} Search weights descending with backtracking; place only if they fit, skip bins with equal capacity, and backtrack on dead ends. Recalculate each bin. Claim impossibility only after exhaustive search.${repair} Return one GenOS dossier with exactly one claim: claims[0].statement contains only {"bins":[["item1","item2"],["item3"],...]} with exactly ${facts.groups} inner arrays, never strings; every item ID must be a quoted JSON string. Evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,

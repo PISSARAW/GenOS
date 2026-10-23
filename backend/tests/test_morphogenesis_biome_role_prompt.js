@@ -91,8 +91,9 @@ assert.match(stewardMission, /Recalculate each bin/);
 assert.match(stewardMission, /Search weights descending with backtracking/);
 assert.match(stewardMission, /Claim impossibility only after exhaustive search/);
 assert.match(stewardMission, /one GenOS dossier.*exactly one claim/);
+assert.match(stewardMission, /every item ID must be a quoted JSON string/);
 assert.doesNotMatch(stewardMission, /Return a complete GenOS dossier: \{"outcome":"success"/);
-assert.match(stewardMission, /only \{"bins":\[\[item IDs\],\[item IDs\],\.\.\.\]\} with exactly 3 inner arrays, never strings/);
+assert.match(stewardMission, /only \{"bins":\[\["item1","item2"\],\["item3"\],\.\.\.\]\} with exactly 3 inner arrays, never strings/);
 assert.ok(stewardMission.length < 900, 'resource steward prompts stay small enough for bounded workers');
 assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
 
@@ -158,7 +159,7 @@ assert.ok(steward.startsWith('items='), 'the concrete Biome allocation task lead
 assert.doesNotMatch(steward, /\[WORKER SELF|Confiance calibrée|État de conscience/,
   'irrelevant identity and conscience context does not bury the allocation facts');
 assert.ok(steward.length < 3000, 'the compact resource steward prompt leaves room for Qwen to reason and answer');
-assert.match(steward, /Solve the assigned allocation task/);
+assert.match(steward, /Solve the allocation task/);
 assert.match(steward, /Verify every item appears exactly once/);
 assert.match(steward, /all capacities before claiming success/);
 assert.match(steward, /This niche includes exact resource allocation, partitioning, and capacity verification/);
@@ -166,6 +167,8 @@ assert.match(steward, /complete machine-verifiable candidate JSON object in clai
 assert.match(steward, /never replace it with a generic success sentence/);
 assert.match(steward, /\"outcome\":\"unresolved\",\"claims\":\[\],\"uncertainties\"/);
 assert.match(steward, /exact item identifiers \(item1, item2, etc\.\)/);
+assert.match(steward, /do not mark it out of scope because it needs calculation/);
+assert.match(steward, /as quoted JSON strings \("item1"\)/);
 
 const retryPrompt = localPrompt.buildAnalysisPrompt({
   assignment: { role: 'resource_steward', workerAssignment: { topology: 'biome', topologyRole: 'resource_steward' } },
