@@ -35,18 +35,33 @@ function locatorRepairHint(error) {
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.';
   }
-  if (/acceptance\.cjs:19:10/.test(output) && /0\s*!==\s*1/.test(output)) {
-    return 'Playwright selected Category and clicked Add Item, but the visible Oats row count stayed 0. Handle the add form submit, prevent navigation, read the current item name, quantity, selected category and date, append the item to the same data collection used by render(), persist it, and immediately render exactly one visible Oats row. Keep the row compatible with the existing filter, search, increase and delete handlers.';
+  if (/getByRole\(\s*'button',\s*\{\s*name:\s*\/increase quantity for oats/i.test(output)) {
+    return 'The Oats row exists, but its quantity action has no accessible name. Give its existing increment button aria-label="Increase quantity for Oats" and ensure its click handler updates the same item, persists quantity 3, and rerenders.';
+  }
+  const count = output.match(/(\d+)\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/);
+  if (count) {
+    const detail = Number(count[1]) === 0
+      ? 'The row is absent after Add Item. Handle submit, prevent navigation, append the form values to the shared items collection, persist, and render immediately.'
+      : `Playwright found ${count[1]} visible text matches for Oats but requires exactly one. Render one item summary with Oats once; remove duplicate toast/summary text and keep Oats out of visible action button text by using accessible aria-labels.`;
+    return `${detail} Keep the row compatible with filtering, search, increase and delete behavior.`;
   }
   return '';
 }
 
 function repairPlan(error) {
-  return locatorRepairHint(error) ? { kind: 'ensure_accessible_select_label', label: 'Category' } : null;
+  const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
+    return { kind: 'ensure_accessible_select_label', label: 'Category' };
+  }
+  if (/getByRole\(\s*'button',\s*\{\s*name:\s*\/increase quantity for oats/i.test(output)) {
+    return { kind: 'ensure_accessible_button_label', label: 'Increase quantity for Oats' };
+  }
+  return null;
 }
 
 function applyRepairPlan(text, plan) {
-  if (plan?.kind !== 'ensure_accessible_select_label' || !plan.label) return text;
+  const plans = (Array.isArray(plan) ? plan : [plan]).filter((item) => item?.label);
+  if (!plans.length) return text;
   const match = String(text || '').match(/\{[\s\S]*\}/);
   if (!match) return text;
   let proposal;
@@ -54,36 +69,62 @@ function applyRepairPlan(text, plan) {
   let changed = false;
   for (const patch of proposal.patches || []) {
     if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') continue;
-    const content = patch.content;
-    const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
-    const scopes = forms.length ? forms.map((form) => ({ start: form.index, html: form[0] })) : [{ start: 0, html: content }];
-    let target = null;
-    for (const scope of scopes) {
-      const selects = [...scope.html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
-      target = selects.find((select) => /<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(select[0])
-        || /<option\b[^>]*value\s*=\s*["']Food["']/i.test(select[0]))
-        || selects.find((select) => /\bid\s*=\s*["']category["']/i.test(select[0]))
-        || selects[0];
-      if (target) { target = { ...target, scope }; break; }
+    let content = patch.content;
+    for (const item of plans) {
+      if (item.kind === 'ensure_accessible_select_label') {
+        content = labelCategorySelect(content, item.label);
+      } else if (item.kind === 'ensure_accessible_button_label') {
+        content = labelIncreaseButton(content, item.label);
+      }
     }
+    if (content !== patch.content) {
+      patch.content = content;
+      changed = true;
+    }
+  }
+  return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
+}
+
+function replaceAccessibleName(opening, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`\\baria-label\\s*=\\s*["']${escaped}["']`, 'i').test(opening)) return opening;
+  if (/\baria-label\s*=\s*(["']).*?\1/i.test(opening)) {
+    return opening.replace(/\baria-label\s*=\s*(["']).*?\1/i, `aria-label="${label}"`);
+  }
+  return opening.replace(/>$/, ` aria-label="${label}">`);
+}
+
+function labelCategorySelect(content, label) {
+  const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+  const scopes = forms.length ? forms.map((form) => ({ start: form.index, html: form[0] })) : [{ start: 0, html: content }];
+  for (const scope of scopes) {
+    const selects = [...scope.html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
+    const target = selects.find((select) => /<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(select[0])
+      || /<option\b[^>]*value\s*=\s*["']Food["']/i.test(select[0]))
+      || selects.find((select) => /\bid\s*=\s*["']category["']/i.test(select[0]))
+      || selects[0];
     if (!target) continue;
     const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
     if (!opening) continue;
-    const escaped = plan.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (new RegExp(`\\baria-label\\s*=\\s*["']${escaped}["']`, 'i').test(opening)) continue;
-    const nextOpening = /\baria-label\s*=\s*(["']).*?\1/i.test(opening)
-      ? opening.replace(/\baria-label\s*=\s*(["']).*?\1/i, `aria-label="${plan.label}"`)
-      : opening.replace(/>$/, ` aria-label="${plan.label}">`);
+    const nextOpening = replaceAccessibleName(opening, label);
     const nextSelect = nextOpening + target[0].slice(opening.length);
-    const relative = target.index;
-    const nextScope = target.scope.html.slice(0, relative) + nextSelect
-      + target.scope.html.slice(relative + target[0].length);
-    patch.content = content.slice(0, target.scope.start) + nextScope
-      + content.slice(target.scope.start + target.scope.html.length);
-    changed = patch.content !== content;
-    if (changed) break;
+    return content.slice(0, scope.start + target.index) + nextSelect
+      + content.slice(scope.start + target.index + target[0].length);
   }
-  return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
+  return content;
+}
+
+function labelIncreaseButton(content, label) {
+  const buttons = [...content.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi)];
+  const target = buttons.find((button) => /(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])
+    && !/\b(?:delete|remove)\b/i.test(button[0]))
+    || buttons.find((button) => /\bOats\b/i.test(button[0])
+      && !/\b(?:delete|remove)\b/i.test(button[0]));
+  if (!target) return content;
+  const opening = target[0].match(/^<button\b[^>]*>/i)?.[0];
+  if (!opening) return content;
+  const nextButton = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
+  return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
 }
 
 function failureFeedback(error) {
@@ -138,10 +179,14 @@ async function run(context) {
       }
       const remainingMs = latencyBudget(context.mission) - (Date.now() - startedAt);
       await context.onRetry?.({ failedAttempt: attempt, error, remainingMs });
+      const previousPlans = mission.codeRepairPlans || (mission.codeRepairPlan ? [mission.codeRepairPlan] : []);
+      const nextPlan = repairPlan(error);
+      const codeRepairPlans = nextPlan && !previousPlans.some((item) => item.kind === nextPlan.kind && item.label === nextPlan.label)
+        ? [...previousPlans, nextPlan] : previousPlans;
       mission = {
         ...context.mission,
         prompt: repairPrompt({ mission: context.mission, error, attempt }),
-        ...(repairPlan(error) ? { codeRepairPlan: repairPlan(error) } : {}),
+        ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
         timeoutMs: remainingMs,
         executionBudget: { ...context.mission.executionBudget, latencyMs: remainingMs,
           ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
