@@ -4,7 +4,7 @@ const { randomUUID } = require('node:crypto');
 const membrane = require('../toolPermissionMembraneService');
 const adapters = require('../toolPermissionMembraneAdapters');
 const { MCP_CONTRACT_VERSION } = require('../mcpContract');
-const { directToolLeaseAllows } = require('./config');
+const { directToolLeaseAllows, directToolGloballyEnabled } = require('./config');
 const { migratePermissionReceiptLineage } = require('../../db/migrations/migratePermissionReceiptLineage');
 
 const LINEAGE_SCHEMA = 'genos.permission-receipt-lineage/v1';
@@ -117,7 +117,9 @@ async function resolveLineage(db, request, binding) {
 function executionLease(request, binding) {
   const normalized = require('../toolLeasePolicy').normalizeToolName(request.toolName);
   const sealed = binding?.status === 'authorized' ? binding.envelope.toolLease : [normalized];
-  const tools = sealed.filter((tool) => directToolLeaseAllows(tool));
+  const tools = binding?.status === 'authorized'
+    ? sealed.filter((tool) => directToolGloballyEnabled(tool))
+    : sealed.filter((tool) => directToolLeaseAllows(tool));
   const identity = binding?.status === 'authorized'
     ? `execution-authority:${binding.envelope.runId}:${binding.hash}`
     : `runtime-lease:${membrane.digest({ tool: normalized, allowed: tools.includes(normalized) })}`;

@@ -110,9 +110,15 @@ function reflexDischargedResult(toolName, executionKind, steric) {
 }
 
 function preValidateTool(context) {
-  const { registry, toolName, args, executionKind } = context;
+  const { registry, toolName, args, executionKind, authorityLease } = context;
   if (!registry.isSupportedTool(toolName)) return unsupportedResult(toolName, executionKind);
-  if (!directToolLeaseAllows(toolName)) return leaseDeniedResult(toolName, executionKind);
+  if (Array.isArray(authorityLease)) {
+    const lease = authorityLease.map((tool) => String(tool || '').trim().toLowerCase());
+    if (!lease.includes(String(toolName || '').trim().toLowerCase())
+      || !require('./config').directToolGloballyEnabled(toolName)) {
+      return leaseDeniedResult(toolName, executionKind);
+    }
+  } else if (!directToolLeaseAllows(toolName)) return leaseDeniedResult(toolName, executionKind);
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
   if (steric) context.docking = steric.docking || { mode: steric.mode };
@@ -198,13 +204,14 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
   };
 }
 
-async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, agentId = null, tenant = null }) {
+async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000,
+  agentId = null, tenant = null, authorityLease = null }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
   let stericDocking = null;
-  const validationContext = { registry, toolName: normalizedToolName, args, executionKind };
+  const validationContext = { registry, toolName: normalizedToolName, args, executionKind, authorityLease };
   const rejection = preValidateTool(validationContext);
   if (rejection) return rejection;
   stericDocking = validationContext.docking || null;

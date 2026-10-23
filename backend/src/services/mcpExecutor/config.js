@@ -52,6 +52,13 @@ function directToolLeaseAllows(toolName) {
   return lease.includes(normalizedTool);
 }
 
+function directToolGloballyEnabled(toolName) {
+  const normalizedTool = normalizeToolName(toolName);
+  const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '')
+    .split(',').map(normalizeToolName).filter(Boolean);
+  return Boolean(normalizedTool) && !disabled.includes(normalizedTool);
+}
+
 const BIOLOGICAL_FEATURE_ALIASES = {
   electric_organ: 'electrocyte', collar_cell: 'choanocyte',
   structural_color: 'iridophore', stomata: 'guard_cell',
@@ -160,6 +167,7 @@ module.exports = {
   isSensitiveEnvironmentName,
   normalizeMcpTimeout,
   directToolLeaseAllows,
+  directToolGloballyEnabled,
   biologicalFeatureLeaseScope,
   directBiologicalFeatureLeaseAllows,
   getToolRegistry,
