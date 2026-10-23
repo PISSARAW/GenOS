@@ -139,10 +139,10 @@ function morphogenesisMissionPrompt(assignment, mission) {
   }
   const total = facts.items.reduce((sum, item) => sum + item.value, 0);
   const exactTotal = total === facts.groups * facts.capacity
-    ? ` Total=${total}; capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}, so every bin must total exactly ${facts.capacity}.`
-    : ` Total=${total}; capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}; each bin must total at most ${facts.capacity}.`;
+    ? ` Total=${total}; combined capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}, so each bin must total exactly ${facts.capacity}. Compare each bin with ${facts.capacity}, never the combined total with one bin.`
+    : ` Total=${total}; combined capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}; each bin must total at most ${facts.capacity}. Compare each bin separately.`;
   const repair = require('./morphogenesis/biomeAllocationFeedback').recoveryInstruction(source);
-  return `${summary}. Partition into ${facts.groups} non-empty bins. Use each item once; totals must stay at or below ${facts.capacity}.${exactTotal} Search weights descending with backtracking; place only if they fit, skip bins with equal capacity, and backtrack on dead ends. Recalculate each bin. Claim impossibility only after exhaustive search.${repair} Return one GenOS dossier with exactly one claim: claims[0].statement contains only {"bins":[[exact item IDs],...]}, evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
+  return `${summary}. Partition into ${facts.groups} non-empty bins. Use each item once; totals must stay at or below ${facts.capacity}.${exactTotal} Search weights descending with backtracking; place only if they fit, skip bins with equal capacity, and backtrack on dead ends. Recalculate each bin. Claim impossibility only after exhaustive search.${repair} Return one GenOS dossier with exactly one claim: claims[0].statement contains only {"bins":[[item IDs],[item IDs],...]} with exactly ${facts.groups} inner arrays, never strings; evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
