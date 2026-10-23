@@ -215,8 +215,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedAdd = JSON.parse(applyRepairPlan(addCandidate, addPlan)).patches[0].content;
   assert.match(repairedAdd, /genosAddItemRepair/);
   assert.match(repairedAdd, /stopImmediatePropagation/);
-  assert.match(repairedAdd, /const item=\{name,itemName:name,quantity,category/);
-  assert.match(repairedAdd, /if\(typeof addItem==='function'\)\{addItem\.call\(form\|\|target,event\);return;\}/);
+  assert.match(repairedAdd, /const item=\{name,itemName:name,ItemName:name,quantity,category,Category:category/);
+  assert.doesNotMatch(repairedAdd, /if\(typeof addItem==='function'\)/);
   assert.match(repairedAdd, /const cleanForm=form\.cloneNode\(true\)/);
   assert.match(repairedAdd, /form\.replaceWith\(cleanForm\)/);
   assert.match(repairedAdd, /cleanForm\.querySelectorAll\('button,input\[type="submit"\],input\[type="image"\]'\)/);

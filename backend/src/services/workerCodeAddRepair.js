@@ -62,9 +62,12 @@ function discoverState(source) {
 }
 
 function inputId(source, pattern, fallback) {
-  const expression = new RegExp(`<input\\b[^>]*\\bid\\s*=\\s*(["'])([^"']*${pattern}[^"']*)\\1`, 'i');
-  const match = source.match(expression);
-  return match ? match[2] : fallback;
+  const expression = /<input\b[^>]*\bid\s*=\s*(["'])([^"']*)\1/gi;
+  const expectedId = new RegExp(pattern, 'i');
+  for (const match of source.matchAll(expression)) {
+    if (expectedId.test(match[2])) return match[2];
+  }
+  return fallback;
 }
 
 function discoverFields(source) {
@@ -114,12 +117,12 @@ function writeBehavior(state, key, renderer) {
 
 function addHandlerScript(source, state, fields, key, renderer) {
   const writeItem = writeBehavior(state, key, renderer);
-  return `<script>document.addEventListener('DOMContentLoaded',function(){let form=document.querySelector('form');if(form){const cleanForm=form.cloneNode(true);cleanForm.removeAttribute('onsubmit');cleanForm.querySelectorAll('button,input[type="submit"],input[type="image"]').forEach(button=>button.removeAttribute('onclick'));form.replaceWith(cleanForm);form=cleanForm;}const addButton=document.querySelector('#addItem,#add-item,[data-action="add"],button[type="submit"],button[onclick*="addItem"],input[type="submit"]')||Array.from(document.querySelectorAll('button')).find(button=>/^add item$/i.test(button.textContent.trim()));let target=form&&(!addButton||form.contains(addButton)&&addButton.type==='submit')?form:addButton||form;if(!target)return;if(target!==form){const cleanTarget=target.cloneNode(true);cleanTarget.removeAttribute('onclick');target.replaceWith(cleanTarget);target=cleanTarget;}target.addEventListener(target===form?'submit':'click',function genosAddItemRepair(event){event.preventDefault();event.stopImmediatePropagation();const name=document.getElementById(${JSON.stringify(fields.nameId)})?.value?.trim()||'';const quantity=Number(document.getElementById(${JSON.stringify(fields.quantityId)})?.value);const category=document.getElementById(${JSON.stringify(fields.categoryId)})?.value||'';const date=document.getElementById(${JSON.stringify(fields.dateId)})?.value||'';if(!name||!Number.isFinite(quantity)||quantity<=0){alert('Quantity must be greater than zero.');return;}if(typeof addItem==='function'){addItem.call(form||target,event);return;}const item={name,itemName:name,quantity,category,bestBefore:date,bestBeforeDate:date,date};${writeItem}},true);});</script>`;
+  return `<script>document.addEventListener('DOMContentLoaded',function(){let form=document.querySelector('form');if(form){const cleanForm=form.cloneNode(true);cleanForm.removeAttribute('onsubmit');cleanForm.querySelectorAll('button,input[type="submit"],input[type="image"]').forEach(button=>button.removeAttribute('onclick'));form.replaceWith(cleanForm);form=cleanForm;}const addButton=document.querySelector('#addItem,#add-item,[data-action="add"],button[type="submit"],button[onclick*="addItem"],input[type="submit"]')||Array.from(document.querySelectorAll('button')).find(button=>/^add item$/i.test(button.textContent.trim()));let target=form&&(!addButton||form.contains(addButton)&&addButton.type==='submit')?form:addButton||form;if(!target)return;if(target!==form){const cleanTarget=target.cloneNode(true);cleanTarget.removeAttribute('onclick');target.replaceWith(cleanTarget);target=cleanTarget;}target.addEventListener(target===form?'submit':'click',function genosAddItemRepair(event){event.preventDefault();event.stopImmediatePropagation();const name=document.getElementById(${JSON.stringify(fields.nameId)})?.value?.trim()||'';const quantity=Number(document.getElementById(${JSON.stringify(fields.quantityId)})?.value);const category=document.getElementById(${JSON.stringify(fields.categoryId)})?.value||'';const date=document.getElementById(${JSON.stringify(fields.dateId)})?.value||'';if(!name||!Number.isFinite(quantity)||quantity<=0){alert('Quantity must be greater than zero.');return;}const item={name,itemName:name,ItemName:name,quantity,category,Category:category,bestBefore:date,BestBefore:date,bestBeforeDate:date,BestBeforeDate:date,date};${writeItem}},true);});</script>`;
 }
 
 function ensureAddItemBehavior(content) {
-  const source = String(content || '');
-  if (source.includes('genosAddItemRepair')) return source;
+  const source = String(content || '').replace(
+    /<script\b[^>]*>[\s\S]*?function\s+genosAddItemRepair\b[\s\S]*?<\/script\s*>/gi, '');
   const state = discoverState(source);
   const fields = discoverFields(source);
   const key = storageKey(source, state);
