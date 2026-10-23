@@ -51,12 +51,21 @@ assert.equal(nativeMapperAssignments.environment_mapper.methodContract.methodId,
 assert.deepEqual(nativeMapperAssignments.environment_mapper.methodContract.parameters.terms.slice(0, 3),
   ['item1=1', 'item2=3', 'item3=2']);
 assert.equal(nativeMapperAssignments.environment_mapper.methodContract.parameters.sources[0].sourceRef, 'mission');
+const arrayAssignments = rolePrompt.morphogenesisWorkerAssignments([
+  { role: 'environment_mapper', topology: 'biome', methodContract: { version: 1, methodId: 'prompt_defined' } }
+], 'parallel_forks', realPrompt);
+assert.equal(arrayAssignments[0].methodContract.methodId, 'scan_literal',
+  'Array-based Biome assignments also replace the generic method.');
 const topologyKinds = require('../src/services/topologyWorkerKindService');
 const composedMapper = topologyKinds.applyTopologyWorkerKinds('biome', [{ role: 'environment_mapper',
   mission: realPrompt }])[0];
 assert.equal(composedMapper.methodContract.methodId, 'scan_literal',
   'Biome composition binds literal evidence collection before worker dispatch.');
 assert.equal(composedMapper.workerAssignment.methodContract.methodId, 'scan_literal');
+const requestedBiomeMapper = topologyKinds.applyTopologyWorkerKinds('parallel_forks', [{ role: 'environment_mapper',
+  mission: realPrompt, workerAssignment: { topology: 'biome', selectionSource: 'capability_match' } }])[0];
+assert.equal(requestedBiomeMapper.methodContract.methodId, 'scan_literal',
+  'Biome roles retain their native evidence method across a composite topology graph.');
 
 const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },

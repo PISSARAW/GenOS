@@ -31,8 +31,15 @@ function allocationFacts(source) {
 }
 
 function morphogenesisWorkerAssignments(assignments, topology, mission) {
-  if (String(topology || '').toLowerCase() !== 'biome' || Array.isArray(assignments)) return assignments;
-  const current = assignments?.environment_mapper || {};
+  const mapperIndex = Array.isArray(assignments)
+    ? assignments.findIndex((item) => String(item?.topologyRole || item?.role || '').toLowerCase() === 'environment_mapper')
+    : -1;
+  const current = Array.isArray(assignments)
+    ? assignments[mapperIndex] || {}
+    : assignments?.environment_mapper || {};
+  const assignedTopology = current.topology || current.workerAssignment?.topology;
+  if (String(assignedTopology || topology || '').toLowerCase() !== 'biome') return assignments;
+  if (Array.isArray(assignments) && mapperIndex < 0) return assignments;
   const methodId = String(current.methodContract?.methodId || '').toLowerCase();
   if (current.methodContract && methodId !== 'prompt_defined') return assignments;
   const source = String(mission || '').slice(0, 8192);
@@ -43,11 +50,13 @@ function morphogenesisWorkerAssignments(assignments, topology, mission) {
   const capacityTerm = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?\d+\b|\b(?:depasse|dépasser|exceed)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?\d+\b/i)?.[0];
   if (groupTerm) terms.push(groupTerm);
   if (capacityTerm) terms.push(capacityTerm);
-  return { ...assignments, environment_mapper: { ...current, methodContract: {
+  const mapper = { ...current, methodContract: {
     version: 1, methodId: 'scan_literal', parameters: {
       sources: [{ sourceRef: 'mission', text: source }], terms: terms.slice(0, 20)
     }
-  } } };
+  } };
+  if (Array.isArray(assignments)) return assignments.map((item, index) => index === mapperIndex ? mapper : item);
+  return { ...assignments, environment_mapper: mapper };
 }
 
 function morphogenesisMissionPrompt(assignment, mission) {
