@@ -7,14 +7,26 @@ function labelQuantityInput(content) {
   for (const scope of scopes) {
     const repaired = repairQuantityScope(scope[0]);
     if (!repaired) continue;
+    const repairedScope = removeQuantityLabelAriaName(repaired);
     const at = scope.index;
-    return source.slice(0, at) + repaired + source.slice(at + scope[0].length);
+    return source.slice(0, at) + repairedScope + source.slice(at + scope[0].length);
   }
   const field = '<label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" step="1" required aria-label="Quantity">';
   if (forms.length) return source.replace(/<\/form\s*>/i, `${field}</form>`);
   const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(source);
   if (button) return source.slice(0, button.index) + field + source.slice(button.index);
   return /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${field}</body>`) : `${source}${field}`;
+}
+
+function removeQuantityLabelAriaName(scope) {
+  const quantityIds = new Set([...scope.matchAll(/<input\b[^>]*>/gi)]
+    .map(({ 0: input }) => input.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2])
+    .filter((id) => id && /^(quantity|qty)$/i.test(id)));
+  if (!quantityIds.size) return scope;
+  return scope.replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (label) => {
+    const targetId = label.match(/\bfor\s*=\s*(["'])([^"']+)\1/i)?.[2];
+    return quantityIds.has(targetId) ? label.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : label;
+  });
 }
 
 function repairQuantityScope(scope) {
