@@ -128,6 +128,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(searchFilterContent, /getElementById\("filter-category"\s*\)/);
   assert.match(searchFilterContent, /filteredItems\.forEach\(item/);
   assert.match(searchFilterContent, /item\.category === categoryFilter/);
+  const persistencePlan = { kind: 'ensure_local_storage_mutations', label: 'pantryItems' };
+  const persistenceProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<script>let pantryItems = []; function addItem() { pantryItems.push(item); } function increaseQuantity(index) { pantryItems[index].quantity += 1; } function deleteItem(index) { pantryItems.splice(index, 1); } window.onload = () => { pantryItems.push(...JSON.parse(localStorage.getItem(\'pantryItems\') || \'[]\')); };</script>'
+  }] });
+  const persistenceContent = JSON.parse(applyRepairPlan(persistenceProposal, persistencePlan)).patches[0].content;
+  assert.equal((persistenceContent.match(/localStorage\.setItem\("pantryItems"/g) || []).length, 3);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   const categoryOnlyContent = JSON.parse(applyRepairPlan(proposalText, plan)).patches[0].content;
   assert.match(categoryOnlyContent, /<select id="category" aria-label="Category">/);
@@ -177,7 +183,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: updated quantity persists at tests/acceptance.cjs:26:10'
   }] }, usage: { tokens: 50 } });
-  assert.match(locatorRepairHint(persistenceFailure), /same canonical items collection to localStorage after every add, increase, and delete/);
+  assert.match(locatorRepairHint(persistenceFailure), /Save the canonical inventory array to localStorage immediately/);
+  assert.match(locatorRepairHint(persistenceFailure), /after every add, quantity increment, and delete/);
   const quantityCollision = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'

@@ -32,6 +32,9 @@ function consumedTokens(error) {
 
 function locatorRepairHint(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) {
+    return 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.';
+  }
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return 'The best-before date input has no accessible name matching Best-before. Keep its visible associated label and also set aria-label="Best-before date" on the date input.';
   }
@@ -76,6 +79,9 @@ function repairPlan(error) {
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
   }
+  if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) {
+    return { kind: 'ensure_local_storage_mutations', label: 'pantryItems' };
+  }
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return { kind: 'ensure_accessible_select_label', label: 'Category' };
   }
@@ -116,6 +122,8 @@ function applyRepairPlan(text, plan) {
         content = labelBestBeforeInput(content, item.label);
       } else if (item.kind === 'ensure_search_filter_behavior') {
         content = ensureSearchFilterBehavior(content);
+      } else if (item.kind === 'ensure_local_storage_mutations') {
+        content = ensureLocalStorageMutations(content);
       }
     }
     if (content !== patch.content) {
@@ -274,6 +282,32 @@ function ensureSearchFilterBehavior(content) {
     const filterCode = `const searchTerm = (document.getElementById(${JSON.stringify(searchId)} )?.value || '').trim().toLowerCase(); const categoryFilter = document.getElementById(${JSON.stringify(filterId)} )?.value || ''; const filteredItems = ${itemList}.filter(item => (!searchTerm || String(item.name || '').toLowerCase().includes(searchTerm)) && (!categoryFilter || /^(all|any)$/i.test(categoryFilter) || item.category === categoryFilter)); filteredItems.forEach(`;
     const nextCode = code.slice(0, insertion) + filterCode + code.slice(insertion + loop[0].length);
     const nextScript = script[0].replace(code, nextCode);
+    return content.slice(0, script.index) + nextScript + content.slice(script.index + script[0].length);
+  }
+  return content;
+}
+
+function ensureLocalStorageMutations(content) {
+  const scripts = [...content.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)];
+  for (const script of scripts) {
+    let code = script[1];
+    const state = /\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\[\s*\]\s*;?/i.exec(code);
+    if (!state) continue;
+    const stateName = state[1];
+    const escapedName = stateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const key = code.match(/localStorage\.getItem\(\s*(['"])([^'"]+)\1\s*\)/i)?.[2] || stateName;
+    const mutation = new RegExp(`\\b${escapedName}(?:\\s*\\[[^\\]]+\\])?\\.(?:push|splice)\\s*\\([^;]*\\);|\\b${escapedName}\\s*\\[[^\\]]+\\]\\.(?:quantity|count)\\s*(?:\\+\\+|--|[+*/-]=\\s*\\d+)\\s*;`, 'gi');
+    if (!/localStorage\.getItem\(/i.test(code)) {
+      const declaration = new RegExp(`\\b(?:let|const|var)\\s+${escapedName}\\s*=\\s*\\[\\s*\\]\\s*;?`, 'i');
+      const initializer = `;(() => { const saved = JSON.parse(localStorage.getItem(${JSON.stringify(key)}) || '[]'); if (Array.isArray(saved)) ${stateName}.push(...saved); })();`;
+      code = code.replace(declaration, (match) => `${match}${initializer}`);
+    }
+    code = code.replace(mutation, (statement, offset, source) => {
+      if (/localStorage\.getItem\(/i.test(statement)) return statement;
+      if (source.slice(offset, offset + statement.length + 200).includes(`localStorage.setItem(${JSON.stringify(key)}`)) return statement;
+      return `${statement} localStorage.setItem(${JSON.stringify(key)}, JSON.stringify(${stateName}));`;
+    });
+    const nextScript = script[0].replace(script[1], code);
     return content.slice(0, script.index) + nextScript + content.slice(script.index + script[0].length);
   }
   return content;
