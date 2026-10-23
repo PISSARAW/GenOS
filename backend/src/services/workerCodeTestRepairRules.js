@@ -18,7 +18,8 @@ const hintRules = [
   [/getByLabel\(\/filter category\/i\)/i, (output) => /did not find some options/i.test(output)
     ? 'The filter select resolves, but Food is missing. Add a visible <option value="Food">Food</option> to the Filter category select; keep it separate from the add-form Category select.'
     : 'The category filter select has no accessible name. Give the filter control aria-label="Filter category" and keep it separate from the add-form select named Category. Ensure it offers Food.'],
-  [/getByLabel\(\/search\/i\)/i, 'The search input is missing its accessible name. Give the search field aria-label="Search" and wire it to the existing item filter.']
+  [/getByLabel\(\/search\/i\)/i, 'The search input is missing its accessible name. Give the search field aria-label="Search" and wire it to the existing item filter.'],
+  [/AssertionError[\s\S]*?actual:[\s\S]*?expected:/i, 'Use the assertion message, stack location, actual value, and expected value as the acceptance evidence. Preserve the existing exported API and project shape; fix the smallest function responsible for the mismatch. Do not rewrite a library into another application or introduce dependencies.']
 ];
 
 function addItemHint(output) {
