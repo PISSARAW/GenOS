@@ -57,3 +57,9 @@ Commande exécutée le 23 octobre : `node backend/tests/test_native_memory_budge
 La commande a terminé avec les messages de réussite pour la réservation, les négatifs de mémoire et l’approbation. À la fermeture, deux effets différés ont aussi journalisé `SQLITE_MISUSE: Database is closed` (`ROLLBACK` et `TelemetryObserver`). Ces erreurs secondaires n’ont pas changé le code de sortie ni invalidé les assertions de corruption; elles restent une anomalie de nettoyage à corriger avant d’affirmer que le processus de test se termine sans erreur secondaire.
 
 Cette preuve couvre une corruption sémantique contrôlée du contenu dans une base isolée et son refus/restauration. Elle ne simule pas une corruption de pages SQLite ou une perte physique de mémoire et ne démontre pas la réparation autonome par Qwen.
+
+## Correction de la fermeture du banc T02
+
+Le premier passage du test sémantique a réussi ses assertions, mais a terminé avec des effets différés de télémétrie après fermeture de SQLite. Le banc fermait sa base avant d’attendre ces effets. Le `finally` de `backend/tests/test_native_memory_budget.js` appelle maintenant le helper existant `flushTelemetrySideEffects` après l’arrêt du garage et avant `closeDatabase`.
+
+Le rerun exact `node backend/tests/test_native_memory_budget.js` a terminé code 0 avec les mêmes assertions de corruption/refus/restauration. Les erreurs `SQLITE_MISUSE` de fermeture ne sont plus apparues. Une sortie `fatal: not a git repository` est toutefois apparue une fois pendant l’exécution d’un sous-processus; elle n’a pas échoué le test et sa source n’est pas encore isolée. Le run valide la correction de fermeture SQLite, mais le message Git reste à diagnostiquer.

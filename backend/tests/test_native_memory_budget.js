@@ -83,6 +83,7 @@ async function main() {
   try { await seed(db, workspace, { problemProfile: { reversibility: 'low' } }); await qualify(db); }
   finally {
     await require('../src/services/garageRuntimeService').stop(db);
+    await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
     await closeDatabase();
     await fs.rm(root, { recursive: true, force: true });
   }
