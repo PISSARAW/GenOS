@@ -273,6 +273,18 @@ Ces deux runs ne démontrent pas encore un `npm test` T02 complet vert ni un ver
 
 Le candidat Retry70 contenait un bouton Delete générique dans une ligne Oats déjà rendue. Le fallback Add Item quittait la fonction dès qu’il trouvait cette ligne, sans donner son nom accessible à l’action. `ensureVisibleItem` normalise maintenant le bouton Delete d’une ligne existante en `Delete Oats` sans créer de doublon. Le plan de réparation reconnaît l’échec `getByRole('button', { name: /delete oats/i })` et relance Add Item. Le test Edge reproduit l’état persistant, vérifie le locator, clique Delete et confirme la suppression dans localStorage. Les six tests ciblés (worker repair, Add Item, fallback, collision Quantity, incrément persistant et export) passent. Ce correctif attend une nouvelle acceptance T02 réelle.
 
+## Défaut du gate homeostasis — résultat de test réellement exécuté non collecté
+
+La trace de Retry70 confirme une clôture refusée avec `Required evidence missing: test_suite_passed`. La cause était dans `missionEvidenceCollector`: `testsPassed` restait toujours `false`, avec un commentaire indiquant qu’aucun producteur de reçu d’exécution fiable n’était raccordé. Les sorties de l’agent et la télémétrie ne pouvaient donc pas attester un `npm test` effectivement lancé et réussi.
+
+Le worker local transmet maintenant ses résultats d’exécution au service `localCodeTestExecutionReceiptService`. Le service persiste chaque lot de tests dans une table append-only, lie la commande, les codes de sortie et l’empreinte des fichiers, puis revalide cette empreinte avant de contribuer à `test_suite_passed`. Le contexte structural `testsPassed` du contrat homeostasis provient uniquement de ces reçus. Les exécutions locales Windows sous l’identité orchestrateur sont également reconnues car cette branche n’a pas un agent worker séparé.
+
+Vérifications réelles passées : `node backend/tests/test_local_code_test_execution_receipts.js` (lance deux processus `npm test`: un vert accepté, un rouge rejeté avec rollback); `node backend/tests/test_mission_evidence.js` (12/12); `node backend/tests/test_local_code_worker.js`; `node backend/tests/test_worker_code_evidence.js`; `npm run test:quality`. Les tests confirment aussi qu’une déclaration de réussite dans la télémétrie ne compte pas et qu’une modification du workspace après le test invalide le reçu.
+
+Le premier contrôle de commit a rejeté le dépassement de 400 lignes dans `workerEvidenceBarrierLocal.js` (402). L’adaptateur d’exécution des propositions a été extrait dans `workerEvidenceBarrierLocalProposal.js`; le fichier repasse à 394 lignes, puis les tests receipt, mission evidence, worker et quality repassent.
+
+Ce correctif élimine la cause identifiée du manque `test_suite_passed`; il ne prouve pas à lui seul la clôture finale T02. Le serveur GenOS MCP a encore renvoyé `Transport closed`, et une nouvelle mission Qwen avec le reçu raccordé reste à exécuter.
+
 ## Replay Retry70 — acceptance complète verte, lancement mission indisponible
 
 Pour vérifier le correctif Delete Oats sur le candidat réel Retry70 sans altérer son workspace, une copie a été créée sous `C:\Users\Shadow\Documents\GitHub\GenOSWork\workspace-replay-70-delete-name`. La première acceptance Edge dépasse Delete Oats, puis échoue à `acceptance.cjs:28:44`: le bouton Export ne déclenche aucun téléchargement. Ce résultat négatif est conservé ici.

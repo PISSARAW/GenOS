@@ -29,7 +29,8 @@ function makeHomeostasisContext(opts) {
       flags,
       evidence,
       functionalChecks: outcome.functionalChecks || {},
-      structuralChecks: outcome.structuralChecks || {},
+      structuralChecks: { ...(outcome.structuralChecks || {}),
+        testsPassed: flags.testsPassed === true },
       evidenceProfiles: profiles,
       dossierCount,
     }

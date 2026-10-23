@@ -14,7 +14,9 @@ function build(input) {
   }
   const fileRefs = files.map((file) => `genos://code-file/${values.digest(file)}`);
   const testRefs = tests.map((test) => `genos://code-test/${values.digest(test)}`);
-  const evidence = [...fileRefs, ...testRefs];
+  const receiptRef = proposal.testExecutionReceipt?.receiptHash
+    ? [`genos://code-test-execution/${proposal.testExecutionReceipt.receiptHash}`] : [];
+  const evidence = [...fileRefs, ...testRefs, ...receiptRef];
   const names = files.map((file) => file.path).join(', ');
   const commands = tests.map((test) => test.command).join(', ');
   const claim = { statement: `Changed ${names}; executed ${commands} and every test command exited successfully.`, evidence };

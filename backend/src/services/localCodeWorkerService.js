@@ -118,7 +118,7 @@ async function runTest(command, root) {
   });
 }
 async function executeProposal({ workspaceRoot, text, allowedCommands, requiredPatchPaths,
-  requiredPatchMarkers, requiredPatchMinimumBytes }) {
+  requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
   const proposal = parseProposal(text);
   assertRequiredPatchContract(proposal, requiredPatchPaths, {
     markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
@@ -143,15 +143,22 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
     await restorePatchState(workspaceRoot, patchState).catch(() => {});
     throw error;
   }
-  if (tests.some((test) => test.exitCode !== 0)) {
-    await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
-  }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
-    .map(({ path, hash }) => ({ path, hash }));
+    .map(({ path: filePath, hash }) => ({ path: filePath, hash }));
+  const testExecutionReceipt = db && mission && executionRun?.id
+    ? await require('./localCodeTestExecutionReceiptService').recordExecutedBatch(db, {
+      missionId: mission.missionId || mission.mission_id || mission.id,
+      agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
+      tests, workspaceFiles: after, changedFileHashes
+    }) : null;
+  if (tests.some((test) => test.exitCode !== 0)) {
+    await restorePatchState(workspaceRoot, patchState);
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: true, testStatus: 'failed' };
+  }
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
-    changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests, merged: false, testStatus: 'passed' };
+    changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests,
+    testExecutionReceipt, merged: false, testStatus: 'passed' };
 }
 function responseOptions(options) {
   return Array.isArray(options) ? { allowedCommands: options, requiredPatchPaths: [],

@@ -21,6 +21,7 @@ const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
   consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
+const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -106,14 +107,6 @@ async function generateWorkerResult(ctx) {
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
-}
-
-async function resolveProposal(ctx) {
-  if (!ctx.codeWorker) return null;
-  return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text,
-    allowedCommands: ctx.allowedCommands, requiredPatchPaths: ctx.requiredPatchPaths,
-    requiredPatchMarkers: ctx.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.requiredPatchMinimumBytes });
 }
 
 function resolveImmuneReport(ctx) {
@@ -325,12 +318,13 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
-  const proposal = await resolveProposal({ codeWorker: ctx.codeWorker,
+  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker,
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
+    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
+    db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });
   require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
