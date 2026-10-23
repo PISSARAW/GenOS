@@ -182,6 +182,27 @@ async function verifyResourceStewardReceivesPromptSizedInitialBudget() {
   assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
 }
 
+async function verifyFanoutReducesWorkerShareToPreserveReserve() {
+  const ctx = context();
+  ctx.autonomyPlan.tokenPolicy = { total: 20000, workerShare: 0.7,
+    minimumWorkerTokens: 1500, minimumWorkerTokensExplicit: true,
+    allocation: 'successive_halving_with_reallocation' };
+  const roles = [
+    ['environment_mapper', 'scout_cell'], ['resource_steward', 'specialist'],
+    ['population_specialist', 'specialist'], ['ecosystem_observer', 'scout_cell']
+  ];
+  await activation.activateMorphogenesisPlan(ctx, plan('biome'), {
+    composeMode: async () => ({ members: roles.map(([role, workerKind]) => ({
+      role, workerKind, executionMode: 'worker', methodContract: { methodId: 'prompt_defined' }
+    })) })
+  });
+  assert.equal(ctx.autonomyPlan.tokenPolicy.morphogenesisBudgetAdjustment.requestedWorkerShare, 0.7);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.morphogenesisBudgetAdjustment.appliedWorkerShare, 0.6);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.rounds.workerPool, 12000);
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [1500, 3000, 1500, 1500]);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
+}
+
 async function verifyGenomeCandidateBlocksActivation() {
   const ctx = context();
   const morphologyPlan = plan('rhizome');
@@ -201,6 +222,7 @@ async function main() {
   await verifyIncompatibleDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
   await verifyResourceStewardReceivesPromptSizedInitialBudget();
+  await verifyFanoutReducesWorkerShareToPreserveReserve();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');
 }

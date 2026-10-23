@@ -49,6 +49,7 @@ function assertFanout(plan, count, topology) {
 
 function allocationFor(plan, workers, topology) {
   const policy = plan.tokenPolicy || {};
+  fitWorkerShareToReserve(policy, workers.length);
   const budget = require('../aTeamDispatchBudgetService');
   budget.applyWorkerBudget(policy, workers);
   const allocation = policy.rounds;
@@ -57,6 +58,24 @@ function allocationFor(plan, workers, topology) {
   throw activationError('MORPHOGENESIS_TOPOLOGY_BUDGET_INSUFFICIENT',
     `The mission budget cannot fund every '${topology}' worker.`,
     { topology, requiredWorkers: count, fundedWorkers: allocation.initial.workerCount });
+}
+
+function fitWorkerShareToReserve(policy, workerCount) {
+  const total = Math.max(0, Number(policy.total) || 0);
+  const requestedWorkerShare = Number(policy.workerShare);
+  if (!total || !Number.isFinite(requestedWorkerShare)) return;
+  const budgetPolicy = require('../workerTokenBudgetPolicy');
+  const requiredReserve = budgetPolicy.minimumOrchestratorReserve(total, workerCount);
+  const maximumWorkerShare = Math.max(0, (total - requiredReserve) / total);
+  if (requestedWorkerShare <= maximumWorkerShare) return;
+  policy.morphogenesisBudgetAdjustment = {
+    reason: 'topology_worker_count_requires_minimum_orchestrator_reserve',
+    requestedWorkerShare,
+    appliedWorkerShare: maximumWorkerShare,
+    requiredOrchestratorReserveTokens: requiredReserve
+  };
+  policy.workerShare = maximumWorkerShare;
+  policy.orchestratorReserve = 1 - maximumWorkerShare;
 }
 
 function topologyNodes(morphologyPlan) {
