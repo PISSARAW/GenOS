@@ -68,7 +68,8 @@ function applyOneRepair(content, item) {
     ensure_accessible_button_label: (value) => labelIncreaseButton(value, item.label),
     ensure_quantity_action_label: (value) => cleanQuantityActions(value, item.label),
     ensure_quantity_input_label: (value) => require('./workerCodeQuantityInputRepair').labelQuantityInput(value),
-    ensure_quantity_field_after_reload: (value) => require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(value),
+    ensure_quantity_field_after_reload: (value) => require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(
+      require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)),
     ensure_unique_item_name_locator: cleanDuplicateItemName,
     ensure_filter_select_label: (value) => labelFilterSelect(value, item.label),
     ensure_search_input_label: (value) => labelSearchInput(value, item.label),

@@ -320,8 +320,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const quantityReloadProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button aria-label="Increase quantity for Oats">Increase quantity</button>'
   }] });
-  assert.match(JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content,
-    /aria-label="Increase quantity for Oats"/);
+  const quantityReloadContent = JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content;
+  assert.match(quantityReloadContent, /aria-label="Increase quantity for Oats"/); assert.match(quantityReloadContent, /genosQuantityIncrementRepair/);
   const quantityRowProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<form><input type="number" aria-label="Quantity"></form><div><input type="number" aria-label="Quantity for Oats"><button aria-label="Increase quantity for Oats">Increase</button></div>'
   }] });
