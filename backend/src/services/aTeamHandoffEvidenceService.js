@@ -35,10 +35,13 @@ function normalizeArtifacts(value) {
 function handoffArtifactRefs(report) {
   const artifacts = normalizeArtifacts(report.artifacts);
   const completedRefs = Array.isArray(report.scopeCompletion?.completedRefs)
-    ? report.scopeCompletion.completedRefs.filter((ref) => /^(?:git|commit):[a-f0-9]{40}$/i.test(String(ref)))
+    ? report.scopeCompletion.completedRefs.filter((ref) => /^(?:(?:git|commit):)?[a-f0-9]{40}$/i.test(String(ref)))
     : [];
   const byUri = new Map(artifacts.map((artifact) => [artifact.uri || artifact.ref || artifact.artifactId, artifact]));
-  for (const artifact of normalizeArtifacts(completedRefs)) byUri.set(artifact.uri, artifact);
+  for (const ref of completedRefs) {
+    const artifact = { uri: `git:${String(ref).replace(/^(?:git|commit):/i, '')}` };
+    byUri.set(artifact.uri, artifact);
+  }
   return [...byUri.values()];
 }
 
