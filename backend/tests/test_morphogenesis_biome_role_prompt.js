@@ -81,35 +81,22 @@ assert.equal(requestedBiomeMapper.methodContract.methodId, 'scan_literal',
 const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1 en 3 groupes, plafond de 8.');
-assert.match(stewardMission, /Capacity is sufficient and exact, so every bin must sum to exactly 8/);
-assert.match(stewardMission, /all 9 distinct identifiers occur once/);
-assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
-assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
-assert.match(stewardMission, /First check feasibility: total weight=24; aggregate capacity=3\*8=24/);
-assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
-assert.match(stewardMission, /order items by descending weight/);
-assert.match(stewardMission, /Place each next item in a bin only when its running subtotal plus that weight is at most 8/);
-assert.match(stewardMission, /if no bin fits, backtrack and move an earlier item/);
-assert.match(stewardMission, /When aggregate capacity is exact, every bin must finish at exactly 8/);
-assert.match(stewardMission, /otherwise bins may be below capacity/);
-assert.match(stewardMission, /return unresolved only if no valid assignment exists after backtracking/);
-assert.match(stewardMission, /exactly one GenOS dossier/);
-assert.match(stewardMission, /exactly one claim/);
-assert.match(stewardMission, /do not repeat the schema, add another claim or nested dossier/);
+assert.match(stewardMission, /Total=24; capacity=3\*8=24, so every bin must total exactly 8/);
+assert.match(stewardMission, /item1=1,item2=3,item3=2/);
+assert.match(stewardMission, /Use every item ID once/);
+assert.match(stewardMission, /Construct and recalculate every bin/);
+assert.match(stewardMission, /Backtrack if needed; do not abstain when a valid partition exists/);
+assert.match(stewardMission, /one GenOS dossier.*exactly one claim/);
 assert.doesNotMatch(stewardMission, /Return a complete GenOS dossier: \{"outcome":"success"/);
-assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>\"\],\[\"<item-id>\"\],\[\"<item-id>\"\]\]/);
-assert.match(stewardMission, /bins are arrays of exact item identifiers, never weights/);
-assert.match(stewardMission, /only the compact candidate JSON object in claims\[0\]\.statement/);
+assert.match(stewardMission, /only \{"bins":\[\[exact item IDs\],\.\.\.\]\}/);
+assert.ok(stewardMission.length < 700, 'resource steward prompts stay small enough for bounded workers');
 assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
 
 const underfilledStewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6 en 3 groupes, plafond de 13.');
-assert.match(underfilledStewardMission, /Total weight is below aggregate capacity, so bins do not need to be full/);
-assert.match(underfilledStewardMission, /Check that leftover weight always fits in the remaining bins/);
-assert.match(underfilledStewardMission, /otherwise bins may be below capacity/);
-assert.match(underfilledStewardMission, /The budget is sufficient for this 8-item arithmetic task/);
-assert.match(stewardMission, /recalculate each bin total/);
+assert.match(underfilledStewardMission, /Total=37; capacity=3\*13=39; each bin must total at most 13/);
+assert.match(stewardMission, /recalculate every bin/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
 const smallAllocation = 'Repartis item1=2, item2=2, item3=1 en 2 groupes, plafond de 3.';
