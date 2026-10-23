@@ -24,10 +24,17 @@ function matchFailureCategory(text) {
   return null;
 }
 
+function failedProposalTests(payload = {}) {
+  return (Array.isArray(payload.proposalTests) ? payload.proposalTests : [])
+    .filter((test) => (test.exitCode !== undefined && test.exitCode !== null && Number(test.exitCode) !== 0)
+      || Boolean(test.signal));
+}
+
 function classifyFailure(event = {}) {
   const payload = event.payload || {};
   const declared = String(payload.failure?.category || payload.category || '').toLowerCase();
   if (declared) return declared;
+  if (failedProposalTests(payload).length > 0) return 'test_failure';
   const text = (event.detail || '') + ' ' + (payload.failure?.reason || '') + ' ' + (payload.stderr || '');
   return matchFailureCategory(text) || (event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure');
 }
@@ -82,7 +89,15 @@ function classifyFinalReport(report = {}, isWorker = true) {
 }
 
 function reportFailureReason(payload, event) {
-  return compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+  const summary = failedProposalTests(payload).map((test) => {
+    const command = String(test.command || 'verification command');
+    const output = [test.stderr, test.stdout].filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => compact(value, 1200)).join('\n');
+    const result = test.signal ? `signal ${test.signal}` : `exit code ${test.exitCode}`;
+    return `${command} failed with ${result}.${output ? `\n${output}` : ''}`;
+  });
+  const reason = payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.';
+  return compact([reason, ...summary].join('\n'));
 }
 
 function reportEvidence(payload) {

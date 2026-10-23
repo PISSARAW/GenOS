@@ -281,8 +281,13 @@ function recoveryCapabilities(mission, target) {
 function buildRecoveryMission(input) {
   const { mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant } = input;
   const launchCaps = recoveryCapabilities(mission, target);
+  const recoveryContext = { ...mission };
+  // The failed worker's garage claim is terminal. The recovery worker must
+  // adopt a fresh claim for its new identity or workspace before execution.
+  delete recoveryContext.garageRequestId;
+  delete recoveryContext.garageLeaseId;
   return {
-    ...mission,
+    ...recoveryContext,
     agentId: target.targetId,
     name: target.name,
     role: target.role,

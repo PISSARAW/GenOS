@@ -18,6 +18,17 @@ assert.equal(recovery.decideRecovery(report('unresolved_task', 2)).action, 'repl
 assert.equal(recovery.decideRecovery(report('capability_mismatch', 0)).action, 'replace_worker');
 assert.equal(recovery.decideRecovery(report('falsified_hypothesis', 0)).action, 'fork_worker');
 
+const failedCodeProposal = recovery.failureReport({
+  eventType: 'AGENT_FAILED',
+  detail: 'Local code worker tests failed; capsule changes were rolled back.',
+  payload: { proposalTests: [{ command: 'node verify.cjs', exitCode: 1,
+    stderr: "AssertionError: '27.00' !== 27" }] }
+}, { agentId: 'worker-code', orchestratorAgentId: 'orchestrator-1',
+  prompt: 'Implement sumPrices', recoveryAttempt: 0, recoveryMaxAttempts: 3 });
+assert.equal(failedCodeProposal.category, 'test_failure', 'failed proposal checks must select test recovery');
+assert.match(failedCodeProposal.reason, /'27\.00' !== 27/, 'recovery must receive the failed assertion');
+assert.equal(recovery.decideRecovery(failedCodeProposal).action, 'bisect_and_rollback');
+
 const exhausted = recovery.decideRecovery(report('unresolved_task', 3));
 assert.equal(exhausted.action, 'escalate_unresolved');
 assert.equal(exhausted.terminal, true);
