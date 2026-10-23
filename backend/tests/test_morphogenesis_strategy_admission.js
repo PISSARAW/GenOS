@@ -5,6 +5,7 @@ const { createTopologyRegistry } = require('../src/services/morphogenesis/regist
 const { topologyExpression, nestExpression } = require('../src/services/morphogenesis/expression/morphologyExpression');
 const { compileExpression } = require('../src/services/morphogenesis/graph/morphologyCompiler');
 const { admitMorphogenesisStrategy, admitPlannerTransition } = require('../src/services/morphogenesis/morphogenesisStrategyAdmission');
+const { requestedToolsForAdmission } = require('../src/services/morphogenesis/morphogenesisEpochAdmissionCoordinator');
 
 const registry = createTopologyRegistry();
 const required = registry.get('a_team').requiredCapabilities;
@@ -22,6 +23,8 @@ const plan = { selectedTopology: 'a_team', selectedVariant: 'default',
     { mission: 'mission', missionId: 'mission-1', globalBudget: { tokens: 50 } }) },
   workerAssignments: [{ workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 50 }],
   allocatedTokens: 50, requestedTools: ['genos_change_organization'] };
+assert.deepEqual(requestedToolsForAdmission({ requiredTools: ['genos_snapshot'] },
+  { requiredTools: ['genos_change_organization'] }), ['genos_snapshot', 'genos_change_organization']);
 function receiptsFor(assignments, now) {
   const roles = assignments.map((assignment, index) => ({ roleId: `role-${index + 1}`,
     workerKind: assignment.workerKind, status: 'READY', instanceId: `w-${index + 1}` }));
