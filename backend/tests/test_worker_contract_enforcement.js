@@ -146,7 +146,7 @@ assert.equal(state.missionDomainState.domainVerdict, 'failed');
 const codeContract = workerKinds.buildWorkerContract('bounded_worker');
 const codeState = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
 const codeReport = { outcome: 'success', claims: [{ statement: 'npm test passed after the booking fix.', evidence: ['exec:test-run'] }],
-  tests: [{ command: 'npm test', passed: true, evidenceRefs: ['exec:test-run'] }],
+  tests: [{ name: 'npm test after commit', passed: true, evidenceRefs: ['exec:test-run'] }],
   scopeCompletion: { scopeRef: 'mission/quality', completedRefs: ['git:0123456789abcdef0123456789abcdef01234567'] } };
 applyDomainStateFromEvent({ state: codeState, eventType: 'AGENT_STEP', action: 'command_execution',
   event: { id: 'execution-event-1', action: 'command_execution', payload: { type: 'item.completed', item: {
@@ -157,6 +157,7 @@ applyDomainStateFromEvent({ state: codeState, eventType: 'EVIDENCE_REPORT',
   event: { agentId: 'code-worker', payload: codeReport }, workerContract: codeContract });
 assert.equal(codeState.missionDomainState.domainVerdict, 'completed');
 assert.equal(codeReport.tests[0].exitCode, 0);
+assert.equal(codeReport.tests[0].command, 'npm test');
 assert.match(codeReport.claims[0].evidence.at(-1), /^genos:\/\/code-test\//);
 assert.doesNotThrow(() => validateWorkerDossiers([{ workerId: 'code-worker', events: [{ evidenceReport: codeReport }] }], [
   { agentId: 'code-worker', workerContract: codeContract }

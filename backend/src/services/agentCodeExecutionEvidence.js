@@ -20,13 +20,13 @@ function attestCodeTestResults(report, state) {
   const completedCommands = state.missionDomainState.completedCommands;
   const verified = [];
   for (const test of report.tests) {
-    if (test?.passed !== true || typeof test.command !== 'string') continue;
-    const expected = test.command.trim().toLowerCase();
+    if (test?.passed !== true) continue;
+    const expected = reportedTestCommand(test).toLowerCase();
     if (!expected) continue;
     const execution = [...completedCommands].reverse().find((candidate) =>
       candidate.exitCode === 0 && candidate.command.toLowerCase().includes(expected));
     if (!execution) continue;
-    const attested = { ...test, exitCode: 0, executionReceipt: {
+    const attested = { ...test, command: expected, exitCode: 0, executionReceipt: {
       eventId: execution.eventId, itemId: execution.itemId, command: execution.command,
       exitCode: execution.exitCode, outputDigest: execution.outputDigest
     } };
@@ -44,7 +44,13 @@ function attestCodeTestResults(report, state) {
     verified.push(attested);
   }
   if (verified.length) report.tests = report.tests.map((test) =>
-    verified.find((item) => item.command === test.command && item.passed === test.passed) || test);
+    verified.find((item) => item.command === reportedTestCommand(test) && item.passed === test.passed) || test);
+}
+
+function reportedTestCommand(test) {
+  if (typeof test?.command === 'string' && test.command.trim()) return test.command.trim();
+  const name = String(test?.name || '').trim();
+  return name.match(/\b(?:npm\s+(?:test|run\s+test)|yarn\s+test|pnpm\s+test|pytest(?:\s+[^\s]+)?|node\s+[^\s]+\.(?:c?js|mjs))\b/i)?.[0] || '';
 }
 
 module.exports = { recordCompletedCommand, attestCodeTestResults };
