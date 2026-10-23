@@ -45,7 +45,7 @@ function evaluateTerminalStatus(ctx, event, nextStatus) {
 
 function persistedStatus(verdict, fallback) {
   if (verdict === 'succeeded') return 'completed';
-  if (verdict === 'failed') return 'failed';
+  if (verdict === 'failed') return 'error';
   if (verdict === 'interrupted') return fallback === 'blocked' ? 'blocked' : 'terminated';
   if (verdict === 'in_progress') return 'running';
   return 'unverified';
@@ -89,4 +89,4 @@ async function settle(input) {
   }
 }
 
-module.exports = { isTerminalEvent, evaluateTerminalStatus, queue, settle };
+module.exports = { isTerminalEvent, evaluateTerminalStatus, persistedStatus, queue, settle };

@@ -10,6 +10,7 @@ const { classifyConscienceEvent, applyDomainStateFromEvent } = require('../src/s
 const { buildWorkerArtifact, inspectWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
 const strategyProgress = require('../src/services/strategyExecutionProgress');
+const terminalStatus = require('../src/services/agentTerminalStatusService');
 
 const CONTENT = {
   scout_observation: { observations: [{ observation: 'found', sourceRefs: ['ref'], confidence: 1, uncertainties: [] }] },
@@ -42,6 +43,8 @@ assert.equal(workerComplianceScenario('forensic_worker').receipt.events[1].ready
 assert.equal(workerComplianceScenario('medical_worker').receipt.realPatient, false);
 assert.equal(strategyProgress.completionPromotionApplies('worker'), false);
 assert.equal(strategyProgress.completionPromotionApplies('orchestrator'), true);
+assert.equal(terminalStatus.persistedStatus('failed', 'error'), 'error',
+  'failed completion verdicts must use the persisted agent status allowed by SQLite');
 const coordinatedForensic = workerKinds.buildWorkerContract('forensic_worker', {
   communicationRequired: true
 });
@@ -139,6 +142,35 @@ assert.equal(classifyConscienceEvent({ event: genericSuccess, eventType: 'EVIDEN
 const state = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
 applyDomainStateFromEvent({ state, event: genericSuccess, eventType: 'EVIDENCE_REPORT', workerContract: specialized });
 assert.equal(state.missionDomainState.domainVerdict, 'failed');
+
+const codeContract = workerKinds.buildWorkerContract('bounded_worker');
+const codeState = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
+const codeReport = { outcome: 'success', claims: [{ statement: 'npm test passed after the booking fix.', evidence: ['exec:test-run'] }],
+  tests: [{ command: 'npm test', passed: true, evidenceRefs: ['exec:test-run'] }],
+  scopeCompletion: { scopeRef: 'mission/quality', completedRefs: ['git:0123456789abcdef0123456789abcdef01234567'] } };
+applyDomainStateFromEvent({ state: codeState, eventType: 'AGENT_STEP', action: 'command_execution',
+  event: { id: 'execution-event-1', action: 'command_execution', payload: { type: 'item.completed', item: {
+    id: 'item-test-1', type: 'command_execution', command: 'npm test', status: 'completed', exit_code: 0,
+    aggregated_output: 'All tests passed.'
+  } } } });
+applyDomainStateFromEvent({ state: codeState, eventType: 'EVIDENCE_REPORT',
+  event: { agentId: 'code-worker', payload: codeReport }, workerContract: codeContract });
+assert.equal(codeState.missionDomainState.domainVerdict, 'completed');
+assert.equal(codeReport.tests[0].exitCode, 0);
+assert.match(codeReport.claims[0].evidence.at(-1), /^genos:\/\/code-test\//);
+assert.doesNotThrow(() => validateWorkerDossiers([{ workerId: 'code-worker', events: [{ evidenceReport: codeReport }] }], [
+  { agentId: 'code-worker', workerContract: codeContract }
+]));
+
+const unverifiedCodeState = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
+const unverifiedCodeReport = structuredClone(codeReport);
+unverifiedCodeReport.tests[0].exitCode = undefined;
+unverifiedCodeReport.tests[0].executionReceipt = undefined;
+unverifiedCodeReport.claims[0].evidence = unverifiedCodeReport.claims[0].evidence.filter((ref) => !ref.startsWith('genos://code-test/'));
+applyDomainStateFromEvent({ state: unverifiedCodeState, eventType: 'EVIDENCE_REPORT',
+  event: { agentId: 'code-worker', payload: unverifiedCodeReport }, workerContract: codeContract });
+assert.equal(unverifiedCodeState.missionDomainState.domainVerdict, 'failed',
+  'self-reported test success without a completed runtime command must remain unverified');
 
 const nested = workerKinds.buildWorkerContract('sub_orchestrator');
 assert.equal(nested.authority.spawn, false);

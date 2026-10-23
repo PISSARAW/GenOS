@@ -5,7 +5,9 @@ const { workerArtifactResponseFormat } = require('../src/services/agents/workerA
 
 const red = workerArtifactResponseFormat('red_worker');
 assert.equal(red.name, 'genos_worker_artifact');
-assert.deepEqual(red.schema.required, ['outcome', 'claims', 'workerArtifact']);
+assert.deepEqual(red.schema.required, ['outcome', 'claims']);
+assert.ok(red.schema.allOf[0].then.required.includes('workerArtifact'),
+  'successful responses require the typed artifact while unresolved responses may omit it');
 const report = red.schema.properties.workerArtifact.properties.content;
 assert.deepEqual(report.properties.verdict.enum, ['accept', 'reject', 'unresolved']);
 assert.ok(report.required.includes('reproductionSteps'));
@@ -21,7 +23,7 @@ assert.deepEqual(matrix.properties.coldStartOrJit.properties.evidence.items.enum
 assert.ok(diagnosis.properties.workerArtifact.properties.content.required.includes('conditionalVerdict'));
 
 const dossier = workerArtifactResponseFormat('specialist').schema;
-assert.ok(dossier.required.includes('specialtyAssessment'));
+assert.ok(dossier.allOf[0].then.required.includes('specialtyAssessment'));
 assert.equal(dossier.properties.specialtyAssessment.properties.inScope.const, true);
 assert.equal(dossier.properties.workerArtifact, undefined);
 
