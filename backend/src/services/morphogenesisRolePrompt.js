@@ -38,14 +38,17 @@ function morphogenesisMissionPrompt(assignment, mission) {
   const facts = allocationFacts(source);
   if (!facts.items.length || !facts.groups || !facts.capacity) return mission;
   const itemList = facts.items.map(({ id, value }) => `${id}=${value}`).join(',');
-  const summary = `items=${itemList};groups=${facts.groups};max=${facts.capacity}`;
+  const summary = `items=${itemList};count=${facts.items.length};groups=${facts.groups};max=${facts.capacity}`;
   if (role === 'environment_mapper') {
-    return `Observe source facts only: ${summary}. Return JSON {"observations":[{"observation":"${itemList}","sourceRefs":["mission"],"confidence":1,"uncertainties":[]} ]}. Do not solve the allocation.`;
+    return `Observe only: ${summary}. These are all requested facts; copy every item and value verbatim into one observation. Do not solve or reorganize them; they are sufficient, so do not return unresolved. Return JSON {"observations":[{"observation":"${itemList}","sourceRefs":["mission"],"confidence":1,"uncertainties":[]} ]}.`;
   }
   const total = facts.items.reduce((sum, item) => sum + item.value, 0);
   const exactTotal = total === facts.groups * facts.capacity
     ? ` Total=${total}; each group must sum exactly ${facts.capacity}.` : '';
-  return `Partition ${summary}. Use every item exactly once; no group may exceed ${facts.capacity}.${exactTotal} Return only JSON {"bins":[["item1"],...]}; calculate each total and verify before answering.`;
+  const largest = Math.max(...facts.items.map((item) => item.value));
+  const fitHint = exactTotal && largest > 0 && largest <= facts.capacity
+    ? ` Place the largest value ${largest} first and reserve a complement of ${facts.capacity - largest}; backtrack rather than omit any item.` : '';
+  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext };

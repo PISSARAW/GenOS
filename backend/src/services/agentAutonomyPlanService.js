@@ -355,6 +355,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const missionBudget = normalizedMission.executionBudget || {};
   const regulationBudget = {
     ...missionBudget,
+    morphogenesisPolicy: normalizedMission.morphogenesisPolicy || missionBudget.morphogenesisPolicy,
     survivalState: normalizedMission.survivalState || missionBudget.survivalState
   };
   const configuredWorkerShare = resolveWorkerShare(missionBudget);

@@ -48,7 +48,8 @@ function buildTokenPlan(budget, flags, workers) {
   const fundedCount = atomic && affordableWorkers !== workers.length ? 0 : affordableWorkers;
   const dispatchWorkers = workers.slice(0, fundedCount);
   const selectedBudgets = workerBudgets.slice(0, fundedCount);
-  const allocation = flags.complex || flags.uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
+  const allocation = budget.morphogenesisPolicy?.adaptive === true || flags.complex || flags.uncertain
+    ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
   const rounds = buildAllocation({
     totalTokens, workerShare: envelope.workerShare, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, workerBudgets: selectedBudgets, mode: allocation

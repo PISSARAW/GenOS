@@ -239,7 +239,7 @@ async function prepareWorkerAssets(workerContext) {
     const ws = await workerSelf.buildWorkerSelf(db, {
       agentId: id,
       workerRole: assignment.role,
-      workerContext: { mission: mission.prompt, hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
+      workerContext: { mission: morphogenesisMissionPrompt(assignment, mission.prompt), hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
     });
     workerSelfBlock = workerSelf.formatWorkerSelfPrompt(ws);
   } catch (_) {}
