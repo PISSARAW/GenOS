@@ -39,16 +39,21 @@ async function main() {
     assert.equal(otherSnapshot.lease.tools.includes('genos_replay'), false, 'a different snapshot remains outside the lease');
     assert.equal(await bridge.scopedReplayAuthorized(context('worker-a', 'snap-other-worker').db,
       context('worker-a', 'snap-other-worker').request, context('worker-a', 'snap-other-worker').binding), false);
+    const wrongRoot = context('worker-a', ownedSnapshot);
+    wrongRoot.request.args.root = temporary;
+    assert.equal(await bridge.scopedReplayAuthorized(wrongRoot.db, wrongRoot.request, wrongRoot.binding), false,
+      'a valid capsule cannot be replayed under a caller-selected workspace root');
     const otherWorker = await bridge.permissionInput(context('worker-b', ownedSnapshot));
     assert.equal(otherWorker.lease.tools.includes('genos_replay'), false, 'a different worker cannot borrow the capsule lease');
     assert.equal(directToolLeaseAllows('genos_replay'), false, 'the global direct lease remains denied');
     const registry = require('../src/services/mcpToolRegistry');
-    const validation = { registry, toolName: 'genos_replay', args: { snapshot: 'snap-a' },
+    const validation = { registry, toolName: 'genos_replay', args: { root, snapshot: ownedSnapshot },
       executionKind: registry.detectExecutionKind('genos_replay'), scopedReplayAllowed: true };
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), true, 'the exact scoped flag passes local dispatch');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: 'snap-a' }, true), null,
+    assert.equal(dispatch.preValidateTool(validation), null, 'safe absolute worker capsule paths pass scoped validation');
+    assert.equal(toolLogic.revalidateToolCall('genos_replay', { root, snapshot: ownedSnapshot }, true), null,
       'the transport revalidation accepts the scoped owner grant');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { snapshot: 'snap-a' }, false).code,
+    assert.equal(toolLogic.revalidateToolCall('genos_replay', { root, snapshot: ownedSnapshot }, false).code,
       'MCP_TOOL_LEASE_DENIED', 'the transport still denies replay without scoped proof');
     process.env.GENOS_MCP_DISABLED_TOOLS = 'genos_replay';
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), false, 'disabled replay cannot use the scoped grant');
