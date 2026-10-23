@@ -92,10 +92,8 @@ function currentPolicyTopology(plan) { return plan.morphogenesisPlan?.selectedTo
 function currentPolicyVariant(plan) { return plan.morphogenesisPlan?.selectedVariant || 'default'; }
 
 function topologyCapabilities(mission = {}) {
-  const declared = mission.topologyCapabilityInventory?.available
-    ?? mission.missionCapabilityPlan?.availableTopologyCapabilities;
-  if (Array.isArray(declared)) return [...declared];
-  return require('../capabilityAccessMatrix').operationalTopologyCapabilities();
+  return require('./topologyCapabilityInventory')
+    .resolveTopologyCapabilityInventory(mission).available;
 }
 
 function coordinationPolicyOf(worker) { return worker.coordinationPolicy || worker.coordination_policy || {}; }

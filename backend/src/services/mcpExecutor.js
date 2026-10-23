@@ -352,6 +352,8 @@ async function resolvePermissionBinding(db, context) {
 
 async function executeAfterPermission(context) {
   const { db, request, binding, circuitScope, applyDomainVerdict } = context;
+  const scopedReplayAllowed = await require('./mcpExecutor/permissionMembraneBridge')
+    .scopedReplayAuthorized(db, request, binding);
   const immuneFault = await screenImmuneThreats(db, request);
   if (immuneFault) return immuneFault;
   const cnidocyteFault = await require('./mcpExecutor/cnidocyteRuntimeGate').screenCnidocyteThreat(db, request);
@@ -363,7 +365,8 @@ async function executeAfterPermission(context) {
   const circuitFault = checkCircuitBreaker(request.toolName, circuitScope, request.args);
   if (circuitFault) return circuitFault;
   if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({
-    db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope, binding
+    db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope, binding,
+    scopedReplayAllowed
   });
   return runCorrelatedToolExecution({
     context: { db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope },

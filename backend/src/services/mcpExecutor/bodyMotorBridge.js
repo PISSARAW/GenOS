@@ -11,7 +11,8 @@ const telemetry = require('../telemetryObserver');
 async function runBoundMotorTool(input) {
   const actionId = receipts.actionId();
   const context = { db: input.db, agentId: input.agentId, toolName: input.toolName,
-    args: input.args, circuitScope: input.circuitScope, actionId, runId: input.binding.envelope.runId };
+    args: input.args, circuitScope: input.circuitScope, actionId, runId: input.binding.envelope.runId,
+    scopedReplayAllowed: input.scopedReplayAllowed === true };
   const environment = { ownerAgentId: input.binding.envelope.scope.entityId,
     actuatorId: 'backend_mcp_tool', toolName: input.toolName,
     execute: async () => executeBoundTool(context) };

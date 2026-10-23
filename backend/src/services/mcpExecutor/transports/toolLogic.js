@@ -39,10 +39,12 @@ function nullish(value, fallback) {
   return value === undefined || value === null ? fallback : value;
 }
 
-function revalidateToolCall(toolName, args) {
+function revalidateToolCall(toolName, args, scopedReplayAllowed = false) {
   const { directToolLeaseAllows } = require('../../mcpExecutor/config');
   const { validateToolArguments } = require('../../mcpArgumentValidation');
-  if (!directToolLeaseAllows(toolName)) {
+  const scopedReplay = toolName === 'genos_replay' && scopedReplayAllowed === true
+    && require('../../mcpExecutor/config').scopedWorkerReplayLeaseOpen();
+  if (!directToolLeaseAllows(toolName) && !scopedReplay) {
     return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED' };
   }
   const argumentError = validateToolArguments(toolName, args || {});
@@ -246,7 +248,7 @@ async function dispatchToTransport(input) {
 async function executeToolLogic(toolName, args, context = {}) {
   const { runLocal, timeoutMs = 30000 } = context;
   // Re-validation fail-closed: ne jamais faire confiance à preValidated.
-  const revalidation = revalidateToolCall(toolName, args);
+  const revalidation = revalidateToolCall(toolName, args, context.scopedReplayAllowed);
   if (revalidation) return revalidation;
   const delegated = await executeDelegatedTool({ toolName, args, context });
   if (delegated !== UNHANDLED) return delegated;
@@ -322,4 +324,4 @@ function platformToolHandler({ toolName, args, runLocal, timeoutMs }) {
   }
 }
 
-module.exports = { executeToolLogic };
+module.exports = { executeToolLogic, revalidateToolCall };

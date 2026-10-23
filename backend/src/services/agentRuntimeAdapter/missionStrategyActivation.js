@@ -55,14 +55,8 @@ function daemonInventory(ctx) {
 }
 
 function topologyCapabilities(mission, plan) {
-  const capabilityPlan = mission.missionCapabilityPlan || {};
-  const inventory = mission.topologyCapabilityInventory || plan.topologyCapabilityInventory || {};
-  const declared = inventory.available || capabilityPlan.availableTopologyCapabilities;
-  if (Array.isArray(declared)) return [...declared];
-  // Morphogenesis admission needs platform capabilities, not capabilities
-  // inferred from the workers proposed to run the mission. Use the audited
-  // operational capability registry as the authoritative fallback.
-  return require('../capabilityAccessMatrix').operationalTopologyCapabilities();
+  return require('../morphogenesis/topologyCapabilityInventory')
+    .resolveTopologyCapabilityInventory(mission, plan).available;
 }
 
 function missionText(mission) { return mission.prompt || mission.currentTask || ''; }

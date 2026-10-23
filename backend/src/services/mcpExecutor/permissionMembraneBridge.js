@@ -129,6 +129,15 @@ async function executionLease(db, request, binding) {
   return adapters.leaseContract(identity, tools);
 }
 
+async function scopedReplayAuthorized(db, request, binding) {
+  const normalized = require('../toolLeasePolicy').normalizeToolName(request.toolName);
+  const sealed = binding?.status === 'authorized' ? binding.envelope.toolLease : [];
+  const snapshot = request.args?.snapshot || request.args?.snapshot_id;
+  return normalized === 'genos_replay' && sealed.includes('genos_replay')
+    && scopedWorkerReplayLeaseOpen()
+    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId, snapshot);
+}
+
 function workerRevision(request, binding) {
   if (binding?.status === 'authorized') return binding.hash;
   return String(request.workerRevision || request.runId || 'runtime-current');
@@ -234,4 +243,4 @@ async function executeAuthorized(context) {
   return withReceipt(result, receipt);
 }
 
-module.exports = { executeAuthorized, permissionInput, persistLineage, LINEAGE_SCHEMA };
+module.exports = { executeAuthorized, permissionInput, persistLineage, scopedReplayAuthorized, LINEAGE_SCHEMA };
