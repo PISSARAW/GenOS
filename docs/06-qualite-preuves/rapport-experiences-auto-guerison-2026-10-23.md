@@ -46,6 +46,41 @@ Trois expériences avec processus enfants et bases/répertoires temporaires ont 
 
 Ces essais prouvent le comportement de récupération de processus et de backend dans des fixtures isolées. Ils ne tuent pas un worker métier en train de traiter une vraie mission et ne démontrent pas encore le critère T01 complet « reprise correcte sans doublon » sur un service de production ou une VM.
 
-## Run T02 direct 23 en cours lors de la dernière observation
+## T02 Pantry — run direct D: 23 terminé en échec
 
-Le processus `node backend/bin/genos-orchestrate.cjs` du run `autonomy-proof-t02-20261023-direct-d-repair-23` était encore vivant lors de la collecte; Ollama servait toujours `qwen2.5-coder:7b`. Son journal de sortie était vide et aucun verdict final n’était disponible. Ce run n’est ni classé réussi ni classé échoué ici; il faut relire sa base et son reçu après terminaison.
+Le run `autonomy-proof-t02-20261023-direct-d-repair-23` a utilisé `ollama://qwen2.5-coder:7b` et huit essais Qwen réels. Au dernier essai, Playwright échoue à `tests/acceptance.cjs:19:10`: la ligne Oats attendue est absente (`actual: 0`, `expected: 1`). La mission est terminale `success:false`, verdict `failed`; l’invariant `mission_outcome_success` échoue et la porte homeostasis bloque la clôture. Le worker a restauré les changements de capsule.
+
+Artefacts : `D:\GenOS\runs\autonomy-proof-t02-20261022\project\direct-d-20261023-retry23.json`, `orchestrator-direct-d-20261023-retry23.log` et `genos-direct-d-20261023-retry23.db`. La dernière proposition a consommé 4 369 tokens selon l’événement d’usage Qwen. Le run24 Qwen 32B apparaissait déjà lancé sur D: après la terminaison du run23; aucun doublon d’inférence n’a été ajouté.
+
+## T02 — corruption sémantique de mémoire native et refus de propagation
+
+Commande exécutée le 23 octobre : `node backend/tests/test_native_memory_budget.js` — code de sortie 0. La fixture crée une base et un workspace jetables, produit une mémoire promue et la vérifie depuis deux processus Oracle indépendants dans des répertoires différents. Le scénario de dommage ajoute une fausse affirmation au contenu d’une mémoire existante. GenOS la classe `refuted`, l’exclut des résultats de recherche, refuse de réutiliser l’ancienne attestation sur le contenu modifié et refuse une nouvelle preuve positive. Le test restaure le contenu original dans un bloc `finally`. Il vérifie aussi le refus d’une provenance falsifiée, d’une portée étrangère, d’un budget insuffisant et d’une source rétractée.
+
+La commande a terminé avec les messages de réussite pour la réservation, les négatifs de mémoire et l’approbation. À la fermeture, deux effets différés ont aussi journalisé `SQLITE_MISUSE: Database is closed` (`ROLLBACK` et `TelemetryObserver`). Ces erreurs secondaires n’ont pas changé le code de sortie ni invalidé les assertions de corruption; elles restent une anomalie de nettoyage à corriger avant d’affirmer que le processus de test se termine sans erreur secondaire.
+
+Cette preuve couvre une corruption sémantique contrôlée du contenu dans une base isolée et son refus/restauration. Elle ne simule pas une corruption de pages SQLite ou une perte physique de mémoire et ne démontre pas la réparation autonome par Qwen.
+
+## Correction de la fermeture du banc T02
+
+Le premier passage du test sémantique a réussi ses assertions, mais a terminé avec des effets différés de télémétrie après fermeture de SQLite. Le banc fermait sa base avant d’attendre ces effets. Le `finally` de `backend/tests/test_native_memory_budget.js` appelle maintenant le helper existant `flushTelemetrySideEffects` après l’arrêt du garage et avant `closeDatabase`.
+
+Le rerun exact `node backend/tests/test_native_memory_budget.js` a terminé code 0 avec les mêmes assertions de corruption/refus/restauration. Les erreurs `SQLITE_MISUSE` de fermeture ne sont plus apparues. Une sortie `fatal: not a git repository` est toutefois apparue une fois pendant l’exécution d’un sous-processus; elle n’a pas échoué le test et sa source n’est pas encore isolée. Le run valide la correction de fermeture SQLite, mais le message Git reste à diagnostiquer.
+
+
+## T03 — réparation Rhizome après échec de route vérifié
+
+Commande exécutée dans une base SQLite temporaire isolée : `node backend/tests/test_rhizome_runtime_recovery.js` — code 0, sortie `Rhizome runtime recovery: PASS`. Le runtime exécute d’abord une route de coût inférieur; le vérificateur injecte un reçu d’échec signé. Le runtime exclut exactement ses deux arêtes (`fast-a`, `fast-b`), choisit l’alternative (`safe-a`, `safe-b`) puis reçoit un reçu de succès. L’assertion terminale est `ROUTE_RECOVERED`, avec deux exécutions. Le même test vérifie qu’une échéance dépassée reste `ROUTE_RETRY_UNVERIFIED` et n’annonce pas de guérison.
+
+Le runtime Rhizome, le routage, les reçus et la persistance sont réellement exécutés localement; seule l’exécution externe de la capacité est fournie par une fonction fixture et le vérificateur de test contrôle les reçus. Cela qualifie la récupération de route dans le banc isolé, pas la livraison sur un réseau externe ni le respect d’une politique de permission à travers un adaptateur réseau réel.
+
+Le complément live du même contrôle a été exécuté avec `GENOS_RHIZOME_CLI=target/debug/genos.exe`: `node backend/tests/rhizome_cli_live_check.cjs` — code 0. Le binaire Rust fraîchement disponible a exporté un graphe persistant depuis SQLite; un serveur enfant local a servi `/api/graph` et un snapshot WebSocket, puis le test a vérifié que l’export d’une session fermée est refusé. Le mode simulation requiert une option explicite et est distingué par `source=simulation`. Le test utilise exclusivement `127.0.0.1` et une base jetable; il ne réalise pas de routage sur un réseau de production.
+
+## T04 — remplacement d’un worker et vérification indépendante
+
+Le premier essai de `node backend/tests/test_mission_replacement_continuity.js` a échoué à son préflight (`blocked` au lieu de l’erreur de dispatch attendue) : la fixture ne fournissait ni budget positif, ni checks configurés, ni workspace. Après correction de la fixture, une seconde lésion réutilisait l’identifiant déjà consommé; le registre a correctement bloqué le doublon. La lésion de réussite utilise maintenant un identifiant distinct et une preuve fonctionnelle liée au contrôle configuré.
+
+Cette expérience a révélé le défaut produit qui empêchait toute réussite réelle : `sandboxCommandPolicy` autorisait `node checks/verify.js`, mais `sandboxExecutor.commandInvocation` ne gérait pas la commande `node`. L’exécution indépendante échouait donc `CHECK_EXECUTION_FAILED`, même si le script de vérification était présent. Le service invoque maintenant le script autorisé via `process.execPath`, sans shell. `test_aeis_sandbox.js` couvre l’exécution Node réelle et conserve le refus de commandes hors whitelist.
+
+Après correction : `node backend/tests/test_aeis_sandbox.js` — code 0, tous les scénarios AEIS passent; `node backend/tests/test_mission_replacement_continuity.js` — code 0, dispatch négatif classé `error`, remplacement avec reçu fonctionnel, replay réel du contrôle Node en sandbox, puis état/membership conservés après réouverture de SQLite; `node backend/tests/test_mission_continuity.js` — 21 réussis, 0 échec.
+
+La fixture remplace le dispatcher réseau de worker par un adaptateur déterministe; le contrôle d’équivalence, lui, est lancé comme processus isolé réel. Cela qualifie les portes de régénération et l’oracle, mais pas le remplacement en production d’un worker Qwen réellement tué.

@@ -202,7 +202,29 @@ function lineageKey(correlation) {
   return [correlation.missionId, correlation.runId, correlation.operationId, correlation.eventId].join('/');
 }
 
-module.exports = {
+function lazyGate() {
+  try { return require('./operationLifecycleGate'); } catch (e) { return null; }
+}
+function wrap(name) {
+  return function (...args) {
+    const g = lazyGate();
+    if (g && typeof g[name] === 'function') return g[name](...args);
+    throw new Error('operation lifecycle gate unavailable');
+  };
+}
+
+const _gateNames = ['admitOperation','admit','checkAdmission','gateAdmission','validateLease','revokeAuthority',
+  'debitBudget','debit','validateSnapshot','validateSnapshotIntegrity','validateBudgetTransmission','isBudgetExhausted',
+  'budgetExhausted','validateEvidenceForClaim','validateEvidence','canPromote','promotionAllowed','closeOperation','close',
+  'resumeOperation','resume','adaptLegacy','adapt','markPartial','markUnavailable','isPartial','isUnavailable',
+  'complianceMatrix','assertNoBypass'];
+for (const name of _gateNames) {
+  if (typeof module.exports[name] === 'undefined') {
+    module.exports[name] = wrap(name);
+  }
+}
+
+module.exports = Object.assign(module.exports, {
   SCHEMA_VERSION,
   TERMINAL_STATES,
   OPERATION_KINDS,
@@ -215,5 +237,34 @@ module.exports = {
   validateEvidence,
   isAllowedTransition,
   buildReceipt,
-  lineageKey
-};
+  lineageKey,
+  admitOperation: wrap('admitOperation'),
+  admit: wrap('admit'),
+  checkAdmission: wrap('checkAdmission'),
+  gateAdmission: wrap('gateAdmission'),
+  validateLease: wrap('validateLease'),
+  revokeAuthority: wrap('revokeAuthority'),
+  revokeLease: wrap('revokeLease'),
+  debitBudget: wrap('debitBudget'),
+  debit: wrap('debit'),
+  validateSnapshot: wrap('validateSnapshot'),
+  validateSnapshotIntegrity: wrap('validateSnapshotIntegrity'),
+  validateBudgetTransmission: wrap('validateBudgetTransmission'),
+  isBudgetExhausted: wrap('isBudgetExhausted'),
+  budgetExhausted: wrap('budgetExhausted'),
+  validateEvidenceForClaim: wrap('validateEvidenceForClaim'),
+  canPromote: wrap('canPromote'),
+  promotionAllowed: wrap('promotionAllowed'),
+  closeOperation: wrap('closeOperation'),
+  close: wrap('close'),
+  resumeOperation: wrap('resumeOperation'),
+  resume: wrap('resume'),
+  adaptLegacy: wrap('adaptLegacy'),
+  adapt: wrap('adapt'),
+  markPartial: wrap('markPartial'),
+  markUnavailable: wrap('markUnavailable'),
+  isPartial: wrap('isPartial'),
+  isUnavailable: wrap('isUnavailable'),
+  complianceMatrix: wrap('complianceMatrix'),
+  assertNoBypass: wrap('assertNoBypass')
+});
