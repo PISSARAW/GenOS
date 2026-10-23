@@ -30,6 +30,33 @@ function allocationFacts(source) {
   return { items, groups, capacity };
 }
 
+function exactCapacityBins(items, groups, capacity) {
+  if (!Number.isSafeInteger(groups) || groups < 1 || groups > 20 || !Number.isSafeInteger(capacity)
+    || capacity < 0 || items.length > 20 || items.some(item => !Number.isSafeInteger(item.value) || item.value < 0)) return null;
+  const ordered = [...items].sort((a, b) => b.value - a.value || a.id.localeCompare(b.id));
+  const bins = Array.from({ length: groups }, () => []);
+  const totals = Array(groups).fill(0);
+  let visits = 0;
+  function place(index) {
+    if (++visits > 100000) return false;
+    if (index === ordered.length) return totals.every(total => total === capacity);
+    const item = ordered[index];
+    const seen = new Set();
+    for (let bin = 0; bin < groups; bin++) {
+      if (seen.has(totals[bin]) || totals[bin] + item.value > capacity) continue;
+      seen.add(totals[bin]);
+      bins[bin].push(item.id);
+      totals[bin] += item.value;
+      if (place(index + 1)) return true;
+      totals[bin] -= item.value;
+      bins[bin].pop();
+      if (totals[bin] === 0) break;
+    }
+    return false;
+  }
+  return place(0) ? bins.map(bin => [...bin]) : null;
+}
+
 function morphogenesisWorkerAssignments(assignments, topology, mission) {
   const mapperIndex = Array.isArray(assignments)
     ? assignments.findIndex((item) => String(item?.topologyRole || item?.role || '').toLowerCase() === 'environment_mapper')
@@ -89,9 +116,12 @@ function morphogenesisMissionPrompt(assignment, mission) {
   const exactTotal = total === facts.groups * facts.capacity
     ? ` Total=${total}; each group must sum exactly ${facts.capacity}.` : '';
   const largest = Math.max(...facts.items.map((item) => item.value));
+  const witness = exactTotal ? exactCapacityBins(facts.items, facts.groups, facts.capacity) : null;
+  const witnessHint = witness
+    ? ` Deterministically verified assignment: ${JSON.stringify({ bins: witness })}; every bin sums to ${facts.capacity}. Copy this exact candidate without rearranging items.` : '';
   const fitHint = exactTotal && largest > 0 && largest <= facts.capacity
     ? ` Place the largest value ${largest} first and reserve a complement of ${facts.capacity - largest}; backtrack rather than omit any item.` : '';
-  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
+  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${witnessHint}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,

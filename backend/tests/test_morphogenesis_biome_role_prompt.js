@@ -84,6 +84,7 @@ const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment:
 assert.match(stewardMission, /Total=24; each group must sum exactly 8/);
 assert.match(stewardMission, /Use all 9 items exactly once/);
 assert.match(stewardMission, /largest value 5 first and reserve a complement of 3/);
+assert.match(stewardMission, /Deterministically verified assignment: \{"bins":\[\["item7","item2"\],\["item4","item8"\],\["item6","item3","item1","item5","item9"\]\]\}/);
 assert.match(stewardMission, /verify item count and each total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
