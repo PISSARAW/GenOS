@@ -162,15 +162,12 @@ async function checkRecoveryLineageUsesWorkspaceParent(db) {
   const { mission, report, decision } = queuedRecovery('rec-w-cross', 'capability_mismatch');
   assert.equal(decision.identity, 'new');
   orchestrationState.pendingWorkerRecoveries.set('rec-w-cross', { mission, report, decision });
-  const reserveSlot = workerGarage.reserveSlot;
-  workerGarage.reserveSlot = async () => ({ slot: 1, capacity: 8 });
-  try {
-    assert.equal(await dispatchWorkerRecovery('rec-w-cross'), true,
-      'replacement recovery must persist lineage within the worker execution workspace');
-  } finally {
-    workerGarage.reserveSlot = reserveSlot;
-  }
+  assert.equal(await dispatchWorkerRecovery('rec-w-cross'), true,
+    'replacement recovery must pass the parent garage workspace check while preserving worker lineage');
   const dispatched = startedMissions.at(-1);
+  const recoveredAgent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatched.agentId);
+  assert.equal(recoveredAgent.workspace_id, 'rec-ws-other',
+    'replacement recovery must bind its garage identity to the parent domain workspace');
   const edge = await db.get('SELECT workspace_id, source_node_id, target_node_id FROM lineage_edges WHERE target_node_id = ?', dispatched.agentId);
   assert.deepEqual(edge, { workspace_id: 'rec-ws', source_node_id: 'rec-w-cross', target_node_id: dispatched.agentId },
     'recovery lineage must point to the failed worker in the same workspace');

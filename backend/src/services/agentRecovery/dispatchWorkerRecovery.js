@@ -51,9 +51,11 @@ function garageCapacity(garage) {
 
 async function loadSourceWorker(db, sourceAgentId) {
   return db.get(
-    `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
+    `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, parent.workspace_id AS parent_workspace_id,
+      a.fleet_id, a.model_tier, a.language,
       a.isolation_mode, a.parent_agent_id, a.status
      , w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+     LEFT JOIN agents parent ON parent.id = a.parent_agent_id
      WHERE a.id = ? AND a.execution_mode = 'worker'`,
     sourceAgentId
   );
@@ -124,7 +126,7 @@ function buildRecoveryAgentValues(source, target) {
     'idle',
     firstTruthy(source.agent_type, 'GenOS'),
     'worker',
-    firstTruthy(source.workspace_id, null),
+    firstTruthy(source.parent_workspace_id, source.workspace_id, null),
     firstTruthy(source.fleet_id, null),
     firstTruthy(source.model_tier, target.mission.modelTier, 'standard'),
     firstTruthy(source.language, 'TypeScript'),
