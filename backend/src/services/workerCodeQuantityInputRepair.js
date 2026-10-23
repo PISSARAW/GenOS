@@ -11,7 +11,11 @@ function labelQuantityInput(content) {
     const at = scope.index + scope[0].indexOf(opening);
     return source.slice(0, at) + replacement + source.slice(at + opening.length);
   }
-  return source;
+  const field = '<label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" step="1" required aria-label="Quantity">';
+  if (forms.length) return source.replace(/<\/form\s*>/i, `${field}</form>`);
+  const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(source);
+  if (button) return source.slice(0, button.index) + field + source.slice(button.index);
+  return /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${field}</body>`) : `${source}${field}`;
 }
 
 function findQuantityInput(scope) {
