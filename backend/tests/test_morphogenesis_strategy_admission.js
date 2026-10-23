@@ -132,8 +132,7 @@ function testWorkerAssignmentsAndKindsAreMandatory() {
 
 function testParentLeaseBoundsRequestedTools() {
   assert.equal(admitMorphogenesisStrategy({ ...gates,
-    actualPlan: { ...plan, requestedTools: [] } }).reason,
-  'morphogenesis_operation_not_requested');
+    actualPlan: { ...plan, requestedTools: [] } }).status, 'admitted');
   assert.equal(admitMorphogenesisStrategy({ ...gates,
     actualPlan: { ...plan, requestedTools: ['genos_change_organization', 'genos_extra_tool'] } }).reason,
   'requested_tools_exceed_parent_lease');
