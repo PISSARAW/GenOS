@@ -33,3 +33,19 @@ Le run 23 était visible comme démarré sur D: lors de la collecte, avec sa pro
 ## Portée
 
 Les six tests locaux passent et le run Pantry 22 échoue proprement avec rollback. Aucune conclusion de guérison générale n’en découle. T01–T08, la durabilité de 72 heures et les interventions sur une vraie VM ou un réseau de laboratoire restent à qualifier.
+
+## T01 — arrêt brutal et reprise de processus en laboratoire isolé
+
+Trois expériences avec processus enfants et bases/répertoires temporaires ont terminé avec le code 0 le 23 octobre 2026 :
+
+| Commande | Résultat observé |
+| --- | --- |
+| `node backend/tests/test_organism_restore_sigkill.js` | Enfants réellement arrêtés par `SIGKILL` aux phases prepared, workspace, rust, sqlite-uncommitted et committed; récupération vérifie l’état SQLite, le workspace et le checkpoint sélectionné. Sortie : `Organism restore SIGKILL recovery passed.` |
+| `node --test backend/tests/test_recovered_runtime_supervision_process_e2e.js` | Backend réellement redémarré contre un runtime et une base isolée; seule la supervision future bornée est retransmise, puis révocation vérifiée. 1 test réussi. |
+| `node backend/tests/test_mission_succession_backend_instances.cjs` | Deux instances HTTP backend réelles sur SQLite WAL partagé; un seul successeur, autorité obsolète bloquée, réservation et lancement récupérés après redémarrage. Sortie : `PASS`. |
+
+Ces essais prouvent le comportement de récupération de processus et de backend dans des fixtures isolées. Ils ne tuent pas un worker métier en train de traiter une vraie mission et ne démontrent pas encore le critère T01 complet « reprise correcte sans doublon » sur un service de production ou une VM.
+
+## Run T02 direct 23 en cours lors de la dernière observation
+
+Le processus `node backend/bin/genos-orchestrate.cjs` du run `autonomy-proof-t02-20261023-direct-d-repair-23` était encore vivant lors de la collecte; Ollama servait toujours `qwen2.5-coder:7b`. Son journal de sortie était vide et aucun verdict final n’était disponible. Ce run n’est ni classé réussi ni classé échoué ici; il faut relire sa base et son reçu après terminaison.
