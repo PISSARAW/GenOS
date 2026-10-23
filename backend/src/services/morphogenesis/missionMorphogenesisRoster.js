@@ -24,12 +24,10 @@ function targetRosterSize(input) {
 }
 
 function fundedRosterReduction(input) {
-  const requested = Number(input.continuation?.targetWorkerCount
-    ?? input.continuation?.survivorCount);
   const current = input.state.workers instanceof Map
     ? input.state.workers.size : Number(input.state.plan.dispatchWorkers?.length || 0);
-  return Number.isSafeInteger(requested) && requested > 0 && requested < current
-    && requested === input.survivors.length && Number(input.continuation?.pool) > 0;
+  const survivors = input.survivors.length;
+  return survivors > 0 && survivors < current && Number(input.continuation?.pool) > 0;
 }
 
 module.exports = { affordableRosterSize, fundedRosterReduction, requestedRosterSize, targetRosterSize };

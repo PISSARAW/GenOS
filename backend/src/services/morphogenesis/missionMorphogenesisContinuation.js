@@ -185,7 +185,8 @@ function transitionReceipt(input, outcome) {
   const transitionId = `${plan.morphologyGraphRef.graphId}:${plan.morphologyGraphRef.version}`;
   return {
     transitionId,
-    status: 'ADAPTED', reason: 'evidence_driven_continuation',
+    status: 'ADAPTED', reason: input.continuation.resourceConsolidation
+      ? 'evidence_driven_resource_consolidation' : 'evidence_driven_continuation',
     fromGraph: previous ? { graphId: previous.graphId, version: previous.version } : null,
     toGraph: plan.morphologyGraphRef,
     selectedTopology: plan.selectedTopology,
@@ -352,17 +353,21 @@ async function planContinuation(input, dependencies = {}) {
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
   const early = earlyDecision({ input, signals, decision, communicationMetric, nosology });
   if (early) return early;
+  const resourceConsolidation = selectorAbstained(decision) && fundedRosterReduction(input);
+  const continuationInput = resourceConsolidation ? { ...input,
+    continuation: { ...input.continuation, survivorCount: input.survivors.length,
+      targetWorkerCount: input.survivors.length, resourceConsolidation: true } } : input;
   const genomeService = require('./morphogenesisGenomeContext');
-  const genomeContext = await genomeService.loadMissionGenomeContext({ ...nosologyScope(input), normalizedMission: input.state.normalizedMission });
+  const genomeContext = await genomeService.loadMissionGenomeContext({ ...nosologyScope(continuationInput), normalizedMission: continuationInput.state.normalizedMission });
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
-  const plan = planner(genomeService.enrichPlanningInput(plannerContext(input, signals, decision.policy), genomeContext));
+  const plan = planner(genomeService.enrichPlanningInput(plannerContext(continuationInput, signals, decision.policy), genomeContext));
   if (recipePlanMismatch(plan, decision.policy)) return { adapted: false,
     reason: 'proposed_recipe_plan_mismatch', signals, decision };
-  compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });
-  const result = await compileReplacementRoster({ input, plan, decision, signals, dependencies });
+  compileAdaptiveGraph(continuationInput, { plan, state: continuationInput.state, signals, challenge: decision.challenge, decision });
+  const result = await compileReplacementRoster({ input: continuationInput, plan, decision, signals, dependencies });
   if (!result.adapted) return result;
-  const admission = await (dependencies.admissionForTransition || admissionForTransition)(input, result);
+  const admission = await (dependencies.admissionForTransition || admissionForTransition)(continuationInput, result);
   if (admission.status !== 'admitted' && admission.status !== 'not_applicable') {
     return { ...result, adapted: false, reason: `strategy_admission_denied:${admission.reason}`, admission };
   }

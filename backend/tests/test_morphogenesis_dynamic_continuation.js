@@ -113,7 +113,9 @@ async function verifyAbstentionAllowsFundedRosterReduction() {
   });
   assert.equal(result.adapted, true,
     'A funded reduction to the selected survivor is actionable even when topology selection abstains.');
+  assert.equal(result.receipt.reason, 'evidence_driven_resource_consolidation');
   assert.equal(result.receipt.fromGraph.graphId, 'graph-old');
+  assert.equal(result.plan.morphologyPatch.graph.version, 2);
   assert.equal(result.assignments['worker-1'].morphologyTopology, 'a_team');
   assert.equal(runtimeState.plan.morphogenesisTransitions.length, 1);
 }
