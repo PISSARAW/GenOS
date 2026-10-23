@@ -116,7 +116,7 @@ async function findCommitByOperation(git, worktree, operationId) {
 
 async function inspectWorktree(git, worktree) {
   const headSha = await currentSha(git, worktree);
-  const status = await git.run(['status', '--porcelain'], worktree);
+  const status = await git.run(['status', '--porcelain', '--untracked-files=no'], worktree);
   return { headSha, dirty: String(status.stdout || '').trim().length > 0 };
 }
 

@@ -32,7 +32,7 @@ async function ensureIntegration(project) {
 function assertCleanIntegration(status) {
   const entries = String(status || '').split('\0').filter(Boolean);
   const unexpected = entries.filter((entry) => !isSealedTrinitySnapshot(entry)
-    && !isGeneratedWorkspaceSnapshot(entry) && entry !== '?? .genos-epoch');
+    && !isGeneratedWorkspaceSnapshot(entry) && !isGeneratedTrajectory(entry) && entry !== '?? .genos-epoch');
   if (unexpected.length) throw new Error('worktree-integration-sale');
 }
 
@@ -53,6 +53,12 @@ function isGeneratedWorkspaceSnapshot(entry) {
   if (parts.some((part) => !part || part === '.' || part === '..')) return false;
   return (parts.length === 1 && parts[0] === 'manifest.json')
     || (parts.length >= 2 && parts[0] === 'files');
+}
+
+function isGeneratedTrajectory(entry) {
+  if (!entry.startsWith('?? ')) return false;
+  const relative = entry.slice(3).replace(/\\/g, '/');
+  return /^\.genos\/trajectories\/onto_run_[a-f0-9-]{36}\.json$/i.test(relative);
 }
 
 async function addIntegration(project, worktree) {
@@ -97,4 +103,4 @@ async function copyCandidate(input) {
 }
 
 module.exports = { managedRoot, ensureIntegration, assertCleanIntegration, isSealedTrinitySnapshot,
-  isGeneratedWorkspaceSnapshot, assertCandidate, changedFiles, checkFiles, copyCandidate };
+  isGeneratedWorkspaceSnapshot, isGeneratedTrajectory, assertCandidate, changedFiles, checkFiles, copyCandidate };

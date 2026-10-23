@@ -91,6 +91,8 @@ async function integrateCandidate(db, ctx, run) {
   const head = await integration.currentSha(git, run.worktree);
   if (head !== run.base_sha) throw new Error('head-integration-deplace');
   await cleanIndex(git, run.worktree);
+  const fullStatus = await git.run(['status', '--porcelain=v1', '-z', '--untracked-files=all'], run.worktree);
+  workspaces.assertCleanIntegration(fullStatus.stdout);
   const before = await integration.inspectWorktree(git, run.worktree);
   if (before.dirty && await treeHash(run.worktree) !== candidate.treeHash) throw new Error('worktree-integration-sale');
   await workspaces.copyCandidate({ candidate: candidate.worktree, integration: run.worktree, files: candidate.files, authority: ctx.config.authority });

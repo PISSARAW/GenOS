@@ -69,13 +69,16 @@ async function memoryDb() {
   assert.strictEqual(row.result_sha, 'sha9');
 
   // Worktree sale : modifications humaines détectées avant écriture.
-  const git3 = fakeGit({ calls: [], handler: async (args) => {
+  const git3Calls = [];
+  const git3 = fakeGit({ calls: git3Calls, handler: async (args) => {
     if (args[0] === 'rev-parse') return { stdout: 'abc\n' };
     if (args[0] === 'status') return { stdout: ' M main.js\n' };
     return { stdout: '' };
   } });
   const inspection = await service.inspectWorktree(git3, '/tmp/w');
   assert.deepStrictEqual(inspection, { headSha: 'abc', dirty: true });
+  assert.ok(git3Calls.some((args) => args.includes('--untracked-files=no')),
+    'generated untracked Ontogenesis artifacts do not masquerade as human tracked edits');
 
   // HEAD déplacé : conflit, pas d'écrasement silencieux.
   const git4 = fakeGit({ calls: [], handler: async (args) => {
