@@ -290,7 +290,7 @@ async function runGenerationStage(ctx) {
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
-  const result = await generateWorkerResult({
+  let result = await generateWorkerResult({
     db: ctx.db,
     mission: ctx.mission,
     executionRun: ctx.executionRun,
@@ -305,6 +305,7 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   });
+  result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
     { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
@@ -321,11 +322,13 @@ async function runEvidenceStage(ctx) {
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
   throwIfProposalFailed(proposal);
-  const evidenceReport = ctx.codeWorker
+  let evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);
   attachProposalTests(evidenceReport, proposal);
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
+  if (!ctx.codeWorker) evidenceReport = require('./morphogenesis/biomeAllocationRecovery')
+    .applyExhaustedRecovery(evidenceReport, ctx.mission, ctx.result.text);
   if (!ctx.codeWorker && evidenceReport.outcome === 'unresolved') {
     return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
       proof: null, noAnswer: false, unresolved: true };
