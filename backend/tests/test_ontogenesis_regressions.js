@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const fixture = require('./ontogenesisFixture');
 const store = require('../src/services/ontogenesis/projectStore');
@@ -35,6 +36,31 @@ function rejectInvalidCandidates() {
   const auth = require('../src/services/ontogenesis/authorizationService');
   assert.strictEqual(auth.isPathAllowed({ paths: ['src'] }, 'src-extra/a.js'), false);
   assert.strictEqual(auth.isPathAllowed({ paths: ['*'] }, 'C:\\outside.js'), false);
+}
+
+async function isolatedCapsuleDiff() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-onto-capsule-diff-'));
+  const baseline = path.join(root, 'baseline');
+  const candidate = path.join(root, 'candidate');
+  try {
+    for (const directory of [baseline, candidate]) {
+      fs.mkdirSync(path.join(directory, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(directory, '.genos', 'trajectories'), { recursive: true });
+    }
+    fs.writeFileSync(path.join(baseline, 'src', 'pricing.js'), 'old');
+    fs.writeFileSync(path.join(candidate, 'src', 'pricing.js'), 'new');
+    fs.writeFileSync(path.join(baseline, 'src', 'deleted.js'), 'remove');
+    fs.writeFileSync(path.join(baseline, 'verify.cjs'), 'same verifier');
+    fs.writeFileSync(path.join(candidate, 'verify.cjs'), 'same verifier');
+    fs.writeFileSync(path.join(baseline, 'onto-config.json'), '{"branch":"base"}');
+    fs.writeFileSync(path.join(candidate, 'onto-config.json'), '{"branch":"candidate"}');
+    fs.writeFileSync(path.join(candidate, '.genos', 'trajectories', 'run.json'), 'generated');
+    const changed = await require('../src/services/ontogenesis/worktreeService')
+      .changedFiles(candidate, 'unused-for-filesystem-diff', baseline);
+    assert.deepEqual(changed, ['src/deleted.js', 'src/pricing.js']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
 
 async function stopAndPause(db, project) {
@@ -103,6 +129,7 @@ async function budgetExhaustion(db, root) {
 
 async function main() {
   rejectInvalidCandidates();
+  await isolatedCapsuleDiff();
   const db = await fixture.memoryDb();
   const root = await fixture.repository();
   try {

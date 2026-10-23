@@ -76,7 +76,32 @@ function assertCandidate(project, worktree) {
   return resolveContainedPathNoSymlinkSync(root, relative);
 }
 
-async function changedFiles(worktree, baseSha) {
+function sourceFileMap(root) {
+  const files = new Map();
+  const visit = (directory, relative = '') => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const childRelative = relative ? `${relative}/${entry.name}` : entry.name;
+      const normalized = childRelative.replace(/\\/g, '/');
+      if (!sourceFile(normalized)) continue;
+      const absolute = path.join(directory, entry.name);
+      const stat = fs.lstatSync(absolute);
+      if (stat.isDirectory()) visit(absolute, childRelative);
+      else if (stat.isSymbolicLink()) files.set(normalized, `symlink:${fs.readlinkSync(absolute)}`);
+      else if (stat.isFile()) files.set(normalized,
+        require('crypto').createHash('sha256').update(fs.readFileSync(absolute)).digest('hex'));
+    }
+  };
+  visit(root);
+  return files;
+}
+
+async function changedFiles(worktree, baseSha, baselineWorkspace = null) {
+  if (baselineWorkspace) {
+    const before = sourceFileMap(baselineWorkspace);
+    const after = sourceFileMap(worktree);
+    return [...new Set([...before.keys(), ...after.keys()])]
+      .filter((file) => before.get(file) !== after.get(file)).sort();
+  }
   const tracked = await runCommand('git', ['diff', '--name-only', '-z', baseSha], { cwd: worktree });
   const untracked = await runCommand('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd: worktree });
   const extra = untracked.stdout.split('\0').filter(sourceFile).join('\0');

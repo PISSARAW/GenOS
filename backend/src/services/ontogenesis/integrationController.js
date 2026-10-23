@@ -38,8 +38,12 @@ async function verifyExecution(db, ctx) {
   const result = JSON.parse(run.result_json);
   if (result.success !== true) throw workerFailure(result);
   if (ctx.config.authority.allowTests !== true) throw new Error('tests-non-autorises');
+  const git = integration.createShellGit();
+  if (await integration.currentSha(git, run.worktree) !== run.base_sha) throw new Error('head-integration-deplace');
+  const fullStatus = await git.run(['status', '--porcelain=v1', '-z', '--untracked-files=all'], run.worktree);
+  workspaces.assertCleanIntegration(fullStatus.stdout);
   const candidate = workspaces.assertCandidate(ctx.project, result.candidateWorktree);
-  const files = await workspaces.changedFiles(candidate, run.base_sha);
+  const files = await workspaces.changedFiles(candidate, run.base_sha, run.worktree);
   workspaces.checkFiles(files, ctx.config.authority);
   const proof = await verifyChecks(candidate, ctx.config.checks, { timeoutMs: verificationTime(run) });
   const philosophyAudit = verifyPhilosophicalObservations(candidate, ctx.mission?.plan?.philosophicalContracts?.contracts || [],
