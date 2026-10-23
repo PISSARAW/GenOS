@@ -47,10 +47,34 @@ function attestCodeTestResults(report, state) {
     verified.find((item) => item.command === reportedTestCommand(test) && item.passed === test.passed) || test);
 }
 
+function verifiedTestResults(report, state) {
+  const completed = state?.missionDomainState?.completedCommands || [];
+  return (report?.tests || []).filter((test) => test?.passed === true && test.exitCode === 0
+    && test.executionReceipt?.exitCode === 0 && completed.some((command) =>
+      command.eventId === test.executionReceipt.eventId && command.itemId === test.executionReceipt.itemId
+      && command.exitCode === 0 && command.outputDigest === test.executionReceipt.outputDigest
+      && command.command === test.executionReceipt.command))
+    .map((test) => ({ command: reportedTestCommand(test), exitCode: 0, signal: null, stdout: '', stderr: '' }))
+    .filter((test) => test.command);
+}
+
+async function persistVerifiedTestReceipt(ctx, event) {
+  if (event.eventType !== 'EVIDENCE_REPORT') return null;
+  const report = event.payload?.evidenceReport || event.payload?.report || event.payload;
+  if (report?.outcome !== 'success') return null;
+  const tests = verifiedTestResults(report, ctx.state);
+  if (!tests.length) return null;
+  return require('./localCodeTestExecutionReceiptService').recordFromWorkspace(ctx.db, {
+    missionId: ctx.normalizedMission.missionId || ctx.normalizedMission.mission_id,
+    agentId: ctx.agentId, executionRunId: ctx.executionRun.id,
+    workspaceRoot: ctx.workspaceRoot, tests
+  });
+}
+
 function reportedTestCommand(test) {
   if (typeof test?.command === 'string' && test.command.trim()) return test.command.trim();
   const name = String(test?.name || '').trim();
   return name.match(/\b(?:npm\s+(?:test|run\s+test)|yarn\s+test|pnpm\s+test|pytest(?:\s+[^\s]+)?|node\s+[^\s]+\.(?:c?js|mjs))\b/i)?.[0] || '';
 }
 
-module.exports = { recordCompletedCommand, attestCodeTestResults };
+module.exports = { recordCompletedCommand, attestCodeTestResults, verifiedTestResults, persistVerifiedTestReceipt };
