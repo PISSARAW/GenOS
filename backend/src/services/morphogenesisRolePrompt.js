@@ -9,7 +9,7 @@ function morphogenesisRoleInstruction(assignment) {
     return 'Morphogenesis role: Biome environment mapper. Observe the entities, values, units, and constraints stated in the mission. Return only evidence-grounded structured observations in the required scout_observation artifact; do not produce or claim the final solution.';
   }
   if (role === 'resource_steward') {
-    return 'Morphogenesis role: Biome resource steward. This exact allocation task is within your assigned niche; do not mark it out of scope because it needs calculation. Solve the allocation task. Put the complete candidate JSON in the GenOS evidence claim statement, not at the report root. Use exact item identifiers (item1, item2, etc.) as quoted JSON strings ("item1"), never bare tokens, weights, or indices. Verify every item appears exactly once and all capacities before claiming success.';
+    return 'Morphogenesis role: Biome resource steward. This exact allocation task is within your assigned niche; arithmetic, exhaustive search, backtracking, and per-bin verification are within scope. All item identifiers, weights, capacities, group count, and the mission evidence reference are supplied; do not return unresolved for missing information, complexity, or method choice. Solve the allocation task. Put the complete candidate JSON in the GenOS evidence claim statement, not at the report root. Use exact item identifiers (item1, item2, etc.) as quoted JSON strings ("item1"), never bare tokens, weights, or indices. Verify every item appears exactly once and all capacities before claiming success.';
   }
   return null;
 }

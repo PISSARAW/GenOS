@@ -182,12 +182,13 @@ assert.ok(steward.length < 3000, 'the compact resource steward prompt leaves roo
 assert.match(steward, /Solve the allocation task/);
 assert.match(steward, /Verify every item appears exactly once/);
 assert.match(steward, /all capacities before claiming success/);
-assert.match(steward, /This niche includes exact resource allocation, partitioning, and capacity verification/);
+assert.match(steward, /This niche includes exact resource allocation, partitioning, arithmetic, exhaustive search, backtracking, and per-bin capacity verification/);
 assert.match(steward, /complete machine-verifiable candidate JSON object in claims\[0\]\.statement/);
 assert.match(steward, /never replace it with a generic success sentence/);
 assert.match(steward, /\"outcome\":\"unresolved\",\"claims\":\[\],\"uncertainties\"/);
 assert.match(steward, /exact item identifiers \(item1, item2, etc\.\)/);
-assert.match(steward, /do not mark it out of scope because it needs calculation/);
+assert.match(steward, /do not return unresolved for missing information, complexity, or method choice/);
+assert.match(steward, /All item identifiers, weights, capacities, group count, and the mission evidence reference are supplied/);
 assert.match(steward, /as quoted JSON strings \("item1"\)/);
 
 const retryPrompt = localPrompt.buildAnalysisPrompt({
