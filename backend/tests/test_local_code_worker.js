@@ -44,6 +44,12 @@ const focusedFunctions = focusedFeedback.split('Functions related to the failing
   ?.split('\n\nRolled-back candidate')[0] || '';
 assert.match(focusedFunctions, /function parsePort\(value\)/);
 assert.doesNotMatch(focusedFunctions, /function normalizeEmail\(value\)/);
+const numericRepairFeedback = failureFeedback({ proposal: {
+	tests: [{ command: 'npm test', exitCode: 1, stderr: 'parsePort rejects partial numeric strings' }],
+	failedPatchContents: [{ path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }' }]
+} });
+assert.match(numericRepairFeedback, /Number\.parseInt accepts a valid numeric prefix/);
+assert.match(numericRepairFeedback, /validate the entire trimmed input/);
 const editProposal = parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"before","replace":"after"}]}],"tests":["pytest"],"evidence":"minimal exact edit"}');
 assert.equal(editProposal.patches[0].edits[0].find, 'before');
 assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"","replace":"after"}]}],"tests":["pytest"],"evidence":"empty anchor"}'), /Unsafe patch proposal/);
