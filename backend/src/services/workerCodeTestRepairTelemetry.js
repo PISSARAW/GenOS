@@ -30,9 +30,32 @@ function summarizeFailedPatches(error) {
         logic.push(code.slice(Math.max(0, index - 120), Math.min(code.length, index + 280)).replace(/\s+/g, ' '));
       }
     }
+    if (/\.(?:[cm]?js|tsx?)$/i.test(patch.path)) {
+      logic.push(...exportedFunctionSnippets(source).slice(0, Math.max(0, 8 - logic.length)));
+    }
     return { path: patch.path, bytes: Buffer.byteLength(source, 'utf8'), controls, roles,
       logic: logic.slice(0, 8) };
   });
+}
+
+function exportedFunctionSnippets(source) {
+  const names = new Set();
+  const exportsObject = String(source).match(/\bmodule\.exports\s*=\s*\{([^}]+)\}/);
+  for (const declaration of (exportsObject?.[1] || '').split(',')) {
+    const name = declaration.trim().split(/\s*:\s*/)[0];
+    if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
+  }
+  for (const match of String(source).matchAll(/\bexports\.([A-Za-z_$][\w$]*)\s*=/g)) names.add(match[1]);
+  for (const match of String(source).matchAll(/\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
+
+  const snippets = [];
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const declaration = new RegExp(`\\bfunction\\s+${escaped}\\s*\\(|\\b(?:const|let|var)\\s+${escaped}\\s*=`);
+    const match = declaration.exec(source);
+    if (match) snippets.push(source.slice(match.index, match.index + 1200).replace(/\s+/g, ' ').trim());
+  }
+  return snippets;
 }
 
 async function publish(context) {
