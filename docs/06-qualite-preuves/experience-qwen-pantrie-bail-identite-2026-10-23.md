@@ -142,3 +142,9 @@ Le défaut observé est distinct de la collision Quantity après rechargement: l
 ## Retry53 — réponse Qwen JSON tronquée avant l’oracle
 
 Retry53 a enregistré dix appels fournisseur Qwen et neuf réparations locales, puis s’est terminé sur `Unterminated string in JSON at position 5409 (line 6 column 5318)`. Aucun reçu `npm test` n’est présent pour cette mission: le parseur a rejeté la proposition avant l’oracle. SQLite enregistre `AGENT_FAILED` et le gate `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`). Reçu: `genos-direct-d-20261023-retry53.db`, terminal à 10:14:17 UTC. Aucun succès fonctionnel n’est revendiqué.
+
+## Retry54 — échec terminal de persistance après rechargement
+
+Retry54 a enregistré 21 appels Qwen7B et 20 réparations locales, puis atteint l’oracle Playwright. Le candidat terminal (4978 octets) échoue à `acceptance.cjs:26:10`, assertion `updated quantity persists`: la quantité incrémentée ne survit pas au reload. `npm test` sort 1; SQLite consigne `AGENT_FAILED` à 10:19:52 UTC et `MISSION_COMPLETION_BLOCKED` avec `homeostasis=unstable`. Aucun succès T02 complet. Reçu: `genos-direct-d-20261023-retry54.db`.
+
+Les diagnostics d’essais antérieurs montrent un candidat qui changeait le texte de la cellule et l’objet `items[row.rowIndex-1]`, sans sauvegarder l’état canonique dans `localStorage`. La réparation de persistance doit être validée indépendamment avant d’attribuer une prochaine régression à Qwen.
