@@ -7,11 +7,9 @@ function endpointUrl() {
 function requestedModel() {
   return process.env.GENOS_COMPARISON_MODEL || 'qwen2.5-coder:7b';
 }
-
 function deadlineMs(budget) {
   return Number(budget.latencyMs);
 }
-
 function remainingTokens(budget, used) {
   return Math.max(0, Number(budget.tokens) - used);
 }
@@ -258,6 +256,7 @@ async function genosFull(task, state) {
     workerShare: state.workerShare || 0.7 };
   const payload = applyTopologyForcing({ action: 'orchestrate',
     autonomous_orchestration: resolvedAutonomous(condition),
+    provider: 'ollama', modelId: state.model,
     mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
     timeoutMs: state.budget.latencyMs, execution_budget: budget,
     successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
