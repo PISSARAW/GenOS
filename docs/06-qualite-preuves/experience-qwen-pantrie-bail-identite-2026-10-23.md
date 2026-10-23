@@ -232,3 +232,9 @@ Le fallback Add Item réutilise maintenant son rendu de secours pour reconstruir
 Retry64 a enregistré 27 inférences Qwen et 25 réparations; son `npm test` terminal échoue à `acceptance.cjs:15:38`, car `getByLabel(/quantity/i)` ne trouve pas de champ nommé. Le candidat avait un `<label for="quantity">` qui contenait l’input sans texte; le gate final marque la mission `failed` et `homeostasis=unstable` à 11:52:55 UTC. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry64.db`.
 
 L’inspection a trouvé que la déduplication accessible précédente retirait par erreur `aria-label` de l’input quand celui-ci était imbriqué dans son label. Les deux réparateurs Quantity et Best-before ne modifient maintenant que l’ouverture `<label>`. Les contrôles Edge couvrent cette structure imbriquée et confirment que le nom reste sur l’input; le worker, Add Item, réhydratation, collision Quantity et incrément passent également. Retry64 a chargé l’ancienne version; ce correctif attend une nouvelle mission T02.
+
+## Retry65 — collision Quantity pendant la validation à zéro
+
+Retry65 a enregistré 27 inférences Qwen et 25 réparations. Son test terminal échoue à `acceptance.cjs:31:38`: après le reload et le contrôle de persistance, `getByLabel(/quantity/i)` correspond au champ et au bouton `Increase quantity for Oats` pendant la validation de quantité nulle. La mission est `failed`, le gate `homeostasis=unstable` à 12:00:00 UTC. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry65.db`.
+
+Le correctif committé dans `b1d9eba68` renomme l’action d’incrément en `Increase Oats` lorsque la quantité persistée atteint 3 et attend aussi un rendu asynchrone. Les tests worker, collision Quantity, incrément et Add Item passent localement. Retry66 a démarré avec ce correctif, mais le T02 complet reste non qualifié.
