@@ -1,6 +1,6 @@
 'use strict';
 
-const { activeExecution, updateExecution, finalizeExecution } = require('./executionStore');
+const { activeExecution, updateExecution, markExecutionInterrupted, finalizeExecution } = require('./executionStore');
 const { setProjectState, setTaskStatus, bumpAttempt } = require('./projectStore');
 const { recordMemory } = require('./memoryService');
 const { notify } = require('./notificationService');
@@ -37,10 +37,22 @@ async function observeExecution(db, ctx, harness) {
   if (!run) return failState(db, ctx, 'execution-introuvable');
   if (run.phase === 'finished' || run.phase === 'verified') return { workerResult: 'done', run };
   const observed = await harness.observe(run);
+  // The mission process may persist its terminal result while the harness is
+  // observing it. Re-read before marking a dead process interrupted, and use a
+  // compare-and-set below so this observer cannot overwrite that result.
+  const latest = await activeExecution(db, ctx.project.id);
+  if (!latest || latest.id !== run.id) return { workerResult: 'done', run: latest || run };
+  if (latest.phase === 'finished' || latest.phase === 'verified') return { workerResult: 'done', run: latest };
   if (observed.alive) {
-    const deadline = Date.parse(run.started_at) + JSON.parse(run.budgets_json).seconds * 1000;
+    const deadline = Date.parse(latest.started_at) + JSON.parse(latest.budgets_json).seconds * 1000;
     if (Date.now() < deadline) return { run };
-    if (!await harness.stop(run)) return { run };
+    if (!await harness.stop(latest)) return { run: latest };
+  }
+  if (latest.phase === 'prepared' && Date.now() - Date.parse(latest.started_at) < 30000) return { run: latest };
+  const interrupted = await markExecutionInterrupted(db, { id: latest.id });
+  if (!interrupted) {
+    const raced = await activeExecution(db, ctx.project.id);
+    return { workerResult: 'done', run: raced || latest };
   }
   if (run.phase === 'prepared' && Date.now() - Date.parse(run.started_at) < 30000) return { run };
   await updateExecution(db, { id: run.id, phase: 'finished', result: { success: false, error: 'runtime-interrompu' } });

@@ -40,6 +40,14 @@ async function updateExecution(db, input) {
   [input.phase, input.pid || null, input.executable || '', JSON.stringify(input.result || {}), input.id, input.phase]);
 }
 
+async function markExecutionInterrupted(db, input) {
+  const result = await db.run(`UPDATE ontogenesis_execution SET phase = 'finished', pid = NULL,
+    executable = '', result_json = ?, updated_at = datetime('now')
+    WHERE id = ? AND phase IN ('prepared','running')`,
+  [JSON.stringify({ success: false, error: 'runtime-interrompu' }), input.id]);
+  return result.changes === 1;
+}
+
 async function reservedBudgets(db, projectId) {
   const rows = await db.all("SELECT budgets_json FROM ontogenesis_execution WHERE project_id = ? AND phase IN ('prepared','running','finished','verified')", [projectId]);
   return rows.reduce((sum, row) => addBudgets(sum, JSON.parse(row.budgets_json)), { tokens: 0, usd: 0, seconds: 0 });
@@ -62,4 +70,4 @@ async function settleExecution(db, input) {
   [input.run.project_id, budget.tokens, budget.usd, budget.seconds]);
 }
 
-module.exports = { ensureTables, activeExecution, createExecution, updateExecution, reservedBudgets, finalizeExecution };
+module.exports = { ensureTables, activeExecution, createExecution, updateExecution, markExecutionInterrupted, reservedBudgets, finalizeExecution };
