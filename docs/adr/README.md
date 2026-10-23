@@ -844,6 +844,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0729](0729-mission-cc-genos-001.md) | Mission CyberCorp CC-GENOS-001 | Voir le fichier | -- | -- |
 | [0730](0730-surveillance-immunitaire-securite.md) | Surveillance immunitaire de sécurité pilotée par adaptateurs | Accepté | 2026-10-22 | sécurité, immunité, perception, preuve et intégrations de projet |
 | [0731](0731-porte-commune-du-cycle-de-vie-par-contrat-d-operation.md) | Porte commune du cycle de vie par contrat d'opération | Accepté | 2026-10-23 | architecture transversale, contrats d'opération, evidence, budgets, leases, snapshots |
+| [0732](0732-couplage-contrat-dossier-et-observation-effet-c4.md) | Couplage contrat→dossier de preuve et observation différée de l'effet (C4) | Proposé | 2026-10-23 | mission, promotion, evidence, C4, dossier |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

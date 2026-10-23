@@ -14,7 +14,8 @@ function build(input, fallbackGoal) {
     schema: SCHEMA_V2,
     goal: input.goal || fallbackGoal,
     obligations: input.obligations,
-    statuses: [...STATUSES]
+    statuses: [...STATUSES],
+    ...(input.effectObservation ? { effectObservation: input.effectObservation } : {})
   };
   return validate(contract);
 }
@@ -27,6 +28,10 @@ function validate(contract) {
   validateObligations(contract);
   if (JSON.stringify(contract.statuses) !== JSON.stringify(STATUSES)) {
     throw new Error('mission_outcome.statuses must contain the four canonical verdicts');
+  }
+  if (contract.schema === SCHEMA_V2 && contract.effectObservation !== undefined) validateEffectObservation(contract.effectObservation);
+  if (contract.schema !== SCHEMA_V2 && contract.effectObservation !== undefined) {
+    throw new Error('mission_outcome.effectObservation requires schema v2');
   }
   return contract;
 }
@@ -71,6 +76,21 @@ function validOracleDomain(domain) {
 function validateOracle(oracle) {
   if (!validOracleIdentity(oracle) || !validOracleDomain(oracle.validityDomain)) {
     throw new Error('Each v2 obligation requires an oracle domain, verifierDigest and validityDomain');
+  }
+}
+
+function validateEffectObservation(effectObservation) {
+  if (!effectObservation || typeof effectObservation !== 'object') {
+    throw new Error('mission_outcome.effectObservation must be an object');
+  }
+  if (typeof effectObservation.metric !== 'string' || !effectObservation.metric.trim()) {
+    throw new Error('mission_outcome.effectObservation.metric is required');
+  }
+  if (typeof effectObservation.horizon !== 'string' || !effectObservation.horizon.trim()) {
+    throw new Error('mission_outcome.effectObservation.horizon is required');
+  }
+  if (typeof effectObservation.environment !== 'string' || !effectObservation.environment.trim()) {
+    throw new Error('mission_outcome.effectObservation.environment is required');
   }
 }
 
@@ -174,4 +194,4 @@ function evaluate(contract, verification, event) {
     verifiedObligations, missingObligations };
 }
 
-module.exports = { SCHEMA, SCHEMA_V2, STATUSES, build, validate, evaluate };
+module.exports = { SCHEMA, SCHEMA_V2, STATUSES, build, validate, evaluate, validateEffectObservation };

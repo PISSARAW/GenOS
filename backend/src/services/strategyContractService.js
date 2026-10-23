@@ -33,7 +33,8 @@ function buildStrategyContract(input = {}) {
   const ethicalComparison = buildEthicalContext(norm);
   const epistemicContext = epistemicDecision.buildDecisionContext(norm);
   return assembleContract({ selection, problemProfile, selected, highRisk, philosophy, epistemicContext, ethicalComparison,
-    evaluationMode: norm.evaluationMode, missionOutcome: missionOutcomeContract.build(norm.missionOutcomeContract,
+    evaluationMode: norm.evaluationMode, missionOutcome: missionOutcomeContract.build(
+      norm.missionOutcomeContract ? { ...norm.missionOutcomeContract, ...(norm.effectObservation ? { effectObservation: norm.effectObservation } : {}) } : null,
       problemProfile.problem || 'Autonomous task execution') });
 }
 
@@ -75,12 +76,13 @@ function buildEthicalContext(input) {
 
 function assembleContract(ctx) {
   const { selection, problemProfile, selected, highRisk, philosophy, epistemicContext, ethicalComparison } = ctx;
-  const promotion = buildPromotion({ problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio: selection.portfolio });
+  const promotion = buildPromotion({ problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio: selection.portfolio, missionOutcome: ctx.missionOutcome });
   return {
     schema: CONTRACT_SCHEMA,
     evaluation_mode: ['factual_read_only', 'formal_read_only'].includes(ctx.evaluationMode) ? ctx.evaluationMode : null,
     mission: problemProfile.problem || 'Autonomous task execution',
     ...(ctx.missionOutcome ? { mission_outcome: ctx.missionOutcome } : {}),
+    ...(ctx.missionOutcome && ctx.missionOutcome.effectObservation ? { effect_observation: ctx.missionOutcome.effectObservation } : {}),
     problem_profile: problemProfile,
     selected_strategy: {
       primary: selected.id,
@@ -120,7 +122,7 @@ function assembleContract(ctx) {
 }
 
 function buildPromotion(ctx) {
-  const { problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio } = ctx;
+  const { problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio, missionOutcome } = ctx;
   return {
     require_replay: problemProfile.requires_reproducibility || highRisk,
     require_independent_verification: true,
@@ -135,6 +137,7 @@ function buildPromotion(ctx) {
     ethical_comparison_hold: Boolean(ethicalComparison?.promotion?.holdPromotion),
     require_ethical_review: Boolean(ethicalComparison?.promotion?.requireEthicalReview),
     require_ethical_provenance: Boolean(ethicalComparison),
+    require_evidence_dossier_v2: Boolean(missionOutcome && missionOutcome.schema === 'genos.mission-outcome/v2'),
     preserve_rejected_branches: true,
     merge_workspace_automatically: false
   };
@@ -238,6 +241,7 @@ function validateContract(contract) {
   validateContractDecisions(contract, registryIds);
   validateContractBranches(contract);
   if (contract.mission_outcome) missionOutcomeContract.validate(contract.mission_outcome);
+  if (contract.effect_observation !== undefined) missionOutcomeContract.validateEffectObservation(contract.effect_observation);
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
   if (contract.philosophy) philosophicalGuard.buildContext(contract.philosophy);

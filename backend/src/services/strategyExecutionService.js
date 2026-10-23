@@ -249,6 +249,15 @@ async function approveRun(db, id, options) {
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
+  const effectObservation = promotion.contract?.mission_outcome?.effectObservation;
+  if (effectObservation) {
+    gateContext.effectObservationIntent = {
+      metric: effectObservation.metric,
+      horizon: effectObservation.horizon,
+      environment: effectObservation.environment,
+      recordedAt: new Date().toISOString()
+    };
+  }
   gateContext.promotionEvidenceDecision = await require('./promotionEvidenceDossierService')
     .assertRequired(db, { runId: id, agentId: promotion.agentId, contract: promotion.contract,
       dossierId: settings.promotionDossierId, expectedClaims: promotion.report.claims });

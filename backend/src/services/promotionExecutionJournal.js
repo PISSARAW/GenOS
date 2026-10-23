@@ -45,6 +45,7 @@ async function reserve(db, request) {
     const binding = await runBinding(db, request.promotion.runId);
     const row = { run_id: request.promotion.runId, phase: 'reserved', key_id: currentKeyId(), result_json: '{}',
       payload_json: JSON.stringify({ promotion: request.promotion, evaluation: request.gateContext.aeisEvaluation,
+        effectObservationIntent: request.gateContext.effectObservationIntent || null,
         binding, options: request.options, optionsHash: fingerprint(request.options), primitives: request.primitives }) };
     await db.run(`INSERT INTO promotion_execution_journal
       (run_id, phase, payload_json, result_json, key_id, signature) VALUES (?, ?, ?, ?, ?, ?)`,
