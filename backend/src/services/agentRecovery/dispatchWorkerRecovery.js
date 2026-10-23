@@ -13,7 +13,7 @@ const {
 const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService');
 const { createIsolatedWorkspace, cleanupWorkspace, forgetWorkspace } = require('../agentWorkspaceLifecycleService');
 const { createOrchestratorId } = require('../orchestratorIdFactory');
-const agentEvolution = require('../agentEvolutionService');
+const recoveryLineage = require('./recoveryLineage');
 const { getDatabase, withTransaction } = require('../../db');
 const { MAX_RECOVERY_DISPATCH_ATTEMPTS } = require('./constants');
 
@@ -52,8 +52,9 @@ function garageCapacity(garage) {
 async function loadSourceWorker(db, sourceAgentId) {
   return db.get(
     `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
-      a.isolation_mode, a.parent_agent_id, a.status
-     , w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+      a.isolation_mode, a.parent_agent_id, a.status, p.workspace_id AS parent_workspace_id,
+      w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+     LEFT JOIN agents p ON p.id = a.parent_agent_id
      WHERE a.id = ? AND a.execution_mode = 'worker'`,
     sourceAgentId
   );
@@ -112,7 +113,8 @@ function resolveRecoveryTarget(input) {
   const role = firstTruthy(decision.role, source.role, mission.role, 'recovery_specialist');
   const prompt = workerRecovery.recoveryPrompt(report, decision);
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
-  return { sameIdentity, targetId, role, prompt, name, sourceAgentId, orchestratorId, mission, report, decision };
+  return { sameIdentity, targetId, role, prompt, name, sourceAgentId, orchestratorId,
+    workspaceId: source.parent_workspace_id || source.workspace_id, mission, report, decision };
 }
 
 function buildRecoveryAgentValues(source, target) {
@@ -124,7 +126,7 @@ function buildRecoveryAgentValues(source, target) {
     'idle',
     firstTruthy(source.agent_type, 'GenOS'),
     'worker',
-    firstTruthy(source.workspace_id, null),
+    firstTruthy(target.workspaceId, source.workspace_id, null),
     firstTruthy(source.fleet_id, null),
     firstTruthy(source.model_tier, target.mission.modelTier, 'standard'),
     firstTruthy(source.language, 'TypeScript'),
@@ -145,46 +147,6 @@ async function insertRecoveryAgent(db, source, target) {
   );
 }
 
-async function ensureLineageNode(db, source, nodeId) {
-  await db.run(
-    `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
-     VALUES (?, ?, ?, ?, 'agent', ?)
-     ON CONFLICT(id) DO NOTHING`,
-    nodeId,
-    source.workspace_id,
-    nodeId,
-    source.name || nodeId,
-    `Recovery source: ${source.role || 'worker'}`
-  );
-}
-
-async function recordRecoveryLineage(db, source, target) {
-  const lineage = await agentEvolution.recordWorkerLineage(db, {
-    agentId: target.targetId,
-    name: target.name,
-    role: target.role,
-    workspaceId: source.workspace_id
-  }, {
-    parentId: target.orchestratorId,
-    edgeType: 'recovery'
-  });
-  if (!lineage?.success) {
-    throw Object.assign(new Error(lineage?.error || 'Failed to persist recovery worker lineage.'), { code: 'LINEAGE_PERSISTENCE_FAILED' });
-  }
-  if (target.sourceAgentId && target.sourceAgentId !== target.targetId) {
-    await ensureLineageNode(db, source, target.sourceAgentId);
-    await db.run(
-      `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
-       VALUES (?, ?, ?, ?, 'recovery_transition')
-       ON CONFLICT(id) DO NOTHING`,
-      `edge_recovery_${target.sourceAgentId}_${target.targetId}`,
-      source.workspace_id,
-      target.sourceAgentId,
-      target.targetId
-    );
-  }
-}
-
 async function persistRecoveryAgent(db, source, target) {
   if (target.sameIdentity) {
     await workerGarage.enterIdleState(db, target.targetId, source.parent_agent_id);
@@ -192,7 +154,7 @@ async function persistRecoveryAgent(db, source, target) {
   }
   await withTransaction(db, async () => {
     await insertRecoveryAgent(db, source, target);
-    if (source.workspace_id) await recordRecoveryLineage(db, source, target);
+    if (source.workspace_id) await recoveryLineage.recordRecoveryLineage(db, source, target);
   });
 }
 

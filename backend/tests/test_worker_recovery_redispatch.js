@@ -64,11 +64,13 @@ async function setup(db) {
   await db.run("INSERT INTO organizations (id, name) VALUES ('rec-org', 'Rec Org')");
   await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('rec-project', 'rec-org', 'Rec Project')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws', 'Rec WS', ?, 'rec-org', 'rec-project')", __dirname);
+  await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws-isolated', 'Rec Isolated WS', ?, 'rec-org', 'rec-project')", __dirname);
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('rec-orch', 'Orch', 'orchestrator', 'running', 'orchestrator', 'rec-ws')");
   const workers = [['rec-w', 'error'], ['rec-w2', 'error'], ['rec-done', 'completed'], ['rec-fail', 'error'], ['rec-f1', 'running']];
   for (const [id, status] of workers) {
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, ?, 'implementation', ?, 'worker', 'rec-orch')", id, id, status);
   }
+  await db.run("UPDATE agents SET workspace_id = 'rec-ws-isolated' WHERE id = 'rec-w2'");
   const claims = [['req-rec', 'rec-w'], ['req-rec2', 'rec-w2'], ['req-recf', 'rec-fail']];
   for (const [requestId, workerId] of claims) {
     await db.run(
@@ -117,13 +119,21 @@ async function checkReplacementRedispatch(db) {
   assert.equal(decision.identity, 'new');
   orchestrationState.pendingWorkerRecoveries.set('rec-w2', { mission, report, decision });
   const before = (await db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = 'rec-orch'")).count;
-  assert.equal(await dispatchWorkerRecovery('rec-w2'), true, 'a replacement worker must dispatch');
+  assert.equal(await dispatchWorkerRecovery('rec-w2'), true,
+    `a replacement worker must dispatch; verdicts: ${JSON.stringify(emitted.filter((args) => String(args[1]).includes('RECOVERY')))}`);
   const after = (await db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = 'rec-orch'")).count;
   assert.equal(after, before + 1, 'exactly one replacement worker is created');
   const dispatched = startedMissions[startedMissions.length - 1];
   assert.notEqual(dispatched.agentId, 'rec-w2');
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the replacement resumes the checkpoint');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w2'")).status, 'error', 'the dead source is left untouched');
+  assert.equal((await db.get('SELECT workspace_id FROM lineage_nodes WHERE id = ?', dispatched.agentId)).workspace_id,
+    'rec-ws', 'the replacement lineage stays in the orchestrator garage domain');
+  const recoveryEdge = await db.get('SELECT source_node_id, workspace_id, edge_type FROM lineage_edges WHERE target_node_id = ? AND edge_type = \'recovery\'', dispatched.agentId);
+  assert.deepEqual(recoveryEdge, { source_node_id: 'rec-orch', workspace_id: 'rec-ws', edge_type: 'recovery' },
+    'runtime lineage remains inside the orchestrator workspace');
+  const lineageMetadata = JSON.parse((await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', dispatched.agentId)).metadata);
+  assert.equal(lineageMetadata.parents.recoverySource, 'rec-w2', 'the failed worker is retained as recovery provenance');
 }
 
 async function checkValidatedWorkNotRedispatched(db) {
