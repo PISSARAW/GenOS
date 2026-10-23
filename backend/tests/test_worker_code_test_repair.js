@@ -270,6 +270,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedExport = JSON.parse(applyRepairPlan(exportProposal, exportPlan)).patches[0].content;
   assert.match(repairedExport, /function exportPantryJSON\(\)/);
   assert.match(repairedExport, /link\.download='pantry\.json'/);
+  const scopedExport = require('../src/services/workerCodeExportRepair').ensureJsonExport(
+    '<button onclick="exportPantryJSON()">Export JSON</button><script>window.addEventListener("load",()=>{const pantry=[];localStorage.getItem("pantry-state");function exportPantryJSON(){throw new Error("scoped state");}});</script>'
+  );
+  assert.match(scopedExport, /genosJsonExportRepair/);
+  assert.match(scopedExport, /localStorage\.getItem\("pantry-state"\)/);
+  assert.match(scopedExport, /stopImmediatePropagation/);
+  assert.match(scopedExport, /link\.download='pantry\.json'/);
   const quantityCollision = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'
