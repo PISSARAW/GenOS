@@ -107,6 +107,11 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 		assert.deepEqual(observedFormat, responseFormat);
 		assert.equal(observedReasoningEffort, 'none');
 		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'openai://fixture', latencyMs: 100,
+			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
+			mission: { agentId: 'code-worker' }, stageTimings: {} });
+		assert.equal(observedReasoningEffort, undefined);
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
 			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker', executionPolicy: { allowedCommands: ['npm test'] } },

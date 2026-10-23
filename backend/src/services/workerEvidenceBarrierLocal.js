@@ -104,7 +104,7 @@ async function generateWorkerResult(ctx) {
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
       })
       : workerResponseFormat(ctx.mission),
-    reasoningEffort: ctx.codeWorker ? 'none' : undefined,
+    reasoningEffort: ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined,
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
