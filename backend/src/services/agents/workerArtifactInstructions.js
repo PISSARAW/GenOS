@@ -61,10 +61,14 @@ function schemaInstruction(text, fields) {
 }
 
 function specialistInstruction(niche) {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+  const biomeSteward = niche === 'biome:resource_steward';
+  const claims = biomeSteward
+    ? [{ statement: '<exact machine-verifiable candidate JSON object; no prose>', evidence: ['<source-ref>'] }]
+    : CONTENT_TEMPLATES.dossier.claims;
+  const output = { outcome: 'success', claims,
     specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
-  const biomeScope = niche === 'biome:resource_steward'
-    ? 'This niche includes exact resource allocation, partitioning, and capacity verification; an allocation task is in scope.' : '';
+  const biomeScope = biomeSteward
+    ? 'This niche includes exact resource allocation, partitioning, and capacity verification; an allocation task is in scope. Put the complete machine-verifiable candidate JSON object in claims[0].statement; never replace it with a generic success sentence, and claim success only when the candidate is present.' : '';
   return `${biomeScope} Work only in the declared niche '${niche}'. For successful work, follow this schema exactly: ${JSON.stringify(output)}. If the task is outside the niche or evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<specific limitation>"]}; do not include success-only fields.`;
 }
 

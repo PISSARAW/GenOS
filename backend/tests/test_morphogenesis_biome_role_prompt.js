@@ -94,6 +94,8 @@ assert.match(steward, /Produce the mission candidate/);
 assert.match(steward, /verify every item appears exactly once/);
 assert.match(steward, /check all capacities/);
 assert.match(steward, /This niche includes exact resource allocation, partitioning, and capacity verification/);
+assert.match(steward, /complete machine-verifiable candidate JSON object in claims\[0\]\.statement/);
+assert.match(steward, /never replace it with a generic success sentence/);
 assert.match(steward, /\"outcome\":\"unresolved\",\"claims\":\[\],\"uncertainties\"/);
 assert.match(steward, /exact item identifiers \(item1, item2, etc\.\)/);
 
