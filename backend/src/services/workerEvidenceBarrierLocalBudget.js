@@ -7,6 +7,16 @@ function estimatePromptTokens(prompt) {
   return Math.ceil(Buffer.byteLength(String(prompt), 'utf8') / 4);
 }
 
+const MIN_WORKER_OUTPUT_TOKENS = 256;
+
+function resolveMaxOutputTokens(budget, prompt) {
+  const tokenBudget = Number(budget);
+  if (!Number.isFinite(tokenBudget) || tokenBudget <= 0) return undefined;
+  const boundedBudget = Math.floor(tokenBudget);
+  const completionFloor = Math.min(MIN_WORKER_OUTPUT_TOKENS, boundedBudget);
+  return Math.min(boundedBudget, Math.max(completionFloor, boundedBudget - estimatePromptTokens(prompt)));
+}
+
 function resolveTokenBudget(mission) {
   if (!mission) return 0;
   if (!mission.executionBudget) return 0;
@@ -34,4 +44,4 @@ function throwIfConsumedOverBudget(consumed, budget) {
 }
 
 module.exports = { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
-  consumedTokensOf, throwIfConsumedOverBudget };
+  resolveMaxOutputTokens, consumedTokensOf, throwIfConsumedOverBudget };
