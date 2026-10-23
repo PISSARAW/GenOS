@@ -9,6 +9,8 @@ const decisions = require('../src/services/identity/decisions');
 const checkpoints = require('../src/services/identity/checkpoints');
 const boundary = require('../src/services/identity/modelBoundary');
 const snapshots = require('../src/services/identity/snapshots');
+const workerIdentity = require('../src/services/identity/worker');
+const { startWorkerHeartbeat } = require('../src/services/identity/workerHeartbeat');
 
 async function database() {
   const db = await require('sqlite').open({ filename: ':memory:', driver: require('sqlite3').Database });
@@ -53,6 +55,23 @@ async function fencing(db) {
   await assert.rejects(() => incarnations.assertSession(db, session), /SESSION_STALE/);
   await assert.rejects(() => snapshots.assertRestorable(db, 'a'), /ACTIVE_DURING_RESTORE/);
   await incarnations.release(db, next);
+}
+
+async function workerLeaseRenewal(db) {
+  const identity = { session: await incarnations.activate(db, {
+    agentId: 'a', ownerId: 'long-worker', ttlMs: 1000
+  }) };
+  const previousLease = identity.session.leaseUntil;
+  await workerIdentity.renew(db, identity);
+  assert(identity.session.leaseUntil > previousLease);
+  await incarnations.assertSession(db, identity.session);
+  await incarnations.release(db, identity.session);
+
+  let renewals = 0;
+  const heartbeat = startWorkerHeartbeat(async () => { renewals += 1; }, { intervalMs: 5 });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  await heartbeat.stop();
+  assert(renewals >= 1, 'long-running worker heartbeat renews while work is pending');
 }
 
 async function social(db) {
@@ -157,7 +176,7 @@ async function lifecycle(db) {
 async function main() {
   const db = await database();
   try {
-    for (const test of [continuity, fencing, social, learning, branching, memories, lifecycle]) await test(db);
+    for (const test of [continuity, fencing, workerLeaseRenewal, social, learning, branching, memories, lifecycle]) await test(db);
     console.log('Identity v2: causal history, fencing, recognition, learning, forks, restore and inherited memories passed.');
   } finally { await db.close(); }
 }

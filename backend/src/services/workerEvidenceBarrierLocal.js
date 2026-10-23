@@ -364,10 +364,10 @@ async function runLocalWorker(db, mission, executionRun) {
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
-  let identity;
-  let generation;
+  let identity, generation, identityHeartbeat;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
+    identityHeartbeat = require('./identity/workerHeartbeat').startWorkerHeartbeat(() => workerIdentity.renew(db, identity));
     const attempt = await workerCodeTestRepair.run({
       mission,
       runAttempt: async (currentMission) => {
@@ -380,10 +380,11 @@ async function runLocalWorker(db, mission, executionRun) {
       },
       onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, ...retry })
     });
+    await identityHeartbeat.flush();
     generation = attempt.generation;
-    return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
-      executionRun, generation, evidence: attempt.evidence, identity, stageTimings }, publishLocalSuccess);
+    return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission, executionRun, generation, evidence: attempt.evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
+    await identityHeartbeat?.stop().catch(() => {});
     await workerIdentity.fail(db, { identity, executionRun, error });
     const usage = generation?.result ? {
       input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens,
@@ -392,6 +393,7 @@ async function runLocalWorker(db, mission, executionRun) {
     return await require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
       error, usage, stageTimings, reportMilestone });
   } finally {
+    await identityHeartbeat?.stop().catch(() => {});
     await workerIdentity.release(db, identity);
   }
 }
