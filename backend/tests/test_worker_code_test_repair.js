@@ -216,6 +216,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedRestoredPantry = JSON.parse(applyRepairPlan(restoredPantry, addPlan)).patches[0].content;
   assert.match(repairedRestoredPantry, /pantryState\.push\(item\)/);
   assert.match(repairedRestoredPantry, /JSON\.stringify\(pantryState\)/);
+  const domPantryCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<form><input id="itemName"><input id="quantity" type="number"><select id="category"></select><input id="bestBefore" type="date"></form><table><tbody id="pantry"></tbody></table><script>const pantry=document.querySelector("#pantry tbody");function increaseQuantity(){}function deleteItem(){}</script>'
+  }] });
+  const repairedDomPantry = JSON.parse(applyRepairPlan(domPantryCandidate, addPlan)).patches[0].content;
+  assert.match(repairedDomPantry, /pantry\.appendChild\(row\)/);
+  assert.match(repairedDomPantry, /JSON\.stringify\(\{itemName:name,quantity,category,bestBeforeDate:date\}\)/);
   const duplicateFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
