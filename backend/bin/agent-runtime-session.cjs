@@ -127,7 +127,7 @@ function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
 
 function createState(mission, data) {
   const identity = resolveIdentity(mission);
-  const requiredTools = new Set(data.isWorker ? workerMcpPreflight.requiredWorkerTools(mission) : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || []));
+  const requiredTools = require('../src/services/agentRuntimeRequiredTools').requiredRuntimeTools(mission, data);
   const preflightObservedTools = data.isWorker ? [] : (mission.preflightObservedTools || [])
     .filter(tool => requiredTools.has(tool));
   return {
