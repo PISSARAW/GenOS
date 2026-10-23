@@ -138,6 +138,11 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: 'AssertionError: updated quantity persists at tests/acceptance.cjs:26:10'
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(persistenceFailure), /same canonical items collection to localStorage after every add, increase, and delete/);
+  const quantityCollision = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'
+  }] }, usage: { tokens: 50 } });
+  assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
     path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } form.addEventListener("submit", addItem);</script>'
   }] } });

@@ -32,6 +32,9 @@ function consumedTokens(error) {
 
 function locatorRepairHint(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements|\[object HTMLInputElement\]/i.test(output)) {
+    return 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. Give the rendered item action the exact accessible name "Increase quantity for Oats" using the item name string, and do not put that action label on a form control or prototype button.';
+  }
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.';
   }
