@@ -201,12 +201,17 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedAdd = JSON.parse(applyRepairPlan(addCandidate, addPlan)).patches[0].content;
   assert.match(repairedAdd, /genosAddItemRepair/);
   assert.match(repairedAdd, /stopImmediatePropagation/);
+  assert.match(repairedAdd, /const cleanForm=form\.cloneNode\(true\)/);
+  assert.match(repairedAdd, /form\.replaceWith\(cleanForm\)/);
+  assert.match(repairedAdd, /cleanForm\.querySelectorAll\('button\[type="submit"\]'\)/);
   assert.match(repairedAdd, /localStorage\.setItem/);
   assert.match(repairedAdd, /renderPantry\(\)/);
   const clickAddCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<input id="itemName"><input id="itemQuantity" type="number"><input id="bestBeforeDate" type="date"><select id="category"></select><button id="addItem">Add Item</button><script>let pantryData={items:[]};function renderPantry(){}</script>'
   }] });
   const repairedClickAdd = JSON.parse(applyRepairPlan(clickAddCandidate, addPlan)).patches[0].content;
+  assert.match(repairedClickAdd, /const cleanTarget=target\.cloneNode\(true\)/);
+  assert.match(repairedClickAdd, /target\.replaceWith\(cleanTarget\)/);
   assert.match(repairedClickAdd, /target\.addEventListener\(form\?'submit':'click'/);
   assert.match(repairedClickAdd, /pantryData\.items\.push\(item\)/);
   assert.match(repairedClickAdd, /JSON\.stringify\(pantryData\)/);
