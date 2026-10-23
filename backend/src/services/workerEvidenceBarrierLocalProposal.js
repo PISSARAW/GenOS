@@ -5,6 +5,7 @@ const localCodeWorker = require('./localCodeWorkerService');
 async function resolveProposal(ctx) {
   if (!ctx.codeWorker) return null;
   return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text,
+    usage: ctx.result,
     allowedCommands: ctx.allowedCommands, requiredPatchPaths: ctx.requiredPatchPaths,
     requiredPatchMarkers: ctx.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.requiredPatchMinimumBytes, db: ctx.db,

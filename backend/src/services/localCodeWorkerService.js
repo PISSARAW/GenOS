@@ -29,15 +29,25 @@ function safePath(relative) {
     return false;
   }
 }
-function parseProposal(text) {
-  const match = String(text || '').match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
-  const proposal = JSON.parse(match[0]);
-  assertProposalSchema(proposal);
-  if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
-  assertProposalPatches(proposal);
-
-  return proposal;
+function parseProposal(text, usage = {}) {
+  try {
+    const match = String(text || '').match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
+    const proposal = JSON.parse(match[0]);
+    assertProposalSchema(proposal);
+    if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
+    assertProposalPatches(proposal);
+    return proposal;
+  } catch (error) {
+    const inputTokens = Number(usage.inputTokens || 0);
+    const outputTokens = Number(usage.outputTokens || 0);
+    throw Object.assign(new Error(`Local code proposal rejected: ${error.message}`), {
+      code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+      workerArtifactDiagnostics: { error: error.message, violations: [error.message],
+        outputExcerpt: String(text || '').slice(0, 2048) },
+      usage: { inputTokens, outputTokens, tokens: inputTokens + outputTokens }
+    });
+  }
 }
 function allowedTest(command, allowedCommands) {
   const normalized = normalizeSandboxCommand(command);
@@ -117,9 +127,9 @@ async function runTest(command, root) {
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
   });
 }
-async function executeProposal({ workspaceRoot, text, allowedCommands, requiredPatchPaths,
+async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
-  const proposal = parseProposal(text);
+  const proposal = parseProposal(text, usage);
   assertRequiredPatchContract(proposal, requiredPatchPaths, {
     markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
   for (const command of proposal.tests) {

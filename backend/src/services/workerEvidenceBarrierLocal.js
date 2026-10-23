@@ -318,7 +318,7 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
-  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker,
+  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker, result: ctx.result,
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
     requiredPatchPaths: ctx.mission.requiredPatchPaths,

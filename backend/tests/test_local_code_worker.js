@@ -8,7 +8,17 @@ assert.equal(safePath('src/lib.rs'), true);
 assert.equal(safePath('tests/security.rs'), false);
 assert.equal(safePath('src/lib.test.js'), false);
 assert.equal(safePath('Cargo.toml'), false);
-assert.throws(() => parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}'));
+let unsafeProposalError;
+try {
+  parseProposal(
+    '{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}',
+    { inputTokens: 70, outputTokens: 30 });
+} catch (error) { unsafeProposalError = error; }
+assert.ok(unsafeProposalError);
+assert.equal(unsafeProposalError.code, 'WORKER_OUTPUT_SCHEMA_VIOLATION');
+assert.match(unsafeProposalError.workerArtifactDiagnostics.error, /Unsafe patch proposal/);
+assert.match(unsafeProposalError.workerArtifactDiagnostics.outputExcerpt, /tests\/x\.rs/);
+assert.equal(unsafeProposalError.usage.tokens, 100);
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
 const responseFormat = proposalResponseFormat();
