@@ -76,7 +76,7 @@ async function getOrchContext(db, orchestratorId) {
 
 function resolveRole(advice) {
   if (advice && advice.preferredResponse === 'replace_worker') return 'recovery_specialist';
-  return 'homeostasis_continuation';
+  return 'bounded_worker';
 }
 
 function continuationFingerprint(evaluation = {}) {

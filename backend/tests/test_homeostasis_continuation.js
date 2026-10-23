@@ -19,7 +19,10 @@ require.cache[runtimeAdapterPath] = {
   exports: {
     startMission: async (mission) => {
       if (!mission || !mission.agentId) throw new Error('invalid mission');
-      return { started: true, mock: true };
+      const workerKinds = require('../src/services/agents/workerKindService');
+      const workerKind = workerKinds.resolveWorkerKind(undefined, mission.role);
+      if (!['bounded_worker', 'recovery_worker'].includes(workerKind)) throw new Error('unexpected continuation worker kind: ' + workerKind);
+      return { started: true, mock: true, workerKind };
     }
   }
 };
@@ -107,6 +110,9 @@ test('dispatchHomeostasisContinuation inserts agent and starts mission', async (
   });
   const agents = await db.all("SELECT id FROM agents WHERE id LIKE 'worker_homeostasis_%'");
   assert.ok(agents.length > 0, 'homeostasis continuation agent must be inserted');
+  const dispatchedAgent = await db.get('SELECT role FROM agents WHERE id = ?', result.targetAgentId);
+  const workerKinds = require('../src/services/agents/workerKindService');
+  assert.strictEqual(workerKinds.resolveWorkerKind(undefined, dispatchedAgent.role), 'bounded_worker', 'ordinary continuation must use a registered least-privilege kind');
   assert.ok(result.targetAgentId, 'result must include targetAgentId');
   assert.strictEqual(result.deviation, 'missing_work');
 });
