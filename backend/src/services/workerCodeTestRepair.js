@@ -41,16 +41,26 @@ function failureFeedback(error) {
   const patches = error.proposal?.failedPatchContents || [];
   const candidate = patches.map((patch) => `Rolled-back candidate ${patch.path}:\n${patch.content}`)
     .join('\n\n').slice(0, MAX_CANDIDATE_TEXT);
-  return [result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+  const diagnostics = error.workerArtifactDiagnostics;
+  const schemaFeedback = diagnostics ? [
+    `Worker output contract rejected (${error.code || 'unknown'}): ${diagnostics.error || error.message}`,
+    Array.isArray(diagnostics.violations) ? diagnostics.violations.join('\n') : '',
+    diagnostics.outputExcerpt ? `Rejected output excerpt:\n${diagnostics.outputExcerpt}` : ''
+  ].filter(Boolean).join('\n') : '';
+  return [result, candidate, schemaFeedback].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
 function repairPrompt(context) {
   const { mission, error, attempt } = context;
-  return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state. Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error)}`;
+  const reason = error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
+    ? 'The previous model output was rejected before application; the workspace is unchanged.'
+    : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
+  return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. ${reason} Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error)}`;
 }
 
 function canRetry(context) {
-  if (!isCodeWorker(context.mission) || context.error.code !== 'WORKER_TESTS_FAILED') return false;
+  if (!isCodeWorker(context.mission)
+    || !['WORKER_TESTS_FAILED', 'WORKER_OUTPUT_SCHEMA_VIOLATION'].includes(context.error.code)) return false;
   if (context.attempt > MAX_TEST_RETRIES) return false;
   return latencyBudget(context.mission) - (Date.now() - context.startedAt) > 1000;
 }

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const { run, repairPrompt, failureFeedback } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
+const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
 
 const mission = { localCodeWorker: true, prompt: 'Build the pantry app.', timeoutMs: 10000,
   executionBudget: { latencyMs: 10000, tokens: 20000 } };
@@ -18,6 +19,24 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
 });
 
 (async () => {
+  const schemaFailure = fromModelResult({ schemaViolation: {
+    error: 'Model output did not satisfy the requested worker evidence schema.',
+    violations: ['/patches must contain at least 1 valid item(s)']
+  }, text: '{"patches":[]}', inputTokens: 100, outputTokens: 50 });
+  assert.equal(schemaFailure.code, 'WORKER_OUTPUT_SCHEMA_VIOLATION');
+  assert.equal(schemaFailure.usage.tokens, 150);
+  const schemaPrompts = [];
+  const schemaRepair = await run({ mission, runAttempt: async (attemptMission) => {
+    schemaPrompts.push(attemptMission);
+    if (schemaPrompts.length === 1) throw schemaFailure;
+    return 'schema repaired';
+  } });
+  assert.equal(schemaRepair, 'schema repaired');
+  assert.equal(schemaPrompts[1].executionBudget.tokens, 19850);
+  assert.match(schemaPrompts[1].prompt, /WORKER_OUTPUT_SCHEMA_VIOLATION/);
+  assert.match(schemaPrompts[1].prompt, /at least 1 valid item/);
+  assert.match(schemaPrompts[1].prompt, /\{"patches":\[\]\}/);
+
   const prompts = [];
   let retries = 0;
   const result = await run({ mission, onRetry: () => { retries += 1; },
