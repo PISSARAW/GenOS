@@ -30,3 +30,5 @@ La mission locale Windows porte `deferAgentTerminalStatus`. Pendant cette phase,
 Cette correction élimine le blocage de cycle de vie démontré par le code et les tests ciblés. Une nouvelle expérience Qwen avec contrat de complétion explicite reste nécessaire pour prouver le gate de bout en bout.
 ## Refus de commit lors de l’expérience
 La premiere tentative de commit a ete bloquee par le hook faute du bloc Receipt exact. Le gate qualite avait accepte les 7 fichiers source avec 0 violation. Le commit suivant fournit le recu demande.
+
+L’assertion d’intégration utilise le vrai agentTerminalStatusService.queue: les résultats locaux succès et échec ne sont pas mis en attente comme terminaux, et l’orchestrateur reste running.
