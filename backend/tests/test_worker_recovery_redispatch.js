@@ -127,6 +127,9 @@ async function checkSameIdentityRedispatch(db) {
 async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
   clearSharedState();
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id, workspace_id) VALUES ('rec-chain', 'Chain', 'resource_steward', 'error', 'worker', 'rec-orch', 'rec-ws')");
+  const missionIdentity = require('../src/services/missionIdentityService');
+  await missionIdentity.create(db, { missionId: 'rec-chain-mission', objective: 'Carry recovery into the mission.', orchestratorAgentId: 'rec-orch' });
+  await missionIdentity.attachAgent(db, { missionId: 'rec-chain-mission', agentId: 'rec-chain', role: 'resource_steward' });
   const { mission, report, decision } = queuedRecovery('rec-chain', 'unresolved_task');
   orchestrationState.pendingWorkerRecoveries.set('rec-chain', { mission, report, decision });
   const originalStartMission = adapter.startMission;
@@ -150,6 +153,9 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
       'a failure queued while the same-identity dispatch is active is drained after its lease is released');
     assert.notEqual(startedMissions[1].agentId, 'rec-chain',
       'the next morphogenetic response can change identity after the same-identity mutation fails');
+    assert.equal((await db.get('SELECT mission_id FROM mission_agents WHERE mission_id = ? AND agent_id = ?',
+      'rec-chain-mission', startedMissions[1].agentId))?.mission_id, 'rec-chain-mission',
+    'a replacement identity inherits the source worker’s active biological mission binding');
   } finally {
     adapter.startMission = originalStartMission;
   }

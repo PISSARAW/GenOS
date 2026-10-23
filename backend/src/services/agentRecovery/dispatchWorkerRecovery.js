@@ -154,6 +154,7 @@ async function persistRecoveryAgent(db, source, target) {
   }
   await withTransaction(db, async () => {
     await insertRecoveryAgent(db, source, target);
+    await require('./recoveryMissionBinding').bindRecoveryMission(db, source, target);
     if (source.workspace_id) await recoveryLineage.recordRecoveryLineage(db, source, target);
   });
 }
