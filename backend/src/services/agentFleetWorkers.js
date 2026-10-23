@@ -357,7 +357,7 @@ function formatWorker(details) {
   const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease,
-    capabilities, assignments: assignmentList, mission, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
+    capabilities, assignments: assignmentList, mission, assignment, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
   ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
@@ -397,4 +397,4 @@ function workerRuntime(details) {
 
 module.exports = { assignedWorkerId: cohortWorkerService.assignedWorkerId, createAutonomousWorkers, splitBudget,
   buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget,
-  buildWorkerPrompt, includePersistedWorkers, workerIdentity, validateAssignments };
+  buildWorkerPrompt, includePersistedWorkers, workerIdentity, workerRuntime, validateAssignments };

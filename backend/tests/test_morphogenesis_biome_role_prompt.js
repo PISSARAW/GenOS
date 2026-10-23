@@ -18,8 +18,8 @@ function promptFor(role, workerKind, specialtyNiche) {
         nicheDomain: specialtyNiche }
     },
     context: {
-      mission: { prompt: 'Allocate the items into three bins of capacity eight.' },
-      parent: { current_task: 'Allocate the items into three bins of capacity eight.' },
+      mission: { prompt: 'Repartis item1=1, item2=3, item3=2 en 3 groupes, plafond de 8.' },
+      parent: { current_task: 'Repartis item1=1, item2=3, item3=2 en 3 groupes, plafond de 8.' },
       plan: { tokenPolicy: { allocation: 'uniform' } },
       perWorkerTokens: 1500
     }
@@ -30,7 +30,8 @@ const observer = promptFor('environment_mapper', 'scout_cell');
 assert.match(observer, /Observe the entities, values, units, and constraints/);
 assert.match(observer, /required scout_observation artifact/);
 assert.match(observer, /do not produce or claim the final solution/);
-assert.match(observer, /do not return unresolved/);
+assert.match(observer, /If the available evidence is insufficient/);
+assert.match(observer, /item1=1,item2=3,item3=2;groups=3;max=8/);
 
 const observerMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'environment_mapper' } },
