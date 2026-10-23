@@ -10,7 +10,7 @@ function removeQuantityCollisionsAfterReload(content) {
       || !/\baria-label\s*=\s*["'][^"']*quantity[^"']*["']/i.test(opening)) return opening;
     const before = source.slice(0, offset).toLowerCase();
     if (before.lastIndexOf('<form') > before.lastIndexOf('</form')) return opening;
-    return opening.replace(/\s+aria-label\s*=\s*["'][^"']*["']/i, ' aria-label="Item count"');
+    return opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ' aria-label="Item count"');
   });
   return repaired;
 }

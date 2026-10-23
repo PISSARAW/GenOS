@@ -46,4 +46,14 @@ Les essais ci-dessous utilisent Qwen local (`qwen2.5-coder:7b`, sauf retry27 en 
 
 ## Préparation du retry35
 
-Retry35 utilise un DB isolé neuf copié depuis `genos-attempt-30.db`, Qwen 7B sans fallback distant, 120 000 jetons, plafond comptable local 0,05 USD et délai de 20 minutes. Le plan Add Item et le plan d’export sont présents. Mission `autonomy-proof-t02-20261023-direct-d-repair-35`; config et DB: `D:\GenOS\runs\autonomy-proof-t02-20261022\project\direct-d-20261023-retry35.json` et `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry35.db`. Ce document décrit une préparation, pas un résultat. T02 reste non démontré jusqu’au reçu de succès Playwright et au gate de complétion.
+Retry35 utilise un DB isolé neuf copié depuis `genos-attempt-30.db`, Qwen 7B sans fallback distant, 250 000 jetons, plafond comptable local 0,05 USD et délai de 20 minutes. Le plan Add Item et le plan d’export sont présents. Mission `autonomy-proof-t02-20261023-direct-d-repair-35`; config et DB: `D:\GenOS\runs\autonomy-proof-t02-20261022\project\direct-d-20261023-retry35.json` et `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry35.db`. Ce document décrit une préparation, pas un résultat. T02 reste non démontré jusqu’au reçu de succès Playwright et au gate de complétion.
+
+
+## Résultats réels des retries 35 à 37
+
+- **Retry35 — échec Add Item.** Le plafond réellement configuré était de 250 000 jetons (la note de préparation précédente indiquait 120 000 par erreur). Les 20 contre-tests échouent sur l’absence de ligne après soumission. Le candidat avait un bouton direct et un état imbriqué; le correctif `1d0270d90` adapte l’action à ces structures.
+- **Retry36 — échec à l’export.** Des candidats passent l’ajout, la recherche, l’incrément, le rechargement et les contrôles quantité/suppression; le candidat terminal échoue au téléchargement JSON. `082a5c029` corrige la détection de l’attente Playwright de téléchargement.
+- **Retry37 — échec Add Item après 20 reprises.** L’oracle Playwright s’arrête à `acceptance.cjs:19:10` (`0 !== 1`). Le candidat récupère `pantryState` depuis `localStorage`, mais le détecteur du réparateur ne reconnaissait que `= []` et injectait une action sur `pantry`. Le gate de complétion bloque la mission comme instable; aucun succès T02 n’est revendiqué.
+- **Correctifs préparés pour le prochain run.** La détection Add Item reconnaît désormais un tableau initialisé par `JSON.parse(...) || []`. Un helper dédié enlève les collisions aria-label Quantity dans les lignes après rechargement tout en préservant le champ du formulaire. `node backend/tests/test_worker_code_test_repair.js` passe avec ces changements.
+
+Ces trois missions sont des échecs conservés, et les corrections sont des hypothèses à requalifier par le prochain oracle complet. Le statut global T02 reste non démontré jusqu’à réussite de la suite Playwright entière et du gate de complétion.
