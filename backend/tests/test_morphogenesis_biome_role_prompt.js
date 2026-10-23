@@ -92,8 +92,7 @@ assert.match(stewardMission, /Place each next item in a bin only when its runnin
 assert.match(stewardMission, /if no bin fits, backtrack and move an earlier item/);
 assert.match(stewardMission, /When aggregate capacity is exact, every bin must finish at exactly 8/);
 assert.match(stewardMission, /otherwise bins may be below capacity/);
-assert.match(stewardMission, /do not stop after one failed partition/);
-assert.match(stewardMission, /Backtrack to another subset/);
+assert.match(stewardMission, /return unresolved only if no valid assignment exists after backtracking/);
 assert.match(stewardMission, /exactly one GenOS dossier/);
 assert.match(stewardMission, /exactly one claim/);
 assert.match(stewardMission, /do not repeat the schema, add another claim or nested dossier/);
