@@ -19,9 +19,36 @@ function build(input) {
   const commands = tests.map((test) => test.command).join(', ');
   const claim = { statement: `Changed ${names}; executed ${commands} and every test command exited successfully.`, evidence };
   const codeVerification = verificationBinding(mission, files);
+  const kindEvidence = kindSpecificEvidence(mission, evidence);
   return { outcome: 'success', claims: [claim], ...(codeVerification ? { codeVerification } : {}),
     scopeCompletion: { scopeRef: mission.workerContract?.mission?.scope || mission.workspaceRoot,
-      completedRefs: fileRefs }, tests };
+      completedRefs: fileRefs }, ...kindEvidence, tests };
+}
+
+function kindSpecificEvidence(mission, evidence) {
+  const kind = mission.workerContract?.identity?.workerKind || mission.workerKind;
+  if (kind === 'specialist') {
+    const niche = mission.workerContract?.mission?.specialtyNiche
+      || mission.workerContract?.niche?.domain || mission.specialtyNiche || mission.nicheDomain;
+    if (typeof niche !== 'string' || !niche.trim()) {
+      throw Object.assign(new Error('A specialist code worker needs its declared niche.'), {
+        code: 'WORKER_CODE_EVIDENCE_INCOMPLETE'
+      });
+    }
+    return { specialtyAssessment: { niche, inScope: true, evidence } };
+  }
+  if (kind === 'adaptive_worker') {
+    const strategy = mission.workerContract?.mission?.methodContract?.methodId
+      || mission.methodContract?.methodId || mission.strategyId;
+    if (typeof strategy !== 'string' || !strategy.trim()) {
+      throw Object.assign(new Error('An adaptive code worker needs its declared method strategy.'), {
+        code: 'WORKER_CODE_EVIDENCE_INCOMPLETE'
+      });
+    }
+    return { strategyTrace: [{ strategy, decision: 'retained',
+      reason: `Applied the declared ${strategy} method to produce the tested code change.`, evidence }] };
+  }
+  return {};
 }
 
 function verificationBinding(mission, files) {
