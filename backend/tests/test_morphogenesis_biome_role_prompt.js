@@ -81,7 +81,7 @@ assert.equal(requestedBiomeMapper.methodContract.methodId, 'scan_literal',
 const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1 en 3 groupes, plafond de 8.');
-assert.match(stewardMission, /The total weight is 24, so every bin must sum to exactly 8/);
+assert.match(stewardMission, /Capacity is sufficient and exact, so every bin must sum to exactly 8/);
 assert.match(stewardMission, /all 9 distinct identifiers occur once/);
 assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
 assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
