@@ -51,6 +51,13 @@ const nativeProfiles = policy.profileWorkers([
 ]);
 assert.deepEqual(nativeProfiles.map(profile => profile.maximumTokens), [0, 0]);
 
+const morphogenesisProfiles = policy.profileWorkers([
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'scan_literal' } },
+  { workerKind: 'specialist', role: 'resource_steward', methodContract: { methodId: 'prompt_defined' } }
+], 1500);
+assert.deepEqual(morphogenesisProfiles.map(profile => profile.minimumStartTokens), [1500, 3000],
+  'resource steward retains enough initial tokens for the measured Qwen prompt while honoring the configured minimum floor');
+
 const unsafeOverride = policy.budgetEnvelope(64000, profiles, { workerShare: 0.95 });
 assert.equal(unsafeOverride.valid, false);
 assert.equal(unsafeOverride.invalidReason, 'orchestrator_reserve_below_minimum');

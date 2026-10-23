@@ -47,15 +47,12 @@ function assertFanout(plan, count, topology) {
     { topology, requiredWorkers: count, availableWorkers: limit });
 }
 
-function allocationFor(plan, count, topology) {
+function allocationFor(plan, workers, topology) {
   const policy = plan.tokenPolicy || {};
-  const allocation = require('../tokenAllocationService').buildAllocation({
-    totalTokens: policy.total,
-    workerShare: policy.workerShare,
-    workerCount: count,
-    minimumWorkerTokens: policy.minimumWorkerTokens,
-    mode: policy.allocation
-  });
+  const budget = require('../aTeamDispatchBudgetService');
+  budget.applyWorkerBudget(policy, workers);
+  const allocation = policy.rounds;
+  const count = workers.length;
   if (allocation.initial.workerCount === count) return allocation;
   throw activationError('MORPHOGENESIS_TOPOLOGY_BUDGET_INSUFFICIENT',
     `The mission budget cannot fund every '${topology}' worker.`,
@@ -117,7 +114,7 @@ function applyCompositions(ctx, morphologyPlan, components) {
   const workers = components.flatMap((entry, index) => componentWorkers(entry.composition, entry.node, index));
   const topology = morphologyPlan.selectedTopology;
   assertFanout(ctx.autonomyPlan, workers.length, topology);
-  const allocation = allocationFor(ctx.autonomyPlan, workers.length, topology);
+  const allocation = allocationFor(ctx.autonomyPlan, workers, topology);
   ctx.autonomyPlan.workers = workers;
   ctx.autonomyPlan.dispatchWorkers = workers;
   ctx.autonomyPlan.tokenPolicy.rounds = allocation;

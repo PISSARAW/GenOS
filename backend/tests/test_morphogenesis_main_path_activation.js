@@ -162,6 +162,26 @@ async function verifyBudgetGate() {
   );
 }
 
+async function verifyResourceStewardReceivesPromptSizedInitialBudget() {
+  const ctx = context();
+  ctx.autonomyPlan.tokenPolicy = { total: 20000, workerShare: 0.7,
+    minimumWorkerTokens: 1500, minimumWorkerTokensExplicit: true,
+    allocation: 'successive_halving_with_reallocation' };
+  await activation.activateMorphogenesisPlan(ctx, plan('biome'), {
+    composeMode: async () => ({ members: [
+      { role: 'environment_mapper', executionMode: 'worker', workerKind: 'scout_cell',
+        methodContract: { methodId: 'scan_literal' } },
+      { role: 'resource_steward', executionMode: 'worker', workerKind: 'specialist',
+        methodContract: { methodId: 'prompt_defined' } }
+    ] })
+  });
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [1500, 3000],
+    'Morphogenesis activation applies the resource steward minimum instead of an equal split');
+  assert.equal(ctx.autonomyPlan.tokenPolicy.rounds.workerPool, 14000,
+    'role-aware allocation remains inside the authorized worker pool');
+  assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
+}
+
 async function verifyGenomeCandidateBlocksActivation() {
   const ctx = context();
   const morphologyPlan = plan('rhizome');
@@ -180,6 +200,7 @@ async function main() {
   await verifyDedicatedMorphologyUsesSelectedGraph();
   await verifyIncompatibleDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
+  await verifyResourceStewardReceivesPromptSizedInitialBudget();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');
 }
