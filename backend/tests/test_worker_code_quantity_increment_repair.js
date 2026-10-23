@@ -38,7 +38,7 @@ async function main() {
     await page.reload();
     assert.match(await page.locator('tbody').innerText(), /Oats\s+3/);
     await page.goto(`http://127.0.0.1:${server.address().port}/card`);
-    await page.evaluate(() => localStorage.clear());
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.evaluate(() => localStorage.setItem('pantry', JSON.stringify([
       { name: 'Oats', itemName: 'Oats', quantity: 2 }
     ])));
