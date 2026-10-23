@@ -32,6 +32,16 @@ function normalizeArtifacts(value) {
     .filter((artifact) => artifact && typeof artifact === 'object');
 }
 
+function handoffArtifactRefs(report) {
+  const artifacts = normalizeArtifacts(report.artifacts);
+  const completedRefs = Array.isArray(report.scopeCompletion?.completedRefs)
+    ? report.scopeCompletion.completedRefs.filter((ref) => /^(?:git|commit):[a-f0-9]{40}$/i.test(String(ref)))
+    : [];
+  const byUri = new Map(artifacts.map((artifact) => [artifact.uri || artifact.ref || artifact.artifactId, artifact]));
+  for (const artifact of normalizeArtifacts(completedRefs)) byUri.set(artifact.uri, artifact);
+  return [...byUri.values()];
+}
+
 function reportIsUsable(report, requiredArtifacts = []) {
   const outcome = String(report?.outcome || '').toLowerCase();
   if (!['success', 'completed', 'passed', 'verified'].includes(outcome)) return false;
@@ -76,7 +86,7 @@ function createHandoff(report, producer, consumer) {
     type: 'DELIVERY',
     producer: { agentId: producer.agentId, domain: memberDomain(producer) },
     consumer: { agentId: consumer.agentId, domain: memberDomain(consumer) },
-    artifactRefs: normalizeArtifacts(report.artifacts),
+    artifactRefs: handoffArtifactRefs(report),
     artifactPayload: artifactPayload(report),
     claimRefs: records(report.claims),
     interfaceSchema: producer.outputSchema || null,

@@ -90,10 +90,11 @@ function collectArtifactOwners(workers, byWorker) {
 
 function addArtifacts(artifactOwners, artifacts, ownerId) {
   for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
-    const key = String(artifact || '').trim();
+    const key = artifactKey(artifact);
     if (!key) continue;
     if (!artifactOwners.has(key)) artifactOwners.set(key, []);
-    artifactOwners.get(key).push(ownerId);
+    const owners = artifactOwners.get(key);
+    if (!owners.includes(ownerId)) owners.push(ownerId);
   }
 }
 

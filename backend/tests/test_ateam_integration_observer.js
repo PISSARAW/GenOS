@@ -59,6 +59,12 @@ const clean = [
     { workerId: 'quality-worker', events: [report('Implemented the required patch.', { artifacts: upstreamArtifacts })] },
     { workerId: 'security-worker', events: [report('Reviewed the security boundary.', handoffReport)] }
   ];
+  handoffDossiers[1].events[0].evidenceReport.artifacts = [
+    { uri: upstreamArtifacts[0], sha256: 'a'.repeat(64) },
+    { uri: upstreamArtifacts[0], sha256: 'a'.repeat(64) },
+    { uri: upstreamArtifacts[1], sha256: 'b'.repeat(64) },
+    { uri: upstreamArtifacts[2], sha256: 'c'.repeat(64) }
+  ];
   const inherited = observeAteamIntegration({ members: handoffMembers, workers: handoffWorkers, dossiers: handoffDossiers });
   assert.equal(inherited.failures.some((failure) => failure.code === 'DUPLICATE_ARTIFACT_OWNERSHIP'), false,
     'a verified consumer handoff does not claim ownership of the upstream Git commit');
