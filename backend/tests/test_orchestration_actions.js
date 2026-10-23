@@ -1,4 +1,7 @@
 const assert = require('assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const executor = require('../src/services/orchestrationActionExecutor');
 const mcp = require('../src/services/mcpExecutor');
 const authority = require('../src/services/missionEnvelopeAuthority');
@@ -6,7 +9,19 @@ const recovery = require('../src/services/agentRecoveryService');
 const root = '/tmp/genos-capsule';
 assert.equal(executor.actionArguments({ tool: 'genos_replay' }, { payload: {} }, root), null);
 assert.equal(executor.actionArguments({ tool: 'genos_replay' }, { payload: { branchId: 'branch-1' } }, root), null);
-assert.deepEqual(executor.actionArguments({ tool: 'genos_replay' }, { payload: { snapshot: 'snapshot-1' } }, root), { root, snapshot: 'snapshot-1' });
+assert.equal(executor.actionArguments({ tool: 'genos_replay' }, { payload: { snapshot: 'snapshot-1' } }, root), null);
+const replayFixture = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-replay-'));
+const capsulesRoot = path.join(replayFixture, 'capsules');
+const workerRoot = path.join(capsulesRoot, 'worker-1');
+const snapshotPath = path.join(capsulesRoot, '.genos-runtime', 'trinity', 'snapshot.json');
+fs.mkdirSync(workerRoot, { recursive: true });
+fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
+fs.writeFileSync(snapshotPath, '{}');
+assert.deepEqual(executor.actionArguments({ tool: 'genos_replay' }, { payload: { snapshot: snapshotPath } }, workerRoot), {
+  root: workerRoot, snapshot: snapshotPath
+});
+assert.equal(executor.actionArguments({ tool: 'genos_replay' }, { payload: { snapshot: path.join(replayFixture, 'outside.json') } }, workerRoot), null);
+fs.rmSync(replayFixture, { recursive: true, force: true });
 assert.equal(executor.actionArguments({ tool: 'genos_evaluate_trajectories' }, { payload: {} }, root), null);
 const experience = executor.actionArguments({ tool: 'genos_record_experience' }, { detail: 'proposal', payload: { proposal: { changedFiles: ['src/a.rs'], tests: [{ command: 'cargo test --quiet', exitCode: 0 }], proposal: { evidence: 'passed' } } } }, root);
 assert.equal(experience.successful, true);

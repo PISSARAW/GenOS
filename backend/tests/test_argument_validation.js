@@ -7,6 +7,11 @@ assert.equal(validateToolArguments('genos_merge', { branch_id: 'feature', condit
 assert.equal(validateToolArguments('genos_merge', { branch_id: 'feature --output injected' }).code, 'INVALID_TOOL_ARGUMENTS');
 assert.equal(validateToolArguments('genos_rebase_compute_plan', { graph_file: 'graph.json', injected_keys: 'not-an-array' }).code, 'INVALID_TOOL_ARGUMENTS');
 assert.equal(validateToolArguments('genos_replay', {}).code, 'INVALID_TOOL_ARGUMENTS');
+const replayRoot = String.raw`C:\GenOS\capsules\worker-1`;
+const replaySnapshot = String.raw`C:\GenOS\capsules\.genos-runtime\trinity\snapshot.json`;
+assert.equal(validateToolArguments('genos_replay', { root: replayRoot, snapshot: replaySnapshot }), null);
+assert.equal(validateToolArguments('genos_replay', { root: replayRoot, snapshot: String.raw`C:\GenOS\outside.json` }).code, 'INVALID_TOOL_ARGUMENTS');
+assert.equal(validateToolArguments('genos_replay', { root: replayRoot, snapshot: String.raw`C:\GenOS\capsules\x;whoami` }).code, 'INVALID_TOOL_ARGUMENTS');
 assert.equal(boundedInteger('-1', 50, 1, 500), 50);
 assert.equal(boundedInteger('25', 50, 1, 500), 25);
 assert.throws(() => resolveMcpOutputPath('../outside.json'), { code: 'INVALID_OUTPUT_PATH' });

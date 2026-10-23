@@ -1,4 +1,5 @@
 const Ajv = require('ajv');
+const path = require('node:path');
 const PUBLIC_TOOLS = require('../../../shared/toolDefinitions.json').tools;
 const schemaCompiler = new Ajv({ strict: false });
 const publicValidators = new Map(PUBLIC_TOOLS.map((tool) => [tool.name, {
@@ -326,6 +327,10 @@ function validateToolArguments(toolName, args = {}) {
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
     return invalid('snapshot', 'snapshot or snapshot_id is required (at least one).');
   }
+  if (toolName === 'genos_replay' && args.root !== undefined) {
+    const error = validateReplaySnapshotPath(args.root, args.snapshot);
+    if (error) return error;
+  }
   if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string' && !Array.isArray(args.primitives)) {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
   }
@@ -352,7 +357,8 @@ function validateToolArguments(toolName, args = {}) {
     if (typeof value === 'string') {
       if (value.includes('\0')) return invalid(field, 'contains null bytes.');
       const decisionText = toolName === 'genos_record_decision' && (field === 'title' || field === 'decision');
-      if (!FREEFORM_FIELDS.has(field) && !decisionText && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
+      const validatedReplayPath = toolName === 'genos_replay' && args.root !== undefined && ['root', 'snapshot'].includes(field);
+      if (!validatedReplayPath && !FREEFORM_FIELDS.has(field) && !decisionText && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
         if (/[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
         if (/\s/.test(value)) return invalid(field, 'must not contain whitespace.');
       }
@@ -370,6 +376,24 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   return validateToolEnums(toolName, args);
+}
+
+function validateReplaySnapshotPath(root, snapshot) {
+  const unsafe = /[\r\n\0"'`;|&<>$]/;
+  if (typeof root !== 'string' || typeof snapshot !== 'string' || unsafe.test(root) || unsafe.test(snapshot)) {
+    return invalid('snapshot', 'root and snapshot must be safe local paths.');
+  }
+  const windows = path.win32.isAbsolute(root);
+  const paths = windows ? path.win32 : path.posix;
+  if (!paths.isAbsolute(root) || !paths.isAbsolute(snapshot)) {
+    return invalid('snapshot', 'root and snapshot must be absolute paths when root is supplied.');
+  }
+  const allowedBase = paths.dirname(root);
+  const relative = paths.relative(allowedBase, snapshot);
+  if (!relative || relative === '..' || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) {
+    return invalid('snapshot', 'snapshot must stay inside the worker capsule parent directory.');
+  }
+  return null;
 }
 
 module.exports = { validateToolArguments, REQUIRED_STRINGS };

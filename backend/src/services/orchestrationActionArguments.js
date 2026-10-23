@@ -66,6 +66,15 @@ function trajectoryArguments(context) {
   return { root: context.workspaceRoot, solve_id: payload.solveId, scores: payload.scores };
 }
 
+function replayArguments(context) {
+  const { workspaceRoot, payload } = context;
+  if (typeof payload.snapshot !== 'string' || !fs.existsSync(workspaceRoot) || !fs.statSync(workspaceRoot).isDirectory()) return null;
+  const allowedBase = path.dirname(path.resolve(workspaceRoot));
+  const snapshot = confinedPath(allowedBase, payload.snapshot);
+  if (!snapshot || !fs.existsSync(snapshot) || !fs.statSync(snapshot).isFile()) return null;
+  return { root: path.resolve(workspaceRoot), snapshot };
+}
+
 function actionArguments(decision, event, workspaceRoot) {
   if (typeof workspaceRoot !== 'string' || !workspaceRoot.trim()) return null;
   const context = { decision, event, payload: event.payload || {}, workspaceRoot };
@@ -74,7 +83,7 @@ function actionArguments(decision, event, workspaceRoot) {
     genos_parasitic_pressure: parasiticArguments, genos_evaluate_trajectories: trajectoryArguments,
     genos_execute_primitive: require('./orchestrationRankArguments').rankingArguments
   };
-  if (decision.tool === 'genos_replay') return context.payload.snapshot ? { root: workspaceRoot, snapshot: context.payload.snapshot } : null;
+  if (decision.tool === 'genos_replay') return replayArguments(context);
   const result = handlers[decision.tool]?.(context) || null;
   return decision.tool === 'genos_record_experience' && result ? canonicalExperience(result, event) : result;
 }
