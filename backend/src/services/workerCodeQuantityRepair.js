@@ -1,10 +1,7 @@
 'use strict';
 
 function removeQuantityCollisionsAfterReload(content) {
-  let repaired = String(content || '').replace(/<button\b[^>]*>/gi, (opening) =>
-    /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening)
-      ? opening.replace(/\s+aria-label\s*=\s*["'][^"']*increase quantity[^"']*["']/i, ' aria-label="Increase Oats"')
-      : opening);
+  let repaired = String(content || '');
   repaired = repaired.replace(/<input\b[^>]*>/gi, (opening, offset, source) => {
     if (!/\btype\s*=\s*["']number["']/i.test(opening)
       || !/\baria-label\s*=\s*["'][^"']*quantity[^"']*["']/i.test(opening)) return opening;

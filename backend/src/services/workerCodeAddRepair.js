@@ -63,7 +63,8 @@ function discoverState(source) {
 
 function inputId(source, pattern, fallback) {
   const expression = new RegExp(`<input\\b[^>]*\\bid\\s*=\\s*(["'])([^"']*${pattern}[^"']*)\\1`, 'i');
-  return matchValue(source, expression, fallback);
+  const match = source.match(expression);
+  return match ? match[2] : fallback;
 }
 
 function discoverFields(source) {
@@ -78,7 +79,8 @@ function discoverFields(source) {
 
 function storageKey(source, state) {
   const key = source.match(/localStorage\.getItem\(\s*(["'])([^"']+)\1/i);
-  return key ? key[2] : state.stateValue || state.stateName;
+  if (key) return key[2];
+  return state.stateKind === 'collection' ? state.stateValue : 'pantry';
 }
 
 function rendererName(source) {

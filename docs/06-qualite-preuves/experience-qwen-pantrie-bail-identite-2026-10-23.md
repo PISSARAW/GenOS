@@ -64,3 +64,10 @@ Ces trois missions sont des échecs conservés, et les corrections sont des hypo
 - **Retry40 — interruption après progrès jusqu’à l’incrément.** Septième contre-test atteint `acceptance.cjs:23:71` après un candidat ayant passé l’ajout; l’inférence suivante démarre, puis le processus disparaît. La base demeure active sans reçu terminal. L’avancement jusqu’à l’action Quantity est une observation de candidat, pas une réussite de mission.
 
 Les retries 38–40 partagent un symptôme opérationnel: l’événement d’inférence Qwen commence, mais l’orchestrateur cesse d’émettre et aucune transition terminale n’est enregistrée. Les tentatives suivantes seront attachées à une session observable avec une base dédiée afin de déterminer si le processus reste en vie jusqu’au reçu.
+
+
+## Retry42 — échec terminal après 20 réparations
+
+Retry42 a utilisé Qwen7B et l’oracle Playwright complet, avec plans préchargés Add Item, export et Quantity sur une SQLite neuve et une session de terminal attachée. La mission termine `failed`; Playwright échoue encore à `acceptance.cjs:19:10` (`0 !== 1`) après vingt réparations, puis le gate homeostasis bloque la complétion. Des candidats intermédiaires ont franchi Add Item, Search, incrément, persistance et export, puis ont échoué à la validation de quantité nulle; les candidats suivants régressent à Add Item. Aucun test complet n’est passé.
+
+Le plan `ensure_quantity_field_after_reload` renommant le bouton en `Increase Oats` empêchait le locator de l’oracle `Increase quantity for Oats`. Le helper a été corrigé pour ne modifier que le libellé du champ numérique de ligne et préserver celui du bouton. `node backend/tests/test_worker_code_test_repair.js` passe après la correction.
