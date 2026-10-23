@@ -13,6 +13,14 @@ assert.equal(single.recommended, false, 'a single domain never recommends an A-T
 // Non-mathematical wording that merely says "résoudre" is not misclassified.
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
 
+// The capability analyzer recognizes "accessible" as a security requirement,
+// even though the legacy domain detector does not match that wording.
+const accessibleBooking = aTeam.analyzeMission('Maintain an accessible booking flow and keep its tests green.');
+assert.ok(accessibleBooking.requiredCapabilities.some((item) => item.capability === 'security'));
+assert.ok(accessibleBooking.members.some((member) => member.role === 'security_reviewer'),
+  'every recognized capability with a registered role must be staffed when capacity allows');
+assert.equal(accessibleBooking.capabilityGaps.length, 0);
+
 // All detected needs remain visible; unstaffed needs are explicit gaps.
 const rich = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
 assert.equal(rich.detectedDomains.length, rich.totalDetected);
