@@ -32,6 +32,7 @@ async function main() {
   const completed = await emitLocalCompleted({
     mission: { agentId: 'worker-complete' }, unresolved: false, eventType: 'AGENT_COMPLETED',
     kind: 'LOCAL_REVIEW', detail: 'Completed', statusText: 'Local review completed',
+    executionRun: { id: 'run-complete' },
     evidenceReport: { outcome: 'success', claims: [] }
   }, async () => {});
   assert.equal(queued.length, 1, 'a completed answer must not enter failure recovery');
