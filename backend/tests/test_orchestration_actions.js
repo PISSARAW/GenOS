@@ -24,7 +24,9 @@ async function testOrganizationFollowsVerifiedAction() {
   };
   const order = [];
   try {
-    authority.assertTool = async () => {};
+    authority.assertTool = async () => ({ status: 'authorized', envelope: {
+      runId: 'run-authorized', scope: { organizationId: 'org-authorized', projectId: 'project-authorized' }
+    } });
     worldModel.observeTransition = async () => ({ matched: true, surprise: 0 });
     worldModel.recordSample = async () => {};
     causalLedger.link = async () => {};
@@ -39,12 +41,19 @@ async function testOrganizationFollowsVerifiedAction() {
       event: { id: 'event-test', eventType: 'AGENT_COMPLETED', payload: {} }, db: {}
     };
     const args = { root: '/tmp/workspace', snapshot: 'snapshot-test' };
-    mcp.execute = async () => {
+    let lastExecutionRequest;
+    mcp.execute = async (request) => {
+      lastExecutionRequest = request;
       order.push('tool');
       return { success: false, status: 'failed', error: 'replay unavailable' };
     };
     const failed = await executor.runAction(context, args);
     assert.equal(failed.executed, false);
+    assert.deepEqual({ runId: lastExecutionRequest.runId,
+      organizationId: lastExecutionRequest.organizationId,
+      projectId: lastExecutionRequest.projectId }, {
+      runId: 'run-authorized', organizationId: 'org-authorized', projectId: 'project-authorized'
+    });
     assert.deepEqual(order, ['tool'], 'An unsuccessful action must not change organization.');
 
     order.length = 0;
