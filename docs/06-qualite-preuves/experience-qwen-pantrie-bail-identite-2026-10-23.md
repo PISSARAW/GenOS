@@ -71,3 +71,8 @@ Les retries 38–40 partagent un symptôme opérationnel: l’événement d’in
 Retry42 a utilisé Qwen7B et l’oracle Playwright complet, avec plans préchargés Add Item, export et Quantity sur une SQLite neuve et une session de terminal attachée. La mission termine `failed`; Playwright échoue encore à `acceptance.cjs:19:10` (`0 !== 1`) après vingt réparations, puis le gate homeostasis bloque la complétion. Des candidats intermédiaires ont franchi Add Item, Search, incrément, persistance et export, puis ont échoué à la validation de quantité nulle; les candidats suivants régressent à Add Item. Aucun test complet n’est passé.
 
 Le plan `ensure_quantity_field_after_reload` renommant le bouton en `Increase Oats` empêchait le locator de l’oracle `Increase quantity for Oats`. Le helper a été corrigé pour ne modifier que le libellé du champ numérique de ligne et préserver celui du bouton. `node backend/tests/test_worker_code_test_repair.js` passe après la correction.
+
+
+## Retry43 — locator trouvé, quantité non incrémentée
+
+Retry43 exécute le Playwright réel sur Qwen7B avec la suite T02 inchangée. Après vingt réparations, le candidat terminal échoue à `acceptance.cjs:24:10`: le clic sur Increase a lieu, mais aucun texte ne correspond à Oats quantité 3. Mission `AGENT_FAILED`, gate homeostasis bloqué; pas de reçu Playwright vert. Le run démontre une progression jusqu’à l’action, pas un comportement d’incrément durable.
