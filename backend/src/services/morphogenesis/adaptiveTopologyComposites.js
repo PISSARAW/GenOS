@@ -167,6 +167,10 @@ function compositeCandidateRecord(ctx) {
     relation, admissibility: eligibility.admissibility, admissibilityReason: eligibility.reason,
     executionEligible: eligibility.executionEligible,
     requiredCapabilities: [...new Set([...ctx.caps.requiredCapabilities, ...ctx.innerCaps.requiredCapabilities])].sort(),
+    workerKinds: [
+      ...(Array.isArray(ctx.task.first.workerKinds) ? ctx.task.first.workerKinds : []),
+      ...(Array.isArray(ctx.task.second.workerKinds) ? ctx.task.second.workerKinds : [])
+    ],
     missingCapabilities: [], expression: ctx.expression, validation: ctx.validation,
     rationale: compositeRationale({ task: ctx.task })
   };
@@ -187,6 +191,11 @@ function compositeRationale(ctx) {
 }
 
 function compositeEligibility(ctx) {
+  const workerPlanErrors = [ctx.task.first.workerKinds?.error, ctx.task.second.workerKinds?.error].filter(Boolean);
+  if (workerPlanErrors.length) return {
+    admissibility: 'rejected', executionEligible: false,
+    reason: `Worker composition cannot be planned: ${workerPlanErrors.join('; ')}`
+  };
   if (ctx.task.operator === 'NEST') return nestEligibility(ctx);
   if (ctx.task.operator === 'BRIDGE') return bridgeEligibility(ctx);
   return symmetricEligibility(ctx);

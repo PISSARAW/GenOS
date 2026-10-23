@@ -62,7 +62,7 @@ async function assertApprovedAsk(db) {
     return { success: true, status: 'completed' };
   } });
   const bindingHash = require('../src/services/toolPermissionMembraneService')
-    .toolCallBindingHash(bridge.permissionInput(runtime));
+    .toolCallBindingHash(await bridge.permissionInput(runtime));
   runtime.request.approval = {
     id: 'approval-runtime', status: 'approved', decision_by: 'operator-1',
     payload_json: JSON.stringify({ membraneBindingHash: bindingHash }),

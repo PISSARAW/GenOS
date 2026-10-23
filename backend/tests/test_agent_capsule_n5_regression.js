@@ -40,6 +40,22 @@ async function main() {
     capsules.provision({ capsuleRoot: os.tmpdir(), agentId: 'agent-test', executable: 'evil/../bin' }),
     codeIs('CAPSULE_EXECUTABLE_INVALID')
   );
+  const syntheticRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-synthetic-capsule-'));
+  try {
+    const capsule = await capsules.provisionSynthetic({ capsuleRoot: syntheticRoot,
+      agentId: 'worker-replay-test', role: 'resource_steward' });
+    const snapshot = JSON.parse(fs.readFileSync(capsule.snapshotPath, 'utf8'));
+    assert.equal(snapshot.world_id, capsule.worldId);
+    assert.equal(snapshot.genome.kind, 'AgentGenome');
+    assert.deepEqual(snapshot.state.working_memory, []);
+    const expectedGenesis = require('node:crypto').createHash('sha256')
+      .update(`genesis|${snapshot.snapshot_id}|${snapshot.agent_id}|${snapshot.branch_id}|${snapshot.world_id}`)
+      .digest('hex');
+    assert.equal(snapshot.state.genesis_hash, expectedGenesis,
+      'synthetic bootstrap must satisfy the GenOS replay snapshot contract');
+  } finally {
+    fs.rmSync(syntheticRoot, { recursive: true, force: true });
+  }
   // No escape directory may have been created next to the tmp root.
   assert.equal(fs.existsSync(path.resolve(os.tmpdir(), '..', 'escape')), false);
   console.log('Capsule N5 non-regression checks passed.');

@@ -2,6 +2,7 @@
 
 const { buildMissionMorphogenesisInput } = require('./missionMorphogenesis');
 const { bindGraphMission } = require('../morphogenesis/morphogenesisMissionBinding');
+const { morphogenesisWorkerAssignments } = require('../morphogenesisRolePrompt');
 
 const DEDICATED_TOPOLOGIES = new Set(['trinity', 'a_team']);
 
@@ -25,11 +26,9 @@ function activationError(code, message, details = {}) {
   return Object.assign(new Error(message), { code, ...details });
 }
 
-function assertDedicatedPlan(ctx, topology) {
+function dedicatedPlanActive(ctx, topology) {
   const dedicated = topology === 'trinity' ? ctx.autonomyPlan.trinity : ctx.autonomyPlan.aTeam;
-  if (dedicated?.activated === true && ctx.autonomyPlan.dispatchWorkers?.length) return;
-  throw activationError('MORPHOGENESIS_TOPOLOGY_NOT_ACTIVATED',
-    `Morphogenesis selected '${topology}', but its dedicated mission plan did not activate.`, { topology });
+  return dedicated?.activated === true && ctx.autonomyPlan.dispatchWorkers?.length > 0;
 }
 
 function executableMembers(composition, topology) {
@@ -48,19 +47,35 @@ function assertFanout(plan, count, topology) {
     { topology, requiredWorkers: count, availableWorkers: limit });
 }
 
-function allocationFor(plan, count, topology) {
+function allocationFor(plan, workers, topology) {
   const policy = plan.tokenPolicy || {};
-  const allocation = require('../tokenAllocationService').buildAllocation({
-    totalTokens: policy.total,
-    workerShare: policy.workerShare,
-    workerCount: count,
-    minimumWorkerTokens: policy.minimumWorkerTokens,
-    mode: policy.allocation
-  });
+  fitWorkerShareToReserve(policy, workers.length);
+  const budget = require('../aTeamDispatchBudgetService');
+  budget.applyWorkerBudget(policy, workers);
+  const allocation = policy.rounds;
+  const count = workers.length;
   if (allocation.initial.workerCount === count) return allocation;
   throw activationError('MORPHOGENESIS_TOPOLOGY_BUDGET_INSUFFICIENT',
     `The mission budget cannot fund every '${topology}' worker.`,
     { topology, requiredWorkers: count, fundedWorkers: allocation.initial.workerCount });
+}
+
+function fitWorkerShareToReserve(policy, workerCount) {
+  const total = Math.max(0, Number(policy.total) || 0);
+  const requestedWorkerShare = Number(policy.workerShare);
+  if (!total || !Number.isFinite(requestedWorkerShare)) return;
+  const budgetPolicy = require('../workerTokenBudgetPolicy');
+  const requiredReserve = budgetPolicy.minimumOrchestratorReserve(total, workerCount);
+  const maximumWorkerShare = Math.max(0, (total - requiredReserve) / total);
+  if (requestedWorkerShare <= maximumWorkerShare) return;
+  policy.morphogenesisBudgetAdjustment = {
+    reason: 'topology_worker_count_requires_minimum_orchestrator_reserve',
+    requestedWorkerShare,
+    appliedWorkerShare: maximumWorkerShare,
+    requiredOrchestratorReserveTokens: requiredReserve
+  };
+  policy.workerShare = maximumWorkerShare;
+  policy.orchestratorReserve = 1 - maximumWorkerShare;
 }
 
 function topologyNodes(morphologyPlan) {
@@ -73,7 +88,9 @@ function compositionOptions(ctx, morphologyPlan, node) {
   const variant = node.variant || morphologyPlan.selectedVariant;
   return {
     variantId: variant && variant !== 'default' ? variant : undefined,
-    workerAssignments: ctx.normalizedMission.workerAssignments || ctx.normalizedMission.worker_assignments,
+    workerAssignments: morphogenesisWorkerAssignments(
+      ctx.normalizedMission.workerAssignments || ctx.normalizedMission.worker_assignments,
+      node.topology, ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask),
     agentCount: ctx.normalizedMission.morphology?.agents?.length,
     missionId: ctx.normalizedMission.missionId || ctx.agentId,
     configuration: ctx.normalizedMission.topologyConfiguration || ctx.normalizedMission.configuration,
@@ -86,13 +103,20 @@ async function composeTopologyNode(ctx, descriptor, dependencies) {
   const { morphologyPlan, node } = descriptor;
   const composeMode = dependencies.composeMode
     || require('../biologicalTopologyService').composeMode;
-  return composeMode({
-    db: ctx.db,
-    orchestratorId: ctx.agentId,
-    mode: node.topology,
-    mission: ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '',
-    options: compositionOptions(ctx, morphologyPlan, node)
-  });
+  try {
+    return await composeMode({
+      db: ctx.db, orchestratorId: ctx.agentId, mode: node.topology,
+      mission: ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '',
+      options: compositionOptions(ctx, morphologyPlan, node)
+    });
+  } catch (error) {
+    if (error?.code === 'A_TEAM_MULTIDISCIPLINARY_REQUIRED') {
+      throw activationError('MORPHOGENESIS_TOPOLOGY_INCOMPATIBLE', error.message, {
+        topology: node.topology, causeCode: error.code
+      });
+    }
+    throw error;
+  }
 }
 
 function componentWorkers(composition, node, componentIndex) {
@@ -109,7 +133,7 @@ function applyCompositions(ctx, morphologyPlan, components) {
   const workers = components.flatMap((entry, index) => componentWorkers(entry.composition, entry.node, index));
   const topology = morphologyPlan.selectedTopology;
   assertFanout(ctx.autonomyPlan, workers.length, topology);
-  const allocation = allocationFor(ctx.autonomyPlan, workers.length, topology);
+  const allocation = allocationFor(ctx.autonomyPlan, workers, topology);
   ctx.autonomyPlan.workers = workers;
   ctx.autonomyPlan.dispatchWorkers = workers;
   ctx.autonomyPlan.tokenPolicy.rounds = allocation;
@@ -162,8 +186,10 @@ async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {})
   const nodes = topologyNodes(morphologyPlan);
   const dedicated = nodes.length === 1 && nodes[0].topology === topology
     && DEDICATED_TOPOLOGIES.has(topology);
-  if (dedicated) assertDedicatedPlan(ctx, topology);
-  else await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  if (!dedicated || !dedicatedPlanActive(ctx, topology)) {
+    await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  }
+
   return bindSelectedPlan(ctx, morphologyPlan);
 }
 

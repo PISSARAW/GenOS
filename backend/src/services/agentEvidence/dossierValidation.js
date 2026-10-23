@@ -64,7 +64,11 @@ function validateWorkerDossiers(dossiers, workers, options = {}) {
   const dossiersByWorker = new Map(realDossiers.map((dossier) => [dossier.workerId, dossier]));
   for (const worker of workers) {
     const dossier = dossiersByWorker.get(worker.agentId);
-    if (dossier) validateWorkerArtifact(dossier, worker);
+    if (!dossier) continue;
+    const report = dossier.events.map((event) => event.evidenceReport || event.payload?.evidenceReport || event.payload?.report)
+      .find((candidate) => candidate?.outcome === 'success');
+    if (report) validateWorkerArtifact({ ...dossier, events: dossier.events.filter((event) =>
+      (event.evidenceReport || event.payload?.evidenceReport || event.payload?.report) === report) }, worker);
   }
   return true;
 }

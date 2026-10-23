@@ -10,6 +10,9 @@ const PROFILES = Object.freeze({
   synthesis_worker: { minimumStartTokens: 6000, targetTokens: 10000, maximumTokens: 16000 },
   sub_orchestrator: { minimumStartTokens: 12000, targetTokens: 20000, maximumTokens: 30000 }
 });
+const ROLE_PROFILES = Object.freeze({
+  resource_steward: { minimumStartTokens: 3000, targetTokens: 6000, maximumTokens: 12000 }
+});
 
 function whole(value) {
   const number = Number(value);
@@ -24,9 +27,10 @@ function workerKind(worker = {}) {
   }
 }
 
-function applyMinimumOverride(profile, override) {
+function applyMinimumOverride(profile, override, preserveProfileMinimum = false) {
   if (profile.maximumTokens === 0 || !Number.isFinite(Number(override))) return { ...profile };
-  const minimumStartTokens = whole(override);
+  const minimumStartTokens = preserveProfileMinimum
+    ? Math.max(profile.minimumStartTokens, whole(override)) : whole(override);
   const targetTokens = Math.max(minimumStartTokens, profile.targetTokens);
   return { minimumStartTokens, targetTokens,
     maximumTokens: Math.max(targetTokens, profile.maximumTokens) };
@@ -34,7 +38,10 @@ function applyMinimumOverride(profile, override) {
 
 function profileWorker(worker, minimumOverride) {
   const kind = workerKind(worker);
-  const profile = applyMinimumOverride(PROFILES[kind] || DEFAULT_PROFILE, minimumOverride);
+  const role = String(worker?.role || '').trim().toLowerCase();
+  const roleProfile = ROLE_PROFILES[role];
+  const profile = applyMinimumOverride(roleProfile || PROFILES[kind] || DEFAULT_PROFILE,
+    minimumOverride, Boolean(roleProfile));
   return { workerKind: kind, role: worker?.role || null, ...profile };
 }
 

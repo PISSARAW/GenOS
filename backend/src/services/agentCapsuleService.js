@@ -30,6 +30,8 @@ async function provisionSyntheticRaw(context = {}) {
     securePaths.ensureDirectory(paths.bootstrap);
     const genomeData = {
       apiVersion: 'v0alpha1',
+      kind: 'AgentGenome',
+      metadata: { name, version: '0.1.0' },
       bud_scars: 0,
       capabilities: ['inspect', 'reason', 'mutate'],
       cell_id: genomeId,
@@ -39,12 +41,19 @@ async function provisionSyntheticRaw(context = {}) {
       created_at: new Date().toISOString()
     };
     await fs.writeFile(paths.genomePath, JSON.stringify(genomeData, null, 2), 'utf8');
+    const worldId = ctx.correlation?.worldId || 'world-main';
+    const genesisHash = crypto.createHash('sha256')
+      .update(`genesis|${snapshotId}|${agentId}|${branchId}|${worldId}`)
+      .digest('hex');
     const snapshotData = {
       agent_id: agentId,
       branch_id: branchId,
       created_at: new Date().toISOString(),
       snapshot_id: snapshotId,
-      genome: genomeData
+      world_id: worldId,
+      genome: genomeData,
+      state: { execution_status: 'quiescent', working_memory: [],
+        entropy: 0.42, dissonance: 0, genesis_hash: genesisHash }
     };
     await fs.writeFile(paths.snapshotPath, JSON.stringify(snapshotData, null, 2), 'utf8');
     return {
@@ -53,7 +62,7 @@ async function provisionSyntheticRaw(context = {}) {
       genomeId,
       snapshotId,
       branchId,
-      worldId: 'world-main',
+      worldId,
       root: paths.root,
       genomePath: paths.genomePath,
       snapshotPath: paths.snapshotPath

@@ -6,6 +6,7 @@ const vfsSandboxService = require('../services/vfsSandboxService');
 const { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
 const { directToolLeaseAllows } = require('../services/mcpExecutor/config');
 const { enforcePersistedWorkerTool } = require('../services/agents/workerContractEnforcement');
+const { permissionsForTool } = require('../services/agents/workerReplayPermissionService');
 const { executeRelationalTransport } = require('../services/relationalPhysiology/httpTransport');
 const executionGateway = require('../services/mcpControllerExecution');
 
@@ -13,9 +14,7 @@ function requestUser(req) {
   return req.user || {};
 }
 
-function requestRole(req) {
-  return requestUser(req).role || 'viewer';
-}
+function requestRole(req) { return requestUser(req).role || 'viewer'; }
 
 function actorName(req) {
   const user = requestUser(req);
@@ -38,9 +37,7 @@ function parseArray(raw) {
   }
 }
 
-function tenantScope(req) {
-  return req.tenant || null;
-}
+function tenantScope(req) { return req.tenant || null; }
 
 function hasSafePermission(user) {
   const permissions = user.permissions || [];
@@ -131,7 +128,8 @@ async function authorizeRequest(input) {
     agentId: identity.agentId,
     toolName,
     args,
-    permissions: permissionSet(user, permissionRow),
+    permissions: await permissionsForTool({ db, agentId: identity.agentId, toolName, args,
+      permissions: permissionSet(user, permissionRow), deniedTools: deniedToolList(permissionRow) }),
     deniedTools: deniedToolList(permissionRow),
     taints: req.body.taints || []
   });
@@ -152,8 +150,9 @@ async function resolveToolAuthorization(input) {
     return { error: { status: 403, code: error.code || 'WORKER_CONTRACT_DENIED', message: error.message } };
   }
   const user = requestUser(req);
-  const permissions = permissionSet(user, permissionRow);
   const deniedTools = deniedToolList(permissionRow);
+  const permissions = await permissionsForTool({ db, agentId: identity.agentId, toolName, args,
+    permissions: permissionSet(user, permissionRow), deniedTools });
   const zeroTrust = platformSafety.validateToolCall({
     agentId: identity.agentId,
     toolName,

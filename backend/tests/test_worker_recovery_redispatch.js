@@ -21,6 +21,16 @@ lifecycle.createIsolatedWorkspace = async () => {
 };
 lifecycle.cleanupWorkspace = async () => 'removed';
 lifecycle.forgetWorkspace = async () => true;
+lifecycle.trackWorkspace = async () => true;
+
+const workspaceBinding = require('../src/services/workerWorkspaceBindingService');
+workspaceBinding.bindWorkerWorkspace = async (db, input) => {
+  const workspaceId = `rec-recovery-ws-${input.workerId}`;
+  await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, 'rec-org', 'rec-project')",
+    workspaceId, `Recovery ${input.workerId}`, `${__dirname}/${input.workerId}`);
+  await db.run('UPDATE agents SET workspace_id = ? WHERE id = ?', workspaceId, input.workerId);
+  return workspaceId;
+};
 
 const adapter = require('../src/services/agentRuntimeAdapter');
 adapter.startMission = async (mission) => { startedMissions.push(mission); return { started: true }; };
@@ -70,6 +80,7 @@ async function setup(db) {
   await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('rec-project', 'rec-org', 'Rec Project')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws', 'Rec WS', ?, 'rec-org', 'rec-project')", __dirname);
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws-other', 'Rec Other WS', ?, 'rec-org', 'rec-project')", path.join(__dirname, 'fixtures'));
+  await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws-isolated', 'Rec Isolated WS', ?, 'rec-org', 'rec-project')", __dirname);
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('rec-orch', 'Orch', 'orchestrator', 'running', 'orchestrator', 'rec-ws')");
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('rec-orch-other', 'Other Orch', 'orchestrator', 'running', 'orchestrator', 'rec-ws-other')");
   const workers = [['rec-w', 'error'], ['rec-w2', 'error'], ['rec-done', 'completed'], ['rec-fail', 'error'], ['rec-f1', 'running']];
@@ -78,6 +89,7 @@ async function setup(db) {
   }
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES ('rec-w-trinity', 'Trinity Worker', 'implementation', 'error', 'worker', 'rec-ws', 'rec-orch-other')");
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES ('rec-w-cross', 'Cross Workspace Worker', 'implementation', 'error', 'worker', 'rec-ws', 'rec-orch-other')");
+  await db.run("UPDATE agents SET workspace_id = 'rec-ws-isolated' WHERE id = 'rec-w2'");
   const claims = [['req-rec', 'rec-w'], ['req-rec2', 'rec-w2'], ['req-recf', 'rec-fail']];
   for (const [requestId, workerId] of claims) {
     await db.run(
@@ -105,7 +117,7 @@ function clearSharedState() {
 
 async function checkSameIdentityRedispatch(db) {
   const { mission, report, decision } = queuedRecovery('rec-w', 'unresolved_task', {
-    garageRequestId: 'garage-previous', garageLeaseId: 'lease-previous'
+    garageRequestId: 'old-request', garageLeaseId: 'old-lease'
   });
   assert.equal(decision.identity, 'same');
   orchestrationState.pendingWorkerRecoveries.set('rec-w', { mission, report, decision });
@@ -116,9 +128,54 @@ async function checkSameIdentityRedispatch(db) {
   assert.equal(dispatched.garageLeaseId, undefined, 'recovery must acquire a fresh garage lease');
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the checkpoint reference is resumed');
   assert.deepEqual(dispatched.snapshots, [{ id: 'snap-1' }]);
+  assert.equal(dispatched.garageRequestId, undefined, 'recovery must not reuse the failed worker garage request');
+  assert.equal(dispatched.garageLeaseId, undefined, 'recovery must not reuse the failed worker garage lease');
   assert.deepEqual(dispatched.modelBudgetScope, { id: 'scope-1', costUsd: 1, tokens: 1000 }, 'the budget scope is consumed as-is');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w'")).status, 'running');
   assert.equal(await openClaims(db, 'rec-w'), 0, 'no duplicate open claim remains');
+}
+
+async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
+  clearSharedState();
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id, workspace_id) VALUES ('rec-chain', 'Chain', 'resource_steward', 'error', 'worker', 'rec-orch', 'rec-ws')");
+  const missionIdentity = require('../src/services/missionIdentityService');
+  await missionIdentity.create(db, { missionId: 'rec-chain-mission', objective: 'Carry recovery into the mission.', orchestratorAgentId: 'rec-orch' });
+  await missionIdentity.attachAgent(db, { missionId: 'rec-chain-mission', agentId: 'rec-chain', role: 'resource_steward' });
+  const morphology = { topology: 'biome', topologyRole: 'resource_steward' };
+  const { mission, report, decision } = queuedRecovery('rec-chain', 'unresolved_task', {
+    topologyRole: 'resource_steward', workerAssignment: morphology
+  });
+  orchestrationState.pendingWorkerRecoveries.set('rec-chain', { mission, report, decision });
+  const originalStartMission = adapter.startMission;
+  adapter.startMission = async (nextMission) => {
+    startedMissions.push(nextMission);
+    if (startedMissions.length === 1) {
+      queueWorkerRecovery(baseMission('rec-chain', { recoveryAttempt: 1,
+        topologyRole: 'resource_steward', workerAssignment: morphology }), {
+        eventType: 'AGENT_FAILED', detail: 'Biome mutated output violates allocation constraints.',
+        payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID',
+          candidate: '{"bins":[]}', issues: ['candidate.bin_count'] } }
+      });
+    }
+    return { started: true };
+  };
+  try {
+    assert.equal(await dispatchWorkerRecovery('rec-chain'), true);
+    for (let index = 0; index < 30 && startedMissions.length < 2; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(startedMissions.length, 2,
+      'a failure queued while the same-identity dispatch is active is drained after its lease is released');
+    assert.notEqual(startedMissions[1].agentId, 'rec-chain',
+      'the next morphogenetic response can change identity after the same-identity mutation fails');
+    assert.equal(startedMissions[1].role, 'resource_steward',
+      'replacement recovery preserves the Biome niche even when the generic strategy requests a recovery role');
+    assert.equal((await db.get('SELECT mission_id FROM mission_agents WHERE mission_id = ? AND agent_id = ?',
+      'rec-chain-mission', startedMissions[1].agentId))?.mission_id, 'rec-chain-mission',
+    'a replacement identity inherits the source worker’s active biological mission binding');
+  } finally {
+    adapter.startMission = originalStartMission;
+  }
 }
 
 async function checkReplacementRedispatch(db) {
@@ -126,13 +183,25 @@ async function checkReplacementRedispatch(db) {
   assert.equal(decision.identity, 'new');
   orchestrationState.pendingWorkerRecoveries.set('rec-w2', { mission, report, decision });
   const before = (await db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = 'rec-orch'")).count;
-  assert.equal(await dispatchWorkerRecovery('rec-w2'), true, 'a replacement worker must dispatch');
+  assert.equal(await dispatchWorkerRecovery('rec-w2'), true,
+    `a replacement worker must dispatch; verdicts: ${JSON.stringify(emitted.filter((args) => String(args[1]).includes('RECOVERY')))}`);
   const after = (await db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = 'rec-orch'")).count;
   assert.equal(after, before + 1, 'exactly one replacement worker is created');
   const dispatched = startedMissions[startedMissions.length - 1];
   assert.notEqual(dispatched.agentId, 'rec-w2');
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the replacement resumes the checkpoint');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w2'")).status, 'error', 'the dead source is left untouched');
+  assert.equal((await db.get('SELECT workspace_id FROM lineage_nodes WHERE id = ?', dispatched.agentId)).workspace_id,
+    'rec-ws', 'the replacement lineage stays in the orchestrator garage domain');
+  const recoveryEdge = await db.get('SELECT source_node_id, workspace_id, edge_type FROM lineage_edges WHERE target_node_id = ? AND edge_type = \'recovery\'', dispatched.agentId);
+  assert.deepEqual(recoveryEdge, { source_node_id: 'rec-orch', workspace_id: 'rec-ws', edge_type: 'recovery' },
+    'runtime lineage remains inside the orchestrator workspace');
+  const lineageMetadata = JSON.parse((await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', dispatched.agentId)).metadata);
+  assert.equal(lineageMetadata.parents.recoverySource, 'rec-w2', 'the failed worker is retained as recovery provenance');
+  assert.equal(dispatched.workspaceId, `rec-recovery-ws-${dispatched.agentId}`,
+    'the recovery mission is bound to the delegated capsule workspace');
+  assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatched.agentId)).workspace_id,
+    dispatched.workspaceId, 'the recovery agent receives the capsule workspace binding');
 }
 
 async function checkTrinityRecoveryKeepsSealedWorkspace(db) {
@@ -255,6 +324,7 @@ async function run() {
     await setup(db);
     clearSharedState();
     await checkSameIdentityRedispatch(db);
+    await checkQueuedFailureDrainsAfterSameIdentityDispatch(db);
     await checkReplacementRedispatch(db);
     await checkTrinityRecoveryKeepsSealedWorkspace(db);
     await checkRecoveryLineageUsesWorkspaceParent(db);

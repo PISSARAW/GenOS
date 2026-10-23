@@ -38,10 +38,11 @@ async function testOrganizationFollowsVerifiedAction() {
     link: causalLedger.link, applySteps: swarm.applyStepsForOrchestrator
   };
   const order = [];
+  const authorityCalls = [];
   try {
-    authority.assertTool = async () => ({ status: 'authorized', envelope: {
+    authority.assertTool = async (_db, input) => { authorityCalls.push(input); return { status: 'authorized', envelope: {
       runId: 'run-authorized', scope: { organizationId: 'org-authorized', projectId: 'project-authorized' }
-    } });
+    } }; };
     worldModel.observeTransition = async () => ({ matched: true, surprise: 0 });
     worldModel.recordSample = async () => {};
     causalLedger.link = async () => {};
@@ -53,7 +54,7 @@ async function testOrganizationFollowsVerifiedAction() {
     const context = {
       orchestratorId: 'orchestrator-test', sourceAgentId: 'worker-test', sourceEventId: 'event-test',
       decision: { tool: 'genos_replay', action: 'replay_before_promotion', organization: 'hierarchical_merge', reason: 'verify first' },
-      event: { id: 'event-test', eventType: 'AGENT_COMPLETED', payload: {} }, db: {}
+      event: { id: 'event-test', eventType: 'AGENT_COMPLETED', payload: { executionRunId: 'worker-run-test' } }, db: {}
     };
     const args = { root: '/tmp/workspace', snapshot: 'snapshot-test' };
     let lastExecutionRequest;
@@ -64,6 +65,7 @@ async function testOrganizationFollowsVerifiedAction() {
     };
     const failed = await executor.runAction(context, args);
     assert.equal(failed.executed, false);
+    assert.deepEqual(authorityCalls.at(-1), { agentId: 'worker-test', runId: 'worker-run-test', toolName: 'genos_replay' });
     assert.deepEqual({ runId: lastExecutionRequest.runId,
       organizationId: lastExecutionRequest.organizationId,
       projectId: lastExecutionRequest.projectId }, {
@@ -72,7 +74,9 @@ async function testOrganizationFollowsVerifiedAction() {
     assert.deepEqual(order, ['tool'], 'An unsuccessful action must not change organization.');
 
     order.length = 0;
-    mcp.execute = async () => {
+    mcp.execute = async (input) => {
+      assert.equal(input.agentId, 'worker-test');
+      assert.equal(input.runId, 'worker-run-test');
       order.push('tool');
       return { success: true, data: { success: true, replay_status: 'UNVERIFIED', execution_replayed: false } };
     };
@@ -81,7 +85,9 @@ async function testOrganizationFollowsVerifiedAction() {
     assert.deepEqual(order, ['tool'], 'Transport success without a verified replay receipt must not change organization.');
 
     order.length = 0;
-    mcp.execute = async () => {
+    mcp.execute = async (input) => {
+      assert.equal(input.agentId, 'worker-test');
+      assert.equal(input.runId, 'worker-run-test');
       order.push('tool');
       return { success: true, data: { success: true, replay_status: 'VERIFIED', execution_replayed: true } };
     };

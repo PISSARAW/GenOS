@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { generateAdaptiveTopologyCandidates } = require('../../src/services/morphogenesis/adaptiveTopologyCandidates');
+const { rankAdaptiveTopologies } = require('../../src/services/morphogenesis/adaptiveTopologyRanking');
 const { createTopologyRegistry } = require('../../src/services/morphogenesis/registry/topologyRegistry');
 const { parseExpression } = require('../../src/services/morphogenesis/expression/morphologyExpressionParser');
 const { collectTopologies } = require('../../src/services/morphogenesis/expression/morphologyExpression');
@@ -68,7 +69,35 @@ function run() {
     filtered.filter((item) => item.admissibility === 'rejected').length);
   assertUnverifiedCompositionsStayExploratory(registry);
   assertVerifiedCompositionsRequireVerifiedAdapter(registry);
+  assertCandidateWorkerInventoryPreflight(registry);
   console.log('Adaptive topology candidates: PASS');
+}
+
+function assertCandidateWorkerInventoryPreflight(registry) {
+  const mission = 'Use A-Team to solve a bounded resource allocation problem and justify every assignment with evidence across data and security.';
+  const generated = generateAdaptiveTopologyCandidates({ registry, selectedTopology: 'biome', mission });
+  for (const topology of ['trinity', 'a_team', 'biome', 'biocenose', 'holobionte', 'syncytium', 'rhizome', 'metapopulation']) {
+    const candidate = generated.candidates.find((item) => item.kind === 'TOPOLOGY' && item.topology === topology);
+    assert.ok(candidate, `${topology} candidate is present`);
+    assert.ok(Array.isArray(candidate.workerKinds), `${topology} has a planned worker-kind roster`);
+    assert.equal(candidate.workerKindPlanError, undefined, `${topology} worker roster is plannable`);
+  }
+  const rhizome = generated.candidates.find((item) => item.kind === 'TOPOLOGY' && item.topology === 'rhizome');
+  assert.ok(rhizome, 'Rhizome candidate is generated');
+  assert.ok(rhizome.workerKinds.includes('liaison_worker'), 'canonical local_bridge role requires a liaison worker');
+  const ranked = rankAdaptiveTopologies({ currentTopology: 'biome', budget: { tokens: 1000 },
+    availableWorkerKinds: ['scout_cell', 'specialist', 'verifier_worker'],
+    candidates: [{ ...rhizome, estimatedTokens: 100, estimatedProblemFit: 0.99,
+      confidence: 0.99, calibrationStatus: 'calibrated', validationGain: 0.2, validationCost: 0.1 }] });
+  assert.ok(ranked.vetoed.some((item) => item.id === rhizome.candidateId
+    && item.reasons.some((reason) => reason.includes('liaison_worker'))),
+  'candidate requiring an unavailable worker kind is rejected before selection');
+
+  const nonMultidisciplinary = generateAdaptiveTopologyCandidates({ registry, mission:
+    'Solve a bounded resource allocation problem.' }).candidates.find((item) => item.kind === 'TOPOLOGY'
+      && item.topology === 'a_team');
+  assert.equal(nonMultidisciplinary.executionEligible, false,
+    'A-Team is not proposed when its canonical composer says the mission is not multidisciplinary');
 }
 
 function assertExecutableNest(candidates) {

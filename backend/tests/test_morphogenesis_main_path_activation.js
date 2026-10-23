@@ -92,13 +92,41 @@ async function verifyComposedTopologiesDriveDispatch() {
   }
 }
 
-async function verifyDedicatedTopologyFailsClosed() {
+async function verifyActivatedDedicatedPlanIsReused() {
   const ctx = context();
-  ctx.autonomyPlan.trinity = { activated: false };
+  ctx.autonomyPlan.trinity = { activated: true };
+  const assignments = await activation.activateMorphogenesisPlan(ctx, plan('trinity'));
+  assert.equal(assignments.length, 1);
+  assert.equal(ctx.autonomyPlan.selectedTopology, 'trinity');
+}
+
+async function verifyIncompatibleDedicatedTopologyFailsClosed() {
+  const ctx = context();
   await assert.rejects(
-    activation.activateMorphogenesisPlan(ctx, plan('trinity')),
-    { code: 'MORPHOGENESIS_TOPOLOGY_NOT_ACTIVATED' }
+    activation.activateMorphogenesisPlan(ctx, plan('a_team'), {
+      composeMode: async () => {
+        throw Object.assign(new Error('A-Team needs two domains.'), {
+          code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED'
+        });
+      }
+    }),
+    { code: 'MORPHOGENESIS_TOPOLOGY_INCOMPATIBLE' }
   );
+}async function verifyDedicatedMorphologyUsesSelectedGraph() {
+  const ctx = context();
+  let composedMode = null;
+  const assignments = await activation.activateMorphogenesisPlan(ctx, plan('a_team'), {
+    composeMode: async ({ mode }) => {
+      composedMode = mode;
+      return { organization: 'morphogenesis_a_team', members: [
+        { role: 'specialist', executionMode: 'worker', workerKind: 'scout_cell' }
+      ] };
+    }
+  });
+  assert.equal(composedMode, 'a_team');
+  assert.equal(assignments.length, 1);
+  assert.equal(ctx.autonomyPlan.selectedTopology, 'a_team');
+  assert.equal(ctx.autonomyPlan.topologyComposition.organization, 'morphogenesis_a_team');
 }
 
 async function verifyCompositeGraphDrivesMixedDispatch() {
@@ -134,6 +162,47 @@ async function verifyBudgetGate() {
   );
 }
 
+async function verifyResourceStewardReceivesPromptSizedInitialBudget() {
+  const ctx = context();
+  ctx.autonomyPlan.tokenPolicy = { total: 20000, workerShare: 0.7,
+    minimumWorkerTokens: 1500, minimumWorkerTokensExplicit: true,
+    allocation: 'successive_halving_with_reallocation' };
+  await activation.activateMorphogenesisPlan(ctx, plan('biome'), {
+    composeMode: async () => ({ members: [
+      { role: 'environment_mapper', executionMode: 'worker', workerKind: 'scout_cell',
+        methodContract: { methodId: 'scan_literal' } },
+      { role: 'resource_steward', executionMode: 'worker', workerKind: 'specialist',
+        methodContract: { methodId: 'prompt_defined' } }
+    ] })
+  });
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [1500, 3000],
+    'Morphogenesis activation applies the resource steward minimum instead of an equal split');
+  assert.equal(ctx.autonomyPlan.tokenPolicy.rounds.workerPool, 14000,
+    'role-aware allocation remains inside the authorized worker pool');
+  assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
+}
+
+async function verifyFanoutReducesWorkerShareToPreserveReserve() {
+  const ctx = context();
+  ctx.autonomyPlan.tokenPolicy = { total: 20000, workerShare: 0.7,
+    minimumWorkerTokens: 1500, minimumWorkerTokensExplicit: true,
+    allocation: 'successive_halving_with_reallocation' };
+  const roles = [
+    ['environment_mapper', 'scout_cell'], ['resource_steward', 'specialist'],
+    ['population_specialist', 'specialist'], ['ecosystem_observer', 'scout_cell']
+  ];
+  await activation.activateMorphogenesisPlan(ctx, plan('biome'), {
+    composeMode: async () => ({ members: roles.map(([role, workerKind]) => ({
+      role, workerKind, executionMode: 'worker', methodContract: { methodId: 'prompt_defined' }
+    })) })
+  });
+  assert.equal(ctx.autonomyPlan.tokenPolicy.morphogenesisBudgetAdjustment.requestedWorkerShare, 0.7);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.morphogenesisBudgetAdjustment.appliedWorkerShare, 0.6);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.rounds.workerPool, 12000);
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [1500, 3000, 1500, 1500]);
+  assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
+}
+
 async function verifyGenomeCandidateBlocksActivation() {
   const ctx = context();
   const morphologyPlan = plan('rhizome');
@@ -148,8 +217,12 @@ async function main() {
   await verifySelectionSeedsMission();
   await verifyComposedTopologiesDriveDispatch();
   await verifyCompositeGraphDrivesMixedDispatch();
-  await verifyDedicatedTopologyFailsClosed();
+  await verifyActivatedDedicatedPlanIsReused();
+  await verifyDedicatedMorphologyUsesSelectedGraph();
+  await verifyIncompatibleDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
+  await verifyResourceStewardReceivesPromptSizedInitialBudget();
+  await verifyFanoutReducesWorkerShareToPreserveReserve();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');
 }

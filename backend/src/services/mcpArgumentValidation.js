@@ -1,5 +1,5 @@
 const Ajv = require('ajv');
-const path = require('node:path');
+const { validateReplaySnapshotPath } = require('./mcpReplaySnapshotPathValidation');
 const PUBLIC_TOOLS = require('../../../shared/toolDefinitions.json').tools;
 const schemaCompiler = new Ajv({ strict: false });
 const publicValidators = new Map(PUBLIC_TOOLS.map((tool) => [tool.name, {
@@ -197,6 +197,26 @@ function invalid(field, message) {
   return error;
 }
 
+function validateScopedReplayArguments(args = {}) {
+  const allowed = new Set(['root', 'snapshot', 'snapshot_id', 'scenarios', 'injected_keys', 'dag_step', 'patterns_detected']);
+  for (const field of Object.keys(args)) if (!allowed.has(field)) return invalid(field, 'is not supported for worker-scoped replay.');
+  if (args.snapshot === undefined && args.snapshot_id === undefined) return invalid('snapshot', 'snapshot or snapshot_id is required.');
+  for (const field of ['root', 'snapshot']) {
+    const value = args[field];
+    if (value === undefined) continue;
+    if (typeof value !== 'string' || !value.trim() || value.length > MAX_STRING_LENGTH
+      || /[\0\r\n"'`|&<>$;]/.test(value)) return invalid(field, 'must be a safe capsule path.');
+  }
+  if (args.root !== undefined && !require('node:path').isAbsolute(args.root)) return invalid('root', 'must be an absolute worker workspace path.');
+  for (const field of ['scenarios', 'injected_keys', 'dag_step', 'patterns_detected']) {
+    if (args[field] !== undefined && (!Array.isArray(args[field])
+      || args[field].some((item) => typeof item !== 'string' || /[\0\r\n"'`\\;|&<>$]/.test(item)))) {
+      return invalid(field, 'must contain safe replay strings.');
+    }
+  }
+  return null;
+}
+
 function validateString(value, field, required = false) {
   if (value === undefined || value === null) {
     if (required) return invalid(field, 'is required.');
@@ -377,23 +397,4 @@ function validateToolArguments(toolName, args = {}) {
 
   return validateToolEnums(toolName, args);
 }
-
-function validateReplaySnapshotPath(root, snapshot) {
-  const unsafe = /[\r\n\0"'`;|&<>$]/;
-  if (typeof root !== 'string' || typeof snapshot !== 'string' || unsafe.test(root) || unsafe.test(snapshot)) {
-    return invalid('snapshot', 'root and snapshot must be safe local paths.');
-  }
-  const windows = path.win32.isAbsolute(root);
-  const paths = windows ? path.win32 : path.posix;
-  if (!paths.isAbsolute(root) || !paths.isAbsolute(snapshot)) {
-    return invalid('snapshot', 'root and snapshot must be absolute paths when root is supplied.');
-  }
-  const allowedBase = paths.dirname(root);
-  const relative = paths.relative(allowedBase, snapshot);
-  if (!relative || relative === '..' || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) {
-    return invalid('snapshot', 'snapshot must stay inside the worker capsule parent directory.');
-  }
-  return null;
-}
-
-module.exports = { validateToolArguments, REQUIRED_STRINGS };
+module.exports = { validateToolArguments, validateScopedReplayArguments, REQUIRED_STRINGS };

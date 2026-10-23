@@ -75,9 +75,10 @@ function resolveGenosBinary(repositoryRoot) {
   return configured;
 }
 
-function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
+function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot, agentId = null) {
   void toolName;
   const environment = { ...mcpBaseEnvironment(), GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: resolveGenosBinary(repositoryRoot), GENOS_MCP_CLIENT: 'genos-backend' };
+  if (typeof agentId === 'string' && agentId.trim()) environment.GENOS_AGENT_ID = agentId.trim();
   if (process.env.GENOS_MCP_LEASE !== undefined) environment.GENOS_MCP_LEASE = process.env.GENOS_MCP_LEASE;
   return environment;
 }
@@ -229,9 +230,10 @@ async function resolveExecutionPolicy(db, request, binding) {
   const scopeRow = agentId ? await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId) : null;
   const circuitScope = resolveCircuitScope(organizationId, projectId, scopeRow);
   const permissionRow = await getPermissionRow(db, { agentId, organizationId, projectId });
-  const permissions = binding?.status === 'authorized'
-    ? [toolName] : resolvePermissions(permissionRow, agentId);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
+  const permissions = await require('./agents/workerReplayPermissionService').permissionsForTool({
+    db, agentId, toolName, args, deniedTools, permissions: binding?.status === 'authorized'
+      ? [toolName] : resolvePermissions(permissionRow, agentId) });
   const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId || 'system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
   return { circuitScope, policy };
@@ -349,6 +351,8 @@ async function resolvePermissionBinding(db, request) {
 
 async function executeAfterPermission(context) {
   const { db, request, binding, circuitScope, applyDomainVerdict } = context;
+  const scopedReplayAllowed = await require('./mcpExecutor/permissionMembraneBridge')
+    .scopedReplayAuthorized(db, request, binding);
   const immuneFault = await screenImmuneThreats(db, request);
   if (immuneFault) return immuneFault;
   const cnidocyteFault = await require('./mcpExecutor/cnidocyteRuntimeGate').screenCnidocyteThreat(db, request);
@@ -360,7 +364,8 @@ async function executeAfterPermission(context) {
   const circuitFault = checkCircuitBreaker(request.toolName, circuitScope, request.args);
   if (circuitFault) return circuitFault;
   if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({
-    db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope, binding
+    db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope, binding,
+    scopedReplayAllowed
   });
   return runCorrelatedToolExecution({
     context: { db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope },

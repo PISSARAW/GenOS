@@ -25,6 +25,8 @@ function applyMissionCapabilityContract(autonomyPlan, mission = {}) {
   autonomyPlan.capabilityContract = explicitContract(mission) || topologyCapabilityService.contractFor({
     mode: topologyMode(autonomyPlan), organization: autonomyPlan.organization
   });
+  autonomyPlan.requiredTools = [...new Set([...(autonomyPlan.requiredTools || []),
+    ...(Array.isArray(mission.requiredTools) ? mission.requiredTools : [])])];
   autonomyPlan.conceptTools = [...new Set([...(autonomyPlan.conceptTools || []), ...conceptTools(mission)])];
   return autonomyPlan;
 }

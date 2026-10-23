@@ -20,6 +20,7 @@ async function callStdioFn(transport, toolName, options = {}) {
     commandLine: commandLine,
     cmdArgs: cmdArgs,
     toolName: toolName,
+    agentId: options.agentId || null,
     timeoutMs: timeoutMs
   });
   try {

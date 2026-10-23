@@ -32,7 +32,8 @@ function parseArgs(args) {
 }
 
 function shaOf(file) {
-  return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  return createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
 function loadInputs() {
@@ -125,6 +126,8 @@ function assessAttempt(input) {
     tokenUsage: result.tokenUsage, latencyMs: result.latencyMs, servedModel: result.servedModel,
     servedModelOk: result.servedModel === model, toolUseCount: result.toolUseCount,
     budgetOk, error: result.error || null, attestation: attestationOf(result),
+    executionExitCode: result.executionExitCode, executionLogs: result.executionLogs,
+    executionStdoutExcerpt: result.executionStdoutExcerpt, executionStderrExcerpt: result.executionStderrExcerpt,
     receipt: result.receipt };
 }
 
@@ -173,10 +176,17 @@ function selectFrozen(trainingAttempts, plan) {
   const families = [...new Set(plan.training.taskIds.map((id) => `regime-${id.split('-')[1]}`))];
   for (const family of families) {
     const rows = trainingAttempts.filter((a) => a.family === family);
+    const verified = rows.filter((attempt) => attempt.error == null && attempt.parsePassed === true
+      && attempt.oraclePassed === true && attempt.servedModelOk === true && attempt.budgetOk === true
+      && Number.isFinite(Number(attempt.tokenUsage?.total)));
+    if (!verified.length) throw new Error(`No verified Qwen training outcome for family ${family}.`);
     const ranked = plan.training.candidateTopologies.map((topology) => {
       const subset = rows.filter((a) => a.topology === topology);
-      const passed = subset.filter((a) => a.oraclePassed).length;
-      const tokens = subset.reduce((s, a) => s + (a.tokenUsage?.total || 0), 0);
+      const valid = subset.filter((attempt) => attempt.error == null && attempt.parsePassed === true
+        && attempt.servedModelOk === true && attempt.budgetOk === true
+        && Number.isFinite(Number(attempt.tokenUsage?.total)));
+      const passed = valid.filter((a) => a.oraclePassed === true).length;
+      const tokens = valid.reduce((s, a) => s + Number(a.tokenUsage.total), 0);
       return { topology, passed, total: subset.length, tokens };
     }).sort((a, b) => b.passed - a.passed || a.tokens - b.tokens || (a.topology < b.topology ? -1 : 1));
     frozen[family] = ranked[0].topology;

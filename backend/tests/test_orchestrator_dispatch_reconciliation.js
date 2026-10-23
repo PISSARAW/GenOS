@@ -123,6 +123,21 @@ function assertMissionMorphogenesisBinding() {
   assert.deepEqual(morphologyRoot.workers, [assignment]);
   assert.deepEqual(autonomyPlan.dispatchWorkers, bound.assignments, 'dispatch reads assignments from the bound morphology root');
   assert.equal(autonomyPlan.tokenPolicy.rounds.initial.workerTokens.length, 1, 'capped assignments receive a matching token allocation');
+
+  const staleAllocationPlan = {
+    dispatchWorkers: [assignment],
+    tokenPolicy: {
+      total: 2400, workerShare: 0.6, orchestratorReserve: 0.4,
+      minimumWorkerTokens: 1, allocation: 'fixed',
+      rounds: { initial: { workerCount: 3, workerTokens: [480, 480, 480] } }
+    },
+    morphogenesisPlan: morphologyPlan
+  };
+  bindDispatchAssignments(staleAllocationPlan, [assignment]);
+  assert.equal(staleAllocationPlan.tokenPolicy.rounds.initial.workerTokens.length, 1,
+    'same-sized dispatch must still reconcile a stale allocation from a prior roster');
+  assert.equal(staleAllocationPlan.tokenPolicy.rounds.initial.workerTokens[0], 1440,
+    'reconciliation reallocates the selected workers share of the token pool');
 }
 
 Promise.all([assertConcurrentDispatch(), assertPersistedPartialWorkersAreTracked(), assertReservationRollback()])

@@ -20,6 +20,23 @@ async function publish(db, mission, event) {
     throw failure;
   }
   recordWorkerEvidence(mission, event);
+  if (event.eventType === 'AGENT_COMPLETED' && event.payload?.snapshot) {
+    const decision = require('../orchestrationDecisionService').decideFromEvent(event);
+    const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId || mission.agentId;
+    if (decision?.tool === 'genos_replay') {
+      const action = await require('../orchestrationActionExecutor').execute({
+        orchestratorId, sourceAgentId: mission.agentId, decision, event,
+        workspaceRoot: mission.workspaceRoot
+      }).catch(() => undefined);
+      if (action?.executed && action.result?.proof) {
+        event.payload.replayReceipt = action.result.proof;
+        recordWorkerEvidence(mission, event);
+      }
+    }
+  }
+  if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {
+    await require('../agentRoundService').advanceAutonomousRound(mission, event);
+  }
 }
 
 async function complete(context, executionRun, result) {
@@ -35,8 +52,14 @@ async function complete(context, executionRun, result) {
   const nativeOracleRef = await require('../epistemic/nativeOracleCoordinator').prepare(db, {
     agentId: mission.agentId, runId: executionRun.id });
   assertActive(context);
+  const replaySnapshot = await require('../workerEvidenceReplaySnapshot').createReplaySnapshot({
+    workerId: mission.agentId, runId: executionRun.id, workspaceRoot: mission.workspaceRoot,
+    worldId: mission.runtimeCapsule?.worldId, evidenceReport
+  });
+  assertActive(context);
   const completed = emit(mission.agentId, 'AGENT_COMPLETED', mission.workerKind, 'Native worker completed.', {
-    executionRunId: executionRun.id, evidenceReport, ...(nativeOracleRef ? { nativeOracleRef } : {}),
+    executionRunId: executionRun.id, evidenceReport, snapshot: replaySnapshot.snapshotPath,
+    ...(nativeOracleRef ? { nativeOracleRef } : {}),
     usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 }
   }, 'info', 'completed');
   await publish(db, mission, completed);

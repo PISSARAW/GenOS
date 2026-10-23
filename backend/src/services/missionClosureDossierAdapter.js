@@ -15,6 +15,23 @@ function validReplay(receipt, snapshot) {
     && typeof snapshot === 'string' && receipt.snapshot === snapshot;
 }
 
+function resolveRequiredWorkers(workers, dossiers) {
+  const byWorker = new Map((dossiers || []).map((dossier) => [dossier.workerId, dossier]));
+  const claimed = new Set();
+  return (workers || []).map((worker) => {
+    const current = byWorker.get(worker.agentId);
+    if (successfulEvent(current)) {
+      claimed.add(worker.agentId);
+      return worker;
+    }
+    const replacement = (dossiers || []).find((dossier) => dossier.workerId !== worker.agentId
+      && !claimed.has(dossier.workerId) && dossier.role === worker.role && successfulEvent(dossier));
+    if (!replacement) return worker;
+    claimed.add(replacement.workerId);
+    return { ...worker, agentId: replacement.workerId };
+  });
+}
+
 function verificationRef(event) {
   if (event?.nativeOracleRef?.hash && event.nativeOracleRef?.eventId) {
     return { kind: 'native-oracle', id: event.nativeOracleRef.hash, value: event.nativeOracleRef };
@@ -70,4 +87,4 @@ function topologyContext(ctx) {
   return { id: 'delegated_workers', decisionPassed: true };
 }
 
-module.exports = { buildClosureInput, successfulEvent, topologyContext, validReplay };
+module.exports = { buildClosureInput, successfulEvent, topologyContext, validReplay, resolveRequiredWorkers };

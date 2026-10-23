@@ -108,7 +108,9 @@ function emitMorphogenesisContinuation(orchestratorId, adaptation) {
   if (!adaptation.adapted) {
     emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_UNCHANGED', 'MORPHOGENESIS',
       `Continuation morphology unchanged: ${adaptation.reason}.`,
-      { reason: adaptation.reason, signals: adaptation.signals || null }, 'info');
+      { reason: adaptation.reason, signals: adaptation.signals || null,
+        admission: adaptation.admission ? { status: adaptation.admission.status,
+          reason: adaptation.admission.reason, details: adaptation.admission.details || null } : null }, 'info');
     return;
   }
   emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_ADAPTED', 'MORPHOGENESIS',
@@ -290,6 +292,15 @@ async function resumeMorphogenesisBarrier(state, orchestratorId) {
   return true;
 }
 
+async function resumeMorphogenesisBarrierForWorker(agentId) {
+  const readyRounds = [...autonomousRounds.entries()]
+    .filter(([, state]) => state.workerIds.has(agentId) && isResumedBarrier(state));
+  for (const [orchestratorId] of readyRounds) {
+    await resumeMorphogenesisBarrier(orchestratorId);
+  }
+  return readyRounds.length > 0;
+}
+
 function handleContinuationFailure(agentId, mission, error) {
   const attempts = Number(mission.continuationDispatchAttempts || 0) + 1;
   emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId, attempts }, 'error');
@@ -358,5 +369,5 @@ function attachIntraEpochObservations(input) {
 
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,
   registerRoundResult, planAdaptiveContinuation, advanceAutonomousRound,
-  resumeMorphogenesisBarrier, dispatchPendingContinuation,
+  resumeMorphogenesisBarrier, resumeMorphogenesisBarrierForWorker, dispatchPendingContinuation,
   observeIntraEpochSignal, attachIntraEpochObservations };

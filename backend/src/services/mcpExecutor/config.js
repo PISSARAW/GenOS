@@ -63,6 +63,15 @@ function directToolGloballyEnabled(toolName) {
   return Boolean(normalizedTool) && !disabled.includes(normalizedTool);
 }
 
+function scopedWorkerReplayLeaseOpen() {
+  if (process.env.GENOS_MCP_LEASE_EXPIRES_AT !== undefined) {
+    const expiresAt = Number(String(process.env.GENOS_MCP_LEASE_EXPIRES_AT).trim());
+    if (!Number.isFinite(expiresAt) || Date.now() >= expiresAt) return false;
+  }
+  const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map(normalizeToolName).filter(Boolean);
+  return !disabled.includes('genos_replay');
+}
+
 const BIOLOGICAL_FEATURE_ALIASES = {
   electric_organ: 'electrocyte', collar_cell: 'choanocyte',
   structural_color: 'iridophore', stomata: 'guard_cell',
@@ -172,6 +181,7 @@ module.exports = {
   normalizeMcpTimeout,
   directToolLeaseAllows,
   directToolGloballyEnabled,
+  scopedWorkerReplayLeaseOpen,
   biologicalFeatureLeaseScope,
   directBiologicalFeatureLeaseAllows,
   getToolRegistry,

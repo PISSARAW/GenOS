@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "status": "frozen-regime-change-v1",
+  "version": 2,
+  "status": "frozen-regime-change-v2",
   "seed": 20261015,
   "trainingInventory": {
     "taskIds": [
@@ -1471,7 +1471,7 @@
   "budgets": {
     "tokens": 20000,
     "latencyMs": 240000,
-    "minimumWorkerTokens": 800,
+    "minimumWorkerTokens": 1500,
     "workerShare": 0.7
   }
 }

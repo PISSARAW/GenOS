@@ -1,6 +1,6 @@
 {
-  "protocolVersion": 1,
-  "planId": "regime-change-mid-mission-v1",
+  "protocolVersion": 2,
+  "planId": "regime-change-mid-mission-v2",
   "status": "frozen",
   "evidenceGrade": "pilot",
   "evidenceNote": "Plan actuel : pilot-grade, non confirmatoire. Voir limitations et regime-change-qualification.cjs.",
@@ -11,32 +11,76 @@
   "model": "qwen2.5-coder:7b",
   "modelEndpoint": "http://127.0.0.1:11434/api/chat",
   "taskSetFile": "regime-change-task-set.json",
-  "taskSetSha256": "5cc12f885fda6319be5226020bf77183df846964407bc49e91aabe3ef713ce47",
+  "taskSetSha256": "ecf10ec57910fc6fd63d537e7d36e9c9b49ccc347f39898994e0364557b7a495",
   "oracleModule": "holdout-oracles/regime-change-oracles.cjs",
   "oracleSha256": "569386db7ec9b8f39a6f0dccb5b784eba11e9784009bd998a1549ea5f55457a7",
   "taskGenerator": "generate-regime-change-tasks.cjs",
   "taskSeed": 20261015,
   "training": {
-    "taskIds": ["train-cap-01", "train-cap-02", "train-dag-01", "train-dag-02", "train-enum-01", "train-enum-02"],
-    "candidateTopologies": ["biome", "metapopulation", "trinity"],
+    "taskIds": [
+      "train-cap-01",
+      "train-cap-02",
+      "train-dag-01",
+      "train-dag-02",
+      "train-enum-01",
+      "train-enum-02"
+    ],
+    "candidateTopologies": [
+      "biome",
+      "metapopulation",
+      "trinity"
+    ],
     "selectionRule": "highest oracle pass rate per family; tie-break lowest total tokens, then alphabetical",
-    "seeds": [104729]
+    "seeds": [
+      104729
+    ]
   },
   "holdoutTaskIds": 30,
   "revealSpec": "La contrainte de phase 2 est contenue dans le prompt ; le moment de revelation est la frontiere entre le diagnostic initial et la synthese finale, identique pour les trois conditions.",
-  "executionBudget": { "tokens": 20000, "latencyMs": 240000, "minimumWorkerTokens": 800, "workerShare": 0.7 },
+  "executionBudget": {
+    "tokens": 20000,
+    "latencyMs": 240000,
+    "minimumWorkerTokens": 1500,
+    "workerShare": 0.7
+  },
   "toolPolicy": "empty-external-tool-allowlist",
-  "seeds": [104729],
+  "seeds": [
+    104729
+  ],
   "conditions": [
-    { "id": "genos-adaptive", "role": "treatment", "adapter": "genos-full",
-      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": true },
-      "note": "GenOS peut choisir et appliquer une transition (reorganisation admise)." },
-    { "id": "genos-frozen", "role": "fixed-topology-control", "adapter": "genos-full",
-      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
-      "note": "Meme runtime, topologie figee par famille selectionnee sur les 6 taches d'entrainement, sans adaptation." },
-    { "id": "genos-wrong", "role": "negative-treatment", "adapter": "genos-full",
-      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
-      "note": "Meme runtime, transition inadaptee imposee par tache (task.wrongTopology), admissible mais inadaptee." }
+    {
+      "id": "genos-adaptive",
+      "role": "treatment",
+      "adapter": "genos-full",
+      "autonomous": true,
+      "topology": null,
+      "morphogenesisPolicy": {
+        "adaptive": true
+      },
+      "note": "GenOS peut choisir et appliquer une transition (reorganisation admise)."
+    },
+    {
+      "id": "genos-frozen",
+      "role": "fixed-topology-control",
+      "adapter": "genos-full",
+      "autonomous": true,
+      "topology": null,
+      "morphogenesisPolicy": {
+        "adaptive": false
+      },
+      "note": "Meme runtime, topologie figee par famille selectionnee sur les 6 taches d'entrainement, sans adaptation."
+    },
+    {
+      "id": "genos-wrong",
+      "role": "negative-treatment",
+      "adapter": "genos-full",
+      "autonomous": true,
+      "topology": null,
+      "morphogenesisPolicy": {
+        "adaptive": false
+      },
+      "note": "Meme runtime, transition inadaptee imposee par tache (task.wrongTopology), admissible mais inadaptee."
+    }
   ],
   "frozenTopology": null,
   "successCriterion": {
@@ -45,12 +89,30 @@
     "budget": "no attempt exceeds the shared token/latency ceiling",
     "attestation": "adaptive attempts must carry a verified morph transitionId with bound workers and sealed receipt; a verified transition without gain proves the mechanism, not its utility"
   },
-  "evidencePerAttempt": ["pre-transition diagnostic", "admission decision", "transitionId", "assigned workers", "sealed transition receipt", "independent oracle verdict"],
+  "evidencePerAttempt": [
+    "pre-transition diagnostic",
+    "admission decision",
+    "transitionId",
+    "assigned workers",
+    "sealed transition receipt",
+    "independent oracle verdict"
+  ],
   "limitations": [
     "Statut explicite : pilot-grade, NON confirmatoire (evidenceGrade=pilot). Un futur plan-v2 devra reunir 3 repetitions par couple tache-condition, des familles train/test disjointes et une injection temporelle externe pour pretendre au label confirmatory.",
     "Single repetition per task-condition pair: pilot-grade evidence, not confirmatory (suite requires 3).",
     "The phase-2 constraint is informational within one prompt; the reveal moment is the epoch boundary between initial diagnosis and final synthesis, not an external temporal injection.",
     "Training and holdout share families by design (frozen topology is selected per family); instances, params and oracleIds are disjoint.",
-    "oracle-selection arm stays pending: no training outcomes exist outside this protocol."
+    "oracle-selection arm stays pending: no training outcomes exist outside this protocol.",
+    "Budget calibration revision 2 raises the minimum per-worker token allocation after an observed prompt-budget rejection; v1 outcomes are excluded."
+  ],
+  "previousPlanId": "regime-change-mid-mission-v1",
+  "budgetCalibrationHistory": [
+    {
+      "fromMinimumWorkerTokens": 800,
+      "toMinimumWorkerTokens": 1500,
+      "evidence": "Real GenOS morphology activation generated an 857-token worker prompt and failed before inference at the 800-token floor.",
+      "scope": "All conditions keep the same total token and latency ceilings; this revision remains pilot-grade.",
+      "priorRunPooling": "Do not pool attempts from protocol v1."
+    }
   ]
 }

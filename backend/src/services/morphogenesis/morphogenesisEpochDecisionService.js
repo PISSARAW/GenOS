@@ -91,7 +91,10 @@ function currentPolicyTopology(plan) { return plan.morphogenesisPlan?.selectedTo
 
 function currentPolicyVariant(plan) { return plan.morphogenesisPlan?.selectedVariant || 'default'; }
 
-function topologyCapabilities(mission) { return mission.topologyCapabilityInventory?.available || null; }
+function topologyCapabilities(mission = {}) {
+  return require('./topologyCapabilityInventory')
+    .resolveTopologyCapabilityInventory(mission).available;
+}
 
 function coordinationPolicyOf(worker) { return worker.coordinationPolicy || worker.coordination_policy || {}; }
 
@@ -233,4 +236,4 @@ function withIntraEpoch(input, diagnosis) {
 }
 
 module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups,
-  communicationMissionFor, rosterReductionPlan };
+  communicationMissionFor, rosterReductionPlan, topologyCapabilities };

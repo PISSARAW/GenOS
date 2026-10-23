@@ -83,7 +83,13 @@ function determinism(mission, binding, snapshotHash) {
 }
 
 function toolLease(mission) {
-  return [...new Set(Array.isArray(mission.toolLease) ? mission.toolLease : [])].sort();
+  const tools = new Set(Array.isArray(mission.toolLease) ? mission.toolLease : []);
+  const worker = mission.workerContract;
+  const replayDenied = (mission.deniedTools || []).includes('genos_replay');
+  if (worker?.identity?.workerKind && !replayDenied) {
+    tools.add('genos_replay');
+  }
+  return [...tools].sort();
 }
 
 function workspaceIsolation(identity) {
@@ -122,4 +128,4 @@ function evidencePolicy(mission) {
   });
 }
 
-module.exports = { SCHEMA, build, measureExecutable };
+module.exports = { SCHEMA, build, measureExecutable, toolLease };

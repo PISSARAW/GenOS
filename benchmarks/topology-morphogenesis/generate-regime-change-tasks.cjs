@@ -176,10 +176,10 @@ function main() {
   const { tasks, trainingInventory } = buildSet();
   const holdout = tasks.filter((t) => t.split === 'holdout');
   if (holdout.length !== 30) throw new Error(`Expected 30 holdout tasks, got ${holdout.length}.`);
-  const data = { version: 1, status: 'frozen-regime-change-v1', seed: SEED,
+  const data = { version: 2, status: 'frozen-regime-change-v2', seed: SEED,
     trainingInventory, tasks,
     revealSpec: 'La contrainte de phase 2 est contenue dans le prompt ; le moment de revelation est la frontiere entre le diagnostic initial et la synthese finale.',
-    budgets: { tokens: 20000, latencyMs: 240000, minimumWorkerTokens: 800, workerShare: 0.7 } };
+    budgets: { tokens: 20000, latencyMs: 240000, minimumWorkerTokens: 1500, workerShare: 0.7 } };
   fs.writeFileSync(path.join(root, 'regime-change-task-set.json'), `${JSON.stringify(data, null, 2)}\n`);
   process.stdout.write(`wrote ${tasks.length} tasks (${holdout.length} holdout)\n`);
 }

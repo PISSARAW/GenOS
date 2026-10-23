@@ -17,17 +17,20 @@ async function emitLocalCompleted(ctx, publishSuccess) {
     executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
     evidenceReport: ctx.evidenceReport,
     identityReceipt: ctx.identityReceipt,
-    snapshot: ctx.mission.runtimeCapsule?.snapshotPath,
+    snapshot: ctx.replaySnapshotPath || ctx.mission.runtimeCapsule?.snapshotPath,
     ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
     noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
     stageTimings: ctx.stageTimings,
     ...(deferred ? { deferredTerminalEventType: ctx.eventType } : {})
   }, ctx.unresolved ? 'warning' : 'info', deferred ? 'running' : terminalStatus);
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
+  if (ctx.unresolved) {
+    require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
+  }
   return completed;
 }
 
-module.exports = { emit: emitLocalCompleted };
+module.exports = { emit: emitLocalCompleted, emitLocalCompleted };
 
 function terminalMetadata(evidence, codeWorker) {
   if (evidence.unresolved) return { eventType: 'AGENT_FAILED', kind: 'EVIDENCE_GAP',
@@ -47,6 +50,14 @@ async function complete(ctx, publishSuccess) {
   const nativeOracleRef = ctx.evidence.unresolved ? null
     : await require('./workerCodeOracleLocal').prepare({ db: ctx.db, mission: ctx.mission,
       executionRun: ctx.executionRun, evidenceReport: ctx.evidence.evidenceReport });
+  const replaySnapshot = ctx.evidence.unresolved ? null
+    : await require('./workerEvidenceReplaySnapshot').createReplaySnapshot({
+      workerId: ctx.mission.agentId, runId: ctx.executionRun.id,
+      workspaceRoot: ctx.mission.workspaceRoot,
+      sourceSnapshot: ctx.mission.runtimeCapsule?.snapshotPath,
+      worldId: ctx.mission.runtimeCapsule?.worldId,
+      evidenceReport: ctx.evidence.evidenceReport
+    });
   await require('./identity/worker').finish(ctx.db, { identity: ctx.identity,
     success: !ctx.evidence.unresolved, evidenceRef: {
       executionRunId: ctx.executionRun.id, nativeOracleRef: nativeOracleRef || null,
@@ -54,6 +65,7 @@ async function complete(ctx, publishSuccess) {
       verification: 'runtime_evidence_barrier' } });
   const terminal = terminalMetadata(ctx.evidence, ctx.generation.codeWorker);
   await emitLocalCompleted({ ...ctx, ...terminal, nativeOracleRef,
+    replaySnapshotPath: replaySnapshot?.snapshotPath,
     evidenceReport: ctx.evidence.evidenceReport, identityReceipt: ctx.identity.receipt,
     noAnswerProof: ctx.evidence.noAnswer ? ctx.evidence.proof : undefined,
     proposal: ctx.evidence.proposal, unresolved: ctx.evidence.unresolved,

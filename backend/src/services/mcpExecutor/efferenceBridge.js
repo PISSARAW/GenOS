@@ -33,7 +33,7 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
   let outcome;
   try {
     const result = await executeConfiguredTransport({ toolName, args, agentId,
-      authorityLease: context.authorityLease });
+      authorityLease: context.authorityLease, scopedReplayAllowed: context.scopedReplayAllowed === true });
     applyDomainVerdict(toolName, result);
     const succeeded = actionSucceeded(toolName, result);
     if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);

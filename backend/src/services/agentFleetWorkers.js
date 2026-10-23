@@ -52,7 +52,6 @@ function manifestFallbackCaps(assignment) {
     return Array.isArray(assignment.capabilities) ? assignment.capabilities : [];
   }
 }
-
 function assignmentCapabilities(assignment) {
   return Array.isArray(assignment.capabilities) && assignment.capabilities.length
     ? [...new Set(assignment.capabilities)]
@@ -150,7 +149,8 @@ async function includePersistedWorkers(db, parentId, context) {
 }
 
 const { validateAssignments } = require('./workerAssignmentValidation');
-
+const { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
+  morphogenesisCompactWorkerRole } = require('./morphogenesisRolePrompt');
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
   const initialRound = plan.tokenPolicy?.rounds?.initial;
@@ -161,7 +161,6 @@ function buildWorkerContext(context) {
   const sourceWorkspace = workerWorkspaceRecovery.sourceWorkspace(parent, mission);
   return { ...context, sourceWorkspace, initialWorkerTokens, ...workerBudgets({ parent, plan, assignmentCount: assignments.length, initialRound }) };
 }
-
 function workerBudgets(context) {
   const { parent, plan, assignmentCount, initialRound } = context;
   const workerTokens = initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignmentCount);
@@ -171,34 +170,31 @@ function workerBudgets(context) {
   };
 }
 
-function formatDnaPromptBlock(dnaSelection) {
-  if (!dnaSelection || !dnaSelection.genes || !dnaSelection.genes.role) return null;
-  const { genes } = dnaSelection;
-  const parts = [`Inherited DNA phenotype — role: ${genes.role}, strategy: ${genes.strategy}.`];
-  if (genes.prompt) parts.push(`DNA prompt brief: ${genes.prompt}`);
-  if (Array.isArray(genes.tools) && genes.tools.length) parts.push(`DNA tools: ${genes.tools.join(', ')}.`);
-  if (Array.isArray(genes.capabilities) && genes.capabilities.length) parts.push(`DNA capabilities: ${genes.capabilities.join(', ')}.`);
-  return parts.join(' ');
-}
-
 function buildWorkerPrompt(details) {
   const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
+  const missionPrompt = morphogenesisMissionPrompt(assignment, context.mission.prompt);
+  const promptComposer = require('./agentFleetWorkerPrompt');
+  const compactPrompt = promptComposer.buildCompactMorphogenesisPrompt({
+    assignment, context, missionPrompt, workerKinds, morphogenesisRoleInstruction,
+    enabled: morphogenesisCompactWorkerRole(assignment)
+  });
+  if (compactPrompt) return compactPrompt;
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
-  const dnaPrompt = formatDnaPromptBlock(dnaSelection);
+  const dnaPrompt = promptComposer.formatDnaPromptBlock(dnaSelection);
   return [
     identity.introduction,
     workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
-    context.mission.prompt || context.parent.current_task || 'Autonomous task execution',
-    `Assigned branch: ${assignment.label}.`,
+    missionPrompt || context.parent.current_task || 'Autonomous task execution',
+    `${morphogenesisRoleInstruction(assignment) ? `${morphogenesisRoleInstruction(assignment)}\n` : ''}Assigned branch: ${assignment.label}.`,
     dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
     require('./trinityWorldDesign').factorialInstruction(assignment),
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, {
-      prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
+      prompt: missionPrompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
       methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
     })),
     phenotypeBlock,
@@ -221,7 +217,8 @@ async function createWorker(workerContext) {
 }
 
 async function prepareWorkerAssets(workerContext) {
-  const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
+  const { db, orchestrator, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
+  const assignment = require('./morphogenesisRolePrompt').bindBiomeMapperAssignment(workerContext.assignment, mission.prompt);
   const assignedTokens = initialWorkerTokens?.[index] ?? perWorkerTokens;
   const id = workerContext.id || autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
@@ -239,7 +236,7 @@ async function prepareWorkerAssets(workerContext) {
     const ws = await workerSelf.buildWorkerSelf(db, {
       agentId: id,
       workerRole: assignment.role,
-      workerContext: { mission: mission.prompt, hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
+      workerContext: { mission: morphogenesisMissionPrompt(assignment, mission.prompt), hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
     });
     workerSelfBlock = workerSelf.formatWorkerSelfPrompt(ws);
   } catch (_) {}
@@ -248,7 +245,7 @@ async function prepareWorkerAssets(workerContext) {
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
-  return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
+  return { ...workerContext, assignment, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }
 
 async function createWorkerWorkspace(workerContext, id) {
@@ -310,7 +307,7 @@ function fleetWorkerContract(details) {
   const { assignment, parent, mission, assignedTokens } = details;
   if (details.plan?.morphogenesisCohort === true) return morphogenesisWorkerContract(assignment, parent, assignedTokens);
   const contract = workerKinds.buildWorkerContract(assignment.workerKind, {
-    prompt: mission.prompt,
+    prompt: morphogenesisMissionPrompt(assignment, mission.prompt),
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
     externalCreditLease: assignment.externalCreditLease || mission.externalCreditLease,
@@ -357,7 +354,7 @@ function formatWorker(details) {
   const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease,
-    capabilities, assignments: assignmentList, mission, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
+    capabilities, assignments: assignmentList, mission, assignment, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
   ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
@@ -375,14 +372,14 @@ function inheritedWorkerEngine(mission) {
   if (String(mission.executor || mission.runtime || '').trim().toLowerCase() === 'local') return { localRuntime: true };
   return {};
 }
-
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission, gqwfWorkerWorkspace } = details;
+  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission, gqwfWorkerWorkspace, assignment } = details;
   const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
+    useMemoryContext: morphogenesisUseMemoryContext(assignment),
     workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
     gqwfWorkerLease: gqwfWorkerWorkspace || null,
     localCodeWorker: mission.localCodeWorker === true,
@@ -397,4 +394,4 @@ function workerRuntime(details) {
 
 module.exports = { assignedWorkerId: cohortWorkerService.assignedWorkerId, createAutonomousWorkers, splitBudget,
   buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget,
-  buildWorkerPrompt, includePersistedWorkers, workerIdentity, validateAssignments };
+  buildWorkerPrompt, includePersistedWorkers, workerIdentity, workerRuntime, validateAssignments };

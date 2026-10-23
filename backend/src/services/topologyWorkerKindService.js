@@ -240,8 +240,17 @@ function assignmentForRole(assignments, role) {
 }
 
 function applyTopologyWorkerKinds(mode, composition, assignments = {}) {
-  const mapMember = (member) => resolveMember(mode,
-    withRequestedAssignment(member, assignmentForRole(assignments, member.role)));
+  const mapMember = (member) => {
+    let requested = assignmentForRole(assignments, member.role);
+    if (member.role === 'environment_mapper'
+      && (mode === 'biome' || requested?.topology === 'biome' || member.workerAssignment?.topology === 'biome')) {
+      const rolePrompt = require('./morphogenesisRolePrompt');
+      const mapped = rolePrompt.morphogenesisWorkerAssignments({ environment_mapper: requested || {} },
+        requested?.topology || member.workerAssignment?.topology || mode, member.mission);
+      requested = mapped?.environment_mapper || requested;
+    }
+    return resolveMember(mode, withRequestedAssignment(member, requested));
+  };
   if (Array.isArray(composition)) return composition.map(mapMember);
   if (!Array.isArray(composition?.members)) return composition;
   const members = composition.members.map(mapMember);

@@ -110,9 +110,9 @@ async function runFundedAdmission(context) {
     policy: adaptation.decision?.policy,
     actualPlan: { ...adaptation.plan, workerAssignments: assignments,
       allocatedTokens: fundedTokens(assignments),
-      requestedTools: Array.isArray(state.plan?.requiredTools) ? state.plan.requiredTools : [] },
+      requestedTools: requestedToolsForAdmission(state.plan, mission) },
     quiescence, parentLease: { allowedTools },
-    topologyCapabilities: mission.topologyCapabilityInventory?.available,
+    topologyCapabilities: require('./morphogenesisEpochDecisionService').topologyCapabilities(mission),
     availableWorkerKinds: Object.keys(require('../agents/workerKindService').KINDS),
     budget: { availableTokens: reservation.reservedTokens },
     resourceResolution: adaptation.admission?.resourceResolution || null,
@@ -124,4 +124,9 @@ function fundedTokens(assignments) {
   return assignments.reduce((sum, assignment) => sum + assignment.tokenBudget, 0);
 }
 
-module.exports = { validateFundedStrategy };
+function requestedToolsForAdmission(plan, mission) {
+  return [...new Set([...(Array.isArray(plan?.requiredTools) ? plan.requiredTools : []),
+    ...(Array.isArray(mission?.requiredTools) ? mission.requiredTools : [])])];
+}
+
+module.exports = { validateFundedStrategy, requestedToolsForAdmission };

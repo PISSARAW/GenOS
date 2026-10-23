@@ -47,7 +47,8 @@ function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
-  const localModel = requestedModel(request);
+  const requested = requestedModel(request);
+  const localModel = /^[a-z][a-z0-9+.-]*:\/\//i.test(requested) ? requested : `ollama://${requested}`;
   const identity = resolveIdentity(request);
   const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
   const workerKind = identity.identityExperimentWorker ? 'specialist' : 'bounded_worker';
@@ -84,17 +85,18 @@ function localAgents(id, result) {
  * EPIPE (broken pipe) sur cette plateforme. Le worker contacte le modèle
  * local (ollama) directement via runLocalWorker.
  */
-async function runWindowsLocalExecution(input) {
+async function runWindowsLocalExecution(input, dependencies = {}) {
   const { db, id, missionId, task, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
     nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
     finalizeOrchestratedMission, preflight } = input;
   process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
-  const { runLocalWorker } = require('../src/services/workerEvidenceBarrierLocal');
-  const { validScope } = require('../src/services/missionModelBudgetScope');
+  const runLocalWorker = dependencies.runLocalWorker || require('../src/services/workerEvidenceBarrierLocal').runLocalWorker;
+  const validScope = dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope;
 
-  // Identité d'orchestrateur distincte : le worker ne doit pas être son propre parent.
-  const orchestratorAgentId = 'windows-orchestrator-' + id;
+  // Le fallback est in-process : utiliser l'agent orchestrateur persisté pour que
+  // la récupération et les décisions d'organisation puissent résoudre son identité.
+  const orchestratorAgentId = id;
   const executionRunId = 'local-direct-' + id;
 
   // Persister la course d'exécution pour que la portée budgétaire puisse y faire référence.

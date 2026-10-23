@@ -88,7 +88,7 @@ function classifyFinalReport(report = {}, isWorker = true) {
   return { outcome: 'success' };
 }
 
-function reportFailureReason(payload, event) {
+function reportFailureReason(payload, event, mission = {}) {
   const summary = failedProposalTests(payload).map((test) => {
     const command = String(test.command || 'verification command');
     const output = [test.stderr, test.stdout].filter((value) => typeof value === 'string' && value.trim())
@@ -96,8 +96,11 @@ function reportFailureReason(payload, event) {
     const result = test.signal ? `signal ${test.signal}` : `exit code ${test.exitCode}`;
     return `${command} failed with ${result}.${output ? `\n${output}` : ''}`;
   });
-  const reason = payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.';
-  return compact([reason, ...summary].join('\n'));
+  const reason = compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+  const previous = Array.isArray(mission.recoveryHistory) ? mission.recoveryHistory.slice(-1)[0]?.report?.reason : null;
+  const campaignReason = require('./morphogenesis/biomeAllocationFeedback')
+    .recoveryFailureReason(reason, payload.workerArtifactDiagnostics, payload.evidenceReport, previous);
+  return compact([campaignReason, ...summary].join('\n'));
 }
 
 function reportEvidence(payload) {
@@ -119,7 +122,7 @@ function buildFailureReportFromMission(mission, event) {
     orchestratorId: mission.orchestratorAgentId,
     mission: compact(mission.originalMission || mission.prompt || mission.currentTask),
     category: classifyFailure(event),
-    reason: reportFailureReason(payload, event),
+    reason: reportFailureReason(payload, event, mission),
     evidence: reportEvidence(payload),
     uncertainties: reportUncertainties(payload),
     noAnswerProof: proofOfNoAnswer(payload),
@@ -184,9 +187,17 @@ function decideCapabilityMismatch(report) {
 
 function decideMutatedOutput(report) {
   if (report.category === 'mutated_output') {
+    if (report.attempt === 1) {
+      return { action: 'fork_worker', terminal: false, retry: true, identity: 'new', role: 'independent_reviewer',
+        reason: 'The repaired worker still produced malformed output; fork an independent branch with the validator feedback.' };
+    }
+    if (report.attempt >= 2) {
+      return { action: 'replace_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
+        reason: 'Repeated malformed output exhausted mutation and fork strategies; replace the worker profile for the final bounded attempt.' };
+    }
     return {
-      action: 'mutate_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
-      reason: 'The previous worker output mutated or suffered structural apoptosis; triggering cognitive molting with structural chaperone guidance.'
+      action: 'mutate_worker', terminal: false, retry: true, identity: 'same',
+      reason: 'The previous worker output was malformed; repair it once in the existing identity with structural chaperone guidance.'
     };
   }
   return null;

@@ -37,9 +37,9 @@ function artifactInstruction(contract) {
     + '{"outcome":"unresolved","claims":[],"uncertainties":["<missing evidence>"]}; '
     + 'do not report completed work or invent a reference.';
   if (required.every((type) => type === 'dossier')) {
-    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence. ${unresolved}`;
+    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [] })}. The top-level claims form the dossier; cite source references in evidence. ${unresolved}`;
   }
-  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance. ${unresolved}`;
+  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [], workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance. ${unresolved}`;
 }
 
 function customInstruction(kind, contract) {
@@ -55,15 +55,24 @@ function customInstruction(kind, contract) {
 }
 
 function schemaInstruction(text, fields) {
-  return `${text} Schema: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, ...fields })}. `
+  return `${text} Schema: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [], ...fields })}. `
     + 'If evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<missing evidence>"]}; '
     + 'omit completion fields and never invent a reference.';
 }
 
 function specialistInstruction(niche) {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+  const biomeSteward = niche === 'biome:resource_steward';
+  const claims = biomeSteward
+    ? [{ statement: '<exact machine-verifiable candidate JSON object; no prose>', evidence: ['<source-ref>'] }]
+    : CONTENT_TEMPLATES.dossier.claims;
+  const output = { outcome: 'success', claims, uncertainties: [],
     specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
-  return `Work only in the declared niche '${niche}'. If the task is outside it, return unresolved. Schema: ${JSON.stringify(output)}`;
+  const biomeScope = biomeSteward
+    ? 'This niche includes exact resource allocation, partitioning, arithmetic, exhaustive search, backtracking, and per-bin capacity verification; these methods are in scope. Put the complete machine-verifiable candidate JSON object in claims[0].statement; never replace it with a generic success sentence, and claim success only when the candidate is present.' : '';
+  const fallback = biomeSteward
+    ? 'This allocation is in scope and the mission reference supplies its facts. Return unresolved only if exhaustive search proves no valid allocation exists; do not abstain for niche, skill, or complexity.'
+    : 'If the task is outside the niche or evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<specific limitation>"]}; do not include success-only fields.';
+  return `${biomeScope} Work only in the declared niche '${niche}'. For successful work, follow this schema exactly: ${JSON.stringify(output)}. ${fallback}`;
 }
 
 function templateForWorker(contract, type) {
@@ -75,7 +84,7 @@ function templateForWorker(contract, type) {
 function rhizomeArtifactInstruction(contract, required) {
   const objective = contract?.mission?.objective || '';
   if (!/Mission Rhizome|Rhizome discovery branch/i.test(objective)) return '';
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [],
     answer: '<branch answer>', capabilities: [], unknownDependencies: [], interfaces: [], assumptions: [], evidence: [] };
   const type = required[0];
   if (type && type !== 'dossier') output.workerArtifact = { type, content: CONTENT_TEMPLATES[type], provenance: { sourceRefs: ['<source-ref>'] } };

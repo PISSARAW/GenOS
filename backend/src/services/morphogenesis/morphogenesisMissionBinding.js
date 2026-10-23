@@ -104,9 +104,12 @@ function bindToRoot(input) {
 }
 
 function reconcileDispatchBudget(plan, originalCount, selectedCount) {
-  if (selectedCount >= originalCount) return;
   const policy = plan.tokenPolicy;
   if (!policy) return;
+  const allocatedCount = policy.rounds?.initial?.workerCount
+    ?? policy.rounds?.initial?.workerTokens?.length;
+  if (selectedCount >= originalCount
+      && (allocatedCount == null || allocatedCount === selectedCount)) return;
   policy.workerShare = selectedCount ? policy.workerShare : 0;
   policy.orchestratorReserve = selectedCount ? policy.orchestratorReserve : 1;
   policy.rounds = require('../tokenAllocationService').buildAllocation({

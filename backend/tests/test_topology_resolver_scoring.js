@@ -44,4 +44,11 @@ verifyCostFactors();
 verifyZeroProfileValues();
 verifyCostsAreMonotonic();
 verifyATeamRequiresMultidisciplinaryEvidence();
+function verifyIneligibleATeamDoesNotWin() {
+  const result = resolveTopology({ problemProfile: {
+    uncertainty: 0.1, resource_allocation_focus: 1, a_team_eligible: false
+  } });
+  assert.notEqual(result.topology, 'a_team');
+}
+verifyIneligibleATeamDoesNotWin();
 console.log('Topology resolver scoring checks: PASS');

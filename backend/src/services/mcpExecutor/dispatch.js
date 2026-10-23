@@ -109,14 +109,22 @@ function reflexDischargedResult(toolName, executionKind, steric) {
   return { configured: false, success: false, status: 'reflex_discharged', error: steric.error, code: 'MCP_STERIC_REFLEX', executionKind, docking: steric.docking };
 }
 
+function scopedReplayLeaseAllowed(context) {
+  return context.toolName === 'genos_replay' && context.scopedReplayAllowed === true
+    && require('./config').scopedWorkerReplayLeaseOpen();
+}
+
 function preValidateTool(context) {
   const { registry, toolName, args, executionKind, authorityLease } = context;
   if (!registry.isSupportedTool(toolName)) return unsupportedResult(toolName, executionKind);
-  if (!directToolLeaseAllows(toolName, authorityLease)) return leaseDeniedResult(toolName, executionKind);
+  const scopedReplay = scopedReplayLeaseAllowed(context);
+  if (!directToolLeaseAllows(toolName, authorityLease) && !scopedReplay) return leaseDeniedResult(toolName, executionKind);
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
   if (steric) context.docking = steric.docking || { mode: steric.mode };
-  const argumentError = validateToolArguments(toolName, args);
+  const argumentError = scopedReplay
+    ? require('../mcpArgumentValidation').validateScopedReplayArguments(args)
+    : validateToolArguments(toolName, args);
   if (argumentError) return invalidArgsResult(argumentError);
   const biologicalDenial = biologicalFeatureLeaseDenial(toolName, args, executionKind);
   if (biologicalDenial) return biologicalDenial;
@@ -164,9 +172,18 @@ function bufferText(value) {
   return Buffer.isBuffer(value) ? value.toString() : String(value);
 }
 
-function runLocalCommand(commandLine, timeoutMs) {
+function runLocalCommand(commandLine, timeoutMs, scopedReplayAllowed = false) {
   try {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(commandLine, { timeoutMs }).toString() };
+    const options = { timeoutMs };
+    if (scopedReplayAllowed && require('./config').scopedWorkerReplayLeaseOpen()) {
+      const envBridge = require('../genosCliEnv');
+      const env = envBridge.genosEnvironment(envBridge.studioBridgeRoot());
+      const lease = String(env.GENOS_MCP_LEASE || '').split(',').map((item) => item.trim()).filter(Boolean);
+      if (!lease.includes('genos_replay')) lease.push('genos_replay');
+      env.GENOS_MCP_LEASE = lease.join(',');
+      options.env = env;
+    }
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(commandLine, options).toString() };
   } catch (error) {
     const isTimeout = error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM';
     const output = bufferText(error.stdout) || bufferText(error.stderr) || error.message;
@@ -174,18 +191,18 @@ function runLocalCommand(commandLine, timeoutMs) {
   }
 }
 
-function createLocalRunner(timeoutMs) {
+function createLocalRunner(timeoutMs, scopedReplayAllowed = false) {
   return (commandLine) => {
-    return runLocalCommand(commandLine, timeoutMs);
+    return runLocalCommand(commandLine, timeoutMs, scopedReplayAllowed);
   };
 }
 
-async function executeRemoteTransport(toolName, args, timeoutMs) {
+async function executeRemoteTransport(toolName, args, timeoutMs, agentId = null) {
   const transport = configuredTransport();
   if (transport && transport.type === 'invalid') return invalidConfigResult(transport);
   const result = transport.type === 'http'
     ? await callHttpFn(transport.url, toolName, { args, timeoutMs })
-    : await callStdioFn(transport, toolName, { args, timeoutMs });
+    : await callStdioFn(transport, toolName, { args, timeoutMs, agentId });
   const isError = result.isError === true;
   const output = normalizeTransportOutput(result);
   const domainFailure = explicitDomainFailure(output) || explicitDomainFailure(result.content);
@@ -199,17 +216,19 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000,
-  agentId = null, tenant = null, authorityLease = null, runLocal: providedLocalRunner = null }) {
+  agentId = null, tenant = null, authorityLease = null, runLocal: providedLocalRunner = null, scopedReplayAllowed = false }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
   let stericDocking = null;
-  const validationContext = { registry, toolName: normalizedToolName, args, executionKind, authorityLease };
+  const scoped = normalizedToolName === 'genos_replay' && scopedReplayAllowed === true
+    && !hasConfiguredEndpoint() && require('./config').scopedWorkerReplayLeaseOpen();
+  const validationContext = { registry, toolName: normalizedToolName, args, executionKind, authorityLease, scopedReplayAllowed: scoped };
   const rejection = preValidateTool(validationContext);
   if (rejection) return rejection;
   stericDocking = validationContext.docking || null;
-  const runLocal = providedLocalRunner || createLocalRunner(timeoutMs);
+  const runLocal = providedLocalRunner || createLocalRunner(timeoutMs, scoped);
   if (normalizedToolName === 'genos_delegate_worker') {
     const result = await executeToolLogic(normalizedToolName, args, { runLocal, timeoutMs, agentId, tenant, authorityLease, db: await require('../../db').getDatabase() });
     return withDocking(result, stericDocking);
@@ -225,11 +244,11 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     return withDocking(result, stericDocking);
   }
   if (hasConfiguredEndpoint()) {
-    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs);
+    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs, agentId);
     return withDocking(result, stericDocking);
   }
   return withDocking(await executeToolLogic(toolName, args,
-    { runLocal, timeoutMs, agentId, tenant, authorityLease }), stericDocking);
+    { runLocal, timeoutMs, agentId, tenant, authorityLease, scopedReplayAllowed: scoped }), stericDocking);
 }
 
 async function listTools() {
@@ -246,6 +265,7 @@ module.exports = {
   resolveMcpOutputPath,
   validateMcpInputPaths,
   preValidateTool,
+  scopedReplayLeaseAllowed,
   executeConfiguredTransport,
   listTools
 };

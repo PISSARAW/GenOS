@@ -9,12 +9,27 @@ function budgetRoster(assignments, pool) {
 
 function admissionContext(input, result) {
   const context = input.strategyAdmissionContext || {};
+  const requestedTools = requestedToolsForTransition(context, input.state.normalizedMission,
+    result.decision?.policy);
   const blueprint = result.cohortBlueprint?.assignments || [];
   const assignments = budgetRoster(blueprint, Math.max(0, Number(input.continuation.pool) || 0));
   const allocatedTokens = assignments.reduce((sum, assignment) => sum + assignment.tokenBudget, 0);
   return { context, assignments, allocatedTokens,
     actualPlan: { ...result.plan, workerAssignments: assignments, allocatedTokens,
-      requestedTools: context.requestedTools || [] } };
+      requestedTools } };
+}
+
+function mergeRequestedTools(...sources) {
+  return [...new Set(sources.flatMap((source) => Array.isArray(source) ? source : []))];
+}
+
+function requestedToolsForTransition(context, mission, policy) {
+  const recipe = policy?.decision?.recipe;
+  const candidate = (policy?.portfolio?.candidates || []).find((item) =>
+    item.id === recipe?.candidateId || item.candidateId === recipe?.candidateId);
+  const operation = candidate?.kind === 'VARIANT'
+    ? 'genos_change_strategy' : 'genos_change_organization';
+  return mergeRequestedTools(context?.requestedTools, mission?.requiredTools, [operation]);
 }
 
 async function transitionReceipts(input, prepared) {
@@ -42,7 +57,8 @@ async function admissionForTransition(input, result) {
   const receipts = await transitionReceipts(input, prepared);
   const admission = admit({ policy,
     actualPlan: prepared.actualPlan, quiescence: prepared.context.quiescence,
-    parentLease: prepared.context.parentLease, topologyCapabilities: mission.topologyCapabilityInventory?.available,
+    parentLease: prepared.context.parentLease,
+    topologyCapabilities: require('./morphogenesisEpochDecisionService').topologyCapabilities(mission),
     availableWorkerKinds: Object.keys(kinds), budget: { availableTokens: Number(input.continuation.pool) || 0 },
     resourceResolution: receipts.resolution, resourceReservation: receipts.reservation, now: receipts.now });
   if (admission.status !== 'admitted' && receipts.owned) {
@@ -52,4 +68,4 @@ async function admissionForTransition(input, result) {
   return admission;
 }
 
-module.exports = { admissionForTransition };
+module.exports = { admissionForTransition, mergeRequestedTools, requestedToolsForTransition };

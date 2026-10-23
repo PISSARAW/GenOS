@@ -8,7 +8,7 @@ const rosterPlanning = require('./rosterReductionPlanning');
 const { proposedRecipe, recipeProfile, recipePlanMismatch } = require('./missionMorphogenesisRecipeBinding');
 const nosologyEvidence = require('./morphogenesisNosologyEvidence');
 const nosologyBridge = require('./morphogenesisNosologyBridge');
-const MAX_REPLACEMENT_WORKERS = 12;
+const { targetRosterSize, fundedRosterReduction } = require('./missionMorphogenesisRoster');
 const MAX_CALIBRATION_OUTCOMES = require('./morphogenesisVerifiedOutcomeStore').MAX_OUTCOMES;
 
 function evidenceSignals(results) {
@@ -40,27 +40,6 @@ function problemProfile(state, signals, policy) {
 
 function currentTopology(state) {
   return state.plan.morphogenesisPlan?.selectedTopology || state.plan.selectedTopology || null;
-}
-
-function requestedRosterSize(input) {
-  const mission = input.state.normalizedMission || {};
-  const policy = mission.morphogenesisPolicy || {};
-  const configured = [policy.targetWorkers, policy.cohortSize, input.continuation.targetWorkerCount,
-    input.continuation.workerCount, input.continuation.survivorCount]
-    .find((value) => value !== undefined && value !== null);
-  const requested = Number(configured ?? input.survivors.length);
-  return Number.isSafeInteger(requested) ? Math.max(0, requested) : input.survivors.length;
-}
-
-function affordableRosterSize(input) {
-  const budget = Math.max(0, Number(input.continuation.pool || 0));
-  const minimum = Math.max(1, Number(input.state.plan.tokenPolicy?.minimumWorkerTokens
-    || input.state.epochBudget?.minimum || input.continuation.perWorkerTokens || 1));
-  return Math.floor(budget / minimum);
-}
-
-function targetRosterSize(input) {
-  return Math.min(requestedRosterSize(input), affordableRosterSize(input), MAX_REPLACEMENT_WORKERS);
 }
 
 function plannerContext(input, signals, policy) {
@@ -206,7 +185,8 @@ function transitionReceipt(input, outcome) {
   const transitionId = `${plan.morphologyGraphRef.graphId}:${plan.morphologyGraphRef.version}`;
   return {
     transitionId,
-    status: 'ADAPTED', reason: 'evidence_driven_continuation',
+    status: 'ADAPTED', reason: input.continuation.resourceConsolidation
+      ? 'evidence_driven_resource_consolidation' : 'evidence_driven_continuation',
     fromGraph: previous ? { graphId: previous.graphId, version: previous.version } : null,
     toGraph: plan.morphologyGraphRef,
     selectedTopology: plan.selectedTopology,
@@ -351,7 +331,9 @@ function earlyDecision(context) {
   if (shouldSkipAdaptation(input, signals, decision)) {
     return { adapted: false, reason: 'adaptation_not_required', signals, decision };
   }
-  if (selectorAbstained(decision)) return { adapted: false, reason: 'selector_no_change', signals, decision };
+  if (selectorAbstained(decision) && !fundedRosterReduction(context.input)) {
+    return { adapted: false, reason: 'selector_no_change', signals, decision };
+  }
   if (communicationPlanning.selected(decision)) {
     return communicationPlanning.plan(input, decision, communicationMetric);
   }
@@ -371,17 +353,21 @@ async function planContinuation(input, dependencies = {}) {
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
   const early = earlyDecision({ input, signals, decision, communicationMetric, nosology });
   if (early) return early;
+  const resourceConsolidation = selectorAbstained(decision) && fundedRosterReduction(input);
+  const continuationInput = resourceConsolidation ? { ...input,
+    continuation: { ...input.continuation, survivorCount: input.survivors.length,
+      targetWorkerCount: input.survivors.length, resourceConsolidation: true } } : input;
   const genomeService = require('./morphogenesisGenomeContext');
-  const genomeContext = await genomeService.loadMissionGenomeContext({ ...nosologyScope(input), normalizedMission: input.state.normalizedMission });
+  const genomeContext = await genomeService.loadMissionGenomeContext({ ...nosologyScope(continuationInput), normalizedMission: continuationInput.state.normalizedMission });
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
-  const plan = planner(genomeService.enrichPlanningInput(plannerContext(input, signals, decision.policy), genomeContext));
+  const plan = planner(genomeService.enrichPlanningInput(plannerContext(continuationInput, signals, decision.policy), genomeContext));
   if (recipePlanMismatch(plan, decision.policy)) return { adapted: false,
     reason: 'proposed_recipe_plan_mismatch', signals, decision };
-  compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });
-  const result = await compileReplacementRoster({ input, plan, decision, signals, dependencies });
+  compileAdaptiveGraph(continuationInput, { plan, state: continuationInput.state, signals, challenge: decision.challenge, decision });
+  const result = await compileReplacementRoster({ input: continuationInput, plan, decision, signals, dependencies });
   if (!result.adapted) return result;
-  const admission = await admissionForTransition(input, result);
+  const admission = await (dependencies.admissionForTransition || admissionForTransition)(continuationInput, result);
   if (admission.status !== 'admitted' && admission.status !== 'not_applicable') {
     return { ...result, adapted: false, reason: `strategy_admission_denied:${admission.reason}`, admission };
   }

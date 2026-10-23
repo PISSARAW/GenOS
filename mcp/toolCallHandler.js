@@ -94,6 +94,7 @@ async function cliCall({ args, runGenosCli }) {
     genos_v2_init: ['init'],
     genos_v2_fork: ['agent', 'fork', '--parent-id', args.parent_id]
   };
+  if (args.toolName === 'genos_replay') await assertOwnWorkerReplay(args.snapshot || args.snapshot_id);
   const command = commands[args.toolName];
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
   const text = await runGenosCli(withBiomimicryParams(command, args), args);
@@ -101,6 +102,15 @@ async function cliCall({ args, runGenosCli }) {
   const result = parseCliOutput(text);
   if (result?.success === false) throw new Error(result.error || 'CLI operation was not completed.');
   return text;
+}
+
+async function assertOwnWorkerReplay(reference) {
+  const agentId = String(process.env.GENOS_AGENT_ID || '').trim();
+  if (!agentId || !HAS_BACKEND_RUNTIME) throw new Error('Worker identity is required to replay a capsule.');
+  const db = await REPO_REQUIRE('./backend/src/db').getDatabase();
+  const owns = await REPO_REQUIRE('./backend/src/services/agents/workerContractEnforcement')
+    .ownsReplaySnapshot(db, agentId, reference);
+  if (!owns) throw new Error('Workers may replay only their own evidence capsule.');
 }
 
 function parseCliOutput(text) {

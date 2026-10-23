@@ -38,20 +38,56 @@ test('adapter resolves frozen and imposed topologies per task', () => {
   assert.equal(adapters.resolvedAutonomous({ autonomous: false }), false);
 });
 
+test('nonzero GenOS exit preserves a valid receipt and stdout/stderr diagnostics', async () => {
+  const { EventEmitter } = require('node:events');
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.kill = () => {};
+  const receipt = { orchestratorId: 'orchestrator-1', token_usage: { totalTokens: 4 } };
+  const resultPromise = adapters.executeGenos({ payload: {}, env: {}, repo: __dirname,
+    state: { budget: { latencyMs: 1000 }, spawnProcess: () => {
+      setImmediate(() => {
+        child.stdout.emit('data', `${JSON.stringify(receipt)}\n`);
+        child.stderr.emit('data', 'runtime failure detail');
+        child.emit('close', 2);
+      });
+      return child;
+    } } });
+  const execution = await resultPromise;
+  assert.equal(execution.exitCode, 2);
+  assert.equal(execution.receipt.orchestratorId, receipt.orchestratorId);
+  assert.match(execution.stdoutExcerpt, /orchestrator-1/);
+  assert.match(execution.stderrExcerpt, /runtime failure detail/);
+});
+
 test('frozen selection prefers pass rate, then tokens, then name', () => {
   const plan = { training: { taskIds: ['train-cap-01'], candidateTopologies: ['trinity', 'a_team', 'biome'] } };
   const attempts = [
-    { family: 'regime-cap', topology: 'trinity', oraclePassed: true, tokenUsage: { total: 9 } },
-    { family: 'regime-cap', topology: 'a_team', oraclePassed: true, tokenUsage: { total: 5 } },
-    { family: 'regime-cap', topology: 'biome', oraclePassed: false, tokenUsage: { total: 1 } }
+    { family: 'regime-cap', topology: 'trinity', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: true, tokenUsage: { total: 9 } },
+    { family: 'regime-cap', topology: 'a_team', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: true, tokenUsage: { total: 5 } },
+    { family: 'regime-cap', topology: 'biome', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: false, tokenUsage: { total: 1 } }
   ];
   assert.equal(selectFrozen(attempts, plan)['regime-cap'], 'a_team');
+});
+
+test('frozen selection refuses to rank a family without a verified Qwen oracle pass', () => {
+  const plan = { training: { taskIds: ['train-cap-01'], candidateTopologies: ['biome', 'trinity'] } };
+  const attempts = [
+    { family: 'regime-cap', topology: 'biome', parsePassed: false, servedModelOk: false, budgetOk: false,
+      oraclePassed: false, tokenUsage: { total: null }, error: 'runtime unavailable' },
+    { family: 'regime-cap', topology: 'trinity', parsePassed: false, servedModelOk: false, budgetOk: false,
+      oraclePassed: false, tokenUsage: { total: null }, error: 'runtime unavailable' }
+  ];
+  assert.throws(() => selectFrozen(attempts, plan), /No verified Qwen training outcome for family regime-cap/);
 });
 
 test('le plan fige actuel est pilote, non confirmatoire', () => {
   const plan = JSON.parse(fs.readFileSync(path.join(__dirname, 'regime-change-plan.json'), 'utf8'));
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, plan.taskSetFile), 'utf8'));
   assert.equal(plan.evidenceGrade, 'pilot');
+  assert.ok(plan.executionBudget.minimumWorkerTokens >= 1000, 'worker token floor must cover observed morphology prompts');
+  assert.equal(plan.executionBudget.minimumWorkerTokens, data.budgets.minimumWorkerTokens);
   assert.equal(plan.requiredRepetitions, 3);
   const result = qualification.qualifyRegimePlan(plan, data.tasks);
   assert.equal(result.grade, 'pilot');

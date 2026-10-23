@@ -49,9 +49,10 @@ async function runAction(context, args) {
   let result;
   const stopHeartbeat = receipts.heartbeat(context);
   try {
+    const authority = actionAuthority(context);
     const toolAuthority = await require('./missionEnvelopeAuthority').assertTool(context.db, {
-      agentId: context.orchestratorId, toolName: context.decision.tool });
-    result = await mcp.execute({ agentId: context.orchestratorId,
+      agentId: authority.agentId, runId: authority.runId, toolName: context.decision.tool });
+    result = await mcp.execute({ agentId: authority.agentId,
       runId: toolAuthority.envelope.runId,
       organizationId: toolAuthority.envelope.scope.organizationId,
       projectId: toolAuthority.envelope.scope.projectId,
@@ -77,6 +78,14 @@ async function runAction(context, args) {
     console.error('[OrchestrationActionExecutor] Error applying step for orchestrator.', { orchestratorId: context.orchestratorId, error: err.message });
   }
   return { executed: result.success, result };
+}
+
+function actionAuthority(context) {
+  const runId = context.event?.payload?.executionRunId;
+  if (context.decision.tool === 'genos_replay' && context.sourceAgentId && runId) {
+    return { agentId: context.sourceAgentId, runId };
+  }
+  return { agentId: context.orchestratorId, runId };
 }
 
 async function applyOrganizationAfterVerification(context, result) {
@@ -134,4 +143,4 @@ async function compileMemorySafely(context, args) {
   }
 }
 
-module.exports = { actionArguments, execute, normalizeActionResult, runAction };
+module.exports = { actionArguments, actionAuthority, execute, normalizeActionResult, runAction };

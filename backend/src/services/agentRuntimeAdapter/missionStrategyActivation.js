@@ -55,10 +55,8 @@ function daemonInventory(ctx) {
 }
 
 function topologyCapabilities(mission, plan) {
-  const capabilityPlan = mission.missionCapabilityPlan || {};
-  const inventory = mission.topologyCapabilityInventory || plan.topologyCapabilityInventory || {};
-  const declared = inventory.available || capabilityPlan.availableTopologyCapabilities;
-  return Array.isArray(declared) ? [...declared] : null;
+  return require('../morphogenesis/topologyCapabilityInventory')
+    .resolveTopologyCapabilityInventory(mission, plan).available;
 }
 
 function missionText(mission) { return mission.prompt || mission.currentTask || ''; }

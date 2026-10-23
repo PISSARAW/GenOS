@@ -17,7 +17,7 @@ const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService')
 const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
 const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
-  consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
+  resolveMaxOutputTokens, consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
 const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
@@ -51,22 +51,6 @@ function isOrchestratorMission(mission) {
   return false;
 }
 
-function resolveMaxTokens(budget, prompt, identityExperimentScenario) { if (budget <= 0) return undefined; const remaining = budget - estimatePromptTokens(prompt); return identityExperimentScenario ? Math.min(remaining, 1024) : remaining; }
-function missionEvidenceRefs(mission) {
-  const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
-  return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
-}
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [], identityExperimentScenario: mission.identityExperimentScenario, specialtyNiche: mission.specialtyNiche }); }
-function sourceReferenceInstruction(mission) {
-  const refs = missionEvidenceRefs(mission);
-  const sourceDescriptions = [];
-  if (refs.includes('worker_self')) sourceDescriptions.push('"worker_self" is the canonical WorkerSelf block shown in this prompt');
-  if (refs.includes('identity_sheet')) sourceDescriptions.push('"identity_sheet" is the minimal identity sheet shown in this prompt');
-  const description = sourceDescriptions.length ? ` Source meanings: ${sourceDescriptions.join('; ')}.` : '';
-  return `Use only these exact evidence references: ${JSON.stringify(refs)}.${description} `
-    + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
-    + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
-}
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
@@ -105,7 +89,7 @@ async function generateWorkerResult(ctx) {
         requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
       })
-      : workerResponseFormat(ctx.mission),
+      : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission),
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
@@ -257,6 +241,7 @@ async function runGenerationStage(ctx) {
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = workspaceDetails.text;
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
+    assignment: ctx.mission,
     codeWorker: codeWorker,
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
@@ -270,8 +255,10 @@ async function runGenerationStage(ctx) {
     workerSelfBlock: wsBlock,
     identityExperimentArm: experimentArm || null,
     workspaceContext: workspaceContext,
-    workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
-      sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
+    workerInstruction: [`Worker kind: ${kind}. ${require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(ctx.mission)
+      ? 'Solve the assigned in-scope allocation; only abstain after exhaustive proof no solution exists.'
+      : workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
+      require('./workerEvidenceIdentityPrompt').sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   if (identityExperimentAudit) {
@@ -280,7 +267,7 @@ async function runGenerationStage(ctx) {
         ...identityExperimentAudit,
         identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
         identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
-        allowedEvidenceRefs: missionEvidenceRefs(ctx.mission),
+        allowedEvidenceRefs: require('./workerEvidenceIdentityPrompt').missionEvidenceRefs(ctx.mission),
         promptText,
         promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
         promptCharacters: promptText.length
@@ -288,13 +275,14 @@ async function runGenerationStage(ctx) {
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
-  const result = await generateWorkerResult({
+  let result = await generateWorkerResult({
     db: ctx.db,
     mission: ctx.mission,
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxTokens(budget, promptText, ctx.mission.identityExperimentScenario),
+    maxTokens: resolveMaxOutputTokens(budget, promptText, ctx.mission.workerKind === 'resource_steward' ? 768
+      : (ctx.mission.identityExperimentScenario ? 1024 : undefined)),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
@@ -302,10 +290,13 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   });
+  result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
   if (codeWorker && codeRepairPlans) {
     result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
   }
+  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
+    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
@@ -326,11 +317,13 @@ async function runEvidenceStage(ctx) {
     db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });
   if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
   require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
-  const evidenceReport = ctx.codeWorker
+  let evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);
   attachProposalTests(evidenceReport, proposal);
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
+  if (!ctx.codeWorker) evidenceReport = require('./morphogenesis/biomeAllocationRecovery')
+    .applyExhaustedRecovery(evidenceReport, ctx.mission, ctx.result.text);
   if (!ctx.codeWorker && evidenceReport.outcome === 'unresolved') {
     return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
       proof: null, noAnswer: false, unresolved: true };
@@ -338,6 +331,13 @@ async function runEvidenceStage(ctx) {
   const validationStartedAt = Date.now();
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
+  const allocationValidation = require('./morphogenesisRolePrompt').validateBiomeAllocation(
+    evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
+    { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
+  if (allocationValidation && !allocationValidation.passed) {
+    throw require('./morphogenesis/biomeAllocationFeedback')
+      .allocationFailure(evidenceReport.claims?.[0]?.statement, allocationValidation.issues);
+  }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);

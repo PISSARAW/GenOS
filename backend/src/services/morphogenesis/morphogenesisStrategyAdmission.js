@@ -102,12 +102,12 @@ function attributedTopology(assignment, fallback, strictAttribution) {
 }
 
 function workerCapabilityDenial(input) {
-  const { topology, assignments, requiredCapabilities, strictAttribution } = input;
+  const { topology, assignments, requiredWorkerCapabilities = [], strictAttribution } = input;
   const matching = assignments.filter((item) => attributedTopology(item, topology, strictAttribution) === topology);
   if (!matching.length) return deny('topology_has_no_worker_assignment', { topology });
   const available = new Set(matching.flatMap((item) => item.capabilities || [])
     .map((item) => String(item).toUpperCase()));
-  const missing = requiredCapabilities.filter((capability) => !available.has(String(capability).toUpperCase()));
+  const missing = requiredWorkerCapabilities.filter((capability) => !available.has(String(capability).toUpperCase()));
   return missing.length ? deny('worker_capabilities_missing', { topology, missing }) : null;
 }
 
@@ -122,6 +122,8 @@ function validateWorkers(input) {
   const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
     requiredCapabilities: candidate.requiredCapabilities || [] }];
   return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments,
+    requiredWorkerCapabilities: requirement.requiredWorkerCapabilities
+      || (requirements.length === 1 ? candidate.requiredWorkerCapabilities || [] : []),
     strictAttribution: requirements.length > 1 }))
     .find(Boolean) || null;
 }
@@ -147,7 +149,12 @@ function validateLease(candidate, plan, lease) {
   }
   const allowed = new Set(ceiling.map(String));
   const requested = Array.isArray(plan?.requestedTools) ? plan.requestedTools : [];
-  if (!requested.includes(operation)) return deny('morphogenesis_operation_not_requested', { operation });
+  const selectedMutation = plan?.morphologyPatch?.graph
+    && plan.selectedTopology === candidate.topology
+    && (candidate.kind !== 'VARIANT' || (plan.selectedVariant || 'default') === (candidate.variant || 'default'));
+  if (!requested.includes(operation) && !selectedMutation) {
+    return deny('morphogenesis_operation_not_requested', { operation });
+  }
   const excess = requested.filter((tool) => !allowed.has(String(tool)));
   return excess.length ? deny('requested_tools_exceed_parent_lease', { excess }) : null;
 }

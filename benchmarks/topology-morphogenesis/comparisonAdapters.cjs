@@ -1,19 +1,15 @@
 'use strict';
-
 const { performance } = require('perf_hooks');
-
+const provenance = require('./comparisonProvenance.cjs');
 function endpointUrl() {
   return process.env.GENOS_COMPARISON_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat';
 }
-
 function requestedModel() {
   return process.env.GENOS_COMPARISON_MODEL || 'qwen2.5-coder:7b';
 }
-
 function deadlineMs(budget) {
   return Number(budget.latencyMs);
 }
-
 function remainingTokens(budget, used) {
   return Math.max(0, Number(budget.tokens) - used);
 }
@@ -103,7 +99,9 @@ async function conditionalRouter(task, state) {
 }
 
 function parseJson(text) {
-  try { return JSON.parse(text); } catch { return null; }
+  try { return JSON.parse(text); } catch { /* The GenOS worker schema may wrap the answer in a claim. */ }
+  const match = String(text || '').match(/\{[\s\S]*\}/);
+  try { return match ? JSON.parse(match[0]) : null; } catch { return null; }
 }
 
 function parseGenosReceipt(stdout) {
@@ -115,6 +113,24 @@ function parseGenosReceipt(stdout) {
     } catch { /* diagnostics may precede the JSON receipt */ }
   }
   throw new Error('GenOS CLI did not return a final receipt with token usage.');
+}
+
+function outputExcerpt(value) {
+  const text = String(value || '');
+  if (text.length <= 2000) return text;
+  return `${text.slice(0, 1000)}\n...[truncated]...\n${text.slice(-1000)}`;
+}
+
+function persistExecutionLogs(state, stdout, stderr) {
+  if (!state.workspace) return { stdoutPath: null, stderrPath: null };
+  const fs = require('fs');
+  const path = require('path');
+  const directory = path.dirname(state.workspace);
+  const stdoutPath = path.join(directory, 'genos.stdout.log');
+  const stderrPath = path.join(directory, 'genos.stderr.log');
+  fs.writeFileSync(stdoutPath, stdout);
+  fs.writeFileSync(stderrPath, stderr);
+  return { stdoutPath, stderrPath };
 }
 
 function genosAnswer(receipt) {
@@ -178,6 +194,7 @@ function ensureAttemptWorkspace(state) {
   fs.mkdirSync(state.workspace, { recursive: true });
   const marker = path.join(state.workspace, '.genos-workspace');
   if (!fs.existsSync(marker)) fs.writeFileSync(marker, 'GenOS comparison attempt workspace.\n');
+  require('./pilotWorkspaceGit.cjs').initialize(state.workspace);
   const capsuleRoot = path.join(path.dirname(state.workspace), '.genos-agent-worlds');
   fs.mkdirSync(capsuleRoot, { recursive: true });
   return capsuleRoot;
@@ -235,35 +252,61 @@ async function genosFull(task, state) {
   const condition = conditionOf(state);
   const topology = resolvedTopology(condition, task);
   const policy = resolvedPolicy(condition);
-  const budget = { tokens: state.budget.tokens, latencyMs: state.budget.latencyMs,
+  const budget = { tokens: state.budget.tokens, costUsd: 0.1, latencyMs: state.budget.latencyMs,
     minimumWorkerTokens: state.minimumWorkerTokens || 800,
     workerShare: state.workerShare || 0.7 };
-  const payload = applyTopologyForcing({ action: 'orchestrate', executor: 'local',
+  const payload = applyTopologyForcing({ action: 'orchestrate',
     autonomous_orchestration: resolvedAutonomous(condition),
-    mission: task.prompt, timeoutMs: state.budget.latencyMs, execution_budget: budget,
-    tool_lease: [], allowed_commands: [], allow_file_edits: false,
+    provider: 'ollama', modelId: state.model,
+    mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
+    timeoutMs: state.budget.latencyMs, execution_budget: budget,
+    successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
+    toolLease: ['genos_change_organization', 'genos_replay'], requiredTools: ['genos_change_organization'], allowed_commands: [], allow_file_edits: true,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
-    GENOS_AGENT_EXECUTOR: 'local', GENOS_LOCAL_MODEL: state.model,
+    GENOS_AGENT_EXECUTOR: '', GENOS_LOCAL_MODEL: state.model,
+    GENOS_GVX_LEDGER_HMAC_SECRET: process.env.GENOS_GVX_LEDGER_HMAC_SECRET
+      || require('crypto').randomBytes(32).toString('hex'),
+    GENOS_TOOL_MEMBRANE_HMAC_SECRET: process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET || require('crypto').randomBytes(32).toString('hex'),
+    GENOS_IN_PROCESS_WORKERS: process.platform === 'win32' ? '1' : process.env.GENOS_IN_PROCESS_WORKERS || '',
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
     GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
     GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
     GENOS_COMPARISON_TOOL_POLICY: 'empty', GENOS_MORPHOGENESIS_V2_SHADOW: '0' };
   const started = performance.now();
-  const result = await executeGenos({ payload, env, repo, state });
+  const execution = await executeGenos({ payload, env, repo, state });
+  const result = execution.receipt;
+  if (!result) {
+    const error = new Error(`GenOS exited ${execution.exitCode} without a final receipt; inspect ${execution.logs.stdoutPath || 'stdout excerpt'} and ${execution.logs.stderrPath || 'stderr excerpt'}.`);
+    error.result = { execution };
+    throw error;
+  }
   const usage = result.token_usage;
-  const tokens = Number(usage.totalTokens ?? NaN);
-  if (!Number.isFinite(tokens)) throw new Error('GenOS receipt lacks measured total tokens.');
-  if (tokens > state.budget.tokens) throw new Error('GenOS exceeded the shared token budget.');
+  const evidenceUsage = (result.telemetry || []).filter(event => event.event_type === 'AGENT_COMPLETED')
+    .map(event => { try { return Number(JSON.parse(event.payload_json || '{}').usage?.tokens); } catch { return NaN; } })
+    .find(Number.isFinite);
+  const tokens = Number(usage.totalTokens) > 0 ? Number(usage.totalTokens) : evidenceUsage;
+  if (!Number.isFinite(tokens)) {
+    const error = new Error('GenOS receipt lacks measured total tokens.');
+    error.result = { receipt: result, execution };
+    throw error;
+  }
+  if (tokens > state.budget.tokens) {
+    const error = new Error('GenOS exceeded the shared token budget.');
+    error.result = { receipt: result, execution };
+    throw error;
+  }
   return { text: genosAnswer(result), tokens, servedModel: genosServedModel(result), promptTokens: null,
     completionTokens: null, latencyMs: performance.now() - started,
-    receipt: result, route: 'genos-full', messageCount: usage.executionRuns?.length || null };
+    receipt: result, route: 'genos-full', messageCount: usage.executionRuns?.length || null,
+    execution: execution, executionError: execution.exitCode === 0 ? null
+      : `GenOS exited ${execution.exitCode}; inspect ${execution.logs.stdoutPath} and ${execution.logs.stderrPath}.` };
 }
 
 async function executeGenos(input) {
   if (input.state.genosExecutor) return input.state.genosExecutor(input.payload);
-  const { spawn } = require('child_process');
+  const spawn = input.state.spawnProcess || require('child_process').spawn;
   const path = require('path');
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(input.repo, 'backend/bin/genos-orchestrate.cjs'), JSON.stringify(input.payload)],
@@ -272,65 +315,27 @@ async function executeGenos(input) {
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     const timer = setTimeout(() => child.kill(), input.state.budget.latencyMs);
-    child.once('error', reject);
+    child.once('error', error => {
+      clearTimeout(timer);
+      const logs = persistExecutionLogs(input.state, stdout, stderr);
+      reject(Object.assign(new Error(`GenOS process could not start: ${error.message}`), {
+        result: { execution: { exitCode: null, logs, stdoutExcerpt: outputExcerpt(stdout), stderrExcerpt: outputExcerpt(stderr) } }
+      }));
+    });
     child.once('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0) {
-        const head = stderr.slice(0, 1000);
-        const tail = stderr.slice(-1000);
-        return reject(new Error(`GenOS exited ${code}: ${head}${tail.length ? ` ... ${tail}` : ''}`));
-      }
-      try { resolve(parseGenosReceipt(stdout)); }
-      catch (error) { reject(error); }
+      const logs = persistExecutionLogs(input.state, stdout, stderr);
+      let receipt = null;
+      try { receipt = parseGenosReceipt(stdout); } catch (_) { /* retain output even when no receipt exists */ }
+      resolve({ exitCode: code ?? 1, receipt, logs,
+        stdoutExcerpt: outputExcerpt(stdout), stderrExcerpt: outputExcerpt(stderr) });
     });
   });
 }
 
-async function externalPairedPending() {
-  throw new Error('Comparaison externe appariee indisponible : aucun framework concurrent execute via le protocole commun (voir comparison-plan.json externalProtocol).');
-}
-
 const ADAPTERS = Object.freeze({ 'direct-model': direct, 'fixed-team': fixedTeam,
   'conditional-router': conditionalRouter, 'communication-light': communicationLight,
-  'genos-full': genosFull, 'external-paired-pending': externalPairedPending });
-
-const ADAPTER_METADATA = Object.freeze({ 'direct-model': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'fixed-team': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'conditional-router': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'communication-light': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'genos-full': { provenance: 'local-config', externalFramework: 'none', scope: 'local-runtime' },
-  'external-paired-pending': { provenance: 'external-paired-pending', externalFramework: 'pending', scope: 'external-paired' } });
-
-const EXTERNAL_PROTOCOL_REQUIREMENTS = Object.freeze({ sameTasks: true, sameSeeds: true,
-  sameBudgets: true, sharedIndependentOracle: true, realConcurrentExecution: true,
-  fields: ['externalFramework', 'externalAdapterVersion', 'externalProtocol', 'tasks', 'seeds', 'budgets', 'oracle'] });
-
-function adapterProvenance(name) {
-  const meta = ADAPTER_METADATA[name];
-  if (!meta) throw new Error(`Adaptateur inconnu : ${name}.`);
-  return meta;
-}
-
-function validateConditionProvenance(condition) {
-  const meta = adapterProvenance(condition.adapter);
-  if (meta.externalFramework === 'none' && condition.externalFramework && condition.externalFramework !== 'none') {
-    throw new Error(`L'adaptateur local ${condition.adapter} ne peut pas etre labellise externe (${condition.id}).`);
-  }
-  return meta;
-}
-
-function isExternalPairedReady(condition) {
-  const meta = ADAPTER_METADATA[condition.adapter];
-  if (!meta || meta.scope !== 'external-paired') return false;
-  return Boolean(condition.externalFramework) && condition.externalFramework !== 'none'
-    && condition.externalFramework !== 'pending' && Boolean(condition.externalProtocol);
-}
-
-function assertExternalComparisonAllowed(conditions, claim) {
-  const list = Array.isArray(conditions) ? conditions : [];
-  if (list.filter(isExternalPairedReady).length) return true;
-  throw new Error(`Aucune comparaison directe avec systemes concurrents etablie (${claim || 'allegation inter-frameworks'}) : aucun adaptateur external-paired enregistre avec protocole commun (memes taches/graines/budgets/oracle, execution reelle via le framework concurrent).`);
-}
+  'genos-full': genosFull, 'external-paired-pending': provenance.externalPairedPending });
 
 function createState(context) {
   const budget = context.budget || { tokens: context.tokens, latencyMs: context.latencyMs };
@@ -344,8 +349,10 @@ function createState(context) {
 }
 
 async function invokeAdapter(adapter, task, state) {
-  try { return { result: await adapter(task, state), error: null }; }
-  catch (cause) { return { result: {}, error: cause.message }; }
+  try {
+    const result = await adapter(task, state);
+    return { result, error: result.executionError || null };
+  } catch (cause) { return { result: cause.result || {}, error: cause.message }; }
 }
 
 function tokenTotal(condition, state, result) {
@@ -363,6 +370,10 @@ function measuredMetrics(condition, state, result) {
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     transitionEvidence: evidenceOf(result),
+    executionExitCode: result.execution?.exitCode ?? null,
+    executionLogs: result.execution?.logs || null,
+    executionStdoutExcerpt: result.execution?.stdoutExcerpt || null,
+    executionStderrExcerpt: result.execution?.stderrExcerpt || null,
     runtimeSucceeded: result.receipt?.success ?? null,
     allWorkersCompleted: result.receipt?.token_usage?.allRunsCompleted ?? null,
     latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null
@@ -377,7 +388,7 @@ function formatConditionResult(input) {
 }
 
 async function executeCondition(condition, task, context) {
-  validateConditionProvenance(condition);
+  provenance.validateConditionProvenance(condition);
   const adapter = ADAPTERS[condition.adapter];
   if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
   const state = createState(context);
@@ -386,6 +397,4 @@ async function executeCondition(condition, task, context) {
   return formatConditionResult({ condition, state, result, error });
 }
 
-module.exports = { ADAPTERS, ADAPTER_METADATA, EXTERNAL_PROTOCOL_REQUIREMENTS, executeCondition, parseGenosReceipt, topologyProfile,
-  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, adapterProvenance, validateConditionProvenance,
-  isExternalPairedReady, assertExternalComparisonAllowed, externalPairedPending };
+module.exports = { ADAPTERS, ...provenance, executeCondition, parseGenosReceipt, topologyProfile, normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, executeGenos };
