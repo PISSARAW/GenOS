@@ -9,8 +9,8 @@ function budgetRoster(assignments, pool) {
 
 function admissionContext(input, result) {
   const context = input.strategyAdmissionContext || {};
-  const requestedTools = mergeRequestedTools(context.requestedTools,
-    input.state.normalizedMission?.requiredTools);
+  const requestedTools = requestedToolsForTransition(context, input.state.normalizedMission,
+    result.decision?.policy);
   const blueprint = result.cohortBlueprint?.assignments || [];
   const assignments = budgetRoster(blueprint, Math.max(0, Number(input.continuation.pool) || 0));
   const allocatedTokens = assignments.reduce((sum, assignment) => sum + assignment.tokenBudget, 0);
@@ -21,6 +21,15 @@ function admissionContext(input, result) {
 
 function mergeRequestedTools(...sources) {
   return [...new Set(sources.flatMap((source) => Array.isArray(source) ? source : []))];
+}
+
+function requestedToolsForTransition(context, mission, policy) {
+  const recipe = policy?.decision?.recipe;
+  const candidate = (policy?.portfolio?.candidates || []).find((item) =>
+    item.id === recipe?.candidateId || item.candidateId === recipe?.candidateId);
+  const operation = candidate?.kind === 'VARIANT'
+    ? 'genos_change_strategy' : 'genos_change_organization';
+  return mergeRequestedTools(context?.requestedTools, mission?.requiredTools, [operation]);
 }
 
 async function transitionReceipts(input, prepared) {
@@ -59,4 +68,4 @@ async function admissionForTransition(input, result) {
   return admission;
 }
 
-module.exports = { admissionForTransition, mergeRequestedTools };
+module.exports = { admissionForTransition, mergeRequestedTools, requestedToolsForTransition };
