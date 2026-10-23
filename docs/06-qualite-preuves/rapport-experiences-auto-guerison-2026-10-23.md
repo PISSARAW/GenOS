@@ -49,3 +49,11 @@ Ces essais prouvent le comportement de récupération de processus et de backend
 ## Run T02 direct 23 en cours lors de la dernière observation
 
 Le processus `node backend/bin/genos-orchestrate.cjs` du run `autonomy-proof-t02-20261023-direct-d-repair-23` était encore vivant lors de la collecte; Ollama servait toujours `qwen2.5-coder:7b`. Son journal de sortie était vide et aucun verdict final n’était disponible. Ce run n’est ni classé réussi ni classé échoué ici; il faut relire sa base et son reçu après terminaison.
+
+## T02 — corruption sémantique de mémoire native et refus de propagation
+
+Commande exécutée le 23 octobre : `node backend/tests/test_native_memory_budget.js` — code de sortie 0. La fixture crée une base et un workspace jetables, produit une mémoire promue et la vérifie depuis deux processus Oracle indépendants dans des répertoires différents. Le scénario de dommage ajoute une fausse affirmation au contenu d’une mémoire existante. GenOS la classe `refuted`, l’exclut des résultats de recherche, refuse de réutiliser l’ancienne attestation sur le contenu modifié et refuse une nouvelle preuve positive. Le test restaure le contenu original dans un bloc `finally`. Il vérifie aussi le refus d’une provenance falsifiée, d’une portée étrangère, d’un budget insuffisant et d’une source rétractée.
+
+La commande a terminé avec les messages de réussite pour la réservation, les négatifs de mémoire et l’approbation. À la fermeture, deux effets différés ont aussi journalisé `SQLITE_MISUSE: Database is closed` (`ROLLBACK` et `TelemetryObserver`). Ces erreurs secondaires n’ont pas changé le code de sortie ni invalidé les assertions de corruption; elles restent une anomalie de nettoyage à corriger avant d’affirmer que le processus de test se termine sans erreur secondaire.
+
+Cette preuve couvre une corruption sémantique contrôlée du contenu dans une base isolée et son refus/restauration. Elle ne simule pas une corruption de pages SQLite ou une perte physique de mémoire et ne démontre pas la réparation autonome par Qwen.
