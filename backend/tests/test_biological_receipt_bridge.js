@@ -15,6 +15,7 @@ const missionContinuity = require('../src/services/missionContinuityService');
 const biologicalReceiptController = require('../src/controllers/biologicalReceiptController');
 const receiptOrigin = require('../src/middleware/biologicalReceiptOrigin');
 const homeostasisEvidence = require('../src/services/homeostasisExecutionEvidence');
+const { digest } = require('../src/services/biologicalIntegrity');
 const { buildHomeostasisContract, evaluateContract } = require('../src/services/homeostasisContractService');
 
 function sampleReceipt(missionId, receiptId) {
@@ -29,6 +30,23 @@ function sampleReceipt(missionId, receiptId) {
 async function run() {
   let db = await getDatabase(dbPath);
   try {
+    const runtimeProof = { schema: 'genos.ontogenesis-agent-completion-proof/v1',
+      missionId: 'mission-runtime', orchestratorId: 'run-runtime',
+      candidateTreeHash: 'a'.repeat(64), agentIds: ['run-runtime', 'worker-runtime'], completionVerified: true };
+    runtimeProof.payloadHash = digest(runtimeProof);
+    const runtimeExecution = homeostasisEvidence.ontogenesisRuntimeExecution({ missionId: 'mission-runtime',
+      completionContract: { requiredEvidence: [] },
+      context: { ontogenesisRuntimeCompletionProof: runtimeProof } }, { mission_id: 'mission-runtime' });
+    assert.equal(runtimeExecution.satisfied, true,
+      'independently verified Ontogenesis agent completion is valid execution evidence without biological worker bindings');
+    assert.equal(homeostasisEvidence.ontogenesisRuntimeExecution({ missionId: 'mission-runtime',
+      completionContract: { requiredEvidence: ['biological_worker_receipt'] },
+      context: { ontogenesisRuntimeCompletionProof: runtimeProof } }, { mission_id: 'mission-runtime' }), null,
+    'an explicit biological receipt contract still requires biological worker receipts');
+    const markedRuntime = homeostasisEvidence.contextWithEvidence({ evidence: ['independent_verifier_receipt'] }, runtimeExecution);
+    assert.ok(markedRuntime.evidence.includes('ontogenesis_agent_completion'));
+    assert.ok(!markedRuntime.evidence.includes('biological_worker_receipt'));
+
     const exactMissionScope = await homeostasisEvidence.missionScope({
       get: async (sql, missionId) => sql.includes('WHERE mission_id = ?') && missionId === 'durable-run-mission'
         ? { mission_id: 'durable-run-mission' } : null,

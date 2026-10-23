@@ -21,8 +21,10 @@ async function collect(db, mission) {
   const team = await require('./aTeamCompletionEvidenceService')
     .latest(db, [missionId, scope.legacyAuthorityMissionId, scope.orchestratorAgentId]);
   if (team) return aTeamExecution(team);
-  await migrateBiologicalExecutionReceipts(db);
   const registered = await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', missionId);
+  const runtime = ontogenesisRuntimeExecution(scope, registered);
+  if (runtime) return runtime;
+  await migrateBiologicalExecutionReceipts(db);
   const workers = registered ? await biology.missionEvidence(db, missionId)
     : { satisfied: true, missing: [], rejected: [], receipts: [] };
   const rust = await rustReferences(db, missionId);
@@ -31,6 +33,26 @@ async function collect(db, mission) {
   return { satisfied: workers.satisfied, missing: workers.missing, rejected: workers.rejected,
     workerCount: workers.receipts.length, references,
     verifiedRustDivisionReceipts: rust.verifiedDivisions, epoch: digest(references) };
+}
+
+function ontogenesisRuntimeExecution(mission, registered) {
+  if (!registered) return null;
+  const requiredEvidence = mission.completionContract?.requiredEvidence || [];
+  if (requiredEvidence.includes('biological_worker_receipt')) return null;
+  const proof = mission.context?.ontogenesisRuntimeCompletionProof;
+  if (proof?.schema !== 'genos.ontogenesis-agent-completion-proof/v1'
+      || proof.missionId !== mission.missionId || proof.completionVerified !== true
+      || !Array.isArray(proof.agentIds) || proof.agentIds.length === 0
+      || !/^[a-f0-9]{64}$/i.test(proof.candidateTreeHash || '')) return null;
+  const { payloadHash, ...body } = proof;
+  if (digest(body) !== payloadHash) return null;
+  const reference = { runtime: 'ontogenesis-agent-runtime', schema: proof.schema,
+    receiptId: `ontogenesis:${proof.missionId}:${payloadHash}`, payloadHash,
+    missionId: proof.missionId, orchestratorId: proof.orchestratorId,
+    agentIds: proof.agentIds, candidateTreeHash: proof.candidateTreeHash };
+  return { satisfied: true, missing: [], rejected: [], kind: 'ontogenesis_runtime',
+    workerCount: proof.agentIds.length, references: [reference],
+    verifiedRustDivisionReceipts: [], epoch: digest([reference]) };
 }
 
 function aTeamExecution(team) {
@@ -97,7 +119,9 @@ function verifiedDivisionReference(input) {
 function contextWithEvidence(context, execution) {
   const kinds = evidenceKinds(context.evidence).filter(kind => kind !== 'biological_worker_receipt');
   if (execution.kind === 'a_team') kinds.push('a_team_completion');
-  if (execution.kind !== 'a_team' && execution.satisfied && execution.workerCount > 0) {
+  if (execution.kind === 'ontogenesis_runtime') kinds.push('ontogenesis_agent_completion');
+  if (!['a_team', 'ontogenesis_runtime'].includes(execution.kind)
+      && execution.satisfied && execution.workerCount > 0) {
     kinds.push('biological_worker_receipt');
   }
   return { ...context, evidence: [...new Set(kinds)],
@@ -121,4 +145,4 @@ function bindState(state, execution) {
   return state;
 }
 
-module.exports = { missionScope, collect, contextWithEvidence, bindState };
+module.exports = { missionScope, collect, contextWithEvidence, bindState, ontogenesisRuntimeExecution };

@@ -1,6 +1,7 @@
 'use strict';
 
 const continuity = require('../missionContinuityService');
+const { digest } = require('../biologicalIntegrity');
 const { summarizeAgents } = require('../orchestratorOutcome');
 const { buildMissionContext } = require('../../../bin/orchestratorMissionHelpersBuildContext.cjs');
 
@@ -148,7 +149,18 @@ async function completionGate(db, input) {
     checks: request.verifierChecks
   });
   context.context.flags.verifierReceiptPresent = verifierReceiptPresent;
-  if (verifierReceiptPresent) context.context.evidence.push('independent_verifier_receipt');
+  if (verifierReceiptPresent) {
+    context.context.evidence.push('independent_verifier_receipt');
+    if (rootVerified && participantsVerified) {
+      const proof = { schema: 'genos.ontogenesis-agent-completion-proof/v1',
+        missionId: request.missionId || request.id, orchestratorId: request.id,
+        candidateTreeHash: verifierReceipt.treeHash,
+        agentIds: agents.map((agent) => agent.id).filter(Boolean).sort(),
+        completionVerified: true };
+      proof.payloadHash = digest(proof);
+      context.context.ontogenesisRuntimeCompletionProof = proof;
+    }
+  }
   const evidenceGate = verifyEvidenceContract(request, context);
   if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {
