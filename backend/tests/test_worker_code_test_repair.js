@@ -250,6 +250,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(persistenceFailure), /Save the canonical inventory array to localStorage immediately/);
   assert.match(locatorRepairHint(persistenceFailure), /after every add, quantity increment, and delete/);
+  const incrementFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: 'assert.ok(await page.getByText(/Oats.*3|3.*Oats/i).count()) at tests/acceptance.cjs:24:10' }] } });
+  const incrementPlan = repairPlan(incrementFailure);
+  assert.deepEqual(incrementPlan, { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
+  const incrementCandidate = JSON.stringify({ patches: [{ path: "index.html", content: "<table><tbody><tr><td>Oats</td><td>2</td></tr></tbody></table><script>const pantry=JSON.parse(localStorage.getItem(\'pantry\'))||[];</script></body>" }] });
+  const repairedIncrement = JSON.parse(applyRepairPlan(incrementCandidate, incrementPlan)).patches[0].content;
+  assert.match(repairedIncrement, /genosQuantityIncrementRepair/);
+  assert.match(repairedIncrement, /item\.quantity=Number\(item\.quantity\)\+1/);
   const exportFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
     stderr: "page.waitForEvent('download'): Timeout 4000ms exceeded while waiting for event \"download\" at tests/acceptance.cjs:28:44"
   }] } });

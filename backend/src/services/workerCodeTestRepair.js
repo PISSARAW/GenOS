@@ -32,6 +32,7 @@ function consumedTokens(error) {
 function locatorRepairHint(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
   if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return 'The Export button must trigger a real browser download. Serialize pantry state to a Blob, set an anchor download to a filename ending in .json or .csv, and click the anchor.';
+  if (/acceptance\.cjs:24:10/.test(output)) return 'The increase button was clicked but the visible row did not reach quantity 3. Update the matching Oats row and the same persisted inventory item, then keep both values synchronized after rendering.';
   if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) {
     return 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.';
   }
@@ -73,6 +74,7 @@ function locatorRepairHint(error) {
 
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/acceptance\.cjs:24:10/.test(output)) return { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' };
   if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output)) return { kind: 'ensure_add_item_behavior', label: 'Add Item' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) return { kind: 'ensure_search_filter_behavior', label: 'Search' };
@@ -136,6 +138,8 @@ function applyRepairPlan(text, plan) {
         content = require('./workerCodeExportRepair').ensureJsonExport(content);
       } else if (item.kind === 'ensure_add_item_behavior') {
         content = require('./workerCodeAddRepair').ensureAddItemBehavior(content);
+      } else if (item.kind === 'ensure_quantity_increment_behavior') {
+        content = require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(content);
       }
     }
     if (content !== patch.content) {
