@@ -35,6 +35,11 @@ async function main() {
     assert.equal(await page.getByText('Oats').count(), 1, JSON.stringify({ state, pageErrors }));
     assert.match(await page.locator('#pantry').innerText(), /Oats\s*2/);
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('items')))[0].ItemName, 'Oats');
+    await page.getByLabel('Item name').fill('Invalid');
+    await page.locator('#quantity').fill('0');
+    await page.getByRole('button', { name: 'Add Item' }).click();
+    assert.equal(await page.getByText('Invalid').count(), 0);
+    assert.equal(await page.getByRole('alert').count(), 1);
     await page.goto(`http://127.0.0.1:${server.address().port}/fallback`);
     await page.getByLabel('Item name').fill('Oats');
     await page.getByLabel('Quantity').fill('2');
