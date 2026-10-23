@@ -32,7 +32,8 @@ function parseArgs(args) {
 }
 
 function shaOf(file) {
-  return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  return createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
 function loadInputs() {
