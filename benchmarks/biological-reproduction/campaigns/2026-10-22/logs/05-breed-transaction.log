@@ -1,0 +1,7 @@
+=== Evolution breed transaction ===
+[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+  PASS: lineage throw rolls back the child INSERT with no orphan.
+  PASS: successful breed commits child + lineage atomically.
+  PASS: no manual DELETE compensation executed.
+BREED TRANSACTION TESTS PASSED.

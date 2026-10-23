@@ -4,7 +4,7 @@
   "seed": 7,
   "status": "fail",
   "model": "ollama://qwen2.5:14b",
-  "sourceCommit": "5cb3c42e85bf0560e8d58642984620e75dd06c74",
+  "sourceCommit": "ebf7bbf722b68a3f8e17ba065d02071f481c6727",
   "expected": [
     {
       "relationType": "friend",
@@ -104,5 +104,5 @@
   },
   "error": "Model timeout after 90000ms.",
   "verified": false,
-  "durationMs": 91227
+  "durationMs": 90051
 }

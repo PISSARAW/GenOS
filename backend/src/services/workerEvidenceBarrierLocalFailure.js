@@ -22,7 +22,8 @@ async function publish(ctx) {
   const failed = emit(ctx.mission.agentId, eventType, state.action, ctx.error.message,
     { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel,
       workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics,
-      proposalTests: ctx.error.proposal?.tests, usage: ctx.usage,
+      proposalTests: ctx.error.proposal?.tests,
+      appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.usage,
       stageTimings: ctx.stageTimings,
       ...(deferred ? { deferredTerminalEventType: state.eventType } : {}) }, 'warning', deferred ? 'running' : state.status);
   require('./agentEvidenceService').recordWorkerEvidence(ctx.mission, failed);

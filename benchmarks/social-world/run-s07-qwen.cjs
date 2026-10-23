@@ -31,11 +31,11 @@ function canonical(entries) {
 }
 
 function promptFor(profile) {
-  const relations = profile.relations.map(({ relationType, direction }) => ({ relationType, direction }));
   return [
-    'Copy every relation and direction from this GenOS agent profile. Do not infer any additional relation.',
-    `GenOS profile: ${JSON.stringify(relations)}`,
-    'Return JSON with one property relations, an array of objects with relationType and direction.'
+    'You are an agent in the GenOS SocialWorld scenario S07.',
+    'Read the relationship profile produced by GenOS and report every distinct relationship and its direction from agent A perspective.',
+    'Do not infer relationships that are absent from the profile. Return JSON with one property relations, an array of objects with relationType and direction.',
+    `Profile: ${JSON.stringify({ relationTypes: profile.relationTypes, relations: profile.relations })}`
   ].join('\n\n');
 }
 
@@ -50,7 +50,8 @@ function runSocialTest(filename) {
       [`backend/tests/${filename}`], { encoding: 'utf8' });
     return { command, exitCode: 0, output: output.trim() };
   } catch (error) {
-    return { command, exitCode: Number(error.status || 1), output: String(error.stdout || error.stderr || error.message).trim() };
+    return { command, exitCode: Number(error.status || 1),
+      output: String(error.stdout || error.stderr || error.message).trim() };
   }
 }
 
@@ -58,15 +59,20 @@ function runSocialTests() {
   return ['test_agent_relation_profiles.js', 'test_relation_authority_bridge.js',
     'test_social_cognition_service.js', 'test_social_epistemology_service.js'].map(runSocialTest);
 }
+
 function saveResult(result) {
   const dir = path.join(__dirname, 'campaigns', 'socialworld-qwen-20261022');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'S07-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+  const fileName = result.status === 'pass' ? 'S07-success.json' : `S07-attempt-${String(result.attempt).padStart(2, '0')}.json`;
+  fs.writeFileSync(path.join(dir, fileName), `${JSON.stringify(result, null, 2)}\n`);
 }
 
 async function main() {
   const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
   const seed = seedArg ? Number(seedArg.split('=')[1]) : 7;
+  const attemptArg = process.argv.find((arg) => arg.startsWith('--attempt='));
+  const attempt = attemptArg ? Number(attemptArg.split('=')[1]) : 1;
+  if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Attempt must be a positive integer.');
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const testResults = runSocialTests();
   const profile = await resolver.getRelationProfile('a', 'b', {
@@ -75,7 +81,7 @@ async function main() {
   const prompt = promptFor(profile);
   const startedAt = Date.now();
   if (testResults.some((test) => test.exitCode !== 0)) {
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed, attempt,
       status: 'fail', model: MODEL, sourceCommit, expected: EXPECTED, genosProfile: profile,
       testResults, verified: false, stage: 'deterministic-tests' };
     saveResult(result);
@@ -85,20 +91,21 @@ async function main() {
   }
   try {
     const response = await modelProvider.generate({ model: MODEL, prompt, seed, temperature: 0,
-      enforceSchema: false, stream: false, maxTokens: 100,
+      responseFormat: 'json_object', enforceSchema: false, stream: false, maxTokens: 250,
       timeoutMs: 90000, organizationId: 'socialworld', projectId: 's07', agentId: 'agent-a' });
     const answer = parseAnswer(response.text);
     const passed = JSON.stringify(canonical(answer)) === JSON.stringify(canonical(EXPECTED));
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed, attempt,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       genosProfile: profile, qwenResponse: response.text, answer,
       verified: passed, oracle: 'exact relation type and direction set from the seeded graph',
-      durationMs: Date.now() - startedAt, testResults, testCommand: 'node backend/tests/test_agent_relation_profiles.js' };
+      durationMs: Date.now() - startedAt, testResults,
+      testCommand: ['node benchmarks/social-world/run-s07-qwen.cjs', '--seed=' + seed, '--attempt=' + attempt].join(' ') };
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed,
+    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S07', seed, attempt,
       status: 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       genosProfile: profile, error: error.message, testResults, verified: false,
       durationMs: Date.now() - startedAt };

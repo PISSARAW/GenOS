@@ -1,0 +1,14 @@
+=== TESTING CHIMERIC TETRAGAMETIC MERGE & MOSAIC HERITAGE ===
+[GenOS Bootstrap] Default local user created: admin (role: admin).
+❌ FAIL: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at runTest (D:\GenOS\identity-real-llm-worktree\backend\tests\test_chimeric_merge.js:20:10) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

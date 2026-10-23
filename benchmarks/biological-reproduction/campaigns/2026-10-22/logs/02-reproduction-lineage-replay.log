@@ -1,0 +1,256 @@
+warning: unused import: `uuid::Uuid`
+ --> crates\genos-common\src\receipt_kinds.rs:6:5
+  |
+6 | use uuid::Uuid;
+  |     ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `assumption`
+  --> crates\genos-common\src\assumptions.rs:95:21
+   |
+95 |         if let Some(assumption) = self.assumptions.remove(&id) {
+   |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_assumption`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-common` (lib) generated 2 warnings (run `cargo fix --lib -p genos-common` to apply 2 suggestions)
+warning: unused import: `rand::RngExt`
+ --> crates\genos-genome\src\genome.rs:4:5
+  |
+4 | use rand::RngExt;
+  |     ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::gene::Gene`
+ --> crates\genos-genome\src\linkage_epistasis.rs:1:5
+  |
+1 | use crate::gene::Gene;
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `GenealogyTree`
+ --> crates\genos-genome\src\phase_d.rs:8:38
+  |
+8 | use crate::reproduction::{fertilize, GenealogyTree};
+  |                                      ^^^^^^^^^^^^^
+
+warning: unused variable: `exp`
+  --> crates\genos-genome\src\phase_d.rs:34:13
+   |
+34 |         let exp = FitnessExperiment::new();
+   |             ^^^ help: if this is intentional, prefix it with an underscore: `_exp`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `original`
+  --> crates\genos-genome\src\self_modifying.rs:54:21
+   |
+54 |                 let original = strand.as_slice()[pos].clone();
+   |                     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_original`
+
+warning: `genos-genome` (lib) generated 5 warnings (run `cargo fix --lib -p genos-genome` to apply 5 suggestions)
+warning: unused import: `Rng`
+ --> crates\genos-reproduction\src\division.rs:4:12
+  |
+4 | use rand::{Rng, RngExt};
+  |            ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-reproduction` (lib) generated 1 warning (run `cargo fix --lib -p genos-reproduction` to apply 1 suggestion)
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\dendrite.rs:2:5
+  |
+2 | use super::*;
+  |     ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\glia.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\soma.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\types.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: `genos-biology` (lib) generated 4 warnings (run `cargo fix --lib -p genos-biology` to apply 4 suggestions)
+warning: variable does not need to be mutable
+   --> crates\genos-dna\src\operations.rs:177:10
+    |
+177 |     let (mut mother_genome, child_genome) = match options.mode.as_str() {
+    |          ----^^^^^^^^^^^^^
+    |          |
+    |          help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `rebuild` is never used
+   --> crates\genos-dna\src\operations.rs:335:4
+    |
+335 | fn rebuild(genome: &Genome, name: &str, provenance: Provenance) -> AgentDna {
+    |    ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-dna` (lib) generated 2 warnings (run `cargo fix --lib -p genos-dna` to apply 1 suggestion)
+warning: unused import: `Director`
+ --> crates\genos-orchestrator\src\checkpoint.rs:1:23
+  |
+1 | use crate::director::{Director, DirectorState};
+  |                       ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `PlasmidBank`
+ --> crates\genos-orchestrator\src\diagnostics.rs:9:23
+  |
+9 | use crate::plasmids::{PlasmidBank, Skill};
+  |                       ^^^^^^^^^^^
+
+warning: unused imports: `BioluminescenceMicroscope` and `FluorophoreColor`
+ --> crates\genos-orchestrator\src\orchestrator.rs:5:38
+  |
+5 | use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
+  |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::ecology::CollusionCheck`
+ --> crates\genos-orchestrator\src\orchestrator.rs:7:5
+  |
+7 | use genos_biology::ecology::CollusionCheck;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `cleave_zygote`, `differentiate_swarm`, `sculpt_architecture_via_apoptosis`, and `seed_hox_genome`
+ --> crates\genos-orchestrator\src\orchestrator.rs:9:5
+  |
+9 |     cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome,
+  |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused imports: `SporeFromCell` and `SporeType`
+  --> crates\genos-orchestrator\src\orchestrator.rs:14:35
+   |
+14 | use genos_biology::spore::{Spore, SporeFromCell, SporeType};
+   |                                   ^^^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `TaskDelegation`
+  --> crates\genos-orchestrator\src\orchestrator.rs:15:29
+   |
+15 | use genos_biology::tissue::{TaskDelegation, Tissue};
+   |                             ^^^^^^^^^^^^^^
+
+warning: unused import: `Antigen`
+  --> crates\genos-orchestrator\src\orchestrator.rs:18:20
+   |
+18 | use genos_immune::{Antigen, ClonalSelection};
+   |                    ^^^^^^^
+
+warning: unused import: `BranchMetrics`
+  --> crates\genos-orchestrator\src\orchestrator.rs:21:63
+   |
+21 | use crate::conscience::{CognitiveRegulationState, Conscience, BranchMetrics};
+   |                                                               ^^^^^^^^^^^^^
+
+warning: unused imports: `Goal` and `WorldState`
+  --> crates\genos-orchestrator\src\orchestrator.rs:23:22
+   |
+23 | use crate::planner::{Goal, WorldState};
+   |                      ^^^^  ^^^^^^^^^^
+
+warning: unused import: `Conscience`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:2:51
+  |
+2 | use crate::conscience::{CognitiveRegulationState, Conscience, BranchMetrics};
+  |                                                   ^^^^^^^^^^
+
+warning: unused import: `ClonalSelection`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:3:29
+  |
+3 | use genos_immune::{Antigen, ClonalSelection};
+  |                             ^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::redundancy::RedundancySystem`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:5:5
+  |
+5 | use genos_biology::redundancy::RedundancySystem;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `first_pathology_for_cell` and `therapy_for_pathology`
+ --> crates\genos-orchestrator\src\tick.rs:5:30
+  |
+5 |     diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology,
+  |                              ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::plasmids::Skill`
+ --> crates\genos-orchestrator\src\tick.rs:8:5
+  |
+8 | use crate::plasmids::Skill;
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::signaling::SignalingCascade`
+ --> crates\genos-orchestrator\src\tick.rs:9:5
+  |
+9 | use crate::signaling::SignalingCascade;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::pathology::assess_agent_clinical_status`
+  --> crates\genos-orchestrator\src\tick.rs:14:5
+   |
+14 | use genos_biology::pathology::assess_agent_clinical_status;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::spore::SporeType`
+  --> crates\genos-orchestrator\src\tick.rs:15:5
+   |
+15 | use genos_biology::spore::SporeType;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::therapy::apply_systemic_therapy_to_cell`
+  --> crates\genos-orchestrator\src\tick.rs:16:5
+   |
+16 | use genos_biology::therapy::apply_systemic_therapy_to_cell;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_cell::AgentCell`
+  --> crates\genos-orchestrator\src\tick.rs:17:5
+   |
+17 | use genos_cell::AgentCell;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_signal::SignalingMode`
+  --> crates\genos-orchestrator\src\tick.rs:18:5
+   |
+18 | use genos_signal::SignalingMode;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `base_environment` is never read
+  --> crates\genos-orchestrator\src\adversarial_generator.rs:11:5
+   |
+ 9 | pub struct AdversarialGenerator {
+   |            -------------------- field in this struct
+10 |     rng: StdRng,
+11 |     base_environment: FileSandbox,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-orchestrator` (lib) generated 22 warnings (run `cargo fix --lib -p genos-orchestrator` to apply 21 suggestions)
+    Finished `test` profile [unoptimized] target(s) in 2.58s
+     Running tests\reproduction_lineage_replay.rs (D:\GenOS\reproduction-campaign-20261022\target\debug\deps\reproduction_lineage_replay-9f5a0738889d6f47.exe)
+
+running 3 tests
+test replay_child_process ... ok
+test failed_receipt_append_rolls_back_birth_and_energy ... ok
+test mission_reproduction_lineage_replays_from_reopened_journal ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s

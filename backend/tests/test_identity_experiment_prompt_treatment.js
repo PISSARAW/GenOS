@@ -21,7 +21,9 @@ assert.doesNotMatch(sheet.workerSelfBlock, /worker self/);
 assert.equal(new Set([full, masked, llm, sheet].map((x) => x.audit.arm)).size, 4);
 assert.equal(promptSha256('prompt').length, 64);
 const localMission = buildLocalMission({ id: 'agent-42', enhancedPrompt: 'Current agent {{AGENT_ID}}',
-  request: { identityExperimentArm: 'genos_full', identityExperimentSeed: 42, localModel: 'ollama://qwen2.5:14b' },
+  request: { identityExperimentArm: 'genos_full', identityExperimentSeed: 42, localModel: 'ollama://qwen2.5:14b',
+    requiredPatchPaths: ['index.html'], requiredPatchMarkers: { 'index.html': ['<h1>'] },
+    requiredPatchMinimumBytes: { 'index.html': 1200 } },
   missionBudget: { tokens: 20000, costUsd: 1, latencyMs: 26000 }, requestTimeoutMs: 30000,
   allowedCommands: [], allowFileEdits: false });
 assert.equal(localMission.prompt, 'Current agent agent-42');
@@ -30,6 +32,9 @@ assert.equal(localMission.identityExperimentSeed, 42);
 assert.equal(localMission.executionBudget.costUsd, 1);
 assert.equal(localMission.executionBudget.tokens, 20000);
 assert.deepEqual(localMission.allowedEvidenceRefs, ['mission', 'worker_self']);
+assert.deepEqual(localMission.requiredPatchPaths, ['index.html']);
+assert.deepEqual(localMission.requiredPatchMarkers, { 'index.html': ['<h1>'] });
+assert.deepEqual(localMission.requiredPatchMinimumBytes, { 'index.html': 1200 });
 const sheetMission = buildLocalMission({ id: 'agent-43', enhancedPrompt: 'Mission',
   request: { identityExperimentArm: 'identity_sheet' }, missionBudget: {}, requestTimeoutMs: 30000,
   allowedCommands: [], allowFileEdits: false });
