@@ -843,6 +843,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0728](0728-laboratoire-qualification-securite-sqlab.md) | Security Qualification Laboratory (SQLab) et référentiel C0–C5 | Accepté | 2026-10-22 | cybersécurité, qualification, reproductibilité, preuves de fonctionnement réel |
 | [0729](0729-mission-cc-genos-001.md) | Mission CyberCorp CC-GENOS-001 | Voir le fichier | -- | -- |
 | [0730](0730-surveillance-immunitaire-securite.md) | Surveillance immunitaire de sécurité pilotée par adaptateurs | Accepté | 2026-10-22 | sécurité, immunité, perception, preuve et intégrations de projet |
+| [0731](0731-porte-commune-du-cycle-de-vie-par-contrat-d-operation.md) | Porte commune du cycle de vie par contrat d'opération | Accepté | 2026-10-23 | architecture transversale, contrats d'opération, evidence, budgets, leases, snapshots |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
