@@ -173,20 +173,8 @@ function proposalResponseFormat(options = {}) {
     format.schema.properties.patches.minItems = paths.length;
     format.schema.properties.patches.maxItems = paths.length;
     format.schema.properties.patches.items.properties.path.enum = paths;
-    format.schema.properties.patches.allOf = paths.map((requiredPath) => ({
-      contains: { type: 'object', properties: { path: { const: requiredPath },
-        content: { type: 'string', minLength: resolved.requiredPatchMinimumBytes[requiredPath] || 0,
-          allOf: markerPatterns(resolved.requiredPatchMarkers[requiredPath]) } },
-      required: ['path', 'content'] }
-    }));
   }
   return format;
-}
-
-function markerPatterns(markers) {
-  return (Array.isArray(markers) ? markers : []).map((marker) => ({
-    pattern: String(marker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  }));
 }
 
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,

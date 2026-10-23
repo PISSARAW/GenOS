@@ -37,3 +37,35 @@ La procédure de répétition accélérée SHEV (`docs/04-exploitation/repetitio
 ## Conclusion
 
 Les expériences établissent que plusieurs mécanismes de guérison ont des tests locaux qui passent, et que le cycle SHRE peut muter et restaurer un fichier sandbox avec contrôle d’empreinte. Elles n’établissent pas l’auto-guérison autonome, causale, indépendante et durable d’une lésion inconnue. Le résultat négatif de qualification doit rester attaché aux succès techniques : annoncer une guérison générale sur cette base serait un overclaim.
+
+## Expérience réelle Qwen sur D: — T02, tentative 24
+
+- **Banc** : `D:\GenOS\runs\autonomy-proof-t02-20261022`, orchestration exécutée depuis le checkout `D:\GenOS\identity-real-llm-worktree`.
+- **Modèle** : `qwen2.5-coder:32b` via Ollama local.
+- **Oracle** : suite Playwright immuable `npm test`, fournie dans le workspace isolé; elle vérifie formulaire accessible, ajout, filtre, recherche, quantité persistée, export JSON, validation, suppression, mode hors ligne et affichage mobile.
+- **Résultat** : échec avant application du patch. Après 281,9 s et 891 tokens de sortie, le parseur a rejeté la proposition avec `Unterminated string in JSON at position 3148 (line 6 column 3057)`. Aucun `index.html` n’a été créé; `npm test` n’a donc pas tourné. Le gate a terminé en `evidence_missing` et n’a pas annoncé de guérison.
+- **Interprétation** : cet essai mesure une défaillance réelle de génération/formatage du worker Qwen, pas un défaut fonctionnel de l’application. Le refus strict et l’absence de patch dans le workspace sont le comportement de sûreté attendu. La réussite T02 n’est pas démontrée par cette tentative.
+- **Reproductibilité** : requête source `D:\GenOS\runs\autonomy-proof-t02-20261022\project\attempt-24.json`; reçu opérationnel `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-attempt-24.db`. Le journal `RUN_LOG.md` et ces artefacts résident sur D: et ne font pas partie du dépôt Git.
+
+## Complément — expériences Qwen réelles sur D:
+
+Les tentatives suivantes utilisent des workspaces Pantry isolés et le modèle Ollama local `qwen2.5-coder:32b`. Le reçu indépendant est la suite Playwright `npm test`; les patches candidats sont restaurés après échec. Les tentatives 40–42 ont été lancées depuis le binaire C: avec workspace D: et ne qualifient donc pas le code du checkout D:. À partir de 44, le CLI utilisé est `D:\GenOS\identity-real-llm-isolated\backend\bin\genos-orchestrate.cjs` (révision observée `b12d97678`), avec base SQLite dédiée/clonée.
+
+| Tentative | Exécution / résultat vérifié | Qualification |
+| --- | --- | --- |
+| 39 | Les assertions fonctionnelles atteignent le téléchargement JSON, puis l’oracle original rejette `pantry-items.json` à cause de la regex `/\\.(json|csv)$/i`, qui attend une barre oblique inverse littérale avant le point. | Échec d’oracle démontré. |
+| 40 | Le workspace isolé corrige uniquement cette regex en `/\.(json|csv)$/i` (original archivé sous `oracle-attempt-40-original.cjs`). Qwen produit un candidat de 5 192 octets; Playwright passe jusqu’au bouton d’incrémentation, absent sous le nom accessible attendu. | Échec application vérifié à `acceptance.cjs:23`. |
+| 41 | Qwen produit 6 146 octets; Playwright constate deux contrôles nommés `Category` et échoue en mode strict au sélecteur `acceptance.cjs:16`. | Échec application vérifié. |
+| 42 | Préflight et postflight exécutés par le lanceur C:; aucun candidat ni reçu Playwright dans le workspace. | Non concluant; exclu de la preuve du checkout D:. |
+| 43 | Lanceur du checkout D: démarré, puis session et processus terminés sans événement de fin du ledger ni reçu de test. | Non concluant; aucun résultat applicatif inféré. |
+| 44 | Depuis le CLI D:, Qwen rend une proposition mais le worker la rejette avant Playwright: le manifeste exigeait la chaîne littérale `aria-label="Category"`, absente d’un candidat qui utilisait un label HTML visible. Aucun test applicatif n’a tourné. | Faux négatif du contrat de marqueurs; le manifeste suivant retire ce marqueur de forme, sans toucher à l’oracle. |
+| 45 | Depuis D:, le candidat initial de 4 212 octets échoue car le label `Category` ne résout pas le locator exact. `LOCAL_CODE_TEST_REPAIR` démarre le retry 1; le deuxième candidat résout le locator mais son select n’offre pas l’option `Food`. Un troisième appel Qwen est lancé, puis expire après 230 662 ms, le budget résiduel étant de 230 783 ms. Le chemin d’échec lève ensuite `IDENTITY_SESSION_STALE`; aucun succès n’est enregistré. | Deux cycles de réparation Qwen et deux reçus Playwright réels démontrés; mission non réussie, limite de délai et erreur secondaire de session enregistrées. |
+| 46 | CLI D:, base et workspace isolés, budget porté à 1 800 000 ms. Le préflight, `LOCAL_WORKER_STARTED` et `INFERENCE_STARTED` existent, mais aucune complétion modèle, proposition, suite Playwright ou clôture de mission n’a été écrite avant l’arrêt de la session. | Non concluant; ne pas présenter comme échec fonctionnel ni comme succès. |
+
+### Correctif du format de réponse Ollama
+
+Pour éviter que la réponse structurée Ollama refuse certains schémas `allOf/contains` complexes, `proposalResponseFormat` n’impose plus les marqueurs et minimums d’octets au niveau du schéma généré. Ces exigences restent appliquées côté worker par `assertRequiredPatchContract` après parsing; chemins, nombre de patches et allowlist restent contraints. `node backend/tests/test_local_code_worker.js` échoue en sandbox standard uniquement sur la création de symlink Windows (`EPERM`); la même commande, relancée avec l’autorisation locale requise par ce test de sécurité, passe avec `Local code worker safety checks passed.`
+
+### Portée des résultats
+
+Cette série démontre que le worker D: peut appeler Qwen 32B, recevoir de vrais candidats, exécuter Playwright, transmettre les assertions au retry et préserver les échecs. Elle ne démontre pas T02 réussi: aucune tentative de cette série n’a atteint `test_suite_passed` et aucune n’a franchi la porte de complétion. Le succès de la suite locale du worker valide le contrat de sûreté, pas l’app Pantry. Les expériences T01–T08 et le critère SH-001 restent à qualifier séparément.

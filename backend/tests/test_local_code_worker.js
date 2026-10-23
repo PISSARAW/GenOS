@@ -20,15 +20,11 @@ const webResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test']
 	requiredPatchPaths: ['index.html', 'styles.css', 'script.js'],
 	requiredPatchMarkers: { 'index.html': ['data-reveal'] },
 	requiredPatchMinimumBytes: { 'index.html': 4500 } });
-assert.equal(webResponseFormat.schema.properties.patches.allOf.length, 3);
-assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.path.const, 'index.html');
 assert.deepEqual(webResponseFormat.schema.properties.patches.items.properties.path.enum,
 	['index.html', 'styles.css', 'script.js']);
 assert.equal(webResponseFormat.schema.properties.patches.minItems, 3);
 assert.equal(webResponseFormat.schema.properties.patches.maxItems, 3);
-assert.deepEqual(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.allOf,
-	[{ pattern: 'data-reveal' }]);
-assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.minLength, 4500);
+assert.equal(webResponseFormat.schema.properties.patches.allOf, undefined);
 assert.deepEqual(require('../src/services/modelProviderRequest').buildRequestBody({
 	provider: 'ollama', modelName: 'fixture', prompt: 'Return a proposal.', outputLimit: 128,
 	stream: false, nativeOllama: true, responseFormat
