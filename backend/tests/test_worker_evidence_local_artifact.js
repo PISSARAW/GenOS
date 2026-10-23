@@ -45,6 +45,12 @@ assert.throws(() => attachWorkerArtifact(unboundReceipt, {
   codeWorker: true, mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' }
 }), (error) => error.code === 'INVALID_WORKER_ARTIFACT'
   && error.workerArtifactDiagnostics.issues.some((issue) => issue.includes('code-test-execution')));
+assert.throws(() => attachWorkerArtifact(unboundReceipt, {
+  codeWorker: true, proposal: { testExecutionReceipt: { receiptHash: 'c'.repeat(64) } },
+  mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' }
+}), (error) => error.code === 'INVALID_WORKER_ARTIFACT'
+  && error.workerArtifactDiagnostics.issues.some((issue) => issue.includes('code-test-execution')),
+'a report receipt that differs from the actual proposal receipt must remain unresolved');
 
 const invalid = { outcome: 'success', claims: [], fullText: '{"outcome":"success","claims":[]}' };
 assert.throws(() => attachWorkerArtifact(invalid, {
