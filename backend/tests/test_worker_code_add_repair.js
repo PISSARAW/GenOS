@@ -42,8 +42,8 @@ async function main() {
     assert.equal(await page.getByText('Oats').count(), 1);
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].quantity, 3);
-    await page.evaluate(() => sessionStorage.setItem('hydrate', '1'));
     await page.reload();
+    assert.equal(await page.locator('tbody tr').count(), 1);
     assert.ok(await page.getByText(/Oats.*3|3.*Oats/i).count());
   } finally {
     await browser.close();
