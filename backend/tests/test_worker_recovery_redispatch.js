@@ -95,7 +95,9 @@ function clearSharedState() {
 }
 
 async function checkSameIdentityRedispatch(db) {
-  const { mission, report, decision } = queuedRecovery('rec-w', 'unresolved_task');
+  const { mission, report, decision } = queuedRecovery('rec-w', 'unresolved_task', {
+    garageRequestId: 'old-request', garageLeaseId: 'old-lease'
+  });
   assert.equal(decision.identity, 'same');
   orchestrationState.pendingWorkerRecoveries.set('rec-w', { mission, report, decision });
   assert.equal(await dispatchWorkerRecovery('rec-w'), true, 'recovery of a killed worker must dispatch');
@@ -103,6 +105,8 @@ async function checkSameIdentityRedispatch(db) {
   const dispatched = startedMissions[0];
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the checkpoint reference is resumed');
   assert.deepEqual(dispatched.snapshots, [{ id: 'snap-1' }]);
+  assert.equal(dispatched.garageRequestId, undefined, 'recovery must not reuse the failed worker garage request');
+  assert.equal(dispatched.garageLeaseId, undefined, 'recovery must not reuse the failed worker garage lease');
   assert.deepEqual(dispatched.modelBudgetScope, { id: 'scope-1', costUsd: 1, tokens: 1000 }, 'the budget scope is consumed as-is');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w'")).status, 'running');
   assert.equal(await openClaims(db, 'rec-w'), 0, 'no duplicate open claim remains');

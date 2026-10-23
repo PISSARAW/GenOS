@@ -294,6 +294,11 @@ function buildRecoveryMission(input) {
     recoveryHistory: [...(mission.recoveryHistory || []), { workerId: sourceAgentId, category: report.category, action: decision.action, report, decision }],
     bisection: bisectionResult || report.bisection || null,
     culpritReport: report.culpritReport || null,
+    // Recovery reserveSlot creates a fresh in-memory garage admission, not a
+    // persistent queue lease. Never carry the failed worker's claim identity
+    // into the new execution (same identity or replacement).
+    garageRequestId: undefined,
+    garageLeaseId: undefined,
     workspaceRoot: workspace.workspaceRoot,
     workspaceProvisioned: true,
     orchestratorAgentId: orchestratorId,
