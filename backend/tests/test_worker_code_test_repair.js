@@ -223,6 +223,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(repairedAdd, /form\.replaceWith\(cleanForm\)/);
   assert.match(repairedAdd, /cleanForm\.querySelectorAll\('button,input\[type="submit"\],input\[type="image"\]'\)/);
   assert.match(repairedAdd, /button\[onclick\*="addItem"\]/);
+  assert.match(repairedAdd, /#addItem,#add-item/);
+  assert.match(repairedAdd, /find\(button=>\/\^add item\$\/i\.test\(button\.textContent\.trim\(\)\)\)/);
   assert.match(repairedAdd, /localStorage\.setItem/);
   assert.match(repairedAdd, /renderPantry\(\)/);
   const clickAddCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
