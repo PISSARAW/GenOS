@@ -91,7 +91,10 @@ assert.match(stewardMission, /Use target-sum search: enumerate subsets that fill
 assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to another subset/);
 assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
-assert.match(stewardMission, /complete GenOS dossier/);
+assert.match(stewardMission, /exactly one GenOS dossier/);
+assert.match(stewardMission, /exactly one claim/);
+assert.match(stewardMission, /do not repeat the schema, add another claim or nested dossier/);
+assert.doesNotMatch(stewardMission, /Return a complete GenOS dossier: \{"outcome":"success"/);
 assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>\"\],\[\"<item-id>\"\],\[\"<item-id>\"\]\]/);
 assert.match(stewardMission, /bins are arrays of exact item identifiers, never weights/);
 assert.match(stewardMission, /only the compact candidate JSON object in claims\[0\]\.statement/);
