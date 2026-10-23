@@ -29,6 +29,14 @@ function sampleReceipt(missionId, receiptId) {
 async function run() {
   let db = await getDatabase(dbPath);
   try {
+    const exactMissionScope = await homeostasisEvidence.missionScope({
+      get: async (sql, missionId) => sql.includes('WHERE mission_id = ?') && missionId === 'durable-run-mission'
+        ? { mission_id: 'durable-run-mission' } : null,
+      all: async () => [{ mission_id: 'stale-mission-a' }, { mission_id: 'stale-mission-b' }]
+    }, { id: 'orchestrator-run', missionId: 'durable-run-mission' });
+    assert.equal(exactMissionScope.id, 'durable-run-mission',
+      'explicit durable mission identity avoids ambiguous orchestrator history');
+
     const missionId = randomUUID();
     const receiptId = randomUUID();
     await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', missionId, 'receipt bridge integration');

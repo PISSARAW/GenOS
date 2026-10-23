@@ -152,6 +152,7 @@ async function completionGate(db, input) {
   const evidenceGate = verifyEvidenceContract(request, context);
   if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {
+    missionId: request.missionId,
     orchestratorAgentId: request.id, completionContract: context.completionContract,
     invariants: context.invariants, safetyConstraints: context.safetyConstraints, context: context.context
   });
