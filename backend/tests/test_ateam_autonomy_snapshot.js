@@ -34,9 +34,13 @@ async function run() {
     : { id: 'workspace', organization_id: 'org', project_id: 'project' } };
   try {
     const autonomyPlan = { aTeam: { activated: true, members, organization: 'specialist_expert_committee' } };
-    await persistATeamRun({ db, agentId: 'orchestrator', normalizedMission: { prompt: 'Build a service' }, autonomyPlan });
+    await persistATeamRun({ db, agentId: 'orchestrator', normalizedMission: {
+      prompt: 'Build a service', executionBudget: { tokens: 900 }
+    }, autonomyPlan });
     const teamRun = autonomyPlan.aTeam.teamRun;
     assert.equal(teamRun.execution.organizationPolicy.variant, 'project_dag');
+    assert.ok(autonomyPlan.aTeam.members.every((member) => member.executionBudgetTokens > 0));
+    assert.ok(autonomyPlan.aTeam.members.reduce((sum, member) => sum + member.executionBudgetTokens, 0) <= 900);
     assert.equal(autonomyPlan.aTeam.workGraph.teamRunId, teamRun.teamRunId);
     const manifest = await snapshot.capture({ db, scope: {
       clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org', 'project']
