@@ -25,11 +25,9 @@ function activationError(code, message, details = {}) {
   return Object.assign(new Error(message), { code, ...details });
 }
 
-function assertDedicatedPlan(ctx, topology) {
+function dedicatedPlanActive(ctx, topology) {
   const dedicated = topology === 'trinity' ? ctx.autonomyPlan.trinity : ctx.autonomyPlan.aTeam;
-  if (dedicated?.activated === true && ctx.autonomyPlan.dispatchWorkers?.length) return;
-  throw activationError('MORPHOGENESIS_TOPOLOGY_NOT_ACTIVATED',
-    `Morphogenesis selected '${topology}', but its dedicated mission plan did not activate.`, { topology });
+  return dedicated?.activated === true && ctx.autonomyPlan.dispatchWorkers?.length > 0;
 }
 
 function executableMembers(composition, topology) {
@@ -162,8 +160,10 @@ async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {})
   const nodes = topologyNodes(morphologyPlan);
   const dedicated = nodes.length === 1 && nodes[0].topology === topology
     && DEDICATED_TOPOLOGIES.has(topology);
-  if (dedicated) assertDedicatedPlan(ctx, topology);
-  else await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  if (!dedicated || !dedicatedPlanActive(ctx, topology)) {
+    await composeTopologyGraph(ctx, morphologyPlan, dependencies);
+  }
+
   return bindSelectedPlan(ctx, morphologyPlan);
 }
 

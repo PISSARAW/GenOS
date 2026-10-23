@@ -92,13 +92,29 @@ async function verifyComposedTopologiesDriveDispatch() {
   }
 }
 
-async function verifyDedicatedTopologyFailsClosed() {
+async function verifyActivatedDedicatedPlanIsReused() {
   const ctx = context();
-  ctx.autonomyPlan.trinity = { activated: false };
-  await assert.rejects(
-    activation.activateMorphogenesisPlan(ctx, plan('trinity')),
-    { code: 'MORPHOGENESIS_TOPOLOGY_NOT_ACTIVATED' }
-  );
+  ctx.autonomyPlan.trinity = { activated: true };
+  const assignments = await activation.activateMorphogenesisPlan(ctx, plan('trinity'));
+  assert.equal(assignments.length, 1);
+  assert.equal(ctx.autonomyPlan.selectedTopology, 'trinity');
+}
+
+async function verifyDedicatedMorphologyUsesSelectedGraph() {
+  const ctx = context();
+  let composedMode = null;
+  const assignments = await activation.activateMorphogenesisPlan(ctx, plan('a_team'), {
+    composeMode: async ({ mode }) => {
+      composedMode = mode;
+      return { organization: 'morphogenesis_a_team', members: [
+        { role: 'specialist', executionMode: 'worker', workerKind: 'scout_cell' }
+      ] };
+    }
+  });
+  assert.equal(composedMode, 'a_team');
+  assert.equal(assignments.length, 1);
+  assert.equal(ctx.autonomyPlan.selectedTopology, 'a_team');
+  assert.equal(ctx.autonomyPlan.topologyComposition.organization, 'morphogenesis_a_team');
 }
 
 async function verifyCompositeGraphDrivesMixedDispatch() {
@@ -148,7 +164,8 @@ async function main() {
   await verifySelectionSeedsMission();
   await verifyComposedTopologiesDriveDispatch();
   await verifyCompositeGraphDrivesMixedDispatch();
-  await verifyDedicatedTopologyFailsClosed();
+  await verifyActivatedDedicatedPlanIsReused();
+  await verifyDedicatedMorphologyUsesSelectedGraph();
   await verifyBudgetGate();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');
