@@ -180,12 +180,12 @@ function createLocalRunner(timeoutMs) {
   };
 }
 
-async function executeRemoteTransport(toolName, args, timeoutMs) {
+async function executeRemoteTransport(toolName, args, timeoutMs, agentId = null) {
   const transport = configuredTransport();
   if (transport && transport.type === 'invalid') return invalidConfigResult(transport);
   const result = transport.type === 'http'
     ? await callHttpFn(transport.url, toolName, { args, timeoutMs })
-    : await callStdioFn(transport, toolName, { args, timeoutMs });
+    : await callStdioFn(transport, toolName, { args, timeoutMs, agentId });
   const isError = result.isError === true;
   const output = normalizeTransportOutput(result);
   const domainFailure = explicitDomainFailure(output) || explicitDomainFailure(result.content);
@@ -223,7 +223,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     return withDocking(result, stericDocking);
   }
   if (hasConfiguredEndpoint()) {
-    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs);
+    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs, agentId);
     return withDocking(result, stericDocking);
   }
   const runLocal = createLocalRunner(timeoutMs);
