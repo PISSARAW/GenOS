@@ -461,3 +461,4 @@ Sur la tête saine D: après les correctifs SH-001, les six commandes du rapport
 - `test_security_qualification_lab.js` — PASS du laboratoire de qualification simulé.
 
 Ces tests prouvent les contrats locaux et la simulation du labo. Ils ne prouvent pas une réparation sur VM Hyper-V, une campagne terrain de 72 h, ni une réparation SH-001 générée par Qwen. Les clients GenOS parallèles occupaient encore Ollama; aucun nouveau run Qwen n’a été lancé dans cette fenêtre.
+Le correctif a ensuite été restreint aux URI `ollama://` afin de ne pas ajouter un champ non applicable aux autres fournisseurs; commit `7549d718d`, validé par `test_local_code_worker.js` (Ollama reçoit `none`, OpenAI ne le reçoit pas).
