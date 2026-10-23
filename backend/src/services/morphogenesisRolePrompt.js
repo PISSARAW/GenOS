@@ -34,7 +34,7 @@ function validateBiomeAllocation(candidate, mission, assignment) {
   const workerAssignment = assignment?.workerAssignment || assignment || {};
   const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
   const role = String(workerAssignment.topologyRole || assignment?.topologyRole || assignment?.role || '').toLowerCase();
-  if (topology !== 'biome' || role !== 'resource_steward') return null;
+  if (role !== 'resource_steward' || (topology && topology !== 'biome')) return null;
   const source = String(mission || '').slice(0, 8192);
   const facts = allocationFacts(source);
   if (!facts.items.length || !facts.groups || !facts.capacity) return null;

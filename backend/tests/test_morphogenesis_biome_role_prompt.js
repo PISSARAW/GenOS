@@ -122,6 +122,8 @@ assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], 'item2',
   { passed: false, issues: ['candidate.bin_count'] });
 assert.equal(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
   { topology: 'biome', topologyRole: 'environment_mapper' }), null);
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
+  { role: 'resource_steward' }), { passed: true, issues: [] });
 
 
 const steward = promptFor('resource_steward', 'specialist', 'biome:resource_steward');

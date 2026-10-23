@@ -336,7 +336,8 @@ async function runEvidenceStage(ctx) {
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const allocationValidation = require('./morphogenesisRolePrompt').validateBiomeAllocation(
-    evidenceReport.claims?.[0]?.statement, ctx.mission.prompt, ctx.mission.workerAssignment || ctx.mission);
+    evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
+    { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
   if (allocationValidation && !allocationValidation.passed) {
     throw Object.assign(new Error(`Biome mutated output violates allocation constraints: ${allocationValidation.issues.join(', ')}.`), {
       code: 'WORKER_OUTPUT_CONSTRAINT_VIOLATION',
