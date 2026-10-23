@@ -108,7 +108,9 @@ function emitMorphogenesisContinuation(orchestratorId, adaptation) {
   if (!adaptation.adapted) {
     emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_UNCHANGED', 'MORPHOGENESIS',
       `Continuation morphology unchanged: ${adaptation.reason}.`,
-      { reason: adaptation.reason, signals: adaptation.signals || null }, 'info');
+      { reason: adaptation.reason, signals: adaptation.signals || null,
+        admission: adaptation.admission ? { status: adaptation.admission.status,
+          reason: adaptation.admission.reason, details: adaptation.admission.details || null } : null }, 'info');
     return;
   }
   emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_ADAPTED', 'MORPHOGENESIS',
