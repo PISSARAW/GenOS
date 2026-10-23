@@ -13,7 +13,7 @@ assert.deepEqual(mission.executionBudget, {});
 assert.deepEqual(mission.executionPolicy, {});
 const coordinatedMission = buildWorkerMission({ agentId: 'worker-coordinated', orchestratorAgentId: 'root',
   prompt: 'coordinate worker findings', communicationRequired: true,
-  executionBudget: { tokens: 60000 } });
+  execution_budget: { tokens: 60000 } });
 assert.equal(coordinatedMission.workerContract.mission.communicationRequired, true);
 assert.equal(coordinatedMission.workerContract.resources.maxTokens, 40000);
 const scoped = buildWorkerMission({ agentId: 'worker', orchestratorAgentId: 'root',
