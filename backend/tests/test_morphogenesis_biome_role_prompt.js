@@ -85,7 +85,10 @@ assert.match(stewardMission, /The total weight is 24, so every bin must sum to e
 assert.match(stewardMission, /all 9 distinct identifiers occur once/);
 assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
 assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
-assert.match(stewardMission, /Use target-sum search: find a subset that fills one bin to 8/);
+assert.match(stewardMission, /First check feasibility: total weight=24; aggregate capacity=3\*8=24/);
+assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
+assert.match(stewardMission, /Use target-sum search: enumerate subsets that fill one bin to 8/);
+assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to a different subset/);
 assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
 assert.match(stewardMission, /complete GenOS dossier/);
