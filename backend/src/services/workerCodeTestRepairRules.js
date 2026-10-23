@@ -49,15 +49,17 @@ const planRules = [
   (output) => /getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output) && plan('ensure_unique_item_name_locator', 'Item name'),
   (output) => /getByLabel\(\/item name\/i\)/i.test(output) && plan('ensure_item_name_input_label', 'Item name'),
   (output) => /getByLabel\(\/\^category\$\/i\)/i.test(output) && plan('ensure_accessible_select_label', 'Category'),
-  (output) => /getByRole\(\s*'button',\s*\{\s*name:\s*\/increase quantity for oats/i.test(output) && plan('ensure_accessible_button_label', 'Increase quantity for Oats'),
+  (output) => increaseButtonPattern.test(output) && plan('ensure_accessible_button_label', 'Increase quantity for Oats'),
   (output) => /getByLabel\(\/filter category\/i\)/i.test(output) && plan('ensure_filter_select_label', 'Filter category'),
   (output) => /getByLabel\(\/search\/i\)/i.test(output) && plan('ensure_search_input_label', 'Search'),
   (output, error) => /2\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output)
     && (error.proposal?.failedPatchContents || []).some((patch) => /<td\b[^>]*aria-label=["']item name/i.test(patch.content || ''))
     && plan('ensure_unique_item_name_locator', 'Item name'),
   (output) => /getByLabel\(\/best\.before/i.test(output) && plan('ensure_best_before_input_label', 'Best-before date'),
-  (output) => /updated quantity persists|quantity.*reload|reload.*quantity/i.test(output) && plan('ensure_local_storage_mutations', 'pantryItems')
+  (output) => /updated quantity persists|quantity.*reload|reload.*quantity/i.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats')
 ];
+
+const increaseButtonPattern = new RegExp("getByRole\\(\\s*'button',\\s*\\{\\s*name:\\s*/increase quantity for oats", 'i');
 
 function repairPlan(error) {
   const output = testOutput(error);

@@ -269,6 +269,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(persistenceFailure), /Save the canonical inventory array to localStorage immediately/);
   assert.match(locatorRepairHint(persistenceFailure), /after every add, quantity increment, and delete/);
+  assert.deepEqual(repairPlan(persistenceFailure),
+    { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
   const incrementFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: 'assert.ok(await page.getByText(/Oats.*3|3.*Oats/i).count()) at tests/acceptance.cjs:24:10' }] } });
   const incrementPlan = repairPlan(incrementFailure);
   assert.deepEqual(incrementPlan, { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
