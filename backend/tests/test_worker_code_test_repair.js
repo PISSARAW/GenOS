@@ -207,11 +207,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
-    '<input type="number" aria-label="Increase quantity for Oats"><button onclick="increaseQuantity()">+</button>'
+    '<input type="number" aria-label="Increase quantity for Oats"><button onclick="increaseQuantity()">+</button><button id="increaseButton" aria-label="Increase quantity for Oats"></button><button data-testid="addOatsButton" onclick="addItem(\'Oats\', 2)">Add Oats</button>'
   }] });
   const repairedQuantity = JSON.parse(applyRepairPlan(quantityProposal, quantityPlan)).patches[0].content;
   assert.doesNotMatch(repairedQuantity, /<input[^>]*aria-label="Increase quantity for Oats"/);
   assert.match(repairedQuantity, /<button(?=[^>]*aria-label="Increase quantity for Oats")(?=[^>]*onclick="increaseQuantity\(\)")[^>]*>/);
+  assert.doesNotMatch(repairedQuantity, /increaseButton|addOatsButton/);
   const itemNameFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
     stderr: 'getByLabel(/item name/i) resolved to 2 elements'
   }] } });

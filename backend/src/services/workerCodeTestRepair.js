@@ -42,7 +42,7 @@ function locatorRepairHint(error) {
     return 'The item is present before searching, but Search removes the Oats row from the results incorrectly. Filter the canonical items by the current search input value (case-insensitive substring of item.name) and selected category inside renderItems; do not clear or mutate the canonical array when a filter has no match. Keep the Add Item handler and persisted collection intact.';
   }
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements|\[object HTMLInputElement\]/i.test(output)) {
-    return 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. The increment button must exist only inside the rendered item row after Add Item; remove any standalone/prototype increment button from the initial accessible DOM. In the item row, give the action the exact accessible name "Increase quantity for Oats" using the item name string. Do not put that action label on a form control or prototype button.';
+    return 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. Remove test-only Add Oats buttons and demo action buttons from initial DOM; the pantry starts empty. The increment button must exist only inside the rendered item row after Add Item. In the row, give its action the exact accessible name "Increase quantity for Oats" using the item name string.';
   }
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.';
@@ -121,8 +121,8 @@ function applyRepairPlan(text, plan) {
       } else if (item.kind === 'ensure_accessible_button_label') {
         content = labelIncreaseButton(content, item.label);
       } else if (item.kind === 'ensure_quantity_action_label') {
-        content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening)
-          ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
+        content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
+        content = content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
         content = labelIncreaseButton(content, item.label);
       } else if (item.kind === 'ensure_unique_item_name_locator') {
         content = content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
