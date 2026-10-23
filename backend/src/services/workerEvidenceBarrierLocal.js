@@ -336,7 +336,7 @@ async function runEvidenceStage(ctx) {
       proof: null, noAnswer: false, unresolved: true };
   }
   const validationStartedAt = Date.now();
-  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
+  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);

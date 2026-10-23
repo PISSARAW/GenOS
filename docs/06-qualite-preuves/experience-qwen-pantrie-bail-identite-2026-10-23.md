@@ -292,3 +292,24 @@ Pour vérifier le correctif Delete Oats sur le candidat réel Retry70 sans alté
 La réparation d’export déjà committée (`ensureJsonExport`, commit `4a3329686`) a ensuite été appliquée à la copie. `npm test` y termine avec code 0: ajout, filtre, recherche, incrément, persistance après reload, export téléchargeable, rejet de quantité nulle, feedback, suppression et absence de requête réseau passent. Le contrôle global `npm test` du dépôt de référence termine également avec code 0. Le replay démontre l’acceptance du candidat réparé, mais ne constitue pas un run d’orchestrateur ni une preuve de stabilité homéostatique finale.
 
 Une relance de `genos_orchestrate` pour le gate T02 avec `ollama://qwen2.5-coder:7b` a échoué avant émission d’un reçu: `Transport closed`. Le gate mission final reste donc non démontré et T02 n’est pas déclaré qualifié. Résultats à conserver: les échecs Retry69/Retry70 et le premier replay export rouge, ainsi que le replay Playwright vert après correctifs.
+
+## Retry71 — reçu de test créé mais référence refusée
+
+Le run Qwen réel `autonomy-proof-t02-20261023-direct-d-repair-71` a utilisé `ollama://qwen2.5-coder:7b` dans `D:\GenOS\runs\autonomy-proof-t02-20261023-receipt71\workspace`, sur une base SQLite dédiée. Qwen a produit des propositions et exécuté `npm test`, mais le validateur a refusé le dossier : `evidence.references.unresolved:genos://code-test-execution/<receiptHash>`. Le gate final est resté `homeostasis=unstable`, avec `test_suite_passed` manquant. L’échec prouve que le reçu immuable était bien produit, mais que le contrat de références d’artefact ne reconnaissait pas encore son URI.
+
+Le contexte de validation transmet maintenant le reçu issu du service d’exécution locale. Seul son hash hexadécimal fourni par l’exécuteur est ajouté aux références autorisées; sans ce reçu lié, la référence reste refusée. `test_worker_evidence_local_artifact.js` vérifie les deux cas. Les tests receipts, evidence local, dossier de code et quality passent.
+
+## Retry72 — acceptance et homeostasis vertes, coverage incomplet
+
+Le run réel `autonomy-proof-t02-20261023-direct-d-repair-72` a été lancé depuis une copie neuve dans `D:\GenOS\runs\autonomy-proof-t02-20261023-receipt72\workspace`, avec une base neuve et le même Qwen local. Premier essai `npm test` rouge (`acceptance.cjs:19:10`, `0 !== 1`, aucune ligne après Add Item); Qwen a corrigé le candidat. Son second `npm test` a terminé à code 0 (`CANDIDATE ... index.html true 14414`), et le système a créé le reçu passé `8ec22aa49cc381c02ee86fc77a144b3de0b2791961655f686ddbaa9972d95bc8`, lié à l’empreinte du workspace. Le gate homéostatique final est `homeostasis_satisfied`, `missingEvidence=[]`, `completionGate.allowed=true`.
+
+Le verdict de mission complet est cependant `required_coverage_incomplete` (`success=false`): les outils obligatoires `genos_diagnose`, `genos_snapshot`, `genos_hypothesis_evidence`, `genos_evaluate_trajectories`, `genos_replay` et `genos_record_decision` n’ont pas de reçu d’action dans cette exécution. L’acceptance T02 est donc démontrée sur le candidat, et le nouveau gate de test est validé en conditions réelles, mais le run d’orchestrateur n’est pas qualifié comme succès global. Il reste à connecter l’exécution réelle de ces outils au chemin local d’orchestration et à refaire T02 avant de revendiquer la réussite complète.
+
+## Vérifications après correction du résolveur
+
+- `node backend/tests/test_worker_evidence_local_artifact.js`: passe, y compris refus du reçu non lié.
+- `node backend/tests/test_worker_code_evidence.js`: passe.
+- `node backend/tests/test_local_code_test_execution_receipts.js`: passe (processus `npm test` vert accepté, processus rouge refusé/rollback).
+- `node backend/tests/test_mission_evidence.js`: 12/12.
+- `npm run test:quality`: 12/12.
+- `npm test`: exit 0 après relance avec autorisation d’écriture aux dossiers temporaires du clone. Le premier lancement sans cette autorisation a échoué sur `EPERM` de `.genos-agent-worlds`; ce n’était pas un échec logiciel. Des messages non fatals de tests de migration (`no such table: genome_decisions`) et des commandes git hors worktree apparaissent dans la sortie, sans faire échouer les suites.
