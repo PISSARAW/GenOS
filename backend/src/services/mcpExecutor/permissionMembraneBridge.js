@@ -4,7 +4,7 @@ const { randomUUID } = require('node:crypto');
 const membrane = require('../toolPermissionMembraneService');
 const adapters = require('../toolPermissionMembraneAdapters');
 const { MCP_CONTRACT_VERSION } = require('../mcpContract');
-const { directToolLeaseAllows } = require('./config');
+const { directToolLeaseAllows, scopedWorkerReplayLeaseOpen } = require('./config');
 const { migratePermissionReceiptLineage } = require('../../db/migrations/migratePermissionReceiptLineage');
 
 const LINEAGE_SCHEMA = 'genos.permission-receipt-lineage/v1';
@@ -114,10 +114,15 @@ async function resolveLineage(db, request, binding) {
   return { identity, thread: await authorityThread(db, request, identity) };
 }
 
-function executionLease(request, binding) {
+async function executionLease(db, request, binding) {
   const normalized = require('../toolLeasePolicy').normalizeToolName(request.toolName);
   const sealed = binding?.status === 'authorized' ? binding.envelope.toolLease : [normalized];
   const tools = sealed.filter((tool) => directToolLeaseAllows(tool));
+  const replaySnapshot = request.args?.snapshot || request.args?.snapshot_id;
+  if (normalized === 'genos_replay' && binding?.status === 'authorized'
+    && sealed.includes('genos_replay') && scopedWorkerReplayLeaseOpen()
+    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId, replaySnapshot)
+    && !tools.includes('genos_replay')) tools.push('genos_replay');
   const identity = binding?.status === 'authorized'
     ? `execution-authority:${binding.envelope.runId}:${binding.hash}`
     : `runtime-lease:${membrane.digest({ tool: normalized, allowed: tools.includes(normalized) })}`;
@@ -152,7 +157,7 @@ function approval(request) {
   return adapters.platformApproval(candidate);
 }
 
-function permissionInput(context) {
+async function permissionInput(context) {
   const { request, policy, binding } = context;
   const authority = authorityIdentity(request, binding);
   return {
@@ -160,7 +165,7 @@ function permissionInput(context) {
     tool: { name: request.toolName, version: request.toolVersion || MCP_CONTRACT_VERSION },
     arguments: request.args || {},
     worker: { id: request.agentId || 'system', revision: workerRevision(request, binding) },
-    lease: executionLease(request, binding),
+    lease: await executionLease(context.db, request, binding),
     policy: adapters.platformSafetyPolicy(policy, { id: 'platform-safety', version: 'runtime-v1' }),
     authorityChecks: authorityChecks(request, binding),
     approval: approval(request),
@@ -205,7 +210,7 @@ async function settleFailure(context, authorization, error) {
 
 async function executeAuthorized(context) {
   const resolved = await resolveLineage(context.db, context.request, context.binding);
-  const authorization = await membrane.authorizeToolCall(context.db, permissionInput(context));
+  const authorization = await membrane.authorizeToolCall(context.db, await permissionInput(context));
   const lineage = await persistLineage(context.db, {
     authorization, resolved
   });
