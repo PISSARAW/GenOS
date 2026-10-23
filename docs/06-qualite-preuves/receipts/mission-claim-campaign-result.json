@@ -1,11 +1,11 @@
 {
   "campaign": "mission-claim",
   "date": "2026-10-23",
-  "commit": "ee5ba4b03347bbf3534e8f55322859b4ee360eae",
+  "commit": "ccb9354dee1efc1a8cc05114f34944df650bb536",
   "node": "v24.18.0",
   "os": "Windows 11 (win32)",
   "verdict": "not_operational",
-  "verdict_summary": "Niveau C2 atteint pour le parcours natif direct (contrat v2, oracle natif, dossier promote, approveRun, immutabilite, reprise). Niveau C4 non atteint (effet non mesure). Independance cross-processus non prouvee. Chaine de preuves incomplete : ne pas promouvoir.",
+  "verdict_summary": "Phase 2 : couplage contrat->dossier implemente (require_evidence_dossier_v2=true par defaut pour v2) et champ effectObservation ajoute (metric/horizon/environment) avec intention persistee dans le journal lors de approveRun. Niveau C4 toujours non mesure (pas d'observation post-application). Independance cross-processus non prouvee. Chaine de preuves partiellement fermee.",
   "counters": {
     "false_accepts": 0,
     "invalid_cases": 30,
@@ -72,6 +72,19 @@
       "quality_gate_exit_code": 1
     }
   ],
+  "phase2": {
+    "modifications": [
+      "missionOutcomeContract: ajout effectObservation optionnel (metric, horizon, environment) pour v2",
+      "strategyContractService: buildStrategyContract passe effectObservation; buildPromotion active require_evidence_dossier_v2 pour v2; assembleContract inclut effect_observation",
+      "strategyExecutionService.approveRun: enregistrement de gateContext.effectObservationIntent",
+      "promotionExecutionJournal.reserve: persistance de effectObservationIntent dans le payload",
+      "ADR 0732 cree et index mis a jour"
+    ],
+    "tests_passed": ["test_mission_outcome_contract", "test_mission_outcome_falsification", "test_strategy_contracts", "test_promotion_evidence_dossier", "test_promotion_execution_recovery"],
+    "coupling_verified": true,
+    "c4_measured": false,
+    "c4_note": "Intention enregistree uniquement; pas d'observation post-application"
+  },
   "quality_gate": {
     "command": "python scripts/ci/check_code_quality.py",
     "exit_code": 1,
@@ -82,20 +95,21 @@
   },
   "unmeasured": [
     "independance cross-processus (subset_bitset et subset_enumeration dans deux processus separes)",
-    "effet metier post-application (C4)",
+    "effet metier post-application (C4) - intention enregistree, observation non implementee",
     "topologies deleguees et clôture alternative (E2E)",
     "changement de version/dependance d'oracle (code only)",
     "preuve formelle native (Lean) - outil absent",
     "multi-obligations a N (partiel)",
-    "frontiere exacte de validUntil a la milliseconde"
+    "frontiere exacte de validUntil a la milliseconde",
+    "couplage contrat->dossier verifie E2E avec un contrat genere par le flux reel (non encore execute)"
   ],
   "missing_links": [
-    "couplage contrat -> dossier obligatoire (promotion.require_evidence_dossier_v2 non active par defaut)",
-    "C4 : aucun champ effectMetric/horizon/environment dans mission_outcome v1/v2 ni dans la promotion",
+    "C4 : champ effectObservation ajoute au contrat v2 et intention persistee dans le journal, mais effet metier non mesure (pas d'observation post-application)",
     "recordGenomicOutcome et cognitiveRecipeMemoryService non cables a approveRun ni au verdict verified",
     "missionEvidenceCollector.buildEvidenceFlags force testsPassed=false (pas de producteur de recu de test de confiance)",
-    "aucune observation post-application dans approveRun/recovery.resume",
-    "validNativeProof renvoie false si verification.delegated (parcours delegue non promouvable au niveau mission_outcome)"
+    "aucune observation post-application dans approveRun/recovery.resume (intention enregistree uniquement)",
+    "validNativeProof renvoie false si verification.delegated (parcours delegue non promouvable au niveau mission_outcome)",
+    "couplage contrat->dossier implemente (require_evidence_dossier_v2=true par defaut pour v2) mais non verifie E2E avec un contrat genere par le flux reel"
   ],
   "artifacts": [
     "docs/06-qualite-preuves/report-A5-integration.md",
