@@ -59,6 +59,19 @@ function morphogenesisWorkerAssignments(assignments, topology, mission) {
   return { ...assignments, environment_mapper: mapper };
 }
 
+function bindBiomeMapperAssignment(assignment, mission) {
+  const workerAssignment = assignment?.workerAssignment || assignment || {};
+  const topology = workerAssignment.topology || assignment?.morphologyTopology;
+  if (String(assignment?.role || workerAssignment.topologyRole || '').toLowerCase() !== 'environment_mapper'
+    || String(topology || '').toLowerCase() !== 'biome') return assignment;
+  const mapped = morphogenesisWorkerAssignments({ environment_mapper: {
+    ...workerAssignment, methodContract: workerAssignment.methodContract || assignment.methodContract
+  } }, 'biome', mission)?.environment_mapper;
+  if (!mapped?.methodContract || mapped.methodContract.methodId === workerAssignment.methodContract?.methodId) return assignment;
+  return { ...assignment, methodContract: mapped.methodContract,
+    workerAssignment: { ...workerAssignment, methodContract: mapped.methodContract } };
+}
+
 function morphogenesisMissionPrompt(assignment, mission) {
   const workerAssignment = assignment?.workerAssignment || assignment || {};
   const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
@@ -81,4 +94,5 @@ function morphogenesisMissionPrompt(assignment, mission) {
   return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
 }
 
-module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext, morphogenesisWorkerAssignments };
+module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
+  morphogenesisWorkerAssignments, bindBiomeMapperAssignment };

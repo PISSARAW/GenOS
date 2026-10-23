@@ -56,6 +56,9 @@ const arrayAssignments = rolePrompt.morphogenesisWorkerAssignments([
 ], 'parallel_forks', realPrompt);
 assert.equal(arrayAssignments[0].methodContract.methodId, 'scan_literal',
   'Array-based Biome assignments also replace the generic method.');
+const dispatchedMapper = rolePrompt.bindBiomeMapperAssignment({ role: 'environment_mapper',
+  workerAssignment: { topology: 'biome', topologyRole: 'environment_mapper', methodContract: { version: 1, methodId: 'prompt_defined' } } }, realPrompt);
+assert.equal(dispatchedMapper.methodContract.methodId, 'scan_literal');
 const topologyKinds = require('../src/services/topologyWorkerKindService');
 const composedMapper = topologyKinds.applyTopologyWorkerKinds('biome', [{ role: 'environment_mapper',
   mission: realPrompt }])[0];

@@ -160,7 +160,6 @@ function buildWorkerContext(context) {
   const sourceWorkspace = workerWorkspaceRecovery.sourceWorkspace(parent, mission);
   return { ...context, sourceWorkspace, initialWorkerTokens, ...workerBudgets({ parent, plan, assignmentCount: assignments.length, initialRound }) };
 }
-
 function workerBudgets(context) {
   const { parent, plan, assignmentCount, initialRound } = context;
   const workerTokens = initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignmentCount);
@@ -221,7 +220,8 @@ async function createWorker(workerContext) {
 }
 
 async function prepareWorkerAssets(workerContext) {
-  const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
+  const { db, orchestrator, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
+  const assignment = require('./morphogenesisRolePrompt').bindBiomeMapperAssignment(workerContext.assignment, mission.prompt);
   const assignedTokens = initialWorkerTokens?.[index] ?? perWorkerTokens;
   const id = workerContext.id || autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
@@ -248,7 +248,7 @@ async function prepareWorkerAssets(workerContext) {
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
-  return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
+  return { ...workerContext, assignment, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }
 
 async function createWorkerWorkspace(workerContext, id) {
