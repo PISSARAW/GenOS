@@ -206,3 +206,9 @@ Retry60 a lancé le protocole T02 dans le workspace D: et enregistré 27 infére
 Le dernier cycle de réparation a exposé une entrée HTML Quantity dupliquée avec des guillemets échappés. `labelQuantityInput` supprime maintenant les entrées Quantity redondantes dans le formulaire et normalise l’attribut accessible de l’entrée conservée. Le contrôle unitaire vérifie qu’il reste un seul `id="quantity"` et un seul nom accessible Quantity.
 
 Vérification locale sur ce correctif: `node backend/tests/test_worker_code_test_repair.js`, `node backend/tests/test_worker_code_quantity_repair.js`, `node backend/tests/test_worker_code_quantity_increment_repair.js` et `node backend/tests/test_worker_code_add_repair.js` passent tous. Ces tests ciblés ne certifient pas le T02 complet. `genos_search_failures` a renvoyé `Transport closed`; aucune couverture mémoire GenOS n’est revendiquée.
+
+## Retry61 — échec terminal sur nom accessible Best-before dupliqué
+
+Retry61 a enregistré 27 inférences Qwen et 25 cycles de réparation avec l’oracle Playwright local. Le test terminal échoue à `acceptance.cjs:17:41`: `getByLabel(/best.before/i)` trouve à la fois le label et le champ date parce que le label porte lui-même `aria-label="Best-before date"`. `AGENT_FAILED` indique que les tests locaux ont échoué et que les modifications de capsule ont été annulées; `MISSION_COMPLETION_BLOCKED` confirme `homeostasis=unstable` à 11:22:20 UTC. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry61.db`.
+
+Le correctif supprime le nom ARIA redondant du label associé au champ date, tout en conservant le nom accessible du champ. Le nouveau cas de réparation et les tests ciblés worker, collision Quantity, persistance d’incrément et Add Item passent. Retry61 n’inclut pas ce correctif et ne peut pas le qualifier; la réussite T02 complète reste à démontrer.

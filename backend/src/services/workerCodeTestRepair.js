@@ -212,22 +212,28 @@ function labelSearchInput(content, label) {
 }
 
 function labelBestBeforeInput(content, label) {
-  const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
+  const source = String(content || '');
+  const inputs = [...source.matchAll(/<input\b[^>]*>/gi)];
   const targets = inputs.filter((input) => /\btype\s*=\s*["']date["']/i.test(input[0])
     || /\b(?:id|name)\s*=\s*["'][^"']*best.?before/i.test(input[0]));
   if (!targets.length) {
     const field = `<label for="bestBeforeDate">${label}</label><input id="bestBeforeDate" name="bestBeforeDate" type="date" aria-label="${label}">`;
-    if (/<form\b[^>]*>[\s\S]*?<\/form\s*>/i.test(content)) return content.replace(/<\/form\s*>/i, `${field}</form>`);
-    const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(content);
-    if (button) return content.slice(0, button.index) + field + content.slice(button.index);
-    return /<\/body\s*>/i.test(content) ? content.replace(/<\/body\s*>/i, `${field}</body>`) : `${content}${field}`;
+    if (/<form\b[^>]*>[\s\S]*?<\/form\s*>/i.test(source)) return source.replace(/<\/form\s*>/i, `${field}</form>`);
+    const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(source);
+    if (button) return source.slice(0, button.index) + field + source.slice(button.index);
+    return /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${field}</body>`) : `${source}${field}`;
   }
-  let repaired = content;
+  let repaired = source;
   for (const target of targets.reverse()) {
     const nextInput = replaceAccessibleName(target[0], label);
     repaired = repaired.slice(0, target.index) + nextInput + repaired.slice(target.index + target[0].length);
   }
-  return repaired;
+  const dateIds = new Set(targets.map((target) => target[0].match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2]).filter(Boolean));
+  if (!dateIds.size) return repaired;
+  return repaired.replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (labelElement) => {
+    const targetId = labelElement.match(/\bfor\s*=\s*(["'])([^"']+)\1/i)?.[2];
+    return dateIds.has(targetId) ? labelElement.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : labelElement;
+  });
 }
 
 function ensureSearchFilterBehavior(content) {
