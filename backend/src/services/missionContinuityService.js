@@ -77,7 +77,8 @@ async function fetchMissionAgents(db, missionId) {
 async function effectiveMissionOutcome(db, missionId) {
   const members = await fetchMissionAgents(db, missionId);
   const effective = await require('./regenerationAttemptService').effectiveAgents(db, missionId, members);
-  const outcome = require('./orchestratorOutcome').summarizeAgents(effective);
+  const outcomeAgents = await require('./missionContinuityDeferredOutcomeService').forOutcome(db, effective);
+  const outcome = require('./orchestratorOutcome').summarizeAgents(outcomeAgents);
   return { members, outcome };
 }
 

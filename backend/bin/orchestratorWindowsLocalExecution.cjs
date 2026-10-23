@@ -124,7 +124,8 @@ async function runWindowsLocalExecution(input) {
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
   const audit = await gatherTelemetryAndCoverage(db, id);
-  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, morphologySnapshot: null, nceEnhancements, audit });
+  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, morphologySnapshot: null, nceEnhancements, audit,
+    deferredAgentTerminalStatus: true });
   return true;
 }
 

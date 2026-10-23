@@ -23,4 +23,8 @@ function computeFinalVerdict(missionSuccess, outcome, completionGate) {
   return missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 }
 
-module.exports = { finalizeMissionStatus, destructureContResult, computeFinalVerdict };
+async function settleDeferredAgent({ agentId, status, verdict }) {
+  await require('../src/services/agentOrchestrationState').updateAgent(agentId, status, `Mission ${verdict}`);
+}
+
+module.exports = { finalizeMissionStatus, destructureContResult, computeFinalVerdict, settleDeferredAgent };

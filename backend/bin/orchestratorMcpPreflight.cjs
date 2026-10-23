@@ -163,15 +163,23 @@ async function recordPreflightSuccess(db, receipt, args) {
 
 function parseWorkerEvidence(db, agentId, executionRunId) {
   return db.all(`SELECT event_type, payload_json FROM telemetry_events
-    WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED')
+    WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
+      'LOCAL_WORKER_COMPLETED', 'LOCAL_WORKER_FAILED')
     ORDER BY created_at DESC LIMIT 100`, agentId).then(rows => {
     for (const row of rows) {
       let payload;
       try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) { continue; }
-      if (payload.executionRunId === executionRunId) return { eventType: row.event_type, payload };
+      const eventType = normalizeWorkerTerminalEvent(row.event_type, payload);
+      if (payload.executionRunId === executionRunId && eventType) return { eventType, payload };
     }
     return null;
   });
+}
+
+function normalizeWorkerTerminalEvent(eventType, payload) {
+  if (!eventType.startsWith('LOCAL_WORKER_')) return eventType;
+  const terminal = payload.deferredTerminalEventType;
+  return ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(terminal) ? terminal : null;
 }
 
 function successfulTestCount(payload) {
@@ -338,4 +346,5 @@ function pathToFileURL(filePath) {
 
 module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
   runOrchestratorMcpPostflight, assertPreflightContext, preflightEnvironment,
-  prepareToolArguments, PREFLIGHT_TOOLS, assertReplayProof, evidenceForWorker, baselineTools };
+  prepareToolArguments, PREFLIGHT_TOOLS, assertReplayProof, evidenceForWorker, baselineTools,
+  parseWorkerEvidence, normalizeWorkerTerminalEvent };
