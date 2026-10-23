@@ -193,10 +193,22 @@ function labelSearchInput(content, label) {
   const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
   const target = inputs.find((input) => /\b(?:id|name|placeholder)\s*=\s*["'][^"']*search/i.test(input[0])
     || /\btype\s*=\s*["']search["']/i.test(input[0]))
-    || inputs.filter((input) => !/\btype\s*=\s*["'](?:date|number|hidden)["']/i.test(input[0])).at(-1);
-  if (!target) return content;
-  const nextInput = replaceAccessibleName(target[0], label);
-  return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
+    || inputs.find((input) => /\baria-label\s*=\s*["'][^"']*search/i.test(input[0]));
+  if (target) {
+    const nextInput = replaceAccessibleName(target[0], label);
+    return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
+  }
+  const field = `<input type="search" id="search" name="search" aria-label="${label}">`;
+  const filter = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)]
+    .find((select) => /\b(?:id|name)\s*=\s*["'][^"']*filter|aria-label\s*=\s*["']filter category/i.test(select[0]));
+  if (filter) {
+    const end = filter.index + filter[0].length;
+    return content.slice(0, end) + field + content.slice(end);
+  }
+  const formEnd = /<\/form\s*>/i.exec(content);
+  if (formEnd) return content.slice(0, formEnd.index) + field + content.slice(formEnd.index);
+  const bodyEnd = /<\/body\s*>/i.exec(content);
+  return bodyEnd ? content.slice(0, bodyEnd.index) + field + content.slice(bodyEnd.index) : `${content}${field}`;
 }
 
 function labelBestBeforeInput(content, label) {
