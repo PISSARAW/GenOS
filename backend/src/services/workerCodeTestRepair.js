@@ -296,7 +296,7 @@ function ensureLocalStorageMutations(content) {
   return content;
 }
 
-function failureFeedback(error) {
+function failureFeedback(error, mission = {}) {
   const tests = error.proposal?.tests || [];
   const result = tests.map((test) => [
     `Command: ${test.command || 'unknown'}`,
@@ -313,17 +313,10 @@ function failureFeedback(error) {
     Array.isArray(diagnostics.violations) ? diagnostics.violations.join('\n') : '',
     diagnostics.outputExcerpt ? `Rejected output excerpt:\n${diagnostics.outputExcerpt}` : ''
   ].filter(Boolean).join('\n') : '';
-  const schemaHint = schemaRetryHint(error);
+  const schemaHint = require('./workerCodeTestRepairSchemaFeedback').build(error, mission);
   const locatorHint = locatorRepairHint(error);
-  return [locatorHint, schemaHint, schemaFeedback, result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
-}
-
-function schemaRetryHint(error) {
-  if (error.code !== 'WORKER_OUTPUT_SCHEMA_VIOLATION') return '';
-  const detail = String(error.workerArtifactDiagnostics?.error || error.message || '');
-  const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
-  if (!/(^|[\\/])tests?([\\/]|$)/i.test(rejectedPath)) return '';
-  return `The rejected path '${rejectedPath}' is a test file and cannot be patched. Keep every test unchanged; repair the production implementation instead.`;
+  return [locatorHint, schemaHint, schemaFeedback, result, candidate].filter(Boolean)
+    .join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
 function repairPrompt(context) {
@@ -331,7 +324,7 @@ function repairPrompt(context) {
   const reason = error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
     ? 'The previous model output was rejected before application; the workspace is unchanged.'
     : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
-  return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. ${reason} Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error)}`;
+  return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. ${reason} Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error, mission)}`;
 }
 
 function canRetry(context) {
