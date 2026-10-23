@@ -132,6 +132,11 @@ assert.match(repairedPrompt, /Repair the previous candidate using this runtime f
 assert.match(repairedPrompt, /\{"bins":\[\["item1","item2"\],\["item3"\]\]\}/);
 assert.match(repairedPrompt, /candidate\.bin_1_over_capacity:4/);
 assert.match(repairedPrompt, /moving an item from an over-capacity bin into another bin with enough remaining capacity/);
+const witnessMatch = repairedPrompt.match(/Feasible allocation witness from bounded backtracking: (\{[^\r\n]+\})\./);
+assert.ok(witnessMatch, 'a failed allocation should trigger an independently derived bounded-search witness');
+const witness = JSON.parse(witnessMatch[1]);
+assert.deepEqual(rolePrompt.validateBiomeAllocation(witness, smallAllocation, biomeSteward),
+  { passed: true, issues: [] }, 'the recovery witness must pass the same runtime allocation validator');
 const malformedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
   detail: 'Biome mutated output violates allocation constraints: candidate.invalid_json.',
   payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID', candidate: '[[item1],[item2]]',
