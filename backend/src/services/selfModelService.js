@@ -182,7 +182,7 @@ async function recordRunAttribution(db, learned, row) {
       attributedToSelf: !delegated,
       predictionError: Math.abs(expected - actual)
     });
-  } catch (_) {}
+  } catch (error) { console.warn(`[selfModelService] recordRunAttribution failed for ${row.agent_id}: ${error.message}`); }
 }
 
 async function calibrate(db, runId) {

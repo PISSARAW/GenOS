@@ -210,7 +210,8 @@ function computeVersion(agentRow, selfModel, cognitiveRegulation) {
 async function safeLoadSelfModel(db, agentId, context) {
   try {
     return await loadSelfModel(db, agentId, context);
-  } catch (_) {
+  } catch (error) {
+    console.warn(`[agentSelfService] safe load failed for ${agentId}: ${error.message}`);
     return null;
   }
 }
@@ -218,7 +219,8 @@ async function safeLoadSelfModel(db, agentId, context) {
 async function safeLoadCognitiveRegulation(db, agentId) {
   try {
     return await loadCognitiveRegulationState(db, agentId);
-  } catch (_) {
+  } catch (error) {
+    console.warn(`[agentSelfService] safe load failed for ${agentId}: ${error.message}`);
     return null;
   }
 }
@@ -226,7 +228,8 @@ async function safeLoadCognitiveRegulation(db, agentId) {
 async function safeLoadCore(db, agentId) {
   try {
     return await require('./coreSelfService').loadCoreSelf(db, agentId);
-  } catch (_) {
+  } catch (error) {
+    console.warn(`[agentSelfService] safe load failed for ${agentId}: ${error.message}`);
     return null;
   }
 }

@@ -1,6 +1,7 @@
 async function migrateAgentStatusConstraint(db) {
+  await db.exec('PRAGMA foreign_keys = OFF');
   const sql = await pendingMigrationSql(db);
-  if (!sql) return;
+  if (!sql) { await db.exec('PRAGMA foreign_keys = ON'); return; }
   const allTriggers = await db.all("SELECT name, sql FROM sqlite_master WHERE type='trigger'");
   const tableNames = new Set((await db.all("SELECT name FROM sqlite_master WHERE type='table'")).map(t => t.name));
   const validTriggers = await classifyValidTriggers(db, allTriggers, tableNames);
@@ -9,6 +10,7 @@ async function migrateAgentStatusConstraint(db) {
   const colDefs = buildAgentColDefs(cols);
   await copyAgentsTable(db, cols, colDefs);
   await restoreValidTriggers(db, validTriggers);
+  await db.exec('PRAGMA foreign_keys = ON');
 }
 
 async function pendingMigrationSql(db) {
@@ -34,7 +36,7 @@ function buildAgentColDefs(cols) {
     return def;
   });
   const statusIdx = cols.findIndex(c => c.name === 'status');
-  colDefs[statusIdx] = "status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'unverified', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis'))";
+  colDefs[statusIdx] = "status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'unverified', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis', 'failed', 'cancelled', 'promoted', 'demoted', 'apoptotique', 'partial'))";
   return colDefs;
 }
 

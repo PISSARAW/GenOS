@@ -79,11 +79,23 @@ function orchestratorToolLease(plan, knownTools) {
   return leasePolicy.orchestratorLeaseForPlan(plan || {}, knownTools);
 }
 
+const AGENT_STATUSES = new Set(['idle', 'running', 'completed', 'unverified', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis']);
+function normalizeAgentStatus(status) {
+  if (!status) return status;
+  if (AGENT_STATUSES.has(status)) return status;
+  if (status === 'failed' || status === 'cancelled') return 'error';
+  if (status === 'partial') return 'unverified';
+  if (status === 'promoted') return 'completed';
+  if (status === 'demoted') return 'blocked';
+  if (status === 'apoptotique') return 'apoptosis';
+  return 'error';
+}
 async function updateAgent(agentId, status, currentTask) {
   const db = await getDatabase();
+  const normalized = normalizeAgentStatus(status);
   const result = await db.run(
     'UPDATE agents SET status = COALESCE(?, status), current_task = COALESCE(?, current_task), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    status || null, currentTask || null, agentId
+    normalized || null, currentTask || null, agentId
   );
   if (result.changes !== 1) return false;
   if (status) {
