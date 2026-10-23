@@ -1,0 +1,104 @@
+{
+  "campaign": "mission-claim",
+  "date": "2026-10-23",
+  "commit": "ee5ba4b03347bbf3534e8f55322859b4ee360eae",
+  "node": "v24.18.0",
+  "os": "Windows 11 (win32)",
+  "verdict": "not_operational",
+  "verdict_summary": "Niveau C2 atteint pour le parcours natif direct (contrat v2, oracle natif, dossier promote, approveRun, immutabilite, reprise). Niveau C4 non atteint (effet non mesure). Independance cross-processus non prouvee. Chaine de preuves incomplete : ne pas promouvoir.",
+  "counters": {
+    "false_accepts": 0,
+    "invalid_cases": 30,
+    "false_rejects": 0,
+    "valid_cases": 6,
+    "a1_structural_valid": 2,
+    "a1_structural_invalid": 12,
+    "a1_semantic_valid": 4,
+    "a1_semantic_invalid": 8,
+    "valid_formal_result_mutations_rejected": 7
+  },
+  "costs": {
+    "processes": 2,
+    "modelTokens": 0,
+    "providerUsd": 0,
+    "localComputeUsd": null,
+    "runtimeMs": 461
+  },
+  "nonces": 2,
+  "durations_ms": {
+    "test_native_oracle_completion": 53786,
+    "test_promotion_evidence_dossier": 2513,
+    "a3_combined_scenario": 12892,
+    "a3_immutable": 2500
+  },
+  "agents": [
+    {
+      "agent": "A1",
+      "status": "pass",
+      "false_accepts": 0,
+      "false_rejects": 0,
+      "invalid_cases": 30,
+      "valid_cases": 6
+    },
+    {
+      "agent": "A2",
+      "status": "pass",
+      "processes": 2,
+      "modelTokens": 0,
+      "nonces": 2,
+      "duration_ms": 53786
+    },
+    {
+      "agent": "A3",
+      "status": "pass",
+      "promote": true,
+      "blocked_dispositions": ["reject", "quarantine", "escalate", "absent"],
+      "immutability": true,
+      "recovery_idempotent": true
+    },
+    {
+      "agent": "A4",
+      "status": "not_measured",
+      "c4": "unmeasured",
+      "stale_proof_temporal": "tested",
+      "stale_proof_fingerprint_domain": "tested",
+      "stale_proof_oracle_version": "code_only"
+    },
+    {
+      "agent": "A5",
+      "status": "synthesis",
+      "cross_process_independence": "unmeasured",
+      "delegated_topology_e2e": "unmeasured",
+      "quality_gate_exit_code": 1
+    }
+  ],
+  "quality_gate": {
+    "command": "python scripts/ci/check_code_quality.py",
+    "exit_code": 1,
+    "files_checked": 7349,
+    "violations": 45,
+    "new_violations": 44,
+    "note": "Aucun fichier source modifie par A5. Violations preexistantes au baseline, non introduites par cette tache."
+  },
+  "unmeasured": [
+    "independance cross-processus (subset_bitset et subset_enumeration dans deux processus separes)",
+    "effet metier post-application (C4)",
+    "topologies deleguees et clôture alternative (E2E)",
+    "changement de version/dependance d'oracle (code only)",
+    "preuve formelle native (Lean) - outil absent",
+    "multi-obligations a N (partiel)",
+    "frontiere exacte de validUntil a la milliseconde"
+  ],
+  "missing_links": [
+    "couplage contrat -> dossier obligatoire (promotion.require_evidence_dossier_v2 non active par defaut)",
+    "C4 : aucun champ effectMetric/horizon/environment dans mission_outcome v1/v2 ni dans la promotion",
+    "recordGenomicOutcome et cognitiveRecipeMemoryService non cables a approveRun ni au verdict verified",
+    "missionEvidenceCollector.buildEvidenceFlags force testsPassed=false (pas de producteur de recu de test de confiance)",
+    "aucune observation post-application dans approveRun/recovery.resume",
+    "validNativeProof renvoie false si verification.delegated (parcours delegue non promouvable au niveau mission_outcome)"
+  ],
+  "artifacts": [
+    "docs/06-qualite-preuves/report-A5-integration.md",
+    "docs/06-qualite-preuves/receipts/mission-claim-campaign-result.json"
+  ]
+}
