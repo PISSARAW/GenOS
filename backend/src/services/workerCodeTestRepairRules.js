@@ -41,7 +41,8 @@ function plan(kind, label) {
 }
 
 const planRules = [
-  (output) => /getByLabel\(\/quantity\/i\)[\s\S]*?(?:Timeout|waiting for)|acceptance\.cjs:15:38/i.test(output)
+  (output) => ((/getByLabel\(\/quantity\/i\)[\s\S]*?Timeout/i.test(output)
+    && !/resolved to \d+ elements/i.test(output)) || /acceptance\.cjs:15:38/i.test(output))
     && plan('ensure_quantity_input_label', 'Quantity'),
   (output) => /acceptance\.cjs:24:10/.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats'),
   (output) => /waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output) && plan('ensure_json_export', 'Export JSON'),

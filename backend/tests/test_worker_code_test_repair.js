@@ -313,7 +313,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const quantityPlan = repairPlan(quantityCollision);
   assert.deepEqual(quantityPlan, { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' });
   const quantityReloadError = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr:
-    'getByLabel(/quantity/i) resolved to 2 elements at tests/acceptance.cjs:31:38'
+    'Error: strict mode violation: getByLabel(/quantity/i) resolved to 2 elements. Call log: waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:31:38'
   }] } });
   const quantityReloadPlan = repairPlan(quantityReloadError);
   assert.deepEqual(quantityReloadPlan, { kind: 'ensure_quantity_field_after_reload', label: 'Quantity' });
