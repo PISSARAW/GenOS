@@ -11,7 +11,7 @@ const {
   activeWorkerBarriers, emit, updateAgent
 } = require('../agentOrchestrationState');
 const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService');
-const { createIsolatedWorkspace, cleanupWorkspace, forgetWorkspace } = require('../agentWorkspaceLifecycleService');
+const { createIsolatedWorkspace, cleanupWorkspace, forgetWorkspace, trackWorkspace } = require('../agentWorkspaceLifecycleService');
 const { createOrchestratorId } = require('../orchestratorIdFactory');
 const recoveryLineage = require('./recoveryLineage');
 const { getDatabase, withTransaction } = require('../../db');
@@ -158,15 +158,33 @@ async function persistRecoveryAgent(db, source, target) {
   });
 }
 
-async function createRecoveryWorkspace(source, mission, target) {
+async function createRecoveryWorkspace(db, source, mission, target) {
   const sourceRoot = firstTruthy(source.workspace_root, mission.workspaceRoot, process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
   const capsuleName = `${target.targetId}_${target.decision.action}_${target.report.attempt + 1}`;
   try {
-    return await provisionRecoveryWorkspace(sourceRoot, capsuleName, mission.capsuleRoot);
+    return await bindRecoveryWorkspace(db, target, source,
+      await provisionRecoveryWorkspace(sourceRoot, capsuleName, mission.capsuleRoot));
   } catch (error) {
     const fallbackRoot = process.env.GENOS_WORKSPACE_ROOT;
     if (!canRetryFromStableWorkspace(error, sourceRoot, fallbackRoot)) throw error;
-    return provisionRecoveryWorkspace(fallbackRoot, capsuleName, mission.capsuleRoot);
+    return bindRecoveryWorkspace(db, target, source,
+      await provisionRecoveryWorkspace(fallbackRoot, capsuleName, mission.capsuleRoot));
+  }
+}
+
+async function bindRecoveryWorkspace(db, target, source, workspace) {
+  try {
+    await trackWorkspace(target.targetId, workspace.workspaceRoot);
+    workspace.workspaceId = await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {
+      workerId: target.targetId, parentId: target.orchestratorId,
+      parentWorkspaceId: target.workspaceId || source.parent_workspace_id,
+      workspaceRoot: workspace.workspaceRoot
+    });
+    return workspace;
+  } catch (error) {
+    await bestEffort(cleanupWorkspace(workspace.workspaceRoot, target.targetId));
+    await bestEffort(forgetWorkspace(target.targetId));
+    throw error;
   }
 }
 
@@ -215,9 +233,8 @@ async function emitSlotReleased(db, worker, message) {
 
 async function cancelRecoveryDispatch(db, target, workspace) {
   if (workspace.workspaceRoot) {
-    const capsuleId = workspace.capsuleName || target.targetId;
-    const outcome = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, capsuleId, { rollbackUnlaunched: target.targetId }));
-    if (outcome === 'removed' || outcome === 'worktree-removed') await bestEffort(forgetWorkspace(capsuleId));
+    const outcome = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, target.targetId, { rollbackUnlaunched: target.targetId }));
+    if (outcome === 'removed' || outcome === 'worktree-removed') await bestEffort(forgetWorkspace(target.targetId));
   }
   await updateAgent(target.targetId, 'blocked', 'Recovery stopped with the orchestrator evidence barrier');
   await emitSlotReleased(db, { targetId: target.targetId, orchId: target.orchestratorId, workerName: target.name }, {
@@ -262,6 +279,7 @@ function buildRecoveryMission(input) {
     garageRequestId: undefined,
     garageLeaseId: undefined,
     workspaceRoot: workspace.workspaceRoot,
+    workspaceId: workspace.workspaceId,
     workspaceProvisioned: true,
     orchestratorAgentId: orchestratorId,
     budgetRound: undefined,
@@ -282,7 +300,10 @@ function resolveFailureTarget(target, sourceAgentId, fallbackOrchestratorId) {
 async function handleRecoveryDispatchFailure(db, error, data) {
   const { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId } = data;
   const worker = resolveFailureTarget(target, sourceAgentId, orchestratorId);
-  if (workspace.workspaceRoot) await bestEffort(cleanupWorkspace(workspace.workspaceRoot, workspace.capsuleName || worker.targetId));
+  if (workspace.workspaceRoot) {
+    const cleanup = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, worker.targetId));
+    if (cleanup === 'removed' || cleanup === 'worktree-removed') await bestEffort(forgetWorkspace(worker.targetId));
+  }
   await bestEffort(db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, worker.targetId));
   const dispatchAttempts = Number(recovery.dispatchAttempts || 0) + 1;
   emit(worker.orchId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
@@ -343,7 +364,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     await workerGarage.releaseStaleWorkerClaims(db, sourceAgentId);
     await persistRecoveryAgent(db, source, target);
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: target.targetId, name: target.name, role: target.role, mission: target.prompt });
-    workspace = await createRecoveryWorkspace(source, mission, target);
+    workspace = await createRecoveryWorkspace(db, source, mission, target);
     const nextVariant = emitRecoveryDispatch(orchestratorId, target, { sourceAgentId, report, decision, garage, mission });
     if (isCancelled(recoveryBarrier)) {
       await cancelRecoveryDispatch(db, target, workspace);

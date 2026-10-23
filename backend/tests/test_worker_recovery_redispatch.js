@@ -16,6 +16,16 @@ const lifecycle = require('../src/services/agentWorkspaceLifecycleService');
 lifecycle.createIsolatedWorkspace = async () => '/tmp/genos-recovery-redispatch-ws';
 lifecycle.cleanupWorkspace = async () => 'removed';
 lifecycle.forgetWorkspace = async () => true;
+lifecycle.trackWorkspace = async () => true;
+
+const workspaceBinding = require('../src/services/workerWorkspaceBindingService');
+workspaceBinding.bindWorkerWorkspace = async (db, input) => {
+  const workspaceId = `rec-recovery-ws-${input.workerId}`;
+  await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, 'rec-org', 'rec-project')",
+    workspaceId, `Recovery ${input.workerId}`, `${__dirname}/${input.workerId}`);
+  await db.run('UPDATE agents SET workspace_id = ? WHERE id = ?', workspaceId, input.workerId);
+  return workspaceId;
+};
 
 const adapter = require('../src/services/agentRuntimeAdapter');
 adapter.startMission = async (mission) => { startedMissions.push(mission); return { started: true }; };
@@ -134,6 +144,10 @@ async function checkReplacementRedispatch(db) {
     'runtime lineage remains inside the orchestrator workspace');
   const lineageMetadata = JSON.parse((await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', dispatched.agentId)).metadata);
   assert.equal(lineageMetadata.parents.recoverySource, 'rec-w2', 'the failed worker is retained as recovery provenance');
+  assert.equal(dispatched.workspaceId, `rec-recovery-ws-${dispatched.agentId}`,
+    'the recovery mission is bound to the delegated capsule workspace');
+  assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatched.agentId)).workspace_id,
+    dispatched.workspaceId, 'the recovery agent receives the capsule workspace binding');
 }
 
 async function checkValidatedWorkNotRedispatched(db) {
