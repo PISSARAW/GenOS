@@ -41,7 +41,8 @@ assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCode
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'implementation', localCodeWorker: false }), false);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'bounded_worker', workerKind: 'bounded_worker', localCodeWorker: true }), true);
 assert.equal(localPrompt.isCodeWorkerMission({ role: 'verifier_worker', workerKind: 'verifier_worker', localCodeWorker: true }), false);
-assert.equal(localPrompt.isCodeWorkerMission({ role: 'interview_plan_implementation', workerKind: 'specialist', localCodeWorker: true }), false);
+assert.equal(localPrompt.isCodeWorkerMission({ role: 'interview_plan_implementation', workerKind: 'specialist', localCodeWorker: true }), true);
+assert.equal(localPrompt.isCodeWorkerMission({ role: 'self_correcting_implementation', workerKind: 'adaptive_worker', localCodeWorker: true }), true);
 assert.equal(commandPolicy.isAllowedSandboxTestCommand('node verify.cjs'), true);
 const codePrompt = localPrompt.buildAnalysisPrompt({ codeWorker: true, allowedCommands: ['node verify.cjs'],
   prompt: 'Implement sumPrices.', agentName: 'Bounded worker', workspaceContext: 'src/pricing.js' });
