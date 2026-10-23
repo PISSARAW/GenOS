@@ -152,6 +152,10 @@ assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2'
 
 
 const steward = promptFor('resource_steward', 'specialist', 'biome:resource_steward');
+assert.ok(steward.startsWith('items='), 'the concrete Biome allocation task leads the bounded worker prompt');
+assert.doesNotMatch(steward, /\[WORKER SELF|Confiance calibrée|État de conscience/,
+  'irrelevant identity and conscience context does not bury the allocation facts');
+assert.ok(steward.length < 3000, 'the compact resource steward prompt leaves room for Qwen to reason and answer');
 assert.match(steward, /Solve the assigned allocation task/);
 assert.match(steward, /Verify every item appears exactly once/);
 assert.match(steward, /all capacities before claiming success/);

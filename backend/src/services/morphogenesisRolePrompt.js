@@ -21,6 +21,13 @@ function morphogenesisUseMemoryContext(assignment) {
   return topology !== 'biome' || !['environment_mapper', 'resource_steward'].includes(role);
 }
 
+function morphogenesisCompactWorkerRole(assignment) {
+  const workerAssignment = assignment?.workerAssignment || assignment || {};
+  const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
+  const role = String(workerAssignment.topologyRole || assignment?.topologyRole || assignment?.role || '').toLowerCase();
+  return topology === 'biome' && role === 'resource_steward';
+}
+
 function allocationFacts(source) {
   const items = [...source.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], value: Number(match[2]) }));
@@ -139,4 +146,5 @@ function morphogenesisMissionPrompt(assignment, mission) {
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
+  morphogenesisCompactWorkerRole,
   morphogenesisWorkerAssignments, bindBiomeMapperAssignment, validateBiomeAllocation };

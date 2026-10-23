@@ -149,7 +149,8 @@ async function includePersistedWorkers(db, parentId, context) {
 }
 
 const { validateAssignments } = require('./workerAssignmentValidation');
-const { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext } = require('./morphogenesisRolePrompt');
+const { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
+  morphogenesisCompactWorkerRole } = require('./morphogenesisRolePrompt');
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
   const initialRound = plan.tokenPolicy?.rounds?.initial;
@@ -169,22 +170,18 @@ function workerBudgets(context) {
   };
 }
 
-function formatDnaPromptBlock(dnaSelection) {
-  if (!dnaSelection || !dnaSelection.genes || !dnaSelection.genes.role) return null;
-  const { genes } = dnaSelection;
-  const parts = [`Inherited DNA phenotype — role: ${genes.role}, strategy: ${genes.strategy}.`];
-  if (genes.prompt) parts.push(`DNA prompt brief: ${genes.prompt}`);
-  if (Array.isArray(genes.tools) && genes.tools.length) parts.push(`DNA tools: ${genes.tools.join(', ')}.`);
-  if (Array.isArray(genes.capabilities) && genes.capabilities.length) parts.push(`DNA capabilities: ${genes.capabilities.join(', ')}.`);
-  return parts.join(' ');
-}
-
 function buildWorkerPrompt(details) {
   const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
   const missionPrompt = morphogenesisMissionPrompt(assignment, context.mission.prompt);
+  const promptComposer = require('./agentFleetWorkerPrompt');
+  const compactPrompt = promptComposer.buildCompactMorphogenesisPrompt({
+    assignment, context, missionPrompt, workerKinds, morphogenesisRoleInstruction,
+    enabled: morphogenesisCompactWorkerRole(assignment)
+  });
+  if (compactPrompt) return compactPrompt;
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
-  const dnaPrompt = formatDnaPromptBlock(dnaSelection);
+  const dnaPrompt = promptComposer.formatDnaPromptBlock(dnaSelection);
   return [
     identity.introduction,
     workerSelfBlock || null,
