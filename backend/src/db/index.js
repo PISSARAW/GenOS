@@ -69,6 +69,11 @@ function localLedgerSecretPath(dbPath) {
   return `${path.resolve(dbPath)}.gvx-ledger-hmac`;
 }
 
+function localToolMembraneSecretPath(dbPath) {
+  if (dbPath === ':memory:') return null;
+  return path.join(path.dirname(path.resolve(dbPath)), 'tool-membrane-hmac');
+}
+
 function loadDatabaseSigningSecret(dbPath) {
   const secretPath = localLedgerSecretPath(dbPath);
   if (!secretPath || !fs.existsSync(secretPath)) return false;
@@ -85,10 +90,24 @@ function loadDatabaseSigningSecret(dbPath) {
   return true;
 }
 
+function loadToolMembraneSigningSecret(dbPath) {
+  const secretPath = localToolMembraneSecretPath(dbPath);
+  if (!secretPath || !fs.existsSync(secretPath)) return false;
+  const secret = fs.readFileSync(secretPath, 'utf8').trim();
+  if (Buffer.byteLength(secret) < 32) {
+    throw Object.assign(new Error('tool-membrane-signing-key-invalid'), {
+      code: 'TOOL_MEMBRANE_SIGNING_KEY_INVALID'
+    });
+  }
+  process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET = secret;
+  return true;
+}
+
 async function getDatabase(dbFilePath) {
   assertControlPlaneBackendSelection();
   const filename = databaseFilename(dbFilePath);
   loadDatabaseSigningSecret(filename);
+  loadToolMembraneSigningSecret(filename);
   const existing = await reuseDatabase(dbFilePath);
   if (existing) return existing;
 
@@ -212,7 +231,9 @@ module.exports = {
   getDatabase,
   databasePath: () => currentDbPath,
   localLedgerSecretPath,
+  localToolMembraneSecretPath,
   loadDatabaseSigningSecret,
+  loadToolMembraneSigningSecret,
   closeDatabase,
   withTransaction,
   withWriteRetry,
