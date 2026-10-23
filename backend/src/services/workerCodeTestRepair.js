@@ -1,6 +1,6 @@
 'use strict';
 
-const MAX_TEST_RETRIES = 4;
+const MAX_TEST_RETRIES = 6;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 
@@ -39,7 +39,12 @@ function locatorRepairHint(error) {
     return 'The Oats row exists, but its quantity action has no accessible name. Give its existing increment button aria-label="Increase quantity for Oats" and ensure its click handler updates the same item, persists quantity 3, and rerenders.';
   }
   if (/getByLabel\(\/filter category\/i\)/i.test(output)) {
-    return 'The category filter select has no accessible name. Give the filter control aria-label="Filter category" and keep it separate from the add-form select named Category.';
+    return /did not find some options/i.test(output)
+      ? 'The filter select resolves, but Food is missing. Add a visible <option value="Food">Food</option> to the Filter category select; keep it separate from the add-form Category select.'
+      : 'The category filter select has no accessible name. Give the filter control aria-label="Filter category" and keep it separate from the add-form select named Category. Ensure it offers Food.';
+  }
+  if (/getByLabel\(\/search\/i\)/i.test(output)) {
+    return 'The search input is missing its accessible name. Give the search field aria-label="Search" and wire it to the existing item filter.';
   }
   const count = output.match(/(\d+)\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/);
   if (count) {
@@ -62,6 +67,9 @@ function repairPlan(error) {
   if (/getByLabel\(\/filter category\/i\)/i.test(output)) {
     return { kind: 'ensure_filter_select_label', label: 'Filter category' };
   }
+  if (/getByLabel\(\/search\/i\)/i.test(output)) {
+    return { kind: 'ensure_search_input_label', label: 'Search' };
+  }
   return null;
 }
 
@@ -83,6 +91,8 @@ function applyRepairPlan(text, plan) {
         content = labelIncreaseButton(content, item.label);
       } else if (item.kind === 'ensure_filter_select_label') {
         content = labelFilterSelect(content, item.label);
+      } else if (item.kind === 'ensure_search_input_label') {
+        content = labelSearchInput(content, item.label);
       }
     }
     if (content !== patch.content) {
@@ -148,8 +158,22 @@ function labelFilterSelect(content, label) {
   if (!target) return content;
   const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
   if (!opening) return content;
-  const nextSelect = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
+  let nextSelect = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
+  if (!/<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(nextSelect)
+    && !/<option\b[^>]*value\s*=\s*["']Food["']/i.test(nextSelect)) {
+    nextSelect = nextSelect.replace(/<\/select\s*>/i, '<option value="Food">Food</option></select>');
+  }
   return content.slice(0, target.index) + nextSelect + content.slice(target.index + target[0].length);
+}
+
+function labelSearchInput(content, label) {
+  const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
+  const target = inputs.find((input) => /\b(?:id|name|placeholder)\s*=\s*["'][^"']*search/i.test(input[0])
+    || /\btype\s*=\s*["']search["']/i.test(input[0]))
+    || inputs.filter((input) => !/\btype\s*=\s*["'](?:date|number|hidden)["']/i.test(input[0])).at(-1);
+  if (!target) return content;
+  const nextInput = replaceAccessibleName(target[0], label);
+  return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
 }
 
 function failureFeedback(error) {

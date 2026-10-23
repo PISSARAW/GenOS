@@ -50,7 +50,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
   assert.match(prompts[1], /rolled back/i);
-  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 4/);
+  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 6/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
@@ -79,16 +79,28 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const filterPlan = repairPlan(filterFailure);
   assert.deepEqual(filterPlan, { kind: 'ensure_filter_select_label', label: 'Filter category' });
   assert.match(locatorRepairHint(filterFailure), /aria-label="Filter category"/);
+  const filterOptionFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'did not find some options for getByLabel(/filter category/i)'
+  }] }, usage: { tokens: 50 } });
+  assert.match(locatorRepairHint(filterOptionFailure), /Add a visible <option value="Food">Food<\/option>/);
+  const searchFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'locator.fill: waiting for getByLabel(/search/i)'
+  }] }, usage: { tokens: 50 } });
+  const searchPlan = repairPlan(searchFailure);
+  assert.deepEqual(searchPlan, { kind: 'ensure_search_input_label', label: 'Search' });
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
-    path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option><option>Food</option></select>'
+    path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option></select><input id="search" placeholder="Search items">'
   }], tests: ['npm test'], evidence: 'test fixture' });
-  const repairedText = applyRepairPlan(proposalText, [plan, buttonPlan, filterPlan]);
+  const repairedText = applyRepairPlan(proposalText, [plan, buttonPlan, filterPlan, searchPlan]);
   const repairedContent = JSON.parse(repairedText).patches[0].content;
   assert.match(repairedContent,
     /<select id="category" aria-label="Category">/);
   assert.match(repairedContent, /<button aria-label="Increase quantity for Oats">\+/);
   assert.match(repairedContent, /<button>Delete Oats<\/button>/);
-  assert.match(repairedContent, /<select id="filter" aria-label="Filter category">/);
+  assert.match(repairedContent, /<select id="filter" aria-label="Filter category"><option>All<\/option><option value="Food">Food<\/option>/);
+  assert.match(repairedContent, /<input id="search" placeholder="Search items" aria-label="Search">/);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   let repairPlanAttempts = 0;
   await run({ mission, runAttempt: async (attemptMission) => {
@@ -96,10 +108,11 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     if (repairPlanAttempts === 1) throw categoryFailure;
     if (repairPlanAttempts === 2) throw buttonFailure;
     if (repairPlanAttempts === 3) throw filterFailure;
-    assert.deepEqual(attemptMission.codeRepairPlans, [plan, buttonPlan, filterPlan]);
+    if (repairPlanAttempts === 4) throw searchFailure;
+    assert.deepEqual(attemptMission.codeRepairPlans, [plan, buttonPlan, filterPlan, searchPlan]);
     return 'repaired';
   } });
-  assert.equal(repairPlanAttempts, 4);
+  assert.equal(repairPlanAttempts, 5);
   const oatsFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stdout: 'CANDIDATE index.html true 5000',
@@ -118,7 +131,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     attempts += 1;
     throw failed;
   } }), /test failed/);
-  assert.equal(attempts, 5);
+  assert.equal(attempts, 7);
 
   let nonTestAttempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
