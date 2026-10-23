@@ -149,8 +149,7 @@ async function includePersistedWorkers(db, parentId, context) {
 }
 
 const { validateAssignments } = require('./workerAssignmentValidation');
-const { morphogenesisRoleInstruction } = require('./morphogenesisRolePrompt');
-
+const { morphogenesisRoleInstruction, morphogenesisMissionPrompt } = require('./morphogenesisRolePrompt');
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
   const initialRound = plan.tokenPolicy?.rounds?.initial;
@@ -183,6 +182,7 @@ function formatDnaPromptBlock(dnaSelection) {
 
 function buildWorkerPrompt(details) {
   const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
+  const missionPrompt = morphogenesisMissionPrompt(assignment, context.mission.prompt);
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
   const dnaPrompt = formatDnaPromptBlock(dnaSelection);
@@ -190,7 +190,7 @@ function buildWorkerPrompt(details) {
     identity.introduction,
     workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
-    context.mission.prompt || context.parent.current_task || 'Autonomous task execution',
+    missionPrompt || context.parent.current_task || 'Autonomous task execution',
     `${morphogenesisRoleInstruction(assignment) ? `${morphogenesisRoleInstruction(assignment)}\n` : ''}Assigned branch: ${assignment.label}.`,
     dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
@@ -198,7 +198,7 @@ function buildWorkerPrompt(details) {
     require('./trinityWorldDesign').factorialInstruction(assignment),
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, {
-      prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
+      prompt: missionPrompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
       methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
     })),
     phenotypeBlock,
@@ -310,7 +310,7 @@ function fleetWorkerContract(details) {
   const { assignment, parent, mission, assignedTokens } = details;
   if (details.plan?.morphogenesisCohort === true) return morphogenesisWorkerContract(assignment, parent, assignedTokens);
   const contract = workerKinds.buildWorkerContract(assignment.workerKind, {
-    prompt: mission.prompt,
+    prompt: morphogenesisMissionPrompt(assignment, mission.prompt),
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
     externalCreditLease: assignment.externalCreditLease || mission.externalCreditLease,
