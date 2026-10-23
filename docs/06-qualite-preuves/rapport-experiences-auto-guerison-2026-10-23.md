@@ -66,3 +66,9 @@ Le premier passage du test sémantique a réussi ses assertions, mais a terminé
 
 Le rerun exact `node backend/tests/test_native_memory_budget.js` a terminé code 0 avec les mêmes assertions de corruption/refus/restauration. Les erreurs `SQLITE_MISUSE` de fermeture ne sont plus apparues. Une sortie `fatal: not a git repository` est toutefois apparue une fois pendant l’exécution d’un sous-processus; elle n’a pas échoué le test et sa source n’est pas encore isolée. Le run valide la correction de fermeture SQLite, mais le message Git reste à diagnostiquer.
 
+
+## T03 — réparation Rhizome après échec de route vérifié
+
+Commande exécutée dans une base SQLite temporaire isolée : `node backend/tests/test_rhizome_runtime_recovery.js` — code 0, sortie `Rhizome runtime recovery: PASS`. Le runtime exécute d’abord une route de coût inférieur; le vérificateur injecte un reçu d’échec signé. Le runtime exclut exactement ses deux arêtes (`fast-a`, `fast-b`), choisit l’alternative (`safe-a`, `safe-b`) puis reçoit un reçu de succès. L’assertion terminale est `ROUTE_RECOVERED`, avec deux exécutions. Le même test vérifie qu’une échéance dépassée reste `ROUTE_RETRY_UNVERIFIED` et n’annonce pas de guérison.
+
+Le runtime Rhizome, le routage, les reçus et la persistance sont réellement exécutés localement; seule l’exécution externe de la capacité est fournie par une fonction fixture et le vérificateur de test contrôle les reçus. Cela qualifie la récupération de route dans le banc isolé, pas la livraison sur un réseau externe ni le respect d’une politique de permission à travers un adaptateur réseau réel.
