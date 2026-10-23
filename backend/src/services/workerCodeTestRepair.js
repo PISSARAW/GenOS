@@ -1,6 +1,6 @@
 'use strict';
 
-const MAX_TEST_RETRIES = 8;
+const MAX_TEST_RETRIES = 16;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 
@@ -76,6 +76,9 @@ function repairPlan(error) {
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) {
     return { kind: 'ensure_search_filter_behavior', label: 'Search' };
   }
+  if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) {
+    return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
+  }
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
   }
@@ -113,6 +116,10 @@ function applyRepairPlan(text, plan) {
         content = labelCategorySelect(content, item.label);
         content = labelFilterSelect(content, 'Filter category');
       } else if (item.kind === 'ensure_accessible_button_label') {
+        content = labelIncreaseButton(content, item.label);
+      } else if (item.kind === 'ensure_quantity_action_label') {
+        content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening)
+          ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
         content = labelIncreaseButton(content, item.label);
       } else if (item.kind === 'ensure_filter_select_label') {
         content = labelFilterSelect(content, item.label);

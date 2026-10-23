@@ -51,7 +51,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
   assert.match(prompts[1], /rolled back/i);
-  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 8/);
+  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 16/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
@@ -197,8 +197,16 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     command: 'npm test', exitCode: 1,
     stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'
   }] }, usage: { tokens: 50 } });
+  const quantityPlan = repairPlan(quantityCollision);
+  assert.deepEqual(quantityPlan, { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' });
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
+  const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<input type="number" aria-label="Increase quantity for Oats"><button onclick="increaseQuantity()">+</button>'
+  }] });
+  const repairedQuantity = JSON.parse(applyRepairPlan(quantityProposal, quantityPlan)).patches[0].content;
+  assert.doesNotMatch(repairedQuantity, /<input[^>]*aria-label="Increase quantity for Oats"/);
+  assert.match(repairedQuantity, /<button(?=[^>]*aria-label="Increase quantity for Oats")(?=[^>]*onclick="increaseQuantity\(\)")[^>]*>/);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
     path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } function addItem(event) { const item = readForm(); items.push(item); } form.addEventListener("submit", addItem);</script>'
   }] } });
@@ -214,7 +222,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     attempts += 1;
     throw failed;
   } }), /test failed/);
-  assert.equal(attempts, 9);
+  assert.equal(attempts, 10);
 
   let nonTestAttempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
