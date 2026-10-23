@@ -183,6 +183,12 @@ assert.match(codeReport.claims[0].evidence.at(-1), /^genos:\/\/code-test\//);
 assert.doesNotThrow(() => validateWorkerDossiers([{ workerId: 'code-worker', events: [{ evidenceReport: codeReport }] }], [
   { agentId: 'code-worker', workerContract: codeContract }
 ]));
+const completionSummary = { ...codeReport, tests: [{ name: 'npm test', passed: true, evidenceRefs: ['exec:test-run'] }] };
+assert.doesNotThrow(() => validateWorkerDossiers([{ workerId: 'code-worker', events: [
+  { eventType: 'EVIDENCE_REPORT', evidenceReport: codeReport },
+  { eventType: 'AGENT_COMPLETED', evidenceReport: completionSummary }
+] }], [{ agentId: 'code-worker', workerContract: codeContract }]),
+'a completion summary must not replace the full persisted report that carries test receipts');
 
 const unverifiedCodeState = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
 const unverifiedCodeReport = structuredClone(codeReport);
