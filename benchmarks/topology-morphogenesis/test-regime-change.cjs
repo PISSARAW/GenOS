@@ -41,11 +41,22 @@ test('adapter resolves frozen and imposed topologies per task', () => {
 test('frozen selection prefers pass rate, then tokens, then name', () => {
   const plan = { training: { taskIds: ['train-cap-01'], candidateTopologies: ['trinity', 'a_team', 'biome'] } };
   const attempts = [
-    { family: 'regime-cap', topology: 'trinity', oraclePassed: true, tokenUsage: { total: 9 } },
-    { family: 'regime-cap', topology: 'a_team', oraclePassed: true, tokenUsage: { total: 5 } },
-    { family: 'regime-cap', topology: 'biome', oraclePassed: false, tokenUsage: { total: 1 } }
+    { family: 'regime-cap', topology: 'trinity', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: true, tokenUsage: { total: 9 } },
+    { family: 'regime-cap', topology: 'a_team', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: true, tokenUsage: { total: 5 } },
+    { family: 'regime-cap', topology: 'biome', parsePassed: true, servedModelOk: true, budgetOk: true, oraclePassed: false, tokenUsage: { total: 1 } }
   ];
   assert.equal(selectFrozen(attempts, plan)['regime-cap'], 'a_team');
+});
+
+test('frozen selection refuses to rank a family without a verified Qwen oracle pass', () => {
+  const plan = { training: { taskIds: ['train-cap-01'], candidateTopologies: ['biome', 'trinity'] } };
+  const attempts = [
+    { family: 'regime-cap', topology: 'biome', parsePassed: false, servedModelOk: false, budgetOk: false,
+      oraclePassed: false, tokenUsage: { total: null }, error: 'runtime unavailable' },
+    { family: 'regime-cap', topology: 'trinity', parsePassed: false, servedModelOk: false, budgetOk: false,
+      oraclePassed: false, tokenUsage: { total: null }, error: 'runtime unavailable' }
+  ];
+  assert.throws(() => selectFrozen(attempts, plan), /No verified Qwen training outcome for family regime-cap/);
 });
 
 test('le plan fige actuel est pilote, non confirmatoire', () => {
