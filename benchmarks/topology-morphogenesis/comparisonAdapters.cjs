@@ -1,6 +1,7 @@
 'use strict';
 
 const { performance } = require('perf_hooks');
+const provenance = require('./comparisonProvenance.cjs');
 
 function endpointUrl() {
   return process.env.GENOS_COMPARISON_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat';
@@ -333,51 +334,9 @@ async function executeGenos(input) {
   });
 }
 
-async function externalPairedPending() {
-  throw new Error('Comparaison externe appariee indisponible : aucun framework concurrent execute via le protocole commun (voir comparison-plan.json externalProtocol).');
-}
-
 const ADAPTERS = Object.freeze({ 'direct-model': direct, 'fixed-team': fixedTeam,
   'conditional-router': conditionalRouter, 'communication-light': communicationLight,
-  'genos-full': genosFull, 'external-paired-pending': externalPairedPending });
-
-const ADAPTER_METADATA = Object.freeze({ 'direct-model': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'fixed-team': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'conditional-router': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'communication-light': { provenance: 'local-config', externalFramework: 'none', scope: 'local-baseline' },
-  'genos-full': { provenance: 'local-config', externalFramework: 'none', scope: 'local-runtime' },
-  'external-paired-pending': { provenance: 'external-paired-pending', externalFramework: 'pending', scope: 'external-paired' } });
-
-const EXTERNAL_PROTOCOL_REQUIREMENTS = Object.freeze({ sameTasks: true, sameSeeds: true,
-  sameBudgets: true, sharedIndependentOracle: true, realConcurrentExecution: true,
-  fields: ['externalFramework', 'externalAdapterVersion', 'externalProtocol', 'tasks', 'seeds', 'budgets', 'oracle'] });
-
-function adapterProvenance(name) {
-  const meta = ADAPTER_METADATA[name];
-  if (!meta) throw new Error(`Adaptateur inconnu : ${name}.`);
-  return meta;
-}
-
-function validateConditionProvenance(condition) {
-  const meta = adapterProvenance(condition.adapter);
-  if (meta.externalFramework === 'none' && condition.externalFramework && condition.externalFramework !== 'none') {
-    throw new Error(`L'adaptateur local ${condition.adapter} ne peut pas etre labellise externe (${condition.id}).`);
-  }
-  return meta;
-}
-
-function isExternalPairedReady(condition) {
-  const meta = ADAPTER_METADATA[condition.adapter];
-  if (!meta || meta.scope !== 'external-paired') return false;
-  return Boolean(condition.externalFramework) && condition.externalFramework !== 'none'
-    && condition.externalFramework !== 'pending' && Boolean(condition.externalProtocol);
-}
-
-function assertExternalComparisonAllowed(conditions, claim) {
-  const list = Array.isArray(conditions) ? conditions : [];
-  if (list.filter(isExternalPairedReady).length) return true;
-  throw new Error(`Aucune comparaison directe avec systemes concurrents etablie (${claim || 'allegation inter-frameworks'}) : aucun adaptateur external-paired enregistre avec protocole commun (memes taches/graines/budgets/oracle, execution reelle via le framework concurrent).`);
-}
+  'genos-full': genosFull, 'external-paired-pending': provenance.externalPairedPending });
 
 function createState(context) {
   const budget = context.budget || { tokens: context.tokens, latencyMs: context.latencyMs };
@@ -430,7 +389,7 @@ function formatConditionResult(input) {
 }
 
 async function executeCondition(condition, task, context) {
-  validateConditionProvenance(condition);
+  provenance.validateConditionProvenance(condition);
   const adapter = ADAPTERS[condition.adapter];
   if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
   const state = createState(context);
@@ -439,6 +398,5 @@ async function executeCondition(condition, task, context) {
   return formatConditionResult({ condition, state, result, error });
 }
 
-module.exports = { ADAPTERS, ADAPTER_METADATA, EXTERNAL_PROTOCOL_REQUIREMENTS, executeCondition, parseGenosReceipt, topologyProfile,
-  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, adapterProvenance, validateConditionProvenance, executeGenos,
-  isExternalPairedReady, assertExternalComparisonAllowed, externalPairedPending };
+module.exports = { ADAPTERS, ...provenance, executeCondition, parseGenosReceipt, topologyProfile,
+  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, executeGenos };
