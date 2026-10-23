@@ -1,12 +1,9 @@
 'use strict';
-
 const { performance } = require('perf_hooks');
 const provenance = require('./comparisonProvenance.cjs');
-
 function endpointUrl() {
   return process.env.GENOS_COMPARISON_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat';
 }
-
 function requestedModel() {
   return process.env.GENOS_COMPARISON_MODEL || 'qwen2.5-coder:7b';
 }
