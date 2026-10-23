@@ -29,7 +29,11 @@ async function fileHash(file) {
 }
 
 function sourceFile(file) {
-  return !/(^|\/)(node_modules|target|dist|\.genos(?:-[^/]+)?|\.git)(\/|$)/.test(file);
+  const normalized = String(file || '').replace(/\\/g, '/');
+  // The local runner may materialize this root-level control-plane config in
+  // a capsule. It is execution metadata, never candidate source or deliverable.
+  if (normalized === 'onto-config.json') return false;
+  return !/(^|\/)(node_modules|target|dist|\.genos(?:-[^/]+)?|\.git)(\/|$)/.test(normalized);
 }
 
 async function treeHash(worktree) {

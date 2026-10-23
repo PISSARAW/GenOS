@@ -21,6 +21,9 @@ async function claimsAfterCrash(db, id) {
 
 function rejectInvalidCandidates() {
   const integration = require('../src/services/ontogenesis/integrationService');
+  const { sourceFile } = require('../src/services/ontogenesis/proofService');
+  assert.equal(sourceFile('onto-config.json'), false, 'runner configuration is not a deliverable source file');
+  assert.equal(sourceFile('src/onto-config.json'), true, 'a nested application file with the same name remains source');
   const authority = { branches: ['codex/ontogenesis'], paths: ['backend/src/'] };
   const candidate = { branch: 'codex/ontogenesis', baseSha: 'abc', treeHash: 'a'.repeat(64), files: ['backend/src/../../outside.js'], proofs: [{}] };
   const result = integration.validateCandidate({ candidate, authority });
