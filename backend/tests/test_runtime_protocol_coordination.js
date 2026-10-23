@@ -12,6 +12,7 @@ function run() {
   };
   const decoded = decodeMission(encodeMission({
     agentId: 'worker-protocol-test',
+    executionRunId: 'run-protocol-test',
     missionId: 'mission-protocol-test', episodeId: 'episode-protocol-test',
     threadId: 'thread-protocol-test', organizationId: 'org-protocol-test',
     projectId: 'project-protocol-test',
@@ -20,6 +21,7 @@ function run() {
   }));
 
   assert.equal(decoded.organization, 'cross_functional_pod');
+  assert.equal(decoded.executionRunId, 'run-protocol-test');
   assert.deepEqual({ missionId: decoded.missionId, episodeId: decoded.episodeId,
     threadId: decoded.threadId, organizationId: decoded.organizationId,
     projectId: decoded.projectId }, {
@@ -35,12 +37,14 @@ function run() {
       missionId: 'mission-envelope-test', missionScope: {
         episodeId: 'episode-envelope-test', threadId: 'thread-envelope-test'
       } },
+    executionRun: { id: 'run-envelope-test' },
     controlTenant: { organization_id: 'org-envelope-test', project_id: 'project-envelope-test' },
     workspaceRoot: process.cwd(), dispatchedAgent: { execution_mode: 'worker' },
     runtimeBudget: {}, autonomyPlan: {}, genosCapsule: {}
   }, { agentId: 'worker-envelope-test' }, {});
   const envelopeDecoded = decodeMission(encodeMission(built));
   assert.equal(envelopeDecoded.organization, 'cross_functional_pod');
+  assert.equal(envelopeDecoded.executionRunId, 'run-envelope-test');
   assert.deepEqual({ missionId: envelopeDecoded.missionId,
     episodeId: envelopeDecoded.episodeId, threadId: envelopeDecoded.threadId,
     organizationId: envelopeDecoded.organizationId,

@@ -27,6 +27,7 @@ function optionalJson(value) {
 function execution(ctx) {
   const mission = ctx.normalizedMission;
   return { workspaceRoot: ctx.workspaceRoot, workspaceIsolation: valueOr(mission.workspaceIsolation, ''),
+    executionRunId: valueOr(ctx.executionRun?.id, ''),
     ...checkpoint(ctx),
     agentType: valueOr(mission.agentType, ''), executionMode: ctx.dispatchedAgent.execution_mode,
     orchestratorAgentId: valueOr(mission.orchestratorAgentId, ''), missionId: valueOr(mission.missionId, ''),

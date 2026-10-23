@@ -37,6 +37,8 @@ async function run() {
     const token = await actor.issue(db, { agentId: 'worker', runId: 'run', workspaceRoot: 'workspace' });
     const verified = await actor.verify(db, { token, workspaceRoot: 'workspace', toolName: 'allowed-tool' });
     assert.equal(verified.workspace_root, 'validated:workspace');
+    const tokenVerified = await actor.verifyFromToken(db, { token, toolName: 'allowed-tool' });
+    assert.equal(tokenVerified.workspace_root, 'validated:workspace');
     assert.equal(resolutions, 2);
   } finally {
     authority.assertRun = originals.assertRun;

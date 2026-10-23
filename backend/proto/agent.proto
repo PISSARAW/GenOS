@@ -65,6 +65,8 @@ message AgentMission {
   string thread_id = 44;
   string organization_id = 45;
   string project_id = 46;
+  // Backend-issued run identity for authority-bound MCP tool execution.
+  string execution_run_id = 47;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

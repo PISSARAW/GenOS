@@ -100,7 +100,8 @@ async function authorityDecision(db, row, tokenHash) {
 }
 
 async function scopeDecision(input, decision) {
-  const root = await authority.realWorkspaceRoot(input.workspaceRoot);
+  const root = input.workspaceRootIsCanonical === true
+    ? input.workspaceRoot : await authority.realWorkspaceRoot(input.workspaceRoot);
   if (root !== decision.row.workspace_root) {
     return { ...decision, code: 'MCP_ACTOR_WORKSPACE_MISMATCH', reason: 'workspace_mismatch' };
   }
@@ -136,6 +137,25 @@ async function begin(db, input) {
   const decision = await withTransaction(db, () => decideBegin(db, input));
   if (decision.code) throw refusal(decision.code);
   return decision.receipt;
+}
+
+async function beginFromToken(db, input) {
+  if (!/^[a-f0-9]{64}$/.test(input.token || '')) throw refusal('MCP_ACTOR_TOKEN_INVALID');
+  await migrateMcpActorLeaseV2(db);
+  const row = await load(db, digest(input.token));
+  if (!row) throw refusal('MCP_ACTOR_TOKEN_REVOKED');
+  const receipt = await begin(db, { ...input, workspaceRoot: row.workspace_root,
+    workspaceRootIsCanonical: true });
+  return { ...receipt, workspaceRoot: row.workspace_root };
+}
+
+async function verifyFromToken(db, input) {
+  if (!/^[a-f0-9]{64}$/.test(input.token || '')) throw refusal('MCP_ACTOR_TOKEN_INVALID');
+  await migrateMcpActorLeaseV2(db);
+  const row = await load(db, digest(input.token));
+  if (!row) throw refusal('MCP_ACTOR_TOKEN_REVOKED');
+  return verify(db, { ...input, workspaceRoot: row.workspace_root,
+    workspaceRootIsCanonical: true });
 }
 
 async function decideBegin(db, input) {
@@ -189,6 +209,15 @@ async function finish(db, input) {
   });
 }
 
+async function finishFromToken(db, input) {
+  if (!/^[a-f0-9]{64}$/.test(input.token || '')) throw refusal('MCP_ACTOR_TOKEN_INVALID');
+  await migrateMcpActorLeaseV2(db);
+  const row = await load(db, digest(input.token));
+  if (!row) throw refusal('MCP_ACTOR_TOKEN_REVOKED');
+  return finish(db, { ...input, workspaceRoot: row.workspace_root,
+    workspaceRootIsCanonical: true });
+}
+
 function matchesPredictedReceipt(receipt, capability, input) {
   return receipt?.phase === 'predicted'
     && receipt.agentId === capability.agent_id
@@ -213,4 +242,5 @@ async function revoke(db, token, reason = 'runtime_stopped') {
   });
 }
 
-module.exports = { issue, verify, begin, finish, revoke };
+module.exports = { issue, verify, begin, beginFromToken, verifyFromToken,
+  finish, finishFromToken, revoke };

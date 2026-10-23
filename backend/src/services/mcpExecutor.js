@@ -224,12 +224,13 @@ function withTimeout(promise, timeoutMs) {
   return settled.finally(() => guard.cancel());
 }
 
-async function resolveExecutionPolicy(db, request) {
+async function resolveExecutionPolicy(db, request, binding) {
   const { agentId, organizationId, projectId, toolName, args, taints } = request;
   const scopeRow = agentId ? await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId) : null;
   const circuitScope = resolveCircuitScope(organizationId, projectId, scopeRow);
   const permissionRow = await getPermissionRow(db, { agentId, organizationId, projectId });
-  const permissions = resolvePermissions(permissionRow, agentId);
+  const permissions = binding?.status === 'authorized'
+    ? [toolName] : resolvePermissions(permissionRow, agentId);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId || 'system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
@@ -325,8 +326,8 @@ async function execute(executionRequest) {
   const db = await getDatabase();
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   const request = { agentId, runId, organizationId, projectId, toolName, args, taints };
-  const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
-  const binding = await resolvePermissionBinding(db, { request, policy, executionRequest });
+  const binding = await resolvePermissionBinding(db, request);
+  const { circuitScope, policy } = await resolveExecutionPolicy(db, request, binding);
   return require('./mcpExecutor/permissionMembraneBridge').executeAuthorized({
     db, request: { ...request, ...executionRequest }, policy, binding,
     operation: async () => executeAfterPermission({
@@ -335,10 +336,8 @@ async function execute(executionRequest) {
   });
 }
 
-async function resolvePermissionBinding(db, context) {
-  const { request, policy, executionRequest } = context;
-  const mayExecute = policy.decision === 'allow' || executionRequest.approval || executionRequest.evaluation;
-  if (!mayExecute || !request.agentId) return { status: 'legacy_unbound' };
+async function resolvePermissionBinding(db, request) {
+  if (!request.agentId || !request.runId) return { status: 'legacy_unbound' };
   try {
     return await require('./missionEnvelopeAuthority').assertTool(db, {
       agentId: request.agentId, runId: request.runId, toolName: request.toolName

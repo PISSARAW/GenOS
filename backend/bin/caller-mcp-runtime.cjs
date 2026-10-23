@@ -27,7 +27,10 @@ async function run(raw) {
     const response = await sampleWithTools({
       messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
       maxTokens: Math.max(1, Number(state.executionBudget.tokens || 2048) - Math.ceil(Buffer.byteLength(prompt) / 4)),
-      agentContext: { agentId: mission.agentId, executionMode: mission.executionMode, orchestratorAgentId: mission.orchestratorAgentId, toolLease: state.toolLease },
+      agentContext: { agentId: mission.agentId, executionRunId: mission.executionRunId,
+        organizationId: mission.organizationId, projectId: mission.projectId,
+        executionMode: mission.executionMode, orchestratorAgentId: mission.orchestratorAgentId,
+        toolLease: state.toolLease },
       systemPrompt: 'You are an agent executing under GenOS governance. Return only the requested result.'
     }, state);
     const text = extractText(response);
@@ -89,7 +92,9 @@ function sample(params) {
 function callTool(payload) {
   const url = new URL(process.env.GENOS_MCP_TOOL_URL);
   return new Promise((resolve, reject) => {
-    const req = http.request(url, { method: 'POST', headers: { authorization: `Bearer ${process.env.GENOS_MCP_SAMPLING_TOKEN}`, 'content-type': 'application/json' } }, (res) => {
+    const headers = { authorization: `Bearer ${process.env.GENOS_MCP_SAMPLING_TOKEN}`, 'content-type': 'application/json' };
+    if (process.env.GENOS_MCP_ACTOR_TOKEN) headers['X-GenOS-MCP-Actor-Token'] = process.env.GENOS_MCP_ACTOR_TOKEN;
+    const req = http.request(url, { method: 'POST', headers }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => { body += chunk; });
@@ -97,7 +102,9 @@ function callTool(payload) {
     });
     req.on('error', reject);
     req.setTimeout(Number(process.env.GENOS_MCP_SAMPLING_TIMEOUT_MS || 300000), () => req.destroy(new Error('MCP tool call timed out.')));
-    req.end(JSON.stringify(payload));
+    const context = payload.agentContext || {};
+    req.end(JSON.stringify({ ...payload, agentId: context.agentId, runId: context.executionRunId,
+      organizationId: context.organizationId, projectId: context.projectId }));
   });
 }
 
