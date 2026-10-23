@@ -117,6 +117,24 @@ function parseGenosReceipt(stdout) {
   throw new Error('GenOS CLI did not return a final receipt with token usage.');
 }
 
+function outputExcerpt(value) {
+  const text = String(value || '');
+  if (text.length <= 2000) return text;
+  return `${text.slice(0, 1000)}\n...[truncated]...\n${text.slice(-1000)}`;
+}
+
+function persistExecutionLogs(state, stdout, stderr) {
+  if (!state.workspace) return { stdoutPath: null, stderrPath: null };
+  const fs = require('fs');
+  const path = require('path');
+  const directory = path.dirname(state.workspace);
+  const stdoutPath = path.join(directory, 'genos.stdout.log');
+  const stderrPath = path.join(directory, 'genos.stderr.log');
+  fs.writeFileSync(stdoutPath, stdout);
+  fs.writeFileSync(stderrPath, stderr);
+  return { stdoutPath, stderrPath };
+}
+
 function genosAnswer(receipt) {
   for (const event of receipt.telemetry || []) {
     if (event.event_type !== 'EVIDENCE_REPORT' || !event.payload_json) continue;
@@ -251,19 +269,35 @@ async function genosFull(task, state) {
     GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
     GENOS_COMPARISON_TOOL_POLICY: 'empty', GENOS_MORPHOGENESIS_V2_SHADOW: '0' };
   const started = performance.now();
-  const result = await executeGenos({ payload, env, repo, state });
+  const execution = await executeGenos({ payload, env, repo, state });
+  const result = execution.receipt;
+  if (!result) {
+    const error = new Error(`GenOS exited ${execution.exitCode} without a final receipt; inspect ${execution.logs.stdoutPath || 'stdout excerpt'} and ${execution.logs.stderrPath || 'stderr excerpt'}.`);
+    error.result = { execution };
+    throw error;
+  }
   const usage = result.token_usage;
   const tokens = Number(usage.totalTokens ?? NaN);
-  if (!Number.isFinite(tokens)) throw new Error('GenOS receipt lacks measured total tokens.');
-  if (tokens > state.budget.tokens) throw new Error('GenOS exceeded the shared token budget.');
+  if (!Number.isFinite(tokens)) {
+    const error = new Error('GenOS receipt lacks measured total tokens.');
+    error.result = { receipt: result, execution };
+    throw error;
+  }
+  if (tokens > state.budget.tokens) {
+    const error = new Error('GenOS exceeded the shared token budget.');
+    error.result = { receipt: result, execution };
+    throw error;
+  }
   return { text: genosAnswer(result), tokens, servedModel: genosServedModel(result), promptTokens: null,
     completionTokens: null, latencyMs: performance.now() - started,
-    receipt: result, route: 'genos-full', messageCount: usage.executionRuns?.length || null };
+    receipt: result, route: 'genos-full', messageCount: usage.executionRuns?.length || null,
+    execution: execution, executionError: execution.exitCode === 0 ? null
+      : `GenOS exited ${execution.exitCode}; inspect ${execution.logs.stdoutPath} and ${execution.logs.stderrPath}.` };
 }
 
 async function executeGenos(input) {
   if (input.state.genosExecutor) return input.state.genosExecutor(input.payload);
-  const { spawn } = require('child_process');
+  const spawn = input.state.spawnProcess || require('child_process').spawn;
   const path = require('path');
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(input.repo, 'backend/bin/genos-orchestrate.cjs'), JSON.stringify(input.payload)],
@@ -272,16 +306,20 @@ async function executeGenos(input) {
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     const timer = setTimeout(() => child.kill(), input.state.budget.latencyMs);
-    child.once('error', reject);
+    child.once('error', error => {
+      clearTimeout(timer);
+      const logs = persistExecutionLogs(input.state, stdout, stderr);
+      reject(Object.assign(new Error(`GenOS process could not start: ${error.message}`), {
+        result: { execution: { exitCode: null, logs, stdoutExcerpt: outputExcerpt(stdout), stderrExcerpt: outputExcerpt(stderr) } }
+      }));
+    });
     child.once('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0) {
-        const head = stderr.slice(0, 1000);
-        const tail = stderr.slice(-1000);
-        return reject(new Error(`GenOS exited ${code}: ${head}${tail.length ? ` ... ${tail}` : ''}`));
-      }
-      try { resolve(parseGenosReceipt(stdout)); }
-      catch (error) { reject(error); }
+      const logs = persistExecutionLogs(input.state, stdout, stderr);
+      let receipt = null;
+      try { receipt = parseGenosReceipt(stdout); } catch (_) { /* retain output even when no receipt exists */ }
+      resolve({ exitCode: code ?? 1, receipt, logs,
+        stdoutExcerpt: outputExcerpt(stdout), stderrExcerpt: outputExcerpt(stderr) });
     });
   });
 }
@@ -344,8 +382,10 @@ function createState(context) {
 }
 
 async function invokeAdapter(adapter, task, state) {
-  try { return { result: await adapter(task, state), error: null }; }
-  catch (cause) { return { result: {}, error: cause.message }; }
+  try {
+    const result = await adapter(task, state);
+    return { result, error: result.executionError || null };
+  } catch (cause) { return { result: cause.result || {}, error: cause.message }; }
 }
 
 function tokenTotal(condition, state, result) {
@@ -363,6 +403,10 @@ function measuredMetrics(condition, state, result) {
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     transitionEvidence: evidenceOf(result),
+    executionExitCode: result.execution?.exitCode ?? null,
+    executionLogs: result.execution?.logs || null,
+    executionStdoutExcerpt: result.execution?.stdoutExcerpt || null,
+    executionStderrExcerpt: result.execution?.stderrExcerpt || null,
     runtimeSucceeded: result.receipt?.success ?? null,
     allWorkersCompleted: result.receipt?.token_usage?.allRunsCompleted ?? null,
     latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null
@@ -387,5 +431,5 @@ async function executeCondition(condition, task, context) {
 }
 
 module.exports = { ADAPTERS, ADAPTER_METADATA, EXTERNAL_PROTOCOL_REQUIREMENTS, executeCondition, parseGenosReceipt, topologyProfile,
-  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, adapterProvenance, validateConditionProvenance,
+  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, adapterProvenance, validateConditionProvenance, executeGenos,
   isExternalPairedReady, assertExternalComparisonAllowed, externalPairedPending };

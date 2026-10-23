@@ -38,6 +38,29 @@ test('adapter resolves frozen and imposed topologies per task', () => {
   assert.equal(adapters.resolvedAutonomous({ autonomous: false }), false);
 });
 
+test('nonzero GenOS exit preserves a valid receipt and stdout/stderr diagnostics', async () => {
+  const { EventEmitter } = require('node:events');
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.kill = () => {};
+  const receipt = { orchestratorId: 'orchestrator-1', token_usage: { totalTokens: 4 } };
+  const resultPromise = adapters.executeGenos({ payload: {}, env: {}, repo: __dirname,
+    state: { budget: { latencyMs: 1000 }, spawnProcess: () => {
+      setImmediate(() => {
+        child.stdout.emit('data', `${JSON.stringify(receipt)}\n`);
+        child.stderr.emit('data', 'runtime failure detail');
+        child.emit('close', 2);
+      });
+      return child;
+    } } });
+  const execution = await resultPromise;
+  assert.equal(execution.exitCode, 2);
+  assert.equal(execution.receipt.orchestratorId, receipt.orchestratorId);
+  assert.match(execution.stdoutExcerpt, /orchestrator-1/);
+  assert.match(execution.stderrExcerpt, /runtime failure detail/);
+});
+
 test('frozen selection prefers pass rate, then tokens, then name', () => {
   const plan = { training: { taskIds: ['train-cap-01'], candidateTopologies: ['trinity', 'a_team', 'biome'] } };
   const attempts = [

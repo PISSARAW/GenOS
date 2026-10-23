@@ -126,6 +126,8 @@ function assessAttempt(input) {
     tokenUsage: result.tokenUsage, latencyMs: result.latencyMs, servedModel: result.servedModel,
     servedModelOk: result.servedModel === model, toolUseCount: result.toolUseCount,
     budgetOk, error: result.error || null, attestation: attestationOf(result),
+    executionExitCode: result.executionExitCode, executionLogs: result.executionLogs,
+    executionStdoutExcerpt: result.executionStdoutExcerpt, executionStderrExcerpt: result.executionStderrExcerpt,
     receipt: result.receipt };
 }
 
