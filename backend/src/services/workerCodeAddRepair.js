@@ -83,13 +83,20 @@ function storageKey(source, state) {
   return state.stateKind === 'collection' ? state.stateValue : 'pantry';
 }
 
-function rendererName(source) {
-  return matchValue(source, /function\s+((?:render|update)[A-Za-z_$][\w$]*)\s*\(/i, '');
+function rendererName(source, stateName) {
+  const match = source.match(/function\s+((?:render|update)[A-Za-z_$][\w$]*)\s*\(\s*([^)]*)\)/i);
+  if (!match) return '';
+  return `${match[1]}(${match[2].trim() ? stateName : ''})`;
 }
 
 function collectionWrite(state, key, renderer) {
-  const render = renderer ? `${renderer}();` : '';
+  const render = renderer ? `${renderer};` : '';
   return `${state.stateName}.push(item);localStorage.setItem(${JSON.stringify(key)},JSON.stringify(${state.stateValue}));${render}`;
+}
+
+function storageCollectionWrite(key, renderer) {
+  const render = renderer ? `${renderer};` : '';
+  return `const stored=JSON.parse(localStorage.getItem(${JSON.stringify(key)})||'[]');const items=Array.isArray(stored)?stored:Array.isArray(stored?.items)?stored.items:[];items.push(item);localStorage.setItem(${JSON.stringify(key)},JSON.stringify(items));${render}`;
 }
 
 function containerWrite(state, key) {
@@ -100,7 +107,7 @@ function containerWrite(state, key) {
 function writeBehavior(state, key, renderer) {
   if (state.stateKind === 'collection') return collectionWrite(state, key, renderer);
   if (state.stateKind === 'container') return containerWrite(state, key);
-  return '';
+  return storageCollectionWrite(key, renderer);
 }
 
 function addHandlerScript(source, state, fields, key, renderer) {
@@ -114,7 +121,7 @@ function ensureAddItemBehavior(content) {
   const state = discoverState(source);
   const fields = discoverFields(source);
   const key = storageKey(source, state);
-  const renderer = rendererName(source);
+  const renderer = rendererName(source, state.stateKind === 'unknown' ? 'items' : state.stateName);
   const script = addHandlerScript(source, state, fields, key, renderer);
   return /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${script}</body>`) : `${source}${script}`;
 }

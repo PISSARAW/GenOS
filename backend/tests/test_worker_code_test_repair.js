@@ -248,6 +248,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedDomPantry = JSON.parse(applyRepairPlan(domPantryCandidate, addPlan)).patches[0].content;
   assert.match(repairedDomPantry, /container\.appendChild\(row\)/);
   assert.match(repairedDomPantry, /localStorage\.setItem\("pantry",JSON\.stringify\(items\)\)/);
+  const nestedStateCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<form id="pantryForm"><input id="itemName"><input id="quantity"><button type="submit">Add Item</button></form><table><tbody id="pantry-items"></tbody></table><script>document.querySelector("#pantryForm").addEventListener("submit",function(event){const state=JSON.parse(localStorage.getItem("state")||"[]");state.push({itemName:"Oats"});updatePantryTable(state);});function updatePantryTable(items){document.getElementById("pantry-items").innerHTML="";}</script>'
+  }] });
+  const repairedNestedState = JSON.parse(applyRepairPlan(nestedStateCandidate, addPlan)).patches[0].content;
+  assert.match(repairedNestedState, /localStorage\.getItem\("state"\)/);
+  assert.match(repairedNestedState, /items\.push\(item\)/);
+  assert.match(repairedNestedState, /updatePantryTable\(items\)/);
   const callbackPantryCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<form><input id="itemName"><input id="quantity" type="number"><input id="bestBefore" type="date"><select id="category"></select><button type="submit">Add Item</button></form><table id="pantry"><tbody></tbody></table><script>window.addEventListener("load",function(){const pantry=JSON.parse(localStorage.getItem("pantry"))||[];const table=document.querySelector("#pantry tbody");pantry.forEach(item=>{const row=document.createElement("tr");table.appendChild(row);});});</script>'
   }] });
