@@ -38,8 +38,14 @@ async function complete(context, executionRun, result) {
   const nativeOracleRef = await require('../epistemic/nativeOracleCoordinator').prepare(db, {
     agentId: mission.agentId, runId: executionRun.id });
   assertActive(context);
+  const replaySnapshot = await require('../workerEvidenceReplaySnapshot').createReplaySnapshot({
+    workerId: mission.agentId, runId: executionRun.id, workspaceRoot: mission.workspaceRoot,
+    worldId: mission.runtimeCapsule?.worldId, evidenceReport
+  });
+  assertActive(context);
   const completed = emit(mission.agentId, 'AGENT_COMPLETED', mission.workerKind, 'Native worker completed.', {
-    executionRunId: executionRun.id, evidenceReport, ...(nativeOracleRef ? { nativeOracleRef } : {}),
+    executionRunId: executionRun.id, evidenceReport, snapshot: replaySnapshot.snapshotPath,
+    ...(nativeOracleRef ? { nativeOracleRef } : {}),
     usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 }
   }, 'info', 'completed');
   await publish(db, mission, completed);
