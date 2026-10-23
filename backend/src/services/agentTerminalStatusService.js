@@ -28,7 +28,7 @@ function domainValidation(state) {
 }
 
 function eventValidation(status, state) {
-  if (['partial', 'unverified'].includes(status)) {
+  if (['partial', 'unverified'].includes(status) && domainValidation(state).status === 'partial') {
     return { status: 'partial', reasons: ['required_results_unverified'] };
   }
   return domainValidation(state);
@@ -89,4 +89,4 @@ async function settle(input) {
   }
 }
 
-module.exports = { isTerminalEvent, evaluateTerminalStatus, persistedStatus, queue, settle };
+module.exports = { isTerminalEvent, evaluateTerminalStatus, persistedStatus, eventValidation, queue, settle };

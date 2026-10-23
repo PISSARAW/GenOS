@@ -12,6 +12,13 @@ const { workerComplianceScenario } = require('./fixtures/workerComplianceScenari
 const strategyProgress = require('../src/services/strategyExecutionProgress');
 const terminalStatus = require('../src/services/agentTerminalStatusService');
 
+assert.equal(terminalStatus.eventValidation('unverified', {
+  missionDomainState: { domainVerdict: 'completed', unverified: false, hasDomainFailure: false }
+}).status, 'verified');
+assert.equal(terminalStatus.eventValidation('unverified', {
+  missionDomainState: { domainVerdict: 'unverified', unverified: true, hasDomainFailure: false }
+}).status, 'partial');
+
 const CONTENT = {
   scout_observation: { observations: [{ observation: 'found', sourceRefs: ['ref'], confidence: 1, uncertainties: [] }] },
   dossier: { claims: [{ statement: 'claim', evidence: ['ref'] }] },
