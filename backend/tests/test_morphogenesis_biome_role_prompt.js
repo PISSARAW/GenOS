@@ -87,10 +87,11 @@ assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
 assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
 assert.match(stewardMission, /First check feasibility: total weight=24; aggregate capacity=3\*8=24/);
 assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
-assert.match(stewardMission, /When aggregate capacity is exact, every chosen subset must sum to 8/);
-assert.match(stewardMission, /otherwise do not force bins to be full/);
-assert.match(stewardMission, /Build each bin with a running subtotal/);
-assert.match(stewardMission, /reject that placement immediately if the new subtotal exceeds 8/);
+assert.match(stewardMission, /order items by descending weight/);
+assert.match(stewardMission, /Place each next item in a bin only when its running subtotal plus that weight is at most 8/);
+assert.match(stewardMission, /if no bin fits, backtrack and move an earlier item/);
+assert.match(stewardMission, /When aggregate capacity is exact, every bin must finish at exactly 8/);
+assert.match(stewardMission, /otherwise bins may be below capacity/);
 assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to another subset/);
 assert.match(stewardMission, /exactly one GenOS dossier/);
@@ -106,8 +107,8 @@ const underfilledStewardMission = rolePrompt.morphogenesisMissionPrompt({ worker
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6 en 3 groupes, plafond de 13.');
 assert.match(underfilledStewardMission, /Total weight is below aggregate capacity, so bins do not need to be full/);
-assert.match(underfilledStewardMission, /leftover total is no greater than the remaining bin count times 13/);
-assert.match(underfilledStewardMission, /otherwise do not force bins to be full/);
+assert.match(underfilledStewardMission, /Check that leftover weight always fits in the remaining bins/);
+assert.match(underfilledStewardMission, /otherwise bins may be below capacity/);
 assert.match(underfilledStewardMission, /The budget is sufficient for this 8-item arithmetic task/);
 assert.match(stewardMission, /recalculate each bin total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
