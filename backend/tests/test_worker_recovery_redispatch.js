@@ -3,17 +3,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { getDatabase, closeDatabase } = require('../src/db');
 const orchestrationState = require('../src/services/agentOrchestrationState');
+const workerGarage = require('../src/services/workerGarageService');
 
 const DB_PATH = path.resolve(__dirname, 'worker-recovery-redispatch-test.db');
 const emitted = [];
 const startedMissions = [];
 const recoveryCalls = [];
 const continuationCalls = [];
+let recoveryWorkspaceCalls = 0;
 
 orchestrationState.emit = (...args) => { emitted.push(args); return { id: 'test-event' }; };
 
 const lifecycle = require('../src/services/agentWorkspaceLifecycleService');
-lifecycle.createIsolatedWorkspace = async () => '/tmp/genos-recovery-redispatch-ws';
+lifecycle.createIsolatedWorkspace = async () => {
+  recoveryWorkspaceCalls += 1;
+  return '/tmp/genos-recovery-redispatch-ws';
+};
 lifecycle.cleanupWorkspace = async () => 'removed';
 lifecycle.forgetWorkspace = async () => true;
 
@@ -64,11 +69,15 @@ async function setup(db) {
   await db.run("INSERT INTO organizations (id, name) VALUES ('rec-org', 'Rec Org')");
   await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('rec-project', 'rec-org', 'Rec Project')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws', 'Rec WS', ?, 'rec-org', 'rec-project')", __dirname);
+  await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('rec-ws-other', 'Rec Other WS', ?, 'rec-org', 'rec-project')", path.join(__dirname, 'fixtures'));
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('rec-orch', 'Orch', 'orchestrator', 'running', 'orchestrator', 'rec-ws')");
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('rec-orch-other', 'Other Orch', 'orchestrator', 'running', 'orchestrator', 'rec-ws-other')");
   const workers = [['rec-w', 'error'], ['rec-w2', 'error'], ['rec-done', 'completed'], ['rec-fail', 'error'], ['rec-f1', 'running']];
   for (const [id, status] of workers) {
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, ?, 'implementation', ?, 'worker', 'rec-orch')", id, id, status);
   }
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES ('rec-w-trinity', 'Trinity Worker', 'implementation', 'error', 'worker', 'rec-ws', 'rec-orch-other')");
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES ('rec-w-cross', 'Cross Workspace Worker', 'implementation', 'error', 'worker', 'rec-ws', 'rec-orch-other')");
   const claims = [['req-rec', 'rec-w'], ['req-rec2', 'rec-w2'], ['req-recf', 'rec-fail']];
   for (const [requestId, workerId] of claims) {
     await db.run(
@@ -124,6 +133,47 @@ async function checkReplacementRedispatch(db) {
   assert.notEqual(dispatched.agentId, 'rec-w2');
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the replacement resumes the checkpoint');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w2'")).status, 'error', 'the dead source is left untouched');
+}
+
+async function checkTrinityRecoveryKeepsSealedWorkspace(db) {
+  clearSharedState();
+  const before = recoveryWorkspaceCalls;
+  const { mission, report, decision } = queuedRecovery('rec-w-trinity', 'unresolved_task', {
+    missionScope: { trinityExperimentId: 'rec-trinity-experiment' },
+    workspaceRoot: __dirname,
+    workspaceId: 'rec-ws'
+  });
+  assert.equal(decision.identity, 'same');
+  orchestrationState.pendingWorkerRecoveries.set('rec-w-trinity', { mission, report, decision });
+  const reserveSlot = workerGarage.reserveSlot;
+  workerGarage.reserveSlot = async () => ({ slot: 1, capacity: 8 });
+  try {
+    assert.equal(await dispatchWorkerRecovery('rec-w-trinity'), true, JSON.stringify(emitted.slice(-4)));
+  } finally {
+    workerGarage.reserveSlot = reserveSlot;
+  }
+  assert.equal(startedMissions.at(-1).workspaceRoot, __dirname,
+    'Trinity recovery must keep the workspace root sealed to the source worker');
+  assert.equal(recoveryWorkspaceCalls, before, 'Trinity recovery must not clone a differently bound workspace');
+}
+
+async function checkRecoveryLineageUsesWorkspaceParent(db) {
+  clearSharedState();
+  const { mission, report, decision } = queuedRecovery('rec-w-cross', 'capability_mismatch');
+  assert.equal(decision.identity, 'new');
+  orchestrationState.pendingWorkerRecoveries.set('rec-w-cross', { mission, report, decision });
+  const reserveSlot = workerGarage.reserveSlot;
+  workerGarage.reserveSlot = async () => ({ slot: 1, capacity: 8 });
+  try {
+    assert.equal(await dispatchWorkerRecovery('rec-w-cross'), true,
+      'replacement recovery must persist lineage within the worker execution workspace');
+  } finally {
+    workerGarage.reserveSlot = reserveSlot;
+  }
+  const dispatched = startedMissions.at(-1);
+  const edge = await db.get('SELECT workspace_id, source_node_id, target_node_id FROM lineage_edges WHERE target_node_id = ?', dispatched.agentId);
+  assert.deepEqual(edge, { workspace_id: 'rec-ws', source_node_id: 'rec-w-cross', target_node_id: dispatched.agentId },
+    'recovery lineage must point to the failed worker in the same workspace');
 }
 
 async function checkValidatedWorkNotRedispatched(db) {
@@ -209,6 +259,8 @@ async function run() {
     clearSharedState();
     await checkSameIdentityRedispatch(db);
     await checkReplacementRedispatch(db);
+    await checkTrinityRecoveryKeepsSealedWorkspace(db);
+    await checkRecoveryLineageUsesWorkspaceParent(db);
     await checkValidatedWorkNotRedispatched(db);
     await checkExhaustionVerdict(db);
     checkQueueRefresh();
