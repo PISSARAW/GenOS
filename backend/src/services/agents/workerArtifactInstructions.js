@@ -63,7 +63,9 @@ function schemaInstruction(text, fields) {
 function specialistInstruction(niche) {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
-  return `Work only in the declared niche '${niche}'. If the task is outside it, return unresolved. Schema: ${JSON.stringify(output)}`;
+  const biomeScope = niche === 'biome:resource_steward'
+    ? 'This niche includes exact resource allocation, partitioning, and capacity verification; an allocation task is in scope.' : '';
+  return `${biomeScope} Work only in the declared niche '${niche}'. For successful work, follow this schema exactly: ${JSON.stringify(output)}. If the task is outside the niche or evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<specific limitation>"]}; do not include success-only fields.`;
 }
 
 function templateForWorker(contract, type) {
