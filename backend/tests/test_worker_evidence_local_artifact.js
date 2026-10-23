@@ -35,6 +35,13 @@ assert.equal(codeReport.workerArtifact.type, 'dossier');
 assert.match(codeReport.claims[0].evidence[0], /^genos:\/\/code-file\//);
 assert(codeReport.workerArtifact.provenance.allowedEvidenceRefs.includes(
   `genos://code-test-execution/${'b'.repeat(64)}`));
+assert.doesNotThrow(() => attachWorkerArtifact(codeReport, {
+  codeWorker: true,
+  proposal: { testExecutionReceipt: { receiptHash: 'b'.repeat(64) } },
+  mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace',
+    prompt: 'Mission artifact=diagnostic_matrix' },
+  agentName: 'code-worker'
+}), 'code repair evidence is validated against its test receipt, not a dossier matrix requirement');
 const unboundReceipt = require('../src/services/workerCodeEvidenceReport').build({
   mission: { workspaceRoot: 'workspace' },
   proposal: { testStatus: 'passed', changedFileHashes: [{ path: 'index.html', hash: 'c'.repeat(64) }],
