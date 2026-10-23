@@ -24,9 +24,12 @@ function morphogenesisUseMemoryContext(assignment) {
 function allocationFacts(source) {
   const items = [...source.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], value: Number(match[2]) }));
-  const groups = Number(source.match(/\b(\d+)\s+groupes?\b/i)?.[1]);
-  const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b/i);
-  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2] || capacityMatch?.[3]);
+  const groups = Number(source.match(/\b(\d+)\s+groupes?\b/i)?.[1]
+    || source.match(/\bgroups\s*=\s*(\d+)\b/i)?.[1]
+    || source.match(/\bexactly\s+(\d+)\s+non-empty\s+bins\b/i)?.[1]);
+  const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b|\babove\s+(\d+)\b/i);
+  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2] || capacityMatch?.[3]
+    || capacityMatch?.[4] || source.match(/\bmax\s*=\s*(\d+)\b/i)?.[1]);
   return { items, groups, capacity };
 }
 

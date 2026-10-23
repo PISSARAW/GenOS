@@ -116,6 +116,14 @@ const smallAllocation = 'Repartis item1=2, item2=2, item3=1 en 2 groupes, plafon
 const biomeSteward = { topology: 'biome', topologyRole: 'resource_steward' };
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation, biomeSteward),
   { passed: true, issues: [] });
+const normalizedStewardMission = rolePrompt.morphogenesisMissionPrompt(biomeSteward, smallAllocation);
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1', 'item2'], ['item3']] },
+  normalizedStewardMission, biomeSteward),
+{ passed: false, issues: ['candidate.bin_1_over_capacity:4'] },
+'The semantic guard also parses the compact groups/max prompt passed to local workers.');
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1', 'item2', 'item2'], ['item3']] },
+  normalizedStewardMission, biomeSteward),
+{ passed: false, issues: ['candidate.bin_1_over_capacity:6', 'candidate.item_coverage'] });
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1', 'item2'], ['item3']] }, smallAllocation, biomeSteward),
   { passed: false, issues: ['candidate.bin_1_over_capacity:4'] });
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], 'item2', ['item3']] }, smallAllocation, biomeSteward),
