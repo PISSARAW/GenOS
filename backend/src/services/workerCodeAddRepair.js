@@ -4,7 +4,7 @@ function ensureAddItemBehavior(content) {
   const source = String(content || '');
   if (source.includes('genosAddItemRepair')) return source;
   const objectState = source.match(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\{[^}]*\bitems\s*:\s*\[\s*\]/i)?.[1];
-  const arrayState = source.match(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\[\s*\]/i)?.[1];
+  const arrayState = source.match(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:JSON\.parse\([^;]*?\)\s*\|\|\s*)?\[\s*\]/i)?.[1];
   const stateName = objectState ? `${objectState}.items` : arrayState || 'pantry';
   const stateValue = objectState || stateName;
   const field = (pattern, fallback) => source.match(new RegExp(`<input\\b[^>]*\\bid\\s*=\\s*(["'])([^"']*${pattern}[^"']*)\\1`, 'i'))?.[2] || fallback;
