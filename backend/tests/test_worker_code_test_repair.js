@@ -1,7 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { run, repairPrompt, failureFeedback, locatorRepairHint } = require('../src/services/workerCodeTestRepair');
+const { run, repairPrompt, failureFeedback, locatorRepairHint, repairPlan,
+  applyRepairPlan } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
 
@@ -53,14 +54,31 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
   assert.match(failureFeedback(failed), /Exit code: 1/);
-  const categoryFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
+  const categoryFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'locator.selectOption: Timeout 4000ms exceeded. waiting for getByLabel(/^category$/i)'
-  }] } });
+  }] }, usage: { inputTokens: 25, outputTokens: 25, tokens: 50 } });
   assert.match(locatorRepairHint(categoryFailure), /<label for="category">Category<\/label>/);
   assert.match(failureFeedback(categoryFailure), /label that control Filter category/);
   assert.ok(failureFeedback(categoryFailure).indexOf('exact accessible Category control')
     < failureFeedback(categoryFailure).indexOf('locator.selectOption'));
+  const plan = repairPlan(categoryFailure);
+  assert.deepEqual(plan, { kind: 'ensure_accessible_select_label', label: 'Category' });
+  const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
+    path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select></form>'
+  }], tests: ['npm test'], evidence: 'test fixture' });
+  const repairedText = applyRepairPlan(proposalText, plan);
+  assert.match(JSON.parse(repairedText).patches[0].content,
+    /<select id="category" aria-label="Category">/);
+  assert.equal(applyRepairPlan(repairedText, plan), repairedText);
+  let repairPlanAttempts = 0;
+  await run({ mission, runAttempt: async (attemptMission) => {
+    repairPlanAttempts += 1;
+    if (repairPlanAttempts === 1) throw categoryFailure;
+    assert.deepEqual(attemptMission.codeRepairPlan, plan);
+    return 'repaired';
+  } });
+  assert.equal(repairPlanAttempts, 2);
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {

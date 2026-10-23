@@ -38,6 +38,51 @@ function locatorRepairHint(error) {
   return '';
 }
 
+function repairPlan(error) {
+  return locatorRepairHint(error) ? { kind: 'ensure_accessible_select_label', label: 'Category' } : null;
+}
+
+function applyRepairPlan(text, plan) {
+  if (plan?.kind !== 'ensure_accessible_select_label' || !plan.label) return text;
+  const match = String(text || '').match(/\{[\s\S]*\}/);
+  if (!match) return text;
+  let proposal;
+  try { proposal = JSON.parse(match[0]); } catch (_) { return text; }
+  let changed = false;
+  for (const patch of proposal.patches || []) {
+    if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') continue;
+    const content = patch.content;
+    const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+    const scopes = forms.length ? forms.map((form) => ({ start: form.index, html: form[0] })) : [{ start: 0, html: content }];
+    let target = null;
+    for (const scope of scopes) {
+      const selects = [...scope.html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
+      target = selects.find((select) => /<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(select[0])
+        || /<option\b[^>]*value\s*=\s*["']Food["']/i.test(select[0]))
+        || selects.find((select) => /\bid\s*=\s*["']category["']/i.test(select[0]))
+        || selects[0];
+      if (target) { target = { ...target, scope }; break; }
+    }
+    if (!target) continue;
+    const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
+    if (!opening) continue;
+    const escaped = plan.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`\\baria-label\\s*=\\s*["']${escaped}["']`, 'i').test(opening)) continue;
+    const nextOpening = /\baria-label\s*=\s*(["']).*?\1/i.test(opening)
+      ? opening.replace(/\baria-label\s*=\s*(["']).*?\1/i, `aria-label="${plan.label}"`)
+      : opening.replace(/>$/, ` aria-label="${plan.label}">`);
+    const nextSelect = nextOpening + target[0].slice(opening.length);
+    const relative = target.index;
+    const nextScope = target.scope.html.slice(0, relative) + nextSelect
+      + target.scope.html.slice(relative + target[0].length);
+    patch.content = content.slice(0, target.scope.start) + nextScope
+      + content.slice(target.scope.start + target.scope.html.length);
+    changed = patch.content !== content;
+    if (changed) break;
+  }
+  return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
+}
+
 function failureFeedback(error) {
   const tests = error.proposal?.tests || [];
   const result = tests.map((test) => [
@@ -93,6 +138,7 @@ async function run(context) {
       mission = {
         ...context.mission,
         prompt: repairPrompt({ mission: context.mission, error, attempt }),
+        ...(repairPlan(error) ? { codeRepairPlan: repairPlan(error) } : {}),
         timeoutMs: remainingMs,
         executionBudget: { ...context.mission.executionBudget, latencyMs: remainingMs,
           ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
@@ -101,4 +147,5 @@ async function run(context) {
   }
 }
 
-module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint };
+module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens,
+  locatorRepairHint, repairPlan, applyRepairPlan };

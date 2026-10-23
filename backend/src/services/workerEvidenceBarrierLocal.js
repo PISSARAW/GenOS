@@ -313,6 +313,9 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   });
+  if (codeWorker && ctx.mission.codeRepairPlan) {
+    result.text = workerCodeTestRepair.applyRepairPlan(result.text, ctx.mission.codeRepairPlan);
+  }
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
