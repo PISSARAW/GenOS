@@ -46,6 +46,10 @@ const realPrompt = 'Phase 1: répartis item1=1, item2=3, item3=2 en 3 groupes sa
 const realObserverMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'environment_mapper' } }, realPrompt);
 assert.match(realObserverMission, /items=item1=1,item2=3,item3=2;count=3;groups=3;max=8/);
+const normalizedPrompt = 'Phase 1: item1=1, item2=3, item3=2 en 3 groupes. Aucun groupe ne doit depasser un total de 8.';
+assert.equal(rolePrompt.morphogenesisWorkerAssignments({}, 'biome', normalizedPrompt)
+  .environment_mapper.methodContract.methodId, 'scan_literal',
+'Accent-normalized French capacity constraints still bind the native scout method.');
 const nativeMapperAssignments = rolePrompt.morphogenesisWorkerAssignments({}, 'biome', realPrompt);
 assert.equal(nativeMapperAssignments.environment_mapper.methodContract.methodId, 'scan_literal');
 assert.deepEqual(nativeMapperAssignments.environment_mapper.methodContract.parameters.terms.slice(0, 3),

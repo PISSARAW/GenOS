@@ -25,8 +25,8 @@ function allocationFacts(source) {
   const items = [...source.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], value: Number(match[2]) }));
   const groups = Number(source.match(/\b(\d+)\s+groupes?\b/i)?.[1]);
-  const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\b(?:depasse|dépasser|exceed)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b/i);
-  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2]);
+  const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b/i);
+  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2] || capacityMatch?.[3]);
   return { items, groups, capacity };
 }
 
@@ -47,7 +47,7 @@ function morphogenesisWorkerAssignments(assignments, topology, mission) {
   if (!facts.items.length || !facts.groups || !facts.capacity) return assignments;
   const terms = facts.items.map(({ id, value }) => `${id}=${value}`);
   const groupTerm = source.match(/\b\d+\s+groupes?\b/i)?.[0];
-  const capacityTerm = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?\d+\b|\b(?:depasse|dépasser|exceed)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?\d+\b/i)?.[0];
+  const capacityTerm = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?\d+\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?\d+\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?\d+\b/i)?.[0];
   if (groupTerm) terms.push(groupTerm);
   if (capacityTerm) terms.push(capacityTerm);
   const mapper = { ...current, methodContract: {
