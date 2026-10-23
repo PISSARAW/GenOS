@@ -1,6 +1,6 @@
 'use strict';
 
-const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+const DEFAULT_INTERVAL_MS = 60000;
 
 function startWorkerHeartbeat(renew, options = {}) {
   if (typeof renew !== 'function') throw new TypeError('worker heartbeat requires a renewal function');

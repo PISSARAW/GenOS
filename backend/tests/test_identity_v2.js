@@ -58,14 +58,24 @@ async function fencing(db) {
 }
 
 async function workerLeaseRenewal(db) {
+  const originalNow = Date.now;
+  let now = originalNow();
+  Date.now = () => now;
   const identity = { session: await incarnations.activate(db, {
     agentId: 'a', ownerId: 'long-worker', ttlMs: 1000
   }) };
-  const previousLease = identity.session.leaseUntil;
-  await workerIdentity.renew(db, identity);
-  assert(identity.session.leaseUntil > previousLease);
-  await incarnations.assertSession(db, identity.session);
-  await incarnations.release(db, identity.session);
+  try {
+    now += 800;
+    await workerIdentity.renew(db, identity);
+    assert.equal(identity.session.leaseUntil, now + 900000);
+    await incarnations.assertSession(db, identity.session);
+    await incarnations.release(db, identity.session);
+    await assert.rejects(() => incarnations.renew(db, identity.session), /SESSION_STALE/);
+    const expired = { session: await incarnations.activate(db, { agentId: 'a', ownerId: 'expired-worker', ttlMs: 1000 }) };
+    now += 1001;
+    await assert.rejects(() => workerIdentity.renew(db, expired), /SESSION_STALE/);
+    await incarnations.release(db, expired.session);
+  } finally { Date.now = originalNow; }
 
   let renewals = 0;
   const heartbeat = startWorkerHeartbeat(async () => { renewals += 1; }, { intervalMs: 5 });

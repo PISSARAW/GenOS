@@ -21,13 +21,7 @@ async function begin(db, input) {
 async function renew(db, identity) {
   if (!identity?.session) return null;
   const session = identity.session;
-  identity.session = await incarnations.activate(db, {
-    agentId: session.agentId,
-    ownerId: session.ownerId,
-    scope: session.scope,
-    session,
-    ttlMs: 900000
-  });
+  identity.session = await incarnations.renew(db, session, 900000);
   return identity.session;
 }
 
