@@ -16,7 +16,7 @@ function schemaRetryHint(error) {
   if (error.code !== 'WORKER_OUTPUT_SCHEMA_VIOLATION') return '';
   const detail = String(error.workerArtifactDiagnostics?.error || error.message || '');
   const anchorPath = detail.match(/Exact edit anchor must occur once in '([^']+)'/)?.[1] || '';
-  if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. Re-read that file in the workspace snapshot; copy a unique anchor exactly or use a full-file replacement only if the complete file is present. Re-evaluate the failing assertion before choosing a source file.`;
+  if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. That proposal was rejected and the workspace is unchanged; do not copy its anchor from the rejected output or a rolled-back candidate. Re-read the current file in the workspace snapshot. For a small file whose full contents are present, prefer a full-file replacement. Otherwise copy a unique anchor exactly from the current file. Re-evaluate the failing assertion before choosing a source file.`;
   const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
   return /(^|[\\/])tests?([\\/]|$)/i.test(rejectedPath)
     ? `The rejected path '${rejectedPath}' is a test file and cannot be patched. Keep every test unchanged; repair the production implementation instead.` : '';
