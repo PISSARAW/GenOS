@@ -1,6 +1,6 @@
 'use strict';
 
-const MAX_TEST_RETRIES = 6;
+const MAX_TEST_RETRIES = 8;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 

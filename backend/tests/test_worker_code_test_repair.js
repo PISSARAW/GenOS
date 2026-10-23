@@ -51,7 +51,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
   assert.match(prompts[1], /rolled back/i);
-  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 6/);
+  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 8/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
@@ -139,7 +139,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     attempts += 1;
     throw failed;
   } }), /test failed/);
-  assert.equal(attempts, 7);
+  assert.equal(attempts, 9);
 
   let nonTestAttempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
