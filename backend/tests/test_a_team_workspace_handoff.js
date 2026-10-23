@@ -67,11 +67,18 @@ async function main() {
       const pipeline = require('../src/services/workerEvidenceBarrierPipeline');
       const receipts = await pipeline.materializeStageHandoff({ orchestratorId: 'orchestrator-test', stage: 1,
         workers: [{ agentId: 'producer', workspaceRoot: producerRoot, workspaceBackend: 'physical' }, pipelineConsumer] },
-      pipelineConsumer, [{ producer: { agentId: 'producer' }, artifactRefs: ['commit:' + commit.trim()] }]);
+      pipelineConsumer, [{ producer: { agentId: 'producer' }, artifactRefs: ['commit:' + commit.trim().slice(0, 7)] }]);
       assert.equal(receipts.length, 1);
       assert.equal((await fs.readFile(path.join(pipelineConsumerRoot, 'src/site.js'), 'utf8')), 'module.exports = "fixed";\n');
       assert.equal(captured.some((event) => event.eventType === 'ATEAM_STAGE_HANDOFF_MATERIALIZED'
         && event.payload.handoffs[0].commit === commit.trim()), true);
+    assert.deepEqual(handoff.commitRefs({ artifactRefs: ['git:123456'] }), [], 'commit refs shorter than seven hex characters are ignored');
+    const mismatchedConsumerRoot = path.join(capsuleRoot, 'worker_mismatched_prefix');
+    await fs.mkdir(mismatchedConsumerRoot, { recursive: true });
+    await assert.rejects(() => handoff.materializeHandoffs({
+      consumer: { workspaceRoot: mismatchedConsumerRoot, workspaceBackend: 'physical' }, byWorker,
+      handoffs: [{ producer: { agentId: 'producer' }, artifactRefs: ['git:' + 'f'.repeat(7)] }]
+    }), { code: 'ATEAM_HANDOFF_COMMIT_NOT_HEAD' });
     } finally { telemetry.emitEvent = emitEvent; }
 
     await assert.rejects(() => handoff.materializeHandoffs({

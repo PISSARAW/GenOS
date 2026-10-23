@@ -10,7 +10,7 @@ const { resolveWorkspaceRoot } = require('./pathSafety');
 function commitRefs(handoff) {
   const refs = Array.isArray(handoff?.artifactRefs) ? handoff.artifactRefs : [];
   return refs.map((item) => typeof item === 'string' ? item : item?.uri || item?.ref || '')
-    .map((ref) => /^(?:git|commit):([a-f0-9]{40})$/i.exec(ref)?.[1] || null).filter(Boolean);
+    .map((ref) => /^(?:git|commit):([a-f0-9]{7,40})$/i.exec(ref)?.[1] || null).filter(Boolean);
 }
 
 function workspacePath(worker, label) {
@@ -40,13 +40,14 @@ async function importCommit(source, destination, commit) {
       code: 'ATEAM_HANDOFF_SOURCE_INVALID'
     });
   }
-  await runCommand('git', ['cat-file', '-e', `${commit}^{commit}`], { cwd: source });
   const sourceHead = await runCommand('git', ['rev-parse', 'HEAD'], { cwd: source });
-  if (sourceHead.stdout.trim().toLowerCase() !== commit.toLowerCase()) {
-    throw Object.assign(new Error('Handoff commit must be the producer workspace HEAD.'), {
+  const fullCommit = sourceHead.stdout.trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(fullCommit) || !fullCommit.startsWith(commit.toLowerCase())) {
+    throw Object.assign(new Error('Handoff commit must identify the producer workspace HEAD.'), {
       code: 'ATEAM_HANDOFF_COMMIT_NOT_HEAD'
     });
   }
+  await runCommand('git', ['cat-file', '-e', `${fullCommit}^{commit}`], { cwd: source });
   const bundle = path.join(path.dirname(destination), `.handoff-${randomUUID()}.bundle`);
   try {
     await runCommand('git', ['bundle', 'create', bundle, 'HEAD'], { cwd: source });
@@ -68,15 +69,15 @@ async function importCommit(source, destination, commit) {
         });
       }
     }
-    await runCommand('git', ['fetch', '--quiet', bundle, commit], { cwd: destination });
+    await runCommand('git', ['fetch', '--quiet', bundle, fullCommit], { cwd: destination });
     await runCommand('git', ['checkout', '--quiet', '--force', '--detach', 'FETCH_HEAD'], { cwd: destination });
     const head = await runCommand('git', ['rev-parse', 'HEAD'], { cwd: destination });
-    if (head.stdout.trim().toLowerCase() !== commit.toLowerCase()) {
+    if (head.stdout.trim().toLowerCase() !== fullCommit) {
       throw Object.assign(new Error('Consumer workspace did not check out the exact producer commit.'), {
         code: 'ATEAM_HANDOFF_COMMIT_MISMATCH'
       });
     }
-    return { commit, sourceWorkspace: source, consumerWorkspace: destination };
+    return { commit: fullCommit, sourceWorkspace: source, consumerWorkspace: destination };
   } finally {
     await fsPromises.rm(bundle, { force: true }).catch(() => undefined);
   }
