@@ -41,7 +41,7 @@ function outcome(index, candidateId = 'variant:trinity:pareto') {
     workspaceId: `candidate-workspace-${index}`, quality: 0.8,
     tokens: 500, latencyMs: 500, transitionId: transitionReceipt.transitionId,
     workerResults: [{ agentId: workerId, workerKind: 'scout_cell', topology: 'trinity',
-      allocatedTokens: 100, transitionId: transitionReceipt.transitionId,
+      variant: 'pareto', allocatedTokens: 100, transitionId: transitionReceipt.transitionId,
       status: 'completed' }] });
   const control = signedAttempt({ ...shared, id: `control-${index}`,
     workspaceId: `control-workspace-${index}`, quality: 0.1,
