@@ -51,7 +51,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
   assert.match(prompts[1], /rolled back/i);
-  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 20/);
+  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 25/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);

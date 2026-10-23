@@ -1,6 +1,6 @@
 'use strict';
 
-const MAX_TEST_RETRIES = 20;
+const MAX_TEST_RETRIES = 25;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 function isCodeWorker(mission) {
