@@ -121,7 +121,8 @@ async function executionLease(db, request, binding) {
   const replaySnapshot = request.args?.snapshot || request.args?.snapshot_id;
   if (normalized === 'genos_replay' && binding?.status === 'authorized'
     && sealed.includes('genos_replay') && scopedWorkerReplayLeaseOpen()
-    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId, replaySnapshot)
+    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId,
+      replaySnapshot, request.args?.root ?? null)
     && !tools.includes('genos_replay')) tools.push('genos_replay');
   const identity = binding?.status === 'authorized'
     ? `execution-authority:${binding.envelope.runId}:${binding.hash}`
@@ -135,7 +136,8 @@ async function scopedReplayAuthorized(db, request, binding) {
   const snapshot = request.args?.snapshot || request.args?.snapshot_id;
   return normalized === 'genos_replay' && sealed.includes('genos_replay')
     && scopedWorkerReplayLeaseOpen()
-    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId, snapshot);
+    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot(db, request.agentId,
+      snapshot, request.args?.root ?? null);
 }
 
 function workerRevision(request, binding) {

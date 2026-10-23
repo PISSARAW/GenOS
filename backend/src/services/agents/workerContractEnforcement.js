@@ -71,11 +71,12 @@ async function enforcePersistedWorkerTool(db, agentId, toolCall) {
   return assertWorkerToolAllowed(contract, toolName, args);
 }
 
-async function ownsReplaySnapshot(db, agentId, reference) {
+async function ownsReplaySnapshot(db, agentId, reference, suppliedRoot = null) {
   if (typeof reference !== 'string' || !reference.trim()) return false;
   const owner = await db.get('SELECT a.execution_mode, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
   if (!owner || owner.execution_mode !== 'worker' || typeof owner.path !== 'string') return false;
   const root = path.resolve(owner.path);
+  if (suppliedRoot !== null && (typeof suppliedRoot !== 'string' || path.resolve(suppliedRoot) !== root)) return false;
   let directory;
   try { directory = resolveContainedPathNoSymlinkSync(root, '.genos/evidence-snapshots', 'worker replay snapshot directory'); }
   catch (_) { return false; }

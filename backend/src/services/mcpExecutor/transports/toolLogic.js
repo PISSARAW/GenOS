@@ -41,13 +41,15 @@ function nullish(value, fallback) {
 
 function revalidateToolCall(toolName, args, scopedReplayAllowed = false) {
   const { directToolLeaseAllows } = require('../../mcpExecutor/config');
-  const { validateToolArguments } = require('../../mcpArgumentValidation');
+  const { validateToolArguments, validateScopedReplayArguments } = require('../../mcpArgumentValidation');
   const scopedReplay = toolName === 'genos_replay' && scopedReplayAllowed === true
     && require('../../mcpExecutor/config').scopedWorkerReplayLeaseOpen();
   if (!directToolLeaseAllows(toolName) && !scopedReplay) {
     return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED' };
   }
-  const argumentError = validateToolArguments(toolName, args || {});
+  const argumentError = scopedReplay
+    ? validateScopedReplayArguments(args || {})
+    : validateToolArguments(toolName, args || {});
   if (argumentError) {
     return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
   }

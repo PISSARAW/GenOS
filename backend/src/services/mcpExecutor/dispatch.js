@@ -122,7 +122,9 @@ function preValidateTool(context) {
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
   if (steric) context.docking = steric.docking || { mode: steric.mode };
-  const argumentError = validateToolArguments(toolName, args);
+  const argumentError = scopedReplay
+    ? require('../mcpArgumentValidation').validateScopedReplayArguments(args)
+    : validateToolArguments(toolName, args);
   if (argumentError) return invalidArgsResult(argumentError);
   const biologicalDenial = biologicalFeatureLeaseDenial(toolName, args, executionKind);
   if (biologicalDenial) return biologicalDenial;
