@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { compileAndAttachMissionStrategy, applyMissionStrategyToContext } = require('../src/services/agentRuntimeAdapter/missionStrategyActivation');
+const { compileAndAttachMissionStrategy, applyMissionStrategyToContext, strategyInput } = require('../src/services/agentRuntimeAdapter/missionStrategyActivation');
 
 function context(workers = []) {
   return {
@@ -119,6 +119,21 @@ function testCompilerFailureClosed() {
   assert.equal(ctx.autonomyPlan.morphogenesisStrategy, undefined);
 }
 
+function testTopologyCapabilitiesComeFromAuditedPlatformRegistry() {
+  const ctx = context([{ workerKind: 'verifier_worker', capabilities: ['invented_worker_claim'] }]);
+  const available = strategyInput(ctx).availableTopologyCapabilities;
+  const operational = require('../src/services/capabilityAccessMatrix').fullMatrix()
+    .filter((entry) => entry.state === 'operationnel').map((entry) => entry.capability);
+  assert.deepEqual(available, operational);
+  assert.equal(available.includes('invented_worker_claim'), false);
+}
+
+function testExplicitTopologyCapabilityInventoryIsPreserved() {
+  const ctx = context();
+  ctx.normalizedMission.topologyCapabilityInventory = { available: [] };
+  assert.deepEqual(strategyInput(ctx).availableTopologyCapabilities, []);
+}
+
 testCompatibleAttachment();
 testAdvisoryWhenIncompatible();
 testExplicitContractPreserved();
@@ -128,4 +143,6 @@ testBlockedProposalRetained();
 testFleetConsumesAttachedMethod();
 testRealCompilerStaysAdvisoryWithoutNativeInputs();
 testCompilerFailureClosed();
+testTopologyCapabilitiesComeFromAuditedPlatformRegistry();
+testExplicitTopologyCapabilityInventoryIsPreserved();
 console.log('mission strategy activation: PASS');

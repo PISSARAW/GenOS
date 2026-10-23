@@ -58,7 +58,13 @@ function topologyCapabilities(mission, plan) {
   const capabilityPlan = mission.missionCapabilityPlan || {};
   const inventory = mission.topologyCapabilityInventory || plan.topologyCapabilityInventory || {};
   const declared = inventory.available || capabilityPlan.availableTopologyCapabilities;
-  return Array.isArray(declared) ? [...declared] : null;
+  if (Array.isArray(declared)) return [...declared];
+  // Morphogenesis admission needs platform capabilities, not capabilities
+  // inferred from the workers proposed to run the mission. Use the audited
+  // operational capability registry as the authoritative fallback.
+  return require('../capabilityAccessMatrix').fullMatrix()
+    .filter((entry) => entry.state === 'operationnel')
+    .map((entry) => entry.capability);
 }
 
 function missionText(mission) { return mission.prompt || mission.currentTask || ''; }
