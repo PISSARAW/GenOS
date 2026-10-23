@@ -36,6 +36,7 @@ assert.match(conceptInstruction({ canonicalConcepts: [{ id: 'mission' }], runtim
 const runtimeContext = missionRuntimeContext({
   conceptResolution: { failClosed: true }, missionCapabilityPlan: { version: 1 },
   developmentalContext: { failClosed: true }, localCodeWorker: true,
+  requiredTools: ['genos_change_organization'], toolLease: ['genos_change_organization', 'genos_replay'],
   requiredPatchPaths: ['index.html'], requiredPatchMarkers: { 'index.html': ['id="hero"'] },
   unrelated: 'not-forwarded'
 });
@@ -44,6 +45,8 @@ assert.strictEqual(runtimeContext.missionCapabilityPlan.version, 1);
 assert.strictEqual(runtimeContext.localCodeWorker, true);
 assert.deepStrictEqual(runtimeContext.requiredPatchPaths, ['index.html']);
 assert.deepStrictEqual(runtimeContext.requiredPatchMarkers, { 'index.html': ['id="hero"'] });
+assert.deepStrictEqual(runtimeContext.requiredTools, ['genos_change_organization']);
+assert.deepStrictEqual(runtimeContext.toolLease, ['genos_change_organization', 'genos_replay']);
 assert.strictEqual(runtimeContext.unrelated, undefined);
 const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_committee', requiredTools: ['genos_snapshot'] }, {
   topologyContract: { mode: 'a_team', organization: 'specialist_expert_committee', required: ['SIGNALING_BUS'] },
