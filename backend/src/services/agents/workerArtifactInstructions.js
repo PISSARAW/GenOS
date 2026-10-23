@@ -69,7 +69,10 @@ function specialistInstruction(niche) {
     specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
   const biomeScope = biomeSteward
     ? 'This niche includes exact resource allocation, partitioning, arithmetic, exhaustive search, backtracking, and per-bin capacity verification; these methods are in scope. Put the complete machine-verifiable candidate JSON object in claims[0].statement; never replace it with a generic success sentence, and claim success only when the candidate is present.' : '';
-  return `${biomeScope} Work only in the declared niche '${niche}'. For successful work, follow this schema exactly: ${JSON.stringify(output)}. If the task is outside the niche or evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<specific limitation>"]}; do not include success-only fields.`;
+  const fallback = biomeSteward
+    ? 'This allocation is in scope and the mission reference supplies its facts. Return unresolved only if exhaustive search proves no valid allocation exists; do not abstain for niche, skill, or complexity.'
+    : 'If the task is outside the niche or evidence is insufficient, return {"outcome":"unresolved","claims":[],"uncertainties":["<specific limitation>"]}; do not include success-only fields.';
+  return `${biomeScope} Work only in the declared niche '${niche}'. For successful work, follow this schema exactly: ${JSON.stringify(output)}. ${fallback}`;
 }
 
 function templateForWorker(contract, type) {

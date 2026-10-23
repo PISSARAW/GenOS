@@ -52,12 +52,6 @@ function missionEvidenceRefs(mission) {
   return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
 }
 function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] }); }
-function sourceReferenceInstruction(mission) {
-  const refs = missionEvidenceRefs(mission);
-  return `Use only these exact evidence references: ${JSON.stringify(refs)}. `
-    + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
-    + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
-}
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
@@ -280,8 +274,10 @@ async function runGenerationStage(ctx) {
     workerSelfBlock: wsBlock,
     identityExperimentArm: experimentArm || null,
     workspaceContext: workspaceContext,
-    workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
-      sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
+    workerInstruction: [`Worker kind: ${kind}. ${require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(ctx.mission)
+      ? 'Solve the assigned in-scope allocation; only abstain after exhaustive proof no solution exists.'
+      : workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
+      localEvidencePrompt.sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   if (identityExperimentAudit) {

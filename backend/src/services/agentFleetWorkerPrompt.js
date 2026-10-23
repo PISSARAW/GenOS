@@ -22,8 +22,9 @@ function buildCompactMorphogenesisPrompt(input) {
   const budget = context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation'
     ? `Budget round: initial screening. Use at most ${context.allocationTokens ?? context.perWorkerTokens} tokens.`
     : `Budget allocation: ${context.allocationTokens ?? context.perWorkerTokens} tokens.`;
+  const workerKindInstruction = `Worker kind: ${assignment.workerKind}. Solve this in-scope Biome allocation; only abstain after exhaustive proof that no allocation exists.`;
   return [missionPrompt, input.morphogenesisRoleInstruction(assignment),
-    `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
+    workerKindInstruction,
     workerKinds.evidenceRule(contract), budget].filter(Boolean).join('\n');
 }
 

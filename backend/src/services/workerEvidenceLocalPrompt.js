@@ -3,9 +3,9 @@
 function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
     codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
-  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
   const morphogenesisPrompt = require('./morphogenesisRolePrompt');
   const assignment = context.assignment || {};
+  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
   if (!codeWorker && morphogenesisPrompt.morphogenesisCompactWorkerRole(assignment)) {
     return [morphogenesisPrompt.morphogenesisMissionPrompt(assignment, prompt),
       morphogenesisPrompt.morphogenesisRoleInstruction(assignment), workerBlock].filter(Boolean).join('\n');
@@ -15,6 +15,17 @@ function buildAnalysisPrompt(context) {
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
   const workerLabel = identityExperimentArm === 'llm_only' ? 'a bounded language-model worker' : 'a bounded GenOS local worker';
   return `${intro}\nYou are ${workerLabel} (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}`;
+}
+
+function sourceReferenceInstruction(mission) {
+  const refs = [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || [])]
+    .filter((item) => typeof item === 'string' && item.trim()))];
+  if (require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(mission)) {
+    return `Use only these exact evidence references: ${JSON.stringify(refs)}. The mission reference supplies all allocation facts. Return unresolved only after exhaustive search proves no valid allocation exists.`;
+  }
+  return `Use only these exact evidence references: ${JSON.stringify(refs)}. `
+    + 'Never invent source IDs, receipts, measurements, file changes, tests, or completed steps. '
+    + 'If these references cannot substantiate the requested outcome, return outcome "unresolved".';
 }
 
 function requiredPatchInstruction(paths, markers, minimumBytes) {
@@ -37,4 +48,4 @@ function isCodeWorkerMission(mission) {
     && /implementation|coder|developer/i.test(mission.role || '');
 }
 
-module.exports = { buildAnalysisPrompt, isCodeWorkerMission };
+module.exports = { buildAnalysisPrompt, isCodeWorkerMission, sourceReferenceInstruction };
