@@ -10,9 +10,12 @@ function ensureJsonExport(content) {
   if (button) {
     const opening = button[0].match(/^<button\b[^>]*>/i)?.[0];
     if (opening) {
-      const nextOpening = /\bonclick\s*=\s*(["'])[^"']*\1/i.test(opening)
-        ? opening.replace(/\bonclick\s*=\s*(["'])[^"']*\1/i, `onclick="${handler}"`)
-        : opening.replace(/>$/, ` onclick="${handler}">`);
+      const buttonOpening = /\btype\s*=\s*(["'])[^"']*\1/i.test(opening)
+        ? opening.replace(/\btype\s*=\s*(["'])[^"']*\1/i, 'type="button"')
+        : opening.replace(/>$/, ' type="button">');
+      const nextOpening = /\bonclick\s*=\s*(["'])[^"']*\1/i.test(buttonOpening)
+        ? buttonOpening.replace(/\bonclick\s*=\s*(["'])[^"']*\1/i, `onclick="${handler}"`)
+        : buttonOpening.replace(/>$/, ` onclick="${handler}">`);
       repaired = repaired.slice(0, button.index) + nextOpening
         + button[0].slice(opening.length) + repaired.slice(button.index + button[0].length);
     }
