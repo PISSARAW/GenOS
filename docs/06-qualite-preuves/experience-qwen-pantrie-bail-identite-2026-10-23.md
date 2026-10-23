@@ -200,3 +200,9 @@ Le nouveau test navigateur Edge/Playwright `backend/tests/test_worker_code_quant
 ## Retry60 — échec de schéma de preuve après 25 réparations
 
 Retry60 a lancé le protocole T02 dans le workspace D: et enregistré 27 inférences complétées ainsi que 25 événements de réparation Playwright `LOCAL_CODE_TEST_REPAIR`. L’orchestrateur s’est arrêté à 11:13:06 UTC parce que la sortie du modèle ne respectait pas le schéma de preuve demandé (`Model output did not satisfy the requested worker evidence schema`). La mission `autonomy-proof-t02-20261023-direct-d-repair-60` est `failed`; le gate a bloqué la complétion avec `homeostasis=unstable`. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry60.db`. Ce terminal ne démontre pas un résultat T02 vert, même si les 25 réparations ont franchi le cycle de test local.
+
+## Correctif des contrôles Quantity dupliqués — tests ciblés verts
+
+Le dernier cycle de réparation a exposé une entrée HTML Quantity dupliquée avec des guillemets échappés. `labelQuantityInput` supprime maintenant les entrées Quantity redondantes dans le formulaire et normalise l’attribut accessible de l’entrée conservée. Le contrôle unitaire vérifie qu’il reste un seul `id="quantity"` et un seul nom accessible Quantity.
+
+Vérification locale sur ce correctif: `node backend/tests/test_worker_code_test_repair.js`, `node backend/tests/test_worker_code_quantity_repair.js`, `node backend/tests/test_worker_code_quantity_increment_repair.js` et `node backend/tests/test_worker_code_add_repair.js` passent tous. Ces tests ciblés ne certifient pas le T02 complet. `genos_search_failures` a renvoyé `Transport closed`; aucune couverture mémoire GenOS n’est revendiquée.
