@@ -9,7 +9,7 @@ function labelQuantityInput(content) {
     if (!repaired) continue;
     const named = repaired.replace(/<input\b[^>]*>/gi, (opening) => {
       const numeric = /\btype\s*=\s*(["'])number\1/i.test(opening);
-      const identity = /\b(?:id|name)\s*=\s*(["'])(?:quantity|qty)\1/i.test(opening);
+      const identity = /\b(?:id|name)\s*=\s*(["'])[^"']*(?:quantity|qty)[^"']*\1/i.test(opening);
       return numeric && identity ? setAccessibleName(opening) : opening;
     });
     const repairedScope = removeQuantityLabelAriaName(named);
@@ -26,7 +26,7 @@ function labelQuantityInput(content) {
 function removeQuantityLabelAriaName(scope) {
   const quantityIds = new Set([...scope.matchAll(/<input\b[^>]*>/gi)]
     .map(({ 0: input }) => input.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2])
-    .filter((id) => id && /^(quantity|qty)$/i.test(id)));
+    .filter((id) => id && /(?:quantity|qty)/i.test(id)));
   if (!quantityIds.size) return scope;
   return scope.replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (label) => {
     const targetId = label.match(/\bfor\s*=\s*(["'])([^"']+)\1/i)?.[2];
@@ -56,7 +56,7 @@ function repairQuantityScope(scope) {
 function isQuantityInput(opening) {
   const quote = String.raw`\\?["']`;
   const type = new RegExp(String.raw`\btype\s*=\s*${quote}number${quote}`, 'i');
-  const identity = new RegExp(String.raw`\b(?:id|name)\s*=\s*${quote}(?:quantity|qty)${quote}`, 'i');
+  const identity = new RegExp(String.raw`\b(?:id|name)\s*=\s*${quote}[\w-]*(?:quantity|qty)[\w-]*${quote}`, 'i');
   const label = new RegExp(String.raw`\baria-label\s*=\s*${quote}quantity${quote}`, 'i');
   return type.test(opening) && (identity.test(opening) || label.test(opening));
 }

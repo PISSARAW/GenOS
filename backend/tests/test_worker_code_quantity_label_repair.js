@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const { labelQuantityInput } = require('../src/services/workerCodeQuantityInputRepair');
 
 async function main() {
-  const html = labelQuantityInput('<form><label for="quantity"><input id="quantity" name="quantity" type="number" required></label></form>');
+  const html = labelQuantityInput('<form><label for="itemQuantity">Quantity:<input id="itemQuantity" name="itemQuantity" type="number" required></label></form>');
   const server = http.createServer((_request, response) => {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(html);
@@ -19,7 +19,8 @@ async function main() {
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     assert.equal(await page.getByLabel(/quantity/i).count(), 1);
     await page.getByLabel(/quantity/i).fill('2');
-    assert.equal(await page.locator('#quantity').inputValue(), '2');
+    assert.equal(await page.locator('input[type="number"]').count(), 1);
+    assert.equal(await page.locator('#itemQuantity').inputValue(), '2');
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
