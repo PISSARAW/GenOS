@@ -158,7 +158,7 @@ async function invokeProvider(ctx, outcome) {
       projectId: ctx.projectId,
       seed: ctx.seed,
       stream: ctx.stream,
-      responseFormat: ctx.responseFormat,
+      responseFormat: ctx.responseFormat, reasoningEffort: ctx.reasoningEffort,
       providerContinuity: ctx.providerContinuity,
       enforceSchema: ctx.enforceSchema,
       signal: attempt.controller.signal,

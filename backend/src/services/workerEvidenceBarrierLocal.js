@@ -22,7 +22,6 @@ const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
-
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
   return 'GenOS Worker';
@@ -105,6 +104,7 @@ async function generateWorkerResult(ctx) {
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
       })
       : workerResponseFormat(ctx.mission),
+    reasoningEffort: ctx.codeWorker ? 'none' : undefined,
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }

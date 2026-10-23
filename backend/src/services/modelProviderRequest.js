@@ -90,15 +90,17 @@ function buildGeminiBody(params) {
 }
 
 function buildOpenAiBody(params) {
-  const { modelName, prompt, stream, outputLimit, seed, responseFormat, nativeOllama } = params;
+  const { modelName, prompt, stream, outputLimit, seed, responseFormat, nativeOllama, reasoningEffort } = params;
   if (nativeOllama) {
     return { model: modelName, messages: [{ role: 'user', content: prompt }], stream,
+      ...(reasoningEffort ? { think: reasoningEffort === 'none' ? false : reasoningEffort } : {}),
       ...(responseFormat ? { format: ollamaFormat(responseFormat) } : {}),
       ...(Object.keys(require('./modelProviderSampling').nativeOptions(params)).length
         ? { options: require('./modelProviderSampling').nativeOptions(params) } : {}) };
   }
   return { model: modelName, messages: [{ role: 'user', content: prompt }], stream,
     ...require('./modelProviderSampling').samplingFields(params),
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: openAiResponseFormat(responseFormat) } : {}) };
 }
 
