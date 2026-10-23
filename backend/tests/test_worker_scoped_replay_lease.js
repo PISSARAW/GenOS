@@ -19,7 +19,8 @@ async function main() {
     request: { agentId, runId: 'run-a', organizationId: 'org-a', projectId: 'project-a',
       toolName: 'genos_replay', args: { root, snapshot } },
     binding: { status: 'authorized', hash: 'sealed-run', envelope: {
-      runId: 'run-a', identity: { agentId }, scope: { entityId: agentId, organizationId: 'org-a', projectId: 'project-a' },
+      runId: 'run-a', missionId: 'mission-a', identity: { agentId },
+      scope: { entityId: agentId, organizationId: 'org-a', projectId: 'project-a' },
       toolLease: ['genos_replay']
     } },
     policy: { decision: 'allow', reason: 'test' }
