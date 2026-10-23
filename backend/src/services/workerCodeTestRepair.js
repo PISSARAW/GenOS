@@ -203,8 +203,10 @@ function labelIncreaseButton(content, label) {
   if (!target) return content;
   const opening = target[0].match(/^<button\b[^>]*>/i)?.[0];
   if (!opening) return content;
-  const dynamicLabel = /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(target[0])
-    ? label.replace(/\bOats\b/g, '${itemName}') : label;
+  const itemField = target[0].match(/\$\{\s*item\.([A-Za-z_$][\w$]*)\s*\}/i)?.[1];
+  const dynamicLabel = itemField ? label.replace(/\bOats\b/g, `\${item.${itemField}}`)
+    : /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(target[0])
+      ? label.replace(/\bOats\b/g, '${itemName}') : label;
   const nextButton = replaceAccessibleName(opening, dynamicLabel) + target[0].slice(opening.length);
   return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
 }
