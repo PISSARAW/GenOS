@@ -328,6 +328,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /<input type="number" aria-label="Quantity">/);
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
+  assert.match(quantityRowContent, /genosQuantityLabelRepair/);
+  assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase '\+itemName\)/);
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
