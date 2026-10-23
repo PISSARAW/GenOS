@@ -267,6 +267,7 @@ async function genosFull(task, state) {
     GENOS_AGENT_EXECUTOR: '', GENOS_LOCAL_MODEL: state.model,
     GENOS_GVX_LEDGER_HMAC_SECRET: process.env.GENOS_GVX_LEDGER_HMAC_SECRET
       || require('crypto').randomBytes(32).toString('hex'),
+    GENOS_TOOL_MEMBRANE_HMAC_SECRET: process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET || require('crypto').randomBytes(32).toString('hex'),
     GENOS_IN_PROCESS_WORKERS: process.platform === 'win32' ? '1' : process.env.GENOS_IN_PROCESS_WORKERS || '',
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
     GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
