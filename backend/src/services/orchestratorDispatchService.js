@@ -36,7 +36,7 @@ function buildWorkerMission(input = {}) {
     specialtyNiche: input.specialtyNiche, nicheDomain: input.nicheDomain,
     hostContractId: input.hostContractId, hostCapabilities: input.hostCapabilities,
     recoveryLease: input.recoveryLease, writeLease: input.writeLease === true,
-    workerTokenLimit: defaults.executionBudget.tokens,
+    workerTokenLimit: input.workerTokenLimit ?? defaults.executionBudget.tokens,
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
     workspaceProvisioned: input.workspaceProvisioned === true,
