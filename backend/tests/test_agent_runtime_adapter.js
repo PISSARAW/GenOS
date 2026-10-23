@@ -46,7 +46,8 @@ try {
   const supervisedWorkerEnv = mcpEnvConfig.buildMcpServerEnvironment({
     state: { executionMode: 'supervised', mission: { agentId: 'worker-child' }, orchestratorAgentId: 'root-orchestrator',
       allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
-    binaries: { workspace: '/tmp/genos-private-capsule', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
+    binaries: { workspace: '/tmp/genos-capsules/workspace/worker-child', genosBinary: '', orchestratorBridge: '' },
+    sourceEnv: { GENOS_CAPSULE_ROOT: '/tmp/genos-capsules' }
   });
   assert.equal(supervisedWorkerEnv.GENOS_DB_BOOTSTRAP_SKIP, '1',
     'a supervised worker with a distinct identity must not reseed ws-local from its private capsule');

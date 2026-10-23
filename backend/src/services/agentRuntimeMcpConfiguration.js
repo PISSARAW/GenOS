@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 const SHARED_STORAGE_KEYS = [
   'GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP',
   'GENOS_DB_BOOTSTRAP_SKIP', 'GENOS_CAPSULE_ROOT'
@@ -26,7 +28,7 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
   for (const key of SHARED_STORAGE_KEYS) {
     if (!['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP'].includes(key) && sourceEnv[key]) environment[key] = sourceEnv[key];
   }
-  applyWorkerDatabasePolicy(environment, state);
+  applyWorkerDatabasePolicy(environment, state, binaries, sourceEnv);
   return environment;
 }
 
@@ -43,15 +45,24 @@ function resolveLeaseExpiresAt(state, sourceEnv = {}) {
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 
-function applyWorkerDatabasePolicy(environment, state) {
+function applyWorkerDatabasePolicy(environment, state, binaries, sourceEnv) {
   const agentId = String(state?.mission?.agentId || '').trim();
   const orchestratorId = String(state?.orchestratorAgentId || '').trim();
+  const workspaceRoot = String(binaries?.workspace || '').trim();
+  const capsuleRoot = String(sourceEnv?.GENOS_CAPSULE_ROOT || '').trim();
+  const isCapsuleWorker = isWithin(capsuleRoot, workspaceRoot);
   const isWorker = state?.executionMode === 'worker'
-    || Boolean(agentId && orchestratorId && agentId !== orchestratorId);
+    || Boolean(agentId && orchestratorId && agentId !== orchestratorId) || isCapsuleWorker;
   for (const key of ['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (isWorker) environment[key] = '1';
     else if (sourceEnv[key]) environment[key] = sourceEnv[key];
   }
+}
+
+function isWithin(parent, target) {
+  if (!parent || !target || !path.isAbsolute(parent) || !path.isAbsolute(target)) return false;
+  const relative = path.relative(path.resolve(parent), path.resolve(target));
+  return Boolean(relative && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function serializeMcpServerEnvironment(environment) {

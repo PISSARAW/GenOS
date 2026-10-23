@@ -16,7 +16,7 @@ async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-seed-concurrency-'));
   const filename = path.join(directory, 'genos.db');
   const envKeys = ['GENOS_WORKSPACE_ROOT', 'GENOS_LOCAL_ORGANIZATION_ID', 'GENOS_LOCAL_PROJECT_ID',
-    'GENOS_AGENT_ID', 'GENOS_ORCHESTRATOR_AGENT_ID'];
+    'GENOS_AGENT_ID', 'GENOS_ORCHESTRATOR_AGENT_ID', 'GENOS_CAPSULE_ROOT'];
   const previousEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
   process.env.GENOS_WORKSPACE_ROOT = path.join(directory, 'parent-workspace');
   process.env.GENOS_LOCAL_ORGANIZATION_ID = 'test-org';
@@ -41,7 +41,8 @@ async function main() {
 
     process.env.GENOS_AGENT_ID = 'worker-child';
     process.env.GENOS_ORCHESTRATOR_AGENT_ID = 'root-orchestrator';
-    process.env.GENOS_WORKSPACE_ROOT = path.join(directory, 'private-worker-capsule');
+    process.env.GENOS_CAPSULE_ROOT = path.join(directory, 'capsules');
+    process.env.GENOS_WORKSPACE_ROOT = path.join(process.env.GENOS_CAPSULE_ROOT, 'workspace', 'worker-child');
     await seedDatabase(second);
     const rootWorkspace = await first.get("SELECT path FROM workspaces WHERE id = 'ws-local'");
     assert.equal(rootWorkspace.path, path.join(directory, 'parent-workspace'),
