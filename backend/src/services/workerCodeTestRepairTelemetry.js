@@ -40,6 +40,9 @@ async function publish(context) {
     `Retrying after test failure ${context.failedAttempt}; ${context.remainingMs} ms remain.`, {
       failedAttempt: context.failedAttempt,
       remainingMs: context.remainingMs,
+      failureCode: context.error.code || null,
+      failureMessage: String(context.error.message || '').slice(0, 1000),
+      schemaViolations: context.error.workerArtifactDiagnostics?.violations || [],
       proposalTests: context.error.proposal?.tests,
       failedPatchDiagnostics: summarizeFailedPatches(context.error)
     }, 'warning', 'running');

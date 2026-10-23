@@ -1,6 +1,7 @@
 'use strict';
 
 const MAX_TEST_RETRIES = 25;
+const MAX_SCHEMA_RETRIES = 3;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 function isCodeWorker(mission) {
@@ -312,8 +313,17 @@ function failureFeedback(error) {
     Array.isArray(diagnostics.violations) ? diagnostics.violations.join('\n') : '',
     diagnostics.outputExcerpt ? `Rejected output excerpt:\n${diagnostics.outputExcerpt}` : ''
   ].filter(Boolean).join('\n') : '';
+  const schemaHint = schemaRetryHint(error);
   const locatorHint = locatorRepairHint(error);
-  return [locatorHint, schemaFeedback, result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+  return [locatorHint, schemaHint, schemaFeedback, result, candidate].filter(Boolean).join('\n\n').slice(0, MAX_FAILURE_TEXT);
+}
+
+function schemaRetryHint(error) {
+  if (error.code !== 'WORKER_OUTPUT_SCHEMA_VIOLATION') return '';
+  const detail = String(error.workerArtifactDiagnostics?.error || error.message || '');
+  const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
+  if (!/(^|[\\/])tests?([\\/]|$)/i.test(rejectedPath)) return '';
+  return `The rejected path '${rejectedPath}' is a test file and cannot be patched. Keep every test unchanged; repair the production implementation instead.`;
 }
 
 function repairPrompt(context) {
@@ -327,13 +337,15 @@ function repairPrompt(context) {
 function canRetry(context) {
   if (!isCodeWorker(context.mission)
     || !['WORKER_TESTS_FAILED', 'WORKER_OUTPUT_SCHEMA_VIOLATION'].includes(context.error.code)) return false;
+  if (context.error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
+    && context.schemaAttempts >= MAX_SCHEMA_RETRIES) return false;
   if (context.attempt > MAX_TEST_RETRIES) return false;
   return latencyBudget(context.mission) - (Date.now() - context.startedAt) > 1000;
 }
 
 async function run(context) {
   const state = { startedAt: Date.now(), mission: context.mission,
-    remainingTokens: tokenBudget(context.mission), attempt: 0 };
+    remainingTokens: tokenBudget(context.mission), attempt: 0, schemaAttempts: 0 };
   while (true) {
     state.attempt += 1;
     const result = await captureAttempt(context, state.mission);
@@ -349,7 +361,9 @@ async function captureAttempt(context, mission) {
 
 async function retryAfterFailure(input) {
   const { context, state, error } = input;
-  if (!canRetry({ mission: context.mission, error, attempt: state.attempt, startedAt: state.startedAt })) throw error;
+  if (!canRetry({ mission: context.mission, error, attempt: state.attempt,
+    schemaAttempts: state.schemaAttempts, startedAt: state.startedAt })) throw error;
+  if (error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION') state.schemaAttempts += 1;
   state.remainingTokens = remainingTokensAfter(error, state.remainingTokens);
   const remainingMs = latencyBudget(context.mission) - (Date.now() - state.startedAt);
   await context.onRetry?.({ failedAttempt: state.attempt, error, remainingMs });
