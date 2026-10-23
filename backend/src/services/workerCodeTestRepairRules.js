@@ -47,6 +47,8 @@ const planRules = [
   (output) => /acceptance\.cjs:24:10/.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats'),
   (output) => /waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output) && plan('ensure_json_export', 'Export JSON'),
   (output) => /0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && plan('ensure_add_item_behavior', 'Add Item'),
+  (output) => /getByRole\(\s*'button',\s*\{\s*name:\s*\/delete oats\/i\s*\}\s*\)/i.test(output)
+    && plan('ensure_add_item_behavior', 'Add Item'),
   (output) => /0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output) && plan('ensure_search_filter_behavior', 'Search'),
   (output) => /getByLabel\(\/quantity\/i\) resolved to \d+ elements[\s\S]*?acceptance\.cjs:31:/i.test(output) && plan('ensure_quantity_field_after_reload', 'Quantity'),
   (output) => /getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output) && plan('ensure_quantity_action_label', 'Increase quantity for Oats'),
