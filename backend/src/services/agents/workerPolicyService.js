@@ -4,7 +4,7 @@ const POLICIES = Object.freeze({
   scout_cell: { maxIterations: 1 },
   resident_daemon: { maxIterations: null, maxTimeMs: 1800000 },
   bounded_worker: { maxIterations: 10, maxTokens: 20000, maxTimeMs: 540000 },
-  adaptive_worker: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2 },
+  adaptive_worker: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2, maxTokens: 20000, maxTimeMs: 540000 },
   specialist: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2, maxTokens: 20000, maxTimeMs: 540000 },
   procedural_executor: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   symbiotic_worker: { maxIterations: 10 },
