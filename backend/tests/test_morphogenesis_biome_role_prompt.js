@@ -36,7 +36,7 @@ assert.match(observer, /item1=1,item2=3,item3=2;count=3;groups=3;max=8/);
 const observerMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'environment_mapper' } },
 'Repartis item1=2, item2=3 en 3 groupes, plafond de 8.\nRéponds au schéma de preuve GenOS complet: outcome=success.');
-assert.match(observerMission, /item1=2,item2=3;groups=3;max=8/);
+assert.match(observerMission, /items=item1=2,item2=3;count=2;groups=3;max=8/);
 assert.match(observerMission, /"observation":"item1=2,item2=3"/);
 assert.match(observerMission, /they are sufficient, so do not return unresolved/);
 assert.match(observerMission, /\"observations\"/);
@@ -47,7 +47,7 @@ const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment:
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1 en 3 groupes, plafond de 8.');
 assert.match(stewardMission, /Total=24; each group must sum exactly 8/);
-assert.match(stewardMission, /Use every item exactly once/);
+assert.match(stewardMission, /Use all 9 items exactly once/);
 assert.match(stewardMission, /largest value 5 first and reserve a complement of 3/);
 assert.match(stewardMission, /verify item count and each total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
