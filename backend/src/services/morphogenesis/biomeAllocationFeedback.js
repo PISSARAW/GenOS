@@ -30,7 +30,13 @@ function recoveryInstruction(mission) {
   const feedback = source.match(/\nPrevious failure:\s*([^\r\n]+)/i)?.[1];
   if (!feedback) return '';
   if (/Rejected Biome candidate:|Validator issues:/i.test(feedback)) {
-    return ` Repair the previous candidate using this runtime feedback: ${feedback.slice(0, 1800)}. Recalculate every bin and verify exact item coverage before returning the corrected candidate.`;
+    const issues = feedback;
+    const repair = /candidate\.invalid_json/.test(issues)
+      ? 'Repair only the JSON shape: return exactly the requested number of nested arrays and quote every item ID as a JSON string.'
+      : /candidate\.bin_\d+_over_capacity/.test(issues)
+        ? 'Recalculate each bin sum, then make the smallest valid repair by moving an item from an over-capacity bin into another bin with enough remaining capacity; backtrack if no move works. Keep all bins non-empty and preserve exact item coverage.'
+        : 'Recalculate every bin and repair the reported constraint while preserving exact item coverage.';
+    return ` Repair the previous candidate using this runtime feedback: ${feedback.slice(0, 1800)}. ${repair} Verify every bin and item before returning the corrected candidate.`;
   }
   if (/Prior unresolved model claim:|impossible|not possible|cannot be done/i.test(feedback)) {
     return ` Previous impossibility claim was unverified (${feedback.slice(0, 120)}). Retry the exhaustive search above; return unresolved only if it proves no solution.`;

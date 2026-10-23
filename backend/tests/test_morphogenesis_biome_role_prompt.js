@@ -132,6 +132,16 @@ const repairedPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
 assert.match(repairedPrompt, /Repair the previous candidate using this runtime feedback/);
 assert.match(repairedPrompt, /\{"bins":\[\["item1","item2"\],\["item3"\]\]\}/);
 assert.match(repairedPrompt, /candidate\.bin_1_over_capacity:4/);
+assert.match(repairedPrompt, /moving an item from an over-capacity bin into another bin with enough remaining capacity/);
+const malformedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
+  detail: 'Biome mutated output violates allocation constraints: candidate.invalid_json.',
+  payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID', candidate: '[[item1],[item2]]',
+    issues: ['candidate.invalid_json'] } } },
+{ agentId: 'qwen-worker', prompt: smallAllocation, recoveryAttempt: 0 });
+const formattedPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
+  workerRecovery.recoveryPrompt(malformedFailure, workerRecovery.decideRecovery(malformedFailure)));
+assert.match(formattedPrompt, /Repair only the JSON shape/);
+assert.match(formattedPrompt, /quote every item ID as a JSON string/);
 const unresolvedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
   detail: 'Local worker reported that the supplied evidence cannot substantiate the requested outcome.',
   payload: { evidenceReport: { outcome: 'unresolved', claims: [],
