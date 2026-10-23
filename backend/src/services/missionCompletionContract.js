@@ -89,6 +89,9 @@ function memberStateVerdict(required, byId) {
 function memberVerdict(input, index) {
   const required = input.requiredMemberIds || [];
   const members = Array.isArray(input.members) ? input.members : [];
+  if (input.leafExecution === true && required.length === 0 && members.length === 0) {
+    return { verdict: null, reason: null, evidenceRefs: [] };
+  }
   const byId = new Map(members.map((item) => [memberId(item), item]));
   const identity = identityVerdict({ required, members, byId });
   if (identity) return identity;

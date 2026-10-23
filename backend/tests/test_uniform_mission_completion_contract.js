@@ -7,6 +7,7 @@ const terminalStatus = require('../src/services/agentTerminalStatusService');
 const evidenceCollector = require('../src/services/missionEvidenceCollector');
 const { decideMissionAction } = require('../src/services/missionActionDecisionService');
 const { SCHEMA, STATUSES } = require('../src/services/missionOutcomeContract');
+const completionContract = require('../src/services/missionCompletionContract');
 
 function verifiedCompletion() {
   const content = { missionId: 'mission-contract', workerId: 'worker-contract',
@@ -46,6 +47,11 @@ function testProcessOutcome(input) {
   });
   assert.equal(missing.verdict, 'partial');
   assert.equal(missing.status, 'unverified');
+  const leafWorker = processOutcome.runtimeExitOutcome(null, 0, {
+    domainVerdict: 'completed', unverified: false, leafExecution: true
+  });
+  assert.equal(leafWorker.verdict, 'succeeded');
+  assert.equal(leafWorker.status, 'completed');
 }
 
 function testTerminalStatus(input) {
@@ -64,6 +70,14 @@ function testTerminalStatus(input) {
     trackedEventId: 'partial', payload: { completionInput: incomplete } }, 'completed');
   assert.equal(partial.verdict, 'partial');
   assert.equal(ctx.state.pendingTerminalStatuses.get('partial').nextStatus, 'unverified');
+  const leafCtx = { ...ctx, dispatchedAgent: { execution_mode: 'worker' } };
+  const leaf = terminalStatus.queue(leafCtx, { eventType: 'AGENT_COMPLETED', status: 'completed',
+    trackedEventId: 'leaf', payload: {} }, 'completed');
+  assert.equal(leaf.verdict, 'succeeded');
+  assert.equal(leafCtx.state.pendingTerminalStatuses.get('leaf').nextStatus, 'completed');
+  const emptyRoot = completionContract.evaluate({ lifecycleState: 'completed', barrierStatus: 'complete',
+    topologyValidation: { status: 'verified' } });
+  assert.equal(emptyRoot.verdict, 'partial', 'an empty root mission still fails closed without a worker roster');
 }
 
 function testActionDecision(input) {

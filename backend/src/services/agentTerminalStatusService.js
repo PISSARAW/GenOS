@@ -39,6 +39,7 @@ function evaluateTerminalStatus(ctx, event, nextStatus) {
   const status = nextStatus || event.status;
   return completionContract.evaluate({ ...supplied,
     lifecycleState: lifecycleState(status, event.eventType),
+    leafExecution: ctx.dispatchedAgent?.execution_mode === 'worker',
     barrierStatus: supplied.barrierStatus ?? 'complete',
     topologyValidation: supplied.topologyValidation || eventValidation(status, ctx.state) });
 }

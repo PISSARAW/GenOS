@@ -105,6 +105,7 @@ function resolveDomainFlags(extra) {
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
   return { hasDomainFailure, unverified, explicitFailed,
     artifactFailure: extra.artifactFailure || null,
+    leafExecution: extra.leafExecution === true,
     completionInput: extra.completionInput || {} };
 }
 
@@ -116,7 +117,7 @@ function topologyValidation(flags) {
 
 function evaluateCompletion(lifecycleState, flags = {}) {
   const supplied = flags.completionInput || {};
-  return completionContract.evaluate({ ...supplied, lifecycleState,
+  return completionContract.evaluate({ ...supplied, leafExecution: flags.leafExecution === true, lifecycleState,
     barrierStatus: supplied.barrierStatus ?? 'complete',
     topologyValidation: supplied.topologyValidation || topologyValidation(flags) });
 }
@@ -270,7 +271,8 @@ async function finalizeChildClose({
 }) {
 
   const operatorStop = resolveOperatorStop(child);
-  const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
+  const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer,
+    { ...missionDomainState, leafExecution: dispatchedAgent.execution_mode === 'worker' });
   await require('./workerCellOutcomeBridge').observe({
     db, agentId, dispatchedAgent, normalizedMission
   }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
