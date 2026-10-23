@@ -38,6 +38,9 @@ function locatorRepairHint(error) {
   if (/getByRole\(\s*'button',\s*\{\s*name:\s*\/increase quantity for oats/i.test(output)) {
     return 'The Oats row exists, but its quantity action has no accessible name. Give its existing increment button aria-label="Increase quantity for Oats" and ensure its click handler updates the same item, persists quantity 3, and rerenders.';
   }
+  if (/getByLabel\(\/filter category\/i\)/i.test(output)) {
+    return 'The category filter select has no accessible name. Give the filter control aria-label="Filter category" and keep it separate from the add-form select named Category.';
+  }
   const count = output.match(/(\d+)\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/);
   if (count) {
     const detail = Number(count[1]) === 0
@@ -55,6 +58,9 @@ function repairPlan(error) {
   }
   if (/getByRole\(\s*'button',\s*\{\s*name:\s*\/increase quantity for oats/i.test(output)) {
     return { kind: 'ensure_accessible_button_label', label: 'Increase quantity for Oats' };
+  }
+  if (/getByLabel\(\/filter category\/i\)/i.test(output)) {
+    return { kind: 'ensure_filter_select_label', label: 'Filter category' };
   }
   return null;
 }
@@ -75,6 +81,8 @@ function applyRepairPlan(text, plan) {
         content = labelCategorySelect(content, item.label);
       } else if (item.kind === 'ensure_accessible_button_label') {
         content = labelIncreaseButton(content, item.label);
+      } else if (item.kind === 'ensure_filter_select_label') {
+        content = labelFilterSelect(content, item.label);
       }
     }
     if (content !== patch.content) {
@@ -125,6 +133,23 @@ function labelIncreaseButton(content, label) {
   if (!opening) return content;
   const nextButton = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
   return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
+}
+
+function labelFilterSelect(content, label) {
+  const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+  const selects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
+  const outsideForm = (select) => !forms.some((form) => select.index >= form.index
+    && select.index < form.index + form[0].length);
+  const target = selects.find((select) => outsideForm(select)
+    && (/\bid\s*=\s*["'][^"']*(?:filter|search)[^"']*["']/i.test(select[0])
+      || /<option\b[^>]*>\s*(?:All|Any|Every)/i.test(select[0])))
+    || selects.find((select) => outsideForm(select))
+    || selects[1];
+  if (!target) return content;
+  const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
+  if (!opening) return content;
+  const nextSelect = replaceAccessibleName(opening, label) + target[0].slice(opening.length);
+  return content.slice(0, target.index) + nextSelect + content.slice(target.index + target[0].length);
 }
 
 function failureFeedback(error) {

@@ -72,25 +72,34 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const buttonPlan = repairPlan(buttonFailure);
   assert.deepEqual(buttonPlan, { kind: 'ensure_accessible_button_label', label: 'Increase quantity for Oats' });
   assert.match(locatorRepairHint(buttonFailure), /aria-label="Increase quantity for Oats"/);
+  const filterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'locator.selectOption: waiting for getByLabel(/filter category/i)'
+  }] }, usage: { tokens: 50 } });
+  const filterPlan = repairPlan(filterFailure);
+  assert.deepEqual(filterPlan, { kind: 'ensure_filter_select_label', label: 'Filter category' });
+  assert.match(locatorRepairHint(filterFailure), /aria-label="Filter category"/);
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
-    path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form>'
+    path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option><option>Food</option></select>'
   }], tests: ['npm test'], evidence: 'test fixture' });
-  const repairedText = applyRepairPlan(proposalText, [plan, buttonPlan]);
+  const repairedText = applyRepairPlan(proposalText, [plan, buttonPlan, filterPlan]);
   const repairedContent = JSON.parse(repairedText).patches[0].content;
   assert.match(repairedContent,
     /<select id="category" aria-label="Category">/);
   assert.match(repairedContent, /<button aria-label="Increase quantity for Oats">\+/);
   assert.match(repairedContent, /<button>Delete Oats<\/button>/);
+  assert.match(repairedContent, /<select id="filter" aria-label="Filter category">/);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   let repairPlanAttempts = 0;
   await run({ mission, runAttempt: async (attemptMission) => {
     repairPlanAttempts += 1;
     if (repairPlanAttempts === 1) throw categoryFailure;
     if (repairPlanAttempts === 2) throw buttonFailure;
-    assert.deepEqual(attemptMission.codeRepairPlans, [plan, buttonPlan]);
+    if (repairPlanAttempts === 3) throw filterFailure;
+    assert.deepEqual(attemptMission.codeRepairPlans, [plan, buttonPlan, filterPlan]);
     return 'repaired';
   } });
-  assert.equal(repairPlanAttempts, 3);
+  assert.equal(repairPlanAttempts, 4);
   const oatsFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stdout: 'CANDIDATE index.html true 5000',
