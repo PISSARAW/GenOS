@@ -234,6 +234,16 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const quantityPlan = repairPlan(quantityCollision);
   assert.deepEqual(quantityPlan, { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' });
+  const quantityReloadError = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr:
+    'getByLabel(/quantity/i) resolved to 2 elements at tests/acceptance.cjs:31:38'
+  }] } });
+  const quantityReloadPlan = repairPlan(quantityReloadError);
+  assert.deepEqual(quantityReloadPlan, { kind: 'ensure_quantity_field_after_reload', label: 'Quantity' });
+  const quantityReloadProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<button aria-label="Increase quantity for Oats">Increase quantity</button>'
+  }] });
+  assert.doesNotMatch(JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content,
+    /aria-label="Increase quantity for Oats"/);
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:

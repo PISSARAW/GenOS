@@ -3,7 +3,6 @@
 const MAX_TEST_RETRIES = 20;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
-
 function isCodeWorker(mission) {
   return mission.localCodeWorker === true || mission.executionPolicy?.localCodeWorker === true;
 }
@@ -77,6 +76,7 @@ function repairPlan(error) {
   if (/waitForEvent\(['"]download['"]\)/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output)) return { kind: 'ensure_add_item_behavior', label: 'Add Item' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) return { kind: 'ensure_search_filter_behavior', label: 'Search' };
+  if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements[\s\S]*?acceptance\.cjs:31:/i.test(output)) return { kind: 'ensure_quantity_field_after_reload', label: 'Quantity' };
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
   if (/getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
   const candidateText = (error.proposal?.failedPatchContents || []).map((patch) => patch.content || '').join('\n');
@@ -119,7 +119,8 @@ function applyRepairPlan(text, plan) {
         content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
         content = content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
         content = labelIncreaseButton(content, item.label);
-      } else if (item.kind === 'ensure_unique_item_name_locator') {
+      } else if (item.kind === 'ensure_quantity_field_after_reload') content = content.replace(/<button\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
+      else if (item.kind === 'ensure_unique_item_name_locator') {
         content = content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
       } else if (item.kind === 'ensure_filter_select_label') {
         content = labelFilterSelect(content, item.label);
