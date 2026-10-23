@@ -18,7 +18,7 @@ function morphogenesisUseMemoryContext(assignment) {
   const workerAssignment = assignment?.workerAssignment || assignment || {};
   const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
   const role = String(workerAssignment.topologyRole || assignment?.topologyRole || assignment?.role || '').toLowerCase();
-  return topology !== 'biome' || role !== 'environment_mapper';
+  return topology !== 'biome' || !['environment_mapper', 'resource_steward'].includes(role);
 }
 
 function allocationFacts(source) {

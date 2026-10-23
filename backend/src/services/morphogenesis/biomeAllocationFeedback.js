@@ -18,7 +18,7 @@ function recoveryFailureReason(reason, diagnostics, evidenceReport) {
   if (diagnostics?.code !== 'BIOME_ALLOCATION_INVALID') {
     const unresolved = evidenceReport?.outcome === 'unresolved'
       ? (evidenceReport.uncertainties || []).map(String).slice(0, 4).join(' ') : '';
-    return unresolved ? `${base} Prior unresolved model claim: ${unresolved}`.slice(0, 4000) : base;
+    return unresolved ? `Prior unresolved model claim: ${unresolved}`.slice(0, 4000) : base;
   }
   const candidate = String(diagnostics.candidate || '').slice(0, 1200);
   const issues = Array.isArray(diagnostics.issues) ? diagnostics.issues.map(String).slice(0, 32).join(', ') : '';
@@ -33,7 +33,7 @@ function recoveryInstruction(mission) {
     return ` Repair the previous candidate using this runtime feedback: ${feedback.slice(0, 1800)}. Recalculate every bin and verify exact item coverage before returning the corrected candidate.`;
   }
   if (/Prior unresolved model claim:|impossible|not possible|cannot be done/i.test(feedback)) {
-    return ` The previous attempt returned an unverified impossibility claim: ${feedback.slice(0, 1200)}. Do not repeat that claim without an exhaustive search. Use exact backtracking: sort remaining item weights descending, place each into a bin with enough remaining capacity, skip bins with equal remaining capacity, and backtrack after dead ends. Only return unresolved after exhausting all partitions; verify every returned bin and every item.`;
+    return ` Previous impossibility claim was unverified (${feedback.slice(0, 120)}). Retry the exhaustive search above; return unresolved only if it proves no solution.`;
   }
   return '';
 }

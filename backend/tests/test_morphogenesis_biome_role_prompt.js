@@ -136,9 +136,15 @@ const unresolvedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILE
 { agentId: 'qwen-worker', prompt: smallAllocation, recoveryAttempt: 0 });
 const reconsideredPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
   workerRecovery.recoveryPrompt(unresolvedFailure, workerRecovery.decideRecovery(unresolvedFailure)));
-assert.match(reconsideredPrompt, /unverified impossibility claim/);
+assert.match(reconsideredPrompt, /Previous impossibility claim was unverified/);
 assert.match(reconsideredPrompt, /exhaustive search/);
-assert.match(reconsideredPrompt, /skip bins with equal remaining capacity/);
+assert.match(reconsideredPrompt, /Retry the exhaustive search above/);
+const baselineStewardPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward, smallAllocation);
+assert.ok(reconsideredPrompt.length - baselineStewardPrompt.length < 250,
+  'unresolved recovery adds only compact feedback to the bounded worker prompt');
+assert.equal(rolePrompt.morphogenesisUseMemoryContext({ workerAssignment: {
+  topology: 'biome', topologyRole: 'resource_steward' } }), false,
+'The resource steward should not receive unrelated memory context that consumes its solve budget.');
 assert.equal(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
   { topology: 'biome', topologyRole: 'environment_mapper' }), null);
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
