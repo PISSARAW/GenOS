@@ -7,7 +7,12 @@ function labelQuantityInput(content) {
   for (const scope of scopes) {
     const repaired = repairQuantityScope(scope[0]);
     if (!repaired) continue;
-    const repairedScope = removeQuantityLabelAriaName(repaired);
+    const named = repaired.replace(/<input\b[^>]*>/gi, (opening) => {
+      const numeric = /\btype\s*=\s*(["'])number\1/i.test(opening);
+      const identity = /\b(?:id|name)\s*=\s*(["'])(?:quantity|qty)\1/i.test(opening);
+      return numeric && identity ? setAccessibleName(opening) : opening;
+    });
+    const repairedScope = removeQuantityLabelAriaName(named);
     const at = scope.index;
     return source.slice(0, at) + repairedScope + source.slice(at + scope[0].length);
   }
@@ -25,7 +30,8 @@ function removeQuantityLabelAriaName(scope) {
   if (!quantityIds.size) return scope;
   return scope.replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (label) => {
     const targetId = label.match(/\bfor\s*=\s*(["'])([^"']+)\1/i)?.[2];
-    return quantityIds.has(targetId) ? label.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : label;
+    return quantityIds.has(targetId) ? label.replace(/^(<label\b[^>]*>)/i,
+      (opening) => opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '')) : label;
   });
 }
 

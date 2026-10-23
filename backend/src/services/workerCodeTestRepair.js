@@ -232,7 +232,8 @@ function labelBestBeforeInput(content, label) {
   if (!dateIds.size) return repaired;
   return repaired.replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (labelElement) => {
     const targetId = labelElement.match(/\bfor\s*=\s*(["'])([^"']+)\1/i)?.[2];
-    return dateIds.has(targetId) ? labelElement.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : labelElement;
+    return dateIds.has(targetId) ? labelElement.replace(/^(<label\b[^>]*>)/i,
+      (opening) => opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '')) : labelElement;
   });
 }
 

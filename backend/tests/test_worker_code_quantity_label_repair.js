@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const { labelQuantityInput } = require('../src/services/workerCodeQuantityInputRepair');
 
 async function main() {
-  const html = labelQuantityInput('<form><label for="quantity" aria-label="Quantity">Quantity:</label><input id="quantity" type="number" aria-label="Quantity"></form>');
+  const html = labelQuantityInput('<form><label for="quantity"><input id="quantity" name="quantity" type="number" required></label></form>');
   const server = http.createServer((_request, response) => {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(html);
