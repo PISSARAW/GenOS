@@ -9,7 +9,7 @@ const POLICIES = Object.freeze({
   procedural_executor: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   symbiotic_worker: { maxIterations: 10 },
   verifier_worker: { maxIterations: 5, maxTokens: 40000, maxTimeMs: 540000 },
-  red_worker: { maxIterations: 5, maxTokens: 20000, maxTimeMs: 540000 },
+  red_worker: { maxIterations: 5, maxTokens: 20000, maxTimeMs: 540000, maxCpuMs: 1500000 },
   experimental_worker: { maxIterations: 10 },
   formal_worker: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   synthesis_worker: { maxIterations: 10 },

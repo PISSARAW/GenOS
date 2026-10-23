@@ -15,6 +15,12 @@ const forensic = buildWorkerContract('forensic_worker');
 assert.equal(forensic.resources.maxCpuMs, forensic.resources.maxTimeMs,
   'model workers can use their full runtime window as aggregate process-tree CPU');
 
+const redReviewer = buildWorkerContract('red_worker');
+assert.equal(redReviewer.resources.maxTimeMs, 540000,
+  'red reviewers retain the bounded wall-clock deadline');
+assert.equal(redReviewer.resources.maxCpuMs, 1500000,
+  'red reviewers have a separate aggregate CPU allowance for parallel descendants');
+
 const smallerCpuBudget = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'),
   executionBudget: { cpuMs: 1200 } };
 assert.equal(applyWorkerRuntimeLimits(smallerCpuBudget, { tokens: 8000, latencyMs: 300000 }).cpuMs, 1200);
