@@ -109,3 +109,10 @@ Retry47 a exécuté vingt contre-tests Qwen7B avec la suite Playwright complète
 Retry48 a réellement lancé Qwen7B et vingt réparations contre la suite Playwright T02. Les tentatives 3–4 ont atteint le contrôle de persistance après reload; d’autres ont atteint le téléchargement et le locator Quantity après rechargement. Les candidats ont ensuite régressé vers Add Item. Au candidat terminal, la ligne Oats reste absente après soumission (`acceptance.cjs:19:10`, `0 !== 1`); `npm test` sort 1, mission `failed`, gate `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`). Pas de succès complet. Reçu: `genos-direct-d-20261023-retry48.db`, `AGENT_FAILED`, final candidat de 7748 octets.
 
 Retry48 a chargé `d1ba69982` mais a commencé avant les correctifs `9c7368c93` (routage de persistance vers Increase) et `6254d43c6` (état local imbriqué et rendu paramétré). Les diagnostics montrent un état `state` créé dans un gestionnaire submit imbriqué, que la détection top-level ne trouvait pas. Ces derniers correctifs sont ciblés sur les causes constatées et doivent être retestés par retry49.
+
+
+## Retry49 — échec terminal de persistance Quantity
+
+Retry49 a exécuté vingt réparations Qwen7B contre la suite Playwright complète. Plusieurs candidats ont atteint le locator Quantity après reload; le candidat terminal échoue à `acceptance.cjs:26:10` avec `updated quantity persists`, `npm test` exit 1. Mission `failed`, `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`), pas de test complet vert. Reçu: `genos-direct-d-20261023-retry49.db`, événement `AGENT_FAILED`, candidat final de 6029 octets.
+
+Ce run avait commencé avant `9c7368c93` (router une perte après reload vers le réparateur Increase) et `6254d43c6` (sauvegarde et rendu pour état local imbriqué). Le diagnostic indique que plusieurs candidats généraient `increaseQuantity(undefined)`; le locator Quantity après reload était aussi ambigu. Le correctif `0c413029b` règle le label Item name, mais reste à évaluer séparément de ce défaut de persistance.
