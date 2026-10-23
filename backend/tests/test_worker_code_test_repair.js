@@ -5,6 +5,7 @@ const { run, repairPrompt, failureFeedback, locatorRepairHint, repairPlan,
   applyRepairPlan } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
+const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
 
 const mission = { localCodeWorker: true, prompt: 'Build the pantry app.', timeoutMs: 10000,
   executionBudget: { latencyMs: 10000, tokens: 20000 } };
@@ -125,6 +126,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(duplicateFailure), /2 visible text matches for Oats/);
+  const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
+    path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>form.addEventListener("submit", addItem);</script>'
+  }] } });
+  assert.equal(patchDiagnostics[0].path, 'index.html');
+  assert.ok(patchDiagnostics[0].controls.some((item) => item.includes('<input id="name">')));
+  assert.ok(patchDiagnostics[0].roles.some((item) => item.includes('role="button"')));
+  assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('addEventListener')));
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
