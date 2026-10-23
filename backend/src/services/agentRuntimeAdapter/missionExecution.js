@@ -141,10 +141,10 @@ async function finalizeMissionStart(agentId) {
   const { cancelledStarts, activeWorkerBarriers, missionStarts } = require('../agentOrchestrationState');
   const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
   missionStarts.delete(agentId);
-  try { await require('../agentRoundService').resumeMorphogenesisBarrierForWorker(agentId); }
-  catch (failure) { console.error('[Morphogenesis] Could not resume a quiescent worker round:', failure.message); }
   try { await require('../garageRuntimeService').finalizeAgent(agentId); }
   catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
+  try { await require('../agentRoundService').resumeMorphogenesisBarrierForWorker(agentId); }
+  catch (failure) { console.error('[Morphogenesis] Could not resume a quiescent worker round:', failure.message); }
   cancelledStarts.delete(agentId);
   await handlePostShutdown(agentId, cancelled);
 }

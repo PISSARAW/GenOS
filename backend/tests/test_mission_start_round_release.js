@@ -11,11 +11,14 @@ async function main() {
   const originalFinalize = garage.finalizeAgent;
   const originalResume = rounds.resumeMorphogenesisBarrierForWorker;
   let resumed = false;
-  garage.finalizeAgent = async () => {};
+  let garageReleased = false;
+  garage.finalizeAgent = async () => { garageReleased = true; };
   rounds.resumeMorphogenesisBarrierForWorker = async (id) => {
     assert.equal(id, workerId);
     assert.equal(state.missionStarts.has(workerId), false,
       'round continuation must be attempted only after releasing the mission-start guard');
+    assert.equal(garageReleased, true,
+      'round continuation must wait until the garage runtime lease is finalized');
     resumed = true;
   };
   state.missionStarts.set(workerId, Promise.resolve());
