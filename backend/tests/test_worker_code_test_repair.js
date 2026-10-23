@@ -51,7 +51,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
   assert.match(prompts[1], /rolled back/i);
-  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 16/);
+  assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 20/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /npm test/);
@@ -198,6 +198,19 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(persistenceFailure), /Save the canonical inventory array to localStorage immediately/);
   assert.match(locatorRepairHint(persistenceFailure), /after every add, quantity increment, and delete/);
+  const exportFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
+    stderr: "page.waitForEvent('download'): Timeout 4000ms exceeded while waiting for event \"download\" at tests/acceptance.cjs:28:44"
+  }] } });
+  assert.match(locatorRepairHint(exportFailure), /real browser download/);
+  assert.match(locatorRepairHint(exportFailure), /filename ending in \.json/);
+  const exportPlan = repairPlan(exportFailure);
+  assert.deepEqual(exportPlan, { kind: 'ensure_json_export', label: 'Export JSON' });
+  const exportProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<button>Export JSON</button><script>const pantryItems = [];</script>'
+  }] });
+  const repairedExport = JSON.parse(applyRepairPlan(exportProposal, exportPlan)).patches[0].content;
+  assert.match(repairedExport, /function exportPantryJSON\(\)/);
+  assert.match(repairedExport, /link\.download='pantry\.json'/);
   const quantityCollision = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'

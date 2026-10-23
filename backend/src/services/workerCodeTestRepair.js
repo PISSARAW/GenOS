@@ -1,6 +1,6 @@
 'use strict';
 
-const MAX_TEST_RETRIES = 16;
+const MAX_TEST_RETRIES = 20;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
 
@@ -32,6 +32,7 @@ function consumedTokens(error) {
 
 function locatorRepairHint(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return 'The Export button must trigger a real browser download. Serialize pantry state to a Blob, set an anchor download to a filename ending in .json or .csv, and click the anchor.';
   if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) {
     return 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.';
   }
@@ -73,21 +74,17 @@ function locatorRepairHint(error) {
 
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
-  if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) {
-    return { kind: 'ensure_search_filter_behavior', label: 'Search' };
-  }
+  if (/waitForEvent\(['"]download['"]\)/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
+  if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
+  if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) return { kind: 'ensure_search_filter_behavior', label: 'Search' };
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) {
     return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
   }
   if (/getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
   const candidateText = (error.proposal?.failedPatchContents || []).map((patch) => patch.content || '').join('\n');
   if (/2\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && /<td\b[^>]*aria-label=["']item name/i.test(candidateText)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
-  if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
-    return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
-  }
-  if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) {
-    return { kind: 'ensure_local_storage_mutations', label: 'pantryItems' };
-  }
+  if (/getByLabel\(\/best\.before\/i\)/i.test(output)) return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
+  if (/updated quantity persists|quantity.*reload|reload.*quantity/i.test(output)) return { kind: 'ensure_local_storage_mutations', label: 'pantryItems' };
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return { kind: 'ensure_accessible_select_label', label: 'Category' };
   }
@@ -136,6 +133,8 @@ function applyRepairPlan(text, plan) {
         content = ensureSearchFilterBehavior(content);
       } else if (item.kind === 'ensure_local_storage_mutations') {
         content = ensureLocalStorageMutations(content);
+      } else if (item.kind === 'ensure_json_export') {
+        content = require('./workerCodeExportRepair').ensureJsonExport(content);
       }
     }
     if (content !== patch.content) {
