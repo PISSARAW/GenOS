@@ -83,24 +83,23 @@ assert.equal(requestedBiomeMapper.methodContract.methodId, 'scan_literal',
 const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1 en 3 groupes, plafond de 8.');
-assert.match(stewardMission, /Total=24; combined capacity=3\*8=24, so each bin must total exactly 8/);
-assert.match(stewardMission, /Compare each bin with 8, never the combined total with one bin/);
+assert.match(stewardMission, /Total=24 equals combined capacity=24; this is feasible in aggregate, not impossible/);
 assert.match(stewardMission, /item1=1,item2=3,item3=2/);
 assert.match(stewardMission, /Use each item once/);
 assert.match(stewardMission, /Recalculate each bin/);
 assert.match(stewardMission, /Search weights descending with backtracking/);
 assert.match(stewardMission, /Claim impossibility only after exhaustive search/);
 assert.match(stewardMission, /one GenOS dossier.*exactly one claim/);
-assert.match(stewardMission, /every item ID must be a quoted JSON string/);
+assert.match(stewardMission, /array of quoted exact item IDs, never a string/);
 assert.doesNotMatch(stewardMission, /Return a complete GenOS dossier: \{"outcome":"success"/);
-assert.match(stewardMission, /only \{"bins":\[\["item1","item2"\],\["item3"\],\.\.\.\]\} with exactly 3 inner arrays, never strings/);
+assert.match(stewardMission, /claims\[0\]\.statement is a JSON object beginning with \{ and containing exactly the key "bins"/);
 assert.ok(stewardMission.length < 900, 'resource steward prompts stay small enough for bounded workers');
 assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
 
 const underfilledStewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6 en 3 groupes, plafond de 13.');
-assert.match(underfilledStewardMission, /Total=37; combined capacity=3\*13=39; each bin must total at most 13/);
+assert.match(underfilledStewardMission, /Total=37; combined capacity=3\*13=39; each bin has its own limit 13 and must total at most that amount/);
 assert.match(stewardMission, /Recalculate each bin/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
@@ -199,7 +198,7 @@ const retryPrompt = localPrompt.buildAnalysisPrompt({
 assert.ok(retryPrompt.startsWith('items=item1=2,item2=2,item3=1;count=3;groups=2;max=3'),
   'direct local recovery keeps the allocation facts at the start of the Qwen prompt');
 assert.match(retryPrompt, /Repair the previous candidate using this runtime feedback/);
-assert.match(retryPrompt, /exactly 2 inner arrays, never strings/);
+assert.match(retryPrompt, /array of exactly 2 arrays/);
 
 assert.equal(rolePrompt.morphogenesisRoleInstruction({ role: 'environment_mapper',
   morphologyTopology: 'rhizome' }), null,
