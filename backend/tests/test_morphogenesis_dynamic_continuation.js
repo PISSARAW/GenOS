@@ -6,7 +6,10 @@ const execution = require('../src/services/morphogenesis/missionMorphologyExecut
 const binding = require('../src/services/morphogenesis/morphogenesisMissionBinding');
 const outcomeStore = require('../src/services/morphogenesis/morphogenesisVerifiedOutcomeStore');
 const missionHelpers = require('../bin/orchestratorMissionHelpers.cjs');
+const { mergeRequestedTools } = require('../src/services/morphogenesis/morphogenesisTransitionAdmission');
 const registry = require('../src/services/morphogenesis/registry/topologyRegistry').createTopologyRegistry();
+
+assert.deepEqual(mergeRequestedTools([], ['genos_change_organization']), ['genos_change_organization']);
 
 function state(scores, policy = {}) {
   return {

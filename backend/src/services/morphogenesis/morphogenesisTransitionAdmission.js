@@ -9,12 +9,18 @@ function budgetRoster(assignments, pool) {
 
 function admissionContext(input, result) {
   const context = input.strategyAdmissionContext || {};
+  const requestedTools = mergeRequestedTools(context.requestedTools,
+    input.state.normalizedMission?.requiredTools);
   const blueprint = result.cohortBlueprint?.assignments || [];
   const assignments = budgetRoster(blueprint, Math.max(0, Number(input.continuation.pool) || 0));
   const allocatedTokens = assignments.reduce((sum, assignment) => sum + assignment.tokenBudget, 0);
   return { context, assignments, allocatedTokens,
     actualPlan: { ...result.plan, workerAssignments: assignments, allocatedTokens,
-      requestedTools: context.requestedTools || [] } };
+      requestedTools } };
+}
+
+function mergeRequestedTools(...sources) {
+  return [...new Set(sources.flatMap((source) => Array.isArray(source) ? source : []))];
 }
 
 async function transitionReceipts(input, prepared) {
@@ -53,4 +59,4 @@ async function admissionForTransition(input, result) {
   return admission;
 }
 
-module.exports = { admissionForTransition };
+module.exports = { admissionForTransition, mergeRequestedTools };
