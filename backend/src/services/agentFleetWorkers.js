@@ -149,7 +149,7 @@ async function includePersistedWorkers(db, parentId, context) {
 }
 
 const { validateAssignments } = require('./workerAssignmentValidation');
-const { morphogenesisRoleInstruction, morphogenesisMissionPrompt } = require('./morphogenesisRolePrompt');
+const { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext } = require('./morphogenesisRolePrompt');
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
   const initialRound = plan.tokenPolicy?.rounds?.initial;
@@ -375,14 +375,14 @@ function inheritedWorkerEngine(mission) {
   if (String(mission.executor || mission.runtime || '').trim().toLowerCase() === 'local') return { localRuntime: true };
   return {};
 }
-
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission, gqwfWorkerWorkspace } = details;
+  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission, gqwfWorkerWorkspace, assignment } = details;
   const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
+    useMemoryContext: morphogenesisUseMemoryContext(assignment),
     workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
     gqwfWorkerLease: gqwfWorkerWorkspace || null,
     localCodeWorker: mission.localCodeWorker === true,
