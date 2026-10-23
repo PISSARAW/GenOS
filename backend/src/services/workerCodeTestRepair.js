@@ -91,7 +91,7 @@ function cleanQuantityActions(content, label) {
 }
 
 function cleanDuplicateItemName(content) {
-  return content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
+  return content.replace(/<(?:label|td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
     ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
 }
 

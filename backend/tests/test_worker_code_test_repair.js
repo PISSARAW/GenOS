@@ -335,6 +335,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const itemNameProposal = JSON.stringify({ patches: [{ path: 'index.html', content: '<input aria-label="Item name"><td aria-label="Item name">Oats</td>' }] });
   assert.match(JSON.parse(applyRepairPlan(itemNameProposal, itemNamePlan)).patches[0].content,
     /<td>Oats<\/td>/);
+  const duplicateItemName = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<label for="item-name" aria-label="Item name">Item name:</label><input id="item-name" aria-label="Item name">'
+  }] });
+  const repairedDuplicateItemName = JSON.parse(applyRepairPlan(duplicateItemName, itemNamePlan)).patches[0].content;
+  assert.match(repairedDuplicateItemName, /<label for="item-name">Item name:<\/label>/);
+  assert.match(repairedDuplicateItemName, /<input id="item-name" aria-label="Item name">/);
   assert.deepEqual(repairPlan({ proposal: { tests: [{ stderr: '2 !== 1 at acceptance.cjs:19:10' }],
     failedPatchContents: [{ path: 'index.html', content: '<td aria-label="Item name">Oats</td>' }] } }), itemNamePlan);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
