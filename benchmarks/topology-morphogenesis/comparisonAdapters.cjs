@@ -261,7 +261,7 @@ async function genosFull(task, state) {
     mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
     timeoutMs: state.budget.latencyMs, execution_budget: budget,
     successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
-    tool_lease: ['genos_replay'], allowed_commands: [], allow_file_edits: true,
+    tool_lease: ['genos_change_organization', 'genos_replay'], allowed_commands: [], allow_file_edits: true,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
