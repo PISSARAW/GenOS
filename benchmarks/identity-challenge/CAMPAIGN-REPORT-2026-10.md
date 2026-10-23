@@ -152,4 +152,3 @@ Cette proposition répond aux limites précédentes; elle n’est ni préenregis
 - [Résumé confirmatoire v4.0](results/confirmatory-v40-campaign-summary-20261023.md)
 - [Résumé confirmatoire v4.1](results/confirmatory-v41-campaign-summary-20261023.md)
 - [JSON brut v3.9](results/raw/runtime-llm-1792706099821.json), [v4.0](results/raw/runtime-llm-1792707473420.json), [v4.1](results/raw/runtime-llm-1792707997281.json)
-
