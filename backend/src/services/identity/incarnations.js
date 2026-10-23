@@ -55,6 +55,27 @@ async function checkSession(db, session) {
   return head;
 }
 
+async function renew(db, session, ttlMs = 900000) {
+  if (!session?.agentId) store.fail('IDENTITY_SESSION_PROOF_REQUIRED');
+  return withTransaction(db, async () => {
+    const registration = await store.registration(db, { agentId: session.agentId, scope: session.scope });
+    store.assertActive(registration);
+    const head = await ledger.ensure(db, { agentId: session.agentId, scope: session.scope });
+    const now = Date.now();
+    if (head.life_state === 'terminal') store.fail('IDENTITY_TERMINAL');
+    if (head.incarnation_id !== session.incarnationId || head.fencing_token !== session.fencingToken
+      || head.owner_id !== session.ownerId || head.lease_until <= now) store.fail('IDENTITY_SESSION_STALE');
+    assertKey(head, session);
+    const ttl = Math.min(900000, Math.max(1000, Number(ttlMs) || 60000));
+    const leaseUntil = now + ttl;
+    const updated = await db.run(`UPDATE agent_identity_heads SET lease_until = ?
+      WHERE agent_id = ? AND incarnation_id = ? AND fencing_token = ? AND owner_id = ? AND lease_until > ?`,
+    leaseUntil, session.agentId, session.incarnationId, session.fencingToken, session.ownerId, now);
+    if (!updated.changes) store.fail('IDENTITY_SESSION_STALE');
+    return sessionOf({ ...head, lease_until: leaseUntil }, session.key);
+  });
+}
+
 function assertKey(head, session) {
   if (!session?.key || store.hash(session.key) !== head.session_key_hash) store.fail('IDENTITY_SESSION_PROOF_REQUIRED');
 }
@@ -71,4 +92,4 @@ async function release(db, session) {
   });
 }
 
-module.exports = { activate, assertSession, release, sessionOf };
+module.exports = { activate, assertSession, renew, release, sessionOf };

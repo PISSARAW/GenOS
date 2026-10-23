@@ -55,6 +55,25 @@ async function fencing(db) {
   await incarnations.release(db, next);
 }
 
+async function leaseRenewal(db) {
+  const originalNow = Date.now;
+  let now = originalNow();
+  Date.now = () => now;
+  try {
+    const session = await incarnations.activate(db, { agentId: 'outsider', ownerId: 'long-worker', ttlMs: 1000 });
+    now += 800;
+    const identity = { session };
+    await require('../src/services/identity/worker').renew(db, identity);
+    assert.equal(identity.session.leaseUntil, now + 900000);
+    assert.equal((await store.head(db, 'outsider')).lease_until, identity.session.leaseUntil);
+    await assert.rejects(() => incarnations.renew(db, { ...identity.session, key: 'forged' }), /PROOF_REQUIRED/);
+    now += 1500;
+    await incarnations.assertSession(db, identity.session);
+    await incarnations.release(db, identity.session);
+    await assert.rejects(() => incarnations.renew(db, identity.session), /SESSION_STALE/);
+  } finally { Date.now = originalNow; }
+}
+
 async function social(db) {
   const a = await incarnations.activate(db, { agentId: 'a', ownerId: 'social-a' });
   const b = await incarnations.activate(db, { agentId: 'b', ownerId: 'social-b' });
@@ -157,7 +176,7 @@ async function lifecycle(db) {
 async function main() {
   const db = await database();
   try {
-    for (const test of [continuity, fencing, social, learning, branching, memories, lifecycle]) await test(db);
+    for (const test of [continuity, fencing, leaseRenewal, social, learning, branching, memories, lifecycle]) await test(db);
     console.log('Identity v2: causal history, fencing, recognition, learning, forks, restore and inherited memories passed.');
   } finally { await db.close(); }
 }
