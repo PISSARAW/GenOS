@@ -46,9 +46,11 @@ Trois expériences avec processus enfants et bases/répertoires temporaires ont 
 
 Ces essais prouvent le comportement de récupération de processus et de backend dans des fixtures isolées. Ils ne tuent pas un worker métier en train de traiter une vraie mission et ne démontrent pas encore le critère T01 complet « reprise correcte sans doublon » sur un service de production ou une VM.
 
-## Run T02 direct 23 en cours lors de la dernière observation
+## T02 Pantry — run direct D: 23 terminé en échec
 
-Le processus `node backend/bin/genos-orchestrate.cjs` du run `autonomy-proof-t02-20261023-direct-d-repair-23` était encore vivant lors de la collecte; Ollama servait toujours `qwen2.5-coder:7b`. Son journal de sortie était vide et aucun verdict final n’était disponible. Ce run n’est ni classé réussi ni classé échoué ici; il faut relire sa base et son reçu après terminaison.
+Le run `autonomy-proof-t02-20261023-direct-d-repair-23` a utilisé `ollama://qwen2.5-coder:7b` et huit essais Qwen réels. Au dernier essai, Playwright échoue à `tests/acceptance.cjs:19:10`: la ligne Oats attendue est absente (`actual: 0`, `expected: 1`). La mission est terminale `success:false`, verdict `failed`; l’invariant `mission_outcome_success` échoue et la porte homeostasis bloque la clôture. Le worker a restauré les changements de capsule.
+
+Artefacts : `D:\GenOS\runs\autonomy-proof-t02-20261022\project\direct-d-20261023-retry23.json`, `orchestrator-direct-d-20261023-retry23.log` et `genos-direct-d-20261023-retry23.db`. La dernière proposition a consommé 4 369 tokens selon l’événement d’usage Qwen. Le run24 Qwen 32B apparaissait déjà lancé sur D: après la terminaison du run23; aucun doublon d’inférence n’a été ajouté.
 
 ## T02 — corruption sémantique de mémoire native et refus de propagation
 
@@ -63,3 +65,4 @@ Cette preuve couvre une corruption sémantique contrôlée du contenu dans une b
 Le premier passage du test sémantique a réussi ses assertions, mais a terminé avec des effets différés de télémétrie après fermeture de SQLite. Le banc fermait sa base avant d’attendre ces effets. Le `finally` de `backend/tests/test_native_memory_budget.js` appelle maintenant le helper existant `flushTelemetrySideEffects` après l’arrêt du garage et avant `closeDatabase`.
 
 Le rerun exact `node backend/tests/test_native_memory_budget.js` a terminé code 0 avec les mêmes assertions de corruption/refus/restauration. Les erreurs `SQLITE_MISUSE` de fermeture ne sont plus apparues. Une sortie `fatal: not a git repository` est toutefois apparue une fois pendant l’exécution d’un sous-processus; elle n’a pas échoué le test et sa source n’est pas encore isolée. Le run valide la correction de fermeture SQLite, mais le message Git reste à diagnostiquer.
+
