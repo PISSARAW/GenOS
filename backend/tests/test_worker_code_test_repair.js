@@ -282,8 +282,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const incrementCandidate = JSON.stringify({ patches: [{ path: "index.html", content: "<table><tbody><tr><td>Oats</td><td>2</td></tr></tbody></table><script>const pantry=JSON.parse(localStorage.getItem(\'pantry\'))||[];</script></body>" }] });
   const repairedIncrement = JSON.parse(applyRepairPlan(incrementCandidate, incrementPlan)).patches[0].content;
   assert.match(repairedIncrement, /genosQuantityIncrementRepair/);
-  assert.match(repairedIncrement, /item\.quantity=Number\(item\.quantity\)\+1/);
-  assert.match(repairedIncrement, /if\(!item\)\{item=\{name,itemName:name,category:/);
+  assert.match(repairedIncrement, /item\.quantity=\(Number\(quantityCell\.textContent\)\|\|0\)\+1/);
+  assert.match(repairedIncrement, /if\(!item\)\{item=\{name,itemName:name,ItemName:name,category:/);
   assert.match(repairedIncrement, /items\.push\(item\)/);
   assert.match(repairedIncrement, /quantityCell\.textContent=String\(item\.quantity\)/);
   const exportFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
