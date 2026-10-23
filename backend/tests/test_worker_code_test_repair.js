@@ -79,6 +79,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     return 'repaired';
   } });
   assert.equal(repairPlanAttempts, 2);
+  const oatsFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stdout: 'CANDIDATE index.html true 5000',
+    stderr: 'AssertionError: 0 !== 1 at tests/acceptance.cjs:19:10'
+  }] }, usage: { tokens: 50 } });
+  assert.match(locatorRepairHint(oatsFailure), /append the item to the same data collection/);
+  assert.match(failureFeedback(oatsFailure), /immediately render exactly one visible Oats row/);
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {

@@ -35,6 +35,9 @@ function locatorRepairHint(error) {
   if (/getByLabel\(\/\^category\$\/i\)/i.test(output)) {
     return 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.';
   }
+  if (/acceptance\.cjs:19:10/.test(output) && /0\s*!==\s*1/.test(output)) {
+    return 'Playwright selected Category and clicked Add Item, but the visible Oats row count stayed 0. Handle the add form submit, prevent navigation, read the current item name, quantity, selected category and date, append the item to the same data collection used by render(), persist it, and immediately render exactly one visible Oats row. Keep the row compatible with the existing filter, search, increase and delete handlers.';
+  }
   return '';
 }
 
