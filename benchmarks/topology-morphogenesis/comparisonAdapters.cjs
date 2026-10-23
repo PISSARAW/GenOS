@@ -253,7 +253,7 @@ async function genosFull(task, state) {
   const condition = conditionOf(state);
   const topology = resolvedTopology(condition, task);
   const policy = resolvedPolicy(condition);
-  const budget = { tokens: state.budget.tokens, latencyMs: state.budget.latencyMs,
+  const budget = { tokens: state.budget.tokens, costUsd: 0, latencyMs: state.budget.latencyMs,
     minimumWorkerTokens: state.minimumWorkerTokens || 800,
     workerShare: state.workerShare || 0.7 };
   const payload = applyTopologyForcing({ action: 'orchestrate',
