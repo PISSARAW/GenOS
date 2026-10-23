@@ -35,6 +35,9 @@ function locatorRepairHint(error) {
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return 'The best-before date input has no accessible name matching Best-before. Keep its visible associated label and also set aria-label="Best-before date" on the date input.';
   }
+  if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) {
+    return 'The item is present before searching, but Search removes the Oats row from the results incorrectly. Filter the canonical items by the current search input value (case-insensitive substring of item.name) and selected category inside renderItems; do not clear or mutate the canonical array when a filter has no match. Keep the Add Item handler and persisted collection intact.';
+  }
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements|\[object HTMLInputElement\]/i.test(output)) {
     return 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. The increment button must exist only inside the rendered item row after Add Item; remove any standalone/prototype increment button from the initial accessible DOM. In the item row, give the action the exact accessible name "Increase quantity for Oats" using the item name string. Do not put that action label on a form control or prototype button.';
   }
@@ -67,6 +70,9 @@ function locatorRepairHint(error) {
 
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
+  if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) {
+    return { kind: 'ensure_search_filter_behavior', label: 'Search' };
+  }
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
   }
@@ -108,6 +114,8 @@ function applyRepairPlan(text, plan) {
         content = labelSearchInput(content, item.label);
       } else if (item.kind === 'ensure_best_before_input_label') {
         content = labelBestBeforeInput(content, item.label);
+      } else if (item.kind === 'ensure_search_filter_behavior') {
+        content = ensureSearchFilterBehavior(content);
       }
     }
     if (content !== patch.content) {
@@ -246,6 +254,29 @@ function labelBestBeforeInput(content, label) {
   if (!target) return content;
   const nextInput = replaceAccessibleName(target[0], label);
   return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
+}
+
+function ensureSearchFilterBehavior(content) {
+  const scripts = [...content.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)];
+  const searchId = content.match(/<input\b[^>]*\bid\s*=\s*(["'])[^"']*search[^"']*\1[^>]*>/i)?.[0]
+    ?.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] || 'search';
+  const filterId = content.match(/<select\b[^>]*\bid\s*=\s*(["'])[^"']*filter[^"']*\1[^>]*>/i)?.[0]
+    ?.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] || 'filter-category';
+  for (const script of scripts) {
+    const code = script[1];
+    const render = /function\s+renderItems\s*\(\s*([A-Za-z_$][\w$]*)\s*\)\s*\{/i.exec(code);
+    if (!render || /\bfilteredItems\s*=/.test(code.slice(render.index))) continue;
+    const itemList = render[1];
+    const loopPattern = new RegExp(`\\b${itemList}\\.forEach\\s*\\(`);
+    const loop = loopPattern.exec(code.slice(render.index + render[0].length));
+    if (!loop) continue;
+    const insertion = render.index + render[0].length + loop.index;
+    const filterCode = `const searchTerm = (document.getElementById(${JSON.stringify(searchId)} )?.value || '').trim().toLowerCase(); const categoryFilter = document.getElementById(${JSON.stringify(filterId)} )?.value || ''; const filteredItems = ${itemList}.filter(item => (!searchTerm || String(item.name || '').toLowerCase().includes(searchTerm)) && (!categoryFilter || /^(all|any)$/i.test(categoryFilter) || item.category === categoryFilter)); filteredItems.forEach(`;
+    const nextCode = code.slice(0, insertion) + filterCode + code.slice(insertion + loop[0].length);
+    const nextScript = script[0].replace(code, nextCode);
+    return content.slice(0, script.index) + nextScript + content.slice(script.index + script[0].length);
+  }
+  return content;
 }
 
 function failureFeedback(error) {

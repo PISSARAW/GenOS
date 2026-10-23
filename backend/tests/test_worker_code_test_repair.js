@@ -113,6 +113,21 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] });
   assert.match(JSON.parse(applyRepairPlan(bestBeforeProposal, bestBeforePlan)).patches[0].content,
     /<input type="date" id="best_before" aria-label="Best-before date">/);
+  const searchFilterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'AssertionError: 0 !== 1 at tests/acceptance.cjs:22:10'
+  }] }, usage: { tokens: 50 } });
+  const searchFilterPlan = repairPlan(searchFilterFailure);
+  assert.deepEqual(searchFilterPlan, { kind: 'ensure_search_filter_behavior', label: 'Search' });
+  assert.match(locatorRepairHint(searchFilterFailure), /case-insensitive substring of item\.name/);
+  const searchFilterProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<input id="filter-search"><select id="filter-category"></select><script>function renderItems(items) { const box = document.getElementById(\'items\'); box.innerHTML = \'\'; items.forEach(item => { box.append(item.name); }); }</script>'
+  }] });
+  const searchFilterContent = JSON.parse(applyRepairPlan(searchFilterProposal, searchFilterPlan)).patches[0].content;
+  assert.match(searchFilterContent, /getElementById\("filter-search"\s*\)/);
+  assert.match(searchFilterContent, /getElementById\("filter-category"\s*\)/);
+  assert.match(searchFilterContent, /filteredItems\.forEach\(item/);
+  assert.match(searchFilterContent, /item\.category === categoryFilter/);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   const categoryOnlyContent = JSON.parse(applyRepairPlan(proposalText, plan)).patches[0].content;
   assert.match(categoryOnlyContent, /<select id="category" aria-label="Category">/);
