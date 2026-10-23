@@ -212,6 +212,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedQuantity = JSON.parse(applyRepairPlan(quantityProposal, quantityPlan)).patches[0].content;
   assert.doesNotMatch(repairedQuantity, /<input[^>]*aria-label="Increase quantity for Oats"/);
   assert.match(repairedQuantity, /<button(?=[^>]*aria-label="Increase quantity for Oats")(?=[^>]*onclick="increaseQuantity\(\)")[^>]*>/);
+  const itemNameFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{
+    stderr: 'getByLabel(/item name/i) resolved to 2 elements'
+  }] } });
+  const itemNamePlan = repairPlan(itemNameFailure);
+  const itemNameProposal = JSON.stringify({ patches: [{ path: 'index.html', content: '<input aria-label="Item name"><td aria-label="Item name">Oats</td>' }] });
+  assert.match(JSON.parse(applyRepairPlan(itemNameProposal, itemNamePlan)).patches[0].content,
+    /<td>Oats<\/td>/);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
     path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } function addItem(event) { const item = readForm(); items.push(item); } form.addEventListener("submit", addItem);</script>'
   }] } });

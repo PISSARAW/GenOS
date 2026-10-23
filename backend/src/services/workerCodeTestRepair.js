@@ -79,6 +79,7 @@ function repairPlan(error) {
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) {
     return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
   }
+  if (/getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
   }
@@ -121,6 +122,8 @@ function applyRepairPlan(text, plan) {
         content = content.replace(/<input\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["'][^"']*increase quantity/i.test(opening)
           ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening);
         content = labelIncreaseButton(content, item.label);
+      } else if (item.kind === 'ensure_unique_item_name_locator') {
+        content = content.replace(/<(?:td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening) ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
       } else if (item.kind === 'ensure_filter_select_label') {
         content = labelFilterSelect(content, item.label);
       } else if (item.kind === 'ensure_search_input_label') {
@@ -179,8 +182,6 @@ function labelIncreaseButton(content, label) {
   const dynamic = buttons.find((button) => /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(button[0])
     && /(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])
     && !/\b(?:delete|remove)\b/i.test(button[0]));
-  // A static prototype button is often included beside the dynamic row template.
-  // Do not give it a name containing "quantity": the form's Quantity locator
   // deliberately uses that same word and would become ambiguous.
   if (dynamic) {
     for (const button of buttons) {
@@ -204,9 +205,7 @@ function labelIncreaseButton(content, label) {
   const opening = target[0].match(/^<button\b[^>]*>/i)?.[0];
   if (!opening) return content;
   const itemField = target[0].match(/\$\{\s*item\.([A-Za-z_$][\w$]*)\s*\}/i)?.[1];
-  const dynamicLabel = itemField ? label.replace(/\bOats\b/g, `\${item.${itemField}}`)
-    : /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(target[0])
-      ? label.replace(/\bOats\b/g, '${itemName}') : label;
+  const dynamicLabel = itemField ? label.replace(/\bOats\b/g, `\${item.${itemField}}`) : /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(target[0]) ? label.replace(/\bOats\b/g, '${itemName}') : label;
   const nextButton = replaceAccessibleName(opening, dynamicLabel) + target[0].slice(opening.length);
   return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
 }
