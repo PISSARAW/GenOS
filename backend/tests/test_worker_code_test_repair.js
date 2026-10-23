@@ -97,6 +97,18 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const bestBeforePlan = repairPlan(bestBeforeFailure);
   assert.deepEqual(bestBeforePlan, { kind: 'ensure_best_before_input_label', label: 'Best-before date' });
+  const missingItemNameFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1, stderr: 'locator.fill: waiting for getByLabel(/item name/i) at acceptance.cjs:15:14'
+  }] }, usage: { tokens: 50 } });
+  const itemNameInputPlan = repairPlan(missingItemNameFailure);
+  assert.deepEqual(itemNameInputPlan, { kind: 'ensure_item_name_input_label', label: 'Item name' });
+  assert.match(locatorRepairHint(missingItemNameFailure), /do not use Search as its accessible name/);
+  const mislabeledItemName = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<label for="item-name">Item name:</label><input id="item-name" type="text" aria-label="Search"><label for="search">Search</label><input id="search" type="search">'
+  }] });
+  const repairedItemName = JSON.parse(applyRepairPlan(mislabeledItemName, itemNameInputPlan)).patches[0].content;
+  assert.match(repairedItemName, /<input id="item-name" type="text" aria-label="Item name">/);
+  assert.match(repairedItemName, /<input id="search" type="search">/);
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
     path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option></select><input id="search" placeholder="Search items">'
   }], tests: ['npm test'], evidence: 'test fixture' });
@@ -124,6 +136,10 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] });
   assert.match(JSON.parse(applyRepairPlan(bestBeforeProposal, bestBeforePlan)).patches[0].content,
     /<input type="date" id="best_before" aria-label="Best-before date">/);
+  const missingBestBefore = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{
+    path: 'index.html', content: '<form><label for="itemName">Item name</label><input id="itemName"><button type="submit">Add Item</button></form>'
+  }] }), bestBeforePlan)).patches[0].content;
+  assert.match(missingBestBefore, /<label for="bestBeforeDate">Best-before date<\/label><input id="bestBeforeDate" name="bestBeforeDate" type="date" aria-label="Best-before date">/);
   const selfClosingDates = '<input id="best-before" type="date"/><input type="date" id="expiry">';
   const repairedSelfClosingDates = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{
     path: 'index.html', content: selfClosingDates
