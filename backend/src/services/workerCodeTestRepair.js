@@ -122,8 +122,16 @@ function labelCategorySelect(content, label) {
     if (!opening) continue;
     const nextOpening = replaceAccessibleName(opening, label);
     const nextSelect = nextOpening + target[0].slice(opening.length);
-    return content.slice(0, scope.start + target.index) + nextSelect
-      + content.slice(scope.start + target.index + target[0].length);
+    const scopeStart = content.slice(0, scope.start);
+    const repairedScope = scope.html.replace(target[0], nextSelect).replace(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi, (markup) => {
+      const text = markup.replace(/<[^>]+>/g, '').trim();
+      return text.toLowerCase() === label.toLowerCase()
+        ? markup.replace(/^(<label\b[^>]*>)/i,
+          (labelOpening) => labelOpening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''))
+        : markup;
+    });
+    return scopeStart + repairedScope
+      + content.slice(scope.start + scope.html.length);
   }
   return content;
 }
