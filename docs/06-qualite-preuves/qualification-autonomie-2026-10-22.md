@@ -167,3 +167,12 @@ Chaque mise à jour doit préciser la commande, le code de sortie, le résultat 
 
 - T11 (7 jours) et T12 (30 jours) n'ont pas été lancées : les descriptions fournissent une durée et un critère général, mais pas les projets autorisés, le mandat de maintenance, les budgets ni les règles de changement des actifs sur D:. Ces informations sont requises pour définir des campagnes sûres et comparables.
 - La qualification actuelle porte sur les suites locales et ne vaut pas réussite des deux épreuves de terrain.
+
+## 2026-10-23 — Tentative de lancement T01 (non exécutée)
+
+- Mission soumise à l'orchestrateur GenOS : cohorte de cinq tâches réelles inconnues de SWE-bench Lite, dépôts isolés, vérification préalable FAIL_TO_PASS, puis validation FAIL_TO_PASS et PASS_TO_PASS par l'évaluateur du benchmark. Les tâches synthétiques et toute modification du dépôt GenOS courant étaient explicitement exclues.
+- Reçu : `status: accepted`, orchestrateur `mcp_orchestrator_fdc76e7e-d986-4a09-bb63-9f25f67d7933`, runner `orchestrator-runner_1024052e-2a02-4bc5-bef1-baa927f7c5e3`, PID annoncé `26764`, reçu horodaté `2026-10-23T05:13:52.755Z`.
+- Vérification après lancement : le PID annoncé n'était plus présent sur l'hôte local; aucun journal correspondant à cet orchestrateur ou runner n'a été trouvé dans `D:\GenOS\.genos-runner-logs`, dont les derniers journaux dataient du 2026-10-21. Le reçu `accepted` ne prouve donc pas l'exécution de la mission.
+- Prévol des données : le fichier attendu par `backend/src/evaluation/swe_paths.js`, `C:\Users\Shadow\Documents\GitHub\SWE-bench\swe_bench_lite_tasks.json`, et le répertoire de clones `C:\Users\Shadow\Documents\GitHub\.genos-agent-worlds\swe_repos` étaient absents.
+- Prévol de l'oracle officiel : `docker info --format '{{.ServerVersion}}'` échoue avec le code 1, car le moteur Docker Desktop ne répond pas. Docker Desktop a été démarré, mais le service `com.docker.service` ne pouvait pas être ouvert avec les droits disponibles; Ubuntu-24.04 est installé en WSL 1 et n'a pas de client Docker intégré.
+- Résultat : aucun dépôt SWE-bench n'a été préparé, aucune tâche ni aucun test n'a été exécuté, et aucun résultat T01 n'est revendiqué. La campagne reste non lancée et requiert le dataset, les clones isolés et un oracle Docker opérationnel.
