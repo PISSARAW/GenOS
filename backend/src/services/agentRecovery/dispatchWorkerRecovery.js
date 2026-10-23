@@ -110,7 +110,7 @@ function resolveRecoveryTarget(input) {
   const targetId = sameIdentity
     ? sourceAgentId
     : createOrchestratorId(`worker_${orchestratorId}_recovery`);
-  const role = firstTruthy(decision.role, source.role, mission.role, 'recovery_specialist');
+  const role = require('./recoveryMissionBinding').resolveRecoveryRole({ mission, source, decision });
   const prompt = workerRecovery.recoveryPrompt(report, decision);
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
   return { sameIdentity, targetId, role, prompt, name, sourceAgentId, orchestratorId,

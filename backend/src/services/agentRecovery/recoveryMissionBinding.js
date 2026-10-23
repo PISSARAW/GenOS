@@ -14,4 +14,11 @@ async function bindRecoveryMission(db, source, target) {
   target.targetId, target.role, source.id);
 }
 
-module.exports = { bindRecoveryMission };
+function resolveRecoveryRole(input) {
+  const assignment = input.mission.workerAssignment || {};
+  const topologyRole = assignment.topologyRole || input.mission.topologyRole;
+  if (typeof topologyRole === 'string' && topologyRole.trim()) return topologyRole;
+  return input.decision.role || input.source.role || input.mission.role || 'recovery_specialist';
+}
+
+module.exports = { bindRecoveryMission, resolveRecoveryRole };

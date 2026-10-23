@@ -130,13 +130,17 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
   const missionIdentity = require('../src/services/missionIdentityService');
   await missionIdentity.create(db, { missionId: 'rec-chain-mission', objective: 'Carry recovery into the mission.', orchestratorAgentId: 'rec-orch' });
   await missionIdentity.attachAgent(db, { missionId: 'rec-chain-mission', agentId: 'rec-chain', role: 'resource_steward' });
-  const { mission, report, decision } = queuedRecovery('rec-chain', 'unresolved_task');
+  const morphology = { topology: 'biome', topologyRole: 'resource_steward' };
+  const { mission, report, decision } = queuedRecovery('rec-chain', 'unresolved_task', {
+    topologyRole: 'resource_steward', workerAssignment: morphology
+  });
   orchestrationState.pendingWorkerRecoveries.set('rec-chain', { mission, report, decision });
   const originalStartMission = adapter.startMission;
   adapter.startMission = async (nextMission) => {
     startedMissions.push(nextMission);
     if (startedMissions.length === 1) {
-      queueWorkerRecovery(baseMission('rec-chain', { recoveryAttempt: 1 }), {
+      queueWorkerRecovery(baseMission('rec-chain', { recoveryAttempt: 1,
+        topologyRole: 'resource_steward', workerAssignment: morphology }), {
         eventType: 'AGENT_FAILED', detail: 'Biome mutated output violates allocation constraints.',
         payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID',
           candidate: '{"bins":[]}', issues: ['candidate.bin_count'] } }
@@ -153,6 +157,8 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
       'a failure queued while the same-identity dispatch is active is drained after its lease is released');
     assert.notEqual(startedMissions[1].agentId, 'rec-chain',
       'the next morphogenetic response can change identity after the same-identity mutation fails');
+    assert.equal(startedMissions[1].role, 'resource_steward',
+      'replacement recovery preserves the Biome niche even when the generic strategy requests a recovery role');
     assert.equal((await db.get('SELECT mission_id FROM mission_agents WHERE mission_id = ? AND agent_id = ?',
       'rec-chain-mission', startedMissions[1].agentId))?.mission_id, 'rec-chain-mission',
     'a replacement identity inherits the source worker’s active biological mission binding');
