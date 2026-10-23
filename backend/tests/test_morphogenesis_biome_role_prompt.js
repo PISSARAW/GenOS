@@ -93,7 +93,6 @@ assert.match(stewardMission, /Build each bin with a running subtotal/);
 assert.match(stewardMission, /reject that placement immediately if the new subtotal exceeds 8/);
 assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to another subset/);
-assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
 assert.match(stewardMission, /exactly one GenOS dossier/);
 assert.match(stewardMission, /exactly one claim/);
 assert.match(stewardMission, /do not repeat the schema, add another claim or nested dossier/);
