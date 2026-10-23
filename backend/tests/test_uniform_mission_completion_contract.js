@@ -78,6 +78,17 @@ function testTerminalStatus(input) {
   const emptyRoot = completionContract.evaluate({ lifecycleState: 'completed', barrierStatus: 'complete',
     topologyValidation: { status: 'verified' } });
   assert.equal(emptyRoot.verdict, 'partial', 'an empty root mission still fails closed without a worker roster');
+  const synthesisCtx = { ...ctx, dispatchedAgent: { execution_mode: 'orchestrator' },
+    autonomyPlan: { synthesisOnly: true, completedWorkerIds: ['worker-a', 'worker-b'] },
+    state: { ...ctx.state, verifiedDossierWorkerIds: ['worker-a', 'worker-b'] } };
+  assert.equal(terminalStatus.verifiedSynthesis(synthesisCtx), true);
+  const synthesis = terminalStatus.queue(synthesisCtx, { eventType: 'AGENT_COMPLETED', status: 'completed',
+    trackedEventId: 'verified-synthesis', payload: {} }, 'completed');
+  assert.equal(synthesis.verdict, 'succeeded');
+  const incompleteSynthesis = { ...synthesisCtx, state: { ...synthesisCtx.state,
+    verifiedDossierWorkerIds: ['worker-a'] } };
+  assert.equal(terminalStatus.verifiedSynthesis(incompleteSynthesis), false,
+    'synthesis can close only after every expected worker dossier is verified');
 }
 
 function testActionDecision(input) {

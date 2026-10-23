@@ -18,10 +18,10 @@ const { checkNaturalSearchControl, clearSearchState } = require('./search/natura
 const conceptCycle = require('./agentConceptCycleBridgeService');
 const terminalStatus = require('./agentTerminalStatusService');
 const { recordCompletedCommand, attestCodeTestResults } = require('./agentCodeExecutionEvidence');
-
 function applyDomainStateFromEvent(context) {
   const { state, event, eventType, workerContract } = context;
   recordCompletedCommand(state, event, eventType);
+  if (eventType === 'DOSSIER_INFLUENCE_VERIFIED' && Array.isArray(event.payload?.workerIds)) state.verifiedDossierWorkerIds = [...event.payload.workerIds];
   if (eventType === 'EVIDENCE_REPORT') {
     try {
       const report = extractEvidenceReport(event.payload);
