@@ -85,8 +85,9 @@ assert.match(stewardMission, /The total weight is 24, so every bin must sum to e
 assert.match(stewardMission, /all 9 distinct identifiers occur once/);
 assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
 assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
-assert.match(stewardMission, /largest-first search with backtracking/);
-assert.match(stewardMission, /Do not stop at a greedy dead end/);
+assert.match(stewardMission, /Use target-sum search: find a subset that fills one bin to 8/);
+assert.match(stewardMission, /Backtrack to a different subset/);
+assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
 assert.match(stewardMission, /complete GenOS dossier/);
 assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>\"\],\[\"<item-id>\"\],\[\"<item-id>\"\]\]/);
 assert.match(stewardMission, /bins are arrays of exact item identifiers, never weights/);
