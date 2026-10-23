@@ -112,6 +112,17 @@ assert.match(underfilledStewardMission, /The budget is sufficient for this 8-ite
 assert.match(stewardMission, /recalculate each bin total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
+const smallAllocation = 'Repartis item1=2, item2=2, item3=1 en 2 groupes, plafond de 3.';
+const biomeSteward = { topology: 'biome', topologyRole: 'resource_steward' };
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation, biomeSteward),
+  { passed: true, issues: [] });
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1', 'item2'], ['item3']] }, smallAllocation, biomeSteward),
+  { passed: false, issues: ['candidate.bin_1_over_capacity:4'] });
+assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], 'item2', ['item3']] }, smallAllocation, biomeSteward),
+  { passed: false, issues: ['candidate.bin_count'] });
+assert.equal(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
+  { topology: 'biome', topologyRole: 'environment_mapper' }), null);
+
 
 const steward = promptFor('resource_steward', 'specialist', 'biome:resource_steward');
 assert.match(steward, /Solve the assigned allocation task/);

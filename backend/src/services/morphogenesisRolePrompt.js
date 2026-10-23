@@ -30,6 +30,48 @@ function allocationFacts(source) {
   return { items, groups, capacity };
 }
 
+function validateBiomeAllocation(candidate, mission, assignment) {
+  const workerAssignment = assignment?.workerAssignment || assignment || {};
+  const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
+  const role = String(workerAssignment.topologyRole || assignment?.topologyRole || assignment?.role || '').toLowerCase();
+  if (topology !== 'biome' || role !== 'resource_steward') return null;
+  const source = String(mission || '').slice(0, 8192);
+  const facts = allocationFacts(source);
+  if (!facts.items.length || !facts.groups || !facts.capacity) return null;
+  let value = candidate;
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value); }
+    catch (_) { return { passed: false, issues: ['candidate.invalid_json'] }; }
+  }
+  const bins = value && value.bins;
+  if (!Array.isArray(bins) || bins.length !== facts.groups) {
+    return { passed: false, issues: ['candidate.bin_count'] };
+  }
+  const weights = new Map(facts.items.map(({ id, value: weight }) => [id, weight]));
+  const seen = [];
+  const issues = [];
+  bins.forEach((bin, index) => {
+    if (!Array.isArray(bin) || bin.length === 0) {
+      issues.push(`candidate.bin_${index + 1}_empty_or_invalid`);
+      return;
+    }
+    let sum = 0;
+    for (const rawId of bin) {
+      const id = String(rawId);
+      if (!weights.has(id)) {
+        issues.push(`candidate.unknown_item:${id}`);
+        continue;
+      }
+      sum += weights.get(id);
+      seen.push(id);
+    }
+    if (sum > facts.capacity) issues.push(`candidate.bin_${index + 1}_over_capacity:${sum}`);
+  });
+  const expected = facts.items.map(({ id }) => id).sort();
+  if (JSON.stringify(seen.sort()) !== JSON.stringify(expected)) issues.push('candidate.item_coverage');
+  return { passed: issues.length === 0, issues };
+}
+
 function morphogenesisWorkerAssignments(assignments, topology, mission) {
   const mapperIndex = Array.isArray(assignments)
     ? assignments.findIndex((item) => String(item?.topologyRole || item?.role || '').toLowerCase() === 'environment_mapper')
@@ -95,4 +137,4 @@ function morphogenesisMissionPrompt(assignment, mission) {
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
-  morphogenesisWorkerAssignments, bindBiomeMapperAssignment };
+  morphogenesisWorkerAssignments, bindBiomeMapperAssignment, validateBiomeAllocation };
