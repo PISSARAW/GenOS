@@ -9,12 +9,15 @@ function estimatePromptTokens(prompt) {
 
 const MIN_WORKER_OUTPUT_TOKENS = 256;
 
-function resolveMaxOutputTokens(budget, prompt) {
+function resolveMaxOutputTokens(budget, prompt, outputCap) {
   const tokenBudget = Number(budget);
   if (!Number.isFinite(tokenBudget) || tokenBudget <= 0) return undefined;
   const boundedBudget = Math.floor(tokenBudget);
   const completionFloor = Math.min(MIN_WORKER_OUTPUT_TOKENS, boundedBudget);
-  return Math.min(boundedBudget, Math.max(completionFloor, boundedBudget - estimatePromptTokens(prompt)));
+  const available = Math.min(boundedBudget,
+    Math.max(completionFloor, boundedBudget - estimatePromptTokens(prompt)));
+  const cap = Number(outputCap);
+  return Number.isFinite(cap) && cap > 0 ? Math.min(available, Math.floor(cap)) : available;
 }
 
 function resolveTokenBudget(mission) {

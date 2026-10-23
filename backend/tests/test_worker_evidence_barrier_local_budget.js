@@ -13,6 +13,8 @@ assert.equal(resolveMaxOutputTokens(rt27Budget, rt27Prompt), 256,
   'A conservative text estimate must not starve structured worker output.');
 assert.equal(resolveMaxOutputTokens(10000, 'x'.repeat(4000)), 9000,
   'Roomy allocations retain their full estimated output headroom.');
+assert.equal(resolveMaxOutputTokens(7000, 'x'.repeat(1000), 768), 768,
+  'Role-specific output caps keep structured allocation reports bounded.');
 assert.equal(resolveMaxOutputTokens(128, 'x'), 128,
   'The completion reserve never exceeds the total worker budget.');
 assert.equal(resolveMaxOutputTokens(0, 'x'), undefined,
