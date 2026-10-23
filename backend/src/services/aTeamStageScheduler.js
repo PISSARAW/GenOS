@@ -241,6 +241,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     },
     organization: request.organization,
     coordinationPolicy: request.coordinationPolicy,
+    communicationRequired: request.communicationRequired === true || request.communication_required === true,
     role: member.role,
     model_tier: member.modelTier,
     ...(member.dependsOn.length ? { depends_on: member.dependsOn } : {}),

@@ -60,7 +60,8 @@ function fakeDb(statuses) {
     { subSystem: 'api', mission: 'api', consults: ['web'], communicationCadence: 'CONTINUOUS_SYNC' },
     { subSystem: 'web', mission: 'web', contextHandoff: 'EXCLUSIVE_SERIAL_TRANSFER', dependsOn: ['api'] }
   ] });
-  const coordinationPayload = scheduler.workerLaunchPayload({ plan: coordinated, member: coordinated.members[0], parentWorkspaceRoot: 'C:/ws' });
+  const coordinationPayload = scheduler.workerLaunchPayload({ plan: coordinated, member: coordinated.members[0], parentWorkspaceRoot: 'C:/ws', request: { communicationRequired: true } });
+  assert.equal(coordinationPayload.communicationRequired, true);
   assert.deepEqual(coordinationPayload.coordination_policy, {
     consults: ['web'], communication_cadence: 'CONTINUOUS_SYNC', context_handoff: null
   });
