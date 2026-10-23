@@ -274,7 +274,7 @@ function buildWorkspaceContext(workspaceRoot, options = {}) {
     text += formatExcerpt(excerpt, total >= LOCAL_WORKER_FILE_BUDGET.maxTotalBytes);
     if (!excerpt.refused && total < LOCAL_WORKER_FILE_BUDGET.maxTotalBytes) total += excerpt.bytes;
   }
-  return { text, fileHashes };
+  return { text, fileHashes, candidatePaths: candidates };
 }
 function formatExcerpt(excerpt, overBudget) {
   const refused = excerpt.refused || (overBudget ? 'budget_exceeded' : '');

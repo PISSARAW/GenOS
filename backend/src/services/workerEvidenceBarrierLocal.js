@@ -99,6 +99,7 @@ async function generateWorkerResult(ctx) {
     responseFormat: ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
         allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
+        allowedPatchPaths: ctx.mission.allowedPatchPaths,
         requiredPatchPaths: ctx.mission.requiredPatchPaths,
         requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
@@ -258,11 +259,13 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
-  const workspaceContext = codeWorker
+  const workspaceDetails = codeWorker
     ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
       allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
-    }).text
-    : '';
+    }) : { text: '', candidatePaths: [] };
+  if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.candidatePaths
+    .filter((candidate) => localCodeWorker.safePath(candidate));
+  const workspaceContext = workspaceDetails.text;
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
@@ -324,6 +327,7 @@ async function runEvidenceStage(ctx) {
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
+    allowedPatchPaths: ctx.mission.allowedPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
     db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });

@@ -52,6 +52,9 @@ const pathOnlyContentSchema = pathOnlyResponseFormat.schema.properties.patches.a
 assert.equal(pathOnlyContentSchema.minLength, 1200);
 assert.equal(Object.hasOwn(pathOnlyContentSchema, 'allOf'), false,
 	'omit allOf when no required patch markers exist');
+const allowlistedFormat = proposalResponseFormat({ allowedPatchPaths: ['src/lib.rs', 'backend/src/services/repair.js', 'tests/repair.test.js'] });
+assert.deepEqual(allowlistedFormat.schema.properties.patches.items.properties.path.enum,
+	['src/lib.rs', 'backend/src/services/repair.js'], 'schema excludes unsafe files from the model patch choices');
 assert.deepEqual(require('../src/services/modelProviderRequest').buildRequestBody({
 	provider: 'ollama', modelName: 'fixture', prompt: 'Return a proposal.', outputLimit: 128,
 	stream: false, nativeOllama: true, responseFormat
@@ -108,6 +111,12 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			/not allow-listed/
 		);
 		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
+		await assert.rejects(executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
+			allowedPatchPaths: ['src/lib.rs'],
+			text: JSON.stringify({ ...proposal, patches: [{ path: 'src/other.js', content: 'module.exports = 1;' }] }) }),
+		/outside the workspace-context allowlist/);
+		await assert.rejects(fs.access(path.join(root, 'src', 'other.js')),
+			'disallowed patch targets remain untouched');
 		await assert.rejects(
 			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
 				requiredPatchPaths: ['src/lib.rs'], requiredPatchMarkers: { 'src/lib.rs': ['required-marker'] },
