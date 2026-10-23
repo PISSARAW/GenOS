@@ -37,7 +37,7 @@ async function main() {
   }, async () => {});
   assert.equal(queued.length, 1, 'a completed answer must not enter failure recovery');
   assert.equal(completed.eventType, 'AGENT_COMPLETED');
-  assert.equal(events.length, 2);
+  assert.equal(events.length, 3, 'success emits an evidence report and completion; unresolved emits only failure');
   process.stdout.write('Unresolved worker evidence queues bounded recovery: PASS\n');
 }
 
