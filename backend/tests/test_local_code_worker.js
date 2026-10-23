@@ -92,12 +92,15 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 		await fs.mkdir(path.join(contextRoot, 'backend', 'src', 'services'), { recursive: true });
 		await fs.writeFile(path.join(contextRoot, 'Cargo.toml'), '[package]');
 		await fs.writeFile(path.join(contextRoot, 'backend', 'tests', 'test_regression.js'),
-			"require('../src/services/repair');\nassert.throws(() => repair());");
+			"const { repair } = require('../src/services/repair');\nassert.throws(() => repair());");
 		await fs.writeFile(path.join(contextRoot, 'backend', 'src', 'services', 'repair.js'),
 			'module.exports = function repair() {};');
-		const workspaceContext = buildWorkspaceContext(contextRoot, {
+		const workspaceContextDetails = buildWorkspaceContext(contextRoot, {
 			allowedCommands: ['node backend/tests/test_regression.js']
-		}).text;
+		});
+		const workspaceContext = workspaceContextDetails.text;
+		assert.deepEqual(workspaceContextDetails.patchCandidatePaths,
+			['backend/src/services/repair.js'], 'patch candidates follow the function invoked by the failing assertion');
 		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'tests', 'test_regression.js')}`),
 			'context includes the allow-listed failing regression test');
 		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'src', 'services', 'repair.js')}`),

@@ -263,7 +263,7 @@ async function runGenerationStage(ctx) {
     ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
       allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
     }) : { text: '', candidatePaths: [] };
-  if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.candidatePaths
+  if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = workspaceDetails.text;
   const promptText = localEvidencePrompt.buildAnalysisPrompt({

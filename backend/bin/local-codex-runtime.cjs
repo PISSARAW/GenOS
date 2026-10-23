@@ -274,7 +274,10 @@ function buildWorkspaceContext(workspaceRoot, options = {}) {
     text += formatExcerpt(excerpt, total >= LOCAL_WORKER_FILE_BUDGET.maxTotalBytes);
     if (!excerpt.refused && total < LOCAL_WORKER_FILE_BUDGET.maxTotalBytes) total += excerpt.bytes;
   }
-  return { text, fileHashes, candidatePaths: candidates };
+  const patchCandidatePaths = require('./local-code-worker-target-paths.cjs')
+    .collectTargetPaths({ root, candidates, readExcerpt: readWorkspaceFileExcerpt });
+  return { text, fileHashes, candidatePaths: candidates,
+    patchCandidatePaths: patchCandidatePaths.length ? patchCandidatePaths : candidates };
 }
 function formatExcerpt(excerpt, overBudget) {
   const refused = excerpt.refused || (overBudget ? 'budget_exceeded' : '');
