@@ -46,8 +46,9 @@ const RULES = Object.freeze([
   { id: 'metapopulation', test: p => all([(p.uncertainty || 0) > 0.5, (p.needed_independence || 0) > 0.4]), bonus: 0.15, reason: 'Moderate uncertainty with independence' },
   { id: 'biocenose', test: p => (p.needed_diversity || 0) > 0.6, bonus: 0.2, reason: 'Diversity needed' },
   { id: 'holobionte', test: p => all([(p.shared_state_importance || 0) > 0.5, (p.trust_level || 0) > 0.5]), bonus: 0.2, reason: 'Shared state with trust' },
-  { id: 'a_team', test: p => (p.uncertainty || 0) < 0.3, bonus: 0.2, reason: 'Low uncertainty, well-defined' },
-  { id: 'a_team', test: p => p.domain, bonus: 0.1, reason: 'Domain-specific problem' }
+  { id: 'a_team', test: p => p.multidisciplinary === true
+    || (Array.isArray(p.domains) && new Set(p.domains).size > 1),
+  bonus: 0.2, reason: 'Multiple domains require coordinated specialists' }
 ]);
 
 const TRANSITION_PENALTIES = Object.freeze({
