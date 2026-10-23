@@ -73,7 +73,7 @@ function locatorRepairHint(error) {
 
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
-  if (/waitForEvent\(['"]download['"]\)/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
+  if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output)) return { kind: 'ensure_add_item_behavior', label: 'Add Item' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) return { kind: 'ensure_search_filter_behavior', label: 'Search' };
   if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements[\s\S]*?acceptance\.cjs:31:/i.test(output)) return { kind: 'ensure_quantity_field_after_reload', label: 'Quantity' };
