@@ -12,7 +12,7 @@ const prompt = buildAgentRuntimePrompt({
   runtimeContract: {}, strategyContract: {}, isWorker: false, toolLease: ['genos_diagnose', 'genos_snapshot'],
   executionPolicy: {}, allowedCommands: [], capabilities: [], capabilityManifest: null
 });
-assert.ok(prompt.indexOf('MANDATORY ORCHESTRATOR PROTOCOL') < prompt.indexOf('[ASSIGNED MISSION]'));
+assert.ok(prompt.indexOf('MANDATORY ORCHESTRATOR PROTOCOL') > prompt.indexOf('[ASSIGNED MISSION]'));
 assert.match(prompt, /before dispatching any worker or mutating the workspace/);
 assert.match(prompt, /before returning a final report/);
 
@@ -24,4 +24,4 @@ const workerPrompt = buildAgentRuntimePrompt({ ...{
   allowedCommands: [], capabilities: [], capabilityManifest: null
 } });
 assert.doesNotMatch(workerPrompt, /MANDATORY ORCHESTRATOR PROTOCOL/);
-process.stdout.write('Orchestrator phases precede the mission and remain root-only: PASS\n');
+process.stdout.write('Orchestrator protocol follows the mission and remains root-only: PASS\n');

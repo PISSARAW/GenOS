@@ -200,8 +200,8 @@ function buildAgentRuntimePrompt(ctx) {
   const prompt = [
     `${params.selfIntro}`,
     buildIdentityBlock(params),
-    buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
     `[ASSIGNED MISSION]\n${params.mission.prompt || params.mission.currentTask || ''}`,
+    buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
     buildWorkerOutputInstruction(params),
     params.agentSelfBlock,
     params.workerSelfBlock,
