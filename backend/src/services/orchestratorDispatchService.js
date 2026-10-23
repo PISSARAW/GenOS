@@ -24,6 +24,7 @@ function buildWorkerMission(input = {}) {
     missionScope: input.missionScope,
     organization: input.organization,
     coordinationPolicy: input.coordinationPolicy,
+    communicationRequired: input.communicationRequired === true || input.communication_required === true,
     orchestratorAgentId: input.orchestratorAgentId,
     modelBudgetScope: defaults.modelBudgetScope,
     prompt: input.prompt,
