@@ -258,7 +258,7 @@ async function genosFull(task, state) {
     workerShare: state.workerShare || 0.7 };
   const payload = applyTopologyForcing({ action: 'orchestrate', executor: 'local',
     autonomous_orchestration: resolvedAutonomous(condition),
-    mission: `${task.prompt}\nDans le rapport de preuve GenOS, mets l'objet JSON candidat intégral, compact et sans prose dans claims[0].statement. Conserve outcome=success et evidence=["mission"].`,
+    mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
     timeoutMs: state.budget.latencyMs, execution_budget: budget,
     successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
     tool_lease: [], allowed_commands: [], allow_file_edits: false,
