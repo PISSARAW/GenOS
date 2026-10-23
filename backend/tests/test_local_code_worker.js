@@ -6,6 +6,7 @@ const { parseProposal, safePath, executeProposal, proposalResponseFormat } = req
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
 const { failureFeedback } = require('../src/services/workerCodeTestRepair');
+const { buildAnalysisPrompt } = require('../src/services/workerEvidenceLocalPrompt');
 const originalConsoleLog = console.log;
 const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
 console.log = originalConsoleLog;
@@ -26,6 +27,10 @@ assert.match(unsafeProposalError.workerArtifactDiagnostics.outputExcerpt, /tests
 assert.equal(unsafeProposalError.usage.tokens, 100);
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
+const codePrompt = buildAnalysisPrompt({ codeWorker: true, agentName: 'developer', prompt: 'Fix the source.',
+  workspaceContext: 'src/index.js: small source file' });
+assert.match(codePrompt, /For source files under 4 KiB, use a full-file replacement/);
+assert.match(codePrompt, /Each find anchor must be copied exactly from the trusted workspace snapshot/);
 const utilityDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
   path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }\nfunction normalizeEmail(value) { return String(value).trim(); }\nmodule.exports = { parsePort, normalizeEmail };'
 }] } });
@@ -86,13 +91,15 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	const workerEvidence = require('../src/services/workerEvidenceBarrierLocal');
 	const originalGenerate = modelRouter.generate;
 	let observedFormat;
-	modelRouter.generate = async (options) => { observedFormat = options.responseFormat; return {}; };
+	let observedReasoningEffort;
+	modelRouter.generate = async (options) => { observedFormat = options.responseFormat; observedReasoningEffort = options.reasoningEffort; return {}; };
 	try {
 		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
 			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker' }, stageTimings: {} });
 		assert.deepEqual(observedFormat, responseFormat);
+		assert.equal(observedReasoningEffort, 'none');
 		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
 			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
