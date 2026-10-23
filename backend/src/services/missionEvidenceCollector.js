@@ -11,7 +11,7 @@ const completionEvidence = require('./missionCompletionEvidenceService');
 // declarative contract's requiredEvidence.
 
 const EVIDENCE_TELEMETRY_EVENTS = new Set([
-  'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
+  'EVIDENCE_REPORT', 'CODE_TEST_SUITE_RECEIPT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
   'WORKER_EVIDENCE_BARRIER_PARTIAL', 'WORKER_EVIDENCE_BARRIER_SATISFIED',
   'MISSION_HOMEOSTASIS_ACHIEVED', 'HOMEOSTASIS_CONTINUATION_DISPATCHED',
   'MISSION_COMPLETION_BLOCKED',
@@ -26,8 +26,8 @@ async function collectMissionEvidence(db, missionId, agents) {
   const runs = await collectExecutionRuns(db, scope);
   const telemetry = await collectEvidenceTelemetry(db, scope);
   const homeostasisState = await collectHomeostasisState(db, missionId);
-  const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry });
-  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState });
+  const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry, missionId });
+  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId });
   const profiles = buildTypedProfiles(dossiers, runs);
   const completion = await evaluateCollectedCompletion({ db, missionId,
     orchestratorId: identity?.orchestratorAgentId, agents: effective, flags });
@@ -83,9 +83,9 @@ async function collectExecutionRuns(db, scope) {
 async function collectEvidenceTelemetry(db, scope) {
   const types = [...EVIDENCE_TELEMETRY_EVENTS];
   const placeholders = types.map(() => '?').join(',');
-  if (!scope.identity) return db.all(`SELECT event_type, action, detail, payload_json FROM telemetry_events
+  if (!scope.identity) return db.all(`SELECT agent_id, event_type, action, detail, payload_json FROM telemetry_events
     WHERE agent_id = ? AND event_type IN (${placeholders}) ORDER BY created_at LIMIT 1000`, scope.missionId, ...types);
-  return db.all(`SELECT t.event_type, t.action, t.detail, t.payload_json FROM telemetry_events t
+  return db.all(`SELECT t.agent_id, t.event_type, t.action, t.detail, t.payload_json FROM telemetry_events t
     JOIN mission_agents ma ON ma.agent_id = t.agent_id
     WHERE ma.mission_id = ? AND t.created_at >= ? AND t.event_type IN (${placeholders})
     ORDER BY t.created_at LIMIT 1000`, scope.missionId, scope.identity.createdAt, ...types);
@@ -100,19 +100,14 @@ async function collectHomeostasisState(db, missionId) {
   }
 }
 
-function buildEvidenceFlags({ agents, dossiers, telemetry }) {
+function buildEvidenceFlags({ agents, dossiers, telemetry, missionId }) {
   const failed = agents.filter(a => ['error', 'failed', 'terminated', 'apoptosis'].includes(a.status)).length;
   const completed = agents.filter(a => a.status === 'completed').length;
   const hasDossierReports = dossiers.some(d => d.events.some(e => e.evidenceReport));
   return {
     missionOutcome: completed > 0 && failed === 0,
-    // CRITICAL FIX: WORKER_EVIDENCE_BARRIER_SATISFIED means "all workers terminal
-    // and dossiers attached to synthesis" — NOT "tests passed". These are
-    // fundamentally different claims. testsPassed should only be true when
-    // there is actual test execution evidence (receipt with exitCode 0).
-    // No trusted test-execution receipt producer is wired to this collector yet.
-    // Runtime telemetry can describe a test result but cannot certify it.
-    testsPassed: false,
+    // Only a receipt from the allowlisted sandbox test executor can satisfy this flag.
+    testsPassed: require('./codeTestExecutionReceipt').hasPassingSuite(telemetry, missionId),
     workerEvidenceComplete: hasDossierReports,
     noFailedAgents: failed === 0,
     allAgentsCompleted: completed === agents.length && agents.length > 0,
@@ -122,13 +117,14 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
   };
 }
 
-function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState }) {
+function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId }) {
   const kinds = new Set();
   if (dossiers.some(d => d.events.some(e => e.evidenceReport))) kinds.add('worker_evidence');
   if (runs.some(r => r.status === 'completed')) kinds.add('execution_run_complete');
   if (telemetry.some(hasSubstantiatedEvidenceReport)) kinds.add('evidence_report');
   // A suite claim needs a separate trusted executor receipt, not worker telemetry.
   if (telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED')) kinds.add('worker_evidence_barrier_satisfied');
+  if (require('./codeTestExecutionReceipt').hasPassingSuite(telemetry, missionId)) kinds.add('test_suite_passed');
   if (telemetry.some(t => t.event_type === 'AGENT_COMPLETED')) kinds.add('agent_completed');
   if (homeostasisState?.status === 'homeostasis_satisfied') kinds.add('homeostasis_achieved');
   return [...kinds];

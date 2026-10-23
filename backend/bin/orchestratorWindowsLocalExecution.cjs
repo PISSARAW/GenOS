@@ -51,7 +51,10 @@ function buildLocalMission(input) {
     executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
       costUsd: missionBudget.costUsd || 0,
       latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },
-    executionPolicy: { allowedCommands, allowFileEdits, localCodeWorker } };
+    executionPolicy: { allowedCommands, allowFileEdits, localCodeWorker },
+    requiredPatchPaths: request.requiredPatchPaths,
+    requiredPatchMarkers: request.requiredPatchMarkers,
+    requiredPatchMinimumBytes: request.requiredPatchMinimumBytes };
 }
 
 function localAgents(id, result) {

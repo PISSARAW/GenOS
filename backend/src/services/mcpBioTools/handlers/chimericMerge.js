@@ -1,6 +1,4 @@
-const { probeBioFeature } = require('../featureProbe');
 const crypto = require('crypto');
-const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // State registry for chimeric mosaic agents
@@ -22,13 +20,8 @@ function getMosaic(mosaicId) {
   return chimericRegistry.get(mosaicId);
 }
 
-async function handleChimericMerge(args = {}, run) {
+async function handleChimericMerge(args = {}) {
   const { action, mosaicId, branchGenome, branchEpigenome, toolsProvided, vaccinesProvided } = chimericMergeOptions(args);
-
-  const { cliOutput, cliFailed, cliErrorText } = probeBioFeature(run, `genos biomimicry bio-feature --feature chimeric_merge --action ${quoteCliArg(action)} --param mosaic_id=${quoteCliArg(mosaicId)}`);
-  if (cliFailed) {
-    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
-  }
 
   const mosaic = getMosaic(mosaicId);
 

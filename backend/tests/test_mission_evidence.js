@@ -142,6 +142,35 @@ test('barrier alone does not establish a passing test suite', () => {
   assert.equal(flags.testsPassed, false, 'worker-supplied exitCode and suite fields are not a test receipt');
 });
 
+test('trusted sandbox test-suite receipt satisfies only verified test evidence', () => {
+  const receiptBuilder = require('../src/services/codeTestExecutionReceipt');
+  const proof = { command: 'node tests/test_mission_evidence.js', executed: true, exitCode: 0, digest: 'a'.repeat(64) };
+  const receipt = receiptBuilder.buildReceipt({ agentId: 'worker-test', missionId: 'mission-test',
+    workspaceRoot: 'D:/isolated-project', proofs: [proof] });
+  const event = { event_type: receipt.eventType, action: receipt.action, agent_id: 'worker-test',
+    payload_json: JSON.stringify(receipt.payload) };
+  const kinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry: [event], missionId: 'mission-test' });
+  assert.equal(kinds.includes('test_suite_passed'), true);
+  assert.equal(buildEvidenceFlags({ agents: [], dossiers: [], telemetry: [event], missionId: 'mission-test' }).testsPassed, true);
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: [event], missionId: 'other-mission' }).includes('test_suite_passed'), false);
+
+  const failed = receiptBuilder.buildReceipt({ agentId: 'worker-test', missionId: 'mission-test',
+    workspaceRoot: 'D:/isolated-project', proofs: [{ ...proof, exitCode: 1 }] });
+  const failedEvent = { event_type: failed.eventType, action: failed.action, agent_id: 'worker-test',
+    payload_json: JSON.stringify(failed.payload) };
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: [failedEvent], missionId: 'mission-test' }).includes('test_suite_passed'), false);
+
+  const echoReceipt = receiptBuilder.buildReceipt({ agentId: 'worker-test', missionId: 'mission-test',
+    workspaceRoot: 'D:/isolated-project', proofs: [{ ...proof, command: 'echo tests passed' }] });
+  const echoEvent = { event_type: echoReceipt.eventType, action: echoReceipt.action, agent_id: 'worker-test',
+    payload_json: JSON.stringify(echoReceipt.payload) };
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: [echoEvent], missionId: 'mission-test' }).includes('test_suite_passed'), false);
+
+  const claimed = { event_type: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', agent_id: 'worker-test',
+    payload_json: JSON.stringify({ tests: [{ command: proof.command, exitCode: 0 }] }) };
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: [claimed], missionId: 'mission-test' }).includes('test_suite_passed'), false);
+});
+
 test('empty evidence report telemetry does not satisfy required evidence', () => {
   const empty = [{ event_type: 'EVIDENCE_REPORT', detail: 'report', payload_json: '{}' }];
   const emptyKinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry: empty });

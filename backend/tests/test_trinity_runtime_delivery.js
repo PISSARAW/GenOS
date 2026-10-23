@@ -21,6 +21,14 @@ try {
   assert.equal(fs.existsSync(path.join(workspaceRoot, 'answer.json')), false);
   writeArtifacts(reply, { workspaceRoot, allowFileEdits: true });
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'answer.json'))), { primes: [17,29,37] });
-  assert.throws(() => writeArtifacts('[ARTIFACT: ../escape.json]{}[/ARTIFACT]', { workspaceRoot, allowFileEdits: true }), /escapes/);
+  const escapedPath = path.resolve(workspaceRoot, '../escape.json');
+  assert.equal(fs.existsSync(escapedPath), false);
+  const traversal = writeArtifacts('[ARTIFACT: ../escape.json]{}[/ARTIFACT]', { workspaceRoot, allowFileEdits: true });
+  assert.deepEqual(traversal.written, []);
+  assert.deepEqual(traversal.rejected, [{
+    name: '../escape.json',
+    issues: ['artifact.path.escapes:../escape.json']
+  }]);
+  assert.equal(fs.existsSync(escapedPath), false);
 } finally { fs.rmSync(workspaceRoot, { recursive: true, force: true }); }
 console.log('Trinity mission, worker schema and confined JSON artifact delivery: PASS');

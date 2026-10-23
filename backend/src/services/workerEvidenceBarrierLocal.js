@@ -6,7 +6,6 @@ const localCodeWorker = require('./localCodeWorkerService');
 const strategyExecution = require('./strategyExecutionService');
 const { decideFromEvent } = require('./orchestrationDecisionService');
 const actionExecutor = require('./orchestrationActionExecutor');
-const userProgress = require('./userProgressService');
 const { emit, updateAgent } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
@@ -19,6 +18,10 @@ const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
 const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
   consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
+const emitCodeTestReceipt = require('./workerCodeTestReceipt');
+const workerCodeTestRepair = require('./workerCodeTestRepair');
+const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
+const { reportMilestone } = require('./workerEvidenceBarrierLocalEvents');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -187,17 +190,6 @@ async function emitLocalStarted(ctx) {
   await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, started);
   return started;
 }
-function reportMilestone(mission, event) {
-  const milestone = userProgress.milestoneFromEvent(event, { agentId: mission.agentId, agentName: mission.name, task: mission.prompt });
-  if (!milestone) return;
-  let silent = false;
-  if (mission.executionPolicy) {
-    if (mission.executionPolicy.silentUpdates === true) silent = true;
-  }
-  let orchestratorId = mission.agentId;
-  if (mission.orchestratorAgentId) orchestratorId = mission.orchestratorAgentId;
-  userProgress.report({ ...milestone, orchestratorId: orchestratorId, sourceAgentId: mission.agentId, silent: silent });
-}
 function maybeEmitDecisionBlocked(mission, event) {
   const evidence = require('./agentEvidenceService');
   if (evidence.hasDecisionEvidence(event)) return null;
@@ -323,6 +315,7 @@ async function runGenerationStage(ctx) {
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 
+
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
@@ -333,6 +326,7 @@ async function runEvidenceStage(ctx) {
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
+  if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
   throwIfProposalFailed(proposal);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
@@ -370,19 +364,21 @@ async function runLocalWorker(db, mission, executionRun) {
   let generation;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
-    generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
-    const evidence = await runEvidenceStage({
-      db, executionRun,
-      result: generation.result,
-      budget: generation.budget,
-      codeWorker: generation.codeWorker,
-      mission: mission,
-      agentName: generation.agentName,
-      nameMeaning: generation.nameMeaning,
-      stageTimings: stageTimings
+    const attempt = await workerCodeTestRepair.run({
+      mission,
+      runAttempt: async (currentMission) => {
+        generation = await runGenerationStage({ db, mission: currentMission, executionRun, stageTimings, identity });
+        const evidence = await runEvidenceStage({ db, executionRun,
+          result: generation.result, budget: generation.budget, codeWorker: generation.codeWorker,
+          mission: currentMission, agentName: generation.agentName,
+          nameMeaning: generation.nameMeaning, stageTimings });
+        return { generation, evidence };
+      },
+      onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, ...retry })
     });
+    generation = attempt.generation;
     return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
-      executionRun, generation, evidence, identity, stageTimings }, publishLocalSuccess);
+      executionRun, generation, evidence: attempt.evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
     await workerIdentity.fail(db, { identity, executionRun, error });
     const usage = generation?.result ? {

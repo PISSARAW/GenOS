@@ -1,0 +1,2954 @@
+   Compiling syn v2.0.119
+   Compiling serde v1.0.229
+   Compiling windows-sys v0.61.2
+   Compiling chrono v0.4.45
+   Compiling zerocopy-derive v0.8.56
+   Compiling zerocopy v0.8.56
+   Compiling synstructure v0.13.2
+   Compiling thiserror-impl v1.0.69
+   Compiling thiserror v1.0.69
+   Compiling zerofrom-derive v0.1.7
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.2
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling curve25519-dalek v4.1.3
+   Compiling yoke v0.8.3
+   Compiling ed25519-dalek v2.2.0
+   Compiling zerovec v0.11.8
+   Compiling mio v1.2.3
+   Compiling socket2 v0.6.5
+   Compiling tokio v1.53.1
+   Compiling genos-common v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-common)
+warning: unused import: `uuid::Uuid`
+ --> crates\genos-common\src\receipt_kinds.rs:6:5
+  |
+6 | use uuid::Uuid;
+  |     ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `assumption`
+  --> crates\genos-common\src\assumptions.rs:95:21
+   |
+95 |         if let Some(assumption) = self.assumptions.remove(&id) {
+   |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_assumption`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-common` (lib) generated 2 warnings (run `cargo fix --lib -p genos-common` to apply 2 suggestions)
+   Compiling tracing-attributes v0.1.31
+   Compiling tracing v0.1.44
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling genos-store v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-store)
+   Compiling zerotrie v0.2.5
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling icu_provider v2.3.1
+   Compiling tokio-util v0.7.19
+   Compiling windows-interface v0.59.3
+   Compiling windows-implement v0.60.2
+   Compiling h2 v0.4.19
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling genos-genome v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-genome)
+warning: unused import: `rand::RngExt`
+ --> crates\genos-genome\src\genome.rs:4:5
+  |
+4 | use rand::RngExt;
+  |     ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::gene::Gene`
+ --> crates\genos-genome\src\linkage_epistasis.rs:1:5
+  |
+1 | use crate::gene::Gene;
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `GenealogyTree`
+ --> crates\genos-genome\src\phase_d.rs:8:38
+  |
+8 | use crate::reproduction::{fertilize, GenealogyTree};
+  |                                      ^^^^^^^^^^^^^
+
+warning: unused variable: `exp`
+  --> crates\genos-genome\src\phase_d.rs:34:13
+   |
+34 |         let exp = FitnessExperiment::new();
+   |             ^^^ help: if this is intentional, prefix it with an underscore: `_exp`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `original`
+  --> crates\genos-genome\src\self_modifying.rs:54:21
+   |
+54 |                 let original = strand.as_slice()[pos].clone();
+   |                     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_original`
+
+warning: `genos-genome` (lib) generated 5 warnings (run `cargo fix --lib -p genos-genome` to apply 5 suggestions)
+   Compiling hyper v1.11.1
+   Compiling idna_adapter v1.2.2
+   Compiling half v2.7.1
+   Compiling hyper-util v0.1.20
+   Compiling idna v1.1.0
+   Compiling tower v0.5.3
+   Compiling url v2.5.8
+   Compiling tokio-rustls v0.26.5
+   Compiling genos-cell v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-cell)
+   Compiling equator-macro v0.4.2
+   Compiling equator v0.4.2
+   Compiling hyper-rustls v0.27.9
+   Compiling tower-http v0.6.11
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling reqwest v0.13.4
+   Compiling aligned-vec v0.6.4
+   Compiling v_frame v0.3.9
+   Compiling ahash v0.8.12
+   Compiling windows-core v0.62.2
+   Compiling windows-core v0.61.2
+   Compiling hashbrown v0.14.5
+   Compiling arg_enum_proc_macro v0.3.4
+   Compiling profiling-procmacros v1.0.18
+   Compiling av-scenechange v0.14.1
+   Compiling profiling v1.0.18
+   Compiling av1-grain v0.2.5
+   Compiling hashlink v0.9.1
+   Compiling num-derive v0.4.2
+   Compiling rusqlite v0.32.1
+   Compiling rav1e v0.8.1
+   Compiling windows-future v0.3.2
+   Compiling windows-numerics v0.3.1
+   Compiling windows-collections v0.3.2
+   Compiling genos-signal v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-signal)
+   Compiling exr v1.74.2
+   Compiling ravif v0.13.0
+   Compiling tiff v0.11.3
+   Compiling rmp-serde v1.3.1
+   Compiling windows-future v0.2.1
+   Compiling windows v0.62.2
+   Compiling windows-numerics v0.2.0
+   Compiling windows-collections v0.2.0
+   Compiling image v0.25.10
+   Compiling windows v0.61.3
+   Compiling genos-api v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-api)
+   Compiling genos-reproduction v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-reproduction)
+warning: unused import: `Rng`
+ --> crates\genos-reproduction\src\division.rs:4:12
+  |
+4 | use rand::{Rng, RngExt};
+  |            ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-reproduction` (lib) generated 1 warning (run `cargo fix --lib -p genos-reproduction` to apply 1 suggestion)
+   Compiling xcap v0.9.8
+   Compiling uiautomation v0.25.1
+   Compiling enigo v0.6.1
+   Compiling genos-biology v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-biology)
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\dendrite.rs:2:5
+  |
+2 | use super::*;
+  |     ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\glia.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\soma.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> crates\genos-biology\src\neurobiology\types.rs:1:5
+  |
+1 | use super::*;
+  |     ^^^^^^^^
+
+warning: `genos-biology` (lib) generated 4 warnings (run `cargo fix --lib -p genos-biology` to apply 4 suggestions)
+   Compiling genos-sensorimotor v3.0.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-sensorimotor)
+   Compiling genos-dna v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-dna)
+warning: variable does not need to be mutable
+   --> crates\genos-dna\src\operations.rs:177:10
+    |
+177 |     let (mut mother_genome, child_genome) = match options.mode.as_str() {
+    |          ----^^^^^^^^^^^^^
+    |          |
+    |          help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `rebuild` is never used
+   --> crates\genos-dna\src\operations.rs:335:4
+    |
+335 | fn rebuild(genome: &Genome, name: &str, provenance: Provenance) -> AgentDna {
+    |    ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-dna` (lib) generated 2 warnings (run `cargo fix --lib -p genos-dna` to apply 1 suggestion)
+   Compiling genos-immune v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-immune)
+   Compiling genos-worker v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-worker)
+   Compiling genos-orchestrator v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-orchestrator)
+warning: unused import: `Director`
+ --> crates\genos-orchestrator\src\checkpoint.rs:1:23
+  |
+1 | use crate::director::{Director, DirectorState};
+  |                       ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `PlasmidBank`
+ --> crates\genos-orchestrator\src\diagnostics.rs:9:23
+  |
+9 | use crate::plasmids::{PlasmidBank, Skill};
+  |                       ^^^^^^^^^^^
+
+warning: unused imports: `BioluminescenceMicroscope` and `FluorophoreColor`
+ --> crates\genos-orchestrator\src\orchestrator.rs:5:38
+  |
+5 | use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
+  |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::ecology::CollusionCheck`
+ --> crates\genos-orchestrator\src\orchestrator.rs:7:5
+  |
+7 | use genos_biology::ecology::CollusionCheck;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `cleave_zygote`, `differentiate_swarm`, `sculpt_architecture_via_apoptosis`, and `seed_hox_genome`
+ --> crates\genos-orchestrator\src\orchestrator.rs:9:5
+  |
+9 |     cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome,
+  |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused imports: `SporeFromCell` and `SporeType`
+  --> crates\genos-orchestrator\src\orchestrator.rs:14:35
+   |
+14 | use genos_biology::spore::{Spore, SporeFromCell, SporeType};
+   |                                   ^^^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `TaskDelegation`
+  --> crates\genos-orchestrator\src\orchestrator.rs:15:29
+   |
+15 | use genos_biology::tissue::{TaskDelegation, Tissue};
+   |                             ^^^^^^^^^^^^^^
+
+warning: unused import: `Antigen`
+  --> crates\genos-orchestrator\src\orchestrator.rs:18:20
+   |
+18 | use genos_immune::{Antigen, ClonalSelection};
+   |                    ^^^^^^^
+
+warning: unused import: `BranchMetrics`
+  --> crates\genos-orchestrator\src\orchestrator.rs:21:63
+   |
+21 | use crate::conscience::{CognitiveRegulationState, Conscience, BranchMetrics};
+   |                                                               ^^^^^^^^^^^^^
+
+warning: unused imports: `Goal` and `WorldState`
+  --> crates\genos-orchestrator\src\orchestrator.rs:23:22
+   |
+23 | use crate::planner::{Goal, WorldState};
+   |                      ^^^^  ^^^^^^^^^^
+
+warning: unused import: `Conscience`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:2:51
+  |
+2 | use crate::conscience::{CognitiveRegulationState, Conscience, BranchMetrics};
+  |                                                   ^^^^^^^^^^
+
+warning: unused import: `ClonalSelection`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:3:29
+  |
+3 | use genos_immune::{Antigen, ClonalSelection};
+  |                             ^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::redundancy::RedundancySystem`
+ --> crates\genos-orchestrator\src\orchestrator_monitoring.rs:5:5
+  |
+5 | use genos_biology::redundancy::RedundancySystem;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `first_pathology_for_cell` and `therapy_for_pathology`
+ --> crates\genos-orchestrator\src\tick.rs:5:30
+  |
+5 |     diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology,
+  |                              ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::plasmids::Skill`
+ --> crates\genos-orchestrator\src\tick.rs:8:5
+  |
+8 | use crate::plasmids::Skill;
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::signaling::SignalingCascade`
+ --> crates\genos-orchestrator\src\tick.rs:9:5
+  |
+9 | use crate::signaling::SignalingCascade;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::pathology::assess_agent_clinical_status`
+  --> crates\genos-orchestrator\src\tick.rs:14:5
+   |
+14 | use genos_biology::pathology::assess_agent_clinical_status;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::spore::SporeType`
+  --> crates\genos-orchestrator\src\tick.rs:15:5
+   |
+15 | use genos_biology::spore::SporeType;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::therapy::apply_systemic_therapy_to_cell`
+  --> crates\genos-orchestrator\src\tick.rs:16:5
+   |
+16 | use genos_biology::therapy::apply_systemic_therapy_to_cell;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_cell::AgentCell`
+  --> crates\genos-orchestrator\src\tick.rs:17:5
+   |
+17 | use genos_cell::AgentCell;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_signal::SignalingMode`
+  --> crates\genos-orchestrator\src\tick.rs:18:5
+   |
+18 | use genos_signal::SignalingMode;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `base_environment` is never read
+  --> crates\genos-orchestrator\src\adversarial_generator.rs:11:5
+   |
+ 9 | pub struct AdversarialGenerator {
+   |            -------------------- field in this struct
+10 |     rng: StdRng,
+11 |     base_environment: FileSandbox,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `genos-orchestrator` (lib) generated 22 warnings (run `cargo fix --lib -p genos-orchestrator` to apply 21 suggestions)
+   Compiling fastrand v2.5.0
+   Compiling tempfile v3.27.0
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-query v1.1.5
+   Compiling anstream v1.0.0
+   Compiling clap_builder v4.6.6
+   Compiling clap v4.6.6
+   Compiling strum_macros v0.28.0
+   Compiling strum v0.28.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling ratatui-core v0.1.2
+   Compiling rand_chacha v0.3.1
+   Compiling derive_more-impl v2.1.1
+   Compiling derive_more v2.1.1
+   Compiling rand v0.8.8
+   Compiling tungstenite v0.24.0
+   Compiling ratatui-widgets v0.3.2
+   Compiling crossterm v0.29.0
+   Compiling axum-core v0.4.5
+   Compiling ratatui-crossterm v0.1.2
+   Compiling ratatui-macros v0.7.2
+   Compiling tokio-tungstenite v0.24.0
+   Compiling serde_urlencoded v0.7.1
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling axum v0.7.9
+   Compiling ratatui v0.30.2
+   Compiling winapi-util v0.1.11
+   Compiling ciborium-io v0.2.2
+   Compiling regex-syntax v0.8.11
+   Compiling plotters-backend v0.3.7
+   Compiling plotters-svg v0.3.7
+   Compiling regex-automata v0.4.18
+   Compiling ciborium-ll v0.2.2
+   Compiling same-file v1.0.6
+   Compiling itertools v0.10.5
+   Compiling cast v0.3.0
+   Compiling criterion-plot v0.5.0
+   Compiling walkdir v2.5.0
+   Compiling ciborium v0.2.2
+   Compiling regex v1.13.1
+   Compiling plotters v0.3.7
+   Compiling is-terminal v0.4.17
+   Compiling tinytemplate v1.2.1
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling criterion v0.5.1
+   Compiling genos-simple-cli v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-simple-cli)
+warning: unused variable: `pid`
+   --> crates\genos-simple-cli\src\handlers\core.rs:121:15
+    |
+121 | fn stale_stop(pid: u32, reason: String) -> ! {
+    |               ^^^ help: if this is intentional, prefix it with an underscore: `_pid`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run_genos_cli` is never used
+ --> crates\genos-simple-cli\src\handlers\query.rs:5:4
+  |
+5 | fn run_genos_cli(extra: &[&str], args: &[String]) {
+  |    ^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run_genos_cli` is never used
+ --> crates\genos-simple-cli\src\handlers\advanced.rs:5:4
+  |
+5 | fn run_genos_cli(extra: &[&str], args: &[String]) {
+  |    ^^^^^^^^^^^^^
+
+warning: function `run_genos_cli` is never used
+ --> crates\genos-simple-cli\src\handlers\system_parallel.rs:4:4
+  |
+4 | fn run_genos_cli(extra: &[&str], args: &[String]) {
+  |    ^^^^^^^^^^^^^
+
+warning: variant `Bare` is never constructed
+  --> crates\genos-simple-cli\src\handlers\system_parallel.rs:25:5
+   |
+23 | enum AutoMode<'a> {
+   |      -------- variant in this enum
+24 |     WithExtra { extra: &'a [&'a str], auto: &'a [&'a str] },
+25 |     Bare { extra: &'a [&'a str] },
+   |     ^^^^
+
+warning: function `run_bare` is never used
+   --> crates\genos-simple-cli\src\handlers\system_parallel.rs:129:8
+    |
+129 | pub fn run_bare(extra: &[&str]) {
+    |        ^^^^^^^^
+
+warning: `genos-simple-cli` (lib) generated 6 warnings (run `cargo fix --lib -p genos-simple-cli` to apply 1 suggestion)
+   Compiling genos-creativity v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-creativity)
+   Compiling genos-storage-gate v0.1.0 (D:\GenOS\identity-real-llm-worktree\packages\storage-gate)
+   Compiling genos-sqlite-udfs v0.1.0 (D:\GenOS\identity-real-llm-worktree\packages\sqlite-udfs)
+   Compiling genos-bio-contracts v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-bio-contracts)
+   Compiling genos-cli v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-cli)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_ecology_reproduction_campaign-99a8b337285bcd06.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_ecology_reproduction_campaign-99a8b337285bcd06.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "biological_ecology_reproduction_campaign") generated 1 warning
+warning: unused import: `std::fs`
+ --> crates\genos-cli\src\commands\agent.rs:1:5
+  |
+1 | use std::fs;
+  |     ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::path::Path`
+ --> crates\genos-cli\src\commands\agent.rs:2:5
+  |
+2 | use std::path::Path;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `serde_json::json`
+ --> crates\genos-cli\src\commands\biomimicry.rs:1:5
+  |
+1 | use serde_json::json;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BioluminescenceMicroscope` and `FluorophoreColor`
+ --> crates\genos-cli\src\commands\biomimicry.rs:3:38
+  |
+3 | use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
+  |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CollusionCheck` and `EvolutionaryEcology`
+ --> crates\genos-cli\src\commands\biomimicry.rs:4:30
+  |
+4 | use genos_biology::ecology::{CollusionCheck, EvolutionaryEcology};
+  |                              ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `cleave_zygote`, `differentiate_swarm`, `sculpt_architecture_via_apoptosis`, and `seed_hox_genome`
+ --> crates\genos-cli\src\commands\biomimicry.rs:5:33
+  |
+5 | use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
+  |                                 ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::neurobiology::Neurotransmitter`
+ --> crates\genos-cli\src\commands\biomimicry.rs:6:5
+  |
+6 | use genos_biology::neurobiology::Neurotransmitter;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `EnvironmentalFactors` and `create_default_registry`
+ --> crates\genos-cli\src\commands\biomimicry.rs:7:32
+  |
+7 | use genos_biology::phenotype::{create_default_registry, EnvironmentalFactors};
+  |                                ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_biology::redundancy::RedundancySystem`
+ --> crates\genos-cli\src\commands\biomimicry.rs:8:5
+  |
+8 | use genos_biology::redundancy::RedundancySystem;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `TaskDelegation` and `Tissue`
+ --> crates\genos-cli\src\commands\biomimicry.rs:9:29
+  |
+9 | use genos_biology::tissue::{TaskDelegation, Tissue};
+  |                             ^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `genos_cell::AgentCell`
+  --> crates\genos-cli\src\commands\biomimicry.rs:10:5
+   |
+10 | use genos_cell::AgentCell;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Gene` and `Genome`
+  --> crates\genos-cli\src\commands\biomimicry.rs:11:20
+   |
+11 | use genos_genome::{Gene, Genome};
+   |                    ^^^^  ^^^^^^
+
+warning: unused import: `rand`
+  --> crates\genos-cli\src\commands\biomimicry.rs:12:5
+   |
+12 | use rand;
+   |     ^^^^
+
+warning: unused import: `std::fs`
+  --> crates\genos-cli\src\commands\biomimicry.rs:13:5
+   |
+13 | use std::fs;
+   |     ^^^^^^^
+
+warning: unused import: `std::path::PathBuf`
+  --> crates\genos-cli\src\commands\biomimicry.rs:14:5
+   |
+14 | use std::path::PathBuf;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::args::BiomimicrySubcommands`
+ --> crates\genos-cli\src\commands\biomimicry\cellular.rs:9:5
+  |
+9 | use crate::args::BiomimicrySubcommands;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `TaskDelegation` and `Tissue`
+ --> crates\genos-cli\src\commands\biomimicry\genetic.rs:7:29
+  |
+7 | use genos_biology::tissue::{TaskDelegation, Tissue};
+  |                             ^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `crate::args::BiomimicrySubcommands`
+  --> crates\genos-cli\src\commands\biomimicry\genetic.rs:14:5
+   |
+14 | use crate::args::BiomimicrySubcommands;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `cleave_zygote`, `differentiate_swarm`, `sculpt_architecture_via_apoptosis`, and `seed_hox_genome`
+ --> crates\genos-cli\src\commands\biomimicry\neural.rs:4:33
+  |
+4 | use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
+  |                                 ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `genos_cell::AgentCell`
+ --> crates\genos-cli\src\commands\biomimicry\neural.rs:6:5
+  |
+6 | use genos_cell::AgentCell;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs`
+ --> crates\genos-cli\src\commands\platform.rs:1:5
+  |
+1 | use std::fs;
+  |     ^^^^^^^
+
+warning: unused import: `crate::args::PlatformSubcommands`
+ --> crates\genos-cli\src\commands\platform.rs:4:5
+  |
+4 | use crate::args::PlatformSubcommands;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `operations`
+ --> crates\genos-cli\src\commands\genome.rs:2:33
+  |
+2 | use genos_dna::{codec, compile, operations, validate};
+  |                                 ^^^^^^^^^^
+
+warning: unused import: `SealOptions`
+ --> crates\genos-cli\src\commands\genome_ops.rs:1:92
+  |
+1 | use genos_dna::operations::{self, CloneOptions, CrossOptions, DecoyOptions, MutateOptions, SealOptions};
+  |                                                                                            ^^^^^^^^^^^
+
+warning: unused import: `DnaStatus`
+ --> crates\genos-cli\src\commands\genome_ops.rs:2:44
+  |
+2 | use genos_dna::{codec, validate, AgentDna, DnaStatus};
+  |                                            ^^^^^^^^^
+
+warning: unused import: `Verifier`
+ --> crates\genos-cli\src\commands\cli_authority.rs:1:32
+  |
+1 | use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+  |                                ^^^^^^^^
+
+warning: unused import: `Verifier`
+ --> crates\genos-cli\src\commands\sensory_backend_import.rs:2:32
+  |
+2 | use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+  |                                ^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> crates\genos-cli\src\commands\biomimicry_cells.rs:315:9
+    |
+315 |     let mut recipient = genos_biology::specialized_cells::prokaryote::ProkaryoticAgent::new(&recipient_id);
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `recipient`
+   --> crates\genos-cli\src\commands\biomimicry_cells.rs:315:9
+    |
+315 |     let mut recipient = genos_biology::specialized_cells::prokaryote::ProkaryoticAgent::new(&recipient_id);
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_recipient`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates\genos-cli\src\commands\biological.rs:167:57
+    |
+167 |     let MissionTickReportContext { command, mission_id, mut ecosystem, store, mut checkpoints } = context;
+    |                                                         ----^^^^^^^^^
+    |                                                         |
+    |                                                         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\genos-cli\src\commands\biological.rs:167:79
+    |
+167 |     let MissionTickReportContext { command, mission_id, mut ecosystem, store, mut checkpoints } = context;
+    |                                                                               ----^^^^^^^^^^^
+    |                                                                               |
+    |                                                                               help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\genos-cli\src\commands\hallucination.rs:116:9
+    |
+116 |     let mut unverified_claims = Vec::new();
+    |         ----^^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\genos-cli\src\commands\genome_ops.rs:230:9
+    |
+230 |     let mut dna = read_dna(req.input)?;
+    |         ----^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: unused variable: `record`
+   --> crates\genos-cli\src\commands\store_ops.rs:326:47
+    |
+326 |     let fossils = documents.into_iter().map(|(record, value)| {
+    |                                               ^^^^^^ help: if this is intentional, prefix it with an underscore: `_record`
+
+warning: unused variable: `model_name`
+  --> crates\genos-cli\src\commands\world_runner.rs:32:9
+   |
+32 |     let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "gpt-4o-mini".to...
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_model_name`
+
+warning: function `telomere_state_path` is never used
+  --> crates\genos-cli\src\commands\biomimicry\cellular.rs:12:4
+   |
+12 | fn telomere_state_path(agent_id: &str) -> Result<PathBuf, String> {
+   |    ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `verify_backend_attestation` is never used
+  --> crates\genos-cli\src\commands\fossil_attestation.rs:12:8
+   |
+12 | pub fn verify_backend_attestation(value: &Value) -> Result<(), String> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `opts` is never used
+  --> crates\genos-cli\src\commands\output_guard.rs:10:8
+   |
+10 | pub fn opts(force: bool, parents: bool) -> WriteOptions {
+   |        ^^^^
+
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos-fe19912d2a187797.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos-fe19912d2a187797.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (bin "genos" test) generated 39 warnings (run `cargo fix --bin "genos" -p genos-cli --tests` to apply 34 suggestions)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\neuro_glia_stream_cli-fa6972b6b258f1fa.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\neuro_glia_stream_cli-fa6972b6b258f1fa.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "neuro_glia_stream_cli") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_cli-83d05179c1ea648e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_cli-83d05179c1ea648e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "sensory_cli") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_trust_rotation-d40e3cbbbbc1fd92.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_trust_rotation-d40e3cbbbbc1fd92.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "sensory_trust_rotation") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\guard_flux_cli-9fbadce0f5cde583.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\guard_flux_cli-9fbadce0f5cde583.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "guard_flux_cli") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\electric_quorum_process_cli-e37ff19693e9749a.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\electric_quorum_process_cli-e37ff19693e9749a.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "electric_quorum_process_cli") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_cli-051fe64273bc045e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_cli-051fe64273bc045e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "metabolic_pool_cli") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_spore_startup_resume-bb7d754ef01fe6bf.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_spore_startup_resume-bb7d754ef01fe6bf.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "biological_spore_startup_resume") generated 1 warning
+warning: function `render_snapshot_async` is never used
+  --> crates\genos-cli\src\commands\syncytium_crdt\mod.rs:57:10
+   |
+57 | async fn render_snapshot_async() -> Result<String, String> {
+   |          ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `render_snapshot_body` is never used
+  --> crates\genos-cli\src\commands\syncytium_crdt\mod.rs:67:4
+   |
+67 | fn render_snapshot_body() -> Result<String, String> {
+   |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `export_snapshot` is never used
+  --> crates\genos-cli\src\commands\syncytium_crdt\mod.rs:75:8
+   |
+75 | pub fn export_snapshot(output_path: &str, _mission: &str, opts: &WriteOptions) -> Result<(), String> {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `run_one_pass` is never used
+   --> crates\genos-cli\src\commands\syncytium_crdt\simulator.rs:142:14
+    |
+142 | pub async fn run_one_pass(engine: &SyncytiumEngine) {
+    |              ^^^^^^^^^^^^
+
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (bin "genos") generated 43 warnings (38 duplicates)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_paf_bridge-752846efe3a7decc.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_paf_bridge-752846efe3a7decc.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "sensory_paf_bridge") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_choanocyte_stream-68e259861e9293d5.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\biological_choanocyte_stream-68e259861e9293d5.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "biological_choanocyte_stream") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_backend_import-702da20510d747e5.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_backend_import-702da20510d747e5.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-cli` (test "sensory_backend_import") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_simple_cli-52d9082d69885ef5.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_simple_cli-52d9082d69885ef5.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-simple-cli` (lib test) generated 7 warnings (6 duplicates)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_division_atomicity-30aa86b24c4ca737.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_division_atomicity-30aa86b24c4ca737.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_division_atomicity") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_campaign_seed-a45eee559c25b280.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_campaign_seed-a45eee559c25b280.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "reproduction_campaign_seed") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_measurement_contract-ff2235c1c89f097f.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_measurement_contract-ff2235c1c89f097f.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "physical_measurement_contract") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_francais.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_francais.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "master_francais") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_runtime_verifier-cd9da414a3443836.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_runtime_verifier-cd9da414a3443836.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "kernel_runtime_verifier") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_replay.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_replay.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_replay") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_francais.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_francais.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "licence_francais") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_orchestrator-65436fc6394b04c2.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_orchestrator-65436fc6394b04c2.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (lib test) generated 23 warnings (22 duplicates)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\electric_quorum_process_restart-62b098113f1af4c5.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\electric_quorum_process_restart-62b098113f1af4c5.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "electric_quorum_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\orchestrator_licence.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\orchestrator_licence.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "orchestrator_licence") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\instinct_paf_process_restart-e2b45c0c1aa10506.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\instinct_paf_process_restart-e2b45c0c1aa10506.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "instinct_paf_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\observer-1c54649b5c273d6d.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\observer-1c54649b5c273d6d.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "observer") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\token_bucket-c2a51c511a76430d.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\token_bucket-c2a51c511a76430d.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "token_bucket") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_division_process_restart-52c08ef37ad81ffc.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_division_process_restart-52c08ef37ad81ffc.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_division_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\ecosystem-6e6935296edfd603.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\ecosystem-6e6935296edfd603.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "ecosystem") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\organization_step-6776ade849347b43.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\organization_step-6776ade849347b43.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "organization_step") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\topology_transition-b342e817208b8292.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\topology_transition-b342e817208b8292.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "topology_transition") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\turing_info.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\turing_info.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "turing_info") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\epigenetic_recruitment_process_restart-e42d58cf7909404e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\epigenetic_recruitment_process_restart-e42d58cf7909404e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "epigenetic_recruitment_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\trace-47f9bd8ad6786288.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\trace-47f9bd8ad6786288.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "trace") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_embodied.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_embodied.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_embodied") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\iridophore_process_restart-07cf38869cb5233f.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\iridophore_process_restart-07cf38869cb5233f.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "iridophore_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_director.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_director.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_director") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_francais.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_francais.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "phd_francais") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\receipt_bridge.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\receipt_bridge.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "receipt_bridge") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_repair.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_repair.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_repair") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_autonomous.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_autonomous.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_autonomous") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_recruit_planner.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_recruit_planner.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_recruit_planner") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\instinct-1f5531e8d237ab37.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\instinct-1f5531e8d237ab37.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "instinct") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_info.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_info.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "master_info") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\director_persistence-bb19bc30685556c8.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\director_persistence-bb19bc30685556c8.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "director_persistence") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_evolution.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_evolution.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_evolution") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_lineage_replay-ccb64c0f4d47822d.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_lineage_replay-ccb64c0f4d47822d.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "reproduction_lineage_replay") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\stress_semantic-da1bf07842504633.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\stress_semantic-da1bf07842504633.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "stress_semantic") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_math.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_math.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "phd_math") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\guard_cell_process_restart-f3d7887304b1c95e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\guard_cell_process_restart-f3d7887304b1c95e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "guard_cell_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\perception_continuity-61a442bdb0e154a2.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\perception_continuity-61a442bdb0e154a2.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "perception_continuity") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_organism.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_organism.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_organism") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_enforcement-64f5b9e34c1ededb.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_enforcement-64f5b9e34c1ededb.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "metabolic_pool_enforcement") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_e2e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_e2e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_e2e") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_policy_contract-a71089d9aac1fe85.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_policy_contract-a71089d9aac1fe85.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "physical_policy_contract") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\nobel_math.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\nobel_math.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "nobel_math") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\specialized_cell_runtime-f85f3c9be6519513.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\specialized_cell_runtime-f85f3c9be6519513.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "specialized_cell_runtime") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_physics.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_physics.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_physics") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\evolution-0f707a71c92ebaae.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\evolution-0f707a71c92ebaae.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "evolution") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_tick.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_tick.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_tick") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\nosology_therapy-1b3faa53dae7f2cf.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\nosology_therapy-1b3faa53dae7f2cf.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "nosology_therapy") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\self_evolution_experiment.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\self_evolution_experiment.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "self_evolution_experiment") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\recruitment-620c5487a54c8204.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\recruitment-620c5487a54c8204.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "recruitment") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\epigenetic_recruitment-05455ba9e9583a0e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\epigenetic_recruitment-05455ba9e9583a0e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "epigenetic_recruitment") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_autopoiesis.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_autopoiesis.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_autopoiesis") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\receipt_recovery-8872581a2845833a.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\receipt_recovery-8872581a2845833a.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "receipt_recovery") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_cycle-bad31ffdf8aaeba3.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\reproduction_cycle-bad31ffdf8aaeba3.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "reproduction_cycle") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_info.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_info.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "licence_info") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\demo.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\demo.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "demo") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\behaviors-fb068f9fae0340f8.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\behaviors-fb068f9fae0340f8.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "behaviors") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_info.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\phd_info.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "phd_info") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\drives-aecbe7a4c542f6ac.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\drives-aecbe7a4c542f6ac.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "drives") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_math.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\licence_math.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "licence_math") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_crossover_process_restart-9a8c2fb6c0ab0964.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_crossover_process_restart-9a8c2fb6c0ab0964.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_crossover_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\hgt_checkpoint_restart-e3ea7534ff1bc87e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\hgt_checkpoint_restart-e3ea7534ff1bc87e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "hgt_checkpoint_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\environment-625e38e1f5f0d18c.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\environment-625e38e1f5f0d18c.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "environment") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_material.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_material.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_material") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\fossilization-1d94d14f1b0752b7.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\fossilization-1d94d14f1b0752b7.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "fossilization") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_calibration_contract-6ccf14975ff43b80.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\physical_calibration_contract-6ccf14975ff43b80.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "physical_calibration_contract") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\planner-d145ee94c103bd3f.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\planner-d145ee94c103bd3f.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "planner") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_control-d83382711b4ef131.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_control-d83382711b4ef131.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "kernel_control") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\goncourt_francais.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\goncourt_francais.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "goncourt_francais") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\api_feature-5edb776e924a542b.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\api_feature-5edb776e924a542b.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "api_feature") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_learning.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_learning.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_learning") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\organization-a5fff859bd04336e.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\organization-a5fff859bd04336e.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "organization") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_metabolism.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_metabolism.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_metabolism") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_process_restart-b19603af1f3bdf93.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_process_restart-b19603af1f3bdf93.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_neuro_glia_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\nosology_authorization-c517b76d0d17841f.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\nosology_authorization-c517b76d0d17841f.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "nosology_authorization") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\process_sandbox-7e5e66f5bf9e32bc.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\process_sandbox-7e5e66f5bf9e32bc.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "process_sandbox") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\worlds-3f441c5ddd3f3004.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\worlds-3f441c5ddd3f3004.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "worlds") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\tracheid_native_execution.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\tracheid_native_execution.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "tracheid_native_execution") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_process_restart-95efe77248c3eb87.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolic_pool_process_restart-95efe77248c3eb87.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "metabolic_pool_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_quorum-719babbeebdd8dfc.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_quorum-719babbeebdd8dfc.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_neuro_glia_quorum") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\organism-771488cc45ea1269.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\organism-771488cc45ea1269.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "organism") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\hgt_authority-7bd3ec2fc774f4b5.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\hgt_authority-7bd3ec2fc774f4b5.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "hgt_authority") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\spore_process_restart-f936ac0f680913e4.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\spore_process_restart-f936ac0f680913e4.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "spore_process_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\checkpoint_recovery-f94425209da06879.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\checkpoint_recovery-f94425209da06879.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "checkpoint_recovery") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\orchestrator-d62fdb142f2d35ce.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\orchestrator-d62fdb142f2d35ce.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "orchestrator") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_receipt_restart-f510005c538859c4.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\sensory_receipt_restart-f510005c538859c4.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "sensory_receipt_restart") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\learning-932861482d1f74aa.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\learning-932861482d1f74aa.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "learning") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_math.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\master_math.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "master_math") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_nosology-90065fa0a1efc220.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\kernel_nosology-90065fa0a1efc220.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "kernel_nosology") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_event_stream-3c48a80ec5132f31.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\mission_neuro_glia_event_stream-3c48a80ec5132f31.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "mission_neuro_glia_event_stream") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_trinity.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_trinity.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_trinity") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_recruit.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\examples\mission_recruit.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (example "mission_recruit") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\autopoiesis-1e2825e8d9d95511.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\autopoiesis-1e2825e8d9d95511.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "autopoiesis") generated 1 warning
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolism-f15abc7aa69edaab.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\metabolism-f15abc7aa69edaab.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-orchestrator` (test "metabolism") generated 1 warning
+warning: `genos-dna` (lib test) generated 2 warnings (2 duplicates)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_api.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_api.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-api` (bin "genos-api") generated 1 warning
+   Compiling genos-mcp v0.1.0 (D:\GenOS\identity-real-llm-worktree\crates\genos-mcp)
+warning: unused import: `proofs::verified`
+ --> crates\genos-mcp\src\omega_runtime.rs:8:5
+  |
+8 | use proofs::verified;
+  |     ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `PathBuf`
+ --> crates\genos-mcp\src\validation.rs:2:23
+  |
+2 | use std::path::{Path, PathBuf};
+  |                       ^^^^^^^
+
+warning: `genos-mcp` (bin "genos-mcp" test) generated 2 warnings (run `cargo fix --bin "genos-mcp" -p genos-mcp --tests` to apply 2 suggestions)
+warning: unused import: `proofs::verified`
+ --> crates\genos-mcp\examples\..\src\omega_runtime.rs:8:5
+  |
+8 | use proofs::verified;
+  |     ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `ERROR_FRAME_INVALID` is never used
+  --> crates\genos-mcp\examples\..\src\omega.rs:15:11
+   |
+15 | pub const ERROR_FRAME_INVALID: &str = "omega.frame_invalid";
+   |           ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `ERROR_PAYLOAD_INVALID` is never used
+  --> crates\genos-mcp\examples\..\src\omega.rs:16:11
+   |
+16 | pub const ERROR_PAYLOAD_INVALID: &str = "omega.payload_invalid";
+   |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `OmegaWire` is never constructed
+  --> crates\genos-mcp\examples\..\src\omega.rs:38:8
+   |
+38 | struct OmegaWire(
+   |        ^^^^^^^^^
+
+warning: function `decode` is never used
+  --> crates\genos-mcp\examples\..\src\omega.rs:75:8
+   |
+75 | pub fn decode(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
+   |        ^^^^^^
+
+warning: function `encode` is never used
+   --> crates\genos-mcp\examples\..\src\omega.rs:155:8
+    |
+155 | pub fn encode(envelope: &OmegaEnvelope) -> Result<Vec<u8>, String> {
+    |        ^^^^^^
+
+warning: fields `operation`, `context`, `values`, and `receipt` are never read
+  --> crates\genos-mcp\examples\..\src\omega_runtime.rs:17:9
+   |
+16 | pub struct OperationContext {
+   |            ---------------- fields in this struct
+17 |     pub operation: OmegaOperation,
+   |         ^^^^^^^^^
+18 |     pub input: Value,
+19 |     pub context: Value,
+   |         ^^^^^^^
+20 |     pub values: BTreeMap<String, Value>,
+   |         ^^^^^^
+21 |     pub receipt: Option<Value>,
+   |         ^^^^^^^
+   |
+   = note: `OperationContext` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: method `register_reader` is never used
+  --> crates\genos-mcp\examples\..\src\omega_runtime.rs:69:12
+   |
+68 | impl OmegaRuntime {
+   | ----------------- method in this implementation
+69 |     pub fn register_reader<F>(&mut self, reference: &str, handler: F)
+   |            ^^^^^^^^^^^^^^^
+
+warning: `genos-mcp` (example "omega_execution_fixture") generated 8 warnings (run `cargo fix --example "omega_execution_fixture" -p genos-mcp` to apply 1 suggestion)
+warning: linker stdout: Création de la bibliothèque D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_api-ecef939f83546730.lib et de l'objet D:\GenOS\identity-real-llm-worktree\target\debug\deps\genos_api-ecef939f83546730.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `genos-api` (lib test) generated 1 warning
+warning: `genos-biology` (lib test) generated 4 warnings (4 duplicates)
+warning: `genos-reproduction` (lib test) generated 1 warning (1 duplicate)
+warning: `genos-genome` (lib test) generated 5 warnings (5 duplicates)
+warning: `genos-common` (lib test) generated 2 warnings (2 duplicates)
+    Finished `test` profile [unoptimized] target(s) in 15m 23s
+     Running unittests src\lib.rs (target\debug\deps\genos_api-ecef939f83546730.exe)
+
+running 12 tests
+test security::tests::token_bucket_refills_automatically_after_elapsed_time ... ok
+test tests::test_rate_limiter ... ok
+test tests::test_chat_message_serialization ... ok
+test tests::test_server_health_probe ... ok
+test tests::test_server_models_probe ... ok
+test tests::test_tenant_auth ... ok
+test thalamus::tests::cache_key_hides_prompt_and_covers_generation_settings ... ok
+test tests::test_server_allows_explicit_system_two ... ok
+test thalamus::tests::rejects_empty_conversation_before_provider_resolution ... ok
+test tests::test_server_chat_completions ... ok
+test tests::test_server_poisoned_mutex_recovery ... ok
+test tests::test_server_promotes_complex_prompt_to_system_two ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\main.rs (target\debug\deps\genos_api-4c54d69ffa7979a3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cli_args.rs (target\debug\deps\cli_args-0da400a0c172f20d.exe)
+
+running 2 tests
+test api_help_exits_without_starting_server ... ok
+test api_rejects_invalid_port ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_bio_contracts-8fdf19522fc35d74.exe)
+
+running 15 tests
+test lifecycle::lifecycle_tests::apoptose_est_terminale ... ok
+test ids::id_tests::stable_roundtrip ... ok
+test ids::id_tests::rejects_unstable ... ok
+test lifecycle::lifecycle_tests::version_incompatible_refusee ... ok
+test lineage_adapters::adapter_tests::phenotype_vide_refuse ... ok
+test states::state_tests::local_promouvable ... ok
+test tests::budget_refuses_overuse ... ok
+test lineage_adapters::adapter_tests::lien_converti_en_manifeste ... ok
+test states::state_tests::simulated_ne_promotionne_pas ... ok
+test tests::budget_rejects_non_finite_and_negative_amounts ... ok
+test tests::budget_requires_resource_name ... ok
+test tests::receipt_requires_proof ... ok
+test tests::compatible_same_major ... ok
+test lifecycle::lifecycle_tests::naissance_puis_differenciation ... ok
+test tests::incompatible_other_major ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_biology-d2400d18074c4717.exe)
+
+running 110 tests
+test agentic_ecosystem::tests::assign_niche_succeeds_when_space_available ... ok
+test agentic_ecosystem::tests::mean_occupancy_is_zero_for_empty ... ok
+test chemistry::tests::insufficient_substrate_blocks_reaction ... ok
+test agentic_ecosystem::tests::assign_niche_fails_at_full_capacity ... ok
+test agentic_ecosystem::tests::assign_niche_fails_for_unknown_agent ... ok
+test bioluminescence::tests::test_bioluminescence_emission ... ok
+test chemistry::tests::balanced_reaction_is_accepted_and_conserves_mass ... ok
+test chemistry::tests::unbalanced_reaction_is_rejected ... ok
+test embryology::tests::test_apoptosis_selects_fittest_cells_and_prunes_senescent ... ok
+test embryology::tests::test_differentiate_cell_chromatin_individual ... ok
+test embryology::tests::test_differentiation_covers_hox_axis_and_clamps_gradient ... ok
+test embryology::tests::test_embryology_cleavage_and_differentiation ... ok
+test embryology::tests::test_apoptosis_preserves_hox_role_coverage ... ok
+test embryology::tests::test_differentiate_cell_updates_agent_cell_metadata ... ok
+test embryology::tests::test_differentiate_swarm_methylates_locked_genes ... ok
+test ecology::tests::test_evolutionary_ecology_anti_collusion ... ok
+test embryology::tests::test_hox_locus_aliases_follow_active_axes ... ok
+test genome_stability::tests::stable_genome_is_assessed_stable ... ok
+test genome_stability::tests::boundary_rates_respect_thresholds ... ok
+test glial::tests::astrocytes_cannot_create_atp_without_reserve_or_presence ... ok
+test genome_stability::tests::high_mutation_rate_is_compromised ... ok
+test genome_stability::tests::many_anomalies_are_critical ... ok
+test glycolysis::tests::atp_hydrolysis_recycles_adp_and_pi ... ok
+test glial::tests::reactive_astrocytes_support_neurons_without_deleting_synapses ... ok
+test glial::tests::ependymal_pressure_and_microglial_inflammation_remain_bounded ... ok
+test glycolysis::tests::cofactors_are_recycled_across_repeated_cycles ... ok
+test glycolysis::tests::cycle_consumes_glucose_and_produces_atp_with_conserved_mass ... ok
+test embryology::tests::test_reactivated_hox_axis_is_demethylated ... ok
+test glycolysis::tests::network_builds_with_balanced_reactions ... ok
+test instinct::tests::chain_depth_overflow_is_blocked ... ok
+test instinct::tests::dopamine_raises_execution_gain ... ok
+test instinct::tests::oxytocin_lowers_threshold ... ok
+test instinct::tests::stimulus_below_threshold_is_not_triggered ... ok
+test instinct::tests::apoptotic_agent_is_blocked ... ok
+test instinct::tests::authorized_paf_validates_to_pending ... ok
+test instinct::tests::instinct_gene_is_developmentally_locked ... ok
+test instinct::tests::insufficient_atp_budget_blocks_the_complete_paf ... ok
+test instinct::tests::unauthorized_tool_interrupts_paf ... ok
+test lipid_membrane::tests::degradation_recycles_raw_material_for_resynthesis ... ok
+test lipid_membrane::tests::polar_phosphorylated_species_permeate_less_than_pure_hydrocarbon ... ok
+test lipid_membrane::tests::synthesis_consumes_atp_and_builds_real_phospholipids ... ok
+test nosology_catalog::tests::family_pressure_maximum_v1_returns_max ... ok
+test lipid_membrane::tests::insufficient_atp_blocks_synthesis ... ok
+test nosology_catalog::tests::family_pressure_maximum_v1_empty_returns_zero ... ok
+test lipid_membrane::tests::network_builds_with_balanced_reactions ... ok
+test nosology_catalog::tests::family_pressure_maximum_v1_ignores_unnormalized ... ok
+test nosology_catalog::tests::family_pressure_noisy_or_v2_bounded_to_one ... ok
+test nosology_catalog::tests::family_pressure_noisy_or_v2_multiple_values ... ok
+test nosology_catalog::tests::family_pressure_noisy_or_v2_single_value ... ok
+test nosology_catalog::tests::family_pressure_noisy_or_v2_empty_returns_zero ... ok
+test nosology_catalog::tests::family_pressure_noisy_or_v2_ignores_unnormalized ... ok
+test phenotype::tests::test_phenotype_bee_caste_epigenetics ... ok
+test quorum::tests::test_quorum_sensing_population_density_threshold ... ok
+test quorum::tests::test_quorum_quenching_degradation ... ok
+test phenotype::tests::test_phenotype_fur_color_epigenetic_temperature ... ok
+test sensorium::tests::alert_when_threshold_exceeded ... ok
+test sensorium::tests::nominal_when_all_below_threshold ... ok
+test sensorium::tests::critical_when_double_threshold_exceeded ... ok
+test sensorium::tests::unknown_modality_is_not_exceeded ... ok
+test sensory::cluster_n::tests::test_cluster_n_perfect_alignment ... ok
+test sensory::echolocation::tests::test_echolocation_doppler_and_distance ... ok
+test sensorium::tests::verified_observation_keeps_provenance_and_modality ... ok
+test sensory::mormyrocerebellum::tests::test_mormyrocerebellum_active_eod_analysis ... ok
+test sensory::cluster_n::tests::test_cluster_n_drift_detection_and_correction ... ok
+test sensory::tectum_thermal::tests::test_tectum_thermal_fusion ... ok
+test sensory::vomeronasal::tests::test_pheromone_decay ... ok
+test signaling::tests::test_matrix_territory_inhibition ... ok
+test specialized_cells::choanocyte::tests::test_choanocyte_flagellar_current_and_sifting ... ok
+test sensory::mormyrocerebellum::tests::test_mormyrocerebellum_passive_scan ... ok
+test sensory::vomeronasal::tests::test_vomeronasal_detection_and_flehmen ... ok
+test signaling::tests::test_cellular_messaging_flow ... ok
+test specialized_cells::cnidocyte::tests::test_cnidocyte_quarantine_prompt_injection ... ok
+test specialized_cells::cnidocyte::tests::test_cnidocyte_tool_payload_interception ... ok
+test specialized_cells::guard_cell::tests::test_guard_cell_osmosis_and_aba_closure ... ok
+test specialized_cells::choanocyte::tests::test_choanoderm_chamber_collective_pumping ... ok
+test specialized_cells::cnidocyte::tests::test_cnidocyte_mechanical_overpressure ... ok
+test specialized_cells::electrocyte::tests::test_sub_quorum_electrocyte ... ok
+test specialized_cells::iridophore::tests::hostile_payloads_remain_data_for_every_observer_perspective ... ok
+test specialized_cells::prokaryote::tests::direct_hgt_and_transformation_refuse_without_runtime_lease ... ok
+test specialized_cells::electrocyte::tests::test_electrocyte_series_voltage_summation ... ok
+test specialized_cells::tracheid::tests::test_tracheid_lifecycle_and_ossification ... ok
+test spore::tests::test_fungal_spores_bounded ... ok
+test specialized_cells::iridophore::tests::test_polymorphic_rendering_modes ... ok
+test specialized_cells::iridophore::tests::test_bragg_snell_structural_color_shifts ... ok
+test spore::tests::test_fungal_spores_have_distinct_genomes ... ok
+test spore::tests::test_sporulation_strategies ... ok
+test spore::tests::test_germination_creates_new_cell_id ... ok
+test spore::tests::test_spore_round_trip_preserves_organelles ... ok
+test survival_systems::tests::endangered_when_high_stress ... ok
+test survival_systems::tests::critical_when_state_below_threshold ... ok
+test survival_systems::tests::recover_reduces_stress ... ok
+test survival_systems::tests::viable_when_near_setpoint_and_low_stress ... ok
+test survival_systems::tests::regulate_moves_toward_setpoint ... ok
+test tests::chelation_only_reduces_a_valid_present_toxin_marker ... ok
+test tests::degenerative_proposed_therapies_target_only_their_markers ... ok
+test tests::nosology_therapy_variants_round_trip_and_old_outcomes_deserialize ... ok
+test tests::emerging_proposed_therapies_require_and_only_modify_their_target_markers ... ok
+test tests::metabolic_proposed_therapies_only_change_present_bounded_markers ... ok
+test tests::test_clinical_state_and_iatrogenesis ... ok
+test tests::test_nosocomial_quarantine_and_antiseptic ... ok
+test tests::vascular_proposed_therapy_requires_safe_bbb_and_target ... ok
+test tests::test_degenerative_stem_cell_cure ... ok
+test tests::test_modules_presence ... ok
+test vital_organs::tests::failed_organ_at_or_below_threshold ... ok
+test tissue::tests::test_tissue_organogenesis ... ok
+test vital_organs::tests::healthy_organ_above_threshold ... ok
+test vital_organs::tests::impaired_organ_below_half ... ok
+test vital_organs::tests::mean_efficiency_of_empty_is_one ... ok
+test vital_organs::tests::worst_status_propagates_failure ... ok
+test embryology::tests::test_zygote_divisions_are_bounded ... ok
+
+test result: ok. 110 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests\nosology_catalog.rs (target\debug\deps\nosology_catalog-b40243fca080dd8d.exe)
+
+running 12 tests
+test antiseptic_requires_the_matching_pathogen ... ok
+test catalog_covers_every_documented_condition_and_family ... ok
+test every_catalog_therapy_has_a_serializable_runtime_variant ... ok
+test every_condition_is_detected_and_resolved_with_complete_evidence ... ok
+test invalid_data_is_not_reported_healthy ... ok
+test every_operator_changes_only_its_present_targets ... ok
+test missing_measurement_cannot_erase_a_previous_diagnosis ... ok
+test missing_invalid_and_exhausted_targets_never_claim_application ... ok
+test repeated_application_stops_at_zero ... ok
+test side_effects_are_measured_bounded_and_reported ... ok
+test no_operator_resurrects_an_apoptotic_cell ... ok
+test unsafe_thrombolysis_is_refused_and_not_recommended ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\nosology_legacy_edges.rs (target\debug\deps\nosology_legacy_edges-aff0cc404f626de7.exe)
+
+running 7 tests
+test invalid_inflammation_is_refused_without_sanitizing_it ... ok
+test legacy_outcome_without_status_never_attests_application ... ok
+test zero_dose_preserves_diagnosis_and_inflammation ... ok
+test antiseptic_preserves_other_pathogen_and_quarantine ... ok
+test detox_does_not_erase_persistent_marker_side_effect ... ok
+test replacing_scars_cannot_claim_memory_repair ... ok
+test report_refreshes_measured_severity_without_mutating_patient ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_cell-f032faf130b612a9.exe)
+
+running 11 tests
+test cognitive_regulation::tests::test_cognitive_regulation_state_eureka_relief ... ok
+test cognitive_regulation::tests::test_eureka_counter_saturates ... ok
+test autopoiesis::tests::test_autopoiesis_entropy_and_repair ... ok
+test tests::tests::test_agent_cell_identity_and_conscience ... ok
+test tests::tests::test_agent_cell_budding_and_hayflick_limit ... ok
+test tests::tests::test_agent_cell_schizogony_burst_and_lysis ... ok
+test cognitive_regulation::tests::test_cognitive_regulation_state_accumulation_and_apoptosis ... ok
+test tests::tests::test_agent_cell_chromatin_state_fields ... ok
+test tests::tests::test_typed_organelles_are_serializable_state ... ok
+test tests::tests::test_mitosis_preserves_total_metabolic_budget ... ok
+test tests::tests::test_binary_fission_budget_division_and_organelle_uniqueness ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\genos-fe19912d2a187797.exe)
+
+running 99 tests
+test commands::api_server::serve_tests::loopback_is_allowed ... ok
+test commands::api_server::serve_tests::non_loopback_is_detected ... ok
+test commands::api_server::serve_tests::non_loopback_without_key_is_refused ... ok
+test commands::accounting::tests::test_cost_accounting_missing_trajectory ... ok
+test commands::api_server::serve_tests::generated_key_has_expected_length ... ok
+test commands::api_server::serve_tests::loopback_without_key_gets_auth ... ok
+test commands::biomimicry::therapy::tests::it_does_not_claim_an_unexecuted_treatment_succeeded ... ok
+test commands::biomimicry::therapy::tests::parses_catalog_identifiers_and_parameterized_json ... ok
+test commands::biomimicry::therapy::tests::reservation_response_rejects_missing_authorized ... ok
+test commands::biomimicry_cells::tests::cli_refuse_le_transfert_hgt_sans_lease ... ok
+test commands::biomimicry::therapy::tests::reservation_response_accepts_authorized_true ... ok
+test commands::biomimicry::therapy::tests::reservation_response_rejects_authorized_false ... ok
+test commands::biomimicry_instinct::tests::default_program_is_locked_and_encodable ... ok
+test commands::accounting::tests::test_cost_accounting_timeframe_filtering ... ok
+test commands::accounting::tests::test_cost_accounting_real_tokens ... ok
+test commands::biomimicry_ops::tests::test_handle_network_quorum ... ok
+test commands::biological::receipt_tick_tests::legacy_checkpoint_recovers_tick_from_its_own_verified_journal ... ok
+test commands::biomimicry_instinct::tests::read_f64_falls_back_to_default ... ok
+test commands::biological::receipt_tick_tests::selected_old_checkpoint_keeps_its_receipt_cursor ... ok
+test commands::compliance::compliance_guard_tests::refuses_dotdot_output ... ok
+test commands::compliance::compliance_guard_tests::stdout_path_still_passes ... ok
+test commands::biological_recruitment::tests::choanocyte_stream_reader_rejects_oversized_files ... ok
+test commands::chaos::tests::test_chaos_does_not_fabricate_success_when_backend_unreachable ... ok
+test commands::hallucination::tests::test_parse_snapshot_unproven_claims ... ok
+test commands::morphogenesis_gate::tests::evidence_gap_resolver_emits_a_real_proposal ... ok
+test commands::morphogenesis_gate::tests::malformed_or_unsupported_inputs_fail_closed ... ok
+test commands::morphogenesis_authority::tests::rejects_replayed_snapshot_binding ... ok
+test commands::electric_quorum::tests::cli_requires_opt_in_and_explicit_trust_for_votes ... ok
+test commands::morphogenesis_authority::tests::accepts_exact_ed25519_transition_binding ... ok
+test commands::hallucination::tests::test_parse_snapshot_metadata_nested_schemas ... ok
+test commands::electric_quorum::tests::host_bootstrap_trust_cannot_be_replaced_by_a_caller_file ... ok
+test commands::morphogenesis_gate::tests::meaningful_change_is_refused_without_principal ... ok
+test commands::morphogenesis_gate::tests::zero_evidence_yields_no_change ... ok
+test commands::electric_quorum::tests::host_bootstrap_trust_registry_symlink_is_refused ... ok
+test commands::morphogenesis_hysteresis::tests::recent_commit_restores_cooldown ... ok
+test commands::morphogenesis_hysteresis::tests::applies_verified_budget_calibration ... ok
+test commands::morphogenesis_hysteresis::tests::rejects_cross_mission_state ... ok
+test commands::morphogenesis_hysteresis::tests::restores_scoped_budget_without_global_file ... ok
+test commands::output_guard::guard_tests::missing_parent_without_flag_is_refused ... ok
+test commands::platform::world_path_tests::accepts_simple_id_syntax ... ok
+test commands::output_guard::guard_tests::missing_parent_with_flag_is_created ... ok
+test commands::morphogenesis_plan_binding::tests::exact_plan_is_hash_bound_and_action_checked ... ok
+test commands::output_guard::guard_tests::refuses_dotdot_path ... ok
+test commands::output_guard::guard_tests::force_overwrites_existing ... ok
+test commands::output_guard::guard_tests::refuses_existing_without_force ... ok
+test commands::platform::world_path_tests::rejects_dotdot_id ... ok
+test commands::platform::world_path_tests::rejects_empty_id ... ok
+test commands::platform::world_path_tests::rejects_absolute_id ... ok
+test commands::platform::world_path_tests::rejects_separator_id ... ok
+test commands::rhizome_telemetry::live_source::tests::maps_backend_string_identifiers_without_inventing_edges ... ok
+test commands::rhizome_telemetry::live_source::tests::rejects_simulation_as_live_evidence ... ok
+test commands::rhizome_telemetry::simulator::tests::test_parse_sim_ticks_defaults_to_infinite ... ok
+test commands::root_resolver::tests::test_resolve_matrix_root_env ... ok
+test commands::sensory::tests::cli_ingest_fails_closed_on_untyped_or_invalid_input ... ok
+test commands::sensory::tests::signed_ingest_refuses_legacy_input_and_missing_host_trust ... ok
+test commands::sensory::tests::command_requires_explicit_experimental_opt_in ... ok
+test commands::sensory::tests::mission_lock_and_workspace_confinement_fail_closed ... ok
+test commands::sensory::tests::cli_ingest_is_mission_bound_durable_and_exactly_replayable ... ok
+test commands::sensory::tests::typed_input_rejects_unknown_fields_at_each_boundary ... ok
+test commands::sensory_input::tests::sensory_input_reader_rejects_oversized_files ... ok
+test commands::syncytium_crdt::simulator::tests::test_parse_sim_ticks_defaults_to_infinite ... ok
+test commands::syncytium_crdt::tests::tests::test_4_agents_cursors_tracking ... ok
+test commands::syncytium_crdt::tests::tests::test_duplicate_op_id_is_idempotent ... ok
+test commands::syncytium_crdt::export_guard_tests::refuses_dotdot_output ... ok
+test commands::syncytium_crdt::tests::tests::test_invariant_tracking_and_fault_localization ... ok
+test commands::syncytium_crdt::tests::tests::test_concurrent_crdt_edits_without_lock_corruption ... ok
+test commands::syncytium_crdt::tests::tests::test_time_travel_rewind_millisecond_by_millisecond ... ok
+test commands::syncytium_crdt::tests::tests::test_lamport_clock_advances_past_remote_ops ... ok
+test commands::syncytium_crdt::tests::tests::test_step_rewind_is_collision_free ... ok
+test commands::syncytium_crdt::tests::tests::test_replay_is_order_independent ... ok
+test commands::trinity_tui::model::live_contract::tests::test_equal_seq_accepted_idempotent ... ok
+test commands::trinity_tui::model::live_contract::tests::test_foreign_mission_rejected_despite_fresh_seq ... ok
+test commands::trinity_tui::model::live_contract::tests::test_barrier_label_preserves_no_active_nodes_reason ... ok
+test commands::syncytium_crdt::tests::tests::test_unicode_offsets_are_utf16_safe_and_never_panic ... ok
+test commands::trinity_tui::model::live_contract::tests::test_newer_seq_accepted ... ok
+test commands::trinity_tui::model::live_contract::tests::test_legacy_payload_without_seq_or_mission_accepted ... ok
+test commands::trinity_tui::model::live_contract::tests::test_unset_mission_adopts_first_message ... ok
+test commands::trinity_tui::model::live_contract::tests::test_stale_seq_rejected ... ok
+test commands::trinity_tui::model::live_contract::tests::test_tied_and_expired_are_terminal ... ok
+test commands::trinity_tui::model::tests::test_live_snapshot_and_log_and_barrier ... ok
+test commands::trinity_tui::model::tests::test_live_stale_and_foreign_messages_ignored ... ok
+test commands::sensory::tests::cli_ingest_rejects_cross_mission_and_divergent_replay ... ok
+test commands::trinity_tui::model::tests::live_worlds_follow_snapshot_membership_and_unknown_metrics ... ok
+test commands::trinity_tui::model::tests::test_tied_and_expired_worlds_complete_with_label ... ok
+test commands::trinity_tui::model::tests::test_trinity_app_controls ... ok
+test commands::trinity_tui::model::tests::test_trinity_app_initialization ... ok
+test commands::trinity_tui::tests::dashboard_toggles_once_per_windows_key_press ... ok
+test commands::trinity_tui::model::tests::test_trinity_app_progression_and_synthesis ... ok
+test tests::reproduction_tests::test_cell_division_gene_inheritance ... ok
+test tests::reproduction_tests::test_reproduction_commands ... ok
+test tests::reproduction_tests::test_budding_cli_lifecycle ... ok
+test tests::reproduction_tests::test_loop_detection_repetition_and_stagnation ... ok
+test tests::reproduction_tests::test_store_commands ... ok
+test tests::tests::test_agent_and_snapshot_lifecycle ... ok
+test tests::tests::test_replay_verifies_recorded_steps_and_rejects_tampering ... ok
+test commands::electric_quorum::tests::signed_cli_quorum_is_idempotent_and_conflicts_fail_closed ... ok
+test tests::tests::test_biomimicry_commands ... ok
+test tests::reproduction_tests::test_epigenetic_pioneer_factor_protection ... ok
+test commands::rhizome_telemetry::export_guard_tests::refuses_dotdot_output ... ok
+
+test result: ok. 99 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.75s
+
+     Running tests\biological_choanocyte_stream.rs (target\debug\deps\biological_choanocyte_stream-68e259861e9293d5.exe)
+
+running 4 tests
+test biological_command_refuses_choanocyte_stream_without_persisted_tick ... ok
+test biological_command_refuses_signed_stream_without_host_bootstrap_trust ... ok
+test biological_command_persists_typed_stream_under_mission_and_producer_identity ... ok
+test biological_choanocyte_replay_is_idempotent_across_processes_and_mission_scoped ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.20s
+
+     Running tests\biological_crossover.rs (target\debug\deps\biological_crossover-8d838013f6e29537.exe)
+
+running 4 tests
+test missing_crossover_replay_refuses_without_advancing_the_mission ... ok
+test crossover_requires_a_persisted_tick_and_registered_distinct_parents ... ok
+test crossover_replay_key_cannot_cross_mission_boundaries ... ok
+test crossover_is_authorized_scoped_persisted_and_idempotently_replayable ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.96s
+
+     Running tests\biological_ecology_reproduction_campaign.rs (target\debug\deps\biological_ecology_reproduction_campaign-99a8b337285bcd06.exe)
+
+running 1 test
+test same_initial_state_and_seed_reproduce_identical_lineage_after_cli_restarts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.19s
+
+     Running tests\biological_epigenetic_recruitment.rs (target\debug\deps\biological_epigenetic_recruitment-29a0f76c3ae363de.exe)
+
+running 6 tests
+test biological_command_refuses_division_without_a_persisted_tick ... ok
+test biological_command_refuses_recruitment_without_a_persisted_tick ... ok
+test biological_division_command_persists_recovery_snapshot_and_link ... ok
+test biological_command_persists_dna_recruitment_under_the_requested_mission ... ok
+test biological_command_persists_reproduction_lineage_under_the_requested_mission ... ok
+test failed_later_operation_checkpoints_prior_durable_division_for_retry ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.14s
+
+     Running tests\biological_spore_startup_resume.rs (target\debug\deps\biological_spore_startup_resume-bb7d754ef01fe6bf.exe)
+
+running 2 tests
+test cli_startup_fails_closed_on_population_journal_mission_mismatch ... ok
+test first_cli_tick_after_process_restart_uses_journal_spore_population ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests\electric_quorum_process_cli.rs (target\debug\deps\electric_quorum_process_cli-e37ff19693e9749a.exe)
+
+running 2 tests
+test electric_quorum_rejects_caller_selected_trust_registry ... ok
+test electric_quorum_replays_across_separate_cli_processes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\fossil_process_restart.rs (target\debug\deps\fossil_process_restart-7e6761519838c2b7.exe)
+
+running 5 tests
+test legacy_unprovenanced_fossil_is_labeled_without_claiming_authorship ... ok
+test fossil_list_keeps_historical_unknown_signer_visible_without_verifying_it ... ok
+test fossil_excavation_rejects_unknown_signer_and_tampered_scope ... ok
+test malformed_and_integrity_invalid_candidates_fail_closed ... ok
+test backend_attested_fossil_verifies_after_cli_process_restarts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests\guard_flux_cli.rs (target\debug\deps\guard_flux_cli-9fbadce0f5cde583.exe)
+
+running 3 tests
+test guard_flux_requires_an_explicit_experimental_opt_in ... ok
+test insufficient_atp_is_persisted_as_a_closed_flux_refusal ... ok
+test accepted_guard_flux_replays_after_a_new_cli_process ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\metabolic_pool_cli.rs (target\debug\deps\metabolic_pool_cli-051fe64273bc045e.exe)
+
+running 1 test
+test durable_metabolic_pool_cli_restores_replays_and_refuses_conflicts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests\neuro_glia_stream_cli.rs (target\debug\deps\neuro_glia_stream_cli-fa6972b6b258f1fa.exe)
+
+running 5 tests
+test cli_requires_opt_in_and_rejects_unsupported_events_without_writing ... ok
+test backend_mode_rejects_legacy_history_before_append ... ok
+test cli_rejects_unknown_producer_and_modified_payload_without_journal_write ... ok
+test cli_writes_ordered_durable_events_and_reuses_exact_retry_after_restart ... ok
+test backend_scope_authorization_is_verified_before_append ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests\sensory_backend_import.rs (target\debug\deps\sensory_backend_import-702da20510d747e5.exe)
+
+running 1 test
+test backend_signed_tenant_receipt_imports_and_is_consumed_by_paf ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s
+
+     Running tests\sensory_cli.rs (target\debug\deps\sensory_cli-83d05179c1ea648e.exe)
+
+running 1 test
+ERREUR GenOS CLI: sensory producer identity is not host-trusted
+ERREUR GenOS CLI: sensory producer signature is invalid
+ERREUR GenOS CLI: sensory producer signature is invalid
+ERREUR GenOS CLI: sensory-ingest has no authenticated mission authority; pass --experimental to opt in
+error: unexpected argument '--journal' found
+
+Usage: genos.exe sensory-ingest --mission-id <MISSION_ID> --input <INPUT> --replay-key <REPLAY_KEY> --experimental
+
+For more information, try '--help'.
+{"event_id":"e117caf2-a9cf-5fb6-9386-1b226c3f970d","idempotency_key":"f0f9dc1d-0324-4863-a6d1-87e69156a94e:e117caf2-a9cf-5fb6-9386-1b226c3f970d","mission_id":"f0f9dc1d-0324-4863-a6d1-87e69156a94e","origin":"synthetic","schema":"genos.synthetic-sensory-receipt/v1","source_digest":"1de0e7ca05a2a59226e03f2f3cb47fb80cb29d2deab113ff93162a8b8f707bd8","source_receipt":{"event_id":"e117caf2-a9cf-5fb6-9386-1b226c3f970d","execution_mode":"experimental","intensity":0.0,"measurement":{"ambient_field_noise_db":-60.0,"detected_micro_impulses":0,"localized_hotspot_index":null,"max_signal_to_noise_ratio":0.0,"silent_process_detected":false},"mission_authority":"unverified_cli_claim","modality":"Electrical","origin":"synthetic","producer_id":"00000000-0000-0000-0000-00000000007b","producer_signature_hex":"89b4445d769f849d24a2d08cec9f8b30747b214a47e1b9c09b05824853e879afacb524d6266242249cbdc0e75b8d023a0da49c17c012be1c6db243e92b337d0f","producer_trust_key_sha256":"ed23d853125a3acff2782dddf84e018ebc85942ebf328ff1287202a479964207","provenance":{"capture_id":"278ed39e-f4f4-4b81-b191-827f6ac47162","observed_at_epoch_ms":1792706063606,"source_id":"local-synthetic-adapter","synthetic":true},"schema":"genos.synthetic-animal-receipt/v1","signal":{"ambient_uv":[0.2,0.5,0.9],"sensor":"passive_electroreception"},"source_authentication":"host_pinned_ed25519","source_tick":1,"stimulus_sha256":"9c5d3dd0f9ba4b65bef9ecfd2790b078d7bf6e87eab6081870713e5cb240a56c"}}
+{"event_id":"e117caf2-a9cf-5fb6-9386-1b226c3f970d","idempotency_key":"f0f9dc1d-0324-4863-a6d1-87e69156a94e:e117caf2-a9cf-5fb6-9386-1b226c3f970d","mission_id":"f0f9dc1d-0324-4863-a6d1-87e69156a94e","origin":"synthetic","schema":"genos.synthetic-sensory-receipt/v1","source_digest":"1de0e7ca05a2a59226e03f2f3cb47fb80cb29d2deab113ff93162a8b8f707bd8","source_receipt":{"event_id":"e117caf2-a9cf-5fb6-9386-1b226c3f970d","execution_mode":"experimental","intensity":0.0,"measurement":{"ambient_field_noise_db":-60.0,"detected_micro_impulses":0,"localized_hotspot_index":null,"max_signal_to_noise_ratio":0.0,"silent_process_detected":false},"mission_authority":"unverified_cli_claim","modality":"Electrical","origin":"synthetic","producer_id":"00000000-0000-0000-0000-00000000007b","producer_signature_hex":"89b4445d769f849d24a2d08cec9f8b30747b214a47e1b9c09b05824853e879afacb524d6266242249cbdc0e75b8d023a0da49c17c012be1c6db243e92b337d0f","producer_trust_key_sha256":"ed23d853125a3acff2782dddf84e018ebc85942ebf328ff1287202a479964207","provenance":{"capture_id":"278ed39e-f4f4-4b81-b191-827f6ac47162","observed_at_epoch_ms":1792706063606,"source_id":"local-synthetic-adapter","synthetic":true},"schema":"genos.synthetic-animal-receipt/v1","signal":{"ambient_uv":[0.2,0.5,0.9],"sensor":"passive_electroreception"},"source_authentication":"host_pinned_ed25519","source_tick":1,"stimulus_sha256":"9c5d3dd0f9ba4b65bef9ecfd2790b078d7bf6e87eab6081870713e5cb240a56c"}}
+ERREUR GenOS CLI: Idempotency key already exists with different receipt content
+test sensory_ingest_cli_persists_mission_bound_replay_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running tests\sensory_paf_bridge.rs (target\debug\deps\sensory_paf_bridge-752846efe3a7decc.exe)
+
+running 5 tests
+test process_tick_refuses_a_paf_receipt_with_zero_tick ... ok
+test process_tick_refuses_a_sensory_receipt_with_changed_content_and_old_digest ... ok
+test process_tick_refuses_a_receipt_from_another_mission_in_its_journal ... ok
+test process_tick_accepts_a_historical_paf_receipt_without_source_refs ... ok
+test process_tick_bridges_one_verified_alarm_once_and_persists_its_paf_decision ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+
+     Running tests\sensory_trust_rotation.rs (target\debug\deps\sensory_trust_rotation-d40e3cbbbbc1fd92.exe)
+
+running 1 test
+test sensory_producer_overlap_retires_a_and_keeps_b_consumable_after_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.58s
+
+     Running tests\snapshot_contract.rs (target\debug\deps\snapshot_contract-134eeaa2ea81bbf2.exe)
+
+running 1 test
+test snapshot_validate_rejects_missing_required_fields ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_common-07fe8c13246ec413.exe)
+
+running 10 tests
+test assumptions::tests::test_confidence_ordering ... ok
+test receipt_base::tests::test_generate_receipt_id ... ok
+test receipt_base::tests::test_receipt_kind_roundtrip ... ok
+test assumptions::tests::test_register_and_invalidate ... ok
+test receipt_base::tests::test_canonical_json_deterministic ... ok
+test receipt_base::tests::test_validate_receipt_failure_requires_reason ... ok
+test receipt_base::tests::test_validate_receipt_success ... ok
+test evidence::tests::promotion_requires_verification_and_rejection_evidence ... ok
+test evidence::tests::lifecycle_rejects_unproven_promotion_and_accepts_verified_path ... ok
+test evidence::tests::signed_receipt_detects_tampering ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_creativity-e0e45fc317a553f3.exe)
+
+running 21 tests
+test creativity_engine::tests::test_config_defaults ... ok
+test consolidation::tests::test_consolidate_records_success ... ok
+test consolidation::tests::test_consolidate_records_failure ... ok
+test dopamine::tests::test_actual_reward_mapping ... ok
+test creativity_engine::tests::test_engine_defaults_disabled_returns_empty ... ok
+test creativity_engine::tests::test_post_tick_updates_metrics_on_validated ... ok
+test creativity_engine::tests::test_engine_no_budget_returns_empty ... ok
+test creativity_engine::tests::test_memory_roundtrip_preserves_hypotheses_and_metrics ... ok
+test dopamine::tests::test_dopamine_decreases_exploration_on_negative_rpe ... ok
+test dopamine::tests::test_dopamine_increases_exploration_on_positive_rpe ... ok
+test dopamine::tests::test_expected_default ... ok
+test dreaming::tests::test_dreaming_produces_hypotheses ... ok
+test dreaming::tests::test_simulation_exposes_structured_state_delta ... ok
+test dreaming::tests::test_novelty_higher_for_new_concepts ... ok
+test dreaming::tests::test_imagination_recombines_memory_and_simulates_before_execution ... ok
+test salience::tests::test_salience_filters_low_novelty ... ok
+test persistence_tests::absent_checkpoint_is_a_clean_start ... ok
+test salience::tests::test_salience_respects_max_focus ... ok
+test tests::test_module_imports ... ok
+test persistence_tests::engine_memory_and_metrics_survive_process_boundary ... ok
+test persistent_engine_tests::persistent_engine_checkpoints_each_tick_boundary ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_dna-7a4ce7c0f1c409d9.exe)
+
+running 27 tests
+test seal_tests::compiled_genome_is_draft_by_default ... ok
+test seal_tests::seal_flips_status_to_sealed_without_key ... ok
+test seal_tests::seal_rejects_already_sealed ... ok
+test point_mutation::tests::point_mutation_changes_one_base_and_keeps_source ... ok
+test tests::budding_pair_preserves_mother_scar_lineage ... ok
+test tests::clone_rejects_unknown_mode ... ok
+test tests::clone_keeps_lineage_and_new_identity ... ok
+test tests::content_hash_is_stable ... ok
+test tests::compile_encode_decode_validate ... ok
+test tests::budding_clone_uses_explicit_seed_for_mutation ... ok
+test seal_tests::derived_genomes_are_always_draft ... ok
+test tests::decoy_sets_flag_and_marker ... ok
+test tests::development_stage_changes_phenotype ... ok
+test tests::cross_produces_biparental_child ... ok
+test tests::grn_edges_change_expression_causally ... ok
+test tests::graft_adds_gene_and_plasmid ... ok
+test tests::invalid_chromatin_code_is_rejected ... ok
+test tests::epigenome_grn_development_round_trip ... ok
+test tests::packing_round_trip ... ok
+test tests::methylation_mark_silences_gene ... ok
+test tests::e2e_mutation_expression_fitness_selection_replay ... ok
+test tests::speciate_derives_new_genome_with_concepts ... ok
+test tests::mutate_records_and_changes_hash ... ok
+test tests::unknown_sections_are_preserved ... ok
+test tests::composite_sections_round_trip ... ok
+test seal_tests::seal_with_key_signs_and_seals ... ok
+test tests::signed_genome_verifies_and_tampering_fails ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_genome-c8a57321bf78e7dd.exe)
+
+running 91 tests
+test epigenome::tests::epigenome_different_same_genome ... ok
+test development::tests::signals_integrated ... ok
+test development::tests::same_genome_different_epigenome ... ok
+test development::tests::stress_does_not_affect_lineage ... ok
+test development::tests::methylation_blocks_lineage ... ok
+test development::tests::morphogen_determines_lineage ... ok
+test epigenome::tests::epigenome_inheritance_partial ... ok
+test epigenome::tests::epigenome_methylation_tracks_locus ... ok
+test epigenome::tests::epigenome_stage_advances ... ok
+test epigenome::tests::epigenome_stress_accumulates ... ok
+test fork::tests::fork_parent_ids_contains_single_parent ... ok
+test fork::tests::fork_produces_new_genome_id ... ok
+test fork::tests::fork_positive_divergence_differs_chromosomes ... ok
+test fork::tests::fork_with_partner_has_both_parents ... ok
+test fork::tests::fork_zero_divergence_identical_chromosomes ... ok
+test fossil::tests::test_extract_hard_parts_includes_genome_and_dna ... ok
+test fossil::tests::test_fossilize_with_expressed_gene_produces_favorable_marker ... ok
+test gene::plasmid_tests::plasmid_expression_uses_the_gene_regulation_pipeline ... ok
+test genome::tests::clone_gene_count_equals_original_gene_count ... ok
+test genome::tests::clone_generation_equals_original_generation ... ok
+test genome::tests::clone_parent_ids_contains_original_genome_id ... ok
+test genome::tests::clone_produces_identical_chromosome_sequences ... ok
+test genome::tests::clone_produces_new_genome_id ... ok
+test genome::tests::derived_child_carries_parent_generation_and_ploidy ... ok
+test fossil::tests::test_fossilize_genome_creates_valid_fossil ... ok
+test genome::tests::reproductive_child_partially_resets_facultative_epigenetics ... ok
+test genome::tests::instinct_loci_are_exempt_from_stochastic_mutation ... ok
+test genome::tests::hypermutation_with_zero_rate_does_not_mutate ... ok
+test genome::tests::test_double_strand_repair_replaces_the_broken_region ... ok
+test genome::tests::test_content_hash_ignores_identity_but_detects_content ... ok
+test genome::tests::test_validation_rejects_invalid_gene_exon_range ... ok
+test genome::tests::test_validation_rejects_empty_chromosome ... ok
+test genome::tests::test_yamanaka_reprogramming ... ok
+test grn::tests::grn_default_works ... ok
+test grn::tests::grn_propagation_converges ... ok
+test genome::tests::test_fingerprint_detects_genome_mutation ... ok
+test grn::tests::grn_stress_basal_increases ... ok
+test metacognition::tests::adjustment_modifies_operator_probabilities ... ok
+test metacognition::tests::apply_reduce_bias_works_on_pool ... ok
+test metacognition::tests::detect_bias_aggregates_across_generations ... ok
+test genome::tests::test_genome_mutate_stochastic_and_hypermutate ... ok
+test metacognition::tests::detect_bias_not_inflated_by_single_generation_max ... ok
+test metacognition::tests::detect_bias_returns_zero_when_empty ... ok
+test metacognition::tests::metacognition_returns_stagnation_for_flat_inputs ... ok
+test metacognition::tests::monitor_diversity_signals_use_snapshot ... ok
+test metacognition::tests::monitor_records_operator_usage ... ok
+test metacognition::tests::monitor_records_real_fitness_not_zeros ... ok
+test metacognition::tests::self_model_detects_loop_in_repeating_trajectory ... ok
+test metacognition::tests::self_model_detects_stagnation_in_flat_trajectory ... ok
+test metacognition::tests::self_model_no_stagnation_with_progress ... ok
+test metacognition::tests::run_cycle_executes_full_metacognitive_loop ... ok
+test niches::tests::environment_shift_rotates_weights ... ok
+test niches::tests::environment_weighted_fitness_computes_correctly ... ok
+test niches::tests::qd_archive_inserts_into_correct_niche ... ok
+test niches::tests::qd_archive_rejects_worse_fitness ... ok
+test phase_d::tests::environment_shift ... ok
+test phase_d::tests::experimental_fitness_ablation ... ok
+test phase_d::tests::experimental_fitness_measure ... ok
+test phase_d::tests::operator_pool_adapt_low_diversity ... ok
+test phase_d::tests::experimental_fitness_significance ... ok
+test phase_d::tests::phase_d_cycle_shift_and_adapt ... ok
+test phase_d::tests::qd_engine_expand ... ok
+test phase_d::tests::phase_d_cycle_evaluate ... ok
+test phase_d::tests::qd_engine_insert ... ok
+test phenotype::tests::methylation_silences_phenotype_expression ... ok
+test phenotype::tests::phenotype_domains_extracted ... ok
+test phenotype::tests::phenotype_express_from_gene ... ok
+test phenotype::tests::phenotype_novelty_strong_for_empty_archive ... ok
+test phenotype::tests::phenotype_stability_nonzero ... ok
+test plasmid_v2::tests::plasmid_acquired_from_hgt ... ok
+test plasmid_v2::tests::plasmid_incompatibility_prevents_add ... ok
+test plasmid_v2::tests::plasmid_lost_without_energy ... ok
+test plasmid_v2::tests::plasmid_pool_cycle_prunes_lost ... ok
+test plasmid_v2::tests::plasmid_replication_probabilistic ... ok
+test plasmid_v2::tests::pool_cycle_respects_total_energy_budget ... ok
+test plasmid_v2::tests::seeded_replication_has_reproducible_instance_ids ... ok
+test reproduction::tests::divergence_is_positive_for_different_genomes ... ok
+test reproduction::tests::divergence_is_zero_for_identical_genomes ... ok
+test reproduction::tests::fertilization_inherits_unique_genes_from_both_parents ... ok
+test reproduction::tests::fertilized_child_has_both_parents_in_parent_ids ... ok
+test replay::tests::fitness_trajectory_has_correct_length ... ok
+test replay::tests::fossil_record_round_trip_preserves_genome ... ok
+test reproduction::tests::fertilized_child_has_valid_genome_id ... ok
+test self_modifying::tests::auto_adjust_decreases_mutation_on_improvement ... ok
+test reproduction::tests::lineage_tree_detects_forks ... ok
+test self_modifying::tests::auto_adjust_increases_mutation_on_decline ... ok
+test replay::tests::replay_with_empty_events_returns_single_genome ... ok
+test self_modifying::tests::self_modifying_mutator_mutates ... ok
+test translation::tests::test_translate_non_canonical_mrna ... ok
+test replay::tests::replay_with_mutate_events_changes_genome ... ok
+test plasmid_v2::tests::pool_growth_has_a_hard_ceiling ... ok
+
+test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_immune-f029358064b833f4.exe)
+
+running 10 tests
+test tests::test_affinity_threshold_is_bounded ... ok
+test tests::test_autotomy_and_honeypot ... ok
+test tests::test_antibody_detection ... ok
+test tests::test_circuit_breaker_recovers_through_half_open ... ok
+test tests::test_circuit_breaker_rejects_zero_threshold ... ok
+test tests::test_clonal_memory_deduplicates_recognitions ... ok
+test tests::test_clonal_expansion_and_hypermutation ... ok
+test tests::test_gossip_and_service_regeneration ... ok
+test tests::test_virology_preserves_payloads ... ok
+test tests::test_clonal_memory_persists ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\main.rs (target\debug\deps\genos_mcp-c9fc2993262dd0eb.exe)
+
+running 24 tests
+test executor::backend_dispatch::tests::tools_without_backend_route_fail_closed ... ok
+test executor::backend_dispatch::tests::explicit_backend_failure_cannot_be_successful_transport ... ok
+test executor::executor_results::tests::primitive_failure_is_exposed_as_mcp_error ... ok
+test omega::graph_validation::tests::version_numbers_do_not_wrap_or_default ... ok
+test omega::tests::legacy_json_is_migrated_to_v1 ... ok
+test omega::tests::compatibility_matrix_and_error_codes_are_stable ... ok
+test omega::graph_validation::tests::reject_bad_graph_before_any_execution ... ok
+test omega::tests::shared_vector_decodes_and_round_trips ... ok
+test omega_dispatch::tests::omega_tools_obey_path_and_schema_validation ... ok
+test omega_dispatch::tests::production_rejects_supplied_success_and_proof ... ok
+test omega_semantic_registry::tests::catalog_exposes_domain_handlers ... ok
+test tests::process_request_handles_headers_and_preambles ... ok
+test omega_runtime::tests::executes_all_semantic_operations ... ok
+test tests::process_request_rejects_explicit_null_tool_arguments ... ok
+test tests::process_request_executes_omega_graphs_through_the_mcp_path ... ok
+test tests::path_arguments_reject_traversal_and_absolute_paths ... ok
+test tests::tool_arguments_reject_missing_required_values ... ok
+test tools::lease_tests::exposure_is_disabled_by_default_and_guarded_in_production ... ok
+test tools::lease_tests::lease_expires_at_the_boundary_and_invalid_values_fail_closed ... ok
+test tools::lease_tests::specialized_biomimicry_calls_require_a_capability_scope ... ok
+test tools::lease_tests::specialized_capability_scope_is_exact_and_disable_overrides_grant ... ok
+test omega::tests::bounded_mutations_never_panic ... ok
+test tests::read_bounded_keeps_only_the_configured_head ... ok
+test tools::lease_tests::backend_bridged_tools_come_from_canonical_catalog ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_orchestrator-65436fc6394b04c2.exe)
+
+running 105 tests
+test adversarial_generator::tests::test_suite_generation ... ok
+test adversarial_generator::tests::test_generator_deterministic ... ok
+test adversarial_generator::tests::test_all_categories_covered ... ok
+test checkpoint::hgt::tests::malformed_or_ambiguous_donor_state_is_rejected_before_capture ... ok
+test animal_sensory_runtime::tests::invalid_synthetic_signal_is_rejected_before_runtime_mutation ... ok
+test authorized_therapy::tests::clinical_source_receipt_must_prove_the_authorized_target_state ... ok
+test animal_sensory_runtime::tests::polarized_vision_is_bounded_and_provenanced ... ok
+test animal_sensory_runtime::tests::synthetic_electrosense_is_measured_and_recorded_with_origin ... ok
+test choanocyte_receipt::tests::malformed_bootstrap_trust_fails_closed ... ok
+test checkpoint::hgt::tests::changed_state_and_unsupported_schema_fail_closed ... ok
+test checkpoint::hgt::tests::donor_and_plasmids_restore_only_for_their_mission ... ok
+test animal_sensory_runtime::tests::typed_vomeronasal_thermal_and_echo_signals_emit_measured_receipts ... ok
+test conscience::tests::test_conscience_evaluation_and_apoptosis ... ok
+test conscience::tests::test_negative_progress_is_neutralized ... ok
+test choanocyte_receipt::tests::stream_receipt_refuses_unbound_mission ... ok
+test core_self::tests::agency_calibration_is_zero_without_history ... ok
+test core_self::tests::executed_action_with_divergent_outcome_is_not_attributed ... ok
+test core_self::tests::executed_action_with_matching_outcome_is_attributed_to_self ... ok
+test core_self::tests::coincidence_without_execution_is_not_attributed ... ok
+test core_self::tests::provenance_distinguishes_self_from_world ... ok
+test core_self::tests::record_cycle_builds_complete_core_self_state ... ok
+test core_self::tests::record_cycle_without_intention_has_no_attribution ... ok
+test choanocyte_receipt::tests::stream_receipt_fails_closed_when_runtime_producer_is_not_active ... ok
+test choanocyte_receipt::tests::stream_rejects_missing_or_duplicate_packet_identity_before_filtering ... ok
+test durable_receipts::tests::rust_origin_signature_matches_backend_contract ... ok
+test choanocyte_receipt::tests::stream_rejects_unknown_external_producer_even_with_a_signature ... ok
+test choanocyte_receipt::tests::stream_signature_is_bound_to_mission_and_payload ... ok
+test choanocyte_receipt::tests::persisted_receipt_binds_actual_stream_to_mission_and_survives_reopen ... ok
+test choanocyte_receipt::tests::same_stream_in_another_mission_gets_a_distinct_receipt ... ok
+test electric_quorum_runtime::tests::voter_authority_rejects_missing_or_malformed_trust_configuration ... ok
+test global_workspace::tests::fragmented_state_lowers_integration_index ... ok
+test global_workspace::tests::confidence_grows_with_real_learning_episodes ... ok
+test global_workspace::tests::healthy_organism_has_low_salience_and_no_broadcast ... ok
+test global_workspace::tests::membrane_crisis_wins_global_access_and_repairs ... ok
+test global_workspace::tests::starvation_broadcast_raises_survival_drive ... ok
+test hgt_runtime::receipt::tests::report_fields_are_validated_before_receipt_replay ... ok
+test instincts::tests::calm_state_does_not_trigger ... ok
+test instincts::tests::mission_threat_runs_authorized_paf_and_records_action_evidence ... ok
+test instincts::tests::budget_pressure_emits_resource_stimulus ... ok
+test instincts::tests::runtime_without_action_permissions_vetoes_dispatch ... ok
+test instincts::tests::threat_state_emits_sign_stimulus ... ok
+test lineage_archive::tests::fossilization_requires_and_preserves_versioned_lineage_provenance ... ok
+test membrane_chemistry::tests::lipogenesis_repair_consumes_atp_and_restores_real_integrity ... ok
+test membrane_chemistry::tests::lipogenesis_repair_fails_without_atp ... ok
+test metabolism::tests::execution_costs_share_auditable_registry_and_fail_closed ... ok
+test metrics_dashboard::tests::test_dashboard_serialization ... ok
+test metrics_dashboard::tests::test_epistemology_events ... ok
+test electric_quorum_runtime::tests::duplicate_votes_and_expired_requests_are_refused ... ok
+test metrics_dashboard::tests::test_governance_events ... ok
+test mission_crossover::tests::seeded_crossover_is_durable_idempotent_and_replayable_after_restart ... ok
+test mission_crossover::tests::replay_rejects_wrong_mission_and_tampered_child ... ok
+test mission_division::tests::mission_division_returns_and_persists_parent_child_lineage ... ok
+test physics::physics_tests::tests::action_legere_reste_avantageuse_meme_en_crise ... ok
+test mission_lineage::tests::mission_replay_is_seeded_and_persists_all_lineage_artifacts ... ok
+test physics::physics_tests::tests::action_lourde_et_risquee_a_une_utilite_penalisee_par_le_risque_de_rupture ... ok
+test physics::physics_tests::tests::budget_bas_active_le_regime_de_conservation ... ok
+test electric_quorum_runtime::tests::altered_or_unknown_identity_votes_are_refused_without_persisting_or_mutating ... ok
+test physics::physics_tests::tests::fichier_de_log_est_du_sediment_peu_exigeant ... ok
+test physics::physics_tests::tests::inertie_haute_augmente_le_seuil_de_pivot ... ok
+test physics::physics_tests::tests::menace_et_maladie_elevent_le_risque_de_rupture_jusqu_a_la_revue_humaine ... ok
+test physics::physics_tests::tests::nom_seul_ne_confere_pas_de_grade_a_preuve_forte ... ok
+test physics::physics_tests::tests::pression_forte_reduit_le_seuil_de_pivot ... ok
+test physics::physics_tests::tests::type_explicite_incoherent_avec_nom_reste_plafonne ... ok
+test physics::physics_tests::tests::regime_de_consolidation_bloque_toute_expansion ... ok
+test physics::physics_tests::tests::type_explicite_croise_avec_nom_confere_cristal ... ok
+test population_registry::tests::population_snapshot_preserves_cell_and_spore_lineage ... ok
+test process_file_lock::tests::existing_sidecar_file_can_be_locked_again_after_release ... ok
+test plasmids::tests::transfert_direct_refuse_sans_muter_le_receveur ... ok
+test process_file_lock::tests::lock_holder_child_process ... ok
+test self_evolution::tests::all_strates_active_is_viable_in_hostile_env ... ok
+test self_evolution::tests::benefit_profile_permutation_controls_selection ... ok
+test self_evolution::tests::empty_self_dies_or_underperforms_in_hostile_env ... ok
+test self_evolution::tests::evolution_rejects_costly_strata_in_predictable_env ... ok
+test self_evolution::tests::deceptive_env_selects_agency ... ok
+test self_evolution::tests::evolution_selects_strata_in_hostile_env ... ok
+test self_evolution::tests::hostile_prescribed_survives_contrast ... ok
+test self_evolution::tests::over_activation_can_kill_by_metabolic_cost ... ok
+test self_evolution::tests::predictable_prescribed_dies_early_artifact ... ok
+test process_file_lock::tests::process_exit_releases_the_kernel_lock ... ok
+test sensory_paf_bridge::tests::multiple_paf_receipts_can_share_a_source_only_within_one_tick ... ok
+test self_evolution::tests::reports_are_deterministic_per_seed ... ok
+test sensory_receipt_runtime::tests::digest_is_bound_to_mission_identity ... ok
+test sensory_receipt_runtime::tests::digest_mismatch_is_rejected ... ok
+test tests::test_biomimetic_orchestrator_lifecycle ... ok
+test tests::test_orchestrator_uses_immune_selection ... ok
+test tests::test_token_bucket_scheduler_lifecycle ... ok
+test self_evolution::tests::full_experiment_runs_all_environments ... ok
+test tick::receipt_tests::neural_mission_signal_ignores_non_finite_input ... ok
+test tick::receipt_tests::receipt_correlates_real_root_cell_genome_mission_and_cost ... ok
+test tick::receipt_tests::receipt_does_not_invent_a_genome_for_an_unseeded_root_cell ... ok
+test tick::receipt_tests::refused_metabolic_debit_is_not_reported_as_consumed_or_completed ... ok
+test tick::receipt_tests::tick_delivers_measured_threat_into_neural_runtime ... ok
+test creativity::persistence::tests::historical_engine_restores_memory_after_process_restart ... ok
+test tissue_scheduler::tests::tissue_scheduler_rejects_when_full ... ok
+test tissue_scheduler::tests::tissue_scheduler_schedules_and_completes ... ok
+test volition::tests::desir_libre_croit_en_securite_et_ne_resout_aucun_deficit ... ok
+test volition::tests::desir_libre_s_efface_devant_l_urgence_sans_etre_requis_par_elle ... ok
+test durable_receipts::tests::persisted_tick_contains_population_snapshot_for_restart_recovery ... ok
+test volition::tests::reflexe_vital_court_circuite_le_director_hors_de_toute_mission ... ok
+test volition::tests::survival_drive_persiste_au_dela_de_l_instant_qui_l_a_fait_naitre ... ok
+test instincts::tests::mission_tick_persists_instinct_stimulus_decision_and_action_receipts ... ok
+test tick::cell_metabolism_tests::mission_tick_applies_and_records_active_cell_metabolism ... ok
+test tick::receipt_tests::mission_tick_applies_guard_cell_backpressure_to_planning_budget ... ok
+test electric_quorum_runtime::tests::conflicting_signed_votes_cannot_replace_an_idempotent_receipt ... ok
+test electric_quorum_runtime::tests::authenticated_durable_quorum_appends_before_mutation_and_replays ... ok
+
+test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.67s
+
+     Running tests\api_feature.rs (target\debug\deps\api_feature-5edb776e924a542b.exe)
+
+running 2 tests
+test api_feature_exposes_security_and_types ... ok
+test thalamus_complexity_scoring_works_offline ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\autopoiesis.rs (target\debug\deps\autopoiesis-1e2825e8d9d95511.exe)
+
+running 5 tests
+test membrane_rompue_egale_mort ... ok
+test la_membrane_totale_repare_la_coherence_semantique ... ok
+test l_auto_reparation_regenere_la_membrane_et_l_adn ... ok
+test la_membrane_se_degrade_dans_le_temps ... ok
+test le_tick_recupere_un_genome_perdu ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+
+     Running tests\behaviors.rs (target\debug\deps\behaviors-fb068f9fae0340f8.exe)
+
+running 1 test
+test feinte_glie_et_communication has been running for over 60 seconds
+test feinte_glie_et_communication ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.15s
+
+     Running tests\checkpoint_recovery.rs (target\debug\deps\checkpoint_recovery-f94425209da06879.exe)
+
+running 5 tests
+test checkpoint_manager_creation ... ok
+test checkpoint_manager_records_and_checkpoints ... ok
+test recovery_plan_generation ... ok
+test durable_checkpoint_restores_spore_lineage_and_wake_state ... ok
+test checkpoint_restores_receipt_tick_without_reusing_a_sequence ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests\director_persistence.rs (target\debug\deps\director_persistence-bb19bc30685556c8.exe)
+
+running 3 tests
+test le_cout_du_stress_sadapte_automatiquement_selon_les_issues_observees ... ok
+test labsence_de_snapshot_ne_recharge_rien ... ok
+test l_experience_du_directeur_survit_a_un_redemarrage_du_processus ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\drives.rs (target\debug\deps\drives-aecbe7a4c542f6ac.exe)
+
+running 6 tests
+test drives_derivent_du_monde_et_choisissent_un_but ... ok
+test stress_and_survival_pressure_do_not_enable_destructive_actions ... ok
+test gate_autonome_bloque_sans_dependance_cellulaire ... ok
+test apoptose_inhibe_la_volition_sans_ressusciter_l_agent ... ok
+test boucle_permanente_reprend_sans_operateur ... ok
+test boucle_autonome_sans_but_externe ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests\ecosystem.rs (target\debug\deps\ecosystem-6e6935296edfd603.exe)
+
+running 7 tests
+test ecosystem_reexports_non_runtime_crates ... ok
+test ecosystem_exposes_neuro_and_virology ... ok
+test ecosystem_exposes_store_and_reproduction_complements ... ok
+test ecosystem_exposes_signaling_dna_cyber_senses_phylogeny ... ok
+test ecosystem_gives_access_to_every_subsystem ... ok
+test ecosystem_exposes_pathology_glial_and_specialized_cells ... ok
+test ecosystem_exposes_genome_ops_snapshots_and_sensorimotor_bridge ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\electric_quorum_process_restart.rs (target\debug\deps\electric_quorum_process_restart-62b098113f1af4c5.exe)
+
+running 2 tests
+test electric_quorum_replay_child ... ok
+test accepted_signed_electric_quorum_restores_from_journal_in_child_process ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests\environment.rs (target\debug\deps\environment-625e38e1f5f0d18c.exe)
+
+running 3 tests
+test sandbox_interdit_la_remontee ... ok
+test spec_absente_echoue ... ok
+test boucle_incarnee_rend_la_sortie_conforme ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\epigenetic_recruitment.rs (target\debug\deps\epigenetic_recruitment-05455ba9e9583a0e.exe)
+
+running 1 test
+test persisted_methylation_changes_runtime_recruitment_role ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\epigenetic_recruitment_process_restart.rs (target\debug\deps\epigenetic_recruitment_process_restart-e42d58cf7909404e.exe)
+
+running 2 tests
+test epigenetic_recruitment_child_process ... ok
+test role_methylation_recruitment_restores_and_replays_in_child_process ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\evolution.rs (target\debug\deps\evolution-0f707a71c92ebaae.exe)
+
+running 6 tests
+test la_boucle_innovation_s_arrete_sans_preuve ... ok
+test un_cycle_evolutif_evalue_puis_reproduit ... ok
+test la_boucle_innovation_selectionne_les_variantes_prouvees ... ok
+test la_nouveaute_s_accumule_et_la_population_reste_stable ... ok
+test l_evolution_ameliore_la_fitness ... ok
+test l_evolution_est_deterministe_a_seed_egal ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\fossilization.rs (target\debug\deps\fossilization-1d94d14f1b0752b7.exe)
+
+running 2 tests
+test orchestrator_fossil_rejects_tampering ... ok
+test orchestrator_can_fossilize_arbitrarily ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\guard_cell_process_restart.rs (target\debug\deps\guard_cell_process_restart-f3d7887304b1c95e.exe)
+
+running 4 tests
+test guard_flux_restart_child ... ok
+test guard_flux_append_failure_rolls_back_pool_energy_and_pore ... ok
+test refused_guard_flux_persists_without_pool_or_pore_mutation ... ok
+test guard_flux_state_and_idempotent_replay_survive_process_restart ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\hgt_authority.rs (target\debug\deps\hgt_authority-7bd3ec2fc774f4b5.exe)
+
+running 5 tests
+test hgt_transfer_child_process ... ok
+test absent_or_revoked_authority_refuses_before_receiver_mutation ... ok
+test unknown_tampered_or_expired_hgt_leases_are_rejected ... ok
+test external_ed25519_lease_transfers_and_replays_from_durable_receipt ... ok
+test independent_processes_serialize_same_lease_and_replay_one_receipt ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests\hgt_checkpoint_restart.rs (target\debug\deps\hgt_checkpoint_restart-e3ea7534ff1bc87e.exe)
+
+running 3 tests
+test altered_or_cross_mission_hgt_checkpoint_refuses_before_ecosystem_mutation ... ok
+test mission_checkpoint_restores_hgt_donor_and_plasmids_after_manager_restart ... ok
+test restored_checkpoint_donor_can_transfer_under_host_pinned_lease_and_replay_receipt ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests\instinct.rs (target\debug\deps\instinct-1f5531e8d237ab37.exe)
+
+running 4 tests
+test orchestrator_can_veto_an_instinct_tool ... ok
+test orchestrator_encodes_and_runs_an_instinct_at_will ... ok
+test run_autonomous_evaluates_instincts_each_tick ... ok
+test tick_evaluates_instincts_automatically ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+     Running tests\instinct_paf_process_restart.rs (target\debug\deps\instinct_paf_process_restart-e2b45c0c1aa10506.exe)
+
+running 2 tests
+test instinct_paf_restart_reader ... ok
+test action_bearing_paf_receipt_survives_process_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+     Running tests\iridophore_process_restart.rs (target\debug\deps\iridophore_process_restart-07cf38869cb5233f.exe)
+
+running 2 tests
+test iridophore_restart_child_process ... ok
+test perspective_render_survives_process_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\kernel_control.rs (target\debug\deps\kernel_control-d83382711b4ef131.exe)
+
+running 8 tests
+test incarnation_refuse_sans_phenotype ... ok
+test diagnose_classifie_epistemique_avant_topologie ... ok
+test gouvernance_bloque_un_plan_qui_demande_une_approbation ... ok
+test scout_ne_peut_pas_changer_topologie ... ok
+test kernel_applique_et_signale_une_reconfiguration_cognitive ... ok
+test planner_hysteresis_retourne_no_change_sur_gain_faible ... ok
+test resolvers_proposent_verifier_sur_contradiction ... ok
+test kernel_step_applique_la_gouvernance_sans_fabriquer_de_commit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\kernel_nosology.rs (target\debug\deps\kernel_nosology-90065fa0a1efc220.exe)
+
+running 2 tests
+test signal_non_confirme_ne_devient_pas_une_pathologie ... ok
+test pathologie_confirmee_isole_l_agent_concerne ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\kernel_runtime_verifier.rs (target\debug\deps\kernel_runtime_verifier-cd9da414a3443836.exe)
+
+running 3 tests
+test verifies_durable_node_worker_and_homeostasis_evidence ... ok
+test rejects_a_worker_receipt_from_another_mission ... ok
+test rejects_a_tampered_worker_receipt_hash ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests\learning.rs (target\debug\deps\learning-932861482d1f74aa.exe)
+
+running 3 tests
+test assignation_de_credit_propage_au_plan ... ok
+test bandit_apprend_une_recompense_contextuelle ... ok
+test le_directeur_transfere_son_apprentissage ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\metabolic_pool_enforcement.rs (target\debug\deps\metabolic_pool_enforcement-64f5b9e34c1ededb.exe)
+
+running 2 tests
+test mission_pool_consumption_measures_success_and_refusal ... ok
+test guard_flux_uses_the_mission_pool_and_closes_when_depleted ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\metabolic_pool_process_restart.rs (target\debug\deps\metabolic_pool_process_restart-95efe77248c3eb87.exe)
+
+running 4 tests
+test metabolic_pool_restart_child ... ok
+test failed_journal_append_rolls_back_pool_without_receipt_event ... ok
+test legacy_durable_receipt_replay_recovers_identity_from_snapshot ... ok
+test metabolic_pool_state_and_operation_survive_process_restart ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\metabolism.rs (target\debug\deps\metabolism-f15abc7aa69edaab.exe)
+
+running 4 tests
+test metaboliser_du_glucose_produit_reellement_de_atp_et_conserve_la_masse ... ok
+test la_famine_arrete_le_tick ... ok
+test famine_bloque_les_actions_et_le_feed_les_restaure ... ok
+test le_metabolisme_se_recharge_dans_le_temps_reel ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\mission_crossover_process_restart.rs (target\debug\deps\mission_crossover_process_restart-9a8c2fb6c0ab0964.exe)
+
+running 2 tests
+test crossover_child_process_entrypoint ... ok
+test crossover_receipt_replays_in_a_distinct_process ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\mission_division_atomicity.rs (target\debug\deps\mission_division_atomicity-30aa86b24c4ca737.exe)
+
+running 2 tests
+test receipt_append_failure_rolls_back_division_state ... ok
+test batched_recovery_append_failure_rolls_back_division_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\mission_division_process_restart.rs (target\debug\deps\mission_division_process_restart-52c08ef37ad81ffc.exe)
+
+running 2 tests
+test division_restart_child_process ... ok
+test divided_cells_and_genomes_survive_process_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\mission_neuro_glia_event_stream.rs (target\debug\deps\mission_neuro_glia_event_stream-3c48a80ec5132f31.exe)
+
+running 3 tests
+test event_without_mission_response_is_refused_without_stream_append ... ok
+test stream_idempotency_mission_scope_and_corruption_fail_closed ... ok
+test ordered_neuro_glia_stream_replays_after_process_restart ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\mission_neuro_glia_process_restart.rs (target\debug\deps\mission_neuro_glia_process_restart-b19603af1f3bdf93.exe)
+
+running 2 tests
+test glial_response_restart_child_process ... ok
+test glial_response_and_population_replay_in_child_process ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\mission_neuro_glia_quorum.rs (target\debug\deps\mission_neuro_glia_quorum-719babbeebdd8dfc.exe)
+
+running 1 test
+test mission_quorum_excludes_apoptotic_cells_from_signaling_density ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\nosology_authorization.rs (target\debug\deps\nosology_authorization-c517b76d0d17841f.exe)
+
+running 5 tests
+test stale_or_forged_authorization_cannot_change_the_cell ... ok
+test authorization_rejects_a_same_mission_receipt_without_target_state ... ok
+test no_target_receipt_never_claims_a_treatment_was_administered ... ok
+test unsafe_treatment_is_a_durable_refusal ... ok
+test authorized_marker_change_is_durable_and_idempotent ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\nosology_therapy.rs (target\debug\deps\nosology_therapy-1b3faa53dae7f2cf.exe)
+
+running 1 test
+test ecosystem_routes_scoped_nosology_therapy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\observer.rs (target\debug\deps\observer-1c54649b5c273d6d.exe)
+
+running 1 test
+test observe_reflete_l_ecosysteme_vivant ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\orchestrator.rs (target\debug\deps\orchestrator-d62fdb142f2d35ce.exe)
+
+running 11 tests
+test test_failed_endosymbiosis_is_atomic ... ok
+test test_failed_germination_preserves_dormant_spore ... ok
+test test_endosymbiosis ... ok
+test test_germinated_cell_rejoins_its_tissue ... ok
+test test_add_worker_does_not_orphan_cell_on_unknown_tissue ... ok
+test test_cleave_does_not_register_unlinked_cells ... ok
+test test_endosymbiosis_detaches_symbiont_from_tissue ... ok
+test test_invariants_hold_across_lifecycle ... ok
+test test_sporulation_detaches_cell_from_tissue ... ok
+test test_sporulation_preserves_genome_lineage ... ok
+test test_invariants_under_random_operations ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\organism.rs (target\debug\deps\organism-771488cc45ea1269.exe)
+
+running 5 tests
+test organisme_meurt_si_membrane_rompue ... ok
+test organisme_percoit_decide_et_reste_vivant ... ok
+test evolution_est_executee_dans_la_boucle ... ok
+test organisme_se_repare_et_se_nourrit ... ok
+test run_organism_survit_plusieurs_cycles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+     Running tests\organization.rs (target\debug\deps\organization-a5fff859bd04336e.exe)
+
+running 4 tests
+test forme_superieure_choisie_avec_repli ... ok
+test catalogue_contient_les_19_organisations ... ok
+test le_directeur_choisit_l_organisation_selon_l_etat ... ok
+test la_decision_du_directeur_porte_l_organisation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\organization_step.rs (target\debug\deps\organization_step-6776ade849347b43.exe)
+
+running 5 tests
+test routage_ranked_et_adversarial ... ok
+test autorite_couvre_les_19_organisations ... ok
+test execution_miroir_des_algorithmes_essaim ... ok
+test familles_de_pas ... ok
+test resume_global_pondere ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\perception_continuity.rs (target\debug\deps\perception_continuity-61a442bdb0e154a2.exe)
+
+running 1 test
+test agent_reobserves_a_world_changed_during_its_task ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\physical_calibration_contract.rs (target\debug\deps\physical_calibration_contract-6ccf14975ff43b80.exe)
+
+running 8 tests
+test constants_need_real_samples_and_are_bounded ... ok
+test no_action_does_not_train_costs ... ok
+test invalid_moments_and_overflow_cannot_poison_learned_references ... ok
+test invalid_profile_is_rejected_and_old_snapshot_is_compatible ... ok
+test corrupt_snapshot_is_reported_without_losing_valid_profile ... ok
+test profiles_are_restored_and_isolated_by_goal ... ok
+test broken_persistence_is_visible ... ok
+test full_decision_payload_or_explicit_context_is_measured ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\physical_measurement_contract.rs (target\debug\deps\physical_measurement_contract-ff2235c1c89f097f.exe)
+
+running 8 tests
+test inventories_real_sizes_and_marks_limits ... ok
+test unresolved_and_oversized_sources_are_partial ... ok
+test expired_reports_are_rejected ... ok
+test changed_source_invalidates_coverage ... ok
+test istanbul_statement_lines_are_deduplicated ... ok
+test invalid_and_missing_reports_do_not_become_zero_coverage ... ok
+test lcov_deduplicates_lines_and_branches ... ok
+test nested_manifests_and_actual_local_edges_are_measured ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\physical_policy_contract.rs (target\debug\deps\physical_policy_contract-a71089d9aac1fe85.exe)
+
+running 7 tests
+test plasticity_and_resonance_change_pivot_threshold ... ok
+test expansion_is_rejected_in_restricted_regimes ... ok
+test every_new_cost_dimension_changes_utility ... ok
+test nonfinite_budget_and_cost_inputs_do_not_escape_control ... ok
+test physical_costs_affect_executable_plan_utilities ... ok
+test tick_emits_measured_decision_and_zero_run_does_not_train ... ok
+test run_calibrates_consumed_actions_and_persists_automatically ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\planner.rs (target\debug\deps\planner-d145ee94c103bd3f.exe)
+
+running 3 tests
+test doctorat_soigne_tue_communique_et_s_arrete ... ok
+test licence_le_directeur_choisit_les_concepts_du_but ... ok
+test master_apprend_et_change_de_decision ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\process_sandbox.rs (target\debug\deps\process_sandbox-7e5e66f5bf9e32bc.exe)
+
+running 2 tests
+test process_sandbox_refuse_un_binaire_non_allowliste ... ok
+test process_sandbox_execute_un_binaire_allowliste ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\receipt_recovery.rs (target\debug\deps\receipt_recovery-8872581a2845833a.exe)
+
+running 2 tests
+test population_journal_restores_dormant_spore_and_lineage_after_reopen ... ok
+test normal_tick_persists_and_population_restores_without_new_identity ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+
+     Running tests\recruitment.rs (target\debug\deps\recruitment-620c5487a54c8204.exe)
+
+running 3 tests
+test doctorat_refuses_on_budget_and_rejects_impostors ... ok
+test master_covers_capabilities_and_prefers_trusted_candidates ... ok
+test licence_recruits_one_agent_per_required_role ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\reproduction_campaign_seed.rs (target\debug\deps\reproduction_campaign_seed-a45eee559c25b280.exe)
+
+running 2 tests
+test campaign_seed_restores_reproduction_and_rejects_changes_before_state_mutation ... ok
+test same_seed_retries_idempotently_and_distinct_seeds_derive_distinct_child_ids ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests\reproduction_cycle.rs (target\debug\deps\reproduction_cycle-bad31ffdf8aaeba3.exe)
+
+running 9 tests
+test le_tick_ne_ressuscite_pas_une_membrane_romptue ... ok
+test sans_lignee_amorcee_aucune_reproduction_ne_se_produit ... ok
+test reproduction_bloquee_si_membrane_trop_faible ... ok
+test reproduction_bloquee_si_atp_insuffisant ... ok
+test mitose_autonome_partage_le_budget_et_marque_la_mere ... ok
+test reproduction_emit_parent_seed_mutations_and_fingerprints ... ok
+test le_tick_repare_automatiquement_une_membrane_vivante ... ok
+test le_tick_trace_les_blocages_de_reproduction ... ok
+test lignee_cellulaire_continue_sur_plusieurs_generations_sans_operateur ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+     Running tests\reproduction_lineage_replay.rs (target\debug\deps\reproduction_lineage_replay-ccb64c0f4d47822d.exe)
+
+running 3 tests
+test replay_child_process ... ok
+test failed_receipt_append_rolls_back_birth_and_energy ... ok
+test mission_reproduction_lineage_replays_from_reopened_journal ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests\sensory_receipt_restart.rs (target\debug\deps\sensory_receipt_restart-f510005c538859c4.exe)
+
+running 2 tests
+test sensory_receipt_restart_child_process ... ok
+test synthetic_sensory_receipt_survives_process_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\specialized_cell_runtime.rs (target\debug\deps\specialized_cell_runtime-f85f3c9be6519513.exe)
+
+running 5 tests
+test tracheid_plan_executor_refuses_an_unmatched_target_or_invalid_input ... ok
+test tracheid_plan_executor_matches_baseline_transport_outputs_and_costs ... ok
+test tracheid_plan_executor_refuses_unknown_and_malformed_operations ... ok
+test tracheid_receipt_contains_typed_plan_and_baseline_cost_throughput_comparison ... ok
+test ecosystem_specialized_cells_return_measured_runtime_effects ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\spore_process_restart.rs (target\debug\deps\spore_process_restart-f936ac0f680913e4.exe)
+
+running 6 tests
+test spore_restart_child_process ... ok
+test mission_resume_fails_closed_when_journal_has_no_population_snapshot ... ok
+test legacy_population_snapshot_recovers_root_identity_and_tissue_membership ... ok
+test mission_resume_rejects_wrong_mission_without_mutating_runtime ... ok
+test mission_resume_selects_its_snapshot_and_restores_worker_tissue_membership ... ok
+test dormant_spore_survives_process_restart_and_germinates ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\stress_semantic.rs (target\debug\deps\stress_semantic-da1bf07842504633.exe)
+
+running 3 tests
+test beam_search_produit_un_plan_qui_atteint_le_but ... ok
+test stress_pese_sur_l_organisation ... ok
+test interpretation_semantique_de_la_mission has been running for over 60 seconds
+test interpretation_semantique_de_la_mission ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 97.66s
+
+     Running tests\token_bucket.rs (target\debug\deps\token_bucket-c2a51c511a76430d.exe)
+
+running 12 tests
+test penalize_waste_rejects_dead_agents ... ok
+test refill_survives_a_backwards_clock ... ok
+test bad_scores_do_not_corrupt_the_bucket ... ok
+test schedule_step_sanitizes_invalid_token_cost ... ok
+test reward_proof_rejects_dead_agents ... ok
+test reward_proof_capacity_is_capped ... ok
+test register_agent_does_not_resurrect_a_dead_bucket ... ok
+test invariants_hold_under_random_operations ... ok
+test severe_waste_triggers_apoptosis_even_with_tokens ... ok
+test starvation_is_counted_once_per_event ... ok
+test time_slice_increases_with_available_tokens ... ok
+test zero_score_reward_does_not_clear_starvation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\topology_transition.rs (target\debug\deps\topology_transition-b342e817208b8292.exe)
+
+running 1 test
+test destination_topologique_non_resolue_ne_change_pas_la_topologie ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\trace.rs (target\debug\deps\trace-47f9bd8ad6786288.exe)
+
+running 5 tests
+test replay_diagnostique_les_destins ... ok
+test plasmide_porte_une_competence_executable ... ok
+test l_orchestrateur_agit_selon_le_verdict ... ok
+test diagnostic_ne_transfere_pas_de_plasmide_sans_lease_hgt ... ok
+test mutation_et_croisement_sont_executes_sur_l_adn ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\worlds.rs (target\debug\deps\worlds-3f441c5ddd3f3004.exe)
+
+running 2 tests
+test budget_insuffisant_escalade_sans_promotion ... ok
+test trinity_execute_trois_mondes_isoles_et_promeut_le_meilleur ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_reproduction-a17368d95ce99dbb.exe)
+
+running 21 tests
+test phylogeny::tests::test_phylogenetic_relationships ... ok
+test crossover::tests::uniform_crossover_preserves_unilateral_loci ... ok
+test tests::test_all_division_modes_create_distinct_genomes ... ok
+test crossover::tests::uniform_crossover_deduplicates_plasmids_by_instruction ... ok
+test crossover::tests::test_meiotic_crossover_epigenetic_reprogramming ... ok
+test crossover::tests::uniform_crossover_preserves_unique_extra_chromosomes ... ok
+test crossover::tests::single_point_gene_split_tracks_breakpoint_endpoints ... ok
+test tests::test_binary_fission_stochastic_mutation_and_gene_sync ... ok
+test tests::test_budding_hayflick_limit_enforcement ... ok
+test tests::test_budding_hayflick_scars_and_asymmetry ... ok
+test tests::test_cell_division_mitosis ... ok
+test tests::test_crossover_epigenetic_reprogramming ... ok
+test tests::test_hybrid_has_new_genome_identity ... ok
+test tests::test_meiosis_chromatin_reprogramming_preserves_constitutive ... ok
+test tests::test_budding_mutation_is_reproducible_for_same_inputs ... ok
+test tests::test_meiosis_division_produces_four_gametes ... ok
+test tests::test_meiotic_crossover ... ok
+test tests::test_meiosis_with_mutation ... ok
+test tests::test_mitosis_attestation_and_spindle_checkpoint ... ok
+test tests::test_molecular_clock_diploid_both_strands ... ok
+test tests::test_schizogony_bounded_and_seeded ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_sensorimotor-274964c98efb2e51.exe)
+
+running 2 tests
+test predictive_tests::computes_normalized_error_from_registered_metrics ... ok
+test predictive_tests::rejects_contract_without_comparable_metrics ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_signal-eab5ab229024d5cc.exe)
+
+running 8 tests
+test tests::test_matrix_signal_decay ... ok
+test tests::test_signaling_and_reception ... ok
+test tests::test_stigmergy_continuous_evaporation_dt ... ok
+test tests::test_stigmergy_deposit_and_evaporation ... ok
+test tests::test_stigmergy_saturation_limit ... ok
+test tests::test_signals_reject_non_biological_concentrations ... ok
+test tests::test_stigmergy_repellent_anti_stigmergy ... ok
+test tests::test_stigmergy_json_serialization_roundtrip ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_simple_cli-52d9082d69885ef5.exe)
+
+running 7 tests
+test cargo_tests::rejects_empty_env ... ok
+test cargo_tests::rejects_missing_cargo_path ... ok
+test cargo_tests::rejects_other_binary_name ... ok
+test handlers::core::start_lock_tests::second_acquire_fails ... ok
+test handlers::core::start_lock_tests::acquire_succeeds_when_free ... ok
+test handlers::system::reachable_tests::closed_loopback_port_is_unreachable ... ok
+test handlers::system::reachable_tests::garbage_address_is_unreachable ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.72s
+
+     Running unittests src\main.rs (target\debug\deps\g-bba2a0566ee4e7e4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_sqlite_udfs-d942650a94618bde.exe)
+
+running 6 tests
+test tests::test_calibration_bin ... ok
+test tests::test_scope_key ... ok
+test tests::test_decay ... ok
+test tests::test_entropy ... ok
+test tests::test_evidence_weight ... ok
+test tests::test_brier_score ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_storage_gate-66764031795a4288.exe)
+
+running 2 tests
+test tests::default_engine_is_usable ... ok
+test tests::setup_agents_inserts_rows ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_store-eb14536033e1ca3e.exe)
+
+running 21 tests
+test capsule::creative_memory_tests::checkpoint_is_versioned_checksummed_and_survives_reload ... ok
+test biological_receipt::tests::receipt_batch_preserves_high_precision_biological_floats_after_reopen ... ok
+test capsule::creative_memory_tests::checkpoint_rejects_tampered_payload ... ok
+test continuation_wal::tests::wal_append_and_read ... ok
+test biological_receipt::tests::receipt_batch_survives_reopen_and_detects_tampering ... ok
+test tests::test_capsule_integrity ... ok
+test continuation_wal::tests::immutable_checkpoint_history_rejects_ambiguous_sequence ... ok
+test continuation_wal::tests::checkpoint_save_and_load ... ok
+test tests::test_cryptobiosis_freeze_and_thaw ... ok
+test tests::test_cryptobiosis_vitrified_spore ... ok
+test continuation_wal::tests::wal_persistence_across_restart ... ok
+test tests::test_event_store_append_and_read ... ok
+test snapshot::tests::persisted_snapshot_keeps_storage_id_after_reload ... ok
+test tests::test_fossilization_taphonomy_pipeline ... ok
+test tests::test_cryptobiosis_rejects_tampering ... ok
+test tests::test_fossil_strata_grouping ... ok
+test continuation_wal::tests::wal_verify_integrity ... ok
+test tests::test_fossilization_detects_tampering ... ok
+test tests::test_in_memory_vector_repository ... ok
+test continuation_wal::tests::immutable_checkpoint_history_rejects_corruption ... ok
+test continuation_wal::head_tests::selected_checkpoint_head_restores_older_state ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running unittests src\lib.rs (target\debug\deps\genos_worker-c3fd512e887b26ce.exe)
+
+running 23 tests
+test dreaming_promotion::tests::real_improvement_still_requires_a_separate_promotion_gate ... ok
+test dreaming_promotion::tests::synthetic_result_alone_never_proves_real_improvement ... ok
+test dreaming::tests::budget_and_evidence_origin_fail_closed ... ok
+test dreaming::tests::finding_never_becomes_production_proof ... ok
+test dreaming::tests::bench_is_ephemeral_synthetic_and_production_denied ... ok
+test dreaming_promotion::tests::real_regression_selects_the_declared_rollback ... ok
+test tests::worker_tests::all_kinds_have_valid_contract_shape ... ok
+test tests::worker_tests::contracts_validate_objective_and_scope ... ok
+test tests::worker_tests::dossier_success_requires_evidence ... ok
+test tests::worker_tests::families_cover_all_kinds ... ok
+test tests::worker_tests::each_kind_declares_its_expected_artifact ... ok
+test tests::worker_tests::invariants_reject_self_promotion ... ok
+test tests::worker_tests::invariants_reject_unauthorized_spawn ... ok
+test tests::worker_tests::medical_report_matches_the_educational_runtime_contract ... ok
+test tests::worker_tests::older_serialized_authority_defaults_to_no_promotion ... ok
+test tests::worker_tests::phenotype_niche_fit_and_dediff ... ok
+test tests::worker_tests::procedural_uses_zero_tokens ... ok
+test tests::worker_tests::review_routes_to_outcomes ... ok
+test tests::worker_tests::scout_is_read_only_ephemeral ... ok
+test tests::worker_tests::strategy_changes_are_bounded ... ok
+test tests::worker_tests::suborchestrator_can_spawn_bounded_can_not ... ok
+test tests::worker_tests::suborchestrator_spawn_and_delegation_are_capped ... ok
+test tests::worker_tests::worker_presets_cannot_promote ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_api
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_bio_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_biology
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_cell
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_common
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_creativity
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_dna
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_genome
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_immune
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_orchestrator
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_reproduction
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_sensorimotor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_signal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_simple_cli
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_sqlite_udfs
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_storage_gate
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_store
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genos_worker
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
