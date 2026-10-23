@@ -87,7 +87,8 @@ assert.match(stewardMission, /Item weights: item1=1, item2=3, item3=2/);
 assert.match(stewardMission, /Before returning, check that all 9 distinct identifiers occur once and recalculate each bin total/);
 assert.match(stewardMission, /First check feasibility: total weight=24; aggregate capacity=3\*8=24/);
 assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
-assert.match(stewardMission, /Use target-sum search: enumerate subsets that fill one bin to 8/);
+assert.match(stewardMission, /When aggregate capacity is exact, every chosen subset must sum to 8/);
+assert.match(stewardMission, /otherwise do not force bins to be full/);
 assert.match(stewardMission, /do not stop after one failed partition/);
 assert.match(stewardMission, /Backtrack to another subset/);
 assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
@@ -99,6 +100,14 @@ assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>
 assert.match(stewardMission, /bins are arrays of exact item identifiers, never weights/);
 assert.match(stewardMission, /only the compact candidate JSON object in claims\[0\]\.statement/);
 assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
+
+const underfilledStewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
+  topology: 'biome', topologyRole: 'resource_steward' } },
+'Repartis item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6 en 3 groupes, plafond de 13.');
+assert.match(underfilledStewardMission, /Total weight is below aggregate capacity, so bins do not need to be full/);
+assert.match(underfilledStewardMission, /leftover total is no greater than the remaining bin count times 13/);
+assert.match(underfilledStewardMission, /otherwise do not force bins to be full/);
+assert.match(underfilledStewardMission, /The budget is sufficient for this 8-item arithmetic task/);
 assert.match(stewardMission, /recalculate each bin total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
