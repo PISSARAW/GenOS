@@ -20,7 +20,8 @@ function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
-  const localModel = requestedModel(request);
+  const requested = requestedModel(request);
+  const localModel = /^[a-z][a-z0-9+.-]*:\/\//i.test(requested) ? requested : `ollama://${requested}`;
   const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
     primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
     fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true

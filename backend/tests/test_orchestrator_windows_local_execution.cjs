@@ -31,6 +31,7 @@ async function main() {
   });
   assert.equal(observedMission.agentId, input.id);
   assert.equal(observedMission.orchestratorAgentId, input.id);
+  assert.equal(observedMission.localModel, 'ollama://qwen2.5-coder:7b');
   console.log('Windows local execution recovery identity: PASS');
 }
 
