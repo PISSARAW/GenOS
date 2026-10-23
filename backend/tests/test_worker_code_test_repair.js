@@ -146,6 +146,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: 'getByLabel(/quantity/i) resolved to 2 elements: aria-label="Increase quantity for [object HTMLInputElement]"'
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
+  assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
     path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } form.addEventListener("submit", addItem);</script>'
   }] } });
