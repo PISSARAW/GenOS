@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { buildOrchestratorPreflightInput } = require('../bin/orchestratorMcpPreflight.cjs');
+const missionRuntimeContext = require('../bin/orchestratorMissionRuntimeContext.cjs');
 
 const db = {};
 const request = { workspaceRoot: 'D:/isolated-site', preflightSnapshotAgent: 'arch_agent.json',
@@ -15,4 +16,5 @@ assert.equal(built.workspaceRoot, 'D:/isolated-site');
 assert.equal(built.snapshotAgent, 'arch_agent.json');
 assert.deepEqual(built.hypotheses, request.hypotheses);
 assert.deepEqual(built.tools, ['genos_diagnose']);
+assert.equal(missionRuntimeContext({ communication_required: true }).communicationRequired, true);
 console.log('Orchestrator preflight forwards falsifiable hypotheses and the bound D: workspace.');

@@ -9,54 +9,8 @@ const handoffCompiler = require('../src/services/daemon/handoff/handoffCompilerS
 const handoffFeedback = require('../src/services/daemon/handoff/handoffFeedbackService');
 const { loadMissionAgentState, requestedMissionBudget } = require('./orchestratorMissionPreparation.cjs');
 const { shouldAttachMissionOrchestrator } = require('./missionOrchestratorAttachment.cjs');
-
-function buildActionContext(ctx) {
-  return {
-    db: ctx.db,
-    action: ctx.action,
-    request: ctx.request,
-    task: ctx.task,
-    orchestratorId: ctx.orchestratorId,
-    id: ctx.id,
-    missionId: ctx.missionId,
-    repoRoot: path.resolve(__dirname, '../..'),
-    bridgePath: path.join(__dirname, 'genos-orchestrate.cjs'),
-    waitForCompletion: ctx.waitForCompletion
-  };
-}
-
-async function runActionWithCleanup(actionContext, handleAction, state) {
-  let handled = false;
-  try {
-    handled = await handleAction(actionContext);
-  } finally {
-    if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
-    if (actionContext.reusedWorker) state.reusedWorker = true;
-  }
-  if (handled) {
-    emitTopologyEvent(actionContext.orchestratorId, actionContext.action);
-  }
-  return handled;
-}
-
-function emitTopologyEvent(orchestratorId, action) {
-  const topologyEvent = {
-    dispatch_team: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_A_TEAM', 'A-Team topology accepted.'],
-    dispatch_trinity: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_TRINITY', 'Trinity topology accepted.'],
-    dispatch_biological: ['BIOLOGICAL_MISSION_COMPLETED', 'COMPLETE_BIOLOGICAL_MODE', 'Biological topology completed.']
-  }[action];
-  if (topologyEvent) telemetry.emitEvent({ eventType: topologyEvent[0], agentId: orchestratorId, action: topologyEvent[1], detail: topologyEvent[2], payload: { action }, severity: 'info' });
-}
-
-async function applyNceEnhancements(nceInput, db, orchestratorId) {
-  const nceIntegration = require('../src/services/nceIntegrationService');
-  try {
-    return await nceIntegration.enhanceMissionWithNCE(nceInput, db);
-  } catch (nceErr) {
-    telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
-    return { errors: { integration: nceErr.message } };
-  }
-}
+const missionRuntimeContext = require('./orchestratorMissionRuntimeContext.cjs');
+const { buildActionContext, runActionWithCleanup, emitTopologyEvent, applyNceEnhancements } = require('./orchestratorActionContext.cjs');
 
 function pickOr(obj, keys, fallback) {
   for (const k of keys) {
@@ -236,21 +190,6 @@ function missionWorkspaceOptions(request) {
     topologySessionOptions: request.sessionOptions };
 }
 
-function missionRuntimeContext(request) {
-  const normalized = { ...request, successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
-    workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
-    morphologyExpression: request.morphologyExpression || request.morphology_expression,
-    morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy };
-  const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
-    'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
-    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
-    'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
-    'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes'];
-  return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
-    .map((field) => [field, normalized[field]]));
-}
-
 function promptWithWorkerAssignments(prompt, request = {}) {
   const assignments = request.worker_assignments || request.workerAssignments;
   if (!assignments) return prompt;
@@ -407,10 +346,6 @@ function measuredModelUsage(runs, attempts = [], usageRows = []) {
 }
 
 module.exports = {
-  buildActionContext,
-  runActionWithCleanup,
-  emitTopologyEvent,
-  applyNceEnhancements,
   buildNceInput,
   shouldAttachMissionOrchestrator,
   buildEnhancedPrompt,

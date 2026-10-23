@@ -21,9 +21,9 @@ const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 const missionEpisodeRuntime = require('../src/services/missionEpisodeRuntime');
-const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
-  prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
-  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
+const { buildActionContext, runActionWithCleanup, emitTopologyEvent, applyNceEnhancements } = require('./orchestratorActionContext.cjs');
+const { buildNceInput, buildEnhancedPrompt, prepareMission, startOrchestratorMission,
+  buildContinuity, emitCompletionEvent, gatherTelemetryAndCoverage, emitFinalTelemetry, tokenUsage,
   shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 const completionPolling = require('./orchestratorCompletionPolling.cjs');
