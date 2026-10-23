@@ -258,3 +258,15 @@ Retry68 a enregistré 27 inférences Qwen et 25 réparations avant l’échec à
 La règle générique `getByLabel(/quantity/i) ... waiting for` interceptait le call log d’une violation stricte et sélectionnait la réparation « champ manquant » au lieu de `ensure_quantity_field_after_reload`. Le test reproduit maintenant le message strict complet et le plan choisit le réparateur après reload, qui compose l’intercepteur d’incrément. Le test navigateur Quantity vérifie aussi que les boutons Increase et Decrease ne se confondent plus avec le champ après reload. Pour l’export, le réparateur ajoute son écouteur dans un script autonome après le code du candidat; un test Edge confirme le téléchargement JSON même si un script antérieur contient une erreur de syntaxe. Les tests `test_worker_code_test_repair.js`, `test_worker_code_quantity_repair.js`, `test_worker_code_export_repair.js` et `test_worker_code_add_repair_fallback.js` passent. Ces résultats ciblés ne remplacent pas la qualification T02 complète.
 
 Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry68.db`.
+
+## Retry69 — gate homéostatique intermédiaire, acceptance encore rouge
+
+Retry69 a enregistré 22 inférences et 16 cycles de réparation. Le terminal `npm test` échoue à `acceptance.cjs:19:10` (`0 !== 1`, aucune ligne après Add Item). L’audit de couverture est `required-coverage-incomplete`; la mission persistée est `failed` à 12:37:48 UTC. Une télémétrie intermédiaire émet néanmoins `MISSION_COMPLETED` avec `homeostasis_satisfied`, car ce sous-gate avait autorisé la clôture avant le verdict final; elle ne vaut pas réussite T02. Le contrôle final retient correctement l’échec et l’absence de réussite démontrée. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261023-direct-d-repair-69.db`.
+
+Le run a exposé un strict locator Category (label et select tous deux nommés). `labelCategorySelect` retire désormais le nom ARIA redondant du label dans le formulaire et garde celui du select. Le test de réparation couvre cette forme exacte; `node backend/tests/test_worker_code_test_repair.js` passe. Le correctif n’a pas fait passer l’acceptance Add Item terminale.
+
+## Retry70 — échec Delete Oats et continuation refusée
+
+Retry70 a enregistré 10 inférences et 4 cycles de réparation. L’acceptance terminale échoue à `acceptance.cjs:35:56`, car aucun bouton `Delete Oats` n’est trouvé. La mission est `failed` à 12:42:58 UTC et le gate reste bloqué avec `evidence_missing`. La tentative de continuation échoue avant exécution: rôle inconnu `homeostasis_continuation`; aucun événement `MISSION_COMPLETED` n’est émis. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261023-direct-d-repair-70.db`.
+
+Ces deux runs ne démontrent pas encore un `npm test` T02 complet vert ni un verdict final de complétion stable. Le prochain run doit rester le critère de qualification; le statut intermédiaire du sous-gate n’est pas un substitut à l’acceptance.
