@@ -152,6 +152,13 @@ async function completionGate(db, input) {
   if (verifierReceiptPresent) {
     context.context.evidence.push('independent_verifier_receipt');
     if (rootVerified && participantsVerified) {
+      context.context.missionOutcome = true;
+      context.context.flags.missionOutcome = true;
+      context.context.flags.completionContractConfigured = Boolean(
+        context.completionContract?.invariants?.length
+        || context.completionContract?.requiredEvidence?.length
+        || request.verifierChecks?.length
+      );
       const proof = { schema: 'genos.ontogenesis-agent-completion-proof/v1',
         missionId: request.missionId || request.id, orchestratorId: request.id,
         candidateTreeHash: verifierReceipt.treeHash,

@@ -41,7 +41,7 @@ function buildDefaultFunctionalInvariants(mission) {
     label: 'completion_contract_configured',
     verifier: { type: 'context.flag', flag: 'completionContractConfigured' }
   });
-  if (goal.includes('auth') || goal.includes('authentifi')) {
+  if (/\b(?:authentication|authentification|authenticate|authentifier|login|log in|credential|identifiant|connexion)\b/i.test(goal)) {
     invariants.push({
       id: 'authentication_works',
       kind: 'functional',
