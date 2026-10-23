@@ -16,7 +16,7 @@ async function main() {
   const snapshots = path.join(root, '.genos', 'evidence-snapshots');
   fs.mkdirSync(snapshots, { recursive: true });
   const ownedSnapshot = path.join(snapshots, 'run-a.json');
-  fs.writeFileSync(ownedSnapshot, JSON.stringify({ snapshot_id: 'snap-a', agent_id: 'worker-a' }));
+  fs.writeFileSync(ownedSnapshot, JSON.stringify({ snapshot_id: 'snap-a', agent_id: 'runtime-capsule-agent' }));
   const context = (agentId, snapshot) => ({
     db: { get: async (_sql, id) => ({ execution_mode: 'worker', path: id === 'worker-a' ? root : path.join(temporary, id) }) },
     request: { agentId, runId: 'run-a', organizationId: 'org-a', projectId: 'project-a',
