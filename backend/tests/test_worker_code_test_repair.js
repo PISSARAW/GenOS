@@ -187,6 +187,16 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   assert.match(locatorRepairHint(oatsFailure), /append the form values to the shared items collection/);
   assert.match(failureFeedback(oatsFailure), /append the form values to the shared items collection/);
+  const addPlan = repairPlan(oatsFailure);
+  assert.deepEqual(addPlan, { kind: 'ensure_add_item_behavior', label: 'Add Item' });
+  const addCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<form><input id="itemName"><input id="quantity" type="number"><select id="category"><option>Food</option></select><input id="bestBefore" type="date"></form><script>let pantry=[];function renderPantry(){}</script></body>'
+  }] });
+  const repairedAdd = JSON.parse(applyRepairPlan(addCandidate, addPlan)).patches[0].content;
+  assert.match(repairedAdd, /genosAddItemRepair/);
+  assert.match(repairedAdd, /stopImmediatePropagation/);
+  assert.match(repairedAdd, /localStorage\.setItem/);
+  assert.match(repairedAdd, /renderPantry\(\)/);
   const duplicateFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'

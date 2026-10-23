@@ -75,11 +75,9 @@ function locatorRepairHint(error) {
 function repairPlan(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
   if (/waitForEvent\(['"]download['"]\)/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
-  if (/waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output)) return { kind: 'ensure_json_export', label: 'Export JSON' };
+  if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output)) return { kind: 'ensure_add_item_behavior', label: 'Add Item' };
   if (/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/.test(output)) return { kind: 'ensure_search_filter_behavior', label: 'Search' };
-  if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) {
-    return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
-  }
+  if (/getByLabel\(\/quantity\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
   if (/getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
   const candidateText = (error.proposal?.failedPatchContents || []).map((patch) => patch.content || '').join('\n');
   if (/2\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && /<td\b[^>]*aria-label=["']item name/i.test(candidateText)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
@@ -135,6 +133,8 @@ function applyRepairPlan(text, plan) {
         content = ensureLocalStorageMutations(content);
       } else if (item.kind === 'ensure_json_export') {
         content = require('./workerCodeExportRepair').ensureJsonExport(content);
+      } else if (item.kind === 'ensure_add_item_behavior') {
+        content = require('./workerCodeAddRepair').ensureAddItemBehavior(content);
       }
     }
     if (content !== patch.content) {
