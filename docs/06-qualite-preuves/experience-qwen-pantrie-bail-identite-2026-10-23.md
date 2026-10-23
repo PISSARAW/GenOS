@@ -238,3 +238,9 @@ L’inspection a trouvé que la déduplication accessible précédente retirait 
 Retry65 a enregistré 27 inférences Qwen et 25 réparations. Son test terminal échoue à `acceptance.cjs:31:38`: après le reload et le contrôle de persistance, `getByLabel(/quantity/i)` correspond au champ et au bouton `Increase quantity for Oats` pendant la validation de quantité nulle. La mission est `failed`, le gate `homeostasis=unstable` à 12:00:00 UTC. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry65.db`.
 
 Le correctif committé dans `b1d9eba68` renomme l’action d’incrément en `Increase Oats` lorsque la quantité persistée atteint 3 et attend aussi un rendu asynchrone. Les tests worker, collision Quantity, incrément et Add Item passent localement. Retry66 a démarré avec ce correctif, mais le T02 complet reste non qualifié.
+
+## Retry66 — deux lignes Oats au lieu d’une
+
+Retry66 a enregistré 27 inférences Qwen et 25 réparations; le test terminal échoue à `acceptance.cjs:19:10` (`2 !== 1`) après Add Item. La mission est `failed` et le gate `homeostasis=unstable` à 12:10:03 UTC. Reçu: `D:\GenOS\runs\autonomy-proof-t02-20261022\genos-direct-d-20261023-retry66.db`.
+
+Le candidat affichait déjà une feuille de texte `Oats: 2`; le fallback la comptait comme différente de `Oats` et ajoutait une deuxième ligne. `ensureVisibleItem` reconnaît maintenant le nom exact et les lignes qui commencent par le nom suivi de deux-points ou d’un espace. Le test Edge `test_worker_code_add_repair_fallback.js` couvre à la fois le renderer cassé et un renderer qui produit déjà `Oats: 2`; il passe avec une seule ligne. Retry66 utilisait la version antérieure au correctif; le T02 complet reste à démontrer.
