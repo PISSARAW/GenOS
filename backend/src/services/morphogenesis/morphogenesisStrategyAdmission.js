@@ -102,12 +102,12 @@ function attributedTopology(assignment, fallback, strictAttribution) {
 }
 
 function workerCapabilityDenial(input) {
-  const { topology, assignments, requiredCapabilities, strictAttribution } = input;
+  const { topology, assignments, requiredWorkerCapabilities = [], strictAttribution } = input;
   const matching = assignments.filter((item) => attributedTopology(item, topology, strictAttribution) === topology);
   if (!matching.length) return deny('topology_has_no_worker_assignment', { topology });
   const available = new Set(matching.flatMap((item) => item.capabilities || [])
     .map((item) => String(item).toUpperCase()));
-  const missing = requiredCapabilities.filter((capability) => !available.has(String(capability).toUpperCase()));
+  const missing = requiredWorkerCapabilities.filter((capability) => !available.has(String(capability).toUpperCase()));
   return missing.length ? deny('worker_capabilities_missing', { topology, missing }) : null;
 }
 
@@ -122,6 +122,8 @@ function validateWorkers(input) {
   const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
     requiredCapabilities: candidate.requiredCapabilities || [] }];
   return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments,
+    requiredWorkerCapabilities: requirement.requiredWorkerCapabilities
+      || (requirements.length === 1 ? candidate.requiredWorkerCapabilities || [] : []),
     strictAttribution: requirements.length > 1 }))
     .find(Boolean) || null;
 }

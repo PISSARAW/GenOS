@@ -10,7 +10,8 @@ const registry = createTopologyRegistry();
 const required = registry.get('a_team').requiredCapabilities;
 const candidate = { id: 'topology:a_team:default', candidateId: 'topology:a_team:default',
   kind: 'TOPOLOGY', topology: 'a_team', variant: null, eligible: true,
-  proposalEligible: true, validation: { valid: true }, requiredCapabilities: required };
+  proposalEligible: true, validation: { valid: true }, requiredCapabilities: required,
+  requiredWorkerCapabilities: ['analyze'] };
 const policy = { kind: 'conditional_morphogenesis_policy', status: 'proposed',
   decision: { recipe: { candidateId: candidate.id, topology: candidate.topology, variant: null } },
   portfolio: { candidates: [candidate], ranking: { decision: { decision: 'PROPOSE', selectedId: candidate.id },
@@ -19,7 +20,7 @@ const policy = { kind: 'conditional_morphogenesis_policy', status: 'proposed',
 const plan = { selectedTopology: 'a_team', selectedVariant: 'default',
   morphologyPatch: { graph: compileExpression(topologyExpression('a_team'),
     { mission: 'mission', missionId: 'mission-1', globalBudget: { tokens: 50 } }) },
-  workerAssignments: [{ workerKind: 'analyst', capabilities: required, tokenBudget: 50 }],
+  workerAssignments: [{ workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 50 }],
   allocatedTokens: 50, requestedTools: ['genos_change_organization'] };
 function receiptsFor(assignments, now) {
   const roles = assignments.map((assignment, index) => ({ roleId: `role-${index + 1}`,
@@ -101,7 +102,7 @@ function testBudgetCapabilitiesAndPolicyProposalAreMandatory() {
 }
 
 function testBudgetCoherenceIsMandatory() {
-  const mismatch = { ...plan, workerAssignments: [{ workerKind: 'analyst', capabilities: required, tokenBudget: 40 }] };
+  const mismatch = { ...plan, workerAssignments: [{ workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 40 }] };
   assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: mismatch }).reason,
     'worker_budget_allocation_mismatch');
   assert.equal(admitMorphogenesisStrategy({ ...gates, budget: {} }).reason,
@@ -112,7 +113,7 @@ function testWorkerAssignmentsAndKindsAreMandatory() {
   assert.equal(admitMorphogenesisStrategy({ ...gates,
     actualPlan: { ...plan, workerAssignments: [] } }).reason,
   'worker_assignments_invalid');
-  const oversized = Array.from({ length: 13 }, () => ({ workerKind: 'analyst', capabilities: required, tokenBudget: 4 }));
+  const oversized = Array.from({ length: 13 }, () => ({ workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 4 }));
   assert.equal(admitMorphogenesisStrategy({ ...gates,
     actualPlan: { ...plan, workerAssignments: oversized } }).reason,
   'worker_assignments_invalid');
@@ -247,8 +248,8 @@ function testPlannerCompositeRequiresExplicitPerLeafAttribution() {
 }
 
 function testResourceReservationMustBindEachAssignment() {
-  const two = [{ workerKind: 'analyst', capabilities: required, tokenBudget: 25 },
-    { workerKind: 'analyst', capabilities: required, tokenBudget: 25 }];
+  const two = [{ workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 25 },
+    { workerKind: 'analyst', capabilities: ['analyze'], tokenBudget: 25 }];
   const twoPlan = { ...plan, workerAssignments: two, allocatedTokens: 50 };
   assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: twoPlan,
     resourceResolution: null, resourceReservation: null }).reason,
