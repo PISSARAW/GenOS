@@ -112,13 +112,14 @@ function addSingleTopology(ctx) {
   if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, kind: 'TOPOLOGY', topologyId, contract, entry: variantEntry, capabilityDecision, input, registry, contracts });
   const expression = buildExpression(topologyExpression(topologyId, null), `topology:${topologyId}`);
   const validation = validateTypedExpression({ expression, input, registry, contracts });
-  const candidate = createCandidate({ kind: 'TOPOLOGY', topologyId, variantEntry, contract, expression, validation });
+  const workerKinds = workerKindsForCandidate(topologyId, variantEntry, input.mission);
+  const candidate = createCandidate({ kind: 'TOPOLOGY', topologyId, variantEntry, contract, expression, validation, workerKinds });
   if (!validation.valid || !isSupportedMaturity(variantEntry.maturity)) {
     return vetoed.push({ ...candidate, admissibility: 'rejected', executionEligible: false,
       admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${variantEntry.maturity}.` });
   }
   topology.push(candidate);
-  components.push(componentFor(topologyId, variantEntry, contract));
+  components.push(componentFor(topologyId, variantEntry, contract, workerKinds));
 }
 
 function addVariantCandidate(ctx) {
@@ -127,13 +128,43 @@ function addVariantCandidate(ctx) {
   if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, kind: 'VARIANT', topologyId, contract, entry, capabilityDecision, input, registry, contracts });
   const expression = buildExpression(topologyExpression(topologyId, entry.variantId), `variant:${topologyId}:${entry.variantId}`);
   const validation = validateTypedExpression({ expression, input, registry, contracts });
-  const candidate = createCandidate({ kind: 'VARIANT', topologyId, variantEntry: entry, contract, expression, validation });
+  const workerKinds = workerKindsForCandidate(topologyId, entry, input.mission);
+  const candidate = createCandidate({ kind: 'VARIANT', topologyId, variantEntry: entry, contract, expression, validation, workerKinds });
   if (!validation.valid || !isSupportedMaturity(entry.maturity)) {
     return vetoed.push({ ...candidate, admissibility: 'rejected', executionEligible: false,
       admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${entry.maturity}.` });
   }
   variant.push(candidate);
-  components.push(componentFor(topologyId, entry, contract));
+  components.push(componentFor(topologyId, entry, contract, workerKinds));
+}
+
+function workerKindsForCandidate(topologyId, variantEntry, mission) {
+  if (typeof mission !== 'string' || !mission.trim()) return null;
+  try {
+    let members;
+    if (topologyId === 'trinity') {
+      const options = variantEntry.variantId === 'default' ? {} : { variantId: variantEntry.variantId };
+      members = require('../trinityService').compose(mission, options);
+    } else if (topologyId === 'a_team') {
+      const analysis = require('../aTeamService').analyzeMission(mission);
+      if (!analysis.recommended || !analysis.members.length) {
+        throw Object.assign(new Error('A-Team composition is not executable for this mission.'), {
+          code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED'
+        });
+      }
+      members = analysis.members;
+    } else {
+      members = require('../biologicalModeService').compose(topologyId, mission);
+    }
+    if (topologyId === 'syncytium' && variantEntry.variantId !== 'default') {
+      const specialist = require('../syncytiumVariantWorkerService').VARIANT_WORKERS[variantEntry.variantId];
+      if (specialist) members = [...members, { role: specialist.role, mission }];
+    }
+    return require('../topologyWorkerKindService').applyTopologyWorkerKinds(topologyId, members)
+      .map((member) => member.workerKind).filter(Boolean);
+  } catch (error) {
+    return { error: error.code || error.message };
+  }
 }
 
 function candidateCapabilities(contract, variant, capabilitySet) {
@@ -147,16 +178,21 @@ function candidateCapabilities(contract, variant, capabilitySet) {
 
 function createCandidate(input) {
   const caps = candidateCapabilities(input.contract, input.variantEntry, null);
+  const workerPlanError = input.workerKinds?.error;
+  const executable = proposalEligible(input.variantEntry.maturity) && !workerPlanError;
   return {
     candidateId: `${input.kind.toLowerCase()}:${input.topologyId}:${input.variantEntry.variantId}`,
     kind: input.kind,
     topology: input.topologyId,
     variant: input.kind === 'VARIANT' ? input.variantEntry.variantId : null,
     maturity: { topology: 'registered', variant: input.variantEntry.maturity },
-    admissibility: proposalEligible(input.variantEntry.maturity)
+    admissibility: workerPlanError ? 'rejected' : proposalEligible(input.variantEntry.maturity)
       ? 'execution_eligible' : 'exploratory_only',
-    executionEligible: proposalEligible(input.variantEntry.maturity),
+    executionEligible: executable,
     requiredCapabilities: caps.requiredCapabilities, missingCapabilities: [],
+    ...(Array.isArray(input.workerKinds) ? { workerKinds: input.workerKinds } : {}),
+    ...(input.workerKinds?.error ? { workerKindPlanError: input.workerKinds.error } : {}),
+    ...(workerPlanError ? { admissibilityReason: `Worker composition cannot be planned: ${workerPlanError}` } : {}),
     expression: input.expression, validation: input.validation,
     rationale: input.kind === 'VARIANT'
       ? `Variante ${input.variantEntry.variantId} du registre canonique ${input.topologyId}.`
@@ -183,8 +219,8 @@ function addVetoedCandidate(ctx) {
   });
 }
 
-function componentFor(topologyId, variant, contract) {
-  return { topologyId, variant, contract };
+function componentFor(topologyId, variant, contract, workerKinds) {
+  return { topologyId, variant, contract, workerKinds };
 }
 
 function normalizeCeiling(value) {

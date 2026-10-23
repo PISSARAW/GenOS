@@ -57,6 +57,7 @@ function buildContext(input) {
     budget: Math.max(0, Number(input.budget?.tokens) || 0),
     capabilities: new Set(list(input.availableCapabilities)),
     workerKinds: new Set(list(input.availableWorkerKinds)),
+    workerKindCounts: countValues(list(input.availableWorkerKinds)),
     signals: signalsOf(input),
     constraints,
     hasCapabilityInventory: Array.isArray(input.availableCapabilities),
@@ -67,6 +68,10 @@ function buildContext(input) {
     weights: priorityWeights || WEIGHTS,
     allowScalarTieBreak: input.allowScalarTieBreak === true || priorityWeights !== null
   };
+}
+
+function countValues(values) {
+  return values.reduce((counts, value) => counts.set(value, (counts.get(value) || 0) + 1), new Map());
 }
 
 function normalizedWeights(value) {
@@ -87,11 +92,18 @@ function problemFit(recipe, signals) {
 
 function capabilityAssessment(recipe, context) {
   const required = [...new Set(list(recipe.requiredCapabilities))];
-  const kinds = [...new Set(list(recipe.workerKinds))];
+  const requestedKinds = list(recipe.workerKinds);
+  const kinds = [...new Set(requestedKinds)];
   const missing = context.hasCapabilityInventory
     ? required.filter(capability => !context.capabilities.has(capability)) : [];
+  const requestedCounts = countValues(requestedKinds);
   const missingKinds = kinds.filter(kind => !Object.hasOwn(workerKindService.KINDS, kind)
-    || (context.hasWorkerInventory && !context.workerKinds.has(kind)));
+    || (context.hasWorkerInventory && (context.workerKindCounts.get(kind) || 0) < requestedCounts.get(kind)))
+    .map((kind) => {
+      const needed = requestedCounts.get(kind) || 0;
+      const available = context.workerKindCounts.get(kind) || 0;
+      return available < needed ? `${kind} (needs ${needed}; available ${available})` : kind;
+    });
   const fit = !context.hasCapabilityInventory ? 0.5
     : required.length ? (required.length - missing.length) / required.length : 1;
   return { required, kinds, missing, missingKinds, fit };

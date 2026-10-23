@@ -56,6 +56,14 @@ function main() {
   assert.match(unsupported.vetoed[0].reasons.join(' '), /missing capabilities.*worker kinds unavailable/);
   assert.equal(unsupported.decision.decision, 'NO_CHANGE');
 
+  const insufficientMultiplicity = rankAdaptiveTopologies({ currentTopology: 'biome',
+    availableWorkerKinds: ['liaison_worker', 'specialist'], budget: { tokens: 100 }, candidates: [{
+      id: 'two-bridges', topology: 'rhizome', workerKinds: ['liaison_worker', 'liaison_worker'],
+      estimatedTokens: 10, confidence: 0.9, maturity: { variant: 'implemented' }
+    }] });
+  assert.match(insufficientMultiplicity.vetoed[0].reasons.join(' '), /liaison_worker.*needs 2; available 1/,
+    'worker inventory multiplicity is enforced, not just kind presence');
+
   const unknownCapabilityInventory = rankAdaptiveTopologies({
     budget: { tokens: 100 }, candidates: [{ id: 'capability-unknown',
       requiredCapabilities: ['coordinate'], estimatedTokens: 10, maturity: { variant: 'stable' } }]
