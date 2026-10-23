@@ -123,3 +123,10 @@ Ce run avait commencé avant `9c7368c93` (router une perte après reload vers le
 Retry50 a exécuté vingt réparations Qwen7B sur le Playwright T02. Les essais 3–4 ont franchi Category, Add Item et Search mais échouent à l’incrément visible (`acceptance.cjs:24:10`). D’autres candidats rencontrent des doublons Oats et l’ambiguïté Quantity; au test terminal, Add Item ne laisse aucune ligne (`acceptance.cjs:19:10`, `0 !== 1`). `npm test` sort 1, `AGENT_FAILED`, gate `MISSION_COMPLETION_BLOCKED` avec `homeostasis=unstable`. Reçu: `genos-direct-d-20261023-retry50.db`, candidat terminal de 6445 octets. Aucun succès complet.
 
 Le correctif `0c1afd89c` rend l’action Increase tolérante à l’absence d’entrée initiale dans localStorage en mettant à jour la ligne et en créant l’objet persistant; il a été committé après le chargement du processus retry50 et n’est pas qualifié par celui-ci. Retry51 doit recharger ce HEAD.
+
+
+## Retry51 — interruption avant le premier résultat Qwen
+
+Retry51 a été lancé sur D avec Qwen7B, une base SQLite dédiée et le HEAD contenant `0c1afd89c`. Le préflight GenOS est enregistré, le worker local démarre, et la passerelle journalise `INFERENCE_QUEUED` puis `INFERENCE_STARTED`. Ollama a aussi chargé `qwen2.5-coder:7b`. Cependant, `organism_model_turns` reste `pending`, `model_attempt_ledger` reste `started` avec `provider_called=0`, aucun fichier candidat n’est produit, et aucun événement de résultat ou de test Playwright n’apparaît. Les processus Node associés ont disparu; la mission SQLite reste à tort `active` et l’autorité d’exécution n’a pas de PID propriétaire.
+
+Classement: échec opérationnel/incomplet avant retour du modèle, sans verdict fonctionnel Pantry et sans exécution de `npm test`. Aucun succès T02 n’est revendiqué. Reçu: `genos-direct-d-20261023-retry51.db`, événement terminal absent, état de tour et ledger consultés après disparition des processus. La cause à corriger est le chemin d’exécution qui laisse mission, tour et budget pendants quand l’appel modèle ou son orchestrateur disparaît; il faut d’abord établir une fin observable et réconciliable avant de compter retry51 comme un contre-test.
