@@ -142,6 +142,16 @@ const formattedPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
   workerRecovery.recoveryPrompt(malformedFailure, workerRecovery.decideRecovery(malformedFailure)));
 assert.match(formattedPrompt, /Repair only the JSON shape/);
 assert.match(formattedPrompt, /quote every item ID as a JSON string/);
+const unresolvedAfterOverCapacity = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
+  detail: 'Worker could not substantiate the result.',
+  payload: { evidenceReport: { outcome: 'unresolved', claims: [],
+    uncertainties: ['Capacity constraint violated; bin 3 over capacity.'] } } },
+{ agentId: 'qwen-worker', prompt: smallAllocation, recoveryAttempt: 2,
+  recoveryHistory: [{ report: { reason: rejectedFailure.reason } }] });
+const lineageFeedbackPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
+  workerRecovery.recoveryPrompt(unresolvedAfterOverCapacity, workerRecovery.decideRecovery(unresolvedAfterOverCapacity)));
+assert.match(lineageFeedbackPrompt, /Prior validator feedback: Biome mutated output/);
+assert.match(lineageFeedbackPrompt, /make the smallest valid repair by moving an item from an over-capacity bin/);
 const unresolvedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
   detail: 'Local worker reported that the supplied evidence cannot substantiate the requested outcome.',
   payload: { evidenceReport: { outcome: 'unresolved', claims: [],

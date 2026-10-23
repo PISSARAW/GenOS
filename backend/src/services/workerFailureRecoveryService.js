@@ -81,10 +81,12 @@ function classifyFinalReport(report = {}, isWorker = true) {
   return { outcome: 'success' };
 }
 
-function reportFailureReason(payload, event) {
+function reportFailureReason(payload, event, mission) {
   const reason = compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+  const previous = Array.isArray(mission.recoveryHistory)
+    ? mission.recoveryHistory.slice(-1)[0]?.report?.reason : null;
   return require('./morphogenesis/biomeAllocationFeedback')
-    .recoveryFailureReason(reason, payload.workerArtifactDiagnostics, payload.evidenceReport);
+    .recoveryFailureReason(reason, payload.workerArtifactDiagnostics, payload.evidenceReport, previous);
 }
 
 function reportEvidence(payload) {
@@ -106,7 +108,7 @@ function buildFailureReportFromMission(mission, event) {
     orchestratorId: mission.orchestratorAgentId,
     mission: compact(mission.originalMission || mission.prompt || mission.currentTask),
     category: classifyFailure(event),
-    reason: reportFailureReason(payload, event),
+    reason: reportFailureReason(payload, event, mission),
     evidence: reportEvidence(payload),
     uncertainties: reportUncertainties(payload),
     noAnswerProof: proofOfNoAnswer(payload),
