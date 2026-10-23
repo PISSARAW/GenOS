@@ -125,11 +125,11 @@ Retry50 a exécuté vingt réparations Qwen7B sur le Playwright T02. Les essais 
 Le correctif `0c1afd89c` rend l’action Increase tolérante à l’absence d’entrée initiale dans localStorage en mettant à jour la ligne et en créant l’objet persistant; il a été committé après le chargement du processus retry50 et n’est pas qualifié par celui-ci. Retry51 doit recharger ce HEAD.
 
 
-## Retry51 — interruption avant le premier résultat Qwen
+## Retry51 — réponse Qwen tronquée avant le test Playwright
 
-Retry51 a été lancé sur D avec Qwen7B, une base SQLite dédiée et le HEAD contenant `0c1afd89c`. Le préflight GenOS est enregistré, le worker local démarre, et la passerelle journalise `INFERENCE_QUEUED` puis `INFERENCE_STARTED`. Ollama a aussi chargé `qwen2.5-coder:7b`. Cependant, `organism_model_turns` reste `pending`, `model_attempt_ledger` reste `started` avec `provider_called=0`, aucun fichier candidat n’est produit, et aucun événement de résultat ou de test Playwright n’apparaît. Les processus Node associés ont disparu; la mission SQLite reste à tort `active` et l’autorité d’exécution n’a pas de PID propriétaire.
+Retry51 a été lancé sur D avec Qwen7B et le HEAD contenant `0c1afd89c`. Mon premier contrôle avait trouvé la mission active, un tour modèle `pending` et aucun résultat; le run a ensuite évolué et atteint un état terminal. Le ledger SQLite confirme un appel fournisseur Qwen complété après 756136 ms et le tour modèle est `completed`. L’orchestrateur échoue ensuite au décodage de la proposition: `Unterminated string in JSON at position 16548 (line 6 column 16457)`. Aucun événement Playwright ni candidat terminal n’est enregistré.
 
-Classement: échec opérationnel/incomplet avant retour du modèle, sans verdict fonctionnel Pantry et sans exécution de `npm test`. Aucun succès T02 n’est revendiqué. Reçu: `genos-direct-d-20261023-retry51.db`, événement terminal absent, état de tour et ledger consultés après disparition des processus. La cause à corriger est le chemin d’exécution qui laisse mission, tour et budget pendants quand l’appel modèle ou son orchestrateur disparaît; il faut d’abord établir une fin observable et réconciliable avant de compter retry51 comme un contre-test.
+Classement final: échec de génération/parsing avant l’oracle, gate `MISSION_COMPLETION_BLOCKED` avec homeostasis `unstable`; pas de réussite T02. Reçu terminal: `genos-direct-d-20261023-retry51.db`, `AGENT_FAILED` à 09:58:26 UTC puis blocage de complétion à 09:58:27 UTC. Cette issue remplace le statut incomplet provisoire consigné après le premier contrôle.
 
 
 ## Retry52 — échec terminal sur le nom accessible Quantity
