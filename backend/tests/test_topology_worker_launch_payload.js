@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { buildActionContext } = require('../bin/orchestratorMissionHelpers.cjs');
+const { buildActionContext } = require('../bin/orchestratorActionContext.cjs');
 const { workerLaunchPayload } = require('../bin/workerLaunchPayload.cjs');
 
 const context = buildActionContext({

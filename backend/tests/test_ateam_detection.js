@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const aTeam = require('../src/services/aTeamService');
+const workerKind = require('../src/services/agents/workerKindService');
 
 // A mathematics mission is now detected (it used to yield zero domains).
 const math = aTeam.analyzeMission("Licence de mathématiques : résoudre l'équation différentielle y'' - 3y' + 2y = 0.");
@@ -12,6 +13,22 @@ assert.equal(single.recommended, false, 'a single domain never recommends an A-T
 
 // Non-mathematical wording that merely says "résoudre" is not misclassified.
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
+
+// The capability analyzer recognizes "accessible" as a security requirement,
+// even though the legacy domain detector does not match that wording.
+const accessibleBooking = aTeam.analyzeMission('Maintain an accessible booking flow and keep its tests green.');
+assert.ok(accessibleBooking.requiredCapabilities.some((item) => item.capability === 'security'));
+assert.ok(accessibleBooking.members.some((member) => member.role === 'security_reviewer'),
+  'every recognized capability with a registered role must be staffed when capacity allows');
+assert.equal(accessibleBooking.capabilityGaps.length, 0);
+
+for (const role of ['frontend_engineer', 'backend_engineer', 'data_engineer', 'quality_engineer',
+  'operations_engineer', 'ai_engineer', 'product_specialist', 'research_scientist']) {
+  assert.equal(workerKind.resolveWorkerKind(undefined, role), 'bounded_worker', `${role} must dispatch`);
+}
+assert.equal(workerKind.resolveWorkerKind(undefined, 'security_reviewer'), 'red_worker');
+assert.equal(workerKind.resolveWorkerKind(undefined, 'integration_observer'), 'scout_cell');
+assert.equal(workerKind.resolveWorkerKind(undefined, 'mathematician'), 'math_worker');
 
 // All detected needs remain visible; unstaffed needs are explicit gaps.
 const rich = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');

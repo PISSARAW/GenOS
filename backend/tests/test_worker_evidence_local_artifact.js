@@ -22,15 +22,35 @@ assert.equal(report.claims[0].statement, report.workerArtifact.content.claims[0]
 const codeReport = require('../src/services/workerCodeEvidenceReport').build({
   mission: { workspaceRoot: 'workspace' },
   proposal: { testStatus: 'passed', changedFileHashes: [{ path: 'index.html', hash: 'a'.repeat(64) }],
-    tests: [{ command: 'npm test', exitCode: 0, signal: null, stdout: 'pass', stderr: '' }] }
+    tests: [{ command: 'npm test', exitCode: 0, signal: null, stdout: 'pass', stderr: '' }],
+    testExecutionReceipt: { receiptHash: 'b'.repeat(64) } }
 });
 attachWorkerArtifact(codeReport, {
   codeWorker: true,
+  proposal: { testExecutionReceipt: { receiptHash: 'b'.repeat(64) } },
   mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' },
   agentName: 'code-worker'
 });
 assert.equal(codeReport.workerArtifact.type, 'dossier');
 assert.match(codeReport.claims[0].evidence[0], /^genos:\/\/code-file\//);
+assert(codeReport.workerArtifact.provenance.allowedEvidenceRefs.includes(
+  `genos://code-test-execution/${'b'.repeat(64)}`));
+const unboundReceipt = require('../src/services/workerCodeEvidenceReport').build({
+  mission: { workspaceRoot: 'workspace' },
+  proposal: { testStatus: 'passed', changedFileHashes: [{ path: 'index.html', hash: 'c'.repeat(64) }],
+    tests: [{ command: 'npm test', exitCode: 0, signal: null, stdout: 'pass', stderr: '' }],
+    testExecutionReceipt: { receiptHash: 'd'.repeat(64) } }
+});
+assert.throws(() => attachWorkerArtifact(unboundReceipt, {
+  codeWorker: true, mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' }
+}), (error) => error.code === 'INVALID_WORKER_ARTIFACT'
+  && error.workerArtifactDiagnostics.issues.some((issue) => issue.includes('code-test-execution')));
+assert.throws(() => attachWorkerArtifact(unboundReceipt, {
+  codeWorker: true, proposal: { testExecutionReceipt: { receiptHash: 'c'.repeat(64) } },
+  mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' }
+}), (error) => error.code === 'INVALID_WORKER_ARTIFACT'
+  && error.workerArtifactDiagnostics.issues.some((issue) => issue.includes('code-test-execution')),
+'a report receipt that differs from the actual proposal receipt must remain unresolved');
 
 const invalid = { outcome: 'success', claims: [], fullText: '{"outcome":"success","claims":[]}' };
 assert.throws(() => attachWorkerArtifact(invalid, {

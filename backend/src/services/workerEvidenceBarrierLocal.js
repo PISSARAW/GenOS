@@ -22,6 +22,7 @@ const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 const { reportMilestone } = require('./workerEvidenceBarrierLocalEvents');
+const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -99,6 +100,7 @@ async function generateWorkerResult(ctx) {
     responseFormat: ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
         allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
+        allowedPatchPaths: ctx.mission.allowedPatchPaths,
         requiredPatchPaths: ctx.mission.requiredPatchPaths,
         requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
@@ -107,20 +109,6 @@ async function generateWorkerResult(ctx) {
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
-}
-
-async function resolveProposal(ctx) {
-  if (!ctx.codeWorker) return null;
-  return localCodeWorker.executeProposal({ workspaceRoot: ctx.workspaceRoot, text: ctx.text,
-    allowedCommands: ctx.allowedCommands, requiredPatchPaths: ctx.requiredPatchPaths,
-    requiredPatchMarkers: ctx.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.requiredPatchMinimumBytes });
-}
-
-function throwIfProposalFailed(proposal) {
-  if (!proposal) return;
-  if (proposal.testStatus !== 'failed') return;
-  throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal: proposal });
 }
 
 function resolveImmuneReport(ctx) {
@@ -261,9 +249,13 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
-  const workspaceContext = codeWorker
-    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot).text
-    : '';
+  const workspaceDetails = codeWorker
+    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
+      allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
+    }) : { text: '', candidatePaths: [] };
+  if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
+    .filter((candidate) => localCodeWorker.safePath(candidate));
+  const workspaceContext = workspaceDetails.text;
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
@@ -310,8 +302,12 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   });
-  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { ...result.schemaViolation, outputExcerpt: String(result.text || '').slice(0, 2048) } });
+  const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
+  if (codeWorker && codeRepairPlans) {
+    result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
+  }
+  const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
+  if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
 
@@ -320,14 +316,16 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
-  const proposal = await resolveProposal({ codeWorker: ctx.codeWorker,
+  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker, result: ctx.result,
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
+    allowedPatchPaths: ctx.mission.allowedPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes });
+    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
+    db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });
   if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
-  throwIfProposalFailed(proposal);
+  require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
   const evidenceReport = ctx.codeWorker
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);
@@ -338,7 +336,7 @@ async function runEvidenceStage(ctx) {
       proof: null, noAnswer: false, unresolved: true };
   }
   const validationStartedAt = Date.now();
-  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
+  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
@@ -380,10 +378,12 @@ async function runLocalWorker(db, mission, executionRun) {
       },
       onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, ...retry })
     });
+    identityLeaseHeartbeat.assertHealthy();
     generation = attempt.generation;
     return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
       executionRun, generation, evidence: attempt.evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
+    await identityLeaseHeartbeat?.stop();
     await workerIdentity.fail(db, { identity, executionRun, error });
     const usage = generation?.result ? {
       input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens,
@@ -396,5 +396,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await workerIdentity.release(db, identity);
   }
 }
-
 module.exports = { runLocalWorker, generateWorkerResult };

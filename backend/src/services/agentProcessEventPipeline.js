@@ -17,13 +17,16 @@ const workerGarage = require('./workerGarageService');
 const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
 const conceptCycle = require('./agentConceptCycleBridgeService');
 const terminalStatus = require('./agentTerminalStatusService');
+const { recordCompletedCommand, attestCodeTestResults } = require('./agentCodeExecutionEvidence');
 
 function applyDomainStateFromEvent(context) {
   const { state, event, eventType, workerContract } = context;
+  recordCompletedCommand(state, event, eventType);
   if (eventType === 'EVIDENCE_REPORT') {
     try {
       const report = extractEvidenceReport(event.payload);
       if (report) {
+        attestCodeTestResults(report, state);
         if (report.outcome === 'success') {
           if (workerContract?.evidence?.requiredArtifacts?.length) {
             validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract });
@@ -270,11 +273,8 @@ async function processEventQueueImpl(ctx) {
   state.isProcessingEvents = false;
 }
 function parseEventPayload(event) {
-  try {
-    return event.payloadJson ? JSON.parse(event.payloadJson) : {};
-  } catch {
-    return { raw: event.payloadJson };
-  }
+  try { return event.payloadJson ? JSON.parse(event.payloadJson) : {}; }
+  catch { return { raw: event.payloadJson }; }
 }
 function rejectedWorkerCompletion(eventType, state) {
   return eventType === 'AGENT_COMPLETED' && state.missionDomainState.hasDomainFailure;

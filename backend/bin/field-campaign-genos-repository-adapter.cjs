@@ -30,9 +30,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { fingerprint } = require('../src/services/stateFingerprint');
+const { MEASUREMENT_SCHEMA, pressureValues, progressVerdict, buildMeasurement } = require('./field-campaign-measurement.cjs');
 
 const WORKSPACE_SCHEMA = 'genos.shev-field-workspace-attestation/v1';
-const MEASUREMENT_SCHEMA = 'genos.shev-field-window-measurement/v1';
 
 const ROOT = path.resolve(__dirname, '..');
 const ORCHESTRATE = path.join(ROOT, 'bin', 'genos-orchestrate.cjs');
@@ -202,75 +202,63 @@ function runWorkspaceMission(request, workspacesRoot, artifactsRoot) {
 }
 
 function computeMetrics(artifact) {
-  const failed = artifact.exitCode !== 0 || Boolean(artifact.error);
-  const success = !failed;
-  const stderr = artifact.stderr || '';
-  const regressions = success ? 0 : ((stderr.match(/error/gi) || []).length);
-  const humanInterventions = (artifact.stdout || '').match(/intervention/gi) ? 1 : 0;
-  const durationMs = Number.isFinite(artifact.durationMs) ? artifact.durationMs : 0;
-  const costUsd = Math.max(0.01, Math.round((durationMs / 1000) * 0.001 * 100) / 100);
-  const tokens = Math.max(1, Math.round((durationMs / 100) * 10));
-  return { success, regressions, humanInterventions, durationMs, costUsd, tokens };
+  const summary = artifact.missionSummary || parseMissionSummary(artifact.stdout);
+  const usage = summary.measured_usage;
+  if (usage?.schema !== 'genos.measured-model-usage/v1' || usage.complete !== true
+    || usage.allRunsCompleted !== true || !Number.isSafeInteger(usage.totalTokens)
+    || !Number.isFinite(usage.totalCostUsd) || usage.totalCostUsd < 0) {
+    throw fieldEvidenceError('SHEV_FIELD_USAGE_UNVERIFIED',
+      'Mission has no complete run-bound provider token and cost measurements.');
+  }
+  if (artifact.exitCode !== 0 || artifact.error || summary.success !== true
+    || summary.completionGate?.allowed !== true) {
+    throw fieldEvidenceError('SHEV_FIELD_MISSION_UNVERIFIED',
+      'The mission did not exit successfully with an allowed completion gate.');
+  }
+  const events = Array.isArray(summary.telemetry) ? summary.telemetry : [];
+  const regressions = events.filter((event) => ['AGENT_FAILED', 'TOOL_CALL_FAILED',
+    'MISSION_COMPLETION_BLOCKED', 'TEST_FAILED'].includes(event.event_type)).length;
+  const humanInterventions = events.filter((event) =>
+    /^(HUMAN_DECISION|HUMAN_APPROVAL|HUMAN_OVERRIDE)$/.test(event.event_type || '')).length;
+  const pain = events.map((event) => ({ event, payload: parseObject(event.payload_json) }))
+    .find(({ event, payload }) => event.event_type === 'SHEV_PAIN_OBSERVED'
+      && /^[a-f0-9]{64}$/.test(payload?.evidenceHash || ''));
+  const evaluation = summary.independentEvaluation;
+  const pressure = evaluation?.verified === true
+    && evaluation.verifierId && evaluation.verifierId !== summary.orchestratorId
+    && /^[a-f0-9]{64}$/.test(evaluation.evidenceHash || '')
+    && Number.isFinite(evaluation.pressureBefore) && evaluation.pressureBefore >= 0
+    && evaluation.pressureBefore <= 1 && Number.isFinite(evaluation.pressureAfter)
+    && evaluation.pressureAfter >= 0 && evaluation.pressureAfter <= 1
+    ? evaluation : null;
+  return { success: true, regressions, humanInterventions,
+    durationMs: Number.isFinite(artifact.durationMs) ? artifact.durationMs : 0,
+    costUsd: usage.totalCostUsd, tokens: usage.totalTokens,
+    painObserved: Boolean(pain), painObservationHash: pain?.payload.evidenceHash || null,
+    developmentalPressureBefore: pressure?.pressureBefore ?? null,
+    developmentalPressureAfter: pressure?.pressureAfter ?? null,
+    pressureEvidenceHash: pressure?.evidenceHash || null };
 }
 
-function pressureValues(phase, intervention, metrics) {
-  const training = phase === 'training';
-  const fullArc = intervention === 'full_arc';
-  if (!training || !fullArc) return { before: null, after: null };
-  const before = 0.5;
-  const after = metrics.success ? 0.3 : 0.6;
-  return { before, after };
+function parseMissionSummary(stdout) {
+  const lines = String(stdout || '').trim().split(/\r?\n/).reverse();
+  for (const line of lines) {
+    const start = line.indexOf('{');
+    if (start < 0) continue;
+    try {
+      const parsed = JSON.parse(line.slice(start));
+      if (parsed && typeof parsed === 'object' && parsed.token_usage) return parsed;
+    } catch (_) {}
+  }
+  throw fieldEvidenceError('SHEV_FIELD_SUMMARY_UNVERIFIED',
+    'GenOS emitted no parseable terminal mission summary.');
 }
 
-function progressVerdict(input) {
-  const { phase, intervention, metrics, pressure } = input;
-  if (phase !== 'heldout') return 'not_tested';
-  if (intervention !== 'full_arc') return 'not_tested';
-  if (!metrics.success) return 'regressed';
-  if (pressure.before == null || pressure.after == null) return 'inconclusive';
-  if (pressure.after < pressure.before) return 'confirmed';
-  return 'inconclusive';
+function parseObject(value) {
+  try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch (_) { return {}; }
 }
 
-function buildMeasurement(request, execution, metrics) {
-  const intervention = request.arm === 'treatment' ? 'full_arc' : 'baseline';
-  const pressure = pressureValues(request.phase, intervention, metrics);
-  const progress = progressVerdict({ phase: request.phase, intervention, metrics, pressure });
-  const clearance = progress === 'confirmed';
-  const outcome = {
-    success: metrics.success,
-    projectId: request.project.projectId,
-    actorId: execution.actorId,
-    regressions: metrics.regressions,
-    humanInterventions: metrics.humanInterventions,
-    costUsd: metrics.costUsd,
-    durationMs: metrics.durationMs,
-    tokens: metrics.tokens,
-    painObserved: request.phase === 'training',
-    painObservationHash: request.phase === 'training'
-      ? fingerprint(`field-pain:${execution.executionId}`) : null,
-    developmentalPressureBefore: pressure.before,
-    developmentalPressureAfter: pressure.after,
-    progressResult: progress,
-    clearanceApplied: clearance,
-    clearanceEvidenceHash: clearance
-      ? fingerprint(`field-clearance:${execution.executionId}`) : null,
-    artifactHash: execution.artifactHash
-  };
-  const body = {
-    schema: MEASUREMENT_SCHEMA,
-    executionId: execution.executionId,
-    collectorId: `field-observer-${request.arm}`,
-    measuredAt: new Date().toISOString(),
-    outcome,
-    evidenceRefs: [
-      execution.artifactHash,
-      outcome.painObservationHash,
-      outcome.clearanceEvidenceHash
-    ].filter(Boolean)
-  };
-  return { ...body, measurementHash: fingerprint(body) };
-}
+function fieldEvidenceError(code, message) { return Object.assign(new Error(message), { code }); }
 
 function armEvidenceRefs(request) {
   return [
@@ -373,4 +361,5 @@ function assertOutcomeBinding(measurement, outcome) {
   }
 }
 
-module.exports = { createAdapters, WORKSPACE_SCHEMA, MEASUREMENT_SCHEMA };
+module.exports = { createAdapters, WORKSPACE_SCHEMA, MEASUREMENT_SCHEMA,
+  parseMissionSummary, computeMetrics, pressureValues, progressVerdict, buildMeasurement };

@@ -28,6 +28,9 @@ const localMission = buildLocalMission({ id: 'agent-42', enhancedPrompt: 'Curren
   allowedCommands: [], allowFileEdits: false });
 assert.equal(localMission.prompt, 'Current agent agent-42');
 assert.equal(localMission.identityExperimentArm, 'genos_full');
+assert.deepEqual(localMission.requiredPatchPaths, ['index.html']);
+assert.deepEqual(localMission.requiredPatchMarkers, { 'index.html': ['<h1>'] });
+assert.deepEqual(localMission.requiredPatchMinimumBytes, { 'index.html': 1200 });
 assert.equal(localMission.identityExperimentSeed, 42);
 assert.equal(localMission.executionBudget.costUsd, 1);
 assert.equal(localMission.executionBudget.tokens, 20000);

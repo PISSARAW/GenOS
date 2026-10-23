@@ -25,15 +25,17 @@ async function collectMissionEvidence(db, missionId, agents) {
   const dossiers = collectWorkerDossiers(identity?.orchestratorAgentId || missionId, members);
   const runs = await collectExecutionRuns(db, scope);
   const telemetry = await collectEvidenceTelemetry(db, scope);
+  const testExecutionReceipts = await require('./localCodeTestExecutionReceiptService')
+    .collectVerifiedForMission(db, missionId, effective);
   const homeostasisState = await collectHomeostasisState(db, missionId);
-  const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry, missionId });
-  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId });
+  const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry, missionId, testExecutionReceipts });
+  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId, testExecutionReceipts });
   const profiles = buildTypedProfiles(dossiers, runs);
   const completion = await evaluateCollectedCompletion({ db, missionId,
     orchestratorId: identity?.orchestratorAgentId, agents: effective, flags });
   flags.missionOutcome = completion.success;
   flags.completionVerdict = completion.verdict;
-  return { flags, evidence, profiles, dossiers, runs, telemetry, completion };
+  return { flags, evidence, profiles, dossiers, runs, telemetry, testExecutionReceipts, completion };
 }
 
 function collectedLifecycle(agents) {
@@ -100,14 +102,15 @@ async function collectHomeostasisState(db, missionId) {
   }
 }
 
-function buildEvidenceFlags({ agents, dossiers, telemetry, missionId }) {
+function buildEvidenceFlags({ agents, dossiers, telemetry, missionId, testExecutionReceipts = [] }) {
   const failed = agents.filter(a => ['error', 'failed', 'terminated', 'apoptosis'].includes(a.status)).length;
   const completed = agents.filter(a => a.status === 'completed').length;
   const hasDossierReports = dossiers.some(d => d.events.some(e => e.evidenceReport));
   return {
     missionOutcome: completed > 0 && failed === 0,
     // Only a receipt from the allowlisted sandbox test executor can satisfy this flag.
-    testsPassed: require('./codeTestExecutionReceipt').hasPassingSuite(telemetry, missionId),
+    testsPassed: require('./codeTestExecutionReceipt').hasPassingSuite(telemetry, missionId)
+      || (Array.isArray(testExecutionReceipts) && testExecutionReceipts.length > 0),
     workerEvidenceComplete: hasDossierReports,
     noFailedAgents: failed === 0,
     allAgentsCompleted: completed === agents.length && agents.length > 0,
@@ -117,7 +120,7 @@ function buildEvidenceFlags({ agents, dossiers, telemetry, missionId }) {
   };
 }
 
-function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId }) {
+function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId, testExecutionReceipts = [] }) {
   const kinds = new Set();
   if (dossiers.some(d => d.events.some(e => e.evidenceReport))) kinds.add('worker_evidence');
   if (runs.some(r => r.status === 'completed')) kinds.add('execution_run_complete');
@@ -127,6 +130,7 @@ function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missi
   if (require('./codeTestExecutionReceipt').hasPassingSuite(telemetry, missionId)) kinds.add('test_suite_passed');
   if (telemetry.some(t => t.event_type === 'AGENT_COMPLETED')) kinds.add('agent_completed');
   if (homeostasisState?.status === 'homeostasis_satisfied') kinds.add('homeostasis_achieved');
+  if (Array.isArray(testExecutionReceipts) && testExecutionReceipts.length > 0) kinds.add('test_suite_passed');
   return [...kinds];
 }
 

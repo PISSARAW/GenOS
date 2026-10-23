@@ -188,6 +188,7 @@ test('CyberCorp Windows, AD, pfSense and Sysmon scenario fixtures run through DE
   assert.equal(ateam.measuredBudget.withinBudget, true);
   assert.ok(Number.isFinite(ateam.measuredBudget.cpuMs));
   assert.ok(ateam.measuredBudget.cpuMs >= 0);
+  assert.ok(ateam.measuredBudget.timeMs > 0);
   assert.equal(ateam.measuredBudget.tokens, 0);
 
   const flatEntries = ateam.results.flat();

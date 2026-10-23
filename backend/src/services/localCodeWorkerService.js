@@ -12,10 +12,12 @@ const FORBIDDEN_NAMES = /(^|\/)(Cargo\.toml|Cargo\.lock|package\.json|package-lo
 const PROPOSAL_RESPONSE_FORMAT = Object.freeze({ name: 'genos_file_replacement_v1', schema: Object.freeze({
   type: 'object', additionalProperties: false,
   properties: {
-    format: { type: 'string', enum: ['genos.file-replacement/v1'] },
+    format: { type: 'string', enum: ['genos.file-replacement/v1', 'genos.file-edits/v1'] },
     patches: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object',
-      additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' } },
-      required: ['path', 'content'] } },
+      additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' },
+        edits: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'object', additionalProperties: false,
+          properties: { find: { type: 'string' }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
+      anyOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
     tests: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } },
     evidence: { type: 'string' }
   }, required: ['format', 'patches', 'tests', 'evidence']
@@ -29,15 +31,25 @@ function safePath(relative) {
     return false;
   }
 }
-function parseProposal(text) {
-  const match = String(text || '').match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
-  const proposal = JSON.parse(match[0]);
-  assertProposalSchema(proposal);
-  if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
-  assertProposalPatches(proposal);
-
-  return proposal;
+function parseProposal(text, usage = {}) {
+  try {
+    const match = String(text || '').match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
+    const proposal = JSON.parse(match[0]);
+    assertProposalSchema(proposal);
+    if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
+    assertProposalPatches(proposal);
+    return proposal;
+  } catch (error) {
+    const inputTokens = Number(usage.inputTokens || 0);
+    const outputTokens = Number(usage.outputTokens || 0);
+    throw Object.assign(new Error(`Local code proposal rejected: ${error.message}`), {
+      code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+      workerArtifactDiagnostics: { error: error.message, violations: [error.message],
+        outputExcerpt: String(text || '').slice(0, 2048) },
+      usage: { inputTokens, outputTokens, tokens: inputTokens + outputTokens }
+    });
+  }
 }
 function allowedTest(command, allowedCommands) {
   const normalized = normalizeSandboxCommand(command);
@@ -117,9 +129,12 @@ async function runTest(command, root) {
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
   });
 }
-async function executeProposal({ workspaceRoot, text, allowedCommands, requiredPatchPaths,
-  requiredPatchMarkers, requiredPatchMinimumBytes }) {
-  const proposal = parseProposal(text);
+async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
+  allowedPatchPaths, requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
+  const proposal = parseProposal(text, usage);
+  assertAllowedPatchPaths(proposal, allowedPatchPaths);
+  try { await materializePatchEdits(workspaceRoot, proposal); }
+  catch (error) { throw proposalShapeError(error, text, usage); }
   assertRequiredPatchContract(proposal, requiredPatchPaths, {
     markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
   for (const command of proposal.tests) {
@@ -128,7 +143,6 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
   let tests;
-  let appliedFiles = [];
   try {
     for (const patch of proposal.patches) {
       const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
@@ -138,35 +152,44 @@ async function executeProposal({ workspaceRoot, text, allowedCommands, requiredP
       await assertNoSymlinkPath(workspaceRoot, destination);
       await fs.writeFile(destination, patch.content, 'utf8');
     }
-    appliedFiles = await Promise.all(proposal.patches.map(async (patch) => {
-      const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
-      const stat = await fs.stat(destination);
-      return { path: patch.path, bytes: stat.size, absolutePath: destination };
-    }));
     tests = [];
     for (const command of proposal.tests) tests.push(await runTest(command, workspaceRoot));
   } catch (error) {
     await restorePatchState(workspaceRoot, patchState).catch(() => {});
     throw error;
   }
-  if (tests.some((test) => test.exitCode !== 0)) {
-    await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })),
-      appliedFiles, evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })),
-      changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
-  }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
-    .map(({ path, hash }) => ({ path, hash }));
+    .map(({ path: filePath, hash }) => ({ path: filePath, hash }));
+  const testExecutionReceipt = db && mission && executionRun?.id
+    ? await require('./localCodeTestExecutionReceiptService').recordExecutedBatch(db, {
+      missionId: mission.missionId || mission.mission_id || mission.id,
+      agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
+      tests, workspaceFiles: after, changedFileHashes
+    }) : null;
+  if (tests.some((test) => test.exitCode !== 0)) {
+    await restorePatchState(workspaceRoot, patchState);
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: true, testStatus: 'failed' };
+  }
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
-    changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests, merged: false, testStatus: 'passed' };
+    changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests,
+    testExecutionReceipt, merged: false, testStatus: 'passed' };
 }
 function responseOptions(options) {
   return Array.isArray(options) ? { allowedCommands: options, requiredPatchPaths: [],
-    requiredPatchMarkers: {}, requiredPatchMinimumBytes: {} }
+    allowedPatchPaths: [], requiredPatchMarkers: {}, requiredPatchMinimumBytes: {} }
     : { allowedCommands: options?.allowedCommands || [], requiredPatchPaths: options?.requiredPatchPaths || [],
+      allowedPatchPaths: options?.allowedPatchPaths || [],
       requiredPatchMarkers: options?.requiredPatchMarkers || {},
       requiredPatchMinimumBytes: options?.requiredPatchMinimumBytes || {} };
+}
+
+function assertAllowedPatchPaths(proposal, allowedPaths) {
+  if (!Array.isArray(allowedPaths) || !allowedPaths.length) return;
+  const permitted = new Set(allowedPaths.filter(safePath));
+  const rejected = proposal.patches.map(({ path: patchPath }) => patchPath)
+    .filter((patchPath) => !permitted.has(patchPath));
+  if (rejected.length) throw new Error(`Patch paths are outside the workspace-context allowlist: ${rejected.join(', ')}`);
 }
 
 function proposalResponseFormat(options = {}) {
@@ -174,27 +197,81 @@ function proposalResponseFormat(options = {}) {
   const commands = [...new Set(resolved.allowedCommands.map(normalizeSandboxCommand)
     .filter(isAllowedSandboxTestCommand))];
   const paths = [...new Set(resolved.requiredPatchPaths.filter(safePath))].slice(0, 12);
-  if (!commands.length && !paths.length) return PROPOSAL_RESPONSE_FORMAT;
+  const allowedPaths = [...new Set(resolved.allowedPatchPaths.filter(safePath))].slice(0, 12);
+  if (!commands.length && !paths.length && !allowedPaths.length) return PROPOSAL_RESPONSE_FORMAT;
   const format = JSON.parse(JSON.stringify(PROPOSAL_RESPONSE_FORMAT));
   if (commands.length) format.schema.properties.tests.items.enum = commands;
+  if (allowedPaths.length) format.schema.properties.patches.items.properties.path.enum = allowedPaths;
   if (paths.length) {
     format.schema.properties.patches.minItems = paths.length;
     format.schema.properties.patches.maxItems = paths.length;
     format.schema.properties.patches.items.properties.path.enum = paths;
+    format.schema.properties.patches.allOf = paths.map((requiredPath) => {
+      const content = { type: 'string', minLength: resolved.requiredPatchMinimumBytes[requiredPath] || 0 };
+      const markers = markerPatterns(resolved.requiredPatchMarkers[requiredPath]);
+      if (markers.length) content.allOf = markers;
+      return { contains: { type: 'object', properties: { path: { const: requiredPath }, content },
+        required: ['path'] } };
+    });
   }
   return format;
 }
 
+function markerPatterns(markers) {
+  return (Array.isArray(markers) ? markers : []).map((marker) => ({
+    pattern: String(marker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }));
+}
+
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
-  restorePatchState, proposalResponseFormat, assertRequiredPatchContract };
+  restorePatchState, proposalResponseFormat, assertRequiredPatchContract, assertAllowedPatchPaths };
 
 function assertProposalSchema(proposal) {
-  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !['genos.file-replacement/v1', 'genos.file-edits/v1'].includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
 }
 
 function assertProposalPatches(proposal) {
   for (const patch of proposal.patches) {
-    if (!patch || Object.keys(patch).some((key) => !['path', 'content'].includes(key)) || !safePath(patch.path) || typeof patch.content !== 'string' || Buffer.byteLength(patch.content) > 200000) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+    if (!patch || Object.keys(patch).some((key) => !['path', 'content', 'edits'].includes(key)) || !safePath(patch.path)) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+    const hasContent = typeof patch.content === 'string' && !Object.hasOwn(patch, 'edits');
+    const hasEdits = Array.isArray(patch.edits) && !Object.hasOwn(patch, 'content')
+      && patch.edits.length > 0 && patch.edits.length <= 8
+      && patch.edits.every((edit) => edit && Object.keys(edit).every((key) => ['find', 'replace'].includes(key))
+        && typeof edit.find === 'string' && edit.find.length > 0 && Buffer.byteLength(edit.find) <= 10000
+        && typeof edit.replace === 'string' && Buffer.byteLength(edit.replace) <= 10000);
+    if ((!hasContent && !hasEdits) || (hasContent && Buffer.byteLength(patch.content) > 200000)) {
+      throw new Error(`Unsafe patch proposal for '${patch.path}'. Provide either full content or bounded exact edits.`);
+    }
+  }
+}
+
+function proposalShapeError(error, text, usage = {}) {
+  const detail = error.message || String(error);
+  const inputTokens = Number(usage.inputTokens || 0);
+  const outputTokens = Number(usage.outputTokens || 0);
+  return Object.assign(new Error(`Local code proposal rejected: ${detail}`), {
+    code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+    workerArtifactDiagnostics: { error: detail, violations: [detail], outputExcerpt: String(text || '').slice(0, 2048) },
+    usage: { inputTokens, outputTokens, tokens: inputTokens + outputTokens }
+  });
+}
+
+async function materializePatchEdits(workspaceRoot, proposal) {
+  for (const patch of proposal.patches) {
+    if (!Array.isArray(patch.edits)) continue;
+    const target = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
+    if (!target.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
+    await assertNoSymlinkPath(workspaceRoot, target);
+    let content = await fs.readFile(target, 'utf8');
+    for (const edit of patch.edits) {
+      const first = content.indexOf(edit.find);
+      if (first < 0 || content.indexOf(edit.find, first + edit.find.length) >= 0) {
+        throw new Error(`Exact edit anchor must occur once in '${patch.path}'.`);
+      }
+      content = content.slice(0, first) + edit.replace + content.slice(first + edit.find.length);
+    }
+    patch.content = content;
+    delete patch.edits;
   }
 }
 

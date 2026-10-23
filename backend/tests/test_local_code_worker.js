@@ -4,13 +4,29 @@ const os = require('os');
 const path = require('path');
 const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
+const originalConsoleLog = console.log;
+const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
+console.log = originalConsoleLog;
 assert.equal(safePath('src/lib.rs'), true);
 assert.equal(safePath('tests/security.rs'), false);
 assert.equal(safePath('src/lib.test.js'), false);
 assert.equal(safePath('Cargo.toml'), false);
-assert.throws(() => parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}'));
+let unsafeProposalError;
+try {
+  parseProposal(
+    '{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}',
+    { inputTokens: 70, outputTokens: 30 });
+} catch (error) { unsafeProposalError = error; }
+assert.ok(unsafeProposalError);
+assert.equal(unsafeProposalError.code, 'WORKER_OUTPUT_SCHEMA_VIOLATION');
+assert.match(unsafeProposalError.workerArtifactDiagnostics.error, /Unsafe patch proposal/);
+assert.match(unsafeProposalError.workerArtifactDiagnostics.outputExcerpt, /tests\/x\.rs/);
+assert.equal(unsafeProposalError.usage.tokens, 100);
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
+const editProposal = parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"before","replace":"after"}]}],"tests":["pytest"],"evidence":"minimal exact edit"}');
+assert.equal(editProposal.patches[0].edits[0].find, 'before');
+assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"","replace":"after"}]}],"tests":["pytest"],"evidence":"empty anchor"}'), /Unsafe patch proposal/);
 const responseFormat = proposalResponseFormat();
 assert.equal(responseFormat.schema.additionalProperties, false);
 assert.deepEqual(responseFormat.schema.required, ['format', 'patches', 'tests', 'evidence']);
@@ -24,7 +40,19 @@ assert.deepEqual(webResponseFormat.schema.properties.patches.items.properties.pa
 	['index.html', 'styles.css', 'script.js']);
 assert.equal(webResponseFormat.schema.properties.patches.minItems, 3);
 assert.equal(webResponseFormat.schema.properties.patches.maxItems, 3);
-assert.equal(webResponseFormat.schema.properties.patches.allOf, undefined);
+assert.deepEqual(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.allOf,
+	[{ pattern: 'data-reveal' }]);
+assert.equal(webResponseFormat.schema.properties.patches.allOf[0].contains.properties.content.minLength, 4500);
+const pathOnlyResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test'],
+	requiredPatchPaths: ['index.html'], requiredPatchMinimumBytes: { 'index.html': 1200 } });
+const pathOnlyContentSchema = pathOnlyResponseFormat.schema.properties.patches.allOf[0]
+	.contains.properties.content;
+assert.equal(pathOnlyContentSchema.minLength, 1200);
+assert.equal(Object.hasOwn(pathOnlyContentSchema, 'allOf'), false,
+	'omit allOf when no required patch markers exist');
+const allowlistedFormat = proposalResponseFormat({ allowedPatchPaths: ['src/lib.rs', 'backend/src/services/repair.js', 'tests/repair.test.js'] });
+assert.deepEqual(allowlistedFormat.schema.properties.patches.items.properties.path.enum,
+	['src/lib.rs', 'backend/src/services/repair.js'], 'schema excludes unsafe files from the model patch choices');
 assert.deepEqual(require('../src/services/modelProviderRequest').buildRequestBody({
 	provider: 'ollama', modelName: 'fixture', prompt: 'Return a proposal.', outputLimit: 128,
 	stream: false, nativeOllama: true, responseFormat
@@ -57,12 +85,39 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
+		const contextRoot = path.join(root, 'context');
+		await fs.mkdir(path.join(contextRoot, 'backend', 'tests'), { recursive: true });
+		await fs.mkdir(path.join(contextRoot, 'backend', 'src', 'services'), { recursive: true });
+		await fs.writeFile(path.join(contextRoot, 'Cargo.toml'), '[package]');
+		await fs.writeFile(path.join(contextRoot, 'backend', 'tests', 'test_regression.js'),
+			"const { repair } = require('../src/services/repair');\nassert.throws(() => repair());");
+		await fs.writeFile(path.join(contextRoot, 'backend', 'src', 'services', 'repair.js'),
+			'module.exports = function repair() {};');
+		const workspaceContextDetails = buildWorkspaceContext(contextRoot, {
+			allowedCommands: ['node backend/tests/test_regression.js']
+		});
+		const workspaceContext = workspaceContextDetails.text;
+		assert.deepEqual(workspaceContextDetails.patchCandidatePaths,
+			['backend/src/services/repair.js'], 'patch candidates follow the function invoked by the failing assertion');
+		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'tests', 'test_regression.js')}`),
+			'context includes the allow-listed failing regression test');
+		assert(workspaceContext.includes(`[FICHIER ${path.join('backend', 'src', 'services', 'repair.js')}`),
+			'context includes the production module imported by that test');
+		assert(workspaceContext.indexOf(`[FICHIER ${path.join('backend', 'tests', 'test_regression.js')}`)
+			< workspaceContext.indexOf('[FICHIER Cargo.toml'),
+		'test and imported implementation take priority over unrelated root files');
 		await assert.rejects(
 			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
 				text: JSON.stringify({ ...proposal, tests: ['node malicious.js'] }) }),
 			/not allow-listed/
 		);
 		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
+		await assert.rejects(executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
+			allowedPatchPaths: ['src/lib.rs'],
+			text: JSON.stringify({ ...proposal, patches: [{ path: 'src/other.js', content: 'module.exports = 1;' }] }) }),
+		/outside the workspace-context allowlist/);
+		await assert.rejects(fs.access(path.join(root, 'src', 'other.js')),
+			'disallowed patch targets remain untouched');
 		await assert.rejects(
 			executeProposal({ workspaceRoot: root, allowedCommands: ['cargo test --quiet'],
 				requiredPatchPaths: ['src/lib.rs'], requiredPatchMarkers: { 'src/lib.rs': ['required-marker'] },
@@ -84,6 +139,25 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			/symlink/
 		);
 		await fs.mkdir(path.join(root, 'src'), { recursive: true });
+		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');
+		const editFailure = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
+			text: JSON.stringify({ ...editProposal, patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }] }) });
+		assert.equal(editFailure.rolledBack, true);
+		assert.deepEqual(editFailure.failedPatchContents, [{ path: 'src/lib.rs', content: 'after' }]);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before',
+			'exact edit is rolled back after its test fails');
+		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before before');
+		await assert.rejects(executeProposal({ workspaceRoot: root, usage: { inputTokens: 80, outputTokens: 20 }, allowedCommands: ['pytest'],
+			text: JSON.stringify({ ...editProposal, patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }] }) }),
+		(error) => {
+			assert.equal(error.code, 'WORKER_OUTPUT_SCHEMA_VIOLATION');
+			assert.match(error.workerArtifactDiagnostics.error, /anchor must occur once/);
+			assert.match(error.workerArtifactDiagnostics.outputExcerpt, /genos.file-edits\/v1/);
+			assert.equal(error.usage.tokens, 100);
+			return true;
+		});
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before before',
+			'ambiguous exact edit does not modify the file');
 		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');
 		const failed = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
 			text: JSON.stringify({ ...proposal, patches: [{ path: 'src/lib.rs', content: 'after' }], tests: ['pytest'] }) });

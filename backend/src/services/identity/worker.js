@@ -18,6 +18,13 @@ async function begin(db, input) {
   }
 }
 
+async function renew(db, identity) {
+  if (!identity?.session) return null;
+  const session = identity.session;
+  identity.session = await incarnations.renew(db, session, 900000);
+  return identity.session;
+}
+
 async function finish(db, input) {
   await decisions.finish(db, { session: input.identity.session,
     operationId: input.identity.receipt.decision_id, success: input.success,
@@ -26,20 +33,21 @@ async function finish(db, input) {
   input.identity.receipt = await db.get('SELECT * FROM agent_identity_decisions WHERE decision_id = ?', input.identity.receipt.decision_id);
 }
 
-async function renew(_db, identity) {
-  if (!identity?.session) return;
-  identity.session = await incarnations.renew(_db, identity.session, 900000);
-  return identity;
-}
 
 async function release(db, identity) {
+  if (identity?.stale) return;
   if (identity) await incarnations.release(db, identity.session);
 }
 
 async function fail(db, input) {
   if (!input.identity || input.identity.finished) return;
-  await finish(db, { identity: input.identity, success: false,
-    evidenceRef: { executionRunId: input.executionRun.id, failure: input.error.code || 'EXECUTION_FAILED' } });
+  try {
+    await finish(db, { identity: input.identity, success: false,
+      evidenceRef: { executionRunId: input.executionRun.id, failure: input.error.code || 'EXECUTION_FAILED' } });
+  } catch (error) {
+    if (error.code !== 'IDENTITY_SESSION_STALE') throw error;
+    input.identity.stale = true;
+  }
 }
 
 module.exports = { begin, finish, renew, release, fail };

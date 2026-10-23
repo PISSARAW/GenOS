@@ -7,6 +7,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const { TEST_ADMIN_TOKEN } = require('../testAuth');
 const authority = require('../src/services/agentAuthorityService');
 const contracts = require('../src/services/strategyContractService');
+const workerGarage = require('../src/services/workerGarageService');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const PORT = 4107;
@@ -78,7 +79,9 @@ async function run() {
     assert.equal(deployed.status, 201);
     assert.equal(deployed.body.agent.executionMode, 'worker');
     assert.equal(deployed.body.dispatchRequired, true);
-    assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length, 78);
+    assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length,
+      deployed.body.strategyContract.contract.strategy_registry.total);
+    assert.equal(deployed.body.strategyContract.contract.strategy_registry.selection_complete, true);
     const workerId = deployed.body.agentId;
 
     const missionNamed = await request('POST', '/api/deploy', {
@@ -91,7 +94,9 @@ async function run() {
     const garage = await request('GET', '/api/agents/authority-orchestrator/workers/garage');
     assert.equal(garage.status, 200);
     console.log("GARAGE BODY:", garage.body);
-    assert.deepEqual({ capacity: garage.body.capacity, occupied: garage.body.occupied, available: garage.body.available }, { capacity: 3, occupied: 0, available: 3 });
+    assert.deepEqual({ capacity: garage.body.capacity, occupied: garage.body.occupied,
+      available: garage.body.available }, { capacity: workerGarage.MAX_ACTIVE_WORKERS,
+      occupied: 0, available: workerGarage.MAX_ACTIVE_WORKERS });
 
     const selfStart = await request('POST', `/api/agents/${workerId}/start`, {});
     assert.equal(selfStart.status, 409);
@@ -100,19 +105,21 @@ async function run() {
     const inherited = await request('GET', `/api/agents/${workerId}/strategy-contract`);
     assert.equal(inherited.status, 200);
     assert.equal(inherited.body.inheritedByWorker, true);
-    assert.equal(inherited.body.contract.strategy_decisions.length, 78);
+    assert.equal(inherited.body.contract.strategy_decisions.length,
+      inherited.body.contract.strategy_registry.total);
+    assert.equal(inherited.body.contract.strategy_registry.selection_complete, true);
 
     const wrongDispatcher = await request('POST', `/api/agents/not-the-parent/workers/${workerId}/dispatch`, {});
     assert.equal(wrongDispatcher.status, 404);
     assert.equal(wrongDispatcher.body.error.code, 'AGENT_NOT_FOUND');
 
-    // A Studio stop also reconciles stale "running" rows when no child
-    // process exists in this backend instance.
+    // An unverified external runtime must not be reported as stopped.
     await db.run("UPDATE agents SET status = 'running' WHERE id = 'authority-orchestrator'");
     const stopped = await request('POST', '/api/agents/authority-orchestrator/stop', {});
-    assert.equal(stopped.status, 200);
-    assert.equal(stopped.body.stopped, false);
-    assert.equal(stopped.body.status, 'idle');
+    assert.equal(stopped.status, 409);
+    assert.equal(stopped.body.error.code, 'EXTERNAL_RUNTIME_UNVERIFIED');
+    assert.equal((await db.get("SELECT status FROM agents WHERE id = 'authority-orchestrator'"))?.status, 'running');
+    await db.run("UPDATE agents SET status = 'idle' WHERE id = 'authority-orchestrator'");
     assert.equal((await db.get("SELECT status FROM agents WHERE id = 'authority-orchestrator'"))?.status, 'idle');
     const deleted = await request('DELETE', '/api/agents/authority-orchestrator');
     assert.equal(deleted.status, 200);

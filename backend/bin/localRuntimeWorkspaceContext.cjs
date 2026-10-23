@@ -3,15 +3,16 @@
 const path = require('path');
 
 const LOCAL_WORKER_FILE_BUDGET = { maxFileBytes: 32768, maxTotalBytes: 131072, maxFiles: 12 };
-function buildWorkspaceContext(workspaceRoot) {
+function buildWorkspaceContext(workspaceRoot, options = {}) {
   const fs = require('fs');
   const root = path.resolve(workspaceRoot || process.cwd());
   const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(root);
-  const candidates = listWorkspaceFiles(fs, root, LOCAL_WORKER_FILE_BUDGET.maxFiles);
+  const candidates = require('./local-code-workspace-context.cjs').collectWorkspaceContextPaths(
+    root, options.allowedCommands || [], readWorkspaceFileExcerpt, LOCAL_WORKER_FILE_BUDGET.maxFiles, fs);
   const names = candidates.join(', ') || '(aucun)';
-  const bootstrapHint = candidates.some(name => hasRootImplementationFile(fs, root, name)) ? ''
+  const bootstrapHint = candidates.some(name => /\.(?:html?|css|[cm]?js|jsx?|tsx?|py|rs|go|java|cs|rb|php)$/i.test(name)) ? ''
     : '\n[WORKSPACE INITIALIZATION] No implementation source files were found. For a create/build task, scaffold from scratch using the mission requirements; an empty starter workspace is not a blocker. For modification or review tasks, report the specific missing source instead of inventing it.';
-  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers du workspace : ${names}${bootstrapHint}\n\n`;
+  let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet \"${projectName}\"]\nFichiers analysés (tests autorisés et leurs imports en premier) : ${names}${bootstrapHint}\n\n`;
   const fileHashes = {};
   let total = 0;
   for (const name of candidates) {
@@ -20,32 +21,11 @@ function buildWorkspaceContext(workspaceRoot) {
     text += formatExcerpt(excerpt, total >= LOCAL_WORKER_FILE_BUDGET.maxTotalBytes);
     if (!excerpt.refused && total < LOCAL_WORKER_FILE_BUDGET.maxTotalBytes) total += excerpt.bytes;
   }
-  return { text, fileHashes };
+  const patchCandidatePaths = require('./local-code-worker-target-paths.cjs')
+    .collectTargetPaths({ root, candidates, readExcerpt: readWorkspaceFileExcerpt });
+  return { text, fileHashes, candidatePaths: candidates,
+    patchCandidatePaths: patchCandidatePaths.length ? patchCandidatePaths : candidates };
 }
-function listWorkspaceFiles(fs, root, limit) {
-  const skipped = new Set(['.git', '.genos', 'node_modules', 'dist', 'build', 'coverage', 'target']);
-  const files = [];
-  function visit(directory, depth) {
-    if (depth > 4 || files.length >= limit) return;
-    let entries;
-    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch (_) { return; }
-    entries.sort((left, right) => left.name.localeCompare(right.name));
-    for (const entry of entries) {
-      if (files.length >= limit) break;
-      if (entry.name.startsWith('.') || skipped.has(entry.name) || entry.isSymbolicLink()) continue;
-      const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) visit(absolute, depth + 1);
-      else if (entry.isFile()) files.push(path.relative(root, absolute));
-    }
-  }
-  visit(root, 0);
-  return files;
-}
-function hasRootImplementationFile(fs, root, name) {
-  if (!/\.(?:html?|css|[cm]?js|jsx?|tsx?|py|rs|go|java|cs|rb|php)$/i.test(name)) return false;
-  try { return fs.lstatSync(path.join(root, name)).isFile(); } catch { return false; }
-}
-
 function formatExcerpt(excerpt, overBudget) {
   const refused = excerpt.refused || (overBudget ? 'budget_exceeded' : '');
   if (refused) return `[FICHIER ${excerpt.path} : REFUS ${refused}, sha256=${excerpt.sha256 || 'inconnu'}]\n`;

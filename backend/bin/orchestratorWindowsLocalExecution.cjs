@@ -16,42 +16,55 @@ function requestedModel(request) {
     || process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b';
 }
 
+function resolveIdentity(request) {
+  const identityExperimentArm = request.identityExperimentArm || request.identity_experiment_arm || null;
+  const requestedScenario = request.identityExperimentScenario || request.identity_experiment_scenario || null;
+  const identityExperimentScenario = identityExperimentArm
+    && ['A', 'B', 'C'].includes(requestedScenario) ? requestedScenario : null;
+  const identityExperimentWorker = Boolean(identityExperimentScenario);
+  const allowedEvidenceRefs = ['mission'];
+  if (identityExperimentArm === 'genos_full') allowedEvidenceRefs.push('worker_self');
+  if (identityExperimentArm === 'identity_sheet') allowedEvidenceRefs.push('identity_sheet');
+  return { identityExperimentArm, identityExperimentScenario, identityExperimentWorker, allowedEvidenceRefs,
+    identityExperimentSeed: Number.isInteger(request.identityExperimentSeed) ? request.identityExperimentSeed : undefined };
+}
+
+function resolveRouting(request, localModel) {
+  if (request.localRoutingPolicy || request.local_routing_policy) {
+    return request.localRoutingPolicy || request.local_routing_policy;
+  }
+  const primary = localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel;
+  return { primary, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true };
+}
+
+function resolveBudget(missionBudget, requestTimeoutMs) {
+  const timeoutBudget = Math.max(1000, Number(requestTimeoutMs) - 4000);
+  return { ...missionBudget, tokens: missionBudget.tokens || 8192,
+    costUsd: missionBudget.costUsd || 0, latencyMs: missionBudget.latencyMs || timeoutBudget };
+}
+
 function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
   const localCodeWorker = requestedCodeWorker(request);
   const localModel = requestedModel(request);
-  const identityExperimentArm = request.identityExperimentArm || request.identity_experiment_arm || null;
-  const requestedIdentityScenario = request.identityExperimentScenario || request.identity_experiment_scenario || null;
-  const identityExperimentScenario = identityExperimentArm
-    && ['A', 'B', 'C'].includes(requestedIdentityScenario) ? requestedIdentityScenario : null;
-  const identityExperimentWorker = Boolean(identityExperimentScenario);
-  const allowedEvidenceRefs = ['mission'];
-  if (identityExperimentArm === 'genos_full') allowedEvidenceRefs.push('worker_self');
-  if (identityExperimentArm === 'identity_sheet') allowedEvidenceRefs.push('identity_sheet');
-  const localRoutingPolicy = request.localRoutingPolicy || request.local_routing_policy || {
-    primary: localModel.startsWith('ollama://') ? localModel : 'ollama://' + localModel,
-    fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
-  };
+  const identity = resolveIdentity(request);
   const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
+  const workerKind = identity.identityExperimentWorker ? 'specialist' : 'bounded_worker';
+  const specialtyNiche = identity.identityExperimentWorker
+    ? 'identity continuity and causal self-model analysis' : undefined;
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
     prompt, currentTask: prompt, role: 'implementation',
-    workerKind: identityExperimentWorker ? 'specialist' : 'bounded_worker',
-    specialtyNiche: identityExperimentWorker ? 'identity continuity and causal self-model analysis' : undefined,
-    identityExperimentScenario,
+    workerKind, specialtyNiche,
+    identityExperimentScenario: identity.identityExperimentScenario,
     executionMode: 'worker',
     deferAgentTerminalStatus: true,
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
-    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs,
-    requiredPatchPaths: request.requiredPatchPaths,
-    requiredPatchMarkers: request.requiredPatchMarkers,
-    requiredPatchMinimumBytes: request.requiredPatchMinimumBytes,
-    localModel, localRoutingPolicy, identityExperimentArm,
-    identityExperimentSeed: Number.isInteger(request.identityExperimentSeed) ? request.identityExperimentSeed : undefined,
-    timeoutMs: requestTimeoutMs,
-    executionBudget: { ...missionBudget, tokens: missionBudget.tokens || 8192,
-      costUsd: missionBudget.costUsd || 0,
-      latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) },
+    writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: identity.allowedEvidenceRefs,
+    localModel, localRoutingPolicy: resolveRouting(request, localModel),
+    identityExperimentArm: identity.identityExperimentArm,
+    identityExperimentSeed: identity.identityExperimentSeed,
+    timeoutMs: requestTimeoutMs, executionBudget: resolveBudget(missionBudget, requestTimeoutMs),
     executionPolicy: { allowedCommands, allowFileEdits, localCodeWorker },
     requiredPatchPaths: request.requiredPatchPaths,
     requiredPatchMarkers: request.requiredPatchMarkers,

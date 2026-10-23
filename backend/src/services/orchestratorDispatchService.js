@@ -7,7 +7,8 @@ function missionDefaults(input) {
     modelBudgetScope: input.modelBudgetScope || null,
     methodContract: input.methodContract || null,
     workerAssignment: input.workerAssignment || null,
-    executionBudget: input.executionBudget || {},
+    executionBudget: input.executionBudget || input.execution_budget
+      || (input.workerTokenLimit != null ? { tokens: input.workerTokenLimit } : {}),
     executionPolicy: input.executionPolicy || {}
   };
 }
@@ -24,6 +25,7 @@ function buildWorkerMission(input = {}) {
     missionScope: input.missionScope,
     organization: input.organization,
     coordinationPolicy: input.coordinationPolicy,
+    communicationRequired: input.communicationRequired === true || input.communication_required === true,
     orchestratorAgentId: input.orchestratorAgentId,
     modelBudgetScope: defaults.modelBudgetScope,
     prompt: input.prompt,
@@ -34,7 +36,7 @@ function buildWorkerMission(input = {}) {
     specialtyNiche: input.specialtyNiche, nicheDomain: input.nicheDomain,
     hostContractId: input.hostContractId, hostCapabilities: input.hostCapabilities,
     recoveryLease: input.recoveryLease, writeLease: input.writeLease === true,
-    workerTokenLimit: input.executionBudget?.tokens,
+    workerTokenLimit: input.workerTokenLimit ?? defaults.executionBudget.tokens,
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
     workspaceProvisioned: input.workspaceProvisioned === true,

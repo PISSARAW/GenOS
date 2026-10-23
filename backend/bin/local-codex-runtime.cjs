@@ -9,6 +9,7 @@ const localSynthesis = require('../src/services/localRuntimeSynthesis');
 const captureBarrier = require('../src/services/localRuntimeCaptureBarrier');
 const observationInbox = require('../src/services/localRuntimeObservationInbox');
 const intraEpochInbox = require('../src/services/localRuntimeIntraEpochInbox');
+const { buildWorkspaceContext } = require('./localRuntimeWorkspaceContext.cjs');
 const path = require('path');
 let raw = Buffer.alloc(0);
 if (require.main === module) {
@@ -40,7 +41,9 @@ async function main(rawInput) {
   intraEpochInbox.bind(mission.agentId);
   const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
-  const built = require('./localRuntimeWorkspaceContext.cjs').buildWorkspaceContext(workspaceRoot);
+  const built = buildWorkspaceContext(workspaceRoot, {
+    allowedCommands: mission.allowedCommands || mission.executionPolicy?.allowedCommands || []
+  });
   const contextStr = built.text;
   const agentIdentity = require('../src/services/agentIdentityService');
   const agentConscience = require('../src/services/agentConscienceService');
@@ -268,7 +271,7 @@ async function loadConscienceBlock(mission, agentConscience) {
   const helper = require('../src/services/agentSelfBlocks');
   return helper.loadConscienceText(null, mission.agentId, agentConscience);
 }
-function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits, allowedWritePaths) {
+function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits, allowedWritePaths = []) {
   if (!allowFileEdits) return [];
   const found = [...String(reply).matchAll(/\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi)];
   const result = require('../src/services/localArtifactWriter').writeArtifacts(reply,

@@ -15,8 +15,13 @@ function workspaceInitializationAlertId(workspaceId) {
 }
 
 function localWorkspaceConfig() {
-  if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
+  const agentId = String(process.env.GENOS_AGENT_ID || '').trim();
+  const orchestratorId = String(process.env.GENOS_ORCHESTRATOR_AGENT_ID || '').trim();
+  if (agentId && orchestratorId && agentId !== orchestratorId) return;
+  const capsuleRoot = String(process.env.GENOS_CAPSULE_ROOT || '').trim();
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
+  if (isCapsuleWorkspace(capsuleRoot, workspaceRoot)) return;
+  if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   if (!workspaceRoot) return;
   const name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
   return {
@@ -24,6 +29,12 @@ function localWorkspaceConfig() {
     organizationId: String(process.env.GENOS_LOCAL_ORGANIZATION_ID || 'org-local').trim(),
     projectId: String(process.env.GENOS_LOCAL_PROJECT_ID || 'project-local').trim()
   };
+}
+
+function isCapsuleWorkspace(capsuleRoot, workspaceRoot) {
+  if (!capsuleRoot || !workspaceRoot || !path.isAbsolute(capsuleRoot) || !path.isAbsolute(workspaceRoot)) return false;
+  const relative = path.relative(path.resolve(capsuleRoot), path.resolve(workspaceRoot));
+  return Boolean(relative && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 async function ensureLocalTenant(db, config) {

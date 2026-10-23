@@ -61,6 +61,10 @@ const METHOD_CAPABILITIES = Object.freeze({
 
 const ROLE_ALIASES = Object.freeze({
   worker: 'bounded_worker', implementation: 'bounded_worker', frontend_developer: 'bounded_worker',
+  frontend_engineer: 'bounded_worker', backend_engineer: 'bounded_worker', data_engineer: 'bounded_worker',
+  quality_engineer: 'bounded_worker', operations_engineer: 'bounded_worker', ai_engineer: 'bounded_worker',
+  product_specialist: 'bounded_worker', research_scientist: 'bounded_worker',
+  security_reviewer: 'red_worker', integration_observer: 'scout_cell', mathematician: 'math_worker',
   autonomous_orchestrator: 'sub_orchestrator',
   independent_reviewer: 'verifier_worker', neutral_observer: 'scout_cell',
   verifier: 'verifier_worker',

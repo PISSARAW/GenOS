@@ -78,16 +78,31 @@ function log(level, message) {
 }
 
 function loadManifest(campaignDir) {
-  const sealPath = path.join(campaignDir, 'seal.json');
-  if (!fs.existsSync(sealPath)) {
-    throw new Error(`No seal found at ${sealPath}. Run 'seal' first.`);
-  }
-  const seal = JSON.parse(fs.readFileSync(sealPath, 'utf8'));
+  const seal = loadSeal(campaignDir);
   const manifest = seal.manifest;
   if (manifest.mode !== 'field') {
     throw new Error(`Campaign mode is ${manifest.mode}, expected 'field'.`);
   }
   return manifest;
+}
+
+function loadSeal(campaignDir) {
+  const sealPath = path.join(campaignDir, 'seal.json');
+  if (!fs.existsSync(sealPath)) {
+    throw new Error(`No seal found at ${sealPath}. Run 'seal' first.`);
+  }
+  return JSON.parse(fs.readFileSync(sealPath, 'utf8'));
+}
+
+function resolveAdapter(campaignDir, override) {
+  const lockedPath = loadSeal(campaignDir).adapter?.path;
+  if (typeof lockedPath !== 'string' || !path.isAbsolute(lockedPath)) {
+    throw new Error('Sealed campaign does not contain an absolute adapter lock.');
+  }
+  if (override && path.resolve(override) !== path.resolve(lockedPath)) {
+    throw new Error('Requested adapter path differs from the sealed campaign adapter.');
+  }
+  return lockedPath;
 }
 
 function campaignWindows(manifest) {
@@ -165,7 +180,7 @@ function finishCampaign(campaignDir, adapter) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const campaignDir = path.resolve(args.campaignDir);
-  const adapter = args.adapter || path.join(ROOT, 'bin', 'field-campaign-adapter.cjs');
+  const adapter = resolveAdapter(campaignDir, args.adapter);
   const manifest = loadManifest(campaignDir);
   const allWindows = campaignWindows(manifest);
   logSchedule(manifest, allWindows);
@@ -175,7 +190,11 @@ async function main() {
   log('INFO', 'Orchestrator finished.');
 }
 
-main().catch((error) => {
-  log('ERROR', error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    log('ERROR', error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { parseArgs, loadManifest, resolveAdapter };

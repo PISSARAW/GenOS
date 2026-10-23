@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('151-local-code-test-execution-receipts', 'Persist immutable receipts from the trusted local code test executor', async (db) => {
+    await require('./migrateLocalCodeTestExecutionReceipts').migrateLocalCodeTestExecutionReceipts(db);
+  }),
   createMigrationRunner('150-ontogenesis-memory-search', 'Persist Ontogenesis memory FTS5 search and synapse graph', async (db) => {
     await require('./migrateOntogenesisMemorySearch').migrateOntogenesisMemorySearch(db);
   }),

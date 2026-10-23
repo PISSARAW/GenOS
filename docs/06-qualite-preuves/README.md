@@ -5,6 +5,7 @@
 - [experience-mission-chanson-a-team-2026-10-20.md](experience-mission-chanson-a-team-2026-10-20.md) — retour d'expérience complet de la mission chanson A-Team, artefact final, causes des refus, correctifs, preuves de clôture et limites du rejeu.
 
 - [experience-morphogenese-qwen-site-2026-10-20.md](experience-morphogenese-qwen-site-2026-10-20.md) — expérience Trinity avec trois workers Qwen, diagnostic de la non-matérialisation de `index.html`, refus de promotion et corrections proposées.
+- [experience-qwen-pantrie-bail-identite-2026-10-23.md](experience-qwen-pantrie-bail-identite-2026-10-23.md) — run Pantry négatif conservé, correctif de renouvellement fencing-safe, contre-tests et rerun Qwen encore en attente.
 
 - [protocole-campagne-terrain-shev.md](protocole-campagne-terrain-shev.md) — protocole pilote apparié et scellable, cinq fenêtres d'apprentissage, vingt fenêtres réservées et aucun résultat terrain revendiqué.
 - [publication-replication-campagne-terrain-shev.md](publication-replication-campagne-terrain-shev.md) — rapport sanitisé, digests d'archive externe, publication des échecs et réplication indépendante.

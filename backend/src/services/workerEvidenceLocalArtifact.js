@@ -43,12 +43,17 @@ function requiresDiagnosticMatrix(mission) {
 
 function rawReply(report) { return report.fullText || report; }
 
-function trustedCodeEvidenceRefs(report, codeWorker) {
+function trustedCodeEvidenceRefs(report, codeWorker, proposal) {
   if (!codeWorker) return [];
   const claims = Array.isArray(report?.claims) ? report.claims : [];
   const refs = claims.flatMap((claim) => claim.evidence || [])
     .concat(report?.scopeCompletion?.completedRefs || []);
-  return refs.filter((ref) => /^genos:\/\/code-(?:file|test)\/[a-f0-9]{64}$/.test(String(ref)));
+  const trusted = refs.filter((ref) => /^genos:\/\/code-(?:file|test)\/[a-f0-9]{64}$/.test(String(ref)));
+  const receiptHash = proposal?.testExecutionReceipt?.receiptHash;
+  if (typeof receiptHash === 'string' && /^[a-f0-9]{64}$/.test(receiptHash)) {
+    trusted.push(`genos://code-test-execution/${receiptHash}`);
+  }
+  return trusted;
 }
 
 function artifactProvenance(mission, context, evidenceReport) {
@@ -57,7 +62,7 @@ function artifactProvenance(mission, context, evidenceReport) {
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
     methodContract: mission.methodContract || null,
     allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || []),
-      ...trustedCodeEvidenceRefs(evidenceReport, context.codeWorker)])]
+      ...trustedCodeEvidenceRefs(evidenceReport, context.codeWorker, context.proposal)])]
   };
 }
 

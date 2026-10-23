@@ -28,7 +28,7 @@ function codeProposalInstruction(allowedCommands = []) {
   const testRule = commands.length
     ? `The tests array MUST contain exactly one command from this exact allowlist: ${JSON.stringify(commands)}. Do not substitute another command.`
     : 'Use one allow-listed test command.';
-  return `Return exactly one JSON object with schema ${JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{ path: 'src/file.ext', content: 'complete file content' }], tests, evidence: 'reason for the change' })}. Use 1-12 patches. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
+  return `Return exactly one JSON object. Prefer the minimal exact-edit form when possible: ${JSON.stringify({ format: 'genos.file-edits/v1', patches: [{ path: 'src/file.ext', edits: [{ find: 'exact existing text occurring once', replace: 'replacement' }] }], tests, evidence: 'reason for the change' })}. Each find anchor must occur once; use 1-8 edits per file. You may use ${JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{ path: 'src/file.ext', content: 'complete file content' }], tests, evidence: 'reason for the change' })} when an exact edit is unsuitable. Use 1-12 patches. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
 }
 
 function isCodeWorkerMission(mission) {

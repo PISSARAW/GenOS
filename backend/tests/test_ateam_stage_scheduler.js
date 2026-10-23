@@ -57,10 +57,12 @@ function fakeDb(statuses) {
 
   // Payload carries the dependency metadata to the worker.
   const coordinated = scheduler.stagePlanFor({ orchestratorId: 'o', planId: 'coord', members: [
-    { subSystem: 'api', mission: 'api', consults: ['web'], communicationCadence: 'CONTINUOUS_SYNC' },
+    { subSystem: 'api', mission: 'api', consults: ['web'], communicationCadence: 'CONTINUOUS_SYNC', executionBudgetTokens: 60000 },
     { subSystem: 'web', mission: 'web', contextHandoff: 'EXCLUSIVE_SERIAL_TRANSFER', dependsOn: ['api'] }
   ] });
-  const coordinationPayload = scheduler.workerLaunchPayload({ plan: coordinated, member: coordinated.members[0], parentWorkspaceRoot: 'C:/ws' });
+  const coordinationPayload = scheduler.workerLaunchPayload({ plan: coordinated, member: coordinated.members[0], parentWorkspaceRoot: 'C:/ws', request: { communicationRequired: true } });
+  assert.equal(coordinationPayload.communicationRequired, true);
+  assert.equal(coordinationPayload.workerTokenLimit, 60000);
   assert.deepEqual(coordinationPayload.coordination_policy, {
     consults: ['web'], communication_cadence: 'CONTINUOUS_SYNC', context_handoff: null
   });

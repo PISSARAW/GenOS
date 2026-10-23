@@ -246,7 +246,7 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
 async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan }) {
   const aTeam = autonomyPlan.aTeam;
   if (!aTeam || aTeam.activated !== true) return;
-  const selected = prepareDispatchPolicy({ mission: { ...normalizedMission, goal: missionText(normalizedMission) }, members: aTeam.members });
+  const selected = prepareDispatchPolicy({ mission: { ...normalizedMission, goal: missionText(normalizedMission) }, members: aTeam.members, totalBudget: normalizedMission.executionBudget?.tokens });
   aTeam.members = selected.members;
   aTeam.executionPolicy = selected.policy;
   const runDraft = buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan });

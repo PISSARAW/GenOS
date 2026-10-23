@@ -21,9 +21,9 @@ const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 const missionEpisodeRuntime = require('../src/services/missionEpisodeRuntime');
-const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
-  prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
-  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
+const { buildActionContext, runActionWithCleanup, emitTopologyEvent, applyNceEnhancements } = require('./orchestratorActionContext.cjs');
+const { buildNceInput, buildEnhancedPrompt, prepareMission, startOrchestratorMission,
+  buildContinuity, emitCompletionEvent, gatherTelemetryAndCoverage, emitFinalTelemetry, tokenUsage,
   shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 const completionPolling = require('./orchestratorCompletionPolling.cjs');
@@ -254,14 +254,12 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
   const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
-  const preflightTools = require('./orchestratorMcpPreflight.cjs').baselineTools(autonomyPlan);
-  const preflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPreflight({
-    db, orchestratorId: id, missionId, task, repoRoot: path.resolve(__dirname, '../..'),
-    workspaceRoot: request.workspaceRoot || request.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-    snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent,
-    tools: preflightTools,
-    hypotheses: request.diagnosticHypotheses || request.diagnostic_hypotheses
-  });
+  const preflightBridge = require('./orchestratorMcpPreflight.cjs');
+  const preflight = await preflightBridge.runOrchestratorMcpPreflight(
+    preflightBridge.buildOrchestratorPreflightInput({ db, orchestratorId: id, missionId, task,
+      repoRoot: path.resolve(__dirname, '../..'), request,
+      workspaceRoot: process.env.GENOS_WORKSPACE_ROOT,
+      tools: autonomyPlan.phases[0]?.requiredTools || [] }));
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });

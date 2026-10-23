@@ -15,6 +15,14 @@ async function openDatabase(filename) {
 async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-seed-concurrency-'));
   const filename = path.join(directory, 'genos.db');
+  const envKeys = ['GENOS_WORKSPACE_ROOT', 'GENOS_LOCAL_ORGANIZATION_ID', 'GENOS_LOCAL_PROJECT_ID',
+    'GENOS_AGENT_ID', 'GENOS_ORCHESTRATOR_AGENT_ID', 'GENOS_CAPSULE_ROOT'];
+  const previousEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
+  process.env.GENOS_WORKSPACE_ROOT = path.join(directory, 'parent-workspace');
+  process.env.GENOS_LOCAL_ORGANIZATION_ID = 'test-org';
+  process.env.GENOS_LOCAL_PROJECT_ID = 'test-project';
+  delete process.env.GENOS_AGENT_ID;
+  delete process.env.GENOS_ORCHESTRATOR_AGENT_ID;
   const first = await openDatabase(filename);
   const second = await openDatabase(filename);
 
@@ -30,10 +38,23 @@ async function main() {
     const alerts = await first.all("SELECT id FROM global_alerts WHERE workspace_name = 'Concurrent workspace'");
     assert.equal(alerts.length, 1, 'the workspace must have exactly one bootstrap alert');
     assert.equal(alerts[0].id, workspaceInitializationAlertId('ws-concurrent'));
+
+    process.env.GENOS_AGENT_ID = 'worker-child';
+    process.env.GENOS_ORCHESTRATOR_AGENT_ID = 'root-orchestrator';
+    process.env.GENOS_CAPSULE_ROOT = path.join(directory, 'capsules');
+    process.env.GENOS_WORKSPACE_ROOT = path.join(process.env.GENOS_CAPSULE_ROOT, 'workspace', 'worker-child');
+    await seedDatabase(second);
+    const rootWorkspace = await first.get("SELECT path FROM workspaces WHERE id = 'ws-local'");
+    assert.equal(rootWorkspace.path, path.join(directory, 'parent-workspace'),
+      'worker bootstrap must not replace the configured root workspace with its private capsule');
   } finally {
     await first.close();
     await second.close();
     fs.rmSync(directory, { recursive: true, force: true });
+    for (const key of envKeys) {
+      if (previousEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = previousEnv[key];
+    }
   }
 }
 

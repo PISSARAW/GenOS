@@ -62,6 +62,14 @@ try {
     binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
   });
   assert.strictEqual(leasedEnv.GENOS_EXECUTION_MODE, 'worker', 'the leased MCP server must receive the same authority mode');
+  const supervisedWorkerEnv = mcpEnvConfig.buildMcpServerEnvironment({
+    state: { executionMode: 'supervised', mission: { agentId: 'worker-child' }, orchestratorAgentId: 'root-orchestrator',
+      allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
+    binaries: { workspace: '/tmp/genos-capsules/workspace/worker-child', genosBinary: '', orchestratorBridge: '' },
+    sourceEnv: { GENOS_CAPSULE_ROOT: '/tmp/genos-capsules' }
+  });
+  assert.equal(supervisedWorkerEnv.GENOS_DB_BOOTSTRAP_SKIP, '1',
+    'a supervised worker with a distinct identity must not reseed ws-local from its private capsule');
   const expiringEnv = mcpEnvConfig.buildMcpServerEnvironment({
     state: { executionMode: 'worker', mission: { agentId: 'agent-under-test', runtimeStartedAt: 1000, timeoutMs: 8000 },
       executionBudget: { latencyMs: 3000 }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [],
