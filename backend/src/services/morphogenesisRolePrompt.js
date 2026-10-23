@@ -61,9 +61,9 @@ function morphogenesisWorkerAssignments(assignments, topology, mission) {
 
 function bindBiomeMapperAssignment(assignment, mission) {
   const workerAssignment = assignment?.workerAssignment || assignment || {};
-  const topology = workerAssignment.topology || assignment?.morphologyTopology;
-  if (String(assignment?.role || workerAssignment.topologyRole || '').toLowerCase() !== 'environment_mapper'
-    || String(topology || '').toLowerCase() !== 'biome') return assignment;
+  const role = String(assignment?.role || workerAssignment.topologyRole || '').toLowerCase();
+  const topology = workerAssignment.topology || assignment?.morphologyTopology || 'biome';
+  if (role !== 'environment_mapper' || String(topology).toLowerCase() !== 'biome') return assignment;
   const mapped = morphogenesisWorkerAssignments({ environment_mapper: {
     ...workerAssignment, methodContract: workerAssignment.methodContract || assignment.methodContract
   } }, 'biome', mission)?.environment_mapper;

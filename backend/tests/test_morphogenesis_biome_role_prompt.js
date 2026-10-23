@@ -59,6 +59,10 @@ assert.equal(arrayAssignments[0].methodContract.methodId, 'scan_literal',
 const dispatchedMapper = rolePrompt.bindBiomeMapperAssignment({ role: 'environment_mapper',
   workerAssignment: { topology: 'biome', topologyRole: 'environment_mapper', methodContract: { version: 1, methodId: 'prompt_defined' } } }, realPrompt);
 assert.equal(dispatchedMapper.methodContract.methodId, 'scan_literal');
+const roleOnlyMapper = rolePrompt.bindBiomeMapperAssignment({ role: 'environment_mapper',
+  methodContract: { version: 1, methodId: 'prompt_defined' } }, realPrompt);
+assert.equal(roleOnlyMapper.methodContract.methodId, 'scan_literal',
+  'Fleet dispatch binds Biome mapper contracts even when morphology metadata was omitted.');
 const topologyKinds = require('../src/services/topologyWorkerKindService');
 const composedMapper = topologyKinds.applyTopologyWorkerKinds('biome', [{ role: 'environment_mapper',
   mission: realPrompt }])[0];
