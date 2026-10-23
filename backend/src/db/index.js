@@ -64,11 +64,33 @@ function normalizedDbPath(value) {
   return value === ':memory:' ? value : path.resolve(value);
 }
 
+function localLedgerSecretPath(dbPath) {
+  if (dbPath === ':memory:') return null;
+  return `${path.resolve(dbPath)}.gvx-ledger-hmac`;
+}
+
+function loadDatabaseSigningSecret(dbPath) {
+  const secretPath = localLedgerSecretPath(dbPath);
+  if (!secretPath || !fs.existsSync(secretPath)) return false;
+  const secret = fs.readFileSync(secretPath, 'utf8').trim();
+  if (secret.length < 32) {
+    throw Object.assign(new Error('database-ledger-signing-key-invalid'), {
+      code: 'DATABASE_LEDGER_SIGNING_KEY_INVALID'
+    });
+  }
+  // A key stored beside a local database is scoped to that database. It takes
+  // precedence over a process-wide key so spawned workers reopening this DB
+  // inherit the same signing authority.
+  process.env.GENOS_GVX_LEDGER_HMAC_SECRET = secret;
+  return true;
+}
+
 async function getDatabase(dbFilePath) {
   assertControlPlaneBackendSelection();
+  const filename = databaseFilename(dbFilePath);
+  loadDatabaseSigningSecret(filename);
   const existing = await reuseDatabase(dbFilePath);
   if (existing) return existing;
-  const filename = databaseFilename(dbFilePath);
 
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
@@ -189,6 +211,8 @@ async function withTransaction(db, callback) {
 module.exports = {
   getDatabase,
   databasePath: () => currentDbPath,
+  localLedgerSecretPath,
+  loadDatabaseSigningSecret,
   closeDatabase,
   withTransaction,
   withWriteRetry,
