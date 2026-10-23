@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path, provenance, mémoire de travail (Node), mémoire ancestrale et héritage de risque sont disponibles dans le runtime.
 - **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`, `services/memory/workingMemoryService.js`, `services/memory/lineageMemoryRepository.js`, `services/memory/memoryCalibrationService.js`.
-- **Dernière revue** : 2026-10-18.
+- **Dernière revue** : 2026-10-23 pour le raccordement du rappel situationnel ; périmètre antérieur inchangé.
 
 ## 1. Objet et périmètre
 
@@ -30,6 +30,12 @@ Le système combine :
 - négative knowledge : échecs connus et dead ends ;
 - plasticité : synaptic updates inspirées de STDP ;
 - consolidation / oubli : decay, pruning et purge.
+
+Le contexte historique des prompts Node.js applique aussi un
+[rappel situationnel en deux étapes](rappel-memoire-situationnel.md), inspiré des
+recherches de Doris Tsao : caractéristiques structurelles, phase de travail et
+trace de classement. Les souvenirs proposés restent soumis aux filtres existants
+et ne constituent pas une preuve indépendante.
 
 Un événement terminal négatif n'alimente pas la récompense positive ni la promotion.
 Il peut uniquement devenir une précaution durable si un vérificateur indépendant

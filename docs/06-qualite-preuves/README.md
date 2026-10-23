@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-rappel-memoire-situationnel-2026-10-23.md](qualification-rappel-memoire-situationnel-2026-10-23.md) — tests du rappel inspiré de Tsao, intégration SQLite/prompt, provenance, phases et limites des vérifications globales.
+
 - [qualification-ontogenese-reelle-2026-10-23.md](qualification-ontogenese-reelle-2026-10-23.md) — correction du runtime V3, exécution réelle d'une mission isolée, intégration vérifiée et limites de portée.
 
 - [experience-mission-chanson-a-team-2026-10-20.md](experience-mission-chanson-a-team-2026-10-20.md) — retour d'expérience complet de la mission chanson A-Team, artefact final, causes des refus, correctifs, preuves de clôture et limites du rejeu.

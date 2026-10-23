@@ -38,6 +38,8 @@ function memoryOptions(mission, bounded, context) {
     taskId: mission.taskId,
     missionScope: mission.missionScope,
     obligationContext: context,
+    recallPhase: mission.recallPhase,
+    situationalRecall: mission.situationalRecall,
     historicalMemoryTokenBudget: mission.historicalMemoryTokenBudget,
     promptGenome: mission.promptGenome,
     promptRegulators: mission.promptRegulators,

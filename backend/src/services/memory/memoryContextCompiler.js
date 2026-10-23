@@ -6,6 +6,7 @@
 const MAX_TOKEN_BUDGET = 2000;
 const DEFAULT_BUDGET = 2000;
 const CHARS_PER_TOKEN = 4;
+const { metadataFor } = require('./historicalMemoryMetadata');
 
 function estimateTokens(text) {
   if (!text) return 0;
@@ -20,16 +21,13 @@ function itemTokens(item) {
     item.actionInput || '',
     item.observationOutput || ''
   ];
-  const trace = JSON.stringify({
-    evidenceRefs: Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [],
-    counterexampleRefs: Array.isArray(item.counterexampleRefs) ? item.counterexampleRefs : [],
-    provenance: item.provenance || null
-  });
+  const trace = JSON.stringify(metadataFor(item));
   return estimateTokens([...parts, trace].join(' '));
 }
 
 function relevanceScore(item, query) {
   if (!item) return 0;
+  if (Number.isFinite(item.recallScore)) return Math.max(0, Math.min(1, item.recallScore));
   const q = String(query || '').toLowerCase();
   let score = item.similarityScore || 0;
   if (item.tags && q) {

@@ -185,6 +185,8 @@ async function loadMemoryBlock(state) {
     state.memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(state.agentName,
       state.mission.prompt || state.mission.currentTask,
       { historicalMemoryTokenBudget: state.mission.historicalMemoryTokenBudget,
+        recallPhase: state.mission.recallPhase,
+        situationalRecall: state.mission.situationalRecall,
         peekVesicles: state.mission.contextTokenBudget !== undefined
           && state.mission.contextTokenBudget !== null });
   } catch (_) {}

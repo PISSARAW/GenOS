@@ -13,6 +13,8 @@ const suites = {
     ['Garage scoped controls and runtime adoption', 'test_garage_runtime_control.js']
   ],
   smoke: [
+    ['situational recall ranking', 'test_situational_recall.js'],
+    ['situational recall runtime', 'test_situational_recall_runtime.js'],
     ['HTTP idempotency request binding and replay', 'test_idempotency_middleware.js'],
     ['adaptive topology capability reevaluation', 'test_adaptive_reevaluation_topology.js'],
     ['mission capability preflight contract', 'test_mission_preflight_contract.js'],

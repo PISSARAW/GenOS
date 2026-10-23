@@ -19,10 +19,17 @@ const causalSources = require('./agentCausalMemorySource');
 const scope = require('./agentMemoryScope');
 const { sanitizeMemorySourceText } = require('./memoryScoring');
 const { MAX_TOKEN_BUDGET, compileContext } = require('./memory/memoryContextCompiler');
+const { rankMemories } = require('./memory/situationalRecallService');
+const { metadataFor, hasMetadata } = require('./memory/historicalMemoryMetadata');
 
 function applyScope(list, task, opts) {
   const scoped = scope.filterScoped(filterUnverified(list), opts.missionScope, task);
   return scope.filterForObligations(scoped, opts.obligationContext);
+}
+
+function recallScoped(list, input) {
+  const scoped = applyScope(list, input.scopeTask, input.opts);
+  return rankMemories(input.task, scoped, input.opts);
 }
 
 function truncateWords(text, maxLen) {
@@ -43,7 +50,7 @@ function similarEnough(record) {
 }
 
 function toPitfall(record) {
-  return { summary: `${record.title}: ${record.content}`, status: 'FAILURE', category: 'Failure' };
+  return { ...record, summary: `${record.title}: ${record.content}`, status: 'FAILURE', category: 'Failure' };
 }
 
 function highReward(episode) {
@@ -128,12 +135,13 @@ async function retrieveAgentMemories(agentId, task, options) {
   const episodes = await loadEpisodes(agentId, opts);
   const pitfalls = await loadPitfalls(task, opts, [...causalMemories.pitfalls, ...search.pitfalls]);
   const scopeTask = opts.scopeTask || task;
-  const experiences = applyScope([...causalMemories.experiences, ...search.experiences], scopeTask, opts);
+  const input = { task, scopeTask, opts };
+  const experiences = recallScoped([...causalMemories.experiences, ...search.experiences], input);
   return {
     experiences: experiences.sort((left, right) => Number(scope.isCaution(right)) - Number(scope.isCaution(left))).slice(0, 4),
-    pitfalls: applyScope(pitfalls, scopeTask, opts).slice(0, 3),
-    goldenPaths: applyScope(search.goldenPaths, scopeTask, opts).slice(0, 2),
-    episodes: applyScope(episodes, scopeTask, opts).filter(highReward).slice(0, 4)
+    pitfalls: recallScoped(pitfalls, input).slice(0, 3),
+    goldenPaths: recallScoped(search.goldenPaths, input).slice(0, 2),
+    episodes: recallScoped(episodes.filter(highReward), input).slice(0, 4)
   };
 }
 
@@ -229,15 +237,8 @@ function estimateMemoryTokens(text) {
 }
 
 function memoryMetadataSuffix(item) {
-  const metadata = {
-    evidenceRefs: Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [],
-    counterexampleRefs: Array.isArray(item.counterexampleRefs) ? item.counterexampleRefs : [],
-    provenance: item.provenance || null,
-    provenanceIntegrity: item.provenanceIntegrity || null
-  };
-  const hasMetadata = metadata.evidenceRefs.length > 0 || metadata.counterexampleRefs.length > 0 ||
-    metadata.provenance || metadata.provenanceIntegrity;
-  return hasMetadata ? ` [références historiques, non preuve indépendante: ${JSON.stringify(metadata)}]` : '';
+  const metadata = metadataFor(item);
+  return hasMetadata(metadata) ? ` [références historiques, non preuve indépendante: ${JSON.stringify(metadata)}]` : '';
 }
 
 function selectionTokens(memories) {

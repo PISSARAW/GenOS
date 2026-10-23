@@ -78,6 +78,7 @@ La **Morphogenèse** peut composer ces topologies avec `NEST`, `PARALLEL`, `SEQU
 - clôture commune des missions fondée sur les reçus des workers, leurs invariants et un oracle indépendant ;
 - [AEIS](docs/01-concepts/adaptive-epistemic-immune-system.md), système immunitaire épistémique qui peut refuser une promotion malgré une exécution réussie ;
 - mémoire épisodique, graphe, recherche hybride, provenance, contradictions et mémoire négative ;
+- [rappel mémoire situationnel](docs/01-concepts/rappel-memoire-situationnel.md) dans les prompts Node.js : sélection en deux étapes, caractéristiques structurelles et classement selon la phase, inspirés des recherches de Doris Tsao ; gains sur missions réelles à qualifier ;
 - [Natural Search Control Plane](docs/01-concepts/natural-search-control-plane.md) : pression de recherche, hypothèses, checkpoints atomiques et transmission culturelle sous preuve ;
 - cycle [GVX standard AGOW](docs/02-orchestration/profil-execution-gvx.md) : évaluation, autorisation, application, suivi, rollback et crédit idempotent ;
 - [ETT v1](docs/01-concepts/endogenous-thought-test.md) : détection, question falsifiable, admission, exécution reprenable, vérification et apprentissage borné ;

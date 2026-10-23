@@ -51,6 +51,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 - [neurobiologie-et-plasticite.md](neurobiologie-et-plasticite.md) — plasticité synaptique, dendrites, dissonance.
 - [memoire-et-apprentissage.md](memoire-et-apprentissage.md) — mémoire épisodique/sémantique, vector search, STDP.
+- [rappel-memoire-situationnel.md](rappel-memoire-situationnel.md) — rappel en deux étapes, dimensions structurelles et classement par phase ; recherches de Doris Tsao, transposition et limites.
 - [intelligence-de-nuee.md](intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [fossilisation.md](fossilisation.md) — archive stratigraphique terminale des lignées.
 

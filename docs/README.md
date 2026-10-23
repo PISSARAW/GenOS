@@ -212,6 +212,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [agent-dna-runtime.md](01-concepts/agent-dna-runtime.md) — format binaire AgentDNA et opérations.
 - [neurobiologie-et-plasticite.md](01-concepts/neurobiologie-et-plasticite.md) — plasticité synaptique, dendrites, dissonance.
 - [memoire-et-apprentissage.md](01-concepts/memoire-et-apprentissage.md) — mémoire épisodique/sémantique, vector search, STDP.
+- [rappel-memoire-situationnel.md](01-concepts/rappel-memoire-situationnel.md) — rappel en deux étapes et classement par phase inspirés des recherches de Doris Tsao ; [ADR 0733](adr/0733-rappel-memoire-situationnel-inspire-tsao.md).
 - [intelligence-de-nuee.md](01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
 - [evolution-gouvernee-agent.md](01-concepts/evolution-gouvernee-agent.md) — évolution des logiques/scaffolds sans auto-promotion, sous constitution et preuve de transfert.
@@ -387,6 +388,8 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.
 
 ### 8. Qualité, preuves et positionnement
+
+- [Qualification du rappel mémoire situationnel au 2026-10-23](06-qualite-preuves/qualification-rappel-memoire-situationnel-2026-10-23.md) — tests du classement et du runtime, exclusions de portée, références historiques et limites de qualification.
 - [experience-morphogenese-qwen-site-2026-10-20.md](06-qualite-preuves/experience-morphogenese-qwen-site-2026-10-20.md) — trois mondes Trinity exécutés par Qwen, absence de matérialisation HTML diagnostiquée et promotion correctement refusée.
 - [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 18 suites réussies hors sandbox restrictive, fermeture déclarative qualifiée, capacités COW non exercées sur Windows et qualification Trinity encore refusée.
 - [qualification-pensee-endogene-2026-10-20.md](06-qualite-preuves/qualification-pensee-endogene-2026-10-20.md) — trois cycles effectifs, vérification indépendante, coûts, crash/reprise, ablations, résultats négatifs et non-claims.
@@ -443,6 +446,8 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [economie-et-scalabilite.md](07-positionnement/economie-et-scalabilite.md) — analyse économique et scalabilité.
 
 ### 9. Décisions d'architecture (ADR)
+
+- [ADR 0733 — Rappel mémoire situationnel inspiré des recherches de Tsao](adr/0733-rappel-memoire-situationnel-inspire-tsao.md) — classement local en deux étapes, phases explicites, traçabilité et limites de la transposition neuroscientifique.
 
 - [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
 - [ADR 0517 — Lier les reçus métaboliques aux identités de commande](adr/0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) — aligne les opérations backend/Rust sur la même mission, cellule, commande et clé de rejeu.
