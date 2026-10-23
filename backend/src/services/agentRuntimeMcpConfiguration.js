@@ -26,7 +26,7 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
   for (const key of SHARED_STORAGE_KEYS) {
     if (!['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP'].includes(key) && sourceEnv[key]) environment[key] = sourceEnv[key];
   }
-  applyWorkerDatabasePolicy(environment, state.executionMode, sourceEnv);
+  applyWorkerDatabasePolicy(environment, state);
   return environment;
 }
 
@@ -43,8 +43,11 @@ function resolveLeaseExpiresAt(state, sourceEnv = {}) {
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 
-function applyWorkerDatabasePolicy(environment, executionMode, sourceEnv) {
-  const isWorker = executionMode === 'worker';
+function applyWorkerDatabasePolicy(environment, state) {
+  const agentId = String(state?.mission?.agentId || '').trim();
+  const orchestratorId = String(state?.orchestratorAgentId || '').trim();
+  const isWorker = state?.executionMode === 'worker'
+    || Boolean(agentId && orchestratorId && agentId !== orchestratorId);
   for (const key of ['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (isWorker) environment[key] = '1';
     else if (sourceEnv[key]) environment[key] = sourceEnv[key];
