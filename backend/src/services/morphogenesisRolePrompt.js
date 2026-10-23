@@ -87,12 +87,10 @@ function morphogenesisMissionPrompt(assignment, mission) {
   }
   const total = facts.items.reduce((sum, item) => sum + item.value, 0);
   const exactTotal = total === facts.groups * facts.capacity
-    ? ` Total=${total}; each group must sum exactly ${facts.capacity}.` : '';
-  const largest = Math.max(...facts.items.map((item) => item.value));
-  const fitHint = exactTotal && largest > 0 && largest <= facts.capacity
-    ? ` Place the largest value ${largest} first and reserve a complement of ${facts.capacity - largest}; backtrack rather than omit any item.` : '';
+    ? ` The total weight is ${total}, so every bin must sum to exactly ${facts.capacity}.` : '';
   const candidateShape = JSON.stringify({ bins: Array.from({ length: facts.groups }, () => ['<item-id>']) });
-  return `Partition ${summary}. Required candidate shape (bins are arrays of exact item identifiers, never weights): ${candidateShape}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return a complete GenOS dossier: {"outcome":"success","claims":[{"statement":"<candidate JSON object>","evidence":["mission"]}],"specialtyAssessment":{"niche":"biome:resource_steward","inScope":true,"evidence":["mission"]}}. Put only the compact candidate JSON object in claims[0].statement; do not put bins at the report root or replace the candidate with prose. Verify item count and every total before claiming success.`;
+  const itemWeights = facts.items.map(({ id, value }) => `${id}=${value}`).join(', ');
+  return `Solve this allocation. Item weights: ${itemWeights}. Create exactly ${facts.groups} bins. Put each named item in exactly one bin; no bin may have a total weight above ${facts.capacity}.${exactTotal} Required candidate shape (bins are arrays of exact item identifiers, never weights): ${candidateShape}. Before returning, check that all ${facts.items.length} distinct identifiers occur once and recalculate each bin total. If either check fails, revise the assignment; if you cannot find a valid assignment, return unresolved rather than success. Return a complete GenOS dossier: {"outcome":"success","claims":[{"statement":"<candidate JSON object>","evidence":["mission"]}],"specialtyAssessment":{"niche":"biome:resource_steward","inScope":true,"evidence":["mission"]}}. Put only the compact candidate JSON object in claims[0].statement; do not put bins at the report root or replace the candidate with prose.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
