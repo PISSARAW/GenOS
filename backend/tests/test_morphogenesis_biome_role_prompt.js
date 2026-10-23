@@ -89,7 +89,7 @@ assert.match(stewardMission, /First check feasibility: total weight=24; aggregat
 assert.match(stewardMission, /Do not report insufficient capacity when these totals match/);
 assert.match(stewardMission, /Use target-sum search: enumerate subsets that fill one bin to 8/);
 assert.match(stewardMission, /do not stop after one failed partition/);
-assert.match(stewardMission, /Backtrack to a different subset/);
+assert.match(stewardMission, /Backtrack to another subset/);
 assert.match(stewardMission, /Never place an item if its weight would take a bin above 8/);
 assert.match(stewardMission, /complete GenOS dossier/);
 assert.match(stewardMission, /Required candidate shape.*\"bins\":\[\[\"<item-id>\"\],\[\"<item-id>\"\],\[\"<item-id>\"\]\]/);
