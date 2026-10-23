@@ -114,3 +114,19 @@ Une nouvelle campagne a été exécutée dans `D:\GenOS\runs\sh001-homeostasis-c
 - Le reçu de décision est non promoteur : le patch reste dans le workspace expérimental; il n’a été ni fusionné ni promu dans le dépôt SH-001.
 
 Cette campagne ferme le jalon SH-001 pour ce défaut : réparation Qwen réelle, oracle caché indépendant, verdict de mission complet et persistance vérifiée après l’arrêt du runner. La première tentative ayant satisfait le gate, le dispatch d’un worker de continuation n’a pas été nécessaire dans cette campagne. Le rôle de continuation `bounded_worker`, la projection d’un succès local différé dans le calcul de l’issue, la normalisation des événements de postflight différés et la clôture du statut de l’orchestrateur sont couverts par des tests ciblés; un démarrage réel de worker de continuation après échec reste à qualifier séparément. Cette preuve reste limitée à cette lésion et ne qualifie pas les campagnes longitudinales de 72 heures ni les autres familles de défauts.
+
+## Run 15 négatif — régression publique et rollback (23 octobre 2026)
+
+Le run `codex/sh001-qwen-15` est reparti du commit scellé `1ea8553` dans `D:\GenOS\runs\sh001-qwen-20261023\workspace-qwen-blind-15`. Au baseline, `node checks/verify.js` passait; l’oracle caché échouait, comme attendu. Une première demande n’a pas démarré parce que le préflight manquait d’hypothèses de diagnostic; la relance avec trois hypothèses falsifiables a effectivement lancé Qwen.
+
+L’événement `INFERENCE_COMPLETED` confirme le fournisseur Ollama et une inférence de 7 211 ms. Qwen a produit une candidate en capsule, mais le contrôle public a échoué : l’ordre attendu `3, 4` est devenu `4, 3`. GenOS a annulé la capsule. Après le rollback, le workspace n’avait aucun changement, le contrôle public repassait et l’oracle indépendant restait rouge. Le gate a bloqué la clôture pour `evidence_missing`; la mission est `failed`. Une récupération secondaire a signalé `ORCHESTRATOR_NOT_FOUND` pour l’identifiant synthétique `windows-orchestrator-...`.
+
+Le rapport et le résultat négatif sont commités sur D dans `workspace-qwen-blind-15`, commit `d6c7a03`. Le même épisode est enregistré dans GenOS sous `d17a0e38-7880-43a5-b9b6-44917696fc83` avec récompense zéro (constat négatif, sans attribuer de score de correction).
+
+## Clôture réussie indépendante sur le même défaut (23 octobre 2026)
+
+Un workspace final distinct, `D:\GenOS\runs\sh001-homeostasis-continuation-20261023\workspace-final`, est reparti du même baseline. Vérification indépendante après la mission : le contrôle public passe et l’oracle caché répond `restart replay, acknowledgement boundary, payload integrity, and order`; le SHA-256 du fichier est `4c25ec376258846266ea6cd11d0f5438d2a4b6f5f96962aa8490493c637958be`.
+
+La base isolée `genos-final-terminal.db` confirme l’inférence Ollama de Qwen 14B (1 233 tokens en entrée, 112 en sortie), la présence des sept reçus GenOS requis, `homeostasis_satisfied`, et les statuts mission et orchestrateur `completed`. La candidate est restée dans le workspace expérimental; aucune promotion dans le dépôt SH-001 n’est prétendue. La clôture réussie et le run 15 négatif sont deux expériences séparées.
+
+La voie Windows garde désormais l’agent orchestrateur actif tant que le worker local rend ses événements différés; le calcul d’issue interprète le succès différé pour évaluer la mission, postflight normalise les événements, puis le finaliseur attribue le statut terminal. Les tests ciblés couvrent ces étapes. Ce résultat qualifie une lésion SH-001 dans un workspace expérimental; il ne démontre pas à lui seul les autres lésions T01–T08 ni une campagne longitudinale de 72 heures.
