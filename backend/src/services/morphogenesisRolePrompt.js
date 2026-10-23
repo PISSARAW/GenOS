@@ -25,8 +25,29 @@ function allocationFacts(source) {
   const items = [...source.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], value: Number(match[2]) }));
   const groups = Number(source.match(/\b(\d+)\s+groupes?\b/i)?.[1]);
-  const capacity = Number(source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b/i)?.[1]);
+  const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\b(?:depasse|dépasser|exceed)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b/i);
+  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2]);
   return { items, groups, capacity };
+}
+
+function morphogenesisWorkerAssignments(assignments, topology, mission) {
+  if (String(topology || '').toLowerCase() !== 'biome' || Array.isArray(assignments)) return assignments;
+  const current = assignments?.environment_mapper || {};
+  const methodId = String(current.methodContract?.methodId || '').toLowerCase();
+  if (current.methodContract && methodId !== 'prompt_defined') return assignments;
+  const source = String(mission || '').slice(0, 8192);
+  const facts = allocationFacts(source);
+  if (!facts.items.length || !facts.groups || !facts.capacity) return assignments;
+  const terms = facts.items.map(({ id, value }) => `${id}=${value}`);
+  const groupTerm = source.match(/\b\d+\s+groupes?\b/i)?.[0];
+  const capacityTerm = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?\d+\b|\b(?:depasse|dépasser|exceed)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?\d+\b/i)?.[0];
+  if (groupTerm) terms.push(groupTerm);
+  if (capacityTerm) terms.push(capacityTerm);
+  return { ...assignments, environment_mapper: { ...current, methodContract: {
+    version: 1, methodId: 'scan_literal', parameters: {
+      sources: [{ sourceRef: 'mission', text: source }], terms: terms.slice(0, 20)
+    }
+  } } };
 }
 
 function morphogenesisMissionPrompt(assignment, mission) {
@@ -51,4 +72,4 @@ function morphogenesisMissionPrompt(assignment, mission) {
   return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
 }
 
-module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext };
+module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext, morphogenesisWorkerAssignments };

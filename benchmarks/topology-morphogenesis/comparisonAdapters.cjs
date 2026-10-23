@@ -194,6 +194,7 @@ function ensureAttemptWorkspace(state) {
   fs.mkdirSync(state.workspace, { recursive: true });
   const marker = path.join(state.workspace, '.genos-workspace');
   if (!fs.existsSync(marker)) fs.writeFileSync(marker, 'GenOS comparison attempt workspace.\n');
+  require('./pilotWorkspaceGit.cjs').initialize(state.workspace);
   const capsuleRoot = path.join(path.dirname(state.workspace), '.genos-agent-worlds');
   fs.mkdirSync(capsuleRoot, { recursive: true });
   return capsuleRoot;
@@ -260,7 +261,7 @@ async function genosFull(task, state) {
     mission: `${task.prompt}\nRéponds au schéma de preuve GenOS complet : outcome="success", claims=[{statement: objet JSON candidat intégral et compact, evidence:["mission"]}], scopeCompletion={scopeRef:"mission",completedRefs:["mission"]}. Le statement ne contient que l'objet JSON, sans prose.`,
     timeoutMs: state.budget.latencyMs, execution_budget: budget,
     successCriteria: ['La réponse contient l’objet JSON candidat vérifiable par l’oracle indépendant.'],
-    tool_lease: [], allowed_commands: [], allow_file_edits: false,
+    tool_lease: [], allowed_commands: [], allow_file_edits: true,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
@@ -396,5 +397,4 @@ async function executeCondition(condition, task, context) {
   return formatConditionResult({ condition, state, result, error });
 }
 
-module.exports = { ADAPTERS, ...provenance, executeCondition, parseGenosReceipt, topologyProfile,
-  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, executeGenos };
+module.exports = { ADAPTERS, ...provenance, executeCondition, parseGenosReceipt, topologyProfile, normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf, executeGenos };

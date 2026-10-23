@@ -2,6 +2,7 @@
 
 const { buildMissionMorphogenesisInput } = require('./missionMorphogenesis');
 const { bindGraphMission } = require('../morphogenesis/morphogenesisMissionBinding');
+const { morphogenesisWorkerAssignments } = require('../morphogenesisRolePrompt');
 
 const DEDICATED_TOPOLOGIES = new Set(['trinity', 'a_team']);
 
@@ -71,7 +72,9 @@ function compositionOptions(ctx, morphologyPlan, node) {
   const variant = node.variant || morphologyPlan.selectedVariant;
   return {
     variantId: variant && variant !== 'default' ? variant : undefined,
-    workerAssignments: ctx.normalizedMission.workerAssignments || ctx.normalizedMission.worker_assignments,
+    workerAssignments: morphogenesisWorkerAssignments(
+      ctx.normalizedMission.workerAssignments || ctx.normalizedMission.worker_assignments,
+      node.topology, ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask),
     agentCount: ctx.normalizedMission.morphology?.agents?.length,
     missionId: ctx.normalizedMission.missionId || ctx.agentId,
     configuration: ctx.normalizedMission.topologyConfiguration || ctx.normalizedMission.configuration,

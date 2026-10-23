@@ -35,13 +35,28 @@ assert.match(observer, /item1=1,item2=3,item3=2;count=3;groups=3;max=8/);
 
 const observerMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'environment_mapper' } },
-'Repartis item1=2, item2=3 en 3 groupes, plafond de 8.\nRéponds au schéma de preuve GenOS complet: outcome=success.');
+'Phase 1: répartis item1=2, item2=3. Contrainte: chaque groupe ne doit pas dépasser un total de 8; répartis en 3 groupes.\nRéponds au schéma de preuve GenOS complet: outcome=success.');
 assert.match(observerMission, /items=item1=2,item2=3;count=2;groups=3;max=8/);
 assert.match(observerMission, /"observation":"item1=2,item2=3"/);
 assert.match(observerMission, /they are sufficient, so do not return unresolved/);
 assert.match(observerMission, /\"observations\"/);
 assert.doesNotMatch(observerMission, /Phase 1|sans concertation|Contrainte revelee/);
 assert.doesNotMatch(observerMission, /Réponds au schéma de preuve GenOS complet/);
+const realPrompt = 'Phase 1: répartis item1=1, item2=3, item3=2 en 3 groupes sans concertation. Contrainte révélée: aucun groupe ne doit dépasser un total de 8, et chaque élément doit appartenir à exactement un groupe.';
+const realObserverMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
+  topology: 'biome', topologyRole: 'environment_mapper' } }, realPrompt);
+assert.match(realObserverMission, /items=item1=1,item2=3,item3=2;count=3;groups=3;max=8/);
+const nativeMapperAssignments = rolePrompt.morphogenesisWorkerAssignments({}, 'biome', realPrompt);
+assert.equal(nativeMapperAssignments.environment_mapper.methodContract.methodId, 'scan_literal');
+assert.deepEqual(nativeMapperAssignments.environment_mapper.methodContract.parameters.terms.slice(0, 3),
+  ['item1=1', 'item2=3', 'item3=2']);
+assert.equal(nativeMapperAssignments.environment_mapper.methodContract.parameters.sources[0].sourceRef, 'mission');
+const topologyKinds = require('../src/services/topologyWorkerKindService');
+const composedMapper = topologyKinds.applyTopologyWorkerKinds('biome', [{ role: 'environment_mapper',
+  mission: realPrompt }])[0];
+assert.equal(composedMapper.methodContract.methodId, 'scan_literal',
+  'Biome composition binds literal evidence collection before worker dispatch.');
+assert.equal(composedMapper.workerAssignment.methodContract.methodId, 'scan_literal');
 
 const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment: {
   topology: 'biome', topologyRole: 'resource_steward' } },
