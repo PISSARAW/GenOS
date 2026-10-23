@@ -11,7 +11,7 @@ assert.ok(immune.includes('genos_parasitic_pressure'));
 assert.equal(immune.includes('genos_orchestrate'), false);
 
 const reviewer = state.workerToolLeaseForCapabilities('independent_reviewer', []);
-assert.ok(reviewer.includes('genos_adversarial_review'));
+assert.ok(!reviewer.includes('genos_adversarial_review'));
 const signaling = state.workerToolLeaseForCapabilities('independent_reviewer', ['SIGNALING_BUS']);
 assert.ok(signaling.includes('genos_worker_publish'));
 assert.ok(signaling.includes('genos_worker_inbox'));

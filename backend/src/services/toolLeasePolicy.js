@@ -202,12 +202,10 @@ function roleInAllowList(role, allowList) {
 function workerLeaseForRole(role) {
   const lease = [...WORKER_BASE_LEASE];
   if (normalizeRole(role) === 'sub_orchestrator') lease.push('genos_delegate_worker');
-  const review = roleInAllowList(role, REVIEWER_ROLE_ALLOW_LIST);
-  const observe = roleInAllowList(role, OBSERVER_ROLE_ALLOW_LIST);
-  if (review || observe) lease.push('genos_adversarial_review');
-  const red = roleInAllowList(role, RED_ROLE_ALLOW_LIST);
-  const blue = roleInAllowList(role, BLUE_ROLE_ALLOW_LIST);
-  if (red || blue) lease.push('genos_security_coevolution');
+  // These legacy review/security names have no public catalogue entry or
+  // verified MCP route. A role label cannot make an unavailable tool real.
+  // Keep the role allow-lists for policy consumers, but grant only tools in
+  // the executable worker base until those routes are implemented.
   return lease;
 }
 

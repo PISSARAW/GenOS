@@ -20,20 +20,14 @@ const { getDatabase, closeDatabase } = require('../src/db');
 
 function checkExactWorkerRoles() {
   const { workerToolLease } = orchestrationState;
-  assert.ok(workerToolLease('independent_reviewer').includes('genos_adversarial_review'));
-  assert.ok(workerToolLease('security_reviewer').includes('genos_adversarial_review'));
-  assert.ok(workerToolLease('observer').includes('genos_adversarial_review'));
-  assert.ok(workerToolLease('neutral_observer').includes('genos_adversarial_review'));
-  assert.ok(workerToolLease('Red_Team').includes('genos_security_coevolution'));
-  assert.ok(workerToolLease('blue_team').includes('genos_security_coevolution'));
-  assert.ok(!workerToolLease('reviewer_spoof').includes('genos_adversarial_review'));
-  assert.ok(!workerToolLease('my_reviewer_helper').includes('genos_adversarial_review'));
-  assert.ok(!workerToolLease('observer2').includes('genos_adversarial_review'));
-  assert.ok(!workerToolLease('red_teamer').includes('genos_security_coevolution'));
-  assert.ok(!workerToolLease('thread_team_lead').includes('genos_security_coevolution'));
-  assert.ok(!workerToolLease('blue_team_assistant').includes('genos_security_coevolution'));
-  assert.ok(!workerToolLease('implementation').includes('genos_adversarial_review'));
-  assert.ok(!workerToolLease('implementation').includes('genos_security_coevolution'));
+  for (const role of ['independent_reviewer', 'security_reviewer', 'observer', 'neutral_observer', 'Red_Team', 'blue_team']) {
+    assert.ok(workerToolLease(role).every((tool) => !['genos_adversarial_review', 'genos_security_coevolution'].includes(tool)),
+      `${role} must not lease unavailable legacy review/security routes`);
+  }
+  for (const role of ['reviewer_spoof', 'my_reviewer_helper', 'observer2', 'red_teamer', 'thread_team_lead', 'blue_team_assistant', 'implementation']) {
+    assert.ok(workerToolLease(role).every((tool) => !['genos_adversarial_review', 'genos_security_coevolution'].includes(tool)),
+      `${role} must not receive unavailable legacy routes`);
+  }
   console.log('  worker exact-role matching: ok');
 }
 
