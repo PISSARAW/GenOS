@@ -6,7 +6,7 @@ async function permissionsForTool(input) {
   if (String(toolName || '').trim().toLowerCase() === 'genos_replay'
     && !deniedTools.includes('genos_replay')
     && await require('./workerContractEnforcement').ownsReplaySnapshot(db, agentId,
-      args?.snapshot || args?.snapshot_id)) permissions.push('genos_replay');
+      args?.snapshot || args?.snapshot_id, args?.root ?? null)) permissions.push('genos_replay');
   return permissions;
 }
 

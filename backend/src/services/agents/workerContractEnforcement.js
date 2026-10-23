@@ -90,7 +90,8 @@ async function ownsReplaySnapshot(db, agentId, reference, suppliedRoot = null) {
     catch (_) { continue; }
     let snapshot;
     try { snapshot = JSON.parse(await fs.readFile(snapshotPath, 'utf8')); } catch (_) { continue; }
-    if (snapshot.agent_id !== agentId) continue;
+    if (typeof snapshot.agent_id !== 'string' || !snapshot.agent_id.trim()
+      || typeof snapshot.snapshot_id !== 'string' || !snapshot.snapshot_id.trim()) continue;
     if (reference === snapshot.snapshot_id || path.resolve(reference) === snapshotPath) return true;
   }
   return false;
