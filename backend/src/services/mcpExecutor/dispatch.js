@@ -112,13 +112,7 @@ function reflexDischargedResult(toolName, executionKind, steric) {
 function preValidateTool(context) {
   const { registry, toolName, args, executionKind, authorityLease } = context;
   if (!registry.isSupportedTool(toolName)) return unsupportedResult(toolName, executionKind);
-  if (Array.isArray(authorityLease)) {
-    const lease = authorityLease.map((tool) => String(tool || '').trim().toLowerCase());
-    if (!lease.includes(String(toolName || '').trim().toLowerCase())
-      || !require('./config').directToolGloballyEnabled(toolName)) {
-      return leaseDeniedResult(toolName, executionKind);
-    }
-  } else if (!directToolLeaseAllows(toolName)) return leaseDeniedResult(toolName, executionKind);
+  if (!directToolLeaseAllows(toolName, authorityLease)) return leaseDeniedResult(toolName, executionKind);
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
   if (steric) context.docking = steric.docking || { mode: steric.mode };
@@ -205,7 +199,7 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000,
-  agentId = null, tenant = null, authorityLease = null }) {
+  agentId = null, tenant = null, authorityLease = null, runLocal: providedLocalRunner = null }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
@@ -215,26 +209,27 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   const rejection = preValidateTool(validationContext);
   if (rejection) return rejection;
   stericDocking = validationContext.docking || null;
+  const runLocal = providedLocalRunner || createLocalRunner(timeoutMs);
   if (normalizedToolName === 'genos_delegate_worker') {
-    const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant, db: await require('../../db').getDatabase() });
+    const result = await executeToolLogic(normalizedToolName, args, { runLocal, timeoutMs, agentId, tenant, authorityLease, db: await require('../../db').getDatabase() });
     return withDocking(result, stericDocking);
   }
   if (normalizedToolName === 'genos_topology_session') {
     const result = await executeToolLogic(normalizedToolName, args,
-      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant });
+      { runLocal, timeoutMs, agentId, tenant, authorityLease });
     return withDocking(result, stericDocking);
   }
   if (normalizedToolName === 'genos_biological_mode') {
     const result = await executeToolLogic(normalizedToolName, args,
-      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant });
+      { runLocal, timeoutMs, agentId, tenant, authorityLease });
     return withDocking(result, stericDocking);
   }
   if (hasConfiguredEndpoint()) {
     const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs);
     return withDocking(result, stericDocking);
   }
-  const runLocal = createLocalRunner(timeoutMs);
-  return withDocking(await executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId, tenant }), stericDocking);
+  return withDocking(await executeToolLogic(toolName, args,
+    { runLocal, timeoutMs, agentId, tenant, authorityLease }), stericDocking);
 }
 
 async function listTools() {

@@ -39,10 +39,10 @@ function nullish(value, fallback) {
   return value === undefined || value === null ? fallback : value;
 }
 
-function revalidateToolCall(toolName, args) {
+function revalidateToolCall(toolName, args, authorityLease) {
   const { directToolLeaseAllows } = require('../../mcpExecutor/config');
   const { validateToolArguments } = require('../../mcpArgumentValidation');
-  if (!directToolLeaseAllows(toolName)) {
+  if (!directToolLeaseAllows(toolName, authorityLease)) {
     return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED' };
   }
   const argumentError = validateToolArguments(toolName, args || {});
@@ -246,7 +246,7 @@ async function dispatchToTransport(input) {
 async function executeToolLogic(toolName, args, context = {}) {
   const { runLocal, timeoutMs = 30000 } = context;
   // Re-validation fail-closed: ne jamais faire confiance à preValidated.
-  const revalidation = revalidateToolCall(toolName, args);
+  const revalidation = revalidateToolCall(toolName, args, context.authorityLease);
   if (revalidation) return revalidation;
   const delegated = await executeDelegatedTool({ toolName, args, context });
   if (delegated !== UNHANDLED) return delegated;

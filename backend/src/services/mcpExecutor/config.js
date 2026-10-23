@@ -36,8 +36,12 @@ function normalizeToolName(name) {
   return trimmed.startsWith('genos_') ? trimmed : `genos_${trimmed}`;
 }
 
-function directToolLeaseAllows(toolName) {
+function directToolLeaseAllows(toolName, authorityLease) {
   const normalizedTool = normalizeToolName(toolName);
+  if (Array.isArray(authorityLease)) {
+    const lease = authorityLease.map(normalizeToolName).filter(Boolean);
+    return lease.includes(normalizedTool) && directToolGloballyEnabled(normalizedTool);
+  }
   if (process.env.GENOS_MCP_LEASE_EXPIRES_AT !== undefined) {
     const expiresAt = Number(String(process.env.GENOS_MCP_LEASE_EXPIRES_AT).trim());
     if (!Number.isFinite(expiresAt) || Date.now() >= expiresAt) return false;
