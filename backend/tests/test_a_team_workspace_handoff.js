@@ -56,6 +56,24 @@ async function main() {
     await git(['commit', '--quiet', '-m', 'Review handoff'], consumerRoot);
     assert.equal((await git(['rev-parse', 'HEAD'], producerRoot)).stdout.trim(), commit.trim());
 
+    const pipelineConsumerRoot = path.join(capsuleRoot, 'worker_pipeline_consumer');
+    await fs.mkdir(pipelineConsumerRoot, { recursive: true });
+    const pipelineConsumer = { agentId: 'pipeline-consumer', workspaceRoot: pipelineConsumerRoot, workspaceBackend: 'physical' };
+    const captured = [];
+    const telemetry = require('../src/services/telemetryObserver');
+    const emitEvent = telemetry.emitEvent;
+    telemetry.emitEvent = (event) => { captured.push(event); return event; };
+    try {
+      const pipeline = require('../src/services/workerEvidenceBarrierPipeline');
+      const receipts = await pipeline.materializeStageHandoff({ orchestratorId: 'orchestrator-test', stage: 1,
+        workers: [{ agentId: 'producer', workspaceRoot: producerRoot, workspaceBackend: 'physical' }, pipelineConsumer] },
+      pipelineConsumer, [{ producer: { agentId: 'producer' }, artifactRefs: ['git:' + commit.trim()] }]);
+      assert.equal(receipts.length, 1);
+      assert.equal((await fs.readFile(path.join(pipelineConsumerRoot, 'src/site.js'), 'utf8')), 'module.exports = "fixed";\n');
+      assert.equal(captured.some((event) => event.eventType === 'ATEAM_STAGE_HANDOFF_MATERIALIZED'
+        && event.payload.handoffs[0].commit === commit.trim()), true);
+    } finally { telemetry.emitEvent = emitEvent; }
+
     await assert.rejects(() => handoff.materializeHandoffs({
       consumer: { workspaceRoot: consumerRoot, workspaceBackend: 'physical' }, byWorker,
       handoffs: [{ producer: { agentId: 'producer' }, artifactRefs: [`git:${commit.trim()}`, `git:${commit.trim()}`] }]
