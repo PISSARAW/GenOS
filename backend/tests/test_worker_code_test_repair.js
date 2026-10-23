@@ -145,6 +145,11 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const generatedActionContent = JSON.parse(applyRepairPlan(generatedActionProposal, buttonPlan)).patches[0].content;
   assert.match(generatedActionContent, /increaseBtn\.setAttribute\('aria-label', `Increase quantity for \$\{item\.name\}`\);/);
   assert.match(generatedActionContent, /increaseBtn\.textContent = 'Increase quantity';/);
+  const templateActionProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<script>function renderItems() { items.forEach((item, index) => { row.innerHTML = `<button onclick="increaseQuantity(${index})">Increase quantity</button>`; }); }</script>'
+  }] });
+  const templateActionContent = JSON.parse(applyRepairPlan(templateActionProposal, buttonPlan)).patches[0].content;
+  assert.match(templateActionContent, /<button onclick="increaseQuantity\(\$\{index\}\)" aria-label="Increase quantity for Oats">/);
   let repairPlanAttempts = 0;
   await run({ mission, runAttempt: async (attemptMission) => {
     repairPlanAttempts += 1;
