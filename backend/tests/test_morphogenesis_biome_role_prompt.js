@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const workers = require('../src/services/agentFleetWorkers');
 const rolePrompt = require('../src/services/morphogenesisRolePrompt');
+const localPrompt = require('../src/services/workerEvidenceLocalPrompt');
 const workerRecovery = require('../src/services/workerFailureRecoveryService');
 
 function promptFor(role, workerKind, specialtyNiche) {
@@ -164,6 +165,15 @@ assert.match(steward, /complete machine-verifiable candidate JSON object in clai
 assert.match(steward, /never replace it with a generic success sentence/);
 assert.match(steward, /\"outcome\":\"unresolved\",\"claims\":\[\],\"uncertainties\"/);
 assert.match(steward, /exact item identifiers \(item1, item2, etc\.\)/);
+
+const retryPrompt = localPrompt.buildAnalysisPrompt({
+  assignment: { role: 'resource_steward', workerAssignment: { topology: 'biome', topologyRole: 'resource_steward' } },
+  prompt: `${smallAllocation}\nPrevious failure: Rejected Biome candidate: {"bins":[]}. Validator issues: candidate.bin_count.`,
+  workerInstruction: 'Use only the supplied evidence reference: ["mission"].', evidenceRule: 'Return one evidence-backed GenOS dossier.'
+});
+assert.ok(retryPrompt.startsWith('items=item1=2,item2=2,item3=1;count=3;groups=2;max=3'),
+  'direct local recovery keeps the allocation facts at the start of the Qwen prompt');
+assert.match(retryPrompt, /Repair the previous candidate using this runtime feedback/);
 
 assert.equal(rolePrompt.morphogenesisRoleInstruction({ role: 'environment_mapper',
   morphologyTopology: 'rhizome' }), null,

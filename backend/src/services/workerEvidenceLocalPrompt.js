@@ -4,6 +4,12 @@ function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
     codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
   const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
+  const morphogenesisPrompt = require('./morphogenesisRolePrompt');
+  const assignment = context.assignment || {};
+  if (!codeWorker && morphogenesisPrompt.morphogenesisCompactWorkerRole(assignment)) {
+    return [morphogenesisPrompt.morphogenesisMissionPrompt(assignment, prompt),
+      morphogenesisPrompt.morphogenesisRoleInstruction(assignment), workerBlock].filter(Boolean).join('\n');
+  }
   const intro = [selfIntro, workerSelfBlock || '', conscienceBlock, workerBlock].filter(Boolean).join('\n');
   if (codeWorker) return `${intro}\n${requiredPatchInstruction(context.requiredPatchPaths, context.requiredPatchMarkers, context.requiredPatchMinimumBytes)}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;

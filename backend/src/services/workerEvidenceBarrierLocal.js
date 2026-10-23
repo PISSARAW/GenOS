@@ -267,6 +267,7 @@ async function runGenerationStage(ctx) {
     ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot).text
     : '';
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
+    assignment: ctx.mission,
     codeWorker: codeWorker,
     requiredPatchPaths: ctx.mission.requiredPatchPaths,
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
