@@ -46,6 +46,9 @@ function locatorRepairHint(error) {
   if (/getByLabel\(\/search\/i\)/i.test(output)) {
     return 'The search input is missing its accessible name. Give the search field aria-label="Search" and wire it to the existing item filter.';
   }
+  if (/updated quantity persists|quantity.*(?:reload|reload)|(?:reload|reload).*quantity/i.test(output)) {
+    return 'The increase action updates the visible row, but the updated quantity is lost on reload. Persist the same canonical items collection to localStorage after every add, increase, and delete; on startup, parse and render that stored collection before the Playwright page reload check. Do not persist only the initial form values or a stale copy.';
+  }
   const count = output.match(/(\d+)\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/);
   if (count) {
     const detail = Number(count[1]) === 0
