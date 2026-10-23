@@ -4,6 +4,14 @@ const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationSe
 const { assertAutonomyPlanExecutable, applyExecutionPolicy } = require('../src/services/agentRuntimeAdapter/missionPlanning');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 const { ORCHESTRATOR_CORE_LEASE } = require('../src/services/toolLeasePolicy');
+const { buildPhases } = require('../src/services/autonomousOrchestrationService/phaseBuilder');
+
+const singleBranchPhases = buildPhases({ formalReadOnly: false, factualReadOnly: false,
+  creative: false, security: false }, { evolution: false, competition: false }, 1);
+assert.ok(singleBranchPhases.find((entry) => entry.key === 'snapshot_before_mutation')
+  .requiredTools.includes('genos_record_decision'));
+assert.ok(!singleBranchPhases.some((entry) => entry.key === 'evidence_and_evaluation' || entry.key === 'replay_and_promote'),
+  'trajectory evidence, evaluation and replay are not mandatory when the plan has no alternative branches');
 
 const planningContract = buildStrategyContract({
   problem: 'Plan a deterministic block-world task under action constraints.',

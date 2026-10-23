@@ -67,15 +67,15 @@ function buildPhases(flags, modes, branchCount) {
   ];
   const phases = [
     runtimePhase('retrieve_and_diagnose', ['genos_search_failures', 'genos_diagnose'], 'Retrieve negative knowledge and establish falsifiable hypotheses.'),
-    runtimePhase('snapshot_before_mutation', ['genos_snapshot'], 'Create a recoverable baseline before any risky mutation.')
+    runtimePhase('snapshot_before_mutation', ['genos_snapshot', 'genos_record_decision'], 'Create a recoverable baseline and record the evidence-backed decision to proceed before any risky mutation.')
   ];
   if (branchCount > 1) phases.push(phase('counterfactual_forks', ['genos_fork', 'genos_solve'], 'Explore independent hypotheses in isolated branches.'));
-  phases.push(runtimePhase('evidence_and_evaluation', ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'], 'Score evidence and suspend dominated trajectories.'));
+  if (branchCount > 1) phases.push(runtimePhase('evidence_and_evaluation', ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'], 'Score evidence and suspend dominated trajectories.'));
   if (modes.evolution) phases.push(phase('controlled_mutation', ['genos_resilience_hypermutation'], 'Use bounded mutation only after a baseline and evidence exist.'));
   // Only add competition phase if competition mode but NOT security (security uses red/blue/observer workers)
   if (modes.competition && !flags.security) phases.push(phase('competition_and_selection', ['genos_adversarial_review'], 'Run adversarial comparison and select a Pareto-safe winner.'));
   if (flags.security) phases.push(phase('red_queen', ['genos_security_coevolution'], 'Run Red/Blue/neutral-observer coevolution in isolated worlds.'));
-  phases.push(runtimePhase('replay_and_promote', ['genos_replay', 'genos_record_decision'], 'Replay the selected result and preserve the rationale before promotion.'));
+  if (branchCount > 1) phases.push(runtimePhase('replay_and_promote', ['genos_replay', 'genos_record_decision'], 'Replay the selected result and preserve the rationale before promotion.'));
   return phases;
 }
 

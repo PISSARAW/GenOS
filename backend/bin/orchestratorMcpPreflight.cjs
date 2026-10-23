@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose']);
+const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose', 'genos_record_decision']);
 
 function safeSegment(value) {
   return crypto.createHash('sha256').update(String(value || 'mission')).digest('hex').slice(0, 24);
@@ -57,7 +57,7 @@ async function runOrchestratorMcpPreflight(input) {
   const client = await connectPreflightClient(input, tools);
   const receipts = [];
   try {
-    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool));
+    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool, receipts));
   } finally {
     await client.close().catch(() => {});
   }
@@ -105,8 +105,8 @@ async function connectPreflightClient(input, tools) {
   return client;
 }
 
-async function runPreflightTool(client, input, tool) {
-  const prepared = prepareToolArguments(input, tool);
+async function runPreflightTool(client, input, tool, receipts = []) {
+  const prepared = prepareToolArguments(input, tool, receipts);
   const result = await client.callTool({ name: tool, arguments: prepared.args });
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });
   assertSnapshotExists(tool, prepared.outputPath);
@@ -115,12 +115,22 @@ async function runPreflightTool(client, input, tool) {
   return receipt;
 }
 
-function prepareToolArguments(input, tool) {
+function prepareToolArguments(input, tool, receipts = []) {
   if (tool === 'genos_diagnose') return {
     args: { task: String(input.task || 'GenOS orchestration preflight').slice(0, 2000),
       hypotheses: Array.isArray(input.hypotheses) ? input.hypotheses : [] },
     outputPath: null
   };
+  if (tool === 'genos_record_decision') {
+    const evidence = receipts.filter(receipt => receipt.status === 'completed')
+      .map(receipt => `mcp:${receipt.tool}:${receipt.resultDigest}`);
+    if (!evidence.length) throw Object.assign(new Error('A baseline decision requires completed preflight evidence.'),
+      { code: 'ORCHESTRATOR_PREFLIGHT_DECISION_EVIDENCE_MISSING' });
+    return { args: { agentId: input.orchestratorId,
+      title: `Baseline decision: ${String(input.task || 'GenOS mission').slice(0, 80)}`,
+      decision: 'Proceed with the bounded mission using the completed failure search, falsifiable diagnosis, and baseline snapshot. Reassess if new evidence contradicts this plan.',
+      evidence }, outputPath: null };
+  }
   if (tool !== 'genos_snapshot') return {
     args: { query: String(input.task || 'GenOS orchestration preflight').slice(0, 2000), limit: 10 },
     outputPath: null
@@ -162,4 +172,4 @@ function pathToFileURL(filePath) {
 }
 
 module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
-  assertPreflightContext, preflightEnvironment, buildOrchestratorPreflightInput };
+  assertPreflightContext, preflightEnvironment, buildOrchestratorPreflightInput, prepareToolArguments };
