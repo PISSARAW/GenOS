@@ -85,6 +85,9 @@ function testTerminalStatus(input) {
   const synthesis = terminalStatus.queue(synthesisCtx, { eventType: 'AGENT_COMPLETED', status: 'completed',
     trackedEventId: 'verified-synthesis', payload: {} }, 'completed');
   assert.equal(synthesis.verdict, 'succeeded');
+  const closeOutcome = processOutcome.runtimeExitOutcome(null, 0, { domainVerdict: 'completed',
+    unverified: false, leafExecution: terminalStatus.verifiedSynthesis(synthesisCtx) });
+  assert.equal(closeOutcome.status, 'completed', 'process close must preserve the verified synthesis verdict');
   const incompleteSynthesis = { ...synthesisCtx, state: { ...synthesisCtx.state,
     verifiedDossierWorkerIds: ['worker-a'] } };
   assert.equal(terminalStatus.verifiedSynthesis(incompleteSynthesis), false,

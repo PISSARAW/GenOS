@@ -15,8 +15,7 @@ const { activeProcesses, emit, updateAgent } = require('./agentOrchestrationStat
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const workerGarage = require('./workerGarageService');
 const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
-const conceptCycle = require('./agentConceptCycleBridgeService');
-const terminalStatus = require('./agentTerminalStatusService');
+const conceptCycle = require('./agentConceptCycleBridgeService'), terminalStatus = require('./agentTerminalStatusService');
 const { recordCompletedCommand, attestCodeTestResults } = require('./agentCodeExecutionEvidence');
 function applyDomainStateFromEvent(context) {
   const { state, event, eventType, workerContract } = context;
@@ -362,7 +361,8 @@ async function handleChildClose(ctx, code, signal) {
     await finalizeChildClose({
       db: ctx.db, agentId, dispatchedAgent: ctx.dispatchedAgent, normalizedMission: ctx.normalizedMission, child: ctx.child, code, signal, stderrBuffer: state.stderrBuffer,
       termination: state.termination, missionDomainState: state.missionDomainState, terminalEventSeen: state.terminalEventSeen, emitTracked: ctx.emitTracked, executionQueue: state.executionQueue,
-      workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId: ctx.bodyActionId,
+      autonomyPlan: ctx.autonomyPlan, verifiedDossierWorkerIds: state.verifiedDossierWorkerIds, workspaceLifecycle,
+      workerGarage, emit, updateAgent, bodyActionId: ctx.bodyActionId,
       executionRun: ctx.executionRun, filesystemReceipt: ctx.filesystemReceipt
     });
   } catch (err) {

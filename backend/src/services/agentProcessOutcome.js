@@ -267,12 +267,16 @@ async function finalizeExecutionWorkspace(input) {
 async function finalizeChildClose({
   db, agentId, dispatchedAgent, normalizedMission, child, code, signal, stderrBuffer,
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
-  workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId, executionRun, filesystemReceipt
+  workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId, executionRun, filesystemReceipt,
+  autonomyPlan, verifiedDossierWorkerIds
 }) {
 
   const operatorStop = resolveOperatorStop(child);
+  const verifiedSynthesis = require('./agentTerminalStatusService').verifiedSynthesis({
+    dispatchedAgent, autonomyPlan, state: { verifiedDossierWorkerIds }
+  });
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer,
-    { ...missionDomainState, leafExecution: dispatchedAgent.execution_mode === 'worker' });
+    { ...missionDomainState, leafExecution: dispatchedAgent.execution_mode === 'worker' || verifiedSynthesis });
   await require('./workerCellOutcomeBridge').observe({
     db, agentId, dispatchedAgent, normalizedMission
   }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
