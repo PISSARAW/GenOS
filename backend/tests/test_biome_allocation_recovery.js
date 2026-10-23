@@ -20,7 +20,8 @@ assert.equal(normalized.structured.outcome, 'unresolved', 'schema repair must pr
 assert.equal(normalized.structured.claims.length, 0);
 assert.match(normalized.structured.uncertainties[0], /without specifying/);
 assert.equal(normalized.schemaViolation, undefined);
-assert.equal(recovery.normalizeUnresolvedResponse(invalid, format, { ...mission, role: 'worker' }), null,
+assert.equal(recovery.normalizeUnresolvedResponse(invalid, format, { ...mission,
+  workerAssignment: { topology: 'rhizome', topologyRole: 'resource_steward' } }), null,
   'schema normalization is scoped to the assigned Biome steward');
 
 const repaired = recovery.recoverExhaustedAllocation(normalized.structured, mission, rawResponse);
