@@ -20,10 +20,13 @@ async function emitLocalCompleted(ctx, publishSuccess) {
     stageTimings: ctx.stageTimings
   }, ctx.unresolved ? 'warning' : 'info', terminalStatus);
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
+  if (ctx.unresolved) {
+    require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
+  }
   return completed;
 }
 
-module.exports = { emit: emitLocalCompleted };
+module.exports = { emit: emitLocalCompleted, emitLocalCompleted };
 
 function terminalMetadata(evidence, codeWorker) {
   if (evidence.unresolved) return { eventType: 'AGENT_FAILED', kind: 'EVIDENCE_GAP',
