@@ -15,6 +15,9 @@ function workspaceInitializationAlertId(workspaceId) {
 }
 
 function localWorkspaceConfig() {
+  const agentId = String(process.env.GENOS_AGENT_ID || '').trim();
+  const orchestratorId = String(process.env.GENOS_ORCHESTRATOR_AGENT_ID || '').trim();
+  if (agentId && orchestratorId && agentId !== orchestratorId) return;
   if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
