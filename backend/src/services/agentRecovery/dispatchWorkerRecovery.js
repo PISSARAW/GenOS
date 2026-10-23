@@ -337,6 +337,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   const { mission, report, decision } = recovery;
   let db;
   let source;
+  let missionDispatched = false;
   try {
     db = await getDatabase();
     source = await loadSourceWorker(db, sourceAgentId);
@@ -376,12 +377,22 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       return false;
     }
     await startMission(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
+    missionDispatched = true;
     return true;
   } catch (error) {
     await handleRecoveryDispatchFailure(db, error, { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId });
     return false;
   } finally {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
+    // A same-identity recovery can fail while this dispatch is still active.
+    // queueWorkerRecovery refreshes the pending entry, but its shutdown hook
+    // cannot dispatch until this active lease is released. Drain that entry
+    // after a successful launch; dispatch failures already have their own
+    // bounded retry/backoff path in handleRecoveryDispatchFailure.
+    if (missionDispatched && pendingWorkerRecoveries.has(sourceAgentId)) {
+      const barrier = activeWorkerBarriers.get(orchestratorId);
+      if (!isCancelled(barrier)) setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 0).unref();
+    }
   }
 }
 

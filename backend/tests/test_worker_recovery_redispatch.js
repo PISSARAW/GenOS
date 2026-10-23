@@ -124,6 +124,37 @@ async function checkSameIdentityRedispatch(db) {
   assert.equal(await openClaims(db, 'rec-w'), 0, 'no duplicate open claim remains');
 }
 
+async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
+  clearSharedState();
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id, workspace_id) VALUES ('rec-chain', 'Chain', 'resource_steward', 'error', 'worker', 'rec-orch', 'rec-ws')");
+  const { mission, report, decision } = queuedRecovery('rec-chain', 'unresolved_task');
+  orchestrationState.pendingWorkerRecoveries.set('rec-chain', { mission, report, decision });
+  const originalStartMission = adapter.startMission;
+  adapter.startMission = async (nextMission) => {
+    startedMissions.push(nextMission);
+    if (startedMissions.length === 1) {
+      queueWorkerRecovery(baseMission('rec-chain', { recoveryAttempt: 1 }), {
+        eventType: 'AGENT_FAILED', detail: 'Biome mutated output violates allocation constraints.',
+        payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID',
+          candidate: '{"bins":[]}', issues: ['candidate.bin_count'] } }
+      });
+    }
+    return { started: true };
+  };
+  try {
+    assert.equal(await dispatchWorkerRecovery('rec-chain'), true);
+    for (let index = 0; index < 30 && startedMissions.length < 2; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(startedMissions.length, 2,
+      'a failure queued while the same-identity dispatch is active is drained after its lease is released');
+    assert.notEqual(startedMissions[1].agentId, 'rec-chain',
+      'the next morphogenetic response can change identity after the same-identity mutation fails');
+  } finally {
+    adapter.startMission = originalStartMission;
+  }
+}
+
 async function checkReplacementRedispatch(db) {
   const { mission, report, decision } = queuedRecovery('rec-w2', 'capability_mismatch');
   assert.equal(decision.identity, 'new');
@@ -232,6 +263,7 @@ async function run() {
     await setup(db);
     clearSharedState();
     await checkSameIdentityRedispatch(db);
+    await checkQueuedFailureDrainsAfterSameIdentityDispatch(db);
     await checkReplacementRedispatch(db);
     await checkValidatedWorkNotRedispatched(db);
     await checkExhaustionVerdict(db);
