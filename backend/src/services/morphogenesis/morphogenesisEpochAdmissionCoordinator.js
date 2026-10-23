@@ -112,7 +112,7 @@ async function runFundedAdmission(context) {
       allocatedTokens: fundedTokens(assignments),
       requestedTools: Array.isArray(state.plan?.requiredTools) ? state.plan.requiredTools : [] },
     quiescence, parentLease: { allowedTools },
-    topologyCapabilities: mission.topologyCapabilityInventory?.available,
+    topologyCapabilities: require('./morphogenesisEpochDecisionService').topologyCapabilities(mission),
     availableWorkerKinds: Object.keys(require('../agents/workerKindService').KINDS),
     budget: { availableTokens: reservation.reservedTokens },
     resourceResolution: adaptation.admission?.resourceResolution || null,

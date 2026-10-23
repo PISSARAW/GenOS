@@ -42,7 +42,8 @@ async function admissionForTransition(input, result) {
   const receipts = await transitionReceipts(input, prepared);
   const admission = admit({ policy,
     actualPlan: prepared.actualPlan, quiescence: prepared.context.quiescence,
-    parentLease: prepared.context.parentLease, topologyCapabilities: mission.topologyCapabilityInventory?.available,
+    parentLease: prepared.context.parentLease,
+    topologyCapabilities: require('./morphogenesisEpochDecisionService').topologyCapabilities(mission),
     availableWorkerKinds: Object.keys(kinds), budget: { availableTokens: Number(input.continuation.pool) || 0 },
     resourceResolution: receipts.resolution, resourceReservation: receipts.reservation, now: receipts.now });
   if (admission.status !== 'admitted' && receipts.owned) {
