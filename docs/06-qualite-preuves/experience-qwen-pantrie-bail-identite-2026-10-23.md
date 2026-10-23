@@ -137,3 +137,8 @@ Classement final: échec de génération/parsing avant l’oracle, gate `MISSION
 Retry52 a bien achevé ses appels Qwen locaux et les vingt contre-tests `npm test` dans l’espace D. Des candidats ont progressé au-delà d’Add Item et de Search; d’autres régressent sur les boutons Increase et les locators Quantity. Le candidat terminal (9956 octets) échoue à `acceptance.cjs:15:38`: Playwright ne trouve pas de champ accessible nommé Quantity. SQLite enregistre `AGENT_FAILED` à 10:07:41 UTC puis `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`) à 10:07:42 UTC. Reçu: `genos-direct-d-20261023-retry52.db`; 21 appels fournisseur Qwen enregistrés, 20 réparations et aucun oracle complet vert.
 
 Le défaut observé est distinct de la collision Quantity après rechargement: le champ du formulaire n’a parfois aucun nom accessible. Une réparation `ensure_quantity_input_label` ajoute `aria-label="Quantity"` au champ numérique du formulaire et une règle de diagnostic la sélectionne sur l’échec Playwright correspondant. `node backend/tests/test_worker_code_test_repair.js` passe avec ce correctif; il n’était pas chargé par retry52 et reste à vérifier par un nouveau run réel.
+
+
+## Retry53 — réponse Qwen JSON tronquée avant l’oracle
+
+Retry53 a enregistré dix appels fournisseur Qwen et neuf réparations locales, puis s’est terminé sur `Unterminated string in JSON at position 5409 (line 6 column 5318)`. Aucun reçu `npm test` n’est présent pour cette mission: le parseur a rejeté la proposition avant l’oracle. SQLite enregistre `AGENT_FAILED` et le gate `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`). Reçu: `genos-direct-d-20261023-retry53.db`, terminal à 10:14:17 UTC. Aucun succès fonctionnel n’est revendiqué.
