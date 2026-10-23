@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures']);
+const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose']);
 
 function safeSegment(value) {
   return crypto.createHash('sha256').update(String(value || 'mission')).digest('hex').slice(0, 24);
@@ -70,7 +70,7 @@ function buildOrchestratorPreflightInput(input) {
     task: input.task, repoRoot: input.repoRoot,
     workspaceRoot: request.workspaceRoot || request.workspace_root || input.workspaceRoot,
     snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent || input.snapshotAgent,
-    hypotheses: request.hypotheses, tools: input.tools };
+    hypotheses: request.diagnosticHypotheses || request.hypotheses, tools: input.tools };
 }
 function assertPreflightContext(input) {
   const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
@@ -116,6 +116,11 @@ async function runPreflightTool(client, input, tool) {
 }
 
 function prepareToolArguments(input, tool) {
+  if (tool === 'genos_diagnose') return {
+    args: { task: String(input.task || 'GenOS orchestration preflight').slice(0, 2000),
+      hypotheses: Array.isArray(input.hypotheses) ? input.hypotheses : [] },
+    outputPath: null
+  };
   if (tool !== 'genos_snapshot') return {
     args: { query: String(input.task || 'GenOS orchestration preflight').slice(0, 2000), limit: 10 },
     outputPath: null
