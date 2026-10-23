@@ -159,6 +159,10 @@ async function persistRecoveryAgent(db, source, target) {
 }
 
 async function createRecoveryWorkspace(db, source, mission, target) {
+  if (target.sameIdentity) {
+    return { workspaceRoot: firstTruthy(source.workspace_root, mission.workspaceRoot),
+      workspaceId: source.workspace_id || mission.workspaceId || null, reused: true };
+  }
   const sourceRoot = firstTruthy(source.workspace_root, mission.workspaceRoot, process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
   const capsuleName = `${target.targetId}_${target.decision.action}_${target.report.attempt + 1}`;
   try {
@@ -180,6 +184,7 @@ async function bindRecoveryWorkspace(db, target, source, workspace) {
       parentWorkspaceId: target.workspaceId || source.parent_workspace_id,
       workspaceRoot: workspace.workspaceRoot
     });
+    workspace.created = true;
     return workspace;
   } catch (error) {
     await bestEffort(cleanupWorkspace(workspace.workspaceRoot, target.targetId));
@@ -232,7 +237,7 @@ async function emitSlotReleased(db, worker, message) {
 }
 
 async function cancelRecoveryDispatch(db, target, workspace) {
-  if (workspace.workspaceRoot) {
+  if (workspace.workspaceRoot && workspace.created) {
     const outcome = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, target.targetId, { rollbackUnlaunched: target.targetId }));
     if (outcome === 'removed' || outcome === 'worktree-removed') await bestEffort(forgetWorkspace(target.targetId));
   }
@@ -300,7 +305,7 @@ function resolveFailureTarget(target, sourceAgentId, fallbackOrchestratorId) {
 async function handleRecoveryDispatchFailure(db, error, data) {
   const { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId } = data;
   const worker = resolveFailureTarget(target, sourceAgentId, orchestratorId);
-  if (workspace.workspaceRoot) {
+  if (workspace.workspaceRoot && workspace.created) {
     const cleanup = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, worker.targetId));
     if (cleanup === 'removed' || cleanup === 'worktree-removed') await bestEffort(forgetWorkspace(worker.targetId));
   }

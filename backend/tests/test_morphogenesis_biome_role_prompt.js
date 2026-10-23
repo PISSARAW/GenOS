@@ -84,9 +84,10 @@ const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment:
 'Repartis item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1 en 3 groupes, plafond de 8.');
 assert.match(stewardMission, /Total=24; capacity=3\*8=24, so every bin must total exactly 8/);
 assert.match(stewardMission, /item1=1,item2=3,item3=2/);
-assert.match(stewardMission, /Use every item ID once/);
-assert.match(stewardMission, /Construct and recalculate every bin/);
-assert.match(stewardMission, /Backtrack if needed; do not abstain when a valid partition exists/);
+assert.match(stewardMission, /Use each item once/);
+assert.match(stewardMission, /Recalculate each bin/);
+assert.match(stewardMission, /Search weights descending with backtracking/);
+assert.match(stewardMission, /Claim impossibility only after exhaustive search/);
 assert.match(stewardMission, /one GenOS dossier.*exactly one claim/);
 assert.doesNotMatch(stewardMission, /Return a complete GenOS dossier: \{"outcome":"success"/);
 assert.match(stewardMission, /only \{"bins":\[\[exact item IDs\],\.\.\.\]\}/);
@@ -97,7 +98,7 @@ const underfilledStewardMission = rolePrompt.morphogenesisMissionPrompt({ worker
   topology: 'biome', topologyRole: 'resource_steward' } },
 'Repartis item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6 en 3 groupes, plafond de 13.');
 assert.match(underfilledStewardMission, /Total=37; capacity=3\*13=39; each bin must total at most 13/);
-assert.match(stewardMission, /recalculate every bin/);
+assert.match(stewardMission, /Recalculate each bin/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
 const smallAllocation = 'Repartis item1=2, item2=2, item3=1 en 2 groupes, plafond de 3.';
@@ -128,6 +129,16 @@ const repairedPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
 assert.match(repairedPrompt, /Repair the previous candidate using this runtime feedback/);
 assert.match(repairedPrompt, /\{"bins":\[\["item1","item2"\],\["item3"\]\]\}/);
 assert.match(repairedPrompt, /candidate\.bin_1_over_capacity:4/);
+const unresolvedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
+  detail: 'Local worker reported that the supplied evidence cannot substantiate the requested outcome.',
+  payload: { evidenceReport: { outcome: 'unresolved', claims: [],
+    uncertainties: ['The partitioning task is impossible with these constraints.'] } } },
+{ agentId: 'qwen-worker', prompt: smallAllocation, recoveryAttempt: 0 });
+const reconsideredPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
+  workerRecovery.recoveryPrompt(unresolvedFailure, workerRecovery.decideRecovery(unresolvedFailure)));
+assert.match(reconsideredPrompt, /unverified impossibility claim/);
+assert.match(reconsideredPrompt, /exhaustive search/);
+assert.match(reconsideredPrompt, /skip bins with equal remaining capacity/);
 assert.equal(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
   { topology: 'biome', topologyRole: 'environment_mapper' }), null);
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
