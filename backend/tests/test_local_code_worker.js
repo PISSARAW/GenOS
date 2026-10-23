@@ -137,9 +137,15 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before',
 			'exact edit is rolled back after its test fails');
 		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before before');
-		await assert.rejects(executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'],
+		await assert.rejects(executeProposal({ workspaceRoot: root, usage: { inputTokens: 80, outputTokens: 20 }, allowedCommands: ['pytest'],
 			text: JSON.stringify({ ...editProposal, patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }] }) }),
-		/anchor must occur once/);
+		(error) => {
+			assert.equal(error.code, 'WORKER_OUTPUT_SCHEMA_VIOLATION');
+			assert.match(error.workerArtifactDiagnostics.error, /anchor must occur once/);
+			assert.match(error.workerArtifactDiagnostics.outputExcerpt, /genos.file-edits\/v1/);
+			assert.equal(error.usage.tokens, 100);
+			return true;
+		});
 		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before before',
 			'ambiguous exact edit does not modify the file');
 		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');

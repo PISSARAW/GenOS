@@ -132,7 +132,8 @@ async function runTest(command, root) {
 async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
   const proposal = parseProposal(text, usage);
-  await materializePatchEdits(workspaceRoot, proposal);
+  try { await materializePatchEdits(workspaceRoot, proposal); }
+  catch (error) { throw proposalShapeError(error, text, usage); }
   assertRequiredPatchContract(proposal, requiredPatchPaths, {
     markers: requiredPatchMarkers, minimumBytes: requiredPatchMinimumBytes });
   for (const command of proposal.tests) {
@@ -230,6 +231,17 @@ function assertProposalPatches(proposal) {
       throw new Error(`Unsafe patch proposal for '${patch.path}'. Provide either full content or bounded exact edits.`);
     }
   }
+}
+
+function proposalShapeError(error, text, usage = {}) {
+  const detail = error.message || String(error);
+  const inputTokens = Number(usage.inputTokens || 0);
+  const outputTokens = Number(usage.outputTokens || 0);
+  return Object.assign(new Error(`Local code proposal rejected: ${detail}`), {
+    code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+    workerArtifactDiagnostics: { error: detail, violations: [detail], outputExcerpt: String(text || '').slice(0, 2048) },
+    usage: { inputTokens, outputTokens, tokens: inputTokens + outputTokens }
+  });
 }
 
 async function materializePatchEdits(workspaceRoot, proposal) {
