@@ -18,11 +18,13 @@ function summarizeFailedPatches(error) {
     for (const script of source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
       const code = script[1];
       for (const marker of ['function handleAddItem', 'function addNewItem', 'function renderItem',
-        'function increaseQuantity', 'function handleFilterChange', 'function handleSearch']) {
+        'function addItem', 'function increaseQuantity', 'function handleFilterChange', 'function handleSearch',
+        'function filterItems']) {
         const index = code.toLowerCase().indexOf(marker.toLowerCase());
         if (index >= 0) logic.push(code.slice(index, Math.min(code.length, index + 1200)).replace(/\s+/g, ' '));
       }
-      for (const marker of ['addEventListener', 'onsubmit', 'localStorage', 'addItem', 'render(']) {
+      for (const marker of ["addEventListener('submit'", 'addEventListener("submit"', 'onsubmit',
+        'localStorage', 'addEventListener', 'addItem', 'render(']) {
         const index = code.toLowerCase().indexOf(marker.toLowerCase());
         if (index < 0) continue;
         logic.push(code.slice(Math.max(0, index - 120), Math.min(code.length, index + 280)).replace(/\s+/g, ' '));

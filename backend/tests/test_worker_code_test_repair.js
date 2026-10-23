@@ -180,13 +180,14 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
-    path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } form.addEventListener("submit", addItem);</script>'
+    path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } function addItem(event) { const item = readForm(); items.push(item); } form.addEventListener("submit", addItem);</script>'
   }] } });
   assert.equal(patchDiagnostics[0].path, 'index.html');
   assert.ok(patchDiagnostics[0].controls.some((item) => item.includes('<input id="name">')));
   assert.ok(patchDiagnostics[0].roles.some((item) => item.includes('role="button"')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('addEventListener')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function handleAddItem')));
+  assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function addItem(event)') && item.includes('items.push(item)')));
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
