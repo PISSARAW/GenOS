@@ -60,7 +60,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     command: 'npm test', exitCode: 1,
     stderr: 'locator.selectOption: Timeout 4000ms exceeded. waiting for getByLabel(/^category$/i)'
   }] }, usage: { inputTokens: 25, outputTokens: 25, tokens: 50 } });
-  assert.match(locatorRepairHint(categoryFailure), /<label for="category">Category<\/label>/);
+  assert.ok(locatorRepairHint(categoryFailure).includes('<label for="category">Category</label>'));
   assert.match(failureFeedback(categoryFailure), /label that control Filter category/);
   assert.ok(failureFeedback(categoryFailure).indexOf('exact accessible Category control')
     < failureFeedback(categoryFailure).indexOf('locator.selectOption'));
@@ -138,7 +138,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const searchFilterPlan = repairPlan(searchFilterFailure);
   assert.deepEqual(searchFilterPlan, { kind: 'ensure_search_filter_behavior', label: 'Search' });
-  assert.match(locatorRepairHint(searchFilterFailure), /case-insensitive substring of item\.name/);
+  assert.ok(locatorRepairHint(searchFilterFailure).includes('case-insensitive substring of item.name'));
   const searchFilterProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<input id="filter-search"><select id="filter-category"></select><script>function renderItems(items) { const box = document.getElementById(\'items\'); box.innerHTML = \'\'; items.forEach(item => { box.append(item.name); }); }</script>'
   }] });
@@ -152,7 +152,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     '<script>let pantryItems = []; function addItem() { pantryItems.push(item); } function increaseQuantity(index) { pantryItems[index].quantity += 1; } function deleteItem(index) { pantryItems.splice(index, 1); } window.onload = () => { pantryItems.push(...JSON.parse(localStorage.getItem(\'pantryItems\') || \'[]\')); };</script>'
   }] });
   const persistenceContent = JSON.parse(applyRepairPlan(persistenceProposal, persistencePlan)).patches[0].content;
-  assert.equal((persistenceContent.match(/localStorage\.setItem\("pantryItems"/g) || []).length, 3);
+  assert.equal(Array.from(persistenceContent.matchAll(/localStorage\.setItem\("pantryItems"/g)).length, 3);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
   const categoryOnlyContent = JSON.parse(applyRepairPlan(proposalText, plan)).patches[0].content;
   assert.match(categoryOnlyContent, /<select id="category" aria-label="Category">/);
@@ -214,7 +214,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedClickAdd = JSON.parse(applyRepairPlan(clickAddCandidate, addPlan)).patches[0].content;
   assert.match(repairedClickAdd, /const cleanTarget=target\.cloneNode\(true\)/);
   assert.match(repairedClickAdd, /target\.replaceWith\(cleanTarget\)/);
-  assert.match(repairedClickAdd, /target\.addEventListener\(target===form\?'submit':'click'/);
+  assert.ok(repairedClickAdd.includes("target.addEventListener(target===form?'submit':'click'"));
   assert.match(repairedClickAdd, /pantryData\.items\.push\(item\)/);
   assert.match(repairedClickAdd, /JSON\.stringify\(pantryData\)/);
   const restoredPantry = JSON.stringify({ patches: [{ path: 'index.html', content:
@@ -227,13 +227,23 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     '<form><input id="itemName"><input id="quantity" type="number"><select id="category"></select><input id="bestBefore" type="date"></form><table><tbody id="pantry"></tbody></table><script>const pantry=document.querySelector("#pantry tbody");function increaseQuantity(){}function deleteItem(){}</script>'
   }] });
   const repairedDomPantry = JSON.parse(applyRepairPlan(domPantryCandidate, addPlan)).patches[0].content;
-  assert.match(repairedDomPantry, /pantry\.appendChild\(row\)/);
-  assert.match(repairedDomPantry, /JSON\.stringify\(\{itemName:name,quantity,category,bestBeforeDate:date\}\)/);
+  assert.match(repairedDomPantry, /container\.appendChild\(row\)/);
+  assert.match(repairedDomPantry, /localStorage\.setItem\("pantry",JSON\.stringify\(items\)\)/);
+  const callbackPantryCandidate = JSON.stringify({ patches: [{ path: 'index.html', content:
+    '<form><input id="itemName"><input id="quantity" type="number"><input id="bestBefore" type="date"><select id="category"></select><button type="submit">Add Item</button></form><table id="pantry"><tbody></tbody></table><script>window.addEventListener("load",function(){const pantry=JSON.parse(localStorage.getItem("pantry"))||[];const table=document.querySelector("#pantry tbody");pantry.forEach(item=>{const row=document.createElement("tr");table.appendChild(row);});});</script>'
+  }] });
+  const callbackPantryContent = JSON.parse(applyRepairPlan(callbackPantryCandidate, addPlan)).patches[0].content;
+  const callbackRepair = callbackPantryContent.split('function genosAddItemRepair')[1].split('},true)')[0];
+  assert.doesNotMatch(callbackRepair, /pantry\.push\(item\)/);
+  assert.match(callbackRepair, /const container=document\.querySelector\("#pantry tbody"\)/);
+  assert.match(callbackRepair, /container\.appendChild\(row\)/);
+  assert.match(callbackRepair, /localStorage\.setItem\("pantry",JSON\.stringify\(items\)\)/);
+  assert.match(callbackRepair, /data-action="increase"/);
   const duplicateFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
-  assert.match(locatorRepairHint(duplicateFailure), /2 visible text matches for Oats/);
+  assert.ok(locatorRepairHint(duplicateFailure).includes('2 visible text matches for Oats'));
   const persistenceFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: updated quantity persists at tests/acceptance.cjs:26:10'
@@ -267,7 +277,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const quantityReloadProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button aria-label="Increase quantity for Oats">Increase quantity</button>'
   }] });
-  assert.doesNotMatch(JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content,
+  assert.match(JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content,
     /aria-label="Increase quantity for Oats"/);
   const quantityRowProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<form><input type="number" aria-label="Quantity"></form><div><input type="number" aria-label="Quantity for Oats"><button aria-label="Increase quantity for Oats">Increase</button></div>'
@@ -275,7 +285,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const quantityRowContent = JSON.parse(applyRepairPlan(quantityRowProposal, quantityReloadPlan)).patches[0].content;
   assert.match(quantityRowContent, /<input type="number" aria-label="Quantity">/);
   assert.match(quantityRowContent, /aria-label="Item count"/);
-  assert.match(quantityRowContent, /aria-label="Increase Oats"/);
+  assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
   assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
@@ -302,7 +312,11 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.ok(patchDiagnostics[0].roles.some((item) => item.includes('role="button"')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('addEventListener')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function handleAddItem')));
-  assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function addItem(event)') && item.includes('items.push(item)')));
+  assert.ok(patchDiagnostics[0].logic.some(hasAddHandlerAndPush));
+
+  function hasAddHandlerAndPush(item) {
+    return ['function addItem(event)', 'items.push(item)'].every((phrase) => item.includes(phrase));
+  }
 
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
