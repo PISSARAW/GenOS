@@ -333,15 +333,24 @@ async function gatherTelemetryAndCoverage(db, id) {
       (SELECT id FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN
         (SELECT id FROM agents WHERE parent_agent_id = ?))
     GROUP BY json_extract(metadata_json, '$.executionRunId')`, id, id);
+  const attemptRows = await db.all(`SELECT mission_id AS run_id, provider_called, input_tokens,
+    output_tokens, token_usage_source, cost_usd FROM model_attempt_ledger
+    WHERE mission_id IN (SELECT id FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN
+      (SELECT id FROM agents WHERE parent_agent_id = ?))`, id, id);
   const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
   telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-  return { telemetryRows, runs, usageRows, coverage };
+  return { telemetryRows, runs, usageRows, attemptRows, coverage };
 }
 
 function emitFinalTelemetry(opts) {
-  const { telemetryRows, runs, usageRows, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id, missionId } = opts;
+  const { telemetryRows, runs, usageRows, attemptRows, coverage, nceEnhancements,
+    missionSuccess, finalVerdict, continuity, completionGate, id, missionId } = opts;
   const nceInfo = buildNceInfo(nceEnhancements);
-  process.stdout.write(JSON.stringify({ missionId: missionId || continuity?.missionId || id, orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs, usageRows), coverage }));
+  process.stdout.write(JSON.stringify({ missionId: missionId || continuity?.missionId || id,
+    orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate,
+    continuity, telemetry: telemetryRows, nce: nceInfo,
+    token_usage: tokenUsage(runs, usageRows), measured_usage: measuredModelUsage(runs,
+      attemptRows || [], usageRows), coverage }));
 }
 
 function buildNceInfo(nceEnhancements) {
@@ -367,6 +376,36 @@ function tokenUsage(runs, usageRows = []) {
   return { executionRuns, totalTokens, allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
 }
 
+function measuredModelUsage(runs, attempts = [], usageRows = []) {
+  const usageRunIds = new Set(usageRows.map((row) => row.run_id));
+  const executionRuns = runs.map((run) => {
+    const rows = attempts.filter((attempt) => attempt.run_id === run.id);
+    const unboundUsage = rows.length === 0 && usageRunIds.has(run.id);
+    const incomplete = unboundUsage || rows.some((row) => Number(row.provider_called) === 1
+      && (row.token_usage_source !== 'provider'
+        || row.input_tokens == null || row.output_tokens == null || row.cost_usd == null
+        || !Number.isSafeInteger(Number(row.input_tokens))
+        || !Number.isSafeInteger(Number(row.output_tokens))
+        || !Number.isFinite(Number(row.cost_usd))));
+    const providerRows = rows.filter((row) => Number(row.provider_called) === 1);
+    return { runId: run.id, agentId: run.agent_id, status: run.status,
+      providerAttempts: providerRows.length,
+      tokens: incomplete ? null : providerRows.reduce((sum, row) =>
+        sum + Number(row.input_tokens) + Number(row.output_tokens), 0),
+      costUsd: incomplete ? null : Number(providerRows.reduce((sum, row) =>
+        sum + Number(row.cost_usd), 0).toFixed(8)),
+      complete: !incomplete };
+  });
+  const allRunsCompleted = executionRuns.length > 0
+    && executionRuns.every((run) => run.status === 'completed');
+  const complete = allRunsCompleted && executionRuns.every((run) => run.complete);
+  return { schema: 'genos.measured-model-usage/v1', complete, allRunsCompleted,
+    totalTokens: complete ? executionRuns.reduce((sum, run) => sum + run.tokens, 0) : null,
+    totalCostUsd: complete ? Number(executionRuns.reduce((sum, run) =>
+      sum + run.costUsd, 0).toFixed(8)) : null,
+    executionRuns };
+}
+
 module.exports = {
   buildActionContext,
   runActionWithCleanup,
@@ -390,7 +429,8 @@ module.exports = {
   gatherTelemetryAndCoverage,
   emitFinalTelemetry,
   buildNceInfo,
-  tokenUsage
+  tokenUsage,
+  measuredModelUsage
 };
 
 function startOrchestratorMissionCondition(policyRequest, request, useLocalRuntime) {
