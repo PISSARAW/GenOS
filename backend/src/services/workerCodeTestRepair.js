@@ -93,6 +93,7 @@ function applyRepairPlan(text, plan) {
     for (const item of plans) {
       if (item.kind === 'ensure_accessible_select_label') {
         content = labelCategorySelect(content, item.label);
+        content = labelFilterSelect(content, 'Filter category');
       } else if (item.kind === 'ensure_accessible_button_label') {
         content = labelIncreaseButton(content, item.label);
       } else if (item.kind === 'ensure_filter_select_label') {

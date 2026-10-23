@@ -103,6 +103,9 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(repairedContent, /<select id="filter" aria-label="Filter category"><option>All<\/option><option value="Food">Food<\/option>/);
   assert.match(repairedContent, /<input id="search" placeholder="Search items" aria-label="Search">/);
   assert.equal(applyRepairPlan(repairedText, plan), repairedText);
+  const categoryOnlyContent = JSON.parse(applyRepairPlan(proposalText, plan)).patches[0].content;
+  assert.match(categoryOnlyContent, /<select id="category" aria-label="Category">/);
+  assert.match(categoryOnlyContent, /<select id="filter" aria-label="Filter category">/);
   const dynamicButtonProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button id="oats-increase" aria-label="Increase quantity for Oats">Increase quantity</button>'
     + '<script>row.innerHTML = `<button id="${itemName}-increase">Increase</button>`;</script>'
