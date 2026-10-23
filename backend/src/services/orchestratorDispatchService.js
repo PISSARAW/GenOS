@@ -7,7 +7,8 @@ function missionDefaults(input) {
     modelBudgetScope: input.modelBudgetScope || null,
     methodContract: input.methodContract || null,
     workerAssignment: input.workerAssignment || null,
-    executionBudget: input.executionBudget || input.execution_budget || {},
+    executionBudget: input.executionBudget || input.execution_budget
+      || (input.workerTokenLimit != null ? { tokens: input.workerTokenLimit } : {}),
     executionPolicy: input.executionPolicy || {}
   };
 }

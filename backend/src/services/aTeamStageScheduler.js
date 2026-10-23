@@ -250,6 +250,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease,
     execution_budget: executionBudget,
+    workerTokenLimit: executionBudget?.tokens,
     modelBudgetScope: selectedModelBudgetScope(member, request),
     timeoutMs: request.timeoutMs,
     workspace_root: request.workspace_root || parentWorkspaceRoot,

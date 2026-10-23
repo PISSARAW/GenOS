@@ -264,7 +264,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
     methodContract: request.methodContract, workerAssignment: request.workerAssignment,
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
-    workerTokenLimit: budget.tokens
+    workerTokenLimit: budget.tokens ?? request.workerTokenLimit
   });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
@@ -307,7 +307,7 @@ async function startWorker({ db, context, parent, reusable, worker }) {
 async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const strategyContract = await contracts.getLatestContract(db, context.orchestratorId);
   if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${context.orchestratorId}'.`);
-  const missionBudget = { ...(context.request.execution_budget || context.request.executionBudget || {}) };
+  const missionBudget = { ...(context.request.execution_budget || context.request.executionBudget || {}) }; if (missionBudget.tokens == null && Number.isSafeInteger(context.request.workerTokenLimit)) missionBudget.tokens = context.request.workerTokenLimit;
   if (context.request.timeoutMs && !missionBudget.latencyMs) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }

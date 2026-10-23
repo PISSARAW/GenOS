@@ -16,6 +16,10 @@ const coordinatedMission = buildWorkerMission({ agentId: 'worker-coordinated', o
   execution_budget: { tokens: 60000 } });
 assert.equal(coordinatedMission.workerContract.mission.communicationRequired, true);
 assert.equal(coordinatedMission.workerContract.resources.maxTokens, 40000);
+const boundedCoordinatedMission = buildWorkerMission({ agentId: 'worker-bounded', orchestratorAgentId: 'root',
+  prompt: 'coordinate worker findings', communicationRequired: true, workerTokenLimit: 60000 });
+assert.equal(boundedCoordinatedMission.executionBudget.tokens, 60000);
+assert.equal(boundedCoordinatedMission.workerContract.resources.maxTokens, 40000);
 const scoped = buildWorkerMission({ agentId: 'worker', orchestratorAgentId: 'root',
   prompt: 'scoped contract', modelBudgetScope: { id: 'execution-run:root', costUsd: 1, tokens: 100 } });
 assert.deepEqual(scoped.modelBudgetScope,
