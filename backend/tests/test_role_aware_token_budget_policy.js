@@ -4,12 +4,18 @@ const assert = require('node:assert/strict');
 const policy = require('../src/services/workerTokenBudgetPolicy');
 const { buildAllocation } = require('../src/services/tokenAllocationService');
 const teamBudget = require('../src/services/aTeamDispatchBudgetService');
+const { buildTokenPlan } = require('../src/services/autonomousOrchestrationService/tokenPlanner');
 
 const workers = Array.from({ length: 4 }, () => ({ role: 'implementation' }));
 const profiles = policy.profileWorkers(workers);
 assert.deepEqual(profiles.map(profile => profile.minimumStartTokens), [8000, 8000, 8000, 8000]);
 assert.deepEqual(profiles.map(profile => profile.targetTokens), [12000, 12000, 12000, 12000]);
 assert.deepEqual(profiles.map(profile => profile.maximumTokens), [20000, 20000, 20000, 20000]);
+
+const repairPass = buildTokenPlan({ tokens: 80000, minimumWorkerTokens: 12000 },
+  { complex: true }, Array.from({ length: 3 }, () => ({ role: 'implementation' })));
+assert.deepEqual(repairPass.rounds.initial.workerTokens, [12000, 12000, 12000],
+  'the explicit local-code minimum must reach each worker allocation');
 
 const elastic = policy.budgetEnvelope(64000, profiles);
 assert.equal(elastic.orchestratorReserveTokens, 11200);

@@ -80,14 +80,43 @@ function workerAssignmentsFor(roles) {
   return workerAssignments;
 }
 
+function acceptanceRequiresCodeChange(task) {
+  let acceptance = task?.acceptance_json ?? task?.acceptance ?? [];
+  if (typeof acceptance === 'string') {
+    try { acceptance = JSON.parse(acceptance); } catch (_) { acceptance = [acceptance]; }
+  }
+  const text = [task?.title, task?.goal, ...(Array.isArray(acceptance) ? acceptance : [acceptance])]
+    .filter((value) => typeof value === 'string').join(' ');
+  const sourcePath = /\b(?:src|lib|app|backend)[/\\][\w./\\-]+\.(?:[cm]?[jt]sx?)\b/i.test(text);
+  const implementationContract = /\b(?:exports?|module\.exports|function|returns?|throws?|implement(?:ation)?|modify|update|change|implementer|typeerror)\b/i.test(text);
+  return sourcePath && implementationContract;
+}
+
+function isCodeTask(input) {
+  const mission = input.mission || {};
+  const taskIntent = `${input.task?.kind || ''} ${input.task?.title || ''} ${input.task?.goal || ''}`
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return ['implement', 'repair'].includes(mission.kind)
+    || /\b(?:implement(?:ation|er|ing)?|repair|fix|bug|patch|corrig(?:er|e|é))\b/i.test(taskIntent)
+    || acceptanceRequiresCodeChange(input.task);
+}
+
+function minimumWorkerTokensForCodeTask(input, codeChangeTask) {
+  if (!codeChangeTask) return null;
+  const total = Number(input.budgets?.tokens);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  // Local code workers may need a second generation to repair a failed
+  // verifier run. Fund that repair pass without taking more than 15% per
+  // worker from the mission's declared token budget.
+  return Math.max(8000, Math.min(12000, Math.floor(total / 6)));
+}
+
 function requestFor(input) {
   const checks = input.config.checks || [];
   const roles = input.selection.workerRoles || [];
   const mission = input.mission || {};
-  const taskIntent = `${input.task?.kind || ''} ${input.task?.title || ''} ${input.task?.goal || ''}`
-    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const isCodeTask = ['implement', 'repair'].includes(mission.kind)
-    || /\b(?:implement(?:ation|er|ing)?|repair|fix|bug|patch|corrig(?:er|e|é))\b/i.test(taskIntent);
+  const codeChangeTask = isCodeTask(input);
+  const minimumWorkerTokens = minimumWorkerTokensForCodeTask(input, codeChangeTask);
   const plan = mission.plan || {};
   return {
     id: input.id, missionId: `mission_${input.id}`,
@@ -96,7 +125,7 @@ function requestFor(input) {
     workspaceId: 'ws-local',
     workspaceProvisioned: true,
     capsuleRoot: path.join(path.dirname(path.resolve(input.worktree)), 'capsules'),
-    localCodeWorker: isCodeTask,
+    localCodeWorker: codeChangeTask,
     requiredPatchPaths: requiredWebPatchPaths(input),
     requiredPatchMarkers: requiredWebPatchMarkers(input),
     requiredPatchMinimumBytes: requiredWebPatchMinimumBytes(input),
@@ -117,7 +146,9 @@ function requestFor(input) {
     aTeamMode: input.selection.topology === 'a_team' ? 'explicit' : undefined,
     variant: input.selection.variant,
     timeoutMs: Math.floor(input.budgets.seconds * 600),
-    executionBudget: { tokens: input.budgets.tokens, costUsd: input.budgets.usd, latencyMs: Math.floor(input.budgets.seconds * 600) },
+    executionBudget: { tokens: input.budgets.tokens, costUsd: input.budgets.usd,
+      latencyMs: Math.floor(input.budgets.seconds * 600),
+      ...(minimumWorkerTokens ? { minimumWorkerTokens } : {}) },
     allowed_commands: checks.map(workerAllowedCommand),
     executor: input.config.executor || 'codex', provider: input.config.provider, modelId: input.config.modelId,
     allow_file_edits: input.config.authority?.allowEdit === true,
@@ -265,4 +296,4 @@ async function resources(db, project) {
   return { ownedMb, reservationsMb };
 }
 
-module.exports = { createRuntimeHarness, requestFor, RUNNER, conceptInstruction };
+module.exports = { createRuntimeHarness, requestFor, isCodeTask, acceptanceRequiresCodeChange, RUNNER, conceptInstruction };

@@ -81,6 +81,14 @@ try {
     worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: repairMission });
   assert.strictEqual(repairRequest.localCodeWorker, true);
 
+  const fundedCodeRequest = requestFor({ id: 'funded-code-run', project: repairProject,
+    task: { title: 'Implement sumPrices', acceptance_json: '[]', id: 'funded-code-task' },
+    selection: { topology: 'trinity', variant: 'controlled', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
+    worktree: root, budgets: { seconds: 600, tokens: 80000, usd: 0.5 },
+    config: { checks: [{ program: 'node', args: ['verify.cjs'] }] }, mission: repairMission });
+  assert.strictEqual(fundedCodeRequest.executionBudget.minimumWorkerTokens, 12000,
+    'code missions fund a verifier-repair pass for each local worker when the mission budget allows it');
+
   const verifyProject = { root_path: root, objective: 'Verify the configured acceptance command for the project' };
   const verifyMission = compileMission(verifyProject);
   assert.strictEqual(verifyMission.kind, 'verify');
@@ -89,6 +97,21 @@ try {
     selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
     worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: verifyMission });
   assert.strictEqual(implementationTask.localCodeWorker, true);
+  const resumedCodeTask = requestFor({ id: 'resume-code-task', project: verifyProject,
+    task: { title: 'Reprendre sumPrices apres correction de la clôture des workers différés',
+      acceptance_json: JSON.stringify([
+        'src/pricing.js exports sumPrices as a function',
+        'sumPrices([]) returns numeric 0',
+        'quantity <= 0 throws TypeError',
+        'node verify.cjs exits 0'
+      ]), id: 'resume-code-task' },
+    selection: { topology: 'trinity', variant: 'controlled', workerRoles: ['bounded_worker'] },
+    worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {
+      checks: [{ program: 'node', args: ['verify.cjs'] }],
+      authority: { allowEdit: true, allowTests: true }
+    }, mission: verifyMission });
+  assert.strictEqual(resumedCodeTask.localCodeWorker, true,
+    'acceptance criteria that name a source export and its behavior must enable the code-worker contract even when the title only says resume');
   const configuredCheckRequest = requestFor({ id: 'node-check-alias', project: verifyProject,
     task: { title: 'Implement sumPrices', acceptance_json: '[]', id: 'implementation-task' },
     selection: { topology: 'trinity', variant: 'default', workerRoles: ['specialist', 'bounded_worker', 'verifier_worker'] },
