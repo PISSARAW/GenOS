@@ -84,15 +84,17 @@ const stewardMission = rolePrompt.morphogenesisMissionPrompt({ workerAssignment:
 assert.match(stewardMission, /Total=24; each group must sum exactly 8/);
 assert.match(stewardMission, /Use all 9 items exactly once/);
 assert.match(stewardMission, /largest value 5 first and reserve a complement of 3/);
-assert.match(stewardMission, /Deterministically verified assignment: \{"bins":\[\["item7","item2"\],\["item4","item8"\],\["item6","item3","item1","item5","item9"\]\]\}/);
-assert.match(stewardMission, /verify item count and each total/);
+assert.match(stewardMission, /complete GenOS dossier/);
+assert.match(stewardMission, /only the compact candidate JSON object in claims\[0\]\.statement/);
+assert.doesNotMatch(stewardMission, /Deterministically verified assignment|Copy this exact candidate|"bins":\[\["item7"/);
+assert.match(stewardMission, /Verify item count and every total/);
 assert.doesNotMatch(stewardMission, /Phase 1|Contrainte revelee|N'utilise aucun outil/);
 
 
 const steward = promptFor('resource_steward', 'specialist', 'biome:resource_steward');
-assert.match(steward, /Produce the mission candidate/);
-assert.match(steward, /verify every item appears exactly once/);
-assert.match(steward, /check all capacities/);
+assert.match(steward, /Solve the assigned allocation task/);
+assert.match(steward, /Verify every item appears exactly once/);
+assert.match(steward, /all capacities before claiming success/);
 assert.match(steward, /This niche includes exact resource allocation, partitioning, and capacity verification/);
 assert.match(steward, /complete machine-verifiable candidate JSON object in claims\[0\]\.statement/);
 assert.match(steward, /never replace it with a generic success sentence/);

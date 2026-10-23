@@ -9,7 +9,7 @@ function morphogenesisRoleInstruction(assignment) {
     return 'Morphogenesis role: Biome environment mapper. Observe the entities, values, units, and constraints stated in the mission. Return only evidence-grounded structured observations in the required scout_observation artifact; do not produce or claim the final solution.';
   }
   if (role === 'resource_steward') {
-    return 'Morphogenesis role: Biome resource steward. Produce the mission candidate. Use exact item identifiers (item1, item2, etc.), never weights or indices. For allocation tasks, calculate each group total, verify every item appears exactly once, and check all capacities before claiming success.';
+    return 'Morphogenesis role: Biome resource steward. Solve the assigned allocation task. Put the complete candidate JSON in the GenOS evidence claim statement, not at the report root. Use exact item identifiers (item1, item2, etc.), never weights or indices. Verify every item appears exactly once and all capacities before claiming success.';
   }
   return null;
 }
@@ -28,33 +28,6 @@ function allocationFacts(source) {
   const capacityMatch = source.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b/i);
   const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2] || capacityMatch?.[3]);
   return { items, groups, capacity };
-}
-
-function exactCapacityBins(items, groups, capacity) {
-  if (!Number.isSafeInteger(groups) || groups < 1 || groups > 20 || !Number.isSafeInteger(capacity)
-    || capacity < 0 || items.length > 20 || items.some(item => !Number.isSafeInteger(item.value) || item.value < 0)) return null;
-  const ordered = [...items].sort((a, b) => b.value - a.value || a.id.localeCompare(b.id));
-  const bins = Array.from({ length: groups }, () => []);
-  const totals = Array(groups).fill(0);
-  let visits = 0;
-  function place(index) {
-    if (++visits > 100000) return false;
-    if (index === ordered.length) return totals.every(total => total === capacity);
-    const item = ordered[index];
-    const seen = new Set();
-    for (let bin = 0; bin < groups; bin++) {
-      if (seen.has(totals[bin]) || totals[bin] + item.value > capacity) continue;
-      seen.add(totals[bin]);
-      bins[bin].push(item.id);
-      totals[bin] += item.value;
-      if (place(index + 1)) return true;
-      totals[bin] -= item.value;
-      bins[bin].pop();
-      if (totals[bin] === 0) break;
-    }
-    return false;
-  }
-  return place(0) ? bins.map(bin => [...bin]) : null;
 }
 
 function morphogenesisWorkerAssignments(assignments, topology, mission) {
@@ -116,12 +89,9 @@ function morphogenesisMissionPrompt(assignment, mission) {
   const exactTotal = total === facts.groups * facts.capacity
     ? ` Total=${total}; each group must sum exactly ${facts.capacity}.` : '';
   const largest = Math.max(...facts.items.map((item) => item.value));
-  const witness = exactTotal ? exactCapacityBins(facts.items, facts.groups, facts.capacity) : null;
-  const witnessHint = witness
-    ? ` Deterministically verified assignment: ${JSON.stringify({ bins: witness })}; every bin sums to ${facts.capacity}. Copy this exact candidate without rearranging items.` : '';
   const fitHint = exactTotal && largest > 0 && largest <= facts.capacity
     ? ` Place the largest value ${largest} first and reserve a complement of ${facts.capacity - largest}; backtrack rather than omit any item.` : '';
-  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${witnessHint}${fitHint} Return only JSON {"bins":[["item1"],...]}; verify item count and each total before answering.`;
+  return `Partition ${summary}. Use all ${facts.items.length} items exactly once; no group may exceed ${facts.capacity}.${exactTotal}${fitHint} Return a complete GenOS dossier: {"outcome":"success","claims":[{"statement":"<candidate JSON object>","evidence":["mission"]}],"specialtyAssessment":{"niche":"biome:resource_steward","inScope":true,"evidence":["mission"]}}. Put only the compact candidate JSON object in claims[0].statement; do not put bins at the report root or replace the candidate with prose. Verify item count and every total before claiming success.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,
