@@ -10,7 +10,7 @@ const { resolveWorkspaceRoot } = require('./pathSafety');
 function commitRefs(handoff) {
   const refs = Array.isArray(handoff?.artifactRefs) ? handoff.artifactRefs : [];
   return refs.map((item) => typeof item === 'string' ? item : item?.uri || item?.ref || '')
-    .map((ref) => /^git:([a-f0-9]{40})$/i.exec(ref)?.[1] || null).filter(Boolean);
+    .map((ref) => /^(?:git|commit):([a-f0-9]{40})$/i.exec(ref)?.[1] || null).filter(Boolean);
 }
 
 function workspacePath(worker, label) {

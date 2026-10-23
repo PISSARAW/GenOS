@@ -67,7 +67,7 @@ async function main() {
       const pipeline = require('../src/services/workerEvidenceBarrierPipeline');
       const receipts = await pipeline.materializeStageHandoff({ orchestratorId: 'orchestrator-test', stage: 1,
         workers: [{ agentId: 'producer', workspaceRoot: producerRoot, workspaceBackend: 'physical' }, pipelineConsumer] },
-      pipelineConsumer, [{ producer: { agentId: 'producer' }, artifactRefs: ['git:' + commit.trim()] }]);
+      pipelineConsumer, [{ producer: { agentId: 'producer' }, artifactRefs: ['commit:' + commit.trim()] }]);
       assert.equal(receipts.length, 1);
       assert.equal((await fs.readFile(path.join(pipelineConsumerRoot, 'src/site.js'), 'utf8')), 'module.exports = "fixed";\n');
       assert.equal(captured.some((event) => event.eventType === 'ATEAM_STAGE_HANDOFF_MATERIALIZED'

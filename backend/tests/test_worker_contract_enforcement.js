@@ -48,6 +48,7 @@ assert.equal(workerComplianceScenario('formal_worker').receipt.fixtureOnly, true
 const redMission = buildWorkerMission({ workerKind: 'red_worker', prompt: 'Review the assigned patch adversarially.' });
 assert.match(redMission.prompt, /Use verdict "reject" only when at least one counterexample was reproduced/);
 assert.match(redMission.prompt, /If no counterexample was reproduced, use verdict "unresolved"/);
+assert.match(redMission.prompt, /For each counterexample use exactly claim, attack, reproductionSteps, and evidence fields/);
 const noFindingReport = { workerId: 'red-no-finding', events: [{ evidenceReport: { outcome: 'success',
   claims: [{ statement: 'No counterexample reproduced.', evidence: ['review-ref'] }],
   workerArtifact: { type: 'verification_report', content: { testedClaim: 'Patch has a security defect.',
