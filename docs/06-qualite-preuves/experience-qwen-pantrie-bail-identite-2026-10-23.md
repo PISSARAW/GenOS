@@ -116,3 +116,10 @@ Retry48 a chargé `d1ba69982` mais a commencé avant les correctifs `9c7368c93` 
 Retry49 a exécuté vingt réparations Qwen7B contre la suite Playwright complète. Plusieurs candidats ont atteint le locator Quantity après reload; le candidat terminal échoue à `acceptance.cjs:26:10` avec `updated quantity persists`, `npm test` exit 1. Mission `failed`, `MISSION_COMPLETION_BLOCKED` (`homeostasis=unstable`), pas de test complet vert. Reçu: `genos-direct-d-20261023-retry49.db`, événement `AGENT_FAILED`, candidat final de 6029 octets.
 
 Ce run avait commencé avant `9c7368c93` (router une perte après reload vers le réparateur Increase) et `6254d43c6` (sauvegarde et rendu pour état local imbriqué). Le diagnostic indique que plusieurs candidats généraient `increaseQuantity(undefined)`; le locator Quantity après reload était aussi ambigu. Le correctif `0c413029b` règle le label Item name, mais reste à évaluer séparément de ce défaut de persistance.
+
+
+## Retry50 — échec Add Item après progression jusqu’à Increase
+
+Retry50 a exécuté vingt réparations Qwen7B sur le Playwright T02. Les essais 3–4 ont franchi Category, Add Item et Search mais échouent à l’incrément visible (`acceptance.cjs:24:10`). D’autres candidats rencontrent des doublons Oats et l’ambiguïté Quantity; au test terminal, Add Item ne laisse aucune ligne (`acceptance.cjs:19:10`, `0 !== 1`). `npm test` sort 1, `AGENT_FAILED`, gate `MISSION_COMPLETION_BLOCKED` avec `homeostasis=unstable`. Reçu: `genos-direct-d-20261023-retry50.db`, candidat terminal de 6445 octets. Aucun succès complet.
+
+Le correctif `0c1afd89c` rend l’action Increase tolérante à l’absence d’entrée initiale dans localStorage en mettant à jour la ligne et en créant l’objet persistant; il a été committé après le chargement du processus retry50 et n’est pas qualifié par celui-ci. Retry51 doit recharger ce HEAD.
