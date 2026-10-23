@@ -5,7 +5,7 @@ const path = require('path');
 const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
-const { failureFeedback } = require('../src/services/workerCodeTestRepair');
+const { failureFeedback, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
 const { buildAnalysisPrompt } = require('../src/services/workerEvidenceLocalPrompt');
 const originalConsoleLog = console.log;
 const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
@@ -189,6 +189,30 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 		assert.equal(failed.testStatus, 'failed');
 		assert.deepEqual(failed.failedPatchContents, [{ path: 'src/lib.rs', content: 'after' }]);
 		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before');
+		await fs.writeFile(path.join(root, 'test_candidate.py'), "from pathlib import Path\ndef test_candidate():\n    assert Path('src/lib.rs').read_text() == 'candidate'\n");
+		const retainedMission = { localCodeWorker: true, preserveFailedCodeCandidate: true };
+		const candidateProposal = (content) => JSON.stringify({ ...proposal, tests: ['pytest'],
+			patches: [{ path: 'src/lib.rs', content }] });
+		const intermediate = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'], mission: retainedMission,
+			text: candidateProposal('intermediate') });
+		assert.equal(intermediate.rolledBack, false);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'intermediate',
+			'failed code candidate remains available to the next isolated repair attempt');
+		const recovered = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'], mission: retainedMission,
+			text: candidateProposal('candidate') });
+		assert.equal(recovered.testStatus, 'passed', `the next candidate passes the same independent oracle: ${JSON.stringify(recovered.tests)}`);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'candidate');
+		let repairAttempts = 0;
+		await runCodeRepair({ mission: { localCodeWorker: true, prompt: 'repair', timeoutMs: 10000,
+			executionBudget: { tokens: 1000 } }, onRetry: async () => {}, runAttempt: async (mission) => {
+			assert.equal(mission.preserveFailedCodeCandidate, true);
+			if (++repairAttempts === 1) throw Object.assign(new Error('failed oracle'), {
+				code: 'WORKER_TESTS_FAILED', usage: { tokens: 1 },
+				proposal: { testStatus: 'failed', failedPatchContents: [{ path: 'src/lib.rs', content: 'intermediate' }] }
+			});
+			return 'repaired';
+		} });
+		assert.equal(repairAttempts, 2, 'repair retries preserve the candidate flag throughout the mission');
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}

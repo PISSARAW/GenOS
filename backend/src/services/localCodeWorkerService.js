@@ -168,8 +168,9 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
       tests, workspaceFiles: after, changedFileHashes
     }) : null;
   if (tests.some((test) => test.exitCode !== 0)) {
-    await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: true, testStatus: 'failed' };
+    const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
+    if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: !retainFailedCandidate, testStatus: 'failed' };
   }
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
     changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests,

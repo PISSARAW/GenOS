@@ -305,7 +305,8 @@ function failureFeedback(error, mission = {}) {
     test.stderr ? `stderr:\n${test.stderr}` : ''
   ].filter(Boolean).join('\n')).join('\n\n');
   const patches = error.proposal?.failedPatchContents || [];
-  const candidate = patches.map((patch) => `Rolled-back candidate ${patch.path}:\n${patch.content}`)
+  const candidateLabel = mission.preserveFailedCodeCandidate ? 'Current isolated candidate' : 'Rolled-back candidate';
+  const candidate = patches.map((patch) => `${candidateLabel} ${patch.path}:\n${patch.content}`)
     .join('\n\n').slice(0, MAX_CANDIDATE_TEXT);
   const patchDiagnostics = require('./workerCodeTestRepairTelemetry').summarizeFailedPatches(error);
   const focusedCode = patchDiagnostics.flatMap((patch) => patch.logic || []).join('\n');
@@ -326,7 +327,9 @@ function repairPrompt(context) {
   const { mission, error, attempt } = context;
   const reason = error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
     ? 'The previous model output was rejected before application; the workspace is unchanged.'
-    : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
+    : mission.preserveFailedCodeCandidate
+      ? 'The previous candidate failed the independent test and remains as the uncommitted base in the isolated workspace. Preserve behavior that already passes and fix every remaining failure.'
+      : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
   return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. ${reason} Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error, mission)}`;
 }
 
@@ -340,7 +343,9 @@ function canRetry(context) {
 }
 
 async function run(context) {
-  const state = { startedAt: Date.now(), mission: context.mission,
+  const initialMission = isCodeWorker(context.mission)
+    ? { ...context.mission, preserveFailedCodeCandidate: true } : context.mission;
+  const state = { startedAt: Date.now(), mission: initialMission,
     remainingTokens: tokenBudget(context.mission), attempt: 0, schemaAttempts: 0 };
   while (true) {
     state.attempt += 1;
@@ -382,7 +387,8 @@ function nextMission(input) {
   const codeRepairPlans = nextPlan && !alreadyPlanned ? [...previousPlans, nextPlan] : previousPlans;
   return {
     ...base,
-    prompt: repairPrompt({ mission: base, error, attempt }),
+    ...(current.preserveFailedCodeCandidate ? { preserveFailedCodeCandidate: true } : {}),
+    prompt: repairPrompt({ mission: current, error, attempt }),
     ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
     timeoutMs: remainingMs,
     executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
