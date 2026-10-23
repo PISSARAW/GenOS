@@ -5,7 +5,13 @@ function labelItemNameInput(content, label) {
   const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
   const target = inputs.find((input) => labelFor && input[0].match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] === labelFor)
     || inputs.find((input) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1/i.test(input[0]));
-  if (!target) return content;
+  if (!target) {
+    const field = `<label for="itemName">${label}</label><input id="itemName" name="itemName" type="text" aria-label="${label}">`;
+    if (/<form\b[^>]*>[\s\S]*?<\/form\s*>/i.test(content)) return content.replace(/<\/form\s*>/i, `${field}</form>`);
+    const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(content);
+    if (button) return content.slice(0, button.index) + field + content.slice(button.index);
+    return /<\/body\s*>/i.test(content) ? content.replace(/<\/body\s*>/i, `${field}</body>`) : `${content}${field}`;
+  }
   const opening = target[0];
   const nextOpening = new RegExp(`\\baria-label\\s*=\\s*(["'])[^"']*\\1`, 'i').test(opening)
     ? opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, `aria-label="${label}"`)
