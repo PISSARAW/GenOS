@@ -26,6 +26,12 @@ async function finish(db, input) {
   input.identity.receipt = await db.get('SELECT * FROM agent_identity_decisions WHERE decision_id = ?', input.identity.receipt.decision_id);
 }
 
+async function renew(_db, identity) {
+  if (!identity?.session) return;
+  identity.session = await incarnations.renew(_db, identity.session, 900000);
+  return identity;
+}
+
 async function release(db, identity) {
   if (identity) await incarnations.release(db, identity.session);
 }
@@ -36,4 +42,4 @@ async function fail(db, input) {
     evidenceRef: { executionRunId: input.executionRun.id, failure: input.error.code || 'EXECUTION_FAILED' } });
 }
 
-module.exports = { begin, finish, release, fail };
+module.exports = { begin, finish, renew, release, fail };

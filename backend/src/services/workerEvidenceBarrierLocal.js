@@ -367,10 +367,16 @@ async function runLocalWorker(db, mission, executionRun) {
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
   let identity;
+  let identityLeaseHeartbeat;
   let generation;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
+    identityLeaseHeartbeat = require('./identity/leaseHeartbeat').start({
+      renew: () => workerIdentity.renew(db, identity), intervalMs: 60000
+    });
+    await identityLeaseHeartbeat.pulse();
     generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
+    identityLeaseHeartbeat.assertHealthy();
     const evidence = await runEvidenceStage({
       db, executionRun,
       result: generation.result,
@@ -381,6 +387,7 @@ async function runLocalWorker(db, mission, executionRun) {
       nameMeaning: generation.nameMeaning,
       stageTimings: stageTimings
     });
+    identityLeaseHeartbeat.assertHealthy();
     return await require('./workerEvidenceBarrierLocalCompletion').complete({ db, mission,
       executionRun, generation, evidence, identity, stageTimings }, publishLocalSuccess);
   } catch (error) {
@@ -392,6 +399,7 @@ async function runLocalWorker(db, mission, executionRun) {
     return await require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
       error, usage, stageTimings, reportMilestone });
   } finally {
+    await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
   }
 }
