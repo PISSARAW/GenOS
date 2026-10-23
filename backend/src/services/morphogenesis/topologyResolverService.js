@@ -229,18 +229,20 @@ function compareTopologies(ctx) {
       topology: item.topology, profile: ctx?.problemProfile || {}, heuristicScore: item.score, range
     });
     return {
-      ...item, heuristicScore: item.score, score: learned.score,
+      ...item, selectionEligible: item.topology !== 'a_team' || ctx?.problemProfile?.a_team_eligible !== false,
+      heuristicScore: item.score, score: learned.score,
       learnedSamples: learned.samples, learnedWeight: learned.learnedWeight,
       learningEvidenceKind: learned.evidenceKind,
       calibrationStatus: learned.calibrationStatus
     };
-  }).sort((a, b) => b.score - a.score).map((item, i) => ({ ...item, rank: i + 1 }));
+  }).sort((a, b) => Number(b.selectionEligible) - Number(a.selectionEligible) || b.score - a.score)
+    .map((item, i) => ({ ...item, rank: i + 1 }));
 }
 
 function resolveTopology(ctx) {
   const results = compareTopologies(ctx);
   if (results.length === 0) return null;
-  const best = results[0];
+  const best = results.find(item => item.selectionEligible) || results[0];
   return { topology: best.topology, score: best.score, reasons: best.reasons, risks: best.risks, rankings: results };
 }
 

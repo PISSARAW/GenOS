@@ -2,12 +2,14 @@
 
 function buildMissionMorphogenesisInput(ctx) {
   const topology = proposedTopology(ctx);
+  const problem = missionText(ctx.normalizedMission);
   const capabilityPlan = ctx.normalizedMission.missionCapabilityPlan || {};
   const input = {
     db: ctx.db,
     missionId: ctx.agentId,
-    problem: missionText(ctx.normalizedMission),
-    problemProfile: { ...resolvedProblemProfile(ctx), domains: capabilityPlan.domains || [],
+    problem,
+    problemProfile: { ...require('../morphogenesis/missionTopologySignals').inferMissionTopologySignals(problem),
+      ...resolvedProblemProfile(ctx), domains: capabilityPlan.domains || [],
       capabilityRequirements: capabilityPlan.capabilityRequirements || [],
       developmentalContext: ctx.normalizedMission.developmentalContext || null,
       strategyConcept: ctx.normalizedMission.strategyConcept || null },

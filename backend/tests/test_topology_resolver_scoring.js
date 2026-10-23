@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { scoreTopology, weightedScore } = require('../src/services/morphogenesis/topologyResolverService');
+const { scoreTopology, weightedScore, resolveTopology } = require('../src/services/morphogenesis/topologyResolverService');
 
 function verifyCostFactors() {
   const { factors } = scoreTopology('biome', { currentState: { topology: 'rhizome' } });
@@ -31,7 +31,15 @@ function verifyCostsAreMonotonic() {
   assert.ok(weightedScore({ ...baseline, state_preservation_cost: 0.3 }) > baselineScore);
 }
 
+function verifyIneligibleATeamDoesNotWin() {
+  const result = resolveTopology({ problemProfile: {
+    uncertainty: 0.1, resource_allocation_focus: 1, a_team_eligible: false
+  } });
+  assert.equal(result.topology, 'biome');
+  assert.equal(result.rankings.find(item => item.topology === 'a_team').selectionEligible, false);
+}
 verifyCostFactors();
 verifyZeroProfileValues();
 verifyCostsAreMonotonic();
+verifyIneligibleATeamDoesNotWin();
 console.log('Topology resolver scoring checks: PASS');

@@ -100,7 +100,19 @@ async function verifyActivatedDedicatedPlanIsReused() {
   assert.equal(ctx.autonomyPlan.selectedTopology, 'trinity');
 }
 
-async function verifyDedicatedMorphologyUsesSelectedGraph() {
+async function verifyIncompatibleDedicatedTopologyFailsClosed() {
+  const ctx = context();
+  await assert.rejects(
+    activation.activateMorphogenesisPlan(ctx, plan('a_team'), {
+      composeMode: async () => {
+        throw Object.assign(new Error('A-Team needs two domains.'), {
+          code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED'
+        });
+      }
+    }),
+    { code: 'MORPHOGENESIS_TOPOLOGY_INCOMPATIBLE' }
+  );
+}async function verifyDedicatedMorphologyUsesSelectedGraph() {
   const ctx = context();
   let composedMode = null;
   const assignments = await activation.activateMorphogenesisPlan(ctx, plan('a_team'), {
@@ -166,6 +178,7 @@ async function main() {
   await verifyCompositeGraphDrivesMixedDispatch();
   await verifyActivatedDedicatedPlanIsReused();
   await verifyDedicatedMorphologyUsesSelectedGraph();
+  await verifyIncompatibleDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');

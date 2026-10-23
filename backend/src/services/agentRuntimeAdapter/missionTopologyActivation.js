@@ -84,13 +84,20 @@ async function composeTopologyNode(ctx, descriptor, dependencies) {
   const { morphologyPlan, node } = descriptor;
   const composeMode = dependencies.composeMode
     || require('../biologicalTopologyService').composeMode;
-  return composeMode({
-    db: ctx.db,
-    orchestratorId: ctx.agentId,
-    mode: node.topology,
-    mission: ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '',
-    options: compositionOptions(ctx, morphologyPlan, node)
-  });
+  try {
+    return await composeMode({
+      db: ctx.db, orchestratorId: ctx.agentId, mode: node.topology,
+      mission: ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '',
+      options: compositionOptions(ctx, morphologyPlan, node)
+    });
+  } catch (error) {
+    if (error?.code === 'A_TEAM_MULTIDISCIPLINARY_REQUIRED') {
+      throw activationError('MORPHOGENESIS_TOPOLOGY_INCOMPATIBLE', error.message, {
+        topology: node.topology, causeCode: error.code
+      });
+    }
+    throw error;
+  }
 }
 
 function componentWorkers(composition, node, componentIndex) {
