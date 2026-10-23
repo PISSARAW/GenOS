@@ -462,3 +462,15 @@ Sur la tête saine D: après les correctifs SH-001, les six commandes du rapport
 
 Ces tests prouvent les contrats locaux et la simulation du labo. Ils ne prouvent pas une réparation sur VM Hyper-V, une campagne terrain de 72 h, ni une réparation SH-001 générée par Qwen. Les clients GenOS parallèles occupaient encore Ollama; aucun nouveau run Qwen n’a été lancé dans cette fenêtre.
 Le correctif a ensuite été restreint aux URI `ollama://` afin de ne pas ajouter un champ non applicable aux autres fournisseurs; commit `7549d718d`, validé par `test_local_code_worker.js` (Ollama reçoit `none`, OpenAI ne le reçoit pas).
+
+## SH-001 Run25 — Qwen répare le test, le rapport GenOS est rejeté
+
+Run réel `sh001-qwen-20261023-real-run25`, Qwen2.5-Coder 32B, capsule isolée `D:\GenOS\runs\sh001-qwen-20261023-real-run25`, basée sur `90a0a6703`; lésion SH-001 committée `a09dbf170`. La lésion rendait le test public rouge à la ligne 44 (`Missing expected exception`).
+
+Deux inférences Qwen ont été exécutées (13 065/211 puis 14 775/194 tokens, durées 155 206 ms et 169 132 ms). Le premier patch a échoué au test public; reçu négatif `test_0817520a-e5b5-4db0-a01a-fd3bf7f776ce`. Après retour du test, Qwen a produit un second patch et le worker a exécuté le même test avec `exitCode=0`; reçu positif `test_c959c7ec-ea47-4303-8407-5b8971288378`. Le test a aussi été relancé après le run dans la capsule et a passé. Le patch final est préservé sur la branche `codex/sh001-qwen-run25`, commit `90fce3c8e`.
+
+La mission GenOS a néanmoins fini `success=false`: après le test positif, le rapport déterministe du worker de code a été refusé par le validateur générique `dossier` avec `diagnosticMatrix.invalid`. Le reçu positif est dans la DB runtime, mais le collecteur/clôture de mission n’a pas produit un verdict de succès ni accepté `evidence_report` et `test_suite_passed`. Ce run prouve que Qwen a corrigé et passé le test dans la capsule; il ne prouve pas une mission GenOS complète.
+
+Correction de cette barrière: `workerEvidenceLocalArtifact` ne doit pas exiger une matrice diagnostique d’un rapport de code généré à partir du patch et du reçu d’exécution. Une assertion régressive reproduit `prompt: 'Mission artifact=diagnostic_matrix'` avec `codeWorker: true`. Correctif et test committés `cc9675f22`; `test_worker_evidence_local_artifact.js` et `test_local_code_worker.js` passent. Run26 repart d’une base saine contenant cette correction et réinjecte seulement la lésion de provenance.
+
+La tentative `genos_diagnose` a échoué côté outil avec `contains forbidden command characters`; aucune hypothèse n’est déclarée comme persistée dans GenOS. Les reçus, la DB et les journaux restent conservés sous `D:\GenOS\runs\sh001-runtime-qwen-20261023-run25\`.
