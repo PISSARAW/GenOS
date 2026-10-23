@@ -113,6 +113,14 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] });
   assert.match(JSON.parse(applyRepairPlan(bestBeforeProposal, bestBeforePlan)).patches[0].content,
     /<input type="date" id="best_before" aria-label="Best-before date">/);
+  const selfClosingDates = '<input id="best-before" type="date"/><input type="date" id="expiry">';
+  const repairedSelfClosingDates = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{
+    path: 'index.html', content: selfClosingDates
+  }] }), bestBeforePlan)).patches[0].content;
+  assert.match(repairedSelfClosingDates,
+    /<input id="best-before" type="date" aria-label="Best-before date" \/>/);
+  assert.match(repairedSelfClosingDates,
+    /<input type="date" id="expiry" aria-label="Best-before date">/);
   const searchFilterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 0 !== 1 at tests/acceptance.cjs:22:10'

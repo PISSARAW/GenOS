@@ -140,7 +140,9 @@ function replaceAccessibleName(opening, label) {
   if (/\baria-label\s*=\s*(["']).*?\1/i.test(opening)) {
     return opening.replace(/\baria-label\s*=\s*(["']).*?\1/i, `aria-label="${label}"`);
   }
-  return opening.replace(/>$/, ` aria-label="${label}">`);
+  const selfClosing = /\/\s*>$/.test(opening);
+  const withoutClose = opening.replace(/\/?\s*>$/, '');
+  return `${withoutClose} aria-label="${label}"${selfClosing ? ' />' : '>'}`;
 }
 
 function labelCategorySelect(content, label) {
@@ -257,11 +259,15 @@ function labelSearchInput(content, label) {
 
 function labelBestBeforeInput(content, label) {
   const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
-  const target = inputs.find((input) => /\btype\s*=\s*["']date["']/i.test(input[0]))
-    || inputs.find((input) => /\b(?:id|name)\s*=\s*["'][^"']*best.?before/i.test(input[0]));
-  if (!target) return content;
-  const nextInput = replaceAccessibleName(target[0], label);
-  return content.slice(0, target.index) + nextInput + content.slice(target.index + target[0].length);
+  const targets = inputs.filter((input) => /\btype\s*=\s*["']date["']/i.test(input[0])
+    || /\b(?:id|name)\s*=\s*["'][^"']*best.?before/i.test(input[0]));
+  if (!targets.length) return content;
+  let repaired = content;
+  for (const target of targets.reverse()) {
+    const nextInput = replaceAccessibleName(target[0], label);
+    repaired = repaired.slice(0, target.index) + nextInput + repaired.slice(target.index + target[0].length);
+  }
+  return repaired;
 }
 
 function ensureSearchFilterBehavior(content) {
