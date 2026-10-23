@@ -97,6 +97,27 @@ async function verifyPlannerTransitionAdmission() {
   assert.equal(runtimeState.plan.selectedTopology, 'a_team');
 }
 
+async function verifyAbstentionAllowsFundedRosterReduction() {
+  const runtimeState = state([6, 18]);
+  const result = await service.planContinuation({
+    state: runtimeState,
+    survivors: [{ agentId: 'worker-1', status: 'completed', evidenceScore: 18 }],
+    continuation: { pool: 4000, survivorCount: 1, targetWorkerCount: 1 },
+    orchestratorId: 'orchestrator-1'
+  }, {
+    planMorphogenesis: () => ({ selectedTopology: 'a_team', selectedVariant: 'default',
+      controlReceipt: { topology: { rankings: [{ topology: 'a_team' }] } } }),
+    composeMode: async () => ({ members: [{ role: 'scout', workerKind: 'scout_cell',
+      capabilities: registry.get('a_team').requiredCapabilities, executionMode: 'worker' }] }),
+    admissionForTransition: async (_input, adaptation) => ({ status: 'admitted', actualPlan: adaptation.plan })
+  });
+  assert.equal(result.adapted, true,
+    'A funded reduction to the selected survivor is actionable even when topology selection abstains.');
+  assert.equal(result.receipt.fromGraph.graphId, 'graph-old');
+  assert.equal(result.assignments['worker-1'].morphologyTopology, 'a_team');
+  assert.equal(runtimeState.plan.morphogenesisTransitions.length, 1);
+}
+
 function evidenceReport(type) {
   return { outcome: 'success', workerArtifact: { type, content: 'verified',
     provenance: { sourceRefs: [`source:${type}`] } } };
@@ -159,6 +180,7 @@ async function verifyCompositeRuntimeReceivesEvidence() {
 async function main() {
   await verifyEvidenceDrivenMix();
   await verifyPlannerTransitionAdmission();
+  await verifyAbstentionAllowsFundedRosterReduction();
   await verifyStableEvidenceKeepsMorphology();
   await verifyPolicyCanFreezeAdaptation();
   verifyPublicMissionOptions();
