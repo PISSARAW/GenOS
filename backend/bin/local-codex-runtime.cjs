@@ -203,7 +203,10 @@ function emitCompletion(state, reply) {
   localSynthesis.attachInfluence(report, parsedReply);
   require('../src/services/localCompletionEvidence').attachFields(report, parsedReply);
   emitEvent(state, { eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Local runtime emitted its structured evidence report.', payload: report });
-  emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: state.observedRoute || {} });
+  emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: completionEvidencePayload(state, report) });
+}
+function completionEvidencePayload(state, report) {
+  return { ...(state.observedRoute || {}), evidenceReport: report };
 }
 function attachProofTests(report, proofs) {
   const executed = (proofs || []).filter((proof) => proof && proof.executed);
