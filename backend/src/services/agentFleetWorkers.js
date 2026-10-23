@@ -319,7 +319,7 @@ function fleetWorkerContract(details) {
     writeLease: workerWriteLease(mission),
     codeVerificationContract: mission.codeVerificationContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
-    workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens,
+    workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens, communicationRequired: mission.communicationRequired === true,
     delegatedTokenLimit: assignment.delegatedTokenLimit
   });
   if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);

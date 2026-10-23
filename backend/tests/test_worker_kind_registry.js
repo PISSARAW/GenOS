@@ -120,6 +120,13 @@ assert.equal(nestedIdentity.workerContract.authority.delegate, false);
 const rootIdentity = fleet.workerIdentity({ ...workerInput, parent: { id: 'root-1', execution_mode: 'orchestrator' } });
 assert.equal(rootIdentity.workerContract.limits.maxTokens, 2400);
 assert.equal(rootIdentity.workerContract.resources.maxTokens, 2400);
+const coordinatedIdentity = fleet.workerIdentity({ ...workerInput,
+  assignment: { ...assignment, role: 'quality_engineer', workerKind: 'bounded_worker' },
+  parent: { id: 'root-1', execution_mode: 'orchestrator' }, assignedTokens: 40000,
+  mission: { prompt: 'Coordinate worker findings', communicationRequired: true,
+    executionBudget: { tokens: 40000 } } });
+assert.equal(coordinatedIdentity.workerContract.mission.communicationRequired, true);
+assert.equal(coordinatedIdentity.workerContract.resources.maxTokens, 40000);
 assert.equal(fleet.workerIdentity({ ...workerInput, workerContract: rootIdentity.workerContract }).workerContract,
   rootIdentity.workerContract);
 assert.equal(workerKinds.buildWorkerContract('formal_worker').resources.maxTokens, 0);
