@@ -144,10 +144,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedSelfClosingDates = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{
     path: 'index.html', content: selfClosingDates
   }] }), bestBeforePlan)).patches[0].content;
-  assert.match(repairedSelfClosingDates,
-    /<input id="best-before" type="date" aria-label="Best-before date" \/>/);
-  assert.match(repairedSelfClosingDates,
-    /<input type="date" id="expiry" aria-label="Best-before date">/);
+  assert.ok(/<input id="best-before" type="date" aria-label="Best-before date" \/>/.test(repairedSelfClosingDates)
+    && /<input type="date" id="expiry" aria-label="Best-before date">/.test(repairedSelfClosingDates));
   const searchFilterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 0 !== 1 at tests/acceptance.cjs:22:10'
@@ -333,8 +331,12 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
   assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase '\+itemName\)/);
-  assert.match(locatorRepairHint(quantityCollision), /using the item name string/);
-  assert.match(locatorRepairHint(quantityCollision), /only inside the rendered item row after Add Item/);
+
+  const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
+  const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
+  assert.match(missingQuantityOutput, /<input id="qty" type="number" aria-label="Quantity">/);
+  const quantityHint = locatorRepairHint(quantityCollision);
+  assert.ok(/using the item name string/.test(quantityHint) && /only inside the rendered item row after Add Item/.test(quantityHint));
   const quantityProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<input type="number" aria-label="Increase quantity for Oats"><button onclick="increaseQuantity()">+</button><button id="increaseButton" aria-label="Increase quantity for Oats"></button><button data-testid="addOatsButton" onclick="addItem(\'Oats\', 2)">Add Oats</button>'
   }] });

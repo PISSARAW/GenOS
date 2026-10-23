@@ -10,6 +10,7 @@ const hintRules = [
   [/updated quantity persists|quantity.*reload|reload.*quantity/i, 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.'],
   [/getByLabel\(\/best\.before\/i\)/i, 'The best-before date input has no accessible name matching Best-before. Keep its visible associated label and also set aria-label="Best-before date" on the date input.'],
   [/getByLabel\(\/item name\/i\)/i, 'The Item name field is missing its accessible name. Keep the visible label associated with the item-name text input and set aria-label="Item name" on that input; do not use Search as its accessible name.'],
+  [/getByLabel\(\/quantity\/i\)[\s\S]*?(?:Timeout|waiting for)|acceptance\.cjs:15:38/i, 'Playwright cannot find the add-form Quantity control. Give the form number input the accessible name Quantity, keep it distinct from any row increment controls, and preserve its visible label association.'],
   [/0\s*!==\s*1[\s\S]*?acceptance\.cjs:22:10/, 'The item is present before searching, but Search removes the Oats row from the results incorrectly. Filter the canonical items by the current search input value (case-insensitive substring of item.name) and selected category inside renderItems; do not clear or mutate the canonical array when a filter has no match. Keep the Add Item handler and persisted collection intact.'],
   [/getByLabel\(\/quantity\/i\) resolved to \d+ elements|\[object HTMLInputElement\]/i, 'The Quantity input locator is ambiguous because an increment button also has an accessible name containing "quantity", or its item name was built from a DOM element (for example, [object HTMLInputElement]). Keep the form field named Quantity. Remove test-only Add Oats buttons and demo action buttons from initial DOM; the pantry starts empty. The increment button must exist only inside the rendered item row after Add Item. In the row, give its action the exact accessible name "Increase quantity for Oats" using the item name string.'],
   [/getByLabel\(\/\^category\$\/i\)/i, 'The exact accessible Category control is missing. Add this associated markup to the add form: <label for="category">Category</label><select id="category" name="category"><option value="Food">Food</option></select>. Do not give the filter select the accessible name Category; label that control Filter category.'],
@@ -40,6 +41,8 @@ function plan(kind, label) {
 }
 
 const planRules = [
+  (output) => /getByLabel\(\/quantity\/i\)[\s\S]*?(?:Timeout|waiting for)|acceptance\.cjs:15:38/i.test(output)
+    && plan('ensure_quantity_input_label', 'Quantity'),
   (output) => /acceptance\.cjs:24:10/.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats'),
   (output) => /waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output) && plan('ensure_json_export', 'Export JSON'),
   (output) => /0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && plan('ensure_add_item_behavior', 'Add Item'),
