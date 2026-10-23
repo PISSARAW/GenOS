@@ -10,7 +10,7 @@ const source = `<!doctype html><h1>Pantry</h1><table><tbody id="items"></tbody><
 function render(){const items=JSON.parse(localStorage.getItem('pantryItems')||'[]');document.querySelector('#items').innerHTML=items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.quantity+'</td><td>Food</td><td>2026-11-30</td><td><button>Increase quantity</button></td></tr>').join('');}
 render();
 </script></body>`;
-const cardSource = `<!doctype html><h1>Pantry</h1><form><label for="qty">Quantity</label><input id="qty" type="number" aria-label="Quantity"></form><div data-item-row data-item-name="Oats"><span>Oats</span><span id="cardQuantity">2</span><button aria-label="Increase quantity for Oats">Increase quantity</button></div><script>const saved=JSON.parse(localStorage.getItem('pantry')||'[]');if(saved[0])document.querySelector('#cardQuantity').textContent=saved[0].quantity;</script></body>`;
+const cardSource = `<!doctype html><h1>Pantry</h1><form><label for="qty">Quantity</label><input id="qty" type="number" aria-label="Quantity"></form><div data-item-row data-item-name="Oats"><span>Oats</span><span id="cardQuantity">2</span><button aria-label="Increase quantity for Oats">Increase quantity</button><button aria-label="Decrease quantity for Oats">Decrease quantity</button></div><script>const saved=JSON.parse(localStorage.getItem('pantry')||'[]');if(saved[0])document.querySelector('#cardQuantity').textContent=saved[0].quantity;</script></body>`;
 
 async function main() {
   const html = ensureQuantityIncrementBehavior(source);
@@ -49,6 +49,7 @@ async function main() {
     await page.reload();
     assert.equal(await page.locator('#cardQuantity').innerText(), '3');
     assert.equal(await page.getByLabel(/quantity/i).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Decrease Oats' }).count(), 1);
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));

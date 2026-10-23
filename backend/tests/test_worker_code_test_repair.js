@@ -323,14 +323,14 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const quantityReloadContent = JSON.parse(applyRepairPlan(quantityReloadProposal, quantityReloadPlan)).patches[0].content;
   assert.match(quantityReloadContent, /aria-label="Increase quantity for Oats"/); assert.match(quantityReloadContent, /genosQuantityIncrementRepair/);
   const quantityRowProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
-    '<form><input type="number" aria-label="Quantity"></form><div><input type="number" aria-label="Quantity for Oats"><button aria-label="Increase quantity for Oats">Increase</button></div>'
+    '<form><input type="number" aria-label="Quantity"></form><div><input type="number" aria-label="Quantity for Oats"><button aria-label="Increase quantity for Oats">Increase</button><button aria-label="Decrease quantity for Oats">Decrease</button></div>'
   }] });
   const quantityRowContent = JSON.parse(applyRepairPlan(quantityRowProposal, quantityReloadPlan)).patches[0].content;
   assert.match(quantityRowContent, /<input type="number" aria-label="Quantity">/);
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
-  assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase Oats'\)/);
+  assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase Oats'\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
 
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
