@@ -4,15 +4,19 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { chromium } = require('playwright');
 const { ensureAddItemBehavior } = require('../src/services/workerCodeAddRepair');
+const { ensureQuantityIncrementBehavior } = require('../src/services/workerCodeQuantityIncrementRepair');
+const { removeQuantityCollisionsAfterReload } = require('../src/services/workerCodeQuantityRepair');
 
 const rendererSource = '<!doctype html><h1>Pantry</h1><form><label for="itemName">Item name</label><input id="itemName"><label for="quantity">Quantity</label><input id="quantity" type="number"><label for="category">Category</label><select id="category"><option value="Food">Food</option></select><label for="bestBeforeDate">Best-before date</label><input id="bestBeforeDate" type="date"><button type="submit">Add Item</button></form><div id="pantry"></div><script>let pantryItems=[];function renderPantry(){document.getElementById("pantry").innerHTML=pantryItems.map(item=>"<p>"+item.name+": "+item.quantity+"</p>").join("")}</script>';
 
 async function main() {
   const source = '<!doctype html><h1>Pantry</h1><form><label for="item-name">Item name</label><input id="item-name"><label for="quantity">Quantity</label><input id="quantity" type="number"><label for="category">Category</label><select id="category"><option value="Food">Food</option></select><label for="bestBeforeDate">Best-before date</label><input id="bestBeforeDate" type="date"><button type="submit">Add Item</button></form><table id="pantry-table"><tbody></tbody></table><script>function addItem(){throw new Error("broken candidate renderer")}</script>';
-  const html = ensureAddItemBehavior(source);
+  const repair = (candidate) => removeQuantityCollisionsAfterReload(
+    ensureQuantityIncrementBehavior(ensureAddItemBehavior(candidate)));
+  const html = repair(source);
   const server = http.createServer((request, response) => {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
-    response.end(request.url === '/renderer' ? ensureAddItemBehavior(rendererSource) : html);
+    response.end(request.url === '/renderer' ? repair(rendererSource) : html);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true,
@@ -29,6 +33,9 @@ async function main() {
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
     assert.match(await page.locator('tbody tr').innerText(), /Oats\s+3/);
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].quantity, 3);
+    await page.reload();
+    assert.equal(await page.getByLabel(/quantity/i).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Increase Oats' }).count(), 1);
     await page.goto(`http://127.0.0.1:${server.address().port}/renderer`);
     await page.getByLabel('Item name').fill('Oats');
     await page.getByLabel('Quantity').fill('2');
