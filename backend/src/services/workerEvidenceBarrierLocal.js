@@ -340,10 +340,8 @@ async function runEvidenceStage(ctx) {
     evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
     { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
   if (allocationValidation && !allocationValidation.passed) {
-    throw Object.assign(new Error(`Biome mutated output violates allocation constraints: ${allocationValidation.issues.join(', ')}.`), {
-      code: 'WORKER_OUTPUT_CONSTRAINT_VIOLATION',
-      workerArtifactDiagnostics: { issues: allocationValidation.issues }
-    });
+    throw require('./morphogenesis/biomeAllocationFeedback')
+      .allocationFailure(evidenceReport.claims?.[0]?.statement, allocationValidation.issues);
   }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);

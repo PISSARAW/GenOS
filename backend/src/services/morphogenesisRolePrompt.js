@@ -134,7 +134,8 @@ function morphogenesisMissionPrompt(assignment, mission) {
   const exactTotal = total === facts.groups * facts.capacity
     ? ` Total=${total}; capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}, so every bin must total exactly ${facts.capacity}.`
     : ` Total=${total}; capacity=${facts.groups}*${facts.capacity}=${facts.groups * facts.capacity}; each bin must total at most ${facts.capacity}.`;
-  return `${summary}. Partition these items into exactly ${facts.groups} non-empty bins. Use every item ID once; each total must be at most ${facts.capacity}.${exactTotal} Construct and recalculate every bin. Backtrack if needed; do not abstain when a valid partition exists. Return one GenOS dossier in the provided worker schema with exactly one claim: claims[0].statement contains only {"bins":[[exact item IDs],...]}, and evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
+  const repair = require('./morphogenesis/biomeAllocationFeedback').recoveryInstruction(source);
+  return `${summary}. Partition these items into exactly ${facts.groups} non-empty bins. Use every item ID once; each total must be at most ${facts.capacity}.${exactTotal} Construct and recalculate every bin. Backtrack if needed; do not abstain when a valid partition exists.${repair} Return one GenOS dossier in the provided worker schema with exactly one claim: claims[0].statement contains only {"bins":[[exact item IDs],...]}, and evidence contains "mission". No prose, nested dossier, duplicate claim, or repeated schema.`;
 }
 
 module.exports = { morphogenesisRoleInstruction, morphogenesisMissionPrompt, morphogenesisUseMemoryContext,

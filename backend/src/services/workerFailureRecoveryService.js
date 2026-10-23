@@ -82,7 +82,9 @@ function classifyFinalReport(report = {}, isWorker = true) {
 }
 
 function reportFailureReason(payload, event) {
-  return compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+  const reason = compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+  return require('./morphogenesis/biomeAllocationFeedback')
+    .recoveryFailureReason(reason, payload.workerArtifactDiagnostics);
 }
 
 function reportEvidence(payload) {

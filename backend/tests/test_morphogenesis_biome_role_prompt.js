@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const workers = require('../src/services/agentFleetWorkers');
 const rolePrompt = require('../src/services/morphogenesisRolePrompt');
+const workerRecovery = require('../src/services/workerFailureRecoveryService');
 
 function promptFor(role, workerKind, specialtyNiche) {
   return workers.buildWorkerPrompt({
@@ -115,6 +116,18 @@ assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1', 'item2'],
   { passed: false, issues: ['candidate.bin_1_over_capacity:4'] });
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], 'item2', ['item3']] }, smallAllocation, biomeSteward),
   { passed: false, issues: ['candidate.bin_count'] });
+const rejectedCandidate = JSON.stringify({ bins: [['item1', 'item2'], ['item3']] });
+const rejectedFailure = workerRecovery.failureReport({ eventType: 'AGENT_FAILED',
+  detail: 'Biome mutated output violates allocation constraints: candidate.bin_1_over_capacity:4.',
+  payload: { workerArtifactDiagnostics: { code: 'BIOME_ALLOCATION_INVALID', candidate: rejectedCandidate,
+    issues: ['candidate.bin_1_over_capacity:4'] } } },
+{ agentId: 'qwen-worker', prompt: smallAllocation, recoveryAttempt: 0 });
+assert.equal(rejectedFailure.category, 'mutated_output');
+const repairedPrompt = rolePrompt.morphogenesisMissionPrompt(biomeSteward,
+  workerRecovery.recoveryPrompt(rejectedFailure, workerRecovery.decideRecovery(rejectedFailure)));
+assert.match(repairedPrompt, /Repair the previous candidate using this runtime feedback/);
+assert.match(repairedPrompt, /\{"bins":\[\["item1","item2"\],\["item3"\]\]\}/);
+assert.match(repairedPrompt, /candidate\.bin_1_over_capacity:4/);
 assert.equal(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
   { topology: 'biome', topologyRole: 'environment_mapper' }), null);
 assert.deepEqual(rolePrompt.validateBiomeAllocation({ bins: [['item1'], ['item2', 'item3']] }, smallAllocation,
