@@ -219,6 +219,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const itemNameProposal = JSON.stringify({ patches: [{ path: 'index.html', content: '<input aria-label="Item name"><td aria-label="Item name">Oats</td>' }] });
   assert.match(JSON.parse(applyRepairPlan(itemNameProposal, itemNamePlan)).patches[0].content,
     /<td>Oats<\/td>/);
+  assert.deepEqual(repairPlan({ proposal: { tests: [{ stderr: '2 !== 1 at acceptance.cjs:19:10' }],
+    failedPatchContents: [{ path: 'index.html', content: '<td aria-label="Item name">Oats</td>' }] } }), itemNamePlan);
   const patchDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
     path: 'index.html', content: '<form><label>Item</label><input id="name"></form><div role="button">+</div><script>function handleAddItem(event) { renderItem(item); } function addItem(event) { const item = readForm(); items.push(item); } form.addEventListener("submit", addItem);</script>'
   }] } });

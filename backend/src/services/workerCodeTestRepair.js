@@ -65,7 +65,7 @@ function locatorRepairHint(error) {
   if (count) {
     const detail = Number(count[1]) === 0
       ? 'The row is absent after Add Item. Handle submit, prevent navigation, append the form values to the shared items collection, persist, and render immediately.'
-      : `Playwright found ${count[1]} visible text matches for Oats but requires exactly one. Render one item summary with Oats once; remove duplicate toast/summary text and keep Oats out of visible action button text by using accessible aria-labels.`;
+      : `Playwright found ${count[1]} visible text matches for Oats but requires exactly one. Remove any preloaded example Oats row and duplicate submit listeners; each Add Item submit must create one row. Keep Oats out of visible action button text by using accessible aria-labels.`;
     return `${detail} Keep the row compatible with filtering, search, increase and delete behavior.`;
   }
   return '';
@@ -80,6 +80,8 @@ function repairPlan(error) {
     return { kind: 'ensure_quantity_action_label', label: 'Increase quantity for Oats' };
   }
   if (/getByLabel\(\/item name\/i\) resolved to \d+ elements/i.test(output)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
+  const candidateText = (error.proposal?.failedPatchContents || []).map((patch) => patch.content || '').join('\n');
+  if (/2\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && /<td\b[^>]*aria-label=["']item name/i.test(candidateText)) return { kind: 'ensure_unique_item_name_locator', label: 'Item name' };
   if (/getByLabel\(\/best\.before\/i\)/i.test(output)) {
     return { kind: 'ensure_best_before_input_label', label: 'Best-before date' };
   }
@@ -182,7 +184,6 @@ function labelIncreaseButton(content, label) {
   const dynamic = buttons.find((button) => /(?:\$\{\s*(?:itemName|item\.(?:name|label)|item\[['"](?:Item name|name)['"]\])|\b(?:itemName|item\.name)\b)/i.test(button[0])
     && /(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])
     && !/\b(?:delete|remove)\b/i.test(button[0]));
-  // deliberately uses that same word and would become ambiguous.
   if (dynamic) {
     for (const button of buttons) {
       if (button === dynamic || !/(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])) continue;
