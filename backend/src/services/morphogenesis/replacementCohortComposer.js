@@ -72,7 +72,9 @@ function validateMission(input) {
 }
 
 function buildReplacement(details) {
-  const { assignment, index, input, mission } = details;
+  const { index, input, mission } = details;
+  const assignment = require('../morphogenesisRolePrompt').bindBiomeMapperAssignment(
+    details.assignment, mission.prompt || mission.currentTask);
   const kind = workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role);
   const tokenBudget = requestedBudget(assignment);
   const capabilities = stringSet(assignment.capabilities);

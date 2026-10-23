@@ -44,5 +44,14 @@ const noPrivilege = composeReplacementCohort({ ...base,
   parentAuthority: { ...base.parentAuthority, allowedTools: [] },
   blueprint: { assignments: [{ ...base.blueprint.assignments[0], tools: ['genos_adversarial_review'] }] } });
 assert.deepEqual(noPrivilege.workers[0].toolLease, [], 'a new worker cannot gain tools outside the parent lease');
+const biomeMapper = composeReplacementCohort({ ...base, topology: 'biome',
+  mission: { prompt: 'Répartis item1=1, item2=3, item3=2 en 3 groupes; aucun groupe ne doit dépasser un total de 8.' },
+  blueprint: { assignments: [{ role: 'environment_mapper', workerKind: 'scout_cell',
+    capabilities: ['observe'], tokenBudget: 2600,
+    methodContract: { version: 1, methodId: 'prompt_defined', source: 'mission_prompt', requiredCapabilities: [] } }] }
+});
+assert.equal(biomeMapper.workers[0].methodContract.methodId, 'scan_literal');
+assert.equal(biomeMapper.workers[0].workerContract.mission.methodContract.methodId, 'scan_literal',
+  'the replacement cohort seals the adapted native method into its worker contract');
 
 console.log('Morphogenesis replacement cohorts: new identities, worker kinds, bounded lease/authority/budget, quiescence and Trinity gates PASS');
