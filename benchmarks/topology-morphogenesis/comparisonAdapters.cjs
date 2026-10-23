@@ -266,6 +266,8 @@ async function genosFull(task, state) {
   if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
     GENOS_AGENT_EXECUTOR: '', GENOS_LOCAL_MODEL: state.model,
+    GENOS_GVX_LEDGER_HMAC_SECRET: process.env.GENOS_GVX_LEDGER_HMAC_SECRET
+      || require('crypto').randomBytes(32).toString('hex'),
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
     GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
     GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
