@@ -11,7 +11,8 @@ assert.deepEqual(observed.available, matrix.operationalTopologyCapabilities());
 assert.equal(observed.source, inventory.SOURCE);
 assert.equal(observed.verified, true);
 assert.deepEqual(epoch.topologyCapabilities({}), observed.available);
-assert.deepEqual(activation.topologyCapabilities({}, {}), observed.available);
+assert.deepEqual(activation.strategyInput({ normalizedMission: {}, autonomyPlan: {} })
+  .availableTopologyCapabilities, observed.available);
 
 const declared = inventory.resolveTopologyCapabilityInventory({
   topologyCapabilityInventory: { available: ['declared-capability'] }
