@@ -46,12 +46,24 @@ jamais une acceptation de tâche.
   occupait 24 Go de mémoire. Son déchargement, déjà autorisé par l'opérateur,
   a ramené la mémoire libre à 11,18 Go. La relance isolée du test de reçu passe;
   un autre lancement complet reste nécessaire pour obtenir un résultat terminal.
+- Correctif `a45e13196` : restaure les fichiers candidat après tout rejet
+  pré-commit tant que HEAD reste au SHA de base. La régression de fence vérifie
+  que le worktree reste propre et que la reprise réussit.
+- L'exécution complète a ensuite atteint `test_shev_runtime_demo.js`, mais la
+  création de son dépôt temporaire a échoué faute d'espace sur `C:`. Une mesure
+  a trouvé 224,85 Go libres sur `D:`; les fixtures temporaires ont été redirigées
+  vers un dossier dédié sur ce volume.
+- Résultat terminal de la relance depuis le checkout propre avec les dépendances
+  Node installées : code 0, **46 suites passées, 54 contrôles isolés passés**,
+  incluant le rituel, le pont stratégique, l'intégration philosophique avec
+  fence/reprise et les trois tests SHEV liés.
+- Révision du code testée : `a45e13196`. Ce relevé Windows qualifie les
+  contrats locaux; il ne qualifie pas encore les missions autonomes multi-dépôts.
 
 Conclusion du relevé : la garde mémoire a suspendu correctement un tick sous
-seuil; une erreur syntaxique de code a été reproduite et corrigée dans la
-branche de qualification. Le run complet corrigé reste à confirmer sur un
-checkout propre. Les échecs initiaux demeurent dans le relevé et ne sont pas
-requalifiés rétroactivement en succès.
+seuil; une erreur syntaxique et un rollback incomplet ont été reproduits puis
+corrigés. Le premier run complet propre est vert. Les échecs initiaux demeurent
+dans le relevé et ne sont pas requalifiés rétroactivement en succès.
 
 ## Portes de qualification
 
@@ -121,8 +133,7 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 n'est pas validé : la branche contient un correctif syntaxique ciblé, mais les
-deux exécutions complètes suivantes ont été arrêtées, l'une par un worktree de
-test non propre et l'autre par un timeout sous forte pression mémoire. Il faut
-une exécution terminale code 0 dans un environnement stable après ces commits,
-puis trois exécutions propres avant d'ouvrir G1.
+G0 est en qualification : une exécution complète propre a terminé en code 0
+avec 46 suites et 54 contrôles passés. Il reste deux exécutions complètes
+consécutives sur la même révision avant d'ouvrir G1. Les précédents échecs
+mémoire, timeout, checkout sale et manque d'espace restent consignés.
