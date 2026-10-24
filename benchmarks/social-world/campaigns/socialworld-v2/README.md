@@ -206,3 +206,24 @@ rapports produits par exécution. Ce document ne revendique aucun résultat V2.
   couverture des graines et des bras configurés par scénario, ainsi que l'égalité des
   empreintes d'événements, budgets et permissions entre les rapports appariés. Il ne calcule
   pas le résultat scientifique de la campagne.
+
+## Registre et lancement des runners
+
+`runner-registry.cjs` déclare un module pour chacun des six scénarios. Chaque module expose
+les bras `REGISTERED_ARMS` qu'il sait rapporter et les bras `EXECUTABLE_ARMS` dont il possède
+le traitement runtime correspondant. Un bras déclaré sans traitement réel produit un rapport
+`inconclusive`; il n'est jamais substitué par `genos-full`.
+
+Le dispatcher permet d'exécuter une tentative isolée :
+
+```bash
+node benchmarks/social-world/campaigns/socialworld-v2/run-socialworld-campaign.cjs \
+  --scenario V2-04 --seed socialworld-v2-01 --arm genos-full
+```
+
+Il écrit un rapport et une preuve JSON par tentative sous `reports/`, puis valide le rapport
+avant de le retourner. `--all` demande les 480 combinaisons scénario/bras/graine; le lancement
+est refusé tant que le manifeste n'est pas `ready` et que tous les traitements comparatifs
+ne sont pas exécutables. `campaign-proof-readiness.cjs` distingue les bras absents du registre
+des traitements qui restent à implémenter. Les rapports sous `reports/` sont des sorties
+locales générées et ne sont pas versionnés.
