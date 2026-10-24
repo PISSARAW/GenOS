@@ -33,6 +33,7 @@ router.post('/agents/git/tag', requirePermission('workspace:write'), agentGitCon
 router.post('/agents/git/cherry-pick', requirePermission('workspace:write'), agentGitController.cherryPick);
 router.post('/agents/git/diff', requirePermission('read'), agentGitController.diff);
 router.post('/agents/git/cognitive-diff', requirePermission('read'), agentGitController.cognitiveDiff);
+router.post('/agents/git/epistemic-merge-preview', requirePermission('read'), agentGitController.epistemicMerge);
 router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
 router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
