@@ -32,7 +32,8 @@ avec la même entrée JSON et un délai de deux minutes. Exemple de manifeste :
 
 Chaque adaptateur lit sur stdin `{schema, task, system}` et émet un unique JSON
 `{taskId, system, version, metrics}`. Un résultat `pass` ou `fail` doit contenir
-une preuve vérifiable dans `evidence`. La sortie contient un hash du reçu et
+`evidence: {path, sha256}` vers un fichier sous le répertoire du manifeste ; le
+lanceur vérifie le contenu et refuse un hash ou un chemin hors scope. La sortie contient un hash du reçu et
 un hash commun des tâches. Lancez `node benchmarks/agentgit-competitors/run.cjs
 manifest.json résultats.json` puis conservez le manifeste, les versions et les
 artefacts cités par les preuves. `mock-adapter.cjs` ne sert qu'au test du runner ;

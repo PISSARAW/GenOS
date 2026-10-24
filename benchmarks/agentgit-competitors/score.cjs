@@ -18,7 +18,10 @@ function validateTask(ctx) {
   seen.add(task?.id);
   for (const [metric, result] of Object.entries(task?.metrics || {})) {
     if (!METRICS.includes(metric) || !RESULTS.has(result?.result)) issues.push(`invalid_metric:${metric}`);
-    if (['pass', 'fail'].includes(result?.result) && !result.evidence) issues.push(`missing_evidence:${task.id}:${metric}`);
+    if (['pass', 'fail'].includes(result?.result) &&
+        (!result.evidence?.path || !/^[a-f0-9]{64}$/.test(result.evidence?.sha256 || ''))) {
+      issues.push(`missing_evidence:${task.id}:${metric}`);
+    }
   }
 }
 

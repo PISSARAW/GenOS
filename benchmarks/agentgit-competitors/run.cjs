@@ -47,11 +47,29 @@ function executeAdapter(system, task, cwd) {
             receipt.version !== system.version || !receipt.metrics) {
           throw new Error('Adapter returned an invalid task receipt or version.');
         }
+        verifyArtifacts(receipt.metrics, cwd);
         resolve({ id: task.id, metrics: receipt.metrics, receiptHash: digest({ input, receipt }) });
       } catch (cause) { reject(cause); }
     });
     child.stdin.end(JSON.stringify(input));
   });
+}
+
+function verifyArtifacts(metrics, cwd) {
+  const root = fs.realpathSync(cwd);
+  for (const item of Object.values(metrics)) {
+    if (!['pass', 'fail'].includes(item?.result)) continue;
+    const relative = item.evidence?.path;
+    if (typeof relative !== 'string' || !/^[a-f0-9]{64}$/.test(item.evidence?.sha256 || '')) {
+      throw new Error('A pass/fail result requires a local artifact path and SHA-256.');
+    }
+    const full = fs.realpathSync(path.resolve(root, relative));
+    if (!full.startsWith(root + path.sep)) throw new Error('Evidence artifact is outside the benchmark workspace.');
+    const stat = fs.statSync(full);
+    if (!stat.isFile() || stat.size > 50_000_000) throw new Error('Evidence artifact is invalid or too large.');
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+    if (actual !== item.evidence.sha256) throw new Error('Evidence artifact SHA-256 mismatch.');
+  }
 }
 
 async function runManifest(manifest, cwd) {
@@ -80,4 +98,4 @@ async function cli() {
 }
 
 if (require.main === module) cli().catch((error) => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
-module.exports = { runManifest, validateManifest, executeAdapter };
+module.exports = { runManifest, validateManifest, executeAdapter, verifyArtifacts };
