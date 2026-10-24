@@ -847,12 +847,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0732](0732-couplage-contrat-dossier-et-observation-effet-c4.md) | Couplage contrat→dossier de preuve et observation différée de l'effet (C4) | Proposé | 2026-10-23 | mission, promotion, evidence, C4, dossier |
 | [0733](0733-rappel-memoire-situationnel-inspire-tsao.md) | Rappel mémoire situationnel inspiré des recherches de Tsao | Accepté | 2026-10-23 | Mémoire, runtime Node.js, classement et traçabilité |
 | [0734](0734-contrat-de-decision-de-communication-composee.md) | Contrat de décision de communication composé | Accepté — mise en œuvre incrémentale. | -- | -- |
-| [0735a](0735-classement-routage-confiance-sociale-verifiee.md) | Classer le routage social avec la confiance de domaine vérifiée | Voir le fichier | -- | -- |
-| [0735b](0735-modele-mental-social-fonde.md) | Modèle mental social sourcé | Accepté — implémentation incrémentale et descriptive. | -- | -- |
+| [0735](0735-classement-routage-confiance-sociale-verifiee.md) | Classer le routage social avec la confiance de domaine vérifiée | Voir le fichier | -- | -- |
+| [0736](0736-modele-mental-social-fonde.md) | Modèle mental social sourcé | Accepté — implémentation incrémentale et descriptive. | -- | -- |
 | [0737a](0737-calibration-metacognitive-independante.md) | Calibration métacognitive indépendante et preuves locales vérifiables | Accepté | 2026-10-24 | -- |
 | [0737b](0737-capture-memoire-dialogue-social-borne.md) | Capturer en mémoire les dialogues sociaux résolus | Voir le fichier | -- | -- |
 | [0738](0738-boucle-developpement-social-integree.md) | Boucle de développement social intégrée à l’Ontogenèse | Voir le fichier | -- | -- |
 | [0739](0739-envois-idempotents-apres-reprise-sociale.md) | Dédupliquer durablement les envois sociaux après reprise | Accepté | 2026-10-24 | Communication, persistance, reprise sociale |
+| [0740](0740-source-signee-memoire-socialworld-v2-03.md) | Source signée et indépendante pour la mémoire SocialWorld V2-03 | Accepté | 2026-10-24 | SocialWorld, mémoire durable, provenance, vérification |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
