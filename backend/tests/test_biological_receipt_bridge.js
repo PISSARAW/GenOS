@@ -79,6 +79,21 @@ async function run() {
     await require('../src/services/missionIdentityService').setStatus(db, teamMissionId, 'completed');
     assert.equal((await require('../src/services/missionIdentityService').get(db, teamMissionId)).status, 'completed',
       'a verified A-Team completion receipt must satisfy mission closure without legacy biological worker receipts');
+
+    const isolatedMissionId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)',
+      isolatedMissionId, 'isolated mission without topology sessions');
+    const isolatedTransition = await homeostasisService.transitionMissionToComplete(db, {
+      mission: { id: isolatedMissionId, objective: 'isolated mission without topology sessions', completionContract: {
+        invariants: [{ id: 'works', kind: 'functional', verifier: { type: 'context.flag', flag: 'works' } }]
+      } }, organism: newOrganism({ genome: { objective: 'isolated mission without topology sessions' } }),
+      context: { flags: { works: true } }
+    });
+    assert.equal(isolatedTransition.allowed, true);
+    await db.run('DROP TABLE topology_sessions');
+    await require('../src/services/missionIdentityService').setStatus(db, isolatedMissionId, 'completed');
+    assert.equal((await require('../src/services/missionIdentityService').get(db, isolatedMissionId)).status, 'completed',
+      'a valid no-worker transition must close even when the optional topology session table was absent before closure');
     await db.run(`INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json)
       VALUES (?, ?, ?, ?, ?)`, [`state-${missionId}`, `contract-${missionId}`, missionId, 'unstable', '{}']);
     const receipt = sampleReceipt(missionId, receiptId);

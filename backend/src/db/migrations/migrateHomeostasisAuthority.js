@@ -59,6 +59,14 @@ async function createAuthorityStorage(db) {
 }
 
 async function ensureCompletionGuard(db) {
+  await db.run(`CREATE TABLE IF NOT EXISTS topology_sessions (
+    id TEXT PRIMARY KEY,
+    topology TEXT NOT NULL,
+    variant_id TEXT,
+    state_json TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
   const dependencies = await db.get(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN (
     'homeostasis_states', 'mission_agents', 'agents', 'strategy_execution_runs', 'biological_worker_receipts',
     'biological_worker_observations', 'biological_worker_bindings', 'biological_execution_receipts', 'mission_regeneration_attempts',
