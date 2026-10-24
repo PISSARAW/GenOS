@@ -102,27 +102,40 @@ function assertTenantScope(scope) {
   }
 }
 
+function assertTenantConsistency(existing, input) {
+  if (!existing || !input.organizationId) return;
+  if (existing.organization_id !== input.organizationId || existing.project_id !== input.projectId) {
+    throw Object.assign(new Error('Workspace path is already registered under a different tenant.'), {
+      code: 'WORKSPACE_TENANT_MISMATCH'
+    });
+  }
+}
+
+function registeredTenant(input, existing) {
+  return { organizationId: input.organizationId || existing?.organization_id || null,
+    projectId: input.projectId || existing?.project_id || null };
+}
+
+async function saveRegisteredWorkspace(db, entry) {
+  await db.run(`INSERT INTO workspaces (id, name, path, visibility, language, description, tags,
+    organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
+    language = excluded.language, updated_at = CURRENT_TIMESTAMP`,
+  entry.id, entry.name, entry.workspacePath, entry.description,
+  entry.tenant.organizationId, entry.tenant.projectId);
+}
+
 async function registerWorkspace(db, input) {
   if (input.organizationId || input.projectId) assertTenantScope(input);
   const workspacePath = path.resolve(input.workspacePath);
   const id = workspaceIdForPath(workspacePath);
   const existing = await db.get('SELECT id, organization_id, project_id FROM workspaces WHERE id = ?', id);
-  if (existing && input.organizationId && (existing.organization_id !== input.organizationId
-    || existing.project_id !== input.projectId)) {
-    throw Object.assign(new Error('Workspace path is already registered under a different tenant.'), {
-      code: 'WORKSPACE_TENANT_MISMATCH'
-    });
-  }
-  const tenant = { organizationId: input.organizationId || existing?.organization_id || null,
-    projectId: input.projectId || existing?.project_id || null };
+  assertTenantConsistency(existing, input);
+  const tenant = registeredTenant(input, existing);
   const name = await uniqueWorkspaceName(db, { ...tenant, id,
     name: input.name || path.basename(workspacePath) || 'workspace' });
-  await db.run(`INSERT INTO workspaces (id, name, path, visibility, language, description, tags,
-    organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
-    ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
-    language = excluded.language, updated_at = CURRENT_TIMESTAMP`,
-  id, name, workspacePath, input.description || 'Workspace registered for a GenOS mission.',
-  tenant.organizationId, tenant.projectId);
+  await saveRegisteredWorkspace(db, { id, name, workspacePath, tenant,
+    description: input.description || 'Workspace registered for a GenOS mission.' });
   return db.get('SELECT * FROM workspaces WHERE id = ?', id);
 }
 
