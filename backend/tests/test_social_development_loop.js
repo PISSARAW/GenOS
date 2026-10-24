@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const loop = require('../src/services/socialDevelopmentLoopService');
 const checkpoint = require('../src/services/communication/communicationCheckpointService');
+const episodes = require('../src/services/autobiographicalMemory/episodeStore');
 
 function input(overrides = {}) {
   return {
@@ -90,6 +91,27 @@ async function testOutcomeIsNotInferredFromDelivery() {
   assert.equal(result.learning.updated, false);
 }
 
+async function testDefaultMemoryReceivesDecisionAndReceipt() {
+  const log = [];
+  const originalRecord = episodes.recordEpisode;
+  let episodeInput;
+  const cycleInput = input();
+  episodes.recordEpisode = async (value, db) => {
+    episodeInput = { value, db };
+    return { id: 'episode-default-persistence' };
+  };
+  try {
+    const result = await loop.process(cycleInput, adapters(log, { remember: undefined }));
+    assert.equal(result.episodeId, 'episode-default-persistence');
+    assert.equal(episodeInput.value.action.selectedAction, 'request:agent-c');
+    assert.equal(episodeInput.value.outcome.status, 'delivered_unverified');
+    assert.equal(episodeInput.value.outcome.verified, false);
+    assert.equal(episodeInput.db, cycleInput.db);
+  } finally {
+    episodes.recordEpisode = originalRecord;
+  }
+}
+
 async function testPersistedModelAuditIsCompact() {
   const log = [];
   const persisted = [];
@@ -131,6 +153,7 @@ async function main() {
   await testDisabledAndArbitrationBlocked();
   await testOutOfGraphProposalFailsClosed();
   await testOutcomeIsNotInferredFromDelivery();
+  await testDefaultMemoryReceivesDecisionAndReceipt();
   await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();
   console.log('Social Development Loop causal handoff, arbitration, RPE audience, and evidence gates: PASS');

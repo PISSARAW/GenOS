@@ -332,7 +332,7 @@ async function decideAndExecute(input, context, adapters) {
       reasonCode: 'no-admissible-recipient', model: null, seed: null };
   const communication = await communicate(input, decision, adapters);
   const episode = await (adapters.remember ? adapters.remember({ ...input, decision, communication })
-    : remember({ ...input, decision, communication }));
+    : remember(input, decision, communication));
   const learning = await (adapters.learn ? adapters.learn({ ...input, decision, communication })
     : learnVerifiedOutcome(input));
   return { processed: true, action: decision.action, recipientAgentId: decision.recipientAgentId || null,
