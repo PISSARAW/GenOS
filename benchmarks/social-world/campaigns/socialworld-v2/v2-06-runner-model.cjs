@@ -72,7 +72,7 @@ function sourceModelPrompt(input) {
   return [
     'Infer a source-grounded social mental model from the supplied persisted dialogue observations.',
     'Return JSON only. Do not reveal hidden chain of thought. State concise hypotheses, uncertainty, beliefs about the other participant, and at least one alternative interpretation when evidence permits.',
-    'Cite only supplied memory IDs. Do not infer relation labels or polarity scores from metadata; no such metadata is provided.',
+    'Cite only supplied memory IDs. In top-level sourceMemoryIds, include every visible memory ID exactly once. Do not infer relation labels or polarity scores from metadata; no such metadata is provided.',
     `Subject: ${input.subjectAgentId}; other participant: ${input.otherAgentId}.`,
     absence,
     `Visible dialogue memories: ${JSON.stringify(memoryView)}`,
