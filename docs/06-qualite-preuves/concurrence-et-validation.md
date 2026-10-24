@@ -21,15 +21,18 @@ modifient GenOS en parallèle.
 de conflit dans les fichiers modifiés ou non suivis, puis prend un verrou commun
 à tous les worktrees du même dépôt.
 Les suites complètes ne s'exécutent donc pas simultanément dans ces worktrees.
-Le prévol vérifie aussi l'espace disponible avant de lancer les scénarios qui
-créent des espaces isolés.
+Un verrou abandonné n'est repris qu'après vérification que son PID n'est plus
+actif; un verrou illisible bloque avec un message de diagnostic. Le prévol exige
+512 Mio libres sur le volume du dépôt et celui du répertoire temporaire avant
+de lancer les scénarios qui créent des espaces isolés.
 
 Les suites démarrent avec `NODE_ENV=test` et un répertoire de base dédié à
 l'exécution. Si un test ne fournit pas `GENOS_DB_PATH`, le backend lui attribue
 une base temporaire propre au processus. Les tests qui vérifient la reprise
 entre processus doivent définir explicitement une base temporaire partagée.
 Une configuration `GENOS_DB_PATH` de poste ou une base utilisateur ne doit
-jamais servir de fixture implicite.
+jamais servir de fixture implicite. `npm run test:unlocked` est réservé à
+l'appel interne du lanceur et ne doit pas remplacer `npm test`.
 
 ## Intégration d'une tâche
 
