@@ -4,7 +4,10 @@ const assert = require('node:assert/strict');
 const { compareIdentity, compareCapabilities, summarizeRuns, forkScope } = require('../src/services/agentGitService/ontogeneticOps.cjs');
 
 assert.deepEqual(compareIdentity({ name: 'A', role: 'worker' }, { name: 'A', role: 'reviewer' }), {
-  stable: false, changedFields: ['role']
+  stable: false, changedFields: ['role'], displayNameChanged: false
+});
+assert.deepEqual(compareIdentity({ name: 'A', role: 'worker' }, { name: 'Fork of A', role: 'worker' }), {
+  stable: true, changedFields: [], displayNameChanged: true
 });
 assert.deepEqual(compareCapabilities([{ plasmid_id: 'a' }, { plasmid_id: 'b' }], [{ plasmid_id: 'b' }, { plasmid_id: 'c' }]), {
   preservedPlasmids: ['b'], lostPlasmids: ['a'], acquiredPlasmids: ['c']

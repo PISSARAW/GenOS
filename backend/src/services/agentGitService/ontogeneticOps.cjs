@@ -78,9 +78,10 @@ function readState(serialized) {
 }
 
 function compareIdentity(before = {}, after = {}) {
-  const fields = ['name', 'role', 'model_tier', 'language'];
+  const fields = ['role', 'model_tier', 'language'];
   const changed = fields.filter((field) => before[field] !== after[field]);
-  return { stable: changed.length === 0, changedFields: changed };
+  return { stable: changed.length === 0, changedFields: changed,
+    displayNameChanged: before.name !== after.name };
 }
 
 function compareCapabilities(before = [], after = []) {
