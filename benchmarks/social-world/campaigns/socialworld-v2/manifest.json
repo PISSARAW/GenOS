@@ -9,7 +9,9 @@
     "genos-full",
     "static-social-graph",
     "llm-with-memory",
-    "genos-without-relational-physiology"
+    "genos-without-relational-physiology",
+    "genos-social-memory-ablated",
+    "genos-social-memory-counterfactual"
   ],
   "scenarios": [
     {
@@ -50,6 +52,16 @@
       "minimumOrganizationTransitions": 2,
       "requiredInvariants": ["agent-identity", "valid-relations", "permissions", "provenance"],
       "requiredEvidence": ["transition-log", "invariant-checks", "post-transition-collaboration-receipts"]
+    },
+    {
+      "id": "V2-06",
+      "name": "relational-metacognition-and-causal-reuse",
+      "status": "planned",
+      "minimumIndependentMemories": 4,
+      "minimumDelayedDecisionContexts": 1,
+      "requiredCapabilities": ["relation-reconstruction", "belief-about-other", "explicit-unknowns", "alternative-interpretations", "source-grounded-explanation", "delayed-causal-reuse"],
+      "interventions": ["mask-social-memories", "counterfactual-social-memories"],
+      "requiredEvidence": ["memory-before-after", "source-memory-ids", "model-before-after", "intervention-receipt", "subsequent-decision", "authority-checks"]
     }
   ],
   "reportSchemaRequired": [

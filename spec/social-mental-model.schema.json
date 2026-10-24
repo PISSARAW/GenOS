@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/spec/social-mental-model/v1",
+  "title": "GenOS Social Mental Model v1",
+  "description": "A sourced, uncertain, agent-perspective model of a social relation. It represents functional beliefs, not subjective experience or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subjectAgentId", "otherAgentId", "relationHypotheses", "beliefsAboutOther", "unknowns", "sourceMemoryIds", "generatedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "subjectAgentId": { "type": "string", "minLength": 1 },
+    "otherAgentId": { "type": "string", "minLength": 1 },
+    "relationHypotheses": { "type": "array", "items": { "$ref": "#/$defs/hypothesis" }, "minItems": 1 },
+    "beliefsAboutOther": { "type": "array", "items": { "$ref": "#/$defs/belief" } },
+    "unknowns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "alternativeInterpretations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "sourceMemoryIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "generatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relationType", "confidence", "supportingMemoryIds", "contradictingMemoryIds"],
+      "properties": {
+        "relationType": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "supportingMemoryIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "contradictingMemoryIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "belief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposition", "confidence", "sourceMemoryIds"],
+      "properties": {
+        "proposition": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sourceMemoryIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    }
+  }
+}

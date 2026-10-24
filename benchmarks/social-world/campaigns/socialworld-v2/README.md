@@ -87,6 +87,20 @@ avec conservation des identités, des relations valides et des permissions; une 
 se forme ou se rétablit après chaque transition. Chaque transition est comparée aux invariants
 préenregistrés. Le simple calcul de 19 modes algorithmiques ne satisfait pas ce scénario.
 
+### V2-06 — Métacognition relationnelle et réutilisation causale
+
+Deux agents vivent au moins quatre expériences indépendantes, positives et négatives.
+Sans état de relation injecté comme vérité, l'agent évalué reconstruit une hypothèse
+relationnelle sourcée, expose ce qu'il estime savoir ou ignorer de l'autre, conserve
+au moins une interprétation alternative et réutilise ce modèle dans un contexte de
+décision différé qui n'a pas servi à initialiser sa mémoire.
+
+**Oracle de succès :** chaque proposition évaluée référence des souvenirs persistés;
+les inconnues et interprétations concurrentes sont présentes; la décision différée
+change de façon prévisible quand les seuls souvenirs sociaux sont masqués ou remplacés
+par des souvenirs contrefactuels. Les permissions, consentements et budgets restent
+valides. Une explication textuelle seule ne satisfait aucun critère.
+
 ## Bras de comparaison causale
 
 Chaque expérience est exécutée avec les mêmes événements, graines et budgets dans trois bras :
@@ -96,10 +110,15 @@ Chaque expérience est exécutée avec les mêmes événements, graines et budge
 3. **LLM avec mémoire** : même modèle et même contenu mémoire accessible, sans mécanismes
    relationnels GenOS.
 
-Pour isoler la contribution propre de la physiologie, V2-01, V2-02 et V2-05 ajoutent un
+Pour isoler la contribution propre de la physiologie, V2-01, V2-02, V2-05 et V2-06 ajoutent un
 quatrième bras **GenOS sans physiologie relationnelle**. Les écarts sont rapportés par
 expérience et par graine; aucune différence n'est attribuée causalement si les budgets,
 événements, versions ou permissions diffèrent entre bras.
+
+V2-06 ajoute deux interventions appariées : **souvenirs sociaux masqués** et
+**souvenirs sociaux contrefactuels**. Les souvenirs non sociaux, le modèle, les événements,
+les permissions et les budgets restent identiques. Les reçus d'intervention identifient
+les seuls éléments remplacés ou masqués.
 
 ## Plan d'exécution et décision
 
@@ -114,7 +133,7 @@ expérience et par graine; aucune différence n'est attribuée causalement si le
   présente de violation critique d'autorité ou de provenance et les contrôles négatifs
   échouent comme prévu. Une expérience qui ne satisfait pas ces conditions est `fail` ou
   `inconclusive` selon la complétude des preuves.
-- La campagne globale n'est déclarée concluante que si les cinq expériences passent et que
+- La campagne globale n'est déclarée concluante que si les six expériences passent et que
   les comparaisons causales sont complètes. Les résultats du LLM sont analysés séparément
   des résultats du runtime.
 
@@ -131,8 +150,10 @@ que si ses références de preuve existent et que l'oracle est recalculable.
 1. Ajouter un validateur commun des rapports et un manifeste versionné des graines/bras.
 2. Construire V2-03 en premier : c'est le socle nécessaire pour tester les mutations durables.
 3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02.
-4. Implémenter V2-05 après fixation des invariants de morphogenèse.
-5. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
+4. Définir le contrat `social-mental-model/v1`, puis réaliser V2-06 avec persistance,
+   reconstruction sourcée et interventions causales appariées.
+5. Implémenter V2-05 après fixation des invariants de morphogenèse.
+6. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
 
 Les scénarios restent `planned` jusqu'à la présence de runners, d'oracles vérifiables et de
 rapports produits par exécution. Ce document ne revendique aucun résultat V2.
