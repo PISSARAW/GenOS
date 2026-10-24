@@ -28,14 +28,25 @@ async function compareTrajectories(req) {
 async function createOntogeneticFork(req) {
   const scope = forkScope(req);
   if (!scope.allowed) return { success: false, operation: 'ontogenetic-fork', error: scope.error };
+  const linked = req.body?.objectId ? await linkedSnapshot(req) : null;
+  if (linked && !linked.valid) return { success: false, operation: 'ontogenetic-fork', error: linked.error };
   const handler = require('../mcpBioTools/handlers/agentForkSnapshot');
   const result = await handler.handleAgentForkSnapshot({
     agent_id: req.body?.agentId,
-    snapshot_id: req.body?.snapshotId,
+    snapshot_id: linked?.snapshotId || req.body?.snapshotId,
     idempotency_key: req.body?.idempotencyKey,
     budget: req.body?.budget
   });
   return { ...result, operation: 'ontogenetic-fork' };
+}
+
+async function linkedSnapshot(req) {
+  const db = await getDatabase();
+  const object = await loadCommit(db, req, req.body.objectId);
+  if (!object || object.agent_id !== req.body.agentId) {
+    return { valid: false, error: 'Linked AgentGit checkpoint is outside the agent scope.' };
+  }
+  return require('./checkpointBridge.cjs').verifyLink(db, object);
 }
 
 function forkScope(req) {

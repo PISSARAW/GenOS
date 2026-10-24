@@ -215,6 +215,8 @@ Avec `GENOS_AGENT_GIT_DELTA_STORAGE=true`, les nouveaux objets AgentGit stockent
 
 `gc` marque les ancêtres des refs, tags, archives, notes et entrées de reflog récentes, puis protège aussi les objets récents et les `keep` objets non référencés les plus récents avec tous leurs ancêtres. Il supprime les autres objets, y compris les commits, dans une transaction. `retentionDays` vaut 30 et `keep` vaut 20 par défaut ; les deux bornes peuvent être ajustées dans la requête. Les références de reflog plus anciennes restent dans le journal d’audit mais ne protègent plus leurs objets après la période de rétention.
 
+Avec `GENOS_AGENT_GIT_CHECKPOINT_BRIDGE=true`, chaque capture d’organisme lie dans la même transaction son snapshot scellé à un commit AgentGit sur la ref `checkpoint/<ref>`. Le lien signé suit `genos.agent-checkpoint/v1` et contient l’ID du snapshot, son hash d’organisme et le hash du workspace. La réponse de capture expose `checkpointLink`. `ontogenetic-fork` accepte alors `objectId` et résout le snapshot après vérification des deux côtés ; `replay` vérifie également ce lien lorsqu’il est présent. Cette liaison ne transforme pas le replay de vérification en reprise du runtime.
+
 Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
 ## 8. Processus d’exécution et de validation
