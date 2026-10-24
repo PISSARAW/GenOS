@@ -25,6 +25,8 @@ function schemaRetryHint(error) {
   }
   const anchorPath = detail.match(/Exact edit anchor must occur once in '([^']+)'/)?.[1] || '';
   if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. That proposal was rejected and the workspace is unchanged; do not copy its anchor from the rejected output or a rolled-back candidate. Re-read the current file in the workspace snapshot. For a small file whose full contents are present, prefer a full-file replacement. Otherwise copy a unique anchor exactly from the current file. Re-evaluate the failing assertion before choosing a source file.`;
+  const missingPath = detail.match(/ENOENT:[\s\S]*?open ['"]([^'"]+)['"]/i)?.[1] || '';
+  if (missingPath) return `The patch target '${missingPath}' does not exist in the workspace. Do not use find/replace edits on a missing file. Create it with a complete genos.file-replacement/v1 patch using the exact required path and full file content, then run the allow-listed test.`;
   const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
   return /(^|[\\/])tests?([\\/]|$)/i.test(rejectedPath)
     ? `The rejected path '${rejectedPath}' is a test file and cannot be patched. Keep every test unchanged; repair the production implementation instead.` : '';
