@@ -334,7 +334,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
-  assert.match(quantityRowContent, /button\.setAttribute\('aria-label',\"Increase quantity for Oats\"\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
+  assert.match(quantityRowContent, /const actionLabel='Increase quantity for '\+name/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
   assert.match(missingQuantityOutput, /<input id="qty" type="number" aria-label="Quantity">/);

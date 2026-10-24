@@ -29,4 +29,11 @@ const categoryPlan = repairPlan(categoryFailure);
 const categoryProposal = JSON.stringify({ patches: [{ path: 'index.html', content: addFormWithoutSelect }] });
 const repairedCategory = JSON.parse(applyRepairPlan(categoryProposal, categoryPlan)).patches[0].content;
 assert.match(repairedCategory, /<select id="category" name="category" aria-label="Category">/);
+const buttonCollision = '<form><label for="category">Category</label><select id="category"><option>Food</option></select></form>'
+  + '<button id="filterCategory">Filter category: All</button><script>document.getElementById("filterCategory").addEventListener("click", filter);</script>';
+const repairedButtonCollision = labelFilterSelect(buttonCollision, 'Filter category');
+assert.equal((repairedButtonCollision.match(/\bid="filterCategory"/g) || []).length, 1);
+assert.match(repairedButtonCollision, /<button id="filterCategoryAction">Filter category: All<\/button>/);
+assert.match(repairedButtonCollision, /getElementById\("filterCategoryAction"\)/);
+assert.match(repairedButtonCollision, /<select id="filterCategory" aria-label="Filter category">/);
 console.log('Category select disambiguation checks passed.');

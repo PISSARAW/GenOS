@@ -35,10 +35,17 @@ function filterTarget(content, selects) {
 }
 
 function addMissingFilterSelect(content, selects, label) {
+  const hasFilterButton = /<button\b[^>]*\bid\s*=\s*(["'])filterCategory\1/i.test(content);
+  if (hasFilterButton) {
+    content = content.replace(/(<button\b[^>]*\bid\s*=\s*)(["'])filterCategory\2/i, '$1$2filterCategoryAction$2');
+    content = content.replace(/(getElementById\s*\(\s*["'])filterCategory(["']\s*\))/gi, '$1filterCategoryAction$2');
+    content = content.replace(/(querySelector(?:All)?\s*\(\s*["'])#filterCategory(["']\s*\))/gi, '$1#filterCategoryAction$2');
+  }
   const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+  const updatedSelects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
   const outsideForm = (select) => !forms.some((form) => select.index >= form.index && select.index < form.index + form[0].length);
-  if (selects.some(outsideForm)) return content;
-  const addForm = forms.find((form) => selects.some((select) => select.index >= form.index && select.index < form.index + form[0].length));
+  if (updatedSelects.some(outsideForm)) return content;
+  const addForm = forms.find((form) => updatedSelects.some((select) => select.index >= form.index && select.index < form.index + form[0].length));
   if (!addForm) return content;
   const filter = `<label for="filterCategory">Filter category</label><select id="filterCategory" aria-label="${label}"><option value="all">All</option><option value="Food">Food</option></select>`;
   const end = addForm.index + addForm[0].length;
