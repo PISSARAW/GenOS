@@ -7,6 +7,8 @@ const iamPolicyEngine = require('../services/iamPolicyEngine');
 const { loadExportRegistry } = require('../services/capabilityInheritance/catalog/exportRegistryStore');
 const { createDependencyGraph } = require('../services/capabilityInheritance/resolver/dependencyGraph');
 const { resolveProjectInheritance } = require('../services/capabilityInheritance/resolver/compatibilityResolver');
+const { planUpgrade, selectCandidateManifest } = require('../services/capabilityInheritance/evolution/upgradePlanner');
+const { persistUpgradeCandidate } = require('../services/capabilityInheritance/evolution/upgradeCandidateService');
 const { parseProjectManifest } = require('../services/capabilityInheritance/binding/projectManifestService');
 const binding = require('../services/capabilityInheritance/binding/projectBindingService');
 
@@ -28,7 +30,8 @@ function createControllerHandlers(context) {
     resolve: (req, res, next) => respond({ req, res, next, action: () => planFor({ req, ...context }) }),
     adopt: (req, res, next) => respond({ req, res, next, action: () => adoptAction(context, req) }),
     status: (req, res, next) => respond({ req, res, next, action: () => statusAction(context, req) }),
-    revoke: (req, res, next) => respond({ req, res, next, action: () => revokeAction(context, req) })
+    revoke: (req, res, next) => respond({ req, res, next, action: () => revokeAction(context, req) }),
+    upgrade: (req, res, next) => respond({ req, res, next, action: () => upgradeAction(context, req) })
   };
 }
 
@@ -72,6 +75,25 @@ async function revokeAction(context, req) {
     version: body.version, environment: body.environment, reason: body.reason,
     revokedBy: req.user?.keyId || req.user?.username || 'authenticated-principal',
     expectedRevision: expectedRevision(body.expectedRevision) });
+}
+
+async function upgradeAction(context, req) {
+  const scope = requestScope(req, req.params.projectId);
+  const manifest = readManifest(req, scope.projectId);
+  const db = await context.dbProvider();
+  const installed = await db.get(`SELECT lockfile_json, status FROM gci_installations
+    WHERE organization_id = ? AND project_id = ? AND environment = ?`,
+  [scope.organizationId, scope.projectId, manifest.project.environment]);
+  if (!installed || installed.status !== 'active') throw gciError('GCI_INSTALLATION_INACTIVE', 'An active installation is required to plan an upgrade');
+  const currentLockfile = JSON.parse(installed.lockfile_json);
+  const registry = await loadExportRegistry({ db, capabilityGraph: context.graphProvider(), accessFor: context.accessProvider });
+  const selected = selectCandidateManifest({ manifest, registry });
+  const descriptors = createDependencyGraph({ requested: selected.inherit, registry });
+  const projectAuthority = await authorizedCapabilities({ req, scope, descriptors, authorize: context.authorize });
+  const plan = planUpgrade({ manifest, currentLockfile, registry, projectAuthority,
+    resolvedAt: new Date().toISOString() });
+  return persistUpgradeCandidate({ db, ...scope, environment: manifest.project.environment, plan,
+    expectedRevision: expectedRevision(req.body?.expectedRevision) });
 }
 
 async function planFor(input) {

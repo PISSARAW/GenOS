@@ -56,6 +56,7 @@ async function testManagedMode() {
   const { migrateGciCapabilityInheritance } = require('../src/db/migrations/migrateGciCapabilityInheritance');
   try {
     await migrateGciCapabilityInheritance(db);
+    await require('../src/db/migrations/migrateGciEvolution').migrateGciEvolution(db);
     await db.exec("CREATE TABLE projects (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active')");
     await db.run("INSERT INTO projects (id, organization_id) VALUES ('consumer-a', 'org-a')");
     await projectStore.createProject(db, { id: 'onto-managed', rootPath: root,

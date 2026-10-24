@@ -4,14 +4,18 @@ const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { migrateGciCapabilityInheritance } = require('../src/db/migrations/migrateGciCapabilityInheritance');
+const { migrateGciEvolution } = require('../src/db/migrations/migrateGciEvolution');
 const { bindProject, saveInstallation } = require('../src/services/capabilityInheritance/binding/projectBindingService');
 const { publishExport, revokeExport, loadExportRegistry } = require('../src/services/capabilityInheritance/catalog/exportRegistryStore');
 
 async function main() {
+  assert(require('../src/db/migrations/registry').migrationRunners.some((runner) => runner.name === '155-gci-evolution'));
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
     await migrateGciCapabilityInheritance(db);
     await migrateGciCapabilityInheritance(db);
+    await migrateGciEvolution(db);
+    await migrateGciEvolution(db);
     await db.exec("CREATE TABLE projects (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active')");
     await db.run("INSERT INTO projects (id, organization_id) VALUES ('project-a', 'org-a')");
     const exportDescriptor = { schema: 'genos.gci.capability/v1', capabilityId: 'gci.test', version: '1.0.0',

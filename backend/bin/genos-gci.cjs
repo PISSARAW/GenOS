@@ -6,13 +6,13 @@ const { getAllConcepts } = require('../src/services/capabilityGraphService');
 const { accessFor } = require('../src/services/capabilityAccessMatrix');
 const { loadExportRegistry } = require('../src/services/capabilityInheritance/catalog/exportRegistryStore');
 const { parseProjectManifest } = require('../src/services/capabilityInheritance/binding/projectManifestService');
-const API_COMMANDS = new Set(['link', 'plan', 'adopt', 'status', 'revoke']);
+const API_COMMANDS = new Set(['link', 'plan', 'adopt', 'status', 'revoke', 'upgrade']);
 
 async function main(args) {
   const [command, ...options] = args;
   if (command === 'validate') return validateManifest(options);
   if (API_COMMANDS.has(command)) return runApiCommand(command, options);
-  if (!['discover', 'inspect'].includes(command)) throw new Error('Usage: genos-gci.cjs <discover|inspect <capability-id> --version <semver>|validate|link|plan|adopt|status|revoke>');
+  if (!['discover', 'inspect'].includes(command)) throw new Error('Usage: genos-gci.cjs <discover|inspect <capability-id> --version <semver>|validate|link|plan|adopt|status|revoke|upgrade --dry-run>');
   const db = await getDatabase();
   try {
     const registry = await loadExportRegistry({ db, capabilityGraph: getAllConcepts(), accessFor });
@@ -46,29 +46,34 @@ async function apiRequest(input) {
   const headers = { Authorization: `Bearer ${input.token}`, 'Content-Type': 'application/json',
     'X-Organization-Id': input.organizationId, 'X-Project-Id': input.projectId };
   const body = await apiBody(input.command, input.options);
-  const path = apiPath(input.command, input.projectId, input.options);
+  const path = apiPath(input.command, input.projectId);
   return { url: new URL(`${root}${path}`, input.url).toString(),
     init: { method: body === null ? 'GET' : 'POST', headers, ...(body === null ? {} : { body: JSON.stringify(body) }) } };
 }
 
 async function apiBody(command, options) {
   if (command === 'status') return null;
-  if (command === 'plan' || command === 'link' || command === 'adopt') {
-    const manifestPath = optionValue(options, '--manifest');
-    if (!manifestPath) throw new Error(`${command} requires --manifest <path>`);
-    const manifest = await parseProjectManifest(await fs.readFile(manifestPath, 'utf8'));
-    if (command === 'link') return { manifest, expectedRevision: numericOption(options, '--expected-revision', 0) };
-    if (command === 'adopt') return { manifest,
-      expectedBindingRevision: numericOption(options, '--expected-binding-revision', 0),
-      expectedInstallationRevision: numericOption(options, '--expected-installation-revision', 0) };
-    return { manifest };
-  }
-  if (command === 'revoke') return {
-    capabilityId: optionValue(options, '--capability'), version: optionValue(options, '--version'),
-    environment: optionValue(options, '--environment'), reason: optionValue(options, '--reason'),
-    expectedRevision: numericOption(options, '--expected-revision', 0)
-  };
+  if (command === 'revoke') return revocationBody(options);
+  return manifestCommandBody(command, options);
+}
+
+async function manifestCommandBody(command, options) {
+  const manifestPath = optionValue(options, '--manifest');
+  if (!manifestPath) throw new Error(`${command} requires --manifest <path>`);
+  const manifest = await parseProjectManifest(await fs.readFile(manifestPath, 'utf8'));
+  if (command === 'link') return { manifest, expectedRevision: numericOption(options, '--expected-revision', 0) };
+  if (command === 'adopt') return { manifest,
+    expectedBindingRevision: numericOption(options, '--expected-binding-revision', 0),
+    expectedInstallationRevision: numericOption(options, '--expected-installation-revision', 0) };
+  if (command === 'upgrade') return upgradeBody(options, manifest);
+  if (command === 'plan') return { manifest };
   throw new Error(`Unsupported GCI API command: ${command}`);
+}
+
+function revocationBody(options) {
+  return { capabilityId: optionValue(options, '--capability'), version: optionValue(options, '--version'),
+    environment: optionValue(options, '--environment'), reason: optionValue(options, '--reason'),
+    expectedRevision: numericOption(options, '--expected-revision', 0) };
 }
 
 function apiPath(command, projectId) {
@@ -77,7 +82,14 @@ function apiPath(command, projectId) {
   if (command === 'adopt') return '/adoptions';
   if (command === 'link') return `/projects/${id}/link`;
   if (command === 'status') return `/projects/${id}`;
+  if (command === 'upgrade') return `/projects/${id}/upgrades/plan`;
   return `/projects/${id}/revocations`;
+}
+
+function upgradeBody(options, manifest) {
+  if (!options.includes('--dry-run')) throw new Error('upgrade requires --dry-run');
+  if (optionValue(options, '--expected-revision') === null) throw new Error('upgrade requires --expected-revision <revision>');
+  return { manifest, expectedRevision: numericOption(options, '--expected-revision', 0) };
 }
 
 function safeApiUrl(value) {

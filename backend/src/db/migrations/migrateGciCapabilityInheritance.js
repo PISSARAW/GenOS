@@ -28,12 +28,6 @@ async function migrateGciCapabilityInheritance(db) {
     event_type TEXT NOT NULL, event_json TEXT NOT NULL CHECK (json_valid(event_json)),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
-  CREATE TABLE IF NOT EXISTS gci_project_revocations (
-    organization_id TEXT NOT NULL, project_id TEXT NOT NULL, capability_id TEXT NOT NULL,
-    version TEXT NOT NULL, reason TEXT NOT NULL, revoked_by TEXT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (organization_id, project_id, capability_id, version)
-  );
   CREATE INDEX IF NOT EXISTS idx_gci_bindings_scope ON gci_project_bindings(organization_id, project_id);
   CREATE INDEX IF NOT EXISTS idx_gci_installations_scope ON gci_installations(organization_id, project_id, status);
   CREATE INDEX IF NOT EXISTS idx_gci_ledger_scope ON gci_event_ledger(organization_id, project_id, created_at);`);

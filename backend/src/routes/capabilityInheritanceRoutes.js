@@ -16,5 +16,6 @@ router.post('/resolve', requirePermission('gci:read'), controller.resolve);
 router.post('/adoptions', requirePermission('gci:adopt'), requireTenantScope({ write: true }), controller.adopt);
 router.get('/projects/:projectId', requirePermission('gci:read'), controller.status);
 router.post('/projects/:projectId/revocations', requirePermission('gci:revoke'), requireTenantScope({ write: true }), controller.revoke);
+router.post('/projects/:projectId/upgrades/plan', requirePermission('gci:upgrade'), requireTenantScope({ write: true }), controller.upgrade);
 
 module.exports = router;

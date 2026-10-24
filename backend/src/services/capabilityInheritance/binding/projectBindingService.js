@@ -101,19 +101,27 @@ async function revokeProjectCapability(input) {
 async function projectStatus(input) {
   const { db, organizationId, projectId } = input;
   await assertProjectScope(db, organizationId, projectId);
-  const [bindings, installations, revocations] = await Promise.all([
+  const [bindings, installations, revocations, upgradeCandidates] = await Promise.all([
     db.all(`SELECT provider_id AS providerId, manifest_digest AS manifestDigest, revision, created_at AS createdAt
       FROM gci_project_bindings WHERE organization_id = ? AND project_id = ? ORDER BY provider_id`, [organizationId, projectId]),
     db.all(`SELECT environment, lockfile_json AS lockfileJson, revision, status, updated_at AS updatedAt
       FROM gci_installations WHERE organization_id = ? AND project_id = ? ORDER BY environment`, [organizationId, projectId]),
     db.all(`SELECT capability_id AS capabilityId, version, reason, revoked_by AS revokedBy, created_at AS createdAt
-      FROM gci_project_revocations WHERE organization_id = ? AND project_id = ? ORDER BY capability_id, version`, [organizationId, projectId])
+      FROM gci_project_revocations WHERE organization_id = ? AND project_id = ? ORDER BY capability_id, version`, [organizationId, projectId]),
+    db.all(`SELECT id, environment, source_graph_digest AS sourceGraphDigest,
+      candidate_graph_digest AS candidateGraphDigest, status, plan_json AS planJson, created_at AS createdAt
+      FROM gci_upgrade_candidates WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC`, [organizationId, projectId])
   ]);
-  return { projectId, bindings, installations: installations.map(parseInstallation), revocations };
+  return { projectId, bindings, installations: installations.map(parseInstallation), revocations,
+    upgradeCandidates: upgradeCandidates.map(parseUpgradeCandidate) };
 }
 
 function parseInstallation(row) {
   return { ...row, lockfile: JSON.parse(row.lockfileJson), lockfileJson: undefined };
+}
+
+function parseUpgradeCandidate(row) {
+  return { ...row, plan: JSON.parse(row.planJson), planJson: undefined };
 }
 
 async function assertBindingRevision(db, input) {

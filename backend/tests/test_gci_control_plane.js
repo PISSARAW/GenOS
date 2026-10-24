@@ -4,12 +4,14 @@ const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { migrateGciCapabilityInheritance } = require('../src/db/migrations/migrateGciCapabilityInheritance');
+const { migrateGciEvolution } = require('../src/db/migrations/migrateGciEvolution');
 const { createCapabilityInheritanceController } = require('../src/controllers/capabilityInheritanceController');
 
 async function main() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
     await migrateGciCapabilityInheritance(db);
+    await migrateGciEvolution(db);
     await db.exec("CREATE TABLE projects (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active')");
     await db.run("INSERT INTO projects (id, organization_id) VALUES ('project-a', 'org-a')");
     const descriptor = { schema: 'genos.gci.capability/v1', capabilityId: 'gci.read', version: '1.0.0',
@@ -39,6 +41,15 @@ async function main() {
     assert.equal(adopted.lockfile.projectId, 'project-a');
     const status = await invoke(controller.status, { ...scope, method: 'GET', params: { projectId: 'project-a' } });
     assert.equal(status.installations[0].revision, 1);
+    const upgrade = await invoke(controller.upgrade, { ...scope, params: { projectId: 'project-a' },
+      body: { manifest, expectedRevision: 1 } });
+    assert.equal(upgrade.status, 'no_change');
+    assert.equal(upgrade.plan.automaticMerge, false);
+    const replay = await invoke(controller.upgrade, { ...scope, params: { projectId: 'project-a' },
+      body: { manifest, expectedRevision: 1 } });
+    assert.equal(replay.idempotent, true);
+    await invokeError(controller.upgrade, { ...scope, params: { projectId: 'project-a' },
+      body: { manifest, expectedRevision: 0 } }, 'GCI_REVISION_CONFLICT');
     await invokeError(controller.resolve, { ...scope, headers: { ...scope.headers, 'x-project-id': 'project-b' } }, 'GCI_PROJECT_SCOPE_DENIED');
     await invokeError(controller.adopt, { ...scope, body: { manifest, expectedBindingRevision: 1, expectedInstallationRevision: 0 } }, 'GCI_REVISION_CONFLICT');
     const revoked = await invoke(controller.revoke, { ...scope, params: { projectId: 'project-a' }, body: {
@@ -48,6 +59,7 @@ async function main() {
     const finalStatus = await invoke(controller.status, { ...scope, method: 'GET', params: { projectId: 'project-a' } });
     assert.equal(finalStatus.revocations.length, 1);
     assert.equal(finalStatus.installations[0].revision, 2);
+    assert.equal(finalStatus.upgradeCandidates[0].status, 'no_change');
     await invokeError(controller.adopt, { ...scope, body: { manifest,
       expectedBindingRevision: 2, expectedInstallationRevision: 2 } }, 'GCI_CAPABILITY_REVOKED');
   } finally {

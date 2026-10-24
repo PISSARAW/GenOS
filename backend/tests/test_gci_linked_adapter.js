@@ -4,12 +4,14 @@ const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { migrateGciCapabilityInheritance } = require('../src/db/migrations/migrateGciCapabilityInheritance');
+const { migrateGciEvolution } = require('../src/db/migrations/migrateGciEvolution');
 const { invokeLinkedCapability } = require('../src/services/capabilityInheritance/adapters/linkedAdapter');
 
 async function main() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
     await migrateGciCapabilityInheritance(db);
+    await migrateGciEvolution(db);
     await db.exec("CREATE TABLE projects (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active')");
     await db.run("INSERT INTO projects (id, organization_id) VALUES ('project-a', 'org-a')");
     const capability = { capabilityId: 'gci.echo', version: '1.0.0', implementationDigest: `sha256:${'c'.repeat(64)}`,
