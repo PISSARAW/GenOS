@@ -1,5 +1,8 @@
 'use strict';
 
+process.env.GENOS_DB_PATH = ':memory:';
+process.env.GENOS_ADMIN_PASSWORD = 'native-lifecycle-test-only-password';
+
 const assert = require('node:assert/strict');
 const { method, scoped, missionFor } = require('./helpers/nativeWorkerFixtures');
 const state = require('../src/services/agentOrchestrationState');
