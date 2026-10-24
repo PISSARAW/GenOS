@@ -45,6 +45,7 @@ function plan(kind, label) {
 }
 
 const planRules = [
+  (output) => /item can be deleted|delete item|deleted item/i.test(output) && plan('ensure_delete_behavior', 'Delete item'),
   (output) => /getByRole\(\s*'heading',\s*\{\s*name:\s*\/pantry\/i/.test(output) && plan('ensure_pantry_heading', 'Pantry Inventory'),
   (output) => ((/getByLabel\(\/quantity\/i\)[\s\S]*?Timeout/i.test(output)
     && !/resolved to \d+ elements/i.test(output)) || /acceptance\.cjs:15:38/i.test(output))

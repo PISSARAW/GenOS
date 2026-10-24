@@ -49,13 +49,11 @@ function parseProposal(text, plans) {
   if (!match) return null;
   try { return { match, proposal: JSON.parse(match[0]) }; } catch (_) { return null; }
 }
-
 function applyPatchRepairs(patch, plans) {
   if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') return null;
   return cleanLabelAccessibleOverrides(removePlaceholderQuantityActions(
     plans.reduce((content, item) => applyOneRepair(content, item), patch.content)));
 }
-
 function cleanLabelAccessibleOverrides(content) {
   return content.replace(/<label\b[^>]*>/gi, (opening) =>
     opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''));
@@ -82,6 +80,7 @@ function applyOneRepair(content, item) {
     ensure_item_name_input_label: (value) => require('./workerCodeItemNameRepair').labelItemNameInput(value, item.label),
     ensure_search_filter_behavior: ensureSearchFilterBehavior,
     ensure_pantry_heading: (value) => require('./workerCodePantryHeadingRepair').ensurePantryHeading(value),
+    ensure_delete_behavior: (value) => require('./workerCodeDeleteRepair').ensureDeleteBehavior(value),
     ensure_local_storage_mutations: ensureLocalStorageMutations,
     ensure_json_export: (value) => require('./workerCodeExportRepair').ensureJsonExport(value),
     ensure_add_item_behavior: (value) => require('./workerCodeAddRepair').ensureAddItemBehavior(value),
