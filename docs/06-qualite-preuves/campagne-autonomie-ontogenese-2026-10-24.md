@@ -40,6 +40,12 @@ jamais une acceptation de tâche.
   alors que les deux fichiers de documentation de la campagne n'étaient pas
   encore commitées dans le checkout de test. La suite complète doit être
   relancée après ce commit documentaire.
+- Après le commit documentaire, une nouvelle exécution propre a passé le test
+  du rituel et le pont stratégique, puis `test_ontogenesis_mission_verifier_receipt.js`
+  a échoué par `spawnSync ... ETIMEDOUT`. À ce moment, `qwen2.5-coder:32b`
+  occupait 24 Go de mémoire. Son déchargement, déjà autorisé par l'opérateur,
+  a ramené la mémoire libre à 11,18 Go. La relance isolée du test de reçu passe;
+  un autre lancement complet reste nécessaire pour obtenir un résultat terminal.
 
 Conclusion du relevé : la garde mémoire a suspendu correctement un tick sous
 seuil; une erreur syntaxique de code a été reproduite et corrigée dans la
@@ -115,7 +121,8 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 n'est pas validé : la branche contient un correctif syntaxique ciblé, mais le
-dernier lancement complet s'est arrêté sur l'exigence de worktree propre du test
-d'intégration. Il faut une exécution terminale code 0 après commit des preuves
-de campagne, puis trois exécutions propres avant d'ouvrir G1.
+G0 n'est pas validé : la branche contient un correctif syntaxique ciblé, mais les
+deux exécutions complètes suivantes ont été arrêtées, l'une par un worktree de
+test non propre et l'autre par un timeout sous forte pression mémoire. Il faut
+une exécution terminale code 0 dans un environnement stable après ces commits,
+puis trois exécutions propres avant d'ouvrir G1.
