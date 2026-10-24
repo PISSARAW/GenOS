@@ -4,15 +4,16 @@ const fs = require('node:fs/promises');
 const { getDatabase, closeDatabase } = require('../src/db');
 const { getAllConcepts } = require('../src/services/capabilityGraphService');
 const { accessFor } = require('../src/services/capabilityAccessMatrix');
-const { loadExportRegistry } = require('../src/services/capabilityInheritance/catalog/exportRegistryStore');
+const { publishExport, loadExportRegistry } = require('../src/services/capabilityInheritance/catalog/exportRegistryStore');
 const { parseProjectManifest } = require('../src/services/capabilityInheritance/binding/projectManifestService');
 const API_COMMANDS = new Set(['link', 'plan', 'adopt', 'status', 'revoke', 'upgrade']);
 
 async function main(args) {
   const [command, ...options] = args;
   if (command === 'validate') return validateManifest(options);
+  if (command === 'publish') return publishLocalExport(options);
   if (API_COMMANDS.has(command)) return runApiCommand(command, options);
-  if (!['discover', 'inspect'].includes(command)) throw new Error('Usage: genos-gci.cjs <discover|inspect <capability-id> --version <semver>|validate|link|plan|adopt|status|revoke|upgrade --dry-run>');
+  if (!['discover', 'inspect'].includes(command)) throw new Error('Usage: genos-gci.cjs <discover|inspect <capability-id> --version <semver>|validate|publish --descriptor <path>|link|plan|adopt|status|revoke|upgrade --dry-run>');
   const db = await getDatabase();
   try {
     const registry = await loadExportRegistry({ db, capabilityGraph: getAllConcepts(), accessFor });
@@ -20,6 +21,24 @@ async function main(args) {
     else await inspectCapability(registry, options);
   } finally {
     await closeDatabase();
+  }
+}
+
+async function publishLocalExport(options, dependencies = {}) {
+  const descriptorPath = optionValue(options, '--descriptor');
+  if (!descriptorPath) throw new Error('publish requires --descriptor <path>');
+  const descriptor = JSON.parse(await fs.readFile(descriptorPath, 'utf8'));
+  const getDb = dependencies.getDatabase || getDatabase;
+  const closeDb = dependencies.closeDatabase || closeDatabase;
+  const getGraph = dependencies.getCapabilityGraph || getAllConcepts;
+  const saveExport = dependencies.publishExport || publishExport;
+  const writeOutput = dependencies.writeOutput || ((value) => process.stdout.write(value));
+  const db = await getDb();
+  try {
+    const result = await saveExport({ db, descriptor, capabilityGraph: getGraph() });
+    writeOutput(`${JSON.stringify(result, null, 2)}\n`);
+  } finally {
+    await closeDb();
   }
 }
 
@@ -136,4 +155,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, safeApiUrl, apiPath };
+module.exports = { main, safeApiUrl, apiPath, publishLocalExport };
