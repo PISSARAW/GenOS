@@ -34,7 +34,15 @@ function labelItemNameInput(content, label) {
   });
   repaired = repaired.replace(/(<label\b[^>]*\bfor\s*=\s*(["'])[^"']+\2[^>]*>)\s*(<input\b)/i,
     (match, labelOpening) => labelOpening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') + match.slice(labelOpening.length));
-  return repaired;
+  return cleanSearchButtonName(repaired);
+}
+
+function cleanSearchButtonName(content) {
+  return content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => {
+    if (!/\baria-label\s*=\s*(["'])search\1/i.test(button)
+      || button.replace(/<[^>]+>/g, '').trim().toLowerCase() !== 'search') return button;
+    return button.replace(/\baria-label\s*=\s*(["'])search\1/i, 'aria-label="Run search"');
+  });
 }
 
 function cleanDuplicateItemName(content) {
