@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://genos.dev/spec/socialworld-campaign-report/v1",
-  "title": "GenOS SocialWorld Campaign Report v1",
+  "$id": "https://genos.dev/spec/socialworld-campaign-report/v2",
+  "title": "GenOS SocialWorld Campaign Report v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["campaignId", "scenario", "arm", "seed", "attempt", "sourceCommit", "runtimeVersion", "model", "configHash", "status", "startedAt", "durationMs", "inputs", "observed", "oracle", "evidenceRefs", "violations", "limitations"],
@@ -14,17 +14,199 @@
     "sourceCommit": { "type": "string", "pattern": "^[a-fA-F0-9]{7,40}$" },
     "runtimeVersion": { "type": "string", "minLength": 1 },
     "model": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "config": { "type": "object" },
     "configHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "status": { "enum": ["pass", "fail", "inconclusive"] },
+    "reasonCode": { "type": "string", "minLength": 1 },
     "startedAt": { "type": "string", "format": "date-time" },
     "durationMs": { "type": "integer", "minimum": 0 },
     "inputs": { "type": "object" },
     "observed": { "type": "object" },
     "oracle": { "type": "object" },
-    "evidenceRefs": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "evidenceRefs": { "type": "array", "items": { "oneOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/evidenceRef" }] } },
     "violations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "caseId": { "type": "string", "minLength": 1 },
+    "caseHash": { "$ref": "#/$defs/sha256" },
+    "pilot": { "type": "boolean" },
+    "sharedFactors": { "$ref": "#/$defs/sharedFactors" },
     "arms": { "type": "object" }
+  },
+  "allOf": [{
+    "if": { "properties": { "scenario": { "const": "V2-06" } }, "required": ["scenario"] },
+    "then": {
+      "required": ["caseId", "caseHash", "config", "sharedFactors", "arms"],
+      "properties": {
+        "campaignId": { "const": "socialworld-v2" },
+        "arm": { "const": "genos-full" },
+        "seed": { "type": "string", "minLength": 1 },
+        "sourceCommit": { "$ref": "#/$defs/sha40" },
+        "config": { "type": "object", "minProperties": 1 },
+        "configHash": { "$ref": "#/$defs/sha256" },
+        "oracle": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "caseId"],
+          "properties": {
+            "status": { "enum": ["pass", "fail", "inconclusive"] },
+            "caseId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "evidenceRefs": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "arms": {
+          "type": "object", "additionalProperties": false,
+          "required": ["genos-full", "static-social-graph", "llm-with-memory", "genos-without-relational-physiology", "genos-social-memory-ablated", "genos-social-memory-counterfactual"],
+          "properties": {
+            "genos-full": { "$ref": "#/$defs/baselineArm" },
+            "static-social-graph": { "$ref": "#/$defs/staticGraphArm" },
+            "llm-with-memory": { "$ref": "#/$defs/llmArm" },
+            "genos-without-relational-physiology": { "$ref": "#/$defs/noPhysiologyArm" },
+            "genos-social-memory-ablated": { "$ref": "#/$defs/maskedArm" },
+            "genos-social-memory-counterfactual": { "$ref": "#/$defs/counterfactualArm" }
+          }
+        }
+      },
+      "allOf": [{
+        "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+        "then": {
+          "properties": {
+            "evidenceRefs": { "minItems": 6 },
+            "violations": { "maxItems": 0 },
+            "oracle": { "properties": { "status": { "const": "pass" } } },
+            "arms": { "properties": {
+              "genos-full": { "properties": { "status": { "const": "pass" } } },
+              "static-social-graph": { "properties": { "status": { "const": "pass" } } },
+              "llm-with-memory": { "properties": { "status": { "const": "pass" } } },
+              "genos-without-relational-physiology": { "properties": { "status": { "const": "pass" } } },
+              "genos-social-memory-ablated": { "properties": { "status": { "const": "pass" } } },
+              "genos-social-memory-counterfactual": { "properties": { "status": { "const": "pass" } } }
+            } }
+          }
+        },
+        "else": {
+          "required": ["reasonCode"],
+          "properties": { "limitations": { "minItems": 1 } }
+        }
+      }]
+    }
+  }],
+  "$defs": {
+    "sha40": { "type": "string", "pattern": "^[a-fA-F0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "evidenceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sharedFactors": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contextHash", "budgetHash", "permissionHash"],
+      "properties": {
+        "contextHash": { "type": "string", "minLength": 1 },
+        "budgetHash": { "type": "string", "minLength": 1 },
+        "permissionHash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "provider", "parsedOutput"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "parsedOutput": { "type": "object" }
+      }
+    },
+    "modelState": {
+      "type": "object", "additionalProperties": false,
+      "required": ["snapshotId", "revision", "modelHash", "sourceMemoryIds"],
+      "properties": {
+        "snapshotId": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "modelHash": { "$ref": "#/$defs/sha256" },
+        "sourceMemoryIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receiptId", "createdAt", "sourceCommit", "configHash", "hash"],
+      "properties": {
+        "receiptId": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sourceCommit": { "$ref": "#/$defs/sha40" },
+        "configHash": { "$ref": "#/$defs/sha256" },
+        "hash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["action", "memoryReferences", "contextHash", "budgetHash", "permissionHash", "receipt"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "memoryReferences": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "contextHash": { "type": "string", "minLength": 1 },
+        "budgetHash": { "type": "string", "minLength": 1 },
+        "permissionHash": { "type": "string", "minLength": 1 },
+        "receipt": { "$ref": "#/$defs/receipt" }
+      }
+    },
+    "interventionReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["interventionId", "mode", "removedMemoryIds", "addedMemoryIds", "beforeHash", "afterHash", "preservedNonSocialMemoryHash"],
+      "properties": {
+        "interventionId": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["mask-social-memories", "counterfactual-social-memories"] },
+        "removedMemoryIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "addedMemoryIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "beforeHash": { "$ref": "#/$defs/sha256" },
+        "afterHash": { "$ref": "#/$defs/sha256" },
+        "preservedNonSocialMemoryHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "arm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "status", "reasonCode", "limitations", "model", "modelState", "decision", "interventionReceipt", "evidenceRefs"],
+      "properties": {
+        "role": { "type": "string" },
+        "status": { "enum": ["pass", "fail", "inconclusive"] },
+        "reasonCode": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "model": { "oneOf": [{ "$ref": "#/$defs/model" }, { "type": "null" }] },
+        "modelState": { "oneOf": [{ "$ref": "#/$defs/modelState" }, { "type": "null" }] },
+        "decision": { "oneOf": [{ "$ref": "#/$defs/decision" }, { "type": "null" }] },
+        "interventionReceipt": { "oneOf": [{ "$ref": "#/$defs/interventionReceipt" }, { "type": "null" }] },
+        "evidenceRefs": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+      },
+      "allOf": [{
+        "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+        "then": { "properties": { "reasonCode": { "type": "null" }, "model": { "$ref": "#/$defs/model" }, "decision": { "$ref": "#/$defs/decision" }, "evidenceRefs": { "minItems": 2 } }, "required": ["limitations"] },
+        "else": { "properties": { "reasonCode": { "type": "string", "minLength": 1 }, "limitations": { "minItems": 1 } } }
+      }]
+    },
+    "baselineArm": {
+      "allOf": [
+        { "$ref": "#/$defs/arm" },
+        { "properties": { "role": { "const": "baseline" }, "interventionReceipt": { "type": "null" } } },
+        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" } } } }
+      ]
+    },
+    "staticGraphArm": { "allOf": [{ "$ref": "#/$defs/arm" }, { "properties": { "role": { "const": "comparison:static-social-graph" }, "interventionReceipt": { "type": "null" } } }] },
+    "llmArm": { "allOf": [{ "$ref": "#/$defs/arm" }, { "properties": { "role": { "const": "comparison:llm-with-memory" }, "interventionReceipt": { "type": "null" } } }] },
+    "noPhysiologyArm": { "allOf": [{ "$ref": "#/$defs/arm" }, { "properties": { "role": { "const": "comparison:genos-without-relational-physiology" }, "interventionReceipt": { "type": "null" } } }] },
+    "maskedArm": {
+      "allOf": [
+        { "$ref": "#/$defs/arm" },
+        { "properties": { "role": { "const": "masked" } } },
+        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "mask-social-memories" } } } } } }
+      ]
+    },
+    "counterfactualArm": {
+      "allOf": [
+        { "$ref": "#/$defs/arm" },
+        { "properties": { "role": { "const": "counterfactual" } } },
+        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "counterfactual-social-memories" } } } } } }
+      ]
+    }
   }
 }
