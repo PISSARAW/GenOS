@@ -10,6 +10,7 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
 const FIXTURE_ROOT = path.join(__dirname, 'fixtures', 'ontogenesis-g1');
 const SOURCE_MANIFEST = path.join(FIXTURE_ROOT, 'manifest.v1.json');
 const EXPECTED_PARENT = path.resolve('D:/GenOS-runs');
+const DOCKER_IMAGE_DIGEST = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/;
 
 function command(program, args, cwd) {
   const result = spawnSync(program, args, { cwd, encoding: 'utf8', windowsHide: true,
@@ -61,12 +62,19 @@ function initializeEvidenceRepo(recordsRoot, campaign) {
 }
 
 function verifierFor(ecosystem, task, oracleDir) {
-  if (ecosystem.id === 'js') return { program: process.execPath,
-    args: [path.join(oracleDir, 'verify.cjs'), task.oracle] };
-  if (ecosystem.id === 'py') return { program: 'python',
-    args: [path.join(oracleDir, 'verify.py'), task.oracle] };
-  return { program: process.execPath,
-    args: [path.join(oracleDir, 'verify.cjs'), `rs-${task.oracle}`] };
+  const image = process.env.GENOS_ONTOGENESIS_G1_VERIFIER_IMAGE;
+  const args = ecosystem.id === 'rs' ? [`rs-${task.oracle}`] : [task.oracle];
+  const script = path.join(oracleDir, ecosystem.id === 'py' ? 'verify.py' : 'verify.cjs');
+  return { program: ecosystem.id === 'py' ? 'python' : process.execPath,
+    args: [script, ...args], sandbox: { runtime: 'docker', image, oracleRoot: path.resolve(oracleDir) } };
+}
+
+function configuredVerifierImage() {
+  const image = process.env.GENOS_ONTOGENESIS_G1_VERIFIER_IMAGE;
+  if (typeof image !== 'string' || !DOCKER_IMAGE_DIGEST.test(image)) {
+    throw new Error('GENOS_ONTOGENESIS_G1_VERIFIER_IMAGE doit être une image locale épinglée par digest sha256.');
+  }
+  return image;
 }
 
 function projectConfig(caseId, workspace, check) {
@@ -127,6 +135,7 @@ function main() {
   if (!rootArgument || process.argv.length !== 3) {
     throw new Error('Usage: node backend/tests/prepare_ontogenesis_g1.cjs D:/GenOS-runs/ontogenesis-g1-<id>');
   }
+  const verifierImage = configuredVerifierImage();
   const root = path.resolve(rootArgument);
   assertCampaignRoot(root);
   const sourceManifest = JSON.parse(fs.readFileSync(SOURCE_MANIFEST, 'utf8'));
@@ -142,6 +151,7 @@ function main() {
     const sourceRevision = command('git', ['rev-parse', 'HEAD'], REPO_ROOT);
     const campaign = { schema: 'genos.ontogenesis-g1-campaign/v1', campaignId: crypto.randomUUID(),
       status: 'prepared-not-run', securityGate: 'requires-isolated-os-runner', oracles: 'unverified',
+      verifierRuntime: { kind: 'docker-linux', imageDigest: verifierImage },
       preparedAt: new Date().toISOString(), sourceRevision,
       sourceManifestSha256: crypto.createHash('sha256').update(fs.readFileSync(SOURCE_MANIFEST)).digest('hex'),
       acceptance: sourceManifest.acceptance,
@@ -159,4 +169,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { verifierFor };
+module.exports = { verifierFor, configuredVerifierImage };

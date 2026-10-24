@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('node:path');
 const { externalCheckReason } = require('./gitAuthority');
 const { DEFAULT_THRESHOLDS } = require('./memoryPressure');
 
@@ -47,6 +48,16 @@ function checkChecks(checks, errors) {
     if (!Array.isArray(check?.args) || check.args.some((arg) => typeof arg !== 'string')) errors.push('verification-arguments-invalides');
     const externalReason = externalCheckReason(check);
     if (externalReason) errors.push(externalReason);
+    if (check?.sandbox !== undefined) checkVerifierSandbox(check.sandbox, errors);
+  }
+}
+
+function checkVerifierSandbox(sandbox, errors) {
+  const digestImage = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/;
+  if (!sandbox || typeof sandbox !== 'object' || Array.isArray(sandbox)
+    || sandbox.runtime !== 'docker' || !digestImage.test(sandbox.image || '')
+    || typeof sandbox.oracleRoot !== 'string' || !path.isAbsolute(sandbox.oracleRoot)) {
+    errors.push('verification-sandbox-docker-invalide');
   }
 }
 

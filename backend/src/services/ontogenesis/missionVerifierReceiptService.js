@@ -33,7 +33,7 @@ function canonicalWorkspace(receipt, expected) {
 }
 
 function validConfiguredChecks(receipt, checks) {
-  if (receipt.checksDigest !== checksDigest(checks) || proofService.validateProofs(receipt).length) return false;
+  if (receipt.checksDigest !== checksDigest(checks) || proofService.validateProofs(receipt, checks).length) return false;
   const commands = checks.map((check) => [check.program, ...check.args].join(' '));
   return receipt.proofs.length === commands.length
     && receipt.proofs.every((proof, index) => proof.command === commands[index]);
