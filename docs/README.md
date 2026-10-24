@@ -26,6 +26,7 @@
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
 - [ADR 0602 — Runner durable P3 pour les campagnes appariées](adr/0602-runner-durable-p3-campagnes-appariees.md) — reçus immuables, reprise idempotente, scellement shadow/holdout et adaptateurs de processus externes fail-closed.
 - [ADR 0739 — Dédupliquer durablement les envois sociaux après reprise](adr/0739-envois-idempotents-apres-reprise-sociale.md) — clé basée sur l'observation et son périmètre, déduplication transactionnelle et accusé durable distinct de la publication.
+- [ADR 0740 — Contrat de cardinalité et de types des workers](adr/0740-contrat-cardinalite-et-roster-workers.md) — nombre exact, politiques de sélection des types et blocage explicite si le roster n'est pas réalisable.
 - [ADR 0606 — Socle durable V2 de l’Ontogenèse](adr/0606-socle-durable-ontogenese.md) — journal d’opérations, registre d’artefacts, outbox et migration fail-closed.
 - [ADR 0607 — Reprise exhaustive et fail-closed de l’Ontogenèse](adr/0607-reprise-exhaustive-ontogenese.md) — réconciliation sous bail, reçus immuables et escalade des effets ambigus.
 - [ADR 0608 — Confiner l’Ontogenèse avec les Job Objects Windows](adr/0608-confiner-ontogenese-job-objects-windows.md) — création suspendue, limite mémoire du job, terminaison de l’arbre et échec fermé.
@@ -448,6 +449,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 ### 9. Décisions d'architecture (ADR)
 
+- [ADR 0740 — Contrat de cardinalité et de types des workers](adr/0740-contrat-cardinalite-et-roster-workers.md) — cardinalité exacte, choix contrôlé des types et absence de réduction silencieuse.
 - [ADR 0733 — Rappel mémoire situationnel inspiré des recherches de Tsao](adr/0733-rappel-memoire-situationnel-inspire-tsao.md) — classement local en deux étapes, phases explicites, traçabilité et limites de la transposition neuroscientifique.
 
 - [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.

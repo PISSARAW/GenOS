@@ -23,4 +23,20 @@ function workerAssignmentsSchema() {
   };
 }
 
-module.exports = { workerAssignmentsSchema };
+function workerRosterSchema() {
+  return {
+    type: 'object',
+    description: 'Exact worker and task cardinality plus worker type selection policy. all_registered requires one slot for every registered worker kind.',
+    properties: {
+      agent_count: { type: 'integer', minimum: 1, maximum: 64 },
+      task_count: { type: 'integer', minimum: 1, maximum: 100000 },
+      types: { type: 'object', properties: {
+        mode: { type: 'string', enum: ['auto', 'all_registered', 'explicit', 'allowlist', 'mix'] },
+        kinds: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+        quotas: { type: 'object', additionalProperties: { type: 'integer', minimum: 1 } }
+      }, additionalProperties: false }
+    }, additionalProperties: false
+  };
+}
+
+module.exports = { workerAssignmentsSchema, workerRosterSchema };

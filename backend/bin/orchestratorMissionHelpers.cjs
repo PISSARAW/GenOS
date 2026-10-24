@@ -202,6 +202,8 @@ function missionRuntimeContext(request) {
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'hypotheses', 'workerBarrierTimeoutMs',
     'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
     'requiredTools', 'toolLease'];
+  fields.push('worker_roster', 'workerRoster', 'worker_count', 'workerCount', 'worker_task_count', 'workerTaskCount',
+    'worker_type_policy', 'workerTypePolicy', 'worker_types', 'workerTypes');
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }

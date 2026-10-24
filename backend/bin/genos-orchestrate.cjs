@@ -257,7 +257,7 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
-  const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
+  const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget, request);
   const preflightBridge = require('./orchestratorMcpPreflight.cjs');
   const preflight = await preflightBridge.runOrchestratorMcpPreflight(
     preflightBridge.buildOrchestratorPreflightInput({ db, orchestratorId: id, missionId, task,

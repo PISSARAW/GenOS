@@ -92,6 +92,8 @@ function detectEnvironment(text, hints) {
 }
 
 function detectRequestClass(text, intent) {
+  const workerRoster = require('./workerRosterRequestService').resolveWorkerRosterRequest({}, text);
+  if (workerRoster?.requestedWorkers > 1) return 'large_mission';
   const found = earlyClass(text) || lateClass(text);
   return found || intentToClass(intent);
 }
@@ -188,10 +190,11 @@ function classifyRequest(normalized) {
 
 function estimateComplexity(text, cls) {
   const big = hasAny(text, ['conway', 'complet', 'multi-domaines', 'grande mission']);
+  const workerCount = require('./workerRosterRequestService').resolveWorkerRosterRequest({}, text)?.requestedWorkers || 0;
   return {
     estimated_search_space: big ? 'large' : null,
     decomposition_needed: big || text.length > 400 || cls === 'full_project',
-    parallelism_value: big ? 3 : 0,
+    parallelism_value: big || workerCount > 1 ? 3 : 0,
     solver_value: cls === 'hard_combinatorial' ? 3 : 0,
   };
 }

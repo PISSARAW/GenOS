@@ -854,6 +854,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0737b](0737-capture-memoire-dialogue-social-borne.md) | Capturer en mémoire les dialogues sociaux résolus | Voir le fichier | -- | -- |
 | [0738](0738-boucle-developpement-social-integree.md) | Boucle de développement social intégrée à l’Ontogenèse | Voir le fichier | -- | -- |
 | [0739](0739-envois-idempotents-apres-reprise-sociale.md) | Dédupliquer durablement les envois sociaux après reprise | Accepté | 2026-10-24 | Communication, persistance, reprise sociale |
+| [0740](0740-contrat-cardinalite-et-roster-workers.md) | Contrat de cardinalité et de types des workers | Accepté | -- | Orchestration, dispatch, budgets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
