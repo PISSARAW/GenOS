@@ -26,8 +26,8 @@ async function main() {
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
     await page.reload();
     assert.equal(await page.getByLabel(/quantity/i).count(), 1);
-    assert.equal(await page.getByRole('button', { name: 'Increase Oats' }).count(), 1);
-    assert.equal(await page.getByRole('button', { name: 'Decrease Oats' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Increase quantity for Oats' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Decrease quantity for Oats' }).count(), 1);
     assert.match(await page.locator('tbody').innerText(), /Oats\s+3/);
   } finally {
     await browser.close();

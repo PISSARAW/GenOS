@@ -80,7 +80,8 @@ function applyOneRepair(content, item) {
     ensure_local_storage_mutations: ensureLocalStorageMutations,
     ensure_json_export: (value) => require('./workerCodeExportRepair').ensureJsonExport(value),
     ensure_add_item_behavior: (value) => require('./workerCodeAddRepair').ensureAddItemBehavior(value),
-    ensure_quantity_increment_behavior: (value) => require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)
+    ensure_quantity_increment_behavior: (value) => require('./workerCodeQuantityIncrementRepair')
+      .ensureQuantityIncrementBehavior(labelIncreaseButton(value, item.label))
   };
   return handlers[item.kind] ? handlers[item.kind](content) : content;
 }

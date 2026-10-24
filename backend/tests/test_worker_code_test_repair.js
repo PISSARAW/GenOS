@@ -17,7 +17,6 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
 	assert.equal(error.usage.tokens, 2000);
 	return true;
 });
-
 (async () => {
   const schemaFailure = fromModelResult({ schemaViolation: {
     error: 'Model output did not satisfy the requested worker evidence schema.',
@@ -71,7 +70,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: "locator.click: waiting for getByRole('button', { name: /increase quantity for oats/i })"
   }] }, usage: { tokens: 50 } });
   const buttonPlan = repairPlan(buttonFailure);
-  assert.deepEqual(buttonPlan, { kind: 'ensure_accessible_button_label', label: 'Increase quantity for Oats' });
+  assert.deepEqual(buttonPlan, { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
   assert.match(locatorRepairHint(buttonFailure), /aria-label="Increase quantity for Oats"/);
   const filterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
@@ -109,6 +108,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedItemName = JSON.parse(applyRepairPlan(mislabeledItemName, itemNameInputPlan)).patches[0].content;
   assert.match(repairedItemName, /<input id="item-name" type="text" aria-label="Item name">/);
   assert.match(repairedItemName, /<input id="search" type="search">/);
+  const duplicateItemNameIds = '<form><label for="itemName">Item name:</label><input id="itemName" value="${item.name}" readonly aria-label="Item name"><input id="itemName" type="text" required></form>'; const repairedDuplicateItemNameIds = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: duplicateItemNameIds }] }), itemNameInputPlan)).patches[0].content; assert.match(repairedDuplicateItemNameIds, /<input value="\$\{item\.name\}" readonly>/); assert.match(repairedDuplicateItemNameIds, /<label for="itemName">Item name:<\/label>/); assert.match(repairedDuplicateItemNameIds, /<input id="itemName" type="text" required aria-label="Item name">/);
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
     path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option></select><input id="search" placeholder="Search items">'
   }], tests: ['npm test'], evidence: 'test fixture' });
@@ -330,7 +330,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
-  assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase Oats'\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
+  assert.match(quantityRowContent, /button\.setAttribute\('aria-label',\"Increase quantity for Oats\"\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
 
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
