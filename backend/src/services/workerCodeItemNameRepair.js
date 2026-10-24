@@ -59,4 +59,4 @@ function cleanDuplicateItemName(content) {
     ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
 }
 
-module.exports = { labelItemNameInput, cleanDuplicateItemName };
+module.exports = { labelItemNameInput, cleanDuplicateItemName, cleanSearchButtonName };

@@ -35,6 +35,7 @@ function filterTarget(content, selects) {
 }
 
 function labelFilterSelect(content, label) {
+  content = require('./workerCodeItemNameRepair').cleanSearchButtonName(content);
   content = require('./workerCodeCategorySelectRepair').ensureUniqueCategorySelect(content);
   const selects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
   if (selects.length === 1 && /\bid\s*=\s*["']category["']/i.test(selects[0][0])) {
