@@ -64,6 +64,16 @@ function cleanDuplicatePantryHeadings(content) {
 }
 
 function cleanDuplicateItemName(content) {
+  const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
+  const candidates = inputs.filter(({ 0: opening }) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1|\b(?:aria-label|placeholder)\s*=\s*(["'])[^"']*item\s*name[^"']*\2/i.test(opening));
+  const primary = candidates.find(({ 0: opening }) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1/i.test(opening)) || candidates[0];
+  if (candidates.length > 1) {
+    content = content.replace(/<input\b[^>]*>/gi, (opening, offset) => {
+      if (!candidates.some((candidate) => candidate.index === offset) || offset === primary.index) return opening;
+      if (/\baria-label\s*=\s*(["'])[^"']*\1/i.test(opening)) return opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, 'aria-label="Search"');
+      return opening.replace(/\s*\/?\s*>$/, (end) => ` aria-label="Search"${end}`);
+    });
+  }
   const searchLabel = content.replace(/<label\b([^>]*\bfor\s*=\s*(["'])[^"']*search[^"']*\2[^>]*)>([\s\S]*?)<\/label\s*>/gi,
     (match, attributes, quote, text) => '<label' + attributes.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '')
       + '>' + (text.replace(/item\s*name/ig, '').replace(/\s+/g, ' ').trim().replace(/:$/, '').trim() || 'Search') + '</label>');
