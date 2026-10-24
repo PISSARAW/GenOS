@@ -246,7 +246,7 @@ function requiredPostflightInput(input) {
 
 async function resolvePostflightState(input) {
   const state = requiredPostflightInput(input);
-  const worker = await parseWorkerEvidence(input.db, input.orchestratorId, state.executionRunId);
+  const worker = await parseWorkerEvidence(input.db, input.workerAgentId || input.orchestratorId, state.executionRunId);
   if (!worker) throw Object.assign(new Error('No terminal worker evidence was persisted for postflight evaluation.'),
     { code: 'ORCHESTRATOR_POSTFLIGHT_WORKER_EVIDENCE_MISSING' });
   const { tests, passed } = successfulTestCount(worker.payload);

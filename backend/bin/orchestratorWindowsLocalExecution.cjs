@@ -95,6 +95,7 @@ async function runWindowsLocalRosterExecution(input, dependencies) {
   const runResults = await Promise.all(workers.map((worker, index) => runWindowsRosterWorker({
     input, worker, assignment: assignments[index], index, dependencies
   })));
+  await runWindowsRosterPostflight({ input, workers, runResults, dependencies });
   if (runResults.some((result) => !result.started || result.unresolved === true)) {
     throw Object.assign(new Error('At least one Windows local worker did not complete with a resolved result.'), {
       code: 'WINDOWS_LOCAL_WORKER_INCOMPLETE', workerResults: runResults
@@ -108,6 +109,24 @@ async function runWindowsLocalRosterExecution(input, dependencies) {
   await input.finalizeOrchestratedMission({ db, outcome, evaluation, morphology: input.morphology,
     morphologySnapshot: null, nceEnhancements: input.nceEnhancements, audit, deferredAgentTerminalStatus: true });
   return true;
+}
+
+async function runWindowsRosterPostflight(context) {
+  const { input, workers, runResults, dependencies } = context;
+  const runPostflight = dependencies.runPostflight || require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight;
+  for (const [index, worker] of workers.entries()) {
+    try {
+      await runPostflight({ db: input.db, orchestratorId: input.id, workerAgentId: worker.agentId,
+        missionId: input.missionId, task: input.task, repoRoot: path.resolve(__dirname, '../..'),
+        workspaceRoot: requestedWorkspace(input.request), preflight: input.preflight,
+        localResult: runResults[index], workerElapsedMs: runResults[index].elapsedMs || 0 });
+    } catch (error) {
+      require('../src/services/telemetryObserver').emitEvent({ eventType: 'ORCHESTRATOR_POSTFLIGHT_FAILED',
+        agentId: input.id, action: error.tool || error.code || 'POSTFLIGHT', detail: error.message,
+        severity: 'warning', payload: { missionId: input.missionId, workerAgentId: worker.agentId,
+          code: error.code || null, tool: error.tool || null } });
+    }
+  }
 }
 
 async function runWindowsRosterWorker(context) {
@@ -126,7 +145,9 @@ async function runWindowsRosterWorker(context) {
   mission.workerKind = assignment.workerKind;
   mission.role = assignment.role;
   mission.modelBudgetScope = scope;
-  return dependencies.runLocalWorker(db, mission, { id: executionRunId });
+  const startedAt = Date.now();
+  const result = await dependencies.runLocalWorker(db, mission, { id: executionRunId });
+  return { ...result, elapsedMs: Date.now() - startedAt };
 }
 
 async function persistLocalBudgetScope(db, scope, executionRunId, agentId) {
@@ -158,7 +179,8 @@ async function runWindowsLocalExecution(input, dependencies = {}) {
   const validScope = dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope;
   if ((input.autonomyPlan?.dispatchWorkers || []).length > 1) {
     return runWindowsLocalRosterExecution(input, { runLocalWorker, validScope,
-      createAutonomousWorkers: dependencies.createAutonomousWorkers });
+      createAutonomousWorkers: dependencies.createAutonomousWorkers,
+      runPostflight: dependencies.runPostflight });
   }
 
   // Le fallback est in-process : utiliser l'agent orchestrateur persisté pour que

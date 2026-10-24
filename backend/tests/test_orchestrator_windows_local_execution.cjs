@@ -36,6 +36,7 @@ async function main() {
     role: `worker-${index + 1}`, workerKind: 'bounded_worker', label: `worker-${index + 1}`
   }));
   const dispatched = [];
+  const postflights = [];
   const multiInput = { ...input, autonomyPlan: { dispatchWorkers: workerAssignments,
     workerRoster: { exact: true, requestedWorkers: 10 } } };
   await runWindowsLocalExecution(multiInput, {
@@ -47,11 +48,13 @@ async function main() {
     runLocalWorker: async (_db, mission) => {
       dispatched.push(mission);
       return { started: true, unresolved: false };
-    }
+    },
+    runPostflight: async (context) => { postflights.push(context.workerAgentId); return {}; }
   });
   assert.equal(dispatched.length, 10);
   assert.deepEqual(dispatched.map(worker => worker.agentId), workerAssignments.map((_, index) => `worker-${index + 1}`));
   assert.ok(dispatched.every(worker => worker.orchestratorAgentId === input.id));
+  assert.deepEqual(postflights, workerAssignments.map((_, index) => `worker-${index + 1}`));
   console.log('Windows local execution recovery identity: PASS');
 }
 
