@@ -10,6 +10,7 @@ const path = require('node:path');
 const { openDatabase } = require('./helpers/biologyDatabase');
 const fixture = require('./helpers/biologicalWorkerFixture');
 const execution = require('../src/services/strategyExecutionService');
+const provenance = require('../src/services/gvxMissionProvenance');
 const authority = require('../src/services/missionEnvelopeAuthority');
 const launchAuthority = require('../src/services/missionExecutionAuthority');
 const migration = require('../src/db/migrations/migrateExecutionAuthorityV2');
@@ -105,6 +106,22 @@ async function rejectMissingScope(db, contract) {
   await db.run("UPDATE agents SET workspace_id = 'worker-workspace' WHERE id = 'worker'");
 }
 
+async function rejectMissingBinding(db, contract) {
+  const countBefore = await db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs');
+  const bindRun = provenance.bindRun;
+  provenance.bindRun = async () => null;
+  try {
+    await assert.rejects(execution.createExecutionRun(db, { agentId: 'worker', contractRecord: contract,
+      missionId: 'worker-mission', budget: { tokens: 10, latencyMs: 300000 } }),
+    { code: 'GVX_RUN_BINDING_REQUIRED' });
+  } finally {
+    provenance.bindRun = bindRun;
+  }
+  const countAfter = await db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs');
+  assert.equal(countAfter.count, countBefore.count,
+    'a mission run without its binding must roll back inside the same transaction');
+}
+
 async function rejectInternalPromotion(db, contract) {
   const run = await execution.createExecutionRun(db, { agentId: 'worker', contractRecord: contract,
     budget: { tokens: 10, latencyMs: 300000 } });
@@ -125,6 +142,7 @@ async function main() {
     await insertHistoricRun(db, contract);
     await assertHistoricReadOnly(db);
     await rejectMissingScope(db, contract);
+    await rejectMissingBinding(db, contract);
     await sealV2(db, contract, workspace);
     await rejectUnsigned(db, contract, workspace);
     await rejectInternalPromotion(db, contract);

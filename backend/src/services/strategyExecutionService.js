@@ -78,7 +78,11 @@ async function createBoundExecutionRun(db, context) {
     );
   }
   const workerBinding = await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
-  await require('./gvxMissionProvenance').bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
+  const missionBinding = await require('./gvxMissionProvenance')
+    .bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
+  if (context.missionId && !missionBinding?.eventId) {
+    throw Object.assign(new Error('Mission run binding was not persisted.'), { code: 'GVX_RUN_BINDING_REQUIRED' });
+  }
   return events.getRun(db, id);
 }
 
