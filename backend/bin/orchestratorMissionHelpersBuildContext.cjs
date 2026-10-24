@@ -2,9 +2,21 @@
 
 const { collectMissionEvidence } = require('../src/services/missionEvidenceCollector');
 
-function requestedSuccessCriteria(policyRequest, request) {
-  return policyRequest.successCriteria || request.successCriteria
-    || policyRequest.success_criteria || request.success_criteria;
+function requestedCompletionContract(policyRequest, request) {
+  const contract = policyRequest.completionContract || policyRequest.completion_contract
+    || request.completionContract || request.completion_contract;
+  return hasEnforceableContractCriteria(contract) ? contract : null;
+}
+
+function requestedInvariants(policyRequest, request) {
+  const invariants = policyRequest.invariants || request.invariants;
+  return Array.isArray(invariants) && invariants.length > 0 ? invariants : null;
+}
+
+function hasEnforceableContractCriteria(contract) {
+  if (!contract || typeof contract !== 'object' || Array.isArray(contract)) return false;
+  return Array.isArray(contract.invariants) && contract.invariants.length > 0
+    && (contract.requiredEvidence === undefined || Array.isArray(contract.requiredEvidence));
 }
 
 function verifiedMissionOutcome(outcome, flags, evidenceAvailable) {
@@ -14,12 +26,11 @@ function verifiedMissionOutcome(outcome, flags, evidenceAvailable) {
 
 function makeHomeostasisContext(opts) {
   const { outcome, policyRequest = {}, request = {}, flags, evidence, profiles, dossierCount } = opts;
-  const completionContract = policyRequest.completionContract || request.completionContract || null;
-  const invariants = policyRequest.invariants || request.invariants || null;
-  const successCriteria = requestedSuccessCriteria(policyRequest, request);
+  const completionContract = requestedCompletionContract(policyRequest, request);
+  const invariants = requestedInvariants(policyRequest, request);
   const missionOutcome = verifiedMissionOutcome(outcome, flags, opts.evidenceAvailable);
   flags.missionOutcome = missionOutcome;
-  flags.completionContractConfigured = hasCompletionCriteria(completionContract, invariants, successCriteria);
+  flags.completionContractConfigured = Boolean(completionContract || invariants);
   return {
     completionContract,
     invariants,
@@ -29,17 +40,11 @@ function makeHomeostasisContext(opts) {
       flags,
       evidence,
       functionalChecks: outcome.functionalChecks || {},
-      structuralChecks: { ...(outcome.structuralChecks || {}),
-        testsPassed: flags.testsPassed === true },
+      structuralChecks: outcome.structuralChecks || {},
       evidenceProfiles: profiles,
       dossierCount,
     }
   };
-}
-
-function hasCompletionCriteria(contract, invariants, successCriteria) {
-  const hasContractCriteria = Boolean(contract?.invariants?.length || contract?.requiredEvidence?.length);
-  return hasContractCriteria || Boolean(invariants?.length || successCriteria?.length);
 }
 
 function makeFallbackContext(opts) {

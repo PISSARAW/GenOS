@@ -40,9 +40,12 @@ function proposedTopology(ctx) {
   const plan = ctx.autonomyPlan || {};
   const mission = ctx.normalizedMission;
   const requested = mission.missionCapabilityPlan?.topology
+    || mission.mission_capability_plan?.topology
+    || mission.topologyId || mission.topology_id
     || (plan.trinity?.activated ? 'trinity'
       : plan.aTeam?.activated ? 'a_team'
-        : mission.proposedTopology || mission.morphologyTopology || mission.morphology?.topology || null);
+        : mission.proposedTopology || mission.proposed_topology || mission.morphologyTopology
+          || mission.morphology_topology || mission.morphology?.topology || null);
   const { isTopology } = require('../morphogenesis/morphogenesisOntology');
   return isTopology(requested) ? requested : null;
 }

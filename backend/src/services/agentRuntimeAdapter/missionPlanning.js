@@ -18,6 +18,7 @@ async function planMission(ctx) {
   ctx.morphogenesisGenomeContext = await missionGenomes.loadMissionGenomeContext(ctx);
   topologyActivation.seedMorphogenesisSelection(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
+  if (topologyActivation.nativeMissionPlanOwnsDispatch(normalizedMission, ctx.autonomyPlan)) return;
   await attachMorphogenesisPlan(ctx);
 }
 

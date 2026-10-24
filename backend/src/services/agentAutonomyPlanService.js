@@ -20,6 +20,7 @@ const survivalState = require('./survivalStateService');
 const cognitivePhenotype = require('./cognitivePhenotypeService');
 const { prepareTeamLifecycle } = require('./aTeam/lifecycle/teamLifecycleService');
 const { organizationForMission } = require('./missionOrganizationResolver');
+const { deferNativePlanDispatch } = require('./agentAutonomyNativePlanDispatch');
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
 }
@@ -33,7 +34,6 @@ function resolveWorkerShare(missionBudget) {
   }
   return 0.6;
 }
-
 function resolveOrchestratorReserve(missionBudget, workerShare) {
   if (Number.isFinite(Number(missionBudget.orchestratorReserve))) {
     return clampShare(Number(missionBudget.orchestratorReserve));
@@ -44,7 +44,6 @@ function resolveOrchestratorReserve(missionBudget, workerShare) {
   }
   return 1 - workerShare;
 }
-
 function resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare) {
   const policy = autonomyPlan.tokenPolicy;
   if (policy && Number.isFinite(Number(policy.workerShare)) && policy.workerShare > 0) {
@@ -52,7 +51,6 @@ function resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare) {
   }
   return configuredWorkerShare;
 }
-
 function resolveEffectiveOrchestratorReserve(autonomyPlan, configuredReserve) {
   const policy = autonomyPlan.tokenPolicy;
   if (policy && Number.isFinite(Number(policy.orchestratorReserve))) {
@@ -126,7 +124,8 @@ function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWo
     || normalizedMission.proposedTopology === 'trinity'
     || normalizedMission.morphologyTopology === 'trinity';
   const automaticRequest = normalizedMission.trinityMode === 'auto';
-  autonomyPlan.trinity.activated = (autonomyPlan.trinity.explicitlyRequested
+  autonomyPlan.trinity.activated = normalizedMission.nativeMissionPlanOwnsDispatch !== true
+    && (autonomyPlan.trinity.explicitlyRequested
     || explicitRequest
     || (automaticRequest && autonomyPlan.trinity.ev.eligible))
     && autonomyPlan.trinity.budgetPermitsLaunch;
@@ -232,6 +231,7 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
     capabilityRequirements: normalizedMission.capabilityRequirements || normalizedMission.capability_requirements,
     availableSpecialists: normalizedMission.availableSpecialists || normalizedMission.available_specialists
   });
+  if (deferNativePlanDispatch({ autonomyPlan, normalizedMission, agentId })) return;
   const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
   const affordableAteamMembers = aTeamDispatchBudget.affordableWorkerCount(
     autonomyPlan.tokenPolicy, effectiveWorkerShare, autonomyPlan.aTeam.members);

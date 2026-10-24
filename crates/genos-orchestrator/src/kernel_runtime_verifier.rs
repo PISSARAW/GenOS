@@ -142,3 +142,23 @@ fn require(condition: bool, message: &str) -> Result<(), String> {
 fn sql_error(error: rusqlite::Error) -> String {
     format!("cannot read durable mission evidence: {error}")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{MissionRow, validate_mission};
+
+    #[test]
+    fn independent_verifier_accepts_only_the_canonical_completed_status() {
+        assert!(validate_mission(
+            &MissionRow { objective: String::from("objective"), status: String::from("completed") },
+            "objective",
+        ).is_ok());
+        for status in ["passed", "success", "running", "blocked", "failed"] {
+            let result = validate_mission(
+                &MissionRow { objective: String::from("objective"), status: status.into() },
+                "objective",
+            );
+            assert_eq!(result.unwrap_err(), "mission is not completed", "status: {status}");
+        }
+    }
+}
