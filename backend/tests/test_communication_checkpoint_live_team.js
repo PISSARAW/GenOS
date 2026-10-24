@@ -66,6 +66,14 @@ async function main() {
     assert.equal(metrics.getMetrics().tokensInput, 28);
     assert.equal(metrics.getMetrics().tokensOutput, 10);
 
+    const topologyDenied = await checkpoint.evaluateCheckpoint({ db, agentId: 'alice',
+      checkpoint: 'BLOCKER_DETECTED', topologySnapshot: { topologyId: 'isolated_critics', variantId: 'anonymous' },
+      topologyPolicy: { variantId: 'controlled', communicationAllowed: true },
+      evidence: { domain: 'mission', semanticRefs: ['mission:topology-denied'] },
+      communication: { transport: { deliver: () => { throw new Error('topology-denied communication must not send'); } } } });
+    assert.equal(topologyDenied.decision.action, 'SILENCE');
+    assert.equal(topologyDenied.constraints.topologyReason, 'TOPOLOGY_VARIANT_MISMATCH');
+
     const completion = await bridge.evaluateMissionCompletion({ db, agentId: 'alice',
       missionId: 'mission-1', gateAllowed: true,
       communication: { transport: { deliver: () => { throw new Error('must not send'); } } } });

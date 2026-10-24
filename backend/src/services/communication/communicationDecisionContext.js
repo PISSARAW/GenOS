@@ -19,12 +19,14 @@ function buildDecisionContext(input) {
 }
 
 function topologyOf(input) {
-  const topology = input.topology || {};
+  const topology = input.topology || input.topologySnapshot || {};
+  const policy = input.topologyPolicy || topology.communicationPolicy || null;
   return {
     organization: input.organization || topology.organization || null,
     topologyId: topology.topologyId || null,
-    variantId: topology.variantId || null,
-    version: Number.isInteger(topology.version) ? topology.version : null
+    variantId: topology.variantId || input.variantId || null,
+    version: Number.isInteger(topology.version) ? topology.version : null,
+    policy: policy && typeof policy === 'object' ? { ...policy } : null
   };
 }
 
@@ -74,4 +76,30 @@ function validateDecisionContext(context) {
   return { valid: errors.length === 0, errors };
 }
 
-module.exports = { SCHEMA_VERSION, buildDecisionContext, validateDecisionContext };
+function denyForTopology(decision, reasonCode) {
+  return { ...decision, action: 'SILENCE', scope: 'SELF', recipients: [], grounding: 'none', ttlMs: 0,
+    reasonCodes: [...new Set([...(decision.reasonCodes || []), reasonCode])],
+    meta: { ...(decision.meta || {}), rejectedAction: decision.action, constraint: reasonCode } };
+}
+
+function applyTopologyConstraints(context, decision, channel) {
+  if (decision.action === 'SILENCE') return { allowed: true, decision, reasonCode: null };
+  const topology = context.topology || {};
+  const policy = topology.policy;
+  if (!policy) return { allowed: true, decision, reasonCode: null };
+  if (policy.variantId && policy.variantId !== topology.variantId) {
+    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_VARIANT_MISMATCH'), reasonCode: 'TOPOLOGY_VARIANT_MISMATCH' };
+  }
+  if (policy.communicationAllowed === false) {
+    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_COMMUNICATION_DENIED'), reasonCode: 'TOPOLOGY_COMMUNICATION_DENIED' };
+  }
+  if (Array.isArray(policy.allowedChannels) && !policy.allowedChannels.includes(channel)) {
+    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_CHANNEL_DENIED'), reasonCode: 'TOPOLOGY_CHANNEL_DENIED' };
+  }
+  if (Array.isArray(policy.allowedScopes) && !policy.allowedScopes.includes(decision.scope)) {
+    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_SCOPE_DENIED'), reasonCode: 'TOPOLOGY_SCOPE_DENIED' };
+  }
+  return { allowed: true, decision, reasonCode: null };
+}
+
+module.exports = { SCHEMA_VERSION, buildDecisionContext, validateDecisionContext, applyTopologyConstraints };

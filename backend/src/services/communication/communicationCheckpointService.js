@@ -10,7 +10,8 @@
  */
 
 const { decideCommunication, getMode } = require('./communicationPolicyEngine');
-const { buildManifest, enforceManifestChannel, enforceManifestBudget } = require('./communicationManifestService');
+const { buildManifest, decisionChannel, enforceManifestChannel, enforceManifestBudget } = require('./communicationManifestService');
+const decisionContextService = require('./communicationDecisionContext');
 const { executeLiveCycle } = require('./liveCycleExecution');
 const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
 
@@ -240,13 +241,22 @@ async function evaluateCheckpoint(ctx) {
   }
   const manifest = await buildManifest(ctx);
   const intent = buildIntent(ctx);
+  const decisionContext = decisionContextService.buildDecisionContext({
+    agentId: ctx.agentId, intent, manifest, topology: ctx.topology || ctx.topologySnapshot,
+    topologyPolicy: ctx.topologyPolicy, variantId: ctx.variantId, organization: ctx.organization,
+    relationships: ctx.relationships, scope: ctx.scope
+  });
   const input = buildPolicyInput(ctx, intent, manifest);
   const proposed = await decideCommunication(input);
-  const channelGate = enforceManifestChannel(manifest, proposed);
+  const channel = decisionChannel(proposed);
+  const topologyGate = decisionContextService.applyTopologyConstraints(decisionContext, proposed, channel);
+  const channelGate = enforceManifestChannel(manifest, topologyGate.decision);
   const budgetGate = await enforceManifestBudget({ db: ctx.db, manifest, decision: channelGate.decision });
   const decision = budgetGate.decision;
   const receipt = buildReceipt(ctx, decision);
   receipt.constraints = {
+    topologyAllowed: topologyGate.allowed,
+    topologyReason: topologyGate.reasonCode,
     channel: channelGate.channel,
     channelAllowed: channelGate.allowed,
     budget: budgetGate.reservation
