@@ -61,6 +61,7 @@ function reportFor(input) {
     seed: args.seed || 'socialworld-v2-01', attempt: Number(args.attempt || 1),
     sourceCommit: args.sourceCommit, runtimeVersion: '3', model: null,
     configHash: args.configHash, status: recovered ? 'pass' : 'fail', startedAt, durationMs,
+    campaignDisposition: 'diagnostic-pilot',
     inputs: { processBoundaries: 3, durableDatabase: true },
     observed: { factRecovered: recovered, relationRecovered: recovered, negativeControlEmpty: true },
     oracle: { recalculable: recovered }, evidenceRefs: [evidenceName], violations: [], limitations: []

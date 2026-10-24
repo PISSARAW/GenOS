@@ -12,7 +12,8 @@ const REPORT_FIELDS = [
 
 function isCampaignReport(value, campaignId) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-    && value.campaignId === campaignId && REPORT_FIELDS.every((field) => Object.hasOwn(value, field));
+    && value.campaignId === campaignId && REPORT_FIELDS.every((field) => Object.hasOwn(value, field))
+    && !(value.scenario === 'V2-03' && value.campaignDisposition === 'diagnostic-pilot');
 }
 
 function readCampaignReports(reportDirectory, campaignId) {
