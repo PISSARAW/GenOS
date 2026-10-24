@@ -37,7 +37,11 @@ async function memoryDb() {
 
   const db = await memoryDb();
   const { defaultConfig } = require('../src/services/ontogenesis/configSchema');
-  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'run', config: defaultConfig() });
+  const runnerTestConfig = defaultConfig();
+  // Exercise dispatch logic independently of host RAM; resource guard behavior
+  // has its own injected-state coverage and must not make this test flaky.
+  runnerTestConfig.memory.thresholds = { constrainedPct: 0.02, criticalPct: 0.01, recoverPct: 0.03 };
+  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'run', config: runnerTestConfig });
 
   // Échéance due → événement au tick ; intervalle replanifié, once terminé.
   const past = new Date(Date.now() - 60000).toISOString();
