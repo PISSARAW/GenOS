@@ -30,8 +30,8 @@ const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
 const codePrompt = buildAnalysisPrompt({ codeWorker: true, agentName: 'developer', prompt: 'Fix the source.',
   workspaceContext: 'src/index.js: small source file' });
-assert.match(codePrompt, /For source files under 4 KiB, use a full-file replacement/);
-assert.match(codePrompt, /Each find anchor must be copied exactly from the trusted workspace snapshot/);
+assert.match(codePrompt, /Prefer the minimal exact-edit form when possible/);
+assert.match(codePrompt, /Each find anchor must occur once/);
 const additionalPatchPropertyFeedback = schemaRepairFeedback({ code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
   workerArtifactDiagnostics: { violations: ['/patches/0 must NOT have additional properties'] } },
 { allowedPatchPaths: ['index.html'] });
