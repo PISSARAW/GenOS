@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/spec/gci/capability.schema.json",
+  "title": "GenOS GCI capability descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "capabilityId", "version", "implementationDigest", "provider", "maturity", "exportModes", "inputContract", "outputContract", "requiredAuthority", "dependencies", "constraints", "sideEffects", "evidence", "revocationPolicy"],
+  "properties": {
+    "schema": { "const": "genos.gci.capability/v1" },
+    "capabilityId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$" },
+    "implementationDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "provider": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "string", "minLength": 1 }, "projectId": { "type": "string" } } },
+    "maturity": { "enum": ["declared", "integrated", "verified"] },
+    "exportModes": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "enum": ["linked", "embedded", "managed"] } },
+    "inputContract": { "type": "object" },
+    "outputContract": { "type": "object" },
+    "requiredAuthority": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "dependencies": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["capabilityId", "version"], "properties": { "capabilityId": { "type": "string" }, "version": { "type": "string" } } } },
+    "constraints": { "type": "object" },
+    "sideEffects": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "revocationPolicy": { "type": "object", "required": ["revocable"], "properties": { "revocable": { "type": "boolean" }, "reason": { "type": "string" } } }
+  }
+}

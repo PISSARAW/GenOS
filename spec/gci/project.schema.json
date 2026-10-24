@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/spec/gci/project.schema.json",
+  "title": "GenOS GCI project manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "project", "provider", "inherit"],
+  "properties": {
+    "schema": { "const": "genos.gci.project/v1" },
+    "project": { "type": "object", "additionalProperties": false, "required": ["id", "environment"], "properties": { "id": { "type": "string", "minLength": 1 }, "environment": { "type": "string", "minLength": 1 } } },
+    "provider": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "string", "minLength": 1 } } },
+    "inherit": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["capability", "mode", "version", "permissions"], "properties": { "capability": { "type": "string" }, "mode": { "enum": ["linked", "embedded", "managed"] }, "version": { "type": "string" }, "permissions": { "type": "array", "uniqueItems": true, "items": { "type": "string" } } } } },
+    "updates": { "type": "object", "additionalProperties": false, "properties": { "policy": { "enum": ["manual", "propose"] }, "require_independent_verification": { "type": "boolean" }, "auto_merge": { "const": false } } }
+  }
+}
