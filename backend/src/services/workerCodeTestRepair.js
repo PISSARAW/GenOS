@@ -60,7 +60,12 @@ function parseProposal(text, plans) {
 
 function applyPatchRepairs(patch, plans) {
   if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') return null;
-  return plans.reduce((content, item) => applyOneRepair(content, item), patch.content);
+  return cleanLabelAccessibleOverrides(plans.reduce((content, item) => applyOneRepair(content, item), patch.content));
+}
+
+function cleanLabelAccessibleOverrides(content) {
+  return content.replace(/<label\b[^>]*>/gi, (opening) =>
+    opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''));
 }
 
 function applyOneRepair(content, item) {
