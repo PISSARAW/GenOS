@@ -1,5 +1,4 @@
 'use strict';
-
 const MAX_TEST_RETRIES = 25;
 const MAX_SCHEMA_RETRIES = 3;
 const MAX_FAILURE_TEXT = 20000;
@@ -7,18 +6,15 @@ const MAX_CANDIDATE_TEXT = 12000;
 function isCodeWorker(mission) {
   return mission.localCodeWorker === true || mission.executionPolicy?.localCodeWorker === true;
 }
-
 function latencyBudget(mission) {
   const values = [mission.timeoutMs, mission.executionBudget?.latencyMs]
     .map(Number).filter((value) => Number.isFinite(value) && value > 0);
   return values.length ? Math.min(...values) : 30000;
 }
-
 function tokenBudget(mission) {
   const value = Number(mission.executionBudget?.tokens);
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
-
 function consumedTokens(error) {
   const direct = Number(error.usage?.tokens);
   if (Number.isSafeInteger(direct) && direct >= 0) return direct;
@@ -29,15 +25,12 @@ function consumedTokens(error) {
   }
   return null;
 }
-
 function locatorRepairHint(error) {
   return require('./workerCodeTestRepairRules').locatorRepairHint(error);
 }
-
 function repairPlan(error) {
   return require('./workerCodeTestRepairRules').repairPlan(error);
 }
-
 function applyRepairPlan(text, plan) {
   const plans = (Array.isArray(plan) ? plan : [plan]).filter((item) => item?.label);
   const parsed = parseProposal(text, plans);
@@ -50,7 +43,6 @@ function applyRepairPlan(text, plan) {
   }
   return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
 }
-
 function parseProposal(text, plans) {
   if (!plans.length) return null;
   const match = String(text || '').match(/\{[\s\S]*\}/);
@@ -60,12 +52,19 @@ function parseProposal(text, plans) {
 
 function applyPatchRepairs(patch, plans) {
   if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') return null;
-  return cleanLabelAccessibleOverrides(plans.reduce((content, item) => applyOneRepair(content, item), patch.content));
+  return cleanLabelAccessibleOverrides(removePlaceholderQuantityActions(
+    plans.reduce((content, item) => applyOneRepair(content, item), patch.content)));
 }
 
 function cleanLabelAccessibleOverrides(content) {
   return content.replace(/<label\b[^>]*>/gi, (opening) =>
     opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''));
+}
+
+function removePlaceholderQuantityActions(content) {
+  return content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) =>
+    /\baria-label\s*=\s*(["'])increase\s+quantity\s+for\s+(?:name|item)\1/i.test(button)
+      ? '' : button);
 }
 
 function applyOneRepair(content, item) {
