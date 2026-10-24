@@ -275,7 +275,7 @@ async function runGenerationStage(ctx) {
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
-  let result = await generateWorkerResult({
+  const generationContext = {
     db: ctx.db,
     mission: ctx.mission,
     executionRun: ctx.executionRun,
@@ -289,7 +289,9 @@ async function runGenerationStage(ctx) {
     codeWorker: codeWorker,
     promptText: promptText,
     identitySession: ctx.identity.session
-  });
+  };
+  let result = await require('./workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText,
+    generate: (repairedPrompt) => generateWorkerResult({ ...generationContext, promptText: repairedPrompt }) });
   result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
   if (codeWorker && codeRepairPlans) {
@@ -301,7 +303,6 @@ async function runGenerationStage(ctx) {
   if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
-
 
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
