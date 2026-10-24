@@ -12,6 +12,7 @@ render();
 </script></body>`;
 const cardSource = `<!doctype html><h1>Pantry</h1><form><label for="qty">Quantity</label><input id="qty" type="number" aria-label="Quantity"></form><div data-item-row data-item-name="Oats"><span>Oats</span><span id="cardQuantity">2</span><button aria-label="Increase quantity for Oats">Increase quantity</button><button aria-label="Decrease quantity for Oats">Decrease quantity</button></div><script>const saved=JSON.parse(localStorage.getItem('pantry')||'[]');if(saved[0])document.querySelector('#cardQuantity').textContent=saved[0].quantity;</script></body>`;
 const listSource = '<!doctype html><h1>Pantry</h1><ul><li data-item-row data-item-name="Oats">Oats <span>2</span></li></ul></body>';
+const placeholderSource = '<!doctype html><div class="item"><label>Name</label><input aria-label="Item name"></div></body>';
 
 async function main() {
   const html = ensureQuantityIncrementBehavior(source);
@@ -21,7 +22,8 @@ async function main() {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(request.url === '/card'
       ? ensureQuantityIncrementBehavior(removeQuantityCollisionsAfterReload(cardSource))
-      : request.url === '/list' ? ensureQuantityIncrementBehavior(listSource) : refreshed);
+      : request.url === '/list' ? ensureQuantityIncrementBehavior(listSource)
+        : request.url === '/placeholder' ? ensureQuantityIncrementBehavior(placeholderSource) : refreshed);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true,
@@ -58,6 +60,8 @@ async function main() {
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
     assert.match(await page.locator('li').innerText(), /Oats\s+3/);
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].quantity, 3);
+    await page.goto(`http://127.0.0.1:${server.address().port}/placeholder`);
+    assert.equal(await page.getByRole('button', { name: 'Increase quantity for Name' }).count(), 0);
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
