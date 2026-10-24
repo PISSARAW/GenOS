@@ -8,6 +8,7 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const { assertSigningKeyConfigured } = require('../services/gvxLedgerIntegrity');
 
 function probePayload(status, checks = {}) {
   return {
@@ -28,18 +29,22 @@ async function getStorageProbe(req, res, probeName) {
     const db = await getDatabase();
     const result = await db.get('SELECT 1 AS ok');
     if (result?.ok !== 1) throw new Error('database probe returned an unexpected result');
+    assertSigningKeyConfigured();
     const persistence = telemetry.getPersistenceStatus();
     const queueLimit = Math.max(1, Number(process.env.GENOS_TELEMETRY_QUEUE_CAPACITY) || 4096);
     if (persistence.queued >= queueLimit) throw new Error('telemetry persistence queue is full');
 
     return res.status(200).json(probePayload('ok', {
       database: 'ok',
+      ledgerSigning: 'ok',
       telemetry: persistence.queued > queueLimit * 0.75 ? 'degraded' : 'ok',
       [probeName]: 'complete'
     }));
   } catch (error) {
+    const signingFailure = error.code === 'EXECUTION_AUTHORITY_SIGNATURE_REQUIRED';
     return res.status(503).json(probePayload('unavailable', {
-      database: 'failed',
+      database: signingFailure ? 'ok' : 'failed',
+      ledgerSigning: signingFailure ? 'failed' : 'unknown',
       [probeName]: 'incomplete'
     }));
   }

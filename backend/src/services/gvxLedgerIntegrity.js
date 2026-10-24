@@ -20,6 +20,14 @@ function macEvent(eventHash, secret = process.env.GENOS_GVX_LEDGER_HMAC_SECRET) 
   return crypto.createHmac('sha256', secret).update(eventHash).digest('hex');
 }
 
+function assertSigningKeyConfigured() {
+  if (!process.env.GENOS_GVX_LEDGER_HMAC_SECRET?.trim()) {
+    throw Object.assign(new Error('A GVX ledger signing key is required.'), {
+      code: 'EXECUTION_AUTHORITY_SIGNATURE_REQUIRED'
+    });
+  }
+}
+
 function verifyRows(rows, options = {}) {
   let previous = GENESIS_HASH;
   for (let index = 0; index < rows.length; index += 1) {
@@ -41,4 +49,4 @@ function invalid(index, reason) {
   return { valid: false, eventIndex: index, reason };
 }
 
-module.exports = { GENESIS_HASH, canonicalEvent, hashEvent, macEvent, verifyRows };
+module.exports = { GENESIS_HASH, canonicalEvent, hashEvent, macEvent, verifyRows, assertSigningKeyConfigured };

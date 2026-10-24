@@ -67,6 +67,7 @@ async function initializeMissionContext(mission) {
     { maxRetries: 10, baseDelayMs: 200 }
   );
   assertMissionNotCancelled(agentId);
+  require('../gvxLedgerIntegrity').assertSigningKeyConfigured();
   if (normalizedMission.missionId) {
     await require('../gvxMissionProvenance').requireAgentScope(db, agentId);
   }
