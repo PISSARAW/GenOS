@@ -148,9 +148,9 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 reste en qualification : une exécution complète propre a terminé en code 0
-avec 46 suites et 54 contrôles sur la révision précédente; le run de confirmation
-a détecté le test de rituel dépendant de la RAM. Depuis le correctif de fixture
-`107d84318`, il faut trois exécutions complètes consécutives en code 0 sur la
-même révision avant d'ouvrir G1. Les précédents échecs mémoire, timeout, checkout
+G0 reste en qualification. Sur `79bd08bff`, le run 1/3 a terminé en code 0
+avec 46 suites et 54 contrôles, en démarrant à 49,2 % de RAM libre. Les prochains
+runs doivent rester consécutifs sur le même arbre code/test; les commits qui
+ajoutent uniquement les reçus de campagne ne modifient pas cet arbre. Exiger
+trois codes 0 avant d'ouvrir G1. Les précédents échecs mémoire, timeout, checkout
 sale et manque d'espace restent consignés.
