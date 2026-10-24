@@ -10,6 +10,7 @@ const { mergeEvents, mergeChildrenGoverned } = require('./mergeDrivers.cjs');
 const { getDatabase } = require('./agentGitDb.cjs');
 const { verifyMergeEvidence } = require('./verifiedMerge.cjs');
 const { mergeRelations } = require('./institutionalRelations.cjs');
+const { mergeClaims } = require('./epistemicClaimMerge.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -23,7 +24,7 @@ async function getObjectScoped(db, req, objectId) {
 }
 
 function emptyState() {
-  return { decisions: [], memories: [], runs: [], plasmids: [], permissions: [], relations: [] };
+  return { decisions: [], memories: [], runs: [], plasmids: [], permissions: [], relations: [], epistemicClaims: [] };
 }
 
 function collectDeniedTools(permissions) {
@@ -44,7 +45,7 @@ async function cherryPick(req) {
 
   const commit = await getCommit(db, object.id);
   const patch = await buildCherryPickPatch({ db, req, commit, object });
-  const sections = req.body?.sections || ['decisions', 'memories', 'plasmids', 'permissions', 'relations'];
+  const sections = req.body?.sections || ['decisions', 'memories', 'plasmids', 'permissions', 'relations', 'epistemicClaims'];
   const targetAgentId = req.body?.targetAgentId || object.agent_id;
   const result = await applyPatch(req, { targetAgentId, patch, sections });
 
@@ -136,7 +137,7 @@ async function commitMergedState(ctx) {
     const result = await replaceState(req, {
       targetAgentId,
       state: merged.storeState,
-      sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations']
+      sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
     }, { inTransaction: true });
     const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
     return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
@@ -150,12 +151,13 @@ function buildMergedState(ctx) {
   const rightState = JSON.parse(right.state_json);
   const patchLeft = computePatch(baseState, leftState);
   const patchRight = computePatch(baseState, rightState);
-  const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState });
+  const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState,
+    leftObjectId: left.id, rightObjectId: right.id });
   return { storeState: buildMergeStoreState({ baseState, leftState, rightState, nameOverride, mergeSections: ms.sections }), conflicts: ms.conflicts };
 }
 
 function buildMergeSections(ctx) {
-  const { baseState, patchLeft, patchRight, leftState, rightState } = ctx;
+  const { baseState, patchLeft, patchRight, leftState, rightState, leftObjectId, rightObjectId } = ctx;
   const decisions = mergeDecisionsSection({ baseState, patchLeft, patchRight });
   const memories = mergeMemoriesSection({ baseState, patchLeft, patchRight });
   const runs = mergeRunsSection({ baseState, patchLeft, patchRight });
@@ -165,6 +167,12 @@ function buildMergeSections(ctx) {
   const relations = [baseState, leftState, rightState].some((state) => Array.isArray(state.relations))
     ? mergeRelations({ base: baseState.relations, left: leftState.relations, right: rightState.relations })
     : { merged: undefined, conflicts: [] };
+  const claims = [baseState, leftState, rightState].some((state) => Array.isArray(state.epistemicClaims))
+    ? mergeClaims({ base: baseState.epistemicClaims, left: leftState.epistemicClaims,
+      right: rightState.epistemicClaims, leftObjectId, rightObjectId })
+    : { claims: undefined, contradictions: [], conflicts: [] };
+  const priorContradictions = [baseState, leftState, rightState]
+    .flatMap((state) => state.epistemicContradictions || []);
   return {
     sections: {
       decisions: decisions.merged,
@@ -174,9 +182,12 @@ function buildMergeSections(ctx) {
       permissions: permissions.merged,
       events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
       children: children.merged,
-      relations: relations.merged
+      relations: relations.merged,
+      epistemicClaims: claims.claims,
+      epistemicContradictions: [...new Map([...priorContradictions, ...claims.contradictions]
+        .map((item) => [JSON.stringify(item), item])).values()]
     },
-    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts, ...children.conflicts, ...relations.conflicts]
+    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts, ...children.conflicts, ...relations.conflicts, ...claims.conflicts]
   };
 }
 
@@ -316,7 +327,7 @@ async function revert(req) {
   const result = await applyPatch(req, {
     targetAgentId,
     patch,
-    sections: ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations']
+    sections: ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
   });
 
   // Point 5 : le commit de revert capture l'état APRÈS application du patch

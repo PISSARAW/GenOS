@@ -14,14 +14,22 @@ async function epistemicMerge(req) {
   if (objects.some((object) => !object)) return { success: false, error: 'All three commits must exist in the current tenant.' };
   const verification = verifySnapshots(objects);
   if (!verification.verified) return { success: false, operation: 'epistemic-merge-preview', error: 'Snapshot verification failed.', verification };
-  const [base, left, right] = objects.map((object) => parseState(object.state_json).decisions || []);
+  const states = objects.map((object) => parseState(object.state_json));
+  const [base, left, right] = states.map((state) => state.decisions || []);
+  const decisions = mergeDecisions({ base, left, right, leftObjectId, rightObjectId });
+  const claims = require('./epistemicClaimMerge.cjs').mergeClaims({
+    base: states[0].epistemicClaims, left: states[1].epistemicClaims,
+    right: states[2].epistemicClaims, leftObjectId, rightObjectId });
   return {
     success: true,
     operation: 'epistemic-merge-preview',
     baseObjectId,
     leftObjectId,
     rightObjectId,
-    ...mergeDecisions({ base, left, right, leftObjectId, rightObjectId })
+    decisions: decisions.decisions,
+    claims: claims.claims,
+    contradictions: [...decisions.contradictions, ...claims.contradictions],
+    conflicts: claims.conflicts
   };
 }
 

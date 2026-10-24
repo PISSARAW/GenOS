@@ -3,7 +3,7 @@
 const { getDatabase } = require('./agentGitDb.cjs');
 const { identityOf } = require('./sectionIdentity.cjs');
 
-const COGNITIVE_SECTIONS = ['decisions', 'memories'];
+const COGNITIVE_SECTIONS = ['decisions', 'memories', 'epistemicClaims'];
 
 async function cognitiveDiff(req) {
   const db = await getDatabase();
@@ -68,6 +68,18 @@ function compareSection(ctx) {
 }
 
 function changedFacets(section, before, after) {
+  if (section === 'epistemicClaims') {
+    const oldClaim = parseState(before.claim_json);
+    const newClaim = parseState(after.claim_json);
+    const changed = [];
+    if (!same([oldClaim.subject, oldClaim.statement, oldClaim.type],
+      [newClaim.subject, newClaim.statement, newClaim.type])) changed.push('claim');
+    if (!same(oldClaim.evidence, newClaim.evidence)) changed.push('evidence');
+    if (!same(before.quality, after.quality)) changed.push('confidence');
+    if (!same([before.producer_run_id, before.producer_authority_hash],
+      [after.producer_run_id, after.producer_authority_hash])) changed.push('provenance');
+    return changed;
+  }
   const keys = section === 'decisions'
     ? { content: ['title', 'content', 'category'], evidence: ['cart_nodes_json'], confidence: ['synaptic_weight'] }
     : { action: ['action_type', 'action_input'], observation: ['observation_output'], context: ['context_state'], outcome: ['reward_score'] };

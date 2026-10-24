@@ -43,6 +43,17 @@ function checkOutcomeInvariants(state) {
       row.source_agent_id !== row.target_agent_id && Number.isFinite(Number(row.authority))
       && Number(row.authority) >= 0 && Number(row.authority) <= 1);
   }
+  if (state.epistemicClaims && Array.isArray(state.epistemicClaims)) {
+    const { calibrate } = require('./epistemicClaimMerge.cjs');
+    invariants.claimsCalibrated = state.epistemicClaims.every((row) => {
+      const derived = calibrate(row);
+      if (!derived) return false;
+      try {
+        const claim = JSON.parse(row.claim_json || '{}');
+        return claim.confidence == null && Number(row.quality) === derived.quality;
+      } catch (_) { return false; }
+    });
+  }
   return invariants;
 }
 
