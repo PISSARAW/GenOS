@@ -8,7 +8,20 @@ const { fingerprint } = require(path.join(process.env.GENOS_FIELD_TEST_ROOT,
 const WORKSPACE_SCHEMA = 'genos.shev-field-workspace-attestation/v1';
 const MEASUREMENT_SCHEMA = 'genos.shev-field-window-measurement/v1';
 
-function workspaceAttestation(expected) {
+function prepareWorkspace(expected, context) {
+  if (!context?.store?.campaignDir) return null;
+  const directory = path.join(context.store.campaignDir, 'workspaces', expected.arm);
+  fs.mkdirSync(directory, { recursive: true });
+  const snapshot = path.join(directory, 'baseline.json');
+  if (!fs.existsSync(snapshot)) fs.writeFileSync(snapshot, JSON.stringify('snapshot'));
+  const snapshotHash = fingerprint(JSON.parse(fs.readFileSync(snapshot, 'utf8')));
+  if (snapshotHash !== expected.initialSnapshotHash) throw new Error('Workspace baseline differs from the sealed snapshot.');
+  return { path: fs.realpathSync(directory), evidenceHash: fingerprint({ workspaceId: expected.workspaceId,
+    snapshotHash, entries: fs.readdirSync(directory).sort() }) };
+}
+
+function workspaceAttestation(expected, context) {
+  const workspace = prepareWorkspace(expected, context);
   const body = { schema: WORKSPACE_SCHEMA, campaignId: expected.campaignId,
     manifestHash: expected.manifestHash, arm: expected.arm, projectId: expected.projectId,
     workspaceId: expected.workspaceId, isolatedFrom: expected.isolatedFrom,
@@ -21,7 +34,8 @@ function workspaceAttestation(expected) {
     ...(expected.interventionAttestation
       && { interventionAttestation: expected.interventionAttestation }),
     attestorId: `test-workspace-${expected.arm}`,
-    evidenceRefs: [fingerprint(`workspace:${expected.arm}`), expected.runtimeLock?.evidenceHash,
+    evidenceRefs: [fingerprint(`workspace:${expected.arm}`), workspace?.evidenceHash,
+      expected.runtimeLock?.evidenceHash,
       expected.environmentLock?.evidenceHash,
       expected.interventionAttestation?.evidenceHash].filter(Boolean) };
   return { ...body, attestationHash: fingerprint(body) };
@@ -71,9 +85,13 @@ function receipt(context) {
       request.interventionAttestation?.evidenceHash].filter(Boolean) };
 }
 
-async function createAdapters() {
-  return { workspace: { ensureArm: async (expected) => workspaceAttestation(expected) },
-    runtime: { executeWindow: async ({ request }) => execution(request) },
+async function createAdapters(context) {
+  return { workspace: { ensureArm: async (expected) => workspaceAttestation(expected, context) },
+    runtime: { executeWindow: async ({ request }) => {
+      const delay = Number(process.env.SHEV_FIELD_TEST_DELAY_MS || 0);
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+      return execution(request);
+    } },
     observer: { measureWindow: async ({ request, execution: executed }) =>
       measurement(request, executed) },
     verifier: { verifyWindow: async (context) => receipt(context) } };

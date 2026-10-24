@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { fingerprint } = require('../src/services/stateFingerprint');
@@ -104,6 +105,12 @@ async function testProtocolRehearsalLifecycle() {
   fs.writeFileSync(manifestPath, JSON.stringify(manifest(Date.now() - 2000, 'protocol')));
   try {
     await commands.prepare({ campaignDir, manifestPath, adapterPath: ADAPTER });
+    const workspaces = ['control', 'treatment'].map((arm) =>
+      path.join(campaignDir, 'workspaces', arm));
+    assert.notEqual(fs.realpathSync(workspaces[0]), fs.realpathSync(workspaces[1]));
+    const baselineHashes = workspaces.map((workspace) =>
+      fingerprint(JSON.parse(fs.readFileSync(path.join(workspace, 'baseline.json'), 'utf8'))));
+    assert.equal(baselineHashes[0], baselineHashes[1]);
     const sealed = await commands.seal({ campaignDir, adapterPath: ADAPTER });
     assert.equal(sealed.mode, 'protocol');
     assert.equal(sealed.benchmarkQualified, false);
@@ -131,13 +138,40 @@ async function testProtocolRehearsalLifecycle() {
     assert.equal(payload.report.benchmarkQualified, false);
     assert.notEqual(payload.report.status, 'field_evidence_complete');
     assert.equal(fs.readFileSync(executionLog, 'utf8').trim().split(/\r?\n/).length, 50);
+    assert.equal(after.runs.control.training + after.runs.control.heldout, 25);
+    assert.equal(after.runs.treatment.training + after.runs.treatment.heldout, 25);
+    const runs = payload.events.filter((event) => event.payload?.kind === 'shev_developmental_run');
+    const roleIds = new Set(runs.flatMap((event) => [event.payload.outcome.actorId,
+      event.payload.verification.verifierId, `observer-${event.payload.arm}`]));
+    assert.equal(roleIds.size, 6);
+    const archiveDir = process.env.SHEV_PHASE7_ARCHIVE_ROOT || path.join(temporary, 'raw-archive');
+    fs.mkdirSync(archiveDir, { recursive: true });
+    const archiveFile = path.join(archiveDir, path.basename(exported.file));
+    fs.copyFileSync(exported.file, archiveFile, fs.constants.COPYFILE_EXCL);
+    assert.equal(fingerprint(JSON.parse(fs.readFileSync(archiveFile, 'utf8'))), exported.exportHash);
+    const database = path.join(campaignDir, 'campaign.sqlite');
+    const databaseTime = fs.statSync(database).mtimeMs;
+    const rehydrated = JSON.parse(execFileSync(process.execPath,
+      [path.join(ROOT, 'backend/bin/run-shev-field-campaign.cjs'), 'status',
+        '--campaign-dir', campaignDir], { cwd: ROOT, encoding: 'utf8' }));
+    assert.equal(rehydrated.mode, 'protocol');
+    assert.equal(rehydrated.status, 'protocol_only');
+    assert.equal(rehydrated.benchmarkQualified, false);
+    assert.equal(fs.statSync(database).mtimeMs, databaseTime);
     if (process.env.SHEV_KEEP_PROTOCOL_ARTIFACTS === '1') {
       const reportPath = path.join(temporary, 'phase7-report.json');
       fs.writeFileSync(reportPath, `${JSON.stringify({ mode: 'protocol',
         campaignId: payload.manifest.campaignId, manifestHash: payload.manifest.manifestHash,
         status: payload.report.status, benchmarkQualified: payload.report.benchmarkQualified,
         promotionEligible: payload.report.promotionEligible, runs: after.runs,
-        exportHash: exported.exportHash, syntheticFixture: true }, null, 2)}\n`);
+        projects: [payload.manifest.arms.control.scope.projectId,
+          payload.manifest.arms.treatment.scope.projectId],
+        workspaceIsolation: { separatePaths: true, sharedBaselineHash: baselineHashes[0] },
+        roleIds: [...roleIds].sort(), exportHash: exported.exportHash,
+        archivePath: archiveFile,
+        externalArchive: Boolean(process.env.SHEV_PHASE7_ARCHIVE_ROOT),
+        rehydratedInNewProcess: true, readOnlyStatusCheck: true,
+        syntheticFixture: true }, null, 2)}\n`);
       console.log(`Protocol rehearsal evidence: ${reportPath}`);
       return temporary;
     }
