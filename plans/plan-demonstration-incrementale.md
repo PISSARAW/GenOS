@@ -167,20 +167,30 @@ Pour démontrer une décision durable, fournir une trajectoire incertaine au ser
 Voir `docs/01-concepts/endogenous-thought-test.md` (protocole PR1→PR8) et ADR 0626 / 0646 / 0647.
 
 ```powershell
-# Suites de test ETT (13 fichiers)
+# Contrats et services ETT (13 fichiers)
 npm --prefix backend run test:ett
 
-# Campagne de développement ETT (exécutable)
-# Voir genos-ett-campaign.cjs et docs/01-concepts/endogenous-thought-test.md
+# Campagne de développement agrégée ; utiliser une DB jetable et un mot de passe
+# bootstrap temporaire dans l'environnement du processus.
+$run = "artifacts/demo-phase-4/run-<id>"
+New-Item -ItemType Directory -Force $run | Out-Null
+$env:GENOS_DISABLE_DOTENV = "1"
+$env:GENOS_DB_PATH = (Join-Path (Get-Location) "$run/ett-campaign.db")
+$env:GENOS_ADMIN_PASSWORD = [guid]::NewGuid().ToString("N")
+node backend/bin/genos-ett-campaign.cjs --output "$run/ett-campaign-receipt.json"
+Remove-Item Env:GENOS_DISABLE_DOTENV, Env:GENOS_DB_PATH, Env:GENOS_ADMIN_PASSWORD
 ```
 
 **Preuves à collecter :**
 - Détection de la question falsifiable ;
 - Admission AGOW, exécution reprenable, vérification indépendante Ed25519 ;
 - Apprentissage d'épisode borné (`maxCycles ≤ 10`) ;
-- Réception liée au run et au tenant, `promotionEligible: false`.
+- Reçus individuels run/vérification/apprentissage, liés au même `runId`, épisode et tenant, avec `promotionEligible: false` ; vérifier leur contrat et leur persistance après redémarrage de la DB.
+- Reçu agrégé de campagne de développement, séparé des reçus de cycle.
 
-**Gate de sortie :** un cycle ETT complet a produit un reçu vérifiable, et la décision de promotion (ou de non-promotion) est explicite.  
+Le reçu de `genos-ett-campaign.cjs` est une agrégation de développement : `holdout: false`, `evidenceStatus: development_only`, `publishable: false` et `promotionDecision` peut être `null`. Il ne prouve pas à lui seul le lien run/tenant ; collecter les reçus d'un cycle ETT individuel pour ce gate.
+
+**Gate de sortie :** un cycle ETT complet a produit des reçus individuels vérifiables liés au run et au tenant, et chaque reçu indique la non-éligibilité à la promotion.
 **Ce qu'on ne claim pas :** une cognition générale, ni une activation en production (explicitement indisponible, `scientificEvidence: false`, campagne sur corpus réservé non exécutée).
 
 ---
