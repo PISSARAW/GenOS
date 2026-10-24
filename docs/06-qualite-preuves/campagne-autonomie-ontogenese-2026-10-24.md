@@ -64,6 +64,12 @@ jamais une acceptation de tâche.
   des seuils mémoire stables dans ses configurations de fixture, sans changer
   les règles d'autorité ni les seuils du runtime. Le test isolé passe avec ce
   réglage; commit `107d84318`.
+- Run 1/3 sur `f0439c412` (à froid : 20 % de RAM libre, sous admission G0) :
+  45 suites/contrôles avaient passé avant l'échec de
+  `test_ontogenesis_runner.js`. Le test attendait `dispatch-requiert-harnais`,
+  mais la garde mémoire réelle a produit `ressources-contraintes`. Verdict code
+  1; ce run ne compte pas pour G0. Le test devra isoler son état mémoire comme
+  le rituel, sans changer les seuils runtime.
 
 Conclusion du relevé : la garde mémoire a suspendu correctement un tick sous
 seuil; une erreur syntaxique et un rollback incomplet ont été reproduits puis
