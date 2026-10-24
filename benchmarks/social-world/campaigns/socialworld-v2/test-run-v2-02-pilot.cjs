@@ -97,6 +97,16 @@ test('V2-02 pilot world makes every social relation traversable in both directio
   }
 });
 
+test('V2-02 pilot reply supplies a distinct simulated evidence reference and asks for confirmation', () => {
+  const reply = world.replyEventFor({ cycle: 32, eventId: 'world-event', day: 0,
+    agentId: 'agent-a', domain: 'navigation-7', evidenceRefs: ['world:source'], sourceEventId: 'world-event' },
+  'agent-b', 'signal-1');
+  assert.equal(reply.replyToAgentId, 'agent-a');
+  assert.match(reply.summary, /sourced check/);
+  assert.ok(reply.evidenceRefs.includes('world:world-event:reply'));
+  assert.ok(reply.evidenceRefs.includes('signal-1'));
+});
+
 test('V2-02 pilot rejects invalid memory references in either decision path', () => {
   const response = { structured: { action: 'silence', recipientAgentId: null,
     purpose: 'inform', reasonCode: 'evidence-insufficient', memoryReferences: ['missing'] } };

@@ -76,15 +76,20 @@ function worldTransport(input) {
 function scheduleReply(input) {
   const { world, event, recipientAgentId, signalId } = input;
   if (event.isReply || event.cycle + 1 >= CYCLES) return;
-  const reply = { cycle: event.cycle + 1, day: dayForCycle(event.cycle + 1),
-    eventId: `${event.eventId}:reply`, agentId: recipientAgentId,
-    summary: `${event.agentId} shared sourced help; decide whether to respond.`,
-    domain: event.domain, evidenceRefs: [...event.evidenceRefs, signalId], isReply: true,
-    replyToAgentId: event.agentId, sourceEventId: event.sourceEventId };
+  const reply = replyEventFor(event, recipientAgentId, signalId);
   const queued = world.pending.get(reply.cycle) || [];
   queued.push(reply);
   world.pending.set(reply.cycle, queued);
   world.evidenceRefs.add(signalId);
+}
+
+function replyEventFor(event, recipientAgentId, signalId) {
+  const eventId = `${event.eventId}:reply`;
+  return { cycle: event.cycle + 1, day: dayForCycle(event.cycle + 1), eventId,
+    agentId: recipientAgentId,
+    summary: `A route marker needs confirmation for ${event.domain}; ${event.agentId} asks for a sourced check.`,
+    domain: event.domain, evidenceRefs: [...event.evidenceRefs, signalId, `world:${eventId}`],
+    isReply: true, replyToAgentId: event.agentId, sourceEventId: event.sourceEventId };
 }
 
 function worldState(db, events) {
@@ -104,4 +109,5 @@ function eventInput(event) {
       evidenceRefs: event.evidenceRefs, urgency: 0.7, eventType: event.isReply ? 'social_reply' : 'social_observation' } } };
 }
 
-module.exports = { createWorld, ensureTransportTables, worldTransport, worldState, eventInput, ringEdges };
+module.exports = { createWorld, ensureTransportTables, worldTransport, worldState, eventInput,
+  ringEdges, replyEventFor };
