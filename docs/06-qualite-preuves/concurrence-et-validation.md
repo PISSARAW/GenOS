@@ -18,7 +18,8 @@ modifient GenOS en parallèle.
 ## Validation
 
 `npm test` exécute un prévol qui refuse les index non fusionnés et les marqueurs
-de conflit, puis prend un verrou commun à tous les worktrees du même dépôt.
+de conflit dans les fichiers modifiés ou non suivis, puis prend un verrou commun
+à tous les worktrees du même dépôt.
 Les suites complètes ne s'exécutent donc pas simultanément dans ces worktrees.
 Le prévol vérifie aussi l'espace disponible avant de lancer les scénarios qui
 créent des espaces isolés.

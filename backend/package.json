@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "pretest": "node ../scripts/ci/check_test_conflicts.js",
     "dev": "node server.js",
     "studio:supervised": "node bin/genos-studio-supervisor.cjs",
     "test:studio": "node tests/run_studio_suite.cjs",
