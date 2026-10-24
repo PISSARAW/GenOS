@@ -81,6 +81,7 @@ function applyOneRepair(content, item) {
     ensure_best_before_input_label: (value) => labelBestBeforeInput(value, item.label),
     ensure_item_name_input_label: (value) => require('./workerCodeItemNameRepair').labelItemNameInput(value, item.label),
     ensure_search_filter_behavior: ensureSearchFilterBehavior,
+    ensure_pantry_heading: (value) => require('./workerCodePantryHeadingRepair').ensurePantryHeading(value),
     ensure_local_storage_mutations: ensureLocalStorageMutations,
     ensure_json_export: (value) => require('./workerCodeExportRepair').ensureJsonExport(value),
     ensure_add_item_behavior: (value) => require('./workerCodeAddRepair').ensureAddItemBehavior(value),

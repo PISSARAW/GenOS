@@ -45,6 +45,7 @@ function plan(kind, label) {
 }
 
 const planRules = [
+  (output) => /getByRole\(\s*'heading',\s*\{\s*name:\s*\/pantry\/i/.test(output) && plan('ensure_pantry_heading', 'Pantry Inventory'),
   (output) => ((/getByLabel\(\/quantity\/i\)[\s\S]*?Timeout/i.test(output)
     && !/resolved to \d+ elements/i.test(output)) || /acceptance\.cjs:15:38/i.test(output))
     && plan('ensure_quantity_input_label', 'Quantity'),
