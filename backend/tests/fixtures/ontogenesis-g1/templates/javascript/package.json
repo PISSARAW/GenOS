@@ -1,0 +1,7 @@
+{
+  "name": "ontogenesis-g1-metrics-js",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/metrics.js",
+  "type": "commonjs"
+}

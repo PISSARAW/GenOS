@@ -1,0 +1,8 @@
+[package]
+name = "g1_metrics"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "g1_metrics"
+path = "src/lib.rs"

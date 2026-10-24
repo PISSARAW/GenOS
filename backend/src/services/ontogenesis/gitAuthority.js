@@ -3,7 +3,7 @@
 const path = require('path');
 
 const LOCAL_SUBCOMMANDS = new Set([
-  'add', 'cat-file', 'commit', 'diff', 'log', 'merge-base', 'rev-parse', 'status'
+  'add', 'cat-file', 'commit', 'diff', 'log', 'ls-files', 'merge-base', 'restore', 'rev-parse', 'status'
 ]);
 const EXTERNAL_SUBCOMMANDS = new Set(['merge', 'push']);
 const OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--exec-path', '--git-dir', '--namespace', '--work-tree']);

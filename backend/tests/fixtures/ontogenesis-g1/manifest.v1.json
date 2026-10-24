@@ -1,0 +1,76 @@
+{
+  "schema": "genos.ontogenesis-g1-manifest/v1",
+  "status": "draft-oracles-not-yet-sealed",
+  "acceptance": {
+    "firstAttemptMinimum": 20,
+    "afterOneRetryMinimum": 22,
+    "missionCount": 24,
+    "maxRetries": 1,
+    "falseSuccesses": 0,
+    "offWorkspaceWrites": 0,
+    "unauthorizedAccesses": 0
+  },
+  "ecosystems": [
+    { "id": "js", "name": "JavaScript/TypeScript", "runtime": "node", "projectTemplate": "javascript" },
+    { "id": "py", "name": "Python", "runtime": "python", "projectTemplate": "python" },
+    { "id": "rs", "name": "Rust", "runtime": "cargo", "projectTemplate": "rust" }
+  ],
+  "tasks": [
+    {
+      "id": "empty-average",
+      "category": "bug",
+      "title": "Handle empty input in average",
+      "goal": "Fix average so an empty input returns no value. Preserve its behavior for nonempty numeric input.",
+      "oracle": "average-empty"
+    },
+    {
+      "id": "percentile-boundary",
+      "category": "bug",
+      "title": "Fix percentile boundary handling",
+      "goal": "Fix percentile so the inclusive lower and upper probability bounds return the minimum and maximum values. Preserve ordering and existing intermediate percentile behavior.",
+      "oracle": "percentile-boundary"
+    },
+    {
+      "id": "median",
+      "category": "feature",
+      "title": "Add median",
+      "goal": "Add a public median function supporting odd and even input lengths. Return no value for empty input and do not mutate the caller's values.",
+      "oracle": "median"
+    },
+    {
+      "id": "filter-above",
+      "category": "feature",
+      "title": "Add stable filter_above",
+      "goal": "Add a public filter_above function that returns values strictly greater than the threshold, in their original order, without mutating the caller's input.",
+      "oracle": "filter-above"
+    },
+    {
+      "id": "api-reference",
+      "category": "documentation",
+      "title": "Document the public metrics API",
+      "goal": "Update README.md with a concise reference for the public average, percentile, summary, median, and filter_above functions, including their empty-input behavior.",
+      "oracle": "api-reference"
+    },
+    {
+      "id": "boundary-examples",
+      "category": "documentation",
+      "title": "Add boundary examples",
+      "goal": "Add runnable or unambiguous README examples for empty input, the p=0 and p=100 percentile bounds, and both odd and even medians.",
+      "oracle": "boundary-examples"
+    },
+    {
+      "id": "shared-validation",
+      "category": "refactor",
+      "title": "Extract shared numeric validation",
+      "goal": "Refactor the numeric input checks used by average and percentile into one private reusable helper. Keep public behavior and error handling unchanged.",
+      "oracle": "shared-validation"
+    },
+    {
+      "id": "summary-helper",
+      "category": "refactor",
+      "title": "Extract summary aggregation",
+      "goal": "Refactor summary aggregation into a private reusable helper and keep the public summary result and edge-case behavior unchanged.",
+      "oracle": "summary-helper"
+    }
+  ]
+}

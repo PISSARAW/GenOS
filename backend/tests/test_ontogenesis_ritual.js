@@ -21,6 +21,18 @@ async function memoryDb() {
   return db;
 }
 
+function ritualTestConfig() {
+  const config = require('../src/services/ontogenesis/configSchema').migrateProjectConfig({});
+  config.memory.thresholds = { constrainedPct: 0.02, criticalPct: 0.01, recoverPct: 0.03 };
+  return config;
+}
+
+function healthyTestConfig() {
+  const config = require('../src/services/ontogenesis/configSchema').defaultConfig();
+  config.memory.thresholds = { constrainedPct: 0.02, criticalPct: 0.01, recoverPct: 0.03 };
+  return config;
+}
+
 (async () => {
   const ritual = require('../src/services/ontogenesis/ritualService');
   const store = require('../src/services/ontogenesis/projectStore');
@@ -47,7 +59,7 @@ async function memoryDb() {
   const db = await memoryDb();
   const memory = require('../src/services/ontogenesis/memoryService');
   // Sans autorité configurée : la review refuse, le rituel s'ouvre.
-  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'rituel' });
+  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'rituel', config: ritualTestConfig() });
   const task = await store.addTask(db, { projectId: pid, title: 'sensible', priority: 1 });
   const opened = await tickOnce(db, { projectId: pid, owner: 'runner-1' });
   assert.strictEqual(opened.state, 'PLANNING');
@@ -71,7 +83,7 @@ async function memoryDb() {
   const cleared = await tickOnce(db, { projectId: pid, owner: 'runner-1' });
   assert.strictEqual(cleared.note, 'dispatch-requiert-harnais');
 
-  const pid2 = await store.createProject(db, { rootPath: 'C:/autre', branch: 'codex/ontogenesis', objective: 'refus' });
+  const pid2 = await store.createProject(db, { rootPath: 'C:/autre', branch: 'codex/ontogenesis', objective: 'refus', config: ritualTestConfig() });
   const task2 = await store.addTask(db, { projectId: pid2, title: 'risquee', priority: 1 });
   await memory.recordMemory(db, { projectId: pid2, kind: 'failure', content: 'f1', provenance: {} });
   await memory.recordMemory(db, { projectId: pid2, kind: 'failure', content: 'f2', provenance: {} });
@@ -86,8 +98,7 @@ async function memoryDb() {
   assert.strictEqual(row.status, 'blocked');
 
   // Action saine et autorisée : unanimité immédiate, aucune approbation.
-  const { defaultConfig } = require('../src/services/ontogenesis/configSchema');
-  const pid3 = await store.createProject(db, { rootPath: 'C:/sain', branch: 'codex/ontogenesis', objective: 'sain', config: defaultConfig() });
+  const pid3 = await store.createProject(db, { rootPath: 'C:/sain', branch: 'codex/ontogenesis', objective: 'sain', config: healthyTestConfig() });
   await store.addTask(db, { projectId: pid3, title: 'simple', priority: 1 });
   await tickOnce(db, { projectId: pid3, owner: 'runner-1' });
   const healthy = await tickOnce(db, { projectId: pid3, owner: 'runner-1' });

@@ -99,15 +99,22 @@ async function integrateCandidate(db, ctx, run) {
   workspaces.assertCleanIntegration(fullStatus.stdout);
   const before = await integration.inspectWorktree(git, run.worktree);
   if (before.dirty && await treeHash(run.worktree) !== candidate.treeHash) throw new Error('worktree-integration-sale');
-  await workspaces.copyCandidate({ candidate: candidate.worktree, integration: run.worktree, files: candidate.files, authority: ctx.config.authority });
-  const proof = await verifyChecks(run.worktree, ctx.config.checks, { timeoutMs: verificationTime(run) });
-  if (proof.treeHash !== candidate.treeHash) throw new Error('contenu-integre-different');
-  verifyIntegratedAudit(ctx, run, candidate);
-  await ctx.fence();
-  verifyIntegratedAudit(ctx, run, candidate);
-  await integration.stageFiles(git, run.worktree, candidate.files);
-  const message = integration.buildCommitMessage({ tag: 'FEAT', title: `Ontogenese ${run.task_id}`, operationId: run.id, taskId: run.task_id });
-  await integration.commitStaged(git, run.worktree, { message, files: candidate.files });
+  let proof;
+  try {
+    await workspaces.copyCandidate({ candidate: candidate.worktree, integration: run.worktree, files: candidate.files, authority: ctx.config.authority });
+    proof = await verifyChecks(run.worktree, ctx.config.checks, { timeoutMs: verificationTime(run) });
+    if (proof.treeHash !== candidate.treeHash) throw new Error('contenu-integre-different');
+    verifyIntegratedAudit(ctx, run, candidate);
+    await ctx.fence();
+    verifyIntegratedAudit(ctx, run, candidate);
+    await integration.stageFiles(git, run.worktree, candidate.files);
+    const message = integration.buildCommitMessage({ tag: 'FEAT', title: `Ontogenese ${run.task_id}`, operationId: run.id, taskId: run.task_id });
+    await integration.commitStaged(git, run.worktree, { message, files: candidate.files });
+  } catch (error) {
+    try { await integration.rollbackCandidate(git, { worktree: run.worktree, baseSha: run.base_sha, files: candidate.files }); }
+    catch (rollbackError) { throw new Error(`integration-echec-nettoyage:${rollbackError.message}`, { cause: error }); }
+    throw error;
+  }
   if (await treeHash(run.worktree) !== candidate.treeHash) throw new Error('contenu-modifie-pendant-commit');
   verifyIntegratedAudit(ctx, run, candidate);
   const sha = await integration.currentSha(git, run.worktree);
