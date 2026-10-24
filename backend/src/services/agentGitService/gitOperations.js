@@ -100,6 +100,9 @@ async function merge(req) {
   if (!verification.verified) {
     return { success: false, operation: 'merge', error: 'Merge verification failed.', verification };
   }
+  const functional = await require('./mergeProbeGate.cjs').verifyFunctionalMerge(merged.storeState);
+  if (!functional.verified) return { success: false, operation: 'merge', error: 'Functional merge probes failed.', functional };
+  merged.functional = functional;
   return commitMergedState({ db, req, sides, base, merged, ids });
 }
 
@@ -140,7 +143,7 @@ async function commitMergedState(ctx) {
       sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
     }, { inTransaction: true });
     const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
-    return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
+    return { success: true, operation: 'merge', ...result, ...commitResult, functional: merged.functional, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
   });
 }
 
@@ -240,7 +243,8 @@ async function createMergeCommit(ctx) {
       mergeParents: [leftId, rightId],
       mergeBase: base?.id || null,
       merge: isMerge,
-      fastForward: !isMerge
+      fastForward: !isMerge,
+      functionalVerification: merged.functional
     },
     parentCommitIds: mergeParents
   });
