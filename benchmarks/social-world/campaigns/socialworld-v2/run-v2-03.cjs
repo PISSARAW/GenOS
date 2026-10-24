@@ -6,6 +6,9 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { validateReport } = require('./validate-report.cjs');
 
+const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory']);
+const EXECUTABLE_ARMS = Object.freeze(['genos-full']);
+
 function parseArgs(args) {
   const result = {};
   for (let index = 0; index < args.length; index += 2) result[args[index].replace(/^--/, '')] = args[index + 1];
@@ -79,7 +82,10 @@ function hasCompleteSourceEvidence(positive, expectedSupport) {
   return positive.sourceEvidence?.length === expectedSupport
     && positive.sourceEvidence.every((item) => item.id && item.sourceEventId
       && item.evidenceRefs?.includes(`event:${item.sourceEventId}`)
-      && item.provenance?.evidenceClass === 'runtime_report');
+    && item.provenance?.evidenceClass === 'runtime_report'
+    && item.receiptVerification?.accepted === true
+    && item.receiptVerification?.signatureVerified === true
+    && typeof item.receiptVerification?.verifierKeyFingerprint === 'string');
 }
 
 function hasRecalledSource(positive) {
@@ -100,7 +106,8 @@ function hasEmptyNegativeControl(negative) {
 }
 
 function oraclePassed(positive, negative, write) {
-  return write.written === write.expectedSupport && write.lessons > 0
+  return positive.authenticatedReceiptsBound === true
+    && write.written === write.expectedSupport && write.lessons > 0
     && hasCompleteSourceEvidence(positive, write.expectedSupport) && hasRecalledSource(positive)
     && positive.recall?.lessons?.length > 0 && hasChangedDecision(positive)
     && hasEmptyNegativeControl(negative);
@@ -119,7 +126,7 @@ function reportFor(input) {
       sourceProvenanceComplete: Boolean(evidence.provenanceComplete), negativeControlEmpty: evidence.negative.episodeCount === 0 },
     oracle: { recalculable: passed, checks: { heldOutDecisionChanged: evidence.positive.decision?.changed === true,
       sourceEventAndEvidenceRefs: Boolean(evidence.provenanceComplete), freshDatabaseUnchanged: evidence.negative.decision?.changed === false } },
-    evidenceRefs: [evidenceName], violations: [], limitations: passed ? [] : ['Required decision, recall, or source provenance evidence is missing.']
+    evidenceRefs: [evidenceName], violations: [], limitations: passed ? [] : ['Memory restart used generated input episodes; independent authenticated source receipts are unavailable, so the causal oracle remains inconclusive.']
   };
 }
 
@@ -145,9 +152,7 @@ async function runCampaign(args) {
   const write = runChild('write', positiveDatabase, payloadPath);
   const positive = runChild('recall', positiveDatabase, payloadPath);
   const negative = runChild('negative', negativeDatabase, payloadPath);
-  const provenanceComplete = positive.sourceEvidence?.length === payload.supportCount
-    && positive.sourceEvidence.every((item) => item.sourceEventId && item.evidenceRefs?.includes(`event:${item.sourceEventId}`)
-      && item.provenance?.evidenceClass === 'runtime_report');
+  const provenanceComplete = hasCompleteSourceEvidence(positive, payload.supportCount);
   const evidence = { runId, databases: { positive: positiveDatabase, negative: negativeDatabase }, processBoundaries: ['writer', 'held-out-restart-reader', 'fresh-database-reader'], write, positive, negative, provenanceComplete };
   const passed = oraclePassed(positive, negative, write);
   writeJson(evidencePath, evidence);
@@ -160,6 +165,38 @@ async function runCampaign(args) {
   const errors = validateReport(report, reportPath, path.resolve(__dirname, '../../../..'));
   if (errors.length) throw new Error(`generated V2-03 report failed validation: ${errors.join('; ')}`);
   if (!passed) process.exitCode = 1;
+  return { report, evidencePath };
+}
+
+function comparisonFor(input) {
+  return { events: { trainingGoal: 'help a friend with a navigation route',
+    heldOutGoal: 'help another friend with a navigation route', supportCount: 5, seed: input.seed },
+  budget: { supportEpisodes: 5, processBoundaries: 3 },
+  permissions: { policy: 'socialworld-v2-standard-permissions-v1' } };
+}
+
+function unavailableArm(input) {
+  const reason = `No V2-03 runtime adapter exists for ${input.arm}; it was not mapped to another arm.`;
+  return { report: { campaignId: 'socialworld-v2', scenario: 'V2-03', arm: input.arm, seed: input.seed,
+    attempt: input.attempt, sourceCommit: input.sourceCommit, runtimeVersion: '3', model: null,
+    configHash: crypto.createHash('sha256').update(JSON.stringify({ scenario: 'V2-03', seed: input.seed })).digest('hex'),
+    status: 'inconclusive', startedAt: new Date().toISOString(), durationMs: 0,
+    inputs: { comparison: { eventsHash: crypto.createHash('sha256').update(JSON.stringify(comparisonFor(input).events)).digest('hex'),
+      budgetHash: crypto.createHash('sha256').update(JSON.stringify(comparisonFor(input).budget)).digest('hex'),
+      permissionsHash: crypto.createHash('sha256').update(JSON.stringify(comparisonFor(input).permissions)).digest('hex') } },
+    observed: { runnerExecuted: false }, oracle: { recalculable: false, reason }, evidenceRefs: [],
+    violations: [], limitations: [reason] }, evidence: { runnerExecuted: false, reason }, comparison: comparisonFor(input) };
+}
+
+async function runScenario(input) {
+  if (!REGISTERED_ARMS.includes(input.arm)) throw new Error(`Unknown V2-03 arm: ${input.arm}`);
+  if (!EXECUTABLE_ARMS.includes(input.arm)) return unavailableArm(input);
+  const internalReport = path.join(input.outputDirectory, `internal-${input.scenario || 'V2-03'}-${input.seed}-${input.arm}-${input.attempt}.json`);
+  const result = await runCampaign({ database: path.join(input.outputDirectory, 'unused.sqlite'), report: internalReport,
+    seed: input.seed, arm: input.arm, attempt: String(input.attempt), sourceCommit: input.sourceCommit });
+  const evidencePath = path.resolve(path.dirname(internalReport), result.report.evidenceRefs[0]);
+  return { report: { ...result.report, inputs: { ...result.report.inputs, comparison: comparisonFor(input) } },
+    evidence: JSON.parse(fs.readFileSync(evidencePath, 'utf8')), comparison: comparisonFor(input) };
 }
 
 async function main() {
@@ -176,4 +213,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { parseArgs, reportFor, oraclePassed };
+module.exports = { parseArgs, reportFor, oraclePassed, runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS };

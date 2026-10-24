@@ -17,7 +17,8 @@ const evidence = {
   provenanceComplete: true
 };
 
-assert.equal(oraclePassed(evidence.positive, evidence.negative, evidence.write), true);
+assert.equal(oraclePassed(evidence.positive, evidence.negative, evidence.write), false,
+  'generated episode fixtures without authenticated independent receipts cannot pass');
 assert.equal(oraclePassed({ ...evidence.positive, sourceEvidence: [] }, evidence.negative, evidence.write), false,
   'missing durable source-event evidence must never pass');
 assert.equal(oraclePassed({ ...evidence.positive, sourceEvidence: evidence.positive.sourceEvidence.map((item) => ({ ...item, provenance: null })) },

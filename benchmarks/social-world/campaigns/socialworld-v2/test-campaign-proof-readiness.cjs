@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { assessReadiness } = require('./campaign-proof-readiness.cjs');
+const manifest = require('./manifest.json');
 
 function fixture(status) {
   return {
@@ -25,6 +26,11 @@ function run() {
   assert.equal(readyManifest.status, 'inconclusive');
   assert.equal(readyManifest.canLaunch, false);
   assert.equal(readyManifest.missingCausalArms.length, 2);
+
+  const campaign = assessReadiness(manifest, root);
+  assert.equal(campaign.missingCausalArms.length, 0, 'all manifest arms must have a declared runner entry');
+  assert.ok(campaign.missingExecutableArms.length > 0, 'unsupported causal treatments must remain explicit');
+  assert.equal(campaign.canLaunch, false, 'registered inconclusive wrappers are not executable proof arms');
 }
 
 run();
