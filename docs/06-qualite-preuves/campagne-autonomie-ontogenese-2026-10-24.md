@@ -59,6 +59,11 @@ jamais une acceptation de tâche.
   fence/reprise et les trois tests SHEV liés.
 - Révision du code testée : `a45e13196`. Ce relevé Windows qualifie les
   contrats locaux; il ne qualifie pas encore les missions autonomes multi-dépôts.
+- Une exécution de confirmation sur `124588e08` a de nouveau échoué au test du
+  rituel, car la RAM libre est repassée sous 25 %. Le test utilise maintenant
+  des seuils mémoire stables dans ses configurations de fixture, sans changer
+  les règles d'autorité ni les seuils du runtime. Le test isolé passe avec ce
+  réglage; commit `107d84318`.
 
 Conclusion du relevé : la garde mémoire a suspendu correctement un tick sous
 seuil; une erreur syntaxique et un rollback incomplet ont été reproduits puis
@@ -133,7 +138,9 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 est en qualification : une exécution complète propre a terminé en code 0
-avec 46 suites et 54 contrôles passés. Il reste deux exécutions complètes
-consécutives sur la même révision avant d'ouvrir G1. Les précédents échecs
-mémoire, timeout, checkout sale et manque d'espace restent consignés.
+G0 reste en qualification : une exécution complète propre a terminé en code 0
+avec 46 suites et 54 contrôles sur la révision précédente; le run de confirmation
+a détecté le test de rituel dépendant de la RAM. Depuis le correctif de fixture
+`107d84318`, il faut trois exécutions complètes consécutives en code 0 sur la
+même révision avant d'ouvrir G1. Les précédents échecs mémoire, timeout, checkout
+sale et manque d'espace restent consignés.
