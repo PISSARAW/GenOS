@@ -187,3 +187,20 @@ que si ses références de preuve existent et que l'oracle est recalculable.
 
 Les scénarios restent `planned` jusqu'à la présence de runners, d'oracles vérifiables et de
 rapports produits par exécution. Ce document ne revendique aucun résultat V2.
+
+## Outils complémentaires de qualification
+
+- `node validate-report.cjs <rapport.json>` valide les champs obligatoires et refuse un
+  rapport `pass` dont l'oracle n'est pas recalculable ou dont les références locales
+  n'existent pas.
+- `node run-v2-03.cjs --database <sqlite-path> --report <report.json>` est un pilote de
+  bas niveau sur la mémoire de lignée SQLite avec processus d'écriture, de reprise et
+  contrôle négatif séparés. Il ne remplace pas la sonde V2-03 intégrée au backend décrite
+  plus haut et ne qualifie pas une graine de campagne.
+- `node test-event-receipt-verifier.cjs`, `node test-social-oracles.cjs` et
+  `node test-morphogenesis-oracle.cjs` vérifient les contrats d'oracle isolés. Leur réussite
+  ne constitue pas une exécution runtime de V2-01, V2-02, V2-04 ou V2-05.
+- `node audit-campaign-pairs.cjs manifest.json <répertoire-des-rapports>` vérifie la
+  couverture des graines et des bras configurés par scénario, ainsi que l'égalité des
+  empreintes d'événements, budgets et permissions entre les rapports appariés. Il ne calcule
+  pas le résultat scientifique de la campagne.
