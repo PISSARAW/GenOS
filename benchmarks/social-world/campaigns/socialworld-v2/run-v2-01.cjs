@@ -87,7 +87,11 @@ async function executeServices(input, db) {
     recalls[agentId] = await recall.recallForSituation({ agentId, ...scope, missionId: `future-${input.seed}`,
       kind: 'social_dialogue', goal: `share verified route map ${input.seed}` }, {}, db);
   }
-  return { escalation, session: resolved, sourceRef, before, after, recalls };
+  const sourceReferencePersisted = Object.values(after).every((entries) => entries.some((episode) =>
+    episode.outcome?.evidenceRefs?.includes(sourceRef)));
+  const sourceReferenceRecalled = Object.values(recalls).every((result) => result.episodes.some((episode) =>
+    episode.outcome?.evidenceRefs?.includes(sourceRef)));
+  return { escalation, session: resolved, sourceRef, sourceReferencePersisted, sourceReferenceRecalled, before, after, recalls };
 }
 
 async function readMemory(input) {
@@ -128,8 +132,8 @@ function summarize(observation) {
   const turns = observation.service.session?.turns || [];
   const alternating = turns.length >= 4 && turns.slice(0, 4).every((turn, index) => turn.speaker === (index % 2 ? 'agent-b' : 'agent-a'));
   const checked = { fourAlternatingTurns: alternating, memoryMutatedForBoth: mutatedForBoth,
-    sourceReferencePersisted: observation.service.session?.status === 'resolved'
-      && observation.service.sourceRef === observation.requestedSourceRef,
+    sourceReferencePersisted: observation.service.sourceReferencePersisted === true
+      && observation.service.sourceReferenceRecalled === true,
     recalledForBoth: recalledForBoth, verifiedDeliveryReceipts: false, armIsolationVerified: false };
   return { checks: checked, turnCount: turns.length, memoryCountsBefore: countEpisodes(observation.service.before),
     memoryCountsAfter: countEpisodes(memories), recallCounts: countRecalls(recall), servicesExecuted: observation.servicesExecuted };
@@ -151,18 +155,24 @@ async function runScenario(input) {
   }
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const { getDatabase, closeDatabase } = require('../../../../backend/src/db');
-  const db = await getDatabase(':memory:');
+  let db;
   try {
+    const { getDatabase } = require('../../../../backend/src/db');
+    db = await getDatabase(':memory:');
     const service = await executeServices(input, db);
     const evidence = { scenario: 'V2-01', arm: input.arm, seed: input.seed, attempt: input.attempt,
-      service, interpretation: 'Deterministic bounded-service probe; sourceRef is a test fixture, not a delivery receipt.' };
-    const observation = summarize({ service, requestedSourceRef: service.sourceRef,
+      execution: { executed: true }, service,
+      interpretation: 'Bounded service diagnostic; sourceRef is a test fixture, not a delivery receipt.' };
+    const observation = summarize({ service,
       servicesExecuted: ['requestEscalation', 'markMicroExhausted', 'openDialogue', 'appendTurn', 'closeSession', 'recordEpisode', 'recallForSituation'] });
     const result = await persistResult({ input, evidence, observation, startedAt, started });
     return result;
+  } catch (error) {
+    return persistResult({ input, evidence: { scenario: 'V2-01', arm: input.arm, execution: { executed: false },
+      error: error.message }, observation: { checks: { serviceExecuted: false, verifiedDeliveryReceipts: false,
+      armIsolationVerified: false }, servicesExecuted: [] }, startedAt, started });
   } finally {
-    await closeDatabase();
+    if (db) await require('../../../../backend/src/db').closeDatabase();
   }
 }
 

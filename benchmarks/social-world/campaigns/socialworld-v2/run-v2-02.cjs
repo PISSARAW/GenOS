@@ -11,7 +11,8 @@ const CYCLES = 1000;
 const SCOPE = { organizationId: 'socialworld-v2-org', projectId: 'socialworld-v2-project' };
 const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory',
   'genos-without-relational-physiology']);
-const EXECUTABLE_ARMS = Object.freeze(['genos-full']);
+const DIAGNOSTIC_ARMS = Object.freeze(['genos-full']);
+const EXECUTABLE_ARMS = Object.freeze([]);
 
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -81,7 +82,9 @@ async function observe(db, event) {
 async function recordMemory(db, item) {
   const signal = item.receipt.executed;
   const acked = signal?.deliveryAcknowledgements?.some((ack) =>
-    ack.groundingLevel === 'semantic_ack' && ['seen', 'acked'].includes(ack.status));
+    ack.signalId === signal.signalId && ack.recipientAgentId !== item.event.observer
+      && ack.groundingLevel === 'semantic_ack'
+      && ['seen', 'acked'].includes(ack.status));
   if (!acked || !signal.signalId) return false;
   await require('../../../../backend/src/services/autobiographicalMemory/episodeStore').recordEpisode({
     agentId: agentId(item.event.observer), missionId: `v202-cycle-${item.event.cycle}`,
@@ -119,13 +122,40 @@ async function runFullRuntime(seed) {
 function evaluate(interactions) {
   const initiated = interactions.filter((item) => item.receipt.decision.action === 'SIGNAL');
   const recipients = new Set(initiated.flatMap((item) => item.receipt.decision.recipients));
-  const reciprocal = initiated.some((item) => item.receipt.executed?.deliveryAcknowledgements
-    ?.some((ack) => ack.recipientAgentId === item.event.observer && ack.status === 'acked'));
+  const reciprocal = hasReciprocalExchange(initiated);
   const memoryMutations = initiated.filter((item) => item.memoryRecorded).length;
-  const acknowledged = initiated.every((item) => item.receipt.executed?.published === true
-    && item.receipt.executed.deliveryAcknowledgements?.length === item.receipt.decision.recipients.length);
-  return { initiatives: initiated.length, distinctRecipients: recipients.size, reciprocal,
-    memoryMutations, acknowledged, cycles: CYCLES, population: POPULATION };
+  const acknowledged = initiated.filter(hasCompleteAcknowledgements).length;
+  return { initiatives: 0, environmentTriggeredSignals: initiated.length, distinctRecipients: recipients.size,
+    reciprocal, memoryMutations, acknowledgedSignals: acknowledged, allSignalsAcknowledged: initiated.length > 0
+      && acknowledged === initiated.length, requestedWorldCycles: CYCLES,
+    executedCheckpointEvaluations: interactions.length, population: POPULATION };
+}
+
+function hasCompleteAcknowledgements(item) {
+  const signal = item.receipt.executed;
+  const recipients = new Set(item.receipt.decision.recipients || []);
+  const acknowledgements = signal?.deliveryAcknowledgements || [];
+  if (signal?.published !== true || !signal.signalId || !signal.grounding?.satisfied
+    || recipients.size === 0 || acknowledgements.length !== recipients.size) return false;
+  return acknowledgements.every((ack) => ack.signalId === signal.signalId
+    && recipients.has(ack.recipientAgentId) && ['seen', 'acked'].includes(ack.status));
+}
+
+function hasReciprocalExchange(interactions) {
+  const acknowledged = new Set();
+  for (const item of interactions) {
+    if (item.receipt.executed?.published !== true) continue;
+    for (const ack of item.receipt.executed.deliveryAcknowledgements || []) {
+      if (ack.signalId === item.receipt.executed.signalId && ack.recipientAgentId !== item.event.observer
+        && (ack.status === 'acked' || ack.status === 'seen')) {
+        acknowledged.add(`${item.event.observer}>${ack.recipientAgentId}`);
+      }
+    }
+  }
+  return [...acknowledged].some((edge) => {
+    const [sender, recipient] = edge.split('>');
+    return acknowledged.has(`${recipient}>${sender}`);
+  });
 }
 
 function unsupportedOutcome(arm) {
@@ -133,27 +163,41 @@ function unsupportedOutcome(arm) {
     acknowledged: false, cycles: CYCLES, population: POPULATION, execution: 'unavailable', arm };
 }
 
-function makeEvidence(input, outcome, runtime) {
+function makeEvidence({ input, outcome, runtime, runtimeFailure, events }) {
   return { scenario: SCENARIO, seed: input.seed, arm: input.arm, attempt: input.attempt,
-    execution: runtime ? { executed: true, cycles: CYCLES, population: POPULATION }
-      : { executed: false, reason: 'This comparison treatment is not available in the runtime.' },
-    ...(runtime || {}), outcome };
+    worldEvents: events,
+    execution: runtime ? { executed: true, requestedWorldCycles: CYCLES,
+      checkpointEvaluations: runtime.interactions.length, autonomousAgentCycles: 0, population: POPULATION }
+      : { executed: false, reason: runtimeFailure || 'This comparison treatment is not available in the runtime.' },
+    ...(runtime || {}), runtimeFailure: runtimeFailure || null, outcome };
 }
 
 function makeReport(input) {
   const { seed, arm, attempt, sourceCommit, startedAt, durationMs, evidenceFilename, outcome } = input;
-  const unsupported = !EXECUTABLE_ARMS.includes(arm);
+  const unsupported = !DIAGNOSTIC_ARMS.includes(arm);
   const status = 'inconclusive';
   const limitation = unsupported ? `${arm} treatment is not independently executable.`
-    : 'Checkpoint services ran, but autonomous agent cycles and verified causal treatments are not implemented.';
+    : input.runtimeFailure || 'Checkpoint transport ran for a subset of environmental events; autonomous cycles, reciprocal causal behavior, and relational-physiology adaptation are unavailable.';
   return { campaignId: 'socialworld-v2', scenario: SCENARIO, arm, seed, attempt, sourceCommit,
     runtimeVersion: '3', model: null, configHash: digest(JSON.stringify({ scenario: SCENARIO, arm, seed, attempt })),
     status, startedAt, durationMs,
-    inputs: { comparison: { eventsHash: digest(`v202-events:${seed}`), budgetHash: digest('v202-budget-v1'),
-      permissionsHash: digest('v202-permissions-v1') }, cycleCount: CYCLES, population: POPULATION },
+    inputs: { comparison: comparisonHashes(input.events), requestedWorldCycles: CYCLES,
+      executedCheckpointEvaluations: outcome.executedCheckpointEvaluations || 0, population: POPULATION },
     observed: outcome, oracle: { recalculable: false, unsupportedArm: unsupported,
+      checks: { autonomousInitiatives: outcome.initiatives >= 3,
+        distinctRecipients: outcome.distinctRecipients >= 2, reciprocalInteraction: outcome.reciprocal === true,
+        receiptGroundedMutation: outcome.memoryMutations >= 1 && outcome.acknowledgedSignals > 0
+          && outcome.allSignalsAcknowledged === true },
       thresholds: { initiatives: 3, distinctRecipients: 2, reciprocalInteractions: 1, mutations: 1 } },
     evidenceRefs: [evidenceFilename], violations: [], limitations: [limitation] };
+}
+
+function comparisonHashes(events) {
+  const budgets = { requestedWorldCycles: CYCLES, checkpointEvaluations: 10, maxCandidates: 10, maxCost: 50 };
+  const permissions = { ...SCOPE, population: POPULATION,
+    allowedActors: Array.from({ length: POPULATION }, (_, index) => agentId(index)) };
+  return { eventsHash: digest(JSON.stringify(events)), budgetHash: digest(JSON.stringify(budgets)),
+    permissionsHash: digest(JSON.stringify(permissions)) };
 }
 
 function safeKey(value) {
@@ -186,23 +230,34 @@ function validateOutput(outputDirectory) {
 }
 
 function validateCommit(sourceCommit) {
-  if (typeof sourceCommit !== 'string' || !sourceCommit.trim()) throw new Error('sourceCommit is required');
+  if (typeof sourceCommit !== 'string' || !/^[a-f0-9]{7,40}$/i.test(sourceCommit)) {
+    throw new Error('sourceCommit must be a Git revision hash');
+  }
 }
 
 async function runScenario(input) {
   validateInput(input);
   const startedAt = new Date().toISOString();
   const start = Date.now();
-  const executable = EXECUTABLE_ARMS.includes(input.arm);
-  const runtime = executable ? await runFullRuntime(input.seed) : null;
+  const events = environmentEvents(input.seed);
+  const executable = DIAGNOSTIC_ARMS.includes(input.arm);
+  let runtime = null;
+  let runtimeFailure = null;
+  if (executable) {
+    try {
+      runtime = await runFullRuntime(input.seed);
+    } catch (error) {
+      runtimeFailure = error.message;
+    }
+  }
   const outcome = runtime ? runtime.outcome : unsupportedOutcome(input.arm);
   const filename = `${SCENARIO}-${safeKey(input.seed)}-${safeKey(input.arm)}-a${input.attempt}.evidence.json`;
   const evidencePath = path.join(input.outputDirectory, filename);
   fs.mkdirSync(input.outputDirectory, { recursive: true });
-  const evidence = makeEvidence(input, outcome, runtime);
+  const evidence = makeEvidence({ input, outcome, runtime, runtimeFailure, events });
   fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
   const report = makeReport({ ...input, startedAt, durationMs: Date.now() - start,
-    evidenceFilename: filename, outcome });
+    evidenceFilename: filename, outcome, runtimeFailure, events });
   const reportPath = path.join(input.outputDirectory, `${SCENARIO}-${safeKey(input.seed)}-${input.arm}-report.json`);
   const errors = validateReport(report, reportPath, path.resolve(__dirname, '../../../..'));
   if (errors.length) throw new Error(`generated V2-02 report failed validation: ${errors.join('; ')}`);
@@ -220,4 +275,5 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS, environmentEvents };
+module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS, DIAGNOSTIC_ARMS,
+  environmentEvents, evaluate, comparisonHashes };

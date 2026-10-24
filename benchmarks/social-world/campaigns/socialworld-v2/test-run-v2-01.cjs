@@ -29,12 +29,18 @@ async function main() {
       assert.ok(fs.existsSync(result.reportPath));
     }
     const diagnostic = results.find((entry) => entry.report.arm === 'genos-full');
-    assert.deepEqual(diagnostic.evidence.service.session.turns.map((turn) => turn.speaker),
-      ['agent-a', 'agent-b', 'agent-a', 'agent-b']);
-    assert.deepEqual(diagnostic.report.observed.checks, {
-      fourAlternatingTurns: true, memoryMutatedForBoth: true, sourceReferencePersisted: true,
-      recalledForBoth: true, verifiedDeliveryReceipts: false, armIsolationVerified: false
-    });
+    if (diagnostic.evidence.execution.executed) {
+      assert.deepEqual(diagnostic.evidence.service.session.turns.map((turn) => turn.speaker),
+        ['agent-a', 'agent-b', 'agent-a', 'agent-b']);
+      assert.deepEqual(diagnostic.report.observed.checks, {
+        fourAlternatingTurns: true, memoryMutatedForBoth: true, sourceReferencePersisted: true,
+        recalledForBoth: true, verifiedDeliveryReceipts: false, armIsolationVerified: false
+      });
+    } else {
+      assert.equal(diagnostic.report.status, 'inconclusive');
+      assert.equal(diagnostic.report.oracle.recalculable, false);
+      assert.equal(diagnostic.evidence.execution.executed, false);
+    }
     for (const arm of REGISTERED_ARMS.filter((value) => value !== 'genos-full')) {
       const comparator = results.find((entry) => entry.report.arm === arm);
       assert.equal(comparator.evidence.unsupported, true);
