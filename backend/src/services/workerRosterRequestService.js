@@ -110,9 +110,14 @@ function resolveWorkerRosterRequest(request = {}, task = '') {
   const { source, assignments, types } = normalizeRosterInput(request, task);
   const resolvedCount = resolveWorkerCount(source, assignments, types, task);
   const taskCount = resolveTaskCount(source, task);
+  if (taskCount !== null) {
+    throw Object.assign(new Error('Task-count scheduling is not implemented; refusing to report an unexecuted task roster.'), {
+      code: 'WORKER_TASK_SCHEDULING_UNSUPPORTED', requestedTasks: taskCount
+    });
+  }
   validateRosterCardinality(types, resolvedCount);
-  return resolvedCount || taskCount || types.mode !== 'auto'
-    ? { requestedWorkers: resolvedCount, requestedTasks: taskCount, exact: resolvedCount !== null,
+  return resolvedCount || types.mode !== 'auto'
+    ? { requestedWorkers: resolvedCount, requestedTasks: null, exact: resolvedCount !== null,
       typePolicy: types, explicitAssignments: assignments }
     : null;
 }

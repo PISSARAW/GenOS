@@ -9,10 +9,11 @@ const { KINDS } = require('../src/services/agents/workerKindService');
 const rosterRequest = require('../src/services/workerRosterRequestService');
 const { capAssignments } = require('../src/services/agentRuntimeAdapter/missionWorkers');
 
-const text = 'Crée dix rôles distincts pour traiter 100 tâches sociales.';
+const text = 'Crée dix rôles distincts pour traiter cette mission sociale.';
 const parsed = rosterRequest.resolveWorkerRosterRequest({}, text);
 assert.equal(parsed.requestedWorkers, 10);
-assert.equal(parsed.requestedTasks, 100);
+assert.throws(() => rosterRequest.resolveWorkerRosterRequest({}, 'Crée dix rôles pour traiter 100 tâches.'),
+  (error) => error.code === 'WORKER_TASK_SCHEDULING_UNSUPPORTED');
 const profile = profiler.profileRequest({ mission: text }).profile;
 assert.equal(profile.request_class, 'large_mission');
 assert.equal(router.chooseExecutionPath(profile).mode, 'collective');
@@ -21,12 +22,12 @@ const contract = buildStrategyContract({
   problem: 'Plan independent workers for a controlled mission.',
   problemProfile: { type: 'general', complexity: 0.8, uncertainty: 0.2, risk: 'low' }
 });
-const request = { mission: text, worker_roster: { agent_count: 10, task_count: 100 } };
+const request = { mission: text, worker_roster: { agent_count: 10 } };
 const plan = buildAutonomyPlan(contract, { tokens: 500000, minimumWorkerTokens: 8000 }, request);
 assert.equal(plan.workers.length, 10);
 assert.equal(plan.dispatchWorkers.length, 10);
 assert.equal(plan.workerRoster.requestedWorkers, 10);
-assert.equal(plan.workerRoster.requestedTasks, 100);
+assert.equal(plan.workerRoster.requestedTasks, null);
 assert.equal(plan.workerRoster.exact, true);
 assert.throws(() => capAssignments(plan.dispatchWorkers, {
   autonomyPlan: plan, normalizedMission: { executionPolicy: { workerFanoutLimit: 8 } }
