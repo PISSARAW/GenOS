@@ -105,6 +105,10 @@ const exportFilenameFailure = { proposal: { tests: [{ command: 'npm test', exitC
   stderr: 'AssertionError: filename does not match /\\\\.(json|csv)$/i at acceptance.cjs:29:10' }] } };
 assert.match(failureFeedback(exportFilenameFailure), /filename failed the extension assertion/);
 assert.deepEqual(repairPlan(exportFilenameFailure), { kind: 'ensure_json_export', label: 'Export JSON' });
+const ambiguousExportControls = { proposal: { tests: [{ command: 'npm test', exitCode: 1,
+  stderr: "locator.click: Error: strict mode violation: getByRole('button', { name: /export json|export csv/i }) resolved to 2 elements" }] } };
+assert.match(failureFeedback(ambiguousExportControls), /exactly one button/);
+assert.match(failureFeedback(ambiguousExportControls), /remove or rename any second Export CSV button/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]

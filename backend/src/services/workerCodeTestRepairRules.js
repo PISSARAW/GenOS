@@ -6,6 +6,7 @@ function testOutput(error) {
 
 const hintRules = [
   [/waitForEvent[\s\S]*?download|waiting for event.*download/i, 'The Export button must trigger a real browser download. Serialize pantry state to a Blob, set an anchor download to a filename ending in .json or .csv, and click the anchor.'],
+  [/strict mode violation:[\s\S]*?name:\s*\/export json\|export csv\/i[\s\S]*?resolved to 2 elements/i, 'The oracle export locator must resolve to exactly one button. Keep one visible, keyboard-operable Export JSON button that downloads the current inventory as a .json file; remove or rename any second Export CSV button that also matches the locator.'],
   [/acceptance\.cjs:29:10/, 'The browser download fired, but its filename failed the extension assertion. Set the actual download attribute to a filename that ends with a literal dot followed by .json or .csv (for example, pantry.json); do not rely on the Blob MIME type alone.'],
   [/acceptance\.cjs:24:10/, 'The increase button was clicked but the visible row did not reach quantity 3. Update the matching Oats row and the same persisted inventory item, then keep both values synchronized after rendering.'],
   [/updated quantity persists|quantity.*reload|reload.*quantity/i, 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.'],
