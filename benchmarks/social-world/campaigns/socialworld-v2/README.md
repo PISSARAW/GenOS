@@ -1,5 +1,26 @@
 # SocialWorld V2 — Boucle causale et autonomie sociale
 
+## État d'implémentation au 24 octobre 2026
+
+Deux sondes déterministes couvrent des raccords de V2, sans constituer des
+résultats de campagne ni compter comme graines préenregistrées :
+
+| Scénario | Sonde | Ce qu'elle établit | Limite |
+|---|---|---|---|
+| V2-02 | `node backend/tests/test_social_v2_24_agent_life.js` | 24 agents traversent 1 000 cycles; dix événements sans destinataire explicite déclenchent un routage, une réponse réciproque et un épisode autobiographique lié au reçu. | Horaire et émetteurs fixés par la fixture; dix interactions seulement; pas de modèle, d'ablation ni d'estimation multi-graines. |
+| V2-03 | `node backend/tests/test_social_v2_durable_memory_restart.js` | Une action sociale, son résultat et ses références survivent à un redémarrage de processus; une base neuve ne les rappelle pas. | Un épisode synthétique, un agent et un seul redémarrage; aucun bras comparatif. |
+| V2-04 | `node backend/tests/test_social_v2_causal_routing.js` | Des évaluations binaires vérifiées modifient le classement ultérieur des destinataires dans leur domaine; une évaluation non vérifiée est rejetée. | Fixture déterministe; aucun modèle social, aveuglement d'agent ni bras comparatif. |
+
+`node backend/tests/test_agent_relation_profiles.js` vérifie aussi que le
+classement par domaine conserve l'ordre historique lorsqu'aucune mesure de
+confiance n'est disponible.
+
+V2-01 et V2-05 n'ont pas encore de sonde dédiée. La campagne complète,
+les quatre bras et les 20 graines par scénario restent à exécuter. S28 de
+SocialWorld V1 mesure la robustesse d'un monde de 24 agents, mais ne remplace
+pas V2-02 : il ne teste pas la boucle d'initiatives, de réciprocité et de
+réutilisation de souvenirs définie ici.
+
 ## Statut
 
 Protocole conçu, non exécuté. Ce dossier ne contient aucun résultat de campagne. Les
@@ -100,6 +121,12 @@ les inconnues et interprétations concurrentes sont présentes; la décision dif
 change de façon prévisible quand les seuls souvenirs sociaux sont masqués ou remplacés
 par des souvenirs contrefactuels. Les permissions, consentements et budgets restent
 valides. Une explication textuelle seule ne satisfait aucun critère.
+
+Le cas préenregistré est `V2-06-case.json`. Pour auditer un rapport placé sous
+`benchmarks/social-world/campaigns/socialworld-v2/reports/`, lancer
+`node benchmarks/social-world/evaluate-v2-06.cjs --input <rapport.json>`. Ce runner
+évalue les trois bras contre le cas figé; il ne lance pas de modèle. Le scénario reste
+`planned` jusqu'à des rapports produits par exécution et une campagne appariée complète.
 
 ## Bras de comparaison causale
 

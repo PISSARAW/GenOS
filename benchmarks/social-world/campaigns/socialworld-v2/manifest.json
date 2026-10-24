@@ -57,6 +57,7 @@
       "id": "V2-06",
       "name": "relational-metacognition-and-causal-reuse",
       "status": "planned",
+      "caseFile": "V2-06-case.json",
       "minimumIndependentMemories": 4,
       "minimumDelayedDecisionContexts": 1,
       "requiredCapabilities": ["relation-reconstruction", "belief-about-other", "explicit-unknowns", "alternative-interpretations", "source-grounded-explanation", "delayed-causal-reuse"],
