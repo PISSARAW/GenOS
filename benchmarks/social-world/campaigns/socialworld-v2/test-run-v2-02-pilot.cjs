@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const pilot = require('./run-v2-02-pilot.cjs');
+const world = require('./v2-02-pilot-world.cjs');
 const { validateReport } = require('./validate-report.cjs');
 
 function arm(name, metrics) {
@@ -85,6 +86,15 @@ test('V2-02 pilot treats AGOW attention deferral as a no-model observation', () 
     { event: { isReply: false }, modelUsage: null }
   ] });
   assert.equal(metrics.modelCalls, 1);
+});
+
+test('V2-02 pilot world makes every social relation traversable in both directions', () => {
+  const edges = world.ringEdges();
+  assert.equal(edges.length, 48);
+  for (const edge of edges) {
+    assert.ok(edges.some((candidate) => candidate.sourceAgentId === edge.targetAgentId
+      && candidate.targetAgentId === edge.sourceAgentId));
+  }
 });
 
 test('V2-02 pilot rejects invalid memory references in either decision path', () => {

@@ -24,11 +24,18 @@ async function createAgents(db) {
 }
 
 async function createRing(db, relations) {
-  for (let index = 0; index < AGENT_COUNT; index++) {
+  for (const [index, edge] of ringEdges().entries()) {
     await relations.createRelation({ db, id: `socialworld-v2-pilot-edge-${index}`,
-      sourceAgentId: agentId(index), targetAgentId: agentId((index + 1) % AGENT_COUNT),
-      relationType: 'colleague', relationClass: 'organizational', ...SCOPE });
+      ...edge, relationType: 'colleague', relationClass: 'organizational', ...SCOPE });
   }
+}
+
+function ringEdges() {
+  return Array.from({ length: AGENT_COUNT }, (_, index) => {
+    const sourceAgentId = agentId(index);
+    const targetAgentId = agentId((index + 1) % AGENT_COUNT);
+    return [{ sourceAgentId, targetAgentId }, { sourceAgentId: targetAgentId, targetAgentId: sourceAgentId }];
+  }).flat();
 }
 
 async function ensureTransportTables(db) {
@@ -97,4 +104,4 @@ function eventInput(event) {
       evidenceRefs: event.evidenceRefs, urgency: 0.7, eventType: event.isReply ? 'social_reply' : 'social_observation' } } };
 }
 
-module.exports = { createWorld, ensureTransportTables, worldTransport, worldState, eventInput };
+module.exports = { createWorld, ensureTransportTables, worldTransport, worldState, eventInput, ringEdges };
