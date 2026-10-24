@@ -50,6 +50,16 @@ function gitBaseline(workspace, caseId) {
   return sha;
 }
 
+function initializeEvidenceRepo(recordsRoot, campaign) {
+  writeJson(path.join(recordsRoot, 'campaign.json'), campaign);
+  command('git', ['init', '-b', 'evidence'], recordsRoot);
+  command('git', ['config', 'user.name', 'Ontogenesis G1 Evidence'], recordsRoot);
+  command('git', ['config', 'user.email', 'ontogenesis-g1-evidence@example.invalid'], recordsRoot);
+  command('git', ['add', '--all'], recordsRoot);
+  command('git', ['commit', '-m', `[G1] Prepare ${campaign.cases.length} isolated cases`], recordsRoot);
+  return command('git', ['rev-parse', 'HEAD'], recordsRoot);
+}
+
 function verifierFor(ecosystem, task, oracleDir) {
   if (ecosystem.id === 'js') return { program: process.execPath,
     args: [path.join(oracleDir, 'verify.cjs'), task.oracle] };
@@ -137,8 +147,10 @@ function main() {
       acceptance: sourceManifest.acceptance,
       modelUri: null, modelUriRequiredBeforeSealing: true, cases };
     writeJson(path.join(root, 'campaign.json'), campaign);
+    const evidenceHead = initializeEvidenceRepo(path.join(root, 'records'), campaign);
     process.stdout.write(`${JSON.stringify({ campaignId: campaign.campaignId, root, cases: cases.length,
-      status: campaign.status, securityGate: campaign.securityGate, oracles: campaign.oracles })}\n`);
+      status: campaign.status, securityGate: campaign.securityGate, oracles: campaign.oracles,
+      evidenceHead })}\n`);
   } catch (error) {
     process.stderr.write(`Preparation stopped: ${error.message}\n`);
     process.exitCode = 1;
