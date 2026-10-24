@@ -228,6 +228,27 @@ fixtures, leurs configurations et oracles séparés; l'état est
 chemins entre `C:` et `D:`, puis le correctif a préparé les 24 dépôts sans
 checkout sale.
 
+### Calibration partielle des oracles G1
+
+Le 2026-10-24, les huit contrats JavaScript et les huit contrats Python ont
+passé un contrôle positif sur des implémentations de référence de confiance,
+puis un contrôle négatif sur chacun des baselines défectueux : **16/16 références
+acceptées, 16/16 baselines rejetés**. Les copies d'oracles du dossier de campagne
+ont le même SHA-256 que leurs sources versionnées. Les 24 workspaces de mission
+sont restés propres; aucun code généré par modèle n'a été exécuté. Les reçus
+individuels et le résumé sont dans le registre externe, commit `00782c3`.
+
+Deux essais de calibration avec l'identifiant de tâche `empty-average` ont
+transmis cet identifiant au lieu de l'identifiant d'oracle `average-empty`; un
+premier contrôle positif JS a aussi utilisé un mauvais chemin de référence.
+Ces échecs sont conservés dans le registre, puis corrigés et rejoués. Les essais
+invalides ne sont pas comptés dans les 16 paires valides.
+
+Cette calibration partielle ne scelle pas G1 : les contrôles Rust, le runner OS
+isolé, l'identité du modèle et le gel des digests avant la première mission
+restent à établir. La campagne garde le statut `prepared-not-run` et les oracles
+le statut global `unverified`.
+
 Le pilote ne doit pas exécuter le code candidat sur cet hôte sans confinement OS.
 La vérification élimine désormais les secrets de l'environnement enfant, mais
 un worktree et un Job Object ne confinent pas les accès disque/réseau du code
