@@ -1,11 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { ARMS: REGISTERED_ARMS, INTERVENTION_TRIPLET } = require('../../../../backend/src/services/socialMetacognitionCampaignService');
 
-const REGISTERED_ARMS = Object.freeze([
-  'genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology',
-  'genos-social-memory-ablated', 'genos-social-memory-counterfactual',
-]);
 const EXECUTABLE_ARMS = Object.freeze([]);
 const REQUIRED_CAPTURE_FIELDS = Object.freeze([
   'verifiedInteractionReceipts', 'independentMemoryRows', 'persistedModelSnapshots', 'delayedDecisionReceipts',
@@ -22,7 +19,8 @@ function missingCapture(input) {
 
 function comparisonHashes(input) {
   const seed = String(input.seed);
-  return { eventsHash: digest({ caseId: 'socialworld-v2-06-case-01', seed }),
+  const interventionPlan = ['genos-full', 'genos-social-memory-ablated', 'genos-social-memory-counterfactual'];
+  return { eventsHash: digest({ caseId: 'socialworld-v2-06-case-01', seed, interventionPlan }),
     budgetHash: digest({ profile: 'socialworld-v2-06-budget-v1' }),
     permissionsHash: digest({ profile: 'socialworld-v2-06-permissions-v1' }) };
 }
@@ -35,7 +33,8 @@ function reportFor(values) {
     attempt: input.attempt, sourceCommit: input.sourceCommit || 'unknown', runtimeVersion: '3', model: null,
     configHash: digest({ caseId: 'socialworld-v2-06-case-01', seed: input.seed }),
     status: 'inconclusive', startedAt, durationMs,
-    inputs: { captureProvided: Boolean(input.capture), comparison: hashes },
+    inputs: { captureProvided: Boolean(input.capture), comparison: hashes,
+      registeredArms: REGISTERED_ARMS, interventionTriplet: INTERVENTION_TRIPLET },
     observed: { capturedEvidenceFields: REQUIRED_CAPTURE_FIELDS.filter((field) => Array.isArray(input.capture && input.capture[field])) },
     oracle: { recalculable: false, status: 'inconclusive', reason },
     evidenceRefs: [], violations: [], limitations: [reason],
@@ -57,4 +56,4 @@ async function runScenario(input) {
     comparison: comparisonHashes(input) };
 }
 
-module.exports = { REGISTERED_ARMS, EXECUTABLE_ARMS, runScenario };
+module.exports = { REGISTERED_ARMS, EXECUTABLE_ARMS, INTERVENTION_TRIPLET, runScenario };
