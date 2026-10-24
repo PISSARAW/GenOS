@@ -80,12 +80,15 @@ test('V2-06 counterfactuals use explicit event-keyed semantic inversions', () =>
 test('V2-06 decision prompt uses only the supplied model, not raw memories', () => {
   const prompt = runner.decisionPrompt({ model: { relationHypotheses: [{ relationType: 'unknown' }],
     sourceMemoryIds: [] }, memories: [{ id: 'hidden-memory', statement: 'raw memory must not be copied' }],
-    delayedContext: 'new request', permissionPolicy: [], decisionPolicy: { version: 'test-policy' } });
+    delayedContext: 'new request', permissionPolicy: [], decisionPolicy: { version: 'test-policy',
+      rules: [{ action: 'ask-for-update', when: 'no verified source IDs are available' }] } });
   assert.match(prompt, /only the supplied social model/);
   assert.match(prompt, /Persisted social model read back from the runtime/);
   assert.equal(prompt.includes('raw memory must not be copied'), false);
   assert.equal(prompt.includes('hidden-memory'), false);
   assert.match(prompt, /pre-registered evidence-to-action policy/);
+  assert.match(prompt, /Valid memoryReferences IDs are exactly: \[\]/);
+  assert.match(prompt, /choose ask-for-update and return memoryReferences=\[\]/);
   assert.match(prompt, /test-policy/);
 });
 

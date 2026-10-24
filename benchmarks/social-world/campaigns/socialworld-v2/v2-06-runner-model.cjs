@@ -104,17 +104,27 @@ function emptyModelExample(input) {
 }
 
 function decisionPrompt(input) {
+  const sourceIds = input.model.sourceMemoryIds || [];
   return [
     'Make one delayed, non-executing social decision proposal using only the supplied social model. Return JSON only with action and memoryReferences.',
     'Do not send a message, mutate state, change permissions, or claim an action was executed. Do not reveal hidden chain of thought.',
     `Allowed action values: ${ACTIONS.join(', ')}.`,
     `Persisted social model read back from the runtime: ${JSON.stringify(input.model)}.`,
     input.decisionPolicy ? `Apply this pre-registered evidence-to-action policy: ${JSON.stringify(input.decisionPolicy)}. Count unique IDs in relationHypotheses.supportingMemoryIds and relationHypotheses.contradictingMemoryIds; do not count an ID in both groups.` : '',
+    `Valid memoryReferences IDs are exactly: ${JSON.stringify(sourceIds)}.`,
+    noEvidenceInstruction(input, sourceIds),
     'Do not reconstruct or cite source memories that are absent from this model. Use only the model’s stated beliefs, unknowns, alternatives, and source IDs.',
     `New delayed context: ${input.delayedContext}`,
     `Permission constraints: ${JSON.stringify(input.permissionPolicy)}.`,
     'Cite only source IDs listed by the supplied model in memoryReferences. If the model has no source IDs, use an empty memoryReferences array.',
   ].join('\n\n');
+}
+
+function noEvidenceInstruction(input, sourceIds) {
+  if (sourceIds.length) return '';
+  const rule = input.decisionPolicy?.rules?.find((item) => /no verified source/i.test(item.when || ''));
+  return rule ? `No source IDs are available, so the registered no-evidence rule applies: choose ${rule.action} and return memoryReferences=[].`
+    : 'No source IDs are available; follow the registered no-evidence policy rule and return memoryReferences=[].';
 }
 
 function parseJsonResponse(response) {
