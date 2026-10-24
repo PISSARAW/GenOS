@@ -18,9 +18,15 @@ async function createAgents(db) {
   for (let index = 0; index < AGENT_COUNT; index++) {
     await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id)
       VALUES (?, ?, 'worker', 'idle', 'worker', 'socialworld-v2-pilot-space')`, [agentId(index), agentId(index)]);
-    await db.run(`INSERT INTO agent_expertise (agent_id, domain, competence, reliability, calibration)
-      VALUES (?, ?, 0.95, 0.9, 0.9)`, [agentId(index), `navigation-${index}`]);
+    for (const domain of expertiseDomains(index)) {
+      await db.run(`INSERT INTO agent_expertise (agent_id, domain, competence, reliability, calibration)
+        VALUES (?, ?, 0.95, 0.9, 0.9)`, [agentId(index), domain]);
+    }
   }
+}
+
+function expertiseDomains(index) {
+  return [index, (index + 1) % AGENT_COUNT].map((value) => `navigation-${value}`);
 }
 
 async function createRing(db, relations) {
@@ -110,4 +116,4 @@ function eventInput(event) {
 }
 
 module.exports = { createWorld, ensureTransportTables, worldTransport, worldState, eventInput,
-  ringEdges, replyEventFor };
+  ringEdges, replyEventFor, expertiseDomains };

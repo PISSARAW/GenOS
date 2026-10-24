@@ -107,6 +107,11 @@ test('V2-02 pilot reply supplies a distinct simulated evidence reference and ask
   assert.ok(reply.evidenceRefs.includes('signal-1'));
 });
 
+test('V2-02 pilot sender and recipient can both be selected by the RPE domain filter', () => {
+  assert.deepEqual(world.expertiseDomains(16), ['navigation-16', 'navigation-17']);
+  assert.deepEqual(world.expertiseDomains(23), ['navigation-23', 'navigation-0']);
+});
+
 test('V2-02 pilot rejects invalid memory references in either decision path', () => {
   const response = { structured: { action: 'silence', recipientAgentId: null,
     purpose: 'inform', reasonCode: 'evidence-insufficient', memoryReferences: ['missing'] } };
