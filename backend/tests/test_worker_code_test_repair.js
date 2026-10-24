@@ -152,7 +152,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const searchFilterPlan = repairPlan(searchFilterFailure);
   assert.deepEqual(searchFilterPlan, { kind: 'ensure_search_filter_behavior', label: 'Search' });
-  assert.ok(locatorRepairHint(searchFilterFailure).includes('case-insensitive substring of item.name'));
+  assert.ok(locatorRepairHint(searchFilterFailure).includes('case-insensitive substring of item.name')); const validationFeedbackFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: 'AssertionError [ERR_ASSERTION]: show validation feedback at tests/acceptance.cjs:34:10' }] } }); assert.match(locatorRepairHint(validationFeedbackFailure), /visible error message in an aria-live region or role=alert/);
   const searchFilterProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<input id="filter-search"><select id="filter-category"></select><script>function renderItems(items) { const box = document.getElementById(\'items\'); box.innerHTML = \'\'; items.forEach(item => { box.append(item.name); }); }</script>'
   }] });
