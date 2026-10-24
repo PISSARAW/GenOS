@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const loop = require('../src/services/socialDevelopmentLoopService');
 const checkpoint = require('../src/services/communication/communicationCheckpointService');
 
@@ -89,6 +90,35 @@ async function testOutcomeIsNotInferredFromDelivery() {
   assert.equal(result.learning.updated, false);
 }
 
+async function testPersistedModelAuditIsCompact() {
+  const log = [];
+  const persisted = [];
+  const deps = adapters(log, {
+    store: { claim: async () => ({ status: 'claimed', claimToken: 'claim-1' }),
+      complete: async (_db, claim) => persisted.push(claim.result), fail: async () => {} },
+    generate: async () => ({ structured: { action: 'contact', recipientAgentId: 'agent-c',
+      purpose: 'request', reasonCode: 'evidence-matched' }, provider: 'ollama',
+    servedModel: 'qwen2.5:14b', text: 'FREEFORM_OUTPUT_SENTINEL',
+    usage: { prompt_tokens: 31, completion_tokens: 7, total_tokens: 38,
+      untrustedText: 'USAGE_TEXT_SENTINEL' }, tokenUsageMeasured: true })
+  });
+  const result = await loop.process(input(), deps);
+  const seed = crypto.createHash('sha256').update('17:agent-a:world-event-1').digest().readUInt32LE(0);
+  assert.equal(result.model, 'ollama://qwen2.5:14b');
+  assert.equal(result.servedModel, 'qwen2.5:14b');
+  assert.equal(result.modelSeed, seed);
+  assert.deepEqual(result.modelUsage, { provider: 'ollama', servedModel: 'qwen2.5:14b',
+    inputTokens: 31, outputTokens: 7, totalTokens: 38, measured: true });
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].modelSeed, seed);
+  assert.deepEqual(persisted[0].modelUsage, result.modelUsage);
+  const serialized = JSON.stringify(persisted[0]);
+  assert.equal(serialized.includes('FREEFORM_OUTPUT_SENTINEL'), false);
+  assert.equal(serialized.includes('USAGE_TEXT_SENTINEL'), false);
+  assert.equal(Object.hasOwn(persisted[0], 'prompt'), false);
+  assert.equal(Object.hasOwn(persisted[0], 'text'), false);
+}
+
 function testCheckpointHonorsModelRecipientAsHint() {
   const intent = checkpoint.buildIntent({ agentId: 'agent-a', checkpoint: 'NEW_EVIDENCE',
     evidence: { domain: 'bridge-repair', requestedAudience: ['agent-c', 'agent-c'], purpose: 'request' } });
@@ -101,6 +131,7 @@ async function main() {
   await testDisabledAndArbitrationBlocked();
   await testOutOfGraphProposalFailsClosed();
   await testOutcomeIsNotInferredFromDelivery();
+  await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();
   console.log('Social Development Loop causal handoff, arbitration, RPE audience, and evidence gates: PASS');
 }
