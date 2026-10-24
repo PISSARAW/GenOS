@@ -220,13 +220,16 @@ G0 reste 35 %.
 - RAM libre avant/après les deux contrôles : 13,1 % / 12,9 %.
 - Ces contrôles ciblés ne comptent pas comme exécution G0 complète.
 
-G1 est préparé mais non scellé. Le dossier
-`D:\GenOS-runs\ontogenesis-g1-2026-10-24` contient 24 dépôts propres dérivés des
-fixtures, leurs configurations et oracles séparés; l'état est
-`prepared-not-run`, les oracles `unverified`, et le registre de reçus a le commit
-`19c0c68`. Le générateur a d'abord échoué avant écriture sur une comparaison de
-chemins entre `C:` et `D:`, puis le correctif a préparé les 24 dépôts sans
-checkout sale.
+Le premier brouillon G1 `07517378-54fc-4f50-89f9-92177ca8aa97` (`19c0c68`) et le
+brouillon Rust `7c997b32-d158-4545-82f9-5c38eee5f4b4` n'ont exécuté aucune mission;
+ils sont conservés comme drafts supersédés. La campagne de référence est
+`2320f7ff-e021-4bb9-8b35-b420780a2a9e` dans
+`D:\GenOS-runs\ontogenesis-g1-2026-10-24-rustfix-v2`: 24 workspaces propres,
+24 configurations cohérentes, oracles `calibrated-not-sealed`, registre de
+preuves commité en `70e91c6`, et statut `prepared-not-run`. Le préparateur avait
+d'abord échoué avant écriture sur une comparaison de chemins entre `C:` et `D:`;
+le correctif a ensuite créé les brouillons, dont les défauts Rust ont été
+reproduits et corrigés avant de choisir la campagne de référence.
 
 ### Calibration des oracles G1; scellement en attente
 
