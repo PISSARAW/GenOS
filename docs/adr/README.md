@@ -855,6 +855,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0739](0739-envois-idempotents-apres-reprise-sociale.md) | Dédupliquer durablement les envois sociaux après reprise | Accepté | 2026-10-24 | Communication, persistance, reprise sociale |
 | [0740a](0740-execution-docker-des-verificateurs-ontogenese.md) | Exécuter les vérificateurs G1 Ontogenèse dans Docker | Accepté | 2026-10-24 | Ontogenèse, vérification indépendante, confinement d'exécution |
 | [0740b](0740-native-plan-dispatch-authority.md) | Autorité de dispatch des plans de mission natifs | Accepté | 2026-10-24 | Orchestration, dispatch, morphogenèse, preuves |
+| [0741](0741-preuves-runtime-socialworld-v2-06.md) | Preuves runtime de métacognition sociale V2-06 | Accepté | 2026-10-24 | Runtime social, mémoire, expérimentation, preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

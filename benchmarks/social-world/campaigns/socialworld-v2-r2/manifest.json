@@ -1,0 +1,42 @@
+{
+  "campaignId": "socialworld-v2-06-r2",
+  "version": 1,
+  "status": "planned",
+  "sourceCampaign": "socialworld-v2",
+  "minimumSeeds": 20,
+  "seeds": [
+    "socialworld-v2-01", "socialworld-v2-02", "socialworld-v2-03", "socialworld-v2-04", "socialworld-v2-05",
+    "socialworld-v2-06", "socialworld-v2-07", "socialworld-v2-08", "socialworld-v2-09", "socialworld-v2-10",
+    "socialworld-v2-11", "socialworld-v2-12", "socialworld-v2-13", "socialworld-v2-14", "socialworld-v2-15",
+    "socialworld-v2-16", "socialworld-v2-17", "socialworld-v2-18", "socialworld-v2-19", "socialworld-v2-20"
+  ],
+  "passThreshold": 18,
+  "arms": [
+    "genos-full", "static-social-graph", "llm-with-memory", "genos-without-relational-physiology",
+    "genos-social-memory-ablated", "genos-social-memory-counterfactual"
+  ],
+  "comparisonArms": {
+    "V2-06": [
+      "genos-full", "static-social-graph", "llm-with-memory", "genos-without-relational-physiology",
+      "genos-social-memory-ablated", "genos-social-memory-counterfactual"
+    ]
+  },
+  "scenarios": [{
+    "id": "V2-06",
+    "name": "relational-metacognition-and-causal-reuse-r2",
+    "status": "planned",
+    "caseFile": "V2-06-case.json",
+    "minimumIndependentMemories": 4,
+    "requiredPolarityCounts": { "supports": 3, "contradicts": 1 },
+    "requiredEvidence": [
+      "dialogue-source-extraction", "memory-before-after", "source-memory-ids",
+      "model-readback-before-decision", "intervention-receipt", "subsequent-decision", "authority-checks"
+    ]
+  }],
+  "reportSchemaRequired": [
+    "campaignId", "scenario", "arm", "seed", "attempt", "sourceCommit", "runtimeVersion", "model",
+    "configHash", "status", "startedAt", "durationMs", "inputs", "observed", "oracle", "evidenceRefs",
+    "violations", "limitations"
+  ],
+  "allowedStatuses": ["pass", "fail", "inconclusive"]
+}

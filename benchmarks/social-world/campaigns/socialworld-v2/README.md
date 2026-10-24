@@ -12,7 +12,7 @@ résultats de campagne ni compter comme graines préenregistrées :
 | V2-03 | `node backend/tests/test_social_v2_durable_memory_restart.js` | Une action sociale, son résultat et ses références survivent à un redémarrage de processus; une base neuve ne les rappelle pas. | Un épisode synthétique, un agent et un seul redémarrage; aucun bras comparatif. |
 | V2-04 | `node backend/tests/test_social_v2_causal_routing.js` | Des évaluations binaires vérifiées modifient le classement ultérieur des destinataires dans leur domaine; une évaluation non vérifiée est rejetée. | Fixture déterministe; aucun modèle social, aveuglement d'agent ni bras comparatif. |
 | V2-05 | `node backend/tests/test_social_v2_morphogenesis_invariants.js` | Deux transitions d'organisation sont journalisées; les identités, la relation, les autorisations et les références de messages sont contrôlées, avec collaboration après chaque transition. | Séquence déterministe unique; pas de génération adaptative de transition, de modèle, d'ablation ni de multi-graines. |
-| V2-06 | `node backend/tests/test_social_metacognition_campaign.js` | L'oracle détecte l'effet d'interventions appariées sur les souvenirs et sur une décision sociale différée. | Fixture déterministe; aucune campagne réelle avec modèle, aucune multi-graine ni résultat de campagne. |
+| V2-06 | `node backend/tests/test_social_metacognition_campaign.js` et runner autonome `run-v2-06.cjs --revision 2` | L'oracle déterministe est testé; le runner R2 exécute six bras avec le modèle configuré et produit les preuves par graine. | Une exécution de campagne peut échouer à l'oracle; le dispatcher générique reste capture-only (`EXECUTABLE_ARMS=[]`) et inconclusif. |
 
 `node backend/tests/test_agent_relation_profiles.js` vérifie aussi que le
 classement par domaine conserve l'ordre historique lorsqu'aucune mesure de
@@ -223,7 +223,7 @@ le traitement runtime correspondant. Un bras déclaré sans traitement réel pro
 | V2-03 | `genos-full` | Les épisodes du pilote sont générés par le runner; il faut des reçus source externes signés et vérifiés. Les deux comparateurs manquent. |
 | V2-04 | aucun bras de campagne | Il faut une clé publique de vérificateur épinglée, une identité autorisée et des reçus signés issus d'une source indépendante. |
 | V2-05 | `genos-full`, `static-social-graph` | Les bras LLM et sans physiologie relationnelle n'ont pas d'adaptateur. Les transitions testées sont déterministes et demandées par le contrôleur. |
-| V2-06 | aucun bras de campagne | Il manque une capture runtime réelle des six bras; les mémoires ou décisions de fixture ne sont pas promues en preuve. |
+| V2-06 | runner autonome R2; dispatcher générique sans bras exécutable | Le runner R2 produit des observations et preuves pour six bras; le dispatcher générique n'accepte pas encore ces captures comme traitement runtime et reste inconclusif. |
 
 Un adaptateur présent peut encore rendre `inconclusive` si ses preuves sont incomplètes. Les sondes
 et les tests de contrat vérifient les garde-fous; ils ne remplacent ni un modèle configuré, ni une

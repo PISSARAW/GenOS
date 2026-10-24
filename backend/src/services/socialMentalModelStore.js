@@ -29,17 +29,18 @@ function validateModel(value) {
   return JSON.stringify(value);
 }
 
-function normalizeSourceMemoryIds(value) {
+function normalizeSourceMemoryIds(value, intervention) {
   if (!Array.isArray(value)) fail('SOCIAL_MODEL_INVALID', 'sourceMemoryIds must be an array.');
   const ids = [...new Set(value)].map((id) => requiredText(id, 'sourceMemoryId'));
-  if (ids.length === 0) fail('SOCIAL_MODEL_INVALID', 'At least one source memory is required.');
+  if (ids.length === 0 && intervention !== 'mask-social-memories') fail('SOCIAL_MODEL_INVALID', 'At least one source memory is required.');
   return ids;
 }
 
 function normalizeInput(input) {
   const { subjectAgentId, otherAgentId } = validateAgentPair(input);
   validateRevision(input.revision);
-  const sourceMemoryIds = normalizeSourceMemoryIds(input.sourceMemoryIds);
+  const intervention = input.intervention ? requiredText(input.intervention, 'intervention') : null;
+  const sourceMemoryIds = normalizeSourceMemoryIds(input.sourceMemoryIds, intervention);
   const modelJson = validateModel(input.model);
   const modelHash = crypto.createHash('sha256').update(modelJson).digest('hex');
   return {
@@ -47,7 +48,7 @@ function normalizeInput(input) {
     organizationId: typeof input.organizationId === 'string' ? input.organizationId.trim() : '',
     projectId: typeof input.projectId === 'string' ? input.projectId.trim() : '',
     subjectAgentId, otherAgentId, revision: input.revision, modelJson, modelHash, sourceMemoryIds,
-    intervention: input.intervention ? requiredText(input.intervention, 'intervention') : null,
+    intervention,
   };
 }
 

@@ -38,8 +38,13 @@ async function main() {
       ...base, snapshotId: 'snapshot-a2', revision: 2, intervention: 'mask-social-memories',
       sourceMemoryIds: ['memory-3'], model: { relationHypotheses: [{ relationType: 'unknown', confidence: 0.1 }] },
     });
+    const masked = await store.persistSocialMentalModel(db, {
+      ...base, snapshotId: 'snapshot-a3', revision: 3, intervention: 'mask-social-memories',
+      sourceMemoryIds: [], model: { relationHypotheses: [{ relationType: 'unknown', confidence: 0 }] },
+    });
+    assert.deepEqual(masked.sourceMemoryIds, []);
     const latest = await store.getLatestSocialMentalModel(db, base);
-    assert.equal(latest.revision, 2);
+    assert.equal(latest.revision, 3);
     assert.equal(latest.intervention, 'mask-social-memories');
     assert.equal(await store.getLatestSocialMentalModel(db, {
       ...base, organizationId: 'org-b',

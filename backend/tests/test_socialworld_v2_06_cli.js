@@ -57,8 +57,8 @@ function main() {
     const relative = path.relative(root, input);
     const result = spawnSync(process.execPath, ['benchmarks/social-world/evaluate-v2-06.cjs', '--input', relative],
       { cwd: root, encoding: 'utf8', env: process.env });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).status, 'pass');
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(JSON.parse(result.stdout).status, 'fail');
     const traversal = spawnSync(process.execPath, ['benchmarks/social-world/evaluate-v2-06.cjs', '--input', '..\\..\\outside.json'],
       { cwd: root, encoding: 'utf8', env: process.env });
     assert.equal(traversal.status, 2);
