@@ -272,3 +272,22 @@ arrêtées; WSL 1 ne constitue pas une VM Linux isolée. `podman` et
 `WindowsSandbox.exe` sont absents. `vmcompute` est arrêté et le client Docker ne
 parvient toujours pas à joindre son moteur. Aucun runner OS utilisable n'est
 donc disponible sans reconfiguration de l'hôte; G1 reste fermé.
+
+### Reprise opérationnelle — 2026-10-24 08:54 UTC
+
+Sur V3 `9072e7e62c65df5f48500548264f0fd6b20e91a2`, le précontrôle G0 a mesuré
+5,8 % de mémoire physique libre (1 693 504 / 29 340 088 Ko), sous le seuil de
+35 %. À la demande de l'opérateur, `qwen2.5:14b` et `qwen2.5-coder:7b` sont restés
+chargés. La suite G0 n'a donc pas été lancée et aucun run non admissible n'est
+compté.
+
+Deux contrôles ciblés ont néanmoins été exécutés sur cette révision :
+`test_ontogenesis_g1_rust_oracle_mapping.js` et
+`test_ontogenesis_verifier_environment.js`, tous deux code 0. La RAM mesurée
+avant/après chaque commande était respectivement 2,7 % / 3,6 % et 4,7 % / 3,8 %.
+Ils ne comptent pas comme run G0. Le reçu de cette tentative et de ses limites
+est commité dans le registre externe sous `8be9e80`.
+
+Le contrôle d'infrastructure confirme Docker client `29.5.3` sans moteur
+joignable et les deux distributions WSL 1 arrêtées. G1 reste fermé : aucun runner
+OS isolé n'est disponible. Aucun code candidat n'a été exécuté.
