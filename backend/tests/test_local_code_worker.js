@@ -5,7 +5,7 @@ const path = require('path');
 const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
-const { failureFeedback, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
+const { failureFeedback, repairPlan, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
 const { buildAnalysisPrompt } = require('../src/services/workerEvidenceLocalPrompt');
 const originalConsoleLog = console.log;
 const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
@@ -87,6 +87,9 @@ const missingIncreaseButtonFeedback = failureFeedback({ proposal: {
 } });
 assert.match(missingIncreaseButtonFeedback, /Render a visible <button type="button"/);
 assert.match(missingIncreaseButtonFeedback, /do not use an input or a text-only span/);
+assert.deepEqual(repairPlan({ proposal: { tests: [{ stderr:
+  "locator.click: Timeout; waiting for getByRole('button', { name: /increase quantity for oats/i })" }] } }),
+{ kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
