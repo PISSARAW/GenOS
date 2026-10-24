@@ -111,14 +111,14 @@ une reprise bornée, aucun faux succès, aucune modification hors workspace et
 aucun accès non autorisé. Une fusion externe ou un déploiement restent derrière
 une autorisation humaine explicite.
 
-#### Matrice scellée avant lancement
+#### Matrice à sceller avant lancement
 
-Les 24 identifiants ci-dessous désignent des missions indépendantes, chacune
-partant d'un dépôt jetable neuf dérivé du même modèle d'écosystème. Le plan est
-2 bugs, 2 fonctionnalités, 2 tâches de documentation et 2 refactorisations par
-écosystème. Le contrat de résultat est fonctionnellement équivalent entre les
-trois langues; les tests et leurs assertions sont différents et propres à chaque
-écosystème.
+Les 24 identifiants ci-dessous sont le plan de missions indépendantes. À
+l'exécution, chacune partira d'un dépôt jetable neuf dérivé du même modèle
+d'écosystème. Le plan est 2 bugs, 2 fonctionnalités, 2 tâches de documentation
+et 2 refactorisations par écosystème. Les contrats de résultat seront
+fonctionnellement équivalents entre les trois langues, avec des tests et
+assertions propres à chaque écosystème.
 
 | Écosystème | Bug 1 / 2 | Fonctionnalité 1 / 2 | Documentation 1 / 2 | Refactorisation 1 / 2 |
 |---|---|---|---|---|
@@ -131,11 +131,11 @@ Les deux anomalies initiales portent sur le traitement d'une liste vide dans
 `median` et `filter_above`; les tâches de documentation décrivent les API
 publiques, l'entrée vide et les bornes; les refactorisations extraient la
 validation numérique partagée puis le calcul du résumé sans changer les
-résultats. Chaque identifiant possède un oracle autonome avec tests positifs et
-négatifs. Les oracles restent dans le contrôleur de campagne, hors du dépôt de
-mission et hors du prompt/contexte d'exécution; l'Ontogenèse reçoit le but et le
-contrat d'acceptation lisible, mais pas le code des tests ni les assertions
-cachées.
+résultats. Les 24 contrats d'acceptation et oracles indépendants restent à
+implémenter et à sceller avant le lancement. Ils seront placés dans le
+contrôleur de campagne, hors du dépôt de mission et du prompt/contexte
+d'exécution. L'Ontogenèse recevra le but et le contrat d'acceptation lisible,
+mais pas le code des tests ni les assertions cachées.
 
 Chaque essai utilise un clone neuf du modèle de dépôt, une base et un dossier de
 preuves dédiés, un budget et une limite de temps enregistrés, et au plus une
@@ -155,7 +155,7 @@ intermédiaire sont conservés; les seuils entiers sont donc
 Prérequis observés sur l'hôte le 24 octobre : Node.js `v24.18.0`, Python
 `3.12.10`, Cargo `1.97.1`; `D:` disposait de 207 Go libres. Ces versions et
 l'identité complète du modèle restent à capturer dans le manifeste d'exécution
-avant de sceller les oracles.
+avant la préparation et le scellement des oracles.
 
 ### G2 — Transfert tenu à l'écart
 
