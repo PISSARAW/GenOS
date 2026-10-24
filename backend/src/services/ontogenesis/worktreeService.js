@@ -33,7 +33,7 @@ function assertCleanIntegration(status) {
   const entries = String(status || '').split('\0').filter(Boolean);
   const unexpected = entries.filter((entry) => !isSealedTrinitySnapshot(entry)
     && !isGeneratedWorkspaceSnapshot(entry) && !isGeneratedTrajectory(entry) && entry !== '?? .genos-epoch');
-  if (unexpected.length) throw new Error('worktree-integration-sale');
+  if (unexpected.length) throw new Error(`worktree-integration-sale:${unexpected.join('|')}`);
 }
 
 function isSealedTrinitySnapshot(entry) {

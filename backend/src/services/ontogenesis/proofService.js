@@ -3,7 +3,9 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
+const os = require('os');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
+const { buildIsolatedEnv } = require('../sandboxExecutor');
 const { assertContainedFiles } = require('./pathAuthority');
 const { maxOutputBytes } = require('../boundedOutput');
 
@@ -60,17 +62,34 @@ async function verifyChecks(worktree, checks, options = {}) {
   const digest = await treeHash(worktree);
   const proofs = [];
   const deadline = Date.now() + (options.timeoutMs || 60000);
-  for (const check of checks) {
-    checkSpec(check);
-    const invocation = check.program === 'npm' ? npmInvocation(check.args) : { program: check.program, args: check.args };
-    const run = options.run || runCommand;
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) throw new Error('budget-verification-epuise');
-    await run(invocation.program, invocation.args, { cwd: worktree, timeoutMs: remaining });
-    proofs.push({ source: SOURCE, exitCode: 0, command: [check.program, ...check.args].join(' '), treeHash: digest, completedAt: new Date().toISOString() });
+  const verifierEnvironment = isolatedVerificationEnvironment();
+  try {
+    for (const check of checks) {
+      checkSpec(check);
+      const invocation = check.program === 'npm' ? npmInvocation(check.args) : { program: check.program, args: check.args };
+      const run = options.run || runCommand;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error('budget-verification-epuise');
+      await run(invocation.program, invocation.args, { cwd: worktree, timeoutMs: remaining, env: verifierEnvironment.env });
+      proofs.push({ source: SOURCE, exitCode: 0, command: [check.program, ...check.args].join(' '), treeHash: digest, completedAt: new Date().toISOString() });
+    }
+    if (await treeHash(worktree) !== digest) throw new Error('contenu-modifie-par-verification');
+    return { treeHash: digest, proofs };
+  } finally {
+    fs.rmSync(verifierEnvironment.root, { recursive: true, force: true });
   }
-  if (await treeHash(worktree) !== digest) throw new Error('contenu-modifie-par-verification');
-  return { treeHash: digest, proofs };
+}
+
+function isolatedVerificationEnvironment() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-ontogenesis-verifier-'));
+  const npmConfig = path.join(root, 'empty.npmrc');
+  fs.writeFileSync(npmConfig, '', { flag: 'wx' });
+  const env = buildIsolatedEnv({
+    NPM_CONFIG_USERCONFIG: npmConfig,
+    NPM_CONFIG_GLOBALCONFIG: npmConfig,
+    NPM_CONFIG_CACHE: path.join(root, 'npm-cache')
+  });
+  return { root, env };
 }
 
 function npmInvocation(args) {

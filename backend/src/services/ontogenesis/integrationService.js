@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
 const { pathAllowed, assertContainedFiles } = require('./pathAuthority');
 const { validateProofs } = require('./proofService');
@@ -141,6 +142,25 @@ async function stageFiles(git, worktree, files) {
   await git.run(['--literal-pathspecs', 'add', '--', ...files], worktree);
 }
 
+async function rollbackCandidate(git, input) {
+  if (await currentSha(git, input.worktree) !== input.baseSha) return false;
+  const staged = await git.run(['diff', '--cached', '--name-only', '-z'], input.worktree);
+  const stagedFiles = staged.stdout.split('\0').filter(Boolean);
+  if (stagedFiles.some((file) => !input.files.includes(file))) throw new Error('nettoyage-chemin-stagé-inattendu');
+  if (stagedFiles.length) await git.run(['--literal-pathspecs', 'restore', '--staged', '--', ...stagedFiles], input.worktree);
+  const tracked = await git.run(['--literal-pathspecs', 'ls-files', '-z', '--', ...input.files], input.worktree);
+  const trackedFiles = tracked.stdout.split('\0').filter(Boolean);
+  if (trackedFiles.length) await git.run(['--literal-pathspecs', 'restore', '--worktree', '--source=HEAD', '--', ...trackedFiles], input.worktree);
+  const untrackedFiles = input.files.filter((file) => !trackedFiles.includes(file));
+  for (const file of untrackedFiles) {
+    const [absolute] = assertContainedFiles(input.worktree, [file]);
+    fs.rmSync(absolute, { force: true });
+  }
+  const status = await git.run(['status', '--porcelain=v1', '-z', '--untracked-files=all'], input.worktree);
+  if (status.stdout) throw new Error('nettoyage-integration-incomplet');
+  return true;
+}
+
 async function commitStaged(git, worktree, input) {
   if (!input || !Array.isArray(input.files) || !input.files.length) throw new Error('fichiers-commit-requis');
   assertContainedFiles(worktree, input.files);
@@ -152,5 +172,5 @@ module.exports = {
   FORBIDDEN, createShellGit, buildCommitMessage, validateCandidate,
   openIntegration, getIntegration, setIntegrationResult,
   currentSha, commitExists, findCommitByOperation, inspectWorktree,
-  reconcileIntegration, stageFiles, commitStaged
+  reconcileIntegration, stageFiles, rollbackCandidate, commitStaged
 };
