@@ -199,7 +199,7 @@ function missionRuntimeContext(request) {
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
+    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'hypotheses', 'workerBarrierTimeoutMs',
     'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
     'requiredTools', 'toolLease'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)

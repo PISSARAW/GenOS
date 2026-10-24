@@ -295,6 +295,30 @@
             "type": "string",
             "description": "Existing tenant-scoped workspace whose organization and project authorize registering workspaceRoot."
           },
+          "successCriteria": {
+            "type": "array",
+            "description": "Observable acceptance criteria for mission completion.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hypotheses": {
+            "type": "array",
+            "description": "Falsifiable diagnostic hypotheses forwarded to the GenOS preflight diagnosis.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "statement": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "statement"
+              ],
+              "additionalProperties": true
+            }
+          },
           "topologyId": {
             "type": "string",
             "description": "Optional topology selection for the mission proposal; does not apply a morphogenesis transition."
