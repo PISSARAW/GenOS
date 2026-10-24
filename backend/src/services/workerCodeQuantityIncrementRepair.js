@@ -2,7 +2,8 @@
 
 function ensureQuantityIncrementBehavior(content, label = 'Increase quantity for Oats') {
   const source = String(content || '').replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
-    (script) => /function\s+genosQuantityIncrementRepair\b/.test(script) ? '' : script);
+    (script) => /function\s+genosQuantityIncrementRepair\b/.test(script) ? '' : script)
+    .replace(/<button\b(?=[^>]*\baria-label\s*=\s*(["'])(?:increase|increment)\s+quantity\s+for\s+(?:name|item)\1)[^>]*>[\s\S]*?<\/button\s*>/gi, '');
   const match = source.match(/localStorage\.getItem\(\s*(["'])([^"']+)\1/i);
   const key = match ? match[2] : 'pantry';
   const buttonScript = `<script>(function(){const prepareRows=()=>document.querySelectorAll('tr,[data-item-row],.item').forEach(row=>{const cells=row.querySelectorAll('td');const name=row.getAttribute('data-item-name')||cells[0]?.textContent?.trim()||row.textContent.match(/(?:Name:\\s*)?([^,\\n]+)/i)?.[1]?.trim();if(!name||row.querySelector('button[aria-label^="Increase quantity for "]'))return;const cell=cells.length?row.insertCell(-1):row;const button=document.createElement('button');button.type='button';button.setAttribute('aria-label','Increase quantity for '+name);button.textContent='+';cell.appendChild(button);});document.addEventListener('DOMContentLoaded',prepareRows);new MutationObserver(prepareRows).observe(document.documentElement,{childList:true,subtree:true});})();</script>`;
