@@ -35,6 +35,7 @@ router.post('/agents/git/diff', requirePermission('read'), agentGitController.di
 router.post('/agents/git/cognitive-diff', requirePermission('read'), agentGitController.cognitiveDiff);
 router.post('/agents/git/social-diff', requirePermission('read'), agentGitController.socialDiff);
 router.post('/agents/git/topology-transition', requirePermission('workspace:write'), agentGitController.recordTopologyTransition);
+router.post('/agents/git/ontogenetic-compare', requirePermission('read'), agentGitController.compareTrajectories);
 router.post('/agents/git/epistemic-merge-preview', requirePermission('read'), agentGitController.epistemicMerge);
 router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
