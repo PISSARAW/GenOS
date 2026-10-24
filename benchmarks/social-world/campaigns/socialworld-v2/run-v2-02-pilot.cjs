@@ -28,6 +28,11 @@ function directories(outputDir) {
     evidenceDir: path.join(path.resolve(outputDir), 'reports', 'evidence') };
 }
 
+function databaseEnvironment(input) {
+  return { GENOS_DB_PATH: input.database, GENOS_ADMIN_PASSWORD: input.adminPassword,
+    GENOS_INFERENCE_MAX_CONCURRENT: '1' };
+}
+
 function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
@@ -93,15 +98,16 @@ async function runCampaign(args) {
     agents: AGENT_COUNT, days: SIMULATED_DAYS, cycles: CYCLES });
   const eventsPath = path.join(paths.outputDir, 'environment-events.json');
   writeJson(eventsPath, { seed: args.seed, comparison, events });
-  const warmup = childWarmup({ database: path.join(paths.databaseDir, 'qwen-warmup.sqlite'), seed: args.seed },
-    { GENOS_DB_PATH: path.join(paths.databaseDir, 'qwen-warmup.sqlite'),
-      GENOS_INFERENCE_MAX_CONCURRENT: '1' });
+  const adminPassword = crypto.randomBytes(32).toString('hex');
+  const warmupDatabase = path.join(paths.databaseDir, 'qwen-warmup.sqlite');
+  const warmup = childWarmup({ database: warmupDatabase, seed: args.seed },
+    databaseEnvironment({ database: warmupDatabase, adminPassword }));
   const arms = [];
   for (const arm of warmup.completed === true ? ROOT_ARMS : []) {
     const database = path.join(paths.databaseDir, `${arm}.sqlite`);
     const evidence = path.join(paths.armDir, `${arm}.json`);
     const result = childResult({ arm, database, evidence, events: eventsPath, seed: args.seed },
-      { GENOS_DB_PATH: database, GENOS_AGOW_MODE: 'bounded', GENOS_INFERENCE_MAX_CONCURRENT: '1' });
+      { ...databaseEnvironment({ database, adminPassword }), GENOS_AGOW_MODE: 'bounded' });
     result.comparison = comparison;
     arms.push(result);
     if (result.completed !== true) break;
@@ -196,6 +202,10 @@ function resultRecord(input) {
     status: input.status || 'processed' };
 }
 
+function attentionDeferred(result) {
+  return result?.processed === false && result.reason === 'agow-did-not-authorize-social-action';
+}
+
 async function baselineEvent(input) {
   const loop = require('../../../../backend/src/services/socialDevelopmentLoopService');
   const candidates = await loop.recipientCandidates({ db: input.db, agentId: input.event.agentId,
@@ -252,7 +262,8 @@ async function integratedEvent(input) {
     return resultRecord({ event: input.event, decision: result.decision || { action: 'silence' },
       recipientAgentId: result.recipientAgentId,
       receipt: receiptResult, memoryIds: result.decision?.memoryReferences || [], modelUsage: result.modelUsage,
-      status: result.processed ? 'processed' : result.reason || 'social-loop-not-processed' });
+      status: result.processed ? 'processed' : attentionDeferred(result)
+        ? 'attention-deferred' : result.reason || 'social-loop-not-processed' });
   } finally { release(); }
 }
 
@@ -262,11 +273,13 @@ async function processWorldEvent(input) {
   world.events.add(event.eventId);
   const usage = usageByDay.get(event.day) || { modelCalls: 0, messages: 0 };
   if (usage.modelCalls >= MAX_MODEL_CALLS_PER_DAY) throw new Error('daily-model-budget-exceeded');
-  usage.modelCalls += 1;
-  usageByDay.set(event.day, usage);
   const context = { db: connection, arm, seed, event, transport };
   const result = arm === ROOT_ARMS[0] ? await baselineEvent(context) : await integratedEvent(context);
-  if (result.status !== 'processed') throw new Error(`${arm}:${result.status}`);
+  if (result.status !== 'processed' && result.status !== 'attention-deferred') {
+    throw new Error(`${arm}:${result.status}`);
+  }
+  if (result.modelUsage?.servedModel) usage.modelCalls += 1;
+  usageByDay.set(event.day, usage);
   if (result.receipt?.valid === false) throw new Error(`${arm}:delivery-receipt-invalid`);
   if (result.receipt?.delivered) {
     usage.messages += 1;
@@ -325,4 +338,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { ...contract, parseArgs, directories, validateReport };
+module.exports = { ...contract, parseArgs, directories, databaseEnvironment, attentionDeferred, validateReport };
