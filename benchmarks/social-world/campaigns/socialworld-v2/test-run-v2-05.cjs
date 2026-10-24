@@ -4,13 +4,15 @@ process.env.GENOS_ADMIN_PASSWORD ||= 'social-v205-runner-test-only';
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS } = require('./run-v2-05.cjs');
+const { runnerDescriptor } = require('./runner-registry.cjs');
 const { validateReport } = require('./validate-report.cjs');
 
 async function run() {
   const manifest = require('./manifest.json');
   const expected = manifest.comparisonArms['V2-05'];
   assert.deepEqual(REGISTERED_ARMS, expected);
-  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full']);
+  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full', 'static-social-graph']);
+  assert.deepEqual(runnerDescriptor('V2-05').executableArms, EXECUTABLE_ARMS);
   const outputDirectory = path.join(__dirname, 'reports');
   let comparison;
   for (const arm of expected) {
@@ -34,6 +36,14 @@ async function run() {
         assert.equal(transition.provenancePreserved, true);
         assert.equal(transition.collaborationReceipt, true);
       }
+    } else if (arm === 'static-social-graph') {
+      assert.equal(result.report.status, 'pass');
+      assert.equal(result.report.observed.effectiveTransitions, 2);
+      assert.equal(result.report.observed.treatmentEvidence.mode, 'static-social-graph');
+      assert.equal(result.report.observed.treatmentEvidence.staticGraphUnchanged, true);
+      assert.deepEqual(result.report.observed.treatmentEvidence.finalRelationSnapshot,
+        result.report.observed.treatmentEvidence.initialRelationSnapshot);
+      assert.equal(result.report.observed.transitions.every((item) => item.collaborationReceipt), true);
     } else {
       assert.equal(result.report.status, 'inconclusive');
       assert.match(result.report.oracle.reason, /no implemented runtime adapter/);

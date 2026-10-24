@@ -9,7 +9,7 @@ const relations = require('../../../../backend/src/services/crossAgentRelational
 const runtime = require('../../../../backend/src/services/agentRuntimeAdapter');
 const { evaluateMorphogenesis } = require('./morphogenesis-oracle.cjs');
 
-const EXECUTABLE_ARMS = Object.freeze(['genos-full']);
+const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph']);
 const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology']);
 const SCOPE = Object.freeze({ organizationId: 'sw-v205-org', projectId: 'sw-v205-project' });
 const MEMBERS = Object.freeze(['sw-v205-root', 'sw-v205-a', 'sw-v205-b']);
@@ -97,10 +97,18 @@ async function unauthorizedTransitionRejected(db) {
   } catch (error) { return error.code === 'ORCHESTRATOR_AUTHORITY_REQUIRED'; }
 }
 
+async function relationSnapshot(db) {
+  const relation = await relations.getRelation({ db, id: 'sw-v205-friendship' });
+  return { id: relation.id, sourceAgentId: relation.sourceAgentId, targetAgentId: relation.targetAgentId,
+    relationType: relation.relationType, relationClass: relation.relationClass, metadata: relation.metadata,
+    organizationId: relation.organizationId, projectId: relation.projectId, provenanceHash: relation.provenanceHash };
+}
+
 async function executeFullArm(input) {
   const db = await getDatabase(':memory:');
   try {
     await seedWorld(db);
+    const fixedGraphBefore = input.arm === 'static-social-graph' ? await relationSnapshot(db) : null;
     const transitions = [];
     for (const plan of TRANSITION_PLAN) {
       const event = { eventId: `env-${input.seed}-${plan.suffix}`, senderAgentId: MEMBERS[plan.senderIndex],
@@ -113,8 +121,13 @@ async function executeFullArm(input) {
     const authorityCheck = await unauthorizedTransitionRejected(db);
     const journal = await db.all('SELECT version FROM agent_organization_transitions WHERE orchestrator_id = ? ORDER BY version', MEMBERS[0]);
     const oracle = evaluateMorphogenesis({ transitions, criticalViolations: authorityCheck ? 0 : 1 });
+    const fixedGraphAfter = fixedGraphBefore ? await relationSnapshot(db) : null;
+    const staticGraphUnchanged = fixedGraphBefore === null
+      || JSON.stringify(fixedGraphBefore) === JSON.stringify(fixedGraphAfter);
     return { transitions, transitionJournalVersions: journal.map((row) => row.version),
-      unauthorizedChangeRejected: authorityCheck, oracle, effectiveTransitions: journal.length };
+      unauthorizedChangeRejected: authorityCheck, oracle, effectiveTransitions: journal.length,
+      treatmentEvidence: input.arm === 'static-social-graph' ? { mode: 'static-social-graph',
+        initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged } : null };
   } finally { await closeDatabase(); }
 }
 
@@ -127,11 +140,16 @@ async function runScenario(input) {
   if (EXECUTABLE_ARMS.includes(input.arm)) {
     report.observed = await executeFullArm(input);
     evidence.push(report.observed);
-    report.status = report.observed.oracle.status;
+    report.status = report.observed.oracle.status === 'pass'
+      && (input.arm !== 'static-social-graph' || report.observed.treatmentEvidence.staticGraphUnchanged)
+      ? 'pass' : 'fail';
     report.oracle = { recalculable: true, status: report.status,
-      checks: report.observed.oracle.checks, criticalViolations: report.observed.oracle.criticalViolations };
+      checks: report.observed.oracle.checks, criticalViolations: report.observed.oracle.criticalViolations,
+      staticGraphUnchanged: report.observed.treatmentEvidence?.staticGraphUnchanged ?? null };
     report.violations = report.status === 'pass' ? [] : ['Morphogenesis invariants failed.'];
-    report.limitations = ['Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
+    report.limitations = [input.arm === 'static-social-graph'
+      ? 'Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'
+      : 'Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
   }
   report.durationMs = Date.now() - timer;
   const target = path.resolve(input.outputDirectory, `V2-05-${input.arm}-${input.seed}-attempt-${input.attempt}.evidence.json`);
