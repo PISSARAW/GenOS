@@ -188,6 +188,7 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 |---|---|
 | `POST /agents/git/commit` | créer un commit d’état |
 | `POST /agents/git/diff` | comparer deux agents |
+| `POST /agents/git/ontogenetic-compare` | comparer des snapshots sur l’identité, les plasmides conservés et les coûts observés, sans sélectionner de gagnant |
 | `POST /agents/git/merge` | fusionner deux états (3-way DAG) |
 | `POST /agents/git/rebase` | rebaser un objet |
 | `POST /agents/git/push`, `/fetch`, `/pull` | répliquer et appliquer des objets distants |
