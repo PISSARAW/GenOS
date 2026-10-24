@@ -202,6 +202,10 @@ function resultRecord(input) {
     status: input.status || 'processed' };
 }
 
+function attentionDeferred(result) {
+  return result?.processed === false && result.reason === 'agow-did-not-authorize-social-action';
+}
+
 async function baselineEvent(input) {
   const loop = require('../../../../backend/src/services/socialDevelopmentLoopService');
   const candidates = await loop.recipientCandidates({ db: input.db, agentId: input.event.agentId,
@@ -258,7 +262,8 @@ async function integratedEvent(input) {
     return resultRecord({ event: input.event, decision: result.decision || { action: 'silence' },
       recipientAgentId: result.recipientAgentId,
       receipt: receiptResult, memoryIds: result.decision?.memoryReferences || [], modelUsage: result.modelUsage,
-      status: result.processed ? 'processed' : result.reason || 'social-loop-not-processed' });
+      status: result.processed ? 'processed' : attentionDeferred(result)
+        ? 'attention-deferred' : result.reason || 'social-loop-not-processed' });
   } finally { release(); }
 }
 
@@ -268,11 +273,13 @@ async function processWorldEvent(input) {
   world.events.add(event.eventId);
   const usage = usageByDay.get(event.day) || { modelCalls: 0, messages: 0 };
   if (usage.modelCalls >= MAX_MODEL_CALLS_PER_DAY) throw new Error('daily-model-budget-exceeded');
-  usage.modelCalls += 1;
-  usageByDay.set(event.day, usage);
   const context = { db: connection, arm, seed, event, transport };
   const result = arm === ROOT_ARMS[0] ? await baselineEvent(context) : await integratedEvent(context);
-  if (result.status !== 'processed') throw new Error(`${arm}:${result.status}`);
+  if (result.status !== 'processed' && result.status !== 'attention-deferred') {
+    throw new Error(`${arm}:${result.status}`);
+  }
+  if (result.modelUsage?.servedModel) usage.modelCalls += 1;
+  usageByDay.set(event.day, usage);
   if (result.receipt?.valid === false) throw new Error(`${arm}:delivery-receipt-invalid`);
   if (result.receipt?.delivered) {
     usage.messages += 1;
@@ -331,4 +338,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { ...contract, parseArgs, directories, databaseEnvironment, validateReport };
+module.exports = { ...contract, parseArgs, directories, databaseEnvironment, attentionDeferred, validateReport };

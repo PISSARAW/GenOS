@@ -76,6 +76,17 @@ test('V2-02 pilot reports a failed warmup without claiming the unrun arms were u
   assert.deepEqual(evaluation.errors, ['qwen-warmup-incomplete', 'qwen-warmup-model-mismatch']);
 });
 
+test('V2-02 pilot treats AGOW attention deferral as a no-model observation', () => {
+  assert.equal(pilot.attentionDeferred({ processed: false,
+    reason: 'agow-did-not-authorize-social-action' }), true);
+  assert.equal(pilot.attentionDeferred({ processed: false, reason: 'model-error' }), false);
+  const metrics = pilot.metricsOf({ cycles: 1000, memoryEpisodeCount: 0, records: [
+    { event: { isReply: false }, modelUsage: { servedModel: 'qwen2.5:14b' } },
+    { event: { isReply: false }, modelUsage: null }
+  ] });
+  assert.equal(metrics.modelCalls, 1);
+});
+
 test('V2-02 pilot rejects invalid memory references in either decision path', () => {
   const response = { structured: { action: 'silence', recipientAgentId: null,
     purpose: 'inform', reasonCode: 'evidence-insufficient', memoryReferences: ['missing'] } };
