@@ -1,30 +1,11 @@
 'use strict';
+const { failureSignature, candidateDigest, appliedPlanIds, noProgressError } = require('./workerCodeTestRepairProgress');
+const { isCodeWorker, latencyBudget, tokenBudget, consumedTokens } = require('./workerCodeTestRepairBudget');
 const MAX_TEST_RETRIES = 25;
 const MAX_SCHEMA_RETRIES = 3;
+const MAX_IDENTICAL_FAILURES = 2;
 const MAX_FAILURE_TEXT = 20000;
 const MAX_CANDIDATE_TEXT = 12000;
-function isCodeWorker(mission) {
-  return mission.localCodeWorker === true || mission.executionPolicy?.localCodeWorker === true;
-}
-function latencyBudget(mission) {
-  const values = [mission.timeoutMs, mission.executionBudget?.latencyMs]
-    .map(Number).filter((value) => Number.isFinite(value) && value > 0);
-  return values.length ? Math.min(...values) : 30000;
-}
-function tokenBudget(mission) {
-  const value = Number(mission.executionBudget?.tokens);
-  return Number.isFinite(value) && value > 0 ? value : 0;
-}
-function consumedTokens(error) {
-  const direct = Number(error.usage?.tokens);
-  if (Number.isSafeInteger(direct) && direct >= 0) return direct;
-  const input = Number(error.usage?.inputTokens);
-  const output = Number(error.usage?.outputTokens);
-  if (Number.isSafeInteger(input) && input >= 0 && Number.isSafeInteger(output) && output >= 0) {
-    return input + output;
-  }
-  return null;
-}
 function locatorRepairHint(error) {
   return require('./workerCodeTestRepairRules').locatorRepairHint(error);
 }
@@ -347,7 +328,7 @@ async function run(context) {
   const initialMission = isCodeWorker(context.mission)
     ? { ...context.mission, preserveFailedCodeCandidate: true } : context.mission;
   const state = { startedAt: Date.now(), mission: initialMission,
-    remainingTokens: tokenBudget(context.mission), attempt: 0, schemaAttempts: 0 };
+    remainingTokens: tokenBudget(context.mission), attempt: 0, schemaAttempts: 0, repairHistory: [] };
   while (true) {
     state.attempt += 1;
     const result = await captureAttempt(context, state.mission);
@@ -365,6 +346,18 @@ async function retryAfterFailure(input) {
   const { context, state, error } = input;
   if (!canRetry({ mission: context.mission, error, attempt: state.attempt,
     schemaAttempts: state.schemaAttempts, startedAt: state.startedAt })) throw error;
+  const signature = failureSignature(error);
+  const digest = candidateDigest(error);
+  const planIds = appliedPlanIds(state.mission, error);
+  // Content hashes are retained as evidence, but are not a progress signal by themselves:
+  // whitespace or other irrelevant rewrites must not reset a repeated assertion loop.
+  const key = JSON.stringify({ signature, planIds });
+  const previous = state.repairHistory.at(-1);
+  const progress = { signature, candidateDigest: digest, appliedPlanIds: planIds,
+    identicalFailures: previous?.key === key ? previous.identicalFailures + 1 : 1, key };
+  state.repairHistory.push(progress);
+  if (state.repairHistory.length > 32) state.repairHistory.shift();
+  if (progress.identicalFailures >= MAX_IDENTICAL_FAILURES) throw noProgressError(error, progress);
   if (error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION') state.schemaAttempts += 1;
   state.remainingTokens = remainingTokensAfter(error, state.remainingTokens);
   const remainingMs = latencyBudget(context.mission) - (Date.now() - state.startedAt);
@@ -397,4 +390,5 @@ function nextMission(input) {
     executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
       ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
   };
-} module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint, repairPlan, applyRepairPlan };
+} module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint,
+  repairPlan, applyRepairPlan, failureSignature, candidateDigest, appliedPlanIds, MAX_IDENTICAL_FAILURES };

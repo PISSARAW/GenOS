@@ -17,7 +17,11 @@ const placeholderSource = '<!doctype html><div class="item"><label>Name</label><
 async function main() {
   const html = ensureQuantityIncrementBehavior(source);
   const refreshed = ensureQuantityIncrementBehavior(html);
+  assert.equal(refreshed, html, 'applying the repair twice must be idempotent');
   assert.equal((refreshed.match(/function genosQuantityIncrementRepair/g) || []).length, 1);
+  assert.equal((refreshed.match(/function genosQuantityButtonRepair/g) || []).length, 1);
+  assert.equal((refreshed.match(/new MutationObserver\(prepareRows\)/g) || []).length, 1,
+    'applying the repair twice must not install duplicate row observers');
   const server = http.createServer((request, response) => {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(request.url === '/card'
@@ -47,13 +51,20 @@ async function main() {
       { name: 'Oats', itemName: 'Oats', quantity: 2 }
     ])));
     await page.reload();
+    assert.equal(await page.getByLabel(/quantity/i).count(), 1);
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
+    assert.equal(await page.getByLabel(/quantity/i).count(), 1);
+    assert.equal(await page.getByRole('button', { name: /increase quantity for oats/i }).count(), 1);
+    assert.equal(await page.getByText(/Oats/).count(), 1,
+      'the visible item name must not also appear in the increment action text');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].quantity, 3);
     assert.equal(await page.getByLabel(/quantity/i).count(), 1);
     await page.reload();
     assert.equal(await page.locator('#cardQuantity').innerText(), '3');
     assert.equal(await page.getByLabel(/quantity/i).count(), 1);
-    assert.equal(await page.getByRole('button', { name: 'Decrease Oats' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: /increase quantity for oats/i }).count(), 1);
+    assert.equal(await page.getByText(/Oats/).count(), 1);
+    assert.equal(await page.getByRole('button', { name: /decrease quantity for oats/i }).count(), 1);
     await page.goto(`http://127.0.0.1:${server.address().port}/list`);
     await page.evaluate(() => localStorage.setItem('pantry', JSON.stringify([{ name: 'Oats', quantity: 2 }])));
     await page.reload();

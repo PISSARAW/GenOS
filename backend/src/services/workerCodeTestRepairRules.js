@@ -30,7 +30,7 @@ function addItemHint(output) {
   if (!count) return '';
   const detail = Number(count[1]) === 0
     ? 'The row is absent after Add Item. Handle submit, prevent navigation, append the form values to the shared items collection, persist, and render immediately.'
-    : `Playwright found ${count[1]} visible text matches for Oats but requires exactly one. Remove any preloaded example Oats row and duplicate submit listeners; each Add Item submit must create one row. Keep Oats out of visible action button text by using accessible aria-labels.`;
+    : `Playwright found ${count[1]} visible matches for the expected item name but requires exactly one. Remove any preloaded example row and duplicate submit listeners; each Add Item submit must create one row. Keep item names out of visible action text and expose controls with a distinct accessible name.`;
   return `${detail} Keep the row compatible with filtering, search, increase and delete behavior.`;
 }
 

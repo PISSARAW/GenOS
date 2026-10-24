@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
-const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
+const { parseProposal, safePath, executeProposal, proposalResponseFormat, resolveTestTempRoot } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
 const { failureFeedback, repairPlan, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
@@ -196,6 +196,41 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
+		const tempOverride = path.join(root, 'test-temp-root');
+		assert.equal(await resolveTestTempRoot({ GENOS_TEST_TEMP_ROOT: tempOverride }), tempOverride,
+			'configured test temp root is created and proven writable before running commands');
+		const invalidTempRoot = path.join(root, 'temp-root-is-a-file');
+		await fs.writeFile(invalidTempRoot, 'not a directory');
+		await assert.rejects(resolveTestTempRoot({ GENOS_TEST_TEMP_ROOT: invalidTempRoot }),
+			error => error.code === 'WORKER_TEST_ENVIRONMENT_FAILED'
+				&& error.testEnvironment.kind === 'temp_root_unavailable');
+		await assert.rejects(resolveTestTempRoot({ GENOS_TEST_TEMP_ROOT: 'relative-temp-root' }),
+			error => error.code === 'WORKER_TEST_ENVIRONMENT_FAILED'
+				&& error.testEnvironment.kind === 'invalid_temp_root');
+		await fs.mkdir(path.join(root, 'tests'), { recursive: true });
+		await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({ private: true,
+			scripts: { test: 'node tests/test_temp_directory.js' } }));
+		await fs.writeFile(path.join(root, 'tests', 'test_temp_directory.js'), `const assert = require('node:assert/strict');
+const expected = ${JSON.stringify(tempOverride)};
+if (process.platform === 'win32') {
+  assert.equal(process.env.TEMP, expected);
+  assert.equal(process.env.TMP, expected);
+}
+assert.equal(process.env.TMPDIR, expected);`);
+		const previousTestTempRoot = process.env.GENOS_TEST_TEMP_ROOT;
+		process.env.GENOS_TEST_TEMP_ROOT = tempOverride;
+		try {
+			const tempProposal = JSON.stringify({ format: 'genos.file-replacement/v1',
+				patches: [{ path: 'src/temp-check.js', content: 'module.exports = true;' }],
+				tests: ['npm test'], evidence: 'verify isolated test temporary directory' });
+			const tempRun = await executeProposal({ workspaceRoot: root, allowedCommands: ['npm test'],
+				allowedPatchPaths: ['src/temp-check.js'], text: tempProposal });
+			assert.equal(tempRun.testStatus, 'passed', 'test process receives the configured writable temp root');
+		} finally {
+			if (previousTestTempRoot === undefined) delete process.env.GENOS_TEST_TEMP_ROOT;
+			else process.env.GENOS_TEST_TEMP_ROOT = previousTestTempRoot;
+		}
+
 		const contextRoot = path.join(root, 'context');
 		await fs.mkdir(path.join(contextRoot, 'backend', 'tests'), { recursive: true });
 		await fs.mkdir(path.join(contextRoot, 'backend', 'src', 'services'), { recursive: true });

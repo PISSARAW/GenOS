@@ -56,6 +56,28 @@ function allowedTest(command, allowedCommands) {
   const missionAllowlist = (allowedCommands || []).map(normalizeSandboxCommand);
   return isAllowedSandboxTestCommand(command) && missionAllowlist.includes(normalized);
 }
+async function resolveTestTempRoot(environment = process.env) {
+  const requested = String(environment.GENOS_TEST_TEMP_ROOT || '').trim();
+  if (requested && !path.isAbsolute(requested)) {
+    throw Object.assign(new Error('GENOS_TEST_TEMP_ROOT must be an absolute writable path.'), {
+      code: 'WORKER_TEST_ENVIRONMENT_FAILED', testEnvironment: { kind: 'invalid_temp_root' }
+    });
+  }
+  const root = requested ? path.resolve(requested) : os.tmpdir();
+  let probe;
+  try {
+    await fs.mkdir(root, { recursive: true });
+    probe = await fs.mkdtemp(path.join(root, 'genos-test-write-probe-'));
+    await fs.rm(probe, { recursive: true, force: true });
+    return root;
+  } catch (error) {
+    if (probe) await fs.rm(probe, { recursive: true, force: true }).catch(() => {});
+    throw Object.assign(new Error(`Local test temporary directory is unavailable: ${root}: ${error.message}`), {
+      code: 'WORKER_TEST_ENVIRONMENT_FAILED',
+      testEnvironment: { kind: 'temp_root_unavailable', root, osCode: error.code || null }
+    });
+  }
+}
 async function assertNoSymlinkPath(root, destination) {
   const resolvedRoot = path.resolve(root);
   const relative = path.relative(resolvedRoot, destination);
@@ -101,6 +123,7 @@ async function restorePatchState(workspaceRoot, state) {
 }
 async function runTest(command, root) {
   const [program, ...args] = normalizeSandboxCommand(command).split(' ');
+  const testTempRoot = await resolveTestTempRoot();
   return new Promise((resolve) => {
     const child = spawn(program, args, {
       cwd: root,
@@ -115,10 +138,11 @@ async function runTest(command, root) {
           SystemDrive: process.env.SystemDrive || 'C:',
           PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
           ComSpec: process.env.ComSpec || 'cmd.exe',
-          TEMP: os.tmpdir(),
-          TMP: os.tmpdir()
+          TEMP: testTempRoot,
+          TMP: testTempRoot,
+          TMPDIR: testTempRoot
         } : {
-          TMPDIR: os.tmpdir()
+          TMPDIR: testTempRoot
         })
       },
       stdio: ['ignore', 'pipe', 'pipe']
@@ -232,7 +256,7 @@ function markerPatterns(markers) {
 }
 
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
-  restorePatchState, proposalResponseFormat, assertRequiredPatchContract, assertAllowedPatchPaths };
+  restorePatchState, proposalResponseFormat, assertRequiredPatchContract, assertAllowedPatchPaths, resolveTestTempRoot };
 
 function assertProposalSchema(proposal, options = {}) {
   const allowedFormats = options.forceFullFileReplacement
