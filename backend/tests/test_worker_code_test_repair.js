@@ -207,6 +207,13 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stdout: 'CANDIDATE index.html true 5000',
     stderr: 'AssertionError: 0 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
+  const visibleCountFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
+    command: 'npm test', exitCode: 1,
+    stderr: 'AssertionError: Expected one visible text match; 2 !== 1 at tests/acceptance.cjs:19:10'
+  }] }, usage: { tokens: 50 } });
+  assert.match(locatorRepairHint(visibleCountFailure), /Keep item names out of visible action text/);
+  assert.doesNotMatch(locatorRepairHint(visibleCountFailure), /Oats/i,
+    'the line-19 repair guidance applies to any item name');
   assert.match(locatorRepairHint(oatsFailure), /append the form values to the shared items collection/);
   assert.match(failureFeedback(oatsFailure), /append the form values to the shared items collection/);
   const addPlan = repairPlan(oatsFailure);
@@ -269,7 +276,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
-  assert.ok(locatorRepairHint(duplicateFailure).includes('2 visible text matches for Oats'));
+  assert.ok(locatorRepairHint(duplicateFailure).includes('2 visible matches for the expected item name'));
+  assert.doesNotMatch(locatorRepairHint(duplicateFailure), /Oats/);
   const duplicateAccessibleName = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{ stderr: 'getByLabel(/item name/i) resolved to 2 elements' }] } }); const duplicateAccessibleMarkup = JSON.stringify({ patches: [{ path: 'index.html', content: '<label for="item-name">Item Name:</label><input id="item-name"><label for="search-input" aria-label="Search Item Name:">Search Item Name:</label><input id="search-input" aria-label="Search Item Name:">' }] }); const repairedAccessibleMarkup = JSON.parse(applyRepairPlan(duplicateAccessibleMarkup, repairPlan(duplicateAccessibleName))).patches[0].content; assert.match(repairedAccessibleMarkup, /<label for="search-input">Search<\/label><input id="search-input" aria-label="Search">/); assert.match(repairedAccessibleMarkup, /<input id="item-name">/);
   const persistenceFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
@@ -334,7 +342,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
-  assert.match(quantityRowContent, /const actionLabel='Increase quantity for '\+name/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
+  assert.match(quantityRowContent, /const actionLabel\s*=\s*direction\s*\+\s*' quantity for '\s*\+\s*name/);
+  assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
   assert.match(missingQuantityOutput, /<input id="qty" type="number" aria-label="Quantity">/);
@@ -371,16 +380,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('addEventListener')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function handleAddItem')));
   assert.ok(patchDiagnostics[0].logic.some(hasAddHandlerAndPush));
-  function hasAddHandlerAndPush(item) {
-    return ['function addItem(event)', 'items.push(item)'].every((phrase) => item.includes(phrase));
-  }
-  let attempts = 0;
-  await assert.rejects(run({ mission, runAttempt: async () => {
-    attempts += 1;
-    throw failed;
-  } }), /test failed/);
-  assert.equal(attempts, 10);
-  let nonTestAttempts = 0;
+  function hasAddHandlerAndPush(item) { return ['function addItem(event)', 'items.push(item)'].every((phrase) => item.includes(phrase)); }
+  await require('./test_worker_code_test_repair_progress')(); let nonTestAttempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
     nonTestAttempts += 1;
     throw new Error('model unavailable');
@@ -392,8 +393,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     nonCodeAttempts += 1;
     throw failed;
   } }), /test failed/);
-  assert.equal(nonCodeAttempts, 1);
-  console.log('Local code worker repair loop checks passed.');
+  assert.equal(nonCodeAttempts, 1); console.log('Local code worker repair loop checks passed.');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;
