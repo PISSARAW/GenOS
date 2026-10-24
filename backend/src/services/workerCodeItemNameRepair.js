@@ -38,10 +38,18 @@ function labelItemNameInput(content, label) {
 }
 
 function cleanSearchButtonName(content) {
-  return content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => {
-    if (!/\baria-label\s*=\s*(["'])search\1/i.test(button)
-      || button.replace(/<[^>]+>/g, '').trim().toLowerCase() !== 'search') return button;
-    return button.replace(/\baria-label\s*=\s*(["'])search\1/i, 'aria-label="Run search"');
+  const controls = content.replace(/<(?:div|form|section|fieldset)\b[^>]*>/gi, (opening) => {
+    return /\baria-label\s*=\s*(["'])[^"']*search[^"']*\1/i.test(opening)
+      ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening;
+  });
+  return controls.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => {
+    const current = button.match(/\baria-label\s*=\s*(["'])([^"']*)\1/i)?.[2] || '';
+    const text = button.replace(/<[^>]+>/g, '').trim();
+    if (!/search/i.test(`${current} ${text}`)) return button;
+    const label = /^search$/i.test(current || text) ? 'Run search' : 'Apply filters';
+    return /\baria-label\s*=\s*(["'])[^"']*\1/i.test(button)
+      ? button.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, `aria-label="${label}"`)
+      : button.replace(/^<button\b/i, `<button aria-label="${label}"`);
   });
 }
 

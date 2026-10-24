@@ -14,6 +14,9 @@ assert.match(repaired, /<button aria-label="Run search" onclick="searchInventory
 assert.equal((repaired.match(/aria-label="Search"/g) || []).length, 0);
 const headings = labelItemNameInput('<h1>Pantry Inventory</h1><h2>Pantry Items</h2><form><input id="itemName"></form>', 'Item name');
 assert.match(headings, /<h1>Pantry Inventory<\/h1><h2>Items<\/h2>/);
+const broadSearch = labelItemNameInput('<div aria-label="Filter and Search"><input id="search" aria-label="Search"><button aria-label="Filter/Search">Filter/Search</button></div><form><input id="itemName"></form>', 'Item name');
+assert.doesNotMatch(broadSearch, /aria-label="Filter and Search"/);
+assert.match(broadSearch, /aria-label="Apply filters"/);
 const withFilterRepair = labelFilterSelect(source + '<select id="filter"><option>All</option></select>', 'Filter category');
 assert.match(withFilterRepair, /<button aria-label="Run search" onclick="searchInventory\(\)">Search<\/button>/);
 console.log('Search accessible-name collision checks passed.');
