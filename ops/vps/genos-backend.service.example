@@ -1,0 +1,26 @@
+[Unit]
+Description=GenOS backend API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=genos
+Group=genos
+WorkingDirectory=/opt/genos
+StateDirectory=genos
+StateDirectoryMode=0750
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4000
+Environment=GENOS_DB_PATH=/var/lib/genos/genos.db
+Environment=GENOS_AGENT_EXECUTOR=local
+EnvironmentFile=/etc/genos/backend.env
+ExecStart=/usr/bin/node /opt/genos/backend/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -25,6 +25,7 @@ const { attachAutobiographicalCapture } = require('./src/services/autobiographic
 const { readHostEnvironment, deriveAdaptivePolicy } = require('./src/services/hostEnvironment');
 
 const PORT = readPort('PORT', process.env.PORT, 4000);
+const HOST = process.env.HOST || '0.0.0.0';
 
 function forkClusterWorker(isJobWorker) {
   return cluster.fork({
@@ -323,13 +324,13 @@ async function runWorkerProcess() {
     signalPlaneSubscriber.startSignalPlaneSubscriber();
     await recoverMorphogenesisAtStartup(db);
 
-    server.listen(PORT, () => {
-      console.log(`[GenOS Full-Stack] Server running on port ${PORT}`);
+    server.listen(PORT, HOST, () => {
+      console.log(`[GenOS Full-Stack] Server running on ${HOST}:${PORT}`);
       telemetry.emitEvent({
         eventType: 'SERVER_BOOT',
         agentId: 'system',
         action: 'BOOT',
-        detail: `GenOS Backend operational on port ${PORT}`,
+        detail: `GenOS Backend operational on ${HOST}:${PORT}`,
         severity: 'info'
       });
     });

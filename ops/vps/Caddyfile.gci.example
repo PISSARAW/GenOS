@@ -1,0 +1,8 @@
+api.example.com {
+	@gciCatalog {
+		method GET
+		path /api/gci/v1/capabilities /api/gci/v1/capabilities/*
+	}
+	reverse_proxy @gciCatalog 127.0.0.1:4000
+	respond "not found" 404
+}

@@ -362,6 +362,7 @@ genos_sk_admin_...
 
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |
+| `HOST` | `0.0.0.0` | HTTP REST API bind address; use `127.0.0.1` behind a same-host reverse proxy |
 | `PORT` | `4000` | HTTP REST API listening port |
 | `GRPC_PORT` | `50051` | gRPC Lineage service listening port |
 | `GRPC_BIND_ADDRESS` | `127.0.0.1` without TLS | gRPC listening interface |
