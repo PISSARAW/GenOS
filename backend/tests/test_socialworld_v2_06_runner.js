@@ -24,6 +24,8 @@ test('V2-06 pilot mode is separate from the registered campaign seed list', asyn
   assert.equal(options.seed, undefined);
   const result = await runner.runV206({ pilot: true, readinessOnly: true }, fakeProvider);
   assert.equal(result.readiness.configured, true);
+  const revisionTwo = await runner.runV206({ seed: 'socialworld-v2-01', revision: '2', readinessOnly: true }, fakeProvider);
+  assert.equal(revisionTwo.readiness.configured, true);
 });
 
 test('V2-06 runner records its package runtime version', () => {
@@ -71,9 +73,11 @@ test('V2-06 counterfactuals use explicit event-keyed semantic inversions', () =>
 test('V2-06 decision prompt uses only the supplied model, not raw memories', () => {
   const prompt = runner.decisionPrompt({ model: { relationHypotheses: [{ relationType: 'unknown' }],
     sourceMemoryIds: [] }, memories: [{ id: 'hidden-memory', statement: 'raw memory must not be copied' }],
-    delayedContext: 'new request', permissionPolicy: [] });
+    delayedContext: 'new request', permissionPolicy: [], decisionPolicy: { version: 'test-policy' } });
   assert.match(prompt, /only the supplied social model/);
   assert.match(prompt, /Persisted social model read back from the runtime/);
   assert.equal(prompt.includes('raw memory must not be copied'), false);
   assert.equal(prompt.includes('hidden-memory'), false);
+  assert.match(prompt, /pre-registered evidence-to-action policy/);
+  assert.match(prompt, /test-policy/);
 });

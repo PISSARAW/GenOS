@@ -148,8 +148,9 @@ function verifySourceIndependence(sources, state) {
   const ids = new Set(memories.map((memory) => memory.id));
   const supports = memories.filter((memory) => memory.polarity === 'supports').length;
   const contradictions = memories.filter((memory) => memory.polarity === 'contradicts').length;
+  const required = state.caseData.requiredPolarityCounts || { supports: 2, contradicts: 2 };
   if (memories.length !== sources.length || ids.size !== memories.length || sessions.size !== memories.length
-    || supports < 2 || contradictions < 2) addError(state, 'Source memories are not four independent, balanced authenticated dialogues.');
+    || supports < required.supports || contradictions < required.contradicts) addError(state, 'Source memories do not meet the registered independent polarity counts.');
 }
 function bindSourcesToArms(sourceIds, state) {
   for (const [name, arm] of Object.entries(state.report.arms)) bindOneArm({ name, arm, sourceIds, state });

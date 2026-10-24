@@ -23,7 +23,7 @@ function parseArgs(argv) {
     if (token === '--readiness-only') { options.readinessOnly = true; continue; }
     if (token === '--pilot') { options.pilot = true; continue; }
     const eq = token.indexOf('='); const name = token.slice(2, eq < 0 ? undefined : eq); const value = eq < 0 ? argv[++i] : token.slice(eq + 1);
-    if (!['seed', 'attempt', 'work-dir', 'model'].includes(name) || !value) throw new Error('Invalid V2-06 CLI arguments.');
+    if (!['seed', 'attempt', 'work-dir', 'model', 'revision'].includes(name) || !value) throw new Error('Invalid V2-06 CLI arguments.');
     options[name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
   }
   return options;
@@ -34,13 +34,14 @@ function modelReadiness(provider, model) {
     provider: status.provider || null, model: status.modelName || null, reasonCode: status.configured ? null : 'MODEL_PROVIDER_NOT_READY' };
 }
 function safeFailure(error) { const code = String(error?.code || '').toUpperCase(); return /TIMEOUT/i.test(code + error?.message) ? 'MODEL_PROVIDER_TIMEOUT' : /^(MODEL|SOCIAL|DIALOGUE|MEMORY)_[A-Z0-9_]+$/.test(code) ? code : 'V2_06_RUNNER_STEP_FAILED'; }
-function writeJson(file, value) {
+function writeJson(file, value, reportRoot = REPORT_ROOT) {
   fs.mkdirSync(path.dirname(file), { recursive: true }); const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
-  fs.writeFileSync(file, bytes, { flag: 'wx' }); return { path: path.relative(REPORT_ROOT, file).split(path.sep).join('/'), sha256: sha(bytes) };
+  fs.writeFileSync(file, bytes, { flag: 'wx' }); return { path: path.relative(reportRoot, file).split(path.sep).join('/'), sha256: sha(bytes) };
 }
 function addEvidenceRef(list, ref) { if (!list.some((item) => item.path === ref.path)) list.push(ref); }
-function seedAttempt(seed, requested, pilot = false) {
-  const root = pilot ? path.join(REPORT_ROOT, 'pilot', seed) : path.join(REPORT_ROOT, seed);
+function seedAttempt(input) {
+  const { seed, requested, pilot = false, reportRoot = REPORT_ROOT } = input;
+  const root = pilot ? path.join(reportRoot, 'pilot', seed) : path.join(reportRoot, seed);
   fs.mkdirSync(root, { recursive: true });
   const found = fs.readdirSync(root).map((name) => Number(name.match(/^attempt-(\d+)$/)?.[1] || 0));
   const attempt = requested === undefined ? Math.max(0, ...found) + 1 : Number(requested);
@@ -48,10 +49,10 @@ function seedAttempt(seed, requested, pilot = false) {
   return { attempt, dir };
 }
 function artifact({ context, kind, arm, name, data }) {
-  const value = { schemaVersion: 1, kind, campaignId: 'socialworld-v2', scenario: 'V2-06', seed: context.seed,
+  const value = { schemaVersion: 1, kind, campaignId: context.campaignId, scenario: 'V2-06', seed: context.seed,
     attempt: context.attempt, caseId: context.caseData.caseId, sourceCommit: context.sourceCommit,
     configHash: context.configHash, arm, ...data };
-  const ref = writeJson(path.join(context.dir, name), value);
+  const ref = writeJson(path.join(context.dir, name), value, context.reportRoot);
   if (context.refs[arm]) context.refs[arm].push(ref);
   if (context.report) {
     addEvidenceRef(context.report.evidenceRefs, ref);
@@ -100,7 +101,8 @@ async function oneArm({ db, context, arm, index }) {
       modelHash: saved.snapshot.modelHash, sourceMemoryIds: model.sourceMemoryIds };
   }
   const decisionPrompt = helpers.decisionPrompt({ model: decisionModel, delayedContext: context.protocol.delayedDecision.context,
-    permissionPolicy: context.protocol.delayedDecision.permissionPolicy });
+    permissionPolicy: context.protocol.delayedDecision.permissionPolicy,
+    decisionPolicy: context.protocol.decisionPolicy || context.caseData.decisionPolicy });
   const decisionInvocation = { invocationId: crypto.randomUUID(), promptHash: sha(JSON.stringify(decisionPrompt)),
     provenance: 'GenOS modelProvider local invocation' };
   const decisionResult = await generateJson(context.provider, { ...providerInput, seed: providerInput.seed + 1, prompt: decisionPrompt });
@@ -121,7 +123,7 @@ async function oneArm({ db, context, arm, index }) {
       ...decisionInvocation, parsedOutputHash: sha(JSON.stringify(decisionOutput)) } };
 }
 function emptyArm(arm) { return { role: roleForArm(arm), status: 'inconclusive', reasonCode: 'NOT_RUN', limitations: ['Arm was not executed.'], model: null, modelState: null, decision: null, interventionReceipt: null, evidenceRefs: [] }; }
-function reportBase(c) { return { campaignId: 'socialworld-v2', scenario: 'V2-06', arm: 'genos-full', seed: c.seed,
+function reportBase(c) { return { campaignId: c.campaignId, scenario: 'V2-06', arm: 'genos-full', seed: c.seed,
   ...(c.pilot ? { pilot: true } : {}),
   attempt: c.attempt, sourceCommit: c.sourceCommit, runtimeVersion: helpers.runtimeVersion(), model: c.model, config: c.config,
   configHash: c.configHash, caseId: c.caseData.caseId, caseHash: c.caseHash, sharedFactors: c.sharedFactors,
@@ -184,7 +186,9 @@ async function execute(c) {
       addEvidenceRef(c.report.arms[arm].evidenceRefs, sourcesRef);
     }
     const runtime = require('../../../../backend/src/services/socialMentalModelRuntimeService');
-    const loaded = await runtime.loadVerifiedSocialMemories(db, { ...c.scope, ...c.pair, minimumIndependent: 4 });
+    const loaded = await runtime.loadVerifiedSocialMemories(db, { ...c.scope, ...c.pair,
+      minimumIndependent: c.protocol.minimumIndependentMemories || 4,
+      requiredPolarityCounts: c.protocol.requiredPolarityCounts });
     c.memories = loaded.socialMemories; c.entries = loaded.memories; c.results = {};
     c.sourceEventKeyByMemoryId = new Map(sources.map((source) => [source.memoryId, source.eventKey]));
     const authority = require('../../../../backend/src/services/socialAuthorityCheckRuntimeService');
@@ -219,31 +223,52 @@ async function executeOrRecord(context, readiness) {
     context.report.limitations = ['No passing claim is made for incomplete or invalid runtime evidence.'];
   }
 }
-async function runV206(options, provider = require('../../../../backend/src/services/modelProvider')) {
-  const manifest = readJson(path.join(__dirname, 'manifest.json')); const protocolFile = path.join(__dirname, 'V2-06-experiences.json');
-  const caseFile = path.join(__dirname, 'V2-06-case.json'); const protocol = readJson(protocolFile); const caseData = readJson(caseFile);
+function loadCampaign(revision) {
+  const campaignDir = revision === '2' ? path.resolve(__dirname, '../socialworld-v2-r2') : __dirname;
+  const reportRoot = path.join(campaignDir, 'reports'); const manifestFile = path.join(campaignDir, 'manifest.json');
+  const manifest = readJson(manifestFile); const protocolFile = path.join(campaignDir, 'V2-06-experiences.json');
+  const caseFile = path.join(campaignDir, manifest.scenarios.find((item) => item.id === 'V2-06')?.caseFile || 'V2-06-case.json');
+  return { campaignId: manifest.campaignId, manifest, reportRoot, protocolFile, caseFile,
+    protocol: readJson(protocolFile), caseData: readJson(caseFile) };
+}
+function selectSeed(options, manifest) {
   const seed = options.pilot ? `pilot-${crypto.randomUUID()}` : options.seed;
   if (!options.pilot && !manifest.seeds.includes(seed)) throw new Error('Seed must be registered in the campaign manifest.');
-  const model = options.model || process.env.GENOS_DEFAULT_MODEL; const readiness = modelReadiness(provider, model);
-  if (options.readinessOnly) return { readiness };
-  if (!options.workDir || !path.isAbsolute(options.workDir)) throw new Error('--work-dir must be an absolute path outside the repository.');
-  const { attempt, dir } = seedAttempt(seed, options.attempt, options.pilot); const startedAt = new Date().toISOString();
-  const workDir = helpers.allocateWorkDirectory(options.workDir, seed, attempt);
+  return seed;
+}
+function validateWorkDirectory(value) {
+  if (!value || !path.isAbsolute(value)) throw new Error('--work-dir must be an absolute path outside the repository.');
+}
+function buildContext(input) {
+  const { options, campaign, seed, attempt, dir, startedAt, provider, model } = input;
+  const { manifest, protocol, caseData, protocolFile, caseFile, reportRoot } = campaign;
+  const workDir = helpers.allocateWorkDirectory(options.workDir, `${manifest.campaignId}-${seed}`, attempt);
   const config = { model, organizationId: `socialworld-v2-06-${seed}`,
     projectId: `socialworld-v2-06-${seed}`, temperature: 0.2, responseFormat: 'json_object',
     timeoutMs: 180000, maxTokens: MAX_TOKENS,
     experienceProtocol: protocol.protocolVersion, budget: { tokenBudget: TOKEN_BUDGET, maxTurns: MAX_TURNS } };
-  const context = { seed, pilot: options.pilot === true, attempt, dir, startedAt, provider, model, protocol, caseData, workDir,
+  return { seed, campaignId: campaign.campaignId, reportRoot, pilot: options.pilot === true, attempt, dir, startedAt,
+    provider, model, protocol, caseData, workDir,
     sourceCommit: helpers.sourceCommit(), protocolHash: sha(fs.readFileSync(protocolFile)), caseHash: sha(fs.readFileSync(caseFile)),
     config, configHash: hash(config), sharedFactors: factors(protocol),
     seedNumber: options.pilot ? 2026 : Number(seed.slice(-2)),
     pair: { subjectAgentId: `${protocol.participants.subject}-${seed}`, otherAgentId: `${protocol.participants.other}-${seed}` },
     scope: { organizationId: `socialworld-v2-06-${seed}`, projectId: `socialworld-v2-06-${seed}` },
     refs: Object.fromEntries(ARM_KEYS.map((arm) => [arm, []])) };
+}
+async function runV206(options, provider = require('../../../../backend/src/services/modelProvider')) {
+  const campaign = loadCampaign(options.revision); const { reportRoot } = campaign;
+  const seed = selectSeed(options, campaign.manifest);
+  const model = options.model || process.env.GENOS_DEFAULT_MODEL; const readiness = modelReadiness(provider, model);
+  if (options.readinessOnly) return { readiness };
+  validateWorkDirectory(options.workDir);
+  const { attempt, dir } = seedAttempt({ seed, requested: options.attempt, pilot: options.pilot, reportRoot });
+  const startedAt = new Date().toISOString();
+  const context = buildContext({ options, campaign, seed, attempt, dir, startedAt, provider, model });
   context.report = reportBase(context); await executeOrRecord(context, readiness);
   context.report.durationMs = Date.now() - Date.parse(startedAt);
   const file = path.join(dir, 'report.json'); fs.writeFileSync(file, `${JSON.stringify(context.report, null, 2)}\n`, { flag: 'wx' });
-  return { ...context.report, reportPath: path.relative(REPORT_ROOT, file).split(path.sep).join('/') };
+  return { ...context.report, reportPath: path.relative(reportRoot, file).split(path.sep).join('/') };
 }
 async function main() {
   try {

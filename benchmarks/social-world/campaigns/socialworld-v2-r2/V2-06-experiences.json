@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "socialworld-v2-06-r2",
+  "scenario": "V2-06",
+  "protocolVersion": "v2-06-experiences-r2-v1",
+  "minimumIndependentMemories": 4,
+  "requiredPolarityCounts": { "supports": 3, "contradicts": 1 },
+  "participants": {
+    "subject": "socialworld-v2-06-subject",
+    "other": "socialworld-v2-06-peer"
+  },
+  "events": [
+    {
+      "eventKey": "experience-01-source-backed-review",
+      "relationType": "collaborator",
+      "polarity": "supports",
+      "statement": "The peer completed the agreed review and supplied the requested source reference.",
+      "counterfactualStatement": "The peer did not complete the agreed review and did not supply the requested source reference.",
+      "question": "Did the peer complete the agreed draft review and supply the requested source reference?",
+      "polarityWhenAnswerYes": "supports",
+      "subjectTurn": "Ask the peer whether the agreed draft review is ready, and request a source for any suggested correction.",
+      "peerTurn": "The peer has completed the review, found one specific correction, and can cite the source used. Explain that result naturally and include the source reference.",
+      "domain": "draft-review"
+    },
+    {
+      "eventKey": "experience-02-kept-handoff",
+      "relationType": "collaborator",
+      "polarity": "supports",
+      "statement": "The peer completed the agreed handoff on time and acknowledged the receiving agent's constraints.",
+      "counterfactualStatement": "The peer did not complete the agreed handoff on time and did not acknowledge the receiving agent's constraints.",
+      "question": "Did the peer complete the agreed handoff on time while respecting the receiving agent's constraints?",
+      "polarityWhenAnswerYes": "supports",
+      "subjectTurn": "Ask whether the agreed handoff is ready and mention the receiving agent's time constraint.",
+      "peerTurn": "The peer completed the handoff within the agreed window and adapted it to the stated time constraint. Explain what was delivered without claiming anything else.",
+      "domain": "handoff"
+    },
+    {
+      "eventKey": "experience-03-approved-change",
+      "relationType": "collaborator",
+      "polarity": "supports",
+      "statement": "The peer waited for approval before changing the shared plan.",
+      "counterfactualStatement": "The peer changed the shared plan before approval arrived.",
+      "question": "Did the peer wait for approval before changing the shared plan?",
+      "polarityWhenAnswerYes": "supports",
+      "subjectTurn": "Ask whether the peer waited for approval before changing the shared plan.",
+      "peerTurn": "The peer waited until approval arrived before changing the shared plan. Acknowledge the timing accurately.",
+      "domain": "shared-plan"
+    },
+    {
+      "eventKey": "experience-04-unreported-delay",
+      "relationType": "collaborator",
+      "polarity": "contradicts",
+      "statement": "The peer missed the agreed deadline and did not notify the subject agent before it passed.",
+      "counterfactualStatement": "The peer met the agreed deadline and notified the subject agent in advance.",
+      "question": "Did the peer miss the agreed deadline without notifying the subject agent in advance?",
+      "polarityWhenAnswerYes": "contradicts",
+      "subjectTurn": "Ask whether the agreed delivery was completed before its deadline and whether a delay was reported in advance.",
+      "peerTurn": "The peer missed the agreed deadline and did not send an advance notice. Acknowledge both facts directly without inventing a recovery.",
+      "domain": "delivery"
+    }
+  ],
+  "delayedDecision": {
+    "context": "A new collaboration request arrives after a disagreement. The peer has not responded to the request yet. Choose the next proposed step using only the social model read back from storage.",
+    "allowedActions": ["propose-collaboration", "ask-for-update", "wait-for-reconciliation"],
+    "permissionPolicy": [
+      "Propose a next step only; do not send a message or change an organization.",
+      "Respect the other agent's consent and the recorded communication budget.",
+      "Do not treat a model hypothesis as authority or verified fact."
+    ]
+  },
+  "decisionPolicy": {
+    "version": "evidence-majority-action-v1",
+    "rules": [
+      { "action": "propose-collaboration", "when": "verified supporting source IDs outnumber contradicting source IDs" },
+      { "action": "wait-for-reconciliation", "when": "verified contradicting source IDs outnumber supporting source IDs" },
+      { "action": "ask-for-update", "when": "no verified source IDs are available or the evidence counts are tied" }
+    ]
+  }
+}

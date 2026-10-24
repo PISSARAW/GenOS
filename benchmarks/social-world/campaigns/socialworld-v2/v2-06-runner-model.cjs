@@ -50,6 +50,7 @@ function decisionPrompt(input) {
     'Do not send a message, mutate state, change permissions, or claim an action was executed. Do not reveal hidden chain of thought.',
     `Allowed action values: ${ACTIONS.join(', ')}.`,
     `Persisted social model read back from the runtime: ${JSON.stringify(input.model)}.`,
+    input.decisionPolicy ? `Apply this pre-registered evidence-to-action policy: ${JSON.stringify(input.decisionPolicy)}. Count unique IDs in relationHypotheses.supportingMemoryIds and relationHypotheses.contradictingMemoryIds; do not count an ID in both groups.` : '',
     'Do not reconstruct or cite source memories that are absent from this model. Use only the model’s stated beliefs, unknowns, alternatives, and source IDs.',
     `New delayed context: ${input.delayedContext}`,
     `Permission constraints: ${JSON.stringify(input.permissionPolicy)}.`,

@@ -220,10 +220,10 @@ async function readSourceMemory(db, row, context) {
     sourceReceiptHash: row.source_receipt_hash, episodeIds: replay.episodes.map((episode) => episode.id) };
 }
 
-function requireIndependentSources(memories, minimum) {
+function requireIndependentSources(memories, minimum, requiredPolarityCounts) {
   const enough = memories.length >= minimum && new Set(memories.map((memory) => memory.sessionId)).size === memories.length;
-  const polarity = memories.filter((memory) => memory.polarity === 'supports').length >= 2
-    && memories.filter((memory) => memory.polarity === 'contradicts').length >= 2;
+  const polarity = memories.filter((memory) => memory.polarity === 'supports').length >= requiredPolarityCounts.supports
+    && memories.filter((memory) => memory.polarity === 'contradicts').length >= requiredPolarityCounts.contradicts;
   const episodes = new Set(memories.flatMap((memory) => memory.episodeIds));
   if (!enough || !polarity || episodes.size !== memories.length * 2) {
     fail('SOCIAL_MEMORY_INDEPENDENCE_REQUIRED', 'Need independent dialogues with two supports and two contradictions.');
@@ -239,7 +239,8 @@ async function loadVerifiedSocialMemories(db, input) {
   scope.organizationId, scope.projectId, pair.subjectAgentId, pair.otherAgentId);
   const memories = [];
   for (const row of rows) memories.push(await readSourceMemory(db, row, { scope, pair }));
-  requireIndependentSources(memories, Number.isInteger(input.minimumIndependent) ? input.minimumIndependent : 4);
+  requireIndependentSources(memories, Number.isInteger(input.minimumIndependent) ? input.minimumIndependent : 4,
+    input.requiredPolarityCounts || { supports: 2, contradicts: 2 });
   return { ...pair, memories, socialMemories: memories, nonSocialMemories: [] };
 }
 

@@ -31,7 +31,7 @@ async function closeDialogue(db, session, index) {
     promptHash: digest(`prompt-${index}-${i}`), contentHash: digest(turn.utterance) }));
   await dialogue.closeSession({ db, escalationId: session.id, artifactKind: 'ExperimentProposal',
     artifact: { summary: `Resolved observation ${index}`, evidenceRefs,
-      socialObservation: { relationType: 'reliable', polarity: index < 2 ? 'supports' : 'contradicts',
+      socialObservation: { relationType: 'reliable', polarity: index < 3 ? 'supports' : 'contradicts',
         statement: `Observation ${index} describes reliability.`, evidenceRefs }, modelTurnReceipts }, ...scope });
 }
 
@@ -58,8 +58,12 @@ async function main() {
       assert.deepEqual(item.receipt.episodeHashes, item.participantEpisodes.map((episode) => digest(episode)));
     }
     const loaded = await runtime.loadVerifiedSocialMemories(db, { ...scope,
-      subjectAgentId: participants[0], otherAgentId: participants[1] });
+      subjectAgentId: participants[0], otherAgentId: participants[1],
+      requiredPolarityCounts: { supports: 3, contradicts: 1 } });
     assert.equal(loaded.socialMemories.length, 4);
+    await assert.rejects(runtime.loadVerifiedSocialMemories(db, { ...scope,
+      subjectAgentId: participants[0], otherAgentId: participants[1],
+      requiredPolarityCounts: { supports: 2, contradicts: 2 } }), { code: 'SOCIAL_MEMORY_INDEPENDENCE_REQUIRED' });
     console.log('Social runtime source evidence: complete offline artifact payloads replay against persisted rows.');
   } finally { await closeDatabase(); }
 }
