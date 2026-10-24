@@ -268,6 +268,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
   assert.ok(locatorRepairHint(duplicateFailure).includes('2 visible text matches for Oats'));
+  const duplicateAccessibleName = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{ stderr: 'getByLabel(/item name/i) resolved to 2 elements' }] } }); const duplicateAccessibleMarkup = JSON.stringify({ patches: [{ path: 'index.html', content: '<label for="item-name">Item Name:</label><input id="item-name"><label for="search-input" aria-label="Search Item Name:">Search Item Name:</label><input id="search-input" aria-label="Search Item Name:">' }] }); const repairedAccessibleMarkup = JSON.parse(applyRepairPlan(duplicateAccessibleMarkup, repairPlan(duplicateAccessibleName))).patches[0].content; assert.match(repairedAccessibleMarkup, /<label for="search-input">Search<\/label><input id="search-input" aria-label="Search">/); assert.match(repairedAccessibleMarkup, /<input id="item-name">/);
   const persistenceFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: updated quantity persists at tests/acceptance.cjs:26:10'
@@ -331,7 +332,6 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
   assert.match(quantityRowContent, /button\.setAttribute\('aria-label',\"Increase quantity for Oats\"\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
-
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
   assert.match(missingQuantityOutput, /<input id="qty" type="number" aria-label="Quantity">/);

@@ -37,4 +37,18 @@ function labelItemNameInput(content, label) {
   return repaired;
 }
 
-module.exports = { labelItemNameInput };
+function cleanDuplicateItemName(content) {
+  const searchLabel = content.replace(/<label\b([^>]*\bfor\s*=\s*(["'])[^"']*search[^"']*\2[^>]*)>([\s\S]*?)<\/label\s*>/gi,
+    (match, attributes, quote, text) => '<label' + attributes.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '')
+      + '>' + (text.replace(/item\s*name/ig, '').replace(/\s+/g, ' ').trim().replace(/:$/, '').trim() || 'Search') + '</label>');
+  const searchableInputs = searchLabel.replace(/<input\b[^>]*>/gi, (opening) => {
+    if (!/\b(?:id|name)\s*=\s*(["'])[^"']*search[^"']*\1/i.test(opening)) return opening;
+    return /\baria-label\s*=\s*(["'])[^"']*\1/i.test(opening)
+      ? opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, 'aria-label="Search"')
+      : opening.replace(/\s*\/?>$/, (closing) => ' aria-label="Search"' + closing);
+  });
+  return searchableInputs.replace(/<(?:label|td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
+    ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
+}
+
+module.exports = { labelItemNameInput, cleanDuplicateItemName };

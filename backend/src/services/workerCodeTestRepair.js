@@ -71,7 +71,7 @@ function applyOneRepair(content, item) {
     ensure_quantity_input_label: (value) => require('./workerCodeQuantityInputRepair').labelQuantityInput(value),
     ensure_quantity_field_after_reload: (value) => require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(
       require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)),
-    ensure_unique_item_name_locator: cleanDuplicateItemName,
+    ensure_unique_item_name_locator: (value) => require('./workerCodeItemNameRepair').cleanDuplicateItemName(value),
     ensure_filter_select_label: (value) => labelFilterSelect(value, item.label),
     ensure_search_input_label: (value) => labelSearchInput(value, item.label),
     ensure_best_before_input_label: (value) => labelBestBeforeInput(value, item.label),
@@ -92,11 +92,6 @@ function cleanQuantityActions(content, label) {
   const withoutFixtures = withoutInputs.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi,
     (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
   return labelIncreaseButton(withoutFixtures, label);
-}
-
-function cleanDuplicateItemName(content) {
-  return content.replace(/<(?:label|td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
-    ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
 }
 
 function replaceAccessibleName(opening, label) {
