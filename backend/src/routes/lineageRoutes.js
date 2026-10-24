@@ -32,6 +32,7 @@ router.post('/agents/git/stash', requirePermission('workspace:write'), agentGitC
 router.post('/agents/git/tag', requirePermission('workspace:write'), agentGitController.tag);
 router.post('/agents/git/cherry-pick', requirePermission('workspace:write'), agentGitController.cherryPick);
 router.post('/agents/git/diff', requirePermission('read'), agentGitController.diff);
+router.post('/agents/git/cognitive-diff', requirePermission('read'), agentGitController.cognitiveDiff);
 router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
 router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
