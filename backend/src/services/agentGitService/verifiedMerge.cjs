@@ -27,4 +27,4 @@ function verifySource(object) {
   return issues;
 }
 
-module.exports = { verifyMergeEvidence };
+module.exports = { verifyMergeEvidence, verifySource };

@@ -11,6 +11,8 @@ async function compareTrajectories(req) {
     loadCommit(db, req, candidateObjectId)
   ]);
   if (!baseline || !candidate) return { success: false, error: 'Both commits must exist in the current tenant.' };
+  const verification = verifySnapshots([baseline, candidate]);
+  if (!verification.verified) return { success: false, operation: 'ontogenetic-compare', error: 'Snapshot verification failed.', verification };
   return {
     success: true,
     operation: 'ontogenetic-compare',
@@ -21,6 +23,12 @@ async function compareTrajectories(req) {
     execution: { baseline: summarizeRuns(readState(baseline.state_json).runs), candidate: summarizeRuns(readState(candidate.state_json).runs) },
     selection: 'not_performed'
   };
+}
+
+function verifySnapshots(snapshots) {
+  const { verifySource } = require('./verifiedMerge.cjs');
+  const issues = snapshots.flatMap(verifySource);
+  return { verified: issues.length === 0, issues };
 }
 
 async function loadCommit(db, req, objectId) {

@@ -16,6 +16,8 @@ async function cognitiveDiff(req) {
     getScopedObject(db, req, targetObjectId)
   ]);
   if (!base || !target) return { success: false, error: 'Both commits must exist in the current tenant.' };
+  const verification = verifySnapshots([base, target]);
+  if (!verification.verified) return { success: false, operation: 'cognitive-diff', error: 'Snapshot verification failed.', verification };
   return {
     success: true,
     operation: 'cognitive-diff',
@@ -27,6 +29,12 @@ async function cognitiveDiff(req) {
       after: parseState(target.state_json)[section]
     }))
   };
+}
+
+function verifySnapshots(snapshots) {
+  const { verifySource } = require('./verifiedMerge.cjs');
+  const issues = snapshots.flatMap(verifySource);
+  return { verified: issues.length === 0, issues };
 }
 
 async function getScopedObject(db, req, objectId) {
@@ -71,4 +79,4 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-module.exports = { cognitiveDiff, compareSection, changedFacets };
+module.exports = { cognitiveDiff, compareSection, changedFacets, verifySnapshots };

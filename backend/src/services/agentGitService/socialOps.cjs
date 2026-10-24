@@ -15,12 +15,20 @@ async function socialDiff(req) {
   if (!baseObjectId || !targetObjectId) return { success: false, error: 'baseObjectId and targetObjectId are required.' };
   const [base, target] = await Promise.all([loadCommit(db, req, baseObjectId), loadCommit(db, req, targetObjectId)]);
   if (!base || !target) return { success: false, error: 'Both commits must exist in the current tenant.' };
+  const verification = verifySnapshots([base, target]);
+  if (!verification.verified) return { success: false, operation: 'social-diff', error: 'Snapshot verification failed.', verification };
   const changes = Object.keys(SOCIAL_FIELDS).flatMap((section) => compareRecords({
     section,
     before: parseState(base.state_json)[section],
     after: parseState(target.state_json)[section]
   }));
   return { success: true, operation: 'social-diff', baseObjectId, targetObjectId, changes };
+}
+
+function verifySnapshots(snapshots) {
+  const { verifySource } = require('./verifiedMerge.cjs');
+  const issues = snapshots.flatMap(verifySource);
+  return { verified: issues.length === 0, issues };
 }
 
 async function loadCommit(db, req, objectId) {

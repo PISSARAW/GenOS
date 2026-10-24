@@ -12,6 +12,8 @@ async function epistemicMerge(req) {
   const ids = [baseObjectId, leftObjectId, rightObjectId];
   const objects = await Promise.all(ids.map((id) => getObject(db, req, id)));
   if (objects.some((object) => !object)) return { success: false, error: 'All three commits must exist in the current tenant.' };
+  const verification = verifySnapshots(objects);
+  if (!verification.verified) return { success: false, operation: 'epistemic-merge-preview', error: 'Snapshot verification failed.', verification };
   const [base, left, right] = objects.map((object) => parseState(object.state_json).decisions || []);
   return {
     success: true,
@@ -21,6 +23,12 @@ async function epistemicMerge(req) {
     rightObjectId,
     ...mergeDecisions({ base, left, right, leftObjectId, rightObjectId })
   };
+}
+
+function verifySnapshots(snapshots) {
+  const { verifySource } = require('./verifiedMerge.cjs');
+  const issues = snapshots.flatMap(verifySource);
+  return { verified: issues.length === 0, issues };
 }
 
 async function getObject(db, req, objectId) {
