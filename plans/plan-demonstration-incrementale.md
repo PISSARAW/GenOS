@@ -142,20 +142,21 @@ Le replay REST exige l'agent et le snapshot ; `apply: true` exécute le replay e
 
 ## Phase 3 — Arbitrage explicite : ACT / OBSERVE / LEARN / NO_CHANGE
 
-**But :** montrer que GenOS choisit explicitement une action, plutôt que d'exécuter aveuglément.
+**But :** montrer que le service de stewardship choisit explicitement un mode selon l'incertitude, le budget et les permissions.
 
-Lancer une mission où l'agent rencontre une incertitude, et vérifier que l'arbitrage est consigné :
+La politique est déterministe et couverte par un test des quatre modes :
 
-- `ACT` → exécution dans un workspace isolé avec budget et lease ;
-- `OBSERVE` → pas de mutation, seule observation sourcée ;
-- `LEARN` → apprentissage d'épisode persiste, non promu automatiquement ;
-- `NO_CHANGE` → décision de ne rien changer, tracée.
+```powershell
+node backend/tests/test_trajectory_stewardship_policy.js
+node backend/tests/test_trajectory_stewardship_store.js
+node backend/tests/test_trajectory_stewardship_outcome.js
+```
 
-L'arbitrage est implémenté côté backend via les services de stewardship de trajectoire (`trajectoryStewardshipPolicyService.js`, `trajectoryStewardshipOutcomeService.js`) et couvert par les tests (`test_trajectory_stewardship_policy.js`, `test_trajectory_stewardship_outcome.js`).
+Pour démontrer une décision durable, fournir une trajectoire incertaine au service `trajectoryStewardshipPolicyService.js`, puis passer le résultat `OBSERVE` à `trajectoryStewardshipStoreService.js`. Vérifier le reçu dans le scope organisation/projet et après réouverture de la base. Le store accepte les objectifs actionnables `ACT`, `OBSERVE` et `LEARN`, mais rejette `NO_CHANGE` (`TRAJECTORY_STEWARDSHIP_NO_ACTION`).
 
-**Preuves à collecter :** la décision d'arbitrage dans l'historique de mission, avec le motif (frais, incertitude, consentement, révocabilité).  
-**Gate de sortie :** au moins une décision `NO_CHANGE` ou `OBSERVE` a été prise et consignée, prouvant que l'exécution n'est pas automatique.  
-**Ce qu'on ne claim pas :** que l'arbitrage est appris empiriquement (plusieurs politiques restent déterministes/configurées, cf. README).
+**Preuves à collecter :** mode/candidat, motif, références à l'observation et à l'objectif, reçu de responsabilité, lecture après redémarrage. La preuve doit rester dans un scope de démonstration isolé ; ce n'est pas un événement d'historique générique d'orchestration.
+**Gate de sortie :** au moins une décision `OBSERVE` a été explicitement sélectionnée et persistée avec son motif. `NO_CHANGE` peut être démontré au niveau de la politique, mais sa persistance n'est pas prise en charge par ce store.
+**Ce qu'on ne claim pas :** que l'arbitrage est appris empiriquement (la politique reste déterministe/configurée), ni qu'une décision `NO_CHANGE` est enregistrée dans le journal durable des responsabilités.
 
 ---
 
