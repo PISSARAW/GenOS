@@ -3,8 +3,8 @@
 /**
  * Banc métacognitif adversarial (calibration mesurée, pas déclarée).
  *
- * Lit l'historique réel d'attributions CoreSelf (confiance causale vs
- * erreur de prédiction) et calcule des métriques standard : ECE, Brier,
+ * Compare les probabilités gelées avant exécution aux issues binaires
+ * attestées indépendamment et calcule des métriques standard : ECE, Brier,
  * AUC type-2 (sensibilité métacognitive, Fleming & Lau) et surconfiance.
  * Le rapport persiste dans le self-model appris (extraWeaknesses, max 3,
  * resurfacées dans les prompts) et resserre le plancher d'opt-out via
@@ -13,7 +13,7 @@
  */
 
 const selfModel = require('./selfModelService');
-const coreSelf = require('./coreSelfService');
+const forecasts = require('./metacognitiveForecastService');
 
 const MIN_TRIALS = 10;
 const MAX_WEAKNESSES = 3;
@@ -21,8 +21,8 @@ const ECE_BINS = 5;
 
 function pairsOf(entries) {
   return entries.map((entry) => ({
-    confidence: Math.max(0, Math.min(1, Number(entry.causalConfidence) || 0)),
-    correct: 1 - Math.max(0, Math.min(1, Number(entry.predictionError) || 0))
+    confidence: entry.probability,
+    correct: entry.outcome
   }));
 }
 
@@ -80,17 +80,26 @@ function round3(value) {
 }
 
 async function runBench(db, agentId, options) {
-  const settings = options || {};
   if (!db || !agentId) return { status: 'insufficient_data', reason: 'missing agent', trials: 0 };
   try {
-    const raw = Array.isArray(settings.entries) ? settings.entries : await entriesOf(db, agentId);
-    const pairs = pairsOf(raw);
-    if (pairs.length < MIN_TRIALS) return { status: 'insufficient_data', reason: 'too few trials', trials: pairs.length };
+    const selection = await forecasts.readTrials(db, agentId);
+    const pairs = pairsOf(selection.trials);
+    if (pairs.length < MIN_TRIALS) {
+      const report = { status: 'insufficient_data', policyVersion: 2, reason: 'too few independently resolved forecasts',
+        trials: pairs.length, forecasts: selection.forecasts, unresolved: selection.unresolved, invalid: selection.invalid };
+      await selfModel.mergeLearned(db, agentId, { metacognitionBench: report, extraWeaknesses: [] });
+      return report;
+    }
     const mean = (pick) => pairs.reduce((total, pair) => total + pick(pair), 0) / pairs.length;
     const report = {
       status: 'measured',
+      policyVersion: 2,
       agentId,
       trials: pairs.length,
+      forecasts: selection.forecasts,
+      unresolved: selection.unresolved,
+      invalid: selection.invalid,
+      limitation: 'Calibration on independently resolved forecasts only; unresolved coverage and task distribution constrain interpretation.',
       meanConfidence: round3(mean((pair) => pair.confidence)),
       meanCorrectness: round3(mean((pair) => pair.correct)),
       ece: round3(eceOf(pairs)),
@@ -108,12 +117,6 @@ async function runBench(db, agentId, options) {
   } catch (_) {
     return { status: 'unavailable' };
   }
-}
-
-async function entriesOf(db, agentId) {
-  const { AdaptiveStateService } = require('./adaptiveStateService');
-  const stored = (await new AdaptiveStateService(db).restoreObject(coreSelf.SCOPE, agentId)) || {};
-  return Array.isArray(stored.entries) ? stored.entries : [];
 }
 
 async function runBenchSafe(db, agentId) {

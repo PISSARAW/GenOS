@@ -76,6 +76,7 @@ async function createBoundExecutionRun(db, context) {
   }
   const workerBinding = await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
   await require('./gvxMissionProvenance').bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
+  await require('./metacognitiveForecastService').captureSafe(db, { runId: id, agentId: context.agentId });
   return events.getRun(db, id);
 }
 
@@ -128,10 +129,11 @@ async function recordExecutionEvent(db, agentId, event) {
   const saved = await biologicalWorkers.record(db, { agentId, event,
     apply: () => progress.recordExecutionEvent(db, agentId, event) });
   if (!saved) return null;
+  const metacognitiveOutcome = await observeMetacognitiveOutcome(db, saved, event);
   if (saved.duplicate) {
     const causalLearning = await observeCausalOutcome(db, saved, event);
     const negativeOutcome = await observeNegativeOutcome(db, saved, event);
-    return { ...saved, causalLearning, negativeOutcome };
+    return { ...saved, causalLearning, negativeOutcome, metacognitiveOutcome };
   }
   const fallback = await fallbackAfterProgress(db, saved, agentId);
   if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) {
@@ -145,7 +147,12 @@ async function recordExecutionEvent(db, agentId, event) {
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
     authorityRefusal: saved.authorityRefusal || null,
     duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null,
-    routeLearning, causalLearning, negativeOutcome };
+    routeLearning, causalLearning, negativeOutcome, metacognitiveOutcome };
+}
+
+async function observeMetacognitiveOutcome(db, saved, event) {
+  try { return await require('./metacognitiveForecastService').observe(db, { run: saved.run, event }); }
+  catch (error) { return { status: 'unavailable', reason: error.code || 'forecast_resolution_unavailable' }; }
 }
 
 async function observeNegativeOutcome(db, saved, event) {

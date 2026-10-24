@@ -61,8 +61,9 @@ function applyAbstention(mission, verdict) {
 }
 
 function floorFor(report, base) {
-  const over = Number(report?.overconfidence);
   const start = Number.isFinite(base) ? base : DEFAULT_FLOOR;
+  if (report?.status !== 'measured' || report.policyVersion !== 2) return start;
+  const over = Number(report.overconfidence);
   return Math.min(0.8, start + (Number.isFinite(over) && over > 0 ? over : 0));
 }
 

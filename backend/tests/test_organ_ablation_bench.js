@@ -120,11 +120,13 @@ async function testMetacognitionLoop() {
   const bench = HERE('metacognitionBenchService');
   const abstention = HERE('abstentionService');
   const db = stubDb();
-  const entries = [];
-  for (let i = 0; i < 6; i++) entries.push({ actionId: `r${i}`, attributedToSelf: true, predictionError: 0, causalConfidence: 0.8 });
-  for (let i = 6; i < 12; i++) entries.push({ actionId: `r${i}`, attributedToSelf: true, predictionError: 1, causalConfidence: 0.6 });
-  db.seed('core_self', 'a', { entries });
-  const report = await bench.runBench(db, 'a', {});
+  const forecasts = HERE('metacognitiveForecastService');
+  const original = forecasts.readTrials;
+  const trials = Array.from({ length: 12 }, (_, i) => ({ probability: i < 6 ? 0.8 : 0.6, outcome: i < 6 ? 1 : 0 }));
+  forecasts.readTrials = async () => ({ trials, forecasts: 12, unresolved: 0, invalid: 0 });
+  let report;
+  try { report = await bench.runBench(db, 'a', {}); }
+  finally { forecasts.readTrials = original; }
   assert.strictEqual(report.status, 'measured');
   assert.ok(report.overconfidence > 0.15);
   const floor = abstention.floorFor(report, 0.5);
