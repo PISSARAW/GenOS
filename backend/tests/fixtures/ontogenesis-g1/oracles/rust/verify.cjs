@@ -5,9 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+function isSupportedCaseId(caseId) {
+  return /^(?:rs)-(?:average-empty|percentile-boundary|median|filter-above|api-reference|boundary-examples|shared-validation|summary-helper)$/.test(caseId || '');
+}
+
 function main() {
   const [caseId] = process.argv.slice(2);
-  if (!/^(?:rs)-(?:empty-average|percentile-boundary|median|filter-above|api-reference|boundary-examples|shared-validation|summary-helper)$/.test(caseId || '')) {
+  if (!isSupportedCaseId(caseId)) {
     throw new Error('unknown oracle');
   }
   const candidate = fs.realpathSync(process.cwd());
@@ -44,4 +48,8 @@ function main() {
   }
 }
 
-try { main(); } catch (_) { process.stderr.write('G1 oracle failed\n'); process.exitCode = 1; }
+if (require.main === module) {
+  try { main(); } catch (_) { process.stderr.write('G1 oracle failed\n'); process.exitCode = 1; }
+}
+
+module.exports = { isSupportedCaseId };
