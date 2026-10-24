@@ -283,6 +283,18 @@
             "type": "string",
             "description": "Optional declared model identity. Leave unspecified when the host does not disclose it."
           },
+          "workspaceId": {
+            "type": "string",
+            "description": "Registered tenant-scoped workspace to execute the mission in."
+          },
+          "workspaceRoot": {
+            "type": "string",
+            "description": "Absolute path of a registered workspace, or a new path paired with workspaceScopeId."
+          },
+          "workspaceScopeId": {
+            "type": "string",
+            "description": "Existing tenant-scoped workspace whose organization and project authorize registering workspaceRoot."
+          },
           "topologyId": {
             "type": "string",
             "description": "Optional topology selection for the mission proposal; does not apply a morphogenesis transition."
@@ -1931,10 +1943,6 @@
             "description": "Max messages to return.",
             "minimum": 0
           },
-          "orchestrator_id": {
-            "type": "string",
-            "description": "Owning orchestrator to monitor."
-          },
           "acknowledge_message_ids": {
             "type": "array",
             "items": {
@@ -1942,6 +1950,10 @@
               "minimum": 1
             },
             "description": "Messages explicitly understood by this worker."
+          },
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator to monitor."
           },
           "scenarios": {
             "type": "array",
