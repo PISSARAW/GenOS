@@ -56,6 +56,9 @@ async function createExecutionRun(db, context) {
 async function createBoundExecutionRun(db, context) {
   const contractRecord = context.contractRecord || await strategyContracts.getLatestContract(db, context.agentId);
   if (!contractRecord) throw new Error(`No strategy contract for agent ${context.agentId}`);
+  if (context.missionId) {
+    await require('./gvxMissionProvenance').requireAgentScope(db, context.agentId);
+  }
   const plan = compileExecutionPlan(contractRecord.contract, context.budget);
   const id = `strategy_run_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   await db.run(

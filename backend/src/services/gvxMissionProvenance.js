@@ -10,6 +10,12 @@ async function agentScope(db, agentId) {
     w.project_id AS projectId FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, agentId);
 }
 
+async function requireAgentScope(db, agentId) {
+  const scope = await agentScope(db, agentId);
+  if (!scope?.organizationId || !scope.projectId) throw error('GVX_MISSION_SCOPE_REQUIRED');
+  return scope;
+}
+
 async function ledgerExists(db) {
   return Boolean(await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'gvx_development_events'"));
 }
@@ -17,8 +23,7 @@ async function ledgerExists(db) {
 async function bindRun(db, input) {
   const missionId = input.missionId || input.workerBinding?.missionId;
   if (!missionId) return null;
-  const scope = await agentScope(db, input.agentId);
-  if (!scope?.organizationId || !scope.projectId) return null;
+  const scope = await requireAgentScope(db, input.agentId);
   const mission = await loadMission(db, { missionId, agentId: input.agentId, scope });
   const contract = await loadContract(db, { ...input, scope });
   const payload = values.canonical({ schema: SCHEMA, runId: input.id, scope,
@@ -85,4 +90,4 @@ function assertRunFields(run, binding) {
       || values.digest(JSON.parse(run.budget_json)) !== values.digest(binding.budget)) throw error('GVX_RUN_BINDING_CHANGED');
 }
 
-module.exports = { SCHEMA, bindRun, readRun, agentScope, sameTenant };
+module.exports = { SCHEMA, bindRun, readRun, agentScope, requireAgentScope, sameTenant };

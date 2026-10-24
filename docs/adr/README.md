@@ -846,6 +846,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0731](0731-porte-commune-du-cycle-de-vie-par-contrat-d-operation.md) | Porte commune du cycle de vie par contrat d'opération | Accepté | 2026-10-23 | architecture transversale, contrats d'opération, evidence, budgets, leases, snapshots |
 | [0732](0732-couplage-contrat-dossier-et-observation-effet-c4.md) | Couplage contrat→dossier de preuve et observation différée de l'effet (C4) | Proposé | 2026-10-23 | mission, promotion, evidence, C4, dossier |
 | [0733](0733-rappel-memoire-situationnel-inspire-tsao.md) | Rappel mémoire situationnel inspiré des recherches de Tsao | Accepté | 2026-10-23 | Mémoire, runtime Node.js, classement et traçabilité |
+| [0734](0734-autorite-signee-et-scope-tenant-pour-les-missions.md) | Scope tenantisé et autorité signée avant exécution | Accepté | 2026-10-24 | Orchestration, workspace, provenance GVX, sécurité |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

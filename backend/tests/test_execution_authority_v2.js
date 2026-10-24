@@ -94,6 +94,17 @@ async function rejectUnsigned(db, contract, workspace) {
   assert.equal((await migration.classification(db, run.id)).status, migration.STATUSES.pending);
 }
 
+async function rejectMissingScope(db, contract) {
+  await db.run("UPDATE agents SET workspace_id = NULL WHERE id = 'worker'");
+  const countBefore = await db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs');
+  await assert.rejects(execution.createExecutionRun(db, { agentId: 'worker', contractRecord: contract,
+    missionId: 'worker-mission', budget: { tokens: 10, latencyMs: 300000 } }),
+  { code: 'GVX_MISSION_SCOPE_REQUIRED' });
+  const countAfter = await db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs');
+  assert.equal(countAfter.count, countBefore.count, 'an unscoped run must roll back with its required binding');
+  await db.run("UPDATE agents SET workspace_id = 'worker-workspace' WHERE id = 'worker'");
+}
+
 async function rejectInternalPromotion(db, contract) {
   const run = await execution.createExecutionRun(db, { agentId: 'worker', contractRecord: contract,
     budget: { tokens: 10, latencyMs: 300000 } });
@@ -108,11 +119,12 @@ async function main() {
   const workspace = path.join(root, 'workspace');
   await fs.mkdir(workspace);
   await fs.writeFile(path.join(workspace, 'input.txt'), 'canonical input');
-  const db = openDatabase(path.join(root, 'authority.sqlite'));
+  const db = openDatabase();
   try {
     const contract = await prepare(db);
     await insertHistoricRun(db, contract);
     await assertHistoricReadOnly(db);
+    await rejectMissingScope(db, contract);
     await sealV2(db, contract, workspace);
     await rejectUnsigned(db, contract, workspace);
     await rejectInternalPromotion(db, contract);
