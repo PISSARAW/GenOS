@@ -15,7 +15,8 @@ const SENDER = 'social-loop-it-sender';
 const RECIPIENT = 'social-loop-it-recipient';
 const FOREIGN = 'social-loop-it-foreign';
 
-async function createScope(db, organizationId, projectId, workspaceId) {
+async function createScope(db, scope) {
+  const { organizationId, projectId, workspaceId } = scope;
   await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', [organizationId, organizationId]);
   await db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)',
     [projectId, organizationId, projectId]);
@@ -23,7 +24,8 @@ async function createScope(db, organizationId, projectId, workspaceId) {
     VALUES (?, ?, ?, ?, ?)`, [workspaceId, workspaceId, workspaceId, organizationId, projectId]);
 }
 
-async function createAgent(db, id, workspaceId, domain) {
+async function createAgent(db, agent) {
+  const { id, workspaceId, domain } = agent;
   await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id)
     VALUES (?, ?, 'worker', 'idle', 'worker', ?)`, [id, id, workspaceId]);
   await db.run(`INSERT INTO agent_expertise (agent_id, domain, competence, reliability, calibration)
@@ -31,11 +33,12 @@ async function createAgent(db, id, workspaceId, domain) {
 }
 
 async function createWorld(db) {
-  await createScope(db, SCOPE.organizationId, SCOPE.projectId, 'social-loop-it-workspace');
-  await createScope(db, 'social-loop-it-other-org', 'social-loop-it-other-project', 'social-loop-it-other-workspace');
-  await createAgent(db, SENDER, 'social-loop-it-workspace', 'bridge-repair');
-  await createAgent(db, RECIPIENT, 'social-loop-it-workspace', 'bridge-repair');
-  await createAgent(db, FOREIGN, 'social-loop-it-other-workspace', 'bridge-repair');
+  await createScope(db, { ...SCOPE, workspaceId: 'social-loop-it-workspace' });
+  await createScope(db, { organizationId: 'social-loop-it-other-org',
+    projectId: 'social-loop-it-other-project', workspaceId: 'social-loop-it-other-workspace' });
+  await createAgent(db, { id: SENDER, workspaceId: 'social-loop-it-workspace', domain: 'bridge-repair' });
+  await createAgent(db, { id: RECIPIENT, workspaceId: 'social-loop-it-workspace', domain: 'bridge-repair' });
+  await createAgent(db, { id: FOREIGN, workspaceId: 'social-loop-it-other-workspace', domain: 'bridge-repair' });
   await relations.createRelation({ db, id: 'social-loop-it-valid-relation', sourceAgentId: SENDER,
     targetAgentId: RECIPIENT, relationType: 'colleague', relationClass: 'organizational', ...SCOPE });
   await relations.createRelation({ db, id: 'social-loop-it-foreign-relation', sourceAgentId: SENDER,
