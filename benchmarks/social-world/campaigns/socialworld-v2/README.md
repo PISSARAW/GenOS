@@ -142,7 +142,9 @@ que si ses références de preuve existent et que l'oracle est recalculable.
    tant qu'il n'est pas raccordé au stockage de confiance du runtime, V2-04 reste `planned`.
    Les oracles V2-01 et V2-02 sont contrôlables via `node test-social-oracles.cjs`; ces
    critères ne font pas passer un scénario au statut exécuté sans runner et preuves runtime.
-4. Implémenter V2-05 après fixation des invariants de morphogenèse.
+4. Implémenter V2-05 après fixation des invariants de morphogenèse. Le contrat d'invariants
+   a un oracle déterministe testé par `node test-morphogenesis-oracle.cjs`; sans événements
+   runtime et reçus de collaboration après transition, le scénario reste `planned`.
 5. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
 
 Les scénarios restent `planned` jusqu'à la présence de runners, d'oracles vérifiables et de
