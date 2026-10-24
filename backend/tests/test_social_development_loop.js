@@ -174,6 +174,13 @@ function testCheckpointHonorsModelRecipientAsHint() {
   assert.equal(intent.purpose, 'request');
 }
 
+function testPromptExplainsDecisionConsistency() {
+  const prompt = loop.promptFor({ observation: { id: 'event', summary: 'Help needed.', evidenceRefs: [] },
+    candidates: [], memories: [] });
+  assert.match(prompt, /contact requires a listed recipient and reasonCode evidence-matched/);
+  assert.match(prompt, /silence requires recipientAgentId null/);
+}
+
 async function main() {
   await testFullPathOrderAndEvidence();
   await testDisabledAndArbitrationBlocked();
@@ -184,6 +191,7 @@ async function main() {
   await testDefaultMemoryReceivesDecisionAndReceipt();
   await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();
+  testPromptExplainsDecisionConsistency();
   console.log('Social Development Loop causal handoff, arbitration, RPE audience, and evidence gates: PASS');
 }
 
