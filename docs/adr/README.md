@@ -848,6 +848,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0735b](0735-modele-mental-social-fonde.md) | Modèle mental social sourcé | Accepté — implémentation incrémentale et descriptive. | -- | -- |
 | [0737a](0737-calibration-metacognitive-independante.md) | Calibration métacognitive indépendante et preuves locales vérifiables | Accepté | 2026-10-24 | -- |
 | [0737b](0737-capture-memoire-dialogue-social-borne.md) | Capturer en mémoire les dialogues sociaux résolus | Voir le fichier | -- | -- |
+| [0738](0738-boucle-developpement-social-integree.md) | Boucle de développement social intégrée à l’Ontogenèse | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
