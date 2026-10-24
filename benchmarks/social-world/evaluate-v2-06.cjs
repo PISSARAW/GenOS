@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { evaluateSocialMetacognition } = require('../../backend/src/services/socialMetacognitionCampaignService');
+const { validateSocialWorldReport } = require('../../backend/src/services/socialWorldReportValidator');
 
 const REPORT_DIRECTORY = path.resolve(__dirname, 'campaigns/socialworld-v2/reports');
 const CASE_FILE = path.resolve(__dirname, 'campaigns/socialworld-v2/V2-06-case.json');
@@ -20,8 +21,14 @@ function readJson(filename) {
 }
 
 function assessment(report, scenario) {
+  const validation = validateSocialWorldReport(report);
+  if (!validation.valid) return { status: 'fail', reasons: validation.errors };
   if (report.caseId !== scenario.caseId) return { status: 'fail', reasons: ['Unknown or unregistered case id.'] };
-  return evaluateSocialMetacognition({ ...report, expectedActions: scenario.expectedActions });
+  const result = evaluateSocialMetacognition({ ...report, expectedActions: scenario.expectedActions });
+  if (report.status !== result.status || report.oracle.status !== result.status) {
+    return { ...result, status: 'fail', reasons: [...result.reasons, 'Report status does not match the recalculated oracle.'] };
+  }
+  return result;
 }
 
 function main() {

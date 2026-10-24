@@ -13,16 +13,34 @@ function requiredText(value, name) {
   return value.trim();
 }
 
-function normalizeInput(input) {
+function validateAgentPair(input) {
   const subjectAgentId = requiredText(input.subjectAgentId, 'subjectAgentId');
   const otherAgentId = requiredText(input.otherAgentId, 'otherAgentId');
   if (subjectAgentId === otherAgentId) fail('SOCIAL_MODEL_INVALID', 'A social model requires two distinct agents.');
-  if (!Number.isSafeInteger(input.revision) || input.revision < 1) fail('SOCIAL_MODEL_INVALID', 'revision must be a positive integer.');
-  if (!input.model || typeof input.model !== 'object' || Array.isArray(input.model)) fail('SOCIAL_MODEL_INVALID', 'model must be an object.');
-  if (!Array.isArray(input.sourceMemoryIds)) fail('SOCIAL_MODEL_INVALID', 'sourceMemoryIds must be an array.');
-  const sourceMemoryIds = [...new Set(input.sourceMemoryIds)].map((id) => requiredText(id, 'sourceMemoryId'));
-  if (sourceMemoryIds.length === 0) fail('SOCIAL_MODEL_INVALID', 'At least one source memory is required.');
-  const modelJson = JSON.stringify(input.model);
+  return { subjectAgentId, otherAgentId };
+}
+
+function validateRevision(value) {
+  if (!Number.isSafeInteger(value) || value < 1) fail('SOCIAL_MODEL_INVALID', 'revision must be a positive integer.');
+}
+
+function validateModel(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('SOCIAL_MODEL_INVALID', 'model must be an object.');
+  return JSON.stringify(value);
+}
+
+function normalizeSourceMemoryIds(value) {
+  if (!Array.isArray(value)) fail('SOCIAL_MODEL_INVALID', 'sourceMemoryIds must be an array.');
+  const ids = [...new Set(value)].map((id) => requiredText(id, 'sourceMemoryId'));
+  if (ids.length === 0) fail('SOCIAL_MODEL_INVALID', 'At least one source memory is required.');
+  return ids;
+}
+
+function normalizeInput(input) {
+  const { subjectAgentId, otherAgentId } = validateAgentPair(input);
+  validateRevision(input.revision);
+  const sourceMemoryIds = normalizeSourceMemoryIds(input.sourceMemoryIds);
+  const modelJson = validateModel(input.model);
   const modelHash = crypto.createHash('sha256').update(modelJson).digest('hex');
   return {
     snapshotId: requiredText(input.snapshotId, 'snapshotId'),

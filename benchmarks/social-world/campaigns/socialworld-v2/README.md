@@ -125,7 +125,8 @@ valides. Une explication textuelle seule ne satisfait aucun critère.
 Le cas préenregistré est `V2-06-case.json`. Pour auditer un rapport placé sous
 `benchmarks/social-world/campaigns/socialworld-v2/reports/`, lancer
 `node benchmarks/social-world/evaluate-v2-06.cjs --input <rapport.json>`. Ce runner
-évalue les trois bras contre le cas figé; il ne lance pas de modèle. Le scénario reste
+valide d'abord le schéma commun du rapport, puis évalue les trois bras contre le cas figé;
+il ne lance pas de modèle. Le scénario reste
 `planned` jusqu'à des rapports produits par exécution et une campagne appariée complète.
 
 ## Bras de comparaison causale

@@ -24,17 +24,30 @@ function armErrors(arm, entry) {
 }
 
 function interventionErrors(arm, receipt) {
-  if (arm === 'baseline') return receipt.mode === 'baseline' ? [] : ['baseline:intervention-unexpected'];
-  const expectedMode = arm === 'masked' ? 'mask-social-memories' : 'counterfactual-social-memories';
-  const incomplete = !receipt.interventionId || receipt.mode !== expectedMode
-    || !receipt.beforeHash || !receipt.afterHash || receipt.beforeHash === receipt.afterHash
-    || !receipt.preservedNonSocialMemoryHash || !Array.isArray(receipt.removedMemoryIds)
-    || receipt.removedMemoryIds.length === 0;
-  if (incomplete) return [`${arm}:intervention-receipt-incomplete`];
-  if (arm === 'counterfactual' && (!Array.isArray(receipt.addedMemoryIds) || receipt.addedMemoryIds.length !== receipt.removedMemoryIds.length)) {
-    return ['counterfactual:replacement-count-mismatch'];
-  }
+  if (arm === 'baseline') return baselineInterventionErrors(receipt);
+  const expectedMode = interventionMode(arm);
+  if (!hasCompleteInterventionReceipt(receipt, expectedMode)) return [`${arm}:intervention-receipt-incomplete`];
+  if (arm === 'counterfactual' && hasReplacementCountMismatch(receipt)) return ['counterfactual:replacement-count-mismatch'];
   return [];
+}
+
+function baselineInterventionErrors(receipt) {
+  return receipt.mode === 'baseline' ? [] : ['baseline:intervention-unexpected'];
+}
+
+function interventionMode(arm) {
+  return arm === 'masked' ? 'mask-social-memories' : 'counterfactual-social-memories';
+}
+
+function hasCompleteInterventionReceipt(receipt, expectedMode) {
+  return Boolean(receipt.interventionId && receipt.mode === expectedMode
+    && receipt.beforeHash && receipt.afterHash && receipt.beforeHash !== receipt.afterHash
+    && receipt.preservedNonSocialMemoryHash && Array.isArray(receipt.removedMemoryIds)
+    && receipt.removedMemoryIds.length > 0);
+}
+
+function hasReplacementCountMismatch(receipt) {
+  return !Array.isArray(receipt.addedMemoryIds) || receipt.addedMemoryIds.length !== receipt.removedMemoryIds.length;
 }
 
 function baselineErrors(model) {
