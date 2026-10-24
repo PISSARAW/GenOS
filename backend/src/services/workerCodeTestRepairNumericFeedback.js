@@ -5,7 +5,7 @@ function build(error) {
   const patches = error.proposal?.failedPatchContents || [];
   const code = patches.map(({ content }) => content).join('\n');
   if (/parsePort[\s\S]*?\d+\s*!==\s*null/i.test(output)) {
-    return 'The independent oracle expects parsePort to return null for malformed strings, zero, and values above 65535. Validate the entire trimmed string as digits, convert only after validation, and return null unless the integer is in the inclusive range 1–65535. Never substitute a default port for invalid input.';
+    return 'The independent oracle expects parsePort to return null for malformed strings, zero, and values above 65535. Do not call parseInt before validating the entire input: trim it, require /^\\d+$/.test(trimmed), then use Number(trimmed). Return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null. Never substitute a default port for invalid input.';
   }
   if (/partial\s+(?:numeric|number)|trailing\s+(?:numeric|number)/i.test(output)
       && /\bparseInt\s*\(/.test(code)) {

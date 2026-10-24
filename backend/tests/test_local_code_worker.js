@@ -60,6 +60,8 @@ const invalidPortFeedback = failureFeedback({ proposal: {
     content: 'function parsePort(value) { return Number.parseInt(value, 10) || 3000; }' }]
 } });
 assert.match(invalidPortFeedback, /return null for malformed strings, zero, and values above 65535/);
+assert.ok(invalidPortFeedback.includes(String.raw`require /^\d+$/.test(trimmed)`));
+assert.match(invalidPortFeedback, /Number\.isInteger\(port\)/);
 assert.match(invalidPortFeedback, /Never substitute a default port for invalid input/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
