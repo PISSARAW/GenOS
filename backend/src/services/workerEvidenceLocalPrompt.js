@@ -3,7 +3,7 @@
 function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
     codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
-  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction() : evidenceRule].filter(Boolean).join('\n');
+  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction(context.forceFullFileReplacement) : evidenceRule].filter(Boolean).join('\n');
   const intro = [selfIntro, workerSelfBlock || '', conscienceBlock, workerBlock].filter(Boolean).join('\n');
   if (codeWorker) return `${intro}\n${requiredPatchInstruction(context.requiredPatchPaths, context.requiredPatchMarkers, context.requiredPatchMinimumBytes)}\nYou are a bounded GenOS local code worker (${agentName}). Branch mission:\n${prompt}\n\nTrusted workspace snapshot:\n${workspaceContext || '[no readable workspace files]'}`;
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
@@ -20,7 +20,8 @@ function requiredPatchInstruction(paths, markers, minimumBytes) {
   return `The patch proposal MUST include each required path exactly once: ${JSON.stringify(paths)}.${markerText}${sizeText}`;
 }
 
-function codeProposalInstruction() {
+function codeProposalInstruction(forceFullFileReplacement = false) {
+  if (forceFullFileReplacement) return 'The previous exact edit anchor was ambiguous. Return exactly one JSON object using format "genos.file-replacement/v1" and complete current file content for every patch. Do not use file-edits or find/replace anchors. Re-read the current trusted workspace snapshot and preserve all behavior that already passes. Use only allow-listed test commands and rerun the independent test.';
   return 'Return exactly one JSON object. For source files under 4 KiB, use a full-file replacement from the trusted workspace snapshot. For larger files, prefer minimal exact edits: {"format":"genos.file-edits/v1","patches":[{"path":"src/file.ext","edits":[{"find":"exact existing text occurring once","replace":"replacement text"}]}],"tests":["npm test"],"evidence":"reason for the change"}. Each find anchor must be copied exactly from the trusted workspace snapshot and occur once; use 1-8 edits per file. You may always use {"format":"genos.file-replacement/v1","patches":[{"path":"src/file.ext","content":"complete file content"}],...} when the full current file is present in the snapshot. Use 1-12 patches and 1-2 allow-listed test commands (npm test, npm run check, pytest, or cargo test with supported options). Do not add keys or prose. Never claim a test passed unless the worker executes it.';
 }
 

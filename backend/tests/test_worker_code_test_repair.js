@@ -1,12 +1,10 @@
 'use strict';
-
 const assert = require('node:assert/strict');
 const { run, repairPrompt, failureFeedback, locatorRepairHint, repairPlan,
   applyRepairPlan } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
-
 const mission = { localCodeWorker: true, prompt: 'Build the pantry app.', timeoutMs: 10000,
   executionBudget: { latencyMs: 10000, tokens: 20000 } };
 const failed = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: {
@@ -38,7 +36,9 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(schemaPrompts[1].prompt, /WORKER_OUTPUT_SCHEMA_VIOLATION/);
   assert.match(schemaPrompts[1].prompt, /at least 1 valid item/);
   assert.match(schemaPrompts[1].prompt, /\{"patches":\[\]\}/);
-
+  const anchorPrompts = []; const anchorRepair = await run({ mission, runAttempt: async (attemptMission) => { anchorPrompts.push(attemptMission); if (anchorPrompts.length === 1) throw Object.assign(new Error("Exact edit anchor must occur once in 'src/index.js'."), { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { error: "Exact edit anchor must occur once in 'src/index.js'." }, usage: { tokens: 50 } }); return 'full replacement accepted'; } });
+  assert.equal(anchorRepair, 'full replacement accepted');
+  assert.equal(anchorPrompts[1].forceFullFileReplacement, true, 'ambiguous anchors force full replacement');
   const prompts = [];
   let retries = 0;
   const result = await run({ mission, onRetry: () => { retries += 1; },

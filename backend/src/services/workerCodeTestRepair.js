@@ -388,13 +388,12 @@ function nextMission(input) {
   return {
     ...base,
     ...(current.preserveFailedCodeCandidate ? { preserveFailedCodeCandidate: true } : {}),
+    ...(current.forceFullFileReplacement || (error?.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION' && /Exact edit anchor must occur once in /.test(String(error?.workerArtifactDiagnostics?.error || error?.message || '')))
+      ? { forceFullFileReplacement: true } : {}),
     prompt: repairPrompt({ mission: current, error, attempt }),
     ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
     timeoutMs: remainingMs,
     executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
       ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
   };
-}
-
-module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens,
-  locatorRepairHint, repairPlan, applyRepairPlan };
+} module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint, repairPlan, applyRepairPlan };

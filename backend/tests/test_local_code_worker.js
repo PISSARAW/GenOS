@@ -31,6 +31,9 @@ const codePrompt = buildAnalysisPrompt({ codeWorker: true, agentName: 'developer
   workspaceContext: 'src/index.js: small source file' });
 assert.match(codePrompt, /For source files under 4 KiB, use a full-file replacement/);
 assert.match(codePrompt, /Each find anchor must be copied exactly from the trusted workspace snapshot/);
+const replacementPrompt = buildAnalysisPrompt({ codeWorker: true, forceFullFileReplacement: true,
+  agentName: 'developer', prompt: 'Repair an ambiguous patch.', workspaceContext: 'src/index.js: current contents' });
+assert.match(replacementPrompt, /Do not use file-edits or find\/replace anchors/);
 const utilityDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
   path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }\nfunction normalizeEmail(value) { return String(value).trim(); }\nmodule.exports = { parsePort, normalizeEmail };'
 }] } });
@@ -61,6 +64,15 @@ assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"
 const responseFormat = proposalResponseFormat();
 assert.equal(responseFormat.schema.additionalProperties, false);
 assert.deepEqual(responseFormat.schema.required, ['format', 'patches', 'tests', 'evidence']);
+const fullReplacementFormat = proposalResponseFormat({ forceFullFileReplacement: true });
+assert.deepEqual(fullReplacementFormat.schema.properties.format.enum, ['genos.file-replacement/v1']);
+assert.deepEqual(Object.keys(fullReplacementFormat.schema.properties.patches.items.properties), ['path', 'content']);
+assert.deepEqual(fullReplacementFormat.schema.properties.patches.items.required, ['path', 'content']);
+const editWhenReplacementRequired = JSON.stringify({ format: 'genos.file-edits/v1',
+  patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }],
+  tests: ['pytest'], evidence: 'anchor' });
+assert.throws(() => parseProposal(editWhenReplacementRequired, {},
+  { forceFullFileReplacement: true }), /strict schema/);
 const leasedResponseFormat = proposalResponseFormat(['npm test', 'node malicious.js']);
 assert.deepEqual(leasedResponseFormat.schema.properties.tests.items.enum, ['npm test']);
 const webResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test'],
@@ -122,6 +134,11 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			mission: { agentId: 'code-worker', executionPolicy: { allowedCommands: ['npm test'] } },
 			stageTimings: {} });
 		assert.deepEqual(observedFormat.schema.properties.tests.items.enum, ['npm test']);
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'ollama://fixture', latencyMs: 100,
+			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
+			mission: { agentId: 'code-worker', forceFullFileReplacement: true }, stageTimings: {} });
+		assert.deepEqual(observedFormat.schema.properties.format.enum, ['genos.file-replacement/v1']);
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
