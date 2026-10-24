@@ -201,14 +201,25 @@ Le reçu de `genos-ett-campaign.cjs` est une agrégation de développement : `ho
 
 Voir `docs/01-concepts/ontogenese-dirigee-par-responsabilite.md` (boucle 6 phases A→F, modèle formel, double preuve causale).
 
-Reprendre la mission de la phase 1, appliquer un cycle d'ontogenèse, puis réviser le mandat selon le résultat (maintenir ou rollback).
+Reprendre la mission Phase 1 avec son identifiant et ses empreintes d'évidence. Garder son workspace source en lecture seule ; copier les entrées nécessaires dans un workspace candidat isolé. Le cycle doit enregistrer un contrat, une hypothèse falsifiable, une opération, les artefacts, la vérification indépendante, l'arbitrage de stewardship et la révision du contrat.
+
+Si le candidat est vérifié mais n'a ni intégration autorisée ni preuve d'effet post-intégration, `NO_CHANGE` est le résultat attendu : restaurer la copie isolée et réviser le mandat pour exiger explicitement ces preuves avant adoption. Une exécution ou des tests réussis dans la copie ne sont pas une preuve d'effet projet.
+
+Vérifications ciblées des contrats utilisés :
+
+```powershell
+node backend/tests/test_ontogenesis_repository_stewardship.js
+node backend/tests/test_ontogenesis_durable_foundation.js
+node backend/tests/test_ontogenesis_crash_recovery.js
+```
 
 **Preuves à collecter :**
-- Journal d'opérations et registre d'artefacts (ADR 0606) ;
-- Reçu de vérification indépendante ;
-- Décision de maintien/rollback avec justification.
+- Journal d'opérations et registre d'artefacts (ADR 0606), relus après redémarrage de la DB ;
+- Reçu de vérification indépendante lié au candidat et aux empreintes sources ;
+- Décision `ADOPT` ou `NO_CHANGE` avec justification fondée sur l'effet post-intégration ;
+- Révision versionnée du mandat et confirmation que le workspace source reste inchangé.
 
-**Gate de sortie :** le mandat a été révisé sur la base d'une preuve, pas sur le seul succès du transport.  
+**Gate de sortie :** le mandat a été révisé sur la base des preuves d'exécution et d'effet disponibles, et la décision de maintien/rollback est persistée. `NO_CHANGE` satisfait le gate lorsque l'intégration ou la preuve d'effet manque et que le candidat est restauré.
 **Ce qu'on ne claim pas :** que la boucle longitudinale est qualifiée sur plusieurs projets réels (qualification en cours, cf. README).
 
 ---
