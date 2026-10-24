@@ -16,7 +16,8 @@ function implementationDigest(files) {
   for (const file of [...files].sort()) {
     digest.update(file);
     digest.update('\0');
-    digest.update(fs.readFileSync(path.resolve(__dirname, '..', '..', file)));
+    const source = fs.readFileSync(path.resolve(__dirname, '..', '..', file), 'utf8');
+    digest.update(source.replace(/\r\n/g, '\n').replace(/\r/g, '\n'), 'utf8');
     digest.update('\0');
   }
   return `sha256:${digest.digest('hex')}`;
