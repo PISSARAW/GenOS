@@ -7,9 +7,10 @@ function build(error, mission = {}) {
 }
 
 function allowedPatchPathHint(mission) {
+  const required = [...new Set((mission?.requiredPatchPaths || []).filter((item) => typeof item === 'string'))];
+  if (required.length) return `The required production patch paths are exactly ${JSON.stringify(required)}. Use each exact path string, with no directory prefix or alternate spelling.`;
   const paths = [...new Set((mission?.allowedPatchPaths || []).filter((item) => typeof item === 'string'))];
-  return paths.length
-    ? `The only allowed production patch paths are: ${JSON.stringify(paths)}. Choose a path from this list.` : '';
+  return paths.length ? `The only allowed production patch paths are: ${JSON.stringify(paths)}. Choose a path from this list.` : '';
 }
 
 function schemaRetryHint(error) {
