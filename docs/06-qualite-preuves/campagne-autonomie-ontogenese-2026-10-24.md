@@ -236,3 +236,10 @@ exécuté. Docker répond avec client `29.5.3`, mais le moteur Linux nommé
 un runner isolé (VM ou conteneur réellement disponible), sans secrets et avec
 réseau bloqué, avant de sceller les oracles et d'ouvrir G1. Les échecs mémoire,
 timeout, checkout sale et manque d'espace antérieurs restent consignés.
+
+Contrôle complémentaire de l'hôte le 2026-10-24 : WSL ne fournit que des
+distributions en version 1 (`Ubuntu-24.04` par défaut et `Ubuntu`), toutes deux
+arrêtées; WSL 1 ne constitue pas une VM Linux isolée. `podman` et
+`WindowsSandbox.exe` sont absents. `vmcompute` est arrêté et le client Docker ne
+parvient toujours pas à joindre son moteur. Aucun runner OS utilisable n'est
+donc disponible sans reconfiguration de l'hôte; G1 reste fermé.
