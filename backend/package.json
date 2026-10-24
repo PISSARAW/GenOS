@@ -177,5 +177,16 @@
     "cross-env": "^10.1.0",
     "fast-check": "^4.10.2",
     "playwright": "^1.63.0"
+  },
+  "allowScripts": {
+    "protobufjs@7.6.6": true,
+    "protobufjs@8.8.0": true,
+    "onnxruntime-node@1.19.2": true,
+    "onnxruntime-node@1.14.0": true,
+    "@ladybugdb/core@0.20.4": true,
+    "better-sqlite3@13.0.3": true,
+    "duckdb@1.4.4": true,
+    "msgpackr-extract@3.0.4": true,
+    "sqlite3@6.0.1": true
   }
 }
