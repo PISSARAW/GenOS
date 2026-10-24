@@ -30,8 +30,9 @@ function assertCampaignRoot(root) {
     || !/^ontogenesis-g1-[a-z0-9-]+$/i.test(path.basename(root))) {
     throw new Error(`Campaign root must be a new direct child of ${EXPECTED_PARENT} named ontogenesis-g1-<id>.`);
   }
-  const relative = path.relative(REPO_ROOT, root);
-  if (!relative.startsWith('..') || path.isAbsolute(relative)) {
+  const normalizedRoot = root.toLowerCase();
+  const normalizedRepo = REPO_ROOT.toLowerCase().replace(/[\\/]+$/, '');
+  if (normalizedRoot === normalizedRepo || normalizedRoot.startsWith(`${normalizedRepo}${path.sep}`)) {
     throw new Error('Campaign root must be outside the GenOS checkout.');
   }
   if (fs.existsSync(root)) throw new Error('Campaign root already exists; refusing to overwrite it.');
