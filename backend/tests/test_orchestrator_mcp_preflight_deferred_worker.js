@@ -1,9 +1,13 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { parseWorkerEvidence } = require('../bin/orchestratorMcpPreflight.cjs');
+const { parseWorkerEvidence, baselineTools } = require('../bin/orchestratorMcpPreflight.cjs');
 
 async function main() {
+  assert.deepEqual(baselineTools({ phases: [
+    { requiredTools: ['genos_search_failures'] },
+    { requiredTools: ['genos_snapshot', 'genos_diagnose', 'genos_snapshot'] }
+  ] }), ['genos_search_failures', 'genos_snapshot', 'genos_diagnose']);
   const db = { all: async () => [
     { event_type: 'LOCAL_WORKER_COMPLETED', payload_json: JSON.stringify({
       executionRunId: 'run-1', deferredTerminalEventType: 'AGENT_COMPLETED' }) }
