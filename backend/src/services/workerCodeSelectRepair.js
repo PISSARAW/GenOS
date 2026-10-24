@@ -34,15 +34,30 @@ function filterTarget(content, selects) {
   return selects.find((select) => outsideForm(select) && (/\bid\s*=\s*["'][^"']*(?:filter|search)[^"']*["']/i.test(select[0]) || /<option\b[^>]*>\s*(?:All|Any|Every)/i.test(select[0]))) || selects.find(outsideForm) || selects[1];
 }
 
+function addMissingFilterSelect(content, selects, label) {
+  const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+  const outsideForm = (select) => !forms.some((form) => select.index >= form.index && select.index < form.index + form[0].length);
+  if (selects.some(outsideForm)) return content;
+  const addForm = forms.find((form) => selects.some((select) => select.index >= form.index && select.index < form.index + form[0].length));
+  if (!addForm) return content;
+  const filter = `<label for="filterCategory">Filter category</label><select id="filterCategory" aria-label="${label}"><option value="all">All</option><option value="Food">Food</option></select>`;
+  const end = addForm.index + addForm[0].length;
+  return content.slice(0, end) + filter + content.slice(end);
+}
+
 function labelFilterSelect(content, label) {
   content = require('./workerCodeItemNameRepair').cleanSearchButtonName(content);
   content = require('./workerCodeCategorySelectRepair').ensureUniqueCategorySelect(content);
   const selects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
-  if (selects.length === 1 && /\bid\s*=\s*["']category["']/i.test(selects[0][0])) {
-    const end = selects[0].index + selects[0][0].length;
+  if (selects.length && !selects.some((select) => filterTarget(content, selects) === select)) {
+    content = addMissingFilterSelect(content, selects, label);
+  }
+  const updatedSelects = [...content.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
+  if (updatedSelects.length === 1 && /\bid\s*=\s*["']category["']/i.test(updatedSelects[0][0])) {
+    const end = updatedSelects[0].index + updatedSelects[0][0].length;
     return content.slice(0, end) + `<select id="filterCategory" aria-label="${label}"><option value="all">All</option><option value="Food">Food</option></select>` + content.slice(end);
   }
-  const target = filterTarget(content, selects);
+  const target = filterTarget(content, updatedSelects);
   if (!target) return content;
   const opening = target[0].match(/^<select\b[^>]*>/i)?.[0];
   if (!opening) return content;
