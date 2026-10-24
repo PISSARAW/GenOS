@@ -64,4 +64,19 @@ async function collectAncestors(db, commitId) {
   return ancestors;
 }
 
-module.exports = { getCommit, findMergeBase, collectAncestors };
+// Ensemble des ids d'objets accessibles depuis les refs d'un agent
+// (parcours du DAG des commits pointés par chaque ref). Utilisé par gc() pour
+// ne jamais supprimer un objet encore référencé.
+async function collectReachableObjectIds(db, agentId, scope) {
+  const reachable = new Set();
+  const refs = await db.all(`SELECT r.object_id FROM agent_git_refs r LEFT JOIN agents a ON a.id = r.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE r.agent_id = ? AND ${scope.clause}`, agentId, ...scope.params);
+  for (const ref of refs || []) {
+    if (ref.object_id) {
+      const ancestors = await collectAncestors(db, ref.object_id);
+      for (const a of ancestors || []) reachable.add(a.id);
+    }
+  }
+  return reachable;
+}
+
+module.exports = { getCommit, findMergeBase, collectAncestors, collectReachableObjectIds };

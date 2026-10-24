@@ -2,7 +2,7 @@
 
 const { getCommit, collectAncestors } = require('./commitGraph');
 const { getDatabase } = require('../../db');
-const { treeHash } = require('./canonical');
+const { treeHash, canonicalize } = require('./canonical');
 const crypto = require('crypto');
 const { json, verifyObjectSignatureLocal, verifySingleObject } = require('./verifyHelpers.cjs');
 const { identityOf } = require('./sectionIdentity.cjs');
@@ -58,21 +58,56 @@ async function replay(req) {
 }
 
 async function buildCausalBlame(db, commit, section) {
-  const state = JSON.parse(commit.state_json);
-  const items = Array.isArray(state[section]) ? state[section] : [];
-  const itemIds = new Set(items.map(i => identityOf(section, i)));
-  const history = [];
-  let current = commit;
+  // Blame à la Git : pour chaque item de l'état actuel, identifier le commit
+  // le plus ancien (dans l'historique) qui porte déjà cette valeur. C'est le
+  // commit qui a introduit la valeur actuelle de l'item.
+  const attribution = new Map(); // itemId -> { commitId, item, value, createdAt, createdBy }
   const visited = new Set();
-  while (current && !visited.has(current.id)) {
-    visited.add(current.id);
-    const currentItems = JSON.parse(current.state_json);
-    const currentSection = Array.isArray(currentItems[section]) ? currentItems[section] : [];
-    collectBlameEntries({ currentSection, itemIds, current, history, section });
-    if (current.parentIds && current.parentIds.length > 0) current = await getCommit(db, current.parentIds[0]);
-    else current = null;
+  let current = commit;
+
+  const sectionItems = (obj) => {
+    const state = JSON.parse(obj.state_json || '{}');
+    return Array.isArray(state[section]) ? state[section] : [];
+  };
+
+  // Initialiser avec le commit actuel : chaque item lui est attribué.
+  for (const item of sectionItems(commit)) {
+    const id = identityOf(section, item);
+    if (id === undefined) continue;
+    attribution.set(id, {
+      commitId: current.id,
+      item,
+      value: canonicalize(item),
+      createdAt: current.created_at,
+      createdBy: current.created_by || 'unknown'
+    });
   }
-  return history.reverse();
+
+  // Remonter les ancêtres : si un item existe déjà avec la même valeur, on
+  // remonte l'attribution vers l'ancêtre (la valeur n'a pas changé depuis lui).
+  while (current && current.parentIds && current.parentIds.length > 0) {
+    current = await getCommit(db, current.parentIds[0]);
+    if (!current || visited.has(current.id)) break;
+    visited.add(current.id);
+    for (const item of sectionItems(current)) {
+      const id = identityOf(section, item);
+      if (id === undefined) continue;
+      const existing = attribution.get(id);
+      if (existing && existing.value === canonicalize(item)) {
+        attribution.set(id, {
+          commitId: current.id,
+          item,
+          value: existing.value,
+          createdAt: current.created_at,
+          createdBy: current.created_by || 'unknown'
+        });
+      }
+    }
+  }
+
+  return Array.from(attribution.values()).map(({ commitId, item, createdAt, createdBy }) => ({
+    commitId, item, createdAt, createdBy
+  }));
 }
 
 function collectBlameEntries(ctx) {

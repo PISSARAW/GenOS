@@ -123,13 +123,23 @@ async function commitMergedState(ctx) {
   const { db, req, sides, base, merged, ids } = ctx;
   const targetAgentId = req.body?.targetAgentId || sides.left.agent_id;
   await enforceHooks({ db, agentId: targetAgentId, hookName: 'merge-validation', context: merged.storeState });
-  const result = await replaceState(req, {
-    targetAgentId,
-    state: merged.storeState,
-    sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
-  });
-  const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
-  return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
+  // Transaction commune : remplacement d'état + création du commit de fusion.
+  // L'un ou l'autre échoue -> rollback complet, pas d'état actif sans commit
+  // (et pas de commit sans état actif).
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = await replaceState(req, {
+      targetAgentId,
+      state: merged.storeState,
+      sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
+    }, { inTransaction: true });
+    const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
+    await db.exec('COMMIT');
+    return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
+  } catch (err) {
+    await db.exec('ROLLBACK').catch(() => {});
+    throw err;
+  }
 }
 
 function buildMergedState(ctx) {

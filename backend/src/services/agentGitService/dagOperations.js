@@ -10,6 +10,7 @@ const {
   replacePermissionState
 } = require('./replaceStateHelpers.cjs');
 const { identityOf } = require('./sectionIdentity.cjs');
+const { updateRef } = require('./refs');
 
 function bodyValue(req, key) {
   if (!req.body) return undefined;
@@ -38,7 +39,7 @@ async function reset(req) {
   const refName = bodyValue(req, 'refName') || obj.ref_name || 'main';
   const agentId = obj.agent_id;
 
-  await db.run('UPDATE agent_git_refs SET object_id = ? WHERE agent_id = ? AND ref_name = ?', objectId, agentId, refName);
+  const { version, oldObjectId } = await updateRef({ db, req, agentId, refName, objectId, options: { action: 'reset' } });
 
   if (mode === 'mixed' || mode === 'hard') {
     await db.run('DELETE FROM agent_git_indexes WHERE agent_id = ?', agentId);
@@ -49,7 +50,7 @@ async function reset(req) {
     await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
   }
 
-  return { success: true, operation: 'reset', mode, objectId, agentId, refName };
+  return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
 }
 
 async function loadAgentForDag(db, req, agentId) {
@@ -58,14 +59,15 @@ async function loadAgentForDag(db, req, agentId) {
   return db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? ${scope}`, ...params);
 }
 
-async function replaceState(req, { targetAgentId, state, sections }) {
+async function replaceState(req, { targetAgentId, state, sections }, options = {}) {
   const db = await require('../../db').getDatabase();
   const target = await loadAgentForDag(db, req, targetAgentId);
   if (!target) throw Object.assign(new Error('Target agent not available.'), { code: 'AGENT_NOT_FOUND' });
   const ctx = { db, req, targetAgentId };
   const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
+  const inTransaction = options.inTransaction === true;
 
-  await db.exec('BEGIN IMMEDIATE');
+  if (!inTransaction) await db.exec('BEGIN IMMEDIATE');
   try {
     if (selected.has('agent')) await replaceAgentState(ctx, targetAgentId, state.agent);
     if (selected.has('decisions')) await replaceDecisionState(ctx, targetAgentId, state.decisions);
@@ -73,9 +75,9 @@ async function replaceState(req, { targetAgentId, state, sections }) {
     if (selected.has('runs')) await replaceRunState(ctx, targetAgentId, state.runs);
     if (selected.has('plasmids')) await replacePlasmidState(ctx, targetAgentId, state.plasmids);
     if (selected.has('permissions')) await replacePermissionState(ctx, targetAgentId, state.permissions);
-    await db.exec('COMMIT');
+    if (!inTransaction) await db.exec('COMMIT');
   } catch (err) {
-    await db.exec('ROLLBACK');
+    if (!inTransaction) { await db.exec('ROLLBACK').catch(() => {}); }
     throw err;
   }
   return { targetAgentId, sections: [...selected] };

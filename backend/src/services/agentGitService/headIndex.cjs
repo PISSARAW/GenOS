@@ -2,6 +2,7 @@
 
 const { getDatabase } = require('../../db');
 const { treeHash } = require('./canonical');
+const { updateRef } = require('./refs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -31,16 +32,8 @@ async function setHeadRef(ctx, agentId, targetRefName) {
   const { db, req } = ctx;
   const headRef = await getHeadRef(db, req, agentId);
   const currentTarget = headRef?.object_id || null;
-  await db.run('DELETE FROM agent_git_refs WHERE ref_key = ?', `agent-${agentId}:HEAD`);
-  await db.run(
-    `INSERT INTO agent_git_refs (ref_key, agent_id, ref_name, object_id, version, updated_at)
-     VALUES (?, ?, 'HEAD', ?, 1, CURRENT_TIMESTAMP)
-     ON CONFLICT(agent_id, ref_name) DO UPDATE SET object_id = excluded.object_id, version = version + 1, updated_at = CURRENT_TIMESTAMP`,
-    `${agentId}:HEAD`, agentId, targetRefName
-  );
-  await db.run('INSERT INTO agent_git_reflog (id, agent_id, ref_name, old_object_id, new_object_id, action, actor) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    `reflog-head-${Date.now()}-${require('crypto').randomBytes(3).toString('hex')}`,
-    agentId, 'HEAD', currentTarget || null, targetRefName, 'head-move', req.user?.username || 'agent-git');
+  await updateRef({ db, req, agentId, refName: 'HEAD', objectId: targetRefName, options: { action: 'head-move' } });
+  return { oldTarget: currentTarget, newTarget: targetRefName };
 }
 
 // --- Agent Index (staging area) ---
