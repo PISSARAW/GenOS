@@ -28,6 +28,11 @@ function directories(outputDir) {
     evidenceDir: path.join(path.resolve(outputDir), 'reports', 'evidence') };
 }
 
+function databaseEnvironment(input) {
+  return { GENOS_DB_PATH: input.database, GENOS_ADMIN_PASSWORD: input.adminPassword,
+    GENOS_INFERENCE_MAX_CONCURRENT: '1' };
+}
+
 function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
@@ -93,15 +98,16 @@ async function runCampaign(args) {
     agents: AGENT_COUNT, days: SIMULATED_DAYS, cycles: CYCLES });
   const eventsPath = path.join(paths.outputDir, 'environment-events.json');
   writeJson(eventsPath, { seed: args.seed, comparison, events });
-  const warmup = childWarmup({ database: path.join(paths.databaseDir, 'qwen-warmup.sqlite'), seed: args.seed },
-    { GENOS_DB_PATH: path.join(paths.databaseDir, 'qwen-warmup.sqlite'),
-      GENOS_INFERENCE_MAX_CONCURRENT: '1' });
+  const adminPassword = crypto.randomBytes(32).toString('hex');
+  const warmupDatabase = path.join(paths.databaseDir, 'qwen-warmup.sqlite');
+  const warmup = childWarmup({ database: warmupDatabase, seed: args.seed },
+    databaseEnvironment({ database: warmupDatabase, adminPassword }));
   const arms = [];
   for (const arm of warmup.completed === true ? ROOT_ARMS : []) {
     const database = path.join(paths.databaseDir, `${arm}.sqlite`);
     const evidence = path.join(paths.armDir, `${arm}.json`);
     const result = childResult({ arm, database, evidence, events: eventsPath, seed: args.seed },
-      { GENOS_DB_PATH: database, GENOS_AGOW_MODE: 'bounded', GENOS_INFERENCE_MAX_CONCURRENT: '1' });
+      { ...databaseEnvironment({ database, adminPassword }), GENOS_AGOW_MODE: 'bounded' });
     result.comparison = comparison;
     arms.push(result);
     if (result.completed !== true) break;
@@ -325,4 +331,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { ...contract, parseArgs, directories, validateReport };
+module.exports = { ...contract, parseArgs, directories, databaseEnvironment, validateReport };

@@ -80,16 +80,19 @@ function metricsOf(input) {
     invalidReceipts: records.filter((record) => record.receipt?.valid === false).length };
 }
 
-function armErrors(arms) {
+function armErrorsFor(arm) {
   const errors = [];
-  for (const arm of arms) {
-    if (!arm || arm.completed !== true) errors.push(`${arm?.arm || 'arm'}:incomplete`);
-    if (arm?.metrics?.cycles !== CYCLES || arm?.metrics?.agents !== AGENT_COUNT
-      || arm?.metrics?.simulatedDays !== SIMULATED_DAYS) errors.push(`${arm?.arm || 'arm'}:world-shape-mismatch`);
-    if (arm?.metrics?.invalidReceipts > 0) errors.push(`${arm.arm}:invalid-delivery-receipt`);
-    if (arm?.integrityEvents?.length > 0) errors.push(`${arm.arm}:gvx-ledger-chain-invalid`);
-  }
-  if (!comparisonKeyHashesEqual(arms)) errors.push('paired-input-hashes-differ');
+  if (!arm || arm.completed !== true) errors.push(`${arm?.arm || 'arm'}:incomplete`);
+  if (arm?.metrics?.cycles !== CYCLES || arm?.metrics?.agents !== AGENT_COUNT
+    || arm?.metrics?.simulatedDays !== SIMULATED_DAYS) errors.push(`${arm?.arm || 'arm'}:world-shape-mismatch`);
+  if (arm?.metrics?.invalidReceipts > 0) errors.push(`${arm.arm}:invalid-delivery-receipt`);
+  if (arm?.integrityEvents?.length > 0) errors.push(`${arm.arm}:gvx-ledger-chain-invalid`);
+  return errors;
+}
+
+function armErrors(arms) {
+  const errors = arms.flatMap(armErrorsFor);
+  if (arms.length > 0 && !comparisonKeyHashesEqual(arms)) errors.push('paired-input-hashes-differ');
   return errors;
 }
 
