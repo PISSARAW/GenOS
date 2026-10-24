@@ -1,0 +1,48 @@
+{
+  "protocolVersion": "genos.communication-economy/v1",
+  "title": "Matched communication economy benchmark",
+  "primaryScenario": {
+    "id": "pilot-10x100",
+    "agents": 10,
+    "tasks": 100,
+    "seed": 7
+  },
+  "scaleScenarios": [
+    { "id": "scale-100", "agents": 100, "tasks": 100, "seed": 21 },
+    { "id": "scale-1000", "agents": 1000, "tasks": 100, "seed": 99 }
+  ],
+  "arms": [
+    { "id": "naive-broadcast", "kind": "native" },
+    { "id": "genos-zero-text", "kind": "native" },
+    { "id": "genos-d-full", "kind": "native" },
+    { "id": "agentsociety", "kind": "external-trace" }
+  ],
+  "controls": {
+    "sameTaskSet": true,
+    "sameModel": true,
+    "sameProvider": true,
+    "pairedSeeds": true,
+    "requireIndependentVerification": true
+  },
+  "requiredMeasurements": [
+    "provider_input_tokens",
+    "provider_output_tokens",
+    "provider_cached_input_tokens",
+    "llm_calls",
+    "useful_messages",
+    "verified_actions",
+    "information_loss",
+    "episode_cost_usd",
+    "latency_ms",
+    "cpu_ms",
+    "gpu_ms",
+    "vram_bytes",
+    "energy_joules"
+  ],
+  "costPolicy": {
+    "pricesMustBeVersioned": true,
+    "missingProviderUsageIsUnmeasured": true,
+    "neverEstimateTokensFromCharacters": true,
+    "includeVerificationMemoryPlanningAndRetries": true
+  }
+}
