@@ -18,17 +18,18 @@ async function main() {
     const base = { capabilityId: 'gci.base', version: '1.0.0', implementationDigest: `sha256:${'b'.repeat(64)}`, dependencies: [] };
     const lockfile = { projectId: 'project-a', environment: 'dev', capabilities: [
       { ...capability, mode: 'linked', effectiveAuthority: ['echo:run'], dependencies: ['gci.base@1.0.0'] },
-      { ...base, mode: 'linked', effectiveAuthority: [], dependencies: [] }
+      { ...base, mode: 'linked', effectiveAuthority: ['base:read'], dependencies: [] }
     ] };
     await db.run("INSERT INTO gci_installations (id, organization_id, project_id, environment, lockfile_json) VALUES ('i', 'org-a', 'project-a', 'dev', ?)", JSON.stringify(lockfile));
     await db.run('INSERT INTO gci_capability_exports (capability_id, version, provider_id, descriptor_json) VALUES (?, ?, ?, ?)', 'gci.echo', '1.0.0', 'genos', JSON.stringify(capability));
     await db.run('INSERT INTO gci_capability_exports (capability_id, version, provider_id, descriptor_json) VALUES (?, ?, ?, ?)', 'gci.base', '1.0.0', 'genos', JSON.stringify(base));
-    const input = { db, organizationId: 'org-a', projectId: 'project-a', environment: 'dev', capabilityId: 'gci.echo', args: { text: 'hello' }, getProjectAuthority: async () => ['echo:run'], handlers: { 'gci.echo': async ({ args }) => args.text } };
+    const input = { db, organizationId: 'org-a', projectId: 'project-a', environment: 'dev', capabilityId: 'gci.echo', args: { text: 'hello' }, getProjectAuthority: async () => ['echo:run', 'base:read'], handlers: { 'gci.echo': async ({ args }) => args.text } };
     const result = await invokeLinkedCapability(input);
     assert.equal(result.result, 'hello');
     assert.equal(result.receipt.implementationDigest, capability.implementationDigest);
     assert.equal((await db.get("SELECT COUNT(*) AS count FROM gci_event_ledger WHERE event_type = 'capability_invoked'")).count, 1);
     await assert.rejects(() => invokeLinkedCapability({ ...input, organizationId: 'org-b' }), { code: 'GCI_PROJECT_SCOPE_DENIED' });
+    await assert.rejects(() => invokeLinkedCapability({ ...input, getProjectAuthority: async () => ['echo:run'] }), { code: 'GCI_AUTHORITY_REVOKED' });
     await db.run(`INSERT INTO gci_project_revocations
       (organization_id, project_id, capability_id, version, reason, revoked_by)
       VALUES ('org-a', 'project-a', 'gci.base', '1.0.0', 'dependency withdrawn', 'reviewer')`);

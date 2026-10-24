@@ -3,6 +3,7 @@
 const { createHash, randomUUID } = require('node:crypto');
 const Ajv = require('ajv');
 const dbStore = require('../../../db');
+const { assertAuthority } = require('./adapterContract');
 
 async function invokeLinkedCapability(input) {
   const { db, organizationId, projectId, environment, capabilityId, args, getProjectAuthority, handlers } = input;
@@ -21,9 +22,7 @@ async function invokeLinkedCapability(input) {
   const descriptor = JSON.parse(exported.descriptor_json);
   if (descriptor.implementationDigest !== capability.implementationDigest) throw invocationError('GCI_ARTIFACT_CHANGED', capabilityId);
   validateContract(descriptor.inputContract, args, 'GCI_INPUT_INVALID');
-  const authority = await getProjectAuthority({ organizationId, projectId });
-  if (!Array.isArray(authority)) throw invocationError('GCI_AUTHORITY_UNAVAILABLE', capabilityId);
-  if (capability.effectiveAuthority.some((permission) => !authority.includes(permission))) throw invocationError('GCI_AUTHORITY_REVOKED', capabilityId);
+  await assertAuthority({ getProjectAuthority, organizationId, projectId, capability, lockfile });
   const handler = handlers[capabilityId];
   if (typeof handler !== 'function') throw invocationError('GCI_HANDLER_UNAVAILABLE', capabilityId);
   const result = await handler({ args, authority: capability.effectiveAuthority, projectId });

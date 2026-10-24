@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.dev/spec/gci/embedded-package.schema.json",
+  "title": "GenOS GCI signed Embedded package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "descriptor", "artifactBase64", "attestation"],
+  "properties": {
+    "schema": { "const": "genos.gci.embedded-package/v1" },
+    "descriptor": { "$ref": "capability.schema.json" },
+    "artifactBase64": { "type": "string", "contentEncoding": "base64", "minLength": 4 },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keyId", "signature"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "keyId": { "type": "string", "minLength": 1 },
+        "signature": { "type": "string", "contentEncoding": "base64", "minLength": 80 }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # ADR 0345 — GenOS Capability Inheritance (GCI)
 
-- **Statut :** Proposé
+- **Statut :** Accepté pour les lots Linked et Embedded/Managed initiaux
 - **Date :** 2026-10-24
 - **Domaine :** Capacités, autorité et intégration interprojets
 - **Décideurs :** Équipe GenOS
@@ -18,6 +18,12 @@ Les autorisations effectives sont l'intersection exacte entre les permissions re
 
 Le MVP commence en mode Linked, sans boucle de mise à jour automatique. Les appels passent par un adaptateur qui revalide l'état de révocation et l'autorité à chaque effet sensible. Ontogenesis reste facultatif pour les projets Linked et sera sollicité par le futur mode Managed.
 
+Le lot Embedded distribue l'artefact avec le descripteur dans un paquet à signature Ed25519. Le consommateur épingle une clé publique de confiance, vérifie la signature et le digest, puis remet les octets à un runtime sandbox fourni par son intégrateur. GCI ne charge pas de module arbitraire et ne prétend pas imposer la sandbox du fournisseur. Hors ligne, le consommateur consulte son état local de révocation : une révocation centrale ne peut pas arrêter une installation déconnectée.
+
+Le mode Managed ne lance pas directement la capacité. Il vérifie l'installation, les révocations et l'autorité, puis délègue une mission idempotente au service de délégation Ontogenesis existant. La responsabilité SHÉV doit être active et au stade délégué; l'exécution isolée, les checkpoints et la vérification restent gouvernés par Ontogenesis.
+
+Les plans d'évolution sont des propositions déterministes sans effet sur l'installation. Ils conservent les versions incompatibles ou non autorisées comme refus et exigent une adoption explicite après vérification indépendante. Aucune fusion automatique n'est permise.
+
 ## Conséquences
 
 ### Positives
@@ -25,11 +31,16 @@ Le MVP commence en mode Linked, sans boucle de mise à jour automatique. Les app
 - Les capacités existantes peuvent être projetées sans changer leur modèle interne.
 - L'export, l'adoption et l'autorité demeurent des décisions distinctes.
 - Les manifestes et lockfiles peuvent être vérifiés et versionnés indépendamment.
+- Les paquets Embedded peuvent être vérifiés puis exécutés hors ligne par un runtime local contrôlé par le consommateur.
+- Le mode Managed réutilise les responsabilités, baux, capsules et preuves d'Ontogenesis.
 
 ### Négatives
 
 - Les fournisseurs doivent déclarer explicitement les interfaces et empreintes d'artefact.
 - La première version n'offre ni distribution Embedded ni gestion autonome.
+- La fraîcheur des révocations Embedded dépend du dernier instant où le consommateur a pu synchroniser son état local.
+- Le gestionnaire de clés Embedded appartient à l'intégrateur; GCI ne fournit ni rotation de clés ni registre public de confiance dans ce lot.
+- Un candidat d'évolution doit rester une proposition tant qu'un nouvel opérateur n'a pas produit ses preuves indépendantes.
 
 ## Alternatives
 

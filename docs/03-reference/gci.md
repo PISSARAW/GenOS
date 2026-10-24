@@ -1,6 +1,6 @@
 # GenOS Capability Inheritance (GCI)
 
-**Statut : MVP Linked implémenté — contrats, export explicite, résolution, persistance, API et CLI disponibles.** La qualification de bout en bout sur un projet pilote reste à faire.
+**Statut : MVP Linked et adaptateurs Embedded/Managed implémentés — contrats, export explicite, résolution, persistance, API et CLI disponibles.** L'évolution produit des propositions sans effet automatique. La qualification de bout en bout sur un projet pilote externe reste à faire.
 
 GCI sépare la découverte d'une capacité de son export, de son adoption et de son exécution. Le graphe de capacités reste la source de connaissance interne; seuls des descripteurs publiés dans `gci_capability_exports` sont découvrables par un consommateur.
 
@@ -20,4 +20,8 @@ L'adaptateur Linked relit l'installation et l'export actif à chaque appel, vér
 
 L'API REST est montée sous `/api/gci/v1` : découverte et inspection des exports, liaison d'un projet, résolution, adoption transactionnelle, état et révocation. Les routes passent par les middlewares d'authentification, de portée tenant, de permission et de limitation de débit existants. Chaque mutation vérifie le projet et les révisions attendues; les révocations de dépendances transitives bloquent les prochains appels Linked.
 
-La CLI Node expose `discover`, `inspect` et `validate` localement, ainsi que `link`, `plan`, `adopt`, `status` et `revoke` via l'API. Les commandes distantes exigent `GENOS_API_URL`, `GENOS_API_TOKEN`, `--organization` et `--project`. Elles utilisent les mêmes routes et contrôles d'autorité que les appels REST. Les modes Embedded et Managed, l'upgrade planifié, la propagation d'évolution et l'exposition MCP ne sont pas livrés.
+Le mode Embedded empaquette l'artefact et le descripteur, signe leur contrat avec Ed25519, puis vérifie signature et digest à l'installation. L'adaptateur remet les octets à un runtime sandbox injecté et conserve un reçu local; le consommateur n'a pas besoin d'un appel réseau à GenOS pendant l'exécution. Il doit fournir son vérificateur de provenance, son cache d'artefacts, sa sandbox, son état local de révocation et son stockage de reçus. Les révocations centrales ne prennent effet sur un consommateur hors ligne qu'après synchronisation.
+
+Le mode Managed recalcule l'autorité et les révocations, puis crée une délégation idempotente dans le service Ontogenesis existant. Il exige une responsabilité SHÉV déléguée et une capsule isolée. Il retourne un reçu de délégation; l'exécution et sa vérification restent dans le cycle Ontogenesis.
+
+La CLI Node expose `discover`, `inspect` et `validate` localement, ainsi que `link`, `plan`, `adopt`, `status` et `revoke` via l'API. Les commandes distantes exigent `GENOS_API_URL`, `GENOS_API_TOKEN`, `--organization` et `--project`. Elles utilisent les mêmes routes et contrôles d'autorité que les appels REST. Les propositions d'évolution planifiées restent à exposer à la CLI et à l'API; propagation, création de PR, exposition MCP et vue Studio ne sont pas livrées.
