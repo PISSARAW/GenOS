@@ -82,7 +82,10 @@ function hasCompleteSourceEvidence(positive, expectedSupport) {
   return positive.sourceEvidence?.length === expectedSupport
     && positive.sourceEvidence.every((item) => item.id && item.sourceEventId
       && item.evidenceRefs?.includes(`event:${item.sourceEventId}`)
-      && item.provenance?.evidenceClass === 'runtime_report');
+    && item.provenance?.evidenceClass === 'runtime_report'
+    && item.receiptVerification?.accepted === true
+    && item.receiptVerification?.signatureVerified === true
+    && typeof item.receiptVerification?.verifierKeyFingerprint === 'string');
 }
 
 function hasRecalledSource(positive) {
@@ -103,7 +106,8 @@ function hasEmptyNegativeControl(negative) {
 }
 
 function oraclePassed(positive, negative, write) {
-  return write.written === write.expectedSupport && write.lessons > 0
+  return positive.authenticatedReceiptsBound === true
+    && write.written === write.expectedSupport && write.lessons > 0
     && hasCompleteSourceEvidence(positive, write.expectedSupport) && hasRecalledSource(positive)
     && positive.recall?.lessons?.length > 0 && hasChangedDecision(positive)
     && hasEmptyNegativeControl(negative);
@@ -121,7 +125,7 @@ function reportFor(input) {
       sourceProvenanceComplete: Boolean(evidence.provenanceComplete), negativeControlEmpty: evidence.negative.episodeCount === 0 },
     oracle: { recalculable: passed, checks: { heldOutDecisionChanged: evidence.positive.decision?.changed === true,
       sourceEventAndEvidenceRefs: Boolean(evidence.provenanceComplete), freshDatabaseUnchanged: evidence.negative.decision?.changed === false } },
-    evidenceRefs: [evidenceName], violations: [], limitations: passed ? [] : ['Required decision, recall, or source provenance evidence is missing.']
+    evidenceRefs: [evidenceName], violations: [], limitations: passed ? [] : ['Memory restart used generated input episodes; independent authenticated source receipts are unavailable, so the causal oracle remains inconclusive.']
   };
 }
 
@@ -147,9 +151,7 @@ async function runCampaign(args) {
   const write = runChild('write', positiveDatabase, payloadPath);
   const positive = runChild('recall', positiveDatabase, payloadPath);
   const negative = runChild('negative', negativeDatabase, payloadPath);
-  const provenanceComplete = positive.sourceEvidence?.length === payload.supportCount
-    && positive.sourceEvidence.every((item) => item.sourceEventId && item.evidenceRefs?.includes(`event:${item.sourceEventId}`)
-      && item.provenance?.evidenceClass === 'runtime_report');
+  const provenanceComplete = hasCompleteSourceEvidence(positive, payload.supportCount);
   const evidence = { runId, databases: { positive: positiveDatabase, negative: negativeDatabase }, processBoundaries: ['writer', 'held-out-restart-reader', 'fresh-database-reader'], write, positive, negative, provenanceComplete };
   const passed = oraclePassed(positive, negative, write);
   writeJson(evidencePath, evidence);
