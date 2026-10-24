@@ -5,6 +5,10 @@
 - **Date** : 2026-10-06.
 - **Contrats** : [runtime AGOW](../03-reference/runtime-agow.md).
 
+Une [reproduction du 24 octobre 2026](qualification-metacognition-agow-2026-10-24.md)
+recrée les artefacts sur les sources mesurées et ajoute un vérificateur
+d'archive. Elle conserve les mêmes seeds historiques et la même portée locale.
+
 ## 1. Protocole
 
 Commande :

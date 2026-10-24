@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : auto-surveillance de la confiance et des erreurs — mesure du rapport, pas réflexivité phénoménale.
-- **Dernière revue** : 2026-10-18
+- **Dernière revue** : 2026-10-24
 
 ## 1. Définition du domaine
 
@@ -14,7 +14,7 @@ La réflexivité peut être modélisée comme une fonction d'ordre supérieur : 
 
 ## 3. Analogies biologiques et limites réelles
 
-La réflexion biologique implique le cortex préfrontal et l'auto-surveillance. Dans GenOS, ce sont des calculs sur l'historique d'attributions. L'analogie est structurelle, pas phénoménale.
+La réflexion biologique implique le cortex préfrontal et l'auto-surveillance. Dans GenOS, la calibration compare des prévisions antérieures à l'exécution et des issues indépendamment vérifiées. L'analogie est structurelle, pas phénoménale.
 
 ## 4. Cas d'usage et objectifs métier
 
@@ -24,14 +24,14 @@ La réflexion biologique implique le cortex préfrontal et l'auto-surveillance. 
 
 ## 5. Exemples concrets
 
-- `metacognitionBenchService` calcule ECE, Brier, AUC type-2 sur ≥ 10 essais d'attributions.
+- `metacognitionBenchService` calcule ECE, Brier, AUC type-2 sur ≥ 10 prévisions résolues par des preuves indépendantes signées.
 - `selfModelService` détecte les biais (`over_delegation`, `premature_promotion`, `strategy_churn`, `budget_myopia`).
 - Les faiblesses mesurées (max 3) persistent et resurgissent dans les prompts.
 
 ## 6. Schéma ou diagramme
 
 ```text
-[Historique d'attributions (confiance, erreur de prédiction)]
+[Prévisions gelées et issues indépendamment signées]
            ↓
 [metacognitionBenchService : ECE, Brier, AUC type-2, surconfiance]
            ↓

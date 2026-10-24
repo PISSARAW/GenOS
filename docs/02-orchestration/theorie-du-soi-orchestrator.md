@@ -65,8 +65,11 @@ l'état appris sans écraser la calibration.
 
 ## Banc métacognitif et opt-out
 
-`metacognitionBenchService` mesure la calibration sur l'historique réel
-d'attributions (≥ 10 essais) : ECE, Brier, AUC type-2, surconfiance. Les
+`metacognitionBenchService` mesure la calibration sur les prévisions immuables
+antérieures à l'exécution et les issues indépendantes signées (≥ 10 essais résolus,
+`policyVersion: 2`) : ECE, Brier, AUC type-2, surconfiance. Les attributions
+CoreSelf restent des heuristiques rétrospectives et sont exclues de ces métriques.
+Voir [métacognition](../01-concepts/metacognition.md). Les
 faiblesses mesurées (max 3) persistent via `mergeLearned` et ressurgissent dans
 les prompts ; la surconfiance resserre le plancher d'opt-out
 (`abstentionService.floorFor`, plafond 0,8). La règle d'abstention

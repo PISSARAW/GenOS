@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-metacognition-agow-2026-10-24.md](qualification-metacognition-agow-2026-10-24.md) — calibration non circulaire, reproduction AGOW et pilote Ollama avec oracle séparé, résultats défavorables et limites du corpus.
+
 - [qualification-rappel-memoire-situationnel-2026-10-23.md](qualification-rappel-memoire-situationnel-2026-10-23.md) — tests du rappel inspiré de Tsao, intégration SQLite/prompt, provenance, phases et limites des vérifications globales.
 
 - [qualification-ontogenese-reelle-2026-10-23.md](qualification-ontogenese-reelle-2026-10-23.md) — correction du runtime V3, exécution réelle d'une mission isolée, intégration vérifiée et limites de portée.

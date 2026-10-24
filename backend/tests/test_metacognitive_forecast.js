@@ -43,12 +43,17 @@ async function invalidEvidence(db) {
   const valid = fixture.signedEvent(run.id, true);
   const evidence = valid.payload.qualityEvidence;
   const invalid = [
-    { ...valid, payload: { executionRunId: run.id } },
     { ...valid, payload: { ...valid.payload, qualityEvidence: { ...evidence, success: false } } },
     { ...valid, payload: { ...valid.payload, executionRunId: 'foreign-run' } },
     fixture.signedEvent(run.id, true, { projectId: 'other-project' })
   ];
+  assert.equal((await forecasts.observe(db, { run, event: { ...valid, payload: { executionRunId: run.id } } })).status, 'unavailable');
   for (const event of invalid) assert.equal((await forecasts.observe(db, { run, event })).status, 'refused');
+  for (const checkedAt of ['2000-01-01T00:00:00Z', '2100-01-01T00:00:00Z']) {
+    const receipt = require('../src/services/epistemicVerifierReceiptService').issueReceipt({ ...evidence.receipt, checkedAt });
+    const event = { ...valid, payload: { ...valid.payload, qualityEvidence: { ...evidence, receipt } } };
+    assert.equal((await forecasts.observe(db, { run, event })).status, 'refused');
+  }
   const pending = await forecasts.readTrials(db, 'agent');
   assert.equal(pending.unresolved, 1);
   assert.equal(pending.trials.length, 13);

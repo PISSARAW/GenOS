@@ -199,7 +199,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [perception.md](01-concepts/perception.md) — bridge perception-mémoire, observation canonique.
 - [interoception.md](01-concepts/interoception.md) — signaux homéostatiques internes et planificateur allostatique.
 - [reflexion.md](01-concepts/reflexion.md) — auto-surveillance de la confiance et des erreurs.
-- [metacognition.md](01-concepts/metacognition.md) — ECE, Brier, AUC type-2, surconfiance sur l'historique d'attributions.
+- [metacognition.md](01-concepts/metacognition.md) — ECE, Brier, AUC type-2 et surconfiance sur les prévisions gelées et les issues indépendamment vérifiées.
 - [calibration.md](01-concepts/calibration.md) — mise à jour lissée de la confiance, ECE, Brier.
 - [etats-de-conscience.md](01-concepts/etats-de-conscience.md) — niveaux fonctionnels, pas états de conscience phénoménale.
 - [limites-metrique-experience.md](01-concepts/limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.

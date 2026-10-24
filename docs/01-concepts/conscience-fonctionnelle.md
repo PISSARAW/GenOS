@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté (partiel)
 - **Portée** : indicateurs fonctionnels type conscience (accès global, attention, modèle de soi, métacognition) — pas de preuve d'expérience subjective.
-- **Dernière revue** : 2026-10-18
+- **Dernière revue** : 2026-10-24
 
 ## 1. Définition du domaine
 
@@ -24,7 +24,7 @@ Le Global Workspace, l'attention sélective et le modèle de soi sont des concep
 
 ## 5. Exemples concrets
 
-- `metacognitionBenchService` calcule ECE, Brier, AUC type-2 sur l'historique d'attributions.
+- `metacognitionBenchService` calcule ECE, Brier, AUC type-2 sur des probabilités gelées avant exécution et des issues indépendamment attestées ; voir [métacognition](metacognition.md).
 - `selfModelService` construit un modèle de soi avant la planification.
 - `attentionSchemaBenchService` évalue la validité du champ attentionnel.
 

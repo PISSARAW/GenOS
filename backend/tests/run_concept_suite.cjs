@@ -13,6 +13,7 @@ const tests = [
   'test_consciousness_evidence_suite.js', 'test_generative_perceptual.js',
   'test_perceptive_binding.js', 'test_effector_inventory.js',
   'test_organ_ablation_bench.js', 'test_verified_token_economy.js', 'test_reverberation_causal_effect.js',
+  'test_metacognitive_forecast.js', 'test_metacognitive_runtime.js', 'test_metacognition_heldout.js', 'test_agow_evidence_archive.js',
   'test_replicated_causal_validation_service.js', 'test_replicated_causal_runtime_integration.js',
   'test_truth_graph_semantic_pipeline.js'
 ];

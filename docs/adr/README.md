@@ -180,8 +180,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0151](0151-modele-de-soi-effecteurs.md) | Modèle de soi et effecteurs | Accepté (portée Node) | 2026-09-27 | Modèle de soi, copie d'efférence |
 | [0152](0152-objectifs-concurrents-allostase.md) | Objectifs concurrents et allostase | Accepté (portée Node) | 2026-09-27 | Objectifs multiples, allostase |
 | [0153](0153-population-morphogenetique-bornee.md) | Population morphogénétique bornée | Accepté (portée Node) | 2026-09-27 | Morphogenèse, variants, provenance |
-| [0154a](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
-| [0154b](0154-recu-typé-du-pont-rust-snapshot.md) | Reçu typé du pont Rust pour les snapshots | Accepté | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
+| [0154](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
 | [0155](0155-hypothese-plan-action.md) | Hypothèse promue, plan et action | Accepté (portée Node) | 2026-09-27 | Planification, hypothèses, rollback |
 | [0156](0156-verdict-experimental-planner.md) | Verdict expérimental et planner | Accepté (portée Node) | 2026-09-27 | Expérimentation, verdicts, PID |
 | [0157](0157-apprentissage-inter-missions-consolidation.md) | Apprentissage inter-missions et consolidation | Accepté (portée Node) | 2026-09-27 | Mémoire inter-missions, lignées |
@@ -516,8 +515,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0400a](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
 | [0400b](0400-oracles-workers-deterministes-structures.md) | Oracles de workers déterministes à sorties structurées | accepté | 2026-10-11 | workers déterministes, preuves indépendantes et promotion |
 | [0400c](0400-promotion-trinity-gqwf-opt-in.md) | Publier une racine GQWF depuis une promotion Trinity vérifiée | Accepté, activation explicite. | 2026-10-11. | Trinity, GQWF, promotion. |
-| [0401a](0401-oracle-formel-lean-borné.md) | Oracle formel Lean borné pour le worker formel | accepté | 2026-10-11 | preuve formelle, workers et promotion |
-| [0401b](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
+| [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
 | [0402a](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
 | [0402b](0402-oracles-workers-recuperation-et-passation.md) | Oracles bornés de récupération et de passation | accepté | 2026-10-11 | workers, récupération et coordination |
 | [0403a](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |
@@ -768,7 +766,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0641b](0641-perception-securite-autonome.md) | Perception autonome de la sécurité et modèle de monde | Accepté pour l'implémentation initiale. | -- | -- |
 | [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
-| [0644](0644-calibration-et-projection-nosologique-traçable.md) | Calibration et projection nosologique traçable | Accepté | 2026-10-18 | -- |
 | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
 | [0646](0646-apprentissage-et-execution-ett-reprenables.md) | Apprentissage qualifié et exécution ETT reprenable | Accepté | 2026-10-19 | pensée endogène, mémoire, reprise, sandbox |
 | [0647](0647-boucle-ett-multicycle-et-questionnement-endogene.md) | Boucle ETT multicycle et questionnement endogène | Accepté | 2026-10-19 | pensée endogène, cycles cognitifs, génération d'hypothèses, SQLite |
@@ -846,6 +843,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0731](0731-porte-commune-du-cycle-de-vie-par-contrat-d-operation.md) | Porte commune du cycle de vie par contrat d'opération | Accepté | 2026-10-23 | architecture transversale, contrats d'opération, evidence, budgets, leases, snapshots |
 | [0732](0732-couplage-contrat-dossier-et-observation-effet-c4.md) | Couplage contrat→dossier de preuve et observation différée de l'effet (C4) | Proposé | 2026-10-23 | mission, promotion, evidence, C4, dossier |
 | [0733](0733-rappel-memoire-situationnel-inspire-tsao.md) | Rappel mémoire situationnel inspiré des recherches de Tsao | Accepté | 2026-10-23 | Mémoire, runtime Node.js, classement et traçabilité |
+| [0734](0734-contrat-de-decision-de-communication-composee.md) | Contrat de décision de communication composé | Accepté — mise en œuvre incrémentale. | -- | -- |
+| [0735a](0735-classement-routage-confiance-sociale-verifiee.md) | Classer le routage social avec la confiance de domaine vérifiée | Voir le fichier | -- | -- |
+| [0735b](0735-modele-mental-social-fonde.md) | Modèle mental social sourcé | Accepté — implémentation incrémentale et descriptive. | -- | -- |
+| [0737a](0737-calibration-metacognitive-independante.md) | Calibration métacognitive indépendante et preuves locales vérifiables | Accepté | 2026-10-24 | -- |
+| [0737b](0737-capture-memoire-dialogue-social-borne.md) | Capturer en mémoire les dialogues sociaux résolus | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

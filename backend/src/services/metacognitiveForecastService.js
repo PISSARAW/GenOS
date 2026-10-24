@@ -87,13 +87,13 @@ async function observe(db, input) {
   if (run?.agent_id !== forecast.agentId || !TERMINAL.has(run.status)) return { status: 'refused', reason: 'terminal_run_required' };
   const evidence = resolutionEvidence(input.event);
   const resolution = { event: input.event, outcome: Number(evidence?.success), observedAt: new Date().toISOString() };
-  if (!validResolution(forecast, resolution)) return { status: 'refused', reason: 'independent_bound_resolution_required' };
   if (row.resolution_json) {
     trialOf(row);
     const previous = JSON.parse(row.resolution_json);
     if (digest(previous.event) !== digest(resolution.event)) reject('Conflicting resolution.');
     return { status: 'resolved', replayed: true };
   }
+  if (!validResolution(forecast, resolution)) return { status: 'refused', reason: 'independent_bound_resolution_required' };
   await store.resolve(db, { runId: forecast.runId, resolution, hash: digest(resolution) });
   const saved = await store.read(db, forecast.runId);
   if (saved.resolution_hash !== digest(resolution)) reject('Concurrent resolution conflict.');

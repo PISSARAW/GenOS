@@ -249,12 +249,14 @@ resserre `requireIndependentEvidence` et ajoute une directive `[ABSTENTION]`
 au prompt (retourner `no_answer` plutôt que confabuler).
 
 [backend/src/services/metacognitionBenchService.js](../../backend/src/services/metacognitionBenchService.js)
-mesure la calibration sur l'historique réel d'attributions CoreSelf (≥ 10 essais,
-sinon `insufficient_data`, jamais de faux nombre) : ECE, Brier, AUC type-2,
+mesure la calibration sur des prévisions gelées avant exécution et des issues
+indépendantes signées (≥ 10 essais résolus, sinon `insufficient_data`, jamais
+de faux nombre). Les attributions CoreSelf sont exclues des métriques : ECE, Brier, AUC type-2,
 surconfiance. Les faiblesses mesurées (max 3) persistent dans le self-model
 appris et ressurgissent dans les prompts ; la surconfiance resserre le plancher
 d'opt-out. C'est une mesure du rapport de confiance, pas une preuve de
-métacognition consciente.
+métacognition consciente. Le [contrat de calibration](metacognition.md) précise
+les scopes, les dates, les issues manquantes et la version de politique requise.
 
 ### Audit du champ attentionnel et sondes
 

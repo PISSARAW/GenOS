@@ -12,7 +12,9 @@ const data = require('./completion-corpus.cjs');
 const workspace = require('./completion-workspace.cjs');
 
 const ROOT = path.resolve(__dirname, '../..');
-const OUTPUT = path.join(ROOT, '.genos-agent-worlds/agow-completion-campaign-v3');
+const OUTPUT = path.resolve(ROOT, process.env.GENOS_AGOW_COMPLETION_OUTPUT || '.genos-agent-worlds/agow-completion-campaign-v3');
+const outputRelative = path.relative(path.join(ROOT, '.genos-agent-worlds'), OUTPUT);
+if (!outputRelative || outputRelative.startsWith('..') || path.isAbsolute(outputRelative)) throw Error('AGOW output must be a dedicated directory inside .genos-agent-worlds.');
 const PROTOCOL = Object.freeze({ hypothesis: 'Measured feedback permits adaptation after actuator damage.',
   primaryMetric: 'meanErrors', analysisPlan: 'Paired per-case absolute control error; descriptive means, no promotion.',
   successThreshold: 0.12, fixedSeeds: ['agow-holdout-G', 'agow-holdout-H', 'agow-holdout-I'],

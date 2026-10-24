@@ -17,7 +17,7 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | `missionPlanning.attachGlobalWorkspace` est appelé par `planMission` ; `test_global_workspace_runtime.js` vérifie disponibilité/consommation par module et lecture du contenu par `missionText` | en mode par défaut, le contenu du workspace est le prompt déjà accessible en repli : l'effet propre de la diffusion n'est pas identifiable ; pas de campagne live ni de réplication indépendante |
 | Butlin | GWT-4 Attention dépendante de l’état | 13 | `implemented_not_validated` | prédiction et score d’accord | pas de test reserved |
 | Butlin | HOT-1 Perception générative | 11 | `implemented_not_validated` | prior, précision, erreur | modèle génératif limité |
-| Butlin | HOT-2 Fiabilité monitorée | 14 | `implemented_not_validated` | erreur confiance/exactitude | calibration adversariale absente |
+| Butlin | HOT-2 Fiabilité monitorée | 14 | `implemented_not_validated` | prévisions gelées et issues indépendantes signées ; pilote local du 24 octobre | corpus très réduit, stimuli logiques répétés, aucune réplication externe ni validation générale |
 | Butlin | HOT-3 Croyances/actions corrigées | 14 | `implemented_not_validated` | révision et abstention | pas de boucle mission complète |
 | Butlin | HOT-4 Codage parcimonieux/lisse | 11 | `implemented_not_validated` | vecteurs et interpolation | sparsité non mesurée sur corpus |
 | Butlin | AST-1 Modèle prédictif de l’attention | 13 | `implemented_not_validated` | allocation et réallocation | leases non ablatés causalement |
@@ -26,6 +26,13 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | AE-2 Contingences action-perception | 15 | `implemented_not_validated` | `effectorRegistry.json` inventorie les canaux connus ; `test_effector_inventory.js` vérifie la corrélation des appels MCP autorisés par ID d'action et l'usage unique | canaux hors couverture explicitement listés ; pas de perturbation de gain/délai ni de réplication comportementale |
 
 ## Bancs externes
+
+Le [jalon du 24 octobre 2026](qualification-metacognition-agow-2026-10-24.md)
+corrige la calibration circulaire, reproduit le contraste AGOW local et mesure
+18 cas sur `qwen2.5:0.5b` avec oracle séparé. Ses stimuli logiques répétés et
+sa portée locale ne permettent aucune promotion HOT/GWT ; les statuts de cette
+matrice restent inchangés. Le circuit AGOW n'est pas le workspace du
+planificateur par défaut décrit à la ligne GWT-3.
 
 La planification allostatique est testée séparément des familles Butlin :
 `test_allostatic_mission_planning.js` applique le même état mesuré aux bras

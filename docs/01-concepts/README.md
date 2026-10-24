@@ -38,7 +38,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [perception.md](perception.md) — bridge perception-mémoire, observation canonique.
 - [interoception.md](interoception.md) — signaux homéostatiques internes et planificateur allostatique.
 - [reflexion.md](reflexion.md) — auto-surveillance de la confiance et des erreurs.
-- [metacognition.md](metacognition.md) — ECE, Brier, AUC type-2, surconfiance sur l'historique d'attributions.
+- [metacognition.md](metacognition.md) — ECE, Brier, AUC type-2 et surconfiance sur les prévisions gelées et les issues indépendamment vérifiées.
 - [calibration.md](calibration.md) — mise à jour lissée de la confiance, ECE, Brier.
 - [etats-de-conscience.md](etats-de-conscience.md) — niveaux fonctionnels, pas états de conscience phénoménale.
 - [limites-metrique-experience.md](limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.
