@@ -18,17 +18,10 @@ function requireText(value, field) {
 }
 
 function createCapabilityDescriptor(input) {
-  if (!input || input.schema !== 'genos.gci.capability/v1') throw invalid('Unsupported GCI capability schema');
+  validateDescriptorInput(input);
   const capabilityId = requireText(input.capabilityId, 'capabilityId');
   const version = requireText(input.version, 'version');
   const digest = requireText(input.implementationDigest, 'implementationDigest');
-  if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw invalid('implementationDigest must be a sha256 digest');
-  if (!input.provider || !input.provider.id) throw invalid('provider.id is required');
-  if (!MATURITIES.has(input.maturity)) throw invalid('Unsupported maturity');
-  if (!Array.isArray(input.exportModes) || !input.exportModes.length || input.exportModes.some((mode) => !MODES.has(mode))) {
-    throw invalid('exportModes must contain supported modes');
-  }
-  if (!validateSchema(input)) throw invalid(`Capability descriptor violates GCI schema: ${validateSchema.errors[0].message}`);
   return Object.freeze({
     schema: input.schema, capabilityId, version, implementationDigest: digest,
     provider: Object.freeze({ id: requireText(input.provider.id, 'provider.id'),
@@ -43,6 +36,18 @@ function createCapabilityDescriptor(input) {
     constraints: freezeValue(input.constraints || {}), sideEffects: Object.freeze([...(input.sideEffects || [])].sort()),
     evidence: freezeValue(input.evidence || []), revocationPolicy: freezeValue(input.revocationPolicy || { revocable: true })
   });
+}
+
+function validateDescriptorInput(input) {
+  if (!input || input.schema !== 'genos.gci.capability/v1') throw invalid('Unsupported GCI capability schema');
+  const digest = requireText(input.implementationDigest, 'implementationDigest');
+  if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw invalid('implementationDigest must be a sha256 digest');
+  if (!input.provider || !input.provider.id) throw invalid('provider.id is required');
+  if (!MATURITIES.has(input.maturity)) throw invalid('Unsupported maturity');
+  if (!Array.isArray(input.exportModes) || !input.exportModes.length || input.exportModes.some((mode) => !MODES.has(mode))) {
+    throw invalid('exportModes must contain supported modes');
+  }
+  if (!validateSchema(input)) throw invalid(`Capability descriptor violates GCI schema: ${validateSchema.errors[0].message}`);
 }
 
 function freezeValue(value) {
