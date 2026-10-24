@@ -140,6 +140,8 @@ que si ses références de preuve existent et que l'oracle est recalculable.
 3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02. Le vérificateur
    de reçus Ed25519 est vérifié indépendamment avec `node test-event-receipt-verifier.cjs`;
    tant qu'il n'est pas raccordé au stockage de confiance du runtime, V2-04 reste `planned`.
+   Les oracles V2-01 et V2-02 sont contrôlables via `node test-social-oracles.cjs`; ces
+   critères ne font pas passer un scénario au statut exécuté sans runner et preuves runtime.
 4. Implémenter V2-05 après fixation des invariants de morphogenèse.
 5. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
 
