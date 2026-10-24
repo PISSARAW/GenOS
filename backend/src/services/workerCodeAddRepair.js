@@ -65,6 +65,7 @@ function inputId(source, pattern, fallback) {
   const expression = /<input\b[^>]*\bid\s*=\s*(["'])([^"']*)\1/gi;
   const expectedId = new RegExp(pattern, 'i');
   for (const match of source.matchAll(expression)) {
+    if (/\btype\s*=\s*(["'])(?:search|hidden)\1|\b(?:readonly|disabled)\b/i.test(match[0])) continue;
     if (expectedId.test(match[2])) return match[2];
   }
   return fallback;
