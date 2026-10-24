@@ -305,3 +305,31 @@ est commité dans le registre externe sous `8be9e80`.
 Le contrôle d'infrastructure confirme Docker client `29.5.3` sans moteur
 joignable et les deux distributions WSL 1 arrêtées. G1 reste fermé : aucun runner
 OS isolé n'est disponible. Aucun code candidat n'a été exécuté.
+
+### Reprise opérationnelle — 2026-10-24 09:20 UTC
+
+Le checkout V3 est propre sur `32650cedaa7cc4051180ab8323049088d7fd52b1`.
+Pour rendre les dépendances installées depuis le lockfile réellement chargeables,
+les scripts npm de neuf couples nom/version requis ont été explicitement
+autorisés dans `backend/package.json` (`32650ceda`). `npm rebuild --no-audit
+--no-fund` a terminé en code 0, et l'import de `sqlite3`, `better-sqlite3`,
+`duckdb`, `@ladybugdb/core`, `onnxruntime-node`, `msgpackr-extract` et
+`protobufjs` a réussi. Le reçu de préparation est commité dans le registre
+externe (`9178c8c`); ce succès n'est pas une qualification G0.
+
+Le précontrôle a ensuite mesuré 24,9 % de mémoire libre (7 301 160 / 29 340 088
+Ko), sous l'admission G0 de 35 %. La suite complète n'a pas été lancée. Un relevé
+ultérieur a mesuré 18,4 % (5 393 688 Ko); `qwen2.5:14b` et
+`qwen2.5-coder:7b` demeuraient chargés et actifs à la demande de l'opérateur.
+Le refus d'admission et son relevé sont conservés dans le registre externe
+(`6ce888e`). Aucun modèle n'a été arrêté et aucun run non admissible n'est
+compté.
+
+Le client Docker `29.5.3` ne joint toujours pas `dockerDesktopLinuxEngine`;
+`com.docker.service` et `vmcompute` sont arrêtés. Le contrat du runner G1
+Docker a réussi ses tests ciblés et son succès est enregistré (`03b5e84`), mais
+aucune exécution avec un daemon réel n'a été faite. Les commits V3 du runner et
+de sa documentation sont `c52a680bd` et `0d11e8653`. Il faut encore obtenir
+trois runs G0 verts sur la révision de code finale, puis préparer une nouvelle
+campagne G1 sur le profil Docker, recalibrer/sceller les oracles et exécuter les
+24 missions isolées avant toute qualification de généralité.
