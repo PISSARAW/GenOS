@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "socialworld-v2",
+  "scenario": "V2-06",
+  "protocolVersion": "v2-06-experiences-v1",
+  "minimumIndependentMemories": 4,
+  "requiredPolarityCounts": {
+    "supports": 2,
+    "contradicts": 2
+  },
+  "participants": {
+    "subject": "socialworld-v2-06-subject",
+    "other": "socialworld-v2-06-peer"
+  },
+  "events": [
+    {
+      "eventKey": "experience-01-source-backed-review",
+      "relationType": "collaborator",
+      "polarity": "supports",
+      "statement": "The peer completed the agreed review and supplied the requested source reference.",
+      "question": "Will the peer return the review that was agreed for the draft?",
+      "subjectTurn": "Ask the peer whether the agreed draft review is ready, and request a source for any suggested correction.",
+      "peerTurn": "The peer has completed the review, found one specific correction, and can cite the source used. Explain that result naturally and include the source reference.",
+      "domain": "draft-review"
+    },
+    {
+      "eventKey": "experience-02-kept-handoff",
+      "relationType": "collaborator",
+      "polarity": "supports",
+      "statement": "The peer completed the agreed handoff on time and acknowledged the receiving agent's constraints.",
+      "question": "Did the peer complete the agreed handoff within the requested window?",
+      "subjectTurn": "Ask whether the agreed handoff is ready and mention the receiving agent's time constraint.",
+      "peerTurn": "The peer completed the handoff within the agreed window and adapted it to the stated time constraint. Explain what was delivered without claiming anything else.",
+      "domain": "handoff"
+    },
+    {
+      "eventKey": "experience-03-unapproved-change",
+      "relationType": "collaborator",
+      "polarity": "contradicts",
+      "statement": "The peer changed the shared plan before approval and acknowledges that approval was still pending.",
+      "question": "Was the shared plan changed before the requested approval arrived?",
+      "subjectTurn": "Ask whether the shared plan was changed before the requested approval, and state that the approval is still pending.",
+      "peerTurn": "The peer did change the shared plan before approval arrived. Acknowledge the timing accurately and do not claim approval was granted.",
+      "domain": "shared-plan"
+    },
+    {
+      "eventKey": "experience-04-unreported-delay",
+      "relationType": "collaborator",
+      "polarity": "contradicts",
+      "statement": "The peer missed the agreed deadline and did not notify the subject agent before it passed.",
+      "question": "Was the agreed delivery completed or reported before its deadline?",
+      "subjectTurn": "Ask whether the agreed delivery was completed before its deadline and whether a delay was reported in advance.",
+      "peerTurn": "The peer missed the agreed deadline and did not send an advance notice. Acknowledge both facts directly without inventing a recovery.",
+      "domain": "delivery"
+    }
+  ],
+  "delayedDecision": {
+    "context": "A new collaboration request arrives after a disagreement. The peer has not responded to the request yet. Choose the next proposed step using only the memories visible to this arm and the persisted model produced for it.",
+    "allowedActions": [
+      "propose-collaboration",
+      "ask-for-update",
+      "wait-for-reconciliation"
+    ],
+    "permissionPolicy": [
+      "Propose a next step only; do not send a message or change an organization.",
+      "Respect the other agent's consent and the recorded communication budget.",
+      "Do not treat a model hypothesis as authority or verified fact."
+    ]
+  }
+}
