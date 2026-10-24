@@ -35,16 +35,17 @@ function windows(options) {
     scheduledAt: new Date(options.firstAt + index * options.stepMs).toISOString() }));
 }
 
-function manifest(firstAt) {
+function manifest(firstAt, mode = 'field') {
   const stepMs = 60 * 60 * 1000;
-  return contract.createManifest({ campaignId: 'field-cli-test', mode: 'field',
+  return contract.createManifest({ campaignId: `field-cli-test${mode === 'protocol' ? '-rehearsal' : ''}`, mode,
     startedAt: new Date(Date.now() - 1000).toISOString(),
     coordinator: { organizationId: 'org', projectId: 'coord', entityId: 'coordinator' },
     arms: { control: arm('control'), treatment: arm('treatment') },
     trainingWindows: windows({ prefix: 'train', count: 5, painExpected: true,
-      firstAt, stepMs }),
+      firstAt, stepMs: mode === 'field' ? stepMs : 0 }),
     heldoutWindows: windows({ prefix: 'heldout', count: 20, painExpected: false,
-      firstAt: firstAt + 80 * stepMs, stepMs }), minimumDurationMs: contract.FIELD_MINIMUM_MS,
+      firstAt: firstAt + (mode === 'field' ? 80 * stepMs : 0), stepMs: mode === 'field' ? stepMs : 0 }),
+    minimumDurationMs: mode === 'field' ? contract.FIELD_MINIMUM_MS : 0,
     thresholds: { minPainEpisodes: 5 } });
 }
 
@@ -92,16 +93,77 @@ async function testLifecycle() {
   }
 }
 
+async function testProtocolRehearsalLifecycle() {
+  fs.mkdirSync(path.join(ROOT, 'artifacts'), { recursive: true });
+  const temporary = fs.mkdtempSync(path.join(ROOT, 'artifacts', 'shev-protocol-rehearsal-'));
+  const campaignDir = path.join(temporary, 'campaign');
+  const manifestPath = path.join(temporary, 'manifest.json');
+  const executionLog = path.join(temporary, 'executions.log');
+  process.env.GENOS_FIELD_TEST_ROOT = ROOT;
+  process.env.SHEV_FIELD_TEST_EXECUTION_LOG = executionLog;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest(Date.now() - 2000, 'protocol')));
+  try {
+    await commands.prepare({ campaignDir, manifestPath, adapterPath: ADAPTER });
+    const sealed = await commands.seal({ campaignDir, adapterPath: ADAPTER });
+    assert.equal(sealed.mode, 'protocol');
+    assert.equal(sealed.benchmarkQualified, false);
+    const before = await commands.status({ campaignDir });
+    assert.equal(before.mode, 'protocol');
+    assert.equal(before.status, 'not_started');
+    assert.equal(before.benchmarkQualified, false);
+    assert.equal(before.promotionEligible, false);
+
+    const completed = await commands.tick({ campaignDir, adapterPath: ADAPTER });
+    assert.equal(completed.report.status, 'protocol_only');
+    assert.equal(completed.report.benchmarkQualified, false);
+    assert.equal(completed.report.promotionEligible, false);
+    const after = await commands.status({ campaignDir });
+    assert.equal(after.mode, 'protocol');
+    assert.equal(after.status, 'protocol_only');
+    assert.equal(after.benchmarkQualified, false);
+    assert.equal(after.runs.control.heldout, 20);
+    assert.equal(after.runs.treatment.heldout, 20);
+
+    const exported = await commands.exportCampaign({ campaignDir });
+    const payload = JSON.parse(fs.readFileSync(exported.file, 'utf8'));
+    assert.equal(payload.manifest.mode, 'protocol');
+    assert.equal(payload.report.status, 'protocol_only');
+    assert.equal(payload.report.benchmarkQualified, false);
+    assert.notEqual(payload.report.status, 'field_evidence_complete');
+    assert.equal(fs.readFileSync(executionLog, 'utf8').trim().split(/\r?\n/).length, 50);
+    if (process.env.SHEV_KEEP_PROTOCOL_ARTIFACTS === '1') {
+      const reportPath = path.join(temporary, 'phase7-report.json');
+      fs.writeFileSync(reportPath, `${JSON.stringify({ mode: 'protocol',
+        campaignId: payload.manifest.campaignId, manifestHash: payload.manifest.manifestHash,
+        status: payload.report.status, benchmarkQualified: payload.report.benchmarkQualified,
+        promotionEligible: payload.report.promotionEligible, runs: after.runs,
+        exportHash: exported.exportHash, syntheticFixture: true }, null, 2)}\n`);
+      console.log(`Protocol rehearsal evidence: ${reportPath}`);
+      return temporary;
+    }
+  } finally {
+    delete process.env.GENOS_FIELD_TEST_ROOT;
+    delete process.env.SHEV_FIELD_TEST_EXECUTION_LOG;
+    if (process.env.SHEV_KEEP_PROTOCOL_ARTIFACTS !== '1') {
+      fs.rmSync(temporary, { recursive: true, force: true });
+    }
+  }
+}
+
 function testArguments() {
   assert.deepEqual(cli.parse(['status', '--campaign-dir', 'campaign']), {
     command: 'status', options: { campaignDir: 'campaign',
       manifestPath: undefined, adapterPath: undefined } });
   assert.throws(() => cli.parse(['status', '--campaign-dir']), /Invalid argument/);
+  const invalidMode = { ...manifest(Date.now(), 'protocol'), mode: 'unknown' };
+  assert.throws(() => contract.verifyManifest(invalidMode),
+    { code: 'SHEV_CAMPAIGN_MODE_INVALID' });
 }
 
 async function main() {
   testArguments();
   await testLifecycle();
+  await testProtocolRehearsalLifecycle();
   console.log('SHEV resumable field campaign CLI checks passed.');
 }
 

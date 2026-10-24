@@ -39,10 +39,12 @@ async function loadAdapters(descriptor, context) {
 }
 
 function sealedManifest(input) {
-  const candidate = input?.schema ? contract.verifyManifest(input) : contract.createManifest(input);
-  if (candidate.mode !== 'field') throw contract.failure('SHEV_FIELD_MODE_REQUIRED',
-    'The field CLI only accepts field manifests.');
-  return candidate;
+  return input?.schema ? contract.verifyManifest(input) : contract.createManifest(input);
+}
+
+function lifecycleSchema(kind, mode) {
+  if (mode === 'field') return `genos.shev-field-${kind}/v1`;
+  return `genos.shev-protocol-${kind}/v1`;
 }
 
 function sealTiming(manifest, now = Date.now()) {
@@ -60,7 +62,7 @@ async function prepare(options) {
   const adapter = adapterDescriptor(options.adapterPath);
   const adapters = await loadAdapters(adapter, { command: 'prepare', store, manifest });
   const preparation = await field.prepareCampaign({ manifest, adapters });
-  const record = { schema: 'genos.shev-field-preparation/v1', manifest, adapter, preparation };
+  const record = { schema: lifecycleSchema('preparation', manifest.mode), manifest, adapter, preparation };
   const pointer = files.savePrepared(store, record);
   return { command: 'prepare', campaignDir: store.campaignDir,
     manifestHash: manifest.manifestHash, objectHash: pointer.objectHash };
@@ -72,10 +74,11 @@ async function seal(options) {
   const prepared = files.loadPrepared(store);
   const adapter = adapterDescriptor(options.adapterPath || prepared.adapter.path);
   matchingAdapter(adapter, prepared.adapter);
-  sealTiming(contract.verifyManifest(prepared.manifest));
+  const manifest = contract.verifyManifest(prepared.manifest);
+  if (manifest.mode === 'field') sealTiming(manifest);
   const adapters = await loadAdapters(adapter, { command: 'seal', store, manifest: prepared.manifest });
   const preparation = await field.prepareCampaign({ manifest: prepared.manifest, adapters });
-  const record = { schema: 'genos.shev-field-seal/v1', manifest: prepared.manifest,
+  const record = { schema: lifecycleSchema('seal', prepared.manifest.mode), manifest: prepared.manifest,
     adapter, preparation, preparedObjectHash: files.readJson(store.prepared).objectHash };
   await preregister(store, prepared.manifest);
   files.saveSeal(store, record);
@@ -99,7 +102,8 @@ async function preregister(store, manifest) {
 
 function sealSummary(store, record) {
   return { command: 'seal', campaignDir: store.campaignDir,
-    manifestHash: record.manifest.manifestHash, sealed: true };
+    manifestHash: record.manifest.manifestHash, mode: record.manifest.mode,
+    benchmarkQualified: false, promotionEligible: false, sealed: true };
 }
 
 async function tick(options) {
@@ -147,6 +151,8 @@ async function status(options) {
   const inspected = await inspectDatabase(store, sealed.manifest, false);
   return { command: 'status', campaignDir: store.campaignDir,
     manifestHash: sealed.manifest.manifestHash,
+    mode: sealed.manifest.mode, benchmarkQualified: inspected.report?.benchmarkQualified || false,
+    promotionEligible: false,
     status: inspected.report?.status || 'not_started', runs: inspected.runs,
     report: inspected.report };
 }
@@ -155,7 +161,7 @@ async function exportCampaign(options) {
   const store = files.createStore(options.campaignDir);
   const sealed = files.loadSeal(store);
   const inspected = await inspectDatabase(store, sealed.manifest, true);
-  const payload = { schema: 'genos.shev-field-campaign-export/v1', manifest: sealed.manifest,
+  const payload = { schema: lifecycleSchema('campaign-export', sealed.manifest.mode), manifest: sealed.manifest,
     preparation: sealed.preparation, report: inspected.report, runs: inspected.runs,
     events: inspected.events };
   const object = files.writeObject(store, 'export', payload);

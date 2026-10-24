@@ -115,10 +115,11 @@ function validateMeasurement(measurement, execution) {
     measurementHash: measurement.measurementHash });
 }
 
-function validateFieldManifest(manifest) {
+function validateCampaignManifest(manifest, expectedMode) {
   const sealed = contract.verifyManifest(manifest);
-  if (sealed.mode !== 'field') throw contract.failure('SHEV_FIELD_MODE_REQUIRED',
-    'The field adapter only accepts sealed field campaigns.');
+  const code = expectedMode === 'field' ? 'SHEV_FIELD_MODE_REQUIRED' : 'SHEV_CAMPAIGN_MODE_INVALID';
+  if (sealed.mode !== expectedMode) throw contract.failure(code,
+    `The ${expectedMode} adapter cannot accept ${sealed.mode} campaigns.`);
   return sealed;
 }
 
@@ -175,8 +176,8 @@ async function verifyWindow(state, request) {
   return receipt;
 }
 
-function createFieldAdapter(input) {
-  const manifest = validateFieldManifest(input?.manifest);
+function createAdapter(input, mode) {
+  const manifest = validateCampaignManifest(input?.manifest, mode);
   validateAdapters(input?.adapters);
   const state = { manifest, adapters: input.adapters, attestations: new Map(), executions: new Map() };
   return Object.freeze({ manifest, prepare: () => prepare(state),
@@ -184,5 +185,9 @@ function createFieldAdapter(input) {
     verifyWindow: (request) => verifyWindow(state, request) });
 }
 
+function createFieldAdapter(input) { return createAdapter(input, 'field'); }
+
+function createProtocolAdapter(input) { return createAdapter(input, 'protocol'); }
+
 module.exports = { WORKSPACE_SCHEMA, MEASUREMENT_SCHEMA, createFieldAdapter,
-  expectedWorkspace, validateWorkspaceAttestation, validateMeasurement };
+  createProtocolAdapter, expectedWorkspace, validateWorkspaceAttestation, validateMeasurement };

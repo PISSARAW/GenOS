@@ -263,17 +263,18 @@ Suivre le runbook `docs/04-exploitation/repetition-generale-campagne-terrain-she
 ```powershell
 # Prérequis : brouillon de protocole pilote, 2 projets + 2 workspaces jetables,
 # producteur/oracle/vérificateur séparés, campaignId suffixé -rehearsal
-# Étapes : prepare → seal → exécution par tick → injection de 7 pannes obligatoires → export
+# Étapes : prepare → seal → exécution par tick → injection de 8 pannes obligatoires → export
 ```
 
-**Pannes obligatoires à injecter :**
-1. arrêt avant/après journalisation ;
-2. deux `tick` concurrents ;
-3. reçu producteur utilisé comme vérification (refus d'indépendance) ;
-4. digest d'artefact altéré ;
-5. dérive de verrou runtime ;
-6. dépassement de budget ;
-7. tâche réservée injectée en apprentissage.
+**Pannes obligatoires à injecter (huit scénarios distincts, comme dans le runbook) :**
+1. arrêt après exécution, avant journalisation ;
+2. arrêt après journalisation, avant réponse ;
+3. deux `tick` concurrents ;
+4. reçu producteur utilisé comme vérification (refus d'indépendance) ;
+5. digest d'artefact altéré ;
+6. dérive de verrou runtime ;
+7. dépassement de budget cumulé ;
+8. tâche réservée injectée en apprentissage.
 
 **Critères d'acceptation :** arrêt+reprise sans doublon, ticks concurrents n'ajoutent pas deux runs, contre-preuves refusées, budgets recoupés, export reconstructible en lecture seule, tiers peut expliquer le verdict, aucune sortie avec `field_evidence_complete`, aucun `.db`/secret/artefact volumineux dans Git.
 

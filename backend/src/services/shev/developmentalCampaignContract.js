@@ -264,6 +264,9 @@ function verifyManifest(manifest) {
   if (manifest?.schema !== SCHEMA || manifest.promotionEligible !== false) {
     throw failure('SHEV_CAMPAIGN_MANIFEST_INVALID', 'A sealed developmental campaign manifest is required.');
   }
+  if (!['protocol', 'field'].includes(manifest.mode)) {
+    throw failure('SHEV_CAMPAIGN_MODE_INVALID', 'Campaign mode must be protocol or field.');
+  }
   const body = { ...manifest };
   delete body.manifestHash;
   delete body.promotionEligible;

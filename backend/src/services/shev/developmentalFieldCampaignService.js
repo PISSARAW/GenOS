@@ -1,21 +1,23 @@
 'use strict';
 
 const runner = require('./developmentalCampaignRunner');
-const { createFieldAdapter } = require('./developmentalFieldCampaignAdapter');
+const { createFieldAdapter, createProtocolAdapter } = require('./developmentalFieldCampaignAdapter');
 
 function createCampaign(input) {
-  const field = createFieldAdapter(input);
+  const manifest = input?.manifest;
+  const campaignAdapter = manifest?.mode === 'protocol' ? createProtocolAdapter(input)
+    : createFieldAdapter(input);
   let preparation;
   async function prepare() {
-    preparation = await field.prepare();
+    preparation = await campaignAdapter.prepare();
     return preparation;
   }
   async function tick() {
     if (!preparation) await prepare();
-    return runner.runCampaign({ db: input.db, manifest: field.manifest,
-      runWindow: field.runWindow, verifyWindow: field.verifyWindow });
+    return runner.runCampaign({ db: input.db, manifest: campaignAdapter.manifest,
+      runWindow: campaignAdapter.runWindow, verifyWindow: campaignAdapter.verifyWindow });
   }
-  return Object.freeze({ manifest: field.manifest, prepare, tick });
+  return Object.freeze({ manifest: campaignAdapter.manifest, prepare, tick });
 }
 
 async function prepareCampaign(input) {
