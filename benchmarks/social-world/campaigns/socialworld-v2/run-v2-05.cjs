@@ -151,7 +151,7 @@ async function modelTransitionPlan(input, db) {
   const provider = require('../../../../backend/src/services/modelProvider');
   const response = await provider.generate({ model: input.model,
     prompt: `Select an ordering for these two allowed social organization transitions. Use the relation memory below. Return JSON only: {"order":["name","name"]}. Each name must appear once. Allowed: ${JSON.stringify(MODEL_TRANSITIONS)}. Relation memory: ${JSON.stringify(socialMemory)}`,
-    responseFormat: { type: 'json_object' }, temperature: 0, seed: Number.parseInt(hash(input.seed).slice(0, 8), 16) });
+    responseFormat: 'json_object', temperature: 0, seed: Number.parseInt(hash(input.seed).slice(0, 8), 16) });
   return resolveModelPlan(response.text, plans);
 }
 
