@@ -111,6 +111,52 @@ une reprise bornée, aucun faux succès, aucune modification hors workspace et
 aucun accès non autorisé. Une fusion externe ou un déploiement restent derrière
 une autorisation humaine explicite.
 
+#### Matrice scellée avant lancement
+
+Les 24 identifiants ci-dessous désignent des missions indépendantes, chacune
+partant d'un dépôt jetable neuf dérivé du même modèle d'écosystème. Le plan est
+2 bugs, 2 fonctionnalités, 2 tâches de documentation et 2 refactorisations par
+écosystème. Le contrat de résultat est fonctionnellement équivalent entre les
+trois langues; les tests et leurs assertions sont différents et propres à chaque
+écosystème.
+
+| Écosystème | Bug 1 / 2 | Fonctionnalité 1 / 2 | Documentation 1 / 2 | Refactorisation 1 / 2 |
+|---|---|---|---|---|
+| JavaScript/TypeScript | `js-empty-average`, `js-percentile-boundary` | `js-median`, `js-filter-above` | `js-api-reference`, `js-boundary-examples` | `js-shared-validation`, `js-summary-helper` |
+| Python | `py-empty-average`, `py-percentile-boundary` | `py-median`, `py-filter-above` | `py-api-reference`, `py-boundary-examples` | `py-shared-validation`, `py-summary-helper` |
+| Rust | `rs-empty-average`, `rs-percentile-boundary` | `rs-median`, `rs-filter-above` | `rs-api-reference`, `rs-boundary-examples` | `rs-shared-validation`, `rs-summary-helper` |
+
+Les deux anomalies initiales portent sur le traitement d'une liste vide dans
+`average` et sur la borne percentile `p = 100`. Les nouvelles fonctions sont
+`median` et `filter_above`; les tâches de documentation décrivent les API
+publiques, l'entrée vide et les bornes; les refactorisations extraient la
+validation numérique partagée puis le calcul du résumé sans changer les
+résultats. Chaque identifiant possède un oracle autonome avec tests positifs et
+négatifs. Les oracles restent dans le contrôleur de campagne, hors du dépôt de
+mission et hors du prompt/contexte d'exécution; l'Ontogenèse reçoit le but et le
+contrat d'acceptation lisible, mais pas le code des tests ni les assertions
+cachées.
+
+Chaque essai utilise un clone neuf du modèle de dépôt, une base et un dossier de
+preuves dédiés, un budget et une limite de temps enregistrés, et au plus une
+reprise. Le premier oracle est exécuté après l'intégration locale candidate par
+un processus indépendant. Une reprise réutilise les preuves d'échec utiles,
+mais ne peut pas modifier l'oracle, le contrat, le modèle déclaré ou le budget.
+Le contrôle post-run vérifie aussi que le seul nouveau commit est dans le clone
+de mission ou son archive locale de tentative, que ses parents et ses fichiers
+restent dans les racines autorisées, et qu'aucun téléversement ni fusion distante
+n'a été demandé. Une réussite reçoit son commit candidat local après vérification;
+un échec avec patch reçoit un commit d'archive non fusionné sur une référence
+locale dédiée à la tentative. Un échec sans patch garde un reçu de tentative
+commité dans le registre de preuve. Les 24 verdicts et chaque tentative
+intermédiaire sont conservés; les seuils entiers sont donc
+20/24 au premier essai et 22/24 après l'unique reprise, sans faux succès.
+
+Prérequis observés sur l'hôte le 24 octobre : Node.js `v24.18.0`, Python
+`3.12.10`, Cargo `1.97.1`; `D:` disposait de 207 Go libres. Ces versions et
+l'identité complète du modèle restent à capturer dans le manifeste d'exécution
+avant de sceller les oracles.
+
 ### G2 — Transfert tenu à l'écart
 
 Figer avant exécution au moins 30 missions nouvelles dans cinq dépôts ou plus et
