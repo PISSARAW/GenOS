@@ -115,6 +115,10 @@ async function regenerateDuringExecution(db) {
 }
 
 async function prepareRuntime(initDb) {
+  if (TOP_LEVEL_MISSION_ACTIONS.has(action)) {
+    require('../src/services/gvxLedgerIntegrity').assertSigningKeyConfigured();
+    await require('./missionWorkspaceScope.cjs').applyMissionWorkspace(initDb, request);
+  }
   await runtime.reconcilePersistedRuntimes(initDb);
   await missionEpisodeRuntime.reconcileAbandoned(initDb);
   if (!orchestratorId && !TOP_LEVEL_MISSION_ACTIONS.has(action)) orchestratorId = await findActiveOrchestrator(initDb);

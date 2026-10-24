@@ -21,8 +21,7 @@ async function seal(ctx) {
   if (!ctx.normalizedMission.missionId) return null;
   return withTransaction(ctx.db, async () => {
     await require('./missionExecutionAuthority').assertAuthority(ctx.db, ctx.normalizedMission.missionExecutionAuthority);
-    const scope = await provenance.agentScope(ctx.db, ctx.agentId);
-    if (!scope?.organizationId || !scope.projectId) return null;
+    const scope = await provenance.requireAgentScope(ctx.db, ctx.agentId);
     const binding = await provenance.readRun(ctx.db, { runId: ctx.executionRun.id, scope });
     if (!binding) throw values.failure('EXECUTION_AUTHORITY_BINDING_MISSING');
     const classification = await migration.classification(ctx.db, binding.runId);

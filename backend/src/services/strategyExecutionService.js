@@ -56,6 +56,12 @@ async function createExecutionRun(db, context) {
 async function createBoundExecutionRun(db, context) {
   const contractRecord = context.contractRecord || await strategyContracts.getLatestContract(db, context.agentId);
   if (!contractRecord) throw new Error(`No strategy contract for agent ${context.agentId}`);
+  if (context.missionId) {
+    await require('./gvxMissionProvenance').requireAgentScope(db, context.agentId);
+  }
+  if (context.missionId) {
+    await require('./gvxMissionProvenance').requireAgentScope(db, context.agentId);
+  }
   const plan = compileExecutionPlan(contractRecord.contract, context.budget);
   const id = `strategy_run_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   await db.run(
@@ -75,7 +81,11 @@ async function createBoundExecutionRun(db, context) {
     );
   }
   const workerBinding = await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
-  await require('./gvxMissionProvenance').bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
+  const missionBinding = await require('./gvxMissionProvenance')
+    .bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
+  if (context.missionId && !missionBinding?.eventId) {
+    throw Object.assign(new Error('Mission run binding was not persisted.'), { code: 'GVX_RUN_BINDING_REQUIRED' });
+  }
   await require('./metacognitiveForecastService').captureSafe(db, { runId: id, agentId: context.agentId });
   return events.getRun(db, id);
 }

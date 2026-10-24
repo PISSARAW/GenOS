@@ -1,7 +1,7 @@
 'use strict';
 
 const contracts = require('../src/services/strategyContractService');
-const { resolveMissionWorkspace } = require('./missionWorkspaceScope.cjs');
+const { requireMissionWorkspace } = require('./missionWorkspaceScope.cjs');
 
 const MISSION_ACTIONS = new Set([
   'dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological', 'orchestrate'
@@ -21,8 +21,9 @@ async function bindExistingOrchestrator(db, agent, workspace) {
 async function inheritedWorkerWorkspace(db, input) {
   const request = input.request || {};
   if (input.action !== 'dispatch_worker' || request.reuseChecked !== true || !request.reuseWorkerId) return null;
-  return db.get(`SELECT parent.workspace_id AS id
+  return db.get(`SELECT workspace.id, workspace.path, workspace.organization_id, workspace.project_id
     FROM agents worker JOIN agents parent ON parent.id = worker.parent_agent_id
+    JOIN workspaces workspace ON workspace.id = parent.workspace_id
     WHERE worker.id = ? AND worker.execution_mode = 'worker'
       AND parent.id = ? AND parent.execution_mode = 'orchestrator'
       AND worker.workspace_id = parent.workspace_id`, request.reuseWorkerId, input.orchestratorId);
@@ -30,8 +31,13 @@ async function inheritedWorkerWorkspace(db, input) {
 
 async function initializeMission({ db, action, orchestratorId, task, request = {} }) {
   if (!MISSION_ACTIONS.has(action)) return;
-  const workspace = await inheritedWorkerWorkspace(db, { action, orchestratorId, request })
-    || await resolveMissionWorkspace(db, request);
+  const inherited = await inheritedWorkerWorkspace(db, { action, orchestratorId, request });
+  const workspace = inherited || await requireMissionWorkspace(db, request);
+  if (inherited && (!inherited.organization_id || !inherited.project_id)) {
+    throw Object.assign(new Error('Inherited worker workspace has no organization and project scope.'), {
+      code: 'ORCHESTRATOR_WORKSPACE_SCOPE_REQUIRED'
+    });
+  }
   await db.run(`INSERT OR IGNORE INTO agents
     (id, name, role, status, execution_mode, workspace_id, model_tier, isolation_mode, current_task)
     VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', ?, 'frontier', 'Branch', ?)`,

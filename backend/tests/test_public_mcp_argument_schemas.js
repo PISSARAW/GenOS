@@ -31,6 +31,10 @@ assert.ok(tools.find((tool) => tool.name === 'genos_topology_session')
   .inputSchema.properties.operation.enum.includes('materialize'));
 
 const accepted = [
+  ['genos_orchestrate', { mission: 'inspect', workspaceId: 'ws-project',
+    workspaceScopeId: 'ws-tenant', workspaceRoot: 'C:/worktree/GenOS',
+    successCriteria: ['No unbound run is persisted.'],
+    hypotheses: [{ statement: 'Missing criteria prevented preflight admission.' }] }],
   ['genos_diagnose', { task: 'find-cause', hypotheses: [{ statement: 'a falsifiable claim' }] }],
   ['genos_analyze_trajectory', { actionHistory: [{ action: 'test' }] }],
   ['genos_record_decision', { agentId: 'agent', title: 'Keep explicit leases',
