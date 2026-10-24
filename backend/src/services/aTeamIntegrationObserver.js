@@ -90,28 +90,60 @@ function collectArtifactOwners(workers, byWorker) {
 
 function addArtifacts(artifactOwners, artifacts, ownerId) {
   for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
-    const key = String(artifact || '').trim();
+    const key = artifactKey(artifact);
     if (!key) continue;
     if (!artifactOwners.has(key)) artifactOwners.set(key, []);
-    artifactOwners.get(key).push(ownerId);
+    const owners = artifactOwners.get(key);
+    if (!owners.includes(ownerId)) owners.push(ownerId);
   }
 }
 
-function ownershipFailures({ workers, byWorker }) {
+function ownershipFailures({ workers, byWorker, members }) {
   const artifactOwners = collectArtifactOwners(workers, byWorker);
+  const membersByWorker = new Map((members || []).map((member) => [member.agentId || member.workerId, member]));
+  const membersById = new Map((members || []).map((member) => [member.memberId, member]));
   const failures = [];
   for (const [artifact, owners] of artifactOwners.entries()) {
-    if (owners.length <= 1) continue;
+    const producers = owners.filter((workerId) => {
+      const report = latestReport(byWorker.get(workerId));
+      const member = membersByWorker.get(workerId) || {};
+      return !isAcceptedHandoffInput({ report, member, artifact, membersById, byWorker, ownerIds: owners });
+    });
+    if (producers.length <= 1) continue;
     failures.push({
       code: 'DUPLICATE_ARTIFACT_OWNERSHIP',
-      workerId: owners[1],
+      workerId: producers[1],
       domain: null,
       scope: artifact,
-      ownerId: owners[0],
-      message: `Artifact '${artifact}' is claimed by multiple workers (${owners.join(', ')}); ownership must be unique.`
+      ownerId: producers[0],
+      message: `Artifact '${artifact}' is claimed by multiple workers (${producers.join(', ')}); ownership must be unique.`
     });
   }
   return failures;
+}
+
+function artifactKey(item) {
+  return String(typeof item === 'string' ? item : item?.uri || item?.ref || item?.artifactId || item?.id || '').trim();
+}
+
+function isAcceptedHandoffInput(input) {
+  const { report, member, artifact, membersById, byWorker, ownerIds } = input;
+  const targetId = member.memberId;
+  if (!targetId) return false;
+  const evaluations = Array.isArray(report?.handoffEvaluations) ? report.handoffEvaluations : [];
+  return evaluations.some((evaluation) => {
+    if (evaluation.passed !== true || !/^[a-f0-9]{64}$/i.test(String(evaluation.digest || ''))
+      || !Number.isSafeInteger(evaluation.version) || evaluation.version < 1
+      || !Array.isArray(evaluation.evidenceRefs) || evaluation.evidenceRefs.length === 0) return false;
+    const identity = /^work:([^:]+):\d+->work:([^:]+):\d+:\d+$/.exec(evaluation.handoffId || '');
+    if (!identity || identity[2] !== targetId) return false;
+    const producer = membersById.get(identity[1]);
+    const producerId = producer?.agentId || producer?.workerId;
+    if (!producerId || !ownerIds.includes(producerId)) return false;
+    const producerReport = latestReport(byWorker.get(producerId));
+    return (Array.isArray(producerReport?.artifacts) ? producerReport.artifacts : [])
+      .some((item) => artifactKey(item) === artifact);
+  });
 }
 
 function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {
@@ -141,7 +173,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
 
   workerList.forEach((worker, index) => processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }));
 
-  failures.push(...ownershipFailures({ workers: workerList, byWorker }));
+  failures.push(...ownershipFailures({ workers: workerList, byWorker, members: memberList }));
 
   return { failures, integrationFailures, observerReport: { failures, integrationFailures } };
 }

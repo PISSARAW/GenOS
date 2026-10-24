@@ -17,6 +17,8 @@ const receiptOrigin = require('../src/middleware/biologicalReceiptOrigin');
 const homeostasisEvidence = require('../src/services/homeostasisExecutionEvidence');
 const { digest } = require('../src/services/biologicalIntegrity');
 const { buildHomeostasisContract, evaluateContract } = require('../src/services/homeostasisContractService');
+const homeostasisService = require('../src/services/homeostasisService');
+const { newOrganism } = require('../src/services/missionOrganismService');
 
 function sampleReceipt(missionId, receiptId) {
   return {
@@ -57,7 +59,67 @@ async function run() {
 
     const missionId = randomUUID();
     const receiptId = randomUUID();
-    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', missionId, 'receipt bridge integration');
+    const orchestratorAgentId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, orchestrator_agent_id, objective) VALUES (?, ?, ?)',
+      missionId, orchestratorAgentId, 'receipt bridge integration');
+    const teamCompletion = { schema: 'genos.mission-completion/v1', missionId: orchestratorAgentId,
+      verdict: 'succeeded', success: true, requiredMemberIds: ['member-a'], completedMemberIds: ['member-a'],
+      closureChecks: { requiredWorkers: true, invariants: true, independentOracle: true, evidence: true } };
+    const teamDb = { get: async () => ({ mission_id: missionId, orchestrator_agent_id: orchestratorAgentId }),
+      all: async () => [{ id: 'team-run', state_json: JSON.stringify({ status: 'COMPLETED', execution: {
+        integration: { accepted: true, completion: teamCompletion } } }) }] };
+    const teamEvidence = await homeostasisEvidence.collect(teamDb, missionId);
+    assert.equal(teamEvidence.kind, 'a_team',
+      'mission-id closure checks must retain the orchestrator ID needed to find A-Team evidence');
+    const teamMissionId = randomUUID();
+    const teamOrchestratorId = randomUUID();
+    const teamWorkerId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, orchestrator_agent_id, objective) VALUES (?, ?, ?)',
+      teamMissionId, teamOrchestratorId, 'A-Team homeostasis closure');
+    await db.run(`INSERT INTO agents (id, name, role, status, execution_mode) VALUES
+      (?, 'A-Team root', 'orchestrator', 'completed', 'orchestrator'),
+      (?, 'A-Team worker', 'quality_engineer', 'completed', 'worker')`, teamOrchestratorId, teamWorkerId);
+    await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?), (?, ?, ?)',
+      teamMissionId, teamOrchestratorId, 'orchestrator', teamMissionId, teamWorkerId, 'quality_engineer');
+    await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, variant_id TEXT, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+    const verifiedCompletion = { schema: 'genos.mission-completion/v1', missionId: teamOrchestratorId,
+      verdict: 'succeeded', success: true, requiredMemberIds: ['member-quality'], completedMemberIds: ['member-quality'],
+      closureChecks: { requiredWorkers: true, invariants: true, independentOracle: true, evidence: true } };
+    await db.run('INSERT INTO topology_sessions (id, topology, state_json) VALUES (?, ?, ?)', 'verified-a-team-run',
+      'a_team', JSON.stringify({ missionId: teamOrchestratorId, status: 'COMPLETED', execution: {
+        integration: { accepted: true, completion: verifiedCompletion } } }));
+    await require('../src/db/migrations/migrateBiologicalWorkerReceipts').migrateBiologicalWorkerReceipts(db);
+    await db.run(`CREATE TABLE IF NOT EXISTS mission_regeneration_attempts (
+      mission_id TEXT NOT NULL, lost_agent_id TEXT NOT NULL, replacement_id TEXT NOT NULL,
+      role TEXT NOT NULL, status TEXT NOT NULL, evidence_ref TEXT, owner_pid INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (mission_id, lost_agent_id))`);
+    await require('../src/db/migrations/migrateHomeostasisAuthority').ensureCompletionGuard(db);
+    const closed = await homeostasisService.transitionMissionToComplete(db, {
+      mission: { id: teamMissionId, objective: 'A-Team homeostasis closure', completionContract: {
+        invariants: [{ id: 'works', kind: 'functional', verifier: { type: 'context.flag', flag: 'works' } }]
+      } }, organism: newOrganism({ genome: { objective: 'A-Team homeostasis closure' } }),
+      context: { flags: { works: true } }
+    });
+    assert.equal(closed.allowed, true);
+    await require('../src/services/missionIdentityService').setStatus(db, teamMissionId, 'completed');
+    assert.equal((await require('../src/services/missionIdentityService').get(db, teamMissionId)).status, 'completed',
+      'a verified A-Team completion receipt must satisfy mission closure without legacy biological worker receipts');
+
+    const isolatedMissionId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)',
+      isolatedMissionId, 'isolated mission without topology sessions');
+    const isolatedTransition = await homeostasisService.transitionMissionToComplete(db, {
+      mission: { id: isolatedMissionId, objective: 'isolated mission without topology sessions', completionContract: {
+        invariants: [{ id: 'works', kind: 'functional', verifier: { type: 'context.flag', flag: 'works' } }]
+      } }, organism: newOrganism({ genome: { objective: 'isolated mission without topology sessions' } }),
+      context: { flags: { works: true } }
+    });
+    assert.equal(isolatedTransition.allowed, true);
+    await db.run('DROP TABLE topology_sessions');
+    await require('../src/services/missionIdentityService').setStatus(db, isolatedMissionId, 'completed');
+    assert.equal((await require('../src/services/missionIdentityService').get(db, isolatedMissionId)).status, 'completed',
+      'a valid no-worker transition must close even when the optional topology session table was absent before closure');
     await db.run(`INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json)
       VALUES (?, ?, ?, ?, ?)`, [`state-${missionId}`, `contract-${missionId}`, missionId, 'unstable', '{}']);
     const receipt = sampleReceipt(missionId, receiptId);

@@ -426,3 +426,78 @@ La mission `sh001-qwen-20261023-real-run20` a démarré et Qwen a généré au m
 Conclusion: les chemins resserrés ont amené les patches dans le bon fichier, mais Qwen n'a pas produit de code satisfaisant l'assertion, même après retours d'échec avec rollback. Une tentative finale a été interrompue sans résultat publiquement validable. Le log et la base runtime sont conservés dans `D:\GenOS\runs\sh001-runtime-qwen-20261023-run20\`; ne pas compter le faux oracle comme preuve.
 
 Validation de référence après le run: `node backend/tests/test_worker_evidence_local_artifact.js` passe sur le checkout sain. Une sonde indépendante via l'API `attachWorkerArtifact` confirme séparément: reçu correspondant accepté, reçu sans proposal rejeté, reçu divergent rejeté. Cela démontre le contrat public sur le code sain, mais ne transforme pas le run Qwen en succès; aucun correctif n'a été promu depuis ses propositions. L'expérience run20 est aussi persistée dans GenOS sous l'épisode `f910dace-8154-40c4-b1cf-de2b970284d8`.
+
+## SH-001 Run21 — Qwen2.5 échoue encore; réparation de référence validée séparément
+
+Run réel `sh001-qwen-20261023-real-run21` avec `ollama://qwen2.5-coder:32b`, capsule D: à partir de `6b81bc5b5`. Le test passe avant injection; après injection et rollback, le rouge public est `Missing expected exception` à la ligne 44. La lésion a été committée post-run pour préserver l’historique reproductible sous `3e0872330`.
+
+Qwen a reçu le bilan des erreurs des runs précédents. Huit inférences ont suivi: sept réponses terminées et une huitième expirée. Cinq patches ont été exécutés puis rejetés par le test public; deux sorties ont été refusées pour ancre ou schéma. Les reçus négatifs sont `aa80f972a155079dda51e0610c25c906a644f238c6f05198a2a4f345d287daa8`, `23b2cf8cca53e58e37fae3942c90d477b4476c285564a471a9f8e415aab35b37`, `d135c60a918e2be9f820729797b61536bae5336c19e9e38cfd36a178efdbd865`, `5693011f84c0392e139cb6eb33b0cba3bf7f6ddc86be2c9bee458a6f48f55ee3` et `222108b9f8e18f5b55cd3e97fa3f9c57c8d150a02461373cdf3a86aff32aa4e7`. L’appel final a expiré après 94,219 ms; la mission s’est terminée `failed`, sans `evidence_report` ni `test_suite_passed`. Les modifications Qwen ont été rollbackées et la capsule restait lésée.
+
+Après la fin du run, correction de référence manuelle: seule la valeur `proposal.testExecutionReceipt.receiptHash` peut ajouter le reçu d’exécution aux références de confiance; les reçus cités par le rapport ne sont pas une autorité. Le test public passe et une sonde API indépendante accepte le reçu réel correspondant et rejette les cas absent/divergent. Le correctif manuel est committé dans la capsule sous `7478189bb`; il ne doit pas être attribué à Qwen. Les commits récents `2a839f5bb` et `cbaabcca6` améliorent le feedback de réparation; les tests ciblés `test_local_code_worker.js` et `test_worker_code_test_repair_guidance.js` passent. Run22 utilise Qwen3.8 avec ces améliorations.
+
+## SH-001 Runs22–24 — Qwen3.8, sortie pensée et indisponibilité de route
+
+Les trois runs ont utilisé des capsules isolées sous `D:\GenOS\runs\sh001-qwen-20261023-real-run22`, `...run23` et `...run24`, sans modifier la sonde privée. Les runs22 et23 visaient Qwen3.8; le run24 vérifiait en plus le correctif de routage de pensée structuré.
+
+- **Run22 — échec de transport.** La route `ollama://qwen3.8:latest` a échoué avant patch avec `fetch failed` / `MODEL_ROUTE_FAILED`. Un appel CLI minimal ultérieur a répondu `READY` après l’arrêt d’un ancien runner Qwen2.5, mais ce smoke test ne prouve pas l’exécution du worker GenOS.
+- **Run23 — sortie structurée absente.** La lésion committée `5fda975d5` rendait le test rouge à `Missing expected exception` ligne44. Trois appels Qwen3.8 ont chacun terminé avec `output_tokens=0`; le worker a rejeté la réponse vide (`WORKER_OUTPUT_SCHEMA_VIOLATION`). Aucune modification n’a été appliquée. L’orchestrateur a été interrompu après le troisième échec; mission non réussie, sans `evidence_report` ni `test_suite_passed`.
+- **Correctif de transport.** Le code worker structuré demande désormais `reasoning_effort: "none"` et le routeur le propage aux formats Ollama OpenAI-compatible et natif (`think: false`). Le correctif est committé sur la branche D: sous `4b23b9f34`. Les tests `test_model_provider_sampling.js`, `test_local_code_worker.js` et `test_worker_evidence_local_artifact.js` passent. Le hook qualité a aussi validé la limite de taille des fichiers.
+- **Run24 — échec de route malgré le correctif.** Le test sain passe, puis la lésion est committée `ca44204ed` et le test public redevient rouge ligne44. Avec `ollama://qwen3.8:latest`, la mission a fini `failed` après 309,291 ms avec `Every model route failed ... fetch failed`; aucun reçu de test ni patch n’a été produit. Les logs Ollama montrent des réponses HTTP 200, mais des appels Qwen2.5 concurrents/runner `Stopping...` étaient présents sur le même serveur. Je n’attribue donc pas cet échec au paramètre de raisonnement ni à la validité du patch: la réponse d’application côté GenOS n’est pas disponible. Le probe direct du paramètre n’a pas produit d’artefact et n’est pas compté comme validation.
+
+Le résultat reste **non démontré par Qwen**. Le correctif de routage n’est qu’un changement d’infrastructure testé unitairement; aucune guérison autonome SH-001 n’est revendiquée. Les DB, capsules et logs run22–24 sont conservés dans `D:\GenOS\runs\`.
+
+Enregistrements GenOS associés : run23 échec `7d3970ee-85c3-44a3-9824-dea4c304aab7`; run24 échec `50a2a1af-ff36-448e-b8bb-3da587980db8`; correctif de routage unitairement vérifié `28b10ec4-aed5-4c04-94f0-5d530ddaf9c4`. Ces expériences sont des mémoires de provenance et ne certifient pas le succès de la réparation.
+Run22 est aussi persisté dans GenOS sous `a5f7dc28-2976-424b-b3bb-7af780641c1f` (route échouée avant patch).
+
+## Vérifications locales recommandées par le rapport joint
+
+Sur la tête saine D: après les correctifs SH-001, les six commandes du rapport ont passé (code de sortie 0) :
+
+- `test_shev_healing_contract.js` — phases durables, preuves et clôture terminale.
+- `test_shev_healing_integration.js` — tick, Ontogenesis, effet et preuve longitudinale.
+- `test_physiological_arc_closed_loop.js` — connexions A à D de la boucle physiologique.
+- `test_sre_healing_policy.js` — 10/10 cas, dont abstention budgétaire et vérification longitudinale.
+- `test_sre_healing_store.js` — 3/3 cas sur les reçus immuables et transitions hash-chainées.
+- `test_security_qualification_lab.js` — PASS du laboratoire de qualification simulé.
+
+Ces tests prouvent les contrats locaux et la simulation du labo. Ils ne prouvent pas une réparation sur VM Hyper-V, une campagne terrain de 72 h, ni une réparation SH-001 générée par Qwen. Les clients GenOS parallèles occupaient encore Ollama; aucun nouveau run Qwen n’a été lancé dans cette fenêtre.
+Le correctif a ensuite été restreint aux URI `ollama://` afin de ne pas ajouter un champ non applicable aux autres fournisseurs; commit `7549d718d`, validé par `test_local_code_worker.js` (Ollama reçoit `none`, OpenAI ne le reçoit pas).
+
+## SH-001 Run25 — Qwen répare le test, le rapport GenOS est rejeté
+
+Run réel `sh001-qwen-20261023-real-run25`, Qwen2.5-Coder 32B, capsule isolée `D:\GenOS\runs\sh001-qwen-20261023-real-run25`, basée sur `90a0a6703`; lésion SH-001 committée `a09dbf170`. La lésion rendait le test public rouge à la ligne 44 (`Missing expected exception`).
+
+Deux inférences Qwen ont été exécutées (13 065/211 puis 14 775/194 tokens, durées 155 206 ms et 169 132 ms). Le premier patch a échoué au test public; reçu négatif `test_0817520a-e5b5-4db0-a01a-fd3bf7f776ce`. Après retour du test, Qwen a produit un second patch et le worker a exécuté le même test avec `exitCode=0`; reçu positif `test_c959c7ec-ea47-4303-8407-5b8971288378`. Le test a aussi été relancé après le run dans la capsule et a passé. Le patch final est préservé sur la branche `codex/sh001-qwen-run25`, commit `90fce3c8e`.
+
+La mission GenOS a néanmoins fini `success=false`: après le test positif, le rapport déterministe du worker de code a été refusé par le validateur générique `dossier` avec `diagnosticMatrix.invalid`. Le reçu positif est dans la DB runtime, mais le collecteur/clôture de mission n’a pas produit un verdict de succès ni accepté `evidence_report` et `test_suite_passed`. Ce run prouve que Qwen a corrigé et passé le test dans la capsule; il ne prouve pas une mission GenOS complète.
+
+Correction de cette barrière: `workerEvidenceLocalArtifact` ne doit pas exiger une matrice diagnostique d’un rapport de code généré à partir du patch et du reçu d’exécution. Une assertion régressive reproduit `prompt: 'Mission artifact=diagnostic_matrix'` avec `codeWorker: true`. Correctif et test committés `cc9675f22`; `test_worker_evidence_local_artifact.js` et `test_local_code_worker.js` passent. Run26 repart d’une base saine contenant cette correction et réinjecte seulement la lésion de provenance.
+
+La tentative `genos_diagnose` a échoué côté outil avec `contains forbidden command characters`; aucune hypothèse n’est déclarée comme persistée dans GenOS. Les reçus, la DB et les journaux restent conservés sous `D:\GenOS\runs\sh001-runtime-qwen-20261023-run25\`.
+
+## SH-001 Run26 — deux patches avec erreur de portée, deux rejets de schéma, puis timeout
+
+Run réel `sh001-qwen-20261024-real-run26`, Qwen2.5-Coder 32B, capsule `D:\GenOS\runs\sh001-qwen-20261023-real-run26`, base saine `0e6368635` avec le garde-fou de rapport corrigé, puis lésion SH-001 `a2719b632`. Le test public était rouge avant dispatch (`Missing expected exception`, ligne 51 après ajout de la nouvelle assertion de garde-fou).
+
+Cinq appels Qwen ont été exécutés en 30 minutes. Les tentatives 1 et 2 ont échoué au même test public: Qwen a ajouté `mission` comme variable locale à `trustedCodeEvidenceRefs(report, codeWorker, proposal)` alors que cette variable n’existe pas dans la portée. Reçus négatifs `test_bf9ba9d0-d996-4b6b-a5f3-1409ebf9e741` et `test_2e54994c-c457-41b1-9f6a-1dd4f548d62c`. Les tentatives 3 et 4 ont été rejetées par le schéma de proposition avant exécution, avec respectivement 1 239 et 702 tokens de sortie. La tentative 5 a dépassé son délai restant de `721093 ms` et s’est terminée `MODEL_ROUTE_DEADLINE_EXCEEDED`, sans patch appliqué ni test exécuté. Le ledger totalise les appels `13125/159`, `14787/138`, `8194/1239`, `8194/702`, puis le timeout sans métriques finales.
+
+Aucun reçu positif n’existe dans la DB runtime `D:\GenOS\runs\sh001-runtime-qwen-20261024-run26\genos.db`. La mission finit `success=false`, verdict `failed`, et garde les preuves `evidence_report` et `test_suite_passed` manquantes. La branche capsule conserve le dernier candidat invalide et le rapport détaillé sous commit d’échec `e3d00716d` (`codex/sh001-qwen-run26`). Aucun oracle privé n’a été consulté.
+
+Run26 ne remet pas en cause le reçu positif du run25: il documente une répétition distincte qui n’a pas trouvé de réparation. La limite de 30 minutes est insuffisante pour les longues sorties observées; le prochain essai doit recevoir une fenêtre plus longue et éviter de réintroduire la référence hors portée.
+
+## SH-001 Run27 — six sorties Qwen, deux tests négatifs, schéma final invalide
+
+Run réel sur D: `sh001-qwen-20261024-real-run27`, Qwen2.5-Coder 32B, capsule basée sur `ba49fccf8`, avec lésion de provenance committée `850ef8d28`. Le test public était rouge avant dispatch à `Missing expected exception` ligne 51.
+
+Six inférences ont complété (entrée/sortie: `13176/201`, `13609/201`, `14042/1046`, `15843/834`, `8194/1032`, `8194/1118`). Le ledger ne signale pas d’erreur fournisseur. Deux reçus publics sont persistés, tous deux négatifs: `test_50209b12-8c02-4b6c-82f9-e1447d2163a3` et `test_a5edc864-b4a6-49a7-862c-9a219ebd9359`. Aucun reçu positif. La mission a fini `success=false`; le worker a échoué sur `Model output did not satisfy the requested worker evidence schema`, et la clôture n’avait ni `evidence_report` ni `test_suite_passed`.
+
+Le rejeu exact du test public contre le candidat final a échoué immédiatement: `TypeError: attachWorkerArtifact is not a function` à la ligne 12. Le patch final a supprimé `module.exports`, changé les signatures et affaibli la provenance, donc il ne constitue pas une réparation. Échec conservé avec le code Qwen et rapport `SH-001-RUN27-RESULTS.md`, commit capsule `ee71b79ef` sur `codex/sh001-qwen-run27`. L’orchestrateur a aussi émis `ORCHESTRATOR_NOT_FOUND` pour une décision de récupération. Aucun oracle privé consulté; aucun succès n’est revendiqué.
+
+
+## SH-001 Run28b — correctif Qwen prouvé, mission globale refusée par l’audit de couverture
+
+Une nouvelle capsule D: est partie de la tête saine `f653a2824`; la lésion de confiance du reçu reporté rendait le test public rouge à `Missing expected exception` (ligne 51), commit lésion `fcb0f4a7c`. Les erreurs de préflight des premières tentatives run28 (dépendances absentes, variable admin, réutilisation d’un identifiant terminal) sont conservées dans leur DB; aucune n’a appelé Qwen. Run28b a utilisé un identifiant et une DB isolés propres.
+
+Qwen2.5-Coder 32B a rendu en 179 108 ms un patch de 167 tokens qui rétablit la source de confiance correcte: seul `proposal.testExecutionReceipt.receiptHash` peut autoriser le reçu de test. Il a préservé les signatures et exports. Le test autorisé a passé pendant l’exécution (`exitCode=0`) et après la mission. Reçu positif `test_6f453b79-76af-4266-aa62-877058facc72`, SHA-256 `10c6aa6f62beba806e30146cfd5828b1b3c1967ec918643c366259edc149aa8d`. GenOS a validé `evidence_report` et `test_suite_passed`; `completionGate.allowed=true`, homeostasis satisfaite. Le correctif est committé dans la capsule `960b7fa35` et son résultat dans `fffa4fe35`.
+
+La mission CLI reste toutefois `success=false`, verdict `required_coverage_incomplete`: l’audit demandait sept outils (`genos_search_failures`, `genos_diagnose`, `genos_snapshot`, `genos_hypothesis_evidence`, `genos_evaluate_trajectories`, `genos_replay`, `genos_record_decision`), mais seul le préflight `genos_search_failures` a produit un receipt. Cela n’annule pas la preuve directe de correction/test, mais ne permet pas d’affirmer la réussite complète de l’orchestration. Le rapport capsule est `D:\GenOS\runs\sh001-qwen-20261024-real-run28\SH-001-RUN28-RESULTS.md`; la DB Qwen est `D:\GenOS\runs\sh001-runtime-qwen-20261024-run28b\genos.db`. Aucun oracle privé consulté.

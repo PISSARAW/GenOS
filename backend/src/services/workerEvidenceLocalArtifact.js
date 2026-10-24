@@ -28,7 +28,8 @@ function attachWorkerArtifact(evidenceReport, context) {
   const source = context.codeWorker ? evidenceReport : rawReply(evidenceReport);
   const inspected = inspectWorkerArtifact(kind, source,
     artifactProvenance(mission, context, evidenceReport));
-  if (requiresDiagnosticMatrix(mission) && !diagnosticMatrixIsValid(inspected.artifact?.content)) {
+  if (context.codeWorker !== true && requiresDiagnosticMatrix(mission)
+    && !diagnosticMatrixIsValid(inspected.artifact?.content)) {
     inspected.issues.push('diagnosticMatrix.invalid');
     inspected.artifact = null;
   }

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose']);
+const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose', 'genos_record_decision']);
 const BASELINE_TOOLS = new Set(['genos_search_failures', 'genos_diagnose', 'genos_snapshot']);
 
 function baselineTools(plan) {
@@ -63,7 +63,7 @@ async function runOrchestratorMcpPreflight(input) {
   const client = await connectPreflightClient(input, tools);
   const receipts = [];
   try {
-    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool));
+    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool, receipts));
   } finally {
     await client.close().catch(() => {});
   }
@@ -76,7 +76,7 @@ function buildOrchestratorPreflightInput(input) {
     task: input.task, repoRoot: input.repoRoot,
     workspaceRoot: request.workspaceRoot || request.workspace_root || input.workspaceRoot,
     snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent || input.snapshotAgent,
-    hypotheses: request.hypotheses, tools: input.tools };
+    hypotheses: request.diagnosticHypotheses || request.hypotheses, tools: input.tools };
 }
 function assertPreflightContext(input) {
   const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
@@ -111,8 +111,8 @@ async function connectPreflightClient(input, tools) {
   return client;
 }
 
-async function runPreflightTool(client, input, tool) {
-  const prepared = prepareToolArguments(input, tool);
+async function runPreflightTool(client, input, tool, receipts = []) {
+  const prepared = prepareToolArguments(input, tool, receipts);
   const result = await client.callTool({ name: tool, arguments: prepared.args });
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });
   assertSnapshotExists(tool, prepared.outputPath);
@@ -121,19 +121,29 @@ async function runPreflightTool(client, input, tool) {
   return receipt;
 }
 
-function prepareToolArguments(input, tool) {
+function prepareToolArguments(input, tool, receipts = []) {
   if (tool === 'genos_search_failures') return {
     args: { query: String(input.task || 'GenOS orchestration preflight').slice(0, 2000), limit: 10 },
     outputPath: null
   };
   if (tool === 'genos_diagnose') {
-    const hypotheses = input.hypotheses;
-    if (!Array.isArray(hypotheses) || !hypotheses.length
-      || hypotheses.some(item => !item || typeof item.statement !== 'string' || !item.statement.trim())) {
-      throw Object.assign(new Error('GenOS diagnosis requires caller-supplied falsifiable hypotheses.'),
-        { code: 'ORCHESTRATOR_PREFLIGHT_HYPOTHESES_MISSING', tool });
-    }
-    return { args: { task: String(input.task || 'GenOS orchestration preflight').slice(0, 2000), hypotheses }, outputPath: null };
+    const task = String(input.task || 'GenOS orchestration preflight').slice(0, 2000);
+    const supplied = Array.isArray(input.hypotheses) ? input.hypotheses
+      .filter(hypothesis => typeof hypothesis?.statement === 'string' && hypothesis.statement.trim()) : [];
+    const hypotheses = supplied.length ? supplied : [{
+      statement: `The authorized workspace contains at least one change relevant to this objective, and its effect can be independently verified: ${task}`
+    }];
+    return { args: { task, hypotheses }, outputPath: null };
+  }
+  if (tool === 'genos_record_decision') {
+    const evidence = receipts.filter(receipt => receipt.status === 'completed')
+      .map(receipt => `mcp:${receipt.tool}:${receipt.resultDigest}`);
+    if (!evidence.length) throw Object.assign(new Error('A baseline decision requires completed preflight evidence.'),
+      { code: 'ORCHESTRATOR_PREFLIGHT_DECISION_EVIDENCE_MISSING' });
+    return { args: { agentId: input.orchestratorId,
+      title: `Baseline decision: ${String(input.task || 'GenOS mission').slice(0, 80)}`,
+      decision: 'Proceed with the bounded mission using the completed failure search, falsifiable diagnosis, and baseline snapshot. Reassess if new evidence contradicts this plan.',
+      evidence }, outputPath: null };
   }
   const agent = snapshotAgentPath(input.repoRoot, input.snapshotAgent);
   const relativeOutput = `.genos-agent-worlds/orchestrator-preflight/${safeSegment(input.missionId)}.snapshot.json`;

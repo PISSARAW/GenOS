@@ -59,16 +59,41 @@ async function createAuthorityStorage(db) {
 }
 
 async function ensureCompletionGuard(db) {
+  await db.run(`CREATE TABLE IF NOT EXISTS topology_sessions (
+    id TEXT PRIMARY KEY,
+    topology TEXT NOT NULL,
+    variant_id TEXT,
+    state_json TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
   const dependencies = await db.get(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN (
     'homeostasis_states', 'mission_agents', 'agents', 'strategy_execution_runs', 'biological_worker_receipts',
-    'biological_worker_observations', 'biological_worker_bindings', 'biological_execution_receipts', 'mission_regeneration_attempts')`);
+    'biological_worker_observations', 'biological_worker_bindings', 'biological_execution_receipts', 'mission_regeneration_attempts',
+    'topology_sessions')`);
   await db.exec('DROP TRIGGER IF EXISTS mission_completion_homeostasis_authority');
-  if (dependencies.count !== 9) {
+  if (dependencies.count !== 10) {
     await db.exec(`CREATE TRIGGER mission_completion_homeostasis_authority BEFORE UPDATE OF status ON missions
       WHEN NEW.status = 'completed' AND OLD.status != 'completed'
       BEGIN SELECT RAISE(ABORT, 'Homeostasis transition receipt required'); END;`);
     return;
   }
+  const verifiedATeamCompletion = `SELECT 1 FROM topology_sessions ts
+    WHERE ts.topology = 'a_team'
+      AND json_extract(ts.state_json, '$.missionId') = (SELECT orchestrator_agent_id FROM missions WHERE mission_id = NEW.mission_id)
+      AND json_extract(ts.state_json, '$.status') = 'COMPLETED'
+      AND json_extract(ts.state_json, '$.execution.integration.accepted') = 1
+      AND json_extract(ts.state_json, '$.execution.integration.completion.schema') = 'genos.mission-completion/v1'
+      AND json_extract(ts.state_json, '$.execution.integration.completion.verdict') = 'succeeded'
+      AND json_extract(ts.state_json, '$.execution.integration.completion.success') = 1
+      AND json_array_length(ts.state_json, '$.execution.integration.completion.requiredMemberIds') > 0
+      AND NOT EXISTS (SELECT 1 FROM json_each(ts.state_json, '$.execution.integration.completion.requiredMemberIds') required
+        WHERE required.value NOT IN (SELECT completed.value FROM json_each(ts.state_json,
+          '$.execution.integration.completion.completedMemberIds') completed))
+      AND json_extract(ts.state_json, '$.execution.integration.completion.closureChecks.requiredWorkers') = 1
+      AND json_extract(ts.state_json, '$.execution.integration.completion.closureChecks.invariants') = 1
+      AND json_extract(ts.state_json, '$.execution.integration.completion.closureChecks.independentOracle') = 1
+      AND json_extract(ts.state_json, '$.execution.integration.completion.closureChecks.evidence') = 1`;
   await db.exec(`
   CREATE TRIGGER mission_completion_homeostasis_authority
     BEFORE UPDATE OF status ON missions WHEN NEW.status = 'completed' AND OLD.status != 'completed'
@@ -88,6 +113,7 @@ async function ensureCompletionGuard(db) {
             WHERE ma.mission_id = NEW.mission_id AND a.execution_mode = 'worker'
               AND NOT EXISTS (SELECT 1 FROM mission_regeneration_attempts replacement
                 WHERE replacement.mission_id = NEW.mission_id AND replacement.lost_agent_id = a.id AND replacement.status = 'verified')
+              AND NOT EXISTS (${verifiedATeamCompletion})
               AND (r.id IS NULL OR r.status != 'completed' OR wr.receipt_id IS NULL
                 OR json_extract(wr.receipt_json, '$.result.verified') != 1
                 OR json_extract(wr.receipt_json, '$.budgetAssessment.satisfied') != 1

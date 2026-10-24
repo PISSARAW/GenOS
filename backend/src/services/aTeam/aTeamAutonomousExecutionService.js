@@ -48,6 +48,18 @@ async function launchMember(member, context) {
   assertNotCancelled(context);
   const worker = context.byWorker.get(member.workerId);
   if (!worker) throw coded('Canonical A-Team worker is missing.', 'ATEAM_WORKER_MISSING');
+  const deliveredHandoffs = await require('../aTeamWorkspaceHandoffService').materializeHandoffs({
+    consumer: worker, handoffs: member.handoffContext, byWorker: context.byWorker
+  });
+  for (const receipt of deliveredHandoffs) {
+    require('../agentOrchestrationState').emit(context.agentId, 'ATEAM_STAGE_HANDOFF_MATERIALIZED', 'HANDOFF',
+      'Imported the exact verified producer commit into the isolated consumer workspace.', {
+        producerWorkerId: member.handoffContext?.find((item) => item.artifactRefs?.some((artifact) =>
+          (typeof artifact === 'string' ? artifact : artifact?.uri || artifact?.ref) === `git:${receipt.commit}`))?.producer?.agentId,
+        consumerWorkerId: worker.agentId,
+        commit: receipt.commit
+      }, 'info');
+  }
   const prompt = executionMission({ ...member, mission: worker.prompt }, context.run.successCriteria);
   const assignment = { ...member, ...worker, handoffContext: member.handoffContext, agentId: worker.agentId, prompt: require('../aTeamHandoffEvidenceService').missionWithHandoffs(prompt, member.handoffContext),
     strategyContract: context.contract, missionCriteria: context.run.successCriteria,

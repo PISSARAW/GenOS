@@ -7,16 +7,26 @@ function build(error, mission = {}) {
 }
 
 function allowedPatchPathHint(mission) {
+  const required = [...new Set((mission?.requiredPatchPaths || []).filter((item) => typeof item === 'string'))];
+  if (required.length) return `The required production patch paths are exactly ${JSON.stringify(required)}. Use each exact path string, with no directory prefix or alternate spelling.`;
   const paths = [...new Set((mission?.allowedPatchPaths || []).filter((item) => typeof item === 'string'))];
-  return paths.length
-    ? `The only allowed production patch paths are: ${JSON.stringify(paths)}. Choose a path from this list.` : '';
+  return paths.length ? `The only allowed production patch paths are: ${JSON.stringify(paths)}. Choose a path from this list.` : '';
 }
 
 function schemaRetryHint(error) {
   if (error.code !== 'WORKER_OUTPUT_SCHEMA_VIOLATION') return '';
   const detail = String(error.workerArtifactDiagnostics?.error || error.message || '');
+  const violations = error.workerArtifactDiagnostics?.violations || [];
+  if (violations.some((violation) => /additional properties/i.test(String(violation)))) {
+    return 'The patch proposal was rejected because it contains keys outside the strict worker schema. A full-replacement patch object must contain exactly "path" and "content"; an edit patch object must contain exactly "path" and "edits". The outer object must contain exactly "format", "patches", "tests", and "evidence". Remove all other keys and prose, then return one valid JSON object.';
+  }
+  if (violations.some((violation) => /\/content must be string/i.test(String(violation)))) {
+    return 'The replacement patch was rejected because `content` must be a JSON string containing the complete file text. Do not put an array, object, or nested patch structure in `content`. Escape quotes and newlines as valid JSON, and return exactly one patch object with string fields `path` and `content`.';
+  }
   const anchorPath = detail.match(/Exact edit anchor must occur once in '([^']+)'/)?.[1] || '';
-  if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. Re-read that file in the workspace snapshot; copy a unique anchor exactly or use a full-file replacement only if the complete file is present. Re-evaluate the failing assertion before choosing a source file.`;
+  if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. That proposal was rejected and the workspace is unchanged; do not copy its anchor from the rejected output or a rolled-back candidate. Re-read the current file in the workspace snapshot. For a small file whose full contents are present, prefer a full-file replacement. Otherwise copy a unique anchor exactly from the current file. Re-evaluate the failing assertion before choosing a source file.`;
+  const missingPath = detail.match(/ENOENT:[\s\S]*?open ['"]([^'"]+)['"]/i)?.[1] || '';
+  if (missingPath) return `The patch target '${missingPath}' does not exist in the workspace. Do not use find/replace edits on a missing file. Create it with a complete genos.file-replacement/v1 patch using the exact required path and full file content, then run the allow-listed test.`;
   const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
   return /(^|[\\/])tests?([\\/]|$)/i.test(rejectedPath)
     ? `The rejected path '${rejectedPath}' is a test file and cannot be patched. Keep every test unchanged; repair the production implementation instead.` : '';

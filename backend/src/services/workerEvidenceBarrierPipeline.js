@@ -6,6 +6,7 @@ const { workerEvidenceDossiers, recordWorkerEvidence } = require('./agentEvidenc
 const { latestReport } = require('./trinityComparativeBarrier');
 const handoffEvidence = require('./aTeamHandoffEvidenceService');
 const handoffService = require('./aTeam/handoff/handoffService');
+const workspaceHandoff = require('./aTeamWorkspaceHandoffService');
 const workerGarage = require('./workerGarageService');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
@@ -48,6 +49,7 @@ async function prepareStageHandoff(ctx) {
       throw Object.assign(new Error(`Stage ${ctx.stage} contains an invalid typed handoff.`), { code: 'INVALID_A_TEAM_HANDOFF' });
     }
     worker.handoffContext = handoff.handoffs;
+    await materializeStageHandoff(ctx, worker, worker.handoffContext);
     worker.prompt = handoffEvidence.missionWithHandoffs(worker.prompt, worker.handoffContext);
     handoffCount += worker.handoffContext.length;
   }
@@ -56,6 +58,19 @@ async function prepareStageHandoff(ctx) {
     workerIds: workerIdList(ctx.stageWorkers),
     sourceDossierCount: handoffCount
   }, 'info');
+}
+
+async function materializeStageHandoff(ctx, consumer, handoffs) {
+  const byWorker = new Map(ctx.workers.map((worker) => [worker.agentId, worker]));
+  const receipts = await workspaceHandoff.materializeHandoffs({ consumer, handoffs, byWorker });
+  if (receipts.length) {
+    emit(ctx.orchestratorId, 'ATEAM_STAGE_HANDOFF_MATERIALIZED', 'HANDOFF',
+      'Imported the verified producer commit into the isolated consumer capsule.', {
+        stage: ctx.stage, consumerId: consumer.agentId,
+        handoffs: receipts.map((receipt) => ({ commit: receipt.commit }))
+      }, 'info');
+  }
+  return receipts;
 }
 
 function workerIdList(workers) {
@@ -314,7 +329,7 @@ async function executeWorkerPipeline(pipelineContext) {
   }
 }
 
-module.exports = { executeWorkerPipeline, dispatchStageWorkers,
+module.exports = { executeWorkerPipeline, dispatchStageWorkers, materializeStageHandoff,
   bindExternalRecoveryReferences: externalRecovery.bindReferences,
   validExternalCreditReport: externalRecovery.validReport,
   hasExternalCreditRecoveryDependency: externalRecovery.hasDependency };

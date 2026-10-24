@@ -34,11 +34,20 @@ function eventValidation(status, state) {
   return domainValidation(state);
 }
 
+function verifiedSynthesis(ctx) {
+  if (ctx.dispatchedAgent?.execution_mode !== 'orchestrator' || !ctx.autonomyPlan?.synthesisOnly) return false;
+  const expected = ctx.autonomyPlan.completedWorkerIds || [];
+  const verified = ctx.state.verifiedDossierWorkerIds || [];
+  return expected.length > 0 && expected.length === verified.length
+    && expected.every((workerId) => verified.includes(workerId));
+}
+
 function evaluateTerminalStatus(ctx, event, nextStatus) {
   const supplied = event.payload?.completionInput || event.completionInput || {};
   const status = nextStatus || event.status;
   return completionContract.evaluate({ ...supplied,
     lifecycleState: lifecycleState(status, event.eventType),
+    leafExecution: ctx.dispatchedAgent?.execution_mode === 'worker' || verifiedSynthesis(ctx),
     barrierStatus: supplied.barrierStatus ?? 'complete',
     topologyValidation: supplied.topologyValidation || eventValidation(status, ctx.state) });
 }
@@ -89,4 +98,4 @@ async function settle(input) {
   }
 }
 
-module.exports = { isTerminalEvent, evaluateTerminalStatus, persistedStatus, eventValidation, queue, settle };
+module.exports = { isTerminalEvent, evaluateTerminalStatus, persistedStatus, eventValidation, verifiedSynthesis, queue, settle };

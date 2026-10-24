@@ -23,12 +23,10 @@ const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 const { reportMilestone } = require('./workerEvidenceBarrierLocalEvents');
 const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
-
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
   return 'GenOS Worker';
 }
-
 function resolveNameMeaning(mission, agentName) {
   if (mission.nameMeaning) return mission.nameMeaning;
   const found = agentIdentity.findIdentityByName(agentName);
@@ -36,13 +34,11 @@ function resolveNameMeaning(mission, agentName) {
   if (found.meaning) return found.meaning;
   return 'Spécialiste autonome';
 }
-
 function resolveWorkerModel(mission) {
   if (mission.localModel) return mission.localModel;
   if (mission.model) return mission.model;
   return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
 }
-
 function isOrchestratorMission(mission) {
   if (mission.role === 'Autonomous Orchestrator') return true;
   if (mission.executionMode === 'orchestrator') return true;
@@ -87,14 +83,16 @@ async function generateWorkerResult(ctx) {
         allowedPatchPaths: ctx.mission.allowedPatchPaths,
         requiredPatchPaths: ctx.mission.requiredPatchPaths,
         requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-        requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes
+        requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
+        forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true
       })
       : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission),
+    reasoningEffort: ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined,
+
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
 }
-
 function resolveImmuneReport(ctx) {
   return immuneSystem.phagocytoseCodexReport(String(ctx.text), {
     agentName: ctx.agentName,
@@ -102,7 +100,6 @@ function resolveImmuneReport(ctx) {
     role: ctx.role
   });
 }
-
 function throwIfImmuneRejected(report, outputText) {
   if (report.ok) return;
   const message = report.error;
@@ -112,25 +109,21 @@ function throwIfImmuneRejected(report, outputText) {
   const reason = text.trim() ? 'response.unrepairable_json' : 'response.absent';
   throw Object.assign(new Error(detail), { code: 'IMMUNE_OUTPUT_REJECTED', painSignal: report.painSignal, workerArtifactDiagnostics: { issues: [reason], outputExcerpt: text.slice(0, 2048) } });
 }
-
 function attachProposalTests(evidenceReport, proposal) {
   if (!proposal) return;
   if (!proposal.tests) return;
   if (proposal.tests.length === 0) return;
   evidenceReport.tests = proposal.tests;
 }
-
 function resolveNoAnswerProof(evidenceReport) {
   const recovery = require('./workerFailureRecoveryService');
   return recovery.proofOfNoAnswer(evidenceReport);
 }
-
 function isNoAnswerReport(evidenceReport, proof) {
   if (evidenceReport.outcome !== 'no_answer') return false;
   if (!proof) return false;
   return true;
 }
-
 function assertClaimsHaveEvidence(evidenceReport) {
   const monitoring = require('./hallucinationMonitoringService');
   if (Array.isArray(evidenceReport.claims) === false) {
@@ -247,6 +240,8 @@ async function runGenerationStage(ctx) {
     requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
+    forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true,
+
     orchestrator: isOrchestratorMission(ctx.mission),
     selfIntro: selfIntro,
     conscienceBlock: conscienceBlock,
@@ -395,5 +390,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
   }
-}
-module.exports = { runLocalWorker, generateWorkerResult };
+} module.exports = { runLocalWorker, generateWorkerResult };

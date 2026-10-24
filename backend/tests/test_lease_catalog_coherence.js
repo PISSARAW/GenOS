@@ -105,7 +105,13 @@ assert.ok(!workerBase.includes('genos_security_coevolution'), 'worker base must 
 assert.ok(!workerBase.includes('genos_record_decision'), 'worker base must not carry promotion');
 assert.ok(!workerBase.includes('genos_delegate_worker'), 'worker base must not carry delegation');
 const reviewer = leasePolicy.workerLeaseForRole('independent_reviewer');
-assert.ok(reviewer.includes('genos_adversarial_review'), 'reviewer gets review');
+assert.ok(!reviewer.includes('genos_adversarial_review'), 'reviewer does not receive an unavailable review route');
+for (const role of ['security_reviewer', 'observer', 'neutral_observer', 'red_team', 'blue_team']) {
+  for (const tool of leasePolicy.workerLeaseForRole(role)) {
+    assert.ok(catalogNames.has(tool), `${role} lease tool ${tool} must exist in the public catalog`);
+    assert.ok(registry.isRegisteredTool(tool), `${role} lease tool ${tool} must have an effective backend route`);
+  }
+}
 assert.ok(!reviewer.includes('genos_record_decision'), 'reviewer must not carry promotion');
 const subOrchestrator = leasePolicy.workerLeaseForRole('sub_orchestrator');
 assert.ok(subOrchestrator.includes('genos_delegate_worker'), 'sub-orchestrator keeps subgraph delegation');

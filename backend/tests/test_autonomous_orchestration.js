@@ -5,6 +5,7 @@ const { assertAutonomyPlanExecutable, applyExecutionPolicy } = require('../src/s
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 const { ORCHESTRATOR_CORE_LEASE } = require('../src/services/toolLeasePolicy');
 const { modeFlags } = require('../src/services/autonomousOrchestrationService/modeFlags');
+const { buildPhases } = require('../src/services/autonomousOrchestrationService/phaseBuilder');
 
 const candidateOnlyMutation = {
   selected_strategy: { primary: 'plan_execute_verify' },
@@ -14,7 +15,14 @@ assert.equal(modeFlags(candidateOnlyMutation).evolution, false,
   'an unselected mutation candidate must not require the mutation runtime');
 assert.equal(modeFlags({ selected_strategy: { primary: 'genetic_strategy_algorithm' },
   strategy_portfolio: [{ id: 'genetic_strategy_algorithm' }] }).evolution, true,
-'a selected evolution strategy must require its controlled mutation phase');
+  'a selected evolution strategy must require its controlled mutation phase');
+
+const singleBranchPhases = buildPhases({ formalReadOnly: false, factualReadOnly: false,
+  creative: false, security: false }, { evolution: false, competition: false }, 1);
+assert.ok(singleBranchPhases.find((entry) => entry.key === 'snapshot_before_mutation')
+  .requiredTools.includes('genos_record_decision'));
+assert.ok(!singleBranchPhases.some((entry) => entry.key === 'evidence_and_evaluation' || entry.key === 'replay_and_promote'),
+  'trajectory evidence, evaluation and replay are not mandatory when the plan has no alternative branches');
 
 const planningContract = buildStrategyContract({
   problem: 'Plan a deterministic block-world task under action constraints.',

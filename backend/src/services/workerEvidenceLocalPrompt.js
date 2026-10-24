@@ -3,10 +3,11 @@
 function buildAnalysisPrompt(context) {
   const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
     codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm,
-    allowedCommands } = context;
+    allowedCommands, forceFullFileReplacement } = context;
   const morphogenesisPrompt = require('./morphogenesisRolePrompt');
   const assignment = context.assignment || {};
-  const workerBlock = [workerInstruction, codeWorker ? codeProposalInstruction(allowedCommands) : evidenceRule]
+  const workerBlock = [workerInstruction, codeWorker
+    ? codeProposalInstruction(allowedCommands, forceFullFileReplacement) : evidenceRule]
     .filter(Boolean).join('\n');
   if (!codeWorker && morphogenesisPrompt.morphogenesisCompactWorkerRole(assignment)) {
     return [morphogenesisPrompt.morphogenesisMissionPrompt(assignment, prompt),
@@ -39,12 +40,13 @@ function requiredPatchInstruction(paths, markers, minimumBytes) {
   return `The patch proposal MUST include each required path exactly once: ${JSON.stringify(paths)}.${markerText}${sizeText}`;
 }
 
-function codeProposalInstruction(allowedCommands = []) {
+function codeProposalInstruction(allowedCommands = [], forceFullFileReplacement = false) {
   const commands = [...new Set(allowedCommands.filter((command) => typeof command === 'string' && command.trim()))];
   const tests = commands.length ? [commands[0]] : ['npm test'];
   const testRule = commands.length
     ? `The tests array MUST contain exactly one command from this exact allowlist: ${JSON.stringify(commands)}. Do not substitute another command.`
     : 'Use one allow-listed test command.';
+  if (forceFullFileReplacement) return `The previous exact edit anchor was ambiguous. Return exactly one JSON object using format "genos.file-replacement/v1" and complete current file content for every patch. Do not use file-edits or find/replace anchors. Re-read the current trusted workspace snapshot and preserve all behavior that already passes. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
   return `Return exactly one JSON object. Prefer the minimal exact-edit form when possible: ${JSON.stringify({ format: 'genos.file-edits/v1', patches: [{ path: 'src/file.ext', edits: [{ find: 'exact existing text occurring once', replace: 'replacement' }] }], tests, evidence: 'reason for the change' })}. Each find anchor must occur once; use 1-8 edits per file. You may use ${JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{ path: 'src/file.ext', content: 'complete file content' }], tests, evidence: 'reason for the change' })} when an exact edit is unsuitable. Use 1-12 patches. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
 }
 

@@ -15,9 +15,16 @@ function findExportButton(source) {
 function ensureJsonExport(content) {
   const source = String(content || '');
   const storageKey = source.match(/localStorage\.getItem\(\s*(["'])([^"']+)\1/i)?.[2] || 'pantry';
-  const button = findExportButton(source);
+  const disambiguateCsvName = (html) => html.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => {
+    if (!/\bexport\s*csv\b/i.test(button.replace(/<[^>]+>/g, ' '))) return button;
+    return button.replace(/^<button\b[^>]*>/i, (opening) => {
+      if (/\baria-label\s*=/i.test(opening)) return opening.replace(/\baria-label\s*=\s*(["']).*?\1/i, 'aria-label="CSV file"');
+      return opening.replace(/>$/, ' aria-label="CSV file">');
+    });
+  });
+  let repaired = disambiguateCsvName(source);
+  const button = findExportButton(repaired);
   const handler = 'exportPantryJSON()';
-  let repaired = source;
   if (button) {
     const opening = button[0].match(/^<button\b[^>]*>/i)?.[0];
     if (opening) {
@@ -38,7 +45,7 @@ function ensureJsonExport(content) {
   }
   const hasExportFunction = /function\s+exportPantryJSON\s*\(/i.test(repaired);
   const functionBody = hasExportFunction ? '' : `function exportPantryJSON(){let items=[];try{const stored=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'[]');items=Array.isArray(stored)?stored:Array.isArray(stored?.items)?stored.items:[];}catch{}const blob=new Blob([JSON.stringify(items,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='pantry.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}`;
-  const clickRepair = `document.addEventListener('click',function genosJsonExportRepair(event){const button=event.target.closest('button');if(!button||!/(?:export\\s*(?:json|csv)|download)/i.test(button.innerText||button.getAttribute('aria-label')||''))return;event.preventDefault();event.stopImmediatePropagation();let data=[];try{const stored=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'[]');data=Array.isArray(stored)?stored:Array.isArray(stored?.items)?stored.items:[];}catch{}const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='pantry.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(link.href),1000);},true);`;
+  const clickRepair = `document.addEventListener('click',function genosJsonExportRepair(event){const button=event.target.closest('button');if(!button||!/(?:export\\s*json)/i.test(button.getAttribute('aria-label')||button.innerText||''))return;event.preventDefault();event.stopImmediatePropagation();let data=[];try{const stored=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'[]');data=Array.isArray(stored)?stored:Array.isArray(stored?.items)?stored.items:[];}catch{}const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='pantry.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(link.href),1000);},true);`;
   if (repaired.includes('genosJsonExportRepair')) return repaired;
   const blockBody = `${functionBody}${clickRepair}`;
   const block = `<script>${blockBody}</script>`;

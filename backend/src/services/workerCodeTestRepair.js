@@ -1,5 +1,4 @@
 'use strict';
-
 const MAX_TEST_RETRIES = 25;
 const MAX_SCHEMA_RETRIES = 3;
 const MAX_FAILURE_TEXT = 20000;
@@ -7,18 +6,15 @@ const MAX_CANDIDATE_TEXT = 12000;
 function isCodeWorker(mission) {
   return mission.localCodeWorker === true || mission.executionPolicy?.localCodeWorker === true;
 }
-
 function latencyBudget(mission) {
   const values = [mission.timeoutMs, mission.executionBudget?.latencyMs]
     .map(Number).filter((value) => Number.isFinite(value) && value > 0);
   return values.length ? Math.min(...values) : 30000;
 }
-
 function tokenBudget(mission) {
   const value = Number(mission.executionBudget?.tokens);
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
-
 function consumedTokens(error) {
   const direct = Number(error.usage?.tokens);
   if (Number.isSafeInteger(direct) && direct >= 0) return direct;
@@ -29,15 +25,12 @@ function consumedTokens(error) {
   }
   return null;
 }
-
 function locatorRepairHint(error) {
   return require('./workerCodeTestRepairRules').locatorRepairHint(error);
 }
-
 function repairPlan(error) {
   return require('./workerCodeTestRepairRules').repairPlan(error);
 }
-
 function applyRepairPlan(text, plan) {
   const plans = (Array.isArray(plan) ? plan : [plan]).filter((item) => item?.label);
   const parsed = parseProposal(text, plans);
@@ -50,17 +43,26 @@ function applyRepairPlan(text, plan) {
   }
   return changed ? text.replace(match[0], JSON.stringify(proposal)) : text;
 }
-
 function parseProposal(text, plans) {
   if (!plans.length) return null;
   const match = String(text || '').match(/\{[\s\S]*\}/);
   if (!match) return null;
   try { return { match, proposal: JSON.parse(match[0]) }; } catch (_) { return null; }
 }
-
 function applyPatchRepairs(patch, plans) {
   if (!/\.html?$/i.test(patch.path) || typeof patch.content !== 'string') return null;
-  return plans.reduce((content, item) => applyOneRepair(content, item), patch.content);
+  return cleanLabelAccessibleOverrides(removePlaceholderQuantityActions(
+    plans.reduce((content, item) => applyOneRepair(content, item), patch.content)));
+}
+function cleanLabelAccessibleOverrides(content) {
+  return content.replace(/<label\b[^>]*>/gi, (opening) =>
+    opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''));
+}
+
+function removePlaceholderQuantityActions(content) {
+  return content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) =>
+    /\baria-label\s*=\s*(["'])increase\s+quantity\s+for\s+(?:name|item)/i.test(button)
+      ? '' : button);
 }
 
 function applyOneRepair(content, item) {
@@ -71,16 +73,19 @@ function applyOneRepair(content, item) {
     ensure_quantity_input_label: (value) => require('./workerCodeQuantityInputRepair').labelQuantityInput(value),
     ensure_quantity_field_after_reload: (value) => require('./workerCodeQuantityRepair').removeQuantityCollisionsAfterReload(
       require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)),
-    ensure_unique_item_name_locator: cleanDuplicateItemName,
+    ensure_unique_item_name_locator: (value) => require('./workerCodeItemNameRepair').cleanDuplicateItemName(value),
     ensure_filter_select_label: (value) => labelFilterSelect(value, item.label),
     ensure_search_input_label: (value) => labelSearchInput(value, item.label),
     ensure_best_before_input_label: (value) => labelBestBeforeInput(value, item.label),
     ensure_item_name_input_label: (value) => require('./workerCodeItemNameRepair').labelItemNameInput(value, item.label),
     ensure_search_filter_behavior: ensureSearchFilterBehavior,
+    ensure_pantry_heading: (value) => require('./workerCodePantryHeadingRepair').ensurePantryHeading(value),
+    ensure_delete_behavior: (value) => require('./workerCodeDeleteRepair').ensureDeleteBehavior(value),
     ensure_local_storage_mutations: ensureLocalStorageMutations,
     ensure_json_export: (value) => require('./workerCodeExportRepair').ensureJsonExport(value),
     ensure_add_item_behavior: (value) => require('./workerCodeAddRepair').ensureAddItemBehavior(value),
-    ensure_quantity_increment_behavior: (value) => require('./workerCodeQuantityIncrementRepair').ensureQuantityIncrementBehavior(value)
+    ensure_quantity_increment_behavior: (value) => require('./workerCodeQuantityIncrementRepair')
+      .ensureQuantityIncrementBehavior(labelIncreaseButton(value, item.label))
   };
   return handlers[item.kind] ? handlers[item.kind](content) : content;
 }
@@ -91,11 +96,6 @@ function cleanQuantityActions(content, label) {
   const withoutFixtures = withoutInputs.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi,
     (button) => /(?:id\s*=\s*["'](?:increaseButton|deleteButton)["']|data-testid\s*=\s*["']addOatsButton["']|addItem\(\s*["']Oats["'])/i.test(button) ? '' : button);
   return labelIncreaseButton(withoutFixtures, label);
-}
-
-function cleanDuplicateItemName(content) {
-  return content.replace(/<(?:label|td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
-    ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
 }
 
 function replaceAccessibleName(opening, label) {
@@ -112,6 +112,7 @@ function replaceAccessibleName(opening, label) {
 function labelCategorySelect(content, label) {
   const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
   const scopes = forms.length ? forms.map((form) => ({ start: form.index, html: form[0] })) : [{ start: 0, html: content }];
+  if (!scopes.some((scope) => /<select\b/i.test(scope.html))) return require('./workerCodeCategorySelectRepair').ensureAccessibleCategorySelect(content, label);
   for (const scope of scopes) {
     const selects = [...scope.html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
     const target = selects.find((select) => /<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(select[0])
@@ -305,8 +306,12 @@ function failureFeedback(error, mission = {}) {
     test.stderr ? `stderr:\n${test.stderr}` : ''
   ].filter(Boolean).join('\n')).join('\n\n');
   const patches = error.proposal?.failedPatchContents || [];
-  const candidate = patches.map((patch) => `Rolled-back candidate ${patch.path}:\n${patch.content}`)
+  const candidateLabel = mission.preserveFailedCodeCandidate ? 'Current isolated candidate' : 'Rolled-back candidate';
+  const candidate = patches.map((patch) => `${candidateLabel} ${patch.path}:\n${patch.content}`)
     .join('\n\n').slice(0, MAX_CANDIDATE_TEXT);
+  const patchDiagnostics = require('./workerCodeTestRepairTelemetry').summarizeFailedPatches(error);
+  const focusedCode = patchDiagnostics.flatMap((patch) => patch.logic || []).join('\n');
+  const codeContext = focusedCode ? `Functions related to the failing assertions:\n${focusedCode}` : ''; const numericHint = require('./workerCodeTestRepairNumericFeedback').build(error);
   const diagnostics = error.workerArtifactDiagnostics;
   const schemaFeedback = diagnostics ? [
     `Worker output contract rejected (${error.code || 'unknown'}): ${diagnostics.error || error.message}`,
@@ -315,7 +320,7 @@ function failureFeedback(error, mission = {}) {
   ].filter(Boolean).join('\n') : '';
   const schemaHint = require('./workerCodeTestRepairSchemaFeedback').build(error, mission);
   const locatorHint = locatorRepairHint(error);
-  return [locatorHint, schemaHint, schemaFeedback, result, candidate].filter(Boolean)
+  return [locatorHint, schemaHint, schemaFeedback, numericHint, result, codeContext, candidate].filter(Boolean)
     .join('\n\n').slice(0, MAX_FAILURE_TEXT);
 }
 
@@ -323,7 +328,9 @@ function repairPrompt(context) {
   const { mission, error, attempt } = context;
   const reason = error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
     ? 'The previous model output was rejected before application; the workspace is unchanged.'
-    : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
+    : mission.preserveFailedCodeCandidate
+      ? 'The previous candidate failed the independent test and remains as the uncommitted base in the isolated workspace. Preserve behavior that already passes and fix every remaining failure.'
+      : 'The previous patch was rolled back after the independent test failed; the workspace is back to its pre-attempt state.';
   return `${mission.prompt}\n\nRepair attempt ${attempt} of ${MAX_TEST_RETRIES}. ${reason} Fix the specific failure below, keep the original requirements, and return a complete valid patch. Do not claim success without rerunning the allow-listed test.\n\n${failureFeedback(error, mission)}`;
 }
 
@@ -337,7 +344,9 @@ function canRetry(context) {
 }
 
 async function run(context) {
-  const state = { startedAt: Date.now(), mission: context.mission,
+  const initialMission = isCodeWorker(context.mission)
+    ? { ...context.mission, preserveFailedCodeCandidate: true } : context.mission;
+  const state = { startedAt: Date.now(), mission: initialMission,
     remainingTokens: tokenBudget(context.mission), attempt: 0, schemaAttempts: 0 };
   while (true) {
     state.attempt += 1;
@@ -379,13 +388,13 @@ function nextMission(input) {
   const codeRepairPlans = nextPlan && !alreadyPlanned ? [...previousPlans, nextPlan] : previousPlans;
   return {
     ...base,
-    prompt: repairPrompt({ mission: base, error, attempt }),
+    ...(current.preserveFailedCodeCandidate ? { preserveFailedCodeCandidate: true } : {}),
+    ...(current.forceFullFileReplacement || (error?.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION' && /Exact edit anchor must occur once in /.test(String(error?.workerArtifactDiagnostics?.error || error?.message || '')))
+      ? { forceFullFileReplacement: true } : {}),
+    prompt: repairPrompt({ mission: { ...current, prompt: base.prompt }, error, attempt }),
     ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
     timeoutMs: remainingMs,
     executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
       ...(remainingTokens > 0 ? { tokens: remainingTokens } : {}) }
   };
-}
-
-module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens,
-  locatorRepairHint, repairPlan, applyRepairPlan };
+} module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint, repairPlan, applyRepairPlan };

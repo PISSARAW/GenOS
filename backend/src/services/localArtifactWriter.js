@@ -92,6 +92,9 @@ function writeArtifacts(reply, state) {
   for (const entry of artifacts) {
     const issues = validateArtifactEntry(entry, state);
     if (issues.length) {
+      if (issues.some((issue) => issue.startsWith('artifact.path.escapes:'))) {
+        throw new Error(`Artifact path escapes the mission workspace: ${entry.name}`);
+      }
       rejected.push({ name: entry.name, issues });
       continue;
     }

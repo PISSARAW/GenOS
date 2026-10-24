@@ -4,6 +4,8 @@ const strategyExecution = require('./strategyExecutionService');
 const { emit } = require('./agentOrchestrationState');
 
 function summarizeFailedPatches(error) {
+  const failureText = (error.proposal?.tests || [])
+    .map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
   return (error.proposal?.failedPatchContents || []).map((patch) => {
     const source = String(patch.content || '');
     const controls = [
@@ -30,8 +32,37 @@ function summarizeFailedPatches(error) {
         logic.push(code.slice(Math.max(0, index - 120), Math.min(code.length, index + 280)).replace(/\s+/g, ' '));
       }
     }
+    if (/\.(?:[cm]?js|tsx?)$/i.test(patch.path)) {
+      logic.push(...exportedFunctionSnippets(source, failureText).slice(0, Math.max(0, 8 - logic.length)));
+    }
     return { path: patch.path, bytes: Buffer.byteLength(source, 'utf8'), controls, roles,
       logic: logic.slice(0, 8) };
+  });
+}
+
+function exportedFunctionSnippets(source, failureText = '') {
+  const names = new Set();
+  const exportsObject = String(source).match(/\bmodule\.exports\s*=\s*\{([^}]+)\}/);
+  for (const declaration of (exportsObject?.[1] || '').split(',')) {
+    const name = declaration.trim().split(/\s*:\s*/)[0];
+    if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
+  }
+  for (const match of String(source).matchAll(/\bexports\.([A-Za-z_$][\w$]*)\s*=/g)) names.add(match[1]);
+  for (const match of String(source).matchAll(/\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
+
+  const relevantNames = [...names].filter((name) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(failureText));
+  const functions = [];
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const declaration = new RegExp(`\\bfunction\\s+${escaped}\\s*\\(|\\b(?:const|let|var)\\s+${escaped}\\s*=`);
+    const match = declaration.exec(source);
+    if (match) functions.push({ name, index: match.index, end: Math.min(source.length, match.index + 1200) });
+  }
+  functions.sort((a, b) => a.index - b.index);
+  const selected = new Set(relevantNames.length ? relevantNames : [...names].slice(0, 8));
+  return functions.filter((item) => selected.has(item.name)).map((item) => {
+    const next = functions.find((candidate) => candidate.index > item.index);
+    return source.slice(item.index, Math.min(item.end, next?.index ?? source.length)).replace(/\s+/g, ' ').trim();
   });
 }
 

@@ -4,6 +4,10 @@ const os = require('os');
 const path = require('path');
 const { parseProposal, safePath, executeProposal, proposalResponseFormat } = require('../src/services/localCodeWorkerService');
 const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
+const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
+const { failureFeedback, repairPlan, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
+const { buildAnalysisPrompt } = require('../src/services/workerEvidenceLocalPrompt');
+const { build: schemaRepairFeedback } = require('../src/services/workerCodeTestRepairSchemaFeedback');
 const originalConsoleLog = console.log;
 const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
 console.log = originalConsoleLog;
@@ -24,12 +28,107 @@ assert.match(unsafeProposalError.workerArtifactDiagnostics.outputExcerpt, /tests
 assert.equal(unsafeProposalError.usage.tokens, 100);
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
+const codePrompt = buildAnalysisPrompt({ codeWorker: true, agentName: 'developer', prompt: 'Fix the source.',
+  workspaceContext: 'src/index.js: small source file' });
+assert.match(codePrompt, /For source files under 4 KiB, use a full-file replacement/);
+assert.match(codePrompt, /Each find anchor must be copied exactly from the trusted workspace snapshot/);
+const additionalPatchPropertyFeedback = schemaRepairFeedback({ code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+  workerArtifactDiagnostics: { violations: ['/patches/0 must NOT have additional properties'] } },
+{ allowedPatchPaths: ['index.html'] });
+assert.match(additionalPatchPropertyFeedback, /exactly "path" and "content"/);
+assert.match(additionalPatchPropertyFeedback, /exactly "format", "patches", "tests", and "evidence"/);
+const invalidReplacementContentFeedback = schemaRepairFeedback({ code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+  workerArtifactDiagnostics: { violations: ['/patches/0/content must be string'] } },
+{ allowedPatchPaths: ['index.html'] });
+assert.match(invalidReplacementContentFeedback, /`content` must be a JSON string/);
+assert.match(invalidReplacementContentFeedback, /complete file text/);
+const replacementPrompt = buildAnalysisPrompt({ codeWorker: true, forceFullFileReplacement: true,
+  agentName: 'developer', prompt: 'Repair an ambiguous patch.', workspaceContext: 'src/index.js: current contents' });
+assert.match(replacementPrompt, /Do not use file-edits or find\/replace anchors/);
+const utilityDiagnostics = summarizeFailedPatches({ proposal: { failedPatchContents: [{
+  path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }\nfunction normalizeEmail(value) { return String(value).trim(); }\nmodule.exports = { parsePort, normalizeEmail };'
+}] } });
+assert.ok(utilityDiagnostics[0].logic.some((item) => item.includes('function parsePort(value)')));
+assert.ok(utilityDiagnostics[0].logic.some((item) => item.includes('function normalizeEmail(value)')));
+const focusedFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1, stderr: 'parsePort rejects partial numeric strings' }],
+  failedPatchContents: [{ path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }\nfunction normalizeEmail(value) { return String(value).trim(); }\nmodule.exports = { parsePort, normalizeEmail };' }]
+} });
+const focusedFunctions = focusedFeedback.split('Functions related to the failing assertions:\n')[1]
+  ?.split('\n\nRolled-back candidate')[0] || '';
+assert.match(focusedFunctions, /function parsePort\(value\)/);
+assert.doesNotMatch(focusedFunctions, /function normalizeEmail\(value\)/);
+const numericRepairFeedback = failureFeedback({ proposal: {
+	tests: [{ command: 'npm test', exitCode: 1, stderr: 'parsePort rejects partial numeric strings' }],
+	failedPatchContents: [{ path: 'src/index.js', content: 'function parsePort(value) { return Number.parseInt(value, 10); }' }]
+} });
+assert.match(numericRepairFeedback, /Number\.parseInt accepts a valid numeric prefix/);
+assert.match(numericRepairFeedback, /validate the entire trimmed input/);
+const invalidPortFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'parsePort rejects values above 65535: Expected values to be strictly equal:\n\n3000 !== null' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function parsePort(value) { return Number.parseInt(value, 10) || 3000; }' }]
+} });
+assert.match(invalidPortFeedback, /return null for malformed strings, zero, and values above 65535/);
+assert.ok(invalidPortFeedback.includes(String.raw`require /^\d+$/.test(trimmed)`));
+assert.match(invalidPortFeedback, /Number\.isInteger\(port\)/);
+assert.match(invalidPortFeedback, /Never substitute a default port for invalid input/);
+const paginationFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'paginate page 1 starts at the first item: expected [a,b], got [c,d]' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function paginate(values, page, pageSize) { return values.slice(page * pageSize); }' }]
+} });
+assert.match(paginationFeedback, /Compute start = \(page - 1\) \* pageSize/);
+assert.match(paginationFeedback, /Do not use page \* pageSize/);
+const stableOrderFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'uniqueStable preserves first-seen order: expected [b,a,c], got [a,b,c]' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function uniqueStable(values) { return [...new Set(values)].sort(); }' }]
+} });
+assert.match(stableOrderFeedback, /return \[\.\.\.new Set\(values\)\] with no sort/);
+assert.match(stableOrderFeedback, /first occurrence of each value in input order/);
+const missingIncreaseButtonFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: "locator.click: Timeout; waiting for getByRole('button', { name: /increase quantity for oats/i })" }],
+  failedPatchContents: [{ path: 'index.html',
+    content: '<li>Oats 2 <input type="number" aria-label="Increase quantity for Oats"></li>' }]
+} });
+assert.match(missingIncreaseButtonFeedback, /Render a visible <button type="button"/);
+assert.match(missingIncreaseButtonFeedback, /do not use an input or a text-only span/);
+assert.deepEqual(repairPlan({ proposal: { tests: [{ stderr:
+  "locator.click: Timeout; waiting for getByRole('button', { name: /increase quantity for oats/i })" }] } }),
+{ kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
+const exportFilenameFailure = { proposal: { tests: [{ command: 'npm test', exitCode: 1,
+  stderr: 'AssertionError: filename does not match /\\\\.(json|csv)$/i at acceptance.cjs:29:10' }] } };
+assert.match(failureFeedback(exportFilenameFailure), /filename failed the extension assertion/);
+assert.deepEqual(repairPlan(exportFilenameFailure), { kind: 'ensure_json_export', label: 'Export JSON' });
+const ambiguousExportControls = { proposal: { tests: [{ command: 'npm test', exitCode: 1,
+  stderr: "locator.click: Error: strict mode violation: getByRole('button', { name: /export json|export csv/i }) resolved to 2 elements" }] } };
+assert.match(failureFeedback(ambiguousExportControls), /exactly one button/);
+assert.match(failureFeedback(ambiguousExportControls), /remove or rename any second Export CSV button/);
+const fixedPrecisionFeedback = failureFeedback({ proposal: {
+	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
+	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
+} });
+assert.match(fixedPrecisionFeedback, /Keep the requested trailing zeroes from toFixed/);
 const editProposal = parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"before","replace":"after"}]}],"tests":["pytest"],"evidence":"minimal exact edit"}');
 assert.equal(editProposal.patches[0].edits[0].find, 'before');
 assert.throws(() => parseProposal('{"format":"genos.file-edits/v1","patches":[{"path":"src/lib.rs","edits":[{"find":"","replace":"after"}]}],"tests":["pytest"],"evidence":"empty anchor"}'), /Unsafe patch proposal/);
 const responseFormat = proposalResponseFormat();
 assert.equal(responseFormat.schema.additionalProperties, false);
 assert.deepEqual(responseFormat.schema.required, ['format', 'patches', 'tests', 'evidence']);
+const fullReplacementFormat = proposalResponseFormat({ forceFullFileReplacement: true });
+assert.deepEqual(fullReplacementFormat.schema.properties.format.enum, ['genos.file-replacement/v1']);
+assert.deepEqual(Object.keys(fullReplacementFormat.schema.properties.patches.items.properties), ['path', 'content']);
+assert.deepEqual(fullReplacementFormat.schema.properties.patches.items.required, ['path', 'content']);
+const editWhenReplacementRequired = JSON.stringify({ format: 'genos.file-edits/v1',
+  patches: [{ path: 'src/lib.rs', edits: [{ find: 'before', replace: 'after' }] }],
+  tests: ['pytest'], evidence: 'anchor' });
+assert.throws(() => parseProposal(editWhenReplacementRequired, {},
+  { forceFullFileReplacement: true }), /strict schema/);
 const leasedResponseFormat = proposalResponseFormat(['npm test', 'node malicious.js']);
 assert.deepEqual(leasedResponseFormat.schema.properties.tests.items.enum, ['npm test']);
 const webResponseFormat = proposalResponseFormat({ allowedCommands: ['npm test'],
@@ -69,19 +168,31 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	const workerEvidence = require('../src/services/workerEvidenceBarrierLocal');
 	const originalGenerate = modelRouter.generate;
 	let observedFormat;
-	modelRouter.generate = async (options) => { observedFormat = options.responseFormat; return {}; };
+	let observedReasoningEffort;
+	modelRouter.generate = async (options) => { observedFormat = options.responseFormat; observedReasoningEffort = options.reasoningEffort; return {}; };
 	try {
 		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
 			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker' }, stageTimings: {} });
 		assert.deepEqual(observedFormat, responseFormat);
+		assert.equal(observedReasoningEffort, 'none');
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'openai://fixture', latencyMs: 100,
+			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
+			mission: { agentId: 'code-worker' }, stageTimings: {} });
+		assert.equal(observedReasoningEffort, undefined);
 		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
 			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker', executionPolicy: { allowedCommands: ['npm test'] } },
 			stageTimings: {} });
 		assert.deepEqual(observedFormat.schema.properties.tests.items.enum, ['npm test']);
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'ollama://fixture', latencyMs: 100,
+			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
+			mission: { agentId: 'code-worker', forceFullFileReplacement: true }, stageTimings: {} });
+		assert.deepEqual(observedFormat.schema.properties.format.enum, ['genos.file-replacement/v1']);
 	} finally { modelRouter.generate = originalGenerate; }
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
 	try {
@@ -165,6 +276,46 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 		assert.equal(failed.testStatus, 'failed');
 		assert.deepEqual(failed.failedPatchContents, [{ path: 'src/lib.rs', content: 'after' }]);
 		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before');
+		await fs.writeFile(path.join(root, 'test_candidate.py'), "from pathlib import Path\ndef test_candidate():\n    assert Path('src/lib.rs').read_text() == 'candidate'\n");
+		const retainedMission = { localCodeWorker: true, preserveFailedCodeCandidate: true };
+		const candidateProposal = (content) => JSON.stringify({ ...proposal, tests: ['pytest'],
+			patches: [{ path: 'src/lib.rs', content }] });
+		const intermediate = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'], mission: retainedMission,
+			text: candidateProposal('intermediate') });
+		assert.equal(intermediate.rolledBack, false);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'intermediate',
+			'failed code candidate remains available to the next isolated repair attempt');
+		const recovered = await executeProposal({ workspaceRoot: root, allowedCommands: ['pytest'], mission: retainedMission,
+			text: candidateProposal('candidate') });
+		assert.equal(recovered.testStatus, 'passed', `the next candidate passes the same independent oracle: ${JSON.stringify(recovered.tests)}`);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'candidate');
+		let repairAttempts = 0;
+		await runCodeRepair({ mission: { localCodeWorker: true, prompt: 'repair', timeoutMs: 10000,
+			executionBudget: { tokens: 1000 } }, onRetry: async () => {}, runAttempt: async (mission) => {
+			assert.equal(mission.preserveFailedCodeCandidate, true);
+			if (++repairAttempts === 1) throw Object.assign(new Error('failed oracle'), {
+				code: 'WORKER_TESTS_FAILED', usage: { tokens: 1 },
+				proposal: { testStatus: 'failed', failedPatchContents: [{ path: 'src/lib.rs', content: 'intermediate' }] }
+			});
+			return 'repaired';
+		} });
+		assert.equal(repairAttempts, 2, 'repair retries preserve the candidate flag throughout the mission');
+		const retryPrompts = [];
+		let boundedPromptAttempts = 0;
+		await runCodeRepair({ mission: { localCodeWorker: true, prompt: 'original task', timeoutMs: 10000,
+			executionBudget: { tokens: 10000 } }, onRetry: async () => {}, runAttempt: async (mission) => {
+			retryPrompts.push(mission.prompt);
+			if (++boundedPromptAttempts === 1 || boundedPromptAttempts === 2) {
+				const failure = boundedPromptAttempts === 1 ? 'unique first failure' : 'unique second failure';
+				throw Object.assign(new Error(failure), { code: 'WORKER_TESTS_FAILED', usage: { tokens: 1 },
+					proposal: { tests: [{ stderr: failure }], failedPatchContents: [{ path: 'src/lib.rs', content: failure }] } });
+			}
+			return 'repaired';
+		} });
+		assert.match(retryPrompts[1], /unique first failure/);
+		assert.match(retryPrompts[2], /unique second failure/);
+		assert.doesNotMatch(retryPrompts[2], /unique first failure/,
+			'retry prompts do not accumulate prior failure reports and candidate contents');
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}

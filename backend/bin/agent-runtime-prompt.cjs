@@ -93,7 +93,9 @@ function buildStrategyBlock(runtimeContract, strategyContract) {
 
 function buildAutonomyBlock(isWorker, autonomyPlan, runtimeAutonomyPlan) {
   if (isWorker || !autonomyPlan.schema) return '';
-  return `Autonomous orchestration plan. Execute required phases sequentially in the listed order. For each phase, call every required tool directly and verify its successful result before proceeding to the next phase or dispatching workers; a tool name in a plan, prompt, lease, or report is not evidence that it ran. Respect each phase's stated preconditions. For additional decision gates, use only the smallest safe tools justified by evidence. Record each elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`;
+  const plannedTools = [...new Set((runtimeAutonomyPlan.requiredTools || []).map(String))];
+  const requiredCalls = plannedTools.length ? `\n\nROOT MCP CALLS REQUIRED: ${plannedTools.join(', ')}. The plan does not execute these calls for you. Invoke each leased tool yourself and inspect its result. Do not infer that a leased tool is unavailable; report it unavailable only after a direct MCP call returns an error. Do not return a worker-dossier synthesis or final report until every planned phase has a successful tool result.` : '';
+  return `MANDATORY ORCHESTRATOR PROTOCOL. This plan is a hard execution contract. Call every required tool directly, in phase order, and verify a successful result for each. Complete all baseline, diagnosis, and snapshot phases before dispatching any worker or mutating the workspace. Complete every remaining required evidence, evaluation, replay, and decision phase before returning a final report. If a required tool is unavailable or a phase fails, stop and report the exact blocker; do not dispatch work or claim completion. A tool name in a plan, prompt, lease, or report is not evidence that it ran. Respect each phase's stated preconditions. For additional decision gates, use only the smallest safe tools justified by evidence. Preserve replay/merge evidence before promotion:${requiredCalls}\n\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`;
 }
 
 function buildSilenceBlock(isWorker, executionPolicy) {
@@ -201,6 +203,7 @@ function buildAgentRuntimePrompt(ctx) {
     `${params.selfIntro}`,
     buildIdentityBlock(params),
     `[ASSIGNED MISSION]\n${params.mission.prompt || params.mission.currentTask || ''}`,
+    buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
     buildWorkerOutputInstruction(params),
     params.agentSelfBlock,
     params.workerSelfBlock,
@@ -211,7 +214,6 @@ function buildAgentRuntimePrompt(ctx) {
     gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
     buildCapabilityBlock(params.isWorker, params.capabilities, params.capabilityManifest),
     buildStrategyBlock(params.runtimeContract, params.strategyContract),
-    buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
     buildReviewHint(params.isWorker, params.runtimeAutonomyPlan),
     buildParasitismHint(params.isWorker, params.autonomyPlan),
     buildSilenceBlock(params.isWorker, params.executionPolicy),

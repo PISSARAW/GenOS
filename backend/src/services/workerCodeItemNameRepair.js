@@ -3,8 +3,13 @@
 function labelItemNameInput(content, label) {
   const labelFor = content.match(/<label\b[^>]*\bfor\s*=\s*(["'])([^"']+)\1[^>]*>\s*Item\s*name\b/i)?.[2];
   const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
-  const target = inputs.find((input) => labelFor && input[0].match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] === labelFor)
-    || inputs.find((input) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1/i.test(input[0]));
+  const isEditable = (input) => !/\b(?:readonly|disabled)\b/i.test(input[0])
+    && !/\btype\s*=\s*(["'])hidden\1/i.test(input[0]);
+  const labeled = inputs.filter((input) => labelFor
+    && input[0].match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] === labelFor);
+  const target = labeled.find(isEditable)
+    || inputs.find((input) => isEditable(input)
+      && /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1/i.test(input[0]));
   if (!target) {
     const field = `<label for="itemName">${label}</label><input id="itemName" name="itemName" type="text" aria-label="${label}">`;
     if (/<form\b[^>]*>[\s\S]*?<\/form\s*>/i.test(content)) return content.replace(/<\/form\s*>/i, `${field}</form>`);
@@ -12,17 +17,74 @@ function labelItemNameInput(content, label) {
     if (button) return content.slice(0, button.index) + field + content.slice(button.index);
     return /<\/body\s*>/i.test(content) ? content.replace(/<\/body\s*>/i, `${field}</body>`) : `${content}${field}`;
   }
-  const opening = target[0];
-  const nextOpening = new RegExp(`\\baria-label\\s*=\\s*(["'])[^"']*\\1`, 'i').test(opening)
-    ? opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, `aria-label="${label}"`)
-    : opening.replace(/\s*\/?>$/, (closing) => ` aria-label="${label}"${closing}`);
-  let repaired = content.slice(0, target.index) + nextOpening + content.slice(target.index + opening.length);
-  const inputId = nextOpening.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2];
-  if (inputId) {
-    const labelPattern = new RegExp(`<label\\b(?=[^>]*\\bfor\\s*=\\s*(["'])${inputId}\\1)[^>]*>`, 'gi');
-    repaired = repaired.replace(labelPattern, (labelOpening) => labelOpening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, ''));
-  }
-  return repaired;
+  const targetIndex = inputs.indexOf(target);
+  const inputId = target[0].match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2] || labelFor;
+  let index = 0;
+  let repaired = content.replace(/<input\b[^>]*>/gi, (opening) => {
+    const currentIndex = index++;
+    if (currentIndex === targetIndex) {
+      return /\baria-label\s*=\s*(["'])[^"']*\1/i.test(opening)
+        ? opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, `aria-label="${label}"`)
+        : opening.replace(/\s*\/?>$/, (closing) => ` aria-label="${label}"${closing}`);
+    }
+    let other = opening;
+    const otherId = other.match(/\bid\s*=\s*(["'])([^"']+)\1/i)?.[2];
+    if (inputId && otherId === inputId) other = other.replace(/\s+id\s*=\s*(["'])[^"']*\1/i, '');
+    return other.replace(/\s+aria-label\s*=\s*(["'])item\s*name\1/i, '');
+  });
+  repaired = repaired.replace(/(<label\b[^>]*\bfor\s*=\s*(["'])[^"']+\2[^>]*>)\s*(<input\b)/i,
+    (match, labelOpening) => labelOpening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') + match.slice(labelOpening.length));
+  return cleanSearchButtonName(cleanDuplicatePantryHeadings(repaired));
 }
 
-module.exports = { labelItemNameInput };
+function cleanSearchButtonName(content) {
+  const controls = content.replace(/<(?:div|form|section|fieldset)\b[^>]*>/gi, (opening) => {
+    return /\baria-label\s*=\s*(["'])[^"']*search[^"']*\1/i.test(opening)
+      ? opening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') : opening;
+  });
+  return controls.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) => {
+    const current = button.match(/\baria-label\s*=\s*(["'])([^"']*)\1/i)?.[2] || '';
+    const text = button.replace(/<[^>]+>/g, '').trim();
+    if (!/search/i.test(`${current} ${text}`)) return button;
+    const label = /^search$/i.test(current || text) ? 'Run search' : 'Apply filters';
+    return /\baria-label\s*=\s*(["'])[^"']*\1/i.test(button)
+      ? button.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, `aria-label="${label}"`)
+      : button.replace(/^<button\b/i, `<button aria-label="${label}"`);
+  });
+}
+
+function cleanDuplicatePantryHeadings(content) {
+  let retained = false;
+  return content.replace(/<(h[1-6])\b([^>]*)>([\s\S]*?)<\/h[1-6]\s*>/gi, (heading, tag, attributes, inner) => {
+    if (!/pantry/i.test(inner)) return heading;
+    if (!retained) { retained = true; return heading; }
+    const cleaned = inner.replace(/pantry/ig, '').replace(/\s{2,}/g, ' ').trim();
+    return `<${tag}${attributes}>${cleaned}</${tag}>`;
+  });
+}
+
+function cleanDuplicateItemName(content) {
+  const inputs = [...content.matchAll(/<input\b[^>]*>/gi)];
+  const candidates = inputs.filter(({ 0: opening }) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1|\b(?:aria-label|placeholder)\s*=\s*(["'])[^"']*item\s*name[^"']*\2/i.test(opening));
+  const primary = candidates.find(({ 0: opening }) => /\b(?:id|name)\s*=\s*(["'])[^"']*item.?name[^"']*\1/i.test(opening)) || candidates[0];
+  if (candidates.length > 1) {
+    content = content.replace(/<input\b[^>]*>/gi, (opening, offset) => {
+      if (!candidates.some((candidate) => candidate.index === offset) || offset === primary.index) return opening;
+      if (/\baria-label\s*=\s*(["'])[^"']*\1/i.test(opening)) return opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, 'aria-label="Search"');
+      return opening.replace(/\s*\/?\s*>$/, (end) => ` aria-label="Search"${end}`);
+    });
+  }
+  const searchLabel = content.replace(/<label\b([^>]*\bfor\s*=\s*(["'])[^"']*search[^"']*\2[^>]*)>([\s\S]*?)<\/label\s*>/gi,
+    (match, attributes, quote, text) => '<label' + attributes.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '')
+      + '>' + (text.replace(/item\s*name/ig, '').replace(/\s+/g, ' ').trim().replace(/:$/, '').trim() || 'Search') + '</label>');
+  const searchableInputs = searchLabel.replace(/<input\b[^>]*>/gi, (opening) => {
+    if (!/\b(?:id|name)\s*=\s*(["'])[^"']*search[^"']*\1/i.test(opening)) return opening;
+    return /\baria-label\s*=\s*(["'])[^"']*\1/i.test(opening)
+      ? opening.replace(/\baria-label\s*=\s*(["'])[^"']*\1/i, 'aria-label="Search"')
+      : opening.replace(/\s*\/?>$/, (closing) => ' aria-label="Search"' + closing);
+  });
+  return searchableInputs.replace(/<(?:label|td|th)\b[^>]*>/gi, (opening) => /\baria-label\s*=\s*["']item name["']/i.test(opening)
+    ? opening.replace(/\s+aria-label\s*=\s*(["'])item name\1/i, '') : opening);
+}
+
+module.exports = { labelItemNameInput, cleanDuplicateItemName, cleanSearchButtonName };

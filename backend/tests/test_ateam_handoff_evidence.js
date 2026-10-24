@@ -18,6 +18,19 @@ const ready = handoff.buildHandoffsFromDossiers({ plan, consumer, dossiers });
 assert.equal(ready.ok, true);
 assert.equal(ready.handoffs[0].type, 'DELIVERY');
 assert.deepEqual(ready.handoffs[0].artifactRefs, [{ uri: 'dist/ui.js' }]);
+const completedCommit = 'git:' + 'c'.repeat(40);
+const commitHandoff = handoff.handoffForDossier({ producer, consumer, dossier: { workerId: 'worker-a', events: [{
+  evidenceReport: { ...report, artifacts: ['dist/ui.js', 'src/site.js', 'test/public-contract.cjs'],
+    scopeCompletion: { scopeRef: 'mission/quality', completedRefs: [completedCommit] } }
+}] } });
+assert(commitHandoff, 'a verified dossier with a committed scope can produce a typed handoff');
+assert(commitHandoff.artifactRefs.some((artifact) => artifact.uri === completedCommit),
+  'the commit receipt in scopeCompletion must use the git handoff URI format');
+const bareCommit = handoff.handoffForDossier({ producer, consumer, dossier: { workerId: 'worker-a', events: [{
+  evidenceReport: { ...report, scopeCompletion: { scopeRef: 'mission/quality', completedRefs: ['d'.repeat(40)] } }
+}] } });
+assert(bareCommit.artifactRefs.some((artifact) => artifact.uri === `git:${'d'.repeat(40)}`),
+  'bare commit receipts must be normalized before isolated workspace materialization');
 assert.deepEqual(ready.handoffs[0].artifactPayload, report.workerArtifact.content);
 assert.deepEqual(ready.handoffs[0].evidenceRefs, ['dist/ui.js', 'build-log://123']);
 const handoffMission = handoff.missionWithHandoffs('integrate', ready.handoffs);

@@ -31,12 +31,12 @@ function safePath(relative) {
     return false;
   }
 }
-function parseProposal(text, usage = {}) {
+function parseProposal(text, usage = {}, options = {}) {
   try {
     const match = String(text || '').match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
     const proposal = JSON.parse(match[0]);
-    assertProposalSchema(proposal);
+    assertProposalSchema(proposal, options);
     if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
     assertProposalPatches(proposal);
     return proposal;
@@ -131,7 +131,7 @@ async function runTest(command, root) {
 }
 async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   allowedPatchPaths, requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
-  const proposal = parseProposal(text, usage);
+  const proposal = parseProposal(text, usage, { forceFullFileReplacement: mission?.forceFullFileReplacement === true });
   assertAllowedPatchPaths(proposal, allowedPatchPaths);
   try { await materializePatchEdits(workspaceRoot, proposal); }
   catch (error) { throw proposalShapeError(error, text, usage); }
@@ -168,8 +168,9 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
       tests, workspaceFiles: after, changedFileHashes
     }) : null;
   if (tests.some((test) => test.exitCode !== 0)) {
-    await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: true, testStatus: 'failed' };
+    const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
+    if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: !retainFailedCandidate, testStatus: 'failed' };
   }
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
     changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests,
@@ -177,11 +178,12 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
 }
 function responseOptions(options) {
   return Array.isArray(options) ? { allowedCommands: options, requiredPatchPaths: [],
-    allowedPatchPaths: [], requiredPatchMarkers: {}, requiredPatchMinimumBytes: {} }
+    allowedPatchPaths: [], requiredPatchMarkers: {}, requiredPatchMinimumBytes: {}, forceFullFileReplacement: false }
     : { allowedCommands: options?.allowedCommands || [], requiredPatchPaths: options?.requiredPatchPaths || [],
       allowedPatchPaths: options?.allowedPatchPaths || [],
       requiredPatchMarkers: options?.requiredPatchMarkers || {},
-      requiredPatchMinimumBytes: options?.requiredPatchMinimumBytes || {} };
+      requiredPatchMinimumBytes: options?.requiredPatchMinimumBytes || {},
+      forceFullFileReplacement: options?.forceFullFileReplacement === true };
 }
 
 function assertAllowedPatchPaths(proposal, allowedPaths) {
@@ -198,8 +200,14 @@ function proposalResponseFormat(options = {}) {
     .filter(isAllowedSandboxTestCommand))];
   const paths = [...new Set(resolved.requiredPatchPaths.filter(safePath))].slice(0, 12);
   const allowedPaths = [...new Set(resolved.allowedPatchPaths.filter(safePath))].slice(0, 12);
-  if (!commands.length && !paths.length && !allowedPaths.length) return PROPOSAL_RESPONSE_FORMAT;
+  if (!commands.length && !paths.length && !allowedPaths.length && !resolved.forceFullFileReplacement) return PROPOSAL_RESPONSE_FORMAT;
   const format = JSON.parse(JSON.stringify(PROPOSAL_RESPONSE_FORMAT));
+  if (resolved.forceFullFileReplacement) {
+    format.schema.properties.format.enum = ['genos.file-replacement/v1'];
+    format.schema.properties.patches.items.properties = { path: { type: 'string' }, content: { type: 'string' } };
+    delete format.schema.properties.patches.items.anyOf;
+    format.schema.properties.patches.items.required = ['path', 'content'];
+  }
   if (commands.length) format.schema.properties.tests.items.enum = commands;
   if (allowedPaths.length) format.schema.properties.patches.items.properties.path.enum = allowedPaths;
   if (paths.length) {
@@ -226,12 +234,19 @@ function markerPatterns(markers) {
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
   restorePatchState, proposalResponseFormat, assertRequiredPatchContract, assertAllowedPatchPaths };
 
-function assertProposalSchema(proposal) {
-  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !['genos.file-replacement/v1', 'genos.file-edits/v1'].includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+function assertProposalSchema(proposal, options = {}) {
+  const allowedFormats = options.forceFullFileReplacement
+    ? ['genos.file-replacement/v1'] : ['genos.file-replacement/v1', 'genos.file-edits/v1'];
+  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !allowedFormats.includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+  if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
+  assertProposalPatches(proposal, options);
 }
 
-function assertProposalPatches(proposal) {
+function assertProposalPatches(proposal, options = {}) {
   for (const patch of proposal.patches) {
+    if (options.forceFullFileReplacement && (!Object.hasOwn(patch || {}, 'content') || Object.hasOwn(patch || {}, 'edits'))) {
+      throw new Error(`Full-file replacement is required for '${patch?.path || '<unknown>'}' after an ambiguous anchor.`);
+    }
     if (!patch || Object.keys(patch).some((key) => !['path', 'content', 'edits'].includes(key)) || !safePath(patch.path)) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
     const hasContent = typeof patch.content === 'string' && !Object.hasOwn(patch, 'edits');
     const hasEdits = Array.isArray(patch.edits) && !Object.hasOwn(patch, 'content')

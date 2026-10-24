@@ -10,7 +10,8 @@ function collectWorkspaceContextPaths(root, allowedCommands, readExcerpt, maxFil
     const normalized = path.relative(root, resolved).split(path.sep).join('/');
     if (!normalized || normalized.startsWith('../') || path.isAbsolute(normalized)
       || normalized.split('/').some((part) => ['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage'].includes(part.toLowerCase()))) return false;
-    if (readExcerpt(root, normalized).refused) return false;
+    const excerpt = readExcerpt(root, normalized);
+    if (excerpt.refused && excerpt.refused !== 'too_large') return false;
     if (!seen.has(normalized)) { seen.add(normalized); candidates.push(normalized); }
     return true;
   };

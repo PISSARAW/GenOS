@@ -22,6 +22,8 @@ const handoffPrompt = executionMission({ mission: 'Review.', handoffContext: [{
 assert.match(handoffPrompt, /integrationConstraints/);
 assert.match(handoffPrompt, /handoffEvaluations/);
 assert.match(handoffPrompt, /author->critic:1/);
+assert.match(handoffPrompt, /do not recalculate or guess the digest/);
+assert.match(handoffPrompt, /verify any git:<sha> input against the current workspace HEAD/);
 
 function verdict(worker, evaluation, refs = [`evidence:${worker}`]) {
   return { promoted: true, evidenceRefs: refs,

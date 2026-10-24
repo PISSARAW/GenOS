@@ -1,12 +1,10 @@
 'use strict';
-
 const assert = require('node:assert/strict');
 const { run, repairPrompt, failureFeedback, locatorRepairHint, repairPlan,
   applyRepairPlan } = require('../src/services/workerCodeTestRepair');
 const { throwIfFailed } = require('../src/services/workerEvidenceBarrierLocalTestFailure');
 const { fromModelResult } = require('../src/services/workerEvidenceBarrierLocalSchemaFailure');
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
-
 const mission = { localCodeWorker: true, prompt: 'Build the pantry app.', timeoutMs: 10000,
   executionBudget: { latencyMs: 10000, tokens: 20000 } };
 const failed = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: {
@@ -19,7 +17,6 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
 	assert.equal(error.usage.tokens, 2000);
 	return true;
 });
-
 (async () => {
   const schemaFailure = fromModelResult({ schemaViolation: {
     error: 'Model output did not satisfy the requested worker evidence schema.',
@@ -38,7 +35,9 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(schemaPrompts[1].prompt, /WORKER_OUTPUT_SCHEMA_VIOLATION/);
   assert.match(schemaPrompts[1].prompt, /at least 1 valid item/);
   assert.match(schemaPrompts[1].prompt, /\{"patches":\[\]\}/);
-
+  const anchorPrompts = []; const anchorRepair = await run({ mission, runAttempt: async (attemptMission) => { anchorPrompts.push(attemptMission); if (anchorPrompts.length === 1) throw Object.assign(new Error("Exact edit anchor must occur once in 'src/index.js'."), { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: { error: "Exact edit anchor must occur once in 'src/index.js'." }, usage: { tokens: 50 } }); return 'full replacement accepted'; } });
+  assert.equal(anchorRepair, 'full replacement accepted');
+  assert.equal(anchorPrompts[1].forceFullFileReplacement, true, 'ambiguous anchors force full replacement');
   const prompts = [];
   let retries = 0;
   const result = await run({ mission, onRetry: () => { retries += 1; },
@@ -50,7 +49,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     } });
   assert.equal(result, 'passed');
   assert.equal(retries, 1);
-  assert.match(prompts[1], /rolled back/i);
+  assert.match(prompts[1], /remains as the uncommitted base in the isolated workspace/i);
   assert.match(repairPrompt({ mission, error: failed, attempt: 1 }), /Repair attempt 1 of 25/);
   assert.match(prompts[1], /missing Category label/);
   assert.match(prompts[1], /Existing Pantry/);
@@ -71,7 +70,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: "locator.click: waiting for getByRole('button', { name: /increase quantity for oats/i })"
   }] }, usage: { tokens: 50 } });
   const buttonPlan = repairPlan(buttonFailure);
-  assert.deepEqual(buttonPlan, { kind: 'ensure_accessible_button_label', label: 'Increase quantity for Oats' });
+  assert.deepEqual(buttonPlan, { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
   assert.match(locatorRepairHint(buttonFailure), /aria-label="Increase quantity for Oats"/);
   const filterFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
@@ -109,6 +108,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const repairedItemName = JSON.parse(applyRepairPlan(mislabeledItemName, itemNameInputPlan)).patches[0].content;
   assert.match(repairedItemName, /<input id="item-name" type="text" aria-label="Item name">/);
   assert.match(repairedItemName, /<input id="search" type="search">/);
+  const duplicateItemNameIds = '<form><label for="itemName">Item name:</label><input id="itemName" value="${item.name}" readonly aria-label="Item name"><input id="itemName" type="text" required></form>'; const repairedDuplicateItemNameIds = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: duplicateItemNameIds }] }), itemNameInputPlan)).patches[0].content; assert.match(repairedDuplicateItemNameIds, /<input value="\$\{item\.name\}" readonly>/); assert.match(repairedDuplicateItemNameIds, /<label for="itemName">Item name:<\/label>/); assert.match(repairedDuplicateItemNameIds, /<input id="itemName" type="text" required aria-label="Item name">/);
   const proposalText = JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{
     path: 'index.html', content: '<form><select id="category"><option value="Food">Food</option></select><button>+</button><button>Delete Oats</button></form><select id="filter"><option>All</option></select><input id="search" placeholder="Search items">'
   }], tests: ['npm test'], evidence: 'test fixture' });
@@ -122,6 +122,8 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const singleCategoryRepair = JSON.parse(applyRepairPlan(singleCategoryProposal, plan)).patches[0].content;
   assert.match(singleCategoryRepair, /<select id="category" aria-label="Category">/); assert.match(singleCategoryRepair, /<select id="filterCategory" aria-label="Filter category"><option value="all">All<\/option><option value="Food">Food<\/option><\/select>/);
   const duplicateCategoryLabel = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="category" aria-label="Category">Category</label><select id="category"><option value="Food">Food</option></select></form>' }] }), plan)).patches[0].content; assert.match(duplicateCategoryLabel, /<label for="category">Category<\/label><select id="category" aria-label="Category">/);
+  const placeholderQuantityAction = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<input id="quantity" aria-label="Quantity"><button aria-label="Increase quantity for NameQuantityCategoryBest BeforeActions">+</button>' }] }), itemNameInputPlan)).patches[0].content;
+  assert.doesNotMatch(placeholderQuantityAction, /Increase quantity for Name/i);
   assert.match(repairedContent, /<button aria-label="Increase quantity for Oats">\+/);
   const itemNameButton = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button onclick="increaseQuantity(\'${item.itemName}\')">Increase</button>'
@@ -152,7 +154,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   }] }, usage: { tokens: 50 } });
   const searchFilterPlan = repairPlan(searchFilterFailure);
   assert.deepEqual(searchFilterPlan, { kind: 'ensure_search_filter_behavior', label: 'Search' });
-  assert.ok(locatorRepairHint(searchFilterFailure).includes('case-insensitive substring of item.name'));
+  assert.ok(locatorRepairHint(searchFilterFailure).includes('case-insensitive substring of item.name')); const validationFeedbackFailure = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: 'AssertionError [ERR_ASSERTION]: show validation feedback at tests/acceptance.cjs:34:10' }] } }); assert.match(locatorRepairHint(validationFeedbackFailure), /visible error message in an aria-live region or role=alert/);
   const searchFilterProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<input id="filter-search"><select id="filter-category"></select><script>function renderItems(items) { const box = document.getElementById(\'items\'); box.innerHTML = \'\'; items.forEach(item => { box.append(item.name); }); }</script>'
   }] });
@@ -268,6 +270,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
     stderr: 'AssertionError: 2 !== 1 at tests/acceptance.cjs:19:10'
   }] }, usage: { tokens: 50 } });
   assert.ok(locatorRepairHint(duplicateFailure).includes('2 visible text matches for Oats'));
+  const duplicateAccessibleName = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{ stderr: 'getByLabel(/item name/i) resolved to 2 elements' }] } }); const duplicateAccessibleMarkup = JSON.stringify({ patches: [{ path: 'index.html', content: '<label for="item-name">Item Name:</label><input id="item-name"><label for="search-input" aria-label="Search Item Name:">Search Item Name:</label><input id="search-input" aria-label="Search Item Name:">' }] }); const repairedAccessibleMarkup = JSON.parse(applyRepairPlan(duplicateAccessibleMarkup, repairPlan(duplicateAccessibleName))).patches[0].content; assert.match(repairedAccessibleMarkup, /<label for="search-input">Search<\/label><input id="search-input" aria-label="Search">/); assert.match(repairedAccessibleMarkup, /<input id="item-name">/);
   const persistenceFailure = Object.assign(new Error('test failed'), { code: 'WORKER_TESTS_FAILED', proposal: { tests: [{
     command: 'npm test', exitCode: 1,
     stderr: 'AssertionError: updated quantity persists at tests/acceptance.cjs:26:10'
@@ -282,7 +285,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const incrementCandidate = JSON.stringify({ patches: [{ path: "index.html", content: "<table><tbody><tr><td>Oats</td><td>2</td></tr></tbody></table><script>const pantry=JSON.parse(localStorage.getItem(\'pantry\'))||[];</script></body>" }] });
   const repairedIncrement = JSON.parse(applyRepairPlan(incrementCandidate, incrementPlan)).patches[0].content;
   assert.match(repairedIncrement, /genosQuantityIncrementRepair/);
-  assert.match(repairedIncrement, /item\.quantity=\(Number\(quantityCell\?\.textContent\)\|\|Number\(item\.quantity\)\|\|combined\)\+1/);
+  assert.match(repairedIncrement, /item\.quantity=\(Number\(quantityCell\?\.value\?\?quantityCell\?\.textContent\)\|\|Number\(item\.quantity\)\|\|combined\)\+1/);
   assert.match(repairedIncrement, /if\(!item\)\{item=\{name,itemName:name,ItemName:name,category:/);
   assert.match(repairedIncrement, /items\.push\(item\)/);
   assert.match(repairedIncrement, /quantityCell\.textContent=String\(item\.quantity\)/);
@@ -293,6 +296,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(locatorRepairHint(exportFailure), /filename ending in \.json/);
   const exportPlan = repairPlan(exportFailure);
   assert.deepEqual(exportPlan, { kind: 'ensure_json_export', label: 'Export JSON' });
+  const ambiguousExport = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: "strict mode violation: getByRole('button', { name: /export json|export csv/i }) resolved to 2 elements at acceptance.cjs:28:82" }] } }); assert.deepEqual(repairPlan(ambiguousExport), exportPlan);
   const exportProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button>Export JSON</button><script>const pantryItems = [];</script>'
   }] });
@@ -330,8 +334,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(quantityRowContent, /aria-label="Item count"/);
   assert.match(quantityRowContent, /aria-label="Increase quantity for Oats"/);
   assert.match(quantityRowContent, /genosQuantityLabelRepair/);
-  assert.match(quantityRowContent, /button\.setAttribute\('aria-label','Increase Oats'\)/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
-
+  assert.match(quantityRowContent, /const actionLabel='Increase quantity for '\+name/); assert.match(quantityRowContent, /'Decrease Oats':'Increase Oats'/);
   const missingQuantity = { proposal: { tests: [{ stderr: 'waiting for getByLabel(/quantity/i) at tests/acceptance.cjs:15:38 Timeout 4000ms exceeded' }] } };
   const missingQuantityOutput = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="qty">Quantity</label><input id="qty" type="number"></form>' }] }), repairPlan(missingQuantity))).patches[0].content;
   assert.match(missingQuantityOutput, /<input id="qty" type="number" aria-label="Quantity">/);
@@ -368,18 +371,15 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('addEventListener')));
   assert.ok(patchDiagnostics[0].logic.some((item) => item.includes('function handleAddItem')));
   assert.ok(patchDiagnostics[0].logic.some(hasAddHandlerAndPush));
-
   function hasAddHandlerAndPush(item) {
     return ['function addItem(event)', 'items.push(item)'].every((phrase) => item.includes(phrase));
   }
-
   let attempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
     attempts += 1;
     throw failed;
   } }), /test failed/);
   assert.equal(attempts, 10);
-
   let nonTestAttempts = 0;
   await assert.rejects(run({ mission, runAttempt: async () => {
     nonTestAttempts += 1;

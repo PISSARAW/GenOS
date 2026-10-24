@@ -55,7 +55,8 @@ function isSubstantiveReport(report) {
 }
 
 function reportOf(dossier) {
-  const events = [...(dossier.events || [])].reverse();
+  const events = [...(dossier.events || [])].reverse(), completeReport = events.filter((event) => event.eventType === 'EVIDENCE_REPORT').map((event) => event.evidenceReport || event.payload?.evidenceReport || event.payload?.report).find(isSubstantiveReport);
+  if (completeReport) return completeReport;
   let fallback = null;
   for (const event of events) {
     const report = event.evidenceReport || event.payload?.evidenceReport || event.payload?.report;
@@ -65,7 +66,6 @@ function reportOf(dossier) {
   }
   return fallback || {};
 }
-
 function hasRequiredFields(content, required) {
   return required.every((field) => hasEvidenceItem(content[field]));
 }

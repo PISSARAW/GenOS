@@ -16,11 +16,13 @@ async function main() {
   process.env.NODE_ENV = 'test';
   const base = { provider: 'ollama', modelName: 'fixture', prompt: 'question', stream: false };
   assert.deepEqual(buildRequestBody({ ...base, nativeOllama: true }).options, undefined);
+  assert.equal(buildRequestBody({ ...base, nativeOllama: true, reasoningEffort: 'none' }).think, false);
   assert.throws(() => buildRequestBody({ ...base, contextTokens: 4096 }), /native Ollama/);
   assert.throws(() => buildRequestBody({ ...base, nativeOllama: true, contextTokens: 1 }), /context/);
   assert.throws(() => buildRequestBody({ ...base, temperature: -1 }), /temperature/);
   assert.throws(() => buildRequestBody({ ...base, provider: 'gemini', temperature: 0 }), /unsupported/);
   assert.equal(buildRequestBody({ ...base, temperature: 0 }).temperature, 0);
+  assert.equal(buildRequestBody({ ...base, reasoningEffort: 'none' }).reasoning_effort, 'none');
   let received;
   const server = http.createServer((request, response) => {
     const chunks = [];

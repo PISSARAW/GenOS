@@ -115,6 +115,7 @@ function resolveDomainFlags(extra) {
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
   return { hasDomainFailure, unverified, explicitFailed,
     artifactFailure: extra.artifactFailure || null,
+    leafExecution: extra.leafExecution === true,
     completionInput: extra.completionInput || {} };
 }
 
@@ -126,7 +127,7 @@ function topologyValidation(flags) {
 
 function evaluateCompletion(lifecycleState, flags = {}) {
   const supplied = flags.completionInput || {};
-  return completionContract.evaluate({ ...supplied, lifecycleState,
+  return completionContract.evaluate({ ...supplied, leafExecution: flags.leafExecution === true, lifecycleState,
     barrierStatus: supplied.barrierStatus ?? 'complete',
     topologyValidation: supplied.topologyValidation || topologyValidation(flags) });
 }
@@ -276,11 +277,16 @@ async function finalizeExecutionWorkspace(input) {
 async function finalizeChildClose({
   db, agentId, dispatchedAgent, normalizedMission, child, code, signal, stderrBuffer,
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
-  workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId, executionRun, filesystemReceipt
+  workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId, executionRun, filesystemReceipt,
+  autonomyPlan, verifiedDossierWorkerIds
 }) {
 
   const operatorStop = resolveOperatorStop(child);
-  const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
+  const verifiedSynthesis = require('./agentTerminalStatusService').verifiedSynthesis({
+    dispatchedAgent, autonomyPlan, state: { verifiedDossierWorkerIds }
+  });
+  const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer,
+    { ...missionDomainState, leafExecution: dispatchedAgent.execution_mode === 'worker' || verifiedSynthesis });
   await require('./workerCellOutcomeBridge').observe({
     db, agentId, dispatchedAgent, normalizedMission
   }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
