@@ -3,6 +3,24 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const REPORT_FIELDS = [
+  'campaignId', 'scenario', 'arm', 'seed', 'attempt', 'sourceCommit',
+  'runtimeVersion', 'model', 'configHash', 'status', 'startedAt',
+  'durationMs', 'inputs', 'observed', 'oracle', 'evidenceRefs',
+  'violations', 'limitations'
+];
+
+function isCampaignReport(value, campaignId) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && value.campaignId === campaignId && REPORT_FIELDS.every((field) => Object.hasOwn(value, field));
+}
+
+function readCampaignReports(reportDirectory, campaignId) {
+  return fs.readdirSync(reportDirectory).filter((file) => file.endsWith('.json'))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(reportDirectory, file), 'utf8')))
+    .filter((report) => isCampaignReport(report, campaignId));
+}
+
 function expectedArms(manifest, scenarioId) {
   if (manifest.comparisonArms && manifest.comparisonArms[scenarioId]) {
     return [...manifest.comparisonArms[scenarioId]];
@@ -62,12 +80,11 @@ function main() {
   const reportDirectory = process.argv[3];
   if (!manifestPath || !reportDirectory) throw new Error('Usage: node audit-campaign-pairs.cjs <manifest.json> <report-directory>');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const reports = fs.readdirSync(reportDirectory).filter((file) => file.endsWith('.json'))
-    .map((file) => JSON.parse(fs.readFileSync(path.join(reportDirectory, file), 'utf8')));
+  const reports = readCampaignReports(reportDirectory, manifest.campaignId);
   const result = auditCampaign(manifest, reports);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (result.status !== 'paired') process.exitCode = 1;
 }
 
 if (require.main === module) main();
-module.exports = { auditCampaign, expectedArms };
+module.exports = { auditCampaign, expectedArms, isCampaignReport, readCampaignReports };
