@@ -10,7 +10,7 @@
   "universalClaim": false,
   "authorizesPromotion": false,
   "manifestHash": "84b72c300579a6f71d876531b511e7e1b2469c27a8438de30de8d5ecb536792e",
-  "sourceDigest": "9582db3ac7f6498c63b6743a563e4657617f2eb184d07f15adf33e1e64a70dae",
+  "sourceDigest": "9f27e4965b89e09bda7e07a9bf79a5af93d2f018a8379c933719d9b11d37d3e9",
   "evidence": [
     {
       "test": "backend/tests/test_execution_authority_v2.js",
@@ -22,7 +22,7 @@
     },
     {
       "test": "backend/tests/test_bounded_worker_delegation.js",
-      "outputDigest": "6085f4a67c8d47fe5af5e9856256bed140f44067c826608a3381cc3b7dfc13a2"
+      "outputDigest": "e599579d2c9115ea71cb60ee756b4006fafe180a060117b689565c1d5a72004f"
     },
     {
       "test": "backend/tests/test_versioned_causal_state.js",
@@ -57,5 +57,5 @@
       "outputDigest": "a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"
     }
   ],
-  "receiptHash": "ee8aa918e7691a8d999124ebb324d05a1acd2fe96d746e624e75b78afebb9bc7"
+  "receiptHash": "05564c2a57b04fad723eaaf641ec655c750cbd827583f866e58acb8accbb8ebd"
 }
