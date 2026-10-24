@@ -19,15 +19,35 @@ function buildDecisionContext(input) {
 }
 
 function topologyOf(input) {
-  const topology = input.topology || input.topologySnapshot || {};
-  const policy = input.topologyPolicy || topology.communicationPolicy || null;
+  const topology = topologySource(input);
+  const policy = policySource(input, topology);
   return {
-    organization: input.organization || topology.organization || null,
-    topologyId: topology.topologyId || null,
-    variantId: topology.variantId || input.variantId || null,
-    version: Number.isInteger(topology.version) ? topology.version : null,
-    policy: policy && typeof policy === 'object' ? { ...policy } : null
+    organization: firstValue([input.organization, topology.organization]),
+    topologyId: firstValue([topology.topologyId]),
+    variantId: firstValue([topology.variantId, input.variantId]),
+    version: versionOf(topology.version),
+    policy: policyCopy(policy)
   };
+}
+
+function topologySource(input) {
+  return input.topology || input.topologySnapshot || {};
+}
+
+function policySource(input, topology) {
+  return input.topologyPolicy || topology.communicationPolicy || null;
+}
+
+function firstValue(values) {
+  return values.find(Boolean) || null;
+}
+
+function versionOf(value) {
+  return Number.isInteger(value) ? value : null;
+}
+
+function policyCopy(policy) {
+  return policy && typeof policy === 'object' ? { ...policy } : null;
 }
 
 function agentOf(input) {
@@ -66,14 +86,24 @@ function budgetOf(manifest) {
 }
 
 function validateDecisionContext(context) {
-  const errors = [];
   if (!context || typeof context !== 'object') return { valid: false, errors: ['Context is required.'] };
-  if (context.schemaVersion !== SCHEMA_VERSION) errors.push('Unsupported context schemaVersion.');
-  if (!context.agent || !context.agent.agentId) errors.push('agent.agentId is required.');
-  if (!context.intent || !context.intent.purpose || !context.intent.risk) errors.push('intent purpose and risk are required.');
-  if (!Array.isArray(context.agent?.allowedChannels)) errors.push('agent.allowedChannels must be an array.');
-  if (!Array.isArray(context.relationships)) errors.push('relationships must be an array.');
+  const errors = [];
+  appendError(errors, !hasSchema(context), 'Unsupported context schemaVersion.');
+  appendError(errors, !hasAgent(context), 'agent.agentId is required.');
+  appendError(errors, !hasIntent(context), 'intent purpose and risk are required.');
+  appendError(errors, !hasChannels(context), 'agent.allowedChannels must be an array.');
+  appendError(errors, !hasRelationships(context), 'relationships must be an array.');
   return { valid: errors.length === 0, errors };
+}
+
+function hasSchema(context) { return context.schemaVersion === SCHEMA_VERSION; }
+function hasAgent(context) { return Boolean(context.agent && context.agent.agentId); }
+function hasIntent(context) { return Boolean(context.intent && context.intent.purpose && context.intent.risk); }
+function hasChannels(context) { return Array.isArray(context.agent?.allowedChannels); }
+function hasRelationships(context) { return Array.isArray(context.relationships); }
+
+function appendError(errors, invalid, message) {
+  if (invalid) errors.push(message);
 }
 
 function denyForTopology(decision, reasonCode) {
@@ -87,19 +117,18 @@ function applyTopologyConstraints(context, decision, channel) {
   const topology = context.topology || {};
   const policy = topology.policy;
   if (!policy) return { allowed: true, decision, reasonCode: null };
-  if (policy.variantId && policy.variantId !== topology.variantId) {
-    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_VARIANT_MISMATCH'), reasonCode: 'TOPOLOGY_VARIANT_MISMATCH' };
-  }
-  if (policy.communicationAllowed === false) {
-    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_COMMUNICATION_DENIED'), reasonCode: 'TOPOLOGY_COMMUNICATION_DENIED' };
-  }
-  if (Array.isArray(policy.allowedChannels) && !policy.allowedChannels.includes(channel)) {
-    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_CHANNEL_DENIED'), reasonCode: 'TOPOLOGY_CHANNEL_DENIED' };
-  }
-  if (Array.isArray(policy.allowedScopes) && !policy.allowedScopes.includes(decision.scope)) {
-    return { allowed: false, decision: denyForTopology(decision, 'TOPOLOGY_SCOPE_DENIED'), reasonCode: 'TOPOLOGY_SCOPE_DENIED' };
-  }
+  const reasonCode = topologyDenialCode({ policy, topology, decision, channel });
+  if (reasonCode) return { allowed: false, decision: denyForTopology(decision, reasonCode), reasonCode };
   return { allowed: true, decision, reasonCode: null };
+}
+
+function topologyDenialCode(input) {
+  const { policy, topology, decision, channel } = input;
+  if (policy.variantId && policy.variantId !== topology.variantId) return 'TOPOLOGY_VARIANT_MISMATCH';
+  if (policy.communicationAllowed === false) return 'TOPOLOGY_COMMUNICATION_DENIED';
+  if (Array.isArray(policy.allowedChannels) && !policy.allowedChannels.includes(channel)) return 'TOPOLOGY_CHANNEL_DENIED';
+  if (Array.isArray(policy.allowedScopes) && !policy.allowedScopes.includes(decision.scope)) return 'TOPOLOGY_SCOPE_DENIED';
+  return null;
 }
 
 module.exports = { SCHEMA_VERSION, buildDecisionContext, validateDecisionContext, applyTopologyConstraints };

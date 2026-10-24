@@ -83,14 +83,19 @@ function getPolicy(agentId) {
   return checkpointPolicies.get(agentId) || defaultPolicy();
 }
 
+function urgencyOf(ctx, evidence) {
+  const urgency = evidence.urgency;
+  if (Number.isFinite(urgency) && urgency >= 0 && urgency <= 1) return urgency;
+  return URGENCY_MAP[ctx.checkpoint] || 0.5;
+}
+
 function buildIntent(ctx) {
   const evidence = ctx.evidence || {};
   return {
     senderAgentId: ctx.agentId,
     purpose: PURPOSE_MAP[ctx.checkpoint] || 'inform',
     risk: RISK_MAP[ctx.checkpoint] || 'low',
-    urgency: Number.isFinite(evidence.urgency) && evidence.urgency >= 0 && evidence.urgency <= 1
-      ? evidence.urgency : URGENCY_MAP[ctx.checkpoint] || 0.5,
+    urgency: urgencyOf(ctx, evidence),
     domain: evidence.domain || 'general',
     requiresAction: ACTION_MAP[ctx.checkpoint] || false,
     semanticRefs: evidence.semanticRefs || [],
@@ -303,6 +308,7 @@ function setCheckpointPolicy(ctx) {
 module.exports = {
   CHECKPOINTS,
   evaluateCheckpoint,
+  buildIntent,
   getCheckpointHistory,
   setCheckpointPolicy
 };
