@@ -206,8 +206,8 @@ complets sur l'arbre `7de850a29` (un à 49,2 % de RAM libre, un à 34,2 % et don
 non qualifiant) précèdent le durcissement de l'environnement du vérificateur
 `3755dd29f`; ils ne couvrent pas ce code et ne comptent pas pour G0. Le test
 isolé de non-transmission des secrets passe sur le code actuel. La RAM libre
-était à 18,8 % au dernier contrôle, avec les modèles 14B et 7B chargés; le
-seuil d'admission G0 reste 35 % et aucun nouveau run complet n'a été lancé.
+était à 19,1 % au contrôle du 2026-10-24, avec les modèles 14B et 7B chargés;
+le seuil d'admission G0 reste 35 % et aucun nouveau run complet n'a été lancé.
 
 ### Vérification ciblée du 2026-10-24
 
@@ -228,26 +228,31 @@ fixtures, leurs configurations et oracles séparés; l'état est
 chemins entre `C:` et `D:`, puis le correctif a préparé les 24 dépôts sans
 checkout sale.
 
-### Calibration partielle des oracles G1
+### Calibration des oracles G1; scellement en attente
 
-Le 2026-10-24, les huit contrats JavaScript et les huit contrats Python ont
-passé un contrôle positif sur des implémentations de référence de confiance,
-puis un contrôle négatif sur chacun des baselines défectueux : **16/16 références
-acceptées, 16/16 baselines rejetés**. Les copies d'oracles du dossier de campagne
-ont le même SHA-256 que leurs sources versionnées. Les 24 workspaces de mission
-sont restés propres; aucun code généré par modèle n'a été exécuté. Les reçus
-individuels et le résumé sont dans le registre externe, commit `00782c3`.
+Une première correction Rust a révélé deux autres défauts d'oracle avant tout
+lancement. Le préparateur omettait le préfixe `rs-`, le vérificateur avait le
+mauvais identifiant `empty-average`, puis les branches Rust `median` et
+`filter_above` étaient compilées même pour les autres cas. Les trois défauts sont
+corrigés dans `419c03882` et `3b37ef2f4`; le test de raccord ciblé passe. Les
+campagnes brouillon `07517378-54fc-4f50-89f9-92177ca8aa97` et
+`7c997b32-d158-4545-82f9-5c38eee5f4b4` n'ont exécuté aucune mission et sont
+remplacées par la campagne corrigée ci-dessous.
 
-Deux essais de calibration avec l'identifiant de tâche `empty-average` ont
-transmis cet identifiant au lieu de l'identifiant d'oracle `average-empty`; un
-premier contrôle positif JS a aussi utilisé un mauvais chemin de référence.
-Ces échecs sont conservés dans le registre, puis corrigés et rejoués. Les essais
-invalides ne sont pas comptés dans les 16 paires valides.
+Sur la campagne `2320f7ff-e021-4bb9-8b35-b420780a2a9e`, source `3b37ef2f4`, les
+contrôles positifs sur références de confiance et négatifs sur les baselines
+défectueux couvrent désormais les trois écosystèmes : **24/24 références
+acceptées et 24/24 baselines rejetés**. Les 16 contrôles JavaScript/Python ont
+été transférés après vérification de l'identité des oracles et des arbres de
+baselines; les 8 paires Rust ont été exécutées sur la campagne corrigée. Les 24
+workspaces sont propres. Aucun code généré par modèle n'a été exécuté. Le résumé
+et les reçus individuels sont dans le registre externe, commits `3536ffa` et
+`70e91c6`; les échecs de calibration et de commit y restent également archivés.
 
-Cette calibration partielle ne scelle pas G1 : les contrôles Rust, le runner OS
-isolé, l'identité du modèle et le gel des digests avant la première mission
-restent à établir. La campagne garde le statut `prepared-not-run` et les oracles
-le statut global `unverified`.
+Cette preuve calibre les oracles, mais ne les scelle pas. La campagne reste
+`prepared-not-run`, ses oracles `calibrated-not-sealed`; il faut encore un runner
+OS isolé, l'identité exacte du modèle, puis figer les digests du contrat et des
+oracles avant la première mission.
 
 Le pilote ne doit pas exécuter le code candidat sur cet hôte sans confinement OS.
 La vérification élimine désormais les secrets de l'environnement enfant, mais

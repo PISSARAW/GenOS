@@ -5,9 +5,18 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+function isSupportedCaseId(caseId) {
+  return /^(?:rs)-(?:average-empty|percentile-boundary|median|filter-above|api-reference|boundary-examples|shared-validation|summary-helper)$/.test(caseId || '');
+}
+
+function featureForCaseId(caseId) {
+  if (!isSupportedCaseId(caseId)) throw new Error('unknown oracle');
+  return `case_${caseId.slice(3).replace(/-/g, '_')}`;
+}
+
 function main() {
   const [caseId] = process.argv.slice(2);
-  if (!/^(?:rs)-(?:empty-average|percentile-boundary|median|filter-above|api-reference|boundary-examples|shared-validation|summary-helper)$/.test(caseId || '')) {
+  if (!isSupportedCaseId(caseId)) {
     throw new Error('unknown oracle');
   }
   const candidate = fs.realpathSync(process.cwd());
@@ -20,7 +29,11 @@ function main() {
     const cargoToml = [
       '[package]', `name = "g1_oracle_${caseId.replace(/-/g, '_')}"`,
       'version = "0.1.0"', 'edition = "2021"', '',
-      '[dependencies]', `g1_metrics = { path = ${dependencyPath} }`, ''
+      '[dependencies]', `g1_metrics = { path = ${dependencyPath} }`, '',
+      '[features]', `default = ["${featureForCaseId(caseId)}"]`,
+      'case_average_empty = []', 'case_percentile_boundary = []', 'case_median = []',
+      'case_filter_above = []', 'case_api_reference = []', 'case_boundary_examples = []',
+      'case_shared_validation = []', 'case_summary_helper = []', ''
     ].join('\n');
     fs.writeFileSync(path.join(root, 'Cargo.toml'), cargoToml, { flag: 'wx' });
     fs.writeFileSync(path.join(root, 'case.id'), caseId.slice(3), { flag: 'wx' });
@@ -44,4 +57,8 @@ function main() {
   }
 }
 
-try { main(); } catch (_) { process.stderr.write('G1 oracle failed\n'); process.exitCode = 1; }
+if (require.main === module) {
+  try { main(); } catch (_) { process.stderr.write('G1 oracle failed\n'); process.exitCode = 1; }
+}
+
+module.exports = { featureForCaseId, isSupportedCaseId };

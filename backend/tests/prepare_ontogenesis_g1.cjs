@@ -66,7 +66,7 @@ function verifierFor(ecosystem, task, oracleDir) {
   if (ecosystem.id === 'py') return { program: 'python',
     args: [path.join(oracleDir, 'verify.py'), task.oracle] };
   return { program: process.execPath,
-    args: [path.join(oracleDir, 'verify.cjs'), task.oracle] };
+    args: [path.join(oracleDir, 'verify.cjs'), `rs-${task.oracle}`] };
 }
 
 function projectConfig(caseId, workspace, check) {
@@ -157,4 +157,6 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { verifierFor };
