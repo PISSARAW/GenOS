@@ -37,7 +37,6 @@
     "then": {
       "required": ["caseId", "caseHash", "config", "sharedFactors", "arms"],
       "properties": {
-        "campaignId": { "const": "socialworld-v2" },
         "arm": { "const": "genos-full" },
         "seed": { "type": "string", "minLength": 1 },
         "sourceCommit": { "$ref": "#/$defs/sha40" },
