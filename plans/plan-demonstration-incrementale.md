@@ -229,24 +229,25 @@ node backend/tests/test_ontogenesis_crash_recovery.js
 **But :** démontrer que les outils MCP ne sont exposés que sous un bail explicite (fail-closed).
 
 ```powershell
-# 1. Sans lease : aucun outil exposé (fail-closed)
-node mcp/index.js
-# → ListTools retourne une liste vide, tout appel d'outil est rejeté (MCP_TOOL_LEASE_DENIED)
+# Vérifier catalogue, contrats, transports et parité Node/Rust
+npm --prefix backend run test:mcp
 
-# 2. Avec lease (exemple du client Codex .mcp.json)
+# Construire le serveur Rust
+cargo build -p genos-mcp
+
+# Lancer chaque serveur stdio et envoyer initialize puis tools/list/tools/call.
+# Sans lease : tools/list vide et tools/call refusé avec MCP_TOOL_LEASE_DENIED.
+# Avec lease : utiliser exactement la allow-list du client Codex .mcp.json.
 $env:GENOS_MCP_LEASE = "genos_snapshot,genos_replay,genos_capsule_create,genos_execute_primitive,genos_execute_strategy_pipeline,genos_search_failures,genos_diagnose,genos_analyze_trajectory,genos_record_decision,genos_record_experience,genos_compile_memory,genos_blame,genos_orchestrate,genos_organization_state,genos_report_progress,genos_audit"
 $env:GENOS_MCP_TOOL_TIMEOUT_MS = "120000"
-node mcp/index.js
-# → ListTools retourne les outils du lease, exécutables via CallTool
-
-# 3. Variante Rust
-cargo run -p genos-mcp
 ```
 
 **Preuves à collecter :**
 - Liste d'outils vide sans `GENOS_MCP_LEASE` ;
+- Appel MCP hors lease refusé par `MCP_TOOL_LEASE_DENIED` ;
 - Catalogue d'outils disponible avec le lease (16 outils dans `.mcp.json`) ;
-- Parité Node / Rust : `npm --prefix backend run test:mcp` ou `node backend/tests/test_mcp_server_parity.js`.
+- Même liste de lease exposée par Node et Rust ; un appel sous lease passe le contrôle de lease, même si les arguments de la sonde sont ensuite rejetés.
+- Parité de catalogue/contrats : `npm --prefix backend run test:mcp`.
 
 **Gate de sortie :** sans lease, `tools/list` retourne une liste vide ; avec lease, les outils déclarés sont accessibles.  
 **Ce qu'on ne claim pas :** que le MCP contourne le sandbox ou le circuit breaker.
