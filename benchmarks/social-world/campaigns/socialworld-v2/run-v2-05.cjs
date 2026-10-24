@@ -9,7 +9,7 @@ const relations = require('../../../../backend/src/services/crossAgentRelational
 const runtime = require('../../../../backend/src/services/agentRuntimeAdapter');
 const { evaluateMorphogenesis } = require('./morphogenesis-oracle.cjs');
 
-const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph']);
+const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'genos-without-relational-physiology']);
 const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology']);
 const SCOPE = Object.freeze({ organizationId: 'sw-v205-org', projectId: 'sw-v205-project' });
 const MEMBERS = Object.freeze(['sw-v205-root', 'sw-v205-a', 'sw-v205-b']);
@@ -44,7 +44,7 @@ function baseReport(input, startedAt) {
     evidenceRefs: [], violations: [], limitations: ['Arm has no implemented runtime adapter.'] };
 }
 
-async function seedWorld(db) {
+async function seedWorld(db, arm) {
   await db.run("INSERT INTO organizations (id, name) VALUES ('sw-v205-org', 'SocialWorld V2-05')");
   await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('sw-v205-project', 'sw-v205-org', 'SocialWorld V2-05')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('sw-v205-space', 'SocialWorld V2-05', 'sw-v205', 'sw-v205-org', 'sw-v205-project')");
@@ -53,8 +53,10 @@ async function seedWorld(db) {
     await db.run('INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, id, 'worker', 'idle', 'worker', 'sw-v205-space', MEMBERS[0]]);
   }
-  await relations.createRelation({ db, id: 'sw-v205-friendship', sourceAgentId: MEMBERS[1],
-    targetAgentId: MEMBERS[2], relationType: 'friend', relationClass: 'social', ...SCOPE });
+  if (arm !== 'genos-without-relational-physiology') {
+    await relations.createRelation({ db, id: 'sw-v205-friendship', sourceAgentId: MEMBERS[1],
+      targetAgentId: MEMBERS[2], relationType: 'friend', relationClass: 'social', ...SCOPE });
+  }
 }
 
 async function publishEvidence(db, event) {
@@ -80,11 +82,14 @@ async function collaborationReceipt(db, event) {
 async function checkInvariants(db, details) {
   const state = await organization.getStateForMember(db, MEMBERS[0], MEMBERS[1]);
   const memberIds = state.members.map((member) => member.id).sort();
-  const relation = await relations.getRelation({ db, id: 'sw-v205-friendship' });
+  const relation = details.arm === 'genos-without-relational-physiology'
+    ? null : await relations.getRelation({ db, id: 'sw-v205-friendship' });
   return { transitionId: details.event.eventId, version: details.version,
     identityPreserved: JSON.stringify(memberIds) === JSON.stringify([...MEMBERS].sort()),
-    validRelationsPreserved: relation.relationType === 'friend' && relation.sourceAgentId === MEMBERS[1]
-      && relation.targetAgentId === MEMBERS[2],
+    validRelationsPreserved: details.arm === 'genos-without-relational-physiology'
+      ? relation === null
+      : relation?.relationType === 'friend' && relation.sourceAgentId === MEMBERS[1]
+        && relation.targetAgentId === MEMBERS[2],
     permissionsPreserved: !runtime.workerToolLease('worker').includes('genos_change_organization'),
     provenancePreserved: details.collaboration.valid, collaborationReceipt: details.collaboration.valid,
     journaled: true, collaboration: details.collaboration };
@@ -107,7 +112,7 @@ async function relationSnapshot(db) {
 async function executeFullArm(input) {
   const db = await getDatabase(':memory:');
   try {
-    await seedWorld(db);
+    await seedWorld(db, input.arm);
     const fixedGraphBefore = input.arm === 'static-social-graph' ? await relationSnapshot(db) : null;
     const transitions = [];
     for (const plan of TRANSITION_PLAN) {
@@ -116,7 +121,7 @@ async function executeFullArm(input) {
       const changed = await organization.changeOrganization(db, { orchestratorId: MEMBERS[0],
         organization: plan.organization, reason: `environmental-event:${event.eventId}` });
       const collaboration = await collaborationReceipt(db, event);
-      transitions.push(await checkInvariants(db, { event, version: changed.version, collaboration }));
+      transitions.push(await checkInvariants(db, { event, version: changed.version, collaboration, arm: input.arm }));
     }
     const authorityCheck = await unauthorizedTransitionRejected(db);
     const journal = await db.all('SELECT version FROM agent_organization_transitions WHERE orchestrator_id = ? ORDER BY version', MEMBERS[0]);
@@ -124,10 +129,14 @@ async function executeFullArm(input) {
     const fixedGraphAfter = fixedGraphBefore ? await relationSnapshot(db) : null;
     const staticGraphUnchanged = fixedGraphBefore === null
       || JSON.stringify(fixedGraphBefore) === JSON.stringify(fixedGraphAfter);
+    const relationCount = await db.get('SELECT COUNT(*) AS count FROM agent_relations WHERE organization_id = ? AND project_id = ?',
+      [SCOPE.organizationId, SCOPE.projectId]);
     return { transitions, transitionJournalVersions: journal.map((row) => row.version),
       unauthorizedChangeRejected: authorityCheck, oracle, effectiveTransitions: journal.length,
       treatmentEvidence: input.arm === 'static-social-graph' ? { mode: 'static-social-graph',
-        initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged } : null };
+        initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged }
+        : input.arm === 'genos-without-relational-physiology' ? { mode: 'relational-physiology-disabled',
+          relationCount: relationCount.count, relationalPhysiologyApplied: false } : null };
   } finally { await closeDatabase(); }
 }
 
@@ -149,6 +158,8 @@ async function runScenario(input) {
     report.violations = report.status === 'pass' ? [] : ['Morphogenesis invariants failed.'];
     report.limitations = [input.arm === 'static-social-graph'
       ? 'Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'
+      : input.arm === 'genos-without-relational-physiology'
+        ? 'Relational physiology is disabled by omitting social relation records; organization and collaboration services remain active.'
       : 'Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
   }
   report.durationMs = Date.now() - timer;

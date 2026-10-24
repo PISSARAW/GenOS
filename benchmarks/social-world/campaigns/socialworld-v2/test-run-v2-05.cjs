@@ -11,7 +11,7 @@ async function run() {
   const manifest = require('./manifest.json');
   const expected = manifest.comparisonArms['V2-05'];
   assert.deepEqual(REGISTERED_ARMS, expected);
-  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full', 'static-social-graph']);
+  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full', 'static-social-graph', 'genos-without-relational-physiology']);
   assert.deepEqual(runnerDescriptor('V2-05').executableArms, EXECUTABLE_ARMS);
   const outputDirectory = path.join(__dirname, 'reports');
   let comparison;
@@ -44,6 +44,12 @@ async function run() {
       assert.deepEqual(result.report.observed.treatmentEvidence.finalRelationSnapshot,
         result.report.observed.treatmentEvidence.initialRelationSnapshot);
       assert.equal(result.report.observed.transitions.every((item) => item.collaborationReceipt), true);
+    } else if (arm === 'genos-without-relational-physiology') {
+      assert.equal(result.report.status, 'pass');
+      assert.deepEqual(result.report.observed.treatmentEvidence, { mode: 'relational-physiology-disabled',
+        relationCount: 0, relationalPhysiologyApplied: false });
+      assert.equal(result.report.observed.transitions.every((item) => item.validRelationsPreserved
+        && item.collaborationReceipt), true);
     } else {
       assert.equal(result.report.status, 'inconclusive');
       assert.match(result.report.oracle.reason, /no implemented runtime adapter/);
