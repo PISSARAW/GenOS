@@ -2,7 +2,7 @@
 
 ## État d'implémentation au 24 octobre 2026
 
-Deux sondes déterministes couvrent des raccords de V2, sans constituer des
+Des sondes déterministes couvrent certains raccords de V2, sans constituer des
 résultats de campagne ni compter comme graines préenregistrées :
 
 | Scénario | Sonde | Ce qu'elle établit | Limite |
@@ -12,12 +12,13 @@ résultats de campagne ni compter comme graines préenregistrées :
 | V2-03 | `node backend/tests/test_social_v2_durable_memory_restart.js` | Une action sociale, son résultat et ses références survivent à un redémarrage de processus; une base neuve ne les rappelle pas. | Un épisode synthétique, un agent et un seul redémarrage; aucun bras comparatif. |
 | V2-04 | `node backend/tests/test_social_v2_causal_routing.js` | Des évaluations binaires vérifiées modifient le classement ultérieur des destinataires dans leur domaine; une évaluation non vérifiée est rejetée. | Fixture déterministe; aucun modèle social, aveuglement d'agent ni bras comparatif. |
 | V2-05 | `node backend/tests/test_social_v2_morphogenesis_invariants.js` | Deux transitions d'organisation sont journalisées; les identités, la relation, les autorisations et les références de messages sont contrôlées, avec collaboration après chaque transition. | Séquence déterministe unique; pas de génération adaptative de transition, de modèle, d'ablation ni de multi-graines. |
+| V2-06 | `node backend/tests/test_social_metacognition_campaign.js` | L'oracle détecte l'effet d'interventions appariées sur les souvenirs et sur une décision sociale différée. | Fixture déterministe; aucune campagne réelle avec modèle, aucune multi-graine ni résultat de campagne. |
 
 `node backend/tests/test_agent_relation_profiles.js` vérifie aussi que le
 classement par domaine conserve l'ordre historique lorsqu'aucune mesure de
 confiance n'est disponible.
 
-Les cinq scénarios ont maintenant une sonde déterministe, mais ces sondes ne
+Les scénarios V2-01 à V2-06 ont maintenant une sonde déterministe, mais ces sondes ne
 remplacent pas l'exécution de la campagne complète, les quatre bras et les 20
 graines par scénario. S28 de
 SocialWorld V1 mesure la robustesse d'un monde de 24 agents, mais ne remplace
@@ -128,7 +129,8 @@ valides. Une explication textuelle seule ne satisfait aucun critère.
 Le cas préenregistré est `V2-06-case.json`. Pour auditer un rapport placé sous
 `benchmarks/social-world/campaigns/socialworld-v2/reports/`, lancer
 `node benchmarks/social-world/evaluate-v2-06.cjs --input <rapport.json>`. Ce runner
-évalue les trois bras contre le cas figé; il ne lance pas de modèle. Le scénario reste
+valide d'abord le schéma commun du rapport, puis évalue les trois bras contre le cas figé;
+il ne lance pas de modèle. Le scénario reste
 `planned` jusqu'à des rapports produits par exécution et une campagne appariée complète.
 
 ## Bras de comparaison causale

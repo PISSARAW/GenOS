@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/spec/socialworld-campaign-report/v1",
+  "title": "GenOS SocialWorld Campaign Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaignId", "scenario", "arm", "seed", "attempt", "sourceCommit", "runtimeVersion", "model", "configHash", "status", "startedAt", "durationMs", "inputs", "observed", "oracle", "evidenceRefs", "violations", "limitations"],
+  "properties": {
+    "campaignId": { "type": "string", "minLength": 1 },
+    "scenario": { "type": "string", "minLength": 1 },
+    "arm": { "type": "string", "minLength": 1 },
+    "seed": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "integer", "minimum": 0 }] },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "sourceCommit": { "type": "string", "pattern": "^[a-fA-F0-9]{7,40}$" },
+    "runtimeVersion": { "type": "string", "minLength": 1 },
+    "model": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "configHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "status": { "enum": ["pass", "fail", "inconclusive"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "durationMs": { "type": "integer", "minimum": 0 },
+    "inputs": { "type": "object" },
+    "observed": { "type": "object" },
+    "oracle": { "type": "object" },
+    "evidenceRefs": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "violations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "caseId": { "type": "string", "minLength": 1 },
+    "arms": { "type": "object" }
+  }
+}
