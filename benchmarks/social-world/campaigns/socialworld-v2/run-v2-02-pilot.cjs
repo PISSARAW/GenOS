@@ -8,6 +8,7 @@ const { spawnSync } = require('node:child_process');
 const { validateReport } = require('./validate-report.cjs');
 const contract = require('./v2-02-pilot-contract.cjs');
 const worldHelpers = require('./v2-02-pilot-world.cjs');
+const outputHelpers = require('./v2-02-pilot-output.cjs');
 const { MODEL, AGENT_COUNT, SIMULATED_DAYS, CYCLES, ROOT_ARMS,
   MAX_MODEL_CALLS_PER_DAY, MAX_MESSAGES_PER_DAY, SCOPE, digest,
   dayForCycle, eventSchedule, comparisonHashes, validReceipt, metricsOf,
@@ -78,13 +79,13 @@ async function ledgerIntegrityEvents(db, since) {
 }
 
 async function runCampaign(args) {
-  if (!args['output-dir'] || !args.seed) throw new Error('Usage: node run-v2-02-pilot.cjs --output-dir <new-run-directory> --seed <pilot-seed>');
+  if (!args['output-dir'] || !args.seed) throw new Error('Usage: node run-v2-02-pilot.cjs --output-dir <D:\\GenOS-runs\\new-run-directory> --seed <pilot-seed>');
   if (!/^[a-zA-Z0-9_-]+$/.test(args.seed)) throw new Error('seed must contain only letters, digits, underscores, and hyphens');
-  const paths = directories(args['output-dir']);
-  fs.mkdirSync(paths.databaseDir, { recursive: true });
-  fs.mkdirSync(paths.armDir, { recursive: true });
-  fs.mkdirSync(paths.reportDir, { recursive: true });
-  fs.mkdirSync(paths.evidenceDir, { recursive: true });
+  const paths = directories(outputHelpers.createFreshRunDirectory(args['output-dir']));
+  fs.mkdirSync(paths.databaseDir);
+  fs.mkdirSync(paths.armDir);
+  fs.mkdirSync(paths.reportDir);
+  fs.mkdirSync(paths.evidenceDir);
   const startedAt = new Date().toISOString();
   const events = eventSchedule(args.seed);
   const comparison = comparisonHashes(args.seed, events);
