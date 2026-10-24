@@ -37,6 +37,11 @@ const additionalPatchPropertyFeedback = schemaRepairFeedback({ code: 'WORKER_OUT
 { allowedPatchPaths: ['index.html'] });
 assert.match(additionalPatchPropertyFeedback, /exactly "path" and "content"/);
 assert.match(additionalPatchPropertyFeedback, /exactly "format", "patches", "tests", and "evidence"/);
+const invalidReplacementContentFeedback = schemaRepairFeedback({ code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+  workerArtifactDiagnostics: { violations: ['/patches/0/content must be string'] } },
+{ allowedPatchPaths: ['index.html'] });
+assert.match(invalidReplacementContentFeedback, /`content` must be a JSON string/);
+assert.match(invalidReplacementContentFeedback, /complete file text/);
 const replacementPrompt = buildAnalysisPrompt({ codeWorker: true, forceFullFileReplacement: true,
   agentName: 'developer', prompt: 'Repair an ambiguous patch.', workspaceContext: 'src/index.js: current contents' });
 assert.match(replacementPrompt, /Do not use file-edits or find\/replace anchors/);
