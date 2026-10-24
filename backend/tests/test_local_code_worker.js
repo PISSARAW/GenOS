@@ -7,6 +7,7 @@ const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandP
 const { summarizeFailedPatches } = require('../src/services/workerCodeTestRepairTelemetry');
 const { failureFeedback, repairPlan, run: runCodeRepair } = require('../src/services/workerCodeTestRepair');
 const { buildAnalysisPrompt } = require('../src/services/workerEvidenceLocalPrompt');
+const { build: schemaRepairFeedback } = require('../src/services/workerCodeTestRepairSchemaFeedback');
 const originalConsoleLog = console.log;
 const { buildWorkspaceContext } = require('../bin/local-codex-runtime.cjs');
 console.log = originalConsoleLog;
@@ -31,6 +32,11 @@ const codePrompt = buildAnalysisPrompt({ codeWorker: true, agentName: 'developer
   workspaceContext: 'src/index.js: small source file' });
 assert.match(codePrompt, /For source files under 4 KiB, use a full-file replacement/);
 assert.match(codePrompt, /Each find anchor must be copied exactly from the trusted workspace snapshot/);
+const additionalPatchPropertyFeedback = schemaRepairFeedback({ code: 'WORKER_OUTPUT_SCHEMA_VIOLATION',
+  workerArtifactDiagnostics: { violations: ['/patches/0 must NOT have additional properties'] } },
+{ allowedPatchPaths: ['index.html'] });
+assert.match(additionalPatchPropertyFeedback, /exactly "path" and "content"/);
+assert.match(additionalPatchPropertyFeedback, /exactly "format", "patches", "tests", and "evidence"/);
 const replacementPrompt = buildAnalysisPrompt({ codeWorker: true, forceFullFileReplacement: true,
   agentName: 'developer', prompt: 'Repair an ambiguous patch.', workspaceContext: 'src/index.js: current contents' });
 assert.match(replacementPrompt, /Do not use file-edits or find\/replace anchors/);

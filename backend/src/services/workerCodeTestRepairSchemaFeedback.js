@@ -15,6 +15,10 @@ function allowedPatchPathHint(mission) {
 function schemaRetryHint(error) {
   if (error.code !== 'WORKER_OUTPUT_SCHEMA_VIOLATION') return '';
   const detail = String(error.workerArtifactDiagnostics?.error || error.message || '');
+  const violations = error.workerArtifactDiagnostics?.violations || [];
+  if (violations.some((violation) => /additional properties/i.test(String(violation)))) {
+    return 'The patch proposal was rejected because it contains keys outside the strict worker schema. A full-replacement patch object must contain exactly "path" and "content"; an edit patch object must contain exactly "path" and "edits". The outer object must contain exactly "format", "patches", "tests", and "evidence". Remove all other keys and prose, then return one valid JSON object.';
+  }
   const anchorPath = detail.match(/Exact edit anchor must occur once in '([^']+)'/)?.[1] || '';
   if (anchorPath) return `The exact edit anchor for '${anchorPath}' was rejected because it did not occur once. That proposal was rejected and the workspace is unchanged; do not copy its anchor from the rejected output or a rolled-back candidate. Re-read the current file in the workspace snapshot. For a small file whose full contents are present, prefer a full-file replacement. Otherwise copy a unique anchor exactly from the current file. Re-evaluate the failing assertion before choosing a source file.`;
   const rejectedPath = detail.match(/Unsafe patch proposal for '([^']+)'/)?.[1] || '';
