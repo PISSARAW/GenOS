@@ -145,7 +145,7 @@ function usageRecord(response) {
 function decisionRequest(loop, input, seed) {
   return { model: MODEL, prompt: loop.promptFor(input), seed, temperature: 0,
     timeoutMs: 120000, maxTokens: 200, stream: false,
-    responseFormat: { name: 'social_development_action', schema: loop.DECISION_SCHEMA } };
+    responseFormat: { name: 'social_development_action', schema: loop.decisionSchemaFor(input.memories) } };
 }
 
 async function runWarmup(input) {

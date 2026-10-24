@@ -15,6 +15,12 @@ const DECISION_SCHEMA = {
   }, required: ['action', 'recipientAgentId', 'purpose', 'reasonCode', 'memoryReferences']
 };
 
+function decisionSchemaFor(memories) {
+  const memoryIds = [...new Set(memories.map((memory) => memory.id).filter((id) => typeof id === 'string' && id.trim()))];
+  const memoryReferences = { type: 'array', uniqueItems: true, ...(memoryIds.length ? {} : { maxItems: 0 }), items: { type: 'string', ...(memoryIds.length ? { enum: memoryIds } : {}) } };
+  return { ...DECISION_SCHEMA, properties: { ...DECISION_SCHEMA.properties, memoryReferences } };
+}
+
 function text(value) { return typeof value === 'string' ? value.trim() : ''; }
 
 function rawObservationOf(event) {
@@ -169,7 +175,7 @@ function modelOf(input) {
 function proposalRequest(input, model, seed) {
   return { model, prompt: promptFor(input), seed, temperature: 0,
     timeoutMs: 120000, maxTokens: 200, stream: false,
-    responseFormat: { name: 'social_development_action', schema: DECISION_SCHEMA } };
+    responseFormat: { name: 'social_development_action', schema: decisionSchemaFor(input.memories) } };
 }
 
 function tokenMetric(value) {
@@ -390,4 +396,5 @@ async function process(input, adapters = {}) {
   }
 }
 
-module.exports = { process, observationOf, autonomyGate, attentionWon, recipientCandidates, promptFor, DECISION_SCHEMA };
+module.exports = { process, observationOf, autonomyGate, attentionWon, recipientCandidates,
+  promptFor, decisionSchemaFor, DECISION_SCHEMA };
