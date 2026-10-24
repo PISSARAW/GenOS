@@ -6,7 +6,8 @@ const { identityOf } = require('./sectionIdentity.cjs');
 const SOCIAL_FIELDS = {
   children: ['id', 'role', 'status', 'lineage_relation'],
   permissions: ['organization_id', 'project_id', 'permissions_json', 'denied_tools_json'],
-  runs: ['contract_id', 'contract_version', 'status', 'budget_json']
+  runs: ['contract_id', 'contract_version', 'status', 'budget_json'],
+  relations: ['source_agent_id', 'target_agent_id', 'relation_type', 'relation_class', 'authority', 'trust_for_domain', 'provenance_hash', 'metadata_json']
 };
 
 async function socialDiff(req) {

@@ -40,7 +40,7 @@ async function bisect(req) {
 async function bisectProbe(req) {
   const db = await getDatabase();
   const invariant = String(req.body?.invariant || '');
-  const allowed = ['budgetsConsistent', 'permissionsConsistent', 'decisionsValid'];
+  const allowed = ['budgetsConsistent', 'permissionsConsistent', 'decisionsValid', 'relationsConsistent'];
   if (!allowed.includes(invariant)) return { success: false, error: 'A supported deterministic invariant is required.', allowed };
   const path = await buildCausalPath(db, req.body?.goodObjectId, req.body?.badObjectId);
   if (!path || path.length < 2) return { success: false, error: 'At least two commits on the causal path are required.' };

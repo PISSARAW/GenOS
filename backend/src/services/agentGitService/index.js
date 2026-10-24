@@ -108,14 +108,15 @@ async function collectState(db, req, agentId) {
   const permissionScope = agentRecordScope(req, 'p', agentId);
   const eventScope = agentRecordScope(req, 'e', agentId);
   const childScope = workspaceRecordScope(req, 'w', agentId);
-  const [decisions, memories, runs, plasmids, permissions, events, children] = await Promise.all([
+  const [decisions, memories, runs, plasmids, permissions, events, children, relations] = await Promise.all([
     db.all(`SELECT d.id, d.title, d.content, d.cart_nodes_json, d.category, d.synaptic_weight, d.organization_id, d.project_id, d.created_at FROM genome_decisions d WHERE d.created_by = ? AND ${decisionScope.clause} ORDER BY d.created_at, d.id`, agentId, ...decisionScope.params),
     db.all(`SELECT m.* FROM episodic_memories m WHERE m.agent_id = ? AND ${memoryScope.clause} ORDER BY m.created_at, m.id`, agentId, ...memoryScope.params).catch(() => []),
     db.all(`SELECT r.id, r.contract_id, r.contract_version, r.status, r.budget_json, r.metrics_json, r.created_at FROM strategy_execution_runs r JOIN strategy_contracts c ON c.id = r.contract_id LEFT JOIN workspaces w ON w.id = c.workspace_id WHERE r.agent_id = ? AND ${workspaceRecordScope(req, 'w', agentId).clause} ORDER BY r.created_at, r.id`, agentId, ...workspaceRecordScope(req, 'w', agentId).params).catch(() => []),
     db.all(`SELECT p.* FROM plasmid_bindings p WHERE p.owner_agent_id = ? AND ${plasmidScope.clause} ORDER BY p.created_at, p.plasmid_id`, agentId, ...plasmidScope.params).catch(() => []),
     db.all(`SELECT p.agent_id, p.permissions_json, p.denied_tools_json, p.organization_id, p.project_id FROM agent_permissions p WHERE p.agent_id = ? AND ${permissionScope.clause}`, agentId, ...permissionScope.params).catch(() => []),
     db.all(`SELECT e.event_id, e.event_type, e.action, e.detail, e.payload_json, e.severity, e.organization_id, e.project_id, e.created_at FROM telemetry_events e WHERE e.agent_id = ? AND ${eventScope.clause} ORDER BY e.created_at, e.id LIMIT 1000`, agentId, ...eventScope.params).catch(() => []),
-    db.all(`SELECT a.id, a.name, a.role, a.status, a.lineage_relation FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause} ORDER BY a.created_at, a.id`, agentId, ...childScope.params).catch(() => [])
+    db.all(`SELECT a.id, a.name, a.role, a.status, a.lineage_relation FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause} ORDER BY a.created_at, a.id`, agentId, ...childScope.params).catch(() => []),
+    require('./institutionalRelations.cjs').collectRelations(db, req, agentId).catch(() => [])
   ]);
   return {
     schema: 'genos.agent-git-state/v1',
@@ -127,12 +128,13 @@ async function collectState(db, req, agentId) {
     permissions,
     events,
     children,
+    relations,
     capturedAt: new Date().toISOString()
   };
 }
 
 function changedSections(left, right) {
-  const sections = ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'events', 'children'];
+  const sections = ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'events', 'children', 'relations'];
   return sections.filter((section) => JSON.stringify(left?.[section]) !== JSON.stringify(right?.[section]));
 }
 

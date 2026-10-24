@@ -47,7 +47,7 @@ async function reset(req) {
 
   if (mode === 'hard') {
     const state = JSON.parse(obj.state_json);
-    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
+    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations'] });
   }
 
   return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
@@ -64,7 +64,7 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
   const target = await loadAgentForDag(db, req, targetAgentId);
   if (!target) throw Object.assign(new Error('Target agent not available.'), { code: 'AGENT_NOT_FOUND' });
   const ctx = { db, req, targetAgentId };
-  const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
+  const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations']);
   const inTransaction = options.inTransaction === true;
 
   if (!inTransaction) await db.exec('BEGIN IMMEDIATE');
@@ -75,6 +75,7 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
     if (selected.has('runs')) await replaceRunState(ctx, targetAgentId, state.runs);
     if (selected.has('plasmids')) await replacePlasmidState(ctx, targetAgentId, state.plasmids);
     if (selected.has('permissions')) await replacePermissionState(ctx, targetAgentId, state.permissions);
+    if (selected.has('relations')) await require('./institutionalRelations.cjs').replaceRelations({ db, req, targetAgentId }, state.relations);
     if (!inTransaction) await db.exec('COMMIT');
   } catch (err) {
     if (!inTransaction) { await db.exec('ROLLBACK').catch(() => {}); }
@@ -85,7 +86,7 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
 
 function computePatch(fromState, toState) {
   const operations = [];
-  const sections = ['decisions', 'memories', 'runs', 'plasmids', 'permissions'];
+  const sections = ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations'];
   for (const section of sections) {
     computeSectionPatch({ fromState, toState, section, operations });
   }
@@ -143,7 +144,7 @@ async function applyPatch(req, { targetAgentId, patch, sections }) {
       applyOperationToState(newState, operation);
     }
   }
-  return replaceState(req, { targetAgentId, state: newState, sections: sections || ['decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
+  return replaceState(req, { targetAgentId, state: newState, sections: sections || ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations'] });
 }
 
 // Point 4 : application générique unique des opérations de patch.
