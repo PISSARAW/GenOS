@@ -11,13 +11,15 @@ résultats de campagne ni compter comme graines préenregistrées :
 | V2-02 | `node backend/tests/test_social_v2_24_agent_life.js` | 24 agents traversent 1 000 cycles; dix événements sans destinataire explicite déclenchent un routage, une réponse réciproque et un épisode autobiographique lié au reçu. | Horaire et émetteurs fixés par la fixture; dix interactions seulement; pas de modèle, d'ablation ni d'estimation multi-graines. |
 | V2-03 | `node backend/tests/test_social_v2_durable_memory_restart.js` | Une action sociale, son résultat et ses références survivent à un redémarrage de processus; une base neuve ne les rappelle pas. | Un épisode synthétique, un agent et un seul redémarrage; aucun bras comparatif. |
 | V2-04 | `node backend/tests/test_social_v2_causal_routing.js` | Des évaluations binaires vérifiées modifient le classement ultérieur des destinataires dans leur domaine; une évaluation non vérifiée est rejetée. | Fixture déterministe; aucun modèle social, aveuglement d'agent ni bras comparatif. |
+| V2-05 | `node backend/tests/test_social_v2_morphogenesis_invariants.js` | Deux transitions d'organisation sont journalisées; les identités, la relation, les autorisations et les références de messages sont contrôlées, avec collaboration après chaque transition. | Séquence déterministe unique; pas de génération adaptative de transition, de modèle, d'ablation ni de multi-graines. |
 
 `node backend/tests/test_agent_relation_profiles.js` vérifie aussi que le
 classement par domaine conserve l'ordre historique lorsqu'aucune mesure de
 confiance n'est disponible.
 
-V2-05 n'a pas encore de sonde dédiée. La campagne complète,
-les quatre bras et les 20 graines par scénario restent à exécuter. S28 de
+Les cinq scénarios ont maintenant une sonde déterministe, mais ces sondes ne
+remplacent pas l'exécution de la campagne complète, les quatre bras et les 20
+graines par scénario. S28 de
 SocialWorld V1 mesure la robustesse d'un monde de 24 agents, mais ne remplace
 pas V2-02 : il ne teste pas la boucle d'initiatives, de réciprocité et de
 réutilisation de souvenirs définie ici.
