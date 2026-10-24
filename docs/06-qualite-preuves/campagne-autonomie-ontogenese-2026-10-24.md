@@ -157,6 +157,13 @@ Prérequis observés sur l'hôte le 24 octobre : Node.js `v24.18.0`, Python
 l'identité complète du modèle restent à capturer dans le manifeste d'exécution
 avant la préparation et le scellement des oracles.
 
+Le premier appel du préparateur `prepare_ontogenesis_g1.cjs` a terminé en code 1
+avant de créer le répertoire de campagne : le contrôle `path.relative` traitait
+un chemin sur `D:` comme absolu lorsqu'il était comparé au checkout sur `C:`.
+Le bug est dans la validation de destination; aucune fixture ni mission n'a été
+créée par cette tentative. Le correctif doit vérifier le préfixe du checkout
+après avoir imposé la racine autorisée sur `D:`.
+
 ### G2 — Transfert tenu à l'écart
 
 Figer avant exécution au moins 30 missions nouvelles dans cinq dépôts ou plus et
