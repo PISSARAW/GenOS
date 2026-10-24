@@ -8,6 +8,7 @@ const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
 const { mergeEvents, mergeChildren } = require('./mergeDrivers.cjs');
 const { getDatabase } = require('../../db');
+const { verifyMergeEvidence } = require('./verifiedMerge.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -93,6 +94,10 @@ async function merge(req) {
   const merged = buildMergedState({ base, left: sides.left, right: sides.right, nameOverride: req.body?.name });
   const conflict = checkMergeConflicts({ merged, base, ids });
   if (conflict) return conflict;
+  const verification = verifyMergeEvidence({ sources: [sides.left, sides.right], mergedState: merged.storeState });
+  if (!verification.verified) {
+    return { success: false, operation: 'merge', error: 'Merge verification failed.', verification };
+  }
   return commitMergedState({ db, req, sides, base, merged, ids });
 }
 
