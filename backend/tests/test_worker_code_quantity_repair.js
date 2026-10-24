@@ -30,13 +30,14 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: 'Increase Oats' }).count(), 1);
     assert.equal(await page.getByRole('button', { name: 'Decrease Oats' }).count(), 1);
     assert.match(await page.locator('tbody').innerText(), /Oats\s+3/);
-    const missingButton = '<table><tbody><tr><td>Oats</td><td>2</td></tr></tbody></table><script>localStorage.getItem("pantry");</script>';
+    const missingButton = '<div class="item">Name: Oats, Qty: <input type="number" value="2"></div><script>localStorage.getItem("pantry");</script>';
     await page.evaluate(() => localStorage.clear());
+    await page.evaluate(() => localStorage.setItem('pantry', JSON.stringify([{ name: 'Oats', qty: 2 }])));
     await page.setContent(ensureQuantityIncrementBehavior(missingButton));
     assert.equal(await page.getByRole('button', { name: 'Increase quantity for Oats' }).count(), 1);
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
-    assert.match(await page.locator('tbody').innerText(), /Oats\s+3/);
-    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].quantity, 3);
+    assert.equal(await page.locator('.item input').inputValue(), '3');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].qty, 3);
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
