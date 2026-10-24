@@ -209,6 +209,17 @@ isolé de non-transmission des secrets passe sur le code actuel. La RAM libre
 était à 18,8 % au dernier contrôle, avec les modèles 14B et 7B chargés; le
 seuil d'admission G0 reste 35 % et aucun nouveau run complet n'a été lancé.
 
+### Vérification ciblée du 2026-10-24
+
+- Révision testée : `182bc3655688e93881f25d9aadd7a0b269e86f48`.
+- Commande : `node backend/tests/test_ontogenesis_verifier_environment.js`.
+- Résultat : code 0; le vérificateur enfant ne reçoit ni
+  `GENOS_GVX_LEDGER_HMAC_SECRET`, ni `GENOS_EPISTEMIC_RECEIPT_SECRET`, ni
+  `GENOS_DB_PATH`.
+- RAM libre au début/à la fin : 7,8 % / 7,3 %.
+- Classement : succès du contrôle isolé; ne compte pas comme exécution G0
+  complète, dont le seuil de départ reste 35 %.
+
 G1 est préparé mais non scellé. Le dossier
 `D:\GenOS-runs\ontogenesis-g1-2026-10-24` contient 24 dépôts propres dérivés des
 fixtures, leurs configurations et oracles séparés; l'état est
