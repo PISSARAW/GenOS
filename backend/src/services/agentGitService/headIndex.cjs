@@ -63,10 +63,18 @@ async function stage(ctx) {
   const items = ctx.items || [];
   if (!agentId || !section) return { success: false, error: 'agentId and section are required.' };
   const indexData = await loadIndexData(db, req, agentId);
+  if (Object.keys(indexData.sections || {}).length &&
+    (indexData.refName !== ctx.refName || indexData.baseObjectId !== ctx.baseObjectId ||
+      indexData.baseRefVersion !== ctx.baseRefVersion)) {
+    return { success: false, error: 'Staged base moved; unstage and stage again.' };
+  }
+  indexData.refName = ctx.refName;
+  indexData.baseObjectId = ctx.baseObjectId;
+  indexData.baseRefVersion = ctx.baseRefVersion;
   indexData.sections[section] = items;
   indexData.updatedAt = new Date().toISOString();
   await saveIndexData(ctx, agentId, indexData);
-  return { success: true, operation: 'stage', agentId, section, stagedCount: items.length };
+  return { success: true, operation: 'stage', agentId, section, stagedCount: Array.isArray(items) ? items.length : 1 };
 }
 
 async function unstage(ctx) {
@@ -99,7 +107,8 @@ async function saveIndexData(ctx, agentId, indexData) {
 
 function computeStagedSections(indexData) {
   const stagedSections = Object.keys(indexData.sections || {});
-  const stagedCount = stagedSections.reduce((sum, s) => sum + (indexData.sections[s]?.length || 0), 0);
+  const stagedCount = stagedSections.reduce((sum, s) => sum +
+    (Array.isArray(indexData.sections[s]) ? indexData.sections[s].length : 1), 0);
   return { stagedSections, stagedCount };
 }
 
@@ -111,13 +120,26 @@ async function status(req) {
   const index = await getIndex(db, req, agentId);
   const indexData = index ? JSON.parse(index.index_json) : { sections: {} };
   const { stagedSections, stagedCount } = computeStagedSections(indexData);
+  const { collectState, getObject } = require('./index');
+  const current = await collectState(db, req, agentId);
+  if (!current) return { success: false, error: 'Agent is unavailable in the current tenant.' };
+  const refName = indexData.refName || bodyOrDefault(req, 'refName', 'main');
+  const ref = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, refName);
+  const baseId = Object.hasOwn(indexData, 'baseObjectId') ? indexData.baseObjectId : ref?.object_id;
+  const base = baseId ? await getObject(db, req, baseId) : null;
+  const baseState = base ? JSON.parse(base.state_json) : null;
+  const unstaged = require('./stagingPolicy.cjs').unstagedSections(baseState, current, indexData.sections || {});
   return {
     success: true,
     operation: 'status',
     agentId,
     head: head?.object_id || null,
-    staged: stagedSections.map(section => ({ section, count: indexData.sections[section]?.length || 0 })),
+    staged: stagedSections.map(section => ({ section,
+      count: Array.isArray(indexData.sections[section]) ? indexData.sections[section].length : 1 })),
     stagedCount,
+    unstagedSections: unstaged,
+    indexBaseMoved: !!index && ((ref?.object_id || null) !== indexData.baseObjectId
+      || Number(ref?.version || 0) !== indexData.baseRefVersion),
     indexExists: !!index
   };
 }

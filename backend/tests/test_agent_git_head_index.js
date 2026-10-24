@@ -19,16 +19,14 @@ function makeReq(overrides = {}) {
 }
 
 async function testStage() {
-  const decisions = [{ id: 'd1', title: 'A', content: '1', created_at: '2026-01-01' }];
-  const result = await service.stage(makeReq({ section: 'decisions', items: decisions }));
+  const result = await service.stage(makeReq({ section: 'agent' }));
   assert.equal(result.success, true);
   assert.equal(result.stagedCount, 1);
 }
 
 async function testUnstage() {
-  const decisions = [{ id: 'd1', title: 'A', content: '1', created_at: '2026-01-01' }];
-  await service.stage(makeReq({ section: 'decisions', items: decisions }));
-  const result = await service.unstage(makeReq({ section: 'decisions' }));
+  await service.stage(makeReq({ section: 'agent' }));
+  const result = await service.unstage(makeReq({ section: 'agent' }));
   assert.equal(result.success, true);
   const status = await service.status(makeReq());
   assert.equal(status.stagedCount, 0);
@@ -38,14 +36,13 @@ async function testStatus() {
   let status = await service.status(makeReq());
   assert.equal(status.success, true);
   assert.equal(status.stagedCount, 0);
-  await service.stage(makeReq({ section: 'memories', items: [{ id: 'm1' }] }));
+  await service.stage(makeReq({ section: 'agent' }));
   status = await service.status(makeReq());
   assert.equal(status.stagedCount, 1);
 }
 
 async function testCommitFromIndex() {
-  const decisions = [{ id: 'd1', title: 'A', content: '1', created_at: '2026-01-01' }];
-  await service.stage(makeReq({ section: 'decisions', items: decisions }));
+  await service.stage(makeReq({ section: 'agent' }));
   const commitFromIndex = require('../src/services/agentGitService/commitFromIndex.cjs');
   const result = await commitFromIndex(makeReq(), { agentId: 'a1', refName: 'main' });
   assert.equal(result.success, true);
