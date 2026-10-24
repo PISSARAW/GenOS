@@ -1,0 +1,14 @@
+{
+  "caseId": "v2-06-collaboration-after-disagreement-v1",
+  "version": 1,
+  "expectedActions": {
+    "baseline": "propose-collaboration",
+    "masked": "ask-for-update",
+    "counterfactual": "wait-for-reconciliation"
+  },
+  "requiredSharedFactors": ["contextHash", "budgetHash", "permissionHash"],
+  "minimumIndependentMemories": 4,
+  "requiresBeliefAboutOther": true,
+  "requiresAlternativeInterpretation": true,
+  "requiresDelayedDecisionReceipt": true
+}
