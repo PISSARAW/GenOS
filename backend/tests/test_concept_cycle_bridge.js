@@ -3,12 +3,13 @@
 const assert = require('node:assert/strict');
 const bridge = require('../src/services/agentConceptCycleBridgeService');
 const agow = require('../src/services/agow/agowRuntimeIngressService');
+const socialDevelopment = require('../src/services/socialDevelopmentLoopService');
 const predictive = require('../src/services/runtimePredictiveBridgeService');
 const concepts = require('../src/services/conceptRuntimeService');
 const feedback = require('../src/services/orchestratorRuntimeFeedback');
 
 async function main() {
-  const saved = [agow.process, predictive.process, concepts.processEvent, feedback.process];
+  const saved = [agow.process, socialDevelopment.process, predictive.process, concepts.processEvent, feedback.process];
   const calls = [];
   const event = { eventType: 'FIXTURE', id: 'event' };
   const ctx = { db: {}, agentId: 'a', handleOrchestrationDecision: async (_ctx, received, type) => {
@@ -17,6 +18,13 @@ async function main() {
   try {
     agow.process = async () => { calls.push('agow'); return { cycle: { modeResult: { executed: true,
       outcomeReceipt: { calibrated: true, predictionError: 0.1 } } } }; };
+    socialDevelopment.process = async (input) => {
+      calls.push('social-development');
+      assert.equal(input.event, event);
+      assert.equal(input.agentId, 'a');
+      assert.equal(input.morphogenesisPlan, undefined);
+      return { processed: false, reason: 'social-development-disabled' };
+    };
     predictive.process = async () => { calls.push('predictive'); return { predictionErrors: [0.1] }; };
     concepts.processEvent = async (_db, input) => {
       calls.push('concepts');
@@ -31,13 +39,13 @@ async function main() {
     await bridge.observeCycle(ctx, { event, finalEvent: false,
       routeHierarchyEvent: async () => { calls.push('hierarchy'); return null; } });
     await bridge.advanceFeedback(ctx, event);
-    assert.deepEqual(calls, ['hierarchy', 'agow', 'predictive', 'concepts', 'feedback', 'decision']);
+    assert.deepEqual(calls, ['hierarchy', 'agow', 'social-development', 'predictive', 'concepts', 'feedback', 'decision']);
     const blocked = concepts.statuses({ agow: { cycle: { modeResult: { status: 'executed', executed: false } } } });
     assert.equal(blocked.flexible_agency, 'not_run');
     assert.equal(blocked.metacognition, 'not_run');
     console.log('Cycle producers execute once, actual receipt fields and existing runtime callbacks preserved.');
   } finally {
-    [agow.process, predictive.process, concepts.processEvent, feedback.process] = saved;
+    [agow.process, socialDevelopment.process, predictive.process, concepts.processEvent, feedback.process] = saved;
   }
 }
 
