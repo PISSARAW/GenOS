@@ -47,6 +47,7 @@ function isOrchestratorMission(mission) {
   if (mission.role === 'Autonomous Orchestrator') return true;
   if (mission.executionMode === 'orchestrator') return true;
   if (mission.execution_mode === 'orchestrator') return true;
+  if (mission.executionMode === 'worker' || mission.execution_mode === 'worker') return false;
   if (/orchestrator/i.test(mission.agentId)) return true;
   return false;
 }
@@ -239,7 +240,7 @@ async function runGenerationStage(ctx) {
     }) : { text: '', candidatePaths: [] };
   if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
     .filter((candidate) => localCodeWorker.safePath(candidate));
-  const workspaceContext = workspaceDetails.text;
+  const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     assignment: ctx.mission,
     codeWorker: codeWorker,

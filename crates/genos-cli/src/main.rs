@@ -54,8 +54,19 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
 }
 
 fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
-    if let Some(mission) = cmd.mission {
-        return execute_mission(&mission);
+    if let Some(mission) = cmd.mission.or(cmd.mission_option) {
+        return execute_mission(
+            &mission,
+            commands::kernel_runtime::MissionOptions {
+                workspace_root: cmd.workspace_root.as_deref(),
+                completion_contract: cmd.completion_contract.as_deref(),
+                success_criteria: cmd.success_criteria.as_deref(),
+                native_objectives: cmd.native_objectives.as_deref(),
+                read_only_workspace_evidence: cmd.read_only_workspace_evidence,
+                timeout_ms: cmd.timeout_ms,
+                executor: &cmd.executor,
+            },
+        );
     }
     match cmd.mode.as_str() {
         "trinity" => {
@@ -71,8 +82,11 @@ fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
     }
 }
 
-fn execute_mission(mission: &str) -> Result<(), String> {
-    commands::kernel_runtime::execute_mission(mission)
+fn execute_mission(
+    mission: &str,
+    options: commands::kernel_runtime::MissionOptions<'_>,
+) -> Result<(), String> {
+    commands::kernel_runtime::execute_mission(mission, options)
 }
 
 fn orchestrator_root() -> Result<PathBuf, String> {

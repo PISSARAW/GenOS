@@ -69,6 +69,34 @@ async function verifySelectionSeedsMission() {
   assert.equal(input.budget.tokens, 30000);
   assert.equal(input.variantId, 'default');
 }
+function verifySealedNativePlanOwnsOnlyImplicitDispatch() {
+  const ctx = context();
+  ctx.autonomyPlan = null;
+  ctx.normalizedMission.native_objectives = [{ goal: 'Read a supplied literal.' }];
+  let plannerCalls = 0;
+  assert.equal(activation.seedMorphogenesisSelection(ctx, {
+    planMorphogenesis: () => { plannerCalls += 1; return plan('a_team'); }
+  }), null);
+  assert.equal(plannerCalls, 0);
+  assert.equal(ctx.normalizedMission.nativeMissionPlanOwnsDispatch, true);
+  ctx.autonomyPlan = { nativeMissionPlan: { selected: 1 } };
+  assert.equal(activation.nativeMissionPlanOwnsDispatch(ctx.normalizedMission, ctx.autonomyPlan), true);
+  assert.equal(activation.nativeMissionPlanOwnsDispatch(ctx.normalizedMission, {}), false);
+
+  for (const topologyRequest of [
+    { proposedTopology: 'a_team' }, { topologyId: 'trinity' }, { trinityMode: 'explicit' },
+    { trinityVariant: 'variant-a' }, { variant_id: 'variant-a' },
+    { morphology: { topology: 'biome' } }, { morphologyExpression: { kind: 'TOPOLOGY', topology: 'rhizome' } },
+    { morphologyPlan: { selectedTopology: 'a_team' } }, { topologyContract: { mode: 'trinity' } },
+    { missionCapabilityPlan: { topology: 'metapopulation' } }
+  ]) {
+    assert.equal(activation.shouldUseNativeMissionPlan({
+      native_objectives: ctx.normalizedMission.native_objectives, ...topologyRequest
+    }), false, JSON.stringify(topologyRequest));
+  }
+  assert.equal(activation.shouldUseNativeMissionPlan({ prompt: 'no native objectives' }), false);
+}
+
 
 async function verifyComposedTopologiesDriveDispatch() {
   for (const topology of TOPOLOGIES) {
@@ -215,6 +243,7 @@ async function verifyGenomeCandidateBlocksActivation() {
 
 async function main() {
   await verifySelectionSeedsMission();
+  verifySealedNativePlanOwnsOnlyImplicitDispatch();
   await verifyComposedTopologiesDriveDispatch();
   await verifyCompositeGraphDrivesMixedDispatch();
   await verifyActivatedDedicatedPlanIsReused();

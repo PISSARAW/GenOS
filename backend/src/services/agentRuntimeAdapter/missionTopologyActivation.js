@@ -11,8 +11,37 @@ function planner(dependencies) {
     || require('../morphogenesis/morphogenesisPlannerService').planMorphogenesis;
 }
 
+function hasNativeObjectives(mission = {}) {
+  const objectives = mission.native_objectives || mission.nativeObjectives;
+  return Array.isArray(objectives) && objectives.length > 0;
+}
+
+function topologyExplicitlyRequested(mission = {}) {
+  if (typeof mission.userTopologyRequested === 'boolean') return mission.userTopologyRequested;
+  const morphology = mission.morphology || {};
+  const capabilityPlan = mission.missionCapabilityPlan || mission.mission_capability_plan || {};
+  return [mission.topologyId, mission.topology_id, mission.proposedTopology, mission.proposed_topology,
+    mission.morphologyTopology, mission.morphology_topology, morphology.topology, capabilityPlan.topology,
+    mission.morphologyExpression, mission.morphology_expression, mission.morphology?.expression,
+    mission.topologyContract?.mode, mission.topologyContract?.topology,
+    mission.morphologyPlan?.selectedTopology, mission.trinityMode, mission.trinity_mode,
+    mission.trinityVariantId, mission.trinity_variant_id, mission.trinityVariant, mission.variant_id]
+    .some((value) => value !== undefined && value !== null && value !== '');
+}
+
+function shouldUseNativeMissionPlan(mission = {}) {
+  return hasNativeObjectives(mission) && !topologyExplicitlyRequested(mission);
+}
+
+function nativeMissionPlanOwnsDispatch(mission, autonomyPlan) {
+  return mission?.nativeMissionPlanOwnsDispatch === true
+    && Boolean(autonomyPlan?.nativeMissionPlan);
+}
+
 function seedMorphogenesisSelection(ctx, dependencies = {}) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return null;
+  ctx.normalizedMission.nativeMissionPlanOwnsDispatch = shouldUseNativeMissionPlan(ctx.normalizedMission);
+  if (ctx.normalizedMission.nativeMissionPlanOwnsDispatch) return null;
   const input = buildMissionMorphogenesisInput(ctx);
   const selection = planner(dependencies)(input);
   require('../morphogenesis/missionNosologyContext').bindNosology(selection, input.nosology);
@@ -193,4 +222,5 @@ async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {})
   return bindSelectedPlan(ctx, morphologyPlan);
 }
 
-module.exports = { seedMorphogenesisSelection, activateMorphogenesisPlan };
+module.exports = { seedMorphogenesisSelection, activateMorphogenesisPlan, hasNativeObjectives,
+  topologyExplicitlyRequested, shouldUseNativeMissionPlan, nativeMissionPlanOwnsDispatch };

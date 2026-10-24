@@ -61,6 +61,7 @@ function artifactProvenance(mission, context, evidenceReport) {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
     methodContract: mission.methodContract || null,
+    readFileHashes: mission.readOnlyWorkspaceEvidence === true ? mission.readFileHashes || {} : {},
     allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || []),
       ...trustedCodeEvidenceRefs(evidenceReport, context.codeWorker, context.proposal)])]
   };

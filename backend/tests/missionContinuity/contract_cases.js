@@ -43,4 +43,33 @@ module.exports = function registerCompletionContractCases(test) {
     assert.strictEqual(result.context.flags.completionContractConfigured, true);
     assert.strictEqual(result.invariants[0].id, 'acceptance');
   });
+
+  test('mission context accepts an explicit completion contract from camel or snake case request fields', async () => {
+    const completionContract = {
+      invariants: [{ id: 'receipt_bound', kind: 'epistemic', verifier: { type: 'evidence.present', evidence: 'worker_evidence' } }],
+      requiredEvidence: ['worker_evidence']
+    };
+    const camel = await buildMissionContext({ outcome: { success: true }, db: null,
+      request: { completionContract } });
+    const snake = await buildMissionContext({ outcome: { success: true }, db: null,
+      policyRequest: { completion_contract: completionContract } });
+
+    assert.strictEqual(camel.completionContract, completionContract);
+    assert.strictEqual(snake.completionContract, completionContract);
+    assert.strictEqual(camel.context.flags.completionContractConfigured, true);
+    assert.strictEqual(snake.context.flags.completionContractConfigured, true);
+    assert.strictEqual(camel.context.flags.missionOutcome, false);
+    assert.strictEqual(snake.context.flags.missionOutcome, false);
+  });
+
+  test('empty contracts and free-form success criteria do not configure the completion gate', async () => {
+    const empty = await buildMissionContext({ outcome: { success: true }, db: null,
+      request: { completion_contract: { invariants: [], requiredEvidence: [] } } });
+    const proseOnly = await buildMissionContext({ outcome: { success: true }, db: null,
+      request: { successCriteria: ['Say the mission passed'] } });
+
+    assert.strictEqual(empty.completionContract, null);
+    assert.strictEqual(empty.context.flags.completionContractConfigured, false);
+    assert.strictEqual(proseOnly.context.flags.completionContractConfigured, false);
+  });
 };

@@ -48,6 +48,11 @@ assert.deepStrictEqual(runtimeContext.requiredPatchMarkers, { 'index.html': ['id
 assert.deepStrictEqual(runtimeContext.requiredTools, ['genos_change_organization']);
 assert.deepStrictEqual(runtimeContext.toolLease, ['genos_change_organization', 'genos_replay']);
 assert.strictEqual(runtimeContext.unrelated, undefined);
+const nativeRuntimeContext = missionRuntimeContext({ native_objectives: [{ goal: 'observe' }] });
+assert.strictEqual(nativeRuntimeContext.userTopologyRequested, false);
+assert.strictEqual(activationForBridge(nativeRuntimeContext), true);
+assert.strictEqual(missionRuntimeContext({ proposedTopology: 'a_team' }).userTopologyRequested, true);
+assert.strictEqual(missionRuntimeContext({ morphology: { topology: 'a_team' } }).userTopologyRequested, true);
 const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_committee', requiredTools: ['genos_snapshot'] }, {
   topologyContract: { mode: 'a_team', organization: 'specialist_expert_committee', required: ['SIGNALING_BUS'] },
   requiredTools: ['genos_change_organization'],
@@ -65,3 +70,11 @@ const decisionStrategy = strategyForMission('decide');
 assert.strictEqual(decisionStrategy.id, 'pareto_frontier_concept');
 assert.strictEqual(decisionStrategy.strategyId, 'pareto_frontier');
 console.log('ontogenesis strategy bridge checks passed.');
+function activationForBridge(runtimeContext) {
+  return require('../src/services/agentRuntimeAdapter/missionTopologyActivation')
+    .shouldUseNativeMissionPlan({
+      ...runtimeContext,
+      native_objectives: [{ goal: 'observe' }],
+      morphology: { topology: 'a_team' }
+    });
+}

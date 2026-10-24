@@ -194,18 +194,29 @@ function missionRuntimeContext(request) {
   const normalized = { ...request, successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
     workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
     morphologyExpression: request.morphologyExpression || request.morphology_expression,
-    morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy };
+    morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy,
+    userTopologyRequested: hasUserTopologyRequest(request) };
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
     'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
-    'requiredTools', 'toolLease'];
+    'requiredTools', 'toolLease', 'userTopologyRequested'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }
 
+function hasUserTopologyRequest(request) {
+  const topologyFields = ['topologyId', 'topology_id', 'proposedTopology', 'proposed_topology',
+    'morphologyTopology', 'morphology_topology', 'trinityMode', 'trinity_mode',
+    'trinityVariantId', 'trinity_variant_id', 'trinityVariant', 'variant_id'];
+  return topologyFields.some((field) => request[field] !== undefined && request[field] !== null && request[field] !== '')
+    || Boolean(request.morphology?.topology || request.morphologyExpression || request.morphology_expression
+      || request.morphologyPlan?.selectedTopology || request.missionCapabilityPlan?.topology
+      || request.mission_capability_plan?.topology || request.topologyContract?.mode
+      || request.topologyContract?.topology);
+}
 function promptWithWorkerAssignments(prompt, request = {}) {
   const assignments = request.worker_assignments || request.workerAssignments;
   if (!assignments) return prompt;
