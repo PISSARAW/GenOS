@@ -271,7 +271,7 @@ async function runOrchestratedMission(db, episodeRuntime) {
     await require('./orchestratorWindowsLocalExecution.cjs').runWindowsLocalExecution({
       db, id, missionId, task, enhancedPrompt, request, missionBudget,
       requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
-      nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
+      autonomyPlan, nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
       finalizeOrchestratedMission, preflight
     });
     return;

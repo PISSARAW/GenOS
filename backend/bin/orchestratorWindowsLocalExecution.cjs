@@ -72,6 +72,69 @@ function buildLocalMission(input) {
     requiredPatchMinimumBytes: request.requiredPatchMinimumBytes };
 }
 
+async function runWindowsLocalRosterExecution(input, dependencies) {
+  const { db, id, missionId, autonomyPlan, request, requestTimeoutMs, enhancedPrompt } = input;
+  const assignments = autonomyPlan.dispatchWorkers || [];
+  const exact = autonomyPlan.workerRoster?.exact === true;
+  const expected = exact ? autonomyPlan.workerRoster.requestedWorkers : assignments.length;
+  if (assignments.length !== expected) {
+    throw Object.assign(new Error('Windows local execution cannot dispatch an incomplete exact worker roster.'), {
+      code: 'WORKER_CARDINALITY_UNSATISFIABLE', requestedWorkers: expected,
+      selectedWorkers: assignments.length
+    });
+  }
+  const createWorkers = dependencies.createAutonomousWorkers || require('../src/services/agentFleetService').createAutonomousWorkers;
+  const workers = await createWorkers(db, { id, agent_type: 'orchestrator' }, {
+    plan: autonomyPlan, mission: { ...request, missionId, prompt: enhancedPrompt, workspaceRoot: requestedWorkspace(request) }
+  });
+  if (workers.length !== expected) {
+    throw Object.assign(new Error('Windows local worker creation did not match the planned roster.'), {
+      code: 'WORKER_CARDINALITY_UNSATISFIABLE', requestedWorkers: assignments.length, createdWorkers: workers.length
+    });
+  }
+  const runResults = await Promise.all(workers.map((worker, index) => runWindowsRosterWorker({
+    input, worker, assignment: assignments[index], index, dependencies
+  })));
+  if (runResults.some((result) => !result.started || result.unresolved === true)) {
+    throw Object.assign(new Error('At least one Windows local worker did not complete with a resolved result.'), {
+      code: 'WINDOWS_LOCAL_WORKER_INCOMPLETE', workerResults: runResults
+    });
+  }
+  const agents = workers.map((worker) => ({ id: worker.agentId, status: 'completed', execution_mode: 'worker',
+    runtime_pid: null, latest_run_status: 'completed' }));
+  const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
+  const evaluation = await input.evaluateMissionContinuity({ db, id, task: input.task, outcome, agents });
+  const audit = await input.gatherTelemetryAndCoverage(db, id);
+  await input.finalizeOrchestratedMission({ db, outcome, evaluation, morphology: input.morphology,
+    morphologySnapshot: null, nceEnhancements: input.nceEnhancements, audit, deferredAgentTerminalStatus: true });
+  return true;
+}
+
+async function runWindowsRosterWorker(context) {
+  const { input, worker, assignment, index, dependencies } = context;
+  const { db, id, missionId, requestTimeoutMs, allowedCommands, allowFileEdits } = input;
+  const executionRunId = `local-direct-${worker.agentId}`;
+  const budget = { ...worker.executionBudget, latencyMs: worker.executionBudget?.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
+  await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json) VALUES (?, ?, 'running', '{}')`, executionRunId, worker.agentId);
+  const scope = dependencies.validScope({ id: `execution-run:${executionRunId}`, costUsd: Number(budget.costUsd || 0), tokens: Number(budget.tokens || 0) });
+  await persistLocalBudgetScope(db, scope, executionRunId, worker.agentId);
+  const mission = buildLocalMission({ ...input, id: worker.agentId, missionId, orchestratorAgentId: id,
+    enhancedPrompt: worker.prompt || `${input.enhancedPrompt}\n\nAssignment ${index + 1}: ${assignment.hypothesis || assignment.role}`,
+    missionBudget: budget, request: { ...input.request, localModel: worker.localModel || input.request.localModel,
+      workspaceRoot: worker.workspaceRoot, workerKind: assignment.workerKind, role: assignment.role,
+      identityExperimentScenario: undefined }, allowedCommands, allowFileEdits });
+  mission.workerKind = assignment.workerKind;
+  mission.role = assignment.role;
+  mission.modelBudgetScope = scope;
+  return dependencies.runLocalWorker(db, mission, { id: executionRunId });
+}
+
+async function persistLocalBudgetScope(db, scope, executionRunId, agentId) {
+  await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
+    (scope_id, parent_run_id, parent_agent_id, organization_id, project_id, cost_ceiling_usd, token_ceiling)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`, scope.id, executionRunId, agentId, null, null, scope.costUsd, scope.tokens);
+}
+
 function localAgents(id, result) {
   const completed = result.started && result.unresolved !== true;
   return [{ id, status: completed ? 'completed' : (result.unresolved ? 'unverified' : 'error'),
@@ -93,6 +156,10 @@ async function runWindowsLocalExecution(input, dependencies = {}) {
   process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
   const runLocalWorker = dependencies.runLocalWorker || require('../src/services/workerEvidenceBarrierLocal').runLocalWorker;
   const validScope = dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope;
+  if ((input.autonomyPlan?.dispatchWorkers || []).length > 1) {
+    return runWindowsLocalRosterExecution(input, { runLocalWorker, validScope,
+      createAutonomousWorkers: dependencies.createAutonomousWorkers });
+  }
 
   // Le fallback est in-process : utiliser l'agent orchestrateur persisté pour que
   // la récupération et les décisions d'organisation puissent résoudre son identité.
@@ -147,4 +214,4 @@ async function runWindowsLocalExecution(input, dependencies = {}) {
   return true;
 }
 
-module.exports = { runWindowsLocalExecution, buildLocalMission };
+module.exports = { runWindowsLocalExecution, buildLocalMission, runWindowsLocalRosterExecution };
