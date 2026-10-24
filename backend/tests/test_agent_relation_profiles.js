@@ -109,10 +109,33 @@ async function verifyScopedCommunicationRouting() {
   assert.equal(unscoped.length, 1);
 }
 
+async function verifyVerifiedDomainTrustRanksRecipients() {
+  const relations = {
+    b: { source_agent_id: 'a', target_agent_id: 'b', relation_type: 'colleague', relation_class: 'organizational',
+      metadata_json: JSON.stringify({ trustByDomain: { navigation: 0.35 } }), organization_id: 'org', project_id: 'project' },
+    c: { source_agent_id: 'a', target_agent_id: 'c', relation_type: 'colleague', relation_class: 'organizational',
+      metadata_json: JSON.stringify({ trustByDomain: { navigation: 0.8 } }), organization_id: 'org', project_id: 'project' }
+  };
+  const db = { all: async (sql, args) => {
+    if (sql.includes('agent_relations')) return Object.values(relations);
+    return [{ id: 'a', role: 'worker' }, { id: args[1], role: 'worker' }];
+  } };
+  const audience = await routing.profileAudience({ db,
+    intent: { senderAgentId: 'a', risk: 'low', domain: 'navigation' },
+    candidates: [{ agentId: 'b' }, { agentId: 'c' }], organizationId: 'org', projectId: 'project' });
+  assert.deepEqual(audience.map((candidate) => candidate.agentId), ['c', 'b']);
+  assert.equal(audience[0].communicationProfile.trustForDomain, 0.8);
+  const withoutDomain = await routing.profileAudience({ db,
+    intent: { senderAgentId: 'a', risk: 'low' },
+    candidates: [{ agentId: 'b' }, { agentId: 'c' }], organizationId: 'org', projectId: 'project' });
+  assert.deepEqual(withoutDomain.map((candidate) => candidate.agentId), ['b', 'c']);
+}
+
 verifyRelationCatalog();
 verifyVerifierSelection();
 verifyRuntimeVerifierAssignment();
 verifyPartnerSelection();
-Promise.all([verifyPersistedProfile(), verifyMultipleRelations(), verifyCommunicationMultipleRelations(), verifyScopedCommunicationRouting()])
+Promise.all([verifyPersistedProfile(), verifyMultipleRelations(), verifyCommunicationMultipleRelations(),
+  verifyScopedCommunicationRouting(), verifyVerifiedDomainTrustRanksRecipients()])
   .then(() => console.log('Agent relation profile tests passed.'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -8,16 +8,25 @@ const GROUNDING_LEVEL = Object.freeze({ none: 0, semantic_ack: 1, action_ack: 2,
 
 async function profileAudience(input) {
   const candidates = await Promise.all((input.candidates || []).map((candidate) => profileCandidate(input, candidate)));
-  const eligibleCandidates = candidates.filter((candidate) => eligible(candidate.communicationProfile, input.intent));
+  const eligibleCandidates = rankByDomainTrust(
+    candidates.filter((candidate) => eligible(candidate.communicationProfile, input.intent)), input.intent.domain);
   return excludeKnownDependentAudience(input, eligibleCandidates);
 }
 
 async function profileCandidate(input, candidate) {
   const communicationProfile = await deriveProfile({
     db: input.db, fromAgentId: input.intent.senderAgentId, toAgentId: candidate.agentId,
-    organizationId: input.organizationId, projectId: input.projectId
+    organizationId: input.organizationId, projectId: input.projectId, domain: input.intent.domain
   });
   return { ...candidate, communicationProfile };
+}
+
+function rankByDomainTrust(candidates, domain) {
+  if (typeof domain !== 'string' || !domain.trim()) return candidates;
+  return candidates.map((candidate, index) => ({ candidate, index }))
+    .sort((left, right) => (right.candidate.communicationProfile.trustForDomain ?? -1)
+      - (left.candidate.communicationProfile.trustForDomain ?? -1) || left.index - right.index)
+    .map(({ candidate }) => candidate);
 }
 
 function eligible(profile, intent) {

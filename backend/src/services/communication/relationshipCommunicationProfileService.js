@@ -22,6 +22,7 @@ const TYPE_OVERRIDES = Object.freeze({
 const STRANGER_PROFILE = Object.freeze({
   relationType: null, relationClass: null, direction: 'unknown',
   relationTypes: [], relations: [],
+  trustForDomain: null,
   inheritedContext: 'none', dialectProbability: 'low', explanationRequirement: 'high',
   epistemicIndependence: 1, errorCorrelation: 0, authority: 0, disclosureLevel: 0.3,
   preferredEncoding: 'canonical', recommendedGrounding: 'semantic_ack', explicitAssumptions: true
@@ -74,6 +75,12 @@ function measuredOf(entry) {
   };
 }
 
+function domainTrustOf(entry, domain) {
+  if (typeof domain !== 'string' || !domain.trim()) return null;
+  const trust = entry.relation.metadata?.trustByDomain?.[domain.trim()];
+  return Number.isFinite(trust) && trust >= 0 && trust <= 1 ? trust : null;
+}
+
 function pickPrimary(matches) {
   let best = null;
   let bestScore = 2;
@@ -87,7 +94,7 @@ function pickPrimary(matches) {
   return best;
 }
 
-function baseProfileOf(entry) {
+function baseProfileOf(entry, domain) {
   const relation = entry.relation;
   const defaults = CLASS_DEFAULTS[relation.relationClass] || CLASS_DEFAULTS.social;
   const override = TYPE_OVERRIDES[relation.relationType] || {};
@@ -96,6 +103,7 @@ function baseProfileOf(entry) {
     relationType: relation.relationType,
     relationClass: relation.relationClass,
     direction: entry.direction,
+    trustForDomain: domainTrustOf(entry, domain),
     explicitAssumptions: false
   });
 }
@@ -133,10 +141,10 @@ async function deriveProfile(input) {
   const matches = await pairRelations({ db, fromId: input.fromAgentId, toId: input.toAgentId,
     organizationId: input.organizationId, projectId: input.projectId });
   if (matches.length === 0) return Object.assign({}, STRANGER_PROFILE);
-  const relations = matches.map(baseProfileOf);
+  const relations = matches.map((entry) => baseProfileOf(entry, input.domain));
   const primary = pickPrimary(matches);
   const roles = await rolesOf(db, input.fromAgentId, input.toAgentId);
-  const profile = adjustForDirection({ profile: baseProfileOf(primary), roles,
+  const profile = adjustForDirection({ profile: baseProfileOf(primary, input.domain), roles,
     fromId: input.fromAgentId, toId: input.toAgentId });
   return aggregateRelations(profile, relations);
 }
