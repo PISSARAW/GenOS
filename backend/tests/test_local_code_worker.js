@@ -53,6 +53,14 @@ const numericRepairFeedback = failureFeedback({ proposal: {
 } });
 assert.match(numericRepairFeedback, /Number\.parseInt accepts a valid numeric prefix/);
 assert.match(numericRepairFeedback, /validate the entire trimmed input/);
+const invalidPortFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'parsePort rejects values above 65535: Expected values to be strictly equal:\n\n3000 !== null' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function parsePort(value) { return Number.parseInt(value, 10) || 3000; }' }]
+} });
+assert.match(invalidPortFeedback, /return null for malformed strings, zero, and values above 65535/);
+assert.match(invalidPortFeedback, /Never substitute a default port for invalid input/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
