@@ -201,12 +201,27 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 reste en qualification. Sur le même arbre code/test (`7de850a29`), le run
-1/3 a terminé en code 0 avec 46 suites et 54 contrôles, en démarrant à 49,2 %
-de RAM libre. Le run 2/3 a aussi terminé en code 0 avec 46 suites et 54
-contrôles, mais à 34,2 % de RAM libre : réussite technique, échec du seuil
-d'admission, compteur G0 remis à zéro. Les commits de reçu ne modifient pas
-l'arbre code/test. Attendre une marge suffisante au-dessus de 35 % avant une
-nouvelle tentative et exiger trois succès consécutifs qualifiants avant G1.
-Les précédents échecs mémoire, timeout, checkout sale et manque d'espace restent
-consignés.
+G0 doit repartir sur le code actuel, révision `fe7ef6b69`. Les anciens runs
+complets sur l'arbre `7de850a29` (un à 49,2 % de RAM libre, un à 34,2 % et donc
+non qualifiant) précèdent le durcissement de l'environnement du vérificateur
+`3755dd29f`; ils ne couvrent pas ce code et ne comptent pas pour G0. Le test
+isolé de non-transmission des secrets passe sur le code actuel. La RAM libre
+était à 18,8 % au dernier contrôle, avec les modèles 14B et 7B chargés; le
+seuil d'admission G0 reste 35 % et aucun nouveau run complet n'a été lancé.
+
+G1 est préparé mais non scellé. Le dossier
+`D:\GenOS-runs\ontogenesis-g1-2026-10-24` contient 24 dépôts propres dérivés des
+fixtures, leurs configurations et oracles séparés; l'état est
+`prepared-not-run`, les oracles `unverified`, et le registre de reçus a le commit
+`19c0c68`. Le générateur a d'abord échoué avant écriture sur une comparaison de
+chemins entre `C:` et `D:`, puis le correctif a préparé les 24 dépôts sans
+checkout sale.
+
+Le pilote ne doit pas exécuter le code candidat sur cet hôte sans confinement OS.
+La vérification élimine désormais les secrets de l'environnement enfant, mais
+un worktree et un Job Object ne confinent pas les accès disque/réseau du code
+exécuté. Docker répond avec client `29.5.3`, mais le moteur Linux nommé
+`dockerDesktopLinuxEngine` est indisponible; l'hôte est Windows 10 Home. Il faut
+un runner isolé (VM ou conteneur réellement disponible), sans secrets et avec
+réseau bloqué, avant de sceller les oracles et d'ouvrir G1. Les échecs mémoire,
+timeout, checkout sale et manque d'espace antérieurs restent consignés.
