@@ -93,11 +93,14 @@ node backend/bin/genos-orchestrate.cjs '{"mission":"Démonstration phase 1 : un 
 
 ### 2a. Créer un snapshot (CLI Rust)
 
-```powershell
-# Créer un snapshot d'un agent (remplacer <agent-id> par un id réel, ex. issu de la phase 1)
-cargo run -p genos-cli -- snapshot create --agent <agent-id> --out "artifacts/demo-phase-2/snapshot-001.json"
+Le CLI Rust prend ici un **chemin de fichier JSON/YAML de génome**, pas un identifiant d'agent issu de la base. Ce snapshot CLI est une projection de génome avec un état initial ; il ne capture pas l'état runtime durable. Utiliser l'API REST de la section 2b pour ce dernier.
 
-# Lister les snapshots locaux
+```powershell
+# Fournir un fichier AgentGenome JSON/YAML lié à l'agent choisi
+$agentGenome = "artifacts/demo-phase-2/agent-genome.json"
+cargo run -p genos-cli -- snapshot create --agent $agentGenome --out "artifacts/demo-phase-2/snapshot-001.json"
+
+# Lister les snapshots du dossier local snapshots/ (pas les fichiers écrits sous artifacts/)
 cargo run -p genos-cli -- snapshot list
 
 # Valider un fichier snapshot
@@ -111,26 +114,29 @@ cargo run -p genos-cli -- snapshot validate --file "artifacts/demo-phase-2/snaps
 npm --prefix backend start
 
 # Capturer un snapshot d'agent (l'ID de l'agent passe dans le corps de la requête, pas dans l'URL)
-Invoke-RestMethod -Uri "http://localhost:4000/agents/snapshot" -Method Post -Body '{"agentId":"<agent-id>"}' -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:4000/api/agents/snapshot" -Method Post -Body '{"agentId":"<agent-id>"}' -ContentType "application/json"
 ```
 
 ### 2c. Rejouer (replay) et comparer
 
 ```powershell
 # Replay via l'API REST
-Invoke-RestMethod -Uri "http://localhost:4000/agents/replay" -Method Post -Body '{"snapshotId":"<snapshot-id>"}' -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:4000/api/agents/replay" -Method Post -Body '{"agentId":"<agent-id>","snapshotId":"<snapshot-id>","apply":true}' -ContentType "application/json"
 
 # Diff de deux snapshots (CLI Rust)
 cargo run -p genos-cli -- diff "artifacts/demo-phase-2/snapshot-a.json" "artifacts/demo-phase-2/snapshot-b.json"
 ```
 
+Le replay REST exige l'agent et le snapshot ; `apply: true` exécute le replay et permet la vérification de l'état réappliqué. Sans cela, l'endpoint reste en mode preview. L'appliquer sur une base et un workspace isolés pour ne pas réécrire l'état d'un environnement actif.
+
 **Preuves à collecter :**
-- Manifeste du snapshot (version 4 ou 5 avec `topologySnapshot`) ;
-- Référence de checkpoint logique (`runtimeCheckpointId`) ;
-- Diff entre le reçu original et le reçu du replay.
+- Snapshot REST : `organismSnapshot.schemaVersion` (4 ou 5), `workspaceSnapshotId` et hash du workspace ; `topologySnapshot` seulement si l'agent dispose réellement d'une topologie capturable ;
+- État runtime : statut/hash du composant `runtime`. Revendiquer un `runtimeCheckpointId` uniquement si un checkpoint resumable est effectivement présent ; ne pas assimiler un identifiant de ligne runtime à un checkpoint ;
+- Reçu du replay REST : `snapshotId`, `status`, `replayVerified`, `stateDigest` et `liveDigest` ;
+- Diff CLI des deux snapshots de génome, en indiquant séparément qu'il ne représente pas le replay du runtime.
 
 **Gate de sortie :** le replay produit un reçu identique ou explicitement différencié, traçable jusqu'au snapshot d'origine.  
-**Ce qu'on ne claim pas :** que la RAM du processus ou le contexte caché du fournisseur LLM est restauré (cf. README : un snapshot restaure les états durables couverts par son manifeste, ni la RAM arbitraire ni l'état caché du provider).
+**Ce qu'on ne claim pas :** que la RAM du processus ou le contexte caché du fournisseur LLM est restauré ; ni qu'une topologie ou un checkpoint resumable existe si le snapshot ne les contient pas (cf. README : un snapshot restaure les états durables couverts par son manifeste, ni la RAM arbitraire ni l'état caché du provider).
 
 ---
 
