@@ -229,15 +229,16 @@ async function enforceManifestBudget(input) {
 
 async function buildManifest(ctx) {
   if (!ctx || !ctx.agentId) throw new Error('agentId is required.');
-  const phenotype = phenotypeOf(ctx);
-  const channels = channelsFor(ctx);
-  const tools = toolsFor(ctx);
-  const encoding = encodingFor(ctx);
-  const policy = policyFor(ctx);
-  const budget = await persistedBudget(ctx, budgetFor(ctx));
+  const profile = await fetchAgentProfile(ctx);
+  const phenotype = { ...phenotypeOf(ctx), id: phenotypeOf(ctx).id || profile?.phenotypeId };
+  const effectiveCtx = { ...ctx, phenotype };
+  const channels = channelsFor(effectiveCtx);
+  const tools = toolsFor(effectiveCtx);
+  const encoding = encodingFor(effectiveCtx);
+  const policy = policyFor(effectiveCtx);
+  const budget = await persistedBudget(ctx, budgetFor(effectiveCtx));
   const subscriptions = await fetchSubscriptions(ctx);
   const relations = await fetchRelations(ctx);
-  const profile = await fetchAgentProfile(ctx);
   const manifest = {
     agentId: ctx.agentId,
     phenotypeId: (profile && profile.phenotypeId) || phenotype.id || 'unknown',

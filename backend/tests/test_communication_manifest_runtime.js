@@ -13,11 +13,15 @@ async function run() {
         relation_type TEXT, weight REAL);`);
     await db.run('INSERT INTO agents (id, metadata_json) VALUES (?, ?)',
       ['agent-1', JSON.stringify({ phenotypeId: 'Specialist' })]);
+    await db.run('INSERT INTO agents (id, metadata_json) VALUES (?, ?)',
+      ['agent-3', JSON.stringify({ phenotypeId: 'Reconciler' })]);
     await db.run('INSERT INTO signal_subscriptions VALUES (?, ?)', ['agent-1', 'alerts']);
     const manifest = await buildManifest({ db, agentId: 'agent-1', phenotype: { id: 'Specialist' } });
     assert.equal(manifest.phenotypeId, 'Specialist');
     assert.ok(manifest.allowedChannels.includes('DIALOGUE'));
     assert.deepEqual(manifest.subscriptions, ['alerts']);
+    const fromDatabase = await buildManifest({ db, agentId: 'agent-3' });
+    assert.deepEqual(fromDatabase.allowedChannels, ['UNICAST'], 'database phenotype constrains channels when runtime context omits it');
     const bounded = await buildManifest({ db, agentId: 'agent-2', phenotype: { id: 'BoundedWorker' } });
     const denied = manifestService.enforceManifestChannel(bounded, {
       action: 'DIALOGUE', scope: 'SELF', recipients: [], reasonCodes: [], meta: {}

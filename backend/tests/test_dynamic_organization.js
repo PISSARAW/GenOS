@@ -30,8 +30,11 @@ async function run() {
   const db = await getDatabase(dbPath);
   try {
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-root','Root','orchestrator','running','orchestrator')");
-    await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('org-a','A','implementation','running','worker','org-root')");
+    await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,metadata_json) VALUES ('org-a','A','implementation','running','worker','org-root',?)",
+      [JSON.stringify({ phenotypeId: 'AdaptiveWorker' })]);
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('org-b','B','reviewer','running','worker','org-root')");
+    await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,metadata_json) VALUES ('org-c','C','reconciler','running','worker','org-root',?)",
+      [JSON.stringify({ phenotypeId: 'Reconciler' })]);
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-uninitialized','Uninitialized','orchestrator','running','orchestrator')");
     await assert.rejects(() => organization.publish(db, { orchestratorId: 'org-uninitialized',
       senderAgentId: 'org-a', kind: 'evidence', signalType: 'ligand', signalData: { event: 'unauthorized' } }),
@@ -47,7 +50,7 @@ async function run() {
     assert.equal(initial.version, 1);
     const memberState = await organization.getStateForMember(db, 'org-root', 'org-a');
     assert.equal(memberState.requester.id, 'org-a');
-    assert.deepEqual(new Set(memberState.members.map((member) => member.id)), new Set(['org-root', 'org-a', 'org-b']));
+    assert.deepEqual(new Set(memberState.members.map((member) => member.id)), new Set(['org-root', 'org-a', 'org-b', 'org-c']));
     const peerLink = memberState.communicationLinks.find((link) => link.agentId === 'org-b');
     assert.equal(peerLink.relationship, 'peer');
     assert.deepEqual(peerLink.communication, { mode: 'mediated', channel: 'orchestrator_handoff', viaAgentId: 'org-root' });
@@ -56,6 +59,9 @@ async function run() {
     assert.equal(unchanged.version, 1, 'reaffirming a topology must not create a fake transition');
     const indirect = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'test_passed' } });
     assert.equal(indirect.recipientAgentId, 'org-root', 'committee exchanges must pass through the orchestrator');
+    assert.equal(indirect.communicationPolicy.channel, 'SIGNAL');
+    await assert.rejects(() => organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-c', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'channel_denied' } }),
+      (error) => error.code === 'COMMUNICATION_POLICY_DENIED' && error.reasonCode === 'CHANNEL_NOT_ALLOWED');
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b' })).messages.length, 0);
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-root' })).messages.length, 1);
 

@@ -15,6 +15,7 @@ const { routeMessage, assertRoutingAuthority } = require('./organizationRouting'
 const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
 const messageReceipts = require('./communication/organizationMessageReceipts');
 const memberView = require('./communication/organizationMemberView');
+const organizationCommunicationPolicy = require('./organizationCommunicationPolicy');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
 // capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
 function signalRouter() {
@@ -285,6 +286,7 @@ async function publish(db, options = {}) {
   let signalInfo = resolveSignalPayload(content, signalType, signalData);
   assertRoutingAuthority({ organization: state.organization, policy: state.policy, sender, recipientAgentId, orchestratorId });
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
+  const communicationPolicy = await organizationCommunicationPolicy.enforceOrganizationCommunication({ db, sender, state, route, organization: state.organization, kind: normalizedKind });
   const gate = require('./morphogenesis/intraEpochExchangeGate').evaluate({
     orchestratorId, senderAgentId, recipientAgentId, kind: normalizedKind,
     signalType: signalInfo.signalType, signalData, payload, content });
@@ -323,6 +325,7 @@ async function publish(db, options = {}) {
   return {
     id: result.lastID, organization: state.organization, version: state.version,
     ...route, recipientAgentIds, kind: normalizedKind, signalType: signalInfo.signalType,
+    communicationPolicy,
     routing: { ...routing, changed, organization: changed ? proposal.organization : state.organization }
   };
 }
