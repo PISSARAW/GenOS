@@ -12,6 +12,7 @@
   "requiresBeliefAboutOther": true,
   "requiresAlternativeInterpretation": true,
   "requiresDelayedDecisionReceipt": true,
+  "requiresDialogueExtraction": true,
   "decisionPolicy": {
     "version": "evidence-majority-action-v1",
     "rules": [

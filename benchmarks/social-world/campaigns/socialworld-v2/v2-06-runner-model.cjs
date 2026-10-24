@@ -21,6 +21,51 @@ function sessionPrompts(event, speaker, transcript) {
   ].join('\n\n');
 }
 
+function sourceExtractionPrompt(input) {
+  return [
+    'Classify the peer response to the exact yes/no question using only the persisted dialogue turns.',
+    'Return JSON only with answer (yes, no, or unclear) and evidenceQuote (an exact substring from the peer utterance).',
+    'Do not use the protocol event label, expected polarity, or facts outside the dialogue.',
+    `Question: ${input.question}`,
+    `Persisted turns: ${JSON.stringify(input.turns)}`,
+    'If the peer response does not clearly answer the question, use answer="unclear" and quote the closest relevant substring or an empty string.',
+  ].join('\n\n');
+}
+
+function validateSocialExtraction(extraction, peerUtterance) {
+  const validAnswer = ['yes', 'no', 'unclear'].includes(extraction?.answer);
+  const quote = extraction?.evidenceQuote;
+  if (!validAnswer || typeof quote !== 'string' || (quote && !peerUtterance.includes(quote))) {
+    throw Object.assign(new Error('Dialogue extraction did not cite an exact peer-turn substring.'), { code: 'SOCIAL_DIALOGUE_EXTRACTION_INVALID' });
+  }
+  if (extraction.answer === 'unclear' || !quote) {
+    throw Object.assign(new Error('Peer dialogue did not answer the registered source question clearly.'), { code: 'SOCIAL_DIALOGUE_OUTCOME_UNCLEAR' });
+  }
+  return { answer: extraction.answer, evidenceQuote: quote };
+}
+
+function polarityFromAnswer(answer, polarityWhenAnswerYes) {
+  if (!['supports', 'contradicts'].includes(polarityWhenAnswerYes)) {
+    throw Object.assign(new Error('Protocol must declare the evidence polarity for a yes answer.'), { code: 'SOCIAL_DIALOGUE_POLARITY_MAP_INVALID' });
+  }
+  return answer === 'yes' ? polarityWhenAnswerYes : polarityWhenAnswerYes === 'supports' ? 'contradicts' : 'supports';
+}
+
+async function extractSocialObservation(input) {
+  const prompt = sourceExtractionPrompt({ question: input.event.question, turns: input.turns });
+  const generated = await generateJson(input.provider, { ...input.providerInput, seed: input.seed, prompt });
+  const peerTurn = input.turns.find((turn) => turn.speaker === input.peerAgentId);
+  const extraction = validateSocialExtraction(generated.parsed, peerTurn?.utterance || '');
+  const receipt = { invocationId: crypto.randomUUID(), promptHash: require('../../../../backend/src/services/biologicalIntegrity').digest(prompt),
+    outputHash: require('../../../../backend/src/services/biologicalIntegrity').digest(extraction), provider: generated.response.provider,
+    servedModel: generated.response.servedModel, provenance: 'genos-modelProvider-local-invocation',
+    provenanceSource: 'GenOS modelProvider local invocation' };
+  return { relationType: input.event.relationType,
+    polarity: polarityFromAnswer(extraction.answer, input.event.polarityWhenAnswerYes), statement: extraction.evidenceQuote,
+    polarityWhenAnswerYes: input.event.polarityWhenAnswerYes,
+    evidenceRefs: input.evidenceRefs, socialExtraction: { ...extraction, receipt } };
+}
+
 function sourceModelPrompt(input) {
   const memoryView = input.memories.map((memory) => ({ id: memory.id, statement: memory.statement }));
   const absence = memoryView.length ? '' : `No social memories are visible in this arm; state the relation as unknown and cite no hidden memory IDs. Explicitly include this verified absence receipt ID in unknowns: ${input.absenceReceiptId}.`;
@@ -110,8 +155,11 @@ async function runDialogueEvent(input) {
     modelTurnReceipts.push(receipt);
   }
   const refs = turns.map((turn) => `dialogue:${session.id}:turn:${turn.seq}`);
-  const socialObservation = { relationType: event.relationType, polarity: event.polarity,
-    statement: event.statement, evidenceRefs: refs };
+  const socialObservation = input.protocol.independentDialogueExtraction
+    ? await extractSocialObservation({ event, turns, provider, peerAgentId: pair.otherAgentId,
+      providerInput: { model, agentId: pair.subjectAgentId, organizationId: scope.organizationId, projectId: scope.projectId,
+        temperature: 0.2 }, seed: seedNumber * 1000 + input.eventIndex * 10 + 2, evidenceRefs: refs })
+    : { relationType: event.relationType, polarity: event.polarity, statement: event.statement, evidenceRefs: refs };
   const resolved = await dialogue.closeSession({ db, escalationId: session.id, artifactKind: 'ExperimentProposal',
     organizationId: scope.organizationId, projectId: scope.projectId,
     artifact: { summary: event.statement, evidenceRefs: refs, socialObservation, modelTurnReceipts } });
@@ -190,4 +238,4 @@ function allocateWorkDirectory(value, seed, attempt) {
 
 
 
-module.exports={runtimeVersion,sourceCommit,modelStatusLine,allocateWorkDirectory,sessionPrompts,sourceModelPrompt,decisionPrompt,parseJsonResponse,generateJson,turnReceipt,runDialogueEvent,recordSourceMemories,validateModelOutput,roleForArm,promptMemories,counterfactuals};
+module.exports={runtimeVersion,sourceCommit,modelStatusLine,allocateWorkDirectory,sessionPrompts,sourceExtractionPrompt,validateSocialExtraction,polarityFromAnswer,extractSocialObservation,sourceModelPrompt,decisionPrompt,parseJsonResponse,generateJson,turnReceipt,runDialogueEvent,recordSourceMemories,validateModelOutput,roleForArm,promptMemories,counterfactuals};

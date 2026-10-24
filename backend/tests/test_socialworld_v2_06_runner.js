@@ -81,3 +81,35 @@ test('V2-06 decision prompt uses only the supplied model, not raw memories', () 
   assert.match(prompt, /pre-registered evidence-to-action policy/);
   assert.match(prompt, /test-policy/);
 });
+
+test('V2-06 source extraction is anchored to a quote from the peer dialogue', () => {
+  const peerText = 'I completed the review and cited the source used.';
+  const prompt = runner.sourceExtractionPrompt({ question: 'Did the peer complete the review?',
+    turns: [{ speaker: 'peer', utterance: peerText }] });
+  assert.match(prompt, /only the persisted dialogue turns/);
+  assert.equal(prompt.includes('supports'), false);
+  assert.deepEqual(runner.validateSocialExtraction({ answer: 'yes', evidenceQuote: 'completed the review' }, peerText),
+    { answer: 'yes', evidenceQuote: 'completed the review' });
+  assert.equal(runner.polarityFromAnswer('yes', 'supports'), 'supports');
+  assert.equal(runner.polarityFromAnswer('no', 'supports'), 'contradicts');
+  assert.throws(() => runner.validateSocialExtraction({ answer: 'yes', evidenceQuote: 'invented quote' }, peerText),
+    { code: 'SOCIAL_DIALOGUE_EXTRACTION_INVALID' });
+});
+
+test('V2-06 extracted source memory uses the peer quote, not the protocol summary', async () => {
+  const quote = 'I completed the review and cited its source.'; let prompt = '';
+  const observation = await runner.extractSocialObservation({
+    provider: { generate: async (input) => {
+      prompt = input.prompt;
+      return { text: JSON.stringify({ answer: 'yes', evidenceQuote: quote }), provider: 'ollama', servedModel: 'qwen2.5:14b' };
+    } },
+    providerInput: { model: 'ollama://qwen2.5:14b' }, seed: 12, peerAgentId: 'peer',
+    event: { relationType: 'collaborator', question: 'Did the peer complete the review?',
+      statement: 'Harness supplied a source summary.', polarity: 'supports', polarityWhenAnswerYes: 'supports' },
+    turns: [{ speaker: 'subject', utterance: 'Are you done?' }, { speaker: 'peer', utterance: quote }], evidenceRefs: ['dialogue:session:turn:2'],
+  });
+  assert.equal(observation.statement, quote);
+  assert.equal(observation.polarity, 'supports');
+  assert.equal(prompt.includes('Harness supplied a source summary.'), false);
+  assert.equal(observation.socialExtraction.receipt.provenance, 'genos-modelProvider-local-invocation');
+});

@@ -61,6 +61,7 @@ function verifySourceRecord(source, state) {
   verifySourceMemory(source, state);
   verifySourceEpisodes(source, state);
   verifyTurnReplay(source, state);
+  verifySocialExtraction(source, state);
 }
 function verifySourceHashes(source, state) {
   const receipt = source.receipt; const replay = source.sourceEvent;
@@ -124,6 +125,50 @@ function verifyTurnReplay(source, state) {
     && new Set(receipts.map((receipt) => receipt.invocationId)).size === receipts.length && sameStrings(turnRefs, artifactRefs);
   if (!valid) { addError(state, 'Source provider-turn provenance/reference set is incomplete.'); return; }
   receipts.forEach((receipt) => verifyProviderTurn({ receipt, turns, declared, state }));
+}
+function verifySocialExtraction(source, state) {
+  if (!state.caseData.requiresDialogueExtraction) return;
+  if (!validSocialExtraction(extractionContext(source))) addError(state, 'Source social extraction is not bound to an exact persisted peer-turn quote and invocation receipt.');
+}
+function extractionContext(source) {
+  const observation = source.sourceEvent.artifact?.content?.socialObservation;
+  const extraction = observation?.socialExtraction; const receipt = extraction?.receipt;
+  const peerTurn = source.sourceEvent.turns?.find((turn) => turn.speaker === source.memory.otherAgentId);
+  return { source, observation, extraction, receipt, peerTurn };
+}
+function validSocialExtraction(input) {
+  return validExtractionQuote(input) && validExtractionPolarity(input) && validExtractionReceipt(input);
+}
+function validExtractionQuote({ observation, extraction, peerTurn }) {
+  return ['yes', 'no'].includes(extraction?.answer) && typeof extraction.evidenceQuote === 'string'
+    && extraction.evidenceQuote.length > 0 && peerTurn?.utterance.includes(extraction.evidenceQuote)
+    && observation.statement === extraction.evidenceQuote;
+}
+function validExtractionPolarity({ observation, extraction }) {
+  const expected = expectedExtractionPolarity(extraction?.answer, observation?.polarityWhenAnswerYes);
+  return Boolean(expected && observation.polarity === expected);
+}
+function expectedExtractionPolarity(answer, yesPolarity) {
+  if (answer === 'yes' && ['supports', 'contradicts'].includes(yesPolarity)) return yesPolarity;
+  if (answer === 'no' && yesPolarity === 'supports') return 'contradicts';
+  if (answer === 'no' && yesPolarity === 'contradicts') return 'supports';
+  return null;
+}
+function validExtractionReceipt({ source, extraction, receipt }) {
+  const content = { answer: extraction?.answer, evidenceQuote: extraction?.evidenceQuote };
+  return [sameExtractionReceipt(source, receipt), validExtractionProvenance(receipt),
+    validExtractionHashes(receipt, content)].every(Boolean);
+}
+function sameExtractionReceipt(source, receipt) {
+  return Boolean(receipt && stableJson(receipt) === stableJson(source.receipt.socialExtractionReceipt));
+}
+function validExtractionProvenance(receipt) {
+  return receipt?.provenance === 'genos-modelProvider-local-invocation'
+    && receipt.provenanceSource === 'GenOS modelProvider local invocation'
+    && /^[0-9a-f-]{36}$/i.test(receipt.invocationId || '') && receipt.provider && receipt.servedModel;
+}
+function validExtractionHashes(receipt, content) {
+  return /^[a-f0-9]{64}$/i.test(receipt?.promptHash || '') && receipt.outputHash === stableHash(content);
 }
 function verifyProviderTurn(input) {
   const { receipt, turns, declared, state } = input;
@@ -249,8 +294,9 @@ function verifyInvocationUniqueness(state) {
     if (artifact.kind === 'decision-receipt') ids.push(artifact.modelProvenance?.invocationId);
     if (artifact.kind === 'verified-social-memory-sources') {
       ids.push(...(artifact.sources || []).flatMap((source) => source.receipt?.invocationReceipts?.map((item) => item.invocationId) || []));
+      ids.push(...(artifact.sources || []).map((source) => source.receipt?.socialExtractionReceipt?.invocationId).filter(Boolean));
     }
   }
   if (ids.some((id) => !id) || new Set(ids).size !== ids.length) addError(state, 'Model/source invocation IDs must be present and unique across the seed.');
 }
-module.exports = { verifyCampaignSourceEvidence };
+module.exports = { verifyCampaignSourceEvidence, verifySocialExtraction, stableHash };

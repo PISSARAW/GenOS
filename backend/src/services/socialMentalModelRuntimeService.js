@@ -141,9 +141,11 @@ function validateEpisode(episode, context) {
 
 function createSourceReceipt(context) {
   const { session, scope, pair, memory, episodes, invocationReceipts } = context;
+  const socialExtractionReceipt = session.artifact.content.socialObservation.socialExtraction?.receipt || null;
   const source = { schema: 'genos.social-dialogue-memory-replay/v1', sessionId: session.id, scope,
     participants: pair, sessionHash: digest({ id: session.id, status: session.status, participants: session.participants }),
     turnsHash: digest(session.turns), artifactHash: digest(session.artifact), invocationReceipts,
+    socialExtractionReceipt,
     episodeIds: episodes.map((episode) => episode.id), episodeHashes: episodes.map((episode) => digest(episode)),
     memoryHash: digest(memory) };
   const receiptHash = digest(source);

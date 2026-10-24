@@ -3,6 +3,7 @@
   "campaignId": "socialworld-v2-06-r2",
   "scenario": "V2-06",
   "protocolVersion": "v2-06-experiences-r2-v1",
+  "independentDialogueExtraction": true,
   "minimumIndependentMemories": 4,
   "requiredPolarityCounts": { "supports": 3, "contradicts": 1 },
   "participants": {
