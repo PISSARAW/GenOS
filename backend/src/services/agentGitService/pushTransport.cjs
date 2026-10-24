@@ -20,23 +20,32 @@ async function assertRemoteGitUrl(rawUrl) {
 }
 
 async function performRemotePush(opts) {
-  const { req, remoteUrl, commit, state } = opts;
+  const { req, remoteUrl, commit, history, expectedRemoteObjectId } = opts;
   const remotePath = new URL('/api/lineage/agents/git/remote/push', remoteUrl).href;
   const response = await globalThis.fetch(remotePath, {
     method: 'POST',
     redirect: 'error',
     headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-    body: JSON.stringify({ ...req.body, objectId: commit.id, object: wireObject(commit), state })
+    body: JSON.stringify({ ...req.body, objectId: commit.id, object: wireObject(commit),
+      expectedRemoteObjectId, history })
   });
   if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
+  const receipt = await response.json();
+  if (!receipt.success || receipt.headObjectId !== commit.id) throw new Error('Remote did not acknowledge the pushed history.');
+  return receipt;
 }
 
 async function executeRemotePush(req, agentId, commit) {
   const remoteUrl = await assertRemoteGitUrl(req.body.remoteUrl);
   const db = await getDatabase();
-  const stored = await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', commit.id);
-  if (!stored) throw Object.assign(new Error('Pushed commit not found in local store.'), { code: 'COMMIT_NOT_FOUND' });
-  await performRemotePush({ req, remoteUrl: remoteUrl.href, commit, state: JSON.parse(stored.state_json) });
+  const remoteName = String(req.body?.remoteName || 'default');
+  const refName = String(req.body?.refName || 'main');
+  const sync = require('./remoteSync.cjs');
+  const history = await sync.exportHistory({ db, req, agentId, refName });
+  const trackingRef = sync.trackingName(remoteName, refName);
+  const tracked = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, trackingRef);
+  return performRemotePush({ req, remoteUrl: remoteUrl.href, commit, history,
+    expectedRemoteObjectId: tracked?.object_id || null });
 }
 
 async function resolvePushTip(ctx) {
@@ -73,9 +82,9 @@ async function recordPushReceipt(ctx) {
   try {
     await db.run('INSERT INTO agent_git_notes (id, object_id, agent_id, note_json, created_by) VALUES (?, ?, ?, ?, ?)', noteId, commitId, agentId, JSON.stringify(receipt), req.user?.username || 'agent-git');
   } catch (_) {}
-  try {
+  if (req.body?.remoteUrl) {
     await db.run('UPDATE agent_git_refs SET tracking_remote = ?, tracking_ref = ? WHERE agent_id = ? AND ref_name = ?', remoteName, refName, agentId, refName);
-  } catch (_) {}
+  }
 }
 
 module.exports = { assertRemoteGitUrl, performRemotePush, executeRemotePush, resolvePushTip, loadTipCommit, recordPushReceipt };

@@ -193,27 +193,21 @@ async function push(req) {
   await checkPushVersion(req, db, agentId);
   const tip = await resolvePushTip({ db, req, agentId, refName });
   const commit = tip.commit;
-  if (req.body?.remoteUrl) await executeRemotePush(req, agentId, commit);
+  if (req.body?.remoteUrl) {
+    await executeRemotePush(req, agentId, commit);
+    const trackingRef = require('./remoteSync.cjs').trackingName(remoteName, refName);
+    await updateRef({ db, req, agentId, refName: trackingRef, objectId: commit.id,
+      options: { action: 'push-acknowledged' } });
+  }
   await recordPushReceipt({ db, req, agentId, refName, remoteName, commitId: commit.id });
-  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 0, behind: 0 }, ...commit };
+  const tracked = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
+    agentId, require('./remoteSync.cjs').trackingName(remoteName, refName));
+  const tracking = await require('./remoteSync.cjs').divergence(db, commit.id, tracked?.object_id);
+  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking, ...commit };
 }
 
 async function fetch(req) {
-  const db = await getDatabase();
-  const remoteName = String(req.body?.remoteName || 'default').trim();
-  const scope = scopeSql(req, 'w');
-  const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
-  if (!req.body?.remoteUrl) return { success: true, operation: 'fetch', remoteName, objects };
-  const remoteUrl = await assertRemoteGitUrl(req.body.remoteUrl);
-  const fetchPath = new URL('/api/lineage/agents/git/remote/fetch', remoteUrl).href;
-  const response = await globalThis.fetch(fetchPath, {
-    method: 'POST',
-    redirect: 'error',
-    headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-    body: JSON.stringify({ ...req.body, remoteName })
-  });
-  if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
-  return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
+  return require('./remoteRoutes.cjs').fetch(req);
 }
 
 
@@ -238,6 +232,9 @@ async function checkRemoteParents(db, incoming, state) {
 }
 
 async function receiveRemote(req) {
+  if (req.body?.history) {
+    return require('./remoteSync.cjs').importHistory(await getDatabase(), req, req.body.history);
+  }
   const incoming = req.body?.object;
   const state = req.body?.state || null;
   const db = await getDatabase();
@@ -258,12 +255,7 @@ async function receiveRemote(req) {
 }
 
 async function pull(req) {
-  const db = await getDatabase();
-  const object = await getObject(db, req, req.body?.objectId);
-  if (!object || object.object_kind !== 'remote') return { success: false, error: 'Remote agent object not found.' };
-  const state = JSON.parse(object.state_json);
-  await applyState(db, req, req.body?.targetAgentId || object.agent_id, state, req.body?.sections);
-  return { success: true, operation: 'pull', objectId: object.id, stateHash: object.state_hash };
+  return require('./remoteRoutes.cjs').pull(req);
 }
 
 async function stash(req) { return { success: true, operation: 'stash', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'stash', refName: req.body?.refName || 'stash' })) }; }

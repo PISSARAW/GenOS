@@ -26,7 +26,7 @@ router.post('/agents/reset', requirePermission('workspace:write'), lineageContro
 router.post('/agents/cherry-pick', requirePermission('workspace:write'), lineageController.cherryPickAgentState);
 router.post('/agents/git/commit', requirePermission('workspace:write'), agentGitController.commit);
 router.post('/agents/git/push', requirePermission('workspace:write'), agentGitController.push);
-router.post('/agents/git/fetch', requirePermission('read'), agentGitController.fetch);
+router.post('/agents/git/fetch', requirePermission('workspace:write'), agentGitController.fetch);
 router.post('/agents/git/pull', requirePermission('workspace:write'), agentGitController.pull);
 router.post('/agents/git/stash', requirePermission('workspace:write'), agentGitController.stash);
 router.post('/agents/git/tag', requirePermission('workspace:write'), agentGitController.tag);
