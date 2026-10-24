@@ -101,6 +101,7 @@ function buildIntent(ctx) {
     domain: evidence.domain || 'general',
     requiresAction: ACTION_MAP[ctx.checkpoint] || false,
     semanticRefs: evidence.semanticRefs || [],
+    scope: scopeOf(ctx.scope),
     requestedAudience: Array.isArray(evidence.requestedAudience)
       ? [...new Set(evidence.requestedAudience.filter((id) => typeof id === 'string' && id.trim()))].slice(0, 50)
       : null,

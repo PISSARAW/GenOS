@@ -55,6 +55,14 @@ function run() {
     assert.equal(loaded.records.length, 4);
     assert.equal(auditCampaign(manifest(), loaded.records, root).status, 'paired');
 
+    writeJson(path.join(directory, 'v2-03-diagnostic.json'), {
+      ...report('V2-03', 'full'), campaignDisposition: 'diagnostic-pilot',
+      inputs: { processBoundaries: 3, durableDatabase: true }
+    });
+    const withoutDiagnosticPilot = readReportFiles(directory);
+    assert.equal(withoutDiagnosticPilot.errors.length, 0);
+    assert.equal(withoutDiagnosticPilot.records.length, 4);
+
     const missing = auditCampaign(manifest(), validRecords.slice(1), root);
     assert.match(missing.errors.join(' '), /missing arm/);
 

@@ -25,6 +25,7 @@
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
 - [ADR 0602 — Runner durable P3 pour les campagnes appariées](adr/0602-runner-durable-p3-campagnes-appariees.md) — reçus immuables, reprise idempotente, scellement shadow/holdout et adaptateurs de processus externes fail-closed.
+- [ADR 0739 — Dédupliquer durablement les envois sociaux après reprise](adr/0739-envois-idempotents-apres-reprise-sociale.md) — clé basée sur l'observation et son périmètre, déduplication transactionnelle et accusé durable distinct de la publication.
 - [ADR 0606 — Socle durable V2 de l’Ontogenèse](adr/0606-socle-durable-ontogenese.md) — journal d’opérations, registre d’artefacts, outbox et migration fail-closed.
 - [ADR 0607 — Reprise exhaustive et fail-closed de l’Ontogenèse](adr/0607-reprise-exhaustive-ontogenese.md) — réconciliation sous bail, reçus immuables et escalade des effets ambigus.
 - [ADR 0608 — Confiner l’Ontogenèse avec les Job Objects Windows](adr/0608-confiner-ontogenese-job-objects-windows.md) — création suspendue, limite mémoire du job, terminaison de l’arbre et échec fermé.

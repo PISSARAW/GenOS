@@ -209,10 +209,16 @@ function readReportFiles(reportDirectory) {
 function readReportFile(directory, filename, output) {
   const reportPath = path.join(directory, filename);
   try {
-    output.records.push({ report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), reportPath });
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    if (isDiagnosticPilot(report)) return;
+    output.records.push({ report, reportPath });
   } catch (error) {
     output.errors.push(`cannot read report ${filename}: ${error.message}`);
   }
+}
+
+function isDiagnosticPilot(report) {
+  return report?.scenario === 'V2-03' && report.campaignDisposition === 'diagnostic-pilot';
 }
 
 function main() {
@@ -239,4 +245,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { auditCampaign, expectedArms, readReportFiles, validateManifest };
+module.exports = { auditCampaign, expectedArms, readReportFiles, validateManifest, isDiagnosticPilot };

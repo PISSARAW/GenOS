@@ -1,8 +1,10 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const loop = require('../src/services/socialDevelopmentLoopService');
 const checkpoint = require('../src/services/communication/communicationCheckpointService');
+const episodes = require('../src/services/autobiographicalMemory/episodeStore');
 
 function input(overrides = {}) {
   return {
@@ -35,7 +37,8 @@ function adapters(log, overrides = {}) {
       assert.equal(request.model, 'ollama://qwen2.5:14b');
       assert.equal(request.temperature, 0);
       assert.ok(request.prompt.includes('episode-old'));
-      return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request', reasonCode: 'evidence-matched' } };
+      return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+        reasonCode: 'evidence-matched', memoryReferences: ['episode-old'] } };
     },
     communicate: async (_value, decision) => {
       log.push('rpe'); assert.equal(decision.recipientAgentId, 'agent-c');
@@ -73,7 +76,8 @@ async function testDisabledAndArbitrationBlocked() {
 async function testOutOfGraphProposalFailsClosed() {
   const log = [];
   const deps = adapters(log, { generate: async () => ({ structured: {
-    action: 'contact', recipientAgentId: 'agent-outside-scope', purpose: 'request', reasonCode: 'evidence-matched'
+    action: 'contact', recipientAgentId: 'agent-outside-scope', purpose: 'request',
+    reasonCode: 'evidence-matched', memoryReferences: []
   } }) });
   await assert.rejects(loop.process(input(), deps), /out-of-contract/);
   assert.deepEqual(log, ['agow']);
@@ -89,6 +93,80 @@ async function testOutcomeIsNotInferredFromDelivery() {
   assert.equal(result.learning.updated, false);
 }
 
+async function testInventedMemoryReferenceFailsClosed() {
+  const log = [];
+  const deps = adapters(log, { generate: async () => {
+    log.push('model');
+    return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+      reasonCode: 'evidence-matched', memoryReferences: ['invented-memory'] } };
+  } });
+  await assert.rejects(loop.process(input(), deps), /out-of-contract/);
+  assert.deepEqual(log, ['agow', 'model']);
+}
+
+async function testEmptyMemoriesPermitEmptyReferences() {
+  const log = [];
+  const deps = adapters(log, { memories: async () => [], generate: async () => ({ structured: {
+    action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+    reasonCode: 'evidence-matched', memoryReferences: []
+  } }) });
+  const result = await loop.process(input(), deps);
+  assert.deepEqual(result.decision.memoryReferences, []);
+  assert.equal(result.processed, true);
+}
+
+async function testDefaultMemoryReceivesDecisionAndReceipt() {
+  const log = [];
+  const originalRecord = episodes.recordEpisode;
+  let episodeInput;
+  const cycleInput = input();
+  episodes.recordEpisode = async (value, db) => {
+    episodeInput = { value, db };
+    return { id: 'episode-default-persistence' };
+  };
+  try {
+    const result = await loop.process(cycleInput, adapters(log, { remember: undefined }));
+    assert.equal(result.episodeId, 'episode-default-persistence');
+    assert.equal(episodeInput.value.action.selectedAction, 'request:agent-c');
+    assert.equal(episodeInput.value.outcome.status, 'delivered_unverified');
+    assert.equal(episodeInput.value.outcome.verified, false);
+    assert.deepEqual(episodeInput.value.decision.memoryReferences, ['episode-old']);
+    assert.deepEqual(result.decision.memoryReferences, ['episode-old']);
+    assert.equal(episodeInput.db, cycleInput.db);
+  } finally {
+    episodes.recordEpisode = originalRecord;
+  }
+}
+
+async function testPersistedModelAuditIsCompact() {
+  const log = [];
+  const persisted = [];
+  const deps = adapters(log, {
+    store: { claim: async () => ({ status: 'claimed', claimToken: 'claim-1' }),
+      complete: async (_db, claim) => persisted.push(claim.result), fail: async () => {} },
+    generate: async () => ({ structured: { action: 'contact', recipientAgentId: 'agent-c',
+      purpose: 'request', reasonCode: 'evidence-matched', memoryReferences: ['episode-old'] }, provider: 'ollama',
+    servedModel: 'qwen2.5:14b', text: 'FREEFORM_OUTPUT_SENTINEL',
+    usage: { prompt_tokens: 31, completion_tokens: 7, total_tokens: 38,
+      untrustedText: 'USAGE_TEXT_SENTINEL' }, tokenUsageMeasured: true })
+  });
+  const result = await loop.process(input(), deps);
+  const seed = crypto.createHash('sha256').update('17:agent-a:world-event-1').digest().readUInt32LE(0);
+  assert.equal(result.model, 'ollama://qwen2.5:14b');
+  assert.equal(result.servedModel, 'qwen2.5:14b');
+  assert.equal(result.modelSeed, seed);
+  assert.deepEqual(result.modelUsage, { provider: 'ollama', servedModel: 'qwen2.5:14b',
+    inputTokens: 31, outputTokens: 7, totalTokens: 38, measured: true });
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].modelSeed, seed);
+  assert.deepEqual(persisted[0].modelUsage, result.modelUsage);
+  const serialized = JSON.stringify(persisted[0]);
+  assert.equal(serialized.includes('FREEFORM_OUTPUT_SENTINEL'), false);
+  assert.equal(serialized.includes('USAGE_TEXT_SENTINEL'), false);
+  assert.equal(Object.hasOwn(persisted[0], 'prompt'), false);
+  assert.equal(Object.hasOwn(persisted[0], 'text'), false);
+}
+
 function testCheckpointHonorsModelRecipientAsHint() {
   const intent = checkpoint.buildIntent({ agentId: 'agent-a', checkpoint: 'NEW_EVIDENCE',
     evidence: { domain: 'bridge-repair', requestedAudience: ['agent-c', 'agent-c'], purpose: 'request' } });
@@ -101,6 +179,10 @@ async function main() {
   await testDisabledAndArbitrationBlocked();
   await testOutOfGraphProposalFailsClosed();
   await testOutcomeIsNotInferredFromDelivery();
+  await testInventedMemoryReferenceFailsClosed();
+  await testEmptyMemoriesPermitEmptyReferences();
+  await testDefaultMemoryReceivesDecisionAndReceipt();
+  await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();
   console.log('Social Development Loop causal handoff, arbitration, RPE audience, and evidence gates: PASS');
 }

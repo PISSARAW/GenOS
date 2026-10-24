@@ -16,13 +16,33 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function referenceExists(reference, reportDirectory, repositoryRoot) {
-  if (typeof reference !== 'string' || reference.trim() === '') return false;
-  const candidate = path.resolve(reportDirectory, reference);
-  const root = path.resolve(repositoryRoot);
-  return candidate === root || candidate.startsWith(`${root}${path.sep}`)
-    ? fs.existsSync(candidate)
-    : false;
+function hasTraversal(reference) {
+  return reference.split(/[\\/]/).includes('..');
+}
+
+function containedPath(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative);
+}
+
+function safeReference(reference) {
+  if (typeof reference !== 'string' || !reference.trim() || reference.includes('\0')) return false;
+  return !path.isAbsolute(reference) && !path.win32.isAbsolute(reference)
+    && !/^[a-zA-Z]:/.test(reference) && !hasTraversal(reference);
+}
+
+function referenceExists(reference, reportDirectory) {
+  if (!safeReference(reference)) return false;
+  try {
+    const root = fs.realpathSync(reportDirectory);
+    const candidate = path.resolve(root, reference);
+    if (!containedPath(root, candidate)) return false;
+    const resolved = fs.realpathSync(candidate);
+    return containedPath(root, resolved) && fs.statSync(resolved).isFile();
+  } catch (_) {
+    return false;
+  }
 }
 
 function validateFields(report) {
@@ -61,13 +81,13 @@ function validateTypes(report) {
   return [...validateStatusAndTiming(report), ...validateObjectFields(report), ...validateCollections(report)];
 }
 
-function validatePass(report, reportPath, repositoryRoot) {
+function validatePass(report, reportPath) {
   const errors = [];
   if (report.oracle.recalculable !== true) errors.push('pass requires a recalculable oracle');
   if (report.evidenceRefs.length === 0) errors.push('pass requires evidence references');
   const reportDirectory = path.dirname(path.resolve(reportPath));
   for (const reference of report.evidenceRefs) {
-    if (!referenceExists(reference, reportDirectory, repositoryRoot)) {
+    if (!referenceExists(reference, reportDirectory)) {
       errors.push(`evidence reference cannot be resolved: ${reference}`);
     }
   }
@@ -75,12 +95,12 @@ function validatePass(report, reportPath, repositoryRoot) {
   return errors;
 }
 
-function validateReport(report, reportPath, repositoryRoot) {
+function validateReport(report, reportPath) {
   if (!isPlainObject(report)) return ['report must be a JSON object'];
   const errors = [...validateFields(report), ...validateTypes(report)];
   if (report.status === 'pass' && Array.isArray(report.evidenceRefs)
     && isPlainObject(report.oracle) && Array.isArray(report.violations)) {
-    errors.push(...validatePass(report, reportPath, repositoryRoot));
+    errors.push(...validatePass(report, reportPath));
   }
   return errors;
 }
@@ -94,8 +114,7 @@ function main() {
   }
   try {
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    const repositoryRoot = path.resolve(__dirname, '../../../..');
-    const errors = validateReport(report, reportPath, repositoryRoot);
+    const errors = validateReport(report, reportPath);
     if (errors.length) {
       process.stderr.write(`${errors.map((error) => `- ${error}`).join('\n')}\n`);
       process.exitCode = 1;
