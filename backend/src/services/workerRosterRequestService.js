@@ -43,8 +43,18 @@ function typePolicy(source, task, assignments) {
   const mode = resolveTypeMode({ policy, source, listed, assignedKinds });
   const resolved = resolveKindList(listed.length ? listed : assignedKinds);
   const quotas = policy.quotas || policy.mix || {};
+  validateTypeSelection(mode, listed, assignedKinds, quotas);
   validateQuotas(quotas);
   return { mode, kinds: [...new Set(resolved)], quotas };
+}
+
+function validateTypeSelection(mode, listed, assignments, quotas) {
+  if (mode === 'mix' && Object.keys(quotas).length === 0) {
+    throw Object.assign(new Error('Worker type mix requires at least one registered kind quota.'), { code: 'WORKER_TYPE_POLICY_INVALID' });
+  }
+  if (['explicit', 'allowlist'].includes(mode) && !listed.length && !assignments.length) {
+    throw Object.assign(new Error(`Worker type policy '${mode}' requires at least one registered kind.`), { code: 'WORKER_TYPE_POLICY_INVALID' });
+  }
 }
 
 function isAllTypesRequest(raw, task) {

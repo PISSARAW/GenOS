@@ -45,6 +45,12 @@ assert.equal(new Set(allKinds.dispatchWorkers.map((worker) => worker.workerKind)
 assert.throws(() => rosterRequest.resolveWorkerRosterRequest({ worker_roster: {
   agent_count: 10, types: { mode: 'all_registered' }
 } }, ''), (error) => error.code === 'WORKER_TYPE_CARDINALITY_CONFLICT');
+assert.throws(() => rosterRequest.resolveWorkerRosterRequest({ worker_roster: {
+  types: { mode: 'explicit' }
+} }, ''), (error) => error.code === 'WORKER_TYPE_POLICY_INVALID');
+assert.throws(() => rosterRequest.resolveWorkerRosterRequest({ worker_roster: {
+  types: { mode: 'mix' }
+} }, ''), (error) => error.code === 'WORKER_TYPE_POLICY_INVALID');
 
 const explicit = buildAutonomyPlan(contract, { tokens: 120000 }, {
   mission: 'Prove the result.',
