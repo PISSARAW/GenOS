@@ -115,7 +115,11 @@ async function closeSession(input) {
     );
     const status = input.artifactKind === 'UNRESOLVED' ? 'unresolved' : 'resolved';
     await tx.run('UPDATE verbal_escalations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, session.id]);
-    return getSession({ db: tx, escalationId: session.id });
+    const resolved = await getSession({ db: tx, escalationId: session.id });
+    await require('./dialogueMemoryBridge').captureResolvedDialogue({ db: tx, session: resolved,
+      artifact: { kind: input.artifactKind, content: input.artifact || {} },
+      organizationId: input.organizationId, projectId: input.projectId });
+    return resolved;
   });
 }
 
