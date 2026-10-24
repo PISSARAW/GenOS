@@ -298,7 +298,7 @@ async function publish(db, options = {}) {
   const envelope = createOrganizationEnvelope({
     messageId: `orgmsg_${crypto.randomUUID()}`, senderAgentId, route, signalType: signalInfo.signalType,
     payload, scope: { orchestratorId, organizationId: scope.organizationId, projectId: scope.projectId, organizationVersion: state.version },
-    contentPayload: { content: signalInfo.content, payload, signalData: typeof signalData === 'string' ? { payload: signalData } : signalData }
+    contentPayload: organizationCommunicationPolicy.envelopePayload({ signalInfo, payload, communicationPolicy, signalData })
   });
   signalInfo = resolveSignalPayload(content, signalType, signalDataWithEnvelope(signalData, envelope));
   const result = await db.run(
@@ -306,7 +306,7 @@ async function publish(db, options = {}) {
       recipient_agent_id, channel, kind, content, payload_json, signal_type, signal_blob, delivery, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
-    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payloadWithEnvelope(payload, envelope)),
+    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payloadWithEnvelope({ ...payload, communicationPolicy }, envelope)),
     signalInfo.signalType, signalInfo.signalBlob, route.delivery,
     scope.organizationId, scope.projectId
   );

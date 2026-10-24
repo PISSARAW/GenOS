@@ -56,6 +56,10 @@ async function main() {
     assert.equal(pending.executed.grounding.satisfied, false);
     assert.equal(pending.executed.tokensUsed, 19);
     assert.equal(pending.executed.tokenCoverage, 'reported_lower_bound');
+    assert.equal(pending.outcome.executionConfirmed, true);
+    assert.equal(pending.outcome.deliveryConfirmed, true);
+    assert.equal(pending.decisionContext.intent.risk, 'high');
+    assert.ok(pending.decisionContext.agent.allowedChannels.includes('SIGNAL'));
     assert.deepEqual(pending.executed.participantUsage.map((part) =>
       [part.agentId, part.generationTokens, part.controlTokens]),
     [['alice', 15, null], ['bob', null, 4]]);
@@ -63,6 +67,7 @@ async function main() {
     const grounded = await runBlocker(db, 'team-grounded', 'verified_ack');
     assert.equal(grounded.executed.grounding.satisfied, true);
     assert.equal(grounded.executed.grounding.source, 'adapter_reported');
+    assert.equal(grounded.outcome.grounding.satisfied, true);
     assert.equal(metrics.getMetrics().tokensInput, 28);
     assert.equal(metrics.getMetrics().tokensOutput, 10);
 

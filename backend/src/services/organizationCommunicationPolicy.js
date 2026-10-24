@@ -30,20 +30,29 @@ function topologyOf(input) {
     version: input.state.version, communicationPolicy: input.state.policy };
 }
 
+function envelopePayload(input) {
+  return { content: input.signalInfo.content,
+    payload: { ...input.payload, communicationPolicy: input.communicationPolicy },
+    signalData: typeof input.signalData === 'string' ? { payload: input.signalData } : input.signalData };
+}
+
 async function enforceOrganizationCommunication(input) {
   const { db, sender, state, route, organization, kind } = input;
   const manifest = await manifestService.buildManifest({ db, agentId: sender.id });
   const intent = intentFor({ kind });
   const context = decisionContext.buildDecisionContext({ agentId: sender.id, intent, manifest,
-    topology: topologyOf({ state }), organization });
+    topology: topologyOf({ state }), organization,
+    relationships: manifest.relations.filter((relation) => relation.sourceAgentId === route.recipientAgentId
+      || relation.targetAgentId === route.recipientAgentId) });
   const decision = { action: channelFor(state), scope: scopeFor(route, state),
     recipients: route.recipientAgentId ? [route.recipientAgentId] : [], reasonCodes: [], meta: {} };
   const topologyGate = decisionContext.applyTopologyConstraints(context, decision, decision.action);
   if (!topologyGate.allowed) throw organizationError(topologyGate.reasonCode);
   const channelGate = manifestService.enforceManifestChannel(manifest, topologyGate.decision);
   if (!channelGate.allowed) throw organizationError('CHANNEL_NOT_ALLOWED');
-  return { topologyId: context.topology.topologyId, variantId: context.topology.variantId,
-    organizationVersion: state.version, channel: channelGate.channel, scope: decision.scope };
+  return { context, topologyId: context.topology.topologyId, variantId: context.topology.variantId,
+    organizationVersion: state.version, channel: channelGate.channel, scope: decision.scope,
+    decision: { action: decision.action, recipients: decision.recipients, reasonCodes: decision.reasonCodes } };
 }
 
-module.exports = { enforceOrganizationCommunication };
+module.exports = { enforceOrganizationCommunication, envelopePayload };

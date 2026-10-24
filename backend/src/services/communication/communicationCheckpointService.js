@@ -134,7 +134,7 @@ function shouldSkip(ctx, policy) {
   return !policy.has(ctx.checkpoint);
 }
 
-function buildReceipt(ctx, decision) {
+function buildReceipt(ctx, decision, decisionContext) {
   return {
     agentId: ctx.agentId,
     checkpoint: ctx.checkpoint,
@@ -144,10 +144,21 @@ function buildReceipt(ctx, decision) {
       recipients: decision.recipients || [],
       scope: decision.scope,
       encoding: decision.encoding,
-      reasonCodes: decision.reasonCodes || []
+      reasonCodes: decision.reasonCodes || [],
+      meta: decision.meta || {}
     },
+    decisionContext,
     meta: decision.meta || {},
     executed: null
+  };
+}
+
+function outcomeOf(executed) {
+  const grounding = executed && executed.grounding ? executed.grounding : null;
+  return {
+    executionConfirmed: Boolean(executed && (executed.executed || executed.published)),
+    deliveryConfirmed: Boolean(executed && executed.published),
+    grounding
   };
 }
 
@@ -241,19 +252,23 @@ async function evaluateCheckpoint(ctx) {
   }
   const manifest = await buildManifest(ctx);
   const intent = buildIntent(ctx);
-  const decisionContext = decisionContextService.buildDecisionContext({
+  const contextInput = {
     agentId: ctx.agentId, intent, manifest, topology: ctx.topology || ctx.topologySnapshot,
     topologyPolicy: ctx.topologyPolicy, variantId: ctx.variantId, organization: ctx.organization,
     relationships: ctx.relationships, scope: ctx.scope
-  });
+  };
   const input = buildPolicyInput(ctx, intent, manifest);
   const proposed = await decideCommunication(input);
+  const auditedContext = decisionContextService.buildDecisionContext({ ...contextInput,
+    relationships: proposed.meta?.relationshipRouting || contextInput.relationships });
+  const contextValidation = decisionContextService.validateDecisionContext(auditedContext);
+  if (!contextValidation.valid) throw new Error(`Invalid communication decision context: ${contextValidation.errors.join('; ')}`);
   const channel = decisionChannel(proposed);
-  const topologyGate = decisionContextService.applyTopologyConstraints(decisionContext, proposed, channel);
+  const topologyGate = decisionContextService.applyTopologyConstraints(auditedContext, proposed, channel);
   const channelGate = enforceManifestChannel(manifest, topologyGate.decision);
   const budgetGate = await enforceManifestBudget({ db: ctx.db, manifest, decision: channelGate.decision });
   const decision = budgetGate.decision;
-  const receipt = buildReceipt(ctx, decision);
+  const receipt = buildReceipt(ctx, decision, auditedContext);
   receipt.constraints = {
     topologyAllowed: topologyGate.allowed,
     topologyReason: topologyGate.reasonCode,
@@ -266,6 +281,7 @@ async function evaluateCheckpoint(ctx) {
     : decision.action === 'SILENCE'
     ? { executed: false, reason: 'SILENCE_DECISION' }
     : await executeSignal(decision, ctx);
+  receipt.outcome = outcomeOf(receipt.executed);
   storeReceipt(ctx.agentId, receipt);
   return receipt;
 }

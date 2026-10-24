@@ -60,6 +60,9 @@ async function run() {
     const indirect = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'test_passed' } });
     assert.equal(indirect.recipientAgentId, 'org-root', 'committee exchanges must pass through the orchestrator');
     assert.equal(indirect.communicationPolicy.channel, 'SIGNAL');
+    const delivered = (await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-root' })).messages[0];
+    assert.equal(delivered.payload.communicationPolicy.context.agent.agentId, 'org-a');
+    assert.equal(delivered.payload.communicationPolicy.organizationVersion, 1);
     await assert.rejects(() => organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-c', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'channel_denied' } }),
       (error) => error.code === 'COMMUNICATION_POLICY_DENIED' && error.reasonCode === 'CHANNEL_NOT_ALLOWED');
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b' })).messages.length, 0);
