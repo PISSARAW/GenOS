@@ -194,6 +194,7 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 | `POST /agents/git/epistemic-merge-preview` | prévisualiser une fusion de décisions et exposer les contradictions non résolues |
 | `POST /agents/git/topology-transition` | versionner une transition morphogénétique déclarée commise dans un reçu de télémétrie |
 | `POST /agents/git/bisect-probe` | sonder les invariants déterministes de chaque checkpoint sur un chemin causal |
+| `POST /agents/git/bisect-replay` | exécuter un module de test serveur dans un processus séparé pour chaque checkpoint vérifié |
 | `POST /agents/git/merge` | fusionner deux états (3-way DAG) |
 | `POST /agents/git/rebase` | rebaser un objet |
 | `POST /agents/git/push`, `/fetch`, `/pull` | répliquer et appliquer des objets distants |
@@ -205,6 +206,8 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 | `POST /agents/git/hook`, `/gc`, `/bisect`, `/merge-base` | politiques, maintenance et analyse |
 
 Les diffs cognitifs, sociaux et ontogénétiques vérifient le hash d’état, le tree et la signature avant comparaison. Le merge refuse les snapshots invalides et les divergences simultanées de relation entre agents. `bisect-probe` valide les invariants sauvegardés ; il ne relance pas un runtime d’agent ni des effets externes. Le benchmark concurrentiel exige des reçus produits par des adaptateurs réels et ne publie pas de classement en l’absence de ces preuves.
+
+`bisect-replay` accepte `goodObjectId`, `badObjectId`, `probeName` et des `fixtures` JSON. L’administrateur configure `GENOS_AGENT_GIT_REPLAY_PROBES` comme une table JSON de noms vers des chemins absolus de modules JavaScript de confiance. Chaque module exporte une fonction `async ({ state, fixtures, seed, now }) => ({ pass, evidence })`. Le serveur limite le chemin à 64 checkpoints, vérifie leurs signatures et leurs hashes, lance un processus par checkpoint avec un délai de cinq secondes, puis renvoie le premier échec et le hash des résultats. L’autorisation `experiment:run` est requise. Ce mécanisme réexécute les tests déclarés par le module, sans restaurer ni lancer le runtime complet de l’agent ; le module doit simuler ses propres effets externes.
 
 Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
 

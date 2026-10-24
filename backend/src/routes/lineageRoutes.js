@@ -42,6 +42,7 @@ router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitC
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
 router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
 router.post('/agents/git/bisect-probe', requirePermission('read'), agentGitController.bisectProbe);
+router.post('/agents/git/bisect-replay', requirePermission('experiment:run'), agentGitController.bisectReplay);
 router.post('/agents/git/log', requirePermission('read'), agentGitController.log);
 router.post('/agents/git/revert', requirePermission('workspace:write'), agentGitController.revert);
 router.post('/agents/git/rebase', requirePermission('workspace:write'), agentGitController.rebase);
