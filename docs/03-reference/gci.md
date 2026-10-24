@@ -24,6 +24,24 @@ Le mode Embedded empaquette l'artefact et le descripteur, signe leur contrat ave
 
 Le mode Managed recalcule l'autorité et les révocations, puis crée une délégation idempotente dans le service Ontogenesis existant. Il exige une responsabilité SHÉV déléguée et une capsule isolée. Il retourne un reçu de délégation; l'exécution et sa vérification restent dans le cycle Ontogenesis.
 
+## Export pilote : approbation d'exécution de stratégie
+
+Le descripteur `spec/gci/exports/promotion-gate-v1.json` publie une tranche bornée
+de `PROMOTION_GATE` : l'approbation d'un run de stratégie via
+`POST /api/execution-runs/{runId}/approve`. Le contrat exige une clé authentifiée
+avec `workspace:write`, les en-têtes de portée organisation/projet, un reçu
+d'approbation lié au digest courant et une signature HMAC-SHA256 récente. Le
+demandeur et le décideur doivent être distincts. Les refus d'authentification,
+de permission et de portée sont couverts par `backend/tests/test_promotion_gate_http.js`.
+
+La maturité `integrated` du descripteur s'applique uniquement à cette route et à
+son contrat; elle ne généralise pas à toutes les voies de promotion/fusion, qui
+restent `partiel` dans le registre produit. Une réponse `completed` signifie que
+le run a terminé; elle ne constitue pas une vérification indépendante et
+`epistemicState.promotable` reste faux. La découverte GCI expose le descripteur
+en lecture seule; elle ne donne pas au client GenOSWork le droit d'approuver un
+run. L'adaptateur Linked exige toujours un handler fourni par l'intégrateur.
+
 `POST /projects/:projectId/upgrades/plan` et `genos-gci upgrade --dry-run` comparent le lockfile courant aux exports actifs, résolvent les nouvelles dépendances et enregistrent une proposition idempotente. Les révisions doivent correspondre à l'installation courante. Les candidats et les plans `no_change` apparaissent dans l'état du projet. Un plan indique toujours qu'une vérification indépendante reste requise; il ne modifie pas l'installation et ne crée pas de PR.
 
 La CLI Node expose `discover`, `inspect` et `validate` localement, ainsi que `link`, `plan`, `adopt`, `status`, `revoke` et `upgrade --dry-run` via l'API. La commande `upgrade` exige `--manifest` et `--expected-revision`. Les commandes distantes exigent `GENOS_API_URL`, `GENOS_API_TOKEN`, `--organization` et `--project`. Elles utilisent les mêmes routes et contrôles d'autorité que les appels REST. La propagation automatique, la création de PR, les décisions accept/reject, l'exposition MCP et la vue Studio ne sont pas livrées.
