@@ -148,9 +148,12 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 reste en qualification. Sur `79bd08bff`, le run 1/3 a terminé en code 0
-avec 46 suites et 54 contrôles, en démarrant à 49,2 % de RAM libre. Les prochains
-runs doivent rester consécutifs sur le même arbre code/test; les commits qui
-ajoutent uniquement les reçus de campagne ne modifient pas cet arbre. Exiger
-trois codes 0 avant d'ouvrir G1. Les précédents échecs mémoire, timeout, checkout
-sale et manque d'espace restent consignés.
+G0 reste en qualification. Sur le même arbre code/test (`7de850a29`), le run
+1/3 a terminé en code 0 avec 46 suites et 54 contrôles, en démarrant à 49,2 %
+de RAM libre. Le run 2/3 a aussi terminé en code 0 avec 46 suites et 54
+contrôles, mais à 34,2 % de RAM libre : réussite technique, échec du seuil
+d'admission, compteur G0 remis à zéro. Les commits de reçu ne modifient pas
+l'arbre code/test. Attendre une marge suffisante au-dessus de 35 % avant une
+nouvelle tentative et exiger trois succès consécutifs qualifiants avant G1.
+Les précédents échecs mémoire, timeout, checkout sale et manque d'espace restent
+consignés.
