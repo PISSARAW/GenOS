@@ -1,4 +1,10 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('155-gci-evolution', 'Persist GCI revocations and immutable upgrade candidates', async (db) => {
+    await require('./migrateGciEvolution').migrateGciEvolution(db);
+  }),
+  createMigrationRunner('154-gci-capability-inheritance', 'Persist scoped GCI exports, project bindings, installations, and events', async (db) => {
+    await require('./migrateGciCapabilityInheritance').migrateGciCapabilityInheritance(db);
+  }),
   createMigrationRunner('153-social-development-loop', 'Persist idempotent scoped social development decisions and recovery leases', async (db) => {
     await require('./migrateSocialDevelopmentLoop').migrateSocialDevelopmentLoop(db);
   }),

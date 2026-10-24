@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.dev/spec/gci/lockfile.schema.json",
+  "title": "GenOS GCI resolved lockfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "projectId", "environment", "resolvedAt", "graphDigest", "capabilities"],
+  "properties": {
+    "schema": { "const": "genos.gci.lockfile/v1" },
+    "projectId": { "type": "string" },
+    "environment": { "type": "string" },
+    "resolvedAt": { "type": "string", "format": "date-time" },
+    "graphDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "capabilities": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["capabilityId", "version", "implementationDigest", "provider", "mode", "effectiveAuthority", "dependencies"], "properties": { "capabilityId": { "type": "string" }, "version": { "type": "string" }, "implementationDigest": { "type": "string" }, "provider": { "type": "string" }, "mode": { "enum": ["linked", "embedded", "managed"] }, "effectiveAuthority": { "type": "array", "items": { "type": "string" } }, "dependencies": { "type": "array", "items": { "type": "string" } } } } }
+  }
+}
