@@ -17,16 +17,36 @@ function validReport(evidencePath) {
 }
 
 function run() {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'socialworld-v2-'));
-  const evidencePath = path.join(directory, 'receipt.json');
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'socialworld-v2-'));
+  const repositoryRoot = path.join(temporaryRoot, 'repository');
+  const reportDirectory = path.join(temporaryRoot, 'external-reports');
+  const outsideDirectory = path.join(temporaryRoot, 'outside');
+  fs.mkdirSync(repositoryRoot);
+  fs.mkdirSync(reportDirectory);
+  fs.mkdirSync(outsideDirectory);
+  const evidencePath = path.join(reportDirectory, 'receipt.json');
+  const outsideEvidence = path.join(outsideDirectory, 'receipt.json');
   fs.writeFileSync(evidencePath, '{}');
-  const repositoryRoot = directory;
-  const reportPath = path.join(directory, 'report.json');
+  fs.writeFileSync(outsideEvidence, '{}');
+  const reportPath = path.join(reportDirectory, 'report.json');
   assert.deepEqual(validateReport(validReport('receipt.json'), reportPath, repositoryRoot), []);
-  assert.match(validateReport({ ...validReport('missing.json') }, reportPath, repositoryRoot).join(' '), /cannot be resolved/);
+  assert.match(validateReport(validReport('missing.json'), reportPath, repositoryRoot).join(' '), /cannot be resolved/);
+  assert.match(validateReport(validReport('../outside/receipt.json'), reportPath, repositoryRoot).join(' '), /cannot be resolved/);
+  assert.match(validateReport(validReport(outsideEvidence), reportPath, repositoryRoot).join(' '), /cannot be resolved/);
   assert.match(validateReport({ ...validReport('receipt.json'), oracle: { recalculable: false } }, reportPath, repositoryRoot).join(' '), /recalculable oracle/);
-  assert.match(validateReport({ ...validReport('receipt.json'), status: 'unknown' }, reportPath, repositoryRoot).join(' '), /status must be/);
-  fs.rmSync(directory, { recursive: true, force: true });
+  assert.match(validateReport({ ...validReport('receipt.json'), status: 'unknown' }, reportPath, repositoryRoot).join(' '), /status must/);
+  assertRejectsEscapingSymlink(reportDirectory, outsideDirectory, reportPath);
+  fs.rmSync(temporaryRoot, { recursive: true, force: true });
+}
+
+function assertRejectsEscapingSymlink(reportDirectory, outsideDirectory, reportPath) {
+  const link = path.join(reportDirectory, 'outside-link');
+  try { fs.symlinkSync(outsideDirectory, link, 'junction'); }
+  catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) return;
+    throw error;
+  }
+  assert.match(validateReport(validReport('outside-link/receipt.json'), reportPath).join(' '), /cannot be resolved/);
 }
 
 run();
