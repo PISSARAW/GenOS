@@ -12,6 +12,7 @@ const { persistUpgradeCandidate } = require('../services/capabilityInheritance/e
 const { parseProjectManifest } = require('../services/capabilityInheritance/binding/projectManifestService');
 const { invokeLinkedCapability } = require('../services/capabilityInheritance/adapters/linkedAdapter');
 const { createPromotionGateHandlers } = require('../services/capabilityInheritance/adapters/promotionGateHandler');
+const { issueHumanApprovalProof } = require('../services/capabilityInheritance/humanApprovalProofService');
 const binding = require('../services/capabilityInheritance/binding/projectBindingService');
 
 function createCapabilityInheritanceController(deps = {}) {
@@ -35,6 +36,7 @@ function createControllerHandlers(context) {
     adopt: (req, res, next) => respond({ req, res, next, action: () => adoptAction(context, req) }),
     status: (req, res, next) => respond({ req, res, next, action: () => statusAction(context, req) }),
     invoke: (req, res, next) => respond({ req, res, next, action: () => invokeAction(context, req) }),
+    approvalProof: (req, res, next) => respond({ req, res, next, action: () => approvalProofAction(context, req) }),
     revoke: (req, res, next) => respond({ req, res, next, action: () => revokeAction(context, req) }),
     upgrade: (req, res, next) => respond({ req, res, next, action: () => upgradeAction(context, req) })
   };
@@ -79,6 +81,21 @@ async function invokeAction(context, req) {
   return context.invoke({ db, ...scope, ...body,
     getProjectAuthority: async (input) => authorityForInvocation({ ...input, req, scope, authorize: context.authorize }),
     handlers: context.handlers(req) });
+}
+
+async function approvalProofAction(context, req) {
+  const scope = requestScope(req, req.params.projectId);
+  const body = approvalProofBody(req.body);
+  return issueHumanApprovalProof({ db: await context.dbProvider(), ...scope, runId: body.runId,
+    payloadHash: body.payloadHash, decision: body.decision, user: req.user });
+}
+
+function approvalProofBody(body) {
+  if (!body || typeof body.runId !== 'string' || !body.runId
+      || typeof body.payloadHash !== 'string' || typeof body.decision !== 'string') {
+    throw gciError('GCI_INVALID_APPROVAL_PROOF_REQUEST', 'runId, payloadHash, and decision are required');
+  }
+  return { runId: body.runId, payloadHash: body.payloadHash, decision: body.decision };
 }
 
 function invocationBody(body) {

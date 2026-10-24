@@ -17,7 +17,6 @@ const express = require('express');
 const { requireAuthentication } = require('../src/middleware/auth');
 const gciRoutes = require('../src/routes/capabilityInheritanceRoutes');
 const { errorHandler } = require('../src/middleware/errorHandler');
-const signatureService = require('../src/services/promotionSignatureService');
 const { closeDatabase } = require('../src/db');
 const { publishExport } = require('../src/services/capabilityInheritance/catalog/exportRegistryStore');
 const { getAllConcepts } = require('../src/services/capabilityGraphService');
@@ -31,11 +30,13 @@ async function main() {
     const fixture = await prepareFixture(root);
     await publishExport({ db: fixture.db, descriptor, capabilityGraph: getAllConcepts() });
     await seedCredentials(fixture.db);
+    await seedReviewer(fixture.db);
     await seedCapabilityPolicy(fixture.db);
     const address = await listen(server);
     const manifest = testManifest();
     await assertLifecycle(address, manifest);
-    await assertInvocation(address, fixture);
+    const proof = await issueApprovalProof(address, fixture);
+    await assertInvocation(address, fixture, proof);
     await assertAuthorizationBoundaries(address, fixture);
     console.log('GCI PROMOTION_GATE Linked HTTP end-to-end: ok');
   } finally {
@@ -66,6 +67,19 @@ async function seedCredentials(db) {
   await addCredential({ db, id: 'gci-ungranted', token: 'gci-ungranted-token',
     permissions: ['gci:read', 'gci:invoke'] });
   await addCredential({ db, id: 'gci-reader', token: 'gci-reader-token', permissions: ['gci:read'] });
+}
+
+async function seedReviewer(db) {
+  const token = 'gci-human-reviewer-session';
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  await db.run(`INSERT INTO sessions (id, token_hash, role, username, expires_at)
+    VALUES (?, ?, 'operator', 'gci-human-reviewer', datetime('now', '+1 day'))`, 'gci-human-session', hash);
+  await db.run(`INSERT INTO project_memberships (principal_id, project_id, role)
+    VALUES ('gci-human-reviewer', 'gci-e2e-project', 'member')`);
+  const policy = { effect: 'allow', actions: ['gci:human-approve'], subjects: { ids: ['gci-human-reviewer'] } };
+  await db.run(`INSERT INTO iam_policies (id, name, policy_json, organization_id, project_id)
+    VALUES (?, ?, ?, ?, ?)`, 'gci-human-reviewer-policy', 'Test-only human approval proof issuance',
+  JSON.stringify(policy), 'gci-e2e-org', 'gci-e2e-project');
 }
 
 async function addCredential(input) {
@@ -108,13 +122,27 @@ async function assertLifecycle(address, manifest) {
   assert.equal(status.body.installations[0].status, 'active');
 }
 
-async function assertInvocation(address, fixture) {
-  const timestamp = Date.now();
-  const signerId = 'morph-crypt-test-reviewer';
-  const proof = { ...fixture.options.humanApprovalReceipt, approverId: signerId };
-  const args = { runId: fixture.run.id, signerId, timestamp, signature: signatureService.generateSignature({
-    runId: fixture.run.id, timestamp, signerId, payloadHash: proof.payloadHash
-  }), humanApprovalReceipt: proof, report: fixture.options.report };
+async function issueApprovalProof(address, fixture) {
+  const payloadHash = fixture.options.humanApprovalReceipt.payloadHash;
+  const denied = await request({ address, route: '/projects/gci-e2e-project/approval-proofs', token: 'gci-pilot-token',
+    method: 'POST', body: { runId: fixture.run.id, decision: 'approve', payloadHash } });
+  assert.equal(denied.status, 403);
+  const stale = await request({ address, route: '/projects/gci-e2e-project/approval-proofs', token: 'gci-human-reviewer-session',
+    method: 'POST', body: { runId: fixture.run.id, decision: 'approve', payloadHash: 'c'.repeat(64) } });
+  assert.equal(stale.status, 409, JSON.stringify(stale.body));
+  const response = await request({ address, route: '/projects/gci-e2e-project/approval-proofs', token: 'gci-human-reviewer-session',
+    method: 'POST', body: { runId: fixture.run.id, decision: 'approve', payloadHash } });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.proof.signerId, 'gci-human-reviewer');
+  assert.equal(response.body.proof.humanApprovalReceipt.payloadHash, payloadHash);
+  assert.ok(Date.parse(response.body.expiresAt) > Date.now());
+  const row = await fixture.db.get(`SELECT event_json FROM gci_event_ledger WHERE event_type = 'human_approval_proof_issued'`);
+  assert.equal(JSON.parse(row.event_json).runId, fixture.run.id);
+  return response.body.proof;
+}
+
+async function assertInvocation(address, fixture, proof) {
+  const args = { ...proof, report: fixture.options.report };
   const response = await request({ address, route: '/projects/gci-e2e-project/invocations', token: 'gci-pilot-token',
     method: 'POST', body: { environment: 'morph-crypt-e2e', capabilityId: 'PROMOTION_GATE', args } });
   assert.equal(response.status, 200, JSON.stringify(response.body));

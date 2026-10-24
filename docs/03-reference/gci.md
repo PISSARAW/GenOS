@@ -46,4 +46,14 @@ Il exige toujours la signature et le reçu d'approbation humaine du contrat.
 
 `POST /projects/:projectId/upgrades/plan` et `genos-gci upgrade --dry-run` comparent le lockfile courant aux exports actifs, résolvent les nouvelles dépendances et enregistrent une proposition idempotente. Les révisions doivent correspondre à l'installation courante. Les candidats et les plans `no_change` apparaissent dans l'état du projet. Un plan indique toujours qu'une vérification indépendante reste requise; il ne modifie pas l'installation et ne crée pas de PR.
 
+Pour le pilote `PROMOTION_GATE`, un relecteur peut émettre une preuve avec
+`POST /projects/:projectId/approval-proofs`, authentifié par une session GenOS
+interactive et une politique IAM `gci:human-approve` ciblée. La requête fournit `runId`, `decision: "approve"`
+et le `payloadHash` examiné. Le serveur recalcule l'empreinte, vérifie le run en
+attente dans le projet et refuse l'auto-approbation. Il retourne une preuve HMAC
+valable cinq minutes sans exposer le secret; l'émission est journalisée. Cette
+route n'approuve pas le run elle-même : le consommateur doit ensuite invoquer le
+handler Linked avec cette preuve. Les clés d'accès machine sont refusées par la
+route d'émission.
+
 La CLI Node expose `discover`, `inspect` et `validate` localement, ainsi que `link`, `plan`, `adopt`, `status`, `revoke` et `upgrade --dry-run` via l'API. La commande `upgrade` exige `--manifest` et `--expected-revision`. Les commandes distantes exigent `GENOS_API_URL`, `GENOS_API_TOKEN`, `--organization` et `--project`. Elles utilisent les mêmes routes et contrôles d'autorité que les appels REST. La propagation automatique, la création de PR, les décisions accept/reject, l'exposition MCP et la vue Studio ne sont pas livrées.
