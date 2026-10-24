@@ -1,0 +1,24 @@
+{
+  "caseId": "v2-06-collaboration-after-disagreement-r2",
+  "version": 2,
+  "expectedActions": {
+    "baseline": "propose-collaboration",
+    "masked": "ask-for-update",
+    "counterfactual": "wait-for-reconciliation"
+  },
+  "requiredSharedFactors": ["contextHash", "budgetHash", "permissionHash"],
+  "minimumIndependentMemories": 4,
+  "requiredPolarityCounts": { "supports": 3, "contradicts": 1 },
+  "requiresBeliefAboutOther": true,
+  "requiresAlternativeInterpretation": true,
+  "requiresDelayedDecisionReceipt": true,
+  "requiresDialogueExtraction": true,
+  "decisionPolicy": {
+    "version": "evidence-majority-action-v1",
+    "rules": [
+      { "action": "propose-collaboration", "when": "verified supporting source IDs outnumber contradicting source IDs" },
+      { "action": "wait-for-reconciliation", "when": "verified contradicting source IDs outnumber supporting source IDs" },
+      { "action": "ask-for-update", "when": "no verified source IDs are available or the evidence counts are tied" }
+    ]
+  }
+}
