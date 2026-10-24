@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 async function commitFromIndex(req, options = {}) {
   const { getIndex, setHeadRef } = require('./headIndex.cjs');

@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 async function compareTrajectories(req) {
   const db = await getDatabase();

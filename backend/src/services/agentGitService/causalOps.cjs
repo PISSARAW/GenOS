@@ -1,7 +1,7 @@
 'use strict';
 
 const { getCommit, collectAncestors } = require('./commitGraph');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { treeHash, canonicalize } = require('./canonical');
 const crypto = require('crypto');
 const { json, verifyObjectSignatureLocal, verifySingleObject } = require('./verifyHelpers.cjs');

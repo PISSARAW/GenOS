@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 
 function scopeSql(req, alias = 'w') {

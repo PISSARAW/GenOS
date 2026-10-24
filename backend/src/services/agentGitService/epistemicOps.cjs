@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { identityOf } = require('./sectionIdentity.cjs');
 
 async function epistemicMerge(req) {

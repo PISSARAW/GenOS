@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const head = require('./headIndex.cjs');
 
 async function stage(req, opts) {

@@ -18,7 +18,7 @@ function bodyValue(req, key) {
 }
 
 async function mergeBase(req) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const leftId = bodyValue(req, 'leftObjectId');
   const rightId = bodyValue(req, 'rightObjectId');
   if (!leftId || !rightId) return { success: false, error: 'Both leftObjectId and rightObjectId are required.' };
@@ -30,7 +30,7 @@ async function mergeBase(req) {
 }
 
 async function reset(req) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const objectId = bodyValue(req, 'objectId');
   const mode = bodyValue(req, 'mode') || 'mixed';
   if (!['soft', 'mixed', 'hard'].includes(mode)) return { success: false, error: 'Mode must be soft, mixed, or hard.' };
@@ -60,7 +60,7 @@ async function loadAgentForDag(db, req, agentId) {
 }
 
 async function replaceState(req, { targetAgentId, state, sections }, options = {}) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const target = await loadAgentForDag(db, req, targetAgentId);
   if (!target) throw Object.assign(new Error('Target agent not available.'), { code: 'AGENT_NOT_FOUND' });
   const ctx = { db, req, targetAgentId };
@@ -134,7 +134,7 @@ function buildIdMap(items, section) {
 }
 
 async function applyPatch(req, { targetAgentId, patch, sections }) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const { collectState } = require('./index');
   const current = await collectState(db, req, targetAgentId);
   const newState = { ...current };

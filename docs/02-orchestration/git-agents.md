@@ -211,6 +211,8 @@ Les diffs cognitifs, sociaux et ontogénétiques vérifient le hash d’état, l
 
 Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
 
+Avec `GENOS_AGENT_GIT_DELTA_STORAGE=true`, les nouveaux objets AgentGit stockent les sections modifiées relativement à leur premier parent lorsque le delta économise au moins 20 % de la taille JSON. Un snapshot complet est écrit au plus tard après huit deltas. La lecture reconstruit l’état, vérifie son hash, puis fournit le JSON habituel aux opérations AgentGit. Les anciens objets complets restent lisibles ; désactiver l’option arrête les nouvelles écritures en delta sans empêcher la lecture des deltas existants.
+
 Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
 ## 8. Processus d’exécution et de validation
@@ -272,7 +274,7 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 
 ### Limites d’implémentation
 
-- Un commit agentique stocke un snapshot JSON complet ; il n’utilise pas de deltas Git.
+- Le stockage par deltas est optionnel et porte sur les sections JSON au premier parent ; il ne compresse pas les blobs de workspace comme Git.
 - `agentGitService` ne crée pas de worktree et ne versionne pas les fichiers du dépôt.
 - La signature est vérifiée avec la configuration de clé du serveur ; il n’y a pas de négociation d’algorithme par objet.
 - `push` et `fetch` distants utilisent HTTP ; ils ne sont pas un transport Git natif.

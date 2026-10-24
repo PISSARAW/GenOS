@@ -7,7 +7,7 @@ const { updateRef } = require('./refs');
 const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
 const { mergeEvents, mergeChildrenGoverned } = require('./mergeDrivers.cjs');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { verifyMergeEvidence } = require('./verifiedMerge.cjs');
 
 function scopeSql(req, alias = 'w') {
@@ -131,7 +131,7 @@ async function commitMergedState(ctx) {
   // Transaction commune : remplacement d'état + création du commit de fusion.
   // L'un ou l'autre échoue -> rollback complet, pas d'état actif sans commit
   // (et pas de commit sans état actif).
-  return require('../../db').withTransaction(db, async () => {
+  return require('./agentGitDb.cjs').withTransaction(db, async () => {
     const result = await replaceState(req, {
       targetAgentId,
       state: merged.storeState,

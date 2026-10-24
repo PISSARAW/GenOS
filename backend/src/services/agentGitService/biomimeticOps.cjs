@@ -3,7 +3,7 @@
 const { getCommit } = require('./commitGraph');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { computePatch, applyOperationToState } = require('./dagOperations');
 const { verifyObjectSignatureLocal } = require('./verifyHelpers.cjs');
 

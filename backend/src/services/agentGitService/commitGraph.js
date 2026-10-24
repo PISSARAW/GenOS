@@ -1,8 +1,9 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 async function getCommit(db, commitId) {
+  db = require('./agentGitDb.cjs').wrap(db);
   const obj = await db.get('SELECT * FROM agent_git_objects WHERE id = ?', commitId);
   if (!obj) return null;
   const parents = await db.all(

@@ -17,7 +17,7 @@ const { computePatch } = require('./dagOperations');
 const { applyOperationToState } = require('./dagOperations');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };

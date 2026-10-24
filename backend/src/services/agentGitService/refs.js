@@ -1,6 +1,6 @@
 async function updateRef({ db, req, agentId, refName, objectId, options = {} }) {
   if (options.inTransaction === true) return updateRefWithinTransaction({ db, req, agentId, refName, objectId, options });
-  return require('../../db').withTransaction(db, () => updateRefWithinTransaction({ db, req, agentId, refName, objectId, options }));
+  return require('./agentGitDb.cjs').withTransaction(db, () => updateRefWithinTransaction({ db, req, agentId, refName, objectId, options }));
 }
 
 async function updateRefWithinTransaction({ db, req, agentId, refName, objectId, options }) {

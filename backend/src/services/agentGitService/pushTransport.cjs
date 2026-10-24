@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { wireObject } = require('./wireFormat.cjs');
 

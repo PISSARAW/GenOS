@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { buildCausalPath } = require('./bisect.cjs');
 const { verifySource } = require('./verifiedMerge.cjs');
 const { runProbe, configuredProbe } = require('./replayProbeRunner.cjs');

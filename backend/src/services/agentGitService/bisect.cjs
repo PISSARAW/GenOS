@@ -1,7 +1,7 @@
 'use strict';
 
 const { getCommit, collectAncestors } = require('./commitGraph');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 async function bisect(req) {
   const db = await getDatabase();

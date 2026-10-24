@@ -1,6 +1,6 @@
 'use strict';
 
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { DEFINITIONS } = require('../morphogenesis/registry/topologyRegistry');
 
 async function recordTopologyTransition(req) {
