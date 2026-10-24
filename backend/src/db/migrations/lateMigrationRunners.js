@@ -197,4 +197,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('149-ontogenesis-daemon-stewardship', 'Persist bounded Daemon findings as Ontogenesis backlog proposals', async (db) => {
     await require('./migrateOntogenesisDaemonStewardship').migrateOntogenesisDaemonStewardship(db);
   }),
+  createMigrationRunner('152-social-mental-models', 'Persist immutable, scoped and source-linked social mental model snapshots', async (db) => {
+    await require('./migrateSocialMentalModels').migrateSocialMentalModels(db);
+  }),
 ];
