@@ -73,6 +73,8 @@ async function normalIntegration(db, root) {
   await assert.rejects(() => integrateCandidate(db, ctx, run), /autre-mission/);
   assert.equal(fences, 1);
   assert.equal(await integration.currentSha(git, run.worktree), before);
+  const failedStatus = await git.run(['status', '--porcelain=v1', '-z', '--untracked-files=all'], run.worktree);
+  assert.doesNotThrow(() => workspaces.assertCleanIntegration(failedStatus.stdout));
   fs.writeFileSync(path.join(candidate, OBSERVATION_FILE), JSON.stringify(artifact));
   ctx.fence = async () => {};
   const outcome = await integrateCandidate(db, ctx, run);
