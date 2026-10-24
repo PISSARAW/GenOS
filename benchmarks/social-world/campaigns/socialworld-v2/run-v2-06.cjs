@@ -73,7 +73,8 @@ async function intervention({ db, context, arm, memories }) {
   const modes = { 'genos-full': 'baseline', 'genos-social-memory-ablated': 'mask-social-memories',
     'genos-social-memory-counterfactual': 'counterfactual-social-memories' };
   const mode = modes[arm]; const selectedMemoryIds = mode === 'baseline' ? [] : memories.map((m) => m.id);
-  const replacements = mode === 'counterfactual-social-memories' ? counterfactuals(memories, context.protocol) : undefined;
+  const replacements = mode === 'counterfactual-social-memories'
+    ? counterfactuals(memories, context.protocol, context.sourceEventKeyByMemoryId) : undefined;
   if (!mode) return { beforeMemories: context.entries, afterMemories: context.entries, memories, artifact: null, receipt: null };
   return runtime.createPersistedSocialMemoryIntervention(db, { ...context.scope, ...context.pair,
     interventionId: `${context.seed}-${arm}-${context.attempt}`, arm, seed: context.seed,
@@ -184,6 +185,7 @@ async function execute(c) {
     const runtime = require('../../../../backend/src/services/socialMentalModelRuntimeService');
     const loaded = await runtime.loadVerifiedSocialMemories(db, { ...c.scope, ...c.pair, minimumIndependent: 4 });
     c.memories = loaded.socialMemories; c.entries = loaded.memories; c.results = {};
+    c.sourceEventKeyByMemoryId = new Map(sources.map((source) => [source.memoryId, source.eventKey]));
     const authority = require('../../../../backend/src/services/socialAuthorityCheckRuntimeService');
     const checkId = `socialworld-v2-06:${c.seed}:${c.attempt}:${crypto.randomUUID()}`;
     await authority.beginSocialAuthorityCheck(db, { checkId, ...c.scope,

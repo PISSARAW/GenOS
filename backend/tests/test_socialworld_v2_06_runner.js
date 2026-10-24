@@ -54,3 +54,16 @@ test('V2-06 model prompts do not expose intervention labels or expected actions'
   assert.equal(prompt.includes('proposition'), true);
   assert.equal(prompt.includes('unknowns'), true);
 });
+
+test('V2-06 counterfactuals use explicit event-keyed semantic inversions', () => {
+  const protocol = require('../../benchmarks/social-world/campaigns/socialworld-v2/V2-06-experiences.json');
+  const memories = protocol.events.map((event, index) => ({ id: `memory-${index}`, polarity: event.polarity,
+    statement: event.statement }));
+  const eventKeys = new Map(memories.map((memory, index) => [memory.id, protocol.events[index].eventKey]));
+  const replacements = runner.counterfactuals(memories, protocol, eventKeys);
+
+  assert.deepEqual(replacements.map((memory) => memory.statement), protocol.events.map((event) => event.counterfactualStatement));
+  assert.deepEqual(replacements.map((memory) => memory.polarity), ['contradicts', 'contradicts', 'supports', 'supports']);
+  assert.deepEqual(replacements.map((memory) => memory.counterfactualOf), memories.map((memory) => memory.id));
+  assert.throws(() => runner.counterfactuals(memories, protocol, new Map()), { code: 'SOCIAL_COUNTERFACTUAL_SOURCE_EVENT_MISSING' });
+});

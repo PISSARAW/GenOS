@@ -151,13 +151,16 @@ function promptMemories(memories) {
   return memories.map((memory) => ({ id: memory.id, statement: memory.statement }));
 }
 
-function counterfactuals(memories, protocol) {
-  const replacement = new Map(protocol.events.map((event) => [event.eventKey, event.counterfactualStatement ||
-    `Counterfactual intervention: the peer did not complete the event described by memory ${event.eventKey}.` ]));
-  return memories.map((memory) => ({ ...memory,
-    id: `counterfactual-${memory.id}`,
-    statement: replacement.get(memory.eventKey) || `Counterfactual intervention: ${memory.statement}`,
-    polarity: 'contradicts', counterfactualOf: memory.id }));
+function counterfactuals(memories, protocol, eventKeyByMemoryId) {
+  const events = new Map(protocol.events.map((event) => [event.eventKey, event]));
+  return memories.map((memory) => {
+    const eventKey = eventKeyByMemoryId?.get(memory.id);
+    const event = events.get(eventKey);
+    if (!event?.counterfactualStatement) throw Object.assign(new Error('Counterfactual source event or statement missing.'), { code: 'SOCIAL_COUNTERFACTUAL_SOURCE_EVENT_MISSING' });
+    return { ...memory, id: `counterfactual-${memory.id}`, eventKey,
+      statement: event.counterfactualStatement,
+      polarity: memory.polarity === 'supports' ? 'contradicts' : 'supports', counterfactualOf: memory.id };
+  });
 }
 
 
