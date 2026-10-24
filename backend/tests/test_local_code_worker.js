@@ -71,6 +71,14 @@ const paginationFeedback = failureFeedback({ proposal: {
 } });
 assert.match(paginationFeedback, /Compute start = \(page - 1\) \* pageSize/);
 assert.match(paginationFeedback, /Do not use page \* pageSize/);
+const stableOrderFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'uniqueStable preserves first-seen order: expected [b,a,c], got [a,b,c]' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function uniqueStable(values) { return [...new Set(values)].sort(); }' }]
+} });
+assert.match(stableOrderFeedback, /return \[\.\.\.new Set\(values\)\] with no sort/);
+assert.match(stableOrderFeedback, /first occurrence of each value in input order/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]

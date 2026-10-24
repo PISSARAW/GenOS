@@ -4,6 +4,9 @@ function build(error) {
   const output = (error.proposal?.tests || []).map((test) => `${test.stdout || ''}\n${test.stderr || ''}`).join('\n');
   const patches = error.proposal?.failedPatchContents || [];
   const code = patches.map(({ content }) => content).join('\n');
+  if (/uniqueStable preserves first-seen order/i.test(output)) {
+    return 'The independent oracle requires uniqueStable to preserve insertion order: return [...new Set(values)] with no sort or comparator. The Set keeps the first occurrence of each value in input order.';
+  }
   if (/paginate page [12] starts/i.test(output)) {
     return 'The independent oracle treats page as 1-based. Compute start = (page - 1) * pageSize, then return values.slice(start, start + pageSize). Page 1 must return the first pageSize items; page 2 must begin immediately after them. Do not use page * pageSize.';
   }
