@@ -201,24 +201,24 @@ revendiqué avant ce relevé.
 
 ## Blocage ouvert
 
-G0 doit repartir sur le code actuel, révision `fe7ef6b69`. Les anciens runs
+G0 doit repartir sur le code actuel de V3, révision `9a51356ce`. Les anciens runs
 complets sur l'arbre `7de850a29` (un à 49,2 % de RAM libre, un à 34,2 % et donc
 non qualifiant) précèdent le durcissement de l'environnement du vérificateur
-`3755dd29f`; ils ne couvrent pas ce code et ne comptent pas pour G0. Le test
-isolé de non-transmission des secrets passe sur le code actuel. La RAM libre
-était à 19,1 % au contrôle du 2026-10-24, avec les modèles 14B et 7B chargés;
-le seuil d'admission G0 reste 35 % et aucun nouveau run complet n'a été lancé.
+`3755dd29f`; ils ne couvrent pas ce code et ne comptent pas pour G0. Aucun run
+complet n'a été exécuté sur `9a51356ce`. La RAM libre mesurée après les contrôles
+ciblés était à 12,9 %, avec les modèles 14B et 7B chargés; le seuil d'admission
+G0 reste 35 %.
 
 ### Vérification ciblée du 2026-10-24
 
-- Révision testée : `182bc3655688e93881f25d9aadd7a0b269e86f48`.
-- Commande : `node backend/tests/test_ontogenesis_verifier_environment.js`.
-- Résultat : code 0; le vérificateur enfant ne reçoit ni
+- Révision testée après fusion dans V3 : `9a51356ce341360e27957113663d55c964cde2cf`.
+- `node backend/tests/test_ontogenesis_g1_rust_oracle_mapping.js` : code 0.
+- `node backend/tests/test_ontogenesis_verifier_environment.js` : code 0; le
+  vérificateur enfant ne reçoit ni
   `GENOS_GVX_LEDGER_HMAC_SECRET`, ni `GENOS_EPISTEMIC_RECEIPT_SECRET`, ni
   `GENOS_DB_PATH`.
-- RAM libre au début/à la fin : 7,8 % / 7,3 %.
-- Classement : succès du contrôle isolé; ne compte pas comme exécution G0
-  complète, dont le seuil de départ reste 35 %.
+- RAM libre avant/après les deux contrôles : 13,1 % / 12,9 %.
+- Ces contrôles ciblés ne comptent pas comme exécution G0 complète.
 
 G1 est préparé mais non scellé. Le dossier
 `D:\GenOS-runs\ontogenesis-g1-2026-10-24` contient 24 dépôts propres dérivés des
