@@ -68,11 +68,13 @@ async function extractSocialObservation(input) {
 
 function sourceModelPrompt(input) {
   const memoryView = input.memories.map((memory) => ({ id: memory.id, statement: memory.statement }));
+  const sourceIds = memoryView.map((memory) => memory.id);
   const absence = memoryView.length ? '' : `No social memories are visible in this arm; state the relation as unknown and cite no hidden memory IDs. Explicitly include this verified absence receipt ID in unknowns: ${input.absenceReceiptId}.`;
   return [
     'Infer a source-grounded social mental model from the supplied persisted dialogue observations.',
     'Return JSON only. Do not reveal hidden chain of thought. State concise hypotheses, uncertainty, beliefs about the other participant, and at least one alternative interpretation when evidence permits.',
     'Cite only supplied memory IDs. In top-level sourceMemoryIds, include every visible memory ID exactly once. Do not infer relation labels or polarity scores from metadata; no such metadata is provided.',
+    `Copy this exact list into top-level sourceMemoryIds: ${JSON.stringify(sourceIds)}.`,
     `Subject: ${input.subjectAgentId}; other participant: ${input.otherAgentId}.`,
     absence,
     `Visible dialogue memories: ${JSON.stringify(memoryView)}`,
@@ -83,7 +85,7 @@ function sourceModelPrompt(input) {
         supportingMemoryIds: ['visible memory ID'], contradictingMemoryIds: [] }],
       beliefsAboutOther: [{ proposition: 'grounded belief about the other participant', confidence: 0.5,
         sourceMemoryIds: ['visible memory ID'] }], unknowns: ['uncertain fact'],
-      alternativeInterpretations: ['plausible alternative'], sourceMemoryIds: ['visible memory ID'],
+      alternativeInterpretations: ['plausible alternative'], sourceMemoryIds: sourceIds,
       generatedAt: new Date().toISOString(), authority: 'descriptive-only', promotionEligible: false })}`,
     'When no memories are visible, use relationType="unknown", empty evidence ID arrays, sourceMemoryIds=[], and include the verified absence receipt in unknowns.',
   ].filter(Boolean).join('\n\n');

@@ -52,6 +52,7 @@ test('V2-06 model prompts do not expose intervention labels or expected actions'
   assert.equal(prompt.includes('propose-collaboration'), false);
   assert.equal(prompt.includes('The peer returned the draft.'), true);
   assert.match(prompt, /include every visible memory ID exactly once/);
+  assert.match(prompt, /Copy this exact list into top-level sourceMemoryIds: \["m1"\]/);
   assert.equal(prompt.includes('supportingMemoryIds'), true);
   assert.equal(prompt.includes('contradictingMemoryIds'), true);
   assert.equal(prompt.includes('proposition'), true);
