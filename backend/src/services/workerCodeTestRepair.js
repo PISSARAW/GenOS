@@ -112,6 +112,7 @@ function replaceAccessibleName(opening, label) {
 function labelCategorySelect(content, label) {
   const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
   const scopes = forms.length ? forms.map((form) => ({ start: form.index, html: form[0] })) : [{ start: 0, html: content }];
+  if (!scopes.some((scope) => /<select\b/i.test(scope.html))) return require('./workerCodeCategorySelectRepair').ensureAccessibleCategorySelect(content, label);
   for (const scope of scopes) {
     const selects = [...scope.html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select\s*>/gi)];
     const target = selects.find((select) => /<option\b[^>]*>\s*Food\s*<\/option\s*>/i.test(select[0])

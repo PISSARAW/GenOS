@@ -25,4 +25,17 @@ function ensureUniqueCategorySelect(content) {
   });
 }
 
-module.exports = { ensureUniqueCategorySelect };
+function ensureAccessibleCategorySelect(content, label = 'Category') {
+  const forms = [...content.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)];
+  const addForm = forms.find((form) => /add\s*item|type\s*=\s*["']submit/i.test(form[0])) || forms[0];
+  const field = `<label for="category">${label}</label><select id="category" name="category" aria-label="${label}"><option value="Food">Food</option><option value="Hygiene">Hygiene</option><option value="Household">Household</option></select>`;
+  if (addForm) {
+    const end = addForm.index + addForm[0].length - '</form>'.length;
+    return content.slice(0, end) + field + content.slice(end);
+  }
+  const button = /<button\b[^>]*>[\s\S]*?add\s*item[\s\S]*?<\/button\s*>/i.exec(content);
+  if (button) return content.slice(0, button.index) + field + content.slice(button.index);
+  return /<\/body\s*>/i.test(content) ? content.replace(/<\/body\s*>/i, `${field}</body>`) : `${content}${field}`;
+}
+
+module.exports = { ensureUniqueCategorySelect, ensureAccessibleCategorySelect };
