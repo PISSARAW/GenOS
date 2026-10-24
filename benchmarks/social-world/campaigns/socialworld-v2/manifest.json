@@ -4,6 +4,12 @@
   "status": "planned",
   "sourceCampaign": "socialworld-qwen-20261022",
   "minimumSeeds": 20,
+  "seeds": [
+    "socialworld-v2-01", "socialworld-v2-02", "socialworld-v2-03", "socialworld-v2-04", "socialworld-v2-05",
+    "socialworld-v2-06", "socialworld-v2-07", "socialworld-v2-08", "socialworld-v2-09", "socialworld-v2-10",
+    "socialworld-v2-11", "socialworld-v2-12", "socialworld-v2-13", "socialworld-v2-14", "socialworld-v2-15",
+    "socialworld-v2-16", "socialworld-v2-17", "socialworld-v2-18", "socialworld-v2-19", "socialworld-v2-20"
+  ],
   "passThreshold": 18,
   "arms": [
     "genos-full",

@@ -128,7 +128,11 @@ que si ses références de preuve existent et que l'oracle est recalculable.
 
 ## Étapes d'implémentation
 
-1. Ajouter un validateur commun des rapports et un manifeste versionné des graines/bras.
+1. Ajouter un validateur commun des rapports et un manifeste versionné des graines/bras. Le
+   contrat d'un rapport est contrôlable avec `node validate-report.cjs <rapport.json>`;
+   les références de preuve d'un rapport `pass` sont des chemins relatifs au rapport,
+   résolus dans le dépôt et présents sur disque. La liste `seeds` du manifeste est figée
+   avant les exécutions.
 2. Construire V2-03 en premier : c'est le socle nécessaire pour tester les mutations durables.
 3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02.
 4. Implémenter V2-05 après fixation des invariants de morphogenèse.
