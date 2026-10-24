@@ -122,7 +122,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   const singleCategoryRepair = JSON.parse(applyRepairPlan(singleCategoryProposal, plan)).patches[0].content;
   assert.match(singleCategoryRepair, /<select id="category" aria-label="Category">/); assert.match(singleCategoryRepair, /<select id="filterCategory" aria-label="Filter category"><option value="all">All<\/option><option value="Food">Food<\/option><\/select>/);
   const duplicateCategoryLabel = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<form><label for="category" aria-label="Category">Category</label><select id="category"><option value="Food">Food</option></select></form>' }] }), plan)).patches[0].content; assert.match(duplicateCategoryLabel, /<label for="category">Category<\/label><select id="category" aria-label="Category">/);
-  const placeholderQuantityAction = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<input id="quantity" aria-label="Quantity"><button aria-label="Increase quantity for Name">+</button>' }] }), itemNameInputPlan)).patches[0].content;
+  const placeholderQuantityAction = JSON.parse(applyRepairPlan(JSON.stringify({ patches: [{ path: 'index.html', content: '<input id="quantity" aria-label="Quantity"><button aria-label="Increase quantity for NameQuantityCategoryBest BeforeActions">+</button>' }] }), itemNameInputPlan)).patches[0].content;
   assert.doesNotMatch(placeholderQuantityAction, /Increase quantity for Name/i);
   assert.match(repairedContent, /<button aria-label="Increase quantity for Oats">\+/);
   const itemNameButton = JSON.stringify({ patches: [{ path: 'index.html', content:

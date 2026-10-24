@@ -63,7 +63,7 @@ function cleanLabelAccessibleOverrides(content) {
 
 function removePlaceholderQuantityActions(content) {
   return content.replace(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi, (button) =>
-    /\baria-label\s*=\s*(["'])increase\s+quantity\s+for\s+(?:name|item)\1/i.test(button)
+    /\baria-label\s*=\s*(["'])increase\s+quantity\s+for\s+(?:name|item)/i.test(button)
       ? '' : button);
 }
 
