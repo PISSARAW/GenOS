@@ -7,7 +7,9 @@ const { migrateBiologicalExecutionReceipts } = require('../db/migrations/migrate
 
 async function missionScope(db, mission) {
   const id = mission.missionId || mission.id;
-  if (await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', id)) return { ...mission, id };
+  const registered = await db.get('SELECT mission_id, orchestrator_agent_id FROM missions WHERE mission_id = ?', id);
+  if (registered) return { ...mission, id,
+    orchestratorAgentId: mission.orchestratorAgentId || registered.orchestrator_agent_id || null };
   const rows = await db.all(`SELECT mission_id FROM missions WHERE orchestrator_agent_id = ?
     AND status IN ('active', 'dormant') LIMIT 2`, id);
   if (rows.length > 1) throw new Error('Ambiguous durable mission for homeostasis');
@@ -16,7 +18,7 @@ async function missionScope(db, mission) {
 }
 
 async function collect(db, mission) {
-  const scope = typeof mission === 'string' ? { id: mission } : mission;
+  const scope = await missionScope(db, typeof mission === 'string' ? { id: mission } : mission);
   const missionId = scope.id;
   const team = await require('./aTeamCompletionEvidenceService')
     .latest(db, [missionId, scope.legacyAuthorityMissionId, scope.orchestratorAgentId]);
