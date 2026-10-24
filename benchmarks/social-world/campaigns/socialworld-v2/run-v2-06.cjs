@@ -138,7 +138,7 @@ function persistArmArtifacts(c, arm, result) {
   if (result.modelState) artifact({ context: c, kind: 'social-model-snapshot', arm, name: `${arm}/model-snapshot.json`, data: {
     snapshotId: result.modelState.snapshotId, revision: result.modelState.revision, modelHash: result.modelState.modelHash,
     sourceMemoryIds: result.model.sourceMemoryIds, model: result.model } });
-  if (['genos-social-memory-ablated', 'genos-social-memory-counterfactual'].includes(arm)) {
+  if (result.intervention.receipt) {
     artifact({ context: c, kind: 'intervention-receipt', arm, name: `${arm}/intervention.json`, data: { readBack: true,
       artifact: result.intervention.artifact, receipt: result.intervention.receipt, before, after } });
   }

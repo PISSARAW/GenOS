@@ -243,11 +243,13 @@ function verifyInterventionDeclaration({ armName, wrapper, artifact, arm, errors
   if (stableJson(compactIntervention(artifact)) !== stableJson(arm.interventionReceipt)) errors.push(armName + ' compact intervention differs from runtime artifact.');
 }
 function validateInterventionPayload(armName, artifact, errors) {
-  const role = ROLES[armName]; const mode = role === 'masked' ? 'mask-social-memories' : 'counterfactual-social-memories';
+  const role = ROLES[armName]; const mode = { baseline: 'baseline', masked: 'mask-social-memories',
+    counterfactual: 'counterfactual-social-memories' }[role];
   if (artifact.arm !== armName || artifact.mode !== mode) errors.push(armName + ' intervention mode/identity invalid.');
   const before = artifact.before?.entries || []; const after = artifact.after?.entries || [];
   verifyEntrySets({ armName, artifact, before, after, errors });
   verifyEntryDelta({ armName, role, artifact, before, after, errors });
+  if (role === 'baseline' && stableJson(before) !== stableJson(after)) errors.push('Baseline intervention changed persisted memories.');
 }
 function verifyEntrySets({ armName, artifact, before, after, errors }) {
   if (!sameStrings(artifact.before?.memoryIds, before.map((entry) => entry.id)) || !sameStrings(artifact.after?.memoryIds, after.map((entry) => entry.id))) errors.push(armName + ' intervention ids differ from entries.');
@@ -288,7 +290,7 @@ function validateArmIntervention({ armName, arm, items, errors }) {
   const hasArtifact = kind(items, 'intervention-receipt').length > 0;
   if (arm.interventionReceipt && hasArtifact) validateIntervention({ armName, arm, items, errors });
   else if (hasArtifact) errors.push(armName + ' has undeclared intervention artifact.');
-  else if (arm.status === 'pass' && ['masked', 'counterfactual'].includes(ROLES[armName])) errors.push(armName + ' pass lacks intervention receipt.');
+  else if (arm.interventionReceipt || (arm.status === 'pass' && ['baseline', 'masked', 'counterfactual'].includes(ROLES[armName]))) errors.push(armName + ' lacks its declared intervention receipt artifact.');
 }
 function validateRoleEvidence({ armName, arm, items, model, state }) {
   const errors = state.errors;

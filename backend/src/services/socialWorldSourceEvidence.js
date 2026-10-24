@@ -116,7 +116,7 @@ function verifySourceEpisodes(source, state) {
     || episode.organizationId !== receipt.scope?.organizationId || episode.projectId !== receipt.scope?.projectId)) addError(state, 'Source episode scope or resolution is invalid.');
 }
 function verifyTurnReplay(source, state) {
-  const turns = source.sourceEvent.turns || []; const receipts = source.receipt.providerTurnReceipts || [];
+  const turns = source.sourceEvent.turns || []; const receipts = source.receipt.invocationReceipts || [];
   const declared = source.sourceEvent.artifact?.content?.modelTurnReceipts || [];
   const turnRefs = turns.map((turn) => 'dialogue:' + source.eventId + ':turn:' + turn.seq);
   const artifactRefs = source.sourceEvent.artifact?.content?.evidenceRefs || [];
@@ -246,7 +246,7 @@ function verifyInvocationUniqueness(state) {
     if (artifact.kind === 'model-output') ids.push(artifact.invocationId);
     if (artifact.kind === 'decision-receipt') ids.push(artifact.modelProvenance?.invocationId);
     if (artifact.kind === 'verified-social-memory-sources') {
-      ids.push(...(artifact.sources || []).flatMap((source) => source.receipt?.providerTurnReceipts?.map((item) => item.invocationId) || []));
+      ids.push(...(artifact.sources || []).flatMap((source) => source.receipt?.invocationReceipts?.map((item) => item.invocationId) || []));
     }
   }
   if (ids.some((id) => !id) || new Set(ids).size !== ids.length) addError(state, 'Model/source invocation IDs must be present and unique across the seed.');

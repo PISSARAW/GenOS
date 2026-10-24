@@ -17,7 +17,7 @@
     "config": { "type": "object" },
     "configHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "status": { "enum": ["pass", "fail", "inconclusive"] },
-    "reasonCode": { "type": "string", "minLength": 1 },
+    "reasonCode": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
     "startedAt": { "type": "string", "format": "date-time" },
     "durationMs": { "type": "integer", "minimum": 0 },
     "inputs": { "type": "object" },
@@ -48,7 +48,8 @@
           "required": ["status", "caseId"],
           "properties": {
             "status": { "enum": ["pass", "fail", "inconclusive"] },
-            "caseId": { "type": "string", "minLength": 1 }
+            "caseId": { "type": "string", "minLength": 1 },
+            "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } }
           }
         },
         "evidenceRefs": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
@@ -130,12 +131,14 @@
     },
     "receipt": {
       "type": "object", "additionalProperties": false,
-      "required": ["receiptId", "createdAt", "sourceCommit", "configHash", "hash"],
+      "required": ["receiptId", "createdAt", "sourceCommit", "configHash", "invocationId", "promptHash", "hash"],
       "properties": {
         "receiptId": { "type": "string", "minLength": 1 },
         "createdAt": { "type": "string", "format": "date-time" },
         "sourceCommit": { "$ref": "#/$defs/sha40" },
         "configHash": { "$ref": "#/$defs/sha256" },
+        "invocationId": { "type": "string", "format": "uuid" },
+        "promptHash": { "$ref": "#/$defs/sha256" },
         "hash": { "$ref": "#/$defs/sha256" }
       }
     },
@@ -156,8 +159,8 @@
       "required": ["interventionId", "mode", "removedMemoryIds", "addedMemoryIds", "beforeHash", "afterHash", "preservedNonSocialMemoryHash"],
       "properties": {
         "interventionId": { "type": "string", "minLength": 1 },
-        "mode": { "enum": ["mask-social-memories", "counterfactual-social-memories"] },
-        "removedMemoryIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "mode": { "enum": ["baseline", "mask-social-memories", "counterfactual-social-memories"] },
+        "removedMemoryIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "addedMemoryIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "beforeHash": { "$ref": "#/$defs/sha256" },
         "afterHash": { "$ref": "#/$defs/sha256" },
@@ -187,7 +190,12 @@
     "baselineArm": {
       "allOf": [
         { "$ref": "#/$defs/arm" },
-        { "properties": { "role": { "const": "baseline" }, "interventionReceipt": { "type": "null" } } },
+        { "properties": { "role": { "const": "baseline" }, "interventionReceipt": { "oneOf": [
+          { "type": "null" },
+          { "allOf": [{ "$ref": "#/$defs/interventionReceipt" }, { "properties": {
+            "mode": { "const": "baseline" }, "removedMemoryIds": { "maxItems": 0 }, "addedMemoryIds": { "maxItems": 0 }
+          } }] }
+        ] } } },
         { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" } } } }
       ]
     },
@@ -198,14 +206,14 @@
       "allOf": [
         { "$ref": "#/$defs/arm" },
         { "properties": { "role": { "const": "masked" } } },
-        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "mask-social-memories" } } } } } }
+        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "mask-social-memories" }, "removedMemoryIds": { "minItems": 1 } } } } } }
       ]
     },
     "counterfactualArm": {
       "allOf": [
         { "$ref": "#/$defs/arm" },
         { "properties": { "role": { "const": "counterfactual" } } },
-        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "counterfactual-social-memories" } } } } } }
+        { "if": { "properties": { "status": { "const": "pass" } } }, "then": { "properties": { "modelState": { "$ref": "#/$defs/modelState" }, "interventionReceipt": { "$ref": "#/$defs/interventionReceipt", "properties": { "mode": { "const": "counterfactual-social-memories" }, "removedMemoryIds": { "minItems": 1 } } } } } }
       ]
     }
   }
