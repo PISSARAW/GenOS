@@ -1,0 +1,7 @@
+{
+  "mainRole": "worker",
+  "candidateRole": "candidate",
+  "mainObjectId": "agent-git-commit-1792829002337-0eb501c1",
+  "candidateObjectId": "agent-git-commit-1792829002436-2fc5fad7",
+  "signatureValid": true
+}

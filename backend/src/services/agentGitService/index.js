@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { enforceHooks } = require('./hooks');
 const { applyState } = require('./state');
@@ -12,7 +12,7 @@ const causalOps = require('./causalOps.cjs');
 const { verifyRemoteObject } = require('./remoteVerification.cjs');
 const remotePersist = require('./remotePersist.cjs');
 const { assertRemoteGitUrl, executeRemotePush, resolvePushTip, recordPushReceipt } = require('./pushTransport.cjs');
-const { collectAncestors, collectReachableObjectIds } = require('./commitGraph');
+const { collectAncestors } = require('./commitGraph');
 
 function scopeSql(req, alias = 'w') {
   // req peut être absent sur les chemins runtime non-HTTP (CLI, morphogenèse) :
@@ -108,14 +108,16 @@ async function collectState(db, req, agentId) {
   const permissionScope = agentRecordScope(req, 'p', agentId);
   const eventScope = agentRecordScope(req, 'e', agentId);
   const childScope = workspaceRecordScope(req, 'w', agentId);
-  const [decisions, memories, runs, plasmids, permissions, events, children] = await Promise.all([
+  const [decisions, memories, runs, plasmids, permissions, events, children, relations, claims] = await Promise.all([
     db.all(`SELECT d.id, d.title, d.content, d.cart_nodes_json, d.category, d.synaptic_weight, d.organization_id, d.project_id, d.created_at FROM genome_decisions d WHERE d.created_by = ? AND ${decisionScope.clause} ORDER BY d.created_at, d.id`, agentId, ...decisionScope.params),
     db.all(`SELECT m.* FROM episodic_memories m WHERE m.agent_id = ? AND ${memoryScope.clause} ORDER BY m.created_at, m.id`, agentId, ...memoryScope.params).catch(() => []),
     db.all(`SELECT r.id, r.contract_id, r.contract_version, r.status, r.budget_json, r.metrics_json, r.created_at FROM strategy_execution_runs r JOIN strategy_contracts c ON c.id = r.contract_id LEFT JOIN workspaces w ON w.id = c.workspace_id WHERE r.agent_id = ? AND ${workspaceRecordScope(req, 'w', agentId).clause} ORDER BY r.created_at, r.id`, agentId, ...workspaceRecordScope(req, 'w', agentId).params).catch(() => []),
     db.all(`SELECT p.* FROM plasmid_bindings p WHERE p.owner_agent_id = ? AND ${plasmidScope.clause} ORDER BY p.created_at, p.plasmid_id`, agentId, ...plasmidScope.params).catch(() => []),
     db.all(`SELECT p.agent_id, p.permissions_json, p.denied_tools_json, p.organization_id, p.project_id FROM agent_permissions p WHERE p.agent_id = ? AND ${permissionScope.clause}`, agentId, ...permissionScope.params).catch(() => []),
     db.all(`SELECT e.event_id, e.event_type, e.action, e.detail, e.payload_json, e.severity, e.organization_id, e.project_id, e.created_at FROM telemetry_events e WHERE e.agent_id = ? AND ${eventScope.clause} ORDER BY e.created_at, e.id LIMIT 1000`, agentId, ...eventScope.params).catch(() => []),
-    db.all(`SELECT a.id, a.name, a.role, a.status, a.lineage_relation FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause} ORDER BY a.created_at, a.id`, agentId, ...childScope.params).catch(() => [])
+    db.all(`SELECT a.id, a.name, a.role, a.status, a.lineage_relation FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause} ORDER BY a.created_at, a.id`, agentId, ...childScope.params).catch(() => []),
+    require('./institutionalRelations.cjs').collectRelations(db, req, agentId).catch(() => []),
+    require('./epistemicClaimMerge.cjs').collectEpistemicState(db, req, agentId).catch(() => ({ claims: [], contradictions: [] }))
   ]);
   return {
     schema: 'genos.agent-git-state/v1',
@@ -127,12 +129,13 @@ async function collectState(db, req, agentId) {
     permissions,
     events,
     children,
+    relations, epistemicClaims: claims.claims, epistemicContradictions: claims.contradictions,
     capturedAt: new Date().toISOString()
   };
 }
 
 function changedSections(left, right) {
-  const sections = ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'events', 'children'];
+  const sections = ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'events', 'children', 'relations', 'epistemicClaims'];
   return sections.filter((section) => JSON.stringify(left?.[section]) !== JSON.stringify(right?.[section]));
 }
 
@@ -190,27 +193,21 @@ async function push(req) {
   await checkPushVersion(req, db, agentId);
   const tip = await resolvePushTip({ db, req, agentId, refName });
   const commit = tip.commit;
-  if (req.body?.remoteUrl) await executeRemotePush(req, agentId, commit);
+  if (req.body?.remoteUrl) {
+    await executeRemotePush(req, agentId, commit);
+    const trackingRef = require('./remoteSync.cjs').trackingName(remoteName, refName);
+    await updateRef({ db, req, agentId, refName: trackingRef, objectId: commit.id,
+      options: { action: 'push-acknowledged' } });
+  }
   await recordPushReceipt({ db, req, agentId, refName, remoteName, commitId: commit.id });
-  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 0, behind: 0 }, ...commit };
+  const tracked = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
+    agentId, require('./remoteSync.cjs').trackingName(remoteName, refName));
+  const tracking = await require('./remoteSync.cjs').divergence(db, commit.id, tracked?.object_id);
+  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking, ...commit };
 }
 
 async function fetch(req) {
-  const db = await getDatabase();
-  const remoteName = String(req.body?.remoteName || 'default').trim();
-  const scope = scopeSql(req, 'w');
-  const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
-  if (!req.body?.remoteUrl) return { success: true, operation: 'fetch', remoteName, objects };
-  const remoteUrl = await assertRemoteGitUrl(req.body.remoteUrl);
-  const fetchPath = new URL('/api/lineage/agents/git/remote/fetch', remoteUrl).href;
-  const response = await globalThis.fetch(fetchPath, {
-    method: 'POST',
-    redirect: 'error',
-    headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-    body: JSON.stringify({ ...req.body, remoteName })
-  });
-  if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
-  return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
+  return require('./remoteRoutes.cjs').fetch(req);
 }
 
 
@@ -235,6 +232,9 @@ async function checkRemoteParents(db, incoming, state) {
 }
 
 async function receiveRemote(req) {
+  if (req.body?.history) {
+    return require('./remoteSync.cjs').importHistory(await getDatabase(), req, req.body.history);
+  }
   const incoming = req.body?.object;
   const state = req.body?.state || null;
   const db = await getDatabase();
@@ -255,12 +255,7 @@ async function receiveRemote(req) {
 }
 
 async function pull(req) {
-  const db = await getDatabase();
-  const object = await getObject(db, req, req.body?.objectId);
-  if (!object || object.object_kind !== 'remote') return { success: false, error: 'Remote agent object not found.' };
-  const state = JSON.parse(object.state_json);
-  await applyState(db, req, req.body?.targetAgentId || object.agent_id, state, req.body?.sections);
-  return { success: true, operation: 'pull', objectId: object.id, stateHash: object.state_hash };
+  return require('./remoteRoutes.cjs').pull(req);
 }
 
 async function stash(req) { return { success: true, operation: 'stash', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'stash', refName: req.body?.refName || 'stash' })) }; }
@@ -328,15 +323,12 @@ async function describe(req) {
 }
 
 async function gc(req) {
-  const db = await getDatabase(); const keep = Math.max(1, Number(req.body?.keep || 20));
+  const db = await getDatabase();
   const agentId = req.body?.agentId;
-  const scope = scopeSql(req, 'w');
-  const reachable = await collectReachableObjectIds(db, agentId, scope);
-  const rows = await db.all(`SELECT o.id FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND o.object_kind IN ('stash', 'remote') AND ${scope.clause} ORDER BY o.created_at DESC`, agentId, ...scope.params);
-  const unreachable = rows.filter(row => !reachable.has(row.id));
-  const stale = unreachable.slice(keep);
-  for (const row of stale) await db.run('DELETE FROM agent_git_objects WHERE id = ?', row.id);
-  return { success: true, operation: 'gc', pruned: stale.length, kept: Math.min(keep, unreachable.length), skippedReachable: rows.length - unreachable.length };
+  if (!agentId || !await loadAgent(db, req, agentId)) return { success: false, error: 'Scoped agent is required.' };
+  const result = await require('./agentGitDb.cjs').withTransaction(db, () =>
+    require('./gcPolicy.cjs').pruneUnreachable(db, agentId, req.body));
+  return { success: true, operation: 'gc', ...result };
 }
 
 async function blame(req) { return causalOps.blame(req); }
@@ -389,7 +381,7 @@ module.exports = {
   mergeBaseDag: require('./dagOperations').mergeBase,
   stage: require('./headIndexWrappers.cjs').stage, unstage: require('./headIndexWrappers.cjs').unstage,
   status: require('./headIndex.cjs').status, commitFromIndex: require('./commitFromIndex.cjs'),
-  rebaseInteractive: require('./rebaseInteractive.cjs'),
+  rebaseInteractive: require('./rebaseInteractive.cjs'), cognitiveDiff: require('./cognitiveOps.cjs').cognitiveDiff, epistemicMerge: require('./epistemicOps.cjs').epistemicMerge, bisectProbe: require('./bisect.cjs').bisectProbe, bisectReplay: require('./bisectReplay.cjs').bisectReplay, socialDiff: require('./socialOps.cjs').socialDiff, recordTopologyTransition: require('./topologyOps.cjs').recordTopologyTransition, compareTrajectories: require('./ontogeneticOps.cjs').compareTrajectories, evaluateTrajectories: require('./ontogeneticEvaluate.cjs').evaluateTrajectories, createOntogeneticFork: require('./ontogeneticOps.cjs').createOntogeneticFork,
   // Biomimetic operations (point 8)
   hgtCherryPick: require('./biomimeticOps.cjs').hgtCherryPick,
   speciation: require('./biomimeticOps.cjs').speciation,

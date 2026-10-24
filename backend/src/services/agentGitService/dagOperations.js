@@ -18,7 +18,7 @@ function bodyValue(req, key) {
 }
 
 async function mergeBase(req) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const leftId = bodyValue(req, 'leftObjectId');
   const rightId = bodyValue(req, 'rightObjectId');
   if (!leftId || !rightId) return { success: false, error: 'Both leftObjectId and rightObjectId are required.' };
@@ -30,7 +30,7 @@ async function mergeBase(req) {
 }
 
 async function reset(req) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const objectId = bodyValue(req, 'objectId');
   const mode = bodyValue(req, 'mode') || 'mixed';
   if (!['soft', 'mixed', 'hard'].includes(mode)) return { success: false, error: 'Mode must be soft, mixed, or hard.' };
@@ -47,7 +47,7 @@ async function reset(req) {
 
   if (mode === 'hard') {
     const state = JSON.parse(obj.state_json);
-    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
+    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims'] });
   }
 
   return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
@@ -60,11 +60,11 @@ async function loadAgentForDag(db, req, agentId) {
 }
 
 async function replaceState(req, { targetAgentId, state, sections }, options = {}) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const target = await loadAgentForDag(db, req, targetAgentId);
   if (!target) throw Object.assign(new Error('Target agent not available.'), { code: 'AGENT_NOT_FOUND' });
   const ctx = { db, req, targetAgentId };
-  const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
+  const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']);
   const inTransaction = options.inTransaction === true;
 
   if (!inTransaction) await db.exec('BEGIN IMMEDIATE');
@@ -75,6 +75,8 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
     if (selected.has('runs')) await replaceRunState(ctx, targetAgentId, state.runs);
     if (selected.has('plasmids')) await replacePlasmidState(ctx, targetAgentId, state.plasmids);
     if (selected.has('permissions')) await replacePermissionState(ctx, targetAgentId, state.permissions);
+    if (selected.has('relations')) await require('./institutionalRelations.cjs').replaceRelations({ db, req, targetAgentId }, state.relations);
+    if (selected.has('epistemicClaims')) await require('./epistemicClaimMerge.cjs').replaceClaims({ db, req, targetAgentId, state });
     if (!inTransaction) await db.exec('COMMIT');
   } catch (err) {
     if (!inTransaction) { await db.exec('ROLLBACK').catch(() => {}); }
@@ -85,7 +87,7 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
 
 function computePatch(fromState, toState) {
   const operations = [];
-  const sections = ['decisions', 'memories', 'runs', 'plasmids', 'permissions'];
+  const sections = ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims'];
   for (const section of sections) {
     computeSectionPatch({ fromState, toState, section, operations });
   }
@@ -134,7 +136,7 @@ function buildIdMap(items, section) {
 }
 
 async function applyPatch(req, { targetAgentId, patch, sections }) {
-  const db = await require('../../db').getDatabase();
+  const db = await require('./agentGitDb.cjs').getDatabase();
   const { collectState } = require('./index');
   const current = await collectState(db, req, targetAgentId);
   const newState = { ...current };
@@ -143,7 +145,7 @@ async function applyPatch(req, { targetAgentId, patch, sections }) {
       applyOperationToState(newState, operation);
     }
   }
-  return replaceState(req, { targetAgentId, state: newState, sections: sections || ['decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
+  return replaceState(req, { targetAgentId, state: newState, sections: sections || ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims'] });
 }
 
 // Point 4 : application générique unique des opérations de patch.

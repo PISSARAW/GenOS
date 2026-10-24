@@ -42,6 +42,32 @@ function mergeChildren(ctx) {
   return mergeById({ ...ctx, key: 'id' });
 }
 
+function mergeChildrenGoverned(ctx) {
+  const base = new Map((ctx.base || []).map((item) => [item.id, item]));
+  const left = new Map((ctx.left || []).map((item) => [item.id, item]));
+  const right = new Map((ctx.right || []).map((item) => [item.id, item]));
+  const merged = [];
+  const conflicts = [];
+  const ids = new Set([...base.keys(), ...left.keys(), ...right.keys()]);
+  for (const id of ids) mergeChild({ id, base: base.get(id), left: left.get(id), right: right.get(id), merged, conflicts });
+  return { merged, conflicts };
+}
+
+function mergeChild(ctx) {
+  const leftChanged = !sameRecord(ctx.base, ctx.left);
+  const rightChanged = !sameRecord(ctx.base, ctx.right);
+  if (leftChanged && rightChanged && !sameRecord(ctx.left, ctx.right)) {
+    ctx.conflicts.push({ section: 'children', id: ctx.id, type: 'divergent_relationship', base: ctx.base || null, left: ctx.left || null, right: ctx.right || null, resolution: 'required' });
+    return;
+  }
+  const selected = rightChanged ? ctx.right : ctx.left;
+  if (selected) ctx.merged.push(selected);
+}
+
+function sameRecord(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function mergeDecisions(ctx) {
   return mergeById({ ...ctx, key: 'id' });
 }
@@ -61,6 +87,7 @@ function mergePlasmids(ctx) {
 module.exports = {
   mergeEvents,
   mergeChildren,
+  mergeChildrenGoverned,
   mergeDecisions,
   mergeMemories,
   mergeRuns,

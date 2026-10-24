@@ -17,7 +17,7 @@ const { computePatch } = require('./dagOperations');
 const { applyOperationToState } = require('./dagOperations');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -53,7 +53,7 @@ async function rebase(req) {
   await replaceState(req, {
     targetAgentId,
     state: replay.currentState,
-    sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
+    sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
   });
   const commitResult = await commitRebase({ db, req, onto, head, base, currentState: replay.currentState, replayedIds, ontoId, replayed: replay.replayedCommits });
   return finalizeRebase({ db, req, head, commitResult, replayedIds, base });

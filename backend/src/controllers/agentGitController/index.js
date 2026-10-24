@@ -8,9 +8,18 @@ async function tag(req, res, next) { try { res.status(201).json(await agentGit.t
 async function cherryPick(req, res, next) { try { res.json(await agentGit.cherryPick(req)); } catch (error) { next(error); } }
 async function commit(req, res, next) { try { res.status(201).json({ success: true, operation: 'commit', ...(await agentGit.createCommit(req, { agentId: req.body?.agentId, refName: req.body?.refName || 'main', metadata: { message: req.body?.message || '' } })) }); } catch (error) { next(error); } }
 async function diff(req, res, next) { try { res.json(await agentGit.diff(req)); } catch (error) { next(error); } }
+async function cognitiveDiff(req, res, next) { try { res.json(await agentGit.cognitiveDiff(req)); } catch (error) { next(error); } }
+async function socialDiff(req, res, next) { try { res.json(await agentGit.socialDiff(req)); } catch (error) { next(error); } }
+async function recordTopologyTransition(req, res, next) { try { res.status(201).json(await agentGit.recordTopologyTransition(req)); } catch (error) { next(error); } }
+async function compareTrajectories(req, res, next) { try { res.json(await agentGit.compareTrajectories(req)); } catch (error) { next(error); } }
+async function evaluateTrajectories(req, res, next) { try { res.json(await agentGit.evaluateTrajectories(req)); } catch (error) { next(error); } }
+async function createOntogeneticFork(req, res, next) { try { res.status(201).json(await agentGit.createOntogeneticFork(req)); } catch (error) { next(error); } }
+async function epistemicMerge(req, res, next) { try { res.json(await agentGit.epistemicMerge(req)); } catch (error) { next(error); } }
 async function merge(req, res, next) { try { res.status(201).json(await agentGit.merge(req)); } catch (error) { next(error); } }
 async function replay(req, res, next) { try { res.json(await agentGit.replay(req)); } catch (error) { next(error); } }
 async function bisect(req, res, next) { try { res.json(await agentGit.bisect(req)); } catch (error) { next(error); } }
+async function bisectProbe(req, res, next) { try { res.json(await agentGit.bisectProbe(req)); } catch (error) { next(error); } }
+async function bisectReplay(req, res, next) { try { res.json(await agentGit.bisectReplay(req)); } catch (error) { next(error); } }
 async function log(req, res, next) { try { res.json(await agentGit.log(req)); } catch (error) { next(error); } }
 async function revert(req, res, next) { try { res.status(201).json(await agentGit.revert(req)); } catch (error) { next(error); } }
 async function rebase(req, res, next) { try { res.status(201).json(await agentGit.rebase(req)); } catch (error) { next(error); } }
@@ -39,4 +48,4 @@ async function migration(req, res, next) { try { res.status(201).json(await agen
 async function fossil(req, res, next) { try { res.status(201).json(await agentGit.fossil(req)); } catch (error) { next(error); } }
 async function apoptosis(req, res, next) { try { res.json(await agentGit.apoptosis(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag, hgtCherryPick, speciation, recombination, migration, fossil, apoptosis };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, cognitiveDiff, socialDiff, recordTopologyTransition, compareTrajectories, evaluateTrajectories, createOntogeneticFork, epistemicMerge, merge, replay, bisect, bisectProbe, bisectReplay, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag, hgtCherryPick, speciation, recombination, migration, fossil, apoptosis };

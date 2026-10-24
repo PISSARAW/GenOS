@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { treeHash, commitHash } = require('./canonical');
+const { chooseEncoding } = require('./deltaState.cjs');
 
 function signingAlgorithm() {
   return process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY ? 'ed25519' : 'hmac-sha256';
@@ -68,12 +69,15 @@ function resolveParentIds(opts) {
 }
 
 async function storeObject(db, opts) {
+  db = require('./agentGitDb.cjs').wrap(db);
   const { agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false } = opts;
   const parents = resolveParentIds(opts);
   const id = `agent-git-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const algorithm = signingAlgorithm();
   const tree = treeHash(state);
-  const meta = { ...metadata, locked, stateSchema: state.schema, signatureAlgorithm: algorithm };
+  const encoding = await encodeState(db, parents[0], state);
+  const meta = { ...metadata, locked, stateSchema: state.schema, signatureAlgorithm: algorithm,
+    ...(encoding.enabled ? { storageDepth: encoding.depth } : {}) };
   // P0 n°2 : le commit_hash couvre tree + parents + metadata ; la signature
   // porte sur commit_hash (et non tree_hash) pour que verifyObjectSignature
   // (authHash = commit_hash || tree_hash || state_hash) soit cohérent.
@@ -84,12 +88,23 @@ async function storeObject(db, opts) {
   await db.run(
     `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by, parent_commit_id, tree_hash, commit_hash, signature_algorithm, author_key_id, public_key_fingerprint, signed_commit_envelope)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, agentId, workspaceId, kind, refName || null, remoteName || null, crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), JSON.stringify(state), JSON.stringify(meta), signature, createdBy || 'agent-git', parents[0] || null, tree, commit, algorithm, authorKeyId(), publicKeyFingerprint(), envelope
+    id, agentId, workspaceId, kind, refName || null, remoteName || null, crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), encoding.serialized, JSON.stringify(meta), signature, createdBy || 'agent-git', parents[0] || null, tree, commit, algorithm, authorKeyId(), publicKeyFingerprint(), envelope
   );
   for (const [position, parentId] of parents.entries()) {
     await db.run('INSERT OR IGNORE INTO agent_git_commit_parents (commit_id, parent_commit_id, position) VALUES (?, ?, ?)', id, parentId, position);
   }
   return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash: crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), treeHash: tree, commitHash: commit, signature, parentCommitIds: parents, signatureAlgorithm: algorithm, authorKeyId: authorKeyId(), publicKeyFingerprint: publicKeyFingerprint(), commitEnvelope: envelope, signedCommitEnvelope: envelope, metadataJson: JSON.stringify(meta) };
+}
+
+async function encodeState(db, parentId, state) {
+  if (process.env.GENOS_AGENT_GIT_DELTA_STORAGE !== 'true') {
+    return { serialized: JSON.stringify(state), depth: 0, enabled: false };
+  }
+  if (!parentId) return { ...chooseEncoding(null, null, state), enabled: true };
+  const parent = await db.get('SELECT state_json, metadata_json FROM agent_git_objects WHERE id = ?', parentId);
+  if (!parent) throw new Error('AgentGit delta parent is missing.');
+  const depth = JSON.parse(parent.metadata_json || '{}').storageDepth || 0;
+  return { ...chooseEncoding(parentId, JSON.parse(parent.state_json), state, depth), enabled: true };
 }
 
 module.exports = { storeObject };

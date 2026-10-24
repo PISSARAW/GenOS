@@ -35,8 +35,14 @@ async function persistRemoteObject(db, ctx) {
   const agentId = incoming.agent_id || incoming.agentId;
   const id = incoming.id || `agent-git-remote-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const parents = incoming.parent_commit_ids || incoming.parentCommitIds || [];
-  const existing = await db.get('SELECT id FROM agent_git_objects WHERE id = ?', id);
-  if (existing) return { id, agentId, parentCommitIds: parents, signature: incoming.signature, alreadyPresent: true };
+  const existing = await db.get('SELECT id, state_hash, commit_hash FROM agent_git_objects WHERE id = ?', id);
+  if (existing) {
+    if (existing.state_hash !== (incoming.state_hash || incoming.stateHash) ||
+        existing.commit_hash !== (incoming.commit_hash || incoming.commitHash)) {
+      throw new Error('Incoming object ID conflicts with existing content.');
+    }
+    return { id, agentId, parentCommitIds: parents, signature: incoming.signature, alreadyPresent: true };
+  }
   await db.run(
     `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by, parent_commit_id, tree_hash, commit_hash, signature_algorithm, author_key_id, public_key_fingerprint, signed_commit_envelope)
      VALUES (?, ?, ?, 'remote', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

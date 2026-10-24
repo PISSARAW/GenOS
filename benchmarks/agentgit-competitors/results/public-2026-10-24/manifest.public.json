@@ -1,0 +1,65 @@
+{
+  "schema": "genos.agentgit-benchmark-manifest/v1",
+  "description": "Deterministic branch isolation only; other metrics are not run.",
+  "tasks": [
+    {
+      "id": "branch-isolation",
+      "input": {
+        "base": "base-marker",
+        "candidate": "candidate-marker"
+      }
+    }
+  ],
+  "systems": [
+    {
+      "name": "GenOS",
+      "version": "38954ad78e7bc8ee9fa6473d7a638b81e2c948ab",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\GenOS-agentgit-roadmap\\benchmarks\\agentgit-competitors\\public-adapter.cjs",
+        "GenOS",
+        "38954ad78e7bc8ee9fa6473d7a638b81e2c948ab"
+      ]
+    },
+    {
+      "name": "Contexa",
+      "version": "contexa@1.1.2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\GenOS-agentgit-roadmap\\benchmarks\\agentgit-competitors\\public-adapter.cjs",
+        "Contexa",
+        "contexa@1.1.2"
+      ]
+    },
+    {
+      "name": "LangGraph",
+      "version": "@langchain/langgraph@1.5.2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\GenOS-agentgit-roadmap\\benchmarks\\agentgit-competitors\\public-adapter.cjs",
+        "LangGraph",
+        "@langchain/langgraph@1.5.2"
+      ]
+    },
+    {
+      "name": "Letta",
+      "version": "@letta-ai/letta-code@0.34.23",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\GenOS-agentgit-roadmap\\benchmarks\\agentgit-competitors\\public-adapter.cjs",
+        "Letta",
+        "@letta-ai/letta-code@0.34.23"
+      ]
+    },
+    {
+      "name": "DGM",
+      "version": "a565fd2d1dca504ef5104a7cc0f3bdc4ab9b4fd2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\GenOS-agentgit-roadmap\\benchmarks\\agentgit-competitors\\public-adapter.cjs",
+        "DGM",
+        "a565fd2d1dca504ef5104a7cc0f3bdc4ab9b4fd2"
+      ]
+    }
+  ]
+}

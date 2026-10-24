@@ -308,6 +308,15 @@ async function main() {
   const permCount = await db.get("SELECT COUNT(*) AS n FROM agent_permissions WHERE agent_id = 'agent-e2e-1'");
   assert.equal(permCount.n, 2, 'deux scopes de permissions doivent coexister pour un même agent');
 
+  // Deux writers sur la même version de ref doivent être sérialisés par SQLite.
+  const { updateRef } = require('../src/services/agentGitService/refs');
+  const concurrent = await Promise.allSettled(['writer-a', 'writer-b'].map((objectId) => updateRef({
+    db, req: makeReq(), agentId: 'agent-e2e-1', refName: 'concurrent-test', objectId,
+    options: { expectedVersion: 0, action: 'concurrent-test' }
+  })));
+  assert.equal(concurrent.filter((result) => result.status === 'fulfilled').length, 1);
+  assert.equal(concurrent.filter((result) => result.status === 'rejected' && result.reason.code === 'AGENT_REF_CONFLICT').length, 1);
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
   console.log('[OK] point 3 - format wire canonical: push/receive vérifiés sur objets réellement signés');
   console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');

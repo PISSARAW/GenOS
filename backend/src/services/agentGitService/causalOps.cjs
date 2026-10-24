@@ -1,7 +1,7 @@
 'use strict';
 
 const { getCommit, collectAncestors } = require('./commitGraph');
-const { getDatabase } = require('../../db');
+const { getDatabase } = require('./agentGitDb.cjs');
 const { treeHash, canonicalize } = require('./canonical');
 const crypto = require('crypto');
 const { json, verifyObjectSignatureLocal, verifySingleObject } = require('./verifyHelpers.cjs');
@@ -37,6 +37,23 @@ function checkOutcomeInvariants(state) {
   if (state.runs && Array.isArray(state.runs)) invariants.budgetsConsistent = checkBudgets(state.runs);
   if (state.permissions && Array.isArray(state.permissions)) invariants.permissionsConsistent = checkPermissions(state.permissions);
   if (state.decisions && Array.isArray(state.decisions)) invariants.decisionsValid = checkDecisions(state.decisions);
+  if (state.relations && Array.isArray(state.relations)) {
+    const ids = new Set(state.relations.map((row) => row.id));
+    invariants.relationsConsistent = ids.size === state.relations.length && state.relations.every((row) =>
+      row.source_agent_id !== row.target_agent_id && Number.isFinite(Number(row.authority))
+      && Number(row.authority) >= 0 && Number(row.authority) <= 1);
+  }
+  if (state.epistemicClaims && Array.isArray(state.epistemicClaims)) {
+    const { calibrate } = require('./epistemicClaimMerge.cjs');
+    invariants.claimsCalibrated = state.epistemicClaims.every((row) => {
+      const derived = calibrate(row);
+      if (!derived) return false;
+      try {
+        const claim = JSON.parse(row.claim_json || '{}');
+        return claim.confidence == null && Number(row.quality) === derived.quality;
+      } catch (_) { return false; }
+    });
+  }
   return invariants;
 }
 
@@ -53,8 +70,12 @@ async function replay(req) {
   const causalOrdered = events.every((event, index, all) => index === 0 || String(all[index - 1].created_at) <= String(event.created_at));
   const outcomeInvariants = checkOutcomeInvariants(state);
   const integrityReplay = stateHashValid && signatureValid;
+  const metadata = json(object.metadata_json, {});
+  const checkpointLink = metadata.checkpoint
+    ? await require('./checkpointBridge.cjs').verifyLink(db, object) : null;
+  const verified = integrityReplay && (!checkpointLink || checkpointLink.valid);
   const executionReplay = { eventCount: events.length, causalOrdered, stateHashValid, signatureValid, outcomeInvariants, executionMode: 'verification_only', applied: false };
-  return { success: integrityReplay, status: integrityReplay ? 'verified' : 'verification_failed', operation: 'replay', objectId: object.id, replayVerified: integrityReplay, state, stateHash: digest, runtimeReplay: executionReplay };
+  return { success: verified, status: verified ? 'verified' : 'verification_failed', operation: 'replay', objectId: object.id, replayVerified: verified, checkpointLink, state, stateHash: digest, runtimeReplay: executionReplay };
 }
 
 async function buildCausalBlame(db, commit, section) {

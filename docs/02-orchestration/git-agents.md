@@ -188,6 +188,14 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 |---|---|
 | `POST /agents/git/commit` | créer un commit d’état |
 | `POST /agents/git/diff` | comparer deux agents |
+| `POST /agents/git/ontogenetic-compare` | comparer des snapshots sur l’identité, les plasmides conservés et les coûts observés, sans sélectionner de gagnant |
+| `POST /agents/git/ontogenetic-evaluate` | exécuter les mêmes sondes serveur sur deux checkpoints vérifiés et comparer les résultats avec l’identité, les capacités et le budget |
+| `POST /agents/git/ontogenetic-fork` | créer un fork depuis un snapshot scellé, avec agent et workspace enfants isolés, si le scope serveur l’autorise |
+| `POST /agents/git/cognitive-diff`, `/social-diff` | comparer les décisions, preuves, permissions, hiérarchie et runs entre deux commits vérifiés |
+| `POST /agents/git/epistemic-merge-preview` | prévisualiser une fusion de décisions et exposer les contradictions non résolues |
+| `POST /agents/git/topology-transition` | versionner une transition morphogénétique déclarée commise dans un reçu de télémétrie |
+| `POST /agents/git/bisect-probe` | sonder les invariants déterministes de chaque checkpoint sur un chemin causal |
+| `POST /agents/git/bisect-replay` | exécuter un module de test serveur dans un processus séparé pour chaque checkpoint vérifié |
 | `POST /agents/git/merge` | fusionner deux états (3-way DAG) |
 | `POST /agents/git/rebase` | rebaser un objet |
 | `POST /agents/git/push`, `/fetch`, `/pull` | répliquer et appliquer des objets distants |
@@ -198,7 +206,31 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 | `POST /agents/git/replace-state`, `/apply-patch`, `/compute-patch` | opérations DAG bas niveau |
 | `POST /agents/git/hook`, `/gc`, `/bisect`, `/merge-base` | politiques, maintenance et analyse |
 
+Les diffs cognitifs, sociaux et ontogénétiques vérifient le hash d’état, le tree et la signature avant comparaison. Le merge refuse les snapshots invalides et les divergences simultanées de relation entre agents. `bisect-probe` valide les invariants sauvegardés ; il ne relance pas un runtime d’agent ni des effets externes. Le benchmark concurrentiel exige des reçus produits par des adaptateurs réels et ne publie pas de classement en l’absence de ces preuves.
+
+`bisect-replay` accepte `goodObjectId`, `badObjectId`, `probeName` et des `fixtures` JSON. L’administrateur configure `GENOS_AGENT_GIT_REPLAY_PROBES` comme une table JSON de noms vers des chemins absolus de modules JavaScript de confiance. Chaque module exporte une fonction `async ({ state, fixtures, seed, now }) => ({ pass, evidence })`. Le serveur limite le chemin à 64 checkpoints, vérifie leurs signatures et leurs hashes, lance un processus par checkpoint avec un délai de cinq secondes, puis renvoie le premier échec et le hash des résultats. L’autorisation `experiment:run` est requise. Ce mécanisme réexécute les tests déclarés par le module, sans restaurer ni lancer le runtime complet de l’agent ; le module doit simuler ses propres effets externes.
+
+`ontogenetic-evaluate` accepte `baselineObjectId`, `candidateObjectId`, une liste de un à huit `probeNames`, des `fixtures` par nom, un `seed` et un `now` communs. Les deux objets doivent appartenir au même agent ou à un fork direct, être dans le tenant courant et passer la vérification de signature et de hash. Les sondes exécutées dans des processus séparés fournissent des preuves hachées ; le reçu compare aussi le rôle, le modèle, la langue, les plasmides conservés et le budget des runs enregistrés. Le nom d’affichage changé automatiquement par un fork est signalé sans rendre l’identité instable. Aucun gagnant n’est sélectionné automatiquement, car des sondes déclarées et des coûts historiques ne suffisent pas à prouver un meilleur apprentissage. La route exige `experiment:run` et ne démarre pas le runtime de l’agent enfant.
+
+Le staging capture une section de l’état courant autorisé par le tenant ; une liste d’items fournie par le client doit correspondre exactement à cette section. L’index retient la ref, l’objet parent et sa version. `status` signale les sections stagées, les changements restés hors index et le déplacement éventuel de la base. `commit-from-index` vérifie le parent puis construit l’état à partir de son snapshot, en appliquant uniquement les sections stagées ; une ref déplacée refuse le commit. Ce contrat évite qu’un changement effectué après `stage` entre dans le commit par accident.
+
+`rebase-interactive` accepte une série linéaire de commits, `ontoObjectId` et une action par commit : `pick`, `drop`, `reword`, `squash`, `fixup` ou `edit`. Le plan est borné à 64 commits et vérifié intégralement avant mutation. Chaque changement est calculé relativement au parent original, appliqué sur la nouvelle base avec détection des modifications concurrentes incompatibles ; `edit` ne peut modifier que décisions et mémoires. Les nouveaux commits chaînés, l’état actif et la ref sont écrits dans une même transaction. La ref doit encore pointer sur l’ancien sommet au moment de l’écriture. Les commits abandonnés restent dans l’historique jusqu’à la politique de rétention.
+
+La synchronisation distante utilise `genos.agentgit-history/v1` : `push` exporte les ancêtres dans l’ordre des parents, avec chaque état et objet signé, puis attend un accusé de réception du sommet. `fetch` importe et vérifie cet historique dans une transaction et met à jour `refs/remotes/<remote>/<ref>` ; la route locale exige `workspace:write`, tandis que `/remote/fetch` reste en lecture. Une divergence sur `push` est refusée, sauf `force` avec un lease égal au dernier sommet distant connu. `pull` n’accepte que le sommet suivi et un avancement direct ; il applique l’état et la ref dans une transaction. Les compteurs `ahead` et `behind` proviennent des ensembles d’ancêtres ; sans sommet distant connu, ils valent `null`. Le protocole borne un transfert à 256 objets et 20 Mo. Les deux instances doivent partager le même identifiant d’agent, de workspace et une configuration de vérification des signatures compatible. Une divergence nécessite le merge vérifié avant promotion.
+
+Les commits capturent aussi les lignes `agent_relations` des pairs présents dans le tenant. `social-diff` expose leurs changements d’autorité, de classe et de provenance. Les opérations de patch et de merge conservent ces lignes ; un merge refuse les changements divergents ou une hausse d’autorité. L’application en base vérifie les pairs et le tenant avant de remplacer les relations dans la transaction du merge. Les anciens commits sans section `relations` restent compatibles.
+
+Les commits capturent les `epistemic_claims` produits par l’agent et les contradictions enregistrées. Une fusion de revendications compatibles réunit les preuves typées distinctes et recalcule `quality` avec le calculateur épistémique de GenOS. Deux versions divergentes d’une même revendication restent dans un reçu de contradiction non résolue ; des énoncés différents sur un même sujet sont marqués `contested` pour revue. La fusion persiste les revendications compatibles et les événements de contradiction dans la transaction AgentGit. Les valeurs `confidence` brutes ne sont pas promues.
+
+Le merge peut aussi exécuter des sondes fonctionnelles avant toute mutation. `GENOS_AGENT_GIT_MERGE_PROBES` est une liste JSON de noms enregistrés dans `GENOS_AGENT_GIT_REPLAY_PROBES` ; `GENOS_AGENT_GIT_MERGE_FIXTURES` fournit leurs entrées JSON par nom. Un échec refuse le merge, et chaque hash de résultat est inscrit dans les métadonnées signées du commit. Avec `GENOS_AGENT_GIT_REQUIRE_MERGE_PROBES=true`, l’absence de sondes refuse également le merge. Sans cette exigence, le reçu indique explicitement `not_configured` et ne prétend pas avoir exécuté des tests fonctionnels.
+
 Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
+
+Avec `GENOS_AGENT_GIT_DELTA_STORAGE=true`, les nouveaux objets AgentGit stockent les sections modifiées relativement à leur premier parent lorsque le delta économise au moins 20 % de la taille JSON. Un snapshot complet est écrit au plus tard après huit deltas. La lecture reconstruit l’état, vérifie son hash, puis fournit le JSON habituel aux opérations AgentGit. Les anciens objets complets restent lisibles ; désactiver l’option arrête les nouvelles écritures en delta sans empêcher la lecture des deltas existants.
+
+`gc` marque les ancêtres des refs, tags, archives, notes et entrées de reflog récentes, puis protège aussi les objets récents et les `keep` objets non référencés les plus récents avec tous leurs ancêtres. Il supprime les autres objets, y compris les commits, dans une transaction. `retentionDays` vaut 30 et `keep` vaut 20 par défaut ; les deux bornes peuvent être ajustées dans la requête. Les références de reflog plus anciennes restent dans le journal d’audit mais ne protègent plus leurs objets après la période de rétention.
+
+Avec `GENOS_AGENT_GIT_CHECKPOINT_BRIDGE=true`, chaque capture d’organisme lie dans la même transaction son snapshot scellé à un commit AgentGit sur la ref `checkpoint/<ref>`. Le lien signé suit `genos.agent-checkpoint/v1` et contient l’ID du snapshot, son hash d’organisme et le hash du workspace. La réponse de capture expose `checkpointLink`. `ontogenetic-fork` accepte alors `objectId` et résout le snapshot après vérification des deux côtés ; `replay` vérifie également ce lien lorsqu’il est présent. Cette liaison ne transforme pas le replay de vérification en reprise du runtime.
 
 Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
@@ -261,7 +293,7 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 
 ### Limites d’implémentation
 
-- Un commit agentique stocke un snapshot JSON complet ; il n’utilise pas de deltas Git.
+- Le stockage par deltas est optionnel et porte sur les sections JSON au premier parent ; il ne compresse pas les blobs de workspace comme Git.
 - `agentGitService` ne crée pas de worktree et ne versionne pas les fichiers du dépôt.
 - La signature est vérifiée avec la configuration de clé du serveur ; il n’y a pas de négociation d’algorithme par objet.
 - `push` et `fetch` distants utilisent HTTP ; ils ne sont pas un transport Git natif.
@@ -271,7 +303,7 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 - `revert` applique `inversePatch = computePatch(targetState, parentState)`, supprimant les éléments attendus.
 - `bisect` parcours le DAG causal (`collectAncestors`) au lieu d’un `ORDER BY created_at`.
 - Le replay vérifie l’intégrité et l’ordre des événements capturés ; il ne garantit pas une re-exécution déterministe de tous les effets externes.
-- Le GC doit être appelé explicitement et ne purge que les catégories prévues.
+- Le GC doit être appelé explicitement ; ses racines et sa fenêtre de rétention déterminent quels objets peuvent être purgés.
 
 ### Garde-fous obligatoires
 

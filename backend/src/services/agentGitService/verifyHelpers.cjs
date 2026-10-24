@@ -153,8 +153,51 @@ async function verifySingleObject(db, object, objects) {
   const objIds = new Set(objects.map(o => o.id));
   await checkParentLinks({ db, object, objIds, issues });
   const state = checkStateValidity(object, issues);
-  if (!state) return issues;
+  if (state) checkStateInvariants({ object, state, issues });
   return issues;
 }
 
-module.exports = { json, signingAlgorithm, signingSecret, signObjectLocal, verifyObjectSignatureLocal, verifyObjectSignatureWithStore, resolveTrustPublicKey, checkStateValidity, checkParentLinks, verifySingleObject };
+function checkStateInvariants(ctx) {
+  const { object, state, issues } = ctx;
+  for (const run of stateArray(state, 'runs', object, issues)) checkBudget({ object, run, issues });
+  for (const permission of stateArray(state, 'permissions', object, issues)) checkPermission({ object, permission, issues });
+  for (const decision of stateArray(state, 'decisions', object, issues)) {
+    if (typeof decision.synaptic_weight !== 'number' || decision.synaptic_weight <= 0) {
+      issues.push({ id: object.id, issue: 'invalid_decision_weight', decisionId: decision.id || null });
+    }
+  }
+}
+
+function stateArray(state, key, object, issues) {
+  if (state[key] === undefined) return [];
+  if (Array.isArray(state[key])) return state[key];
+  issues.push({ id: object.id, issue: `invalid_${key}_section` });
+  return [];
+}
+
+function checkBudget(ctx) {
+  let budget;
+  try { budget = JSON.parse(ctx.run.budget_json || '{}'); } catch (_) {
+    ctx.issues.push({ id: ctx.object.id, issue: 'invalid_run_budget_json', runId: ctx.run.id || null });
+    return;
+  }
+  if (typeof budget.allocated !== 'number' || typeof budget.consumed !== 'number' || budget.consumed > budget.allocated) {
+    ctx.issues.push({ id: ctx.object.id, issue: 'run_budget_exceeded', runId: ctx.run.id || null });
+  }
+}
+
+function checkPermission(ctx) {
+  let allowed;
+  let denied;
+  try {
+    allowed = JSON.parse(ctx.permission.permissions_json || '[]');
+    denied = JSON.parse(ctx.permission.denied_tools_json || '[]');
+  } catch (_) {
+    ctx.issues.push({ id: ctx.object.id, issue: 'invalid_permission_json' });
+    return;
+  }
+  const overlap = allowed.filter((tool) => denied.includes(tool));
+  for (const tool of overlap) ctx.issues.push({ id: ctx.object.id, issue: 'permission_denied_overlap', tool });
+}
+
+module.exports = { json, signingAlgorithm, signingSecret, signObjectLocal, verifyObjectSignatureLocal, verifyObjectSignatureWithStore, resolveTrustPublicKey, checkStateValidity, checkStateInvariants, checkParentLinks, verifySingleObject };

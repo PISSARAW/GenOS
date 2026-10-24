@@ -6,8 +6,11 @@ const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
 const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
-const { mergeEvents, mergeChildren } = require('./mergeDrivers.cjs');
-const { getDatabase } = require('../../db');
+const { mergeEvents, mergeChildrenGoverned } = require('./mergeDrivers.cjs');
+const { getDatabase } = require('./agentGitDb.cjs');
+const { verifyMergeEvidence } = require('./verifiedMerge.cjs');
+const { mergeRelations } = require('./institutionalRelations.cjs');
+const { mergeClaims } = require('./epistemicClaimMerge.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -21,7 +24,7 @@ async function getObjectScoped(db, req, objectId) {
 }
 
 function emptyState() {
-  return { decisions: [], memories: [], runs: [], plasmids: [], permissions: [] };
+  return { decisions: [], memories: [], runs: [], plasmids: [], permissions: [], relations: [], epistemicClaims: [] };
 }
 
 function collectDeniedTools(permissions) {
@@ -42,7 +45,7 @@ async function cherryPick(req) {
 
   const commit = await getCommit(db, object.id);
   const patch = await buildCherryPickPatch({ db, req, commit, object });
-  const sections = req.body?.sections || ['decisions', 'memories', 'plasmids', 'permissions'];
+  const sections = req.body?.sections || ['decisions', 'memories', 'plasmids', 'permissions', 'relations', 'epistemicClaims'];
   const targetAgentId = req.body?.targetAgentId || object.agent_id;
   const result = await applyPatch(req, { targetAgentId, patch, sections });
 
@@ -93,6 +96,13 @@ async function merge(req) {
   const merged = buildMergedState({ base, left: sides.left, right: sides.right, nameOverride: req.body?.name });
   const conflict = checkMergeConflicts({ merged, base, ids });
   if (conflict) return conflict;
+  const verification = verifyMergeEvidence({ sources: [sides.left, sides.right], mergedState: merged.storeState });
+  if (!verification.verified) {
+    return { success: false, operation: 'merge', error: 'Merge verification failed.', verification };
+  }
+  const functional = await require('./mergeProbeGate.cjs').verifyFunctionalMerge(merged.storeState);
+  if (!functional.verified) return { success: false, operation: 'merge', error: 'Functional merge probes failed.', functional };
+  merged.functional = functional;
   return commitMergedState({ db, req, sides, base, merged, ids });
 }
 
@@ -126,20 +136,15 @@ async function commitMergedState(ctx) {
   // Transaction commune : remplacement d'état + création du commit de fusion.
   // L'un ou l'autre échoue -> rollback complet, pas d'état actif sans commit
   // (et pas de commit sans état actif).
-  await db.exec('BEGIN IMMEDIATE');
-  try {
+  return require('./agentGitDb.cjs').withTransaction(db, async () => {
     const result = await replaceState(req, {
       targetAgentId,
       state: merged.storeState,
-      sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
+      sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
     }, { inTransaction: true });
     const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
-    await db.exec('COMMIT');
-    return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
-  } catch (err) {
-    await db.exec('ROLLBACK').catch(() => {});
-    throw err;
-  }
+    return { success: true, operation: 'merge', ...result, ...commitResult, functional: merged.functional, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
+  });
 }
 
 function buildMergedState(ctx) {
@@ -149,17 +154,28 @@ function buildMergedState(ctx) {
   const rightState = JSON.parse(right.state_json);
   const patchLeft = computePatch(baseState, leftState);
   const patchRight = computePatch(baseState, rightState);
-  const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState });
+  const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState,
+    leftObjectId: left.id, rightObjectId: right.id });
   return { storeState: buildMergeStoreState({ baseState, leftState, rightState, nameOverride, mergeSections: ms.sections }), conflicts: ms.conflicts };
 }
 
 function buildMergeSections(ctx) {
-  const { baseState, patchLeft, patchRight, leftState, rightState } = ctx;
+  const { baseState, patchLeft, patchRight, leftState, rightState, leftObjectId, rightObjectId } = ctx;
   const decisions = mergeDecisionsSection({ baseState, patchLeft, patchRight });
   const memories = mergeMemoriesSection({ baseState, patchLeft, patchRight });
   const runs = mergeRunsSection({ baseState, patchLeft, patchRight });
   const plasmids = mergePlasmidsSection({ baseState, patchLeft, patchRight });
   const permissions = mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] });
+  const children = mergeChildrenGoverned({ base: baseState.children, left: leftState.children, right: rightState.children });
+  const relations = [baseState, leftState, rightState].some((state) => Array.isArray(state.relations))
+    ? mergeRelations({ base: baseState.relations, left: leftState.relations, right: rightState.relations })
+    : { merged: undefined, conflicts: [] };
+  const claims = [baseState, leftState, rightState].some((state) => Array.isArray(state.epistemicClaims))
+    ? mergeClaims({ base: baseState.epistemicClaims, left: leftState.epistemicClaims,
+      right: rightState.epistemicClaims, leftObjectId, rightObjectId })
+    : { claims: undefined, contradictions: [], conflicts: [] };
+  const priorContradictions = [baseState, leftState, rightState]
+    .flatMap((state) => state.epistemicContradictions || []);
   return {
     sections: {
       decisions: decisions.merged,
@@ -168,9 +184,13 @@ function buildMergeSections(ctx) {
       plasmids: plasmids.merged,
       permissions: permissions.merged,
       events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
-      children: mergeChildren({ base: baseState.children || [], left: leftState.children || [], right: rightState.children || [] })
+      children: children.merged,
+      relations: relations.merged,
+      epistemicClaims: claims.claims,
+      epistemicContradictions: [...new Map([...priorContradictions, ...claims.contradictions]
+        .map((item) => [JSON.stringify(item), item])).values()]
     },
-    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts]
+    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts, ...children.conflicts, ...relations.conflicts, ...claims.conflicts]
   };
 }
 
@@ -223,11 +243,12 @@ async function createMergeCommit(ctx) {
       mergeParents: [leftId, rightId],
       mergeBase: base?.id || null,
       merge: isMerge,
-      fastForward: !isMerge
+      fastForward: !isMerge,
+      functionalVerification: merged.functional
     },
     parentCommitIds: mergeParents
   });
-  await updateRef({ db, req, agentId: req.body?.targetAgentId || left.agent_id, refName: req.body?.refName || 'merge', objectId: commitResult.id, options: { action: 'merge' } });
+  await updateRef({ db, req, agentId: req.body?.targetAgentId || left.agent_id, refName: req.body?.refName || 'merge', objectId: commitResult.id, options: { action: 'merge', inTransaction: true } });
   return commitResult;
 }
 
@@ -310,7 +331,7 @@ async function revert(req) {
   const result = await applyPatch(req, {
     targetAgentId,
     patch,
-    sections: ['decisions', 'memories', 'runs', 'plasmids', 'permissions']
+    sections: ['decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']
   });
 
   // Point 5 : le commit de revert capture l'état APRÈS application du patch

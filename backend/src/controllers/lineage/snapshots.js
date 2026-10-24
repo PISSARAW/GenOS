@@ -147,9 +147,11 @@ async function captureOrganismState(options) {
             topologySnapshot });
         barrier?.assertAlive();
         await persist(state);
+        const checkpointLink = await require('../../services/agentGitService/checkpointBridge.cjs')
+          .linkCaptureIfEnabled({ db, req, agentId: agent.id, snapshotId, state, refName: req.body?.refName });
         await require('../../services/identity/snapshots').capture(db, { agentId: agent.id, snapshotId, state });
         barrier?.assertAlive();
-        return state;
+        return checkpointLink ? { ...state, _genosCheckpointLink: checkpointLink } : state;
       });
     });
   } finally {
@@ -302,7 +304,7 @@ async function snapshotAgentState(req, res) {
   const state = await captureOrganismState({ db, scope, agent, req, snapshotId, reason,
     persist: (captured) => db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)', snapshotId, agent.id, agent.workspace_id, JSON.stringify(captured), reason, actorName(req)) });
   const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
-  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, gqwfRootHash: workspaceSnapshot?.gqwfRootHash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, agentId: agent.id, createdAt: new Date().toISOString() });
+  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, gqwfRootHash: workspaceSnapshot?.gqwfRootHash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, checkpointLink: state._genosCheckpointLink || null, agentId: agent.id, createdAt: new Date().toISOString() });
 }
 
 async function commitAgentState(req, res) {
@@ -322,7 +324,7 @@ async function commitAgentState(req, res) {
       'INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, commit_message, parent_snapshot_id, ref_name, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       commitId, agent.id, agent.workspace_id, JSON.stringify(captured), 'Agent commit', message, optionalId(parent), refName, actorName(req)) });
   const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
-  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, gqwfRootHash: workspaceSnapshot?.gqwfRootHash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, agentId, refName, message });
+  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, gqwfRootHash: workspaceSnapshot?.gqwfRootHash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, checkpointLink: state._genosCheckpointLink || null, agentId, refName, message });
 }
 
 async function branchAgentState(req, res) {

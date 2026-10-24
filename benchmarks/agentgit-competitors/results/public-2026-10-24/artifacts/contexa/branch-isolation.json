@@ -1,0 +1,15 @@
+{
+  "child": [
+    "candidate-marker"
+  ],
+  "mainBefore": [
+    "base-marker"
+  ],
+  "mainAfter": [
+    "Merged branch `candidate` (1 commits). Contributions: candidate-marker"
+  ],
+  "branches": [
+    "candidate",
+    "main"
+  ]
+}
