@@ -146,6 +146,87 @@ function budgetFor(ctx) {
   return { total, used: 0 };
 }
 
+async function ensureBudgetLedger(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS communication_budget_accounts (
+    agent_id TEXT PRIMARY KEY,
+    total REAL NOT NULL,
+    used REAL NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+}
+
+async function persistedBudget(ctx, budget) {
+  const db = resolveDb(ctx.db);
+  await ensureBudgetLedger(db);
+  await db.run(`INSERT INTO communication_budget_accounts(agent_id, total, used)
+    VALUES (?, ?, 0) ON CONFLICT(agent_id) DO NOTHING`, ctx.agentId, budget.total);
+  await db.run(`UPDATE communication_budget_accounts SET total = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE agent_id = ?`, budget.total, ctx.agentId);
+  const row = await db.get('SELECT total, used FROM communication_budget_accounts WHERE agent_id = ?', ctx.agentId);
+  return { total: Number(row.total), used: Number(row.used) };
+}
+
+async function reserveBudget(input) {
+  const { db: suppliedDb, agentId, total, amount } = input || {};
+  if (!agentId || !Number.isFinite(amount) || amount < 0 || !Number.isFinite(total) || total < 0) {
+    return { reserved: false, reason: 'BUDGET_INPUT_INVALID' };
+  }
+  const db = resolveDb(suppliedDb);
+  await ensureBudgetLedger(db);
+  await db.run(`INSERT INTO communication_budget_accounts(agent_id, total, used)
+    VALUES (?, ?, 0) ON CONFLICT(agent_id) DO NOTHING`, agentId, total);
+  await db.run(`UPDATE communication_budget_accounts SET total = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE agent_id = ?`, total, agentId);
+  const result = await db.run(`UPDATE communication_budget_accounts SET used = used + ?, updated_at = CURRENT_TIMESTAMP
+    WHERE agent_id = ? AND used + ? <= total`, amount, agentId, amount);
+  const row = await db.get('SELECT total, used FROM communication_budget_accounts WHERE agent_id = ?', agentId);
+  return { reserved: result.changes === 1, total: Number(row.total), used: Number(row.used),
+    remaining: Math.max(0, Number(row.total) - Number(row.used)) };
+}
+
+function decisionChannel(decision) {
+  if (decision.action === 'STIGMERGY') return 'STIGMERGY';
+  if (decision.action === 'DIALOGUE') return 'DIALOGUE';
+  if (decision.action === 'SIGNAL') return 'SIGNAL';
+  return null;
+}
+
+function silenceForConstraint(decision, reasonCode) {
+  return { ...decision, action: 'SILENCE', scope: 'SELF', recipients: [], grounding: 'none', ttlMs: 0,
+    reasonCodes: [...new Set([...(decision.reasonCodes || []), reasonCode])],
+    meta: { ...(decision.meta || {}), rejectedAction: decision.action, constraint: reasonCode } };
+}
+
+function enforceManifestChannel(manifest, decision) {
+  if (decision.action === 'SILENCE') return { allowed: true, decision, channel: null };
+  const channel = decisionChannel(decision);
+  if (!channel || !manifest.allowedChannels.includes(channel)) {
+    return { allowed: false, channel, decision: silenceForConstraint(decision, 'CHANNEL_NOT_ALLOWED') };
+  }
+  return { allowed: true, channel, decision };
+}
+
+function decisionCost(decision) {
+  const value = Number(decision.meta?.cost);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+async function enforceManifestBudget(input) {
+  const { db, manifest, decision } = input;
+  if (decision.action === 'SILENCE') return { allowed: true, decision, reservation: null };
+  const amount = decisionCost(decision);
+  if (amount === null) {
+    return { allowed: false, decision: silenceForConstraint(decision, 'COMMUNICATION_COST_UNAVAILABLE'), reservation: null };
+  }
+  const reservation = await reserveBudget({ db, agentId: manifest.agentId,
+    total: manifest.communicationBudget.total, amount });
+  if (!reservation.reserved) {
+    return { allowed: false, decision: silenceForConstraint(decision, 'COMMUNICATION_BUDGET_EXHAUSTED'), reservation };
+  }
+  manifest.communicationBudget.used = reservation.used;
+  return { allowed: true, decision, reservation };
+}
+
 async function buildManifest(ctx) {
   if (!ctx || !ctx.agentId) throw new Error('agentId is required.');
   const phenotype = phenotypeOf(ctx);
@@ -153,7 +234,7 @@ async function buildManifest(ctx) {
   const tools = toolsFor(ctx);
   const encoding = encodingFor(ctx);
   const policy = policyFor(ctx);
-  const budget = budgetFor(ctx);
+  const budget = await persistedBudget(ctx, budgetFor(ctx));
   const subscriptions = await fetchSubscriptions(ctx);
   const relations = await fetchRelations(ctx);
   const profile = await fetchAgentProfile(ctx);
@@ -260,5 +341,9 @@ module.exports = {
   invalidateManifest,
   validateManifest,
   checkBudget,
-  consumeBudget
+  consumeBudget,
+  reserveBudget,
+  decisionChannel,
+  enforceManifestChannel,
+  enforceManifestBudget
 };

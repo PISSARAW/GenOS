@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3').verbose();
-const { buildManifest } = require('../src/services/communication/communicationManifestService');
+const manifestService = require('../src/services/communication/communicationManifestService');
+const { buildManifest } = manifestService;
 
 async function run() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
@@ -17,6 +18,19 @@ async function run() {
     assert.equal(manifest.phenotypeId, 'Specialist');
     assert.ok(manifest.allowedChannels.includes('DIALOGUE'));
     assert.deepEqual(manifest.subscriptions, ['alerts']);
+    const bounded = await buildManifest({ db, agentId: 'agent-2', phenotype: { id: 'BoundedWorker' } });
+    const denied = manifestService.enforceManifestChannel(bounded, {
+      action: 'DIALOGUE', scope: 'SELF', recipients: [], reasonCodes: [], meta: {}
+    });
+    assert.equal(denied.allowed, false);
+    assert.equal(denied.decision.action, 'SILENCE');
+    assert.equal(manifestService.decisionChannel({ action: 'SIGNAL', scope: 'QUORUM' }), 'SIGNAL');
+    const first = await manifestService.reserveBudget({ db, agentId: 'agent-2', total: 10, amount: 7 });
+    const second = await manifestService.reserveBudget({ db, agentId: 'agent-2', total: 10, amount: 4 });
+    assert.equal(first.reserved, true);
+    assert.equal(second.reserved, false);
+    const rebuilt = await buildManifest({ db, agentId: 'agent-2', phenotype: { id: 'BoundedWorker' } });
+    assert.equal(rebuilt.communicationBudget.used, 7, 'budget use persists across manifest rebuilds');
     console.log('Communication manifest reads the V3 agent schema.');
   } finally {
     await db.close();

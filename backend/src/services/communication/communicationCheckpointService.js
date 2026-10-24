@@ -10,7 +10,7 @@
  */
 
 const { decideCommunication, getMode } = require('./communicationPolicyEngine');
-const { buildManifest } = require('./communicationManifestService');
+const { buildManifest, enforceManifestChannel, enforceManifestBudget } = require('./communicationManifestService');
 const { executeLiveCycle } = require('./liveCycleExecution');
 const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
 
@@ -241,8 +241,16 @@ async function evaluateCheckpoint(ctx) {
   const manifest = await buildManifest(ctx);
   const intent = buildIntent(ctx);
   const input = buildPolicyInput(ctx, intent, manifest);
-  const decision = await decideCommunication(input);
+  const proposed = await decideCommunication(input);
+  const channelGate = enforceManifestChannel(manifest, proposed);
+  const budgetGate = await enforceManifestBudget({ db: ctx.db, manifest, decision: channelGate.decision });
+  const decision = budgetGate.decision;
   const receipt = buildReceipt(ctx, decision);
+  receipt.constraints = {
+    channel: channelGate.channel,
+    channelAllowed: channelGate.allowed,
+    budget: budgetGate.reservation
+  };
   receipt.executed = getMode() === 'shadow'
     ? { executed: false, reason: 'SHADOW_MODE' }
     : decision.action === 'SILENCE'
