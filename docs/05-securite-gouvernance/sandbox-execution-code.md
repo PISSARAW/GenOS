@@ -118,6 +118,13 @@ Le nettoyage refuse une racine de disque, une capsule en dehors des repertoires 
 - sous Windows, le runner Ontogenese utilise en plus un Job Object avec
   `KILL_ON_JOB_CLOSE` et limite memoire du job ; le processus est cree suspendu,
   assigne, puis repris, sans fenetre de spawn non confinee ;
+
+- pour les oracles de campagne G1, dockerVerifierRunner.js exige un moteur Linux,
+  une image locale epinglee par digest, --network none, une racine en lecture
+  seule et des montages workspace/oracle en lecture seule. Il borne les ressources
+  et ne transmet aucun secret applicatif. Ce profil est porte par chaque check et
+  l'attestation d'execution est liee au recu independant; voir ADR 0740. Il ne
+  rend pas les autres chemins hote equivalents a un sandbox OS;
 - les PIDs invalides, non positifs ou egaux au PID du superviseur sont refuses pour la terminaison directe ;
 - `processMatches()` peut verifier que le PID designe encore l'executable attendu avant un acte d'apoptose.
 

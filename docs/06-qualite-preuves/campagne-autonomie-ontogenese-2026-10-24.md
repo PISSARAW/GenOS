@@ -257,6 +257,14 @@ Cette preuve calibre les oracles, mais ne les scelle pas. La campagne reste
 OS isolé, l'identité exacte du modèle, puis figer les digests du contrat et des
 oracles avant la première mission.
 
+Le chemin d'exécution G1 est maintenant raccordé au vérificateur Ontogenèse par
+le profil Docker de l'ADR 0740. Le préparateur exige désormais
+`GENOS_ONTOGENESIS_G1_VERIFIER_IMAGE` avec un digest SHA-256 et écrit ce profil
+dans chaque check; un check G1 généré sans profil ne peut pas se rabattre sur
+l'hôte. Les campagnes de référence préparées avant ce changement ne portent pas
+ce profil et ne doivent pas être lancées; il faudra préparer une nouvelle
+campagne depuis cette révision, puis recalibrer et sceller ses oracles.
+
 Le pilote ne doit pas exécuter le code candidat sur cet hôte sans confinement OS.
 La vérification élimine désormais les secrets de l'environnement enfant, mais
 un worktree et un Job Object ne confinent pas les accès disque/réseau du code
@@ -272,6 +280,12 @@ arrêtées; WSL 1 ne constitue pas une VM Linux isolée. `podman` et
 `WindowsSandbox.exe` sont absents. `vmcompute` est arrêté et le client Docker ne
 parvient toujours pas à joindre son moteur. Aucun runner OS utilisable n'est
 donc disponible sans reconfiguration de l'hôte; G1 reste fermé.
+
+La clé HMAC `GENOS_GVX_LEDGER_HMAC_SECRET` est maintenant présente dans
+l'environnement du runner local (longueur vérifiée, valeur jamais affichée), ce
+qui lève le prérequis de configuration du registre. Le moteur Docker Linux reste
+indisponible et la mémoire libre est à 3,3 %; la suite G0 n'a pas été relancée et
+aucune campagne G1 n'a été démarrée.
 
 ### Reprise opérationnelle — 2026-10-24 08:54 UTC
 
