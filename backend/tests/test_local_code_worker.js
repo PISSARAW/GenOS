@@ -298,6 +298,22 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			return 'repaired';
 		} });
 		assert.equal(repairAttempts, 2, 'repair retries preserve the candidate flag throughout the mission');
+		const retryPrompts = [];
+		let boundedPromptAttempts = 0;
+		await runCodeRepair({ mission: { localCodeWorker: true, prompt: 'original task', timeoutMs: 10000,
+			executionBudget: { tokens: 10000 } }, onRetry: async () => {}, runAttempt: async (mission) => {
+			retryPrompts.push(mission.prompt);
+			if (++boundedPromptAttempts === 1 || boundedPromptAttempts === 2) {
+				const failure = boundedPromptAttempts === 1 ? 'unique first failure' : 'unique second failure';
+				throw Object.assign(new Error(failure), { code: 'WORKER_TESTS_FAILED', usage: { tokens: 1 },
+					proposal: { tests: [{ stderr: failure }], failedPatchContents: [{ path: 'src/lib.rs', content: failure }] } });
+			}
+			return 'repaired';
+		} });
+		assert.match(retryPrompts[1], /unique first failure/);
+		assert.match(retryPrompts[2], /unique second failure/);
+		assert.doesNotMatch(retryPrompts[2], /unique first failure/,
+			'retry prompts do not accumulate prior failure reports and candidate contents');
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}

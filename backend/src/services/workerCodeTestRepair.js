@@ -390,7 +390,7 @@ function nextMission(input) {
     ...(current.preserveFailedCodeCandidate ? { preserveFailedCodeCandidate: true } : {}),
     ...(current.forceFullFileReplacement || (error?.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION' && /Exact edit anchor must occur once in /.test(String(error?.workerArtifactDiagnostics?.error || error?.message || '')))
       ? { forceFullFileReplacement: true } : {}),
-    prompt: repairPrompt({ mission: current, error, attempt }),
+    prompt: repairPrompt({ mission: { ...current, prompt: base.prompt }, error, attempt }),
     ...(codeRepairPlans.length ? { codeRepairPlans } : {}),
     timeoutMs: remainingMs,
     executionBudget: { ...base.executionBudget, latencyMs: remainingMs,
