@@ -79,6 +79,14 @@ const stableOrderFeedback = failureFeedback({ proposal: {
 } });
 assert.match(stableOrderFeedback, /return \[\.\.\.new Set\(values\)\] with no sort/);
 assert.match(stableOrderFeedback, /first occurrence of each value in input order/);
+const missingIncreaseButtonFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: "locator.click: Timeout; waiting for getByRole('button', { name: /increase quantity for oats/i })" }],
+  failedPatchContents: [{ path: 'index.html',
+    content: '<li>Oats 2 <input type="number" aria-label="Increase quantity for Oats"></li>' }]
+} });
+assert.match(missingIncreaseButtonFeedback, /Render a visible <button type="button"/);
+assert.match(missingIncreaseButtonFeedback, /do not use an input or a text-only span/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
