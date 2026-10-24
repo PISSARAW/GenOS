@@ -18,3 +18,22 @@ Le benchmark n’est pas considéré comme publié tant que des runs réels et l
 preuves ne sont pas fournis pour les systèmes comparés.
 
 Validation locale du scoreur : `node benchmarks/agentgit-competitors/test.cjs`.
+
+`run.cjs` lance des adaptateurs installés par l'opérateur, une fois par tâche,
+avec la même entrée JSON et un délai de deux minutes. Exemple de manifeste :
+
+```json
+{
+  "schema": "genos.agentgit-benchmark-manifest/v1",
+  "tasks": [{ "id": "integrity-tamper", "input": { "tamper": true } }],
+  "systems": [{ "name": "GenOS", "version": "version-réelle", "adapter": "C:/chemin/node.exe", "args": ["adaptateurs/genos.cjs"] }]
+}
+```
+
+Chaque adaptateur lit sur stdin `{schema, task, system}` et émet un unique JSON
+`{taskId, system, version, metrics}`. Un résultat `pass` ou `fail` doit contenir
+une preuve vérifiable dans `evidence`. La sortie contient un hash du reçu et
+un hash commun des tâches. Lancez `node benchmarks/agentgit-competitors/run.cjs
+manifest.json résultats.json` puis conservez le manifeste, les versions et les
+artefacts cités par les preuves. `mock-adapter.cjs` ne sert qu'au test du runner ;
+il ne mesure aucun produit. Validation : `node benchmarks/agentgit-competitors/run-test.cjs`.
