@@ -70,6 +70,12 @@ test('V2-02 pilot rejects incomplete arms, unpaired inputs, and invalid delivery
   assert.equal(pilot.evaluatePilot(evidence).status, 'inconclusive');
 });
 
+test('V2-02 pilot reports a failed warmup without claiming the unrun arms were unpaired', () => {
+  const evaluation = pilot.evaluatePilot({ warmup: { completed: false }, arms: [] });
+  assert.equal(evaluation.status, 'inconclusive');
+  assert.deepEqual(evaluation.errors, ['qwen-warmup-incomplete', 'qwen-warmup-model-mismatch']);
+});
+
 test('V2-02 pilot rejects invalid memory references in either decision path', () => {
   const response = { structured: { action: 'silence', recipientAgentId: null,
     purpose: 'inform', reasonCode: 'evidence-insufficient', memoryReferences: ['missing'] } };
