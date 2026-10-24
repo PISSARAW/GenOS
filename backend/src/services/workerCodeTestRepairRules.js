@@ -6,6 +6,7 @@ function testOutput(error) {
 
 const hintRules = [
   [/waitForEvent[\s\S]*?download|waiting for event.*download/i, 'The Export button must trigger a real browser download. Serialize pantry state to a Blob, set an anchor download to a filename ending in .json or .csv, and click the anchor.'],
+  [/acceptance\.cjs:29:10/, 'The browser download fired, but its filename failed the extension assertion. Set the actual download attribute to a filename that ends with a literal dot followed by .json or .csv (for example, pantry.json); do not rely on the Blob MIME type alone.'],
   [/acceptance\.cjs:24:10/, 'The increase button was clicked but the visible row did not reach quantity 3. Update the matching Oats row and the same persisted inventory item, then keep both values synchronized after rendering.'],
   [/updated quantity persists|quantity.*reload|reload.*quantity/i, 'The changed quantity is visible but lost after reload. Save the canonical inventory array to localStorage immediately after every add, quantity increment, and delete, using the same storage key that startup reads. Do not save a stale copy or only the initial form values.'],
   [/getByLabel\(\/best\.before\/i\)/i, 'The best-before date input has no accessible name matching Best-before. Keep its visible associated label and also set aria-label="Best-before date" on the date input.'],
@@ -47,6 +48,7 @@ const planRules = [
     && plan('ensure_quantity_input_label', 'Quantity'),
   (output) => /acceptance\.cjs:24:10/.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats'),
   (output) => /waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output) && plan('ensure_json_export', 'Export JSON'),
+  (output) => /acceptance\.cjs:29:10/.test(output) && plan('ensure_json_export', 'Export JSON'),
   (output) => /0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && plan('ensure_add_item_behavior', 'Add Item'),
   (output) => /getByRole\(\s*'button',\s*\{\s*name:\s*\/delete oats\/i\s*\}\s*\)/i.test(output)
     && plan('ensure_add_item_behavior', 'Add Item'),

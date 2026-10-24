@@ -101,6 +101,10 @@ assert.match(missingIncreaseButtonFeedback, /do not use an input or a text-only 
 assert.deepEqual(repairPlan({ proposal: { tests: [{ stderr:
   "locator.click: Timeout; waiting for getByRole('button', { name: /increase quantity for oats/i })" }] } }),
 { kind: 'ensure_quantity_increment_behavior', label: 'Increase quantity for Oats' });
+const exportFilenameFailure = { proposal: { tests: [{ command: 'npm test', exitCode: 1,
+  stderr: 'AssertionError: filename does not match /\\\\.(json|csv)$/i at acceptance.cjs:29:10' }] } };
+assert.match(failureFeedback(exportFilenameFailure), /filename failed the extension assertion/);
+assert.deepEqual(repairPlan(exportFilenameFailure), { kind: 'ensure_json_export', label: 'Export JSON' });
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
