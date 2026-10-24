@@ -88,3 +88,10 @@ test('V2-02 delivery receipt requires a persisted semantic acknowledgement', () 
   assert.equal(pilot.validReceipt(receipt, 'agent-2').valid, false);
   assert.equal(pilot.validReceipt(null, 'agent-1').valid, false);
 });
+
+test('isolated pilot databases receive an ephemeral bootstrap password and serial inference cap', () => {
+  assert.deepEqual(pilot.databaseEnvironment({ database: 'D:/run/warmup.sqlite', adminPassword: 'ephemeral' }), {
+    GENOS_DB_PATH: 'D:/run/warmup.sqlite', GENOS_ADMIN_PASSWORD: 'ephemeral',
+    GENOS_INFERENCE_MAX_CONCURRENT: '1'
+  });
+});
