@@ -70,6 +70,10 @@ jamais une acceptation de tâche.
   mais la garde mémoire réelle a produit `ressources-contraintes`. Verdict code
   1; ce run ne compte pas pour G0. Le test devra isoler son état mémoire comme
   le rituel, sans changer les seuils runtime.
+- Sur `7de850a29`, le test runner utilise des seuils mémoire déterministes dans
+  la configuration de fixture; il passe isolément avec 17,9 % de RAM libre au
+  départ. Cela ne modifie pas les seuils runtime. Le run G0 complet doit
+  recommencer sur cette révision.
 
 Conclusion du relevé : la garde mémoire a suspendu correctement un tick sous
 seuil; une erreur syntaxique et un rollback incomplet ont été reproduits puis
