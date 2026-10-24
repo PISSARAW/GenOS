@@ -38,6 +38,11 @@ async function main() {
     await page.getByRole('button', { name: 'Increase quantity for Oats' }).click();
     assert.equal(await page.locator('.item input').inputValue(), '3');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('pantry')))[0].qty, 3);
+    await page.evaluate(() => sessionStorage.clear());
+    const savedQty = '<form><input aria-label="Quantity" type="number"></form><ul><li data-item-row data-item-name="Oats">Oats <span>3</span><button aria-label="Increase quantity for Oats">+</button></li></ul><script>localStorage.setItem("pantry",JSON.stringify([{name:"Oats",qty:3}]))</script></body>';
+    await page.setContent(removeQuantityCollisionsAfterReload(savedQty));
+    assert.equal(await page.getByLabel(/quantity/i).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Increase Oats' }).count(), 1);
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
