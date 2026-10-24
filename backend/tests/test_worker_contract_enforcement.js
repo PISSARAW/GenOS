@@ -62,7 +62,7 @@ assert.equal(enforcement.assertRuntimeContract(coordinatedForensic, 'forensic_wo
 function dossier(kind, contract, artifactType = contract.evidence.requiredArtifacts[0]) {
   return {
     workerId: kind,
-    events: [{ evidenceReport: { workerArtifact: {
+    events: [{ evidenceReport: { outcome: 'success', workerArtifact: {
       type: artifactType, content: { ...CONTENT[artifactType], ...(KIND_CONTENT[kind] || {}) }, provenance: { sourceRefs: ['test-ref'] }
     } } }]
   };
