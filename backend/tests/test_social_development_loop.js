@@ -37,7 +37,8 @@ function adapters(log, overrides = {}) {
       assert.equal(request.model, 'ollama://qwen2.5:14b');
       assert.equal(request.temperature, 0);
       assert.ok(request.prompt.includes('episode-old'));
-      return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request', reasonCode: 'evidence-matched' } };
+      return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+        reasonCode: 'evidence-matched', memoryReferences: ['episode-old'] } };
     },
     communicate: async (_value, decision) => {
       log.push('rpe'); assert.equal(decision.recipientAgentId, 'agent-c');
@@ -75,7 +76,8 @@ async function testDisabledAndArbitrationBlocked() {
 async function testOutOfGraphProposalFailsClosed() {
   const log = [];
   const deps = adapters(log, { generate: async () => ({ structured: {
-    action: 'contact', recipientAgentId: 'agent-outside-scope', purpose: 'request', reasonCode: 'evidence-matched'
+    action: 'contact', recipientAgentId: 'agent-outside-scope', purpose: 'request',
+    reasonCode: 'evidence-matched', memoryReferences: []
   } }) });
   await assert.rejects(loop.process(input(), deps), /out-of-contract/);
   assert.deepEqual(log, ['agow']);
@@ -89,6 +91,28 @@ async function testOutcomeIsNotInferredFromDelivery() {
   }));
   assert.equal(result.communication.delivered, false);
   assert.equal(result.learning.updated, false);
+}
+
+async function testInventedMemoryReferenceFailsClosed() {
+  const log = [];
+  const deps = adapters(log, { generate: async () => {
+    log.push('model');
+    return { structured: { action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+      reasonCode: 'evidence-matched', memoryReferences: ['invented-memory'] } };
+  } });
+  await assert.rejects(loop.process(input(), deps), /out-of-contract/);
+  assert.deepEqual(log, ['agow', 'model']);
+}
+
+async function testEmptyMemoriesPermitEmptyReferences() {
+  const log = [];
+  const deps = adapters(log, { memories: async () => [], generate: async () => ({ structured: {
+    action: 'contact', recipientAgentId: 'agent-c', purpose: 'request',
+    reasonCode: 'evidence-matched', memoryReferences: []
+  } }) });
+  const result = await loop.process(input(), deps);
+  assert.deepEqual(result.decision.memoryReferences, []);
+  assert.equal(result.processed, true);
 }
 
 async function testDefaultMemoryReceivesDecisionAndReceipt() {
@@ -106,6 +130,8 @@ async function testDefaultMemoryReceivesDecisionAndReceipt() {
     assert.equal(episodeInput.value.action.selectedAction, 'request:agent-c');
     assert.equal(episodeInput.value.outcome.status, 'delivered_unverified');
     assert.equal(episodeInput.value.outcome.verified, false);
+    assert.deepEqual(episodeInput.value.decision.memoryReferences, ['episode-old']);
+    assert.deepEqual(result.decision.memoryReferences, ['episode-old']);
     assert.equal(episodeInput.db, cycleInput.db);
   } finally {
     episodes.recordEpisode = originalRecord;
@@ -119,7 +145,7 @@ async function testPersistedModelAuditIsCompact() {
     store: { claim: async () => ({ status: 'claimed', claimToken: 'claim-1' }),
       complete: async (_db, claim) => persisted.push(claim.result), fail: async () => {} },
     generate: async () => ({ structured: { action: 'contact', recipientAgentId: 'agent-c',
-      purpose: 'request', reasonCode: 'evidence-matched' }, provider: 'ollama',
+      purpose: 'request', reasonCode: 'evidence-matched', memoryReferences: ['episode-old'] }, provider: 'ollama',
     servedModel: 'qwen2.5:14b', text: 'FREEFORM_OUTPUT_SENTINEL',
     usage: { prompt_tokens: 31, completion_tokens: 7, total_tokens: 38,
       untrustedText: 'USAGE_TEXT_SENTINEL' }, tokenUsageMeasured: true })
@@ -153,6 +179,8 @@ async function main() {
   await testDisabledAndArbitrationBlocked();
   await testOutOfGraphProposalFailsClosed();
   await testOutcomeIsNotInferredFromDelivery();
+  await testInventedMemoryReferenceFailsClosed();
+  await testEmptyMemoriesPermitEmptyReferences();
   await testDefaultMemoryReceivesDecisionAndReceipt();
   await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();

@@ -58,7 +58,8 @@ function modelAdapter() {
     assert.match(request.prompt, new RegExp(RECIPIENT));
     assert.doesNotMatch(request.prompt, new RegExp(FOREIGN));
     return { structured: { action: 'contact', recipientAgentId: RECIPIENT,
-      purpose: 'request', reasonCode: 'evidence-matched' }, usage: { prompt_tokens: 48, completion_tokens: 7 } };
+      purpose: 'request', reasonCode: 'evidence-matched', memoryReferences: [] },
+    usage: { prompt_tokens: 48, completion_tokens: 7 } };
   };
 }
 
