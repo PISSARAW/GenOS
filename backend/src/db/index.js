@@ -3,6 +3,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const { randomUUID } = require('node:crypto');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { initializeSchema } = require('./schema');
@@ -290,14 +291,30 @@ async function initializeConnection(filename) {
 }
 
 function databaseFilename(dbFilePath) {
+  if (dbFilePath) return normalizedDbPath(dbFilePath);
+  if (process.env.GENOS_DB_PATH) return normalizedDbPath(process.env.GENOS_DB_PATH);
+  if (isTestDatabaseMode()) return testDatabaseFilename();
+
   const legacyPath = path.resolve(__dirname, '../../genos.db');
-  let defaultPath = process.env.GENOS_DB_PATH || legacyPath;
-  if (!process.env.GENOS_DB_PATH && !fs.existsSync(legacyPath)) {
+  let defaultPath = legacyPath;
+  if (!fs.existsSync(legacyPath)) {
     const storage = require('../storage/storagePaths');
     storage.ensureDirs();
     defaultPath = storage.FILES.sqlite;
   }
-  const filename = dbFilePath ? normalizedDbPath(dbFilePath) : normalizedDbPath(defaultPath);
+  return normalizedDbPath(defaultPath);
+}
+
+function isTestDatabaseMode() {
+  return process.env.GENOS_TEST_MODE === '1' || process.env.NODE_ENV === 'test';
+}
+
+function testDatabaseFilename() {
+  const testRoot = process.env.GENOS_TEST_RUN_ROOT;
+  if (!testRoot) return ':memory:';
+  fs.mkdirSync(testRoot, { recursive: true });
+  const filename = path.join(testRoot, `genos-${process.pid}-${randomUUID()}.db`);
+  process.env.GENOS_DB_PATH = filename;
   return filename;
 }
 
