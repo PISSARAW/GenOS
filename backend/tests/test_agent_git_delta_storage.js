@@ -29,6 +29,14 @@ async function main() {
     assert.ok(rows.get(child.id).state_json.length < JSON.stringify(next).length * 0.8);
     const restored = await wrap(db).get('SELECT state_json FROM agent_git_objects WHERE id = ?', child.id);
     assert.deepEqual(JSON.parse(restored.state_json), next);
+    const reordered = { capturedAt: 'three', schema: state.schema, agent: next.agent,
+      decisions: state.decisions };
+    Object.defineProperty(reordered, '__proto__', { value: { polluted: true }, enumerable: true });
+    const third = await storeObject(db, { agentId: 'a', workspaceId: 'w', kind: 'commit',
+      state: reordered, parentCommitId: child.id });
+    const reconstructed = await wrap(db).get('SELECT state_json FROM agent_git_objects WHERE id = ?', third.id);
+    assert.deepEqual(JSON.parse(reconstructed.state_json), reordered);
+    assert.equal(Object.prototype.polluted, undefined);
     const stored = rows.get(child.id);
     const tampered = JSON.parse(stored.state_json);
     tampered.set.agent.name = 'tampered';
