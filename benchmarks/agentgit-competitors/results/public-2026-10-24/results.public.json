@@ -1,0 +1,394 @@
+{
+  "runs": [
+    {
+      "schema": "genos.agentgit-benchmark/v1",
+      "system": "GenOS",
+      "version": "38954ad78e7bc8ee9fa6473d7a638b81e2c948ab",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "collectedAt": "2026-10-24T08:03:22.901Z",
+      "manifestHash": "98b3f766607bce69450826fb57b2bb0257d4bfb57863025bb0c1007120640ed4",
+      "tasks": [
+        {
+          "id": "branch-isolation",
+          "metrics": {
+            "integrity": {
+              "result": "not_run"
+            },
+            "branchIsolation": {
+              "result": "pass",
+              "evidence": {
+                "path": "artifacts\\genos\\branch-isolation.json",
+                "sha256": "a34ff6780cb68d8f242a75a90bfb9a2aa8d528b0e1f1dabb1e91e7297a2f4f17"
+              }
+            },
+            "epistemicConflict": {
+              "result": "not_run"
+            },
+            "permissionSafety": {
+              "result": "not_run"
+            },
+            "replay": {
+              "result": "not_run"
+            }
+          },
+          "receiptHash": "8cd42e7bf8ad9599dd637fee90673f56da3fe75545a20755609a9cef8eb52f7d"
+        }
+      ]
+    },
+    {
+      "schema": "genos.agentgit-benchmark/v1",
+      "system": "Contexa",
+      "version": "contexa@1.1.2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "collectedAt": "2026-10-24T08:03:24.069Z",
+      "manifestHash": "98b3f766607bce69450826fb57b2bb0257d4bfb57863025bb0c1007120640ed4",
+      "tasks": [
+        {
+          "id": "branch-isolation",
+          "metrics": {
+            "integrity": {
+              "result": "not_run"
+            },
+            "branchIsolation": {
+              "result": "pass",
+              "evidence": {
+                "path": "artifacts\\contexa\\branch-isolation.json",
+                "sha256": "fc8422b1b734e019a68469616696f68ae154f979dd06205bc01c55a79cef7713"
+              }
+            },
+            "epistemicConflict": {
+              "result": "not_run"
+            },
+            "permissionSafety": {
+              "result": "not_run"
+            },
+            "replay": {
+              "result": "not_run"
+            }
+          },
+          "receiptHash": "6fbc89d9708167853bf4fe46057e2d1ea5ca01646042709ed81512e6d942c580"
+        }
+      ]
+    },
+    {
+      "schema": "genos.agentgit-benchmark/v1",
+      "system": "LangGraph",
+      "version": "@langchain/langgraph@1.5.2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "collectedAt": "2026-10-24T08:03:26.397Z",
+      "manifestHash": "98b3f766607bce69450826fb57b2bb0257d4bfb57863025bb0c1007120640ed4",
+      "tasks": [
+        {
+          "id": "branch-isolation",
+          "metrics": {
+            "integrity": {
+              "result": "not_run"
+            },
+            "branchIsolation": {
+              "result": "pass",
+              "evidence": {
+                "path": "artifacts\\langgraph\\branch-isolation.json",
+                "sha256": "7143b22952a74008f1eb864a581f0475a3c775e9a2084ce11a1c0f03460dbe38"
+              }
+            },
+            "epistemicConflict": {
+              "result": "not_run"
+            },
+            "permissionSafety": {
+              "result": "not_run"
+            },
+            "replay": {
+              "result": "not_run"
+            }
+          },
+          "receiptHash": "ad7f37b21eaa64f9b9878657ce347561c713e4f6fab7d3e804337234ee5b460b"
+        }
+      ]
+    },
+    {
+      "schema": "genos.agentgit-benchmark/v1",
+      "system": "Letta",
+      "version": "@letta-ai/letta-code@0.34.23",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "collectedAt": "2026-10-24T08:03:26.755Z",
+      "manifestHash": "98b3f766607bce69450826fb57b2bb0257d4bfb57863025bb0c1007120640ed4",
+      "tasks": [
+        {
+          "id": "branch-isolation",
+          "metrics": {
+            "integrity": {
+              "result": "not_run"
+            },
+            "branchIsolation": {
+              "result": "not_run",
+              "reason": "Requires model, credentials, or isolated runtime."
+            },
+            "epistemicConflict": {
+              "result": "not_run"
+            },
+            "permissionSafety": {
+              "result": "not_run"
+            },
+            "replay": {
+              "result": "not_run"
+            }
+          },
+          "receiptHash": "0c27e9d959867ac67ce2f021fbb2955dd62a469b7130e765d497535e5c6db49f"
+        }
+      ]
+    },
+    {
+      "schema": "genos.agentgit-benchmark/v1",
+      "system": "DGM",
+      "version": "a565fd2d1dca504ef5104a7cc0f3bdc4ab9b4fd2",
+      "adapter": "C:\\Program Files\\nodejs\\node.exe",
+      "collectedAt": "2026-10-24T08:03:27.038Z",
+      "manifestHash": "98b3f766607bce69450826fb57b2bb0257d4bfb57863025bb0c1007120640ed4",
+      "tasks": [
+        {
+          "id": "branch-isolation",
+          "metrics": {
+            "integrity": {
+              "result": "not_run"
+            },
+            "branchIsolation": {
+              "result": "not_run",
+              "reason": "Requires model, credentials, or isolated runtime."
+            },
+            "epistemicConflict": {
+              "result": "not_run"
+            },
+            "permissionSafety": {
+              "result": "not_run"
+            },
+            "replay": {
+              "result": "not_run"
+            }
+          },
+          "receiptHash": "2ab9af2479ed32e2341755b306a781ebe4ccb0fa02da37f0403ac70436ed2074"
+        }
+      ]
+    }
+  ],
+  "report": {
+    "success": true,
+    "schema": "genos.agentgit-benchmark-report/v1",
+    "comparableTaskIds": [
+      "branch-isolation"
+    ],
+    "systems": [
+      {
+        "system": "GenOS",
+        "version": "38954ad78e7bc8ee9fa6473d7a638b81e2c948ab",
+        "adapter": "C:\\Program Files\\nodejs\\node.exe",
+        "metrics": {
+          "integrity": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "branchIsolation": {
+            "pass": 1,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 0,
+            "denominator": 1
+          },
+          "epistemicConflict": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "permissionSafety": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "replay": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          }
+        }
+      },
+      {
+        "system": "Contexa",
+        "version": "contexa@1.1.2",
+        "adapter": "C:\\Program Files\\nodejs\\node.exe",
+        "metrics": {
+          "integrity": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "branchIsolation": {
+            "pass": 1,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 0,
+            "denominator": 1
+          },
+          "epistemicConflict": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "permissionSafety": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "replay": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          }
+        }
+      },
+      {
+        "system": "LangGraph",
+        "version": "@langchain/langgraph@1.5.2",
+        "adapter": "C:\\Program Files\\nodejs\\node.exe",
+        "metrics": {
+          "integrity": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "branchIsolation": {
+            "pass": 1,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 0,
+            "denominator": 1
+          },
+          "epistemicConflict": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "permissionSafety": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "replay": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          }
+        }
+      },
+      {
+        "system": "Letta",
+        "version": "@letta-ai/letta-code@0.34.23",
+        "adapter": "C:\\Program Files\\nodejs\\node.exe",
+        "metrics": {
+          "integrity": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "branchIsolation": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "epistemicConflict": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "permissionSafety": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "replay": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          }
+        }
+      },
+      {
+        "system": "DGM",
+        "version": "a565fd2d1dca504ef5104a7cc0f3bdc4ab9b4fd2",
+        "adapter": "C:\\Program Files\\nodejs\\node.exe",
+        "metrics": {
+          "integrity": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "branchIsolation": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "epistemicConflict": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "permissionSafety": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          },
+          "replay": {
+            "pass": 0,
+            "fail": 0,
+            "unsupported": 0,
+            "notRun": 1,
+            "denominator": 1
+          }
+        }
+      }
+    ],
+    "ranking": null,
+    "rankingReason": "Scores are descriptive; this harness does not select a winner."
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "genos.agentgit-public-sources/v1",
+  "collectedAt": "2026-10-24",
+  "sources": [
+    {
+      "system": "Letta",
+      "repository": "https://github.com/letta-ai/letta-code",
+      "revision": "75d7921f1666b92b4a82acca64e5ef09001c1eb3",
+      "package": "@letta-ai/letta-code@0.34.23",
+      "status": "source_cloned_runtime_not_configured"
+    },
+    {
+      "system": "GCC",
+      "repository": "https://github.com/theworldofagents/GCC",
+      "status": "original_repository_unavailable",
+      "substitute": "Contexa is a separate implementation of the GCC format, not the paper authors' code."
+    },
+    {
+      "system": "Contexa",
+      "repository": "https://github.com/swadhinbiswas/contexa",
+      "revision": "6f0cfbabdb7d49f4ac82e5172c22eff78218dd76",
+      "package": "contexa@1.1.2",
+      "status": "installed_for_local_adapter"
+    },
+    {
+      "system": "LangGraph",
+      "repository": "https://github.com/langchain-ai/langgraphjs",
+      "revision": "c6675bf03f353ff32fb2ee0a82adb3541c0aee40",
+      "package": "@langchain/langgraph@1.5.2",
+      "status": "installed_for_local_adapter"
+    },
+    {
+      "system": "DGM",
+      "repository": "https://github.com/jennyzzt/dgm",
+      "revision": "a565fd2d1dca504ef5104a7cc0f3bdc4ab9b4fd2",
+      "status": "source_cloned_runtime_not_configured"
+    }
+  ]
+}
