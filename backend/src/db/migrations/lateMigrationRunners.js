@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('153-social-development-loop', 'Persist idempotent scoped social development decisions and recovery leases', async (db) => {
+    await require('./migrateSocialDevelopmentLoop').migrateSocialDevelopmentLoop(db);
+  }),
   createMigrationRunner('151-local-code-test-execution-receipts', 'Persist immutable receipts from the trusted local code test executor', async (db) => {
     await require('./migrateLocalCodeTestExecutionReceipts').migrateLocalCodeTestExecutionReceipts(db);
   }),

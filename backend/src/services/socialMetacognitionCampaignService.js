@@ -12,36 +12,41 @@ function invalidArms(arms) {
   return ARMS.some((arm) => !arms[arm] || !arms[arm].model || !arms[arm].decision || !arms[arm].interventionReceipt);
 }
 
-function armErrors(arm, entry) {
+function modelErrors(arm, model) {
   const errors = [];
-  if (!validateSocialMentalModel(entry.model)) errors.push(`${arm}:model-invalid`);
-  const decision = entry.decision;
-  if (!decision.receiptId || !Array.isArray(decision.memoryReferences)) errors.push(`${arm}:decision-evidence-missing`);
-  if (entry.model.authority !== 'descriptive-only' || entry.model.promotionEligible !== false) errors.push(`${arm}:authority-boundary-violated`);
-  if (decision.memoryReferences?.some((id) => !entry.model.sourceMemoryIds.includes(id))) errors.push(`${arm}:ungrounded-decision-reference`);
-  errors.push(...interventionErrors(arm, entry.interventionReceipt));
+  if (!validateSocialMentalModel(model)) errors.push(`${arm}:model-invalid`);
+  if (model.authority !== 'descriptive-only' || model.promotionEligible !== false) errors.push(`${arm}:authority-boundary-violated`);
   return errors;
 }
 
+function decisionErrors(arm, decision, model) {
+  const errors = [];
+  if (!decision.receiptId || !Array.isArray(decision.memoryReferences)) errors.push(`${arm}:decision-evidence-missing`);
+  if (decision.memoryReferences?.some((id) => !model.sourceMemoryIds.includes(id))) errors.push(`${arm}:ungrounded-decision-reference`);
+  return errors;
+}
+
+function armErrors(arm, entry) {
+  return [
+    ...modelErrors(arm, entry.model),
+    ...decisionErrors(arm, entry.decision, entry.model),
+    ...interventionErrors(arm, entry.interventionReceipt)
+  ];
+}
+
 function interventionErrors(arm, receipt) {
-  if (arm === 'baseline') return baselineInterventionErrors(receipt);
-  const expectedMode = interventionMode(arm);
+  if (arm === 'baseline') return receipt.mode === 'baseline' ? [] : ['baseline:intervention-unexpected'];
+  const expectedMode = arm === 'masked' ? 'mask-social-memories' : 'counterfactual-social-memories';
   if (!hasCompleteInterventionReceipt(receipt, expectedMode)) return [`${arm}:intervention-receipt-incomplete`];
-  if (arm === 'counterfactual' && hasReplacementCountMismatch(receipt)) return ['counterfactual:replacement-count-mismatch'];
+  if (arm === 'counterfactual' && hasReplacementCountMismatch(receipt)) {
+    return ['counterfactual:replacement-count-mismatch'];
+  }
   return [];
 }
 
-function baselineInterventionErrors(receipt) {
-  return receipt.mode === 'baseline' ? [] : ['baseline:intervention-unexpected'];
-}
-
-function interventionMode(arm) {
-  return arm === 'masked' ? 'mask-social-memories' : 'counterfactual-social-memories';
-}
-
 function hasCompleteInterventionReceipt(receipt, expectedMode) {
-  return Boolean(receipt.interventionId && receipt.mode === expectedMode
-    && receipt.beforeHash && receipt.afterHash && receipt.beforeHash !== receipt.afterHash
+  const hashesChanged = receipt.beforeHash && receipt.afterHash && receipt.beforeHash !== receipt.afterHash;
+  return Boolean(receipt.interventionId && receipt.mode === expectedMode && hashesChanged
     && receipt.preservedNonSocialMemoryHash && Array.isArray(receipt.removedMemoryIds)
     && receipt.removedMemoryIds.length > 0);
 }
