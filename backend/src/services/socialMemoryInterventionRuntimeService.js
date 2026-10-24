@@ -106,6 +106,8 @@ function artifactFor(input, state) {
     arm: input.arm, seed: input.seed, sourceCommit: input.sourceCommit, configHash: input.configHash,
     organizationId: input.organizationId, projectId: input.projectId,
     subjectAgentId: pair.subjectAgentId, otherAgentId: pair.otherAgentId, mode: input.mode,
+    minimumIndependentMemories: input.minimumIndependentMemories || 4,
+    requiredPolarityCounts: input.requiredPolarityCounts || { supports: 2, contradicts: 2 },
     before: { memoryIds: before.map((entry) => entry.id), memorySetHash: entryHash(before), entries: before },
     after: { memoryIds: after.map((entry) => entry.id), memorySetHash: entryHash(after), entries: after },
     removedMemoryIds: removedIds, addedMemoryIds: replacements.map((entry) => entry.id).sort(),
@@ -130,7 +132,9 @@ async function createPersistedSocialMemoryIntervention(db, input = {}) {
   const runtime = require('./socialMentalModelRuntimeService');
   const scope = { organizationId: input.organizationId, projectId: input.projectId };
   const loaded = await runtime.loadVerifiedSocialMemories(db, { ...scope,
-    subjectAgentId: input.subjectAgentId, otherAgentId: input.otherAgentId });
+    subjectAgentId: input.subjectAgentId, otherAgentId: input.otherAgentId,
+    minimumIndependent: input.minimumIndependentMemories,
+    requiredPolarityCounts: input.requiredPolarityCounts });
   const pair = { subjectAgentId: loaded.subjectAgentId, otherAgentId: loaded.otherAgentId };
   const before = await beforeEntries(db, { input, loaded, scope });
   const selected = validateSelection(input, pair, before);
@@ -175,7 +179,9 @@ async function verifyPersistedSocialMemoryIntervention(db, input = {}) {
   if (!row) fail('SOCIAL_INTERVENTION_NOT_FOUND', 'Persisted intervention artifact was not found in this scope.');
   const { artifact, receipt } = verifyStoredArtifact(row);
   const loaded = await runtime.loadVerifiedSocialMemories(db, { ...scope,
-    subjectAgentId: artifact.subjectAgentId, otherAgentId: artifact.otherAgentId });
+    subjectAgentId: artifact.subjectAgentId, otherAgentId: artifact.otherAgentId,
+    minimumIndependent: artifact.minimumIndependentMemories,
+    requiredPolarityCounts: artifact.requiredPolarityCounts });
   const currentIds = loaded.socialMemories.map((memory) => memory.id).sort();
   if (digest(currentIds) !== digest(artifact.before.entries.filter((entry) => entry.classification === 'social').map((entry) => entry.id).sort())) {
     fail('SOCIAL_INTERVENTION_SOURCE_REPLAY_FAILED', 'Intervention social sources no longer match current verified DB rows.');

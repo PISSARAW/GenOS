@@ -79,6 +79,8 @@ async function intervention({ db, context, arm, memories }) {
   if (!mode) return { beforeMemories: context.entries, afterMemories: context.entries, memories, artifact: null, receipt: null };
   return runtime.createPersistedSocialMemoryIntervention(db, { ...context.scope, ...context.pair,
     interventionId: `${context.seed}-${arm}-${context.attempt}`, arm, seed: context.seed,
+    minimumIndependentMemories: context.protocol.minimumIndependentMemories,
+    requiredPolarityCounts: context.protocol.requiredPolarityCounts,
     sourceCommit: context.sourceCommit, configHash: context.configHash, mode, selectedMemoryIds, replacementMemories: replacements });
 }
 async function oneArm({ db, context, arm, index }) {

@@ -61,6 +61,14 @@ async function main() {
       subjectAgentId: participants[0], otherAgentId: participants[1],
       requiredPolarityCounts: { supports: 3, contradicts: 1 } });
     assert.equal(loaded.socialMemories.length, 4);
+    const intervention = await runtime.createPersistedSocialMemoryIntervention(db, { ...scope,
+      subjectAgentId: participants[0], otherAgentId: participants[1], interventionId: 'r2-policy-check',
+      arm: 'genos-full', seed: 'r2-policy-check', mode: 'baseline', selectedMemoryIds: [],
+      minimumIndependentMemories: 4, requiredPolarityCounts: { supports: 3, contradicts: 1 } });
+    assert.deepEqual(intervention.artifact.requiredPolarityCounts, { supports: 3, contradicts: 1 });
+    const interventionReplay = await runtime.verifyPersistedSocialMemoryIntervention(db, { ...scope,
+      interventionId: 'r2-policy-check' });
+    assert.equal(interventionReplay.valid, true);
     await assert.rejects(runtime.loadVerifiedSocialMemories(db, { ...scope,
       subjectAgentId: participants[0], otherAgentId: participants[1],
       requiredPolarityCounts: { supports: 2, contradicts: 2 } }), { code: 'SOCIAL_MEMORY_INDEPENDENCE_REQUIRED' });
