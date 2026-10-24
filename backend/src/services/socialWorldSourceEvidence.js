@@ -158,6 +158,7 @@ function bindOneArm({ name, arm, sourceIds, state }) {
   if (!sourceIds.size || (arm.status !== 'pass' && !arm.evidenceRefs.length)) return;
   const items = artifactsFor(arm, state); const snapshots = kind(items, 'persisted-memory-snapshot');
   const before = snapshots.find((item) => item.phase === 'before') || snapshots[0];
+  if (!before) return;
   const beforeIds = new Set((before?.memories || []).filter((entry) => entry.classification === 'social').map((entry) => entry.id));
   if (!sameStrings([...beforeIds], [...sourceIds])) addError(state, name + ' before social set differs from verified source memories.');
   const intervention = kind(items, 'intervention-receipt')[0]?.artifact;
