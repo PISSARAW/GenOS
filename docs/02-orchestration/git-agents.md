@@ -213,6 +213,8 @@ Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_re
 
 Avec `GENOS_AGENT_GIT_DELTA_STORAGE=true`, les nouveaux objets AgentGit stockent les sections modifiées relativement à leur premier parent lorsque le delta économise au moins 20 % de la taille JSON. Un snapshot complet est écrit au plus tard après huit deltas. La lecture reconstruit l’état, vérifie son hash, puis fournit le JSON habituel aux opérations AgentGit. Les anciens objets complets restent lisibles ; désactiver l’option arrête les nouvelles écritures en delta sans empêcher la lecture des deltas existants.
 
+`gc` marque les ancêtres des refs, tags, archives, notes et entrées de reflog récentes, puis protège aussi les objets récents et les `keep` objets non référencés les plus récents avec tous leurs ancêtres. Il supprime les autres objets, y compris les commits, dans une transaction. `retentionDays` vaut 30 et `keep` vaut 20 par défaut ; les deux bornes peuvent être ajustées dans la requête. Les références de reflog plus anciennes restent dans le journal d’audit mais ne protègent plus leurs objets après la période de rétention.
+
 Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
 ## 8. Processus d’exécution et de validation
@@ -284,7 +286,7 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 - `revert` applique `inversePatch = computePatch(targetState, parentState)`, supprimant les éléments attendus.
 - `bisect` parcours le DAG causal (`collectAncestors`) au lieu d’un `ORDER BY created_at`.
 - Le replay vérifie l’intégrité et l’ordre des événements capturés ; il ne garantit pas une re-exécution déterministe de tous les effets externes.
-- Le GC doit être appelé explicitement et ne purge que les catégories prévues.
+- Le GC doit être appelé explicitement ; ses racines et sa fenêtre de rétention déterminent quels objets peuvent être purgés.
 
 ### Garde-fous obligatoires
 

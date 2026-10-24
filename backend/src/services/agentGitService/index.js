@@ -12,7 +12,7 @@ const causalOps = require('./causalOps.cjs');
 const { verifyRemoteObject } = require('./remoteVerification.cjs');
 const remotePersist = require('./remotePersist.cjs');
 const { assertRemoteGitUrl, executeRemotePush, resolvePushTip, recordPushReceipt } = require('./pushTransport.cjs');
-const { collectAncestors, collectReachableObjectIds } = require('./commitGraph');
+const { collectAncestors } = require('./commitGraph');
 
 function scopeSql(req, alias = 'w') {
   // req peut être absent sur les chemins runtime non-HTTP (CLI, morphogenèse) :
@@ -328,15 +328,12 @@ async function describe(req) {
 }
 
 async function gc(req) {
-  const db = await getDatabase(); const keep = Math.max(1, Number(req.body?.keep || 20));
+  const db = await getDatabase();
   const agentId = req.body?.agentId;
-  const scope = scopeSql(req, 'w');
-  const reachable = await collectReachableObjectIds(db, agentId, scope);
-  const rows = await db.all(`SELECT o.id FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND o.object_kind IN ('stash', 'remote') AND ${scope.clause} ORDER BY o.created_at DESC`, agentId, ...scope.params);
-  const unreachable = rows.filter(row => !reachable.has(row.id));
-  const stale = unreachable.slice(keep);
-  for (const row of stale) await db.run('DELETE FROM agent_git_objects WHERE id = ?', row.id);
-  return { success: true, operation: 'gc', pruned: stale.length, kept: Math.min(keep, unreachable.length), skippedReachable: rows.length - unreachable.length };
+  if (!agentId || !await loadAgent(db, req, agentId)) return { success: false, error: 'Scoped agent is required.' };
+  const result = await require('./agentGitDb.cjs').withTransaction(db, () =>
+    require('./gcPolicy.cjs').pruneUnreachable(db, agentId, req.body));
+  return { success: true, operation: 'gc', ...result };
 }
 
 async function blame(req) { return causalOps.blame(req); }
