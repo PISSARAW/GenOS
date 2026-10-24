@@ -40,14 +40,26 @@ function createCapabilityDescriptor(input) {
 
 function validateDescriptorInput(input) {
   if (!input || input.schema !== 'genos.gci.capability/v1') throw invalid('Unsupported GCI capability schema');
+  validateDigest(input);
+  validateProvider(input);
+  validateMaturityAndModes(input);
+  if (!validateSchema(input)) throw invalid(`Capability descriptor violates GCI schema: ${validateSchema.errors[0].message}`);
+}
+
+function validateDigest(input) {
   const digest = requireText(input.implementationDigest, 'implementationDigest');
   if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw invalid('implementationDigest must be a sha256 digest');
+}
+
+function validateProvider(input) {
   if (!input.provider || !input.provider.id) throw invalid('provider.id is required');
+}
+
+function validateMaturityAndModes(input) {
   if (!MATURITIES.has(input.maturity)) throw invalid('Unsupported maturity');
   if (!Array.isArray(input.exportModes) || !input.exportModes.length || input.exportModes.some((mode) => !MODES.has(mode))) {
     throw invalid('exportModes must contain supported modes');
   }
-  if (!validateSchema(input)) throw invalid(`Capability descriptor violates GCI schema: ${validateSchema.errors[0].message}`);
 }
 
 function freezeValue(value) {
