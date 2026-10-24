@@ -9,7 +9,8 @@ const relations = require('../../../../backend/src/services/crossAgentRelational
 const runtime = require('../../../../backend/src/services/agentRuntimeAdapter');
 const { evaluateMorphogenesis } = require('./morphogenesis-oracle.cjs');
 
-const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'genos-without-relational-physiology']);
+const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory',
+  'genos-without-relational-physiology']);
 const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology']);
 const SCOPE = Object.freeze({ organizationId: 'sw-v205-org', projectId: 'sw-v205-project' });
 const MEMBERS = Object.freeze(['sw-v205-root', 'sw-v205-a', 'sw-v205-b']);
@@ -20,6 +21,7 @@ const TRANSITION_PLAN = Object.freeze([
 const PERMISSIONS_PROTOCOL = Object.freeze({ topologyChange: 'orchestrator-only',
   workersMayChangeTopology: false, collaboration: 'organization-service-authorized-members-only',
   receiptRequired: true, provenanceRequired: true });
+const MODEL_TRANSITIONS = Object.freeze(TRANSITION_PLAN.map((item) => item.organization));
 
 function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -115,7 +117,8 @@ async function executeFullArm(input) {
     await seedWorld(db, input.arm);
     const fixedGraphBefore = input.arm === 'static-social-graph' ? await relationSnapshot(db) : null;
     const transitions = [];
-    for (const plan of TRANSITION_PLAN) {
+    const transitionPlan = input.arm === 'llm-with-memory' ? await modelTransitionPlan(input, db) : TRANSITION_PLAN;
+    for (const plan of transitionPlan) {
       const event = { eventId: `env-${input.seed}-${plan.suffix}`, senderAgentId: MEMBERS[plan.senderIndex],
         recipientAgentId: MEMBERS[plan.recipientIndex] };
       const changed = await organization.changeOrganization(db, { orchestratorId: MEMBERS[0],
@@ -133,6 +136,7 @@ async function executeFullArm(input) {
       [SCOPE.organizationId, SCOPE.projectId]);
     return { transitions, transitionJournalVersions: journal.map((row) => row.version),
       unauthorizedChangeRejected: authorityCheck, oracle, effectiveTransitions: journal.length,
+      modelTreatment: input.arm === 'llm-with-memory' ? transitionPlan.map((item) => item.organization) : null,
       treatmentEvidence: input.arm === 'static-social-graph' ? { mode: 'static-social-graph',
         initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged }
         : input.arm === 'genos-without-relational-physiology' ? { mode: 'relational-physiology-disabled',
@@ -140,11 +144,35 @@ async function executeFullArm(input) {
   } finally { await closeDatabase(); }
 }
 
+async function modelTransitionPlan(input, db) {
+  const socialMemory = await relationSnapshot(db);
+  const plans = TRANSITION_PLAN.map((item) => ({ organization: item.organization, suffix: item.suffix,
+    senderIndex: item.senderIndex, recipientIndex: item.recipientIndex }));
+  const provider = require('../../../../backend/src/services/modelProvider');
+  const response = await provider.generate({ model: input.model,
+    prompt: `Select an ordering for these two allowed social organization transitions. Use the relation memory below. Return JSON only: {"order":["name","name"]}. Each name must appear once. Allowed: ${JSON.stringify(MODEL_TRANSITIONS)}. Relation memory: ${JSON.stringify(socialMemory)}`,
+    responseFormat: { type: 'json_object' }, temperature: 0, seed: Number.parseInt(hash(input.seed).slice(0, 8), 16) });
+  return resolveModelPlan(response.text, plans);
+}
+
+function resolveModelPlan(text, plans) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (_) { throw new Error('V2-05 LLM arm returned invalid JSON.'); }
+  const order = parsed?.order;
+  if (!Array.isArray(order) || order.length !== MODEL_TRANSITIONS.length
+    || new Set(order).size !== MODEL_TRANSITIONS.length
+    || order.some((item) => !MODEL_TRANSITIONS.includes(item))) {
+    throw new Error('V2-05 LLM arm returned a transition outside the preregistered plan.');
+  }
+  return order.map((organization) => plans.find((item) => item.organization === organization));
+}
+
 async function runScenario(input) {
   if (!REGISTERED_ARMS.includes(input.arm)) throw new Error(`Unknown V2-05 arm: ${input.arm}`);
   const startedAt = new Date().toISOString();
   const timer = Date.now();
   const report = baseReport(input, startedAt);
+  if (input.arm === 'llm-with-memory') report.model = input.model || process.env.GENOS_DEFAULT_MODEL || null;
   const evidence = [];
   if (EXECUTABLE_ARMS.includes(input.arm)) {
     report.observed = await executeFullArm(input);
@@ -160,6 +188,8 @@ async function runScenario(input) {
       ? 'Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'
       : input.arm === 'genos-without-relational-physiology'
         ? 'Relational physiology is disabled by omitting social relation records; organization and collaboration services remain active.'
+        : input.arm === 'llm-with-memory'
+          ? 'The model selects only the order of preregistered transitions from the persisted relation snapshot; the orchestrator retains all authority.'
       : 'Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
   }
   report.durationMs = Date.now() - timer;
@@ -170,4 +200,4 @@ async function runScenario(input) {
   return { report, evidence };
 }
 
-module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS };
+module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS, resolveModelPlan };

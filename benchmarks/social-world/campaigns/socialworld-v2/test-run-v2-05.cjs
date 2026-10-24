@@ -3,7 +3,7 @@
 process.env.GENOS_ADMIN_PASSWORD ||= 'social-v205-runner-test-only';
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS } = require('./run-v2-05.cjs');
+const { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS, resolveModelPlan } = require('./run-v2-05.cjs');
 const { runnerDescriptor } = require('./runner-registry.cjs');
 const { validateReport } = require('./validate-report.cjs');
 
@@ -11,11 +11,16 @@ async function run() {
   const manifest = require('./manifest.json');
   const expected = manifest.comparisonArms['V2-05'];
   assert.deepEqual(REGISTERED_ARMS, expected);
-  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full', 'static-social-graph', 'genos-without-relational-physiology']);
+  assert.deepEqual(EXECUTABLE_ARMS, ['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology']);
+  assert.deepEqual(resolveModelPlan('{"order":["red_blue_coevolution","cross_functional_pod"]}', [
+    { organization: 'cross_functional_pod' }, { organization: 'red_blue_coevolution' }
+  ]).map((item) => item.organization), ['red_blue_coevolution', 'cross_functional_pod']);
+  assert.throws(() => resolveModelPlan('{"order":["unregistered"]}', []), /outside the preregistered plan/);
   assert.deepEqual(runnerDescriptor('V2-05').executableArms, EXECUTABLE_ARMS);
   const outputDirectory = path.join(__dirname, 'reports');
   let comparison;
   for (const arm of expected) {
+    if (arm === 'llm-with-memory' && !process.env.GENOS_DEFAULT_MODEL && !process.env.LLM_PROVIDER) continue;
     const result = await runScenario({ seed: 'socialworld-v2-05-01', arm, attempt: 1,
       outputDirectory, sourceCommit: 'deterministic-test' });
     const reportPath = path.join(outputDirectory, `V2-05-${arm}-test-report.json`);
