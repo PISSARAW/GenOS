@@ -203,4 +203,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('152-social-mental-models', 'Persist immutable, scoped and source-linked social mental model snapshots', async (db) => {
     await require('./migrateSocialMentalModels').migrateSocialMentalModels(db);
   }),
+  createMigrationRunner('154-signal-idempotency', 'Persist durable transport idempotency keys with signal publication', async (db) => {
+    await require('./migrateSignalIdempotency').migrateSignalIdempotency(db);
+  }),
 ];

@@ -5,6 +5,7 @@ const { createEnvelope } = require('./communicationEnvelopeService');
 const { getMode } = require('./communicationPolicyEngine');
 const { measureCycleUsage } = require('./communicationCycleUsage');
 const { comparisonKey, compareCycles } = require('./communicationCycleComparison');
+const { signalIdForKey } = require('./communicationIdempotency');
 
 const LEVELS = Object.freeze(['none', 'transport_ack', 'semantic_ack', 'action_ack',
   'verified_ack', 'human_confirmation']);
@@ -28,7 +29,7 @@ function envelopeOf(input) {
     recipientAgentIds: input.decision.recipients || [], channel: input.decision.action,
     modality: modalityOf(input.decision.action), semanticRefs: input.intent.semanticRefs || [],
     artifactRefs: input.intent.artifactRefs || [], groundingRequired: input.decision.grounding,
-    ttlMs: input.decision.ttlMs, payload: input.payload
+    ttlMs: input.decision.ttlMs, payload: input.payload, scope: input.intent.scope || null
   });
 }
 
@@ -41,7 +42,8 @@ async function signalTransport(input) {
     senderAgentId: input.intent.senderAgentId,
     recipientAgentIds: input.decision.recipients, semanticRefs: input.intent.semanticRefs,
     artifactRefs: input.intent.artifactRefs, groundingRequired: input.decision.grounding,
-    channel: input.decision.action, ttlMs: input.decision.ttlMs, deliveryOnly: true
+    channel: input.decision.action, ttlMs: input.decision.ttlMs, deliveryOnly: true,
+    scope: input.intent.scope || null, idempotencyKey: input.idempotencyKey || null
   });
   const acknowledgements = result.published
     ? await getGroundingStatus({ db: input.db, signalId: result.signalId }) : [];
@@ -116,16 +118,22 @@ function idleOutcome(decision, reason) {
     participantUsage: [], usageReceiptId: null };
 }
 
+function messageIdFor(opts) {
+  return opts.idempotencyKey ? signalIdForKey(opts.idempotencyKey)
+    : `sig_${crypto.randomUUID()}`;
+}
+
 async function executeLiveCycle(input) {
   const { decision, intent, opts = {} } = input;
   if (getMode() === 'shadow') return idleOutcome(decision, 'SHADOW_MODE');
   if (decision.action === 'SILENCE') return idleOutcome(decision, 'SILENCE_DECISION');
   const cycleId = opts.cycleId || `comm_cycle_${crypto.randomUUID()}`;
-  const messageId = `sig_${crypto.randomUUID()}`;
+  const messageId = messageIdFor(opts);
   const payload = payloadOf(intent);
   const envelope = envelopeOf({ decision, intent, payload, messageId });
   const transport = transportOf(decision, opts.transport);
-  const result = await transport.deliver({ db: input.db, decision, intent, cycleId, envelope, payload });
+  const result = await transport.deliver({ db: input.db, decision, intent, cycleId, envelope,
+    payload, idempotencyKey: opts.idempotencyKey || null });
   validateTransportResult(result, messageId);
   const signalId = result.signalId || null;
   const deliveryAcknowledgements = normalizeAcknowledgements(result.acknowledgements || [],

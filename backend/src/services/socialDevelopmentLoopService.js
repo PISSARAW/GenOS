@@ -250,6 +250,8 @@ async function communicate(input, decision, adapters) {
 }
 
 function defaultCommunication(input, decision) {
+  const idempotencyKey = JSON.stringify(['social-development', input.scope.organizationId,
+    input.scope.projectId, input.agentId, input.observation.id]);
   return require('./communication/communicationCheckpointService').evaluateCheckpoint({
     db: input.db, agentId: input.agentId, checkpoint: 'NEW_EVIDENCE', scope: input.scope,
     topology: input.morphogenesisPlan || null,
@@ -257,7 +259,7 @@ function defaultCommunication(input, decision) {
       semanticRefs: input.observation.evidenceRefs, evidenceRefs: input.observation.evidenceRefs,
       requestedAudience: [decision.recipientAgentId], urgency: input.observation.urgency,
       purpose: decision.purpose, publicSummary: input.observation.summary },
-    communication: input.communication || {}
+    communication: { ...(input.communication || {}), idempotencyKey }
   });
 }
 

@@ -16,6 +16,8 @@ const { createEnvelope, verifyEnvelopePayload } = require('./communication/commu
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const { dispatchReceptorsIfNeeded } = require('./signalReceptorDispatchService');
 const { buildSignalReadQuery } = require('./signalReadQuery');
+const { signalIdForKey, signalIdForParams } = require('./communication/communicationIdempotency');
+const idempotencyStore = require('./signalIdempotencyStore');
 
 const DEFAULT_SIGNAL_TTL_MS = 120_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -66,13 +68,14 @@ async function persistSignalRow(row, db) {
   }
 }
 
-async function persistRoutedSignal(signal, recipients) {
+async function persistRoutedSignal(signal, recipients, idempotency) {
   const db = await getDatabase();
   const row = buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic,
     senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt });
   await withTransaction(db, async (tx) => {
     await persistSignalRow(row, tx);
     await recordPendingDeliveries(tx, signal.id, recipients);
+    if (idempotency) await idempotencyStore.persist(tx, signal, idempotency);
   });
   signalMetrics.recordPublish();
   for (const rid of recipients) signalMetrics.recordDeliveryEnqueued();
@@ -150,7 +153,7 @@ function scopeMismatchResult(signal, routing) {
     suppressedBy: 'recipient_scope', suppressionReason: 'No authorized recipients or one or more recipients are outside the sender scope.', routing };
 }
 
-async function routeAndDispatch(signal, routing) {
+async function routeAndDispatch(signal, routing, idempotency) {
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
   const recipientAgentIds = routedAgentIds(routing);
   const dispatchResult = signal.deliveryOnly ? { dispatched: false, llmRequired: false }
@@ -166,7 +169,7 @@ async function routeAndDispatch(signal, routing) {
       publishSignal,
       scope: routing.scope,
     });
-  await persistRoutedSignal(signal, dispatchResult.llmRequired ? [] : recipientAgentIds);
+  await persistRoutedSignal(signal, dispatchResult.llmRequired ? [] : recipientAgentIds, idempotency);
   pushLocalLog(signal.id, signal.formatted);
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
@@ -196,10 +199,6 @@ async function publishSignal(params) {
   validateArgs(params);
   const signal = await buildSignalFromParams(params);
   if (!signal.accepted) return signal.result;
-  if (signal.senderAgentId && !checkRateLimit(signal.senderAgentId)) {
-    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded 120/min` };
-  }
-
   const sizeCheck = validatePayloadSize(signal.signalData, signal.formatted?.signalBlob);
   if (!sizeCheck.valid) {
     return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'payload_size', suppressionReason: sizeCheck.reason };
@@ -210,6 +209,11 @@ async function publishSignal(params) {
   const routing = await routeSignal(signal, params);
   const mismatch = scopeMismatchResult(signal, routing);
   if (mismatch) return mismatch;
+  const existing = await existingIdempotentRetry(signal, routing, params);
+  if (existing) return existing;
+  if (signal.senderAgentId && !checkRateLimit(signal.senderAgentId)) {
+    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded 120/min` };
+  }
   // Coalescence AVANT persistance : un signal supprimé ne laisse aucune trace (anti-rejeu).
   const coalesced = signalCoalescer.coalesce({
     signalId: signal.id,
@@ -221,7 +225,18 @@ async function publishSignal(params) {
   });
   if (!coalesced) return handleSuppressed(signal);
 
-  return await routeAndDispatch(signal, routing);
+  return await routeAndDispatch(signal, routing, idempotencyFor(signal, routing, params));
+}
+
+function idempotencyFor(signal, routing, params) {
+  return params.idempotencyKey
+    ? idempotencyStore.buildRecord(signal, routing, params.idempotencyKey) : null;
+}
+
+async function existingIdempotentRetry(signal, routing, params) {
+  if (!params.idempotencyKey) return null;
+  const record = idempotencyFor(signal, routing, params);
+  return idempotencyStore.existingPublication(await getDatabase(), signal, record);
 }
 
 async function buildSignalFromParams(params) {
@@ -232,7 +247,7 @@ async function buildSignalFromParams(params) {
   if (!repression.accepted) {
     return { accepted: false, result: buildRejectedResult(signalId, normalizedType, repression) };
   }
-  const id = signalId || `sig_${require('crypto').randomUUID()}`;
+  const id = signalIdForParams(params);
   const envelope = buildSignalEnvelope({
     params, id, normalizedType, payloadData, ttlMs, senderAgentId
   });
