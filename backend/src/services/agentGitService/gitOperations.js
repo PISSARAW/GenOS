@@ -6,7 +6,7 @@ const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
 const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
-const { mergeEvents, mergeChildren } = require('./mergeDrivers.cjs');
+const { mergeEvents, mergeChildrenGoverned } = require('./mergeDrivers.cjs');
 const { getDatabase } = require('../../db');
 const { verifyMergeEvidence } = require('./verifiedMerge.cjs');
 
@@ -160,6 +160,7 @@ function buildMergeSections(ctx) {
   const runs = mergeRunsSection({ baseState, patchLeft, patchRight });
   const plasmids = mergePlasmidsSection({ baseState, patchLeft, patchRight });
   const permissions = mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] });
+  const children = mergeChildrenGoverned({ base: baseState.children, left: leftState.children, right: rightState.children });
   return {
     sections: {
       decisions: decisions.merged,
@@ -168,9 +169,9 @@ function buildMergeSections(ctx) {
       plasmids: plasmids.merged,
       permissions: permissions.merged,
       events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
-      children: mergeChildren({ base: baseState.children || [], left: leftState.children || [], right: rightState.children || [] })
+      children: children.merged
     },
-    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts]
+    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts, ...children.conflicts]
   };
 }
 
