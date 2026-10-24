@@ -9,6 +9,7 @@ const MAX_TURNS=2;
 const MAX_TOKENS=700;
 const PROVIDER_TIMEOUT_MS=180000;
 const ACTIONS=['propose-collaboration','ask-for-update','wait-for-reconciliation'];
+function readJson(filename) { return JSON.parse(fs.readFileSync(filename, 'utf8')); }
 function sessionPrompts(event, speaker, transcript) {
   const roleInstruction = speaker === 'subject' ? event.subjectTurn : event.peerTurn;
   return [

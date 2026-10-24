@@ -26,6 +26,10 @@ test('V2-06 pilot mode is separate from the registered campaign seed list', asyn
   assert.equal(result.readiness.configured, true);
 });
 
+test('V2-06 runner records its package runtime version', () => {
+  assert.match(runner.runtimeVersion(), /^\d+\.\d+\.\d+/);
+});
+
 test('V2-06 model response parser accepts one JSON object only', () => {
   assert.deepEqual(runner.parseJsonResponse({ text: '{"action":"ask-for-update"}' }), {
     action: 'ask-for-update',
