@@ -42,7 +42,7 @@ function validatePolicy(policy) {
   }
   for (const condition of [...(policy.all || []), ...(policy.any || [])]) validateCondition(condition);
   validateSelector(policy.subjects, ['roles', 'ids', 'authMethods']);
-  validateSelector(policy.resources, ['types', 'organizationIds', 'projectIds']);
+  validateSelector(policy.resources, ['types', 'ids', 'organizationIds', 'projectIds']);
   return { ...policy, enabled: policy.enabled !== false };
 }
 
@@ -97,7 +97,8 @@ function conditionsMatch(policy, context) {
 function policyMatches(policy, context) {
   const principal = context.principal;
   const subject = { roles: principal.role, ids: principal.keyId || principal.username, authMethods: principal.authMethod || 'token' };
-  const resource = { types: context.resource.type, organizationIds: context.resource.organizationId, projectIds: context.resource.projectId };
+  const resource = { types: context.resource.type, ids: context.resource.id,
+    organizationIds: context.resource.organizationId, projectIds: context.resource.projectId };
   return actionMatches(policy, context.action) && scopeMatches(policy, context)
     && selectorMatches(policy.subjects, subject) && selectorMatches(policy.resources, resource)
     && conditionsMatch(policy, context);

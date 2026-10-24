@@ -9,7 +9,7 @@ const { verifyPassword } = require('./password');
 const telemetry = require('../services/telemetryObserver');
 // Permissions that may be granted to an access key. `all` is intentionally
 // excluded: it is derived from the admin role, never minted as an extra.
-const GCI_PERMISSIONS = ['gci:read', 'gci:link', 'gci:adopt', 'gci:revoke', 'gci:upgrade'];
+const GCI_PERMISSIONS = ['gci:read', 'gci:link', 'gci:adopt', 'gci:invoke', 'gci:revoke', 'gci:upgrade'];
 const ASSIGNABLE_PERMISSIONS = new Set([
   ...Object.values(ROLE_PERMISSIONS).flat().filter((permission) => permission !== 'all'),
   ...GCI_PERMISSIONS

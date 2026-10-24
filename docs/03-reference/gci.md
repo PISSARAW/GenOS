@@ -18,7 +18,7 @@ La migration `154-gci-capability-inheritance` crée les tables d'exports, de lia
 
 L'adaptateur Linked relit l'installation et l'export actif à chaque appel, vérifie l'empreinte et recalcule l'autorité du projet via le callback d'intégration, puis inscrit un reçu d'invocation. Il ne fournit pas de handler par défaut : seuls les handlers explicitement injectés par l'intégrateur peuvent s'exécuter.
 
-L'API REST est montée sous `/api/gci/v1` : découverte et inspection des exports, liaison d'un projet, résolution, adoption transactionnelle, état et révocation. Les routes passent par les middlewares d'authentification, de portée tenant, de permission et de limitation de débit existants. Chaque mutation vérifie le projet et les révisions attendues; les révocations de dépendances transitives bloquent les prochains appels Linked.
+L'API REST est montée sous `/api/gci/v1` : découverte et inspection des exports, liaison d'un projet, résolution, adoption transactionnelle, invocation Linked, état et révocation. L'invocation passe par `POST /projects/:projectId/invocations`, exige `gci:invoke`, une appartenance de projet autorisant l'écriture et l'autorité IAM exacte déclarée par le lockfile. Le serveur recharge l'installation et l'export, contrôle digests, dépendances, révocations et contrats, puis exécute uniquement un handler enregistré côté fournisseur. Il conserve un reçu GCI lié au projet et au digest. Chaque mutation vérifie le projet et les révisions attendues; les révocations de dépendances transitives bloquent les prochains appels Linked.
 
 Le mode Embedded empaquette l'artefact et le descripteur, signe leur contrat avec Ed25519, puis vérifie signature et digest à l'installation. L'adaptateur remet les octets à un runtime sandbox injecté et conserve un reçu local; le consommateur n'a pas besoin d'un appel réseau à GenOS pendant l'exécution. Il doit fournir son vérificateur de provenance, son cache d'artefacts, sa sandbox, son état local de révocation et son stockage de reçus. Les révocations centrales ne prennent effet sur un consommateur hors ligne qu'après synchronisation.
 
@@ -40,7 +40,9 @@ restent `partiel` dans le registre produit. Une réponse `completed` signifie qu
 le run a terminé; elle ne constitue pas une vérification indépendante et
 `epistemicState.promotable` reste faux. La découverte GCI expose le descripteur
 en lecture seule; elle ne donne pas au client GenOSWork le droit d'approuver un
-run. L'adaptateur Linked exige toujours un handler fourni par l'intégrateur.
+run. Le handler Linked `PROMOTION_GATE` appelle le contrôleur d'approbation
+existant après que GCI a vérifié l'installation, l'autorité ciblée et le contrat.
+Il exige toujours la signature et le reçu d'approbation humaine du contrat.
 
 `POST /projects/:projectId/upgrades/plan` et `genos-gci upgrade --dry-run` comparent le lockfile courant aux exports actifs, résolvent les nouvelles dépendances et enregistrent une proposition idempotente. Les révisions doivent correspondre à l'installation courante. Les candidats et les plans `no_change` apparaissent dans l'état du projet. Un plan indique toujours qu'une vérification indépendante reste requise; il ne modifie pas l'installation et ne crée pas de PR.
 
