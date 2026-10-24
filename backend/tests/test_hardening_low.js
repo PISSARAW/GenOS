@@ -5,6 +5,8 @@ const original = dbModule.getDatabase;
 dbModule.getDatabase = async () => ({ get: async () => null, all: async () => [], run: async () => ({ changes: 1 }) });
 
 const auth = require('../src/controllers/authController');
+const { ROLE_PERMISSIONS } = require('../src/middleware/auth');
+const { buildKeyPrincipal } = require('../src/middleware/sessionPrincipal');
 const { buildSessionPrincipal } = require('../src/middleware/sessionPrincipal');
 const security = require('../src/middleware/security');
 
@@ -32,6 +34,12 @@ function response() {
   const good = response();
   await auth.createKey({ body: { label: 'k', role: 'operator', permissions: ['read'] } }, good);
   assert.equal(good.code, 201);
+
+  const gciReader = response();
+  await auth.createKey({ body: { label: 'gci-reader', role: 'node', permissions: ['gci:read'] } }, gciReader);
+  assert.equal(gciReader.code, 201);
+  assert.deepEqual(gciReader.body.key.permissions, ['gci:read']);
+  assert.deepEqual(buildKeyPrincipal({ role: 'node', permissions: '["gci:read"]' }, ROLE_PERMISSIONS.node).permissions, ['gci:read']);
 
   assert.deepEqual(buildSessionPrincipal({ role: 'unknown', id: 's1' }, { admin: ['all'], viewer: ['read'] }).permissions, []);
 

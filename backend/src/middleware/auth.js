@@ -11,7 +11,9 @@ const iamPolicyEngine = require('../services/iamPolicyEngine');
 const ROLE_PERMISSIONS = {
   admin: ['all', 'read', 'workspace:write', 'workspace:delete', 'experiment:write', 'experiment:run', 'swarm:vote', 'swarm:propose', 'mcp:execute_safe', 'mcp:execute_destructive', 'security:manage', 'override_breaker', 'emergency_kill'],
   operator: ['read', 'workspace:write', 'experiment:write', 'experiment:run', 'swarm:vote', 'swarm:propose', 'mcp:execute_safe', 'emergency_kill'],
-  viewer: ['read', 'telemetry:read']
+  viewer: ['read', 'telemetry:read'],
+  // Machine keys receive only the explicit permissions stored on the key.
+  node: []
 };
 
 function hashKey(key) {

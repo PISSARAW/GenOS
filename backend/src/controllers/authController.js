@@ -9,7 +9,11 @@ const { verifyPassword } = require('./password');
 const telemetry = require('../services/telemetryObserver');
 // Permissions that may be granted to an access key. `all` is intentionally
 // excluded: it is derived from the admin role, never minted as an extra.
-const ASSIGNABLE_PERMISSIONS = new Set(Object.values(ROLE_PERMISSIONS).flat().filter((permission) => permission !== 'all'));
+const GCI_PERMISSIONS = ['gci:read', 'gci:link', 'gci:adopt', 'gci:revoke', 'gci:upgrade'];
+const ASSIGNABLE_PERMISSIONS = new Set([
+  ...Object.values(ROLE_PERMISSIONS).flat().filter((permission) => permission !== 'all'),
+  ...GCI_PERMISSIONS
+]);
 const authAttempts = new Map();
 const AUTH_WINDOW_MS = 60 * 1000;
 const AUTH_LIMITS = { verify: 20, login: 10 };
@@ -245,7 +249,7 @@ async function listKeys(req, res, next) {
 function keyInputError({ label, role, permissions, expiresAt }) {
   if (!label) return { code: 'INVALID_LABEL', message: 'Key label is required' };
   if (!Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) {
-    return { code: 'INVALID_ROLE', message: 'role must be admin, operator, or viewer' };
+    return { code: 'INVALID_ROLE', message: 'role must be admin, operator, viewer, or node' };
   }
   if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string' || !ASSIGNABLE_PERMISSIONS.has(permission))) {
     return { code: 'INVALID_PERMISSIONS', message: 'permissions must be known assignable permissions.' };
