@@ -45,16 +45,15 @@ function sourceModelPrompt(input) {
 }
 
 function decisionPrompt(input) {
-  const memoryView = input.memories.map((memory) => ({ id: memory.id, statement: memory.statement }));
   return [
-    'Make one delayed, non-executing social decision proposal. Return JSON only with action and memoryReferences.',
+    'Make one delayed, non-executing social decision proposal using only the supplied social model. Return JSON only with action and memoryReferences.',
     'Do not send a message, mutate state, change permissions, or claim an action was executed. Do not reveal hidden chain of thought.',
     `Allowed action values: ${ACTIONS.join(', ')}.`,
-    `Persisted model from your first call: ${JSON.stringify(input.model)}.`,
-    `Memories visible to this arm: ${JSON.stringify(memoryView)}.`,
+    `Persisted social model read back from the runtime: ${JSON.stringify(input.model)}.`,
+    'Do not reconstruct or cite source memories that are absent from this model. Use only the model’s stated beliefs, unknowns, alternatives, and source IDs.',
     `New delayed context: ${input.delayedContext}`,
     `Permission constraints: ${JSON.stringify(input.permissionPolicy)}.`,
-    'Cite only visible memory IDs in memoryReferences. If no social memory is visible, use an empty memoryReferences array.',
+    'Cite only source IDs listed by the supplied model in memoryReferences. If the model has no source IDs, use an empty memoryReferences array.',
   ].join('\n\n');
 }
 

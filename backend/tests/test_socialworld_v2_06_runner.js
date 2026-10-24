@@ -67,3 +67,13 @@ test('V2-06 counterfactuals use explicit event-keyed semantic inversions', () =>
   assert.deepEqual(replacements.map((memory) => memory.counterfactualOf), memories.map((memory) => memory.id));
   assert.throws(() => runner.counterfactuals(memories, protocol, new Map()), { code: 'SOCIAL_COUNTERFACTUAL_SOURCE_EVENT_MISSING' });
 });
+
+test('V2-06 decision prompt uses only the supplied model, not raw memories', () => {
+  const prompt = runner.decisionPrompt({ model: { relationHypotheses: [{ relationType: 'unknown' }],
+    sourceMemoryIds: [] }, memories: [{ id: 'hidden-memory', statement: 'raw memory must not be copied' }],
+    delayedContext: 'new request', permissionPolicy: [] });
+  assert.match(prompt, /only the supplied social model/);
+  assert.match(prompt, /Persisted social model read back from the runtime/);
+  assert.equal(prompt.includes('raw memory must not be copied'), false);
+  assert.equal(prompt.includes('hidden-memory'), false);
+});

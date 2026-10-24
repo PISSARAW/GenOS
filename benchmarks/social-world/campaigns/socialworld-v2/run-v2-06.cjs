@@ -89,16 +89,17 @@ async function oneArm({ db, context, arm, index }) {
     provenance: 'GenOS modelProvider local invocation' };
   const modelResult = await generateJson(context.provider, { ...providerInput, prompt: sourcePrompt });
   const model = modelResult.parsed; validateModelOutput({ model, input: context, visibleMemories: visible, role });
-  let modelState = null;
+  let modelState = null; let decisionModel = model;
   if (['baseline', 'masked', 'counterfactual'].includes(role)) {
     const runtime = require('../../../../backend/src/services/socialMentalModelRuntimeService');
     const saved = await runtime.persistVerifiedSocialMentalModel(db, { ...context.scope, ...context.pair,
       snapshotId: `${context.seed}-${arm}-model`, revision: index + 1,
       interventionId: interventionResult.receipt.interventionId, model });
+    decisionModel = saved.snapshot.model;
     modelState = { snapshotId: saved.snapshot.snapshotId, revision: saved.snapshot.revision,
       modelHash: saved.snapshot.modelHash, sourceMemoryIds: model.sourceMemoryIds };
   }
-  const decisionPrompt = helpers.decisionPrompt({ model, memories: promptMemories(visible), delayedContext: context.protocol.delayedDecision.context,
+  const decisionPrompt = helpers.decisionPrompt({ model: decisionModel, delayedContext: context.protocol.delayedDecision.context,
     permissionPolicy: context.protocol.delayedDecision.permissionPolicy });
   const decisionInvocation = { invocationId: crypto.randomUUID(), promptHash: sha(JSON.stringify(decisionPrompt)),
     provenance: 'GenOS modelProvider local invocation' };
