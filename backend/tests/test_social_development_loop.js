@@ -181,6 +181,15 @@ function testPromptExplainsDecisionConsistency() {
   assert.match(prompt, /silence requires recipientAgentId null/);
 }
 
+function testDecisionSchemaRestrictsMemoryReferencesToSuppliedIds() {
+  const withoutMemories = loop.decisionSchemaFor([]).properties.memoryReferences;
+  assert.equal(withoutMemories.maxItems, 0);
+  const withMemories = loop.decisionSchemaFor([{ id: 'episode-1' }, { id: 'episode-1' }, { id: '' }])
+    .properties.memoryReferences;
+  assert.deepEqual(withMemories.items.enum, ['episode-1']);
+  assert.equal(withMemories.maxItems, undefined);
+}
+
 async function main() {
   await testFullPathOrderAndEvidence();
   await testDisabledAndArbitrationBlocked();
@@ -192,6 +201,7 @@ async function main() {
   await testPersistedModelAuditIsCompact();
   testCheckpointHonorsModelRecipientAsHint();
   testPromptExplainsDecisionConsistency();
+  testDecisionSchemaRestrictsMemoryReferencesToSuppliedIds();
   console.log('Social Development Loop causal handoff, arbitration, RPE audience, and evidence gates: PASS');
 }
 
