@@ -137,7 +137,9 @@ que si ses références de preuve existent et que l'oracle est recalculable.
    --report <report.json>`; il ouvre la base dans des processus distincts pour l'écriture,
    la reprise et le contrôle négatif.
 2. Construire V2-03 en premier : c'est le socle nécessaire pour tester les mutations durables.
-3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02.
+3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02. Le vérificateur
+   de reçus Ed25519 est vérifié indépendamment avec `node test-event-receipt-verifier.cjs`;
+   tant qu'il n'est pas raccordé au stockage de confiance du runtime, V2-04 reste `planned`.
 4. Implémenter V2-05 après fixation des invariants de morphogenèse.
 5. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
 
