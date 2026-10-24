@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('154-gci-capability-inheritance', 'Persist scoped GCI exports, project bindings, installations, and events', async (db) => {
+    await require('./migrateGciCapabilityInheritance').migrateGciCapabilityInheritance(db);
+  }),
   createMigrationRunner('150-ontogenesis-memory-search', 'Persist Ontogenesis memory FTS5 search and synapse graph', async (db) => {
     await require('./migrateOntogenesisMemorySearch').migrateOntogenesisMemorySearch(db);
   }),
