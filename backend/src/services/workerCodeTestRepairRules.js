@@ -50,6 +50,7 @@ const planRules = [
     && plan('ensure_quantity_input_label', 'Quantity'),
   (output) => /acceptance\.cjs:24:10/.test(output) && plan('ensure_quantity_increment_behavior', 'Increase quantity for Oats'),
   (output) => /waitForEvent[\s\S]*?download|waiting for event.*download/i.test(output) && plan('ensure_json_export', 'Export JSON'),
+  (output) => /strict mode violation:[\s\S]*?name:\s*\/export json\|export csv\/i[\s\S]*?resolved to 2 elements/i.test(output) && plan('ensure_json_export', 'Export JSON'),
   (output) => /acceptance\.cjs:29:10/.test(output) && plan('ensure_json_export', 'Export JSON'),
   (output) => /0\s*!==\s*1[\s\S]*?acceptance\.cjs:19:10/.test(output) && plan('ensure_add_item_behavior', 'Add Item'),
   (output) => /getByRole\(\s*'button',\s*\{\s*name:\s*\/delete oats\/i\s*\}\s*\)/i.test(output)

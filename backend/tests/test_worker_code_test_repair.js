@@ -296,6 +296,7 @@ assert.throws(() => throwIfFailed({ testStatus: 'failed', tests: [] },
   assert.match(locatorRepairHint(exportFailure), /filename ending in \.json/);
   const exportPlan = repairPlan(exportFailure);
   assert.deepEqual(exportPlan, { kind: 'ensure_json_export', label: 'Export JSON' });
+  const ambiguousExport = Object.assign(new Error('test failed'), { proposal: { tests: [{ stderr: "strict mode violation: getByRole('button', { name: /export json|export csv/i }) resolved to 2 elements at acceptance.cjs:28:82" }] } }); assert.deepEqual(repairPlan(ambiguousExport), exportPlan);
   const exportProposal = JSON.stringify({ patches: [{ path: 'index.html', content:
     '<button>Export JSON</button><script>const pantryItems = [];</script>'
   }] });
