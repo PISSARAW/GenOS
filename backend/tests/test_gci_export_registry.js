@@ -16,4 +16,6 @@ assert.equal(registry.inspect('unknown', '1.0.0'), null);
 assert.throws(() => createExportRegistry({ descriptors: [descriptor], capabilityGraph: {} }), /Unknown GenOS capability/);
 assert.throws(() => createExportRegistry({ descriptors: [{ ...descriptor, implementationDigest: 'mutable' }], capabilityGraph: { MODEL_ROUTING: { id: 'MODEL_ROUTING', category: 'capability' } } }), /sha256 digest/);
 assert.equal(registry.listExports().length, 1, 'registry projection is read only');
+assert.throws(() => { registry.inspect('MODEL_ROUTING', '1.0.0').inputContract.x = true; }, TypeError);
+assert.equal(createExportRegistry({ capabilityGraph: {} }).listExports().length, 0, 'nothing is exportable by default');
 console.log('GCI export registry: ok');

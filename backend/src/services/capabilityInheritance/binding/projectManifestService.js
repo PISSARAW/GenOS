@@ -1,6 +1,9 @@
 'use strict';
 
 const SECTION_KEYS = new Set(['schema', 'project', 'provider', 'inherit', 'updates']);
+const Ajv = require('ajv');
+const PROJECT_SCHEMA = require('../../../../../spec/gci/project.schema.json');
+const validateSchema = new Ajv({ allErrors: true, strict: false }).compile(PROJECT_SCHEMA);
 
 function parseProjectManifest(source) {
   if (typeof source !== 'string' || source.length > 65536) throw manifestError('Manifest must be text under 64 KiB');
@@ -75,6 +78,7 @@ function validateManifest(manifest) {
     if (seen.has(key)) throw manifestError(`Duplicate inheritance entry: ${key}`);
     seen.add(key);
   }
+  if (!validateSchema(manifest)) throw manifestError(`Manifest violates GCI schema: ${validateSchema.errors[0].message}`);
 }
 
 function rejectUnknownKeys(value, allowed, section) {

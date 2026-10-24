@@ -27,10 +27,18 @@ function createExportRegistry({ descriptors = [], capabilityGraph = {}, accessFo
     const access = accessFor(descriptor.capabilityId) || {};
     const concept = capabilityGraph[descriptor.capabilityId]
       || capabilityGraph[`capability:${descriptor.capabilityId}`];
-    return Object.freeze({ ...descriptor, genosCapability: concept, access: Object.freeze({ ...access }) });
+    const capabilitySummary = freezeTree({ id: concept.id, category: concept.category,
+      maturity: concept.maturity, tools: [...(concept.tools || [])] });
+    return Object.freeze({ ...descriptor, genosCapability: capabilitySummary, access: freezeTree(access) });
   }
 
   return Object.freeze({ listExports, inspect });
+}
+
+function freezeTree(value) {
+  if (Array.isArray(value)) return Object.freeze(value.map(freezeTree));
+  if (!value || typeof value !== 'object') return value;
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, child]) => [key, freezeTree(child)])));
 }
 
 module.exports = { createExportRegistry };

@@ -6,13 +6,19 @@ const { createExportRegistry } = require('./exportRegistry');
 async function publishExport({ db, descriptor, capabilityGraph }) {
   const validated = createCapabilityDescriptor(descriptor);
   createExportRegistry({ descriptors: [validated], capabilityGraph });
-  await db.run(`INSERT INTO gci_capability_exports
-    (capability_id, version, provider_id, descriptor_json, status, revoked_at)
-    VALUES (?, ?, ?, ?, 'active', NULL)
-    ON CONFLICT(capability_id, version) DO UPDATE SET
-    provider_id = excluded.provider_id, descriptor_json = excluded.descriptor_json,
-    status = 'active', revoked_at = NULL`,
-  [validated.capabilityId, validated.version, validated.provider.id, JSON.stringify(validated)]);
+  const serialized = JSON.stringify(validated);
+  await require('../../../db').withTransaction(db, async (tx) => {
+    const existing = await tx.get('SELECT descriptor_json, status FROM gci_capability_exports WHERE capability_id = ? AND version = ?',
+      [validated.capabilityId, validated.version]);
+    if (existing) {
+      if (existing.status === 'active' && existing.descriptor_json === serialized) return;
+      throw Object.assign(new Error('GCI export versions are immutable and revoked versions stay revoked'), { code: 'GCI_EXPORT_VERSION_IMMUTABLE' });
+    }
+    await tx.run(`INSERT INTO gci_capability_exports
+      (capability_id, version, provider_id, descriptor_json, status)
+      VALUES (?, ?, ?, ?, 'active')`,
+    [validated.capabilityId, validated.version, validated.provider.id, serialized]);
+  });
   return validated;
 }
 
