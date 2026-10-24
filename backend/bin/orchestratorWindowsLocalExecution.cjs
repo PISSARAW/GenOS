@@ -136,7 +136,7 @@ async function runWindowsRosterWorker(context) {
   const budget = { ...worker.executionBudget, latencyMs: worker.executionBudget?.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
   await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json) VALUES (?, ?, 'running', '{}')`, executionRunId, worker.agentId);
   const scope = dependencies.validScope({ id: `execution-run:${executionRunId}`, costUsd: Number(budget.costUsd || 0), tokens: Number(budget.tokens || 0) });
-  await persistLocalBudgetScope(db, scope, executionRunId, worker.agentId);
+  await persistLocalBudgetScope({ db, scope, executionRunId, agentId: worker.agentId });
   const mission = buildLocalMission({ ...input, id: worker.agentId, missionId, orchestratorAgentId: id,
     enhancedPrompt: worker.prompt || `${input.enhancedPrompt}\n\nAssignment ${index + 1}: ${assignment.hypothesis || assignment.role}`,
     missionBudget: budget, request: { ...input.request, localModel: worker.localModel || input.request.localModel,
@@ -150,7 +150,8 @@ async function runWindowsRosterWorker(context) {
   return { ...result, elapsedMs: Date.now() - startedAt };
 }
 
-async function persistLocalBudgetScope(db, scope, executionRunId, agentId) {
+async function persistLocalBudgetScope(context) {
+  const { db, scope, executionRunId, agentId } = context;
   await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
     (scope_id, parent_run_id, parent_agent_id, organization_id, project_id, cost_ceiling_usd, token_ceiling)
     VALUES (?, ?, ?, ?, ?, ?, ?)`, scope.id, executionRunId, agentId, null, null, scope.costUsd, scope.tokens);
@@ -170,18 +171,28 @@ function localAgents(id, result) {
  * local (ollama) directement via runLocalWorker.
  */
 async function runWindowsLocalExecution(input, dependencies = {}) {
+  process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
+  const services = resolveWindowsDependencies(dependencies);
+  if (hasMultipleWorkers(input)) return runWindowsLocalRosterExecution(input, services);
+  return runSingleWindowsExecution(input, services);
+}
+
+function resolveWindowsDependencies(dependencies) {
+  return { runLocalWorker: dependencies.runLocalWorker || require('../src/services/workerEvidenceBarrierLocal').runLocalWorker,
+    validScope: dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope,
+    createAutonomousWorkers: dependencies.createAutonomousWorkers, runPostflight: dependencies.runPostflight };
+}
+
+function hasMultipleWorkers(input) {
+  return (input.autonomyPlan?.dispatchWorkers || []).length > 1;
+}
+
+async function runSingleWindowsExecution(input, services) {
   const { db, id, missionId, task, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
     nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
     finalizeOrchestratedMission, preflight } = input;
-  process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
-  const runLocalWorker = dependencies.runLocalWorker || require('../src/services/workerEvidenceBarrierLocal').runLocalWorker;
-  const validScope = dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope;
-  if ((input.autonomyPlan?.dispatchWorkers || []).length > 1) {
-    return runWindowsLocalRosterExecution(input, { runLocalWorker, validScope,
-      createAutonomousWorkers: dependencies.createAutonomousWorkers,
-      runPostflight: dependencies.runPostflight });
-  }
+  const { runLocalWorker, validScope } = services;
 
   // Le fallback est in-process : utiliser l'agent orchestrateur persisté pour que
   // la récupération et les décisions d'organisation puissent résoudre son identité.

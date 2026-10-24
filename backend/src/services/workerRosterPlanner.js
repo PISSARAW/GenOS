@@ -77,18 +77,27 @@ function buildWorkerRoster(roster, task, defaults) {
   if (!roster) return defaults;
   const supplied = assignmentList(roster);
   const typePolicy = roster.typePolicy || { mode: 'auto', kinds: [], quotas: {} };
-  const requested = roster.requestedWorkers || (typePolicy.mode === 'all_registered'
-    ? Object.keys(KINDS).length : typePolicy.kinds.length || supplied.length || defaults.length);
-  if (roster.exact && supplied.length && supplied.length !== requested) {
-    throw Object.assign(new Error(`Explicit assignments contain ${supplied.length} roles, but ${requested} workers were requested.`), {
-      code: 'WORKER_ASSIGNMENT_CARDINALITY_MISMATCH', assignedWorkers: supplied.length, requestedWorkers: requested
-    });
-  }
+  const requested = requestedWorkerCount(roster, typePolicy, supplied, defaults);
+  assertExplicitAssignments({ roster, supplied, requested });
   const selectedKinds = kindsForPolicy(typePolicy, task, requested);
   if (typePolicy.mode === 'all_registered' && new Set(selectedKinds).size !== Object.keys(KINDS).length) {
     throw Object.assign(new Error('The worker roster does not cover every registered worker kind.'), { code: 'WORKER_TYPE_COVERAGE_INCOMPLETE' });
   }
   return selectedKinds.map((kind, index) => plannedAssignment({ kind, index, task, supplied: supplied[index] }));
+}
+
+function requestedWorkerCount(roster, typePolicy, supplied, defaults) {
+  if (roster.requestedWorkers) return roster.requestedWorkers;
+  if (typePolicy.mode === 'all_registered') return Object.keys(KINDS).length;
+  return typePolicy.kinds.length || supplied.length || defaults.length;
+}
+
+function assertExplicitAssignments(context) {
+  const { roster, supplied, requested } = context;
+  if (!roster.exact || !supplied.length || supplied.length === requested) return;
+  throw Object.assign(new Error(`Explicit assignments contain ${supplied.length} roles, but ${requested} workers were requested.`), {
+    code: 'WORKER_ASSIGNMENT_CARDINALITY_MISMATCH', assignedWorkers: supplied.length, requestedWorkers: requested
+  });
 }
 
 module.exports = { buildWorkerRoster, defaultAutoKinds, kindsForPolicy, quotaKinds };

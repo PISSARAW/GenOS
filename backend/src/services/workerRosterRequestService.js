@@ -37,24 +37,37 @@ function countValue(config) {
 function typePolicy(source, task, assignments) {
   const raw = rawTypePolicy(source);
   if (isAllTypesRequest(raw, task)) return allTypesPolicy();
+  return resolveConfiguredTypePolicy({ raw, source, assignments });
+}
+
+function resolveConfiguredTypePolicy(context) {
+  const { raw, source, assignments } = context;
   const policy = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const listed = Array.isArray(raw) ? raw : (policy.kinds || policy.workerKinds || policy.worker_kinds || []);
   const assignedKinds = assignmentKinds(assignments);
   const mode = resolveTypeMode({ policy, source, listed, assignedKinds });
-  const resolved = resolveKindList(listed.length ? listed : assignedKinds);
   const quotas = policy.quotas || policy.mix || {};
-  validateTypeSelection(mode, listed, assignedKinds, quotas);
-  validateQuotas(quotas);
-  return { mode, kinds: [...new Set(resolved)], quotas };
+  return resolvePolicyKinds({ mode, listed, assignedKinds, quotas });
 }
 
-function validateTypeSelection(mode, listed, assignments, quotas) {
+function resolvePolicyKinds(policy) {
+  validateTypeSelection(policy);
+  validateQuotas(policy.quotas);
+  const resolved = resolveKindList(policy.listed.length ? policy.listed : policy.assignedKinds);
+  return { mode: policy.mode, kinds: [...new Set(resolved)], quotas: policy.quotas };
+}
+
+function validateTypeSelection({ mode, listed, assignedKinds, quotas }) {
   if (mode === 'mix' && Object.keys(quotas).length === 0) {
     throw Object.assign(new Error('Worker type mix requires at least one registered kind quota.'), { code: 'WORKER_TYPE_POLICY_INVALID' });
   }
-  if (['explicit', 'allowlist'].includes(mode) && !listed.length && !assignments.length) {
+  if (requiresKinds(mode) && !listed.length && !assignedKinds.length) {
     throw Object.assign(new Error(`Worker type policy '${mode}' requires at least one registered kind.`), { code: 'WORKER_TYPE_POLICY_INVALID' });
   }
+}
+
+function requiresKinds(mode) {
+  return mode === 'explicit' || mode === 'allowlist';
 }
 
 function isAllTypesRequest(raw, task) {
@@ -108,7 +121,7 @@ function typeCount(policy) {
 
 function resolveWorkerRosterRequest(request = {}, task = '') {
   const { source, assignments, types } = normalizeRosterInput(request, task);
-  const resolvedCount = resolveWorkerCount(source, assignments, types, task);
+  const resolvedCount = resolveWorkerCount({ source, assignments, types, task });
   const taskCount = resolveTaskCount(source, task);
   if (taskCount !== null) {
     throw Object.assign(new Error('Task-count scheduling is not implemented; refusing to report an unexecuted task roster.'), {
@@ -128,7 +141,8 @@ function normalizeRosterInput(request, task) {
   return { source, assignments, types: typePolicy(source, task, assignments) };
 }
 
-function resolveWorkerCount(source, assignments, types, task) {
+function resolveWorkerCount(input) {
+  const { source, assignments, types, task } = input;
   const explicit = countValue({ source, names: ['agentCount', 'agent_count', 'workerCount', 'worker_count', 'requestedWorkers', 'requested_workers'], text: task,
     labels: ['agents?', 'workers?', 'rôles?', 'roles?'] });
   return explicit || Object.keys(assignments).length || typeCount(types);
