@@ -133,6 +133,9 @@ que si ses références de preuve existent et que l'oracle est recalculable.
    les références de preuve d'un rapport `pass` sont des chemins relatifs au rapport,
    résolus dans le dépôt et présents sur disque. La liste `seeds` du manifeste est figée
    avant les exécutions.
+   Le pilote déterministe s'exécute avec `node run-v2-03.cjs --database <sqlite-path>
+   --report <report.json>`; il ouvre la base dans des processus distincts pour l'écriture,
+   la reprise et le contrôle négatif.
 2. Construire V2-03 en premier : c'est le socle nécessaire pour tester les mutations durables.
 3. Ajouter le vérificateur d'événements et V2-04, puis V2-01 et V2-02.
 4. Implémenter V2-05 après fixation des invariants de morphogenèse.
