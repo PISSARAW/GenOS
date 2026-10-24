@@ -63,6 +63,14 @@ assert.match(invalidPortFeedback, /return null for malformed strings, zero, and 
 assert.ok(invalidPortFeedback.includes(String.raw`require /^\d+$/.test(trimmed)`));
 assert.match(invalidPortFeedback, /Number\.isInteger\(port\)/);
 assert.match(invalidPortFeedback, /Never substitute a default port for invalid input/);
+const paginationFeedback = failureFeedback({ proposal: {
+  tests: [{ command: 'npm test', exitCode: 1,
+    stderr: 'paginate page 1 starts at the first item: expected [a,b], got [c,d]' }],
+  failedPatchContents: [{ path: 'src/index.js',
+    content: 'function paginate(values, page, pageSize) { return values.slice(page * pageSize); }' }]
+} });
+assert.match(paginationFeedback, /Compute start = \(page - 1\) \* pageSize/);
+assert.match(paginationFeedback, /Do not use page \* pageSize/);
 const fixedPrecisionFeedback = failureFeedback({ proposal: {
 	tests: [{ command: 'npm test', exitCode: 1, stderr: 'formatBytes keeps one decimal: expected 1.0 KB, got 1 KB' }],
 	failedPatchContents: [{ path: 'src/index.js', content: "function formatBytes(value) { return Number(value).toFixed(1).replace(/\\.0$/, ''); }" }]
