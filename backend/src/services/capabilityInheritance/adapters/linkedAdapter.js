@@ -14,6 +14,7 @@ async function invokeLinkedCapability(input) {
   const lockfile = JSON.parse(installation.lockfile_json);
   const capability = lockfile.capabilities.find((entry) => entry.capabilityId === capabilityId);
   if (!capability || capability.mode !== 'linked') throw invocationError('GCI_CAPABILITY_NOT_LINKED', capabilityId);
+  await assertNoRevocation({ db, organizationId, projectId, capability, lockfile, visited: new Set() });
   const exported = await db.get(`SELECT descriptor_json FROM gci_capability_exports
     WHERE capability_id = ? AND version = ? AND status = 'active'`, [capabilityId, capability.version]);
   if (!exported) throw invocationError('GCI_CAPABILITY_REVOKED', capabilityId);
@@ -32,6 +33,24 @@ async function invokeLinkedCapability(input) {
     (id, organization_id, project_id, event_type, event_json) VALUES (?, ?, ?, 'capability_invoked', ?)`,
   [receipt.id, organizationId, projectId, JSON.stringify(receipt)]));
   return { result, receipt };
+}
+
+async function assertNoRevocation(input) {
+  const { db, organizationId, projectId, capability, lockfile, visited } = input;
+  const key = `${capability.capabilityId}@${capability.version}`;
+  if (visited.has(key)) throw invocationError('GCI_LOCKFILE_CYCLE', key);
+  const revoked = await db.get(`SELECT 1 FROM gci_project_revocations
+    WHERE organization_id = ? AND project_id = ? AND capability_id = ? AND version = ?`,
+  [organizationId, projectId, capability.capabilityId, capability.version]);
+  if (revoked) throw invocationError('GCI_CAPABILITY_REVOKED', key);
+  visited.add(key);
+  for (const dependency of capability.dependencies || []) {
+    const split = dependency.lastIndexOf('@');
+    const dependencyEntry = lockfile.capabilities.find((entry) => `${entry.capabilityId}@${entry.version}` === dependency);
+    if (split < 1 || !dependencyEntry) throw invocationError('GCI_LOCKFILE_DEPENDENCY_MISSING', dependency);
+    await assertNoRevocation({ db, organizationId, projectId, capability: dependencyEntry, lockfile, visited });
+  }
+  visited.delete(key);
 }
 
 function validateContract(schema, value, code) {
