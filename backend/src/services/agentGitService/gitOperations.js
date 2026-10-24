@@ -131,20 +131,15 @@ async function commitMergedState(ctx) {
   // Transaction commune : remplacement d'état + création du commit de fusion.
   // L'un ou l'autre échoue -> rollback complet, pas d'état actif sans commit
   // (et pas de commit sans état actif).
-  await db.exec('BEGIN IMMEDIATE');
-  try {
+  return require('../../db').withTransaction(db, async () => {
     const result = await replaceState(req, {
       targetAgentId,
       state: merged.storeState,
       sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
     }, { inTransaction: true });
     const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
-    await db.exec('COMMIT');
     return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
-  } catch (err) {
-    await db.exec('ROLLBACK').catch(() => {});
-    throw err;
-  }
+  });
 }
 
 function buildMergedState(ctx) {
@@ -232,7 +227,7 @@ async function createMergeCommit(ctx) {
     },
     parentCommitIds: mergeParents
   });
-  await updateRef({ db, req, agentId: req.body?.targetAgentId || left.agent_id, refName: req.body?.refName || 'merge', objectId: commitResult.id, options: { action: 'merge' } });
+  await updateRef({ db, req, agentId: req.body?.targetAgentId || left.agent_id, refName: req.body?.refName || 'merge', objectId: commitResult.id, options: { action: 'merge', inTransaction: true } });
   return commitResult;
 }
 
