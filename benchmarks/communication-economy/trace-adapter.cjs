@@ -2,7 +2,7 @@
 
 const { summarizeUsage } = require('./provider-usage.cjs');
 
-const COST_FIELDS = ['verificationUsd', 'memoryUsd', 'planningUsd', 'retryUsd'];
+const COST_FIELDS = ['verificationUsd', 'memoryUsd', 'planningUsd', 'retryUsd', 'transportUsd', 'computeUsd'];
 
 function parseRows(text) {
   if (typeof text !== 'string' || !text.trim()) throw new Error('Trace must contain JSONL rows.');
@@ -14,10 +14,15 @@ function parseRows(text) {
 function assertRow(row, expected) {
   if (row.runId !== expected.runId || row.scenarioId !== expected.scenarioId
     || row.seed !== expected.seed || row.armId !== expected.armId
+    || row.model !== expected.model || row.provider !== expected.provider
     || typeof row.taskId !== 'string' || !expected.taskIds.includes(row.taskId)) {
     throw new Error('Trace row does not match the declared run and shared task set.');
   }
-  if (typeof row.verifiedAction !== 'boolean' || typeof row.informationLost !== 'boolean') {
+  const verification = row.verification;
+  if (!verification || !['verified', 'failed', 'unverified'].includes(verification.status)
+    || typeof verification.independent !== 'boolean'
+    || (verification.status === 'verified' && (!verification.verifierId || !verification.independent))
+    || typeof row.informationLost !== 'boolean') {
     throw new Error(`Trace row ${row.taskId} must include verification and information-loss outcomes.`);
   }
   return row;
@@ -26,15 +31,38 @@ function assertRow(row, expected) {
 function costOf(row) {
   const costs = row.episodeCostsUsd;
   if (!costs || COST_FIELDS.some((field) => !Number.isFinite(costs[field]) || costs[field] < 0)) return null;
-  return COST_FIELDS.reduce((sum, field) => sum + costs[field], 0);
+  if (!Number.isFinite(row.usage?.costUsd)) return null;
+  if (costs.providerInferenceUsd !== undefined && costs.providerInferenceUsd !== row.usage.costUsd) return null;
+  return COST_FIELDS.reduce((sum, field) => sum + costs[field], row.usage.costUsd);
+}
+
+function assertReceipts(row, expected, receipts) {
+  if (!Array.isArray(receipts) || !Array.isArray(row.modelCalls || [])) {
+    throw new Error(`Trace row ${row.taskId} has invalid call inventory.`);
+  }
+  if (row.modelCallsComplete !== undefined && typeof row.modelCallsComplete !== 'boolean') {
+    throw new Error(`Trace row ${row.taskId} has invalid call-coverage status.`);
+  }
+  if (row.modelCallsComplete === true && !Array.isArray(row.modelCalls)) {
+    throw new Error(`Trace row ${row.taskId} declares complete coverage without call IDs.`);
+  }
+  for (const receipt of receipts) {
+    if (receipt.runId !== row.runId || receipt.armId !== row.armId
+      || receipt.taskId !== row.taskId || receipt.provider !== expected.provider
+      || receipt.model !== expected.model) {
+      throw new Error(`Usage receipt does not match task ${row.taskId}.`);
+    }
+  }
 }
 
 function normalizeRow(row, expected) {
   const receipts = row.usageReceipts || [];
+  assertReceipts(row, expected, receipts);
   const usage = summarizeUsage(receipts, { complete: row.modelCallsComplete === true,
     callIds: row.modelCalls || [] });
-  const costUsd = costOf(row);
-  return { ...row, usage, episodeCostUsd: costUsd,
+  const costUsd = costOf({ ...row, usage });
+  return { ...row, verifiedAction: row.verification.status === 'verified', usage,
+    episodeCostUsd: costUsd,
     resourceUse: row.resourceUse || {}, sourceSystem: expected.sourceSystem };
 }
 
@@ -45,6 +73,7 @@ function importTrial(text, expected) {
     throw new Error('Trace must contain exactly one result for every shared task.');
   }
   return { runId: expected.runId, scenarioId: expected.scenarioId, seed: expected.seed,
+    model: expected.model, provider: expected.provider,
     armId: expected.armId, sourceSystem: expected.sourceSystem, tasks: rows };
 }
 

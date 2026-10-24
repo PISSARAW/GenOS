@@ -17,6 +17,9 @@ function assertUsageReceipt(receipt) {
   if (receipt.cachedInputTokens !== undefined && !validTokenCount(receipt.cachedInputTokens)) {
     throw new Error('Cached input token count must be a non-negative integer.');
   }
+  if (receipt.cachedInputTokens > receipt.inputTokens) {
+    throw new Error('Cached input tokens cannot exceed total input tokens.');
+  }
   if (receipt.costUsd !== undefined && receipt.costUsd !== null
     && (!Number.isFinite(receipt.costUsd) || receipt.costUsd < 0)) {
     throw new Error('Provider cost must be a non-negative number.');
@@ -36,15 +39,17 @@ function validateInventory(receipts, inventory) {
 
 function summarizeUsage(receipts, inventory) {
   const rows = receipts.map(assertUsageReceipt);
+  const complete = validateInventory(rows, inventory);
   const totals = rows.reduce((sum, row) => ({
     inputTokens: sum.inputTokens + row.inputTokens,
     outputTokens: sum.outputTokens + row.outputTokens,
     cachedInputTokens: sum.cachedInputTokens + row.cachedInputTokens,
     costUsd: sum.costUsd === null || row.costUsd === null ? null : sum.costUsd + row.costUsd
   }), { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, costUsd: 0 });
-  return { ...totals, calls: rows.length,
-    usageCoverage: validateInventory(rows, inventory) ? 'complete' : 'lower-bound',
-    usageMeasured: rows.length > 0 || inventory?.complete === true,
+  const costUsd = rows.length === 0 && !complete ? null : totals.costUsd;
+  return { ...totals, costUsd, calls: rows.length,
+    usageCoverage: complete ? 'complete' : 'lower-bound',
+    usageMeasured: rows.length > 0 || complete,
     receipts: rows };
 }
 

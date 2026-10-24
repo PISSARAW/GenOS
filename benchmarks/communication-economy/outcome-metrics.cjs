@@ -1,7 +1,8 @@
 'use strict';
 
 function sumField(rows, field) {
-  return rows.reduce((sum, row) => sum + Math.max(0, Number(row.resourceUse?.[field] || 0)), 0);
+  if (rows.some((row) => !Number.isFinite(row.resourceUse?.[field]) || row.resourceUse[field] < 0)) return null;
+  return rows.reduce((sum, row) => sum + row.resourceUse[field], 0);
 }
 
 function allCostsKnown(rows) {
@@ -30,9 +31,12 @@ function summarizeTrial(trial) {
     totalCostUsd,
     costPerVerifiedActionUsd: totalCostUsd !== null && verifiedActions > 0
       ? totalCostUsd / verifiedActions : null,
-    latencyMs: rows.reduce((sum, row) => sum + Number(row.latencyMs || 0), 0),
+    latencyMs: rows.every((row) => Number.isFinite(row.latencyMs) && row.latencyMs >= 0)
+      ? rows.reduce((sum, row) => sum + row.latencyMs, 0) : null,
     cpuMs: sumField(rows, 'cpuMs'), gpuMs: sumField(rows, 'gpuMs'),
-    peakVramBytes: Math.max(0, ...rows.map((row) => Number(row.resourceUse?.vramBytes || 0))),
+    peakVramBytes: rows.every((row) => Number.isFinite(row.resourceUse?.vramBytes)
+      && row.resourceUse.vramBytes >= 0)
+      ? Math.max(0, ...rows.map((row) => row.resourceUse.vramBytes)) : null,
     energyJoules: sumField(rows, 'energyJoules')
   };
 }

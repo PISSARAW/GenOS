@@ -21,5 +21,10 @@ runAblationCampaign({ taskSet, baseline, scenario: 'pilot-10x100', seed: 7, run 
   .then(() => { throw new Error('Unconfirmed ablation unexpectedly succeeded.'); })
   .catch((error) => {
     assert.match(error.message, /did not confirm ablation/);
+    return runAblationCampaign({ taskSet: [{ id: 'different-task' }], baseline, run });
+  })
+  .then(() => { throw new Error('Mismatched baseline task set unexpectedly succeeded.'); })
+  .catch((error) => {
+    assert.match(error.message, /Baseline does not cover/);
     console.log('communication-economy executed ablations: ok');
   });

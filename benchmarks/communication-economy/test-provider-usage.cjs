@@ -11,6 +11,8 @@ assert.equal(complete.inputTokens, 30);
 assert.equal(complete.cachedInputTokens, 4);
 assert.equal(complete.usageCoverage, 'complete');
 assert.equal(summarizeUsage([receipt], null).usageCoverage, 'lower-bound');
+assert.equal(summarizeUsage([], null).costUsd, null);
 assert.throws(() => summarizeUsage([{ ...receipt, inputTokens: 30.5 }], null));
+assert.throws(() => summarizeUsage([{ ...receipt, cachedInputTokens: 31 }], null));
 assert.equal(summarizeUsage([receipt], { complete: true, callIds: [] }).usageCoverage, 'lower-bound');
 console.log('communication-economy provider usage: ok');
