@@ -33,11 +33,12 @@ function modelReadiness(provider, model) {
   return { configured: status.configured === true, apiKeyConfigured: status.apiKeyConfigured === true,
     provider: status.provider || null, model: status.modelName || null, reasonCode: status.configured ? null : 'MODEL_PROVIDER_NOT_READY' };
 }
-function safeFailure(error) { const code = String(error?.code || '').toUpperCase(); return /TIMEOUT/i.test(code + error?.message) ? 'MODEL_PROVIDER_TIMEOUT' : /SOCIAL_|DIALOGUE|MEMORY/.test(code) ? code : 'V2_06_RUNNER_STEP_FAILED'; }
+function safeFailure(error) { const code = String(error?.code || '').toUpperCase(); return /TIMEOUT/i.test(code + error?.message) ? 'MODEL_PROVIDER_TIMEOUT' : /^(MODEL|SOCIAL|DIALOGUE|MEMORY)_[A-Z0-9_]+$/.test(code) ? code : 'V2_06_RUNNER_STEP_FAILED'; }
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true }); const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
   fs.writeFileSync(file, bytes, { flag: 'wx' }); return { path: path.relative(REPORT_ROOT, file).split(path.sep).join('/'), sha256: sha(bytes) };
 }
+function addEvidenceRef(list, ref) { if (!list.some((item) => item.path === ref.path)) list.push(ref); }
 function seedAttempt(seed, requested, pilot = false) {
   const root = pilot ? path.join(REPORT_ROOT, 'pilot', seed) : path.join(REPORT_ROOT, seed);
   fs.mkdirSync(root, { recursive: true });
@@ -52,6 +53,10 @@ function artifact({ context, kind, arm, name, data }) {
     configHash: context.configHash, arm, ...data };
   const ref = writeJson(path.join(context.dir, name), value);
   if (context.refs[arm]) context.refs[arm].push(ref);
+  if (context.report) {
+    addEvidenceRef(context.report.evidenceRefs, ref);
+    if (context.report.arms[arm]) addEvidenceRef(context.report.arms[arm].evidenceRefs, ref);
+  }
   return ref;
 }
 function factors(protocol) { return { contextHash: hash(protocol.delayedDecision.context),
@@ -171,7 +176,11 @@ async function execute(c) {
     const sources = await recordSourceMemories(db, c);
     const sourcesRef = artifact({ context: c, kind: 'verified-social-memory-sources', arm: 'source-experiences',
       name: 'verified-social-memory-sources.json', data: { protocolHash: c.protocolHash, sources } });
-    for (const arm of ARM_KEYS) c.refs[arm].push(sourcesRef);
+    for (const arm of ARM_KEYS) {
+      c.refs[arm].push(sourcesRef);
+      addEvidenceRef(c.report.evidenceRefs, sourcesRef);
+      addEvidenceRef(c.report.arms[arm].evidenceRefs, sourcesRef);
+    }
     const runtime = require('../../../../backend/src/services/socialMentalModelRuntimeService');
     const loaded = await runtime.loadVerifiedSocialMemories(db, { ...c.scope, ...c.pair, minimumIndependent: 4 });
     c.memories = loaded.socialMemories; c.entries = loaded.memories; c.results = {};
@@ -191,7 +200,8 @@ async function execute(c) {
         scenarioPermissionHash: c.sharedFactors.permissionHash } });
     for (const arm of ARM_KEYS) {
       c.refs[arm].push(authorityRef);
-      c.report.arms[arm].evidenceRefs.push(authorityRef);
+      addEvidenceRef(c.report.evidenceRefs, authorityRef);
+      addEvidenceRef(c.report.arms[arm].evidenceRefs, authorityRef);
     }
     completeReport(c);
   } finally { await dbModule.closeDatabase(); }
@@ -242,4 +252,4 @@ async function main() {
   } catch (error) { process.stderr.write(`${safeFailure(error)}\n`); process.exitCode = 2; }
 }
 if (require.main === module) main();
-module.exports = { runV206, parseArgs, modelReadiness, parseJsonResponse, ...helpers, stableHash: hash };
+module.exports = { runV206, parseArgs, modelReadiness, parseJsonResponse, safeFailure, ...helpers, stableHash: hash };

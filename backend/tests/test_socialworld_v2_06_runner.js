@@ -30,6 +30,11 @@ test('V2-06 runner records its package runtime version', () => {
   assert.match(runner.runtimeVersion(), /^\d+\.\d+\.\d+/);
 });
 
+test('V2-06 runner preserves safe model failure categories', () => {
+  const error = Object.assign(new Error('schema mismatch'), { code: 'MODEL_OUTPUT_SCHEMA_INVALID' });
+  assert.equal(runner.safeFailure(error), 'MODEL_OUTPUT_SCHEMA_INVALID');
+});
+
 test('V2-06 model response parser accepts one JSON object only', () => {
   assert.deepEqual(runner.parseJsonResponse({ text: '{"action":"ask-for-update"}' }), {
     action: 'ask-for-update',
@@ -44,4 +49,8 @@ test('V2-06 model prompts do not expose intervention labels or expected actions'
   assert.equal(prompt.includes('contradicts'), false);
   assert.equal(prompt.includes('propose-collaboration'), false);
   assert.equal(prompt.includes('The peer returned the draft.'), true);
+  assert.equal(prompt.includes('supportingMemoryIds'), true);
+  assert.equal(prompt.includes('contradictingMemoryIds'), true);
+  assert.equal(prompt.includes('proposition'), true);
+  assert.equal(prompt.includes('unknowns'), true);
 });

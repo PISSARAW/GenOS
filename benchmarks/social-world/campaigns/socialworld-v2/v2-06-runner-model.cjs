@@ -31,7 +31,16 @@ function sourceModelPrompt(input) {
     `Subject: ${input.subjectAgentId}; other participant: ${input.otherAgentId}.`,
     absence,
     `Visible dialogue memories: ${JSON.stringify(memoryView)}`,
-    `Required model keys: schemaVersion=1, subjectAgentId, otherAgentId, relationHypotheses, beliefsAboutOther, unknowns, alternativeInterpretations, sourceMemoryIds, generatedAt, authority='descriptive-only', promotionEligible=false.`,
+    'Return this exact JSON shape. relationHypotheses items require relationType, confidence, supportingMemoryIds, contradictingMemoryIds. beliefsAboutOther items require proposition, confidence, sourceMemoryIds. unknowns and alternativeInterpretations are arrays of strings. Use ISO 8601 for generatedAt. Do not add keys.',
+    `JSON shape: ${JSON.stringify({ schemaVersion: 1, subjectAgentId: input.subjectAgentId,
+      otherAgentId: input.otherAgentId,
+      relationHypotheses: [{ relationType: 'inferred relation', confidence: 0.5,
+        supportingMemoryIds: ['visible memory ID'], contradictingMemoryIds: [] }],
+      beliefsAboutOther: [{ proposition: 'grounded belief about the other participant', confidence: 0.5,
+        sourceMemoryIds: ['visible memory ID'] }], unknowns: ['uncertain fact'],
+      alternativeInterpretations: ['plausible alternative'], sourceMemoryIds: ['visible memory ID'],
+      generatedAt: new Date().toISOString(), authority: 'descriptive-only', promotionEligible: false })}`,
+    'When no memories are visible, use relationType="unknown", empty evidence ID arrays, sourceMemoryIds=[], and include the verified absence receipt in unknowns.',
   ].filter(Boolean).join('\n\n');
 }
 
