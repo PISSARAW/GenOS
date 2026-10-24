@@ -34,7 +34,7 @@ function labelItemNameInput(content, label) {
   });
   repaired = repaired.replace(/(<label\b[^>]*\bfor\s*=\s*(["'])[^"']+\2[^>]*>)\s*(<input\b)/i,
     (match, labelOpening) => labelOpening.replace(/\s+aria-label\s*=\s*(["'])[^"']*\1/i, '') + match.slice(labelOpening.length));
-  return cleanSearchButtonName(repaired);
+  return cleanSearchButtonName(cleanDuplicatePantryHeadings(repaired));
 }
 
 function cleanSearchButtonName(content) {
@@ -42,6 +42,16 @@ function cleanSearchButtonName(content) {
     if (!/\baria-label\s*=\s*(["'])search\1/i.test(button)
       || button.replace(/<[^>]+>/g, '').trim().toLowerCase() !== 'search') return button;
     return button.replace(/\baria-label\s*=\s*(["'])search\1/i, 'aria-label="Run search"');
+  });
+}
+
+function cleanDuplicatePantryHeadings(content) {
+  let retained = false;
+  return content.replace(/<(h[1-6])\b([^>]*)>([\s\S]*?)<\/h[1-6]\s*>/gi, (heading, tag, attributes, inner) => {
+    if (!/pantry/i.test(inner)) return heading;
+    if (!retained) { retained = true; return heading; }
+    const cleaned = inner.replace(/pantry/ig, '').replace(/\s{2,}/g, ' ').trim();
+    return `<${tag}${attributes}>${cleaned}</${tag}>`;
   });
 }
 
