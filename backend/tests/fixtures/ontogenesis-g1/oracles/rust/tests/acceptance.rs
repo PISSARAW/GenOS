@@ -50,6 +50,7 @@ fn independent_acceptance_oracle() {
             assert_eq!(percentile(&values, 100.0), Some(4.0));
             assert_eq!(values, [4.0, 1.0, 3.0, 2.0]);
         }
+        #[cfg(feature = "case_median")]
         "median" => {
             let odd = [3.0, 1.0, 2.0];
             let even = [4.0, 1.0, 3.0, 2.0];
@@ -59,6 +60,7 @@ fn independent_acceptance_oracle() {
             assert_eq!(odd, [3.0, 1.0, 2.0]);
             assert_eq!(even, [4.0, 1.0, 3.0, 2.0]);
         }
+        #[cfg(feature = "case_filter_above")]
         "filter-above" => {
             let values = [3.0, 1.0, 4.0, 2.0, 4.0];
             assert_eq!(g1_metrics::filter_above(&values, 3.0), vec![4.0, 4.0]);
