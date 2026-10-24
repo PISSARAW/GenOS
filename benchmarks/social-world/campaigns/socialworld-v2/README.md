@@ -146,6 +146,9 @@ que si ses références de preuve existent et que l'oracle est recalculable.
    a un oracle déterministe testé par `node test-morphogenesis-oracle.cjs`; sans événements
    runtime et reçus de collaboration après transition, le scénario reste `planned`.
 5. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
+   Avant toute interprétation causale, exécuter `node audit-campaign-pairs.cjs manifest.json
+   <répertoire-des-rapports>`; il exige les bras attendus par scénario et les mêmes empreintes
+   d'événements, budgets et permissions pour chaque graine appariée.
 
 Les scénarios restent `planned` jusqu'à la présence de runners, d'oracles vérifiables et de
 rapports produits par exécution. Ce document ne revendique aucun résultat V2.
