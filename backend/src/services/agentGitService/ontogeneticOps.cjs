@@ -25,6 +25,32 @@ async function compareTrajectories(req) {
   };
 }
 
+async function createOntogeneticFork(req) {
+  const scope = forkScope(req);
+  if (!scope.allowed) return { success: false, operation: 'ontogenetic-fork', error: scope.error };
+  const handler = require('../mcpBioTools/handlers/agentForkSnapshot');
+  const result = await handler.handleAgentForkSnapshot({
+    agent_id: req.body?.agentId,
+    snapshot_id: req.body?.snapshotId,
+    idempotency_key: req.body?.idempotencyKey,
+    budget: req.body?.budget
+  });
+  return { ...result, operation: 'ontogenetic-fork' };
+}
+
+function forkScope(req) {
+  const env = process.env;
+  const configured = env.GENOS_MCP_ALLOW_AGENT_FORK === 'true' && env.GENOS_MCP_AGENT_ID
+    && env.GENOS_MCP_FORK_ROOT && env.GENOS_MCP_ORGANIZATION_ID && env.GENOS_MCP_PROJECT_ID;
+  if (!configured) return { allowed: false, error: 'A server-bound fork agent, tenant, and root are required.' };
+  const sameAgent = req.body?.agentId === env.GENOS_MCP_AGENT_ID;
+  const sameTenant = req.tenant?.organizationId === env.GENOS_MCP_ORGANIZATION_ID
+    && req.tenant?.projectId === env.GENOS_MCP_PROJECT_ID;
+  return sameAgent && sameTenant
+    ? { allowed: true }
+    : { allowed: false, error: 'Fork request is outside the server-bound agent or tenant.' };
+}
+
 function verifySnapshots(snapshots) {
   const { verifySource } = require('./verifiedMerge.cjs');
   const issues = snapshots.flatMap(verifySource);
@@ -73,4 +99,4 @@ function parseBudget(serialized) {
   try { return Number(JSON.parse(serialized || '{}').consumed) || 0; } catch (_) { return 0; }
 }
 
-module.exports = { compareTrajectories, compareIdentity, compareCapabilities, summarizeRuns };
+module.exports = { compareTrajectories, createOntogeneticFork, forkScope, compareIdentity, compareCapabilities, summarizeRuns };
