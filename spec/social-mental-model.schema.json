@@ -5,7 +5,7 @@
   "description": "A sourced, uncertain, agent-perspective model of a social relation. It represents functional beliefs, not subjective experience or authority.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "subjectAgentId", "otherAgentId", "relationHypotheses", "beliefsAboutOther", "unknowns", "sourceMemoryIds", "generatedAt"],
+  "required": ["schemaVersion", "subjectAgentId", "otherAgentId", "relationHypotheses", "beliefsAboutOther", "unknowns", "sourceMemoryIds", "generatedAt", "authority", "promotionEligible"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "subjectAgentId": { "type": "string", "minLength": 1 },
@@ -15,7 +15,9 @@
     "unknowns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "alternativeInterpretations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "sourceMemoryIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
-    "generatedAt": { "type": "string", "format": "date-time" }
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "authority": { "const": "descriptive-only" },
+    "promotionEligible": { "const": false }
   },
   "$defs": {
     "hypothesis": {
