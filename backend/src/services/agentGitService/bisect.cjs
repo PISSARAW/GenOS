@@ -37,6 +37,33 @@ async function bisect(req) {
   };
 }
 
+async function bisectProbe(req) {
+  const db = await getDatabase();
+  const invariant = String(req.body?.invariant || '');
+  const allowed = ['budgetsConsistent', 'permissionsConsistent', 'decisionsValid'];
+  if (!allowed.includes(invariant)) return { success: false, error: 'A supported deterministic invariant is required.', allowed };
+  const path = await buildCausalPath(db, req.body?.goodObjectId, req.body?.badObjectId);
+  if (!path || path.length < 2) return { success: false, error: 'At least two commits on the causal path are required.' };
+  const { checkOutcomeInvariants } = require('./causalOps.cjs');
+  const probes = path.map((commit) => probeCheckpoint(commit, invariant, checkOutcomeInvariants));
+  const firstFailure = probes.findIndex((probe) => probe.result === false);
+  return {
+    success: true,
+    operation: 'bisect-probe',
+    invariant,
+    executionMode: 'deterministic_checkpoint_validation',
+    runtimeReplayed: false,
+    probes,
+    culpritObjectId: firstFailure < 0 ? null : probes[firstFailure].objectId
+  };
+}
+
+function probeCheckpoint(commit, invariant, validate) {
+  const state = JSON.parse(commit.state_json || '{}');
+  const checks = validate(state);
+  return { objectId: commit.id, result: checks[invariant] ?? null };
+}
+
 async function buildCausalPath(db, goodId, badId) {
   const goodCommit = await getCommit(db, goodId);
   if (!goodCommit) return null;
@@ -168,4 +195,4 @@ function runBinarySearch(sortedArray, predicate) {
   return { culprit: outcome.culpritIndex, iterations: outcome.iterations };
 }
 
-module.exports = { bisect, buildCausalPath, runBinarySearch, runDagBisect, topologicalSort };
+module.exports = { bisect, bisectProbe, probeCheckpoint, buildCausalPath, runBinarySearch, runDagBisect, topologicalSort };

@@ -389,7 +389,7 @@ module.exports = {
   mergeBaseDag: require('./dagOperations').mergeBase,
   stage: require('./headIndexWrappers.cjs').stage, unstage: require('./headIndexWrappers.cjs').unstage,
   status: require('./headIndex.cjs').status, commitFromIndex: require('./commitFromIndex.cjs'),
-  rebaseInteractive: require('./rebaseInteractive.cjs'), cognitiveDiff: require('./cognitiveOps.cjs').cognitiveDiff, epistemicMerge: require('./epistemicOps.cjs').epistemicMerge,
+  rebaseInteractive: require('./rebaseInteractive.cjs'), cognitiveDiff: require('./cognitiveOps.cjs').cognitiveDiff, epistemicMerge: require('./epistemicOps.cjs').epistemicMerge, bisectProbe: require('./bisect.cjs').bisectProbe,
   // Biomimetic operations (point 8)
   hgtCherryPick: require('./biomimeticOps.cjs').hgtCherryPick,
   speciation: require('./biomimeticOps.cjs').speciation,

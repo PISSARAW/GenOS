@@ -37,6 +37,7 @@ router.post('/agents/git/epistemic-merge-preview', requirePermission('read'), ag
 router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
 router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
+router.post('/agents/git/bisect-probe', requirePermission('read'), agentGitController.bisectProbe);
 router.post('/agents/git/log', requirePermission('read'), agentGitController.log);
 router.post('/agents/git/revert', requirePermission('workspace:write'), agentGitController.revert);
 router.post('/agents/git/rebase', requirePermission('workspace:write'), agentGitController.rebase);

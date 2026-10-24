@@ -13,6 +13,7 @@ async function epistemicMerge(req, res, next) { try { res.json(await agentGit.ep
 async function merge(req, res, next) { try { res.status(201).json(await agentGit.merge(req)); } catch (error) { next(error); } }
 async function replay(req, res, next) { try { res.json(await agentGit.replay(req)); } catch (error) { next(error); } }
 async function bisect(req, res, next) { try { res.json(await agentGit.bisect(req)); } catch (error) { next(error); } }
+async function bisectProbe(req, res, next) { try { res.json(await agentGit.bisectProbe(req)); } catch (error) { next(error); } }
 async function log(req, res, next) { try { res.json(await agentGit.log(req)); } catch (error) { next(error); } }
 async function revert(req, res, next) { try { res.status(201).json(await agentGit.revert(req)); } catch (error) { next(error); } }
 async function rebase(req, res, next) { try { res.status(201).json(await agentGit.rebase(req)); } catch (error) { next(error); } }
@@ -41,4 +42,4 @@ async function migration(req, res, next) { try { res.status(201).json(await agen
 async function fossil(req, res, next) { try { res.status(201).json(await agentGit.fossil(req)); } catch (error) { next(error); } }
 async function apoptosis(req, res, next) { try { res.json(await agentGit.apoptosis(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, cognitiveDiff, epistemicMerge, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag, hgtCherryPick, speciation, recombination, migration, fossil, apoptosis };
+module.exports = { push, fetch, stash, tag, cherryPick, commit, diff, cognitiveDiff, epistemicMerge, merge, replay, bisect, bisectProbe, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag, hgtCherryPick, speciation, recombination, migration, fossil, apoptosis };
