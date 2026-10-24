@@ -103,7 +103,7 @@ function assertTenantScope(scope) {
 }
 
 function assertTenantConsistency(existing, input) {
-  if (!existing || !input.organizationId) return;
+  if (!existing || (!existing.organization_id && !existing.project_id) || !input.organizationId) return;
   if (existing.organization_id !== input.organizationId || existing.project_id !== input.projectId) {
     throw Object.assign(new Error('Workspace path is already registered under a different tenant.'), {
       code: 'WORKSPACE_TENANT_MISMATCH'
@@ -120,7 +120,10 @@ async function saveRegisteredWorkspace(db, entry) {
   await db.run(`INSERT INTO workspaces (id, name, path, visibility, language, description, tags,
     organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
     ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
-    language = excluded.language, updated_at = CURRENT_TIMESTAMP`,
+    language = excluded.language,
+    organization_id = COALESCE(workspaces.organization_id, excluded.organization_id),
+    project_id = COALESCE(workspaces.project_id, excluded.project_id),
+    updated_at = CURRENT_TIMESTAMP`,
   entry.id, entry.name, entry.workspacePath, entry.description,
   entry.tenant.organizationId, entry.tenant.projectId);
 }

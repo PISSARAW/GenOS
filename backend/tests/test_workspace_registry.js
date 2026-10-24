@@ -47,7 +47,9 @@ try {
     async run(_sql, id, name, workspacePath, description, organizationId, projectId) {
       const existing = rowsById.get(id);
       rowsById.set(id, existing
-        ? { ...existing, path: workspacePath, name, language: 'Mixed' }
+        ? { ...existing, path: workspacePath, name, language: 'Mixed',
+          organization_id: existing.organization_id || organizationId,
+          project_id: existing.project_id || projectId }
         : { id, name, path: workspacePath, language: 'Mixed', description,
           organization_id: organizationId, project_id: projectId });
     },
@@ -71,6 +73,10 @@ try {
     const second = await syncWorkspaceRegistry(database, secondGenosRoot);
     assert.equal(first[0].name, 'GenOS');
     assert.notEqual(second[0].name, 'GenOS');
+    const adopted = await resolveMissionWorkspace(database, { workspaceRoot: firstGenosRoot,
+      workspaceScopeId: 'tenant-anchor' });
+    assert.equal(adopted.organization_id, 'org-test', 'explicit scope must attach a legacy unscoped path');
+    assert.equal(adopted.project_id, 'project-test');
     await assert.rejects(resolveMissionWorkspace(database, { workspaceRoot: nestedProject }),
       { code: 'ORCHESTRATOR_WORKSPACE_SCOPE_REQUIRED' });
     const scoped = await resolveMissionWorkspace(database, { workspaceRoot: nestedProject,

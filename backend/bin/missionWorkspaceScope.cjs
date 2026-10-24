@@ -72,7 +72,7 @@ async function resolveMissionWorkspace(db, request = {}) {
   if (requestedId) return requestedWorkspace(db, requestedId, root);
   if (!root) return null;
   const existing = await workspaceByPath(db, root);
-  if (existing) return requireTenantScope(existing);
+  if (existing?.organization_id && existing.project_id) return existing;
   return registerRequestedRoot(db, root, request);
 }
 
