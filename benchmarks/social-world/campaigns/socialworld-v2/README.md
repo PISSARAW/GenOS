@@ -214,6 +214,22 @@ les bras `REGISTERED_ARMS` qu'il sait rapporter et les bras `EXECUTABLE_ARMS` do
 le traitement runtime correspondant. Un bras déclaré sans traitement réel produit un rapport
 `inconclusive`; il n'est jamais substitué par `genos-full`.
 
+État des adaptateurs après les contrôles :
+
+| Scénario | Adaptateurs présents | Précondition qui empêche encore une preuve complète |
+|---|---|---|
+| V2-01 | aucun bras de campagne | Le diagnostic dialogue/mémoire est scripté; reçus de livraison vérifiables, initiative autonome et comparateurs manquent. |
+| V2-02 | aucun bras de campagne | Le diagnostic observe dix checkpoints, pas 1 000 cycles autonomes; les trois comparateurs manquent. |
+| V2-03 | `genos-full` | Les épisodes du pilote sont générés par le runner; il faut des reçus source externes signés et vérifiés. Les deux comparateurs manquent. |
+| V2-04 | aucun bras de campagne | Il faut une clé publique de vérificateur épinglée, une identité autorisée et des reçus signés issus d'une source indépendante. |
+| V2-05 | `genos-full`, `static-social-graph` | Les bras LLM et sans physiologie relationnelle n'ont pas d'adaptateur. Les transitions testées sont déterministes et demandées par le contrôleur. |
+| V2-06 | aucun bras de campagne | Il manque une capture runtime réelle des six bras; les mémoires ou décisions de fixture ne sont pas promues en preuve. |
+
+Un adaptateur présent peut encore rendre `inconclusive` si ses preuves sont incomplètes. Les sondes
+et les tests de contrat vérifient les garde-fous; ils ne remplacent ni un modèle configuré, ni une
+source externe authentifiée, ni les cycles runtime prévus par le protocole. La readiness reste
+bloquée jusqu'à l'implémentation des traitements et la production de preuves recalculables.
+
 Le dispatcher permet d'exécuter une tentative isolée :
 
 ```bash
