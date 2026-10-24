@@ -57,6 +57,11 @@ test('V2-06 model prompts do not expose intervention labels or expected actions'
   assert.equal(prompt.includes('contradictingMemoryIds'), true);
   assert.equal(prompt.includes('proposition'), true);
   assert.equal(prompt.includes('unknowns'), true);
+  const emptyPrompt = runner.sourceModelPrompt({ subjectAgentId: 'subject', otherAgentId: 'peer',
+    memories: [], absenceReceiptId: 'absence-123' });
+  assert.match(emptyPrompt, /"relationType":"unknown"/);
+  assert.match(emptyPrompt, /"sourceMemoryIds":\[\]/);
+  assert.match(emptyPrompt, /absence-123/);
 });
 
 test('V2-06 counterfactuals use explicit event-keyed semantic inversions', () => {

@@ -69,6 +69,7 @@ async function extractSocialObservation(input) {
 function sourceModelPrompt(input) {
   const memoryView = input.memories.map((memory) => ({ id: memory.id, statement: memory.statement }));
   const sourceIds = memoryView.map((memory) => memory.id);
+  const shape = memoryView.length ? populatedModelExample(input, sourceIds) : emptyModelExample(input);
   const absence = memoryView.length ? '' : `No social memories are visible in this arm; state the relation as unknown and cite no hidden memory IDs. Explicitly include this verified absence receipt ID in unknowns: ${input.absenceReceiptId}.`;
   return [
     'Infer a source-grounded social mental model from the supplied persisted dialogue observations.',
@@ -79,16 +80,27 @@ function sourceModelPrompt(input) {
     absence,
     `Visible dialogue memories: ${JSON.stringify(memoryView)}`,
     'Return this exact JSON shape. relationHypotheses items require relationType, confidence, supportingMemoryIds, contradictingMemoryIds. beliefsAboutOther items require proposition, confidence, sourceMemoryIds. unknowns and alternativeInterpretations are arrays of strings. Use ISO 8601 for generatedAt. Do not add keys.',
-    `JSON shape: ${JSON.stringify({ schemaVersion: 1, subjectAgentId: input.subjectAgentId,
-      otherAgentId: input.otherAgentId,
-      relationHypotheses: [{ relationType: 'inferred relation', confidence: 0.5,
-        supportingMemoryIds: ['visible memory ID'], contradictingMemoryIds: [] }],
-      beliefsAboutOther: [{ proposition: 'grounded belief about the other participant', confidence: 0.5,
-        sourceMemoryIds: ['visible memory ID'] }], unknowns: ['uncertain fact'],
-      alternativeInterpretations: ['plausible alternative'], sourceMemoryIds: sourceIds,
-      generatedAt: new Date().toISOString(), authority: 'descriptive-only', promotionEligible: false })}`,
-    'When no memories are visible, use relationType="unknown", empty evidence ID arrays, sourceMemoryIds=[], and include the verified absence receipt in unknowns.',
+    `JSON shape: ${JSON.stringify(shape)}`,
+    memoryView.length ? '' : `No memories are visible. Return the exact empty-evidence shape above, preserving all empty arrays and including receipt ${input.absenceReceiptId} in unknowns.`,
   ].filter(Boolean).join('\n\n');
+}
+
+function populatedModelExample(input, sourceIds) {
+  return { schemaVersion: 1, subjectAgentId: input.subjectAgentId, otherAgentId: input.otherAgentId,
+    relationHypotheses: [{ relationType: 'inferred relation', confidence: 0.5,
+      supportingMemoryIds: ['visible memory ID'], contradictingMemoryIds: [] }],
+    beliefsAboutOther: [{ proposition: 'grounded belief about the other participant', confidence: 0.5,
+      sourceMemoryIds: ['visible memory ID'] }], unknowns: ['uncertain fact'],
+    alternativeInterpretations: ['plausible alternative'], sourceMemoryIds: sourceIds,
+    generatedAt: new Date().toISOString(), authority: 'descriptive-only', promotionEligible: false };
+}
+
+function emptyModelExample(input) {
+  return { schemaVersion: 1, subjectAgentId: input.subjectAgentId, otherAgentId: input.otherAgentId,
+    relationHypotheses: [{ relationType: 'unknown', confidence: 0,
+      supportingMemoryIds: [], contradictingMemoryIds: [] }], beliefsAboutOther: [],
+    unknowns: [input.absenceReceiptId], alternativeInterpretations: ['No social evidence is available.'],
+    sourceMemoryIds: [], generatedAt: new Date().toISOString(), authority: 'descriptive-only', promotionEligible: false };
 }
 
 function decisionPrompt(input) {
