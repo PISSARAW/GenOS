@@ -91,14 +91,19 @@ function urgencyOf(ctx, evidence) {
 
 function buildIntent(ctx) {
   const evidence = ctx.evidence || {};
+  const purpose = ['inform', 'request', 'coordinate'].includes(evidence.purpose)
+    ? evidence.purpose : PURPOSE_MAP[ctx.checkpoint] || 'inform';
   return {
     senderAgentId: ctx.agentId,
-    purpose: PURPOSE_MAP[ctx.checkpoint] || 'inform',
+    purpose,
     risk: RISK_MAP[ctx.checkpoint] || 'low',
     urgency: urgencyOf(ctx, evidence),
     domain: evidence.domain || 'general',
     requiresAction: ACTION_MAP[ctx.checkpoint] || false,
     semanticRefs: evidence.semanticRefs || [],
+    requestedAudience: Array.isArray(evidence.requestedAudience)
+      ? [...new Set(evidence.requestedAudience.filter((id) => typeof id === 'string' && id.trim()))].slice(0, 50)
+      : null,
     independenceRequired: false
   };
 }
