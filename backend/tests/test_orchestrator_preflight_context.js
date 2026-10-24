@@ -22,5 +22,11 @@ const decision = prepareToolArguments({ task: 'Maintain site', orchestratorId: '
 ]);
 assert.deepEqual(decision.args.evidence, ['mcp:genos_search_failures:search-digest', 'mcp:genos_snapshot:snapshot-digest']);
 assert.equal(decision.args.agentId, 'agent-1');
+const diagnosis = prepareToolArguments({ task: 'Fix isolated package', hypotheses: [] }, 'genos_diagnose');
+assert.equal(diagnosis.args.task, 'Fix isolated package');
+assert.equal(diagnosis.args.hypotheses.length, 1);
+assert.match(diagnosis.args.hypotheses[0].statement, /authorized workspace/);
+const suppliedDiagnosis = prepareToolArguments({ task: 'Maintain site', hypotheses: request.diagnosticHypotheses }, 'genos_diagnose');
+assert.deepEqual(suppliedDiagnosis.args.hypotheses, request.diagnosticHypotheses);
 assert.equal(missionRuntimeContext({ communication_required: true }).communicationRequired, true);
 console.log('Orchestrator preflight forwards falsifiable hypotheses and the bound D: workspace.');

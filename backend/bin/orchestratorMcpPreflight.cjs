@@ -116,11 +116,15 @@ async function runPreflightTool(client, input, tool, receipts = []) {
 }
 
 function prepareToolArguments(input, tool, receipts = []) {
-  if (tool === 'genos_diagnose') return {
-    args: { task: String(input.task || 'GenOS orchestration preflight').slice(0, 2000),
-      hypotheses: Array.isArray(input.hypotheses) ? input.hypotheses : [] },
-    outputPath: null
-  };
+  if (tool === 'genos_diagnose') {
+    const task = String(input.task || 'GenOS orchestration preflight').slice(0, 2000);
+    const supplied = Array.isArray(input.hypotheses) ? input.hypotheses
+      .filter(hypothesis => typeof hypothesis?.statement === 'string' && hypothesis.statement.trim()) : [];
+    const hypotheses = supplied.length ? supplied : [{
+      statement: `The authorized workspace contains at least one change relevant to this objective, and its effect can be independently verified: ${task}`
+    }];
+    return { args: { task, hypotheses }, outputPath: null };
+  }
   if (tool === 'genos_record_decision') {
     const evidence = receipts.filter(receipt => receipt.status === 'completed')
       .map(receipt => `mcp:${receipt.tool}:${receipt.resultDigest}`);
