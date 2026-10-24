@@ -66,11 +66,12 @@ function validReceipt(receipt, recipientAgentId) {
 }
 
 function metricsOf(input) {
-  const { records, cycles, modelCalls, memoryEpisodeCount } = input;
+  const { records, cycles, memoryEpisodeCount } = input;
   const delivered = records.filter((record) => record.receipt?.delivered === true);
   const initiations = delivered.filter((record) => !record.event.isReply);
   const reciprocals = delivered.filter((record) => record.event.isReply
     && record.recipientAgentId === record.event.replyToAgentId);
+  const modelCalls = records.filter((record) => record.modelUsage?.servedModel).length;
   return { cycles, agents: AGENT_COUNT, simulatedDays: SIMULATED_DAYS, modelCalls,
     initiatives: initiations.length,
     distinctRecipients: new Set(initiations.map((record) => record.recipientAgentId)).size,
