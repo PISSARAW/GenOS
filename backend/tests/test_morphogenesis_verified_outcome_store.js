@@ -74,11 +74,21 @@ function signedAttempt(attempt) {
 function runtimeState(db) {
   return { db, ...scope, normalizedMission: { missionId: 'live-mission',
     prompt: 'Comparer qualité, coût et latence entre plusieurs objectifs.',
+    topologyCapabilityInventory: { available: require('../src/services/topologyCapabilityService')
+      .MODE_CAPABILITIES.trinity },
     morphogenesisPolicy: { adaptive: false } },
   plan: { selectedTopology: 'trinity', profile: {}, tokenPolicy: { rounds: {} } },
   results: new Map([['worker-1', { agentId: 'worker-1', status: 'completed',
     evidenceScore: 30, payload: {} }]]),
   workers: new Map([['worker-1', { agentId: 'worker-1', workerKind: 'scout_cell' }]]) };
+}
+
+function trinitySelectionWorkers(state) {
+  const kinds = ['bounded_worker', 'specialist', 'adaptive_worker'];
+  kinds.forEach((workerKind, index) => state.workers.set(`worker-${index + 1}`, {
+    agentId: `worker-${index + 1}`, workerKind
+  }));
+  return kinds.map((_, index) => ({ agentId: `worker-${index + 1}` }));
 }
 
 async function verifyStore(db) {
@@ -180,8 +190,10 @@ function verifyPairRefusals(outcomes) {
 }
 
 async function verifyStandardPath(db) {
-  const result = await planAdaptiveContinuation({ state: runtimeState(db),
-    survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
+  const state = runtimeState(db);
+  const survivors = trinitySelectionWorkers(state);
+  const result = await planAdaptiveContinuation({ state,
+    survivors, continuation: { pool: 1000 },
     orchestratorId: 'orchestrator-1' });
   assert.equal(result.reason, 'adaptation_not_required');
   const policy = result.decision.policy;
@@ -219,9 +231,10 @@ async function verifyStandardPath(db) {
 async function verifyProposedPlanBinding(db) {
   const state = runtimeState(db);
   state.normalizedMission.morphogenesisPolicy = { adaptive: true };
+  const survivors = trinitySelectionWorkers(state);
   let planned = false;
   const result = await continuationPlanner.planContinuation({ state,
-    survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
+    survivors, continuation: { pool: 1000 },
     orchestratorId: 'orchestrator-1' }, {
     loadVerifiedOutcomes: query => store.loadVerifiedOutcomes(db, { ...query, ...scope }),
     planMorphogenesis: context => {
@@ -242,13 +255,14 @@ async function verifyProposedPlanBinding(db) {
 async function verifyExactVariantAdmission(db) {
   const state = runtimeState(db);
   state.normalizedMission.morphogenesisPolicy = { adaptive: true };
+  const survivors = trinitySelectionWorkers(state);
   const topology = registry.get('trinity');
   const variant = registry.variants.resolve('trinity', 'pareto');
   const capabilities = [...new Set([...(topology.requiredCapabilities || []),
     ...(variant.requiredCapabilities || [])])];
   state.normalizedMission.topologyCapabilityInventory = { available: capabilities };
   const result = await continuationPlanner.planContinuation({ state,
-    survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
+    survivors, continuation: { pool: 1000 },
     orchestratorId: 'orchestrator-1', strategyAdmissionContext: {
       quiescence: { confirmed: true, observedAt: Date.now(), activeProcesses: 0,
         databaseRunningWorkers: 0, activeLeases: 0 },
@@ -256,8 +270,11 @@ async function verifyExactVariantAdmission(db) {
       requestedTools: ['genos_change_strategy'],
       now: Date.now(),
       resourceResolution: { status: 'READY_FOR_ADMISSION', observedAt: Date.now(),
-        roles: [{ roleId: 'role-1', workerKind: 'scout_cell', status: 'READY', instanceId: 'w-1' }] },
-      resourceReservation: { reserved: true, workers: [{ roleId: 'role-1', instanceId: 'w-1' }],
+        roles: ['bounded_worker', 'specialist', 'adaptive_worker'].map((workerKind, index) => ({
+          roleId: `role-${index + 1}`, workerKind, status: 'READY', instanceId: `w-${index + 1}`
+        })) },
+      resourceReservation: { reserved: true,
+        workers: ['w-1', 'w-2', 'w-3'].map((instanceId, index) => ({ roleId: `role-${index + 1}`, instanceId })),
         daemons: [], revalidatedAt: Date.now() }
     } }, {
     loadVerifiedOutcomes: query => store.loadVerifiedOutcomes(db, { ...query, ...scope }),
@@ -266,8 +283,9 @@ async function verifyExactVariantAdmission(db) {
       assert.deepEqual(context.topologyProfile.structuralVariants, ['pareto']);
       return morphogenesisPlanner.planMorphogenesis(context);
     },
-    composeMode: async () => ({ members: [{ role: 'scout', workerKind: 'scout_cell',
-      capabilities, executionMode: 'worker' }] })
+    composeMode: async () => ({ members: ['bounded_worker', 'specialist', 'adaptive_worker']
+      .map((workerKind, index) => ({ role: `worker-${index + 1}`, workerKind,
+        capabilities, executionMode: 'worker' })) })
   });
   assert.equal(result.adapted, true);
   assert.equal(result.receipt.candidateId, 'variant:trinity:pareto');
