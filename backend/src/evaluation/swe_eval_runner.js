@@ -6,18 +6,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { solveTaskWithFleet } = require('./swe_closed_loop_orchestrator');
 const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
 
-const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
+const PREDICTIONS_PATH = path.resolve(process.env.GENOS_SWE_PREDICTIONS_PATH
+  || path.resolve(__dirname, 'swe_bench_real_predictions.jsonl'));
 
 function parseCliArgs() {
   const args = process.argv.slice(2);
-  const options = { repo: null, instance: null, limit: null };
+  const options = { repo: null, instances: [], limit: null };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--repo') options.repo = args[++i];
-    if (args[i] === '--instance') options.instance = args[++i];
+    if (args[i] === '--instance') options.instances.push(args[++i]);
+    if (args[i] === '--instances') options.instances.push(...args[++i].split(','));
     if (args[i] === '--limit') options.limit = parseInt(args[++i], 10);
   }
   return options;
@@ -25,8 +28,9 @@ function parseCliArgs() {
 
 function filterTargetTasks(tasks, options) {
   let list = tasks.filter(t => fs.existsSync(path.join(REPOS_DIR, t.repo.replace('/', '__'))));
-  if (options.instance) {
-    list = list.filter(t => t.instance_id === options.instance);
+  if (options.instances.length) {
+    const instances = new Set(options.instances);
+    list = list.filter(t => instances.has(t.instance_id));
   }
   if (options.repo) {
     list = list.filter(t => t.repo === options.repo);
@@ -45,6 +49,7 @@ function appendPrediction(prediction) {
     model_patch: prediction.model_patch,
     model_name_or_path: prediction.model_name_or_path
   }) + '\n';
+  fs.mkdirSync(path.dirname(PREDICTIONS_PATH), { recursive: true });
   fs.appendFileSync(PREDICTIONS_PATH, line, 'utf8');
 }
 
@@ -72,11 +77,13 @@ function printScorecard(results) {
 
 async function runAutonomousSweEvaluation() {
   const options = parseCliArgs();
+  const startedAt = new Date().toISOString();
   const rawData = fs.readFileSync(TASKS_PATH, 'utf8');
   const allTasks = JSON.parse(rawData);
   const tasksToRun = filterTargetTasks(allTasks, options);
 
   console.log(`[SWE RUNNER] Selected ${tasksToRun.length} task(s) for native multi-agent evaluation.`);
+  console.log(`[SWE RUNNER] Attempt artifacts: ${process.env.GENOS_SWE_ARTIFACT_DIR || 'disabled (set GENOS_SWE_ARTIFACT_DIR)'}`);
   const results = [];
 
   for (let i = 0; i < tasksToRun.length; i++) {
@@ -95,6 +102,34 @@ async function runAutonomousSweEvaluation() {
   }
 
   printScorecard(results);
+  writeCampaignSummary({ options, startedAt, tasksToRun, results, rawData });
+}
+
+function writeCampaignSummary(params) {
+  const root = process.env.GENOS_SWE_ARTIFACT_DIR;
+  if (!root) return;
+  const { options, startedAt, tasksToRun, results, rawData } = params;
+  const lockPath = path.resolve(__dirname, '../../../benchmarks/suites/coding/dataset.lock.json');
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  const runId = process.env.GENOS_SWE_RUN_ID || null;
+  fs.mkdirSync(root, { recursive: true });
+  const attemptFiles = fs.readdirSync(root).filter(name => name.endsWith('.attempts.jsonl'));
+  const attempts = attemptFiles.flatMap(name => fs.readFileSync(path.join(root, name), 'utf8')
+    .split('\n').filter(Boolean).map(line => JSON.parse(line)))
+    .filter(entry => !runId || entry.runId === runId);
+  const resolved = results.filter(result => result.success).length;
+  const summary = {
+    schema: 'genos.swe.host_genos_campaign/v1', startedAt, completedAt: new Date().toISOString(),
+    mode: 'host-genos-pilot-non-official', genosEvaluated: true, docker: false,
+    datasetRevision: lock.revision,
+    datasetSha256: crypto.createHash('sha256').update(rawData).digest('hex'),
+    totalTasks: tasksToRun.length, resolved, unresolved: results.length - resolved,
+    score: `${resolved}/${results.length}`, model: options.model || 'ollama://deepseek-coder-v2:latest',
+    dynamicTestOracleInvocations: attempts.filter(entry => entry.dynamicVerifierInvoked).length,
+    tasks: results
+  };
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, 'campaign-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
 }
 
 if (require.main === module) {

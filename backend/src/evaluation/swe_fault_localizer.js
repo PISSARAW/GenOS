@@ -5,24 +5,29 @@
 
 const fs = require('fs');
 const path = require('path');
+const EXCLUDED_ITEMS = new Set(['__pycache__', 'tests', 'testing', 'doc', 'docs']);
+
+function isExcludedItem(item) {
+  return item.startsWith('.') || EXCLUDED_ITEMS.has(item) || item.endsWith('.egg-info')
+    || /^(?:test_.*|.*_test)\.py$/i.test(item);
+}
+
+function walkPythonFiles(params) {
+  const { currentDir, repoDir, files } = params;
+  for (const item of fs.readdirSync(currentDir)) {
+    if (isExcludedItem(item)) continue;
+    const fullPath = path.join(currentDir, item);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) walkPythonFiles({ currentDir: fullPath, repoDir, files });
+      else if (item.endsWith('.py')) files.push(path.relative(repoDir, fullPath).replace(/\\/g, '/'));
+    } catch (error) { continue; }
+  }
+}
 
 function getAllPyFiles(dir, repoDir) {
   const files = [];
-  function walk(currentDir) {
-    for (const item of fs.readdirSync(currentDir)) {
-      if (item.startsWith('.') || item === '__pycache__' || item === 'tests' || item === 'testing' || item.endsWith('.egg-info')) continue;
-      const fullPath = path.join(currentDir, item);
-      try {
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) {
-          walk(fullPath);
-        } else if (item.endsWith('.py')) {
-          files.push(path.relative(repoDir, fullPath).replace(/\\/g, '/'));
-        }
-      } catch (e) {}
-    }
-  }
-  walk(dir);
+  walkPythonFiles({ currentDir: dir, repoDir, files });
   return files;
 }
 
@@ -35,7 +40,7 @@ function scoreKeywordMatch(stem, content, kw) {
   if (content.includes(kw)) {
     score += 5;
     if (content.includes(`def ${kw}`) || content.includes(`class ${kw}`)) {
-      score += 25;
+      score += 160;
     }
   }
   return score;
@@ -47,11 +52,7 @@ function scoreFileByKeywords(content, filename, sampleKeywords) {
     score -= 200;
   }
   const stem = path.basename(filename, '.py').toLowerCase().replace(/s$/, '');
-
-  for (const kw of sampleKeywords) {
-    score += scoreKeywordMatch(stem, content, kw);
-  }
-  return score;
+  return score + sampleKeywords.reduce((total, keyword) => total + scoreKeywordMatch(stem, content, keyword), 0);
 }
 
 function scoreExplicitMentions(allPyFiles, problemStatement, scoredFiles) {
@@ -66,9 +67,32 @@ function scoreExplicitMentions(allPyFiles, problemStatement, scoredFiles) {
   }
 }
 
+function scoreExplicitOptions(params) {
+  const { allPyFiles, problemStatement, scoredFiles, repoDir } = params;
+  const options = problemStatement.match(/--[a-z0-9]+(?:-[a-z0-9]+)+/gi) || [];
+  for (const file of allPyFiles) {
+    const content = fs.readFileSync(path.join(repoDir, file), 'utf8');
+    if (options.some(option => content.includes(option))) {
+      scoredFiles.set(file, (scoredFiles.get(file) || 0) + 3000);
+    }
+  }
+}
+
+function scoreQualifiedSymbols(params) {
+  const { allPyFiles, problemStatement, scoredFiles, repoDir } = params;
+  const symbols = [...problemStatement.matchAll(/\b[A-Za-z_]\w*\.([A-Za-z_]\w*)\b/g)].map(match => match[1]);
+  for (const file of allPyFiles) {
+    const content = fs.readFileSync(path.join(repoDir, file), 'utf8');
+    if (symbols.some(symbol => content.includes(`def ${symbol}(`) || content.includes(`def ${symbol} (`))) {
+      scoredFiles.set(file, (scoredFiles.get(file) || 0) + 3000);
+    }
+  }
+}
+
 function extractProblemKeywords(problemStatement) {
   const codeIdentifiers = problemStatement.match(/\b(?:def|class)?\s*([a-zA-Z_][a-zA-Z0-9_]{3,})\b/g) || [];
-  const stopwords = new Set(['self', 'true', 'false', 'none', 'import', 'return', 'raise', 'from', 'with', 'that', 'this', 'have', 'when', 'what']);
+  const stopwords = new Set(['self', 'true', 'false', 'none', 'import', 'return', 'raise', 'from', 'with', 'that', 'this', 'have', 'when', 'what',
+    'error', 'name', 'names', 'contains', 'required', 'since', 'every', 'significant', 'nested', 'already', 'added', 'should', 'been', 'well']);
   return Array.from(new Set(codeIdentifiers.map(w => w.replace(/^(def|class)\s+/, '').trim())))
     .filter(w => !stopwords.has(w.toLowerCase()))
     .slice(0, 15);
@@ -94,7 +118,7 @@ function scoreFromTraceback(allPyFiles, traceback, scoredFiles) {
   for (const f of allPyFiles) {
     const base = path.basename(f);
     if (traceback.includes(f) || (base.length > 5 && traceback.includes(base))) {
-      scoredFiles.set(f, (scoredFiles.get(f) || 0) + 2500);
+      scoredFiles.set(f, (scoredFiles.get(f) || 0) + 100);
     }
   }
 }
@@ -108,6 +132,8 @@ function locateCandidateFiles(repoDir, problemStatement, options = {}) {
   scoreFromTraceback(allPyFiles, traceback, scoredFiles);
   scoreFromTestHints(allPyFiles, testHints, scoredFiles);
   scoreExplicitMentions(allPyFiles, problemStatement, scoredFiles);
+  scoreExplicitOptions({ allPyFiles, problemStatement, scoredFiles, repoDir });
+  scoreQualifiedSymbols({ allPyFiles, problemStatement, scoredFiles, repoDir });
   const sampleKeywords = extractProblemKeywords(problemStatement);
 
   for (const f of allPyFiles) {
@@ -163,6 +189,21 @@ function findMatchingFunctionDef(lines, problemStatement) {
   return null;
 }
 
+function findNameAssignment(lines, problemStatement) {
+  if (!/\bname\b/i.test(problemStatement)) return null;
+  const index = lines.findIndex(line => /\bself\._?name\s*=\s*name\b/.test(line));
+  return index < 0 ? null : index + 1;
+}
+
+function findExplicitOptionLine(lines, problemStatement) {
+  const options = problemStatement.match(/--[a-z0-9]+(?:-[a-z0-9]+)+/gi) || [];
+  for (const option of options) {
+    const index = lines.findIndex(line => line.includes(option));
+    if (index >= 0) return index + 1;
+  }
+  return null;
+}
+
 function countLineKeywords(line, keywords) {
   let count = 0;
   for (const kw of keywords) {
@@ -195,22 +236,32 @@ function findFunctionByKeywords(lines, problemKeywords) {
   return currentMatches > maxMatches && currentFuncLine !== null ? currentFuncLine : bestLine;
 }
 
-function extractRelevantExcerpt(fileContent, problemStatement, targetRelFile = '') {
+function selectExcerptCenter(params) {
+  const { lines, problemStatement, targetRelFile, traceback, keywords } = params;
+  const fileBasename = path.basename(targetRelFile);
+  const candidates = [
+    findMatchingProblemLine(lines, problemStatement),
+    findMatchingFunctionDef(lines, problemStatement),
+    findExplicitOptionLine(lines, problemStatement),
+    findNameAssignment(lines, problemStatement),
+    findTracebackLine(lines, traceback, fileBasename),
+    findFunctionByKeywords(lines, keywords)
+  ];
+  return candidates.find(Boolean) || Math.min(50, Math.floor(lines.length / 2));
+}
+
+function extractRelevantExcerpt(fileContent, problemStatement, location = '') {
   const lines = fileContent.split('\n');
   if (lines.length <= 250) {
     return { excerpt: lines.join('\n'), startLine: 1, endLine: lines.length };
   }
 
-  const fileBasename = path.basename(targetRelFile);
+  const options = typeof location === 'string' ? { targetRelFile: location } : location;
   const kws = extractProblemKeywords(problemStatement);
-  const targetCenter = findTracebackLine(lines, problemStatement, fileBasename) ||
-    findMatchingProblemLine(lines, problemStatement) ||
-    findMatchingFunctionDef(lines, problemStatement) ||
-    findFunctionByKeywords(lines, kws) ||
-    Math.min(50, Math.floor(lines.length / 2));
-
-  const startLine = Math.max(0, targetCenter - 60);
-  const endLine = Math.min(lines.length - 1, targetCenter + 90);
+  const targetCenter = selectExcerptCenter({ lines, problemStatement,
+    targetRelFile: options.targetRelFile || '', traceback: options.traceback || '', keywords: kws });
+  const startLine = Math.max(0, targetCenter - 20);
+  const endLine = Math.min(lines.length - 1, targetCenter + 35);
   const excerptLines = lines.slice(startLine, endLine + 1);
 
   return {

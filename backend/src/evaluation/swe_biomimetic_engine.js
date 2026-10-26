@@ -276,10 +276,8 @@ function buildAdversarialCritique(params) {
   if (attempt === 1) return '';
   return `\nA-TEAM ADVERSARIAL CRITIQUE (Eleanor - Chief Critic & Tahani - Architect):
 - ELEANOR: "Previous attempt failed: ${lastFeedback.slice(0, 300)}.
-  CRITICAL FIXES NEEDED:
-  1. If pytest failed with AssertionError or DID NOT RAISE ValueError, replace ALL 'assert' checks with 'if ... in ...: raise ValueError(...)'.
-  2. Update ALL places in the file: both the class __init__ and all methods mentioned in the traceback.
-  3. Do NOT omit the 'if' condition when raising ValueError."
+  Use compiler or pytest feedback to make one minimal production-code correction.
+  Do not assume every failure is assertion-related, edit tests, or replace unrelated assertions."
 ${deadEndGuidance}
 - TAHANI: "Ensure all imports, signature types, and class invariants are preserved."\n`;
 }

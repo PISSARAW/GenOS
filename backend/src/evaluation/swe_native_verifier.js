@@ -123,20 +123,22 @@ function parseTestList(val) {
 }
 
 function checkRegressionTests({ repoDir, passList, task }) {
-  if (!passList.length) return true;
+  if (!passList.length) return { ok: true, receipts: [] };
   console.log(`\n[STEP 5] Running PASS_TO_PASS test suite (Regression Check)...`);
   const testBatches = [];
   for (let offset = 0; offset < passList.length; offset += 20) {
     testBatches.push(passList.slice(offset, offset + 20));
   }
-  const ok = testBatches.every((tests) => {
+  const receipts = testBatches.map((tests) => {
     const result = runPytest({ repoDir, testTargets: tests, task });
     const passed = matchesPytestOutcome({ result, expected: tests.length, expectFailure: false });
     if (!passed) console.warn(`  -> Failed PASS_TO_PASS batch (${tests.length} tests):\n${result.output.slice(-1200)}`);
-    return passed;
+    return { stage: 'PASS_TO_PASS', testTargets: tests, passed, exitCode: result.code,
+      timedOut: result.timedOut || false, output: result.output };
   });
+  const ok = receipts.every(receipt => receipt.passed);
   console.log(`  -> PASS_TO_PASS regression check: ${ok ? 'PASSED' : 'FAILED'}`);
-  return ok;
+  return { ok, receipts };
 }
 
 function injectFlaskShim(repoDir) {
@@ -185,7 +187,8 @@ function verifyTaskDynamically(task, patchToTest) {
   const testPatchOk = applyPatchToRepo(repoDir, task.test_patch);
   if (!testPatchOk) {
     console.warn(`  [WARN] Failed to apply test_patch via git apply.`);
-    return { instance_id: instanceId, reproduced: false, resolved: false };
+    return { instance_id: instanceId, reproduced: false, resolved: false,
+      testReceipts: [{ stage: 'test_patch', passed: false, reason: 'apply_failed' }] };
   }
   console.log(`  -> Test patch applied successfully.`);
 
@@ -194,6 +197,8 @@ function verifyTaskDynamically(task, patchToTest) {
   const failList = parseTestList(task.FAIL_TO_PASS);
   const preResult = runPytest({ repoDir, testTargets: failList, task });
   const reproduced = matchesPytestOutcome({ result: preResult, expected: failList.length, expectFailure: true });
+  const testReceipts = [pytestReceipt({ stage: 'FAIL_TO_PASS_BASELINE', testTargets: failList,
+    result: preResult, passed: reproduced })];
   console.log(`  -> Pre-fix test result: ${reproduced ? 'FAILED (Expected reproduction!)' : 'PASSED'}`);
   if (!reproduced) console.warn(`  -> Baseline test output:\n${(preResult.output || '').slice(-800)}`);
 
@@ -202,7 +207,7 @@ function verifyTaskDynamically(task, patchToTest) {
   const modelPatchOk = applyPatchToRepo(repoDir, patchToTest);
   if (!modelPatchOk) {
     console.warn(`  [WARN] Failed to apply model patch.`);
-    return { instance_id: instanceId, reproduced, resolved: false, reason: 'patch_apply_failed' };
+    return { instance_id: instanceId, reproduced, resolved: false, reason: 'patch_apply_failed', testReceipts };
   }
   console.log(`  -> Candidate patch applied successfully.`);
 
@@ -210,6 +215,8 @@ function verifyTaskDynamically(task, patchToTest) {
   console.log(`\n[STEP 4] Running FAIL_TO_PASS test after fix (Resolution Check)...`);
   const postResult = runPytest({ repoDir, testTargets: failList, task });
   const resolved = matchesPytestOutcome({ result: postResult, expected: failList.length, expectFailure: false });
+  testReceipts.push(pytestReceipt({ stage: 'FAIL_TO_PASS_CANDIDATE', testTargets: failList,
+    result: postResult, passed: resolved }));
   console.log(`  -> Post-fix test result: ${resolved ? 'PASSED (RESOLUTION CONFIRMED!)' : 'FAILED'}`);
   if (!resolved) {
     console.log(`  -> Test output snippet:\n${(postResult.output || '').slice(-400)}`);
@@ -218,7 +225,9 @@ function verifyTaskDynamically(task, patchToTest) {
   // Step 6: Run PASS_TO_PASS check (Regression Check)
   let regressionFree = true;
   if (resolved) {
-    regressionFree = checkRegressionTests({ repoDir, passList: parseTestList(task.PASS_TO_PASS), task });
+    const regression = checkRegressionTests({ repoDir, passList: parseTestList(task.PASS_TO_PASS), task });
+    regressionFree = regression.ok;
+    testReceipts.push(...regression.receipts);
   }
 
   // Reset repo clean
@@ -227,10 +236,17 @@ function verifyTaskDynamically(task, patchToTest) {
 
   const status = (reproduced && resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED';
   const errorOutput = resolved ? '' : extractPytestFailure(postResult.output);
-  const verdict = { instance_id: instanceId, reproduced, resolved, regression_free: regressionFree, error_output: errorOutput, status };
+  const verdict = { instance_id: instanceId, reproduced, resolved, regression_free: regressionFree,
+    error_output: errorOutput, status, testReceipts };
 
   console.log(`\n>>> VERDICT FOR ${instanceId}: [${status}] <<<`);
   return verdict;
+}
+
+function pytestReceipt(params) {
+  const { stage, testTargets, result, passed } = params;
+  return { stage, testTargets, passed, exitCode: result.code, timedOut: result.timedOut || false,
+    output: result.output };
 }
 
 function extractPytestFailure(output) {
@@ -306,4 +322,4 @@ function probeBugReproduction(task) {
   return { ok: true, reproduced: matchesPytestOutcome({ result: preResult, expected: failList.length, expectFailure: true }), traceback: tb };
 }
 
-module.exports = { verifyTaskDynamically, runNativeVerification, probeBugReproduction };
+module.exports = { verifyTaskDynamically, runNativeVerification, probeBugReproduction, selectVenvName };

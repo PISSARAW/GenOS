@@ -4,5 +4,5 @@
   "status": "design_required",
   "comparisonEligible": false,
   "relatedAssets": ["dataset.lock.json", "../../../backend/src/evaluation/swe_paths.js", "../../../backend/src/evaluation/swe_native_verifier.js", "../../../backend/src/evaluation/swe_eval_runner.js"],
-  "blockers": ["Calibrate host-side WSL environments for all 26 locked tasks (only 5/26 reference-patch checks currently pass; several pytest selectors or regression checks fail); implement isolated, matched alone/genos repetitions with reference patches withheld from model input and complete test receipts."]
+  "blockers": ["Calibrate host-side WSL environments for all 26 locked tasks; the previous full-cohort attempt passed 5/26 reference-patch checks, while a separate micro-calibration passed 3/3 representative tasks (do not combine these counts without reconciliation); implement isolated, matched alone/genos repetitions with reference patches withheld from model input and complete test receipts."]
 }

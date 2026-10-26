@@ -13,11 +13,10 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { getDatabase } = require('../db');
-const vfsSandbox = require('../services/vfsSandboxService');
-const { generate } = require('../services/modelRouter');
 const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
-const { applySearchReplace } = require('./swe_surgical_patcher');
 const { verifyTaskDynamically, probeBugReproduction } = require('./swe_native_verifier');
+const { synthesizePatch, checkSyntax } = require('./swe_patch_synthesis');
+const { appendAttemptArtifact, sha256 } = require('./swe_attempt_artifacts');
 const { REPOS_DIR, validateRepoName, validateBaseCommit } = require('./swe_paths');
 const {
   registerSweFleet,
@@ -147,73 +146,30 @@ RULES (violation = your patch is discarded):
 3. Do not add Markdown fences, extra fields, or prose outside the JSON object.
 4. SEARCH must contain 1 to 25 lines and focus on the smallest necessary edit.
 5. If replacing an assert with an exception, replace the complete assert line with an appropriate ValueError check.
-6. Never invent source code that is not visible in the excerpt above.
+6. Edit implementation code only. Never change tests, assertions in tests, or expected values.
+7. Never invent source code that is not visible in the excerpt above.
 `;
 }
 
-async function synthesizePatch(params) {
-  const { db, prompt, modelUri, originalSource, targetRelFile } = params;
-  const genResult = await generate({
-    prompt,
-    cognitiveRawPrompt: prompt,
-    model: modelUri,
-    priority: 'interactive',
-    timeoutMs: 600000,
-    maxTokens: 2048,
-    db
-  });
-
-  const rawOutput = genResult.text || '';
-  const diagMatch = rawOutput.match(/<diagnosis>([\s\S]*?)<\/diagnosis>/i);
-  if (diagMatch) {
-    console.log(`\n  [CHIDI DIAGNOSIS & REASONING]:\n${diagMatch[1].trim()}`);
-  }
-
-  const { modified, replacementsCount } = applySearchReplace(originalSource, rawOutput);
-  if (replacementsCount === 0) {
-    console.warn(`  [SEARCH/REPLACE MISMATCH] Full output:\n${rawOutput}`);
-    return { success: false, reason: 'search_replace_no_match' };
-  }
-
-  const dryRun = vfsSandbox.simulateDryRun('genos_write', { path: targetRelFile, content: modified }, { [targetRelFile]: originalSource });
-  const blastScore = vfsSandbox.calculateBlastRadius(dryRun.sideEffects.filesModified.length, false, 'operator');
-  return { success: true, modified, blastScore };
-}
-
-function toWslPath(winPath) {
-  return winPath.replace(/\\/g, '/').replace(/^([a-zA-Z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
-}
-
-function checkSyntax(targetAbsFile, repoDir) {
-  try {
-    const wslFile = toWslPath(targetAbsFile);
-    const repoName = path.basename(repoDir);
-    const pyBin = `~/.swe_venvs/${repoName}/bin/python`;
-    execFileSync('wsl', ['-d', 'Ubuntu-24.04', 'bash', '-c', '"$1" -m py_compile -- "$2"', 'genos-check', pyBin, wslFile], { stdio: ['ignore', 'pipe', 'pipe'] });
-    return { ok: true };
-  } catch (err) {
-    const msg = (err.stderr || err.stdout || err.message || '').toString();
-    return { ok: false, error: msg };
-  }
-}
-
 function validateCandidatePatch(params) {
-  const { patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet } = params;
+  const { patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet, task } = params;
   const onco = evaluateOncologyAndApoptosis({ modifiedCode: patchResult.modified, originalCode: originalSource });
   if (onco.neoplasiaDetected) {
     console.warn(`  [ONCOLOGY WATCHDOG] ${onco.reason}`);
-    return { ok: false, feedback: 'Oncogenic loop detected in generated code. Apoptosis triggered.' };
+    return { ok: false, failureStage: 'oncology_watchdog',
+      feedback: 'Oncogenic loop detected in generated code. Apoptosis triggered.' };
   }
 
   fs.writeFileSync(targetAbsFile, patchResult.modified, 'utf8');
-  const syntaxResult = checkSyntax(targetAbsFile, repoDir);
+  const syntaxResult = checkSyntax(targetAbsFile, repoDir, task);
   fs.writeFileSync(targetAbsFile, originalSource, 'utf8');
 
   if (!syntaxResult.ok) {
     absorbDsupImpact({ fleetId, locus: 'LOCUS_SYNTAX_INVARIANTS', intensity: 25.0 });
     const triage = performClinicalTriage({ agentId: fleet.coder.id, errorTrace: syntaxResult.error, bioContext });
     console.warn(`  [CLINICAL TRIAGE] Chidi checked into clinic | Inflammatory index: ${triage.inflammatoryIndex} | Therapy: ${triage.therapyApplied}`);
-    return { ok: false, feedback: `Python syntax compilation error in modified file:\n${syntaxResult.error.slice(-300)}` };
+    return { ok: false, failureStage: 'syntax_validation', syntaxError: syntaxResult.error,
+      feedback: `Python syntax compilation error in modified file:\n${syntaxResult.error.slice(-300)}` };
   }
 
   return { ok: true };
@@ -235,7 +191,8 @@ async function runDynamicVerificationCycle(params) {
     resolved: verdict.resolved && verdict.regression_free,
     status: verdict.status,
     patchDiff,
-    error: verdict.error_output || ''
+    error: verdict.error_output || '',
+    testReceipts: verdict.testReceipts || []
   };
 }
 
@@ -259,9 +216,10 @@ async function processAttemptOutcome(params) {
 
 async function verifyAndValidateAttempt(params) {
   const { patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet, mirror, task } = params;
-  const validation = validateCandidatePatch({ patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet });
+  const validation = validateCandidatePatch({ patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet, task });
   if (!validation.ok) {
-    return { ok: false, feedback: validation.feedback };
+    return { ok: false, failureStage: validation.failureStage,
+      syntaxError: validation.syntaxError, feedback: validation.feedback };
   }
   const mirrorEq = reconcileMirrorEquilibrium({ pairId: mirror.pairId, patchDiff: patchResult.modified, syntaxOk: true });
   console.log(`  [MIRROR EQUILIBRIUM] Score: ${mirrorEq.equilibriumScore} | Status: ${mirrorEq.recommendation}`);
@@ -333,33 +291,70 @@ async function executeAttempt({ context, targetRelFile, attempt, feedback }) {
   const { task, modelUri, db, fleet, repoDir, probe, bioContext, deadEndLedger, mirror, candidates } = context;
   const targetAbsFile = path.join(repoDir, targetRelFile);
   const originalSource = fs.readFileSync(targetAbsFile, 'utf8');
-  const enrichedStmt = probe.traceback ? `${task.problem_statement}\n${probe.traceback}` : task.problem_statement;
-  const { excerpt } = extractRelevantExcerpt(originalSource, enrichedStmt, targetRelFile);
+  const { excerpt, startLine, endLine } = extractRelevantExcerpt(originalSource, task.problem_statement,
+    { targetRelFile, traceback: probe.traceback });
   const headerLines = originalSource.split('\n').slice(0, 35).join('\n');
   const synapticMemory = attempt > 1 ? await harvestSynapticEngrams({ agentId: fleet.coder.id }) : '';
   const prompt = buildSurgicalPrompt({
     task, targetRelFile, excerpt, headerLines, feedback, synapticMemory, probeTraceback: probe.traceback, deadEndLedger, attempt
   });
-  let patchResult;
-  try {
-    patchResult = await synthesizePatch({ db, prompt, modelUri, originalSource, targetRelFile });
-  } catch (llmErr) {
-    console.error(`  [INFERENCE ERROR] ${llmErr.code || llmErr.message}`);
-    return { resolved: false, feedback: `LLM inference failed (${llmErr.code || llmErr.message})` };
-  }
-  if (!patchResult.success) {
-    return { resolved: false, feedback: 'Search and replace block could not be matched against source lines.' };
-  }
+  const evidence = {
+    runId: process.env.GENOS_SWE_RUN_ID || null,
+    instanceId: task.instance_id,
+    baseCommit: task.base_commit,
+    attempt,
+    model: modelUri,
+    targetRelFile,
+    excerptStartLine: startLine,
+    excerptEndLine: endLine,
+    candidateFiles: candidates,
+    promptCharacters: prompt.length,
+    sourceSha256: sha256(originalSource),
+    excerptSha256: sha256(excerpt),
+    excerpt
+  };
+  const generated = await generateAttemptPatch({ db, prompt, modelUri, originalSource, targetRelFile, evidence });
+  if (!generated.patchResult) return generated.outcome;
+  const patchResult = generated.patchResult;
+  Object.assign(evidence, {
+    rawOutput: patchResult.rawOutput,
+    response: patchResult.response,
+    replacementsCount: patchResult.replacementsCount,
+    candidateSha256: sha256(patchResult.modified)
+  });
   const validation = await verifyAndValidateAttempt({
     patchResult, originalSource, targetAbsFile, repoDir, fleetId: fleet.id, bioContext, fleet, mirror, task
   });
   if (!validation.ok) {
+    appendAttemptArtifact({ ...evidence, failureStage: validation.failureStage || 'safety_gate',
+      failureReason: validation.feedback, syntaxError: validation.syntaxError || null });
     return { resolved: false, feedback: validation.feedback };
   }
   const dynamicResult = validation.dynamicResult;
+  appendAttemptArtifact({ ...evidence, failureStage: dynamicResult.resolved ? null : 'dynamic_verification',
+    failureReason: dynamicResult.error || null, patchDiff: dynamicResult.patchDiff,
+    testReceipts: dynamicResult.testReceipts, verificationStatus: dynamicResult.status,
+    dynamicVerifierInvoked: true });
   return await processAttemptOutcome({ db, fleet, attempt, dynamicResult, instanceId: task.instance_id });
 }
 
+async function generateAttemptPatch(params) {
+  const { db, prompt, modelUri, originalSource, targetRelFile, evidence } = params;
+  try {
+    const patchResult = await synthesizePatch({ db, prompt, modelUri, originalSource, targetRelFile });
+    if (patchResult.success) return { patchResult };
+    appendAttemptArtifact({ ...evidence, failureStage: 'patch_application', failureReason: patchResult.reason,
+      rawOutput: patchResult.rawOutput, response: patchResult.response });
+  } catch (error) {
+    const reason = error.code || error.message;
+    console.error(`  [INFERENCE ERROR] ${reason}`);
+    appendAttemptArtifact({ ...evidence, failureStage: 'generation_or_response_parse', failureReason: reason });
+    return { outcome: { resolved: false, feedback: `LLM inference failed (${reason})` } };
+  }
+  return { outcome: { resolved: false, feedback: 'Search and replace block could not be matched against source lines.' } };
+}
+
 module.exports = {
-  solveTaskWithFleet
+  solveTaskWithFleet,
+  checkSyntax
 };

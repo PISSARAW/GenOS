@@ -4,7 +4,7 @@
  */
 
 const LINE_SPLIT = new RegExp('\\r?\\n');
-const LEADING_NUM = new RegExp('^\\s*\\d+\\s*[:|]\\s?');
+const LEADING_NUM = new RegExp('^\\s*\\d+\\s*\\|\\s?');
 const CLEAN_MARKDOWN = new RegExp('```[a-zA-Z]*\\r?\\n(?:<{3,}|#{1,4})\\s*SEARCH', 'gi');
 const SEARCH_SPLIT = new RegExp('(?:<{3,}|`{3,}|#{1,4})\\s*SEARCH\\b[^\\n]*\\r?\\n', 'i');
 const SEP_REGEX = new RegExp('\\r?\\n(?:={3,}|>{3,}|-{3,}|#{1,4}\\s*REPLACE)(?:[^\\n]*)\\r?\\n', 'i');

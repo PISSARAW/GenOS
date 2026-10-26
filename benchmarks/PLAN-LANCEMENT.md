@@ -121,6 +121,27 @@ confirme que la chaîne GenOS a réellement été appelée, mais ne débloque pa
 lancement confirmatoire SWE-bench ni un score officiel. Journal et reçus locaux :
 `D:/GenOS/benchmarks-data/SWE-bench/host-genos-run-20261026/`.
 
+**Recalibration hôte sans Docker :** le script
+`benchmarks/suites/coding/run-host-reference-calibration.cjs` exécute les
+patchs de référence séparément du modèle et conserve les reçus pytest complets.
+La variable `GENOS_SWE_ARTIFACT_DIR` active les reçus JSONL par tentative;
+`GENOS_SWE_PREDICTIONS_PATH` permet de garder les prédictions hors du dépôt.
+Le micro-lot initial du 26 octobre valide 3/3 patchs de référence (Flask 4045,
+Requests 1963, pytest 6116). Ce préflight limité ne valide pas les 23 autres
+tâches et ne change pas l’état `design_required` de la suite.
+
+**Micro-pilote GenOS après corrections du 26 octobre :** le runner impose une
+sortie JSON structurée, enregistre chaque tentative et ses reçus pytest dans
+`D:/GenOS/benchmarks-data/SWE-bench/host-genos-micro-20261026/`, sélectionne le
+venv propre à la tâche et transmet `py_compile` à WSL sans argument perdu. Le
+localisateur exclut les modules de test et la documentation, donne la priorité
+aux symboles/options cités et conserve la plage de lignes choisie. Sur le run
+de trois tâches, GenOS a invoqué l’oracle 4 fois, sans résolution (0/3). Le
+pilote ciblé Flask 4045 a passé un test `FAIL_TO_PASS` mais laissé l’autre en
+échec; le pilote pytest 6116 suivant n’a pas produit de patch applicable.
+Ces résultats montrent que l’oracle fonctionne sur le sous-ensemble calibré et
+que la génération reste insuffisante; ils ne constituent pas un score SWE-bench.
+
 ## Plan d’exécution « GenOS réel » — quatre suites sans Docker
 
 Ce plan vise les quatre suites retenues sans Docker : recherche factuelle,
