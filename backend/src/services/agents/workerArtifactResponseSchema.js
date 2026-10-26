@@ -15,6 +15,11 @@ function object(properties, required) {
   return { type: 'object', properties, required, additionalProperties: true };
 }
 
+function artifactTextSchema() {
+  return { type: 'string', minLength: 1,
+    pattern: '(?:<ARTIFACT:\\s*[^>]+>[\\s\\S]+?</ARTIFACT>|\\[ARTIFACT:\\s*[^\\]]+\\][\\s\\S]+?\\[/ARTIFACT\\])' };
+}
+
 function dossierProperties(kind, refs, diagnosis) {
   const fields = {
     bounded_worker: ['scopeCompletion', object({ scopeRef: { type: 'string', minLength: 1 }, completedRefs: refs }, ['scopeRef', 'completedRefs'])],
@@ -125,8 +130,13 @@ function identityExperimentResponseFormat(refs, specialtyNiche) {
     outcome: { enum: ['success', 'unresolved'] },
     claims: { type: 'array', items: claimSchema(refs) },
     uncertainties: { type: 'array', items: { type: 'string', minLength: 1 } },
+    artifactText: artifactTextSchema(),
     specialtyAssessment: assessment
   }, ['outcome', 'claims', 'uncertainties', 'specialtyAssessment']);
+  schema.allOf = [{
+    if: { properties: { outcome: { const: 'success' } }, required: ['outcome'] },
+    then: { required: ['artifactText'] }
+  }];
   return { name: 'genos_identity_experiment_response', schema };
 }
 
@@ -153,7 +163,8 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   const properties = {
     outcome: { enum: ['success', 'unresolved'] },
     claims: { type: 'array', items: claimSchema(refs) },
-    uncertainties: { type: 'array', items: { type: 'string', minLength: 1 } }
+    uncertainties: { type: 'array', items: { type: 'string', minLength: 1 } },
+    artifactText: artifactTextSchema()
   };
   const required = ['outcome', 'claims'];
   if (artifactType === 'dossier') {
@@ -167,9 +178,10 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   const schema = object(properties, required);
   const successRequired = artifactType === 'dossier'
     ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];
+  successRequired.push('artifactText');
   schema.allOf = [{
     if: { properties: { outcome: { const: 'success' } }, required: ['outcome'] },
-    then: { properties: { claims: { minItems: 1 } }, required: successRequired },
+    then: { properties: { claims: { minItems: 1 }, artifactText: artifactTextSchema() }, required: successRequired },
     else: { properties: { claims: { maxItems: 0 }, uncertainties: { minItems: 1 } },
       required: ['uncertainties'] }
   }];

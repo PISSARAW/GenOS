@@ -20,7 +20,11 @@ function writeArtifact(state, name, content) {
   if (parent !== root && !parent.startsWith(`${root}${path.sep}`)) {
     throw new Error(`Artifact path traverses outside the mission workspace: ${name}`);
   }
-  const bytes = content.trim();
+  const targetDetails = fs.lstatSync(target, { throwIfNoEntry: false });
+  if (targetDetails?.isSymbolicLink()) {
+    throw new Error(`Artifact target must not be a symbolic link: ${name}`);
+  }
+  const bytes = content;
   fs.writeFileSync(target, bytes);
   writeIpc.record(relative, bytes);
   return { path: relative, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), bytes: Buffer.byteLength(bytes) };
@@ -85,16 +89,20 @@ function validateArtifactEntry(entry, state) {
 
 function writeArtifacts(reply, state) {
   if (!state.allowFileEdits) return { written: [], rejected: [] };
-  const content = parseReply(reply).artifactText || reply;
+  const artifactText = parseReply(reply).artifactText;
+  if (typeof artifactText !== 'string' || !artifactText.trim()) {
+    return { written: [], rejected: [{ name: null, issues: ['artifact.text.missing_or_empty'] }] };
+  }
+  const content = artifactText;
   const artifacts = extractArtifacts(content);
+  if (!artifacts.length) {
+    return { written: [], rejected: [{ name: null, issues: ['artifact.text.no_materialized_files'] }] };
+  }
   const written = [];
   const rejected = [];
   for (const entry of artifacts) {
     const issues = validateArtifactEntry(entry, state);
     if (issues.length) {
-      if (issues.some((issue) => issue.startsWith('artifact.path.escapes:'))) {
-        throw new Error(`Artifact path escapes the mission workspace: ${entry.name}`);
-      }
       rejected.push({ name: entry.name, issues });
       continue;
     }
