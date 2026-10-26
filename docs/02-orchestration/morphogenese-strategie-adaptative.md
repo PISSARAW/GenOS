@@ -570,3 +570,43 @@ chemin. L’orchestrateur peut remodeler la structure locale de raisonnement au 
 sûr d'une génération; le roster, l'identité, les leases et la topologie collective
 restent modifiés seulement par une transition admise et restaurable. Voir ADR 0541,
 0544, 0546, 0549 et 0570 pour les décisions et limites vérifiables.
+
+## Contrat du premier parcours de qualification
+
+Cette section fixe le contrat à satisfaire avant d'implémenter un parcours de morphogenèse bout-en-bout. Elle ne qualifie ni une topologie ni le runtime. Les rapports de qualification disponibles indiquent que les huit ports restent non qualifiés et que les snapshots observés sont `verify-only`; aucune topologie ne peut donc être choisie comme candidate gagnante sur cette seule base.
+
+### Périmètre à figer avant l'implémentation
+
+Le premier parcours doit rester limité à une mission, une topologie, un variant, un environnement et une transition. Un dossier de scénario versionné doit enregistrer :
+
+- l'objectif de mission, son oracle d'acceptation indépendant et les conditions précises de succès;
+- l'identifiant canonique de topologie et de variant, la version du graphe de base et le digest du candidat;
+- le commit du dépôt, la configuration d'exécution pertinente, le délai maximal et les limites de reprise;
+- les workers requis, leurs rôles, leurs identifiants réels et l'affectation de chaque feuille de topologie;
+- le plafond de tokens et de ressources, le scope budgétaire parent, les allocations par worker et les reçus de consommation attendus;
+- le chemin et les contraintes du livrable attendu, ainsi que la procédure de snapshot, restauration et vérification.
+
+Le scénario ne doit pas présumer que Trinity est la première candidate. La sélection de la topologie et du variant doit comparer, pour chaque option, la disponibilité de workers réellement déployables, la couverture des feuilles, les capacités du cycle complet, la restauration propre au variant, le budget et la possibilité d'obtenir les preuves indépendantes. Le choix et ses éléments de preuve doivent être consignés avant le début de l'implémentation. Si aucune option ne satisfait ces préconditions, le résultat de cette étape est `NO_CHANGE` et le blocage reste explicite.
+
+### Dossier de preuve exigé
+
+Chaque preuve doit être liée à une identité stable de mission et de transition. Le dossier minimal attendu est :
+
+| Preuve | Contenu obligatoire |
+| --- | --- |
+| Identité | `missionId`, `transitionId`, candidat canonique, topologie, variant, commit et version de base |
+| Affectations | IDs et rôles des workers actifs, correspondance explicite entre worker et feuille, roster scellé |
+| Budget | scope parent, plafond, allocations par worker et reçus d'usage vérifiables |
+| Livrable | chemin confiné, contenu non vide, digest, identité du worker/run producteur et résultat de l'oracle |
+| Snapshot | `snapshotId`, digest, état requis complet et preuve `restorable: true` pour ce variant |
+| Vérification | reçu d'un vérificateur indépendant lié au même `transitionId`, au livrable et au snapshot |
+| Autorité et commit | décision Rust signée vérifiée, versions relues, résultat CAS durable et reçu final relisible |
+| Résolution | verdict final lié aux preuves précédentes; distinction entre `promotionEligible` et promotion effectivement exécutée |
+
+Un rapport worker, un reçu de transport, un snapshot `verify-only`, une compilation consultative ou une décision déclarative ne remplace aucune de ces preuves. La preuve de besoins de ressources doit provenir d'un producteur indépendant; la déclaration `resourceNeeds` d'un worker ne constitue pas à elle seule une justification de financement.
+
+### Refus obligatoires et porte de sortie
+
+Le contrat exige un refus fermé si une preuve est absente, périmée, falsifiée, rejouée ou liée à une identité différente; si un worker ou une feuille diffère du roster scellé; si le budget est absent ou dépassé; si le livrable est absent ou ne satisfait pas l'oracle; si le snapshot n'est pas restaurable; si la restauration échoue; ou si la version relue ne permet pas le commit CAS. Un effet externe ambigu reste `recovery_required` jusqu'à réconciliation explicite, sans rejouage automatique.
+
+Le contrat est prêt pour la phase d'implémentation lorsque le dossier de scénario est renseigné pour une seule topologie et un seul variant, que le dossier de preuve est révisé, et que ces refus sont associés à des contre-épreuves reproductibles. Cette porte documentaire ne vaut pas qualification runtime. Tant que le parcours réel n'a pas satisfait ces critères, `promotionEligible` reste `false` par défaut, les résultats shadow ou consultatifs ne sont pas promus et `universalClaim` reste `not_proven`.
