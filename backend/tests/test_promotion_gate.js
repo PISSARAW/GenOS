@@ -14,6 +14,7 @@ process.env.NODE_ENV = 'test';
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password-promotion-gate';
 process.env.GENOS_PROMOTION_SECRET = process.env.GENOS_PROMOTION_SECRET || 'test-promotion-secret-promotion-gate';
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-epistemic-secret-promotion-gate';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET ||= require('node:crypto').randomBytes(32).toString('hex');
 
 const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
@@ -21,6 +22,7 @@ const strategyService = require('../src/services/strategyExecutionService');
 const promotionGate = require('../src/services/strategyPromotionGate');
 const strategyExecutionController = require('../src/controllers/strategyExecutionController');
 const signatureService = require('../src/services/promotionSignatureService');
+const temporaryWorkspaces = new Set();
 
 function validReceipt() {
   return {
@@ -39,16 +41,36 @@ function evidenceReport() {
 async function setupRun(db, setup) {
   const agentId = setup.agentId;
   const workspaceId = setup.workspaceId;
+  const organizationId = `${agentId}-org`;
+  const projectId = `${agentId}-project`;
+  const missionId = `${agentId}-mission`;
+  const priorWorkspace = await db.get('SELECT path FROM workspaces WHERE id = ?', workspaceId);
+  const existingRoot = priorWorkspace?.path && fs.existsSync(priorWorkspace.path) ? priorWorkspace.path : null;
+  const workspaceRoot = existingRoot || fs.mkdtempSync(path.join(os.tmpdir(), 'genos-promotion-gate-'));
+  if (!existingRoot) temporaryWorkspaces.add(workspaceRoot);
+  await db.run('INSERT OR IGNORE INTO organizations (id, name) VALUES (?, ?)', organizationId, organizationId);
+  await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', projectId, organizationId, projectId);
+  await db.run('INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)',
+    workspaceId, 'Gate', workspaceRoot, organizationId, projectId);
   await db.run("INSERT OR REPLACE INTO agents (id, workspace_id, name, role, status, execution_mode) VALUES (?, ?, 'Gate Agent', 'orchestrator', 'running', 'orchestrator')", agentId, workspaceId);
+  await require('../src/services/missionIdentityService').create(db, {
+    missionId, objective: 'Exercise evidence-gated strategy promotion.', orchestratorAgentId: agentId
+  });
   const contractRecord = await strategyContracts.saveContract(db, { agentId, problem: 'High risk mission requiring gates' });
   const contract = contractRecord.contract;
   Object.assign(contract.promotion, setup.promotionPatch || {});
   const hash = strategyContracts.hashContract(contract);
   await db.run('UPDATE strategy_contracts SET contract_json = ?, contract_hash = ? WHERE id = ?', JSON.stringify(contract), hash, contractRecord.id);
   const run = await strategyService.createExecutionRun(db, {
-    agentId,
+    agentId, missionId,
     contractRecord: { ...contractRecord, contract },
     budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+  });
+  await require('../src/services/missionEnvelopeAuthority').seal({
+    db, agentId, executionRun: run, executable: process.execPath,
+    contractRecord: { ...contractRecord, contract }, autonomyPlan: {}, normalizedMission: {
+      agentId, missionId, workspaceRoot, toolLease: [], timeoutMs: 30000
+    }
   });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
   return { run, contractRecord };
@@ -195,6 +217,8 @@ async function run() {
     for (const suffix of ['', '-shm', '-wal']) {
       if (fs.existsSync(`${dbPath}${suffix}`)) fs.unlinkSync(`${dbPath}${suffix}`);
     }
+    for (const workspace of temporaryWorkspaces) fs.rmSync(workspace, { recursive: true, force: true });
+    temporaryWorkspaces.clear();
   }
 }
 

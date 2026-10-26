@@ -23,6 +23,8 @@ assert.equal(lock.capabilities[1].effectiveAuthority[0], 'repo:read');
 assert.match(lock.graphDigest, /^sha256:[a-f0-9]{64}$/);
 assert.throws(() => resolveProjectInheritance({ manifest, registry: registryFor([root]), projectAuthority: ['repo:read'] }), { code: 'GCI_DEPENDENCY_MISSING' });
 assert.throws(() => resolveProjectInheritance({ manifest, registry: registryFor([root, dep]), projectAuthority: [] }), { code: 'GCI_AUTHORITY_DENIED' });
+assert.throws(() => resolveProjectInheritance({ manifest, registry: registryFor([root, dep]),
+  projectAuthority: { 'app.capability': ['repo:read'], 'base.capability': [] } }), { code: 'GCI_AUTHORITY_DENIED' });
 const partial = { ...manifest, inherit: [{ ...manifest.inherit[0], permissions: [] }] };
 const independent = descriptor(root.capabilityId, []);
 assert.equal(resolveProjectInheritance({ manifest: partial, registry: registryFor([independent]), projectAuthority: [] }).capabilities[0].effectiveAuthority.length, 0);

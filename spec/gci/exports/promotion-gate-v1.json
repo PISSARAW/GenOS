@@ -1,0 +1,95 @@
+{
+  "schema": "genos.gci.capability/v1",
+  "capabilityId": "PROMOTION_GATE",
+  "version": "1.0.0",
+  "implementationDigest": "sha256:d4bd558694492718c7a18bcbb0ead36afbde5c09f08006a63b4ce5736c1b94c9",
+  "provider": { "id": "genos" },
+  "maturity": "integrated",
+  "exportModes": ["linked"],
+  "inputContract": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["runId", "signerId", "timestamp", "signature", "humanApprovalReceipt"],
+    "properties": {
+      "runId": { "type": "string", "minLength": 1 },
+      "signerId": { "type": "string", "minLength": 1 },
+      "timestamp": { "type": "integer" },
+      "signature": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+      "humanApprovalReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["approved", "approvalId", "approverId", "approvedAt", "payloadHash"],
+        "properties": {
+          "approved": { "const": true },
+          "approvalId": { "type": "string", "minLength": 1 },
+          "approverId": { "type": "string", "minLength": 1 },
+          "approvedAt": { "type": "string", "minLength": 1 },
+          "payloadHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      },
+      "report": { "type": "object" },
+      "evidenceReport": { "type": "object" },
+      "independentVerification": { "type": "object" },
+      "evidenceVerified": { "type": "boolean" },
+      "verifiedClaims": { "type": "array" },
+      "workerDossiers": { "type": "array" },
+      "philosophyEvidence": { "type": "object" },
+      "philosophyProvenanceVerified": { "type": "boolean" },
+      "ethicalReview": { "type": "object" },
+      "promotionDossierId": { "type": "string" },
+      "rejectedBranches": { "type": "array" }
+    }
+  },
+  "outputContract": {
+    "type": "object",
+    "required": ["id", "agentId", "contractId", "contractVersion", "status", "epistemicState"],
+    "properties": {
+      "id": { "type": "string", "minLength": 1 },
+      "agentId": { "type": "string", "minLength": 1 },
+      "contractId": { "type": "string", "minLength": 1 },
+      "contractVersion": { "type": "integer" },
+      "status": { "const": "completed" },
+      "epistemicState": {
+        "type": "object",
+        "required": ["verdict", "promotable"],
+        "properties": {
+          "verdict": { "type": "string" },
+          "promotable": { "const": false }
+        }
+      }
+    }
+  },
+  "requiredAuthority": ["workspace:write"],
+  "dependencies": [],
+  "constraints": {
+    "http": {
+      "method": "POST",
+      "path": "/api/execution-runs/{runId}/approve",
+      "authentication": "Bearer access key",
+      "permission": "workspace:write",
+      "tenantHeaders": ["X-Organization-Id", "X-Project-Id"]
+    },
+    "signature": { "algorithm": "HMAC-SHA256", "maxAgeSeconds": 300, "binds": ["runId", "timestamp", "signerId", "payloadHash"] },
+    "approval": { "requiresDistinctRequesterAndDecider": true, "receiptMustMatchCurrentPromotionDigest": true },
+    "claimScope": "The integrated export covers the tenant-scoped strategy execution approval route only, not every GenOS promotion or merge path.",
+    "implementationFiles": [
+      "backend/src/controllers/strategyExecutionController.js",
+      "backend/src/routes/deployRoutes.js",
+      "backend/src/services/missionEnvelopeAuthority.js",
+      "backend/src/services/promotionSignatureService.js",
+      "backend/src/services/strategyExecutionEvents.js",
+      "backend/src/services/strategyExecutionService.js",
+      "backend/src/services/strategyPromotionGate.js",
+      "backend/src/services/strategyPromotionPolicyService.js"
+    ],
+    "result": "completed is not an independent verification; epistemicState.promotable remains false"
+  },
+  "sideEffects": ["May execute a policy-approved strategy promotion and mutate the scoped workspace."],
+  "evidence": [
+    { "kind": "http-integration-test", "path": "backend/tests/test_promotion_gate_http.js", "command": "node backend/tests/test_promotion_gate_http.js", "checks": ["anonymous refusal", "missing workspace:write refusal", "cross-project refusal", "signed scoped approval"] },
+    { "kind": "gate-test", "path": "backend/tests/test_promotion_gate.js", "command": "node backend/tests/test_promotion_gate.js" },
+    { "kind": "human-approval-test", "path": "backend/tests/test_human_approval_promotion_gate.js", "command": "node backend/tests/test_human_approval_promotion_gate.js" },
+    { "kind": "route", "path": "backend/src/routes/deployRoutes.js", "method": "POST", "permission": "workspace:write", "tenantScope": "write" }
+  ],
+  "revocationPolicy": { "revocable": true, "reason": "Revoke when the approval contract, route authority, or implementation digest changes." }
+}

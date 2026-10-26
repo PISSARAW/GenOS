@@ -10,6 +10,9 @@ const { resolveProjectInheritance } = require('../services/capabilityInheritance
 const { planUpgrade, selectCandidateManifest } = require('../services/capabilityInheritance/evolution/upgradePlanner');
 const { persistUpgradeCandidate } = require('../services/capabilityInheritance/evolution/upgradeCandidateService');
 const { parseProjectManifest } = require('../services/capabilityInheritance/binding/projectManifestService');
+const { invokeLinkedCapability } = require('../services/capabilityInheritance/adapters/linkedAdapter');
+const { createPromotionGateHandlers } = require('../services/capabilityInheritance/adapters/promotionGateHandler');
+const { issueHumanApprovalProof } = require('../services/capabilityInheritance/humanApprovalProofService');
 const binding = require('../services/capabilityInheritance/binding/projectBindingService');
 
 function createCapabilityInheritanceController(deps = {}) {
@@ -17,7 +20,9 @@ function createCapabilityInheritanceController(deps = {}) {
     dbProvider: deps.getDatabase || getDatabase,
     graphProvider: deps.getCapabilityGraph || getAllConcepts,
     accessProvider: deps.accessFor || accessFor,
-    authorize: deps.authorize || iamPolicyEngine.authorize
+    authorize: deps.authorize || iamPolicyEngine.authorize,
+    invoke: deps.invokeLinkedCapability || invokeLinkedCapability,
+    handlers: deps.createHandlers || createPromotionGateHandlers
   };
   return createControllerHandlers(context);
 }
@@ -30,6 +35,8 @@ function createControllerHandlers(context) {
     resolve: (req, res, next) => respond({ req, res, next, action: () => planFor({ req, ...context }) }),
     adopt: (req, res, next) => respond({ req, res, next, action: () => adoptAction(context, req) }),
     status: (req, res, next) => respond({ req, res, next, action: () => statusAction(context, req) }),
+    invoke: (req, res, next) => respond({ req, res, next, action: () => invokeAction(context, req) }),
+    approvalProof: (req, res, next) => respond({ req, res, next, action: () => approvalProofAction(context, req) }),
     revoke: (req, res, next) => respond({ req, res, next, action: () => revokeAction(context, req) }),
     upgrade: (req, res, next) => respond({ req, res, next, action: () => upgradeAction(context, req) })
   };
@@ -65,6 +72,47 @@ async function adoptAction(context, req) {
 
 async function statusAction(context, req) {
   return binding.projectStatus({ db: await context.dbProvider(), ...requestScope(req, req.params.projectId) });
+}
+
+async function invokeAction(context, req) {
+  const scope = requestScope(req, req.params.projectId);
+  const body = invocationBody(req.body);
+  const db = await context.dbProvider();
+  return context.invoke({ db, ...scope, ...body,
+    getProjectAuthority: async (input) => authorityForInvocation({ ...input, req, scope, authorize: context.authorize }),
+    handlers: context.handlers(req) });
+}
+
+async function approvalProofAction(context, req) {
+  const scope = requestScope(req, req.params.projectId);
+  const body = approvalProofBody(req.body);
+  return issueHumanApprovalProof({ db: await context.dbProvider(), ...scope, runId: body.runId,
+    payloadHash: body.payloadHash, decision: body.decision, user: req.user });
+}
+
+function approvalProofBody(body) {
+  if (!body || typeof body.runId !== 'string' || !body.runId
+      || typeof body.payloadHash !== 'string' || typeof body.decision !== 'string') {
+    throw gciError('GCI_INVALID_APPROVAL_PROOF_REQUEST', 'runId, payloadHash, and decision are required');
+  }
+  return { runId: body.runId, payloadHash: body.payloadHash, decision: body.decision };
+}
+
+function invocationBody(body) {
+  if (!body || typeof body.environment !== 'string' || !body.environment
+      || typeof body.capabilityId !== 'string' || !body.capabilityId
+      || !body.args || typeof body.args !== 'object' || Array.isArray(body.args)) {
+    throw gciError('GCI_INVALID_INVOCATION', 'environment, capabilityId, and object args are required');
+  }
+  return { environment: body.environment, capabilityId: body.capabilityId, args: body.args };
+}
+
+async function authorityForInvocation(input) {
+  const descriptor = { capabilityId: input.capability.capabilityId,
+    requiredAuthority: input.capability.effectiveAuthority };
+  const grants = await authorizedCapabilities({ req: input.req, scope: input.scope,
+    descriptors: [descriptor], authorize: input.authorize });
+  return grants[descriptor.capabilityId] || [];
 }
 
 async function revokeAction(context, req) {
@@ -109,18 +157,21 @@ async function planFor(input) {
 }
 
 async function authorizedCapabilities(input) {
-  const permissions = [...new Set(input.descriptors.flatMap((entry) => entry.requiredAuthority))].sort();
-  const grants = [];
-  for (const permission of permissions) {
-    const result = await input.authorize({ context: policyContext(input, permission), fallbackAllowed: false });
-    if (result.allowed) grants.push(permission);
+  const grants = {};
+  for (const descriptor of input.descriptors) {
+    grants[descriptor.capabilityId] = [];
+    for (const permission of descriptor.requiredAuthority) {
+      const result = await input.authorize({ context: policyContext(input, permission, descriptor.capabilityId), fallbackAllowed: false });
+      if (result.allowed) grants[descriptor.capabilityId].push(permission);
+    }
   }
   return grants;
 }
 
-function policyContext(input, action) {
+function policyContext(input, action, capabilityId) {
   return { principal: input.req.user, action,
-    resource: { type: 'gci-capability', organizationId: input.scope.organizationId, projectId: input.scope.projectId },
+    resource: { type: 'gci-capability', id: capabilityId,
+      organizationId: input.scope.organizationId, projectId: input.scope.projectId },
     request: { method: input.req.method, path: input.req.path },
     environment: { hour: new Date().getUTCHours(), weekday: new Date().getUTCDay() } };
 }

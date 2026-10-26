@@ -24,7 +24,8 @@ function resolveProjectInheritance({ manifest, registry, projectAuthority, resol
 function resolveDescriptor({ descriptor, requests, projectAuthority }) {
   const request = requests.get(`${descriptor.capabilityId}@${descriptor.version}`);
   const requested = new Set(request ? request.permissions : descriptor.requiredAuthority);
-  const intersection = intersectAuthority([...requested], projectAuthority);
+  const authority = Array.isArray(projectAuthority) ? projectAuthority : projectAuthority?.[descriptor.capabilityId] || [];
+  const intersection = intersectAuthority([...requested], authority);
   const declared = new Set(descriptor.requiredAuthority);
   const denied = [...intersection.denied, ...[...requested].filter((permission) => !declared.has(permission))];
   const actual = intersection.allowed.filter((permission) => declared.has(permission));

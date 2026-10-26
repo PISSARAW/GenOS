@@ -29,11 +29,10 @@ function assertLockfile(lockfile) {
 
 async function assertAuthority(input) {
   if (typeof input.getProjectAuthority !== 'function') throw adapterError('GCI_AUTHORITY_UNAVAILABLE');
-  const authority = await input.getProjectAuthority({
-    organizationId: input.organizationId, projectId: input.projectId
-  });
-  if (!Array.isArray(authority)) throw adapterError('GCI_AUTHORITY_UNAVAILABLE');
   for (const capability of dependencyEntries(input.capability, input.lockfile, new Set())) {
+    const authority = await input.getProjectAuthority({ organizationId: input.organizationId,
+      projectId: input.projectId, capability });
+    if (!Array.isArray(authority)) throw adapterError('GCI_AUTHORITY_UNAVAILABLE');
     const excess = capability.effectiveAuthority.filter((item) => !authority.includes(item));
     if (excess.length) throw adapterError('GCI_AUTHORITY_REVOKED');
   }

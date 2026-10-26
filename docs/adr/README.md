@@ -858,6 +858,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0740b](0740-native-plan-dispatch-authority.md) | Autorité de dispatch des plans de mission natifs | Accepté | 2026-10-24 | Orchestration, dispatch, morphogenèse, preuves |
 | [0741](0741-preuves-runtime-socialworld-v2-06.md) | Preuves runtime de métacognition sociale V2-06 | Accepté | 2026-10-24 | Runtime social, mémoire, expérimentation, preuves |
 | [0742](0742-deploiement-api-gci-sur-vps.md) | Déploiement de l'API GCI sur un VPS partagé | Voir le fichier | -- | -- |
+| [0743](0743-export-gci-approbation-strategie.md) | Export GCI de l'approbation de stratégie | Voir le fichier | -- | -- |
+| [0744](0744-invocation-liee-et-autorite-par-capacite.md) | Invocation GCI liée et autorité par capacité | Accepté | 2026-10-24 | GCI, adaptateurs liés, IAM |
+| [0745](0745-emission-de-recu-humain-gci.md) | Émission serveur d'un reçu humain GCI | Accepté | 2026-10-24 | GCI, approbation humaine, signatures |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
