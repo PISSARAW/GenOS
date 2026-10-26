@@ -60,7 +60,7 @@ function selectVenvName(task, repoName) {
 }
 
 function pytestCounts(output) {
-  const summaries = [...output.matchAll(/={2,}\s*([^=\n]+?)\s+in\s+[\d.]+\s*(?:s|seconds?)\s*={2,}/g)];
+  const summaries = [...output.matchAll(/={2,}\s*([^=\n]+?)\s+in\s+[\d.]+\s*(?:s|seconds?)\s*(?:\([^)]+\)\s*)?={2,}/g)];
   const summary = summaries.at(-1);
   if (!summary) return null;
   const counts = { passed: 0, failed: 0, errors: 0, skipped: 0, xfailed: 0, xpassed: 0 };
@@ -100,13 +100,14 @@ function quoteShellArg(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
-function runPytest({ repoDir, testTargets, task, pythonPath = 'src:.' }) {
+function runPytest({ repoDir, testTargets, task }) {
   const wslDir = toWslPath(repoDir);
   const repoName = path.basename(repoDir);
   const venvName = selectVenvName(task, repoName);
   const targetArgs = testTargets.map(quoteShellArg).join(' ');
   const pythonBin = `~/.swe_venvs/${venvName}/bin/python`;
-  const script = `cd '${wslDir}' && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=${pythonPath} timeout --signal=TERM --kill-after=5s 300s ${pythonBin} -m pytest ${targetArgs} -v -W ignore::DeprecationWarning`;
+  const pythonPath = `${wslDir}/src:${wslDir}`;
+  const script = `cd '${wslDir}' && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH='${pythonPath}' timeout --signal=TERM --kill-after=5s 300s ${pythonBin} -m pytest ${targetArgs} -v -W ignore::DeprecationWarning`;
   const encodedScript = Buffer.from(script, 'utf8').toString('base64');
   return runCmd({ args: ['-d', 'Ubuntu-24.04', 'bash', '-c', `echo ${encodedScript} | base64 -d | bash`], cwd: repoDir });
 }

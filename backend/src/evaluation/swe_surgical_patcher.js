@@ -4,7 +4,7 @@
  */
 
 const LINE_SPLIT = new RegExp('\\r?\\n');
-const LEADING_NUM = new RegExp('^\\s*\\d+[:|]\\s?');
+const LEADING_NUM = new RegExp('^\\s*\\d+\\s*[:|]\\s?');
 const CLEAN_MARKDOWN = new RegExp('```[a-zA-Z]*\\r?\\n(?:<{3,}|#{1,4})\\s*SEARCH', 'gi');
 const SEARCH_SPLIT = new RegExp('(?:<{3,}|`{3,}|#{1,4})\\s*SEARCH\\b[^\\n]*\\r?\\n', 'i');
 const SEP_REGEX = new RegExp('\\r?\\n(?:={3,}|>{3,}|-{3,}|#{1,4}\\s*REPLACE)(?:[^\\n]*)\\r?\\n', 'i');
@@ -37,7 +37,28 @@ function parseSingleBlock(part) {
   return { searchStr, replaceStr };
 }
 
+function parseStructuredResponse(patchBlock) {
+  try {
+    const response = JSON.parse(patchBlock.trim());
+    if (typeof response.patch === 'string' && response.patch.length > 0) {
+      return { patchText: response.patch };
+    }
+    const search = response.SEARCH ?? response.search;
+    const replace = response.REPLACE ?? response.replace;
+    const searchStr = Array.isArray(search) ? search.join('\n') : search;
+    const replaceStr = Array.isArray(replace) ? replace.join('\n') : replace;
+    return typeof searchStr === 'string' && typeof replaceStr === 'string'
+      ? { searchStr: cleanBlockLines(searchStr), replaceStr: cleanBlockLines(replaceStr) }
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function extractSearchReplaceBlocks(patchBlock) {
+  const structuredBlock = parseStructuredResponse(patchBlock);
+  if (structuredBlock?.patchText) return extractSearchReplaceBlocks(structuredBlock.patchText);
+  if (structuredBlock) return [structuredBlock];
   const blocks = [];
   const cleaned = patchBlock.replace(CLEAN_MARKDOWN, '<<<<<<< SEARCH');
   const parts = cleaned.split(SEARCH_SPLIT);

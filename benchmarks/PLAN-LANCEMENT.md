@@ -112,6 +112,15 @@ lorsqu’un pilote démontre un run apparié complet et que son reçu indépenda
 vérifiable. Ne pas réutiliser les prédictions ni les scores historiques comme
 bras GenOS dans la nouvelle campagne.
 
+**Pilote SWE-bench GenOS hôte du 26 octobre 2026 :** le runner de flotte a exécuté
+la cohorte historique de 26 tâches avec le modèle local `deepseek-coder-v2:latest`,
+sans Docker. Scorecard exploratoire : 0/26 résolue ; 78 tentatives ont été rejetées
+avant pytest (47 blocs de patch non applicables, 28 erreurs de syntaxe, 3 rejets
+oncologiques). Aucun patch candidat n’a atteint l’oracle dynamique. Ce résultat
+confirme que la chaîne GenOS a réellement été appelée, mais ne débloque pas le
+lancement confirmatoire SWE-bench ni un score officiel. Journal et reçus locaux :
+`D:/GenOS/benchmarks-data/SWE-bench/host-genos-run-20261026/`.
+
 ## Plan d’exécution « GenOS réel » — quatre suites sans Docker
 
 Ce plan vise les quatre suites retenues sans Docker : recherche factuelle,

@@ -138,35 +138,16 @@ ${headerLines}
 ${numberedExcerpt}
 \`\`\`
 
-OUTPUT FORMAT — produce EXACTLY this structure, nothing more:
-<diagnosis>
-One paragraph explaining the root cause.
-</diagnosis>
-<<<<<<< SEARCH
-VERBATIM lines from the excerpt that must be replaced (copy-paste, same whitespace)
-=======
-The fixed replacement lines (same indentation as SEARCH)
->>>>>>>
+OUTPUT FORMAT — return exactly one valid JSON object with these three string fields:
+{"diagnosis":"One paragraph explaining the root cause.","SEARCH":"Verbatim lines from the excerpt to replace, with identical whitespace.","REPLACE":"Replacement lines with the required indentation."}
 
 RULES (violation = your patch is discarded):
-1. SEARCH must be copied CHARACTER-FOR-CHARACTER from the excerpt. Same spaces, same indentation. No paraphrasing.
-2. SEARCH/REPLACE block must appear immediately after </diagnosis>. No text in between.
-3. Do NOT put triple backticks inside the SEARCH or REPLACE sections.
-4. Do NOT add any explanation after the final >>>>>>>.
-5. SEARCH block: 1 to 25 lines maximum. Focus on the minimal set of lines that need to change.
-6. If the bug requires changing an assert to a raise, replace the ENTIRE assert line(s) with raise ValueError(...).
-7. Never invent code that is not visible in the excerpt above.
-
-WORKED EXAMPLE (for a different bug — do not copy this):
-<diagnosis>
-The function uses assert which does not raise a proper exception in production; it should raise ValueError instead.
-</diagnosis>
-<<<<<<< SEARCH
-        assert condition, "message"
-=======
-        if not condition:
-            raise ValueError("message")
->>>>>>>
+1. SEARCH must be copied character-for-character from the excerpt, including whitespace and indentation.
+2. SEARCH and REPLACE must each be JSON strings. Encode line breaks as JSON escapes; preserve their meaning when decoded.
+3. Do not add Markdown fences, extra fields, or prose outside the JSON object.
+4. SEARCH must contain 1 to 25 lines and focus on the smallest necessary edit.
+5. If replacing an assert with an exception, replace the complete assert line with an appropriate ValueError check.
+6. Never invent source code that is not visible in the excerpt above.
 `;
 }
 
@@ -174,8 +155,7 @@ async function synthesizePatch(params) {
   const { db, prompt, modelUri, originalSource, targetRelFile } = params;
   const genResult = await generate({
     prompt,
-    cognitiveDomain: 'evaluation',
-    cognitiveObjects: { benchmark: 'swe_closed_loop', case: { targetRelFile, originalSource }, rubric: params },
+    cognitiveRawPrompt: prompt,
     model: modelUri,
     priority: 'interactive',
     timeoutMs: 600000,
@@ -364,6 +344,7 @@ async function executeAttempt({ context, targetRelFile, attempt, feedback }) {
   try {
     patchResult = await synthesizePatch({ db, prompt, modelUri, originalSource, targetRelFile });
   } catch (llmErr) {
+    console.error(`  [INFERENCE ERROR] ${llmErr.code || llmErr.message}`);
     return { resolved: false, feedback: `LLM inference failed (${llmErr.code || llmErr.message})` };
   }
   if (!patchResult.success) {
