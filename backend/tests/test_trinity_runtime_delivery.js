@@ -23,7 +23,9 @@ try {
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'answer.json'))), { primes: [17,29,37] });
   const escapedPath = path.resolve(workspaceRoot, '../escape.json');
   assert.equal(fs.existsSync(escapedPath), false);
-  const traversal = writeArtifacts('[ARTIFACT: ../escape.json]{}[/ARTIFACT]', { workspaceRoot, allowFileEdits: true });
+  const traversal = writeArtifacts(JSON.stringify({
+    artifactText: '[ARTIFACT: ../escape.json]{}[/ARTIFACT]'
+  }), { workspaceRoot, allowFileEdits: true });
   assert.deepEqual(traversal.written, []);
   assert.deepEqual(traversal.rejected, [{
     name: '../escape.json',
