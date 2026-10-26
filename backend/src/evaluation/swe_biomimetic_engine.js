@@ -274,8 +274,11 @@ function selectAdaptiveLocus(params) {
 function buildAdversarialCritique(params) {
   const { attempt, lastFeedback, deadEndGuidance } = params;
   if (attempt === 1) return '';
+  const feedback = lastFeedback.length > 2400
+    ? lastFeedback.slice(-2400)
+    : lastFeedback;
   return `\nA-TEAM ADVERSARIAL CRITIQUE (Eleanor - Chief Critic & Tahani - Architect):
-- ELEANOR: "Previous attempt failed: ${lastFeedback.slice(0, 300)}.
+- ELEANOR: "Previous attempt failed. Read this verifier feedback and correct the specific failing behavior:\n${feedback}
   Use compiler or pytest feedback to make one minimal production-code correction.
   Do not assume every failure is assertion-related, edit tests, or replace unrelated assertions."
 ${deadEndGuidance}

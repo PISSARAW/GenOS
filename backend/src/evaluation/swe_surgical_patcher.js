@@ -37,6 +37,14 @@ function parseSingleBlock(part) {
   return { searchStr, replaceStr };
 }
 
+function decodeStructuredLineBreaks(value) {
+  const decodedSpaces = value.replace(/\\ /g, ' ');
+  if (decodedSpaces.includes('\\n') && !decodedSpaces.includes('\n')) {
+    return decodedSpaces.replace(/\\r\\n|\\n/g, '\n');
+  }
+  return decodedSpaces;
+}
+
 function parseStructuredResponse(patchBlock) {
   try {
     const response = JSON.parse(patchBlock.trim());
@@ -48,7 +56,8 @@ function parseStructuredResponse(patchBlock) {
     const searchStr = Array.isArray(search) ? search.join('\n') : search;
     const replaceStr = Array.isArray(replace) ? replace.join('\n') : replace;
     return typeof searchStr === 'string' && typeof replaceStr === 'string'
-      ? { searchStr: cleanBlockLines(searchStr), replaceStr: cleanBlockLines(replaceStr) }
+      ? { searchStr: cleanBlockLines(decodeStructuredLineBreaks(searchStr)),
+        replaceStr: cleanBlockLines(decodeStructuredLineBreaks(replaceStr)) }
       : null;
   } catch (_) {
     return null;

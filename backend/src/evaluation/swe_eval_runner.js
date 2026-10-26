@@ -16,11 +16,12 @@ const PREDICTIONS_PATH = path.resolve(process.env.GENOS_SWE_PREDICTIONS_PATH
 
 function parseCliArgs() {
   const args = process.argv.slice(2);
-  const options = { repo: null, instances: [], limit: null };
+  const options = { repo: null, instances: [], limit: null, model: null };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--repo') options.repo = args[++i];
     if (args[i] === '--instance') options.instances.push(args[++i]);
     if (args[i] === '--instances') options.instances.push(...args[++i].split(','));
+    if (args[i] === '--model') options.model = args[++i];
     if (args[i] === '--limit') options.limit = parseInt(args[++i], 10);
   }
   return options;
@@ -53,7 +54,7 @@ function appendPrediction(prediction) {
   fs.appendFileSync(PREDICTIONS_PATH, line, 'utf8');
 }
 
-function printScorecard(results) {
+function printScorecard(results, model) {
   const total = results.length;
   const resolved = results.filter(r => r.success).length;
   const rate = total > 0 ? ((resolved / total) * 100).toFixed(1) : '0.0';
@@ -64,7 +65,7 @@ function printScorecard(results) {
   console.log(`  Total Tasks Evaluated          : ${total}`);
   console.log(`  Dynamically Resolved Tasks     : ${resolved} / ${total} (${rate} %)`);
   console.log(`  Environment                    : Native Windows Host (No Docker)`);
-  console.log(`  Inference Engine               : Local GPU (ollama://deepseek-coder-v2:latest)`);
+  console.log(`  Inference Engine               : ${model || 'ollama://deepseek-coder-v2:latest'}`);
   console.log(`  Verification Method            : Dynamic Pytest (FAIL_TO_PASS & PASS_TO_PASS)`);
   console.log(`======================================================================`);
 
@@ -101,7 +102,7 @@ async function runAutonomousSweEvaluation() {
     }
   }
 
-  printScorecard(results);
+  printScorecard(results, options.model);
   writeCampaignSummary({ options, startedAt, tasksToRun, results, rawData });
 }
 

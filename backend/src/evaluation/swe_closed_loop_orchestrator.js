@@ -305,6 +305,7 @@ async function executeAttempt({ context, targetRelFile, attempt, feedback }) {
     attempt,
     model: modelUri,
     targetRelFile,
+    previousFeedback: feedback ? feedback.slice(-2400) : null,
     excerptStartLine: startLine,
     excerptEndLine: endLine,
     candidateFiles: candidates,
