@@ -20,6 +20,7 @@ function samePath(left, right) {
 
 function validIdentity(receipt, expected) {
   return receipt?.schema === SCHEMA && receipt.source === SOURCE && receipt.missionId === expected?.missionId
+    && (!expected?.transitionId || receipt.transitionId === expected.transitionId)
     && Boolean(expected?.workspaceRoot) && Array.isArray(expected.checks) && expected.checks.length > 0;
 }
 
@@ -39,8 +40,13 @@ function validConfiguredChecks(receipt, checks) {
     && receipt.proofs.every((proof, index) => proof.command === commands[index]);
 }
 
+function validTransitionId(transitionId) {
+  return transitionId === undefined || (typeof transitionId === 'string' && Boolean(transitionId));
+}
+
 async function createReceipt(input) {
   if (!input?.missionId || !input.workspaceRoot || input.allowExecution !== true) return null;
+  if (!validTransitionId(input.transitionId)) return null;
   if (!Array.isArray(input.checks) || !input.checks.length) return null;
   let workspaceRoot;
   try {
@@ -49,7 +55,8 @@ async function createReceipt(input) {
     return null;
   }
   const proof = await proofService.verifyChecks(workspaceRoot, input.checks, { timeoutMs: input.timeoutMs });
-  return { schema: SCHEMA, source: SOURCE, missionId: input.missionId, workspaceRoot,
+  return { schema: SCHEMA, source: SOURCE, missionId: input.missionId,
+    ...(input.transitionId ? { transitionId: input.transitionId } : {}), workspaceRoot,
     checksDigest: checksDigest(input.checks), ...proof };
 }
 

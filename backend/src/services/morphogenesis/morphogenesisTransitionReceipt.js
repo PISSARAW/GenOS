@@ -19,7 +19,19 @@ function graphIdentity(adaptation) {
 }
 
 function actualWorkerBindings(input) {
-  return input.survivors.map((survivor, index) => workerBinding(input, survivor, index));
+  const bindings = input.survivors.map((survivor, index) => workerBinding(input, survivor, index));
+  const workerIds = bindings.map((binding) => binding.workerId);
+  if (new Set(workerIds).size !== workerIds.length) {
+    throw transitionError('MORPHOGENESIS_TRANSITION_BINDING_INCOMPLETE');
+  }
+  return bindings;
+}
+
+function missionIdentity(mission, orchestratorId) {
+  if (!mission && !orchestratorId) return null;
+  mission = mission || {};
+  return { missionId: mission.missionId || orchestratorId || null,
+    promptDigest: typeof mission.prompt === 'string' ? digest(mission.prompt) : null };
 }
 
 function expectedCommunicationWorkers(input, bindings) {
@@ -69,7 +81,8 @@ function admissionWorkers(plan) {
 }
 
 function admissionWorker(item) {
-  return { workerId: item.workerId || item.agentId || null, workerKind: item.workerKind || null,
+  return { workerId: item.workerId || item.agentId || item.candidateId || item.sourceAgentId || null,
+    workerKind: item.workerKind || null,
     topology: item.topology || item.morphologyTopology || null,
     variant: item.variant || item.morphologyVariant || null, tokens: item.tokenBudget };
 }
@@ -83,12 +96,24 @@ function resourceAllocationIdentity(input, bindings) {
   if (!candidate && !binding && !effect) return null;
   const allocation = { candidateId: candidate?.candidateId || binding?.candidateId || null,
     planDigest: candidate?.planDigest || binding?.planDigest || null,
+    verifiedNeedReceipts: verifiedNeedReceipts(resources),
     selectedCandidateId: selectedResourceCandidate(adaptation),
     interventionScale: adaptation.decision?.policy?.decision?.interventionScale || 'NO_CHANGE',
     admission: admissionIdentity(adaptation.admission),
     effect: effectIdentity(effect, bindings) };
   validateResourceAllocationBinding({ candidate, binding, effect, allocation, adaptation });
   return allocation;
+}
+
+function verifiedNeedReceipts(resources) {
+  const receiptService = require('./resourceNeedReceipt');
+  return (resources?.allocations || []).flatMap((allocation) =>
+    (allocation.proofReceipts || []).filter((receipt) => receiptService.receiptMatchesNeed(allocation, receipt))
+      .map((receipt) => ({ groupId: allocation.groupId, workerId: allocation.workerId,
+        needId: allocation.bidId, resourceNeedDigest: allocation.resourceNeedDigest,
+        resultId: receipt.resultId, evidenceDigest: receipt.evidenceDigest }))
+  ).sort((left, right) => left.groupId.localeCompare(right.groupId)
+    || left.workerId.localeCompare(right.workerId) || left.resultId.localeCompare(right.resultId));
 }
 
 function selectedResourceCandidate(adaptation) {
@@ -165,6 +190,7 @@ function identityFor(context) {
     roster, input } = context;
   const identity = { candidateId, admissionBasis: admission.selectionBasis,
     admissionTopology: admission.recipe.topology, admissionVariant: admission.recipe.variant,
+    mission: missionIdentity(input.state.normalizedMission, input.orchestratorId),
     comparativeQuality: admission.comparativeQuality || null,
     unexecutedAlternatives: admission.unexecutedAlternatives || null,
     counterfactual: admission.counterfactual || null,
@@ -184,29 +210,65 @@ function identityFor(context) {
       removedWorkerIds: availability.removedWorkerIds.sort() } };
 }
 
-function sealTransitionReceipt(input) {
+function transitionIdentityContext(input) {
   const receipt = input.adaptation.receipt;
   const admission = input.adaptation.admission;
-  if (!receipt || admission?.status !== 'admitted') {
-    throw transitionError('MORPHOGENESIS_TRANSITION_ADMISSION_MISSING');
-  }
+  validateTransitionAdmission(receipt, admission);
   const bindings = actualWorkerBindings(input);
   const communication = input.adaptation.communicationIntervention || null;
   const roster = input.adaptation.rosterIntervention || null;
   const lightIntervention = communication || roster;
   const graph = lightIntervention ? null : graphIdentity(input.adaptation);
   const candidateId = admission.recipe?.id;
-  if (!candidateId || !bindings.length || !bindings.every((item) => bindingValid(item, lightIntervention))) {
-    throw transitionError('MORPHOGENESIS_TRANSITION_BINDING_INCOMPLETE');
-  }
+  validateTransitionCandidate({ receipt, candidateId, bindings, lightIntervention });
+  validateAdmissionRoster(admission, bindings, lightIntervention);
   const totalTokens = bindings.reduce((sum, item) => sum + item.tokens, 0);
   receipt.strategyAdmission = admission;
-  const identity = identityFor({ candidateId, admission, graph, bindings, totalTokens,
-    communication, roster, input });
+  return { receipt, identity: identityFor({ candidateId, admission, graph, bindings, totalTokens,
+    communication, roster, input }) };
+}
+
+function validateTransitionAdmission(receipt, admission) {
+  if (!receipt || admission?.status !== 'admitted') {
+    throw transitionError('MORPHOGENESIS_TRANSITION_ADMISSION_MISSING');
+  }
+}
+
+function validateTransitionCandidate(context) {
+  const { receipt, candidateId, bindings, lightIntervention } = context;
+  const validBindings = bindings.length
+    && bindings.every((item) => bindingValid(item, lightIntervention));
+  if (!candidateId || !validBindings) throw transitionError('MORPHOGENESIS_TRANSITION_BINDING_INCOMPLETE');
+  if (receipt.candidateId && receipt.candidateId !== candidateId) {
+    throw transitionError('MORPHOGENESIS_TRANSITION_CANDIDATE_DIVERGED');
+  }
+}
+
+function sealTransitionReceipt(input) {
+  const context = transitionIdentityContext(input);
+  const { receipt, identity } = context;
   const transitionId = `morph_${digest(identity)}`;
   finalizeResourceTransition(input.adaptation.receipt, transitionId);
   Object.assign(receipt, { transitionId, identity, dispatchStatus: 'prepared', queuedWorkerIds: [] });
   return receipt;
+}
+
+function validateAdmissionRoster(admission, bindings, lightIntervention) {
+  if (lightIntervention) return;
+  const assignments = admission.actualPlan?.workerAssignments;
+  if (!Array.isArray(assignments) || !assignments.length) {
+    throw transitionError('MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED');
+  }
+  const workerIds = assignments.map((item) => item.workerId || item.agentId
+    || item.candidateId || item.sourceAgentId);
+  if (workerIds.some((workerId) => !workerId)) {
+    throw transitionError('MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED');
+  }
+  const admitted = workerIds.sort();
+  const actual = bindings.map((item) => item.workerId).sort();
+  if (JSON.stringify(admitted) !== JSON.stringify(actual)) {
+    throw transitionError('MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED');
+  }
 }
 
 function finalizeResourceTransition(receipt, transitionId) {

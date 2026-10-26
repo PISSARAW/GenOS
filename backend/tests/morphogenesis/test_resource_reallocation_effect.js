@@ -8,15 +8,21 @@ const descriptorFor = require('../../src/services/morphogenesis/resourceRealloca
 const transitionReceipt = require('../../src/services/morphogenesis/morphogenesisTransitionReceipt');
 const receiptService = require('../../src/services/epistemicVerifierReceiptService');
 const verifierTrust = require('../../src/services/verifierTrustRegistry');
+const resourceNeedReceipt = require('../../src/services/morphogenesis/resourceNeedReceipt');
 
 function resources() {
-  const proofDigest = `sha256:${'b'.repeat(64)}`;
+  const context = { missionId: 'resource-mission', promptDigest: `sha256:${'c'.repeat(64)}` };
+  const rawNeed = { id: 'need-a', requestedTokens: 40, minimumTokens: 20,
+    marginalValue: 0.9, confidence: 0.9, evidenceRefs: ['need-proof'],
+    workerKind: 'scout_cell', workerCount: 0 };
+  const binding = { groupId: 'group-a', workerId: 'worker-a', need: rawNeed, context };
+  const proofDigest = resourceNeedReceipt.digestFor(binding);
   const proof = receiptService.issueReceipt({ resultId: 'need-proof', evidenceDigest: proofDigest,
     verifierDigest: verifierTrust.getVerifier('benchmark').digest, independent: true,
     independenceDescriptor: { actorId: 'independent-resource-auditor', workspaceId: 'test' } });
+  const need = resourceNeedReceipt.bindNeed({ ...binding, need: { ...rawNeed, proofReceipts: [proof] } });
   const plan = arbitrateGroupNeeds({ budget: 80, groups: [{ id: 'group-a', state: 'active', needs: [{
-    id: 'need-a', requestedTokens: 40, minimumTokens: 20, marginalValue: 0.9, confidence: 0.9,
-    evidenceRefs: ['need-proof'], proofDigest, proofReceipts: [proof], workerKind: 'scout_cell', workerCount: 0
+    ...need
   }] }] });
   plan.candidate = descriptorFor(plan);
   return plan;
@@ -34,7 +40,10 @@ function allocationInput(plan, selected) {
   const adaptation = { adapted: true, decision, receipt,
     admission: { status: 'admitted', executionAuthorized: true,
       selectionBasis: 'calibrated_policy_proposal', comparativeQuality: 'measured',
-      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' } },
+      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' },
+      actualPlan: { workerAssignments: [{ workerId: 'w1', workerKind: 'scout_cell',
+        topology: 'biocenose', variant: 'default' }, { workerId: 'w2', workerKind: 'scout_cell',
+        topology: 'biocenose', variant: 'default' }] } },
     plan: { morphologyPatch: { graph: { graphId: 'graph-1', version: 2, nodes: [{ nodeId: 'n1' }] } } } };
   return { adaptation,
   reservation: { reservedTokens: 80 }, state: { epochBudget: { minimum: 1 }, workers: new Map([

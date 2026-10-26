@@ -34,8 +34,13 @@ async function main() {
   const checks = [{ program: process.execPath, args: ['-e', 'if (require("./app") !== "complete") process.exit(1)'] }];
   try {
     const receipt = await receipts.createReceipt({ missionId: 'onto-1', workspaceRoot: root,
-      checks, allowExecution: true, timeoutMs: 10000 });
+      checks, allowExecution: true, transitionId: 'morph_epoch-a', timeoutMs: 10000 });
     assert.equal(await receipts.validateReceipt(receipt, { missionId: 'onto-1', workspaceRoot: root, checks }), true);
+    assert.equal(await receipts.validateReceipt(receipt, { missionId: 'onto-1', workspaceRoot: root, checks,
+      transitionId: 'morph_epoch-a' }), true);
+    assert.equal(await receipts.validateReceipt(receipt, { missionId: 'onto-1', workspaceRoot: root, checks,
+      transitionId: 'morph_epoch-b' }), false,
+    'an otherwise valid oracle receipt cannot be reused for another morphogenesis transition');
     const completionGate = loadCompletionGate();
     const input = { request: { id: 'onto-1', mission: 'test', requiresEvidenceBeforePromotion: true,
       workspaceRoot: root, verifierChecks: checks }, agents: [{ id: 'worker-1', status: 'completed' }], verifierReceipt: receipt };

@@ -77,7 +77,8 @@ function run() {
   const worker = { agentId: 'worker-a', workerKind: 'analyst',
     morphologyTopology: 'a_team', morphologyVariant: 'default' };
   const adaptation = { receipt: { candidateId: admitted.recipe.id },
-    admission: admitted,
+    admission: { ...admitted, actualPlan: { ...admitted.actualPlan,
+      workerAssignments: [{ ...admitted.actualPlan.workerAssignments[0], workerId: 'worker-a' }] } },
     plan: { morphologyPatch: { graph: graph('mission-1') } },
     assignments: { 'worker-a': { workerKind: 'analyst', morphologyTopology: 'a_team',
       morphologyVariant: 'default' } } };

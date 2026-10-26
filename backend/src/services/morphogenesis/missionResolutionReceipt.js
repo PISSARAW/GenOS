@@ -2,9 +2,11 @@
 
 const { extractEvidenceReport } = require('../agentEvidenceService');
 
-function verificationExpectation(request, orchestratorId) {
+function verificationExpectation(request, orchestratorId, transition) {
   if (!request.workspaceRoot || !Array.isArray(request.verifierChecks) || !request.verifierChecks.length) return null;
-  return { missionId: request.missionId || orchestratorId, workspaceRoot: request.workspaceRoot, checks: request.verifierChecks };
+  if (!transition?.transitionId) return null;
+  return { missionId: request.missionId || orchestratorId, workspaceRoot: request.workspaceRoot,
+    checks: request.verifierChecks, transitionId: transition.transitionId };
 }
 
 function verifierReceipt(payload = {}) {
@@ -38,7 +40,8 @@ function transitionBoundResults(state) {
 }
 
 async function verifiedResolution(state, orchestratorId) {
-  const expected = verificationExpectation(state.normalizedMission || {}, orchestratorId);
+  const transition = state.plan?.morphogenesisEpochStatus?.transition;
+  const expected = verificationExpectation(state.normalizedMission || {}, orchestratorId, transition);
   if (!expected) return null;
   const validate = require('../ontogenesis/missionVerifierReceiptService').validateReceipt;
   return validateWorkerReceipts(transitionBoundResults(state), expected, validate);

@@ -1,10 +1,12 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { compileConditionalMorphogenesisPolicy } = require('./conditionalMorphogenesisPolicy');
 const { critiqueStrategy } = require('./strategyCritiqueService');
 const { arbitrateGroupNeeds } = require('./groupResourceNegotiation');
 const { extractEvidenceReport } = require('../agentEvidenceService');
 const resourceReallocation = require('./resourceReallocationCandidate');
+const resourceNeedReceipt = require('./resourceNeedReceipt');
 const nosologyBridge = require('./morphogenesisNosologyBridge');
 const nosologyCalibration = require('./morphogenesisNosologyCalibration');
 
@@ -58,17 +60,35 @@ function strategyChallenge(input, diagnosis) {
 
 function resourceGroups(input) {
   const groups = new Map();
+  const context = resourceNeedContext(input);
   for (const result of input.state.results.values()) {
-    const report = reportFor(result);
-    const worker = workerFor(input.state, result.agentId);
-    for (const need of Array.isArray(report.resourceNeeds) ? report.resourceNeeds : []) {
-      const groupId = String(worker.groupId || worker.morphologyTopology || worker.role || 'mission');
-      if (!groups.has(groupId)) groups.set(groupId, { id: groupId, state: 'active', needs: [],
-        governance: worker.governance || null });
-      groups.get(groupId).needs.push(need);
-    }
+    addResultNeeds({ groups, state: input.state, result, context });
   }
   return [...groups.values()];
+}
+
+function resourceNeedContext(input) {
+  const mission = input.state.normalizedMission || {};
+  const prompt = selectedMissionText(mission);
+  return { missionId: selectedMissionId(mission, input.orchestratorId), promptDigest: prompt
+    ? `sha256:${crypto.createHash('sha256').update(prompt).digest('hex')}` : null };
+}
+
+function addResultNeeds({ groups, state, result, context }) {
+  const report = reportFor(result);
+  const worker = workerFor(state, result.agentId);
+  const groupId = String(worker.groupId || worker.morphologyTopology || worker.role || 'mission');
+  for (const declaredNeed of Array.isArray(report.resourceNeeds) ? report.resourceNeeds : []) {
+    const need = resourceNeedReceipt.bindNeed({ groupId, workerId: result.agentId,
+      need: declaredNeed, context });
+    if (need) addVerifiedNeed({ groups, groupId, worker, need });
+  }
+}
+
+function addVerifiedNeed({ groups, groupId, worker, need }) {
+  if (!groups.has(groupId)) groups.set(groupId, { id: groupId, state: 'active', needs: [],
+    governance: worker.governance || null });
+  groups.get(groupId).needs.push(need);
 }
 
 function resourceNegotiation(input, reservedChallengeTokens) {

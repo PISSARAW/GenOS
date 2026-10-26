@@ -9,7 +9,9 @@ function fixture() {
     morphologyVariant: 'default' };
   const adaptation = { receipt: { candidateId: 'candidate-a', toGraph: { graphId: 'graph-a', version: 2 } },
     admission: { status: 'admitted', selectionBasis: 'calibrated_policy_proposal',
-      recipe: { id: 'candidate-a', topology: 'biocenose', variant: 'default' } },
+      recipe: { id: 'candidate-a', topology: 'biocenose', variant: 'default' },
+      actualPlan: { workerAssignments: [{ workerId: 'worker-a', workerKind: 'scout_cell',
+        topology: 'biocenose', variant: 'default', tokenBudget: 25 }] } },
     plan: { morphologyPatch: { graph: { graphId: 'graph-a', version: 2, nodes: [{ nodeId: 'n1' }] } } },
     assignments: { 'worker-a': { workerKind: 'scout_cell', morphologyTopology: 'biocenose',
       morphologyVariant: 'default' } } };
@@ -61,6 +63,44 @@ async function verifySealedReceipt() {
   assert.ok(adaptation.receipt.transitionId);
 }
 
+function verifyIdentityCannotBeReplayedAcrossBindings() {
+  const first = fixture();
+  first.input.state.normalizedMission = { missionId: 'mission-a', prompt: 'same work' };
+  const firstReceipt = sealTransitionReceipt(first.input);
+  const otherMission = fixture();
+  otherMission.input.state.normalizedMission = { missionId: 'mission-b', prompt: 'same work' };
+  assert.notEqual(sealTransitionReceipt(otherMission.input).transitionId, firstReceipt.transitionId,
+    'mission identity is part of the transition digest');
+  const fallbackMission = fixture();
+  fallbackMission.input.orchestratorId = 'orchestrator-a';
+  const fallbackReceipt = sealTransitionReceipt(fallbackMission.input);
+  assert.equal(fallbackReceipt.identity.mission.missionId, 'orchestrator-a',
+    'mission identity falls back to the orchestrator ID used by the verifier');
+
+  const swappedCandidate = fixture();
+  swappedCandidate.adaptation.receipt.candidateId = 'candidate-b';
+  assert.throws(() => sealTransitionReceipt(swappedCandidate.input),
+    { code: 'MORPHOGENESIS_TRANSITION_CANDIDATE_DIVERGED' },
+    'the receipt candidate cannot be replaced by another admitted candidate');
+
+  const swappedRoster = fixture();
+  swappedRoster.adaptation.admission.actualPlan = { workerAssignments: [{ workerId: 'worker-b' }] };
+  assert.throws(() => sealTransitionReceipt(swappedRoster.input),
+    { code: 'MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED' },
+    'the admitted worker roster must exactly match the bound survivors');
+
+  const missingRoster = fixture();
+  delete missingRoster.adaptation.admission.actualPlan;
+  assert.throws(() => sealTransitionReceipt(missingRoster.input),
+    { code: 'MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED' },
+    'a normal admitted transition without an admitted roster fails closed');
+  const unidentifiedRoster = fixture();
+  unidentifiedRoster.adaptation.admission.actualPlan.workerAssignments = [{ workerKind: 'scout_cell' }];
+  assert.throws(() => sealTransitionReceipt(unidentifiedRoster.input),
+    { code: 'MORPHOGENESIS_TRANSITION_WORKERS_DIVERGED' },
+    'admitted workers without stable identities cannot be bound');
+}
+
 async function verifyOracleBinding() {
   const { input } = fixture();
   const receipt = sealTransitionReceipt(input);
@@ -100,4 +140,5 @@ async function verifyOracleBinding() {
   console.log('Observability is declared usage only; sealed receipt alone never resolves without a bound oracle verdict: PASS');
 }
 
+verifyIdentityCannotBeReplayedAcrossBindings();
 run().catch((error) => { console.error(error); process.exitCode = 1; });

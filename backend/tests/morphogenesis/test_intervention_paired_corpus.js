@@ -153,12 +153,17 @@ function simpleRows() {
 function resourcePlan() {
   const { arbitrateGroupNeeds } = require('../../src/services/morphogenesis/groupResourceNegotiation');
   const describe = require('../../src/services/morphogenesis/resourceReallocationCandidate').describeResourceReallocation;
-  const proofDigest = `sha256:${'d'.repeat(64)}`;
+  const resourceNeedReceipt = require('../../src/services/morphogenesis/resourceNeedReceipt');
+  const context = { missionId: 'resource-mission', promptDigest: `sha256:${'c'.repeat(64)}` };
+  const rawNeed = { id: 'need-a', requestedTokens: 40, minimumTokens: 20,
+    marginalValue: 0.9, confidence: 0.9, evidenceRefs: ['resource-need-proof'],
+    workerKind: 'scout_cell', workerCount: 0 };
+  const binding = { groupId: 'group-a', workerId: 'worker-a', need: rawNeed, context };
+  const proofDigest = resourceNeedReceipt.digestFor(binding);
   const proof = sign('resource-need-proof', proofDigest, { workspaceId: 'resource-proof' });
+  const need = resourceNeedReceipt.bindNeed({ ...binding, need: { ...rawNeed, proofReceipts: [proof] } });
   const plan = arbitrateGroupNeeds({ budget: 80, groups: [{ id: 'group-a', state: 'active', needs: [{
-    id: 'need-a', requestedTokens: 40, minimumTokens: 20, marginalValue: 0.9, confidence: 0.9,
-    evidenceRefs: ['resource-need-proof'], proofDigest, proofReceipts: [proof],
-    workerKind: 'scout_cell', workerCount: 0 }] }] });
+    ...need }] }] });
   plan.candidate = describe(plan);
   return plan;
 }
@@ -175,7 +180,8 @@ function resourceTransition() {
   const adaptation = { adapted: true, decision, receipt,
     admission: { status: 'admitted', executionAuthorized: true,
       selectionBasis: 'calibrated_policy_proposal', comparativeQuality: 'measured',
-      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' } },
+      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' },
+      actualPlan: { workerAssignments: [{ workerId: 'w1' }, { workerId: 'w2' }] } },
     plan: { morphologyPatch: { graph: { graphId: 'graph-corpus', version: 2, nodes: [{ nodeId: 'n1' }] } } } };
   const state = { epochBudget: { minimum: 1 }, workers: new Map([
     ['w1', { groupId: 'group-a', workerKind: 'scout_cell', morphologyTopology: 'biocenose', morphologyVariant: 'default' }],

@@ -17,16 +17,29 @@ function normalizeBid(group, bid) {
   const minimum = Math.max(0, Math.min(requested, Math.floor(finite(bid.minimumTokens, requested))));
   const value = bounded(bid.marginalValue, 0, 1) * bounded(bid.confidence, 0, 1);
   return {
-    groupId: String(group.id), bidId: String(bid.id), requestedTokens: requested,
+    groupId: String(group.id), bidId: String(bid.id), needId: String(bid.id), requestedTokens: requested,
     minimumTokens: minimum, marginalValue: value, density: requested ? value / requested : 0,
-    evidenceRefs: Array.isArray(bid.evidenceRefs) ? bid.evidenceRefs.filter(Boolean).map(String) : [],
-    proofDigest: bid.proofDigest || null,
-    proofReceipts: Array.isArray(bid.proofReceipts) ? bid.proofReceipts : [],
-    workerKind: bid.workerKind ? String(bid.workerKind) : null,
+    rawMarginalValue: bid.rawMarginalValue ?? bid.marginalValue,
+    confidence: bounded(bid.confidence, 0, 1), workerId: nullable(bid.workerId),
+    missionId: nullable(bid.missionId), promptDigest: nullable(bid.promptDigest),
+    resourceNeedDigest: nullable(bid.resourceNeedDigest),
+    evidenceRefs: normalizeEvidenceRefs(bid.evidenceRefs),
+    proofDigest: nullable(bid.proofDigest), proofReceipts: normalizeReceipts(bid.proofReceipts),
+    workerKind: optionalString(bid.workerKind),
     workerCount: Math.max(0, Math.floor(finite(bid.workerCount, 1))),
-    governance: bid.governance ? String(bid.governance) : null
+    governance: optionalString(bid.governance)
   };
 }
+
+function nullable(value) { return value || null; }
+
+function optionalString(value) { return value ? String(value) : null; }
+
+function normalizeEvidenceRefs(refs) {
+  return Array.isArray(refs) ? refs.filter(Boolean).map(String) : [];
+}
+
+function normalizeReceipts(receipts) { return Array.isArray(receipts) ? receipts : []; }
 
 function compareBids(left, right) {
   return right.density - left.density

@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const evidenceAudit = require('../trinityEvidenceAudit');
+const resourceNeedReceipt = require('./resourceNeedReceipt');
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -49,8 +49,7 @@ function proofsAdmissible(allocation) {
   return typeof allocation.proofDigest === 'string'
     && /^sha256:[a-f0-9]{64}$/i.test(allocation.proofDigest)
     && Array.isArray(allocation.proofReceipts) && allocation.proofReceipts.length > 0
-    && allocation.proofReceipts.every((receipt) => evidenceAudit.isVerifiedReceipt(receipt)
-      && receipt.evidenceDigest === allocation.proofDigest
+    && allocation.proofReceipts.every((receipt) => resourceNeedReceipt.receiptMatchesNeed(allocation, receipt)
       && allocation.evidenceRefs.includes(receipt.resultId));
 }
 
@@ -58,6 +57,9 @@ function allocationPayload(item) {
   return { groupId: item.groupId, bidId: item.bidId, requestedTokens: item.requestedTokens,
     minimumTokens: item.minimumTokens, allocatedTokens: item.allocatedTokens,
     marginalValue: item.marginalValue, evidenceRefs: [...item.evidenceRefs].map(String).sort(),
+    workerId: item.workerId, resourceNeedDigest: item.resourceNeedDigest,
+    missionId: item.missionId, promptDigest: item.promptDigest,
+    rawMarginalValue: item.rawMarginalValue, confidence: item.confidence,
     workerKind: item.workerKind, workerCount: item.workerCount, governance: item.governance,
     status: item.status, proofDigest: item.proofDigest,
     proofReceiptIds: item.proofReceipts.map((receipt) => receipt.resultId).sort() };

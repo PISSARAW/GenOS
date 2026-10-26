@@ -8,6 +8,7 @@ const RUNNING_STATUSES = new Set(['running', 'queued', 'claimed', 'freezing', 't
 const QUIESCENT_STATUSES = new Set(['idle', 'blocked', 'completed', 'failed', 'unverified', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const { activeProcesses, missionStarts, pendingContinuations } = require('../agentOrchestrationState');
 const { allocateNegotiatedWorkers } = require('./morphogenesisEpochFunding');
+const { terminalResolutionProof } = require('./morphogenesisEpochResolutionProof');
 
 function createMorphogenesisEpochCoordinator(dependencies) {
   return async function adaptNextEpoch(state, orchestratorId) {
@@ -338,15 +339,21 @@ function refundUnspentEpochBudget(budget, reservation, workerTokens) {
 
 function stopMorphogenesisEpochs(input) {
   const { state, orchestratorId, reason, payload = {}, emit, autonomousRounds } = input;
+  const resolutionProof = terminalResolutionProof(state, reason, payload);
+  const finalReason = reason === 'verified_resolution' && !resolutionProof
+    ? 'resolution_proof_invalid' : reason;
+  const eventPayload = { ...payload };
+  if (!resolutionProof) delete eventPayload.verifiedResolutionProof;
   emit(orchestratorId, 'MORPHOGENESIS_EPOCHS_STOPPED', 'MORPHOGENESIS_EPOCH',
-    `Morphogenetic epochs stopped: ${reason}.`, { reason, epoch: state.epoch,
+    `Morphogenetic epochs stopped: ${finalReason}.`, { reason: finalReason, epoch: state.epoch,
       remainingTokens: state.epochBudget?.remaining ?? null,
       reservedEpochs: state.epochBudget?.reservedEpochs ?? 0,
-      maxEpochs: state.epochBudget?.maxEpochs ?? null, ...payload },
-    reason === 'verified_resolution' ? 'info' : 'warning');
-  state.plan.morphogenesisEpochStatus = { status: reason === 'verified_resolution' ? 'resolved' : 'stopped', reason,
-    completedEpochs: state.epoch, budget: state.epochBudget };
+      maxEpochs: state.epochBudget?.maxEpochs ?? null, ...eventPayload },
+    resolutionProof ? 'info' : 'warning');
+  state.plan.morphogenesisEpochStatus = { status: resolutionProof ? 'resolved' : 'stopped',
+    reason: finalReason, completedEpochs: state.epoch, budget: state.epochBudget,
+    ...(resolutionProof ? { verifiedResolutionProof: resolutionProof } : {}) };
   autonomousRounds.delete(orchestratorId);
 }
 
-module.exports = { createMorphogenesisEpochCoordinator };
+module.exports = { createMorphogenesisEpochCoordinator, stopMorphogenesisEpochs };

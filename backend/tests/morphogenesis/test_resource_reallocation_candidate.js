@@ -11,6 +11,7 @@ const transitions = require('../../src/services/morphogenesis/morphogenesisTrans
 const { allocateNegotiatedWorkers } = require('../../src/services/morphogenesis/morphogenesisEpochFunding');
 const receiptService = require('../../src/services/epistemicVerifierReceiptService');
 const verifierTrust = require('../../src/services/verifierTrustRegistry');
+const resourceNeedReceipt = require('../../src/services/morphogenesis/resourceNeedReceipt');
 const { compileConditionalMorphogenesisPolicy } = require('../../src/services/morphogenesis/conditionalMorphogenesisPolicy');
 
 function sign(resultId, evidenceDigest, options = {}) {
@@ -21,15 +22,17 @@ function sign(resultId, evidenceDigest, options = {}) {
       workspaceId: options.workspaceId || 'resource-oracle' } });
 }
 
-function proofReceipt() {
-  return sign('resource-need-proof', `sha256:${'a'.repeat(64)}`, { workspaceId: 'resource-proof' });
-}
-
 function fundedPlan() {
+  const context = { missionId: 'resource-mission', promptDigest: `sha256:${'c'.repeat(64)}` };
+  const rawNeed = { id: 'need-a', requestedTokens: 40, minimumTokens: 20,
+    marginalValue: 0.9, confidence: 0.9, evidenceRefs: ['resource-need-proof'],
+    workerKind: 'scout_cell', workerCount: 0 };
+  const binding = { groupId: 'group-a', workerId: 'worker-a', need: rawNeed, context };
+  const digest = resourceNeedReceipt.digestFor(binding);
+  const need = resourceNeedReceipt.bindNeed({ ...binding, need: { ...rawNeed,
+    proofReceipts: [sign('resource-need-proof', digest, { workspaceId: 'resource-proof' })] } });
   return arbitrateGroupNeeds({ budget: 80, groups: [{ id: 'group-a', state: 'active', needs: [{
-    id: 'need-a', requestedTokens: 40, minimumTokens: 20, marginalValue: 0.9, confidence: 0.9,
-    evidenceRefs: ['resource-need-proof'], proofDigest: `sha256:${'a'.repeat(64)}`,
-    proofReceipts: [proofReceipt()], workerKind: 'scout_cell', workerCount: 0
+    ...need
   }] }] });
 }
 
@@ -49,7 +52,10 @@ function resourceTransition(plan) {
       candidateId: plan.candidate.candidateId, planDigest: plan.candidate.planDigest, transitionId } },
     admission: { status: 'admitted', executionAuthorized: true,
       selectionBasis: 'calibrated_policy_proposal', comparativeQuality: 'measured',
-      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' } },
+      recipe: { id: 'topology-candidate', topology: 'biocenose', variant: 'default' },
+      actualPlan: { workerAssignments: [{ workerId: 'w1', workerKind: 'scout_cell',
+        topology: 'biocenose', variant: 'default' }, { workerId: 'w2', workerKind: 'scout_cell',
+        topology: 'biocenose', variant: 'default' }] } },
     plan: { morphologyPatch: { graph: { graphId: 'graph-corpus', version: 2, nodes: [{ nodeId: 'n1' }] } } } };
   const state = { epochBudget: { minimum: 1 }, workers: new Map([
     ['w1', { agentId: 'w1', groupId: 'group-a', workerKind: 'scout_cell', morphologyTopology: 'biocenose', morphologyVariant: 'default' }],
@@ -59,6 +65,11 @@ function resourceTransition(plan) {
     survivors: state.survivors });
   const sealed = transitions.sealTransitionReceipt({ adaptation, state,
     survivors: funded.survivors, continuation: { workerTokens: funded.workerTokens } });
+  assert.deepEqual(sealed.identity.resourceAllocation.verifiedNeedReceipts, [{
+    groupId: 'group-a', workerId: 'worker-a', needId: 'need-a',
+    resourceNeedDigest: plan.allocations[0].resourceNeedDigest,
+    resultId: 'resource-need-proof', evidenceDigest: plan.allocations[0].resourceNeedDigest
+  }]);
   transitions.finalizeTransitionQueue(sealed, ['w1', 'w2']);
   return sealed;
 }
