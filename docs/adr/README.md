@@ -861,6 +861,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0743](0743-export-gci-approbation-strategie.md) | Export GCI de l'approbation de stratégie | Voir le fichier | -- | -- |
 | [0744](0744-invocation-liee-et-autorite-par-capacite.md) | Invocation GCI liée et autorité par capacité | Accepté | 2026-10-24 | GCI, adaptateurs liés, IAM |
 | [0745](0745-emission-de-recu-humain-gci.md) | Émission serveur d'un reçu humain GCI | Accepté | 2026-10-24 | GCI, approbation humaine, signatures |
+| [0746](0746-rappel-borne-pour-fp-amb.md) | Rappel mémoire borné pour le raccord FP-AMB | Accepté — campagne exécutée, amélioration à confirmer | 2026-10-26 | Mémoire vectorielle, GraphRAG, intégration de benchmark |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

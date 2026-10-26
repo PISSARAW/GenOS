@@ -2,6 +2,8 @@
 
 Protocoles et résultats de comparaison des topologies GenOS.
 
+- [FP-AMB sur les services mémoire GenOS — campagne du 26 octobre 2026](fp-amb-genos-2026-10-26.md) — exécution complète du benchmark officiel, configuration, scores, catégories, preuves, limites et reproduction.
+
 - [Comparaison locale entre un agent Codex et un worker GenOS](comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, preuves, coûts observés, verdict `unresolved` et gate de promotion.
 - [Campagnes empiriques AGOW, MBH-RNN et Lipson-like](campagnes-agow-mbh-lipson.md) — campagnes locales exécutées et limites des résultats.
 - [Benchmark longitudinal Holobionte](benchmark-longitudinal-holobionte.md) — protocole apparié à douze bras ; campagne longitudinale non exécutée.

@@ -54,6 +54,20 @@ function inhibitionScope(options) {
   };
 }
 
+function selectContextMemories(topItems, connectedItems) {
+  const selected = new Map(topItems.filter(item => item.id).map(item => [item.id, item]));
+  const graph = connectedItems.filter(item => item.tags?.includes('graph_association'))
+    .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0)).slice(0, 2);
+  const temporal = connectedItems.filter(item => item.tags?.some(tag => tag.startsWith('temporal_context_')))
+    .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0)).slice(0, 2);
+  const vector = connectedItems.filter(item => item.tags?.includes('vector_hop'))
+    .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0)).slice(0, 1);
+  for (const item of [...graph, ...temporal, ...vector]) {
+    if (item.id && !selected.has(item.id)) selected.set(item.id, item);
+  }
+  return [...selected.values()];
+}
+
 class VectorMemoryService {
   async initDb() {
     return getDatabase();
@@ -152,7 +166,9 @@ class VectorMemoryService {
     const fetched = await this.fetchCorpus(db, query, queryVec, options);
     const fetchedCorpus = await require('./promotionMemoryReadGate').filter(db, fetched);
     const existingIds = new Set(fetchedCorpus.map(i => i.id));
-    const mergedSeed = SEED_EXPERIENCES.filter(s => !existingIds.has(s.id));
+    const mergedSeed = options.includeSeedExperiences === false
+      ? []
+      : SEED_EXPERIENCES.filter(s => !existingIds.has(s.id));
     const corpus = [...mergedSeed, ...fetchedCorpus];
 
     const scoredItems = corpus.map(item =>
@@ -229,6 +245,7 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
+    const retrievedMemories = selectContextMemories(topItems, connectedItems);
     // Keep GraphRAG annotations while letting the hydrated, gated corpus row
     // override it (including inhibition and provenance metadata).
     const mergedById = new Map(connectedItems.map(item => [item.id, item]));
@@ -290,6 +307,7 @@ class VectorMemoryService {
       metacognition: evaluateMetacognition(scoredItems),
       topSuccessfulGoldenPaths: topSuccessful,
       pitfallsToAvoid: topPitfalls,
+      retrievedMemories,
       allScoredExperiences: allScored
     };
   }

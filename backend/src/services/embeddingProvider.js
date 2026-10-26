@@ -78,7 +78,7 @@ async function tryOllamaModernEndpoint(params) {
   const response = await fetch(embedUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, input: text }),
+    body: JSON.stringify({ model, input: text, dimensions: targetDim }),
     signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
   });
   if (!response.ok) return null;

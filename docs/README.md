@@ -422,6 +422,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
 - [comparaison-agent-codex-worker-genos-2026-10-15.md](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — expérience locale sur la deny-list MCP, métriques asymétriques et gate de promotion GenOS.
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
+- [FP-AMB sur les services mémoire GenOS](06-benchmarks/fp-amb-genos-2026-10-26.md) — exécutions officielles du 26 octobre 2026, scores comparés, protocole réel, catégories faibles et limites de portée.
 - [missions-reflexion-comparatives.md](06-benchmarks/missions-reflexion-comparatives.md) — pilote crossover exécutable avec/sans GenOS sur branches, budget et porte de preuve.
 - [qualite-diversite-organisations.md](06-benchmarks/qualite-diversite-organisations.md) — archive Pyribs et tâche Shinka bornée.
 - [Bancs AgentDojo et BrowserGym](../integrations/agent_benchmarks/README.md) — évaluation indépendante des attaques et de la navigation.
@@ -449,6 +450,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 ### 9. Décisions d'architecture (ADR)
 
 - [ADR 0733 — Rappel mémoire situationnel inspiré des recherches de Tsao](adr/0733-rappel-memoire-situationnel-inspire-tsao.md) — classement local en deux étapes, phases explicites, traçabilité et limites de la transposition neuroscientifique.
+- [ADR 0746 — Rappel mémoire borné pour le raccord FP-AMB](adr/0746-rappel-borne-pour-fp-amb.md) — contexte borné et dédupliqué, exclusion des exemples mémoire et critères de validité de campagne.
 
 - [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
 - [ADR 0517 — Lier les reçus métaboliques aux identités de commande](adr/0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) — aligne les opérations backend/Rust sur la même mission, cellule, commande et clé de rejeu.
