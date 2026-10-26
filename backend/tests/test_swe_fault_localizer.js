@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { locateCandidateFiles, extractRelevantExcerpt } = require('../src/evaluation/swe_fault_localizer');
+const { locateCandidateFiles, extractRelevantExcerpt, extractRelatedTestContext } = require('../src/evaluation/swe_fault_localizer');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-swe-localizer-'));
 try {
@@ -31,6 +31,15 @@ try {
   const excerpt = extractRelevantExcerpt(source, 'Reject a blueprint name containing a dot.', 'src/blueprints.py');
   assert(excerpt.startLine > 1 && excerpt.endLine < 320);
   assert(excerpt.excerpt.includes(assignment));
+
+  const implementation = 'class Blueprint:\n    def __init__(self, name):\n        self.name = name\n\n'
+    + '    def add_url_rule(self, endpoint):\n        if endpoint:\n'
+    + '            assert "." not in endpoint\n';
+  const related = extractRelatedTestContext({ source: implementation,
+    testTargets: ['tests/test_route_decorator_custom_endpoint_with_dots'],
+    excludeRange: { startLine: 1, endLine: 4 } });
+  assert.match(related, /def add_url_rule/);
+  assert.match(related, /assert "\." not in endpoint/);
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

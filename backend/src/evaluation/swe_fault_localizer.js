@@ -271,8 +271,41 @@ function extractRelevantExcerpt(fileContent, problemStatement, location = '') {
   };
 }
 
+function extractRelatedTestContext(params) {
+  const { source, testTargets, excludeRange } = params;
+  const terms = [...new Set((testTargets || []).join('_').toLowerCase()
+    .split(/[^a-z0-9]+/).filter(term => term.length > 4 && term !== 'tests'))];
+  if (!terms.length) return '';
+
+  const lines = source.split('\n');
+  const functions = [];
+  let current = null;
+  for (let index = 0; index < lines.length; index++) {
+    if (/^\s{4}def\s+/.test(lines[index]) || /^\s{4}async\s+def\s+/.test(lines[index])) {
+      if (current) current.end = index - 1;
+      current = { start: index, end: lines.length - 1 };
+      functions.push(current);
+    }
+  }
+
+  const ranked = functions.map(block => {
+    const text = lines.slice(block.start, block.end + 1).join('\n').toLowerCase();
+    const score = terms.reduce((total, term) => total
+      + Math.min(3, text.split(term).length - 1), 0);
+    return { ...block, score };
+  }).filter(block => block.score > 0
+    && (block.end + 1 < excludeRange.startLine || block.start + 1 > excludeRange.endLine))
+    .sort((left, right) => right.score - left.score);
+
+  return ranked.slice(0, 5).map(block => lines
+    .slice(block.start, Math.min(block.end + 1, block.start + 30))
+    .map((line, offset) => `${String(block.start + offset + 1).padStart(4)} | ${line}`)
+    .join('\n')).join('\n\n');
+}
+
 module.exports = {
   getAllPyFiles,
   locateCandidateFiles,
-  extractRelevantExcerpt
+  extractRelevantExcerpt,
+  extractRelatedTestContext
 };

@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { getDatabase } = require('../db');
-const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
+const { locateCandidateFiles, extractRelevantExcerpt, extractRelatedTestContext } = require('./swe_fault_localizer');
 const { verifyTaskDynamically, probeBugReproduction } = require('./swe_native_verifier');
 const { synthesizePatch, checkSyntax } = require('./swe_patch_synthesis');
 const { appendAttemptArtifact, sha256 } = require('./swe_attempt_artifacts');
@@ -108,7 +108,7 @@ function ensureRepoReady(task) {
 }
 
 function buildSurgicalPrompt(params) {
-  const { task, targetRelFile, excerpt, headerLines, feedback, synapticMemory, probeTraceback, deadEndLedger, attempt } = params;
+  const { task, targetRelFile, excerpt, relatedTestContext, headerLines, feedback, synapticMemory, probeTraceback, deadEndLedger, attempt } = params;
   let empiricalSection = '';
   if (probeTraceback && !feedback) {
     empiricalSection = `\nEmpirical Pytest Traceback (captured live on host):\n${probeTraceback.slice(0, 1200)}\n`;
@@ -126,6 +126,8 @@ BUG REPORT:
 ${task.problem_statement}
 ${empiricalSection}${critique}
 FILE TO PATCH: ${targetRelFile}
+REQUIRED FAIL_TO_PASS TESTS:
+${(task.FAIL_TO_PASS || []).join('\n') || '(not provided)'}
 
 --- File imports (context only) ---
 \`\`\`python
@@ -137,17 +139,19 @@ ${headerLines}
 ${numberedExcerpt}
 \`\`\`
 
+${relatedTestContext ? `\n--- RELATED IMPLEMENTATION CONTEXT ---\n\`\`\`python\n${relatedTestContext}\n\`\`\`\n` : ''}
+
 OUTPUT FORMAT — return exactly one valid JSON object with these three string fields:
 {"diagnosis":"One paragraph explaining the root cause.","SEARCH":"Verbatim lines from the excerpt to replace, with identical whitespace.","REPLACE":"Replacement lines with the required indentation."}
 
 RULES (violation = your patch is discarded):
-1. SEARCH must be copied character-for-character from the excerpt, including whitespace and indentation.
+1. SEARCH must be copied character-for-character from either implementation excerpt, including whitespace and indentation.
 2. SEARCH and REPLACE must each be JSON strings. Encode line breaks as JSON escapes; preserve their meaning when decoded.
 3. Do not add Markdown fences, extra fields, or prose outside the JSON object.
 4. SEARCH must contain 1 to 25 lines and focus on the smallest necessary edit.
 5. If replacing an assert with an exception, replace the complete assert line with an appropriate ValueError check.
 6. Edit implementation code only. Never change tests, assertions in tests, or expected values.
-7. Never invent source code that is not visible in the excerpt above.
+7. Never invent source code that is not visible in either implementation excerpt.
 `;
 }
 
@@ -293,10 +297,13 @@ async function executeAttempt({ context, targetRelFile, attempt, feedback }) {
   const originalSource = fs.readFileSync(targetAbsFile, 'utf8');
   const { excerpt, startLine, endLine } = extractRelevantExcerpt(originalSource, task.problem_statement,
     { targetRelFile, traceback: probe.traceback });
+  const relatedTestContext = extractRelatedTestContext({ source: originalSource,
+    testTargets: task.FAIL_TO_PASS, excludeRange: { startLine, endLine } });
   const headerLines = originalSource.split('\n').slice(0, 35).join('\n');
   const synapticMemory = attempt > 1 ? await harvestSynapticEngrams({ agentId: fleet.coder.id }) : '';
   const prompt = buildSurgicalPrompt({
-    task, targetRelFile, excerpt, headerLines, feedback, synapticMemory, probeTraceback: probe.traceback, deadEndLedger, attempt
+    task, targetRelFile, excerpt, relatedTestContext, headerLines, feedback, synapticMemory,
+    probeTraceback: probe.traceback, deadEndLedger, attempt
   });
   const evidence = {
     runId: process.env.GENOS_SWE_RUN_ID || null,
