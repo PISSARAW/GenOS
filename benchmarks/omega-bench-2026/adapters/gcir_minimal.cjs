@@ -63,10 +63,12 @@ async function timedRow(row, repetition) {
 
 function manifestFor(rows, outputPath) {
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+  const datasetManifest = path.join(ROOT, 'dataset', 'manifest.json');
   return {
     protocol: 'OMEGA-BENCH-2026', condition_id: 'B', status: 'minimal_gcir_runtime_with_reference_workload_handlers',
     scenarios: rows.length, repetitions: 3, runs: rows.length * 3, repository_revision: revision,
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
+    dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
     result_file: path.basename(outputPath), external_model_calls: 0
   };
