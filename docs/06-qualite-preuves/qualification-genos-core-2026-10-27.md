@@ -53,22 +53,33 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 - Sur Windows, `cargo test --workspace` échoue (dépendance `aws-lc-sys v0.45.0`, NASM manquant, échec vérification C sous MSVC). Le plan d'incrémentation en acte : `cargo build --workspace` et les suites Node sont les cibles réalistes ; `cargo test --workspace` n'est pas un gate obligatoire sur cet environnement.
 - Le Dockerfile/image `node:22-bookworm-slim` est documenté comme cible (`contrat-produit-et-completude.md`, section 5), mais aucune preuve de build propre, migration, health/readiness, scénario API+gRPC et redémarrage avec persistance sur Linux n'est citée dans les documents examinés.
 
-**Verdict C1 :** Windows partiellement démontré (hors `cargo test --workspace`) ; Linux non démontré.
+**Résultat d'exécution réel — 2026-10-27 :** `cargo build --workspace` ✅ PASS sur Windows ; `npm ci` et `npm ci --prefix backend` ✅ PASS ; `cargo test --workspace` ⚪ non exécuté (bloqué Windows, voir C2). Le backend ne démarre pas sur le HEAD actuel (erreur `GVX_LEDGER_CHAIN_INVALID`, voir C2), donc le health probe Windows n'est pas obtenable par ce chemin.
+
+**Verdict C1 :** Windows partiellement démontré (build et dépendances OK, mais backend non démarrable sur HEAD actuel) ; Linux non démontré.
 
 ### C2 — Tous les tests obligatoires verts sur une révision figée
 
 **Statut : rouge (porte globale en échec).**
 
-**Preuves disponibles :**
-- `docs/06-qualite-preuves/validation-produit-complet-2026-10-01.md` (révision `f17000e8`) : `npm test` 55 assertions passées, 0 échec ; `npm --prefix backend run test:validation` profil `all`, 106 suites passées ; `test:procedural` toutes passées ; `cargo test --workspace` tous les tests et tests de documentation passent ; `check:wiring` valide ; `check_adr_index.py` 228 ADR, 0 problème ; `docs:inventory:check` à jour.
-- `docs/06-qualite-preuves/studio-qualification.md` (2026-10-07) : `npm test` gate obligatoire réussi ; `cargo test --workspace` réussi en mode offline, target isolé ; `test:studio` huit suites réussies ; `test:studio:browser` parcours réels sans erreur de page ; `test:mcp` six suites réussies ; `test:grpc` suite des 41 services réussie ; `test:quality` onze suites réussies.
+**Résultats d'exécution réels — 2026-10-27, HEAD `d55429282` (branche `v3`, Windows x86_64, Node 24.18.0, Rust 1.97.1) :**
 
-**Écarts bloquants documentés :**
-- `validation-produit-complet-2026-10-01.md` : `python scripts/ci/check_code_quality.py` échoue sur 359 violations dans le dépôt, dont 143 dépassent le baseline courant. La porte qualité globale reste en échec.
-- `studio-qualification.md` : `npm --prefix backend run test:validation` échoue actuellement dans `test_biological_benchmark_runner.js:31` (attend `stateValidation.status = verified`) et, après la tranche de parité du 7 octobre, dans `test_dynamic_organization.js:109` (bridge d'organisation renvoie une sortie vide). Le gate global étendu ne peut pas être déclaré réussi.
-- Ces deux documents datent de révisions antérieures (`f17000e8` du 1er octobre et checkout du 7 octobre). Le HEAD actuel est `ccf2c8a6c` ; aucun résultat complet attestant que toutes les vérifications passent sur le dernier commit n'a été obtenu.
+| Commande | Résultat | Détail |
+|---|---|---|
+| `python scripts/ci/check_code_quality.py` | ❌ ÉCHEC | 7 688 fichiers vérifiés, 176 violations (173 nouvelles), code de sortie 1. COMPLEXITY > 10 et PARAMETERS > 3 sur de nombreux fichiers backend. |
+| `npm test` (racine) | ⚠️ PARTIEL | Timeout à 5 min sur la suite `test:workers`. Suites déjà vertes avant l'arrêt : biology (8/8), worker-workspaces, identity (dossier + runtime + v2), backend (57/57), snapshots (GQWF + topologies), authority, aeis (42 suites), syncytium (51 suites), axolotl (8/8), biome (27 programmes), daemon (43/43), capsules, otel. |
+| `npm --prefix backend run test:validation` | ❌ ÉCHEC | Profil `all` échoue sur `test_cryptophasia.js` : `GVX_LEDGER_CHAIN_INVALID` (`control-plane-mac-mismatch`) dans `backend/src/db/migrations/migrateGvxLedger.js:82`. Code de sortie 1. |
+| `npm --prefix backend run test:mcp` | ✅ PASS | 9 suites en ~20 s. |
+| `npm --prefix backend run test:grpc` | ✅ PASS | 41/41 microservices gRPC vérifiés (Ping + métiers). |
+| `npm --prefix backend run test:quality` | ✅ PASS | 12 tests qualité (graders, checkpoints, provenance, normalisation, No-Answer). |
+| `cargo build --workspace` | ✅ PASS | Terminé en 2m 19s (warnings uniquement, aucune erreur). |
+| `cargo test --workspace` | ⚪ NON TESTÉ | Non exécuté sur cet environnement Windows : dépendance `aws-lc-sys v0.45.0` (NASM mannant + échec vérification C sous MSVC), identifié comme bloquant dans `plans/plan-demonstration-incrementale.md`. |
+| `curl http://localhost:4000/healthz` | ❌ IMPOSSIBLE | Le backend ne démarre pas : boucle fatale `GVX_LEDGER_CHAIN_INVALID` au boot (même erreur que `test_cryptophasia.js`). Aucun processus n'écoute sur le port 4000. |
 
-**Verdict C2 :** non rempli à ce jour. Porte qualité et suite de validation en échec sur les révisions documentées ; HEAD actuel non vérifié.
+**Preuves documentées antérieures :**
+- `docs/06-qualite-preuves/validation-produit-complet-2026-10-01.md` (révision `f17000e8`) : `npm test` 55 assertions passées ; `test:validation` 106 suites passées ; `cargo test --workspace` tous verts ; MAIS `check_code_quality.py` échoue sur 359 violations (143 au-delà du baseline).
+- `docs/06-qualite-preuves/studio-qualification.md` (2026-10-07) : `npm test`, `cargo test --workspace`, `test:studio`, `test:mcp`, `test:grpc`, `test:quality` verts sur Windows ; MAIS `test:validation` étendu échoue (`test_biological_benchmark_runner.js:31`, `test_dynamic_organization.js:109`).
+
+**Verdict C2 :** non rempli. Porte qualité en échec (176 violations), suite de validation en échec sur le HEAD actuel (`GVX_LEDGER_CHAIN_INVALID`), et le backend ne peut pas démarrer (pas de health probe). Le HEAD actuel (`d55429282`, mon propre commit de documentation) ne résout pas ces blocages.
 
 ### C3 — Aucune vulnérabilité critique connue non maîtrisée
 
@@ -83,7 +94,9 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 - `verification-correctifs-codeql-2026-10-15.md` : « Cette note consigne les preuves disponibles pour les alertes listées dans l’objectif CodeQL. Elle ne vaut pas fermeture des alertes dans GitHub. » Aucun accès à l'API des alertes CodeQL ; le dernier scan ne peut pas confirmer leur fermeture.
 - `remediation-securite-immunitaire.md` : des alertes restent présentes ; la validation de sécurité globale n'est pas confirmée après corrections.
 
-**Verdict C3 :** correctifs documentés, mais fermeture des alertes GitHub et validation de sécurité complète non confirmées.
+**Résultat d'exécution réel — 2026-10-27 :** aucun scan de sécurité n'a été réexécuté lors de cette qualification. Le backend ne peut pas démarrer sur le HEAD actuel, donc aucun test de sécurité runtime n'a pu être mené.
+
+**Verdict C3 :** correctifs documentés (CodeQL 15 octobre, SSRF/injection/permissions), mais fermeture des alertes GitHub et validation de sécurité complète non confirmées.
 
 ### C4 — Reprise après panne réelle démontrée
 
@@ -98,7 +111,9 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 - Pas de suite de chaos engineering dédiée (`tests-et-validation.md`, section 10.2) : aucune injection systématique de pannes de réseau, disque, processus, DNS, clock skew ou partition inter-services.
 - Pas de preuve de reprise après panne OS réelle avec processus workers réels.
 
-**Verdict C4 :** reprise simulée et idempotence testées ; panne réelle non démontrée.
+**Résultat d'exécution réel — 2026-10-27 :** aucun test de reprise après panne réelle n'a été exécuté. Les tests de recovery existent dans le dépôt (`test:recovery` : worker failure recovery, bisection causale, reconnexions de boucle d'exécution) mais n'ont pas été lancés dans le cadre de cette qualification. Le backend ne démarrant pas, aucun test de reprise runtime n'est obtenable.
+
+**Verdict C4 :** reprise simulée et idempotence testées (dans le code, non exécutées ici) ; panne réelle non démontrée.
 
 ### C5 — Campagnes E2E réalisées par des utilisateurs extérieurs
 
@@ -109,27 +124,51 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 - `docs/06-qualite-preuves/matrice-qualification-stewardship-v3-2026-10-20.md`, synthèse : « effet longitudinal public : absent — aucune campagne réelle publiée dans le dépôt ».
 - `contrat-produit-et-completude.md` : qualification globale toujours ouverte pour plusieurs capacités ; références « à publier / à référencer » sont des écarts de preuve ouverts, pas des réussites présumées.
 
-**Verdict C5 :** non rempli.
+**Verdict C5 :** non rempli — aucune campagne E2E utilisateurs extérieurs dans le dépôt, aucune exécutée dans le cadre de cette qualification.
 
-## 4. Écart bloquants pour la bêta Core
+## 4. Écarts bloquants pour la bêta Core (constatés par exécution)
 
-1. **CI complète non verte sur le HEAD actuel** : `test:validation` échoue (`test_biological_benchmark_runner.js`, `test_dynamic_organization.js`) ; porte qualité globale (`check_code_quality.py`) en échec (359 violations, 143 au-delà du baseline).
+1. **CI complète non verte sur le HEAD actuel `d55429282`** :
+   - `check_code_quality.py` : ❌ 176 violations (173 nouvelles), code de sortie 1.
+   - `test:validation` (profil `all`) : ❌ échoue sur `test_cryptophasia.js` (`GVX_LEDGER_CHAIN_INVALID`, migration ledger GVX), code de sortie 1.
+   - Le backend ne démarre pas : boucle fatale `GVX_LEDGER_CHAIN_INVALID` au boot, aucun processus n'écoute sur le port 4000, health check `/healthz` impossible.
 2. **Linux/Docker non qualifié** : aucune preuve d'installation propre, build, migration, health/readiness et reprise sur l'image `node:22-bookworm-slim`.
 3. **Sécurité non certifiée** : alertes CodeQL non confirmées fermées sur GitHub ; aucune validation de sécurité complète post-corrections.
 4. **Aucune campagne E2E extérieure** : C5 totalement absent.
-5. **Panne réelle non démontrée** : C4 limité à des simulations et des tests d'idempotence.
+5. **Panne réelle non démontrée** : C4 limité à des simulations et des tests d'idempotence présents dans le code (non exécutés).
 
 ## 5. Verdict de qualification
 
-**Le GenOS Core n'est pas encore qualifié pour une bêta publique.**
+**Le GenOS Core n'est pas qualifié pour une bêta publique à ce jour (2026-10-27).**
 
-Le noyau dispose de briques substantielles et testées (orchestration, isolation tenant, snapshots/replay, reçus, MCP fail-closed, santé du backend), mais aucun des cinq critères d'acceptation n'est pleinement rempli à ce jour, et plusieurs sont documentés en échec ou en écart ouvert.
+Deux des cinq critères d'acceptation sont en échec avéré par exécution (C2), un est impossible à vérifier car le backend ne démarre pas (C1 health probe, C4), un est documenté non confirmé (C3), et un est totalement absent (C5).
+
+Seuls trois critères partiels sont positifs par exécution : `test:mcp` ✅, `test:grpc` ✅, `cargo build --workspace` ✅, `test:quality` ✅.
 
 **Positionnement honnête recommandé :**
 
-> GenOS Core — alpha avancée, non qualifié bêta. Noyau avec composants opérationnels et tests d'intégration sur Windows ; installation Linux, CI verte, sécurité certifiée, reprise après panne réelle et campagnes E2E extérieures à démontrer avant tout passage en bêta.
+> GenOS Core — alpha avancée, non qualifié bêta. Noyau avec composants opérationnels et tests d'intégration sur Windows (MCP, gRPC, build Rust verts) ; mais CI complète en échec (porte qualité + suite de validation), backend non démarrable sur le HEAD actuel (erreur de migration ledger GVX), installation Linux non démontrée, sécurité non certifiée, reprise après panne réelle non démontrée, et aucune campagne E2E externe. Tous ces écarts doivent être comblés avant tout passage en bêta.
 
-## 6. Conditions à remplir avant déclaration Core Beta
+## 6. Synthèse des résultats d'exécution (2026-10-27)
+
+| Commande | Résultat | Code de sortie | Preuve |
+|---|---|---|---|
+| `python scripts/ci/check_code_quality.py` | ❌ ÉCHEC | 1 | 176 violations (173 nouvelles) |
+| `npm test` (racine) | ⚠️ PARTIEL | timeout 5 min | Suites biology, backend (57/57), snapshots, authority, aeis, syncytium, axolotl, biome, daemon (43/43), capsules, otel vertes avant arrêt sur `test:workers` |
+| `npm --prefix backend run test:validation` | ❌ ÉCHEC | 1 | `test_cryptophasia.js` : `GVX_LEDGER_CHAIN_INVALID` (migration ledger GVX) |
+| `npm --prefix backend run test:mcp` | ✅ PASS | 0 | 9 suites, ~20 s |
+| `npm --prefix backend run test:grpc` | ✅ PASS | 0 | 41/41 microservices gRPC |
+| `npm --prefix backend run test:quality` | ✅ PASS | 0 | 12 tests qualité |
+| `cargo build --workspace` | ✅ PASS | 0 | 2m 19s, warnings uniquement |
+| `cargo test --workspace` | ⚪ NON TESTÉ | — | Bloqué Windows (`aws-lc-sys`/NASM/MSVC) |
+| `curl http://localhost:4000/healthz` | ❌ IMPOSSIBLE | — | Backend ne démarre pas (`GVX_LEDGER_CHAIN_INVALID` en boucle) |
+| Installation Linux/Docker | ⚪ NON TESTÉ | — | Aucune preuve dans le dépôt |
+| Campagnes E2E externes | ⚪ ABSENT | — | Aucun rapport dans le dépôt |
+| Reprise après panne réelle | ⚪ NON TESTÉ | — | Tests de recovery présents, non exécutés |
+
+**Total : 4 ✅ / 2 ❌ / 6 ⚪ ou ⚠️**
+
+## 7. Conditions à remplir avant déclaration Core Beta
 
 - [ ] C1 : build propre et tests Node sur Linux/Docker (`node:22-bookworm-slim`), health/readiness, scénario API+gRPC, redémarrage avec persistance ; reproductibilité Windows confirmée incluant `cargo build --workspace`.
 - [ ] C2 : `npm test`, `npm --prefix backend run test:validation` (profil `all`), `python scripts/ci/check_code_quality.py` (pas de nouvelle violation au-delà du baseline), `cargo test --workspace` sur les plateformes cibles, sur une révision figée.
