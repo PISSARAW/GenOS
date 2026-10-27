@@ -1,15 +1,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { SCENARIO_IDS, LEVELS, SPECS, buildCase } = require('../scenarios/runtime');
-const { scenarioModules, parseArguments, buildTasks } = require('../run_runtime_campaign');
+const { SCENARIO_IDS, LEVELS, SPECS, buildCase, referenceScore } = require('../scenarios/runtime');
+const { scenarioModules, parseArguments, buildTasks, casePayload } = require('../run_runtime_campaign');
 const { verifyInChild } = require('../evaluation/verifyInChild');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
 
 function testScenarioRegistry() {
   const modules = scenarioModules('all');
   assert.deepEqual(modules.map((item) => item.id), SCENARIO_IDS);
-  assert.equal(new Set(Object.values(SPECS).map((item) => item.metric)).size, 12);
+  assert.equal(new Set(SCENARIO_IDS.map((id) => buildCase(id, 'simple', 901).observation.domain)).size, 12);
   for (const scenarioId of SCENARIO_IDS) {
     for (const difficulty of LEVELS) {
       const first = buildCase(scenarioId, difficulty, 901);
@@ -20,9 +20,19 @@ function testScenarioRegistry() {
       assert.equal(first.observation.candidates.some((candidate) =>
         candidate.id === first.oracle.answerId), true);
       assert.equal(Object.hasOwn(first.observation, 'oracle'), false);
-      assert.equal(typeof modules.find((module) => module.id === scenarioId).build, 'function');
+      const payload = casePayload(first, 'ollama://test');
+      assert.equal(Object.hasOwn(payload, 'oracle'), false);
+      assert.equal(Object.hasOwn(payload.publicObservation, 'oracle'), false);
+      assert.equal(Object.hasOwn(first.observation.candidates[0], 'metrics'), false);
+      assert.equal(typeof first.observation.domain, 'string');
+      const executableModule = modules.find((module) => module.id === scenarioId);
+      assert.equal(typeof executableModule.build, 'function');
+      assert.equal(executableModule.build(difficulty, 901).observation.domain, first.observation.domain);
+      assert.equal(Number.isFinite(referenceScore(scenarioId, first.observation.candidates[0].evidence)), true);
     }
   }
+  assert.notDeepEqual(buildCase('ETT-01', 'simple', 901).observation.candidates[0].evidence,
+    buildCase('ETT-02', 'simple', 901).observation.candidates[0].evidence);
 }
 
 function testIndependentOracle() {

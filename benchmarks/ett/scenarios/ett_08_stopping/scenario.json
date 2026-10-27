@@ -2,7 +2,7 @@
   "id": "ETT-08",
   "name": "arret-rationnel",
   "priority": false,
-  "status": "executable_reference_world",
+  "status": "executable_domain_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -18,8 +18,8 @@
   ],
   "implementation": {
     "module": "scenario.js",
-    "primaryMetric": "netInformationValue",
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
-  }
+  },
+  "domain": "value-of-information"
 }

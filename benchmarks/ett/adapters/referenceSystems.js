@@ -2,24 +2,33 @@
 
 const { referenceScore } = require('../scenarios/runtime');
 
+function evidenceStrength(value) {
+  if (Array.isArray(value)) return value.reduce((sum, item) => sum + evidenceStrength(item), 0);
+  if (value && typeof value === 'object') return Object.values(value)
+    .reduce((sum, item) => sum + evidenceStrength(item), 0);
+  return typeof value === 'number' ? Math.abs(value) : 0;
+}
+
 function topEvidence(observation) {
-  return [...observation.candidates].sort((left, right) => right.metrics.salience - left.metrics.salience)[0];
+  return [...observation.candidates].sort((left, right) =>
+    evidenceStrength(right.evidence) - evidenceStrength(left.evidence))[0];
 }
 
 function scenarioAwareChoice(request) {
   const { scenarioId, observation } = request;
   return [...observation.candidates].sort((left, right) =>
-    referenceScore(scenarioId, right.metrics) - referenceScore(scenarioId, left.metrics))[0];
+    referenceScore(scenarioId, right.evidence) - referenceScore(scenarioId, left.evidence))[0];
 }
 
-function selectRemembered(observation, memory) {
-  return observation.candidates.find((item) => memory[item.clue] === item.id) || topEvidence(observation);
+function selectRemembered(observation, memory, scenarioId) {
+  return observation.candidates.find((item) =>
+    memory[item.evidence.taskFamily || scenarioId] === item.id)
+    || topEvidence(observation);
 }
 
 function selectHypothesis(observation) {
   return [...observation.candidates].sort((left, right) =>
-    Object.values(right.metrics).reduce((sum, value) => sum + value, 0)
-    - Object.values(left.metrics).reduce((sum, value) => sum + value, 0))[0];
+    evidenceStrength(right.evidence) - evidenceStrength(left.evidence))[0];
 }
 
 function selectMutatedStrategy(observation, memory) {
@@ -35,7 +44,7 @@ function chooseCandidate(systemId, request, memory) {
     react_classic: () => topEvidence(observation),
     scenario_rule_solver: () => scenarioAwareChoice(request),
     oracle_score_upper_bound: () => scenarioAwareChoice(request),
-    voyager_adapted: () => selectRemembered(observation, memory),
+    voyager_adapted: () => selectRemembered(observation, memory, scenarioId),
     ai_scientist_v2_adapted: () => selectHypothesis(observation),
     darwin_godel_machine_adapted: () => selectMutatedStrategy(observation, memory)
   };
@@ -54,12 +63,15 @@ function createAdapter(systemId) {
     async solve(request) {
       const selected = chooseCandidate(systemId, request, memory);
       const evidenceRefs = [`${selected.id}:metric:${request.scenarioId}`];
-      if (systemId === 'voyager_adapted') memory[selected.clue] = selected.id;
+      if (systemId === 'voyager_adapted') {
+        memory[selected.evidence.taskFamily || request.scenarioId] = selected.id;
+      }
       if (systemId === 'darwin_godel_machine_adapted') {
-        memory.preferredIndex = selected.metrics.salience >= 90 ? Number(selected.id.split('-')[1]) : 0;
+        memory.preferredIndex = evidenceStrength(selected.evidence) >= 300
+          ? Number(selected.id.split('-')[1]) : 0;
       }
       return { answerId: selected.id, evidenceRefs,
-        actions: Math.min(request.budget, 1 + Object.keys(selected.metrics).length) };
+        actions: Math.min(request.budget, 1 + Object.keys(selected.evidence).length) };
     }
   });
 }

@@ -2,7 +2,7 @@
   "id": "ETT-01",
   "name": "curiosite-spontanee",
   "priority": true,
-  "status": "executable_reference_world",
+  "status": "executable_domain_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -22,8 +22,8 @@
   ],
   "implementation": {
     "module": "scenario.js",
-    "primaryMetric": "outlierDistance",
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
-  }
+  },
+  "domain": "sensor-anomaly"
 }

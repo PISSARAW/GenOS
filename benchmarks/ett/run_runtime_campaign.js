@@ -90,7 +90,7 @@ function casePayload(testCase, model) {
   return { seed: Number(testCase.caseId.split('-').at(-1)),
     scenarioClass: testCase.scenarioId,
     problem: { problemId: testCase.caseId, statement: testCase.observation.objective },
-    publicObservation: testCase.observation, oracle: testCase.oracle, model };
+    publicObservation: testCase.observation, model };
 }
 
 function redactOutcome(outcome) {
@@ -242,4 +242,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { parseArguments, scenarioModules, buildTasks, main };
+module.exports = { parseArguments, scenarioModules, buildTasks, casePayload, main };
