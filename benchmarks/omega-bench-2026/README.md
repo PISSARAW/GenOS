@@ -29,6 +29,11 @@ python src/evaluate.py --results chemin/vers/resultats.jsonl --condition A
 python src/evaluate.py --results results/E03-pilot.jsonl --condition A --experiment E03
 ```
 
+Avant de présenter ou lancer la campagne confirmatoire complète, exécuter
+`python src/check_readiness.py`. Le contrôle échoue tant que les volumes proposés,
+les conditions A–D, les baselines, les configurations communes, le préenregistrement
+et le jeu caché ne sont pas prêts. Il n'empêche pas les qualifications descriptives A/B.
+
 Le fichier de résultats contient une ligne JSON par cas et répétition. Le format requis est décrit dans `schemas/result.schema.json`. Les clés d'oracle ne doivent jamais être ajoutées au prompt ou à l'entrée de l'adaptateur. L'évaluateur lit uniquement `dataset/oracle/` au moment du score.
 
 ## Interprétation

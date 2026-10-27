@@ -26,3 +26,7 @@ Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables
 5. Préenregistrer les contrastes, les volumes requis par expérience, le jeu caché et le calcul de puissance.
 
 Les conditions A et B ont écrit chacune 1 800 lignes dans `A-reference.jsonl` et `B-gcir-minimal.jsonl`; le pilote E03 a écrit 300 lignes dans `E03-pilot.jsonl`. Leurs manifestes tracent les empreintes et révisions. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment des exécutions. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.
+
+## Contrôle fail-closed de disponibilité
+
+Le contrôle `python src/check_readiness.py`, ajouté après la relance A/B, retourne `blocked` (2 contrôles prêts sur 14). Il constate les écarts suivants : E01 50/200 cas, E02 50/200, E03 50/1 000, E08 50/1 000; aucun holdout scellé; adaptateurs C et D absents; sept familles de baselines non configurées; configurations de matériel et de modèle non verrouillées; protocole non préenregistré avec sept éléments ouverts. Ce contrôle empêche de qualifier les passages A/B comme campagne confirmatoire.

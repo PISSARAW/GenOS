@@ -15,6 +15,13 @@
     "split": "public_development_only",
     "sealed_holdout": false
   },
+  "source_proposed_sample_counts": {
+    "E01": 200,
+    "E02": 200,
+    "E03": 1000,
+    "E08": 1000,
+    "note": "Counts transcribed from the campaign proposal; the current 50-case public development corpus is not large enough for these proposed protocols."
+  },
   "pilot": {
     "experiment": "E03",
     "conditions": ["A", "B"],
