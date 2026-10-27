@@ -11,4 +11,4 @@ Le plan est préliminaire. Avant une exécution confirmatoire, figer protocole, 
 | Scalabilité | Régression log-log et analyse des ruptures |
 | Équivalence sémantique | TOST avec marge fixée avant examen des résultats |
 
-Appliquer Holm aux comparaisons multiples. Rapporter intervalles à 95 %, tailles d'effet et valeurs p. Les seuils zéro violation sont des conditions bloquantes sur les corpus exécutés, pas une preuve universelle d'absence de défaut. Les 50 cas par expérience de cette version ne suffisent pas à confirmer tous les seuils rares ou les volumes précisés dans le protocole source.
+Appliquer Holm aux comparaisons multiples. Rapporter intervalles à 95 %, tailles d'effet et valeurs p. Les seuils zéro violation sont des conditions bloquantes sur les corpus exécutés, pas une preuve universelle d'absence de défaut. Les volumes proposés de cette version (50 à 1 000 selon l'expérience) ne suffisent pas nécessairement aux seuils rares; calculer la puissance avant toute conclusion confirmatoire.

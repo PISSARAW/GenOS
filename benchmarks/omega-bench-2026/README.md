@@ -2,7 +2,7 @@
 
 Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas, les oracles et l'évaluateur n'importent aucun module GenOS. Il fournit un corpus synthétique déterministe de **2 800 cas** avec entrées candidates et réponses de référence dans des fichiers distincts. E01/E02 ont 200 cas chacun; E03/E08 en ont 1 000 chacun; les autres expériences en ont 50.
 
-**État : qualifications A/B exécutées; campagne comparative bloquée.** Le corpus reste un jeu de développement public, pas un jeu caché ni une preuve de performance. Les seuils du protocole sont des hypothèses à confirmer avant lancement. Les volumes proposés entraînent `2 800 scénarios × 4 conditions × 3 répétitions = 33 600 exécutions`, avant baselines, ablations, tests de charge ou calcul de puissance.
+**État : qualifications A/B exécutées; C partiellement qualifiée; campagne comparative bloquée.** Le corpus reste un jeu de développement public, pas un jeu caché ni une preuve de performance. Les seuils du protocole sont des hypothèses à confirmer avant lancement. Les volumes proposés entraînent `2 800 scénarios × 4 conditions × 3 répétitions = 33 600 exécutions`, avant baselines, ablations, tests de charge ou calcul de puissance.
 
 ## Contenu
 

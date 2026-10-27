@@ -1,7 +1,7 @@
 {
   "protocol": "OMEGA-BENCH-2026",
   "version": "0.2.0-draft",
-  "status": "conditions_a_b_adapter_qualification_full_campaign_unstarted",
+  "status": "conditions_a_b_c_adapter_qualification_full_campaign_unstarted",
   "independence": {
     "rule": "Dataset generation, scoring and oracles use only Python standard library and do not import GenOS or G-CIR Ω code.",
     "oracle_location": "dataset/oracle/",
@@ -36,7 +36,7 @@
   "conditions": [
     {"id": "A", "name": "json_reference", "description": "JSON Schema + reference executor; no G-CIR Ω."},
     {"id": "B", "name": "gcir_minimal", "description": "G-CIR Ω parser, IR and interpreter without optional optimizations or dynamic adaptation."},
-    {"id": "C", "name": "gcir_optimized", "description": "B plus static verification and declared optimization passes."},
+    {"id": "C", "name": "gcir_optimized", "description": "B plus G-CIR envelope schema validation; declared adjacent-addition fold on E04 only. Other workloads reuse deterministic reference handlers and are adapter plumbing qualifications."},
     {"id": "D", "name": "genos_full", "description": "C integrated with GenOS, with morphology and physiological adaptation enabled."}
   ],
   "minimum_design": {
