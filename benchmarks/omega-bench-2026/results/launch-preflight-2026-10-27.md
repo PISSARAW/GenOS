@@ -5,17 +5,17 @@ Statut : **qualifications A/B et pilote E03 exécutés; campagne complète bloqu
 
 ## Contrôles effectués
 
-- Les conditions A et B ont exécuté chacune 1 800 passages sur les 600 cas et correspondu à l'oracle. B réutilise les handlers déterministes d'A derrière le compilateur et le runtime Omega; ces passages qualifient le banc, pas un gain comparatif de G-CIR Ω.
+- Les conditions A, B et C ont chacune exécuté 8 400 passages sur les 2 800 cas du corpus v0.2.0 et correspondu à l'oracle. B réutilise les handlers déterministes d'A derrière le compilateur et le runtime Omega; C ajoute une validation statique d'enveloppe et une fusion d'additions pour E04. Ces passages qualifient le banc et une optimisation ciblée, pas un gain comparatif de G-CIR Ω.
 - `adapters/` ne contient aucun exécuteur externe; il contient uniquement le contrat descriptif.
-- `src/` contient le générateur, l'évaluateur et un runner de pilote limité à E03; il ne contient pas de runner pour les 12 expériences.
-- Les quatre conditions A–D sont des descriptions dans `protocol.json`; elles ne sont pas raccordées à des adaptateurs.
+- A/B/C ont un runner sur les 12 expériences; D n'a pas d'adaptateur.
+- Les conditions C et D ne représentent pas encore l'optimisation complète, l'intégration physiologique/morphogénétique ou l'exécution GenOS du protocole.
 - Les sept familles de référence sont `unconfigured` dans `configs/baselines.json`.
 - Les configurations matériel et modèle sont des gabarits sans valeurs, donc les conditions comparables ne sont pas configurées.
 - Au contrôle local, les commandes `mlir-opt`, `opa` et `temporal` ne sont pas disponibles. Cela ne préjuge pas des éventuels services distants ni de la possibilité de créer des adaptateurs.
 
 ## Décision
 
-Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables pour A–D et sans configuration commune de modèle et de matériel, aucune comparaison complète ne serait valide. Le pilote E03 compare AJV 2020-12 au service réel d'interopérabilité Omega Node sur l'enveloppe G-CIR canonique. Les deux conditions ont accepté correctement 150/150 exécutions (50 cas × 3 répétitions). Les latences du pilote ne sont pas comparables directement, car AJV compile le schéma avant la mesure et Omega le relit et le revalide par appel. Le pilote n'invoque pas de modèle et ne représente pas les autres expériences.
+Ne pas démarrer la campagne comparative complète de 33 600 exécutions : D, les baselines, le modèle/matériel communs, le préenregistrement et le holdout manquent. Le pilote E03 compare AJV 2020-12 au service réel d'interopérabilité Omega Node sur l'enveloppe G-CIR canonique. Les deux conditions ont accepté correctement 150/150 exécutions (50 cas × 3 répétitions). Les latences du pilote ne sont pas comparables directement, car AJV compile le schéma avant la mesure et Omega le relit et le revalide par appel. Le pilote n'invoque pas de modèle et ne représente pas les autres expériences.
 
 ## Prérequis de reprise
 
@@ -25,8 +25,8 @@ Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables
 4. Ajouter un runner qui écrit un résultat conforme au schéma par scénario, condition et répétition, avec journaux et traces reproductibles.
 5. Préenregistrer les contrastes, les volumes requis par expérience, le jeu caché et le calcul de puissance.
 
-Les conditions A et B ont écrit chacune 1 800 lignes dans `A-reference.jsonl` et `B-gcir-minimal.jsonl`; le pilote E03 a écrit 300 lignes dans `E03-pilot.jsonl`. Leurs manifestes tracent les empreintes et révisions. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment des exécutions. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.
+Les conditions A, B et C ont chacune écrit 8 400 lignes; le pilote E03 a écrit 300 lignes. Leurs manifestes tracent les empreintes et révisions. Le workspace contenait des changements non liés, laissés intacts. Le plan à volumes proposés indique 33 600 exécutions pour les quatre conditions principales; baselines externes, ablations et essais de charge s'ajoutent à ce total.
 
 ## Contrôle fail-closed de disponibilité
 
-Le premier passage de `python src/check_readiness.py` retournait `blocked` (2 contrôles prêts sur 14). Le corpus public v0.2.0 a depuis été étendu aux volumes proposés pour E01/E02/E03/E08 et A/B ont été relancées depuis `013043f017db0b93edbbed841782028541d376cf` : 8 400 résultats chacune, 100 % conformes aux oracles, sans doublon, manque ni échec critique. Le contrôle readiness retourne maintenant `blocked` (6/14). Restent huit écarts : aucun holdout scellé; adaptateurs C et D absents; sept familles de baselines non configurées; configurations de matériel et modèle non verrouillées; protocole non préenregistré avec sept éléments ouverts. Le corpus étendu reste public et synthétique; il ne constitue pas le holdout.
+Le premier passage de `python src/check_readiness.py` retournait `blocked` (2 contrôles prêts sur 14). Le corpus public v0.2.0 a été étendu et A/B/C ont été évaluées : 8 400 résultats chacune, 100 % conformes aux oracles, sans doublon, manque ni échec critique. C applique la fusion E04 dans 150 cas sur 150. Le contrôle readiness retourne maintenant `blocked` (7/14). Restent sept contrôles bloquants : aucun holdout scellé; D absent; baselines non configurées; matériel et modèle non verrouillés; protocole non préenregistré avec sept éléments ouverts. Le corpus étendu reste public et synthétique; il ne constitue pas le holdout.
