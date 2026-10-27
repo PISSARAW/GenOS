@@ -104,7 +104,10 @@ def physiology_case(index, rng):
         chosen = max((item for item in demands if allocation[item["agent"]] < item["minimum"] + 3), key=lambda item: (item["priority"], -int(item["agent"].split("-")[1])))
         allocation[chosen["agent"]] += 1
         remaining -= 1
-    return {"resource_budget": budget, "demands": demands, "allocation_rule": "highest_priority_then_lowest_agent_index; max 4 units per agent"}, {"allocation": allocation, "allocated_total": budget - remaining, "unallocated": remaining}
+    return {"resource_budget": budget, "demands": demands,
+            "allocation_rule": "conserve_budget; satisfy_minimums; preserve_priority_order_when_demands_match"}, {
+                "allocation_contract": {"resource_budget": budget, "demands": demands,
+                    "priority_fairness": "equal-demand higher-priority agents receive no less"}}
 
 
 def portability_case(index, rng):

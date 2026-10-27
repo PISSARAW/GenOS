@@ -123,7 +123,7 @@ async function commitTransition(db, ctx) {
     { code: 'AGENT_NOT_FOUND' });
   const context = buildCommitContext(plan, receipt, ctx.collectiveState);
   const actor = req.user.keyId || req.user.username;
-  const result = await createCommit(req, { agentId, refName, state, metadata: {
+  const result = await createCommit(req, { db, agentId, refName, state, metadata: {
     source: 'morphogenesis-rust-authority', transitionId: receipt.transitionId,
     planId: plan.id, snapshotId: snapshot.id, snapshotHash: snapshot.hash,
     authorityKeyId: authority.keyId, authorityPrincipalId: authority.principalId,

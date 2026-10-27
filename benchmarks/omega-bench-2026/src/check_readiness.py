@@ -92,9 +92,23 @@ def adapter_checks(blockers):
     adapter_root = ROOT / "adapters"
     for condition, filename in CONDITIONS.items():
         exists = (adapter_root / filename).is_file()
+        if condition == "D":
+            qualification_path = ROOT / "results" / "D-qualification.json"
+            qualification = read_json(qualification_path) if qualification_path.is_file() else {}
+            expected_runs = sum(protocol_counts().values()) * read_json(ROOT / "protocol.json")["minimum_design"]["repetitions"]
+            qualified = qualification.get("status") == "qualified" \
+                and qualification.get("runs") == expected_runs \
+                and qualification.get("critical_failures") == 0
+            detail = f"{filename}: {'present' if exists else 'missing'}; qualification={'passed' if qualified else 'missing or incomplete'}"
+            checks.append(check(blockers, f"adapter_{condition}", (exists and qualified, detail)))
+            continue
         checks.append(check(blockers, f"adapter_{condition}",
                             (exists, f"{filename}: {'present' if exists else 'missing'}")))
     return checks
+
+
+def protocol_counts():
+    return read_json(ROOT / "protocol.json").get("dataset", {}).get("scenarios_by_experiment", {})
 
 
 def configuration_checks(blockers):

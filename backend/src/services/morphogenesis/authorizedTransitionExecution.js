@@ -143,16 +143,16 @@ async function execute(ctx, transitionId, ops) {
   const state = ctx.collectiveState || ops.getState();
   const agentId = ctx.agentId || ctx.parent?.id;
   if (!ops.hasNoActiveConflict(ctx.plan, state)) throw new Error('active transition conflict');
-  const snapshot = await durableSnapshots.capture({ ...ctx, agentId, transitionId,
+  const transitionCtx = { ...ctx, agentId, collectiveState: state, transitionId };
+  const snapshot = await durableSnapshots.capture({ ...transitionCtx,
     collectiveState: state });
   await durableSnapshots.appendAction({ db: ctx.db, transitionId,
     receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'PREPARE',
       planHash: snapshot.planHash, snapshotId: snapshot.id, snapshotHash: snapshot.hash } });
   const loaded = await durableSnapshots.load({ db: ctx.db, id: snapshot.id });
   const preState = collective.deserializeState(loaded.payload.collectiveState);
-  const authority = await authorizeOrRestore({ ctx, snapshot, state, agentId });
-  const morphCtx = { ...ctx, agentId, collectiveState: state, transitionId };
-  return runApplying({ ctx: morphCtx, snapshot, authority, preState }, ops);
+  const authority = await authorizeOrRestore({ ctx: transitionCtx, snapshot, state, agentId });
+  return runApplying({ ctx: transitionCtx, snapshot, authority, preState }, ops);
 }
 
 module.exports = { execute };

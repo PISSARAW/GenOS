@@ -137,8 +137,13 @@ async function getObject(db, req, objectId) {
   return db.get(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`, objectId, ...scope.params);
 }
 
+async function commitDatabase(options) {
+  if (options.db) return options.db;
+  return getDatabase();
+}
+
 async function createCommit(req, options = {}) {
-  const db = await getDatabase();
+  const db = await commitDatabase(options);
   const state = options.state || await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });

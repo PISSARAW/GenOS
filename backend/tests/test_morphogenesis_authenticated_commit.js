@@ -11,6 +11,7 @@ const collective = require('../src/services/collectiveStateService');
 const snapshots = require('../src/services/morphogenesis/morphogenesisTransitionSnapshotService');
 const { executeVersionedTransition, getLineage } = require('../src/services/morphogenesis/morphogenesisGitService');
 const { executeTransition } = require('../src/services/morphogenesis/transitionEngineService');
+const { canonicalJson } = require('../src/services/aTeam/variants/variantExecutionHelpers');
 
 function configureAuthority() {
   const pair = crypto.generateKeyPairSync('ed25519');
@@ -63,6 +64,21 @@ async function execute(db) {
     JSON.parse(actionEvents[2].receipt_json).actionId);
   const persisted = await db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
   assert.equal(collective.deserializeState(persisted.value).topologyState.organization, 'rhizome');
+  const noOpMission = 'commit-noop-mission';
+  const noOpState = collective.deserializeState({ mission: { id: noOpMission },
+    agents: { 'commit-agent': { id: 'commit-agent', status: 'idle', lease: ['read'] } },
+    topologyState: { organization: 'trinity', topology: 'trinity', activeSubgraphs: [] },
+    budgets: { total: 100, allocated: 20, remaining: 80, perAgent: { 'commit-agent': 20 } } });
+  const noOp = await executeTransition({ db, req, agentId: 'commit-agent', missionId: noOpMission,
+    collectiveState: noOpState,
+    plan: { id: 'commit-noop-plan', missionId: noOpMission, actions: [], targetTopology: 'trinity',
+      expectedGain: 0.7, expectedRisk: 0.2, reason: 'authenticated-noop-refusal' },
+    persistCommit: async () => { throw new Error('no-op transition must not commit'); } });
+  assert.equal(noOp.committed, false);
+  assert.ok(noOp.transitionId);
+  const noOpEvents = await db.all(`SELECT receipt_json FROM morphogenesis_transition_actions
+    WHERE transition_id=? ORDER BY sequence`, noOp.transitionId);
+  assert.deepEqual(noOpEvents.map(row => JSON.parse(row.receipt_json).phase), ['PREPARE', 'ABORT']);
   await db.run(`INSERT INTO morphogenesis_transition_snapshots
     SELECT 'mts-startup-prepared', 'tx-startup-prepared', organization_id, project_id, mission_id,
       principal_id, plan_hash, snapshot_hash, payload_json, 'prepared', authority_json, NULL,
@@ -100,6 +116,7 @@ async function execute(db) {
 }
 
 async function run() {
+  assert.equal(canonicalJson({ omitted: undefined, list: [undefined] }), '{"list":[null]}');
   configureAuthority();
   const root = fs.mkdtempSync(path.join(__dirname, '.morph-commit-workspace-'));
   const dbPath = path.join(__dirname, `.morph-commit-${crypto.randomUUID()}.db`);
