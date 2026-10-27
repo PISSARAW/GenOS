@@ -345,6 +345,13 @@ réserve de ressources, risque de blocage et stabilité. Ces projections sont fo
 par le producteur et combinées avec sa confiance causale; elles ne sont ni calibrées ni
 vérifiées par AGOW. Leur moyenne est une heuristique et ne remplace pas les gates.
 
+Le forecast peut porter des projections distinctes sous `scopeForecasts.agent`,
+`topology`, `mission` et `organization`. Le cycle résout les niveaux courants depuis
+leurs scopes `adaptive_state` respectifs ou un contexte runtime fourni. Une projection
+scopée sans mesure courante du même niveau reste indisponible et ne préempte pas.
+Le reçu d'arbitrage conserve `viabilityByScope`; la valeur scalaire de regret reste
+une synthèse opérationnelle et ne remplace pas la résolution des conflits multiniveaux.
+
 Le service construit des drives d'information, pertinence, urgence, erreur de
 prédiction, dette de preuve, actionnabilité, confiance causale, nouveauté et coût
 inverse `1 / (1 + estimatedCost)`, ainsi que les composantes de regret et

@@ -62,7 +62,16 @@
             "horizonCycles": { "type": "integer", "minimum": 1, "maximum": 100 },
             "confidence": { "$ref": "#/$defs/unit" },
             "attend": { "$ref": "#/$defs/viabilityProjection" },
-            "ignore": { "$ref": "#/$defs/viabilityProjection" }
+            "ignore": { "$ref": "#/$defs/viabilityProjection" },
+            "scopeForecasts": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "agent": { "$ref": "#/$defs/scopedViabilityForecast" },
+                "topology": { "$ref": "#/$defs/scopedViabilityForecast" },
+                "mission": { "$ref": "#/$defs/scopedViabilityForecast" },
+                "organization": { "$ref": "#/$defs/scopedViabilityForecast" }
+              }
+            }
           }
         },
         "expectedAllostaticState": {
@@ -84,6 +93,15 @@
         "resourceReserve": { "$ref": "#/$defs/unit" },
         "blockageRisk": { "$ref": "#/$defs/unit" },
         "stability": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "scopedViabilityForecast": {
+      "type": "object", "additionalProperties": false,
+      "required": ["confidence", "attend", "ignore"],
+      "properties": {
+        "confidence": { "$ref": "#/$defs/unit" },
+        "attend": { "$ref": "#/$defs/viabilityProjection" },
+        "ignore": { "$ref": "#/$defs/viabilityProjection" }
       }
     },
     "measures": {

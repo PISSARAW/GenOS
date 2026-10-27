@@ -58,7 +58,9 @@ function evaluate(candidate, context = {}) {
     candidateId: candidate.candidateId, attend: losses.attend, ignore: losses.ignore,
     regret, confidence: bounded((epistemic.confidence + viability.confidence) / (viability.available ? 2 : 1)),
     provenance: { method: 'predictive_regret_v1', calibrated: false, epistemic: epistemic.provenance,
-      allostasisAvailable: viability.available }, preempt: viability.preempt
+      allostasisAvailable: viability.available, allostasisSource: viability.source,
+      allostasisHorizonCycles: viability.horizonCycles || null },
+    viabilityByScope: viability.scopeDetails || null, preempt: viability.preempt
   };
 }
 

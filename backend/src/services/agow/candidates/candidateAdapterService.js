@@ -69,7 +69,14 @@ function epistemicOrigin(module, observation) {
 
 function epistemicContext(observation) {
   const source = observation.epistemicContext;
-  if (!source || typeof source !== 'object') return undefined;
+  if (!isContext(source)) return undefined;
+  const result = normalizeContextSignals(source);
+  const expected = normalizeExpectedState(source.expectedAllostaticState);
+  if (expected) result.expectedAllostaticState = expected;
+  return result;
+}
+
+function normalizeContextSignals(source) {
   const result = {};
   if (source.beliefImportance != null) result.beliefImportance = unit(source.beliefImportance);
   if (source.causalDescendantCount != null) result.causalDescendantCount = Math.max(0, Math.floor(Number(source.causalDescendantCount) || 0));
@@ -77,12 +84,18 @@ function epistemicContext(observation) {
   if (source.viabilityForecast && typeof source.viabilityForecast === 'object') {
     result.viabilityForecast = normalizeViabilityForecast(source.viabilityForecast);
   }
-  if (source.expectedAllostaticState && typeof source.expectedAllostaticState === 'object') {
-    result.expectedAllostaticState = Object.fromEntries(Object.entries(source.expectedAllostaticState)
+  return result;
+}
+
+function normalizeExpectedState(state) {
+  if (!isContext(state)) return null;
+  return Object.fromEntries(Object.entries(state)
       .filter(([key, value]) => ALLOSTATIC_VARIABLES.has(key) && Number.isFinite(Number(value)))
       .map(([key, value]) => [key, unit(value)]));
-  }
-  return result;
+}
+
+function isContext(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function normalizeProjection(projection) {
@@ -91,9 +104,12 @@ function normalizeProjection(projection) {
 }
 
 function normalizeViabilityForecast(forecast) {
+  const scopeForecasts = Object.fromEntries(Object.entries(forecast.scopeForecasts || {})
+    .map(([scope, value]) => [scope, { confidence: unit(value.confidence),
+      attend: normalizeProjection(value.attend), ignore: normalizeProjection(value.ignore) }]));
   return { horizonCycles: Math.max(1, Math.min(100, Math.floor(Number(forecast.horizonCycles) || 1))),
     confidence: unit(forecast.confidence), attend: normalizeProjection(forecast.attend),
-    ignore: normalizeProjection(forecast.ignore) };
+    ignore: normalizeProjection(forecast.ignore), ...(Object.keys(scopeForecasts).length ? { scopeForecasts } : {}) };
 }
 
 function build(options) {

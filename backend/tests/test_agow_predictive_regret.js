@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const adapter = require('../src/services/agow/candidates/candidateAdapterService');
 const regret = require('../src/services/agow/predictiveRegretService');
+const candidateValidation = require('../src/services/agow/candidateValidationService');
 const arbitration = require('../src/services/agow/workspaceArbitrationService');
 let candidateSequence = 0;
 
@@ -68,8 +69,29 @@ function testProspectiveViabilityRegret() {
   assert.equal(evaluated.attend.expectedViabilityLoss, 0.175);
 }
 
+function testScopedViabilityRegret() {
+  const projection = { goalProgress: 0.9, resourceReserve: 0.9, blockageRisk: 0.05, stability: 0.9 };
+  const threatened = { goalProgress: 0.1, resourceReserve: 0.1, blockageRisk: 0.9, stability: 0.1 };
+  const scopeForecasts = Object.fromEntries(['agent', 'topology', 'mission', 'organization'].map((scope) =>
+    [scope, { confidence: 0.9, attend: projection, ignore: threatened }]));
+  const candidate = makeCandidate({ confidence: 0.9, causalEvidence: true, epistemicContext: {
+    viabilityForecast: { horizonCycles: 4, confidence: 0.9, attend: projection, ignore: threatened, scopeForecasts }
+  } });
+  assert.equal(candidateValidation.validCandidate(candidate), true);
+  const allLevels = Object.fromEntries(Object.keys(scopeForecasts).map((scope) =>
+    [scope, { status: 'measured', variables: { energy: 0.5 } }]));
+  const evaluated = regret.evaluate(candidate, { allostaticLevels: allLevels });
+  assert.deepEqual(Object.keys(evaluated.viabilityByScope), ['agent', 'topology', 'mission', 'organization']);
+  assert.equal(evaluated.provenance.allostasisSource, 'scoped_viability_forecast');
+  assert.equal(evaluated.preempt, true);
+  const unavailable = regret.evaluate(candidate, { allostaticLevels: {} });
+  assert.equal(unavailable.provenance.allostasisAvailable, false);
+  assert.deepEqual(unavailable.viabilityByScope, {});
+}
+
 testEpistemicRegret();
 testAllostaticPreemption();
 testHardConstraintStillWins();
 testProspectiveViabilityRegret();
+testScopedViabilityRegret();
 console.log('✅ AGOW predictive and allostatic regret passed');

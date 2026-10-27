@@ -94,11 +94,37 @@ function validProjection(projection) {
 
 function validViabilityForecast(forecast) {
   if (forecast == null) return true;
-  return forecast && typeof forecast === 'object' && !Array.isArray(forecast)
-    && Number.isInteger(forecast.horizonCycles) && forecast.horizonCycles >= 1 && forecast.horizonCycles <= 100
-    && Number.isFinite(forecast.confidence) && forecast.confidence >= 0 && forecast.confidence <= 1
-    && validProjection(forecast.attend) && validProjection(forecast.ignore)
-    && Object.keys(forecast).every((key) => ['horizonCycles', 'confidence', 'attend', 'ignore'].includes(key));
+  return validForecastObject(forecast) && validForecastHeader(forecast)
+    && validForecastProjections(forecast) && validScopeForecasts(forecast.scopeForecasts)
+    && validForecastKeys(forecast);
+}
+
+function validForecastObject(forecast) {
+  return forecast && typeof forecast === 'object' && !Array.isArray(forecast);
+}
+
+function validForecastHeader(forecast) {
+  return Number.isInteger(forecast.horizonCycles) && forecast.horizonCycles >= 1 && forecast.horizonCycles <= 100
+    && Number.isFinite(forecast.confidence) && forecast.confidence >= 0 && forecast.confidence <= 1;
+}
+
+function validForecastProjections(forecast) {
+  return validProjection(forecast.attend) && validProjection(forecast.ignore);
+}
+
+function validForecastKeys(forecast) {
+  const fields = ['horizonCycles', 'confidence', 'attend', 'ignore', 'scopeForecasts'];
+  return Object.keys(forecast).every((key) => fields.includes(key));
+}
+
+function validScopeForecasts(forecasts) {
+  if (forecasts == null) return true;
+  const scopes = ['agent', 'topology', 'mission', 'organization'];
+  return forecasts && typeof forecasts === 'object' && !Array.isArray(forecasts)
+    && Object.keys(forecasts).every((scope) => scopes.includes(scope)
+      && Number.isFinite(forecasts[scope]?.confidence) && forecasts[scope].confidence >= 0
+      && forecasts[scope].confidence <= 1 && validProjection(forecasts[scope].attend)
+      && validProjection(forecasts[scope].ignore));
 }
 
 function validConstraints(candidate) {

@@ -112,6 +112,9 @@ async function arbitrateCycle(options, candidates, previousFrame) {
     ...(options.regretContext || {}),
     currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
   };
+  regretContext.allostaticLevels = await require('./allostaticScopeService').resolve({
+    agentId: options.agentId, db: options.db, provided: options.regretContext?.allostaticLevels
+  });
   const policyService = require('./agowMechanismPolicyService');
   const mechanismPolicy = await policyService.load({ agentId: options.agentId, db: options.db });
   regretContext.controlRegret = policyService.controlsRegret(mechanismPolicy.regret);

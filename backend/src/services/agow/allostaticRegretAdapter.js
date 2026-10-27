@@ -16,6 +16,7 @@ function projectionLoss(projection) {
 }
 
 function evaluateForecast(candidate, forecast, context) {
+  if (forecast.scopeForecasts) return evaluateScopedForecast(candidate, forecast, context);
   const ignored = projectionLoss(forecast.ignore);
   const attended = projectionLoss(forecast.attend);
   const repair = ignored - attended;
@@ -25,6 +26,37 @@ function evaluateForecast(candidate, forecast, context) {
     regret: Math.max(0, Math.min(1, repair)), confidence,
     preempt: ignored >= catastropheThreshold && repair >= 0.15 && confidence >= 0.5,
     available: true, horizonCycles: forecast.horizonCycles, source: 'candidate_viability_forecast' };
+}
+
+function evaluateScopedForecast(candidate, forecast, context) {
+  const levels = context.allostaticLevels || {};
+  const entries = Object.entries(forecast.scopeForecasts).filter(([scope]) => levels[scope]?.status === 'measured');
+  if (!entries.length) return unavailableScopedForecast(forecast);
+  const scopeDetails = Object.fromEntries(entries.map(([scope, item]) => [scope, scopedLoss(item, candidate)]));
+  const details = Object.values(scopeDetails);
+  const ignored = Math.max(...details.map((item) => item.expectedLossIfIgnored));
+  const attended = Math.max(...details.map((item) => item.expectedLossIfAttended));
+  const regret = Math.max(...details.map((item) => item.regret));
+  return { expectedLossIfIgnored: ignored, expectedLossIfAttended: attended, regret,
+    confidence: Math.min(...details.map((item) => item.confidence)),
+    preempt: details.some((item) => item.preempt), available: true,
+    horizonCycles: forecast.horizonCycles, source: 'scoped_viability_forecast', scopeDetails };
+}
+
+function scopedLoss(item, candidate) {
+  const ignored = projectionLoss(item.ignore);
+  const attended = projectionLoss(item.attend);
+  const repair = ignored - attended;
+  const confidence = Math.min(item.confidence, candidate.measures.causalConfidence);
+  return { expectedLossIfIgnored: ignored, expectedLossIfAttended: attended,
+    regret: Math.max(0, Math.min(1, repair)), confidence,
+    preempt: ignored >= 0.8 && repair >= 0.15 && confidence >= 0.5 };
+}
+
+function unavailableScopedForecast(forecast) {
+  return { expectedLossIfIgnored: 0, expectedLossIfAttended: 0, regret: 0, confidence: 0,
+    preempt: false, available: false, horizonCycles: forecast.horizonCycles,
+    source: 'scoped_viability_forecast', scopeDetails: {} };
 }
 
 function evaluate(candidate, context = {}) {
@@ -42,7 +74,7 @@ function evaluate(candidate, context = {}) {
     expectedLossIfIgnored: ignored, expectedLossIfAttended: attended,
     regret: Math.max(0, Math.min(1, repair)), confidence,
     preempt: ignored >= catastropheThreshold && repair >= 0.15 && confidence >= 0.5,
-    available: true
+    available: true, source: 'allostatic_state_forecast'
   };
 }
 
