@@ -1,0 +1,25 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "pilot": "E03",
+  "started_at": "2026-10-27T20:12:36.249Z",
+  "conditions": [
+    "A",
+    "B"
+  ],
+  "scenarios": 50,
+  "repetitions": 3,
+  "run_count": 300,
+  "dataset_manifest_sha256": "38ec8816b703a95c0af32b77086285773d70386df85ac84196e62824777c0c2f",
+  "omega_service_sha256": "8be8ee57168ea0818058b1ac2284ac7c5a90f623ce2076a9dd7b511b33d4ce89",
+  "repository_revision": "b899c3edde6361ee0dec0e86420884d49ba7f7ca",
+  "repository_dirty": true,
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7543P 32-Core Processor               ",
+    "memory_bytes": 30044250112
+  },
+  "result_file": "E03-pilot.jsonl",
+  "significance_test": false
+}

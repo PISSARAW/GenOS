@@ -1,7 +1,7 @@
 {
   "protocol": "OMEGA-BENCH-2026",
   "version": "0.1.0-draft",
-  "status": "e03_pilot_ready_full_campaign_unstarted",
+  "status": "e03_pilot_completed_full_campaign_unstarted",
   "independence": {
     "rule": "Dataset generation, scoring and oracles use only Python standard library and do not import GenOS or G-CIR Ω code.",
     "oracle_location": "dataset/oracle/",
