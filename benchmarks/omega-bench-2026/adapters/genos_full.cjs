@@ -198,14 +198,24 @@ function manifestFor(input) {
     result_file: path.basename(outputPath), external_model_calls: 0 };
 }
 
+function selectPilotRows(rows, selection) {
+  if (!selection) return rows;
+  const scenarioId = /^E\d{2}-\d{3}$/.test(selection) ? selection : null;
+  const experiment = scenarioId ? scenarioId.slice(0, 3) : selection;
+  const matching = rows.filter((row) => row.experiment_id === experiment
+    && (!scenarioId || row.scenario_id === scenarioId));
+  return scenarioId ? matching : matching.slice(0, 1);
+}
+
 async function main() {
   configureAuthority();
   const harness = await createHarness();
-  const pilotExperiment = process.argv[2] === '--pilot' ? process.argv[3] : null;
+  const pilotSelection = process.argv[2] === '--pilot' ? process.argv[3] : null;
+  const pilotExperiment = pilotSelection?.slice(0, 3) || null;
   const experiments = Array.from({ length: 12 }, (_, index) => `E${String(index + 1).padStart(2, '0')}`);
   let rows = experiments.flatMap((experiment) => reference.readRows(
     path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
-  if (pilotExperiment) rows = rows.filter((row) => row.experiment_id === pilotExperiment).slice(0, 1);
+  rows = selectPilotRows(rows, pilotSelection);
   const repetitions = pilotExperiment ? 1 : REPETITIONS;
   const outputPath = process.argv[pilotExperiment ? 4 : 2]
     || path.join(ROOT, 'results', pilotExperiment ? `D-pilot-${pilotExperiment}.jsonl` : 'D-genos-full.jsonl');

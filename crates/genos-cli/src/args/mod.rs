@@ -44,7 +44,12 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Read-only Rust morphogenesis planning and governance gate
-    MorphogenesisAdjudicate { payload: String },
+    MorphogenesisAdjudicate {
+        #[arg(value_name = "PAYLOAD")]
+        payload: Option<String>,
+        #[arg(long, conflicts_with = "payload")]
+        stdin: bool,
+    },
     /// Read-only resolver proposals for a persisted post-mission signal
     MorphogenesisPropose { payload: String },
     /// Internal read-only verifier used by the live Rust control kernel

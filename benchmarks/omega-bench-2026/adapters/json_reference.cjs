@@ -114,13 +114,18 @@ function answerE10(input) {
 function agentIndex(agent) { return Number(agent.split('-')[1]); }
 
 function answerE11(input) {
-  const allocation = Object.fromEntries(input.demands.map((demand) => [demand.agent, 0]));
-  for (let unit = 0; unit < input.resource_budget; unit += 1) {
+  const allocation = Object.fromEntries(input.demands.map((demand) => [demand.agent, demand.minimum]));
+  const minimumTotal = Object.values(allocation).reduce((total, value) => total + value, 0);
+  let remaining = Math.max(0, input.resource_budget - minimumTotal);
+  while (remaining > 0) {
     const eligible = input.demands.filter((demand) => allocation[demand.agent] < 4);
+    if (eligible.length === 0) break;
     eligible.sort((left, right) => right.priority - left.priority || agentIndex(left.agent) - agentIndex(right.agent));
     allocation[eligible[0].agent] += 1;
+    remaining -= 1;
   }
-  return { allocation, allocated_total: input.resource_budget, unallocated: 0 };
+  const allocatedTotal = Object.values(allocation).reduce((total, value) => total + value, 0);
+  return { allocation, allocated_total: allocatedTotal, unallocated: input.resource_budget - allocatedTotal };
 }
 
 function roundTripJson(operation) { return JSON.parse(JSON.stringify(operation)); }

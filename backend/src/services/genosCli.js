@@ -52,7 +52,8 @@ function runGenosSync(commandLine, options = {}) {
  * structured result — never rejects — so controllers can surface exit
  * codes and stderr to the operator.
  */
-function runGenos(args, { timeoutMs = 60000, root: rootOverride = null, envOverrides = {} } = {}) {
+function runGenos(args, { timeoutMs = 60000, root: rootOverride = null,
+  envOverrides = {}, input = null } = {}) {
   return new Promise((resolvePromise) => {
     const bin = resolveGenosBin();
     if (!fs.existsSync(bin)) {
@@ -73,6 +74,7 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null, envOverr
       windowsHide: true,
       detached: process.platform !== 'win32'
     });
+    child.stdin.end(typeof input === 'string' ? input : '');
 
     const timer = setTimeout(() => {
       if (!settled) {

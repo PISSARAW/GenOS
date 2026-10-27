@@ -14,6 +14,7 @@ use commands::{
 };
 use genos_immune::ClonalSelection;
 use std::path::PathBuf;
+use std::io::Read;
 
 fn immune_memory_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
@@ -138,7 +139,14 @@ fn real_main() {
     let cli = Cli::parse();
 
     let result: Result<(), String> = (|| match cli.command {
-        Some(Commands::MorphogenesisAdjudicate { payload }) => commands::morphogenesis_gate::execute(&payload),
+        Some(Commands::MorphogenesisAdjudicate { payload, stdin }) => {
+            let payload = match (payload, stdin) {
+                (Some(value), false) => Ok(value),
+                (None, true) => read_stdin_payload(),
+                _ => Err("provide a payload argument or --stdin".to_string()),
+            }?;
+            commands::morphogenesis_gate::execute(&payload)
+        }
         Some(Commands::MorphogenesisPropose { payload }) => commands::morphogenesis_gate::propose(&payload),
         Some(Commands::KernelVerify { payload }) => commands::kernel_runtime::execute_verifier(&payload),
         Some(Commands::Init) => initialize_workspace(),
@@ -253,4 +261,14 @@ fn real_main() {
         eprintln!("ERREUR GenOS CLI: {}", err);
         std::process::exit(1);
     }
+}
+
+fn read_stdin_payload() -> Result<String, String> {
+    let mut payload = String::new();
+    std::io::stdin().read_to_string(&mut payload)
+        .map_err(|error| format!("Cannot read morphogenesis payload from stdin: {error}"))?;
+    if payload.is_empty() {
+        return Err("morphogenesis payload from stdin is empty".to_string());
+    }
+    Ok(payload)
 }

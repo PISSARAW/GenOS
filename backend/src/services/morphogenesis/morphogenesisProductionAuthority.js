@@ -204,7 +204,8 @@ async function authorize(input) {
   const body = request(authorityInput);
   const payload = JSON.stringify(body);
   const runner = require('../genosCli').runGenos;
-  const result = await runner(['morphogenesis-adjudicate', payload], { timeoutMs: 10000,
+  const result = await runner(['morphogenesis-adjudicate', '--stdin'], { timeoutMs: 10000,
+    input: payload,
     envOverrides: { GENOS_CLI_AUTHORITY_TRUST_JSON: process.env.GENOS_CLI_AUTHORITY_TRUST_JSON } });
   if (!result?.ok || !result.json) throw failure('MORPHOGENESIS_RUST_AUTHORITY_UNAVAILABLE',
     result?.error || result?.stderr || 'Rust morphogenesis authority is unavailable.');
