@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 function cleanup(state) {
   if (state.cleanedUp) return;
@@ -32,8 +33,9 @@ function setupCodexHome() {
   const config = '[features]\nhooks = true\n';
   persistReviewedFile(path.join(isolatedCodexHome, 'config.toml'), config, !!persistentHome);
   const policyHook = path.resolve(__dirname, 'genos-pre-tool-policy.cjs');
+  const hookDigest = crypto.createHash('sha256').update(fs.readFileSync(policyHook)).digest('hex');
   const hooks = JSON.stringify({
-    description: 'Enforce the execution policy attached to a GenOS mission.',
+    description: `Enforce the GenOS mission policy hook (sha256:${hookDigest}).`,
     hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
   });
   persistReviewedFile(path.join(isolatedCodexHome, 'hooks.json'), hooks, !!persistentHome);

@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -20,6 +21,9 @@ try {
   const first = runtimeHome.setupCodexHome();
   const hookPath = path.join(first.home, 'hooks.json');
   const hookContent = fs.readFileSync(hookPath, 'utf8');
+  const policyHook = fs.readFileSync(path.join(__dirname, '../bin/genos-pre-tool-policy.cjs'));
+  const expectedDigest = crypto.createHash('sha256').update(policyHook).digest('hex');
+  assert.equal(JSON.parse(hookContent).description, `Enforce the GenOS mission policy hook (sha256:${expectedDigest}).`);
   runtimeHome.cleanup({ isolatedRuntimeRoot: first.root });
   assert(fs.existsSync(hookPath), 'cleanup must preserve the reviewed persistent hook definition');
   const second = runtimeHome.setupCodexHome();
