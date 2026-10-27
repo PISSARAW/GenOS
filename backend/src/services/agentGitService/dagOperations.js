@@ -1,6 +1,7 @@
 'use strict';
 
 const { getCommit, findMergeBase: findBase } = require('./commitGraph');
+const { scopeSql } = require('./index');
 const {
   replaceAgentState,
   replaceDecisionState,
@@ -34,23 +35,33 @@ async function reset(req) {
   const objectId = bodyValue(req, 'objectId');
   const mode = bodyValue(req, 'mode') || 'mixed';
   if (!['soft', 'mixed', 'hard'].includes(mode)) return { success: false, error: 'Mode must be soft, mixed, or hard.' };
-  const obj = await db.get('SELECT * FROM agent_git_objects WHERE id = ?', objectId);
+  const scope = scopeSql(req, 'w');
+  const obj = await db.get(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`, objectId, ...scope.params);
   if (!obj) return { success: false, error: 'Commit object not found.' };
   const refName = bodyValue(req, 'refName') || obj.ref_name || 'main';
   const agentId = obj.agent_id;
 
-  const { version, oldObjectId } = await updateRef({ db, req, agentId, refName, objectId, options: { action: 'reset' } });
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    const { version, oldObjectId } = await executeResetWithinTransaction(db, req, agentId, refName, objectId, mode, obj);
+    await db.exec('COMMIT');
+    return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
+  } catch (err) {
+    await db.exec('ROLLBACK').catch(() => {});
+    throw err;
+  }
+}
 
+async function executeResetWithinTransaction(db, req, agentId, refName, objectId, mode, obj) {
+  const { version, oldObjectId } = await updateRef({ db, req, agentId, refName, objectId, options: { action: 'reset', inTransaction: true } });
   if (mode === 'mixed' || mode === 'hard') {
     await db.run('DELETE FROM agent_git_indexes WHERE agent_id = ?', agentId);
   }
-
   if (mode === 'hard') {
     const state = JSON.parse(obj.state_json);
-    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims'] });
+    await replaceState(req, { targetAgentId: agentId, state, sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims'], options: { inTransaction: true } });
   }
-
-  return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
+  return { version, oldObjectId };
 }
 
 async function loadAgentForDag(db, req, agentId) {

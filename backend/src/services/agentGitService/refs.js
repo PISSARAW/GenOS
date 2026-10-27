@@ -17,7 +17,10 @@ module.exports = { updateRef };
 
 function assertRefUpdateAllowed(current, options) {
   if (current && options.expectedVersion != null && Number(options.expectedVersion) !== Number(current.version)) throw Object.assign(new Error('Remote ref changed concurrently.'), { code: 'AGENT_REF_CONFLICT' });
-  if (current?.lease_token && options.leaseToken && current.lease_token !== options.leaseToken) throw Object.assign(new Error('Ref lease is held by another writer.'), { code: 'AGENT_REF_LEASE_CONFLICT' });
+  if (current?.lease_token) {
+    if (!options.leaseToken) throw Object.assign(new Error('Ref lease is held by another writer.'), { code: 'AGENT_REF_LEASE_CONFLICT' });
+    if (current.lease_token !== options.leaseToken) throw Object.assign(new Error('Ref lease is held by another writer.'), { code: 'AGENT_REF_LEASE_CONFLICT' });
+  }
 }
 
 async function persistRef({ db, agentId, refName, objectId, version, options, current }) {

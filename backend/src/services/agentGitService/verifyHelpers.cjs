@@ -200,4 +200,4 @@ function checkPermission(ctx) {
   for (const tool of overlap) ctx.issues.push({ id: ctx.object.id, issue: 'permission_denied_overlap', tool });
 }
 
-module.exports = { json, signingAlgorithm, signingSecret, signObjectLocal, verifyObjectSignatureLocal, verifyObjectSignatureWithStore, resolveTrustPublicKey, checkStateValidity, checkStateInvariants, checkParentLinks, verifySingleObject };
+module.exports = { json, signingAlgorithm, signingSecret, signObjectLocal, verifyObjectSignatureLocal, verifyObjectSignatureWithStore, resolveTrustPublicKey, checkStateValidity, checkStateInvariants, checkParentLinks, parentIdsFromRow, verifySingleObject };
