@@ -1,7 +1,7 @@
-# Contrat des adaptateurs
+# Adapters ETT
 
-La campagne n'inclut pas d'adaptateur exécutant actuellement les huit systèmes annoncés. Les adaptateurs doivent connecter un système réel au contrat provider de `endogenousThoughtScientificCampaignService.js` et mesurer les ressources hors du modèle. Les fichiers `genos.py`, `react.py`, `llm_loop.py`, `voyager.py`, `ai_scientist.py` et `dgm.py` ne sont volontairement pas présentés comme exécutables tant qu'ils n'existent pas et n'ont pas été vérifiés.
+`referenceSystems.js` fournit huit adaptateurs déterministes locaux pour exécuter le harnais de référence. Les comparateurs publiés sont des proxies jouets (style ReAct, mémoire/curriculum, classement d'hypothèses et mutation de stratégie), jamais Voyager, AI Scientist v2 ou DGM eux-mêmes. Aucun modèle externe n'est appelé.
 
-Le provider `producer.solve(request)` reçoit la condition, le cas, la seed, le modèle, les paramètres, les outils et le budget identiques. `verifier.verify(...)` doit avoir une identité et une clé différentes du producteur et retourner les références de preuves et le résultat de l'oracle. `usageMeter.measure(...)` doit mesurer tokens, coût et durée depuis une source externe indépendante. Les sorties déclaratives du système et les coûts auto-déclarés sont refusés.
+Le contrat de référence est `createAdapter(systemId).solve({ scenarioId, difficulty, seed, observation, budget })` et retourne `{ answerId, evidenceRefs, actions }`. Le solveur ne reçoit pas l'oracle. `run_reference_campaign.js` remet la proposition et le secret à un vérificateur lancé dans un processus Node distinct. Le temps mesuré est le temps hôte ; aucun coût de tokens ou coût monétaire de LLM n'est disponible.
 
-Le module fourni à `run_campaign.js` doit exporter les sept champs documentés dans le README parent. Voir le test de contrat v2 existant dans `backend/tests/test_endogenous_thought_protocol_v2.js`.
+Pour des résultats publiables, remplacer ces proxies par des adaptateurs vers les systèmes réels, garder les limites de ressources appariées et configurer un mesureur d'usage fournisseur indépendant. L'exécuteur scientifique v2 reste disponible séparément pour les deux bras `full` et `llm_only`.

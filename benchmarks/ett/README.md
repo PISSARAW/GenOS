@@ -1,44 +1,27 @@
 # ETT-BENCH 2026 — campagne expérimentale
 
-**Statut :** protocole de campagne préparé, aucune comparaison scientifique de cette campagne exécutée. Ce dossier n'ajoute pas de boucle ETT parallèle : l'exécuteur scientifique délègue les propositions aux providers injectés et s'appuie sur le service ETT backend existant. Une réponse du modèle n'est jamais une preuve.
+**Statut :** un harnais de référence local exécute les 12 scénarios sur 3 difficultés, avec 8 politiques déterministes et un oracle séparé en processus enfant. C'est une preuve d'exécution du harnais, pas une qualification scientifique des systèmes ETT ou concurrents.
 
-## Écart audité
-
-L'ETT réel est déjà implémenté dans `backend/src/services/endogenousThought*` : détection, questionnement, admission, exécution isolée en lecture seule, vérification indépendante, apprentissage borné, mémoire et reprise. Le cycle est borné (jusqu'à 10 cycles selon la politique). Le runner `backend/bin/genos-ett-campaign.cjs` est un pilote synthétique de développement : son vérificateur dérive un verdict de la classe du scénario, ses mesures de coût sont nulles et ses reçus disent `scientificEvidence: false`. Il ne démontre donc aucune performance cognitive.
-
-Le protocole scientifique v2 existant (`benchmarks/endogenous-thought/protocol-v2.json`) exécute seulement `full` contre `llm_only` sur un cas fourni par un adaptateur. Il exige un solveur, un vérificateur distinct et un mesureur de coûts externe. Il n'instancie pas les 12 épreuves ni les cinq ablations. Le protocole de cette campagne étend ces exigences sans transformer le pilote synthétique en résultat scientifique.
-
-| Capacité demandée | État de l'implémentation antérieure | Statut de cette campagne |
-| --- | --- | --- |
-| ETT-01 / ETT-02 / ETT-04 / ETT-09 | Composants ETT réels disponibles ; aucun scénario de recherche scientifique correspondant avec oracle indépendant n'est exécuté par le runner de développement. | Priorités de scénario préenregistrées ; providers/scénarios encore nécessaires. |
-| ETT-03, 05–08, 10–12 | Capacités partielles réparties dans le runtime, sans preuve de campagne pour chacune. | Contrats de scénario listés ; exécution non revendiquée. |
-| ReAct, boucle périodique, Voyager, AI Scientist v2, DGM | Aucun adaptateur de benchmark attestant les systèmes originaux/adaptés dans ce dépôt. | Comparateurs indisponibles jusqu'à implémentation et audit de leurs adaptateurs. |
-| Ablations A0–A5 | Certaines ablations de composants existent dans le pilote synthétique, mais pas cette matrice sur scénarios scientifiques à coût égal. | Définies dans `configs/ablations.yaml`, à raccorder à des configurations réelles. |
-
-## Reproduction
-
-Le pilote existant, qui ne produit que des indicateurs synthétiques, peut être rejoué avec :
+## Exécuter le harnais de référence
 
 ```powershell
-npm --prefix backend run test:ett
-node benchmarks/ett/tests/test_statistics.js
-node backend/bin/genos-ett-campaign.cjs --output benchmarks/ett/reports/development-pilot.json
+node benchmarks/ett/run_reference_campaign.js --seeds 30 --output benchmarks/ett/reports/reference-run.json
 ```
 
-Pour la campagne scientifique, un module provider réel doit exporter `protocol`, `metricSet`, `runtime`, `providers`, `replications` et `cases` selon les contrats de `backend/src/services/endogenousThoughtScientificCampaignService.js`. Le lanceur exige au moins 30 réplications indépendantes et les 36 paires épreuve × difficulté (12 × 3) ; le module ne peut donc pas lancer par inadvertance le petit corpus de contrat v2 à trois seeds. Il est chargé explicitement :
+Le fichier de sortie doit être nouveau : le runner refuse de l'écraser. Pour une exécution de développement plus courte, remplacer `30` par `1`. Chaque seed génère une instance pour chacune des 36 paires scénario/difficulté. Les échecs restent dans le dénominateur. Les réponses sont vérifiées dans un processus distinct et le reçu précise `scientificClaimAllowed: false` et `externalModelCostsMeasured: false`.
 
-```powershell
-node benchmarks/ett/run_campaign.js --adapter <chemin-vers-module-provider.js> --output <chemin-vers-recu.json>
-```
+## Portée des scénarios et adaptateurs
 
-Le service refuse les seeds non réservées, les exécutions non appariées, l'absence de vérificateur indépendant et l'absence de mesure externe. Ce chemin compare seulement `full` à `llm_only` ; il ne lance pas les autres systèmes ni les ablations A1–A5 listés dans les configurations. Chaque adaptateur supplémentaire exige une intégration explicite et des rapports séparés. La sortie demeure descriptive et non promotrice. L'exécuteur actuel transmet l'oracle au provider de vérification dans le même processus ; pour un holdout résistant à l'accès au secret, le vérificateur et le coffre d'oracles devront être isolés en processus et l'intégration devra être auditée avant qualification.
+`scenarios/runtime.js` fournit le générateur déterministe et les schémas de propositions. Les 12 manifestes déclarent `executable_reference_proxy`. Le monde de référence est une tâche synthétique de choix de candidat à partir d'indices : il teste le chemin d'exécution et la séparation producteur/oracle, mais ne reproduit pas encore douze environnements aux dynamiques distinctes. Les seuils du protocole initial ne sont donc pas évalués par ce proxy.
 
-Les définitions des 12 épreuves et leurs niveaux sont dans `scenarios/*/scenario.json`. Chaque définition décrit l'observation, le résultat vérifiable et les contrôles de fuite/raccourci attendus. Elles ne sont pas encore des mondes simulés exécutables. Les comparaisons impossibles ou non configurées doivent rester absentes des résultats, jamais recevoir un score nul interprété comme échec.
+`adapters/referenceSystems.js` expose GenOS ETT proxy, deux ablations de référence, ReAct classique, boucle périodique et des proxies adaptés de Voyager, AI Scientist v2 et Darwin Gödel Machine. Ces politiques sont des baselines déterministes locales, explicitement pas les systèmes originaux, ni des LLM. Les implémentations originales sont déclarées indisponibles dans `configs/systems.yaml`.
 
-## Verdict actuel
+Le vérificateur lit le secret uniquement dans `evaluation/oracle_worker.js`, lancé dans un processus Node enfant. Ce cloisonnement réduit la fuite accidentelle dans le harnais local ; ce n'est pas une frontière de sécurité résistante à un opérateur qui contrôle la machine. Le runner conserve le temps hôte et les échecs, mais aucun appel fournisseur ni mesure de tokens/coût n'est fait.
 
-Aucun niveau ETT-L1 à ETT-L5 n'est qualifié par ce dossier. La continuité, le cycle borné et les contrats ont des tests fonctionnels existants, mais ils ne remplacent pas les expériences préenregistrées et les oracles indépendants. Aucun score, gain, intervalle de confiance ou classement n'est inféré de la présence de code.
+## Campagne scientifique et limites
 
-Le pilote synthétique rejoué pour ce changement a traité 18 cas sur les 7 conditions existantes (126 tentatives), avec 21 échecs d'exécution au total (3 par condition) et 9 paires sans gain synthétique. Il rapporte zéro découverte validée et zéro coût mesuré dans chaque condition ; ces zéros signifient « non mesuré dans ce harnais », pas un résultat de performance. Le reçu complet et les erreurs sont dans [`reports/development-pilot.json`](reports/development-pilot.json). Il est `development_only`, `holdout: false`, `scientificClaimAllowed: false` et `promotionDecision: null`.
+Le protocole scientifique v2 (`benchmarks/endogenous-thought/protocol-v2.json`) compare `full` à `llm_only` via des providers injectés, un vérificateur indépendant et un mesureur externe. `run_campaign.js` conserve cette intégration. Elle ne fournit pas à elle seule les concurrents ni la matrice A0–A5 complète. Ses contraintes de corpus et son exécution des providers doivent être respectées ; ne remplacez pas les preuves manquantes par des scores nuls.
 
-Les utilitaires statistiques fournissent le bootstrap hiérarchique apparié, la taille d'effet standardisée des différences appariées et la correction de Holm. Ils rejettent les observations, niveaux de confiance, répétitions et p-values invalides.
+Pour qualifier les systèmes réels, il faut encore des environnements spécifiques à chaque capacité, des adaptateurs vérifiés vers les systèmes d'origine ou des adaptations publiées, un modèle figé commun, des budgets appariés, un mesureur fournisseur indépendant et un holdout protégé. Le harnais de référence actuel ne permet aucune revendication ETT-L1 à ETT-L5, aucun classement scientifique ni décision de promotion.
+
+Le pilote synthétique de développement préexistant est archivé dans [`reports/development-pilot.json`](reports/development-pilot.json) ; il ne constitue pas un résultat de cette campagne. Les statistiques de bootstrap apparié et de correction de Holm sont disponibles dans `evaluation/statistics.js`.

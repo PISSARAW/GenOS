@@ -2,7 +2,7 @@
   "id": "ETT-04",
   "name": "apprentissage-cumulatif",
   "priority": true,
-  "status": "contract_defined_not_executable",
+  "status": "executable_reference_proxy",
   "levels": ["simple", "difficult", "open"],
   "input": "Famille de tâches ordonnée par difficulté puis instances de transfert inédites.",
   "oracle": "Règle commune des tâches, score retenu et score sur instances jamais vues.",

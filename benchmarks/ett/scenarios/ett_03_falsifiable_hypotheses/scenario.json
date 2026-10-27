@@ -1,6 +1,6 @@
 {
   "id": "ETT-03", "name": "hypotheses-falsifiables", "priority": false,
-  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
   "input": "Phénomène simulé produit par plusieurs causes concurrentes avec interventions disponibles.",
   "oracle": "Causes et effets d'intervention tirés du générateur caché.",
   "metrics": ["causal_accuracy", "intervention_quality", "falsifiability"]

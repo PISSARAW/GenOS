@@ -2,7 +2,7 @@
   "id": "ETT-01",
   "name": "curiosite-spontanee",
   "priority": true,
-  "status": "contract_defined_not_executable",
+  "status": "executable_reference_proxy",
   "levels": ["simple", "difficult", "open"],
   "input": "Jeu de données inconnu sans question prescrite ; les anomalies candidates ne sont pas annotées dans l'observation.",
   "oracle": "Indices d'anomalies et propriétés latentes confirmés par une règle génératrice scellée.",

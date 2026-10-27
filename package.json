@@ -23,6 +23,7 @@
     "arena": "node benchmarks/genos-arena/run-arena.cjs",
     "benchmark:holobiont": "node backend/bin/genos-holobiont-benchmark.cjs",
     "benchmark:gqwf-cow": "node benchmarks/gqwf-overlays/compare.cjs",
+    "benchmark:ett:reference": "node benchmarks/ett/run_reference_campaign.js",
     "benchmark:reflection:prepare": "node benchmarks/reflection-comparison/prepare.cjs",
     "benchmark:reflection:execute": "node benchmarks/reflection-comparison/execute.cjs",
     "benchmark:reflection:score": "node benchmarks/reflection-comparison/score.cjs",

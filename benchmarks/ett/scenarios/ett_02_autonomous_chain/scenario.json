@@ -2,7 +2,7 @@
   "id": "ETT-02",
   "name": "chaine-autonome",
   "priority": true,
-  "status": "contract_defined_not_executable",
+  "status": "executable_reference_proxy",
   "levels": ["simple", "difficult", "open"],
   "input": "Observation initiale et environnement interactif à outils bornés ; aucune instruction après démarrage.",
   "oracle": "Chaque transition observation-question-hypothèse-test-conclusion est liée à une preuve environnementale.",

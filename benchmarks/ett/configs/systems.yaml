@@ -1,15 +1,19 @@
 systems:
-  genos_ett_full: { status: implementation_available, adapter: required }
-  genos_no_endogenous_thought: { status: adapter_required }
-  genos_no_persistent_memory: { status: adapter_required }
-  react_classic: { status: adapter_required }
-  periodic_llm_loop: { status: adapter_required }
-  voyager_adapted: { status: unavailable_until_documented_and_executable }
-  ai_scientist_v2_adapted: { status: unavailable_until_documented_and_executable }
-  darwin_godel_machine_adapted: { status: unavailable_until_documented_and_executable }
+  genos_ett_full: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: deterministic_proxy }
+  genos_no_endogenous_thought: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: direct_policy_proxy }
+  genos_no_persistent_memory: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: memory_disabled_proxy }
+  react_classic: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: react_style_heuristic }
+  periodic_llm_loop: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: fixed_periodic_heuristic }
+  voyager_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_curriculum_memory_proxy }
+  ai_scientist_v2_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_hypothesis_ranking_proxy }
+  darwin_godel_machine_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_strategy_mutation_proxy }
+  voyager_original: { status: unavailable, reason: original_runtime_not_installed }
+  ai_scientist_v2_original: { status: unavailable, reason: original_runtime_not_installed }
+  darwin_godel_machine_original: { status: unavailable, reason: original_runtime_not_installed }
   google_co_scientist_reference: { status: secondary_reference_only }
 adapter_requirements:
   same_model_and_limits: true
   disclose_adaptations: true
   do_not_label_adaptations_as_original_system: true
   inaccessible_systems_reported_as_unavailable: true
+  local_reference_receipt_is_scientific_evidence: false
