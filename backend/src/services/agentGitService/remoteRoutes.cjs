@@ -33,7 +33,7 @@ async function fetch(req) {
     return exportHistory({ db, req, agentId: req.body?.agentId, refName: req.body?.refName || 'main' });
   }
   if (req.body?.remoteUrl) return fetchRemote(req, remoteName);
-  const scope = require('./index').scopeSql(req, 'w');
+  const scope = require('./scopeSql.cjs').scopeSql(req, 'w');
   const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at
     FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id
     WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause}

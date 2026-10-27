@@ -12,7 +12,7 @@ async function bisectReplay(req) {
   }
   configuredProbe(probeName);
   const db = await getDatabase();
-  const scope = require('./index').scopeSql(req, 'w');
+  const scope = require('./scopeSql.cjs').scopeSql(req, 'w');
   const query = `SELECT o.id, o.agent_id, o.workspace_id FROM agent_git_objects o
     LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`;
   const [good, bad] = await Promise.all([db.get(query, goodObjectId, ...scope.params),

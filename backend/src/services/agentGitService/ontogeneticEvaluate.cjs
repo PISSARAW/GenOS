@@ -19,7 +19,7 @@ function validateInput(body) {
 }
 
 async function loadPair(db, req) {
-  const scope = require('./index').scopeSql(req, 'w');
+  const scope = require('./scopeSql.cjs').scopeSql(req, 'w');
   const sql = `SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id
     WHERE o.id = ? AND ${scope.clause}`;
   const baseline = await db.get(sql, req.body.baselineObjectId, ...scope.params);

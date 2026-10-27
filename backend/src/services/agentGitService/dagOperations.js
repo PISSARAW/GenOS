@@ -1,7 +1,7 @@
 'use strict';
 
 const { getCommit, findMergeBase: findBase } = require('./commitGraph');
-const { scopeSql } = require('./index');
+const { scopeSql } = require('./scopeSql.cjs');
 const {
   replaceAgentState,
   replaceDecisionState,

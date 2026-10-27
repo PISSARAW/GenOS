@@ -4,7 +4,7 @@ async function updateRef({ db, req, agentId, refName, objectId, options = {} }) 
 }
 
 async function updateRefWithinTransaction({ db, req, agentId, refName, objectId, options }) {
-  const scope = require('./index').scopeSql(req, 'w');
+  const scope = require('./scopeSql.cjs').scopeSql(req, 'w');
   const current = await db.get(`SELECT r.* FROM agent_git_refs r LEFT JOIN agents a ON a.id = r.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE r.agent_id = ? AND r.ref_name = ? AND ${scope.clause}`, agentId, refName, ...scope.params);
   assertRefUpdateAllowed(current, options);
   const version = Number(current?.version || 0) + 1;

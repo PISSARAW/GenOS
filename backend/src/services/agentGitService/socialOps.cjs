@@ -33,7 +33,7 @@ function verifySnapshots(snapshots) {
 }
 
 async function loadCommit(db, req, objectId) {
-  const scopeSql = require('./index').scopeSql;
+  const scopeSql = require('./scopeSql.cjs').scopeSql;
   const scope = scopeSql(req, 'w');
   return db.get(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`, objectId, ...scope.params);
 }
