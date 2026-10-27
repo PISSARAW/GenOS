@@ -6,6 +6,7 @@ const { SCENARIO_IDS, LEVELS, SPECS, buildCase, referenceScore } = require('../s
 const { scenarioModules, parseArguments, buildTasks, casePayload, remainingTasks,
   validateResume, validateStoredRecords, restoreAdapterState } = require('../run_runtime_campaign');
 const { verifyInChild } = require('../evaluation/verifyInChild');
+const { compareRows, compareSystems } = require('../evaluation/replay');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
 
 function testScenarioRegistry() {
@@ -47,6 +48,17 @@ function testIndependentOracle() {
   assert.equal(rejected.usefulDiscoveries, 0);
 }
 
+function testReplayComparison() {
+  const row = { scenarioId: 'ETT-01', difficulty: 'simple', seed: 1001,
+    failed: false, proposal: { answerId: 'candidate-1', evidenceRefs: ['evidence:1'] },
+    verdict: 'supported', usefulDiscoveries: 1, actions: 2, elapsedMs: 3 };
+  const replayed = { ...row, elapsedMs: 900 };
+  assert.equal(compareRows([row], [replayed]).mismatches, 0);
+  assert.equal(compareRows([row], [{ ...replayed, verdict: 'refuted' }]).mismatches, 1);
+  assert.equal(compareSystems([{ id: 'adapter', rows: [row] }],
+    [{ id: 'adapter', rows: [replayed] }]).mismatches, 0);
+}
+
 function testRunnerOptions() {
   const options = parseArguments(['--model', 'ollama://test', '--seeds', '2',
     '--scenarios', 'all', '--conditions', 'full,llm_only,react_classic,voyager_adapted', '--token-budget', '5000',
@@ -70,13 +82,20 @@ function testResumeContracts() {
   const report = { schema: 'genos.ett-runtime-campaign/v1', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,
-    status: 'partial_global_token_budget_reserve_reached', records: [] };
+    measuredTokens: 200000, status: 'partial_global_token_budget_reserve_reached', records: [] };
   assert.doesNotThrow(() => validateResume(report, options));
-  assert.equal(report.status, 'partial_segment_token_budget_reserve_reached');
+  assert.equal(report.status, 'partial_campaign_token_budget_reached');
   const extended = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--seeds', '10', '--conditions', 'full,voyager_adapted']);
   assert.doesNotThrow(() => validateResume(report, extended));
   assert.equal(report.seeds.length, 10);
+  const increased = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
+    '--seeds', '10', '--token-budget', '1000000', '--conditions', 'full,voyager_adapted']);
+  assert.doesNotThrow(() => validateResume(report, increased));
+  assert.equal(report.tokenBudget, 1000000);
+  assert.equal(report.budgetAdjustments.at(-1).previousTokenBudget, 250000);
+  const exhausted = { ...report, status: 'partial_campaign_token_budget_reached', measuredTokens: 1000000 };
+  assert.throws(() => validateResume(exhausted, increased), /budget is exhausted/);
   const testCase = buildCase('ETT-01', 'simple', 1001);
   const observationHash = createHash('sha256').update(JSON.stringify(testCase.observation)).digest('hex');
   const previous = { scenarioId: 'ETT-01', difficulty: 'simple', seed: 1001,
@@ -139,6 +158,7 @@ async function testIndependentAdapters() {
 async function main() {
   testScenarioRegistry();
   testIndependentOracle();
+  testReplayComparison();
   testRunnerOptions();
   testResumeContracts();
   await testIndependentAdapters();

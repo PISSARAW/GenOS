@@ -18,15 +18,21 @@ Le runner suivant appelle `endogenousThoughtCampaignExecutor`, qui utilise les s
 npm run benchmark:ett:runtime -- --model ollama://qwen2.5-coder:7b --seeds 1 --scenarios priority --conditions full,planned_control --output benchmarks/ett/reports/runtime-priority-pilot.json
 ```
 
-Le reçu est écrit progressivement par remplacement atomique et ne contient pas la réponse cachée. Les compteurs de tokens sont ceux retournés par Ollama ; la durée est celle de l'hôte et le coût monétaire est déclaré zéro pour l'inférence locale. Le budget maximal de 250 000 tokens est appliqué par invocation, avec une réserve avant le prochain cas. Chaque segment et sa consommation restent dans le reçu. `llm_only` appelle directement le même modèle sans services ETT. Chaque concurrent possède son propre adaptateur dans `adapters/independent/`, sa politique et son éventuel état ; tous utilisent le même modèle et la même limite par appel. À la reprise, le runner valide les observations stockées, ignore les paires déjà terminées et restaure la mémoire de preuves vérifiées du proxy Voyager. Les seeds peuvent uniquement être prolongées en conservant leur préfixe. Ce sont des adaptations locales, jamais les systèmes originaux. Exemple : `--conditions full,llm_only,react_classic,periodic_llm_loop,voyager_adapted,ai_scientist_v2_adapted,darwin_godel_machine_adapted`. Les essais sont appariés par scénario, niveau et seed ; ils restent `development`, `holdout: false`, et aucune conclusion scientifique n'est permise à partir du pilote.
+Le reçu est écrit progressivement par remplacement atomique et ne contient pas la réponse cachée. Les compteurs de tokens sont ceux retournés par Ollama ; la durée est celle de l'hôte et le coût monétaire est déclaré zéro pour l'inférence locale. Le budget maximal de 250 000 tokens s'applique à toute la campagne et ne se réinitialise pas lors d'une reprise ; le runner garde une réserve avant le prochain cas. Chaque segment et sa consommation restent dans le reçu. `llm_only` appelle directement le même modèle sans services ETT. Chaque concurrent possède son propre adaptateur dans `adapters/independent/`, sa politique et son éventuel état ; tous utilisent le même modèle et la même limite par appel. À la reprise, le runner valide les observations stockées, ignore les paires déjà terminées et restaure la mémoire de preuves vérifiées du proxy Voyager. Les seeds peuvent uniquement être prolongées en conservant leur préfixe. Un relèvement de budget doit être fourni explicitement avec `--token-budget` et est historisé dans le reçu. Ce sont des adaptations locales, jamais les systèmes originaux. Exemple : `--conditions full,llm_only,react_classic,periodic_llm_loop,voyager_adapted,ai_scientist_v2_adapted,darwin_godel_machine_adapted`. Les essais sont appariés par scénario, niveau et seed ; ils restent `development`, `holdout: false`, et aucune conclusion scientifique n'est permise à partir du pilote.
 
-Pour reprendre un reçu interrompu au plafond, rappeler les mêmes modèle, scénarios, conditions et budget, avec `--resume` au lieu d'un nouveau fichier de sortie :
+Pour reprendre un reçu qui possède encore du budget, rappeler les mêmes modèle, scénarios et conditions, avec `--resume` au lieu d'un nouveau fichier de sortie :
 
 ```powershell
-npm run benchmark:ett:runtime -- --model ollama://qwen2.5-coder:7b --seeds 1 --scenarios all --conditions full,curiosity_ablated,memory_ablated,llm_only,react_classic,periodic_llm_loop,voyager_adapted,ai_scientist_v2_adapted,darwin_godel_machine_adapted --token-budget 250000 --resume benchmarks/ett/reports/domain-runtime-pilot-qwen7b.json
+npm run benchmark:ett:runtime -- --model ollama://qwen2.5-coder:7b --seeds 30 --scenarios all --conditions full,curiosity_ablated,memory_ablated,llm_only,react_classic,periodic_llm_loop,voyager_adapted,ai_scientist_v2_adapted,darwin_godel_machine_adapted --token-budget 250000 --resume benchmarks/ett/reports/campaign-partial.json
 ```
 
-On peut étendre `--seeds 1` à `--seeds 10`, puis `--seeds 30` ; les seeds déjà dans le reçu doivent rester un préfixe identique.
+On peut étendre `--seeds 1` à `--seeds 10`, puis `--seeds 30` ; les seeds déjà dans le reçu doivent rester un préfixe identique. Un reçu ayant consommé le plafond est terminé et ne peut reprendre qu'après relèvement explicite de `--token-budget`.
+
+Pour vérifier qu'un reçu déterministe de référence se rejoue à l'identique (hors durée mesurée) :
+
+```powershell
+node benchmarks/ett/evaluation/replay.js --input benchmarks/ett/reports/domain-reference-30seed.json --output benchmarks/ett/reports/domain-reference-30seed-replay.json
+```
 
 Pour sélectionner les 12 scénarios, utiliser `--scenarios all`. La matrice visée A0–A5 est décrite dans `configs/ablations.yaml` ; seules A0 et A1 ont une condition runtime directe, A2 et A4 sont des proxys partiels, A3 et A5 ne sont pas implémentées. Le garde conserve une réserve de 12 000 tokens et s'arrête avant le prochain cas quand le reste passe sous cette réserve ; son statut indique ce seuil, même si une partie du budget reste inutilisée.
 

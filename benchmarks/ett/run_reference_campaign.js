@@ -97,4 +97,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { optionsFrom, verifyIndependently, main };
+module.exports = { optionsFrom, loadScenarios, verifyIndependently, runCampaign, main };

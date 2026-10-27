@@ -13,19 +13,23 @@ const experimentExecutor = require('../../backend/src/services/endogenousThought
 const { CONDITIONS } = require('../../backend/src/services/endogenousThoughtExperimentService');
 
 const PRIORITY = ['ETT-01', 'ETT-02', 'ETT-04', 'ETT-09'];
+const ARGUMENT_SETTERS = Object.freeze({
+  '--model': (options, value) => { options.model = value; },
+  '--seeds': (options, value) => { options.seeds = Number(value); },
+  '--scenarios': (options, value) => { options.scenarios = value; },
+  '--conditions': (options, value) => { options.conditions = value.split(','); },
+  '--token-budget': (options, value) => { options.tokenBudget = Number(value); },
+  '--output': (options, value) => { options.output = value; },
+  '--resume': (options, value) => { options.resume = value; }
+});
 
 function parseArguments(args) {
   const options = { model: 'ollama://qwen2.5:0.5b', seeds: 1, scenarios: 'priority',
     conditions: ['full'], tokenBudget: 250000, output: null, resume: null };
   for (let index = 0; index < args.length; index += 1) {
-    if (args[index] === '--model') options.model = args[++index];
-    else if (args[index] === '--seeds') options.seeds = Number(args[++index]);
-    else if (args[index] === '--scenarios') options.scenarios = args[++index];
-    else if (args[index] === '--conditions') options.conditions = args[++index].split(',');
-    else if (args[index] === '--token-budget') options.tokenBudget = Number(args[++index]);
-    else if (args[index] === '--output') options.output = args[++index];
-    else if (args[index] === '--resume') options.resume = args[++index];
-    else throw new Error(`Unknown argument: ${args[index]}`);
+    const setter = ARGUMENT_SETTERS[args[index]];
+    if (!setter) throw new Error(`Unknown argument: ${args[index]}`);
+    setter(options, args[++index]);
   }
   if (options.resume && !options.output) options.output = options.resume;
   if (options.resume && path.resolve(options.output) !== path.resolve(options.resume)) {
@@ -205,32 +209,66 @@ function remainingTasks(tasks, records) {
   return tasks.filter((task) => !completed.has(`${task.scenario.id}:${task.difficulty}:${task.seed}:${task.condition}`));
 }
 
-function validateResume(report, options) {
+function validateResumeMetadata(report, options) {
   const expected = { schema: 'genos.ett-runtime-campaign/v1', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
-    tokenBudget: options.tokenBudget, split: 'development', holdout: false };
+    split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {
     if (JSON.stringify(report[key]) !== JSON.stringify(value)) {
       throw new Error(`Resume report mismatch for ${key}.`);
     }
   }
+}
+
+function validateResumeStatus(report) {
   if (!['running', 'partial_global_token_budget_reserve_reached',
-    'partial_segment_token_budget_reserve_reached'].includes(report.status)
+    'partial_segment_token_budget_reserve_reached', 'partial_campaign_token_budget_reached'].includes(report.status)
     || !Array.isArray(report.records)) throw new Error('Report is not an incomplete resumable campaign.');
+}
+
+function validateResumeBudget(report, options) {
+  if (!Number.isSafeInteger(report.tokenBudget) || !Number.isSafeInteger(report.measuredTokens)
+    || report.measuredTokens < 0 || options.tokenBudget < report.tokenBudget
+    || report.measuredTokens >= options.tokenBudget) {
+    throw new Error('Campaign-wide token budget is exhausted or cannot be lowered on resume.');
+  }
+}
+
+function recordBudgetAdjustment(report, options) {
+  if (options.tokenBudget > report.tokenBudget) {
+    report.budgetAdjustments = [...(report.budgetAdjustments || []), {
+      previousTokenBudget: report.tokenBudget, tokenBudget: options.tokenBudget,
+      updatedAt: new Date().toISOString(), source: 'explicit_resume_cli_option' }];
+    report.tokenBudget = options.tokenBudget;
+  }
+}
+
+function validateSeedPrefix(report, options) {
   const targetSeeds = seedList(options.seeds);
   if (!Array.isArray(report.seeds) || report.seeds.length > targetSeeds.length
     || !report.seeds.every((seed, index) => seed === targetSeeds[index])) {
     throw new Error('Resume seeds must extend the report seed list without changing its prefix.');
   }
-  report.seeds = targetSeeds;
-  if (report.status === 'partial_global_token_budget_reserve_reached') {
-    report.status = 'partial_segment_token_budget_reserve_reached';
-  }
+  return targetSeeds;
+}
+
+function normalizeResumeStatuses(report) {
+  const legacyStatuses = ['partial_global_token_budget_reserve_reached',
+    'partial_segment_token_budget_reserve_reached'];
+  if (legacyStatuses.includes(report.status)) report.status = 'partial_campaign_token_budget_reached';
   for (const segment of report.segments || []) {
-    if (segment.status === 'partial_global_token_budget_reserve_reached') {
-      segment.status = 'partial_segment_token_budget_reserve_reached';
-    }
+    if (legacyStatuses.includes(segment.status)) segment.status = 'partial_campaign_token_budget_reached';
   }
+}
+
+function validateResume(report, options) {
+  validateResumeMetadata(report, options);
+  validateResumeStatus(report);
+  validateResumeBudget(report, options);
+  recordBudgetAdjustment(report, options);
+  const targetSeeds = validateSeedPrefix(report, options);
+  report.seeds = targetSeeds;
+  normalizeResumeStatuses(report);
 }
 
 function validateStoredRecords(report, scenarios) {
@@ -271,7 +309,7 @@ function beginSegment(report, options) {
 async function executeTasks(context) {
   let exhausted = false;
   for (const task of context.tasks) {
-    if (context.options.tokenBudget - context.segment.measuredTokens < 12000) {
+    if (context.options.tokenBudget - context.report.measuredTokens < 12000) {
       exhausted = true;
       break;
     }
@@ -306,7 +344,7 @@ async function main(args = process.argv.slice(2)) {
   restoreAdapterState(externalAdapters, report.records);
   const pending = remainingTasks(tasks, report.records);
   const exhausted = await executeTasks({ report, options, tasks: pending, externalAdapters, output, segment });
-  report.status = exhausted ? 'partial_segment_token_budget_reserve_reached' : 'descriptive_runtime_run_complete';
+  report.status = exhausted ? 'partial_campaign_token_budget_reached' : 'descriptive_runtime_run_complete';
   segment.status = report.status === 'descriptive_runtime_run_complete' ? 'complete' : report.status;
   segment.finishedAt = new Date().toISOString();
   report.finishedAt = new Date().toISOString();
