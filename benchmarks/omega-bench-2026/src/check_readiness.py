@@ -1,4 +1,5 @@
 """Fail-closed preflight for the confirmatory OMEGA-BENCH campaign."""
+import hashlib
 import json
 from pathlib import Path
 
@@ -49,15 +50,41 @@ def dataset_checks(protocol, blockers):
 
 
 def design_checks(protocol, blockers):
-    dataset = protocol.get("dataset", {}).get("scenarios_by_experiment", {})
     design = protocol.get("minimum_design", {})
-    scenarios = sum(dataset.values())
+    inputs = ROOT / "dataset" / "public" / "inputs"
+    scenarios = sum(count_rows(path) for path in inputs.glob("E*.jsonl"))
     conditions = len(protocol.get("conditions", []))
     repetitions = design.get("repetitions", 0)
     expected = scenarios * conditions * repetitions
     planned = design.get("planned_executions")
     return [check(blockers, "planned_execution_count",
                   (planned == expected, f"planned={planned}; derived={expected}"))]
+
+
+def manifest_checks(blockers):
+    dataset_root = ROOT / "dataset"
+    manifest = read_json(dataset_root / "manifest.json")
+    inputs = dataset_root / "public" / "inputs"
+    observed_counts = {path.stem: count_rows(path) for path in inputs.glob("E*.jsonl")}
+    expected_counts = manifest.get("cases_by_experiment", {})
+    checks = [check(blockers, "dataset_manifest_counts",
+                    (expected_counts == observed_counts
+                     and manifest.get("total_cases") == sum(observed_counts.values()),
+                     f"manifest_total={manifest.get('total_cases')}; observed_total={sum(observed_counts.values())}"))]
+    hashes = manifest.get("sha256", {})
+    mismatches = []
+    for split, folder in (("inputs", dataset_root / "public" / "inputs"),
+                          ("oracle", dataset_root / "oracle")):
+        for path in folder.glob("E*.jsonl"):
+            relative = f"{split}/{path.name}"
+            content = path.read_bytes().replace(b"\r\n", b"\n")
+            digest = hashlib.sha256(content).hexdigest()
+            if hashes.get(relative) != digest:
+                mismatches.append(relative)
+    checks.append(check(blockers, "dataset_manifest_hashes",
+                        (not mismatches and len(hashes) == len(observed_counts) * 2,
+                         f"verified={len(hashes) - len(mismatches)}/{len(observed_counts) * 2}; mismatches={mismatches}")))
+    return checks
 
 
 def adapter_checks(blockers):
@@ -101,6 +128,7 @@ def main():
     checks = []
     checks.extend(dataset_checks(protocol, blockers))
     checks.extend(design_checks(protocol, blockers))
+    checks.extend(manifest_checks(blockers))
     checks.extend(adapter_checks(blockers))
     checks.extend(configuration_checks(blockers))
     checks.extend(preregistration_checks(protocol, blockers))
