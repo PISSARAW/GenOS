@@ -28,7 +28,17 @@ function normalizeProposal(input) {
   } });
   if (!normalized.supported) return null;
   return { proposalId: proposal.proposalId, topology: normalized.topology,
-    status: 'shadow', evidenceRefs: [...new Set(proposal.evidenceRefs || [])], createdAt: Date.now() };
+    status: 'shadow', evidenceRefs: [...new Set(proposal.evidenceRefs || [])],
+    diagnosis: validDiagnosis(proposal.diagnosis), createdAt: Date.now() };
+}
+
+function validDiagnosis(diagnosis) {
+  if (!diagnosis || diagnosis.kind !== 'allostatic_collective_inefficiency'
+    || !['organization', 'mission', 'topology'].includes(diagnosis.scope)
+    || !Number.isFinite(diagnosis.inefficiency) || diagnosis.inefficiency < 0.7
+    || typeof diagnosis.frameId !== 'string' || !diagnosis.frameId) return null;
+  return { kind: diagnosis.kind, scope: diagnosis.scope,
+    inefficiency: Math.min(1, diagnosis.inefficiency), frameId: diagnosis.frameId };
 }
 
 async function load(options) {
@@ -68,4 +78,4 @@ async function topologyForCycle(options) {
   return loaded.state.activeTopology?.topology || null;
 }
 
-module.exports = { recordProposal, activate, topologyForCycle, normalizeProposal, hasContentSelection, SCOPE };
+module.exports = { recordProposal, activate, topologyForCycle, normalizeProposal, hasContentSelection, validDiagnosis, SCOPE };

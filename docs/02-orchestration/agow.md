@@ -352,6 +352,13 @@ scopée sans mesure courante du même niveau reste indisponible et ne préempte 
 Le reçu d'arbitrage conserve `viabilityByScope`; la valeur scalaire de regret reste
 une synthèse opérationnelle et ne remplace pas la résolution des conflits multiniveaux.
 
+Le récepteur d'interoception peut aussi enregistrer une proposition de topologie en
+shadow lorsqu'un diagnostic `mission`, `organization` ou `topology` fournit
+`inefficiency >= 0.7`, une topologie du catalogue de marchés et des références de
+preuve. Le reçu conserve le scope, la mesure et le frame source. Cette proposition ne
+modifie ni roster ni topologie active; `activate` exige toujours un reçu d'approbation.
+Les seuils et la correspondance topologie/diagnostic restent heuristiques à qualifier.
+
 Le service construit des drives d'information, pertinence, urgence, erreur de
 prédiction, dette de preuve, actionnabilité, confiance causale, nouveauté et coût
 inverse `1 / (1 + estimatedCost)`, ainsi que les composantes de regret et

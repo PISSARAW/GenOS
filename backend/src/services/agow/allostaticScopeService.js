@@ -9,7 +9,8 @@ function normalizeLevel(value) {
   const variables = value?.variables;
   const measured = variables && typeof variables === 'object' && !Array.isArray(variables);
   return { status: measured ? 'measured' : 'unavailable', variables: measured ? { ...variables } : null,
-    sampledAt: Number.isFinite(value?.measuredAt) ? value.measuredAt : null };
+    sampledAt: Number.isFinite(value?.measuredAt) ? value.measuredAt : null,
+    evidenceRefs: Array.isArray(value?.evidenceRefs) ? value.evidenceRefs.filter((ref) => typeof ref === 'string') : [] };
 }
 
 async function loadScope(options, scope, storageScope) {
