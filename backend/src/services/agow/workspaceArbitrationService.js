@@ -15,7 +15,6 @@ function priority(candidate) {
 
 function drives(candidate) {
   const measures = candidate.measures;
-  const regret = candidate._agowRegretActive === false ? {} : candidate.agowRegret?.regret || {};
   return {
     information: measures.expectedInformationGain,
     relevance: measures.goalRelevance,
@@ -26,22 +25,29 @@ function drives(candidate) {
     confidence: measures.causalConfidence,
     novelty: measures.novelty,
     cost: 1 / (1 + measures.estimatedCost),
-    goalRegret: regret.goal || 0, epistemicRegret: regret.epistemic || 0,
-    viabilityRegret: regret.viability || 0, integrityRegret: regret.integrity || 0,
-    opportunityRegret: regret.opportunity || 0,
+    goalRegret: regretDrive(candidate, 'goal'), epistemicRegret: regretDrive(candidate, 'epistemic'),
+    viabilityRegret: regretDrive(candidate, 'viability'), integrityRegret: regretDrive(candidate, 'integrity'),
+    opportunityRegret: regretDrive(candidate, 'opportunity'),
     irreversibility: candidate.epistemicContext?.irreversibility || 0
   };
+}
+
+function regretDrive(candidate, dimension) {
+  if (dimension === 'viability' && candidate._agowAllostasisActive === false) return 0;
+  if (dimension !== 'viability' && candidate._agowRegretActive === false) return 0;
+  return candidate.agowRegret?.regret?.[dimension] || 0;
 }
 
 function attachRegret(candidates, context) {
   return candidates.map((candidate) => ({
     ...candidate, agowRegret: predictiveRegret.evaluate(candidate, context),
-    _agowRegretActive: context.controlRegret !== false
+    _agowRegretActive: context.controlRegret !== false,
+    _agowAllostasisActive: context.controlAllostasis !== false
   }));
 }
 
 function selectPreemptive(candidates) {
-  const preemptive = candidates.filter((candidate) => candidate._agowRegretActive && candidate.agowRegret.preempt);
+  const preemptive = candidates.filter((candidate) => candidate._agowAllostasisActive && candidate.agowRegret.preempt);
   return preemptive.length ? preemptive : candidates;
 }
 

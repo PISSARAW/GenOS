@@ -488,6 +488,15 @@ sélectionnés dans le résultat runtime. La morphologie doit encore être fourn
 candidat. Aucun gain de latence ou de qualité n'est présumé. Voir
 [ADR 0246](../adr/0246-marches-cognitifs-distribues-agow.md).
 
+La politique runtime ajoute `allostasis` (`shadow` par défaut) et
+`allostaticMorphogenesis` (`disabled` par défaut). `shadow` calcule et conserve le regret
+sans laisser les signaux allostatiques préempter l'attention; `bounded` autorise leur
+influence sous les gates existants. L'avis morphogénétique `shadow` crée seulement les
+propositions diagnostiquées plus haut. Même en `bounded` ou `live`, il ne les active pas:
+`morphogenesisMarketAdapter.activate` reste soumis à un reçu d'approbation. Le déploiement
+doit recueillir des reçus en shadow avant de modifier ces scopes par
+`agowMechanismPolicyService.update`.
+
 `morphogenesisMarketAdapter.recordProposal` accepte une topologie et des frontières
 module-vers-région, jamais des gagnants ou identifiants de candidats sélectionnés. Les
 propositions sont enregistrées en shadow. `activate` exige un reçu d'approbation et le
@@ -1022,6 +1031,8 @@ conclusions générales restent donc non établies. Voir aussi
 | `candidateValidationService.js` | Validation de candidat. |
 | `epistemicRegretService.js` | Risque d'erreur de belief, importance et descendants causaux. |
 | `allostaticRegretAdapter.js` | Comparaison allostatique via `valenceService`. |
+| `allostaticScopeService.js` | Résolution séparée des scopes agent, topologie, mission et organisation. |
+| `allostaticMorphogenesisProposalService.js` | Proposition de topologie étayée par diagnostic collectif; aucune activation. |
 | `predictiveRegretService.js` | Comparaison attend/ignore et attribution de regrets. |
 | `candidatePoolService.js` | Persistance, fraîcheur, déduplication et liens de contradiction. |
 | `workspaceArbitrationService.js` | Priorité, drives, Pareto et sélection par compétition. |

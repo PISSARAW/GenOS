@@ -40,12 +40,17 @@ function testAllostaticPreemption() {
     modelDrift: 0, contextPressure: 0, integrity: 1, stress: 0 };
   const repair = makeCandidate({ confidence: 0.9, coverage: 1, causalEvidence: true,
     epistemicContext: { expectedAllostaticState: recoveredState } });
-  const routine = makeCandidate({ goalMatched: false, measures: { urgency: 0.1 } });
+  const routine = makeCandidate({ goalMatched: true, measures: { urgency: 0.9 } });
   const result = arbitration.arbitrate({ candidates: [routine, repair], regretContext: { currentInteroception } });
   assert.deepEqual(result.candidates.map((item) => item.candidateId), [repair.candidateId]);
   const mild = regret.evaluate(repair, { currentInteroception: { energy: 0.5, memoryPressure: 0.5,
     socialState: 0.5, modelDrift: 0.5, contextPressure: 0.5, integrity: 0.5, stress: 0.5 } });
   assert.equal(mild.preempt, false);
+  const shadow = arbitration.arbitrate({ candidates: [routine, repair], regretContext: {
+    currentInteroception, controlAllostasis: false
+  } });
+  assert(shadow.candidates.some((item) => item.candidateId === routine.candidateId),
+    'shadow allostasis keeps competing candidates in ordinary attention arbitration');
 }
 
 function testHardConstraintStillWins() {

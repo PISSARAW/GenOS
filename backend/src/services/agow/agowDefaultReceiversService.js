@@ -63,12 +63,20 @@ async function interoceptionReceiver(input) {
   const policy = policyFromSensing(sensing.variables, mission.executionPolicy, posture);
   await persistFor({ db: input.db, agentId: input.frame.agentId, scope: 'agow_attention_policy', state: policy });
   const levels = await require('./allostaticScopeService').resolve({ agentId: input.frame.agentId, db: input.db });
-  const morphogenesisProposal = await require('./allostaticMorphogenesisProposalService').propose({
-    agentId: input.frame.agentId, db: input.db, frameId: input.frame.frameId, levels
-  });
+  const morphogenesisProposal = await proposeMorphogenesis(input, levels);
   return { consumed: true, changed: hash(before) !== hash(policy), effectType: 'allostatic_attention_policy',
     beforeStateHash: hash(before), afterStateHash: hash(policy), artifactRefs: [],
     outcome: { morphogenesisProposal } };
+}
+
+async function proposeMorphogenesis(input, levels) {
+  const policy = await require('./agowMechanismPolicyService').load({ agentId: input.frame.agentId, db: input.db });
+  if (!require('./agowMechanismPolicyService').advisesMorphogenesis(policy.allostaticMorphogenesis)) {
+    return { proposed: false, reason: 'mechanism_disabled' };
+  }
+  return require('./allostaticMorphogenesisProposalService').propose({
+    agentId: input.frame.agentId, db: input.db, frameId: input.frame.frameId, levels
+  });
 }
 
 function policyFromSensing(variables, executionPolicy, posture) {

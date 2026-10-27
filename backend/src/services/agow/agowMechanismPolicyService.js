@@ -6,7 +6,8 @@ const SCOPE = 'agow_mechanism_policy';
 const MODES = new Set(['disabled', 'observe', 'shadow', 'advisory', 'bounded', 'live']);
 const DEFAULT_POLICY = Object.freeze({
   regret: 'shadow', counterfactual: 'shadow', plasticity: 'observe',
-  directPathways: 'disabled', proceduralization: 'disabled', markets: 'disabled'
+  directPathways: 'disabled', proceduralization: 'disabled', markets: 'disabled',
+  allostasis: 'shadow', allostaticMorphogenesis: 'disabled'
 });
 
 function validPolicy(policy) {
@@ -31,8 +32,17 @@ function controlsRegret(mode) {
   return mode === 'bounded' || mode === 'live';
 }
 
+function controlsAllostasis(mode) {
+  return controlsRegret(mode);
+}
+
+function advisesMorphogenesis(mode) {
+  return ['shadow', 'advisory', 'bounded', 'live'].includes(mode);
+}
+
 function publishesCounterfactual(mode) {
   return mode === 'advisory' || mode === 'bounded' || mode === 'live';
 }
 
-module.exports = { DEFAULT_POLICY, validPolicy, load, update, controlsRegret, publishesCounterfactual };
+module.exports = { DEFAULT_POLICY, validPolicy, load, update, controlsRegret,
+  controlsAllostasis, advisesMorphogenesis, publishesCounterfactual };

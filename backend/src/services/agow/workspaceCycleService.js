@@ -118,6 +118,7 @@ async function arbitrateCycle(options, candidates, previousFrame) {
   const policyService = require('./agowMechanismPolicyService');
   const mechanismPolicy = await policyService.load({ agentId: options.agentId, db: options.db });
   regretContext.controlRegret = policyService.controlsRegret(mechanismPolicy.regret);
+  regretContext.controlAllostasis = policyService.controlsAllostasis(mechanismPolicy.allostasis);
   const market = await runMarkets({ options, candidates, regretContext, mode: mechanismPolicy.markets });
   const arbitrationCandidates = market?.apply ? market.regionalWinners : candidates;
   const arbitration = arbitrationService.arbitrate({
