@@ -138,6 +138,18 @@ function assertMissionMorphogenesisBinding() {
     'same-sized dispatch must still reconcile a stale allocation from a prior roster');
   assert.equal(staleAllocationPlan.tokenPolicy.rounds.initial.workerTokens[0], 1440,
     'reconciliation reallocates the selected workers share of the token pool');
+
+  const overContractAssignment = { label: 'scout', role: 'environment_mapper', workerKind: 'scout_cell',
+    methodContract: { methodId: 'prompt_defined' } };
+  const overContractPlan = { dispatchWorkers: [assignment], workers: [overContractAssignment],
+    tokenPolicy: { minimumWorkerTokens: 30000, minimumWorkerTokensExplicit: true,
+      total: 200000, workerShare: 0.8, allocation: 'fixed' } };
+  const rejected = bindDispatchAssignments(overContractPlan, [overContractAssignment]);
+  assert.equal(rejected.admissionBlocked, true,
+    'morphogenesis must validate final worker kinds before dispatch');
+  assert.deepEqual(rejected.assignments, []);
+  assert.equal(overContractPlan.dispatchDecision.code, 'TOPOLOGY_BUDGET_INSUFFICIENT');
+  assert.equal(overContractPlan.tokenPolicy.admission.reason, 'worker_minimum_exceeds_runtime_ceiling');
 }
 
 Promise.all([assertConcurrentDispatch(), assertPersistedPartialWorkersAreTracked(), assertReservationRollback()])
