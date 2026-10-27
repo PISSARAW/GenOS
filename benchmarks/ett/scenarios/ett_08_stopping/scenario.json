@@ -1,7 +1,25 @@
 {
-  "id": "ETT-08", "name": "arret-rationnel", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-08",
+  "name": "arret-rationnel",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Pistes résolues, insolvables ou dont le coût marginal dépasse la valeur attendue.",
   "oracle": "Utilité finale et courbe coût-information de chaque piste.",
-  "metrics": ["decision_regret", "avoided_cost", "answer_quality", "premature_abandonment"]
+  "metrics": [
+    "decision_regret",
+    "avoided_cost",
+    "answer_quality",
+    "premature_abandonment"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "netInformationValue",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

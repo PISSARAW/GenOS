@@ -56,8 +56,8 @@ async function setup(ctx) {
     kind: scenarioClass === 'no_anomaly' ? 'state' : 'degradation',
     epistemicStatus: 'observed', source: 'campaign',
     observedAt: new Date(NOW - 1000).toISOString(),
-    validUntil: new Date(NOW + 120000).toISOString(), summary: 'Signal',
-    evidenceRefs: ['evidence:campaign'] });
+    validUntil: new Date(NOW + 120000).toISOString(),
+    summary: ctx.publicSummary || 'Signal', evidenceRefs: ctx.evidenceRefs || ['evidence:campaign'] });
   await db.exec(`CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, project_id TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, status TEXT, runtime_pid INTEGER, is_apoptotic INTEGER NOT NULL DEFAULT 0, cognitive_budget REAL NOT NULL DEFAULT 1);`);
   await db.run('INSERT INTO workspaces(id,organization_id,project_id) VALUES (?,?,?)', `workspace-${projectId}`, 'org-a', projectId);
@@ -125,9 +125,14 @@ async function tryContinue(ctx) {
     });
     const verify = async (input) => {
       const publicKey = keys.verifier.publicKey.export({ type: 'spki', format: 'pem' });
+      const independent = ctx.modelAdapter
+        ? ctx.modelAdapter.verify(input.runReceipt.payload.proposal,
+          input.runReceipt.payload.evidenceRefs) : null;
+      const verdict = independent?.verdict || syntheticVerdictFor(scenarioClass);
+      const oracleEvidence = independent ? `oracle-sha256:${independent.oracleDigest}` : `oracle:${scenarioClass}`;
       const verification = { verifierId: 'ett-campaign-verifier', publicKey,
-        verdict: syntheticVerdictFor(scenarioClass), oracleRef: `oracle:${scenarioClass}`,
-        evidenceRefs: [input.runReceipt.receiptId, `oracle:${scenarioClass}`],
+        verdict, oracleRef: oracleEvidence,
+        evidenceRefs: [input.runReceipt.receiptId, oracleEvidence],
         verifiedAt: new Date(Date.parse(input.runReceipt.payload.completedAt) + 1).toISOString(),
         nonce: `att-${episodeId}-${input.expectedVersion}`, signature: '' };
       const material = { operation: 'ett-verify', projectId,
@@ -147,10 +152,12 @@ async function tryContinue(ctx) {
     };
     const result = await loop.runAutonomousLoop(db, { organizationId: 'org-a', projectId,
       episodeId, condition, maxCycles: 1, nowMs: NOW + 6000, authorize, verify,
-      questionGenerator: ({ previousQuestion }) => ({
+      ...(ctx.modelAdapter ? { worker: ctx.modelAdapter.worker,
+        sandbox: ctx.modelAdapter.sandbox, usageMeter: ctx.modelAdapter.usageMeter } : {}),
+      questionGenerator: ctx.modelAdapter?.questionGenerator || (({ previousQuestion }) => ({
         text: `Quel test de suivi réfute ${previousQuestion.hypothesis} ?`,
         hypothesis: previousQuestion.hypothesis, falsifier: previousQuestion.falsifier,
-        method: previousQuestion.method }) });
+        method: previousQuestion.method })) });
     return result.cycles.length === 1 && result.episode.currentState === 'STOPPED';
   } catch (error) {
     ctx.continuationError = error.code || error.message;
@@ -190,17 +197,20 @@ async function runChain(ctx) {
   const detection = await detector.detectAndQuestion(db, {
     organizationId: 'org-a', projectId, agentId, observationId, nowMs: NOW,
     policy: { enabled: true, id: 'ett-detection-v1', condition, cooldownMs: 0,
-      maxOpenEpisodes: 1, maxBudget: { tokens: 1000, usd: 0.1, seconds: 60 },
+      maxOpenEpisodes: 1, maxBudget: ctx.modelAdapter?.budget
+        || { tokens: 1000, usd: 0.1, seconds: 60 },
       minScore: minimumScore(condition), minInformationGain: 0.1,
       minLearningProgress: 0.01 },
     assessment,
-    budget: { tokens: 500, usd: 0.05, seconds: 30 }
+    ...(ctx.modelAdapter ? { questionGenerator: ctx.modelAdapter.questionGenerator } : {}),
+    budget: ctx.modelAdapter?.budget || { tokens: 500, usd: 0.05, seconds: 30 }
   });
 
   if (!detection?.episode) return rejectedDetectionOutcome(ctx, detection);
 
   const episodeId = detection.episode.receipt.payload.episodeId;
   ctx.episodeId = episodeId;
+  ctx.questionRef = detection.question?.receipt?.receiptId || null;
   const admissionCondition = condition === 'agow_arbitration_ablated' ? condition : 'full';
   const admissionResult = await admission.admitQuestion(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 1000, policy: { enabled: true, id: 'ett-admission-v1', condition: admissionCondition, ttlMs: 60000 } });
   if (admissionResult.status !== 'admitted') {
@@ -213,19 +223,31 @@ async function runChain(ctx) {
 
   const unsignedRun = { operation: 'ett-run', projectId, subjectId: episodeId, expectedVersion: episode.version, details: { taskId: queued.binding.receipt.payload.taskId, policyId: 'ett-run-v1', mode: runner.MODE, grantedBy: 'operator:campaign' }, nonce: `run-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
   const authorizationRun = { ...signAuthorization(keys.authority.privateKey, unsignedRun), grantedBy: 'operator:campaign' };
-  const runResult = await runner.runQueuedThought(db, { organizationId: 'org-a', projectId, episodeId, nowMs: NOW + 3000, policy: { enabled: true, id: 'ett-run-v1' }, authorization: authorizationRun });
+  const runResult = await runner.runQueuedThought(db, { organizationId: 'org-a', projectId,
+    episodeId, nowMs: NOW + 3000, policy: { enabled: true, id: 'ett-run-v1' },
+    authorization: authorizationRun,
+    ...(ctx.modelAdapter ? { worker: ctx.modelAdapter.worker,
+      sandbox: ctx.modelAdapter.sandbox, usageMeter: ctx.modelAdapter.usageMeter } : {}) });
   const runReceipt = runResult.run.receipt;
+  ctx.runReceiptRef = runReceipt.receiptId;
 
   const verifyEpisode = await thoughtStore.getEpisode(db, { organizationId: 'org-a', projectId, episodeId });
-  const v = syntheticVerdictFor(scenarioClass);
+  const independent = ctx.modelAdapter
+    ? ctx.modelAdapter.verify(runReceipt.payload.proposal, runReceipt.payload.evidenceRefs) : null;
+  const v = independent?.verdict || syntheticVerdictFor(scenarioClass);
+  ctx.independentVerification = independent;
   const publicKey = keys.verifier.publicKey.export({ type: 'spki', format: 'pem' });
-  const verification = { verifierId: 'ett-campaign-verifier', publicKey, verdict: v, oracleRef: `oracle:${scenarioClass}`, evidenceRefs: [runReceipt.receiptId, `oracle:${scenarioClass}`], verifiedAt: new Date(NOW + 4000).toISOString(), nonce: `att-${episodeId}`, signature: '' };
+  const oracleEvidence = independent ? `oracle-sha256:${independent.oracleDigest}` : `oracle:${scenarioClass}`;
+  const verification = { verifierId: 'ett-campaign-verifier', publicKey, verdict: v,
+    oracleRef: oracleEvidence, evidenceRefs: [runReceipt.receiptId, oracleEvidence],
+    verifiedAt: new Date(NOW + 4000).toISOString(), nonce: `att-${episodeId}`, signature: '' };
   const unsignedVerify = { operation: 'ett-verify', projectId, subjectId: runReceipt.payload.runId, expectedVersion: verifyEpisode.version, details: { episodeId, runRef: runReceipt.receiptId, verifierId: verification.verifierId, verifierKeyDigest: verificationContract.publicKeyDigest(publicKey), policyId: 'ett-verification-v1', oracleRef: verification.oracleRef }, nonce: `verify-${episodeId}`, expiresAt: new Date(Date.now() + 120000).toISOString() };
   const authorizationVerify = signAuthorization(keys.authority.privateKey, unsignedVerify);
   const payload = verifier.buildPayload({ projectId, episodeId, policyId: 'ett-verification-v1', authorizationRef: `shev-authorization:${unsignedVerify.nonce}`, runReceipt, verification });
   verification.signature = crypto.sign(null, Buffer.from(canonicalJson(verificationContract.attestationMaterial(payload))), keys.verifier.privateKey).toString('base64');
   const verifyResult = await verifier.verifyRunningThought(db, { organizationId: 'org-a', projectId, episodeId, policy: { enabled: true, id: 'ett-verification-v1' }, authorization: authorizationVerify, verification });
   const verificationReceipt = verifyResult.verification.receipt;
+  ctx.verificationReceiptRef = verificationReceipt.receiptId;
 
   ctx.verificationReceipt = verificationReceipt;
   ctx.verdict = v;
@@ -236,6 +258,14 @@ async function runChain(ctx) {
   const finalEpisode = await thoughtStore.getEpisode(db, { organizationId: 'org-a',
     projectId, episodeId });
   const failed = Boolean(ctx.continuationError);
+
+  if (ctx.modelAdapter) return modelOutcome(ctx, {
+    success: !failed, episodes: 1, verified: v === 'supported', learned, continued,
+    terminalState: finalEpisode.currentState,
+    continuationError: ctx.continuationError || null,
+    failure: failed ? { stage: 'continuation', code: ctx.continuationError,
+      message: 'ETT continuation failed.' } : null
+  });
 
   return syntheticOutcome(ctx, {
     success: !failed,
@@ -251,6 +281,28 @@ async function runChain(ctx) {
   });
 }
 
+function modelOutcome(ctx, values) {
+  const usage = ctx.modelAdapter.usageSummary();
+  const budget = { tokens: 12000, seconds: 1800 };
+  const normalizedCost = (usage.tokens / budget.tokens + usage.seconds / budget.seconds) / 2;
+  return { ...values, condition: ctx.condition, caseId: ctx.caseId,
+    scientificEvidence: usage.measured && Boolean(ctx.independentVerification),
+    measurementStatus: 'ollama_provider_token_counters_and_host_time',
+    provider: ctx.modelAdapter.model, providerCalls: usage.calls,
+    providerCallDetails: usage.callDetails,
+    measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds,
+    measuredCostUsd: 0, verifiedDiscoveries: values.verified ? 1 : 0,
+    normalizedCost, developmentUtility: values.verified ? 1 : 0,
+    modelOutputIsEvidence: false,
+    submittedAnswerId: ctx.independentVerification?.submittedAnswerId || null,
+    oracleVerdict: ctx.independentVerification?.verdict || null,
+    oracleDigest: ctx.independentVerification?.oracleDigest || null,
+    ettTrace: { episodeId: ctx.episodeId || null, questionRef: ctx.questionRef || null,
+      runReceiptRef: ctx.runReceiptRef || null,
+      verificationReceiptRef: ctx.verificationReceiptRef || null,
+      learningId: ctx.learningId || null } };
+}
+
 async function execute(input) {
   const { condition, caseId, input: caseInput } = input || {};
   const seed = caseInput?.seed;
@@ -259,19 +311,27 @@ async function execute(input) {
   const agentId = `agent-${seed}-${scenarioClass}`;
   const keys = { authority: crypto.generateKeyPairSync('ed25519'), verifier: crypto.generateKeyPairSync('ed25519') };
   const filename = path.join(os.tmpdir(), `ett-campaign-${crypto.randomUUID()}.sqlite`);
+  const modelAdapter = input?.runtimeAdapter || null;
   let db;
   try {
     db = await fixture.memoryDb(filename);
     const ctx = { db, projectId, agentId, keys, scenarioClass, condition, caseId,
-      caseInput };
+      caseInput, modelAdapter,
+      publicSummary: caseInput?.publicObservation ? JSON.stringify(caseInput.publicObservation) : null,
+      evidenceRefs: caseInput?.publicObservation ? [`ett-case:${caseId}:observation`] : null };
     const result = await runChain(ctx);
     return result;
   } catch (error) {
+    if (modelAdapter) return modelOutcome({ condition, caseId, modelAdapter }, {
+      success: false, verified: false,
+      failure: { stage: 'execution', code: error.code || 'ETT_MODEL_EXECUTION_FAILED',
+        message: String(error.message).slice(0, 200) }
+    });
     return syntheticOutcome({ condition, caseId, caseInput }, {
       success: false,
       error: String(error.message).slice(0, 200),
       failure: { stage: 'execution', code: error.code || 'ETT_CAMPAIGN_EXECUTION_FAILED',
-        message: String(error.message).slice(0, 200) }
+        message: String(error.message).slice(0, 200), errors: error.errors || [] }
     });
   } finally {
     try { if (db) await db.close(); } catch (_) {}

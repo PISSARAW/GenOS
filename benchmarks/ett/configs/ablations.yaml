@@ -1,10 +1,10 @@
 ablations:
-  - { id: A0, name: Full, disabled: [] }
-  - { id: A1, name: NoCuriosity, disabled: [endogenous_question_generation] }
-  - { id: A2, name: NoMemory, disabled: [persistent_verified_memory] }
-  - { id: A3, name: NoCritic, disabled: [self_critique_and_verification] }
-  - { id: A4, name: NoEpistemics, disabled: [belief_and_uncertainty_tracking] }
-  - { id: A5, name: NoPersistence, disabled: [checkpoint_and_resume] }
+  - { id: A0, name: Full, status: executable, runtime_condition: full, disabled: [] }
+  - { id: A1, name: NoCuriosity, status: executable_proxy, runtime_condition: curiosity_ablated, disabled: [endogenous_question_generation] }
+  - { id: A2, name: NoMemory, status: partial_proxy, runtime_condition: memory_ablated, disabled: [persistent_verified_memory], note: "The current hook suppresses continuation; it does not isolate or erase the durable store." }
+  - { id: A3, name: NoCritic, status: unavailable, runtime_condition: null, disabled: [self_critique_and_verification], note: "Independent verification remains a safety invariant and has no separate benchmark-only critic switch." }
+  - { id: A4, name: NoEpistemics, status: partial_proxy, runtime_condition: metacognition_ablated, disabled: [belief_and_uncertainty_tracking], note: "The current hook suppresses verified learning; it is not an isolated uncertainty-tracking ablation." }
+  - { id: A5, name: NoPersistence, status: unavailable, runtime_condition: null, disabled: [checkpoint_and_resume], note: "Checkpoint and recovery persistence are runtime invariants and are not disabled for this campaign." }
 invariants:
   preserve_interfaces: true
   preserve_model_tools_and_budget: true

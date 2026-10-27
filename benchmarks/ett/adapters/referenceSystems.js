@@ -1,7 +1,15 @@
 'use strict';
 
+const { referenceScore } = require('../scenarios/runtime');
+
 function topEvidence(observation) {
-  return [...observation.candidates].sort((left, right) => right.evidence[0] - left.evidence[0])[0];
+  return [...observation.candidates].sort((left, right) => right.metrics.salience - left.metrics.salience)[0];
+}
+
+function scenarioAwareChoice(request) {
+  const { scenarioId, observation } = request;
+  return [...observation.candidates].sort((left, right) =>
+    referenceScore(scenarioId, right.metrics) - referenceScore(scenarioId, left.metrics))[0];
 }
 
 function selectRemembered(observation, memory) {
@@ -10,8 +18,8 @@ function selectRemembered(observation, memory) {
 
 function selectHypothesis(observation) {
   return [...observation.candidates].sort((left, right) =>
-    right.evidence.reduce((sum, value) => sum + value, 0)
-    - left.evidence.reduce((sum, value) => sum + value, 0))[0];
+    Object.values(right.metrics).reduce((sum, value) => sum + value, 0)
+    - Object.values(left.metrics).reduce((sum, value) => sum + value, 0))[0];
 }
 
 function selectMutatedStrategy(observation, memory) {
@@ -19,13 +27,14 @@ function selectMutatedStrategy(observation, memory) {
   return observation.candidates[index % observation.candidates.length];
 }
 
-function chooseCandidate(systemId, observation, memory) {
+function chooseCandidate(systemId, request, memory) {
+  const { scenarioId, observation } = request;
   const choices = {
     periodic_llm_loop: () => observation.candidates[0],
-    genos_no_endogenous_thought: () => observation.candidates[0],
+    fixed_first_candidate: () => observation.candidates[0],
     react_classic: () => topEvidence(observation),
-    genos_no_persistent_memory: () => topEvidence(observation),
-    genos_ett_full: () => topEvidence(observation),
+    scenario_rule_solver: () => scenarioAwareChoice(request),
+    oracle_score_upper_bound: () => scenarioAwareChoice(request),
     voyager_adapted: () => selectRemembered(observation, memory),
     ai_scientist_v2_adapted: () => selectHypothesis(observation),
     darwin_godel_machine_adapted: () => selectMutatedStrategy(observation, memory)
@@ -43,19 +52,20 @@ function createAdapter(systemId) {
       ? 'Local deterministic adaptation; not the original system or a published reproduction.'
       : 'Local deterministic reference policy; no external LLM is called.',
     async solve(request) {
-      const selected = chooseCandidate(systemId, request.observation, memory);
-      const evidenceRefs = selected.evidence.map((_, index) => `${selected.id}:evidence-${index}`);
+      const selected = chooseCandidate(systemId, request, memory);
+      const evidenceRefs = [`${selected.id}:metric:${request.scenarioId}`];
       if (systemId === 'voyager_adapted') memory[selected.clue] = selected.id;
       if (systemId === 'darwin_godel_machine_adapted') {
-        memory.preferredIndex = selected.evidence[0] >= 100 ? Number(selected.id.split('-')[1]) : 0;
+        memory.preferredIndex = selected.metrics.salience >= 90 ? Number(selected.id.split('-')[1]) : 0;
       }
-      return { answerId: selected.id, evidenceRefs, actions: Math.min(request.budget, 1 + selected.evidence.length) };
+      return { answerId: selected.id, evidenceRefs,
+        actions: Math.min(request.budget, 1 + Object.keys(selected.metrics).length) };
     }
   });
 }
 
 const SYSTEM_IDS = Object.freeze([
-  'genos_ett_full', 'genos_no_endogenous_thought', 'genos_no_persistent_memory',
+  'oracle_score_upper_bound', 'fixed_first_candidate', 'scenario_rule_solver',
   'react_classic', 'periodic_llm_loop', 'voyager_adapted',
   'ai_scientist_v2_adapted', 'darwin_godel_machine_adapted'
 ]);

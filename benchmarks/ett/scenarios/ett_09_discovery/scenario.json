@@ -1,9 +1,29 @@
 {
-  "id": "ETT-09", "name": "decouverte-inattendue", "priority": true,
-  "status": "executable_reference_proxy",
-  "levels": ["simple", "difficult", "open"],
+  "id": "ETT-09",
+  "name": "decouverte-inattendue",
+  "priority": true,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Monde simulé avec règles latentes accessibles par observations et actions bornées, sans objectif mentionnant ces règles.",
   "oracle": "Prédictions tenues à l'écart confirmant les propriétés latentes découvertes.",
-  "metrics": ["verified_novel_discoveries", "information_gain", "reproducibility"],
-  "anti_shortcuts": ["randomize world parameters", "keep oracle out of producer process", "validate predictions on fresh states"]
+  "metrics": [
+    "verified_novel_discoveries",
+    "information_gain",
+    "reproducibility"
+  ],
+  "anti_shortcuts": [
+    "randomize world parameters",
+    "keep oracle out of producer process",
+    "validate predictions on fresh states"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "freshPredictionValue",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }
