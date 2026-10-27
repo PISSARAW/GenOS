@@ -11,25 +11,45 @@ function cleanup(state) {
 
 function setupCodexHome() {
   const hostCodexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+  const persistentHome = process.env.GENOS_PERSISTENT_CODEX_HOME;
+  if (persistentHome && !path.isAbsolute(persistentHome)) {
+    throw new Error('GENOS_PERSISTENT_CODEX_HOME must be an absolute path.');
+  }
   const configuredRoot = process.env.GENOS_RUNNER_LOG_DIR;
   const runtimeParent = configuredRoot && path.isAbsolute(configuredRoot)
     ? configuredRoot
     : path.resolve(__dirname, '../..', '.genos-runner-logs');
   fs.mkdirSync(runtimeParent, { recursive: true });
   const isolatedRuntimeRoot = fs.mkdtempSync(path.join(runtimeParent, 'genos-runtime-'));
-  const isolatedCodexHome = path.join(isolatedRuntimeRoot, 'codex-home');
+  const isolatedCodexHome = persistentHome ? path.resolve(persistentHome)
+    : path.join(isolatedRuntimeRoot, 'codex-home');
   const isolatedTemp = path.join(isolatedRuntimeRoot, 'tmp');
   fs.mkdirSync(isolatedCodexHome, { recursive: true });
   fs.mkdirSync(isolatedTemp, { recursive: true });
   const hostAuth = path.join(hostCodexHome, 'auth.json');
-  if (fs.existsSync(hostAuth)) fs.copyFileSync(hostAuth, path.join(isolatedCodexHome, 'auth.json'));
-  fs.writeFileSync(path.join(isolatedCodexHome, 'config.toml'), '[features]\nhooks = true\n', { mode: 0o600 });
+  const isolatedAuth = path.join(isolatedCodexHome, 'auth.json');
+  if (fs.existsSync(hostAuth) && !fs.existsSync(isolatedAuth)) fs.copyFileSync(hostAuth, isolatedAuth);
+  const config = '[features]\nhooks = true\n';
+  persistReviewedFile(path.join(isolatedCodexHome, 'config.toml'), config, !!persistentHome);
   const policyHook = path.resolve(__dirname, 'genos-pre-tool-policy.cjs');
-  fs.writeFileSync(path.join(isolatedCodexHome, 'hooks.json'), JSON.stringify({
+  const hooks = JSON.stringify({
     description: 'Enforce the execution policy attached to a GenOS mission.',
     hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
-  }), { mode: 0o600 });
-  return { home: isolatedCodexHome, root: isolatedRuntimeRoot, temp: isolatedTemp };
+  });
+  persistReviewedFile(path.join(isolatedCodexHome, 'hooks.json'), hooks, !!persistentHome);
+  return { home: isolatedCodexHome, root: isolatedRuntimeRoot, temp: isolatedTemp,
+    persistent: !!persistentHome };
 }
 
-module.exports = { cleanup, setupCodexHome };
+function persistReviewedFile(filePath, content, verifyExisting) {
+  if (verifyExisting && fs.existsSync(filePath)) {
+    if (fs.readFileSync(filePath, 'utf8') !== content) {
+      throw Object.assign(new Error(`Persistent Codex configuration needs review: ${path.basename(filePath)} changed.`),
+        { code: 'GENOS_CODEX_HOOK_CONFIGURATION_CHANGED' });
+    }
+    return;
+  }
+  fs.writeFileSync(filePath, content, { mode: 0o600 });
+}
+
+module.exports = { cleanup, setupCodexHome, persistReviewedFile };

@@ -44,7 +44,8 @@ try {
     path.resolve(__dirname, '../bin/agent-runtime-events.cjs'), path.resolve(__dirname, '../bin/agent-runtime-home.cjs')]
     .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   assert(runtimeSource.includes("'genos-runtime-'"), 'runtime agents must receive an isolated CODEX_HOME');
-  assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
+  assert(!runtimeSource.includes('--dangerously-bypass-hook-trust'), 'runtime must rely on reviewed hook trust');
+  assert(runtimeSource.includes('GENOS_PERSISTENT_CODEX_HOME'), 'runtime must preserve the hook trust store between runs');
   assert(!runtimeSource.includes('--dangerously-bypass-approvals-and-sandbox'), 'runtime must never disable the Codex sandbox');
   assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
   assert(!runtimeSource.includes('GENOS_MCP_EXPOSE_ALL="true"'), 'runtime agents must use their explicit MCP lease');
