@@ -128,10 +128,10 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 
 ## 4. Écarts bloquants pour la bêta Core (constatés par exécution)
 
-1. **CI complète non verte sur le HEAD actuel `d55429282`** :
-   - `check_code_quality.py` : ❌ 176 violations (173 nouvelles), code de sortie 1.
-   - `test:validation` (profil `all`) : ❌ échoue sur `test_cryptophasia.js` (`GVX_LEDGER_CHAIN_INVALID`, migration ledger GVX), code de sortie 1.
-   - Le backend ne démarre pas : boucle fatale `GVX_LEDGER_CHAIN_INVALID` au boot, aucun processus n'écoute sur le port 4000, health check `/healthz` impossible.
+1. **CI complète non verte sur le HEAD actuel** :
+   - `check_code_quality.py` : ❌ 176 violations (173 nouvelles), code de sortie 1. Aucune nouvelle violation introduite par `migrateGvxLedger.js`.
+   - `test:validation` (profil `all`) : `test_cryptophasia.js` ✅ PASS après correction de la migration ledger GVX ; la suite s'arrête ensuite sur `test_biomimetic_signaling_bus.js` (`COMMUNICATION_POLICY_DENIED: CHANNEL_NOT_ALLOWED`, échec distinct non lié à la correction GVX).
+   - Le backend démarre et `/healthz` répond `200 OK` après correction (`GVX_LEDGER_CHAIN_INVALID` résolu).
 2. **Linux/Docker non qualifié** : aucune preuve d'installation propre, build, migration, health/readiness et reprise sur l'image `node:22-bookworm-slim`.
 3. **Sécurité non certifiée** : alertes CodeQL non confirmées fermées sur GitHub ; aucune validation de sécurité complète post-corrections.
 4. **Aucune campagne E2E extérieure** : C5 totalement absent.
@@ -141,13 +141,13 @@ Ces critères sont ceux proposés par l'audit du 27 octobre 2026 pour déclarer 
 
 **Le GenOS Core n'est pas qualifié pour une bêta publique à ce jour (2026-10-27).**
 
-Deux des cinq critères d'acceptation sont en échec avéré par exécution (C2), un est impossible à vérifier car le backend ne démarre pas (C1 health probe, C4), un est documenté non confirmé (C3), et un est totalement absent (C5).
+Le blocage `GVX_LEDGER_CHAIN_INVALID` est corrigé : le backend démarre et `/healthz` répond `200 OK`. Toutefois, C2 reste en échec (porte qualité 176 violations, et `test:validation` s'arrête sur `test_biomimetic_signaling_bus.js`). C1 health probe est maintenant vérifiable, C3 non confirmé, C4 et C5 absents.
 
-Seuls trois critères partiels sont positifs par exécution : `test:mcp` ✅, `test:grpc` ✅, `cargo build --workspace` ✅, `test:quality` ✅.
+Seuls quatre critères sont positifs par exécution : `test:mcp` ✅, `test:grpc` ✅, `cargo build --workspace` ✅, `test:quality` ✅, et le health check `/healthz` ✅.
 
 **Positionnement honnête recommandé :**
 
-> GenOS Core — alpha avancée, non qualifié bêta. Noyau avec composants opérationnels et tests d'intégration sur Windows (MCP, gRPC, build Rust verts) ; mais CI complète en échec (porte qualité + suite de validation), backend non démarrable sur le HEAD actuel (erreur de migration ledger GVX), installation Linux non démontrée, sécurité non certifiée, reprise après panne réelle non démontrée, et aucune campagne E2E externe. Tous ces écarts doivent être comblés avant tout passage en bêta.
+> GenOS Core — alpha avancée, non qualifié bêta. Noyau avec composants opérationnels et tests d'intégration sur Windows (MCP, gRPC, build Rust, health check verts) ; mais CI complète en échec (porte qualité + suite de validation sur `test_biomimetic_signaling_bus.js`), installation Linux non démontrée, sécurité non certifiée, reprise après panne réelle non démontrée, et aucune campagne E2E externe. Tous ces écarts doivent être comblés avant tout passage en bêta.
 
 ## 6. Synthèse des résultats d'exécution (2026-10-27)
 
@@ -155,18 +155,18 @@ Seuls trois critères partiels sont positifs par exécution : `test:mcp` ✅, `t
 |---|---|---|---|
 | `python scripts/ci/check_code_quality.py` | ❌ ÉCHEC | 1 | 176 violations (173 nouvelles) |
 | `npm test` (racine) | ⚠️ PARTIEL | timeout 5 min | Suites biology, backend (57/57), snapshots, authority, aeis, syncytium, axolotl, biome, daemon (43/43), capsules, otel vertes avant arrêt sur `test:workers` |
-| `npm --prefix backend run test:validation` | ❌ ÉCHEC | 1 | `test_cryptophasia.js` : `GVX_LEDGER_CHAIN_INVALID` (migration ledger GVX) |
+| `npm --prefix backend run test:validation` | ❌ ÉCHEC | 1 | `test_cryptophasia.js` : ✅ PASS après correction (GVX_LEDGER_CHAIN corrigé) ; suite s'arrête ensuite sur `test_biomimetic_signaling_bus.js` (`COMMUNICATION_POLICY_DENIED: CHANNEL_NOT_ALLOWED`, échec distinct non lié à la correction GVX) |
 | `npm --prefix backend run test:mcp` | ✅ PASS | 0 | 9 suites, ~20 s |
 | `npm --prefix backend run test:grpc` | ✅ PASS | 0 | 41/41 microservices gRPC |
 | `npm --prefix backend run test:quality` | ✅ PASS | 0 | 12 tests qualité |
 | `cargo build --workspace` | ✅ PASS | 0 | 2m 19s, warnings uniquement |
 | `cargo test --workspace` | ⚪ NON TESTÉ | — | Bloqué Windows (`aws-lc-sys`/NASM/MSVC) |
-| `curl http://localhost:4000/healthz` | ❌ IMPOSSIBLE | — | Backend ne démarre pas (`GVX_LEDGER_CHAIN_INVALID` en boucle) |
+| `curl http://localhost:4000/healthz` | ✅ PASS | 0 | Backend démarre, répond 200 OK (après correction `GVX_LEDGER_CHAIN_INVALID`) |
 | Installation Linux/Docker | ⚪ NON TESTÉ | — | Aucune preuve dans le dépôt |
 | Campagnes E2E externes | ⚪ ABSENT | — | Aucun rapport dans le dépôt |
 | Reprise après panne réelle | ⚪ NON TESTÉ | — | Tests de recovery présents, non exécutés |
 
-**Total : 4 ✅ / 2 ❌ / 6 ⚪ ou ⚠️**
+**Total : 5 ✅ / 2 ❌ / 5 ⚪ ou ⚠️**
 
 ## 7. Conditions à remplir avant déclaration Core Beta
 
