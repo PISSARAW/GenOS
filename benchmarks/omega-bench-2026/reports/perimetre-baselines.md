@@ -8,12 +8,12 @@ Cette décision suit la consigne de la campagne de comparer des fonctionnalités
 
 | Baseline | Expériences applicables | Justification du périmètre | État local |
 |---|---|---|---|
-| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | adaptateur à réaliser |
-| Temporal | E05, E06, E07 | exécution durable, historique/replay et reprise de workflows | adaptateur à réaliser |
-| LangGraph | E05, E06, E07, E10 | transitions de graphes, checkpoints et reprise d'état | adaptateur à réaliser |
-| A2A | E07, E12 | délégation, tâches interagents et échange portable | adaptateur à réaliser |
-| MCP | E07, E12 | découverte et appel d'outils typés, avec réponse au client | adaptateur exécuté sur jeu public |
-| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | adaptateur à réaliser |
+| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | runner en cours sous WSL |
+| Temporal | E05, E06, E07 | exécution durable, historique/replay et reprise de workflows | run public en cours |
+| LangGraph | E05, E06, E07, E10 | transitions de graphes, checkpoints et reprise d'état | 1 650/1 650 corrects, évalués |
+| A2A | E07, E12 | délégation, tâches interagents et échange portable | 900/900 corrects, évalués |
+| MCP | E07, E12 | découverte et appel d'outils typés, avec réponse au client | 900/900 corrects, évalués |
+| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | 4 500/6 000 corrects, évalués |
 | JSON Schema + référence Python | E01–E12 | contrôle déterministe indépendant qui implémente les contrats de sortie | runner A réutilisé, jeu public exécuté |
 
 ## Adaptateur MCP
@@ -24,9 +24,35 @@ un serveur et une paire de transports MCP in-memory, puis mesure l'appel typé
 `execute_case`. La logique métier est volontairement celle de l'exécuteur de
 référence indépendant; cette baseline mesure l'intégration et l'aller-retour
 MCP, pas une supériorité de raisonnement ou d'exécution propre au protocole.
-Le runner couvre E07 et E12, soit 300 cas et 900 appels avec trois répétitions.
-Les scores publics sont dans `results/MCP-baseline.evaluation.json` (artefact
-local ignoré par Git).
+Le runner couvre E07 et E12, soit 300 cas et 900 appels avec trois répétitions;
+les 900 réponses correspondent à l'oracle sans manque, doublon, statut invalide
+ou échec critique. Les scores publics sont dans
+`results/MCP-baseline.evaluation.json` (artefact local ignoré par Git).
+
+## Baselines exécutées
+
+`adapters/a2a.cjs` utilise `@a2a-js/sdk@1.3.0` sur un serveur HTTP JSON-RPC
+local et un client SDK qui découvre sa carte d'agent. E07 et E12 totalisent
+900/900 réponses correctes, sans manque, doublon, statut invalide ni échec
+critique. La réponse métier vient de l'exécuteur de référence; la mesure porte
+sur l'intégration et le transport A2A.
+
+`adapters/langgraph.cjs` utilise `@langchain/langgraph@1.5.3` et
+`SqliteSaver@1.1.0`. Il a évalué 1 650 exécutions sur E05/E06/E07/E10, toutes
+correctes. E05 répète les invocations et compare les états; E06 reprend après
+une panne injectée, avec journal durable des effets idempotents. Le graphe
+exécute un nœud déterministe par cas; ce résultat qualifie le runtime de graphe
+et le checkpoint, pas une orchestration multi-agent optimisée.
+
+`adapters/opa.cjs` exécute OPA 1.21.4 via son serveur local sur E03/E08. Les
+4 500 réponses correctes sur 6 000 comprennent 1 500/3 000 sur E03 (jeu de
+validation équilibré contenant des demandes valides et invalides) et 3 000/3 000
+sur E08. Ce score décrit les règles de politique déclarées et n'est pas une
+mesure de l'ensemble des contrôles de sécurité GenOS.
+
+Les manifestes et évaluations JSONL bruts restent des artefacts locaux ignorés
+par Git; les compteurs ci-dessus sont des résultats descriptifs sur le jeu
+public, pas des tests de significativité.
 
 ## Sources de contrat
 

@@ -51,9 +51,9 @@
     {
       "id": "langgraph",
       "capability": "state graph transitions, checkpoints and recovery",
-      "adapter": null,
-      "version": null,
-      "status": "pending",
+      "adapter": "adapters/langgraph.cjs",
+      "version": "@langchain/langgraph@1.5.3 + @langchain/langgraph-checkpoint-sqlite@1.1.0",
+      "status": "qualified_public_development",
       "applicable_experiments": [
         "E05",
         "E06",
@@ -69,7 +69,10 @@
         "E09",
         "E11",
         "E12"
-      ]
+      ],
+      "results_manifest": "results/LANGGRAPH-baseline.manifest.json",
+      "evaluation_file": "results/LANGGRAPH-baseline.evaluation.json",
+      "result_condition": "LANGGRAPH"
     },
     {
       "id": "a2a",

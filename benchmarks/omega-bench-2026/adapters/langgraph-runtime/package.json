@@ -1,0 +1,13 @@
+{
+  "name": "omega-bench-langgraph-baseline",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned official LangGraph runtime used by the OMEGA-BENCH scoped baseline.",
+  "dependencies": {
+    "@langchain/langgraph": "1.5.3",
+    "@langchain/langgraph-checkpoint-sqlite": "1.1.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
