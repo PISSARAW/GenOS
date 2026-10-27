@@ -3,8 +3,8 @@
 Date : 2026-10-27 (Europe/Paris)  
 Statut : **condition A exécutée; comparaison inter-conditions incomplète**
 
-- Corpus v0.2.0 : 2 800 cas; volumes proposés appliqués à E01/E02/E03/E08.
-- Répétitions : 3; lignes de résultat : 8 400.
+- Corpus v0.3.0 : 3 400 cas; volumes détaillés appliqués aux expériences mesurées.
+- Répétitions : 3; lignes de résultat : 10 200.
 - Scoreur : évaluateur indépendant contre `dataset/oracle/`.
 - Exactitude : 100 % dans chacune des 12 expériences; aucun cas manquant, doublon ou échec critique.
 - Modèle LLM : aucun; l'exécuteur est déterministe.
