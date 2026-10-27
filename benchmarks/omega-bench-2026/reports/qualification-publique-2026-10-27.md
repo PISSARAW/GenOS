@@ -1,8 +1,8 @@
 # OMEGA-BENCH 2026 — qualification publique A/B/C/D
 
-Date d'exécution : 2026-10-27 (Europe/Paris)
+Date d'exécution : 2026-10-28 (Europe/Paris), relance après commit
 Corpus : public v0.4.0, 3 400 cas, 3 répétitions
-Révision des adaptateurs : `53374889d1942aea88c8974e1599b5e7170401ad`
+Révision des adaptateurs : `577d034974da15931d7d47880255a54981d6b037`
 SHA-256 du manifeste du corpus : `e8714de000ade8dce84d5cf3f294b23c6f54701293d6fd0f83c76526e90373ab`
 
 ## Résultats indépendamment scorés
@@ -49,10 +49,10 @@ il n'a pas encore été scoré et n'a pas servi à adapter les runners. La campa
 confirmatoire reste bloquée jusqu'à exécution du holdout, résolution des baselines,
 du verrouillage matériel et des exigences de préenregistrement.
 
-Les JSONL et manifestes sont générés sous `results/`, ignoré par Git. Leurs
-empreintes d'adaptateur sont :
+Les JSONL et manifestes sont générés sous `results/`, ignoré par Git. Les
+empreintes d'adaptateur du dernier run sont :
 
-- A : `eabe3cc04b1c809e31928f3c97437fdf4b79385a3ab28df2f9cf0c0a31364e69`
-- B : `b9b1b9a0fdd75a68e43250d845ac11f46d080f76fd53d55c623101a4b09dc7ef`
-- C : `19d10362fe319fbaac13046bcfafdfb538faa3d952ae8521b0966dfa4cffa2b0`
-- D : `85f0a0a6ea958e881f1eb8560e4373fc5e4d975de5789e84cdb2050be835c09c`
+- A : `4cedc417d3a4335f255bb16bb61d95eff4339cd530666784fcf3579e0689da21`
+- B : `c4de2cbd7bdd884d3677ef936b1d39733756d63ea2edf7dce215315d6008e72f`
+- C : `107ac15d57ac4b83e582a6e6380961bc10bdb6c6aa563de31d0af6c0f40b559b`
+- D : `50f4e1ed003fcc0928f8111b2607ee6231f4417b44d72786760816725e5dc45c`
