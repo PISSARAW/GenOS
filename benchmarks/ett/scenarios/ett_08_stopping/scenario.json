@@ -1,0 +1,7 @@
+{
+  "id": "ETT-08", "name": "arret-rationnel", "priority": false,
+  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "input": "Pistes résolues, insolvables ou dont le coût marginal dépasse la valeur attendue.",
+  "oracle": "Utilité finale et courbe coût-information de chaque piste.",
+  "metrics": ["decision_regret", "avoided_cost", "answer_quality", "premature_abandonment"]
+}

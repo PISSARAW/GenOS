@@ -1,0 +1,12 @@
+ablations:
+  - { id: A0, name: Full, disabled: [] }
+  - { id: A1, name: NoCuriosity, disabled: [endogenous_question_generation] }
+  - { id: A2, name: NoMemory, disabled: [persistent_verified_memory] }
+  - { id: A3, name: NoCritic, disabled: [self_critique_and_verification] }
+  - { id: A4, name: NoEpistemics, disabled: [belief_and_uncertainty_tracking] }
+  - { id: A5, name: NoPersistence, disabled: [checkpoint_and_resume] }
+invariants:
+  preserve_interfaces: true
+  preserve_model_tools_and_budget: true
+  preserve_sandbox_authority_and_evidence_gates: true
+  neutral_replacement_if_interface_breaks: true

@@ -33,8 +33,9 @@ async function main() {
   await assert.rejects(run({ mission, runAttempt: async () => {
     repeated += 1;
     throw rejected;
-  } }), (error) => error === rejected);
-  assert.equal(repeated, 4, 'schema retries are bounded to three re-prompts');
+  } }), (error) => error.code === 'WORKER_TEST_REPAIR_NO_PROGRESS'
+    && error.originalError === rejected && error.repairProgress.identicalFailures === 2);
+  assert.equal(repeated, 2, 'identical failures stop after the configured no-progress limit');
   process.stdout.write('Unsafe code proposals are rejected and returned to the model for a bounded retry.\n');
 }
 

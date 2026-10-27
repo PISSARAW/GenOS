@@ -1,0 +1,3419 @@
+{
+  "experimentId": "259e6122-b173-444f-b8c9-3946f78ef167",
+  "kind": "ett_ablation",
+  "createdAt": 1793131108622,
+  "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e",
+  "holdout": false,
+  "caseCount": 18,
+  "conditions": [
+    "agow_arbitration_ablated",
+    "metacognition_ablated",
+    "curiosity_ablated",
+    "shev_initiative_ablated",
+    "full",
+    "planned_control",
+    "memory_ablated"
+  ],
+  "snapshotHash": "0384c03d95f4bced5af3acb0de3e2b459104daec2bae6494d842194292fa14ce",
+  "environmentHash": "39c4d85c7d1ae1c3cbb6ded68ba20dca7719f9ef0f37e200df0e63cb28c1d59a",
+  "corpusHash": "e2c1b43a94c427e7a8f826c0ddf5b8fb62d971bc65af61ca473a0ed7b5a0463c",
+  "protocol": {
+    "schema": "genos.endogenous-thought-protocol/v1",
+    "protocolId": "ett-v1",
+    "revision": "v1",
+    "status": "preregistered_not_run",
+    "promotionDecision": null,
+    "purpose": "Mesurer une boucle cognitive endogène bornée sans inférer une conscience phénoménale.",
+    "hypothesis": "À modèle, environnement et budget identiques, la boucle complète produit davantage de découvertes utiles vérifiées par coût normalisé que le contrôle planifié sans question endogène.",
+    "scope": {
+      "environment": "deterministic_read_only_simulation",
+      "externalPromptAfterStart": false,
+      "mutationsAllowed": false,
+      "networkAllowed": false,
+      "humanPurposeRequired": true
+    },
+    "budget": {
+      "tokens": 12000,
+      "usd": 0.5,
+      "seconds": 120,
+      "maxEpisodes": 6,
+      "maxFollowUpsPerEpisode": 1
+    },
+    "conditions": [
+      "full",
+      "planned_control",
+      "curiosity_ablated",
+      "shev_initiative_ablated",
+      "agow_arbitration_ablated",
+      "metacognition_ablated",
+      "memory_ablated"
+    ],
+    "safetyBoundary": {
+      "authorityAblated": false,
+      "sandboxAblated": false,
+      "budgetEnforcementAblated": false,
+      "evidenceGateAblated": false
+    },
+    "corpus": {
+      "developmentSeeds": [
+        101,
+        211,
+        307
+      ],
+      "reservedSeeds": [
+        401,
+        503,
+        607
+      ],
+      "scenarioClasses": [
+        "learnable_anomaly",
+        "unlearnable_noise",
+        "false_lead",
+        "mastered_problem",
+        "no_anomaly",
+        "out_of_mandate"
+      ]
+    },
+    "metricsRef": "../../shared/endogenousThoughtMetrics.v1.json",
+    "primaryMetricId": "verified_useful_discoveries_per_normalized_cost",
+    "analysisPlan": {
+      "comparison": "paired_by_seed_and_scenario",
+      "retainFailuresInDenominator": true,
+      "thresholdsFrozenAfterPilot": true,
+      "reservedCorpusUsedForTuning": false,
+      "requiredNegativeControls": [
+        "no_anomaly",
+        "unlearnable_noise",
+        "out_of_mandate"
+      ]
+    },
+    "evidencePolicy": {
+      "modelOutputIsEvidence": false,
+      "independentVerificationRequired": true,
+      "missingEvidenceOutcome": "inconclusive",
+      "scientificPromotionAllowed": false
+    }
+  },
+  "protocolHash": "30a8c3b800f8dcd2e4a32185ededc46d942d59383ee0d17e65f7b3ac49e5b481",
+  "manifest": {
+    "model": "deterministic",
+    "dependencies": [],
+    "toolLease": "ett-campaign"
+  },
+  "results": [
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "syntheticVerdict": "supported",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "supported",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-lease-expiry-drift",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-scheduler-jitter",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "refuted",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "syntheticVerdict": "refuted",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-snapshot-hash-false-lead",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-known-idempotent-replay",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-healthy-evidence-gate",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-101-foreign-tenant-observation",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-101-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-101-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "supported",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "syntheticVerdict": "supported",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-lease-expiry-drift",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-scheduler-jitter",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "syntheticVerdict": "refuted",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "refuted",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-snapshot-hash-false-lead",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-known-idempotent-replay",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-healthy-evidence-gate",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-211-foreign-tenant-observation",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-211-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-211-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "supported",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "syntheticVerdict": "supported",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 1,
+        "syntheticVerdict": "supported",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-lease-expiry-drift",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-lease-expiry-drift",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-lease-expiry-drift",
+        "problemId": "lease-expiry-drift",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "unlearnable-noise",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-scheduler-jitter",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-scheduler-jitter",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-scheduler-jitter",
+        "problemId": "scheduler-jitter",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 1,
+        "syntheticVerdict": "refuted",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "refuted",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-snapshot-hash-false-lead",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-snapshot-hash-false-lead",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-snapshot-hash-false-lead",
+        "problemId": "snapshot-hash-false-lead",
+        "developmentUtility": 0,
+        "syntheticVerdict": "refuted",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "admission",
+        "decisionReason": "agow-arbitration-ablated",
+        "terminalState": "ABSTAINED",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": false,
+        "continued": false,
+        "terminalState": "VERIFIED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-known-idempotent-replay",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-known-idempotent-replay",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-known-idempotent-replay",
+        "problemId": "known-idempotent-replay",
+        "developmentUtility": 0,
+        "syntheticVerdict": "inconclusive",
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "agow_arbitration_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "planned_control",
+        "decisionReason": "planned-control",
+        "plannedControl": {
+          "planId": "ett-planned-abstention-v1",
+          "action": "bounded_abstention",
+          "executed": true
+        },
+        "syntheticVerdict": "inconclusive",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": null,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "shev-initiative-ablated",
+        "ablationEffect": "shev_initiative_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "memory_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-healthy-evidence-gate",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-healthy-evidence-gate",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-healthy-evidence-gate",
+        "problemId": "healthy-evidence-gate",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "no-actionable-signal",
+        "ablationEffect": "metacognition_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "planned_control",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "planned_control",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "metacognition_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "metacognition_ablated",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "shev_initiative_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "shev_initiative_ablated",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "agow_arbitration_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "agow_arbitration_ablated",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "memory_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "memory_ablated",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "full",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "full",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    },
+    {
+      "caseId": "seed-307-foreign-tenant-observation",
+      "condition": "curiosity_ablated",
+      "seed": "4abb0323-2feb-4f10-96d7-a68218c0f53e:seed-307-foreign-tenant-observation",
+      "outcome": {
+        "success": false,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "seed-307-foreign-tenant-observation",
+        "problemId": "foreign-tenant-observation",
+        "developmentUtility": 0,
+        "error": "SHEV observation dimension is outside the mandate.",
+        "failure": {
+          "stage": "execution",
+          "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+          "message": "SHEV observation dimension is outside the mandate."
+        },
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false
+      }
+    }
+  ],
+  "summary": {
+    "agow_arbitration_ablated": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 9,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "metacognition_ablated": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 9,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "curiosity_ablated": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 0,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "shev_initiative_ablated": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 0,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "full": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 9,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "planned_control": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 0,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    },
+    "memory_ablated": {
+      "runs": 18,
+      "successes": 15,
+      "failures": 3,
+      "scientificRuns": 0,
+      "syntheticRuns": 18,
+      "episodes": 9,
+      "verifiedDiscoveries": 0,
+      "normalizedCost": 0,
+      "budgetViolations": 0,
+      "duplicates": 0,
+      "meanVerifiedDiscoveriesPerCost": 0
+    }
+  },
+  "negativeResults": {
+    "failures": [
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "agow_arbitration_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "shev_initiative_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "memory_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "metacognition_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "curiosity_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "planned_control",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-101-foreign-tenant-observation",
+        "condition": "full",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "memory_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "shev_initiative_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "full",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "agow_arbitration_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "metacognition_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "planned_control",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-211-foreign-tenant-observation",
+        "condition": "curiosity_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "planned_control",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "metacognition_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "shev_initiative_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "agow_arbitration_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "memory_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "full",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      },
+      {
+        "caseId": "seed-307-foreign-tenant-observation",
+        "condition": "curiosity_ablated",
+        "stage": "execution",
+        "code": "ETT_CAMPAIGN_EXECUTION_FAILED",
+        "message": "SHEV observation dimension is outside the mandate."
+      }
+    ],
+    "noGainAgainstPlannedControl": [
+      {
+        "caseId": "seed-101-scheduler-jitter",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-101-known-idempotent-replay",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-101-healthy-evidence-gate",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-211-scheduler-jitter",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-211-known-idempotent-replay",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-211-healthy-evidence-gate",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-307-scheduler-jitter",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-307-known-idempotent-replay",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      },
+      {
+        "caseId": "seed-307-healthy-evidence-gate",
+        "fullScore": 0,
+        "plannedControlScore": 0,
+        "basis": "synthetic_development_indicator",
+        "scientificEvidence": false
+      }
+    ],
+    "scientificClaimAllowed": false
+  },
+  "promotionDecision": null,
+  "publishable": false,
+  "evidenceStatus": "development_only",
+  "caveat": "Development corpus run only. It is not holdout evidence and must not be published as an ablation result."
+}

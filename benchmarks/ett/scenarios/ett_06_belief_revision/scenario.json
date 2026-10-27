@@ -1,0 +1,7 @@
+{
+  "id": "ETT-06", "name": "revision-epistemique", "priority": false,
+  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "input": "Théorie initialement soutenue puis preuve nouvelle contradictoire de force contrôlée.",
+  "oracle": "Modèle générateur, force diagnostique des preuves et croyance attendue après mise à jour.",
+  "metrics": ["revision_accuracy", "revision_latency", "calibration_change"]
+}

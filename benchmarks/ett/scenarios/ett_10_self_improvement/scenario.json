@@ -1,0 +1,7 @@
+{
+  "id": "ETT-10", "name": "auto-amelioration", "priority": false,
+  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "input": "Modification bornée de stratégie dans un bac à sable avec restauration et tests cachés.",
+  "oracle": "Suite cachée scellée, comparaison avant/après et journal de restauration.",
+  "metrics": ["heldout_gain", "regressions", "stability", "search_cost"]
+}
