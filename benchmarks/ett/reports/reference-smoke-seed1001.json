@@ -1,0 +1,2991 @@
+{
+  "schema": "genos.ett-reference-campaign/v1",
+  "status": "executable_local_reference_only",
+  "scientificClaimAllowed": false,
+  "externalModelCostsMeasured": false,
+  "oracleIsolation": "separate-child-process",
+  "scenarios": [
+    "ETT-01",
+    "ETT-02",
+    "ETT-03",
+    "ETT-04",
+    "ETT-05",
+    "ETT-06",
+    "ETT-07",
+    "ETT-08",
+    "ETT-09",
+    "ETT-10",
+    "ETT-11",
+    "ETT-12"
+  ],
+  "difficulties": [
+    "simple",
+    "difficult",
+    "open"
+  ],
+  "seeds": [
+    1001
+  ],
+  "systems": [
+    {
+      "id": "oracle_score_upper_bound",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "fixed_first_candidate",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "scenario_rule_solver",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "react_classic",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "periodic_llm_loop",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "voyager_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "ai_scientist_v2_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    },
+    {
+      "id": "darwin_godel_machine_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 0,
+      "successRate": 0,
+      "executionFailures": 36,
+      "rows": [
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": true,
+          "error": "Cannot read properties of undefined (reading 'length')",
+          "verdict": "refuted",
+          "usefulDiscoveries": 0
+        }
+      ]
+    }
+  ]
+}

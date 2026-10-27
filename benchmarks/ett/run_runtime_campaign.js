@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { createHash } = require('node:crypto');
+const runtime = require('./scenarios/runtime');
+const { createRuntimeAdapter } = require('./adapters/genosRuntime');
+const { createLedger } = require('./adapters/localModel');
+const { SYSTEM_IDS: ADAPTED_SYSTEMS, createIndependentAdapter } = require('./adapters/independent');
+const { verifyInChild } = require('./evaluation/verifyInChild');
+const experimentExecutor = require('../../backend/src/services/endogenousThoughtCampaignExecutor');
+const { CONDITIONS } = require('../../backend/src/services/endogenousThoughtExperimentService');
+
+const PRIORITY = ['ETT-01', 'ETT-02', 'ETT-04', 'ETT-09'];
+
+function parseArguments(args) {
+  const options = { model: 'ollama://qwen2.5:0.5b', seeds: 1, scenarios: 'priority',
+    conditions: ['full'], tokenBudget: 250000, output: null };
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === '--model') options.model = args[++index];
+    else if (args[index] === '--seeds') options.seeds = Number(args[++index]);
+    else if (args[index] === '--scenarios') options.scenarios = args[++index];
+    else if (args[index] === '--conditions') options.conditions = args[++index].split(',');
+    else if (args[index] === '--token-budget') options.tokenBudget = Number(args[++index]);
+    else if (args[index] === '--output') options.output = args[++index];
+    else throw new Error(`Unknown argument: ${args[index]}`);
+  }
+  validateOptions(options);
+  return options;
+}
+
+function validateOptions(options) {
+  if (!options.output || !Number.isSafeInteger(options.seeds) || options.seeds < 1
+    || !Number.isSafeInteger(options.tokenBudget) || options.tokenBudget < 1) {
+    throw new Error('Usage: run_runtime_campaign.js --output <new-report.json> [--model ollama://model]');
+  }
+  if (!['priority', 'all'].includes(options.scenarios)
+    || options.conditions.some((item) => !['llm_only', ...ADAPTED_SYSTEMS].includes(item)
+      && !CONDITIONS.includes(item))) {
+    throw new Error('Scenario set or condition is not registered.');
+  }
+}
+
+function scenarioModules(selection) {
+  const ids = selection === 'all' ? runtime.SCENARIO_IDS : PRIORITY;
+  return ids.map((id) => {
+    const folders = fs.readdirSync(path.join(__dirname, 'scenarios'));
+    const folder = folders.find((entry) => scenarioIdAt(entry) === id);
+    if (!folder) throw new Error(`Executable scenario module missing: ${id}`);
+    return require(path.join(__dirname, 'scenarios', folder, 'scenario.js'));
+  });
+}
+
+function scenarioIdAt(folder) {
+  const manifest = path.join(__dirname, 'scenarios', folder, 'scenario.json');
+  return fs.existsSync(manifest) ? JSON.parse(fs.readFileSync(manifest, 'utf8')).id : null;
+}
+
+function seedList(count) {
+  return Array.from({ length: count }, (_, index) => 1001 + index * 7919);
+}
+
+function orderedConditions(conditions, caseId) {
+  let hash = 0;
+  for (const character of caseId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  const shift = hash % conditions.length;
+  return [...conditions.slice(shift), ...conditions.slice(0, shift)];
+}
+
+function digest(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function writeReport(filename, report, initial) {
+  fs.mkdirSync(path.dirname(filename), { recursive: true });
+  if (initial && fs.existsSync(filename)) throw new Error(`Output already exists: ${filename}`);
+  const data = `${JSON.stringify(report, null, 2)}\n`;
+  const temporary = `${filename}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporary, data, { flag: initial ? 'wx' : 'w' });
+    fs.renameSync(temporary, filename);
+  } catch (error) {
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+    throw error;
+  }
+}
+
+function casePayload(testCase, model) {
+  return { seed: Number(testCase.caseId.split('-').at(-1)),
+    scenarioClass: testCase.scenarioId,
+    problem: { problemId: testCase.caseId, statement: testCase.observation.objective },
+    publicObservation: testCase.observation, oracle: testCase.oracle, model };
+}
+
+function redactOutcome(outcome) {
+  const { providerCallDetails = [], ...rest } = outcome;
+  return { ...rest, providerCallDetails };
+}
+
+async function executePair(context) {
+  const { scenario, difficulty, seed, condition, model } = context;
+  const testCase = scenario.build(difficulty, seed);
+  const input = casePayload(testCase, model);
+  const outcome = condition === 'llm_only'
+    ? await executeDirectModel({ model, testCase })
+    : ADAPTED_SYSTEMS.includes(condition)
+      ? await executeAdaptedModel({ adapter: context.externalAdapters.get(condition), testCase })
+      : await executeGenosRuntime({ condition, caseId: testCase.caseId, input, model, testCase });
+  return { caseId: testCase.caseId, scenarioId: scenario.id, difficulty, seed, condition,
+    split: 'development', holdout: false, observation: testCase.observation,
+    observationHash: digest(testCase.observation), outcome: redactOutcome(outcome) };
+}
+
+async function executeAdaptedModel(context) {
+  const system = context.adapter;
+  try {
+    const proposal = await system.solve(context.testCase);
+    const verification = verifyInChild(context.testCase.oracle, proposal);
+    system.recordVerified(context.testCase, proposal, verification);
+    const usage = system.takeUsage();
+    return { success: true, scientificEvidence: usage.measured,
+      condition: system.id, verifiedDiscoveries: verification.usefulDiscoveries,
+      normalizedCost: usage.tokens / 12000, measuredTokens: usage.tokens,
+      measuredHostSeconds: usage.seconds, measuredCostUsd: 0,
+      provider: system.model, providerCalls: usage.calls, providerCallDetails: usage.callDetails,
+      submittedAnswerId: proposal.answerId, oracleVerdict: verification.verdict,
+      oracleDigest: verification.oracleDigest, modelOutputIsEvidence: false,
+      measurementStatus: 'ollama_provider_token_counters_and_host_time' };
+  } catch (error) {
+    const usage = system.takeUsage();
+    return { success: false, scientificEvidence: false, condition: system.id,
+      verifiedDiscoveries: 0, normalizedCost: usage.tokens / 12000,
+      measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds,
+      measuredCostUsd: 0, provider: system.model, providerCalls: usage.calls,
+      providerCallDetails: usage.callDetails, modelOutputIsEvidence: false,
+      failure: { stage: 'adapted_model', code: 'ETT_ADAPTER_FAILED', message: error.message } };
+  }
+}
+
+async function executeGenosRuntime(context) {
+  const runtimeAdapter = createRuntimeAdapter({ model: context.model,
+    observation: context.testCase.observation, oracle: context.testCase.oracle });
+  return experimentExecutor.execute({ condition: context.condition,
+    caseId: context.caseId, input: context.input, runtimeAdapter });
+}
+
+async function executeDirectModel(context) {
+  const ledger = createLedger();
+  try {
+    const prompt = ['Choose the best candidate for the task objective using only the public evidence.',
+      `Scenario: ${context.testCase.observation.scenario}`,
+      `Objective: ${context.testCase.observation.objective}`,
+      `Candidates: ${JSON.stringify(context.testCase.observation.candidates)}`,
+      'Return JSON containing answerId and evidenceRefs.'].join('\n');
+    const { value } = await ledger.generateJson({ model: context.model, prompt, maxTokens: 128 });
+    const answerId = value.answerId;
+    if (typeof answerId !== 'string') throw new Error('Direct model omitted answerId.');
+    const evidenceRefs = Array.isArray(value.evidenceRefs) ? value.evidenceRefs : [`${answerId}:evidence`];
+    const oracle = verifyInChild(context.testCase.oracle, { answerId, evidenceRefs });
+    return { success: true, scientificEvidence: true, condition: 'llm_only',
+      verifiedDiscoveries: oracle.usefulDiscoveries, normalizedCost: ledger.summary().tokens / 12000,
+      measuredTokens: ledger.summary().tokens, measuredHostSeconds: ledger.summary().seconds,
+      measuredCostUsd: 0, provider: context.model, providerCalls: ledger.summary().calls,
+      providerCallDetails: ledger.summary().callDetails, submittedAnswerId: answerId,
+      oracleVerdict: oracle.verdict, oracleDigest: oracle.oracleDigest,
+      modelOutputIsEvidence: false, measurementStatus: 'ollama_provider_token_counters_and_host_time' };
+  } catch (error) {
+    const usage = ledger.summary();
+    return { success: false, scientificEvidence: false, condition: 'llm_only',
+      verifiedDiscoveries: 0, normalizedCost: usage.tokens / 12000,
+      measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds,
+      measuredCostUsd: 0, provider: context.model, providerCalls: usage.calls,
+      providerCallDetails: usage.callDetails, modelOutputIsEvidence: false,
+      failure: { stage: 'direct_solve', code: 'ETT_DIRECT_MODEL_FAILED', message: error.message } };
+  }
+}
+
+function buildTasks(options, scenarios) {
+  const tasks = [];
+  for (const seed of seedList(options.seeds)) {
+    for (const scenario of scenarios) {
+      for (const difficulty of runtime.LEVELS) {
+        const caseId = `${scenario.id}:${difficulty}:${seed}`;
+        for (const condition of orderedConditions(options.conditions, caseId)) {
+          tasks.push({ seed, scenario, difficulty, condition });
+        }
+      }
+    }
+  }
+  return tasks;
+}
+
+async function executeTasks(context) {
+  let exhausted = false;
+  for (const task of context.tasks) {
+    if (context.options.tokenBudget - context.report.measuredTokens < 12000) {
+      exhausted = true;
+      break;
+    }
+    const record = await executePair({ ...task, model: context.options.model,
+      externalAdapters: context.externalAdapters });
+    context.report.measuredTokens += record.outcome.measuredTokens || 0;
+    context.report.records.push(record);
+    writeReport(context.output, context.report, false);
+  }
+  return exhausted;
+}
+
+async function main(args = process.argv.slice(2)) {
+  const options = parseArguments(args);
+  const output = path.resolve(options.output);
+  const report = { schema: 'genos.ett-runtime-campaign/v1', status: 'running',
+    startedAt: new Date().toISOString(), model: options.model,
+    scenarioSet: options.scenarios, conditions: options.conditions,
+    seeds: seedList(options.seeds), tokenBudget: options.tokenBudget,
+    split: 'development', holdout: false,
+    measuredTokens: 0, records: [], scientificClaimAllowed: false,
+    limitations: ['Local model run; no external API price is measured.',
+      'Original Voyager, AI Scientist v2 and DGM executables are not included.'] };
+  writeReport(output, report, true);
+  const scenarios = scenarioModules(options.scenarios);
+  const externalAdapters = new Map(ADAPTED_SYSTEMS.filter((id) => options.conditions.includes(id))
+    .map((id) => [id, createIndependentAdapter(id, { model: options.model })]));
+  const tasks = buildTasks(options, scenarios);
+  const exhausted = await executeTasks({ report, options, tasks, externalAdapters, output });
+  report.status = exhausted ? 'partial_global_token_budget_reserve_reached'
+    : 'descriptive_runtime_run_complete';
+  report.finishedAt = new Date().toISOString();
+  report.expectedRecords = report.seeds.length * scenarios.length * runtime.LEVELS.length
+    * options.conditions.length;
+  report.completedRecords = report.records.length;
+  writeReport(output, report, false);
+  process.stdout.write(JSON.stringify({ status: report.status, output,
+    completedRecords: report.completedRecords, expectedRecords: report.expectedRecords,
+    measuredTokens: report.measuredTokens, scientificClaimAllowed: false }) + '\n');
+  return report;
+}
+
+if (require.main === module) main().catch((error) => {
+  process.stderr.write(`ETT_RUNTIME_CAMPAIGN_FAILED: ${error.message}\n`);
+  process.exitCode = 1;
+});
+
+module.exports = { parseArguments, scenarioModules, buildTasks, main };

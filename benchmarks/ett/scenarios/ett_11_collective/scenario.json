@@ -1,7 +1,25 @@
 {
-  "id": "ETT-11", "name": "recherche-collective", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-11",
+  "name": "recherche-collective",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Agents reçoivent des observations partielles chevauchantes et doivent confronter leurs résultats.",
   "oracle": "Faits complets et graphe de provenance permettant de noter complémentarité et contradictions.",
-  "metrics": ["collective_quality", "epistemic_diversity", "coordination_cost", "resolved_contradictions"]
+  "metrics": [
+    "collective_quality",
+    "epistemic_diversity",
+    "coordination_cost",
+    "resolved_contradictions"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "collectiveEvidence",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

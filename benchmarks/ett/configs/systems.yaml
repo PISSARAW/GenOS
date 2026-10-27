@@ -1,12 +1,16 @@
 systems:
-  genos_ett_full: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: deterministic_proxy }
-  genos_no_endogenous_thought: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: direct_policy_proxy }
-  genos_no_persistent_memory: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: memory_disabled_proxy }
-  react_classic: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: react_style_heuristic }
-  periodic_llm_loop: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: fixed_periodic_heuristic }
-  voyager_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_curriculum_memory_proxy }
-  ai_scientist_v2_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_hypothesis_ranking_proxy }
-  darwin_godel_machine_adapted: { status: local_reference_adapter, adapter: adapters/referenceSystems.js, fidelity: toy_strategy_mutation_proxy }
+  genos_ett_full: { status: executable_local_model, adapter: adapters/genosRuntime.js, runtime: backend/src/services/endogenousThoughtCampaignExecutor.js, fidelity: actual_genos_ett_services }
+  genos_no_endogenous_thought: { status: executable_ablation_condition, adapter: backend/src/services/endogenousThoughtCampaignExecutor.js, condition: curiosity_ablated }
+  genos_no_persistent_memory: { status: executable_ablation_condition, adapter: backend/src/services/endogenousThoughtCampaignExecutor.js, condition: memory_ablated }
+  llm_only: { status: executable_local_model, adapter: run_runtime_campaign.js, fidelity: one_shot_same_model }
+  react_classic: { status: executable_prompt_adaptation, adapter: adapters/independent/reactClassic.js, fidelity: react_style_single_step }
+  periodic_llm_loop: { status: executable_prompt_adaptation, adapter: adapters/independent/periodicLlmLoop.js, fidelity: repeated_same_observation_no_tools }
+  voyager_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/voyagerAdapted.js, fidelity: verified_example_memory_proxy }
+  ai_scientist_v2_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/aiScientistV2Adapted.js, fidelity: two_step_hypothesis_experiment_prompt }
+  darwin_godel_machine_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/darwinGodelMachineAdapted.js, fidelity: two_step_strategy_selection_no_code_mutation }
+  oracle_score_upper_bound: { status: development_control_only, adapter: adapters/referenceSystems.js, output_is_not_system_performance: true }
+  fixed_first_candidate: { status: development_control_only, adapter: adapters/referenceSystems.js }
+  scenario_rule_solver: { status: development_control_only, adapter: adapters/referenceSystems.js }
   voyager_original: { status: unavailable, reason: original_runtime_not_installed }
   ai_scientist_v2_original: { status: unavailable, reason: original_runtime_not_installed }
   darwin_godel_machine_original: { status: unavailable, reason: original_runtime_not_installed }
@@ -16,4 +20,4 @@ adapter_requirements:
   disclose_adaptations: true
   do_not_label_adaptations_as_original_system: true
   inaccessible_systems_reported_as_unavailable: true
-  local_reference_receipt_is_scientific_evidence: false
+  deterministic_reference_outputs_are_scientific_evidence: false

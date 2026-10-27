@@ -1,0 +1,3803 @@
+{
+  "schema": "genos.ett-runtime-campaign/v1",
+  "status": "descriptive_runtime_run_complete",
+  "startedAt": "2026-10-27T22:29:40.043Z",
+  "model": "ollama://qwen2.5-coder:7b",
+  "scenarioSet": "priority",
+  "conditions": [
+    "full",
+    "curiosity_ablated",
+    "memory_ablated"
+  ],
+  "seeds": [
+    1001
+  ],
+  "tokenBudget": 250000,
+  "split": "development",
+  "holdout": false,
+  "measuredTokens": 25830,
+  "records": [
+    {
+      "caseId": "ETT-01-simple-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          }
+        ]
+      },
+      "observationHash": "71209ca5142f8e9b849372c45a7c7233a27e43e12d7fc188c9ffa1a8ded91903",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-01-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1110,
+        "measuredHostSeconds": 10,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.049027777777777774,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "0d943b4d42b5888486512f77b164880a57102fa4a7f1863fd24824a0ed04e8f2",
+        "ettTrace": {
+          "episodeId": "ett_episode_4f8f99696c2729f8942456d7",
+          "questionRef": "rcpt_a35be3ca5344a03765b6ac37",
+          "runReceiptRef": "rcpt_c253b3763ca31e1547fbecca",
+          "verificationReceiptRef": "rcpt_e4b1415dd7c3a79ffdaad3a0",
+          "learningId": "ett_learning_9748fe57e215824e55864bdf"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 168,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 4096.8668
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 218,
+            "outputTokens": 64,
+            "measured": true,
+            "elapsedMs": 1014.2467
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 117,
+            "outputTokens": 122,
+            "measured": true,
+            "elapsedMs": 1674.0719
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 224,
+            "outputTokens": 69,
+            "measured": true,
+            "elapsedMs": 997.4495
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-01-simple-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          }
+        ]
+      },
+      "observationHash": "71209ca5142f8e9b849372c45a7c7233a27e43e12d7fc188c9ffa1a8ded91903",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-01-simple-1001",
+        "problemId": "ETT-01-simple-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-01-simple-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          }
+        ]
+      },
+      "observationHash": "71209ca5142f8e9b849372c45a7c7233a27e43e12d7fc188c9ffa1a8ded91903",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-01-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 565,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.024652777777777777,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "0d943b4d42b5888486512f77b164880a57102fa4a7f1863fd24824a0ed04e8f2",
+        "ettTrace": {
+          "episodeId": "ett_episode_ce95c276abf5b770aa4ad844",
+          "questionRef": "rcpt_0bcefe3d7547c9e932e13a34",
+          "runReceiptRef": "rcpt_c8af718c0aed7309c9e6ca02",
+          "verificationReceiptRef": "rcpt_3edb33d853d534a068e91f30",
+          "learningId": "ett_learning_c0de74b394eaa228e2a06f25"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 168,
+            "outputTokens": 111,
+            "measured": true,
+            "elapsedMs": 1543.67
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 209,
+            "outputTokens": 77,
+            "measured": true,
+            "elapsedMs": 1125.8333
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-01-difficult-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          }
+        ]
+      },
+      "observationHash": "936a91005fa8bc5af19c1c8bb1090363ebad3881d6da55e95807569b6702f654",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-01-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1173,
+        "measuredHostSeconds": 6,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.050541666666666665,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "0d943b4d42b5888486512f77b164880a57102fa4a7f1863fd24824a0ed04e8f2",
+        "ettTrace": {
+          "episodeId": "ett_episode_4f8f99696c2729f8942456d7",
+          "questionRef": "rcpt_98e63d0d966051d8d76937a1",
+          "runReceiptRef": "rcpt_ee4b50c2c61c832cf17d3b1b",
+          "verificationReceiptRef": "rcpt_8ae514bf2e7286bae49bd91b",
+          "learningId": "ett_learning_e2176d329b1e38d8e45d7cf4"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 245,
+            "outputTokens": 64,
+            "measured": true,
+            "elapsedMs": 941.8925
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 269,
+            "outputTokens": 71,
+            "measured": true,
+            "elapsedMs": 1042.5904
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 85,
+            "outputTokens": 89,
+            "measured": true,
+            "elapsedMs": 1230.1148
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 279,
+            "outputTokens": 71,
+            "measured": true,
+            "elapsedMs": 980.2543
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-01-difficult-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          }
+        ]
+      },
+      "observationHash": "936a91005fa8bc5af19c1c8bb1090363ebad3881d6da55e95807569b6702f654",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-01-difficult-1001",
+        "problemId": "ETT-01-difficult-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-01-difficult-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          }
+        ]
+      },
+      "observationHash": "936a91005fa8bc5af19c1c8bb1090363ebad3881d6da55e95807569b6702f654",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-01-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 649,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.027874999999999997,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "0d943b4d42b5888486512f77b164880a57102fa4a7f1863fd24824a0ed04e8f2",
+        "ettTrace": {
+          "episodeId": "ett_episode_ce95c276abf5b770aa4ad844",
+          "questionRef": "rcpt_e44f11e2f333d05932b252b1",
+          "runReceiptRef": "rcpt_851b17e4aeaba7225aff8e34",
+          "verificationReceiptRef": "rcpt_1b86d2410303d900fd0340f1",
+          "learningId": "ett_learning_cfafeb7f332342d28039e8ab"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 245,
+            "outputTokens": 64,
+            "measured": true,
+            "elapsedMs": 1061.0267
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 269,
+            "outputTokens": 71,
+            "measured": true,
+            "elapsedMs": 975.5992
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-01-open-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "outlierDistance": 85.2,
+              "salience": 48.2
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "outlierDistance": 27.2,
+              "salience": 19
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "outlierDistance": 96.2,
+              "salience": 44.9
+            }
+          }
+        ]
+      },
+      "observationHash": "85ea55393e750c41c04c2424b6c80cfb8beaa7e1f02d1ee14a0f86ff838ebc25",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-01-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1505,
+        "measuredHostSeconds": 6,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.064375,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "77e9e7a63eee450a0427b5515ea750a51141ce9b5cc75113495243d1d9bc0bfb",
+        "ettTrace": {
+          "episodeId": "ett_episode_4f8f99696c2729f8942456d7",
+          "questionRef": "rcpt_bdd9589a5bce10f0b6adacb4",
+          "runReceiptRef": "rcpt_723f0f656eaeb52b8a8af8db",
+          "verificationReceiptRef": "rcpt_7410c9305be37696f881bee9",
+          "learningId": "ett_learning_4960da45696c627679411320"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 321,
+            "outputTokens": 120,
+            "measured": true,
+            "elapsedMs": 1670.8133
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 361,
+            "outputTokens": 55,
+            "measured": true,
+            "elapsedMs": 821.7282
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 102,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1744.9269
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 362,
+            "outputTokens": 56,
+            "measured": true,
+            "elapsedMs": 771.2565
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-01-open-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "outlierDistance": 85.2,
+              "salience": 48.2
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "outlierDistance": 27.2,
+              "salience": 19
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "outlierDistance": 96.2,
+              "salience": 44.9
+            }
+          }
+        ]
+      },
+      "observationHash": "85ea55393e750c41c04c2424b6c80cfb8beaa7e1f02d1ee14a0f86ff838ebc25",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-01-open-1001",
+        "problemId": "ETT-01-open-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-01-open-1001",
+      "scenarioId": "ETT-01",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "curiosite-spontanee",
+        "objective": "Choose the unexplained anomaly worth investigating.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "outlierDistance": 11.6,
+              "salience": 60.2
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "outlierDistance": 86.5,
+              "salience": 87.3
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "outlierDistance": 95.4,
+              "salience": 66.7
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "outlierDistance": 11.4,
+              "salience": 18.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "outlierDistance": 15.6,
+              "salience": 5.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "outlierDistance": 69.7,
+              "salience": 57.3
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "outlierDistance": 85.2,
+              "salience": 48.2
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "outlierDistance": 27.2,
+              "salience": 19
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "outlierDistance": 96.2,
+              "salience": 44.9
+            }
+          }
+        ]
+      },
+      "observationHash": "85ea55393e750c41c04c2424b6c80cfb8beaa7e1f02d1ee14a0f86ff838ebc25",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-01-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 857,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.03654166666666667,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-1",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "77e9e7a63eee450a0427b5515ea750a51141ce9b5cc75113495243d1d9bc0bfb",
+        "ettTrace": {
+          "episodeId": "ett_episode_ce95c276abf5b770aa4ad844",
+          "questionRef": "rcpt_9a54281ab3d5e11127f66a9d",
+          "runReceiptRef": "rcpt_58d7d5a998c53eb87cc0ad10",
+          "verificationReceiptRef": "rcpt_546af886e27c256917bd8900",
+          "learningId": "ett_learning_35fc492b3d25e63dfc18cd35"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 321,
+            "outputTokens": 120,
+            "measured": true,
+            "elapsedMs": 1662.9635
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 361,
+            "outputTokens": 55,
+            "measured": true,
+            "elapsedMs": 761.5263
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-simple-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          }
+        ]
+      },
+      "observationHash": "5767349b16aadab8ffc76cbace8fb069a7593536e5499f50ee25ccba0b0ac13a",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-02-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1487,
+        "measuredHostSeconds": 8,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.06418055555555555,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-0",
+        "oracleVerdict": "supported",
+        "oracleDigest": "da1dae05e1efcf0facbd6ac276c557d0f7ebb4ee7216d1d8072309bd9d5ce4ab",
+        "ettTrace": {
+          "episodeId": "ett_episode_0c6706a294bbef7ba0fc5e72",
+          "questionRef": "rcpt_0d1769bd7eb39d84d1cfd971",
+          "runReceiptRef": "rcpt_941e091d79d90705dae58c8e",
+          "verificationReceiptRef": "rcpt_7bba7e42bcecad3f5b47a78d",
+          "learningId": "ett_learning_a52b000152dfaf2ff52db868"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 185,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1700.0753
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 336,
+            "outputTokens": 78,
+            "measured": true,
+            "elapsedMs": 1064.1812
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 218,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1797.5328
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 336,
+            "outputTokens": 78,
+            "measured": true,
+            "elapsedMs": 1090.6052
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-simple-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          }
+        ]
+      },
+      "observationHash": "5767349b16aadab8ffc76cbace8fb069a7593536e5499f50ee25ccba0b0ac13a",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-02-simple-1001",
+        "problemId": "ETT-02-simple-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-02-simple-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          }
+        ]
+      },
+      "observationHash": "5767349b16aadab8ffc76cbace8fb069a7593536e5499f50ee25ccba0b0ac13a",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-02-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 727,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.03140277777777778,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-0",
+        "oracleVerdict": "supported",
+        "oracleDigest": "da1dae05e1efcf0facbd6ac276c557d0f7ebb4ee7216d1d8072309bd9d5ce4ab",
+        "ettTrace": {
+          "episodeId": "ett_episode_f7f69fb1df9fd70096d2855b",
+          "questionRef": "rcpt_832a655a30c50c82d5e1f798",
+          "runReceiptRef": "rcpt_c7d01d6522fad359a45a1dee",
+          "verificationReceiptRef": "rcpt_a24a347863c5f534252f018f",
+          "learningId": "ett_learning_39e1c2194e16374c802ca313"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 185,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1769.1288
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 336,
+            "outputTokens": 78,
+            "measured": true,
+            "elapsedMs": 1067.7012
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-difficult-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          }
+        ]
+      },
+      "observationHash": "bddfdac564c1f95ab7e5964defce54eb75c935bf99111d42bef55eefa14cee09",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-02-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1330,
+        "measuredHostSeconds": 7,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.05736111111111111,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-3",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "ced22ab5cd80d7f612690da888a03a914cd8ac905aa7576bb58ecbc1f7ce5d2a",
+        "ettTrace": {
+          "episodeId": "ett_episode_0c6706a294bbef7ba0fc5e72",
+          "questionRef": "rcpt_bf824762b32279bf3d163824",
+          "runReceiptRef": "rcpt_85e028a5d41de87972038a9a",
+          "verificationReceiptRef": "rcpt_39afa64fd5fd73c9008489ef",
+          "learningId": "ett_learning_dadeaa9fab3ebe998dc5e870"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 281,
+            "outputTokens": 86,
+            "measured": true,
+            "elapsedMs": 1236.4944
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 315,
+            "outputTokens": 69,
+            "measured": true,
+            "elapsedMs": 954.9254
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 98,
+            "outputTokens": 94,
+            "measured": true,
+            "elapsedMs": 1303.2185
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 318,
+            "outputTokens": 69,
+            "measured": true,
+            "elapsedMs": 1206.8644
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-difficult-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          }
+        ]
+      },
+      "observationHash": "bddfdac564c1f95ab7e5964defce54eb75c935bf99111d42bef55eefa14cee09",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-02-difficult-1001",
+        "problemId": "ETT-02-difficult-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-02-difficult-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          }
+        ]
+      },
+      "observationHash": "bddfdac564c1f95ab7e5964defce54eb75c935bf99111d42bef55eefa14cee09",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-02-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 754,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.03252777777777778,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-3",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "ced22ab5cd80d7f612690da888a03a914cd8ac905aa7576bb58ecbc1f7ce5d2a",
+        "ettTrace": {
+          "episodeId": "ett_episode_f7f69fb1df9fd70096d2855b",
+          "questionRef": "rcpt_45fef115405f0729ff542a42",
+          "runReceiptRef": "rcpt_8001ddd6822b13a18b277465",
+          "verificationReceiptRef": "rcpt_ea3fc3583beedc00f3b24cdc",
+          "learningId": "ett_learning_36a6b1dd62b1a0d6b1148681"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 281,
+            "outputTokens": 89,
+            "measured": true,
+            "elapsedMs": 1691.4839
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 315,
+            "outputTokens": 69,
+            "measured": true,
+            "elapsedMs": 1012.302
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-open-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "validatedProgress": 66.7,
+              "sterileCycles": 0,
+              "salience": 69.8
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "validatedProgress": 64.7,
+              "sterileCycles": 6,
+              "salience": 28.7
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "validatedProgress": 90.4,
+              "sterileCycles": 5,
+              "salience": 68.2
+            }
+          }
+        ]
+      },
+      "observationHash": "c4eecbf90bb979bc62257d62aba7a475d660d5d5bc9955371a586eb374c186df",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-02-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1586,
+        "measuredHostSeconds": 7,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.06802777777777777,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-3",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "ced22ab5cd80d7f612690da888a03a914cd8ac905aa7576bb58ecbc1f7ce5d2a",
+        "ettTrace": {
+          "episodeId": "ett_episode_0c6706a294bbef7ba0fc5e72",
+          "questionRef": "rcpt_582143e6826424b61202260d",
+          "runReceiptRef": "rcpt_f4390fc12b110e1e5070a6d1",
+          "verificationReceiptRef": "rcpt_76d93c0b3e26bf4f9c853b2c",
+          "learningId": "ett_learning_5a5f9ff9b175beff963b2e37"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 377,
+            "outputTokens": 86,
+            "measured": true,
+            "elapsedMs": 1213.1369
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 415,
+            "outputTokens": 71,
+            "measured": true,
+            "elapsedMs": 1147.0905
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 96,
+            "outputTokens": 84,
+            "measured": true,
+            "elapsedMs": 1237.1735
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 412,
+            "outputTokens": 45,
+            "measured": true,
+            "elapsedMs": 656.9582
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-02-open-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "validatedProgress": 66.7,
+              "sterileCycles": 0,
+              "salience": 69.8
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "validatedProgress": 64.7,
+              "sterileCycles": 6,
+              "salience": 28.7
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "validatedProgress": 90.4,
+              "sterileCycles": 5,
+              "salience": 68.2
+            }
+          }
+        ]
+      },
+      "observationHash": "c4eecbf90bb979bc62257d62aba7a475d660d5d5bc9955371a586eb374c186df",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-02-open-1001",
+        "problemId": "ETT-02-open-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-02-open-1001",
+      "scenarioId": "ETT-02",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "chaine-autonome",
+        "objective": "Choose the next experiment with validated progress and few sterile cycles.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "validatedProgress": 91.7,
+              "sterileCycles": 1,
+              "salience": 1.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "validatedProgress": 40.1,
+              "sterileCycles": 3,
+              "salience": 38.9
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "validatedProgress": 18.9,
+              "sterileCycles": 4,
+              "salience": 61
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "validatedProgress": 92.9,
+              "sterileCycles": 5,
+              "salience": 98.7
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "validatedProgress": 91.4,
+              "sterileCycles": 1,
+              "salience": 53.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "validatedProgress": 37.4,
+              "sterileCycles": 0,
+              "salience": 41.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "validatedProgress": 66.7,
+              "sterileCycles": 0,
+              "salience": 69.8
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "validatedProgress": 64.7,
+              "sterileCycles": 6,
+              "salience": 28.7
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "validatedProgress": 90.4,
+              "sterileCycles": 5,
+              "salience": 68.2
+            }
+          }
+        ]
+      },
+      "observationHash": "c4eecbf90bb979bc62257d62aba7a475d660d5d5bc9955371a586eb374c186df",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": false,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-02-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 956,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0.04066666666666666,
+        "developmentUtility": 0,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-3",
+        "oracleVerdict": "refuted",
+        "oracleDigest": "ced22ab5cd80d7f612690da888a03a914cd8ac905aa7576bb58ecbc1f7ce5d2a",
+        "ettTrace": {
+          "episodeId": "ett_episode_f7f69fb1df9fd70096d2855b",
+          "questionRef": "rcpt_0eb5d03c4f12edd3b70eefee",
+          "runReceiptRef": "rcpt_174f90c7b0ab54c75c2afba5",
+          "verificationReceiptRef": "rcpt_cd3689fc8439a4f70bfb0725",
+          "learningId": "ett_learning_21ce5aa11e83fef3347ef19b"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 377,
+            "outputTokens": 93,
+            "measured": true,
+            "elapsedMs": 1538.5117
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 415,
+            "outputTokens": 71,
+            "measured": true,
+            "elapsedMs": 995.4701
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-simple-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          }
+        ]
+      },
+      "observationHash": "ace8c03d57d16cec6c05427579c2fa73a2024ce9a65bb2cb965b82f58e46cf73",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-04-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1185,
+        "measuredHostSeconds": 6,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.051041666666666666,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "d2b1f4cba30a8b561afd89dd98f4cfa85806b3ac4bb3f4c77dedba8ea87f5baf",
+        "ettTrace": {
+          "episodeId": "ett_episode_6173d53cc326bbe79719c070",
+          "questionRef": "rcpt_adfc92674eeb6104b064bc65",
+          "runReceiptRef": "rcpt_b2a2ddb26db281defd36eb26",
+          "verificationReceiptRef": "rcpt_16561837f85dfe027d105a78",
+          "learningId": "ett_learning_6ce8b50d268d39b37bb329ce"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 167,
+            "outputTokens": 117,
+            "measured": true,
+            "elapsedMs": 1566.7947
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 227,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 809.4775
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 125,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1730.9747
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 313,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 862.1334
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-simple-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          }
+        ]
+      },
+      "observationHash": "ace8c03d57d16cec6c05427579c2fa73a2024ce9a65bb2cb965b82f58e46cf73",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-04-simple-1001",
+        "problemId": "ETT-04-simple-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-04-simple-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          }
+        ]
+      },
+      "observationHash": "ace8c03d57d16cec6c05427579c2fa73a2024ce9a65bb2cb965b82f58e46cf73",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-04-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 565,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.024374999999999997,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "d2b1f4cba30a8b561afd89dd98f4cfa85806b3ac4bb3f4c77dedba8ea87f5baf",
+        "ettTrace": {
+          "episodeId": "ett_episode_6da333e2fca8107b679f0266",
+          "questionRef": "rcpt_e000d9273aab7286bb6db0a0",
+          "runReceiptRef": "rcpt_aec326371c5c7774a29a7a61",
+          "verificationReceiptRef": "rcpt_5bd90d0959d0987952117f71",
+          "learningId": "ett_learning_c228f21b23477adb036d67d0"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 167,
+            "outputTokens": 117,
+            "measured": true,
+            "elapsedMs": 1668.7424
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 227,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 783.0214
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-difficult-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          }
+        ]
+      },
+      "observationHash": "7c2280c7c087515466f37f68758eebc063c1e268a5fb1f9ed0ed802f5a5f282a",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-04-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1137,
+        "measuredHostSeconds": 6,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.049041666666666664,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "d2b1f4cba30a8b561afd89dd98f4cfa85806b3ac4bb3f4c77dedba8ea87f5baf",
+        "ettTrace": {
+          "episodeId": "ett_episode_6173d53cc326bbe79719c070",
+          "questionRef": "rcpt_71c9cfa2735b4c2fee529cde",
+          "runReceiptRef": "rcpt_02b7f85496300894afda5b5d",
+          "verificationReceiptRef": "rcpt_8655f994b400646cec2903db",
+          "learningId": "ett_learning_b99d65a16817037e9e25f186"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 240,
+            "outputTokens": 76,
+            "measured": true,
+            "elapsedMs": 1172.4912
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 269,
+            "outputTokens": 57,
+            "measured": true,
+            "elapsedMs": 835.1346
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 89,
+            "outputTokens": 80,
+            "measured": true,
+            "elapsedMs": 1142.035
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 269,
+            "outputTokens": 57,
+            "measured": true,
+            "elapsedMs": 826.7694
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-difficult-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          }
+        ]
+      },
+      "observationHash": "7c2280c7c087515466f37f68758eebc063c1e268a5fb1f9ed0ed802f5a5f282a",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-04-difficult-1001",
+        "problemId": "ETT-04-difficult-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-04-difficult-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          }
+        ]
+      },
+      "observationHash": "7c2280c7c087515466f37f68758eebc063c1e268a5fb1f9ed0ed802f5a5f282a",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-04-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 682,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.029249999999999998,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "d2b1f4cba30a8b561afd89dd98f4cfa85806b3ac4bb3f4c77dedba8ea87f5baf",
+        "ettTrace": {
+          "episodeId": "ett_episode_6da333e2fca8107b679f0266",
+          "questionRef": "rcpt_4481230848de22965c436c2e",
+          "runReceiptRef": "rcpt_97730e14d3f99b0cfb2746a1",
+          "verificationReceiptRef": "rcpt_c0b58291de93378d85372f77",
+          "learningId": "ett_learning_ef3371e7e8619e73a1cd9552"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 240,
+            "outputTokens": 107,
+            "measured": true,
+            "elapsedMs": 1580.2911
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 278,
+            "outputTokens": 57,
+            "measured": true,
+            "elapsedMs": 953.0095
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-open-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "heldoutTransfer": 77.4,
+              "confidence": 65.4
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "heldoutTransfer": 90.6,
+              "confidence": 21.8
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "heldoutTransfer": 98.5,
+              "confidence": 7.7
+            }
+          }
+        ]
+      },
+      "observationHash": "bddf24dc3c97243cdc87c9a9ee4d554f04d72ec55ac56374ff939391a705ce69",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-04-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1345,
+        "measuredHostSeconds": 7,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.057986111111111106,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-8",
+        "oracleVerdict": "supported",
+        "oracleDigest": "bb62bd50fe8e81954a589bb1b004d8308bf059b17d81480a90500e69bc540def",
+        "ettTrace": {
+          "episodeId": "ett_episode_6173d53cc326bbe79719c070",
+          "questionRef": "rcpt_984c62f91db4d62da712d710",
+          "runReceiptRef": "rcpt_16eb0629a461f5a0d853eb2e",
+          "verificationReceiptRef": "rcpt_684bd23725eb354102cfe5cf",
+          "learningId": "ett_learning_2a3883a036bea38e0d174625"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 314,
+            "outputTokens": 73,
+            "measured": true,
+            "elapsedMs": 1021.8356
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 342,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 1486.373
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 88,
+            "outputTokens": 78,
+            "measured": true,
+            "elapsedMs": 1120.6019
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 342,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 879.9349
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-04-open-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "heldoutTransfer": 77.4,
+              "confidence": 65.4
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "heldoutTransfer": 90.6,
+              "confidence": 21.8
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "heldoutTransfer": 98.5,
+              "confidence": 7.7
+            }
+          }
+        ]
+      },
+      "observationHash": "bddf24dc3c97243cdc87c9a9ee4d554f04d72ec55ac56374ff939391a705ce69",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-04-open-1001",
+        "problemId": "ETT-04-open-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-04-open-1001",
+      "scenarioId": "ETT-04",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "apprentissage-cumulatif",
+        "objective": "Choose the skill with the strongest held-out transfer.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "heldoutTransfer": 87.7,
+              "confidence": 62.3
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "heldoutTransfer": 91.8,
+              "confidence": 9.7
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "heldoutTransfer": 93.1,
+              "confidence": 68.9
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "heldoutTransfer": 17.6,
+              "confidence": 33
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "heldoutTransfer": 80.3,
+              "confidence": 42.3
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "heldoutTransfer": 15.5,
+              "confidence": 20.7
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "heldoutTransfer": 77.4,
+              "confidence": 65.4
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "heldoutTransfer": 90.6,
+              "confidence": 21.8
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "heldoutTransfer": 98.5,
+              "confidence": 7.7
+            }
+          }
+        ]
+      },
+      "observationHash": "bddf24dc3c97243cdc87c9a9ee4d554f04d72ec55ac56374ff939391a705ce69",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-04-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 783,
+        "measuredHostSeconds": 3,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.03345833333333333,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-8",
+        "oracleVerdict": "supported",
+        "oracleDigest": "bb62bd50fe8e81954a589bb1b004d8308bf059b17d81480a90500e69bc540def",
+        "ettTrace": {
+          "episodeId": "ett_episode_6da333e2fca8107b679f0266",
+          "questionRef": "rcpt_7274139b449a6cbeebc294b6",
+          "runReceiptRef": "rcpt_795f5d67a00795270a7a204d",
+          "verificationReceiptRef": "rcpt_798f718444ae8daf490ccd3d",
+          "learningId": "ett_learning_751f8765bface318c2aec219"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 314,
+            "outputTokens": 73,
+            "measured": true,
+            "elapsedMs": 1100.8168
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 342,
+            "outputTokens": 54,
+            "measured": true,
+            "elapsedMs": 799.8879
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-simple-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          }
+        ]
+      },
+      "observationHash": "d85e4a73b94d06442641ccd1e2258a7d4f800d8ee3b0d0b40b5888506db00d86",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-09-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1422,
+        "measuredHostSeconds": 7,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.06119444444444444,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "ccff5d94541951a1c12d4ccec983a2d57153c83da9ad777b05c57cb38d9e6eca",
+        "ettTrace": {
+          "episodeId": "ett_episode_8f1e081b229c24f0af050e65",
+          "questionRef": "rcpt_38375c449d0c3921157fd0a8",
+          "runReceiptRef": "rcpt_64d9705b56418e3f896e980e",
+          "verificationReceiptRef": "rcpt_d66b310a67185d4b10d99b65",
+          "learningId": "ett_learning_2a65ff85bb8302cd5f9b5e0f"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 166,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1736.2983
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 317,
+            "outputTokens": 74,
+            "measured": true,
+            "elapsedMs": 1117.4198
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 218,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1781.5587
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 317,
+            "outputTokens": 74,
+            "measured": true,
+            "elapsedMs": 997.4941
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-simple-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          }
+        ]
+      },
+      "observationHash": "d85e4a73b94d06442641ccd1e2258a7d4f800d8ee3b0d0b40b5888506db00d86",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-09-simple-1001",
+        "problemId": "ETT-09-simple-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-09-simple-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "simple",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          }
+        ]
+      },
+      "observationHash": "d85e4a73b94d06442641ccd1e2258a7d4f800d8ee3b0d0b40b5888506db00d86",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-09-simple-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 685,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.029652777777777778,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "ccff5d94541951a1c12d4ccec983a2d57153c83da9ad777b05c57cb38d9e6eca",
+        "ettTrace": {
+          "episodeId": "ett_episode_d6d00221d5ddb1f0183d8e3f",
+          "questionRef": "rcpt_2e1886a17c667e7adaa75419",
+          "runReceiptRef": "rcpt_5f709ab3d118116fa77cbc9b",
+          "verificationReceiptRef": "rcpt_bc2402a0d0a09412f0094f96",
+          "learningId": "ett_learning_2ec4cfb3fcb83f0f2c150296"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 166,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1709.11
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 317,
+            "outputTokens": 74,
+            "measured": true,
+            "elapsedMs": 1013.031
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-difficult-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          }
+        ]
+      },
+      "observationHash": "ebad92830673129346c7392c24f36024b1f72abf44543f7f875a97ac7681e3e3",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-09-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1653,
+        "measuredHostSeconds": 8,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.07109722222222223,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "ccff5d94541951a1c12d4ccec983a2d57153c83da9ad777b05c57cb38d9e6eca",
+        "ettTrace": {
+          "episodeId": "ett_episode_8f1e081b229c24f0af050e65",
+          "questionRef": "rcpt_057c2da72c6f427644144670",
+          "runReceiptRef": "rcpt_a1f25a1298518230ba12c037",
+          "verificationReceiptRef": "rcpt_f40ebe1f4ac689f34b9acf5e",
+          "learningId": "ett_learning_85f67c809aadfa03ef35d0b5"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 237,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1764.1888
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 388,
+            "outputTokens": 83,
+            "measured": true,
+            "elapsedMs": 1220.6903
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 218,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1886.3909
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 388,
+            "outputTokens": 83,
+            "measured": true,
+            "elapsedMs": 1137.8779
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-difficult-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          }
+        ]
+      },
+      "observationHash": "ebad92830673129346c7392c24f36024b1f72abf44543f7f875a97ac7681e3e3",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-09-difficult-1001",
+        "problemId": "ETT-09-difficult-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-09-difficult-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "difficult",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          }
+        ]
+      },
+      "observationHash": "ebad92830673129346c7392c24f36024b1f72abf44543f7f875a97ac7681e3e3",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-09-difficult-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 836,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.035944444444444446,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "ccff5d94541951a1c12d4ccec983a2d57153c83da9ad777b05c57cb38d9e6eca",
+        "ettTrace": {
+          "episodeId": "ett_episode_d6d00221d5ddb1f0183d8e3f",
+          "questionRef": "rcpt_7094491ecaa95876012813f6",
+          "runReceiptRef": "rcpt_fc68fa83d22859a9f544659d",
+          "verificationReceiptRef": "rcpt_ccfe2665a6c4b829709a21b2",
+          "learningId": "ett_learning_86d0aefc2b0293be3996b87e"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 237,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1845.6936
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 388,
+            "outputTokens": 83,
+            "measured": true,
+            "elapsedMs": 1123.846
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-open-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "full",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "freshPredictionValue": 5.1,
+              "confidence": 40.3
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "freshPredictionValue": 80.2,
+              "confidence": 60.5
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "freshPredictionValue": 59.4,
+              "confidence": 12.4
+            }
+          }
+        ]
+      },
+      "observationHash": "eef70ca280b22b5f978a9e451a525724fd451d161674ad90e7934df17d6b56f7",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": true,
+        "terminalState": "STOPPED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "full",
+        "caseId": "ETT-09-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 4,
+        "measuredTokens": 1861,
+        "measuredHostSeconds": 9,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.08004166666666666,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "eb0cb250a3ee85a052074707f626fffdbc56dd3ad989665579e5a4d9150dd1f9",
+        "ettTrace": {
+          "episodeId": "ett_episode_8f1e081b229c24f0af050e65",
+          "questionRef": "rcpt_43aa9bf7ce1edb7a1f3e8e18",
+          "runReceiptRef": "rcpt_7f598549ba8501564fa2c9cc",
+          "verificationReceiptRef": "rcpt_61290024618bfcbaa8c93ef0",
+          "learningId": "ett_learning_051b8498b3998620e7a6ce9b"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 311,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 2536.4376
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 462,
+            "outputTokens": 76,
+            "measured": true,
+            "elapsedMs": 1066.6573
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 218,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1715.6961
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 462,
+            "outputTokens": 76,
+            "measured": true,
+            "elapsedMs": 1047.4745
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ETT-09-open-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "curiosity_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "freshPredictionValue": 5.1,
+              "confidence": 40.3
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "freshPredictionValue": 80.2,
+              "confidence": 60.5
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "freshPredictionValue": 59.4,
+              "confidence": 12.4
+            }
+          }
+        ]
+      },
+      "observationHash": "eef70ca280b22b5f978a9e451a525724fd451d161674ad90e7934df17d6b56f7",
+      "outcome": {
+        "success": true,
+        "episodes": 0,
+        "budgetViolations": 0,
+        "duplicates": 0,
+        "condition": "curiosity_ablated",
+        "caseId": "ETT-09-open-1001",
+        "problemId": "ETT-09-open-1001",
+        "developmentUtility": 0,
+        "stage": "detection",
+        "decisionReason": "below-threshold",
+        "ablationEffect": "curiosity_ablated",
+        "verifiedDiscoveries": 0,
+        "normalizedCost": 0,
+        "measurementStatus": "synthetic_control_only",
+        "scientificEvidence": false,
+        "providerCallDetails": []
+      }
+    },
+    {
+      "caseId": "ETT-09-open-1001",
+      "scenarioId": "ETT-09",
+      "difficulty": "open",
+      "seed": 1001,
+      "condition": "memory_ablated",
+      "split": "development",
+      "holdout": false,
+      "observation": {
+        "scenario": "decouverte-inattendue",
+        "objective": "Choose the latent rule with the strongest fresh-state predictions.",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "metrics": {
+              "freshPredictionValue": 52.7,
+              "confidence": 92.7
+            }
+          },
+          {
+            "id": "candidate-1",
+            "metrics": {
+              "freshPredictionValue": 37.2,
+              "confidence": 0.2
+            }
+          },
+          {
+            "id": "candidate-2",
+            "metrics": {
+              "freshPredictionValue": 83.3,
+              "confidence": 82.8
+            }
+          },
+          {
+            "id": "candidate-3",
+            "metrics": {
+              "freshPredictionValue": 7,
+              "confidence": 87.5
+            }
+          },
+          {
+            "id": "candidate-4",
+            "metrics": {
+              "freshPredictionValue": 40.9,
+              "confidence": 30.6
+            }
+          },
+          {
+            "id": "candidate-5",
+            "metrics": {
+              "freshPredictionValue": 50.6,
+              "confidence": 8.1
+            }
+          },
+          {
+            "id": "candidate-6",
+            "metrics": {
+              "freshPredictionValue": 5.1,
+              "confidence": 40.3
+            }
+          },
+          {
+            "id": "candidate-7",
+            "metrics": {
+              "freshPredictionValue": 80.2,
+              "confidence": 60.5
+            }
+          },
+          {
+            "id": "candidate-8",
+            "metrics": {
+              "freshPredictionValue": 59.4,
+              "confidence": 12.4
+            }
+          }
+        ]
+      },
+      "observationHash": "eef70ca280b22b5f978a9e451a525724fd451d161674ad90e7934df17d6b56f7",
+      "outcome": {
+        "success": true,
+        "episodes": 1,
+        "verified": true,
+        "learned": true,
+        "continued": false,
+        "terminalState": "LEARNED",
+        "continuationError": null,
+        "failure": null,
+        "condition": "memory_ablated",
+        "caseId": "ETT-09-open-1001",
+        "scientificEvidence": true,
+        "measurementStatus": "ollama_provider_token_counters_and_host_time",
+        "provider": "ollama://qwen2.5-coder:7b",
+        "providerCalls": 2,
+        "measuredTokens": 977,
+        "measuredHostSeconds": 4,
+        "measuredCostUsd": 0,
+        "verifiedDiscoveries": 1,
+        "normalizedCost": 0.041819444444444444,
+        "developmentUtility": 1,
+        "modelOutputIsEvidence": false,
+        "submittedAnswerId": "candidate-2",
+        "oracleVerdict": "supported",
+        "oracleDigest": "eb0cb250a3ee85a052074707f626fffdbc56dd3ad989665579e5a4d9150dd1f9",
+        "ettTrace": {
+          "episodeId": "ett_episode_d6d00221d5ddb1f0183d8e3f",
+          "questionRef": "rcpt_483834c94f39a34550154df6",
+          "runReceiptRef": "rcpt_aaf07725a5ab5d63a0a6851a",
+          "verificationReceiptRef": "rcpt_65cd86f56ab14939e40df2b8",
+          "learningId": "ett_learning_335a96f22b68c54fcd7db364"
+        },
+        "providerCallDetails": [
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 311,
+            "outputTokens": 128,
+            "measured": true,
+            "elapsedMs": 1945.3514
+          },
+          {
+            "model": "qwen2.5-coder:7b",
+            "provider": "ollama",
+            "inputTokens": 462,
+            "outputTokens": 76,
+            "measured": true,
+            "elapsedMs": 1061.8599
+          }
+        ]
+      }
+    }
+  ],
+  "scientificClaimAllowed": false,
+  "limitations": [
+    "Local model run; no external API price is measured.",
+    "Original Voyager, AI Scientist v2 and DGM executables are not included."
+  ],
+  "finishedAt": "2026-10-27T22:32:10.665Z",
+  "expectedRecords": 36,
+  "completedRecords": 36
+}

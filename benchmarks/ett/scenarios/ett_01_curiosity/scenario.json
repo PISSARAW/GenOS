@@ -2,10 +2,28 @@
   "id": "ETT-01",
   "name": "curiosite-spontanee",
   "priority": true,
-  "status": "executable_reference_proxy",
-  "levels": ["simple", "difficult", "open"],
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Jeu de données inconnu sans question prescrite ; les anomalies candidates ne sont pas annotées dans l'observation.",
   "oracle": "Indices d'anomalies et propriétés latentes confirmés par une règle génératrice scellée.",
-  "metrics": ["relevance", "novelty", "hidden_anomaly_coverage"],
-  "anti_shortcuts": ["randomize feature names", "vary seed-specific anomaly positions", "include negative controls"]
+  "metrics": [
+    "relevance",
+    "novelty",
+    "hidden_anomaly_coverage"
+  ],
+  "anti_shortcuts": [
+    "randomize feature names",
+    "vary seed-specific anomaly positions",
+    "include negative controls"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "outlierDistance",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

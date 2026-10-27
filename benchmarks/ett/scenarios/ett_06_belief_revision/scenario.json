@@ -1,7 +1,24 @@
 {
-  "id": "ETT-06", "name": "revision-epistemique", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-06",
+  "name": "revision-epistemique",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Théorie initialement soutenue puis preuve nouvelle contradictoire de force contrôlée.",
   "oracle": "Modèle générateur, force diagnostique des preuves et croyance attendue après mise à jour.",
-  "metrics": ["revision_accuracy", "revision_latency", "calibration_change"]
+  "metrics": [
+    "revision_accuracy",
+    "revision_latency",
+    "calibration_change"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "posteriorSupport",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

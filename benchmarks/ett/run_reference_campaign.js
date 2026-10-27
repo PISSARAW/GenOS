@@ -4,8 +4,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { SCENARIO_IDS, LEVELS, buildCase, validateProposal } = require('./scenarios/runtime');
+const { LEVELS, validateProposal } = require('./scenarios/runtime');
 const { SYSTEM_IDS, createAdapter } = require('./adapters/referenceSystems');
+
+function loadScenarios() {
+  const root = path.join(__dirname, 'scenarios');
+  return fs.readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => require(path.join(root, entry.name, 'scenario.js')))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
 
 function optionsFrom(args) {
   const options = { seeds: 30, output: null };
@@ -30,11 +38,13 @@ function verifyIndependently(checks) {
 }
 
 async function runCampaign(seeds) {
+  const scenarios = loadScenarios();
   const runs = SYSTEM_IDS.map((id) => ({ id, adapter: createAdapter(id), cases: [] }));
   for (const seed of seeds) {
-    for (const scenarioId of SCENARIO_IDS) {
+    for (const scenario of scenarios) {
+      const scenarioId = scenario.id;
       for (const difficulty of LEVELS) {
-        const testCase = buildCase(scenarioId, difficulty, seed);
+        const testCase = scenario.build(difficulty, seed);
         const checks = [];
         for (const run of runs) {
           const started = process.hrtime.bigint();
@@ -72,7 +82,7 @@ async function main(args = process.argv.slice(2)) {
   const receipt = {
     schema: 'genos.ett-reference-campaign/v1', status: 'executable_local_reference_only',
     scientificClaimAllowed: false, externalModelCostsMeasured: false,
-    oracleIsolation: 'separate-child-process', scenarios: SCENARIO_IDS.length,
+    oracleIsolation: 'separate-child-process', scenarios: loadScenarios().map(({ id }) => id),
     difficulties: LEVELS, seeds, systems
   };
   const output = path.resolve(options.output);

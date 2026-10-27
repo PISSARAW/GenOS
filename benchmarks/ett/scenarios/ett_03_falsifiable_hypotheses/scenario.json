@@ -1,7 +1,24 @@
 {
-  "id": "ETT-03", "name": "hypotheses-falsifiables", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-03",
+  "name": "hypotheses-falsifiables",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Phénomène simulé produit par plusieurs causes concurrentes avec interventions disponibles.",
   "oracle": "Causes et effets d'intervention tirés du générateur caché.",
-  "metrics": ["causal_accuracy", "intervention_quality", "falsifiability"]
+  "metrics": [
+    "causal_accuracy",
+    "intervention_quality",
+    "falsifiability"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "causalSeparation",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

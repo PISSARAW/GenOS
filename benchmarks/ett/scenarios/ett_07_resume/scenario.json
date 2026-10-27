@@ -1,7 +1,25 @@
 {
-  "id": "ETT-07", "name": "reprise-continuite", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-07",
+  "name": "reprise-continuite",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Investigation interrompue avant hypothèse, pendant test ou avant conclusion, puis redémarrée depuis stockage.",
   "oracle": "État sérialisé de référence, opérations déjà acquittées et identifiants idempotents.",
-  "metrics": ["valid_resume_rate", "lost_results", "duplicate_work", "state_corruption"]
+  "metrics": [
+    "valid_resume_rate",
+    "lost_results",
+    "duplicate_work",
+    "state_corruption"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "resumeIntegrity",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }

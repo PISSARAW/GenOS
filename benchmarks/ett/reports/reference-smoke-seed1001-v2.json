@@ -1,0 +1,5295 @@
+{
+  "schema": "genos.ett-reference-campaign/v1",
+  "status": "executable_local_reference_only",
+  "scientificClaimAllowed": false,
+  "externalModelCostsMeasured": false,
+  "oracleIsolation": "separate-child-process",
+  "scenarios": [
+    "ETT-01",
+    "ETT-02",
+    "ETT-03",
+    "ETT-04",
+    "ETT-05",
+    "ETT-06",
+    "ETT-07",
+    "ETT-08",
+    "ETT-09",
+    "ETT-10",
+    "ETT-11",
+    "ETT-12"
+  ],
+  "difficulties": [
+    "simple",
+    "difficult",
+    "open"
+  ],
+  "seeds": [
+    1001
+  ],
+  "systems": [
+    {
+      "id": "oracle_score_upper_bound",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 36,
+      "successRate": 1,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.2728,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0549,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0265,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0232,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.022,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0227,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0206,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0195,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-7",
+            "evidenceRefs": [
+              "candidate-7:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0415,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0156,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.027,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0199,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0176,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0172,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0163,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0207,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0179,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0129,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0204,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.018,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0166,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0283,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0183,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0139,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0906,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0168,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0166,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0232,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0178,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0168,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0247,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.019,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0185,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.023,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-4",
+            "evidenceRefs": [
+              "candidate-4:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0193,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "oracle_score_upper_bound",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-4",
+            "evidenceRefs": [
+              "candidate-4:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0265,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "fixed_first_candidate",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 4,
+      "successRate": 0.1111111111111111,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0376,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.8443,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.007,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0032,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0032,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0032,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.003,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0043,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0056,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0043,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0027,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0027,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0017,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.003,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0037,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0019,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0056,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0037,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0027,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0032,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "fixed_first_candidate",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "scenario_rule_solver",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 36,
+      "successRate": 1,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0427,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0267,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0385,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0067,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0128,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0078,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.006,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-7",
+            "evidenceRefs": [
+              "candidate-7:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0077,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0043,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.007,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0092,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0042,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0414,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-5",
+            "evidenceRefs": [
+              "candidate-5:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0055,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0043,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.005,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-8",
+            "evidenceRefs": [
+              "candidate-8:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0627,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0076,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0033,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0046,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0038,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0049,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-4",
+            "evidenceRefs": [
+              "candidate-4:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0048,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "scenario_rule_solver",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-4",
+            "evidenceRefs": [
+              "candidate-4:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0061,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "react_classic",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 1,
+      "successRate": 0.027777777777777776,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0737,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0183,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0228,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0046,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0079,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0122,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0113,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0077,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0039,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0044,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0101,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0042,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0188,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0044,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.004,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0063,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0045,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0039,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0079,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0041,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0044,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0062,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0042,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0041,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0056,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0044,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0055,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0041,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "react_classic",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0042,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "periodic_llm_loop",
+      "disclosure": "Local deterministic reference policy; no external LLM is called.",
+      "attempted": 36,
+      "verifiedDiscoveries": 4,
+      "successRate": 0.1111111111111111,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0476,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0093,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0019,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.002,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.002,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0033,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0019,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.002,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0021,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0013,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0018,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0021,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0021,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0013,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.002,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0019,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0022,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0023,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0023,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.002,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0021,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "periodic_llm_loop",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0021,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "voyager_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 4,
+      "successRate": 0.1111111111111111,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0919,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0177,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.006,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0052,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0092,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0059,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0067,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0066,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0061,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0141,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0046,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0049,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0047,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0036,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0046,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0048,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0048,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0065,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0055,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0041,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0059,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0052,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0056,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0054,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0055,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0041,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0054,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0049,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0051,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0059,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "voyager_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0049,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "ai_scientist_v2_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 16,
+      "successRate": 0.4444444444444444,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.104,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0278,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0083,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.006,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0098,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0227,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 4
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-1",
+            "evidenceRefs": [
+              "candidate-1:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0064,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-4",
+            "evidenceRefs": [
+              "candidate-4:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0082,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-7",
+            "evidenceRefs": [
+              "candidate-7:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0129,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0077,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0078,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0114,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0054,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0078,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0115,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0076,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0877,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0053,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0089,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0109,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0071,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0087,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0069,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0064,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0082,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0113,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0055,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0078,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0101,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0067,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0081,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-3",
+            "evidenceRefs": [
+              "candidate-3:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0118,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0094,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "ai_scientist_v2_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-6",
+            "evidenceRefs": [
+              "candidate-6:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.011,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    },
+    {
+      "id": "darwin_godel_machine_adapted",
+      "disclosure": "Local deterministic adaptation; not the original system or a published reproduction.",
+      "attempted": 36,
+      "verifiedDiscoveries": 5,
+      "successRate": 0.1388888888888889,
+      "executionFailures": 0,
+      "rows": [
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-2",
+            "evidenceRefs": [
+              "candidate-2:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.1405,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0131,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-01",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-01"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0027,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.004,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0036,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-02",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-02"
+            ],
+            "actions": 4
+          },
+          "elapsedMs": 0.0037,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 4
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0045,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-03",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-03"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0042,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0064,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-04",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-04"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0043,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-05",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-05"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0026,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-06",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-06"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0027,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0026,
+          "verdict": "supported",
+          "usefulDiscoveries": 1,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.003,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-07",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-07"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0025,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0033,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0028,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-08",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-08"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0026,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-09",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-09"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0033,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0031,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-10",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-10"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0024,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.003,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0058,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-11",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-11"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0034,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "simple",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0026,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "difficult",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0029,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        },
+        {
+          "systemId": "darwin_godel_machine_adapted",
+          "scenarioId": "ETT-12",
+          "difficulty": "open",
+          "seed": 1001,
+          "failed": false,
+          "proposal": {
+            "answerId": "candidate-0",
+            "evidenceRefs": [
+              "candidate-0:metric:ETT-12"
+            ],
+            "actions": 3
+          },
+          "elapsedMs": 0.0033,
+          "verdict": "refuted",
+          "usefulDiscoveries": 0,
+          "actions": 3
+        }
+      ]
+    }
+  ]
+}

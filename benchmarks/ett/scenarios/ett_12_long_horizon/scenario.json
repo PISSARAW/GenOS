@@ -1,7 +1,27 @@
 {
-  "id": "ETT-12", "name": "autonomie-longue-duree", "priority": false,
-  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
+  "id": "ETT-12",
+  "name": "autonomie-longue-duree",
+  "priority": false,
+  "status": "executable_reference_world",
+  "levels": [
+    "simple",
+    "difficult",
+    "open"
+  ],
   "input": "Une investigation ouverte continue jusqu'à 100 cycles sans nouvelle instruction humaine.",
   "oracle": "Journal d'événements, découvertes vérifiées et compteur des contraintes violées.",
-  "metrics": ["verified_progress", "discoveries_per_cycle", "repetition", "stability", "cost", "critical_violations"]
+  "metrics": [
+    "verified_progress",
+    "discoveries_per_cycle",
+    "repetition",
+    "stability",
+    "cost",
+    "critical_violations"
+  ],
+  "implementation": {
+    "module": "scenario.js",
+    "primaryMetric": "longHorizonYield",
+    "runtime": "../runtime.js",
+    "oracle": "../../evaluation/oracle_worker.js"
+  }
 }
