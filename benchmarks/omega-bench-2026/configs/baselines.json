@@ -1,0 +1,13 @@
+{
+  "status": "unconfigured",
+  "families": [
+    {"id": "mlir", "capability": "typed intermediate representation and validation", "adapter": null, "version": null},
+    {"id": "temporal", "capability": "durable workflow execution and replay", "adapter": null, "version": null},
+    {"id": "langgraph", "capability": "state graph transitions and checkpoints", "adapter": null, "version": null},
+    {"id": "a2a", "capability": "agent delegation and interoperability", "adapter": null, "version": null},
+    {"id": "mcp", "capability": "typed tool invocation and integration", "adapter": null, "version": null},
+    {"id": "opa", "capability": "authorization policy decisions", "adapter": null, "version": null},
+    {"id": "json-reference", "capability": "JSON Schema plus independent reference executor", "adapter": null, "version": null}
+  ],
+  "rule": "Use only functionally applicable comparisons and record N/A for capabilities outside the baseline contract."
+}

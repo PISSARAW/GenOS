@@ -1,0 +1,57 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "version": "0.1.0-draft",
+  "status": "e03_pilot_ready_full_campaign_unstarted",
+  "independence": {
+    "rule": "Dataset generation, scoring and oracles use only Python standard library and do not import GenOS or G-CIR Ω code.",
+    "oracle_location": "dataset/oracle/",
+    "candidate_input_location": "dataset/public/inputs/"
+  },
+  "dataset": {
+    "generator_seed": 20261027,
+    "scenarios_per_experiment": 50,
+    "experiments": 12,
+    "scenario_count": 600,
+    "split": "public_development_only",
+    "sealed_holdout": false
+  },
+  "pilot": {
+    "experiment": "E03",
+    "conditions": ["A", "B"],
+    "description": "JSON Schema 2020-12 validation using AJV versus the GenOS G-CIR Omega interop validator on canonical G-CIR envelopes.",
+    "runs": 300,
+    "model_required": false,
+    "limitations": ["one experiment only", "two conditions only", "three repetitions", "same published schema", "not preregistered", "no external baseline families"]
+  },
+  "conditions": [
+    {"id": "A", "name": "json_reference", "description": "JSON Schema + reference executor; no G-CIR Ω."},
+    {"id": "B", "name": "gcir_minimal", "description": "G-CIR Ω parser, IR and interpreter without optional optimizations or dynamic adaptation."},
+    {"id": "C", "name": "gcir_optimized", "description": "B plus static verification and declared optimization passes."},
+    {"id": "D", "name": "genos_full", "description": "C integrated with GenOS, with morphology and physiological adaptation enabled."}
+  ],
+  "minimum_design": {
+    "repetitions": 3,
+    "paired_scenarios": true,
+    "planned_executions": 7200,
+    "calculation": "12 experiments x 4 conditions x 50 scenarios x 3 repetitions",
+    "does_not_include": ["seven external baseline families", "eight ablations", "additional load tests", "larger per-experiment corpora"]
+  },
+  "controls": ["same model and model version", "same temperature and decoding settings", "same tools and permissions", "same resource budgets", "same hardware", "same scenario and random seed", "condition-specific features declared before run"],
+  "proposed_thresholds": {
+    "E01": {"metric": "exact semantic compliance", "target": 0.99},
+    "E02": {"metric": "fewer episode bytes than JSON without significant compliance loss", "target_relative_saving": 0.30},
+    "E03": {"metric": "specified invalid cases detected", "target_detection": 0.99, "max_false_reject": 0.01},
+    "E04": {"metric": "execution cost saved with no semantic divergence", "target_relative_saving": 0.15},
+    "E05": {"metric": "deterministic replay state and observable effects match", "target": 1.0},
+    "E06": {"metric": "recoverable missions; irreversible duplicate effects", "target_recovery": 0.99, "max_duplicate_irreversible_effects": 0},
+    "E07": {"metric": "logical delivery and p95 latency versus matched baseline", "target_delivery": 0.99},
+    "E08": {"metric": "prohibited executed actions; false blocks", "max_prohibited_actions": 0, "max_false_blocks": 0.01},
+    "E09": {"metric": "commands processed and bounded memory growth", "target_processed": 0.99},
+    "E10": {"metric": "valid topology transitions preserving all mission invariants", "target_valid_transitions": 0.99, "max_invariant_violations": 0},
+    "E11": {"metric": "successful missions per euro versus physiology ablation", "target_relative_gain": 0.15},
+    "E12": {"metric": "semantic equivalence across three independent backends", "target_equivalence": 0.99, "max_security_violations": 0}
+  },
+  "baseline_families": ["MLIR", "Temporal", "LangGraph", "Agent2Agent", "MCP", "Open Policy Agent", "JSON Schema + Python reference"],
+  "ablations": ["optimizer", "static verification", "strong typing", "replay and journaling", "morphogenesis", "physiological adaptation", "compact encoding", "all G-CIR Ω features against equivalent typed JSON"],
+  "preregistration_required": ["freeze corpus hash and protocol revision", "resolve per-experiment sample-count mismatches", "specify adapters and N/A capabilities", "define cost and latency measurement boundary", "define hidden holdout and access controls", "power analysis", "lock primary contrasts and multiplicity correction"]
+}

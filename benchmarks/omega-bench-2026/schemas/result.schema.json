@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omega-bench-2026/result/v1",
+  "type": "object",
+  "required": ["scenario_id", "experiment_id", "condition_id", "repetition", "status", "answer", "telemetry"],
+  "properties": {
+    "scenario_id": {"type": "string"},
+    "experiment_id": {"type": "string"},
+    "condition_id": {"enum": ["A", "B", "C", "D"]},
+    "repetition": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["completed", "failed", "invalid"]},
+    "answer": {},
+    "metrics": {"type": "object"},
+    "violations": {"type": "array", "items": {"type": "string"}},
+    "telemetry": {
+      "type": "object",
+      "required": ["latency_ms", "input_bytes", "output_bytes"],
+      "properties": {
+        "latency_ms": {"type": "number", "minimum": 0},
+        "input_bytes": {"type": "integer", "minimum": 0},
+        "output_bytes": {"type": "integer", "minimum": 0},
+        "input_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "output_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "cost_usd": {"type": ["number", "null"], "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

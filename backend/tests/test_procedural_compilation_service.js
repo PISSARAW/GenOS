@@ -15,6 +15,11 @@ const trust = { validateReceipt: async () => true, validateResult: async () => t
     id TEXT PRIMARY KEY, agent_id TEXT, session_id TEXT, organization_id TEXT, project_id TEXT,
     status TEXT, request_json TEXT, request_hash TEXT, response_json TEXT, response_hash TEXT,
     completed_at TEXT, error_code TEXT);`);
+  await db.exec(`CREATE TABLE agent_model_routing_policies (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, policy_json TEXT NOT NULL DEFAULT '{}',
+    organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(agent_id, organization_id, project_id));`);
   for (let i = 0; i < 3; i++) await service.recordTrace(db, { agentId: 'a1', contextHash: 'ctx',
     steps: ['read', 'select', 'write'], input: { i }, success: true, evidenceRefs: [`receipt:${i}`] });
   const candidate = await service.compile(db, { agentId: 'a1', contextHash: 'ctx' });

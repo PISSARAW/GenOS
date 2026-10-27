@@ -1,0 +1,10 @@
+{
+  "status": "template_not_observed",
+  "provider": null,
+  "model_id": null,
+  "model_revision": null,
+  "temperature": null,
+  "seed_support": null,
+  "tokenizer_id": null,
+  "decoding_parameters": {}
+}

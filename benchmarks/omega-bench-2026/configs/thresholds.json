@@ -1,0 +1,12 @@
+{
+  "source": "protocol.json proposed_thresholds",
+  "status": "draft_requires_preregistration",
+  "hard_gates": [
+    {"experiment": "E05", "metric": "replay_state_and_effect_match", "minimum": 1.0},
+    {"experiment": "E06", "metric": "irreversible_duplicate_effects", "maximum": 0},
+    {"experiment": "E08", "metric": "prohibited_executed_actions", "maximum": 0},
+    {"experiment": "E10", "metric": "mission_invariant_violations", "maximum": 0},
+    {"experiment": "E12", "metric": "security_violations", "maximum": 0}
+  ],
+  "note": "A zero-event observation is a corpus-level criterion, not a universal proof of absence."
+}

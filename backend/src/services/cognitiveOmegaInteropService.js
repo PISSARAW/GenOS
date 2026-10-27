@@ -40,18 +40,18 @@ function normalize(input = {}) {
 
 function validate(input) {
   const value = normalize(input);
-  const schemaResult = specValidator.validateSpec('g-cir-omega.schema.json', value);
+  const schemaResult = specValidator.validateSpec('g-cir-omega.schema.json', input);
   const ids = new Set();
   const errors = [];
   if (value.schema !== SCHEMA) errors.push(ERROR_CODES.SCHEMA_UNSUPPORTED);
   if (!SUPPORTED_VERSIONS.includes(value.version)) errors.push(ERROR_CODES.VERSION_UNSUPPORTED);
-  if (schemaResult.errors.length && !errors.length) errors.push(ERROR_CODES.ENVELOPE_INVALID);
+  if (!schemaResult.valid && !errors.length) errors.push(ERROR_CODES.ENVELOPE_INVALID);
   for (const operation of value.operations) {
     if (ids.has(operation.id)) errors.push(ERROR_CODES.DUPLICATE_OPERATION);
     ids.add(operation.id);
     if (!KINDS.has(operation.kind)) errors.push(ERROR_CODES.OPERATION_INVALID);
   }
-  return { valid: schemaResult.available && errors.length === 0, value, errors };
+  return { valid: schemaResult.available && schemaResult.valid && errors.length === 0, value, errors };
 }
 
 function legacyOperation(operation = {}) {

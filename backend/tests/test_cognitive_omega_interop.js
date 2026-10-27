@@ -18,6 +18,10 @@ for (const vector of vectors.vectors) {
 assert.equal(interop.validate({ ...vectors.vectors[0].envelope, operations: [
   vectors.vectors[0].envelope.operations[0], vectors.vectors[0].envelope.operations[0]
 ] }).valid, false);
+const missingState = structuredClone(vectors.vectors[0].envelope);
+delete missingState.operations[0].state;
+assert.equal(interop.validate(missingState).valid, false);
+assert.equal(interop.validate({ ...vectors.vectors[0].envelope, id: undefined }).valid, false);
 assert.deepEqual(interop.SUPPORTED_VERSIONS, compatibility.supportedVersions);
 assert.deepEqual(interop.READABLE_VERSIONS, compatibility.readableVersions);
 assert.throws(() => interop.encode({ ...vectors.vectors[0].envelope, version: 2 }),

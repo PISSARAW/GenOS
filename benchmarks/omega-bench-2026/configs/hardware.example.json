@@ -1,0 +1,10 @@
+{
+  "status": "template_not_observed",
+  "host": null,
+  "cpu_model": null,
+  "physical_cores": null,
+  "memory_bytes": null,
+  "gpu_model": null,
+  "os": null,
+  "runtime_versions": {}
+}
