@@ -1,8 +1,8 @@
 # OMEGA-BENCH 2026 — banc préparé
 
-Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas, les oracles et l'évaluateur n'importent aucun module GenOS. Il fournit un corpus synthétique déterministe de **2 800 cas** avec entrées candidates et réponses de référence dans des fichiers distincts. E01/E02 ont 200 cas chacun; E03/E08 en ont 1 000 chacun; les autres expériences en ont 50.
+Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas, les oracles et l'évaluateur n'importent aucun module GenOS. Il fournit un corpus synthétique déterministe de **3 400 cas** avec entrées candidates et réponses de référence dans des fichiers distincts. E01/E02 ont 200 cas; E03/E08 en ont 1 000; E04/E05/E10/E12 en ont 100; E06 en a 150 (trois taux de panne); E07/E09 en ont 200 (quatre échelles); E11 en a 50.
 
-**État : qualifications A/B exécutées; C partiellement qualifiée; campagne comparative bloquée.** Le corpus reste un jeu de développement public, pas un jeu caché ni une preuve de performance. Les seuils du protocole sont des hypothèses à confirmer avant lancement. Les volumes proposés entraînent `2 800 scénarios × 4 conditions × 3 répétitions = 33 600 exécutions`, avant baselines, ablations, tests de charge ou calcul de puissance.
+**État : qualifications A/B/C exécutées sur les versions antérieures du corpus; corpus v0.3.0 à relancer; campagne comparative bloquée.** Le corpus reste un jeu de développement public, pas un jeu caché ni une preuve de performance. Les seuils du protocole sont des hypothèses à confirmer avant lancement. Les volumes proposés entraînent `3 400 scénarios × 4 conditions × 3 répétitions = 40 800 exécutions`, avant baselines, ablations, tests de charge ou calcul de puissance.
 
 ## Contenu
 

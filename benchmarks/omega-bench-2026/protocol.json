@@ -1,6 +1,6 @@
 {
   "protocol": "OMEGA-BENCH-2026",
-  "version": "0.2.0-draft",
+  "version": "0.3.0-draft",
   "status": "conditions_a_b_c_qualified_full_campaign_unstarted",
   "independence": {
     "rule": "Dataset generation, scoring and oracles use only Python standard library and do not import GenOS or G-CIR Ω code.",
@@ -10,11 +10,11 @@
   "dataset": {
     "generator_seed": 20261027,
     "scenarios_by_experiment": {
-      "E01": 200, "E02": 200, "E03": 1000, "E04": 50, "E05": 50, "E06": 50,
-      "E07": 50, "E08": 1000, "E09": 50, "E10": 50, "E11": 50, "E12": 50
+      "E01": 200, "E02": 200, "E03": 1000, "E04": 100, "E05": 100, "E06": 150,
+      "E07": 200, "E08": 1000, "E09": 200, "E10": 100, "E11": 50, "E12": 100
     },
     "experiments": 12,
-    "scenario_count": 2800,
+    "scenario_count": 3400,
     "split": "public_development_only",
     "sealed_holdout": false
   },
@@ -22,8 +22,15 @@
     "E01": 200,
     "E02": 200,
     "E03": 1000,
+    "E04": 100,
+    "E05": 100,
+    "E06": 150,
+    "E07": 200,
     "E08": 1000,
-    "note": "Counts transcribed from the campaign proposal; the current 50-case public development corpus is not large enough for these proposed protocols."
+    "E09": 200,
+    "E10": 100,
+    "E12": 100,
+    "note": "Counts and scenario scales transcribed from the campaign proposal; this remains a public development corpus, not the holdout."
   },
   "pilot": {
     "experiment": "E03",
@@ -42,8 +49,8 @@
   "minimum_design": {
     "repetitions": 3,
     "paired_scenarios": true,
-    "planned_executions": 33600,
-    "calculation": "2,800 proposed scenarios x 4 conditions x 3 repetitions",
+    "planned_executions": 40800,
+    "calculation": "3,400 proposed scenarios x 4 conditions x 3 repetitions",
     "does_not_include": ["seven external baseline families", "eight ablations", "additional load tests", "larger per-experiment corpora"]
   },
   "controls": ["same model and model version", "same temperature and decoding settings", "same tools and permissions", "same resource budgets", "same hardware", "same scenario and random seed", "condition-specific features declared before run"],

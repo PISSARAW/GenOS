@@ -8,7 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
 EXPERIMENTS = [f"E{i:02d}" for i in range(1, 13)]
 COUNTS = {experiment: 50 for experiment in EXPERIMENTS}
-COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E08": 1000})
+COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E04": 100,
+               "E05": 100, "E06": 150, "E07": 200, "E08": 1000,
+               "E09": 200, "E10": 100, "E12": 100})
 TOPOLOGIES = ["trinity", "rhizome", "metapopulation", "holobionte", "biome", "biocenose", "a-team", "syncytium"]
 
 
@@ -48,18 +50,28 @@ def replay_case(index, rng):
     first = rng.randint(1, 20)
     second = rng.randint(1, 20)
     events = [{"event_id": f"{index}-1", "op": "set", "key": "balance", "value": first}, {"event_id": f"{index}-2", "op": "add", "key": "balance", "value": second}]
-    return {"workflow_id": f"wf-{index}", "events": events, "replay_count": 10}, {"state": {"balance": first + second}, "observable_effects": [f"set:{first}", f"add:{second}"]}
+    return {"workflow_id": f"wf-{index}", "events": events, "replay_count": 10}, {
+        "state": {"balance": first + second}, "observable_effects": [f"set:{first}", f"add:{second}"],
+        "replay_count": 10, "all_replays_match": True
+    }
 
 
 def resilience_case(index, rng):
-    task_count = 2 + index % 5
-    tasks = [f"task-{index}-{n}" for n in range(task_count)]
-    fail_at = index % task_count
-    return {"tasks": tasks, "crash_after_task_index": fail_at, "recoverable": True, "delivery": "at_least_once", "effect_key": f"mission-{index}"}, {"completed_tasks": tasks, "irreversible_effect_count": 1}
+    mission_index, fraction_index = divmod(index, 3)
+    fraction = (0.1, 0.25, 0.5)[fraction_index]
+    task_count = 20
+    tasks = [f"task-{mission_index}-{n}" for n in range(task_count)]
+    fail_at = max(0, int(task_count * fraction) - 1)
+    return {"tasks": tasks, "crash_after_task_index": fail_at, "failure_fraction": fraction,
+            "recoverable": True, "delivery": "at_least_once",
+            "effect_key": f"mission-{mission_index}"}, {
+                "completed_tasks": tasks, "irreversible_effect_count": 1
+            }
 
 
 def communication_case(index, rng):
-    agents = [f"agent-{n}" for n in range(2 + index % 7)]
+    size = (2, 8, 32, 128)[index // 50]
+    agents = [f"agent-{n}" for n in range(size)]
     tasks = [{"id": f"work-{index}-{n}", "agent": agents[n % len(agents)], "depends_on": [] if n == 0 else [f"work-{index}-{n-1}"]} for n in range(len(agents))]
     return {"agents": agents, "tasks": tasks, "delivery_guarantee": "at_least_once"}, {"delivered_task_ids": [task["id"] for task in tasks], "unresolved_dependencies": []}
 
@@ -71,7 +83,7 @@ def security_case(index, rng):
 
 
 def scalability_case(index, rng):
-    agents = [10, 100, 1000, 10000][index % 4]
+    agents = [10, 100, 1000, 10000][index // 50]
     commands = agents * (1 + index % 3)
     return {"simulated_agents": agents, "command_count": commands, "command_value_start": index}, {"processed_count": commands, "checksum": sum(range(index, index + commands))}
 
@@ -130,7 +142,7 @@ def main():
         for split, rows in (("inputs", inputs), ("oracle", oracle)):
             data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
             digests[f"{split}/E{number:02d}.jsonl"] = hashlib.sha256(data).hexdigest()
-    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": "0.2.0", "seed": SEED,
+    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": "0.3.0", "seed": SEED,
                 "cases_by_experiment": COUNTS, "total_cases": sum(COUNTS.values()),
                 "split": "public_development_only", "sha256": digests}
     (ROOT / "dataset" / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

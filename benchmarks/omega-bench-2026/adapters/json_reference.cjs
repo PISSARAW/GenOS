@@ -40,14 +40,25 @@ function answerE04(input) {
 }
 
 function answerE05(input) {
-  const state = {};
-  const effects = [];
-  for (const event of input.events) {
-    if (event.op === 'set') state[event.key] = event.value;
-    if (event.op === 'add') state[event.key] = (state[event.key] || 0) + event.value;
-    effects.push(`${event.op}:${event.value}`);
+  let firstState = null;
+  let firstEffects = [];
+  let allMatch = true;
+  for (let replay = 0; replay < input.replay_count; replay += 1) {
+    const state = {};
+    const effects = [];
+    for (const event of input.events) {
+      if (event.op === 'set') state[event.key] = event.value;
+      if (event.op === 'add') state[event.key] = (state[event.key] || 0) + event.value;
+      effects.push(`${event.op}:${event.value}`);
+    }
+    if (firstState === null) {
+      firstState = state;
+      firstEffects = effects;
+    } else if (JSON.stringify(state) !== JSON.stringify(firstState)
+      || JSON.stringify(effects) !== JSON.stringify(firstEffects)) allMatch = false;
   }
-  return { state, observable_effects: effects };
+  return { state: firstState, observable_effects: firstEffects,
+    replay_count: input.replay_count, all_replays_match: allMatch };
 }
 
 function answerE06(input) {
