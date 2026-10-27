@@ -61,6 +61,10 @@ try {
     state: { executionMode: 'worker', mission: { agentId: 'agent-under-test' }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
     binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
   });
+  assert.strictEqual(leasedEnv.GENOS_REPO_ROOT, path.resolve(__dirname, '../..'),
+    'the MCP server must load the GenOS backend from its source repository, not the candidate workspace');
+  assert.notStrictEqual(leasedEnv.GENOS_REPO_ROOT, leasedEnv.GENOS_WORKSPACE_ROOT,
+    'the GenOS source root and worker workspace must remain independently scoped');
   assert.strictEqual(leasedEnv.GENOS_EXECUTION_MODE, 'worker', 'the leased MCP server must receive the same authority mode');
   const supervisedWorkerEnv = mcpEnvConfig.buildMcpServerEnvironment({
     state: { executionMode: 'supervised', mission: { agentId: 'worker-child' }, orchestratorAgentId: 'root-orchestrator',
