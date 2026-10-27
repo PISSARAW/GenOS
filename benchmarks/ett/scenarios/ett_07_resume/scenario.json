@@ -1,6 +1,6 @@
 {
   "id": "ETT-07", "name": "reprise-continuite", "priority": false,
-  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
   "input": "Investigation interrompue avant hypothèse, pendant test ou avant conclusion, puis redémarrée depuis stockage.",
   "oracle": "État sérialisé de référence, opérations déjà acquittées et identifiants idempotents.",
   "metrics": ["valid_resume_rate", "lost_results", "duplicate_work", "state_corruption"]

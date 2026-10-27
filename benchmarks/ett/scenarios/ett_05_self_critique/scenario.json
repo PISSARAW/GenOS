@@ -1,6 +1,6 @@
 {
   "id": "ETT-05", "name": "autocritique-correction", "priority": false,
-  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "status": "executable_reference_proxy", "levels": ["simple", "difficult", "open"],
   "input": "Traces avec résultats de test altérés, preuves contradictoires et conclusions erronées injectées.",
   "oracle": "Journal source des altérations et exécution de référence indépendante.",
   "metrics": ["error_detection", "verified_correction", "false_accusation_rate"]

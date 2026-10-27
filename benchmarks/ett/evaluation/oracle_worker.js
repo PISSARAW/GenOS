@@ -1,0 +1,14 @@
+'use strict';
+
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { input += chunk; });
+process.stdin.on('end', () => {
+  const checks = JSON.parse(input);
+  const results = checks.map(({ expected, proposal }) => {
+    const valid = proposal && proposal.answerId === expected.answerId
+      && Array.isArray(proposal.evidenceRefs) && proposal.evidenceRefs.length > 0;
+    return { verdict: valid ? 'supported' : 'refuted', usefulDiscoveries: valid ? 1 : 0 };
+  });
+  process.stdout.write(JSON.stringify(results));
+});
