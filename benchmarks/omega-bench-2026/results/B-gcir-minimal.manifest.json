@@ -1,0 +1,19 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "condition_id": "B",
+  "status": "minimal_gcir_runtime_with_reference_workload_handlers",
+  "scenarios": 600,
+  "repetitions": 3,
+  "runs": 1800,
+  "repository_revision": "582c2326f970987cee1f7175cf9fff1bf3070205",
+  "adapter_sha256": "083fe33fb08850c050f5832c3506488987766d949e2e153a175ca19e1f9910b7",
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7543P 32-Core Processor               ",
+    "memory_bytes": 30044250112
+  },
+  "result_file": "B-gcir-minimal.jsonl",
+  "external_model_calls": 0
+}

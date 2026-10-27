@@ -1,11 +1,11 @@
 # OMEGA-BENCH 2026 — préflight de lancement
 
 Date : 2026-10-27 (Europe/Paris)  
-Statut : **condition A et pilote E03 exécutés; campagne complète bloquée**
+Statut : **qualifications A/B et pilote E03 exécutés; campagne complète bloquée**
 
 ## Contrôles effectués
 
-- La condition A de référence a exécuté 1 800 passages sur les 600 cas et a correspondu à l'oracle; ce contrôle valide le parcours de référence, pas la performance de G-CIR Ω.
+- Les conditions A et B ont exécuté chacune 1 800 passages sur les 600 cas et correspondu à l'oracle. B réutilise les handlers déterministes d'A derrière le compilateur et le runtime Omega; ces passages qualifient le banc, pas un gain comparatif de G-CIR Ω.
 - `adapters/` ne contient aucun exécuteur externe; il contient uniquement le contrat descriptif.
 - `src/` contient le générateur, l'évaluateur et un runner de pilote limité à E03; il ne contient pas de runner pour les 12 expériences.
 - Les quatre conditions A–D sont des descriptions dans `protocol.json`; elles ne sont pas raccordées à des adaptateurs.
@@ -25,4 +25,4 @@ Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables
 4. Ajouter un runner qui écrit un résultat conforme au schéma par scénario, condition et répétition, avec journaux et traces reproductibles.
 5. Préenregistrer les contrastes, les volumes requis par expérience, le jeu caché et le calcul de puissance.
 
-La condition A a écrit 1 800 lignes dans `A-reference.jsonl`; le pilote E03 a écrit 300 lignes dans `E03-pilot.jsonl`. Leurs manifestes tracent les empreintes et révisions. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment de l'exécution. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.
+Les conditions A et B ont écrit chacune 1 800 lignes dans `A-reference.jsonl` et `B-gcir-minimal.jsonl`; le pilote E03 a écrit 300 lignes dans `E03-pilot.jsonl`. Leurs manifestes tracent les empreintes et révisions. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment des exécutions. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.

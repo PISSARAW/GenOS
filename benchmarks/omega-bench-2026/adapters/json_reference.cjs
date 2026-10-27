@@ -173,4 +173,6 @@ function main() {
   process.stdout.write(`Condition A complete: ${output.length} reference runs across ${rows.length} cases.\n`);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { createValidator, execute, readRows };
