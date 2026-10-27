@@ -452,6 +452,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0733 — Rappel mémoire situationnel inspiré des recherches de Tsao](adr/0733-rappel-memoire-situationnel-inspire-tsao.md) — classement local en deux étapes, phases explicites, traçabilité et limites de la transposition neuroscientifique.
 - [ADR 0746 — Rappel mémoire borné pour le raccord FP-AMB](adr/0746-rappel-borne-pour-fp-amb.md) — contexte borné et dédupliqué, exclusion des exemples mémoire et critères de validité de campagne.
 - [ADR 0747 — Contrats d’assemblage des prompts et du cycle de communication](adr/0747-contrats-assemblage-prompt-et-cycle-communication.md) — contrats distincts et corrélés pour le rendu des prompts et l’exécution vérifiable de la communication inter-agents.
+- [ADR 0748 — Viabilité collective et allostasie multiniveau dans AGOW](adr/0748-agow-viabilite-collective-multiniveau.md) — scope séparé par niveau, arbitrage des conflits et proposition morphogénétique sous gates.
 
 - [ADR 0650b — Cycle de cicatrisation SHEV fondé sur les preuves](adr/0650-cycle-cicatrisation-shev.md) — projette la boucle lésion–remodelage–issue sans confondre tâche réussie, effet vérifié et qualification de terrain.
 - [ADR 0517 — Lier les reçus métaboliques aux identités de commande](adr/0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) — aligne les opérations backend/Rust sur la même mission, cellule, commande et clé de rejeu.

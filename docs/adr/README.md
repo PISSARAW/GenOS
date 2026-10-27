@@ -863,6 +863,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0745](0745-emission-de-recu-humain-gci.md) | Émission serveur d'un reçu humain GCI | Accepté | 2026-10-24 | GCI, approbation humaine, signatures |
 | [0746](0746-rappel-borne-pour-fp-amb.md) | Rappel mémoire borné pour le raccord FP-AMB | Accepté — campagne exécutée, amélioration à confirmer | 2026-10-26 | Mémoire vectorielle, GraphRAG, intégration de benchmark |
 | [0747](0747-contrats-assemblage-prompt-et-cycle-communication.md) | Contrats d’assemblage des prompts et du cycle de communication | Proposé pour implémentation | 2026-10-26 | Runtime, prompts, communication inter-agents, budgets et preuves |
+| [0748](0748-agow-viabilite-collective-multiniveau.md) | Viabilité collective et allostasie multiniveau dans AGOW | Accepté — implémentation incrémentale | 2026-10-27 | Arbitrage AGOW, scopes allostatiques, morphogenèse et validation causale |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
