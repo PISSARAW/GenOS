@@ -7,6 +7,8 @@ const ctmBaseline = require('./experiments/ctmStyleBaselineService');
 const SCOPE = 'agow_experiment_receipts';
 const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablated', 'memory_ablated',
   'self_ablated', 'interoception_ablated', 'regret_ablated', 'allostasis_ablated',
+  'salience_only', 'agent_allostasis_only', 'prospective_viability_ablated',
+  'multilevel_allostasis_ablated', 'morphogenesis_adaptation_ablated',
   'counterfactual_ablated', 'active_query_ablated', 'fast_plasticity_ablated',
   'direct_pathway_ablated', 'proceduralization_ablated', 'decompilation_ablated',
   'distributed_market_ablated', 'provenance_ablated', 'gmw_mediation_ablated',
@@ -16,7 +18,8 @@ const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablate
   'gmw_hub', 'gmw_split', 'shared_state_control']);
 const OUTCOME_METRICS = ['globalWorkspaceActivations', 'activeQueries', 'broadcasts', 'llmWakeups',
   'directPathHits', 'proceduralHits', 'reflexHits', 'decompilations', 'taskUtility', 'tokens',
-  'globalIgnitions', 'candidateRecall', 'marketCount', 'contaminationCount', 'simulatedFactCount'];
+  'globalIgnitions', 'candidateRecall', 'marketCount', 'contaminationCount', 'simulatedFactCount',
+  'goalProgress', 'resourceReserve', 'missionStability', 'blockageEvents', 'viabilityViolations'];
 
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -128,6 +131,33 @@ async function executeCase(options) {
   return { caseId: item.caseId, condition, seed, outcome, baseline, initialSnapshotHash };
 }
 
+function pairedValue(result, metric) {
+  if (metric === 'successRate') return result.outcome.success ? 1 : 0;
+  const value = Number(result.outcome[metric]);
+  return Number.isFinite(value) ? value : Number.NaN;
+}
+
+function meanAndInterval(values) {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length - 1);
+  const margin = values.length > 1 ? 1.96 * Math.sqrt(variance / values.length) : null;
+  return { n: values.length, meanDifference: mean,
+    lower95: margin == null ? null : mean - margin, upper95: margin == null ? null : mean + margin };
+}
+
+function pairedComparisons(results, metric, reference = 'salience_only') {
+  const byCase = new Map();
+  for (const result of results) {
+    const values = byCase.get(result.caseId) || {};
+    values[result.condition] = pairedValue(result, metric);
+    byCase.set(result.caseId, values);
+  }
+  const conditions = [...new Set(results.map((result) => result.condition))].filter((name) => name !== reference);
+  return Object.fromEntries(conditions.map((condition) => [condition, meanAndInterval([...byCase.values()]
+    .filter((values) => Number.isFinite(values[reference]) && Number.isFinite(values[condition]))
+    .map((values) => values[condition] - values[reference]))]));
+}
+
 async function persist(options, receipt) {
   const loaded = await persistence.load({ scope: SCOPE, agentId: options.agentId, db: options.db });
   const receipts = Array.isArray(loaded.state.receipts) ? loaded.state.receipts : [];
@@ -154,6 +184,7 @@ async function run(options) {
     holdout: true, caseCount: options.cases.length, conditions: [...new Set(results.map((entry) => entry.condition))],
     snapshotHash, environmentHash, corpusHash, protocol: options.protocol, protocolHash, manifest: options.environment,
     results, summary: summarize(results), promotionDecision: null,
+    ...(options.pairedMetric ? { pairedComparisons: pairedComparisons(results, options.pairedMetric) } : {}),
     evidenceStatus: 'replication_required', caveat: 'One sealed holdout run is descriptive. No causal promotion or significance claim is emitted.'
   };
   await persist(options, receipt);
@@ -216,4 +247,4 @@ async function list(options) {
   return Array.isArray(loaded.state.receipts) ? loaded.state.receipts : [];
 }
 
-module.exports = { CONDITIONS, run, runControlledMediation, runCtmStyleBaseline, runReplicationCampaign, list, summarize, OUTCOME_METRICS };
+module.exports = { CONDITIONS, run, runControlledMediation, runCtmStyleBaseline, runReplicationCampaign, list, summarize, pairedComparisons, OUTCOME_METRICS };

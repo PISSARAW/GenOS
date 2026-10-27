@@ -878,11 +878,19 @@ runner `runCtmStyleBaseline` passe le vainqueur calculé au callback et refuse u
 qui déclare avoir exécuté un autre candidat. Cette baseline ne reproduit pas CTM-AI et
 ses auto-scores doivent venir du même budget de processeurs.
 
-`experiments/agowBenchmarkProtocolService` fournit six protocoles : `ctm_compatible`,
+`experiments/agowBenchmarkProtocolService` fournit sept protocoles : `ctm_compatible`,
 `genos_differential`, `automation_nonstationary`, `predictive_regret`,
-`counterfactual_contamination` et `distributed_market_scale`. Le protocole non
+`collective_viability_causal`, `counterfactual_contamination` et `distributed_market_scale`. Le protocole non
 stationnaire exige 50 cas stables puis un cas de dérive; le marché exige 10, 50, 100,
 500 et 1000 candidats. Les corpus et environnements restent fournis par l'intégrateur.
+
+`collective_viability_causal` compare le bras `salience_only` aux conditions allostatiques
+et morphogénétiques. Chaque cas exige les quatre scopes, un plafond budgétaire commun
+et une référence d'oracle indépendant. Le callback doit retourner les mesures vérifiées
+de progression, réserve, stabilité, blocages et violations avec le même plafond.
+Le reçu fournit des différences appariées par cas et des intervalles normaux descriptifs
+à 95 %; un seul run ne donne ni preuve de significativité ni promotion causale. Les
+réplications tiennent toujours à l'intégrateur, qui doit geler un holdout distinct.
 
 Les reçus agrègent activations workspace, queries, broadcasts, réveils LLM, hits de
 voies directes/procédurales/reflexes, décompilations, utilité, tokens, ignitions,

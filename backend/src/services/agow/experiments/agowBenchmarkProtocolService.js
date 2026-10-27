@@ -11,6 +11,9 @@ const SCENARIOS = Object.freeze({
     hypothesis: 'Repeated tasks reduce deliberation cost without lowering success, and drift triggers decompilation.' },
   predictive_regret: { conditions: ['full', 'regret_ablated', 'allostasis_ablated', 'ctm_style_scoring'], primaryMetric: 'successRate',
     hypothesis: 'Regret arbitration selects high-consequence uncertain evidence when expected ignored loss warrants it.' },
+  collective_viability_causal: { conditions: ['salience_only', 'agent_allostasis_only', 'prospective_viability_ablated',
+    'multilevel_allostasis_ablated', 'morphogenesis_adaptation_ablated', 'full'], primaryMetric: 'successRate',
+    hypothesis: 'Prospective multilevel allostatic signals causally improve independently verified collective mission outcomes under matched resources.' },
   counterfactual_contamination: { conditions: ['full', 'counterfactual_ablated', 'provenance_ablated'], primaryMetric: 'contaminationRate',
     hypothesis: 'Simulated facts never enter real observation stores without a counterfactual provenance tag.' },
   distributed_market_scale: { conditions: ['full', 'distributed_market_ablated'], primaryMetric: 'meanLatencyMs',
@@ -44,6 +47,26 @@ function validateScenario(name, cases) {
   if (name === 'counterfactual_contamination' && cases.some((item) => !Array.isArray(item.input?.simulatedFacts))) {
     throw new TypeError('Contamination benchmark cases require simulatedFacts references.');
   }
+  if (name === 'collective_viability_causal') validateViabilityCases(cases);
+}
+
+function validateViabilityCases(cases) {
+  const scopes = ['agent', 'topology', 'mission', 'organization'];
+  const invalid = cases.some((item) => !Number.isFinite(item.input?.resourceBudget)
+    || !item.input?.independentOracle?.oracleId || !item.input.independentOracle.acceptanceRef
+    || !scopes.every((scope) => item.input.allostaticLevels?.[scope]));
+  if (invalid) throw new TypeError('Collective viability holdouts require a resource budget, four scopes and an independent oracle.');
+}
+
+function validateIndependentOutcome(outcome, input) {
+  const unitMetrics = ['goalProgress', 'resourceReserve', 'missionStability'];
+  const validUnits = unitMetrics.every((key) => Number.isFinite(outcome[key]) && outcome[key] >= 0 && outcome[key] <= 1);
+  const validCounts = ['blockageEvents', 'viabilityViolations'].every((key) => Number.isFinite(outcome[key]) && outcome[key] >= 0);
+  if (!outcome.independentOracle?.verified || !validUnits || !validCounts
+    || outcome.resourceBudget !== input.resourceBudget) {
+    throw new TypeError('Collective viability outcomes require independent verification, bounded metrics and a matched budget.');
+  }
+  return outcome;
 }
 
 function contaminationMetrics(outcome) {
@@ -57,6 +80,7 @@ function contaminationMetrics(outcome) {
 
 async function executeBenchmarkCase(options) {
   const outcome = await options.execute({ ...options, benchmarkScenario: options.scenario });
+  if (options.scenario === 'collective_viability_causal') return validateIndependentOutcome(outcome || {}, options.input);
   if (options.scenario === 'counterfactual_contamination') return contaminationMetrics(outcome || {});
   return outcome;
 }
@@ -66,10 +90,14 @@ async function run(options) {
   validateScenario(options.scenario, options.cases);
   const protocol = { ...options.protocol, hypothesis: options.protocol?.hypothesis || definition.hypothesis,
     primaryMetric: options.protocol?.primaryMetric || definition.primaryMetric,
-    analysisPlan: options.protocol?.analysisPlan || `Compare conditions by ${definition.primaryMetric}; retain all case outcomes.` };
+    analysisPlan: options.protocol?.analysisPlan || (options.scenario === 'collective_viability_causal'
+      ? 'Pair outcomes by case and seed under the same resource ceiling; report mean differences and descriptive normal-approximation 95% intervals. No significance or promotion claim follows from one run.'
+      : `Compare conditions by ${definition.primaryMetric}; retain all case outcomes.`) };
   return experiments.run({ ...options, execute: (input) => executeBenchmarkCase({ ...input,
     execute: options.execute, scenario: options.scenario }), kind: `agow_benchmark:${options.scenario}`,
+    pairedMetric: options.scenario === 'collective_viability_causal' ? definition.primaryMetric : undefined,
     conditions: definition.conditions, protocol, holdout: true });
 }
 
-module.exports = { SCENARIOS, scenario, validateScenario, contaminationMetrics, executeBenchmarkCase, run };
+module.exports = { SCENARIOS, scenario, validateScenario, validateIndependentOutcome,
+  contaminationMetrics, executeBenchmarkCase, run };

@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const experiments = require('../src/services/agow/agowExperimentService');
 
 const required = ['regret_ablated', 'allostasis_ablated', 'counterfactual_ablated', 'active_query_ablated',
+  'salience_only', 'agent_allostasis_only', 'prospective_viability_ablated',
+  'multilevel_allostasis_ablated', 'morphogenesis_adaptation_ablated',
   'fast_plasticity_ablated', 'direct_pathway_ablated', 'proceduralization_ablated',
   'decompilation_ablated', 'distributed_market_ablated', 'provenance_ablated',
   'gmw_mediation_ablated', 'self_twin_learning_ablated', 'predictive_distribution_ablated',
