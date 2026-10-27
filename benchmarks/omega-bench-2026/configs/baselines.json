@@ -5,8 +5,8 @@
     {
       "id": "mlir",
       "capability": "typed intermediate representation, validation and optimization",
-      "adapter": null,
-      "version": null,
+      "adapter": "adapters/mlir.cjs",
+      "version": "mlir-opt-22 22.1.2 (Ubuntu 26.04 under WSL)",
       "status": "pending",
       "applicable_experiments": [
         "E01",

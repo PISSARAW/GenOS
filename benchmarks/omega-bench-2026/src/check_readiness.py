@@ -127,7 +127,10 @@ def protocol_counts():
 
 def configuration_checks(protocol, blockers):
     baseline = read_json(ROOT / "configs" / "baselines.json")
-    hardware = read_json(ROOT / "configs" / "hardware.example.json")
+    hardware_path = ROOT / "configs" / "hardware.local.json"
+    if not hardware_path.is_file():
+        hardware_path = ROOT / "configs" / "hardware.example.json"
+    hardware = read_json(hardware_path)
     model = read_json(ROOT / "configs" / "models.example.json")
     checks = [
         check(blockers, "external_baselines", baseline_status(baseline, protocol)),

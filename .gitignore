@@ -229,3 +229,5 @@ Desktop.ini
 .claude/
 *.code-workspace
 .history/
+# OMEGA-BENCH observed hardware is host-local and must not be committed.
+/benchmarks/omega-bench-2026/configs/hardware.local.json

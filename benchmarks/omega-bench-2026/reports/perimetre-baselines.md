@@ -54,6 +54,16 @@ Les manifestes et évaluations JSONL bruts restent des artefacts locaux ignorés
 par Git; les compteurs ci-dessus sont des résultats descriptifs sur le jeu
 public, pas des tests de significativité.
 
+## Portée MLIR
+
+`adapters/mlir.cjs` traduit les valeurs numériques publiques du cas en
+opérations `arith` typées, exécute `mlir-opt-22 --verify-each --canonicalize`,
+puis appelle l'exécuteur de référence indépendant pour la réponse métier. Le
+runner utilise Ubuntu 26.04 sous WSL et le paquet `mlir-22-tools` 22.1.2; il ne
+compare pas les latences avec les adaptateurs Windows. Cette qualification
+porte sur la vérification et la canonicalisation de l'IR générée par
+l'adaptateur, pas sur une implémentation MLIR des douze contrats métiers.
+
 ## Sources de contrat
 
 - MLIR décrit une IR extensible composée de dialectes, opérations et types, et
