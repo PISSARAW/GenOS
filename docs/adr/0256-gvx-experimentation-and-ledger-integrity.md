@@ -32,6 +32,12 @@ Les événements du ledger sont chaînés par SHA-256 selon l'ordre d'insertion 
 `GENOS_GVX_LEDGER_HMAC_SECRET` est configuré, chaque nouvel événement porte aussi un MAC
 de contrôle; l'API n'accepte jamais un MAC fourni par le candidat.
 
+Une rotation de clé ne peut pas être déduite automatiquement d'un MAC invalide :
+la même observation peut signaler une altération. Le démarrage échoue donc sans
+modifier le ledger. L'opérateur vérifie la chaîne SHA-256 puis exécute explicitement
+`backend/bin/rotate-gvx-ledger-key.cjs --db PATH --confirm-resign`, qui sauvegarde
+la base avant de re-signer les MACs.
+
 ## Conséquences
 
 ### Positives

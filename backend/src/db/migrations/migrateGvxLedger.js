@@ -30,11 +30,7 @@ async function ensureChainColumns(db) {
 }
 
 async function backfillLegacyChain(db) {
-  const rows = await db.all(`SELECT rowid AS rowId, id, organization_id AS organizationId,
-    project_id AS projectId, entity_id AS entityId, event_type AS type, parent_hash AS parentHash,
-    candidate_hash AS candidateHash, payload_json AS payloadJson, created_at AS createdAt,
-    previous_event_hash AS previousEventHash, event_hash AS eventHash, control_plane_mac AS controlPlaneMac
-    FROM gvx_development_events ORDER BY rowid ASC`);
+  const rows = await readLedgerRows(db);
   if (!rows.length || rows.every((row) => row.eventHash)) return verifyMigratedChain(rows);
   if (rows.some((row) => row.eventHash || row.previousEventHash)) throw chainMigrationError('partial-chain');
   await db.exec('BEGIN IMMEDIATE');
@@ -45,6 +41,15 @@ async function backfillLegacyChain(db) {
     await db.exec('ROLLBACK');
     throw error;
   }
+  verifyMigratedChain(await readLedgerRows(db));
+}
+
+function readLedgerRows(db) {
+  return db.all(`SELECT rowid AS rowId, id, organization_id AS organizationId,
+    project_id AS projectId, entity_id AS entityId, event_type AS type, parent_hash AS parentHash,
+    candidate_hash AS candidateHash, payload_json AS payloadJson, created_at AS createdAt,
+    previous_event_hash AS previousEventHash, event_hash AS eventHash, control_plane_mac AS controlPlaneMac
+    FROM gvx_development_events ORDER BY rowid ASC`);
 }
 
 function verifyMigratedChain(rows) {
@@ -79,7 +84,10 @@ async function createIndexesAndTriggers(db) {
 }
 
 function chainMigrationError(reason) {
-  return Object.assign(new Error(`gvx-ledger-chain-invalid:${reason}`), { code: 'GVX_LEDGER_CHAIN_INVALID' });
+  const recovery = reason === 'control-plane-mac-mismatch'
+    ? ' Verify the configured ledger key or rotate it explicitly with backend/bin/rotate-gvx-ledger-key.cjs --db PATH --confirm-resign.'
+    : '';
+  return Object.assign(new Error(`gvx-ledger-chain-invalid:${reason}.${recovery}`), { code: 'GVX_LEDGER_CHAIN_INVALID' });
 }
 
 module.exports = { migrateGvxLedger };

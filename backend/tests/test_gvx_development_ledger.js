@@ -79,6 +79,32 @@ async function verifiesLegacyMigration() {
   } finally { await db.close(); }
 }
 
+async function rejectsDifferentSigningKey() {
+  const previousSecret = process.env.GENOS_GVX_LEDGER_HMAC_SECRET;
+  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  try {
+    process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'original-ledger-secret-for-rotation-test';
+    await migrateGvxLedger(db);
+    const event = await ledger.appendEvent(db, {
+      organizationId: 'org-a', projectId: 'project-a', entityId: 'organism-a',
+      type: 'snapshot_created', payload: { version: 1 }
+    });
+    const before = await db.get('SELECT control_plane_mac FROM gvx_development_events WHERE id = ?', event.id);
+    process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'replacement-ledger-secret-for-rotation-test';
+    await assert.rejects(migrateGvxLedger(db), (error) => {
+      assert.strictEqual(error.code, 'GVX_LEDGER_CHAIN_INVALID');
+      assert.match(error.message, /rotate-gvx-ledger-key\.cjs/);
+      return true;
+    });
+    const after = await db.get('SELECT control_plane_mac FROM gvx_development_events WHERE id = ?', event.id);
+    assert.strictEqual(after.control_plane_mac, before.control_plane_mac);
+  } finally {
+    await db.close();
+    if (previousSecret === undefined) delete process.env.GENOS_GVX_LEDGER_HMAC_SECRET;
+    else process.env.GENOS_GVX_LEDGER_HMAC_SECRET = previousSecret;
+  }
+}
+
 async function main() {
   const db = await createDb();
   try {
@@ -88,6 +114,7 @@ async function main() {
     await verifiesHashChain(db);
   } finally { await db.close(); }
   await verifiesLegacyMigration();
+  await rejectsDifferentSigningKey();
   console.log('GVX ledger checks passed.');
 }
 
