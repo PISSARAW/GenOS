@@ -1,8 +1,8 @@
 # Évaluation des blocages restants — OMEGA-BENCH 2026
 
 Date : 2026-10-27 (Europe/Paris)  
-Révision du contrôle examinée : `3b92cfb76`  
-Contrôle : `python src/check_readiness.py` — **blocked, 17/24 contrôles**
+Révision du contrôle examinée : `ee6fc0acc`  
+Contrôle : `python src/check_readiness.py` — **blocked, 19/26 contrôles**
 
 ## État observé
 
@@ -16,7 +16,7 @@ Contrôle : `python src/check_readiness.py` — **blocked, 17/24 contrôles**
 
 ## Pourquoi le gate reste fermé
 
-Le contrôle vérifie maintenant les 12 tailles d'échantillon, la couverture des 12 fichiers d'entrée et l'arithmétique des 40 800 exécutions. Les sept contrôles en échec sont : holdout scellé, adaptateur D qualifié, baselines externes, verrou matériel, verrou modèle, protocole préenregistré et exigences de préenregistrement résolues. Ce sont des prérequis de l'expérience, pas un problème du script de lancement. Créer des fichiers d'adaptateur vides, marquer les baselines applicables `N/A` sans analyse de capacités, ou inclure un holdout dans le dépôt donnerait un faux état prêt.
+Le contrôle vérifie les 12 tailles d'échantillon, la couverture des entrées, le manifeste (3 400 cas et 24 empreintes valides après normalisation des fins de ligne) et l'arithmétique des 40 800 exécutions. Les sept contrôles en échec sont : holdout scellé, adaptateur D qualifié, baselines externes, verrou matériel, verrou modèle, protocole préenregistré et exigences de préenregistrement résolues. Ce sont des prérequis de l'expérience, pas un problème du script de lancement. Créer des fichiers d'adaptateur vides, marquer les baselines applicables `N/A` sans analyse de capacités, ou inclure un holdout dans le dépôt donnerait un faux état prêt.
 
 ## Séquence de reprise
 
