@@ -55,6 +55,16 @@
         "beliefImportance": { "$ref": "#/$defs/unit" },
         "causalDescendantCount": { "type": "integer", "minimum": 0 },
         "irreversibility": { "$ref": "#/$defs/unit" },
+        "viabilityForecast": {
+          "type": "object", "additionalProperties": false,
+          "required": ["horizonCycles", "confidence", "attend", "ignore"],
+          "properties": {
+            "horizonCycles": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "confidence": { "$ref": "#/$defs/unit" },
+            "attend": { "$ref": "#/$defs/viabilityProjection" },
+            "ignore": { "$ref": "#/$defs/viabilityProjection" }
+          }
+        },
         "expectedAllostaticState": {
           "type": "object", "additionalProperties": false,
           "properties": {
@@ -64,6 +74,16 @@
             "stress": { "$ref": "#/$defs/unit" }
           }
         }
+      }
+    },
+    "viabilityProjection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["goalProgress", "resourceReserve", "blockageRisk", "stability"],
+      "properties": {
+        "goalProgress": { "$ref": "#/$defs/unit" },
+        "resourceReserve": { "$ref": "#/$defs/unit" },
+        "blockageRisk": { "$ref": "#/$defs/unit" },
+        "stability": { "$ref": "#/$defs/unit" }
       }
     },
     "measures": {

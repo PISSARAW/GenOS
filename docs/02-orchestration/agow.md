@@ -339,6 +339,12 @@ et si l'état attendu la réduit suffisamment avec une confiance causale minimal
 mesure courante ou état attendu, la composante de viabilité est indisponible et vaut
 zéro. Une contrainte `blocked` continue d'exclure le candidat avant ce calcul.
 
+Un `epistemicContext.viabilityForecast` versionné peut également comparer les pertes
+attendues d'attention et d'ignorance sur un horizon borné : progression d'objectif,
+réserve de ressources, risque de blocage et stabilité. Ces projections sont fournies
+par le producteur et combinées avec sa confiance causale; elles ne sont ni calibrées ni
+vérifiées par AGOW. Leur moyenne est une heuristique et ne remplace pas les gates.
+
 Le service construit des drives d'information, pertinence, urgence, erreur de
 prédiction, dette de preuve, actionnabilité, confiance causale, nouveauté et coût
 inverse `1 / (1 + estimatedCost)`, ainsi que les composantes de regret et

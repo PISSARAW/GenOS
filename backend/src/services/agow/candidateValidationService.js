@@ -8,7 +8,7 @@ const CONSTRAINT_STATES = new Set(['clear', 'review', 'blocked']);
 const ORIGINS = new Set(['external_observed', 'tool_observed', 'other_agent_observed', 'self_action_expected', 'self_action_observed', 'self_generated', 'memory_retrieved', 'model_inferred', 'counterfactual_simulated', 'procedural_generated', 'unknown']);
 const AGENCIES = new Set(['self', 'other', 'environment', 'unknown']);
 const ALLOSTATIC_FIELDS = new Set(['energy', 'memoryPressure', 'socialState', 'modelDrift', 'contextPressure', 'integrity', 'stress']);
-const CONTEXT_FIELDS = new Set(['beliefImportance', 'causalDescendantCount', 'irreversibility', 'expectedAllostaticState']);
+const CONTEXT_FIELDS = new Set(['beliefImportance', 'causalDescendantCount', 'irreversibility', 'expectedAllostaticState', 'viabilityForecast']);
 
 function validString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -60,7 +60,8 @@ function validEpistemicContext(candidate) {
   if (context == null) return true;
   if (typeof context !== 'object' || Array.isArray(context)) return false;
   return validContextKeys(context) && validContextUnits(context)
-    && validDescendantCount(context) && validPredictedState(context.expectedAllostaticState);
+    && validDescendantCount(context) && validPredictedState(context.expectedAllostaticState)
+    && validViabilityForecast(context.viabilityForecast);
 }
 
 function validContextKeys(context) {
@@ -82,6 +83,22 @@ function validPredictedState(state) {
   if (typeof state !== 'object' || Array.isArray(state)) return false;
   return Object.entries(state).every(([key, value]) => ALLOSTATIC_FIELDS.has(key)
     && Number.isFinite(value) && value >= 0 && value <= 1);
+}
+
+function validProjection(projection) {
+  const keys = ['goalProgress', 'resourceReserve', 'blockageRisk', 'stability'];
+  return projection && typeof projection === 'object' && !Array.isArray(projection)
+    && Object.keys(projection).length === keys.length
+    && keys.every((key) => Number.isFinite(projection[key]) && projection[key] >= 0 && projection[key] <= 1);
+}
+
+function validViabilityForecast(forecast) {
+  if (forecast == null) return true;
+  return forecast && typeof forecast === 'object' && !Array.isArray(forecast)
+    && Number.isInteger(forecast.horizonCycles) && forecast.horizonCycles >= 1 && forecast.horizonCycles <= 100
+    && Number.isFinite(forecast.confidence) && forecast.confidence >= 0 && forecast.confidence <= 1
+    && validProjection(forecast.attend) && validProjection(forecast.ignore)
+    && Object.keys(forecast).every((key) => ['horizonCycles', 'confidence', 'attend', 'ignore'].includes(key));
 }
 
 function validConstraints(candidate) {

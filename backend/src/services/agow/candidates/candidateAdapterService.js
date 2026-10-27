@@ -74,12 +74,26 @@ function epistemicContext(observation) {
   if (source.beliefImportance != null) result.beliefImportance = unit(source.beliefImportance);
   if (source.causalDescendantCount != null) result.causalDescendantCount = Math.max(0, Math.floor(Number(source.causalDescendantCount) || 0));
   if (source.irreversibility != null) result.irreversibility = unit(source.irreversibility);
+  if (source.viabilityForecast && typeof source.viabilityForecast === 'object') {
+    result.viabilityForecast = normalizeViabilityForecast(source.viabilityForecast);
+  }
   if (source.expectedAllostaticState && typeof source.expectedAllostaticState === 'object') {
     result.expectedAllostaticState = Object.fromEntries(Object.entries(source.expectedAllostaticState)
       .filter(([key, value]) => ALLOSTATIC_VARIABLES.has(key) && Number.isFinite(Number(value)))
       .map(([key, value]) => [key, unit(value)]));
   }
   return result;
+}
+
+function normalizeProjection(projection) {
+  const fields = ['goalProgress', 'resourceReserve', 'blockageRisk', 'stability'];
+  return Object.fromEntries(fields.map((field) => [field, unit(projection?.[field], NaN)]));
+}
+
+function normalizeViabilityForecast(forecast) {
+  return { horizonCycles: Math.max(1, Math.min(100, Math.floor(Number(forecast.horizonCycles) || 1))),
+    confidence: unit(forecast.confidence), attend: normalizeProjection(forecast.attend),
+    ignore: normalizeProjection(forecast.ignore) };
 }
 
 function build(options) {

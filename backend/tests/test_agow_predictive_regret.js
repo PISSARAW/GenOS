@@ -55,7 +55,21 @@ function testHardConstraintStillWins() {
   assert(result.selected.every((item) => item.candidateId !== blocked.candidateId));
 }
 
+function testProspectiveViabilityRegret() {
+  const forecast = { horizonCycles: 6, confidence: 0.9,
+    attend: { goalProgress: 0.8, resourceReserve: 0.8, blockageRisk: 0.1, stability: 0.8 },
+    ignore: { goalProgress: 0.2, resourceReserve: 0.2, blockageRisk: 0.8, stability: 0.2 } };
+  const candidate = makeCandidate({ confidence: 0.9, causalEvidence: true,
+    epistemicContext: { viabilityForecast: forecast } });
+  const evaluated = regret.evaluate(candidate);
+  assert.equal(evaluated.provenance.allostasisAvailable, true);
+  assert.equal(evaluated.preempt, true);
+  assert(evaluated.regret.viability > 0.5);
+  assert.equal(evaluated.attend.expectedViabilityLoss, 0.175);
+}
+
 testEpistemicRegret();
 testAllostaticPreemption();
 testHardConstraintStillWins();
+testProspectiveViabilityRegret();
 console.log('✅ AGOW predictive and allostatic regret passed');
