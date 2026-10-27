@@ -46,6 +46,8 @@
 
 - [studio-qualification.md](studio-qualification.md) — huit lots Studio, preuves Windows et écarts Linux/validation étendue.
 
+- [qualification-genos-core-2026-10-27.md](qualification-genos-core-2026-10-27.md) — inventaire probant du GenOS Core (missions supervisées, isolation, snapshots, reprise, reçus, MCP fail-closed) ; critères C1–C5 évalués, non qualifié bêta à ce jour.
+
 - [lot-2-trinity-identites-capsules-et-profils.md](lot-2-trinity-identites-capsules-et-profils.md) — liaisons mission/worker/run, capsules ancrées et prévalidation des profils du lot L2.
 
 - [lot-1-trinity-contrats-et-traces.md](lot-1-trinity-contrats-et-traces.md) — registre des 48 missions, contrats versionnés, traces et limites de qualification du lot L1.
