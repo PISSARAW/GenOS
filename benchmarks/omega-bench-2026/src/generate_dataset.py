@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
+DATASET_VERSION = "0.4.0"
 EXPERIMENTS = [f"E{i:02d}" for i in range(1, 13)]
 COUNTS = {experiment: 50 for experiment in EXPERIMENTS}
 COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E04": 100,
@@ -145,7 +146,7 @@ def main():
         for split, rows in (("inputs", inputs), ("oracle", oracle)):
             data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
             digests[f"{split}/E{number:02d}.jsonl"] = hashlib.sha256(data).hexdigest()
-    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": "0.3.0", "seed": SEED,
+    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": DATASET_VERSION, "seed": SEED,
                 "cases_by_experiment": COUNTS, "total_cases": sum(COUNTS.values()),
                 "split": "public_development_only", "sha256": digests}
     (ROOT / "dataset" / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
