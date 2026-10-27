@@ -30,3 +30,5 @@ Les conditions A, B et C ont chacune écrit 8 400 lignes; le pilote E03 a écrit
 ## Contrôle fail-closed de disponibilité
 
 Le premier passage de `python src/check_readiness.py` retournait `blocked` (2 contrôles prêts sur 14). Le corpus public v0.2.0 a été étendu et A/B/C ont été évaluées : 8 400 résultats chacune, 100 % conformes aux oracles, sans doublon, manque ni échec critique. C applique la fusion E04 dans 150 cas sur 150. Le contrôle readiness retourne maintenant `blocked` (7/14). Restent sept contrôles bloquants : aucun holdout scellé; D absent; baselines non configurées; matériel et modèle non verrouillés; protocole non préenregistré avec sept éléments ouverts. Le corpus étendu reste public et synthétique; il ne constitue pas le holdout.
+
+L'inventaire des exécutables, du modèle Ollama et de l'hôte ainsi que les critères de reprise sont détaillés dans [`unblock-assessment-2026-10-27.md`](unblock-assessment-2026-10-27.md). Le modèle local trouvé n'est pas choisi pour la campagne : A/B/C n'effectuent aucun appel modèle, et les mesures de performance ne seraient pas isolées sur l'hôte observé.
