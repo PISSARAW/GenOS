@@ -16,7 +16,7 @@ const PRIORITY = ['ETT-01', 'ETT-02', 'ETT-04', 'ETT-09'];
 
 function parseArguments(args) {
   const options = { model: 'ollama://qwen2.5:0.5b', seeds: 1, scenarios: 'priority',
-    conditions: ['full'], tokenBudget: 250000, output: null };
+    conditions: ['full'], tokenBudget: 250000, output: null, resume: null };
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === '--model') options.model = args[++index];
     else if (args[index] === '--seeds') options.seeds = Number(args[++index]);
@@ -24,7 +24,12 @@ function parseArguments(args) {
     else if (args[index] === '--conditions') options.conditions = args[++index].split(',');
     else if (args[index] === '--token-budget') options.tokenBudget = Number(args[++index]);
     else if (args[index] === '--output') options.output = args[++index];
+    else if (args[index] === '--resume') options.resume = args[++index];
     else throw new Error(`Unknown argument: ${args[index]}`);
+  }
+  if (options.resume && !options.output) options.output = options.resume;
+  if (options.resume && path.resolve(options.output) !== path.resolve(options.resume)) {
+    throw new Error('--resume and --output must identify the same report.');
   }
   validateOptions(options);
   return options;
@@ -191,10 +196,82 @@ function buildTasks(options, scenarios) {
   return tasks;
 }
 
+function taskKey(record) {
+  return `${record.scenarioId}:${record.difficulty}:${record.seed}:${record.condition}`;
+}
+
+function remainingTasks(tasks, records) {
+  const completed = new Set(records.map(taskKey));
+  return tasks.filter((task) => !completed.has(`${task.scenario.id}:${task.difficulty}:${task.seed}:${task.condition}`));
+}
+
+function validateResume(report, options) {
+  const expected = { schema: 'genos.ett-runtime-campaign/v1', model: options.model,
+    scenarioSet: options.scenarios, conditions: options.conditions,
+    tokenBudget: options.tokenBudget, split: 'development', holdout: false };
+  for (const [key, value] of Object.entries(expected)) {
+    if (JSON.stringify(report[key]) !== JSON.stringify(value)) {
+      throw new Error(`Resume report mismatch for ${key}.`);
+    }
+  }
+  if (!['running', 'partial_global_token_budget_reserve_reached',
+    'partial_segment_token_budget_reserve_reached'].includes(report.status)
+    || !Array.isArray(report.records)) throw new Error('Report is not an incomplete resumable campaign.');
+  const targetSeeds = seedList(options.seeds);
+  if (!Array.isArray(report.seeds) || report.seeds.length > targetSeeds.length
+    || !report.seeds.every((seed, index) => seed === targetSeeds[index])) {
+    throw new Error('Resume seeds must extend the report seed list without changing its prefix.');
+  }
+  report.seeds = targetSeeds;
+  if (report.status === 'partial_global_token_budget_reserve_reached') {
+    report.status = 'partial_segment_token_budget_reserve_reached';
+  }
+  for (const segment of report.segments || []) {
+    if (segment.status === 'partial_global_token_budget_reserve_reached') {
+      segment.status = 'partial_segment_token_budget_reserve_reached';
+    }
+  }
+}
+
+function validateStoredRecords(report, scenarios) {
+  const registry = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
+  const seen = new Set();
+  for (const record of report.records) {
+    const key = taskKey(record);
+    const scenario = registry.get(record.scenarioId);
+    if (!scenario || seen.has(key) || !report.conditions.includes(record.condition)) {
+      throw new Error(`Resume report contains an unknown or duplicate case: ${key}.`);
+    }
+    const testCase = scenario.build(record.difficulty, record.seed);
+    if (digest(testCase.observation) !== record.observationHash) {
+      throw new Error(`Resume report scenario data changed for ${key}.`);
+    }
+    seen.add(key);
+  }
+}
+
+function beginSegment(report, options) {
+  if (!Array.isArray(report.segments)) report.segments = [{ index: 1,
+    startedAt: report.startedAt, finishedAt: report.finishedAt, startingRecordCount: 0,
+    endingRecordCount: report.records.length, tokenBudget: report.tokenBudget,
+    measuredTokens: report.measuredTokens, status: report.status, migratedLegacy: true }];
+  const previous = report.segments.at(-1);
+  if (previous?.status === 'running') {
+    previous.status = 'interrupted_before_resume';
+    previous.recoveredAt = new Date().toISOString();
+  }
+  const segment = { index: report.segments.length + 1, startedAt: new Date().toISOString(),
+    startingRecordCount: report.records.length, endingRecordCount: report.records.length,
+    tokenBudget: options.tokenBudget, measuredTokens: 0, status: 'running' };
+  report.segments.push(segment);
+  report.status = 'running';
+  return segment;
+}
+
 async function executeTasks(context) {
   let exhausted = false;
   for (const task of context.tasks) {
-    if (context.options.tokenBudget - context.report.measuredTokens < 12000) {
+    if (context.options.tokenBudget - context.segment.measuredTokens < 12000) {
       exhausted = true;
       break;
     }
@@ -202,6 +279,8 @@ async function executeTasks(context) {
       externalAdapters: context.externalAdapters });
     context.report.measuredTokens += record.outcome.measuredTokens || 0;
     context.report.records.push(record);
+    context.segment.measuredTokens += record.outcome.measuredTokens || 0;
+    context.segment.endingRecordCount = context.report.records.length;
     writeReport(context.output, context.report, false);
   }
   return exhausted;
@@ -210,25 +289,28 @@ async function executeTasks(context) {
 async function main(args = process.argv.slice(2)) {
   const options = parseArguments(args);
   const output = path.resolve(options.output);
-  const report = { schema: 'genos.ett-runtime-campaign/v1', status: 'running',
-    startedAt: new Date().toISOString(), model: options.model,
-    scenarioSet: options.scenarios, conditions: options.conditions,
-    seeds: seedList(options.seeds), tokenBudget: options.tokenBudget,
-    split: 'development', holdout: false,
-    measuredTokens: 0, records: [], scientificClaimAllowed: false,
-    limitations: ['Local model run; no external API price is measured.',
-      'Original Voyager, AI Scientist v2 and DGM executables are not included.'] };
-  writeReport(output, report, true);
   const scenarios = scenarioModules(options.scenarios);
+  const tasks = buildTasks(options, scenarios);
+  const report = options.resume ? JSON.parse(fs.readFileSync(output, 'utf8'))
+    : createReport(options, tasks.length);
+  if (options.resume) {
+    validateResume(report, options);
+    validateStoredRecords(report, scenarios);
+  }
+  report.seeds = seedList(options.seeds);
+  report.expectedRecords = tasks.length;
+  const segment = beginSegment(report, options);
+  writeReport(output, report, !options.resume);
   const externalAdapters = new Map(ADAPTED_SYSTEMS.filter((id) => options.conditions.includes(id))
     .map((id) => [id, createIndependentAdapter(id, { model: options.model })]));
-  const tasks = buildTasks(options, scenarios);
-  const exhausted = await executeTasks({ report, options, tasks, externalAdapters, output });
-  report.status = exhausted ? 'partial_global_token_budget_reserve_reached'
-    : 'descriptive_runtime_run_complete';
+  restoreAdapterState(externalAdapters, report.records);
+  const pending = remainingTasks(tasks, report.records);
+  const exhausted = await executeTasks({ report, options, tasks: pending, externalAdapters, output, segment });
+  report.status = exhausted ? 'partial_segment_token_budget_reserve_reached' : 'descriptive_runtime_run_complete';
+  segment.status = report.status === 'descriptive_runtime_run_complete' ? 'complete' : report.status;
+  segment.finishedAt = new Date().toISOString();
   report.finishedAt = new Date().toISOString();
-  report.expectedRecords = report.seeds.length * scenarios.length * runtime.LEVELS.length
-    * options.conditions.length;
+  report.expectedRecords = tasks.length;
   report.completedRecords = report.records.length;
   writeReport(output, report, false);
   process.stdout.write(JSON.stringify({ status: report.status, output,
@@ -237,9 +319,32 @@ async function main(args = process.argv.slice(2)) {
   return report;
 }
 
+function createReport(options, expectedRecords) {
+  return { schema: 'genos.ett-runtime-campaign/v1', status: 'running',
+    startedAt: new Date().toISOString(), model: options.model,
+    scenarioSet: options.scenarios, conditions: options.conditions, seeds: seedList(options.seeds),
+    tokenBudget: options.tokenBudget, split: 'development', holdout: false,
+    expectedRecords, measuredTokens: 0, records: [], segments: [], scientificClaimAllowed: false,
+    limitations: ['Local model run; no external API price is measured.',
+      'Original Voyager, AI Scientist v2 and DGM executables are not included.'] };
+}
+
+function restoreAdapterState(adapters, records) {
+  const voyager = adapters.get('voyager_adapted');
+  if (!voyager) return;
+  for (const record of records) {
+    if (record.condition !== 'voyager_adapted') continue;
+    voyager.recordVerified({ scenarioId: record.scenarioId, difficulty: record.difficulty,
+      observation: record.observation },
+    { answerId: record.outcome.submittedAnswerId }, { verdict: record.outcome.oracleVerdict });
+  }
+}
+
 if (require.main === module) main().catch((error) => {
-  process.stderr.write(`ETT_RUNTIME_CAMPAIGN_FAILED: ${error.message}\n`);
+  process.stderr.write(`ETT_RUNTIME_CAMPAIGN_FAILED: ${error.stack || error.message}\n`);
   process.exitCode = 1;
 });
 
-module.exports = { parseArguments, scenarioModules, buildTasks, casePayload, main };
+module.exports = { parseArguments, scenarioModules, buildTasks, casePayload,
+  taskKey, remainingTasks, validateResume, validateStoredRecords,
+  restoreAdapterState, main };

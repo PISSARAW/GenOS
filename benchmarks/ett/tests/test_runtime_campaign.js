@@ -1,8 +1,10 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const { SCENARIO_IDS, LEVELS, SPECS, buildCase, referenceScore } = require('../scenarios/runtime');
-const { scenarioModules, parseArguments, buildTasks, casePayload } = require('../run_runtime_campaign');
+const { scenarioModules, parseArguments, buildTasks, casePayload, remainingTasks,
+  validateResume, validateStoredRecords, restoreAdapterState } = require('../run_runtime_campaign');
 const { verifyInChild } = require('../evaluation/verifyInChild');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
 
@@ -55,6 +57,43 @@ function testRunnerOptions() {
   assert.equal(tasks.length, 2 * 12 * 3 * 2);
   assert.equal(new Set(tasks.map((task) => `${task.scenario.id}:${task.difficulty}:${task.seed}:${task.condition}`)).size,
     tasks.length);
+  const resume = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
+    '--seeds', '2', '--scenarios', 'all', '--conditions', 'full,react_classic',
+    '--token-budget', '5000']);
+  assert.equal(resume.output, 'receipt.json');
+  assert.throws(() => parseArguments(['--resume', 'one.json', '--output', 'two.json']));
+}
+
+function testResumeContracts() {
+  const options = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
+    '--conditions', 'full,voyager_adapted']);
+  const report = { schema: 'genos.ett-runtime-campaign/v1', model: options.model,
+    scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
+    tokenBudget: options.tokenBudget, split: 'development', holdout: false,
+    status: 'partial_global_token_budget_reserve_reached', records: [] };
+  assert.doesNotThrow(() => validateResume(report, options));
+  assert.equal(report.status, 'partial_segment_token_budget_reserve_reached');
+  const extended = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
+    '--seeds', '10', '--conditions', 'full,voyager_adapted']);
+  assert.doesNotThrow(() => validateResume(report, extended));
+  assert.equal(report.seeds.length, 10);
+  const testCase = buildCase('ETT-01', 'simple', 1001);
+  const observationHash = createHash('sha256').update(JSON.stringify(testCase.observation)).digest('hex');
+  const previous = { scenarioId: 'ETT-01', difficulty: 'simple', seed: 1001,
+    condition: 'voyager_adapted', observation: testCase.observation, observationHash,
+    outcome: { submittedAnswerId: 'candidate-1', oracleVerdict: 'supported' } };
+  assert.doesNotThrow(() => validateStoredRecords({ conditions: options.conditions,
+    records: [previous] }, scenarioModules('priority')));
+  assert.throws(() => validateStoredRecords({ conditions: options.conditions,
+    records: [{ ...previous, observationHash: 'changed' }] }, scenarioModules('priority')),
+  /scenario data changed/);
+  assert.equal(remainingTasks([{ scenario: { id: 'ETT-01' }, difficulty: 'simple',
+    seed: 1001, condition: 'voyager_adapted' }], [previous]).length, 0);
+  let restored = 0;
+  restoreAdapterState(new Map([['voyager_adapted', { recordVerified: (_testCase, _proposal, verdict) => {
+    if (verdict.verdict === 'supported') restored += 1;
+  } }]]), [previous]);
+  assert.equal(restored, 1);
 }
 
 async function testIndependentAdapters() {
@@ -101,6 +140,7 @@ async function main() {
   testScenarioRegistry();
   testIndependentOracle();
   testRunnerOptions();
+  testResumeContracts();
   await testIndependentAdapters();
   process.stdout.write('ETT runtime campaign contracts passed.\n');
 }
