@@ -6,6 +6,7 @@ const missionRuntimeContext = require('../bin/orchestratorMissionRuntimeContext.
 
 const db = {};
 const request = { workspaceRoot: 'D:/isolated-site', preflightSnapshotAgent: 'arch_agent.json',
+  executionBudget: { latencyMs: 60000 },
   diagnosticHypotheses: [{ statement: 'Compare actual user-facing behavior to the written mandate.' }] };
 const built = buildOrchestratorPreflightInput({ db, orchestratorId: 'agent-1', missionId: 'mission-1',
   task: 'Maintain isolated site', repoRoot: 'D:/GenOS', request, tools: ['genos_diagnose'] });
@@ -14,6 +15,7 @@ assert.equal(built.orchestratorId, 'agent-1');
 assert.equal(built.missionId, 'mission-1');
 assert.equal(built.workspaceRoot, 'D:/isolated-site');
 assert.equal(built.snapshotAgent, 'arch_agent.json');
+assert.equal(built.toolTimeoutMs, 60000, 'preflight tools must inherit a bounded mission latency timeout');
 assert.deepEqual(built.hypotheses, request.diagnosticHypotheses);
 assert.deepEqual(built.tools, ['genos_diagnose']);
 const decision = prepareToolArguments({ task: 'Maintain site', orchestratorId: 'agent-1' }, 'genos_record_decision', [

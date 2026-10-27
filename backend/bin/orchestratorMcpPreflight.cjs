@@ -63,7 +63,7 @@ async function runOrchestratorMcpPreflight(input) {
   const client = await connectPreflightClient(input, tools);
   const receipts = [];
   try {
-    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool, receipts));
+    for (const tool of tools) receipts.push(await runPreflightTool({ client, input, tool, receipts }));
   } finally {
     await client.close().catch(() => {});
   }
@@ -72,11 +72,19 @@ async function runOrchestratorMcpPreflight(input) {
 
 function buildOrchestratorPreflightInput(input) {
   const request = input.request || {};
+  const budget = request.executionBudget || request.execution_budget || {};
   return { db: input.db, orchestratorId: input.orchestratorId, missionId: input.missionId,
     task: input.task, repoRoot: input.repoRoot,
     workspaceRoot: request.workspaceRoot || request.workspace_root || input.workspaceRoot,
     snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent || input.snapshotAgent,
+    toolTimeoutMs: resolveToolTimeout(request, budget),
     hypotheses: request.diagnosticHypotheses || request.hypotheses, tools: input.tools };
+}
+
+function resolveToolTimeout(request, budget) {
+  const requested = Number(request.timeoutMs || budget.latencyMs);
+  return Number.isFinite(requested) && requested > 0
+    ? Math.min(120000, Math.max(30000, requested)) : 120000;
 }
 function assertPreflightContext(input) {
   const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
@@ -88,7 +96,8 @@ function assertPreflightContext(input) {
 
 function preflightEnvironment(input, tools) {
   return { ...process.env, GENOS_REPO_ROOT: input.repoRoot, GENOS_WORKSPACE_ROOT: input.workspaceRoot,
-    GENOS_AGENT_ID: input.orchestratorId, GENOS_MCP_LEASE: tools.join(','), GENOS_DISABLE_DOTENV: '1' };
+    GENOS_AGENT_ID: input.orchestratorId, GENOS_MCP_LEASE: tools.join(','),
+    GENOS_MCP_TOOL_TIMEOUT_MS: String(input.toolTimeoutMs || 120000), GENOS_DISABLE_DOTENV: '1' };
 }
 
 async function connectPreflightClient(input, tools) {
@@ -111,7 +120,8 @@ async function connectPreflightClient(input, tools) {
   return client;
 }
 
-async function runPreflightTool(client, input, tool, receipts = []) {
+async function runPreflightTool(context) {
+  const { client, input, tool, receipts = [] } = context;
   const prepared = prepareToolArguments(input, tool, receipts);
   const result = await client.callTool({ name: tool, arguments: prepared.args });
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });
