@@ -6,8 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
-COUNT = 50
 EXPERIMENTS = [f"E{i:02d}" for i in range(1, 13)]
+COUNTS = {experiment: 50 for experiment in EXPERIMENTS}
+COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E08": 1000})
 TOPOLOGIES = ["trinity", "rhizome", "metapopulation", "holobionte", "biome", "biocenose", "a-team", "syncytium"]
 
 
@@ -107,10 +108,10 @@ def write_jsonl(path, rows):
     path.write_text("".join(canonical(row) + "\n" for row in rows), encoding="utf-8")
 
 
-def build_experiment(number):
+def build_experiment(number, count):
     experiment = f"E{number:02d}"
     inputs, oracle = [], []
-    for index in range(COUNT):
+    for index in range(count):
         rng = random.Random(f"{SEED}:{experiment}:{index}")
         scenario_id = f"{experiment}-{index:03d}"
         case_input, expected = BUILDERS[number - 1](index, rng)
@@ -124,11 +125,14 @@ def build_experiment(number):
 def main():
     digests = {}
     for number in range(1, 13):
-        inputs, oracle = build_experiment(number)
+        experiment = f"E{number:02d}"
+        inputs, oracle = build_experiment(number, COUNTS[experiment])
         for split, rows in (("inputs", inputs), ("oracle", oracle)):
             data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
             digests[f"{split}/E{number:02d}.jsonl"] = hashlib.sha256(data).hexdigest()
-    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": "0.1.0", "seed": SEED, "cases_per_experiment": COUNT, "total_cases": COUNT * len(EXPERIMENTS), "split": "public_development_only", "sha256": digests}
+    manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": "0.2.0", "seed": SEED,
+                "cases_by_experiment": COUNTS, "total_cases": sum(COUNTS.values()),
+                "split": "public_development_only", "sha256": digests}
     (ROOT / "dataset" / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Generated {manifest['total_cases']} cases; manifest: dataset/manifest.json")
 
