@@ -1,0 +1,19 @@
+campaign_id: ett-bench-2026-v1
+status: preregistered_not_run
+date: 2026-10-27
+primary_metric: verified_useful_discoveries_per_normalized_cost
+priority_scenarios: [ETT-01, ETT-02, ETT-04, ETT-09]
+levels: [simple, difficult, open]
+minimum_seeds_per_condition: 30
+pilot_seeds_per_condition: 10
+budget_tokens: 250000
+pairing: [scenario_id, difficulty, seed]
+parity: [model_version, parameters, tools, observation_schema, compute, deadline, seed, token_budget]
+failures_in_denominator: true
+multiple_comparison_correction: Holm
+holdout_fraction: 0.20
+holdout_access_forbidden_during_development: true
+model_output_is_evidence: false
+independent_oracle_required: true
+external_usage_meter_required: true
+promotion_allowed: false

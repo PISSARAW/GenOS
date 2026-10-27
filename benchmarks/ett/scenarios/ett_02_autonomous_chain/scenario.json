@@ -1,0 +1,11 @@
+{
+  "id": "ETT-02",
+  "name": "chaine-autonome",
+  "priority": true,
+  "status": "contract_defined_not_executable",
+  "levels": ["simple", "difficult", "open"],
+  "input": "Observation initiale et environnement interactif à outils bornés ; aucune instruction après démarrage.",
+  "oracle": "Chaque transition observation-question-hypothèse-test-conclusion est liée à une preuve environnementale.",
+  "metrics": ["useful_cycle_depth", "validated_progress", "sterile_repetition_rate"],
+  "anti_shortcuts": ["hide terminal objective", "count only oracle-validated transitions", "cap resources"]
+}

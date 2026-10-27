@@ -1,0 +1,15 @@
+systems:
+  genos_ett_full: { status: implementation_available, adapter: required }
+  genos_no_endogenous_thought: { status: adapter_required }
+  genos_no_persistent_memory: { status: adapter_required }
+  react_classic: { status: adapter_required }
+  periodic_llm_loop: { status: adapter_required }
+  voyager_adapted: { status: unavailable_until_documented_and_executable }
+  ai_scientist_v2_adapted: { status: unavailable_until_documented_and_executable }
+  darwin_godel_machine_adapted: { status: unavailable_until_documented_and_executable }
+  google_co_scientist_reference: { status: secondary_reference_only }
+adapter_requirements:
+  same_model_and_limits: true
+  disclose_adaptations: true
+  do_not_label_adaptations_as_original_system: true
+  inaccessible_systems_reported_as_unavailable: true

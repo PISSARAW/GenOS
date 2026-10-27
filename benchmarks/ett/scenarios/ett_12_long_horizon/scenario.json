@@ -1,0 +1,7 @@
+{
+  "id": "ETT-12", "name": "autonomie-longue-duree", "priority": false,
+  "status": "contract_defined_not_executable", "levels": ["simple", "difficult", "open"],
+  "input": "Une investigation ouverte continue jusqu'à 100 cycles sans nouvelle instruction humaine.",
+  "oracle": "Journal d'événements, découvertes vérifiées et compteur des contraintes violées.",
+  "metrics": ["verified_progress", "discoveries_per_cycle", "repetition", "stability", "cost", "critical_violations"]
+}

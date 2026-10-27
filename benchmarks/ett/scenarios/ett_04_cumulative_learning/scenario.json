@@ -1,0 +1,11 @@
+{
+  "id": "ETT-04",
+  "name": "apprentissage-cumulatif",
+  "priority": true,
+  "status": "contract_defined_not_executable",
+  "levels": ["simple", "difficult", "open"],
+  "input": "Famille de tâches ordonnée par difficulté puis instances de transfert inédites.",
+  "oracle": "Règle commune des tâches, score retenu et score sur instances jamais vues.",
+  "metrics": ["transfer_gain_vs_no_memory", "retention", "catastrophic_forgetting"],
+  "anti_shortcuts": ["disjoint train and test generators", "rotate surface forms", "hold out 20 percent before development"]
+}

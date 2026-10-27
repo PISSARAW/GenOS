@@ -15,8 +15,8 @@ const uri = scientific.formatReference(ref);
 const content = 'theorem exact bytes\nλ';
 const digest = `sha256:${createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex')}`;
 const operations = [
-  { id: 'read_science', kind: 'READ', reference: uri, dependsOn: [] },
-  { id: 'infer', kind: 'INFER', reference: 'model/test', dependsOn: ['read_science'] }
+  { id: 'read_science', kind: 'READ', reference: uri, dependsOn: [], state: 'open' },
+  { id: 'infer', kind: 'INFER', reference: 'model/test', dependsOn: ['read_science'], state: 'open' }
 ];
 const policy = { read: [uri], infer: ['model/test'] };
 
