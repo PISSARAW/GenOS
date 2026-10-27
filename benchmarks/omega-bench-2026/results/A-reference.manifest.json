@@ -1,0 +1,18 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "condition_id": "A",
+  "status": "reference_condition_only",
+  "scenarios": 600,
+  "repetitions": 3,
+  "runs": 1800,
+  "repository_revision": "def78c741fa54783cc3fa72f5a9e53d2fe073780",
+  "adapter_sha256": "cefd0d3904230bf798f8bcbdc8aa85c2953da6df319e4a947e2f4429d1182ea9",
+  "dataset_manifest_sha256": "38ec8816b703a95c0af32b77086285773d70386df85ac84196e62824777c0c2f",
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7543P 32-Core Processor               ",
+    "memory_bytes": 30044250112
+  }
+}

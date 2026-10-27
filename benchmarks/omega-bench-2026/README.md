@@ -23,6 +23,7 @@ Depuis ce dossier, Python 3.12+ et sa bibliothèque standard suffisent :
 ```powershell
 python src/generate_dataset.py
 node src/run_e03_pilot.cjs
+node adapters/json_reference.cjs
 python src/evaluate.py --results chemin/vers/resultats.jsonl --condition A
 python src/evaluate.py --results results/E03-pilot.jsonl --condition A --experiment E03
 ```
@@ -33,4 +34,4 @@ Le fichier de résultats contient une ligne JSON par cas et répétition. Le for
 
 Les comparaisons sont appariées par `scenario_id` et répétition. Un résultat de succès est une égalité exacte de la réponse normalisée et ne prouve pas à lui seul un effet de production. Les métriques de latence, d'octets, de tokens et de coût sont rapportées séparément. Les traces et reçus devront être conservés par chaque adaptateur. Les sorties invalides, manquantes ou dupliquées restent dans le dénominateur et sont signalées.
 
-Le corpus est indépendant du runtime par construction, mais il est synthétique, public et généré localement. Les conditions répondent à des questions sémantiques communes dans `answer`; les métriques propres à une optimisation doivent être rapportées dans `metrics` et comparées séparément, pour ne pas compter une capacité désactivée comme une erreur sémantique. Le pilote disponible ne couvre que E03 (AJV contre le validateur d'interopérabilité Omega) et ne prouve rien sur les autres expériences ou conditions. Ce corpus ne permet pas de prétendre à une validation cachée, à une généralisation métier, à une indépendance tierce ou à la supériorité de G-CIR Ω.
+Le corpus est indépendant du runtime par construction, mais il est synthétique, public et généré localement. Les conditions répondent à des questions sémantiques communes dans `answer`; les métriques propres à une optimisation doivent être rapportées dans `metrics` et comparées séparément, pour ne pas compter une capacité désactivée comme une erreur sémantique. La condition A de référence a été exécutée sur les 600 cas; le pilote E03 compare AJV au validateur Omega. Ces résultats vérifient le contrat et l'outillage du corpus, pas les autres conditions ni la supériorité de G-CIR Ω. Ce corpus ne permet pas de prétendre à une validation cachée, à une généralisation métier ou à une indépendance tierce.

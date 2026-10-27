@@ -1,11 +1,11 @@
 # OMEGA-BENCH 2026 — préflight de lancement
 
 Date : 2026-10-27 (Europe/Paris)  
-Statut : **pilote E03 exécuté; campagne complète bloquée**
+Statut : **condition A et pilote E03 exécutés; campagne complète bloquée**
 
 ## Contrôles effectués
 
-- Le corpus préparé contient 600 cas et un manifeste d'empreintes. Ce sont des données, pas des exécutions de benchmark.
+- La condition A de référence a exécuté 1 800 passages sur les 600 cas et a correspondu à l'oracle; ce contrôle valide le parcours de référence, pas la performance de G-CIR Ω.
 - `adapters/` ne contient aucun exécuteur externe; il contient uniquement le contrat descriptif.
 - `src/` contient le générateur, l'évaluateur et un runner de pilote limité à E03; il ne contient pas de runner pour les 12 expériences.
 - Les quatre conditions A–D sont des descriptions dans `protocol.json`; elles ne sont pas raccordées à des adaptateurs.
@@ -15,7 +15,7 @@ Statut : **pilote E03 exécuté; campagne complète bloquée**
 
 ## Décision
 
-Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables pour A–D et sans configuration commune de modèle et de matériel, aucune comparaison complète ne serait valide. Un pilote ciblé E03 a été exécuté : AJV 2020-12 contre le service réel d'interopérabilité Omega Node, sur l'enveloppe G-CIR canonique. Les deux conditions ont accepté correctement 150/150 exécutions (50 cas × 3 répétitions). La médiane observée est de 0,0047 ms pour AJV et 0,68075 ms pour Omega Node dans cet environnement. Ce résultat descriptif, sur un seul schéma et sans test statistique, ne prouve pas un avantage général; le pilote n'invoque pas de modèle et ne représente pas les autres expériences.
+Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables pour A–D et sans configuration commune de modèle et de matériel, aucune comparaison complète ne serait valide. Le pilote E03 compare AJV 2020-12 au service réel d'interopérabilité Omega Node sur l'enveloppe G-CIR canonique. Les deux conditions ont accepté correctement 150/150 exécutions (50 cas × 3 répétitions). Les latences du pilote ne sont pas comparables directement, car AJV compile le schéma avant la mesure et Omega le relit et le revalide par appel. Le pilote n'invoque pas de modèle et ne représente pas les autres expériences.
 
 ## Prérequis de reprise
 
@@ -25,4 +25,4 @@ Ne pas démarrer les 7 200 exécutions minimales : sans adaptateurs exécutables
 4. Ajouter un runner qui écrit un résultat conforme au schéma par scénario, condition et répétition, avec journaux et traces reproductibles.
 5. Préenregistrer les contrastes, les volumes requis par expérience, le jeu caché et le calcul de puissance.
 
-Le pilote a écrit 300 lignes de résultats bruts dans `E03-pilot.jsonl`; son manifeste lie les métriques à la révision `b899c3edde6361ee0dec0e86420884d49ba7f7ca`. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment de l'exécution. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.
+La condition A a écrit 1 800 lignes dans `A-reference.jsonl`; le pilote E03 a écrit 300 lignes dans `E03-pilot.jsonl`. Leurs manifestes tracent les empreintes et révisions. Le workspace était marqué modifié par des fichiers non suivis préexistants au moment de l'exécution. Le fichier de protocole indique 7 200 exécutions pour les quatre conditions principales uniquement; baselines externes, ablations et essais de charge s'ajoutent à ce total.
