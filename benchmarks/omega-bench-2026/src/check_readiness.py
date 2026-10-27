@@ -37,10 +37,27 @@ def dataset_checks(protocol, blockers):
         observed = count_rows(inputs / f"{experiment}.jsonl")
         checks.append(check(blockers, f"sample_count_{experiment}",
                             (observed >= required, f"observed={observed}; proposed_minimum={required}")))
+    observed_experiments = {path.stem for path in inputs.glob("E*.jsonl")}
+    proposed_experiments = {key for key in proposed if key != "note"}
+    checks.append(check(blockers, "sample_count_coverage",
+                        (observed_experiments == proposed_experiments,
+                         f"observed={len(observed_experiments)}; proposed={len(proposed_experiments)}")))
     holdout = protocol.get("dataset", {}).get("sealed_holdout") is True
     checks.append(check(blockers, "sealed_holdout",
                         (holdout, "protocol.dataset.sealed_holdout must be true")))
     return checks
+
+
+def design_checks(protocol, blockers):
+    dataset = protocol.get("dataset", {}).get("scenarios_by_experiment", {})
+    design = protocol.get("minimum_design", {})
+    scenarios = sum(dataset.values())
+    conditions = len(protocol.get("conditions", []))
+    repetitions = design.get("repetitions", 0)
+    expected = scenarios * conditions * repetitions
+    planned = design.get("planned_executions")
+    return [check(blockers, "planned_execution_count",
+                  (planned == expected, f"planned={planned}; derived={expected}"))]
 
 
 def adapter_checks(blockers):
@@ -83,6 +100,7 @@ def main():
     blockers = []
     checks = []
     checks.extend(dataset_checks(protocol, blockers))
+    checks.extend(design_checks(protocol, blockers))
     checks.extend(adapter_checks(blockers))
     checks.extend(configuration_checks(blockers))
     checks.extend(preregistration_checks(protocol, blockers))

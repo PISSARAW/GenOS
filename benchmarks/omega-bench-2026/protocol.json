@@ -29,6 +29,7 @@
     "E08": 1000,
     "E09": 200,
     "E10": 100,
+    "E11": 50,
     "E12": 100,
     "note": "Counts and scenario scales transcribed from the campaign proposal; this remains a public development corpus, not the holdout."
   },
