@@ -8,6 +8,8 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { open } = require('sqlite');
+const sqlite3 = require('sqlite3');
 
 process.env.NODE_ENV = 'test';
 
@@ -21,18 +23,18 @@ function listBackups(dir, base) {
   return fs.readdirSync(dir).filter((name) => name.startsWith(`${base}.backup-`)).sort();
 }
 
-function testMissingAndEmpty() {
+async function testMissingAndEmpty() {
   const dir = makeTempDir();
-  assert.strictEqual(backupDatabaseFile(path.join(dir, 'nope.db')), null);
+  assert.strictEqual(await backupDatabaseFile(path.join(dir, 'nope.db')), null);
   const empty = path.join(dir, 'empty.db');
   fs.writeFileSync(empty, '');
-  assert.strictEqual(backupDatabaseFile(empty), null);
+  assert.strictEqual(await backupDatabaseFile(empty), null);
   assert.deepStrictEqual(listBackups(dir, 'empty.db'), []);
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('  PASS: missing/empty database files produce no backup.');
 }
 
-function testCopyAndRetention() {
+async function testCopyAndRetention() {
   const dir = makeTempDir();
   const dbPath = path.join(dir, 't.db');
   fs.writeFileSync(dbPath, 'payload-123');
@@ -40,7 +42,7 @@ function testCopyAndRetention() {
   for (const stamp of stamps) {
     fs.writeFileSync(`${dbPath}.backup-${stamp}`, 'old');
   }
-  const created = backupDatabaseFile(dbPath);
+  const created = await backupDatabaseFile(dbPath);
   assert.ok(created && created.includes('.backup-'), 'a backup path is returned');
   assert.ok(/^.*\.backup-\d{8}-\d{6}$/.test(created), 'backup name carries a YYYYMMDD-HHMMSS stamp');
   assert.strictEqual(fs.readFileSync(created, 'utf8'), 'payload-123');
@@ -52,11 +54,30 @@ function testCopyAndRetention() {
   console.log('  PASS: faithful copy with stamp + retention of 3 backups.');
 }
 
-function testNeverThrows() {
+async function testNeverThrows() {
   const dir = makeTempDir();
-  assert.strictEqual(backupDatabaseFile(dir), null, 'a directory is not a database file');
+  assert.strictEqual(await backupDatabaseFile(dir), null, 'a directory is not a database file');
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('  PASS: backup failure is best-effort and never throws.');
+}
+
+async function testOnlineBackup() {
+  const dir = makeTempDir();
+  const dbPath = path.join(dir, 'online.db');
+  const db = await open({ filename: dbPath, driver: sqlite3.Database });
+  try {
+    await db.exec('CREATE TABLE values_to_keep (value TEXT); INSERT INTO values_to_keep VALUES ("before");');
+    const backup = await backupDatabaseFile(dbPath, db);
+    assert.ok(backup);
+    const snapshot = await open({ filename: backup, driver: sqlite3.Database, readOnly: true });
+    try {
+      assert.strictEqual((await snapshot.get('SELECT value FROM values_to_keep')).value, 'before');
+    } finally { await snapshot.close(); }
+  } finally {
+    await db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  console.log('  PASS: open databases are backed up through SQLite online backup.');
 }
 
 async function testBootCreatesBackup() {
@@ -76,9 +97,10 @@ async function testBootCreatesBackup() {
 
 async function run() {
   console.log('=== N14 pre-migration backup ===');
-  testMissingAndEmpty();
-  testCopyAndRetention();
-  testNeverThrows();
+  await testMissingAndEmpty();
+  await testCopyAndRetention();
+  await testNeverThrows();
+  await testOnlineBackup();
   await testBootCreatesBackup();
   console.log('N14 BACKUP TESTS PASSED.');
 }

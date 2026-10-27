@@ -24,27 +24,42 @@ function configureEpistemicStores(db) {
   require('../services/epistemic/revisionSurface').configureRevisionStore(db);
   require('../services/epistemic/contradictionBus').configureEventStore(db);
 }
-// N14: best-effort copy of the database file before destructive migrations.
+// N14: best-effort SQLite snapshot before destructive migrations.
 // Never throws: a backup failure must never block the boot sequence.
-function backupDatabaseFile(dbPath) {
+async function backupDatabaseFile(dbPath, sourceDb) {
   try {
     const resolved = path.resolve(dbPath);
-    let stat = null;
-    try {
-      stat = fs.statSync(resolved);
-    } catch (_) {
-      return null;
-    }
-    if (!stat.isFile() || stat.size <= 0) return null;
+    if (!hasDatabaseFile(resolved)) return null;
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     const backupPath = `${resolved}.backup-${stamp}`;
-    fs.copyFileSync(resolved, backupPath);
+    if (sourceDb) await backupOpenDatabase(sourceDb, backupPath);
+    else fs.copyFileSync(resolved, backupPath);
     pruneDatabaseBackups(resolved);
     return backupPath;
   } catch (error) {
     console.warn('[DB] Pre-migration backup failed (continuing boot):', error.message);
     return null;
   }
+}
+function hasDatabaseFile(dbPath) {
+  try {
+    const stat = fs.statSync(dbPath);
+    return stat.isFile() && stat.size > 0;
+  } catch (_) {
+    return false;
+  }
+}
+function backupOpenDatabase(sourceDb, backupPath) {
+  return new Promise((resolve, reject) => {
+    const backup = sourceDb.db.backup(backupPath);
+    backup.step(-1, (error, completed) => {
+      if (error || !completed) {
+        backup.finish(() => reject(error || new Error('sqlite-backup-incomplete')));
+        return;
+      }
+      backup.finish(resolve);
+    });
+  });
 }
 function pruneDatabaseBackups(resolvedDbPath) {
   try {
@@ -243,7 +258,7 @@ module.exports = {
 };
 
 async function initializeConnection(filename) {
-
+    const databaseExisted = hasDatabaseFile(filename);
     const db = await open({
       filename,
       driver: sqlite3.Database
@@ -266,9 +281,9 @@ async function initializeConnection(filename) {
     // Best-effort pre-migration backup — must never block boot or starve a
     // concurrent writer (e.g. a freshly spawned worker that needs its own
     // connection). A failure is logged once and the boot continues.
-    if (!skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
+    if (databaseExisted && !skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
       try {
-        backupDatabaseFile(filename);
+        await backupDatabaseFile(filename, db);
       } catch (backupError) {
         console.warn('[DB] Pre-migration backup skipped:', backupError.message);
       }
