@@ -1,7 +1,7 @@
 # Qualification des adaptateurs A/B/C
 
 Date : 2026-10-27 (Europe/Paris)  
-Statut : **parcours A/B exécutés; campagne comparative non validée**
+Statut : **qualifications A/B/C exécutées; campagne comparative non validée**
 
 | Condition | Cas | Répétitions | Exécutions | Exactitude oracle |
 |---|---:|---:|---:|---:|
