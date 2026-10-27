@@ -19,7 +19,7 @@ Statut : **pilote exécuté; aucune conclusion sur la supériorité**
 | A — AJV | 150/150 (100 %) | 75/75 | 75/75 | 0,0047 ms |
 | B — Omega Node | 150/150 (100 %) | 75/75 | 75/75 | 0,68075 ms |
 
-Les répétitions sont mesurées, mais les unités indépendantes sont 50 cas, pas 150 scénarios. Aucun intervalle de confiance ni test de significativité n'a été calculé. Le p50 est propre à cette machine, à cette implémentation et à cette frontière de mesure. Il ne permet pas de conclure qu'Omega est généralement plus lent : le chemin Omega effectue aussi la normalisation et la validation métier, et chaque mesure inclut l'appel du service Node.
+Les répétitions sont mesurées, mais les unités indépendantes sont 50 cas, pas 150 scénarios. Aucun intervalle de confiance ni test de significativité n'a été calculé. **Les latences ne sont pas une comparaison équilibrée** : AJV compile le schéma une fois avant la boucle mesurée, tandis que `cognitiveOmegaInteropService.validate` appelle `specValidator.validateSpec`, qui relit et revalide le fichier de schéma pour chaque candidat. Les p50 rapportés décrivent donc ces deux chemins précis; ils ne démontrent pas qu'Omega est généralement plus lent. Une comparaison de performance confirmatoire doit égaliser ou comptabiliser le coût de compilation/chargement du schéma et séparer le coût d'initialisation du coût par validation.
 
 ## Correctif déclenché par le pilote
 
