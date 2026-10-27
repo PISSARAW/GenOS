@@ -123,12 +123,18 @@ async function connectPreflightClient(input, tools) {
 async function runPreflightTool(context) {
   const { client, input, tool, receipts = [] } = context;
   const prepared = prepareToolArguments(input, tool, receipts);
-  const result = await client.callTool({ name: tool, arguments: prepared.args });
+  const result = await client.callTool({ name: tool, arguments: prepared.args }, undefined,
+    mcpRequestTimeout(input));
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });
   assertSnapshotExists(tool, prepared.outputPath);
   const receipt = createReceipt({ input, tool, prepared, resultTextValue: success.text });
   await recordPreflightSuccess(input.db, receipt, prepared.args);
   return receipt;
+}
+
+function mcpRequestTimeout(input) {
+  const timeout = Number(input.toolTimeoutMs) || 120000;
+  return { timeout, maxTotalTimeout: timeout, resetTimeoutOnProgress: true };
 }
 
 function prepareToolArguments(input, tool, receipts = []) {
@@ -287,7 +293,8 @@ function pipelineArguments(input, state, primitive) {
 
 async function runPipelinePrimitive({ input, state, client, primitive }) {
   const args = pipelineArguments(input, state, primitive);
-  const raw = await client.callTool({ name: 'genos_execute_strategy_pipeline', arguments: args });
+  const raw = await client.callTool({ name: 'genos_execute_strategy_pipeline', arguments: args }, undefined,
+    mcpRequestTimeout(input));
   const tool = primitive === 'hypothesis_evidence' ? 'genos_hypothesis_evidence' : 'genos_evaluate_trajectories';
   const parsed = assertSuccessfulTool(tool, raw);
   const primitiveResult = parsed.value.results?.[0]?.result;
@@ -321,7 +328,8 @@ function snapshotReference(input, state) {
 async function runSnapshotReplay(input, state, client) {
   const snapshotRef = snapshotReference(input, state);
   const args = { snapshot: snapshotRef };
-  const raw = await client.callTool({ name: 'genos_replay', arguments: args });
+  const raw = await client.callTool({ name: 'genos_replay', arguments: args }, undefined,
+    mcpRequestTimeout(input));
   const replay = assertSuccessfulTool('genos_replay', raw);
   assertReplayProof(replay);
   const receipt = createReceipt({ input: { ...input, stageKey: `postflight:${input.missionId}` },
@@ -344,7 +352,8 @@ function postflightDecisionArguments({ input, state, snapshotRef, replayReceipt 
 
 async function runPostflightDecision({ input, state, client, snapshotRef, replayReceipt }) {
   const args = postflightDecisionArguments({ input, state, snapshotRef, replayReceipt });
-  const raw = await client.callTool({ name: 'genos_record_decision', arguments: args });
+  const raw = await client.callTool({ name: 'genos_record_decision', arguments: args }, undefined,
+    mcpRequestTimeout(input));
   const decision = assertSuccessfulTool('genos_record_decision', raw);
   if (decision.value.persisted !== true || decision.value.promoted !== false) {
     throw Object.assign(new Error('GenOS decision was not persisted as a non-promoting record.'),
@@ -375,4 +384,5 @@ function pathToFileURL(filePath) {
 module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
   runOrchestratorMcpPostflight, assertPreflightContext, preflightEnvironment,
   prepareToolArguments, PREFLIGHT_TOOLS, assertReplayProof, evidenceForWorker, baselineTools,
-  parseWorkerEvidence, normalizeWorkerTerminalEvent, buildOrchestratorPreflightInput };
+  parseWorkerEvidence, normalizeWorkerTerminalEvent, buildOrchestratorPreflightInput,
+  mcpRequestTimeout };

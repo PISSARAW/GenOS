@@ -56,8 +56,10 @@ assert.deepEqual(prepareToolArguments({ task: 'delivery recovery', hypotheses: [
 }] }, 'genos_diagnose').args.hypotheses, [{
   statement: 'A restart omits messages beyond the checkpoint.'
 }]);
-assert.throws(() => prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose'),
-  error => error.code === 'ORCHESTRATOR_PREFLIGHT_HYPOTHESES_MISSING');
+const fallbackDiagnosis = prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose');
+assert.equal(fallbackDiagnosis.args.hypotheses.length, 1,
+  'an absent hypothesis list must produce a falsifiable fallback hypothesis');
+assert.match(fallbackDiagnosis.args.hypotheses[0].statement, /delivery recovery/);
 
 const missionFrame = encodeMission({ agentId: 'orchestrator', missionId: 'mission-preflight-binding', prompt: 'synthesize' });
 assert.equal(decodeMissionInput(missionFrame).missionId, 'mission-preflight-binding',

@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { buildOrchestratorPreflightInput, prepareToolArguments } = require('../bin/orchestratorMcpPreflight.cjs');
+const { buildOrchestratorPreflightInput, prepareToolArguments, mcpRequestTimeout } = require('../bin/orchestratorMcpPreflight.cjs');
 const missionRuntimeContext = require('../bin/orchestratorMissionRuntimeContext.cjs');
 
 const db = {};
@@ -16,6 +16,8 @@ assert.equal(built.missionId, 'mission-1');
 assert.equal(built.workspaceRoot, 'D:/isolated-site');
 assert.equal(built.snapshotAgent, 'arch_agent.json');
 assert.equal(built.toolTimeoutMs, 60000, 'preflight tools must inherit a bounded mission latency timeout');
+assert.deepEqual(mcpRequestTimeout(built), { timeout: 60000, maxTotalTimeout: 60000, resetTimeoutOnProgress: true },
+  'the SDK request timeout must inherit the bounded mission timeout');
 assert.deepEqual(built.hypotheses, request.diagnosticHypotheses);
 assert.deepEqual(built.tools, ['genos_diagnose']);
 const decision = prepareToolArguments({ task: 'Maintain site', orchestratorId: 'agent-1' }, 'genos_record_decision', [
