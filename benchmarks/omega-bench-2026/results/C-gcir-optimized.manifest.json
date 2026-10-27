@@ -1,0 +1,20 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "condition_id": "C",
+  "status": "static_interop_validation_and_E04_addition_fold_reference_handlers_elsewhere",
+  "scenarios": 2800,
+  "repetitions": 3,
+  "runs": 8400,
+  "repository_revision": "e8d55c5ff56679104f77f6ec390b6cc913d7e03e",
+  "adapter_sha256": "19d10362fe319fbaac13046bcfafdfb538faa3d952ae8521b0966dfa4cffa2b0",
+  "dataset_manifest_sha256": "5956f064cace0454e70487aaa35944920901f9b9680f2122de8b807a363dd424",
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7543P 32-Core Processor               ",
+    "memory_bytes": 30044250112
+  },
+  "result_file": "C-gcir-optimized.jsonl",
+  "external_model_calls": 0
+}
