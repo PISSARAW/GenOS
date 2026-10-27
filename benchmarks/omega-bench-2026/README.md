@@ -16,6 +16,7 @@ Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas
 - `src/evaluate.py` : comparaison exacte des réponses, détection des cas manquants/dupliqués et résumé descriptif.
 - `src/evaluate_holdout.py` : scoring du holdout après gel des sorties candidates; les données et la graine privées ne sont pas versionnées.
 - `adapters/README.md` : contrat à implémenter pour chaque baseline.
+- `adapters/mcp.cjs` : baseline MCP exécutée sur E07/E12; voir `reports/perimetre-baselines.md` pour la portée fonctionnelle des sept familles.
 - `statistics/plan.md` : analyses prévues et limites d'inférence.
 - `results/README.md` : statut des résultats.
 

@@ -6,7 +6,7 @@
   "properties": {
     "scenario_id": {"type": "string"},
     "experiment_id": {"type": "string"},
-    "condition_id": {"enum": ["A", "B", "C", "D"]},
+    "condition_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{0,31}$"},
     "repetition": {"type": "integer", "minimum": 1},
     "status": {"enum": ["completed", "failed", "invalid"]},
     "answer": {},

@@ -1,13 +1,179 @@
 {
-  "status": "unconfigured",
+  "status": "in_progress",
+  "applicability_rule": "Adapters run only the declared applicable experiments. Every other experiment is explicitly reported N/A, not as a failed or missing run.",
   "families": [
-    {"id": "mlir", "capability": "typed intermediate representation and validation", "adapter": null, "version": null},
-    {"id": "temporal", "capability": "durable workflow execution and replay", "adapter": null, "version": null},
-    {"id": "langgraph", "capability": "state graph transitions and checkpoints", "adapter": null, "version": null},
-    {"id": "a2a", "capability": "agent delegation and interoperability", "adapter": null, "version": null},
-    {"id": "mcp", "capability": "typed tool invocation and integration", "adapter": null, "version": null},
-    {"id": "opa", "capability": "authorization policy decisions", "adapter": null, "version": null},
-    {"id": "json-reference", "capability": "JSON Schema plus independent reference executor", "adapter": null, "version": null}
+    {
+      "id": "mlir",
+      "capability": "typed intermediate representation, validation and optimization",
+      "adapter": null,
+      "version": null,
+      "status": "pending",
+      "applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E12"
+      ],
+      "not_applicable_experiments": [
+        "E05",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "id": "temporal",
+      "capability": "durable workflow execution, replay and recovery",
+      "adapter": null,
+      "version": null,
+      "status": "pending",
+      "applicable_experiments": [
+        "E05",
+        "E06",
+        "E07"
+      ],
+      "not_applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "langgraph",
+      "capability": "state graph transitions, checkpoints and recovery",
+      "adapter": null,
+      "version": null,
+      "status": "pending",
+      "applicable_experiments": [
+        "E05",
+        "E06",
+        "E07",
+        "E10"
+      ],
+      "not_applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E08",
+        "E09",
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "a2a",
+      "capability": "agent delegation, task lifecycle and interoperability",
+      "adapter": "adapters/a2a.cjs",
+      "version": "@a2a-js/sdk@1.3.0",
+      "status": "qualified_public_development",
+      "applicable_experiments": [
+        "E07",
+        "E12"
+      ],
+      "not_applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E08",
+        "E09",
+        "E10",
+        "E11"
+      ],
+      "results_manifest": "results/A2A-baseline.manifest.json",
+      "evaluation_file": "results/A2A-baseline.evaluation.json",
+      "result_condition": "A2A"
+    },
+    {
+      "id": "mcp",
+      "capability": "typed tool invocation and integration",
+      "adapter": "adapters/mcp.cjs",
+      "version": "@modelcontextprotocol/sdk@1.31.0",
+      "status": "qualified_public_development",
+      "applicable_experiments": [
+        "E07",
+        "E12"
+      ],
+      "not_applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E08",
+        "E09",
+        "E10",
+        "E11"
+      ],
+      "results_manifest": "results/MCP-baseline.manifest.json",
+      "evaluation_file": "results/MCP-baseline.evaluation.json",
+      "result_condition": "MCP"
+    },
+    {
+      "id": "opa",
+      "capability": "authorization policy decisions",
+      "adapter": "adapters/opa.cjs",
+      "version": "open-policy-agent/opa@v1.21.4",
+      "status": "qualified_public_development",
+      "applicable_experiments": [
+        "E03",
+        "E08"
+      ],
+      "not_applicable_experiments": [
+        "E01",
+        "E02",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E09",
+        "E10",
+        "E11",
+        "E12"
+      ],
+      "results_manifest": "results/OPA-baseline.manifest.json",
+      "evaluation_file": "results/OPA-baseline.evaluation.json",
+      "result_condition": "OPA"
+    },
+    {
+      "id": "json-reference",
+      "capability": "JSON Schema plus independent reference executor",
+      "adapter": "adapters/json_reference.cjs",
+      "version": "ajv@8.20.0",
+      "status": "qualified_public_development",
+      "applicable_experiments": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12"
+      ],
+      "not_applicable_experiments": [],
+      "results_manifest": "results/A-reference.manifest.json",
+      "evaluation_file": "results/A-reference.evaluation.json",
+      "result_condition": "A"
+    }
   ],
-  "rule": "Use only functionally applicable comparisons and record N/A for capabilities outside the baseline contract."
+  "rule": "Use only functionally applicable comparisons and record N/A for capabilities outside each baseline contract."
 }

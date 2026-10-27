@@ -1,0 +1,10 @@
+{
+  "name": "omega-bench-a2a-baseline",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned official A2A SDK runtime used by the OMEGA-BENCH scoped baseline.",
+  "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
+    "express": "5.1.0"
+  }
+}

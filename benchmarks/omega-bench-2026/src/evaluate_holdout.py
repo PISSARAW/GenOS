@@ -24,17 +24,26 @@ def holdout_oracle():
     return expected
 
 
-def evaluate(results_path, condition):
+def evaluate(results_path, condition, experiments):
     results_path = results_path.resolve()
     if not results_path.is_file():
         raise FileNotFoundError(f"Frozen result file not found: {results_path}")
     results_digest = hashlib.sha256(results_path.read_bytes()).hexdigest()
     expected = holdout_oracle()
+    if experiments:
+        selected = set(experiments)
+        expected = {key: row for key, row in expected.items()
+                    if row["experiment_id"] in selected}
     grouped = load_results(results_path, condition, None)
+    if experiments:
+        selected = set(experiments)
+        grouped = {key: rows for key, rows in grouped.items()
+                   if rows[0].get("experiment_id") in selected}
     summary = finalize(summarize(grouped, expected))
     unexpected = sorted(set(grouped) - set(expected))
     return {"protocol": "OMEGA-BENCH-2026", "split": "sealed_assessor_only",
-            "condition_id": condition, "results_sha256": results_digest,
+            "condition_id": condition, "experiment_scope": experiments or "all",
+            "results_sha256": results_digest,
             "status": "descriptive_holdout_score_not_significance_test",
             "unexpected_scenario_ids": unexpected, "summary": summary}
 
@@ -42,9 +51,11 @@ def evaluate(results_path, condition):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", required=True, type=Path)
-    parser.add_argument("--condition", required=True, choices=["A", "B", "C", "D"])
+    parser.add_argument("--condition", required=True)
+    parser.add_argument("--experiments", nargs="+", choices=list(HOLDOUT_COUNTS))
     args = parser.parse_args()
-    print(json.dumps(evaluate(args.results, args.condition), ensure_ascii=False, indent=2))
+    print(json.dumps(evaluate(args.results, args.condition, args.experiments),
+                     ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

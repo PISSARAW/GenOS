@@ -1,0 +1,11 @@
+{
+  "name": "omega-bench-temporal-baseline",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned Temporal SDK runtime used by the OMEGA-BENCH scoped baseline.",
+  "dependencies": {
+    "@temporalio/client": "1.25.0",
+    "@temporalio/worker": "1.25.0",
+    "@temporalio/workflow": "1.25.0"
+  }
+}

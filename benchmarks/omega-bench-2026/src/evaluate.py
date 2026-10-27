@@ -26,6 +26,14 @@ def load_results(path, condition, experiment):
     return grouped
 
 
+def scoped_oracle(expected, experiments):
+    if not experiments:
+        return expected
+    selected = set(experiments)
+    return {key: row for key, row in expected.items()
+            if row["experiment_id"] in selected}
+
+
 def priority_violation(left, right, allocations):
     equal_demand = left["minimum"] == right["minimum"]
     higher_priority = left["priority"] > right["priority"]
@@ -113,17 +121,25 @@ def finalize(summary):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", required=True, type=Path)
-    parser.add_argument("--condition", required=True, choices=["A", "B", "C", "D"])
+    parser.add_argument("--condition", required=True)
     parser.add_argument("--experiment", choices=[f"E{number:02d}" for number in range(1, 13)])
+    parser.add_argument("--experiments", nargs="+", choices=[f"E{number:02d}" for number in range(1, 13)])
     args = parser.parse_args()
-    expected = load_oracle()
-    if args.experiment:
-        expected = {key: row for key, row in expected.items() if row["experiment_id"] == args.experiment}
-    grouped = load_results(args.results, args.condition, args.experiment)
+    experiments = args.experiments or ([args.experiment] if args.experiment else None)
+    expected = scoped_oracle(load_oracle(), experiments)
+    experiment = experiments[0] if experiments and len(experiments) == 1 else None
+    grouped = load_results(args.results, args.condition, experiment)
+    if experiments and len(experiments) > 1:
+        allowed = set(experiments)
+        grouped = {key: rows for key, rows in grouped.items()
+                   if rows[0].get("experiment_id") in allowed}
     summary = finalize(summarize(grouped, expected))
     known = set(expected)
     unexpected = sorted(set(grouped) - known)
-    report = {"protocol": "OMEGA-BENCH-2026", "condition_id": args.condition, "experiment_scope": args.experiment or "all", "status": "descriptive_only_not_significance_test", "unexpected_scenario_ids": unexpected, "summary": summary}
+    report = {"protocol": "OMEGA-BENCH-2026", "condition_id": args.condition,
+              "experiment_scope": experiments or "all",
+              "status": "descriptive_only_not_significance_test",
+              "unexpected_scenario_ids": unexpected, "summary": summary}
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

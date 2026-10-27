@@ -75,5 +75,7 @@
   },
   "baseline_families": ["MLIR", "Temporal", "LangGraph", "Agent2Agent", "MCP", "Open Policy Agent", "JSON Schema + Python reference"],
   "ablations": ["optimizer", "static verification", "strong typing", "replay and journaling", "morphogenesis", "physiological adaptation", "compact encoding", "all G-CIR Ω features against equivalent typed JSON"],
-  "preregistration_required": ["freeze corpus hash and protocol revision", "specify adapters and N/A capabilities", "define cost and latency measurement boundary", "power analysis", "lock primary contrasts and multiplicity correction"]
+  "baseline_applicability": "configs/baselines.json",
+  "primary_contrasts": "statistics/preregistration-draft.md",
+  "preregistration_required": ["freeze corpus hash and protocol revision", "finalize cost and latency measurement boundary including E11 monetary accounting", "finalize power analysis across external baselines and ablations"]
 }

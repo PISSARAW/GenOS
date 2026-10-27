@@ -130,14 +130,65 @@ def configuration_checks(protocol, blockers):
     hardware = read_json(ROOT / "configs" / "hardware.example.json")
     model = read_json(ROOT / "configs" / "models.example.json")
     checks = [
-        check(blockers, "external_baselines", (baseline.get("status") == "configured" and all(
-            item.get("adapter") and item.get("version") for item in baseline.get("families", [])),
-            "baseline adapters and versions must be configured")),
+        check(blockers, "external_baselines", baseline_status(baseline, protocol)),
         check(blockers, "hardware_lock", (hardware.get("status") == "locked" and hardware.get("cpu_model")
               and hardware.get("memory_bytes"), "hardware configuration must be observed and locked")),
         check(blockers, "model_lock", model_control_status(protocol, model)),
     ]
     return checks
+
+
+def baseline_status(baseline, protocol):
+    expected = {f"E{number:02d}" for number in range(1, 13)}
+    families = baseline.get("families", [])
+    pending = []
+    for family in families:
+        applicable = set(family.get("applicable_experiments", []))
+        not_applicable = set(family.get("not_applicable_experiments", []))
+        if applicable & not_applicable or applicable | not_applicable != expected:
+            pending.append(f"{family.get('id')}: applicability map incomplete")
+            continue
+        if not baseline_family_ready(family, protocol):
+            pending.append(family.get("id", "unknown"))
+    passed = len(families) == 7 and not pending
+    return passed, f"ready={len(families) - len(pending)}/7; pending={pending}"
+
+
+def baseline_family_ready(family, protocol):
+    if family.get("status") not in {"configured", "qualified_public_development"} \
+            or not family.get("adapter") or not family.get("version"):
+        return False
+    if family.get("status") == "configured":
+        return (ROOT / family["adapter"]).is_file()
+    manifest_path = ROOT / family.get("results_manifest", "")
+    evaluation_path = ROOT / family.get("evaluation_file", "")
+    if not manifest_path.is_file() or not evaluation_path.is_file():
+        return False
+    try:
+        manifest = read_json(manifest_path)
+        evaluation = read_json(evaluation_path)
+    except (OSError, ValueError):
+        return False
+    return baseline_evidence_matches(family, protocol, (manifest, evaluation))
+
+
+def baseline_evidence_matches(family, protocol, evidence):
+    manifest, evaluation = evidence
+    experiments = set(family.get("applicable_experiments", []))
+    counts = protocol.get("dataset", {}).get("scenarios_by_experiment", {})
+    repetitions = protocol.get("minimum_design", {}).get("repetitions", 0)
+    expected_runs = sum(counts.get(name, 0) for name in experiments) * repetitions
+    summary = evaluation.get("summary", {})
+    observed_runs = sum(item.get("runs", 0) for item in summary.values())
+    completeness = all(item.get("missing_runs", 1) == 0
+                       and item.get("duplicate_repetitions", 1) == 0
+                       and item.get("invalid_status", 1) == 0
+                       for item in summary.values())
+    return manifest.get("runs") == expected_runs \
+        and manifest.get("condition_id") == family.get("result_condition") \
+        and evaluation.get("condition_id") == family.get("result_condition") \
+        and set(summary) == experiments and observed_runs == expected_runs \
+        and completeness and not evaluation.get("unexpected_scenario_ids")
 
 
 def model_control_status(protocol, model):
