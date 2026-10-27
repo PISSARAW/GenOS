@@ -10,6 +10,12 @@ CONDITIONS = {
     "C": "gcir_optimized.cjs",
     "D": "genos_full.cjs",
 }
+RESULT_MANIFESTS = {
+    "A": "A-reference.manifest.json",
+    "B": "B-gcir-minimal.manifest.json",
+    "C": "C-gcir-optimized.manifest.json",
+    "D": "D-genos-full.manifest.json",
+}
 
 
 def read_json(path):
@@ -43,10 +49,18 @@ def dataset_checks(protocol, blockers):
     checks.append(check(blockers, "sample_count_coverage",
                         (observed_experiments == proposed_experiments,
                          f"observed={len(observed_experiments)}; proposed={len(proposed_experiments)}")))
-    holdout = protocol.get("dataset", {}).get("sealed_holdout") is True
-    checks.append(check(blockers, "sealed_holdout",
-                        (holdout, "protocol.dataset.sealed_holdout must be true")))
+    checks.append(check(blockers, "sealed_holdout", sealed_holdout_status(protocol)))
     return checks
+
+
+def sealed_holdout_status(protocol):
+    if protocol.get("dataset", {}).get("sealed_holdout") is not True:
+        return False, "protocol.dataset.sealed_holdout must be true"
+    try:
+        from generate_holdout import verify_holdout
+        return verify_holdout()
+    except (OSError, ValueError, RuntimeError) as error:
+        return False, f"private holdout verification failed: {error}"
 
 
 def design_checks(protocol, blockers):
@@ -111,7 +125,7 @@ def protocol_counts():
     return read_json(ROOT / "protocol.json").get("dataset", {}).get("scenarios_by_experiment", {})
 
 
-def configuration_checks(blockers):
+def configuration_checks(protocol, blockers):
     baseline = read_json(ROOT / "configs" / "baselines.json")
     hardware = read_json(ROOT / "configs" / "hardware.example.json")
     model = read_json(ROOT / "configs" / "models.example.json")
@@ -121,10 +135,22 @@ def configuration_checks(blockers):
             "baseline adapters and versions must be configured")),
         check(blockers, "hardware_lock", (hardware.get("status") == "locked" and hardware.get("cpu_model")
               and hardware.get("memory_bytes"), "hardware configuration must be observed and locked")),
-        check(blockers, "model_lock", (model.get("status") == "locked" and model.get("model_id")
-              and model.get("model_revision"), "model identity and revision must be locked")),
+        check(blockers, "model_lock", model_control_status(protocol, model)),
     ]
     return checks
+
+
+def model_control_status(protocol, model):
+    if protocol.get("model_required") is not False:
+        configured = model.get("status") == "locked" and model.get("model_id") and model.get("model_revision")
+        return configured, "model identity and revision must be locked"
+    if model.get("status") != "not_required":
+        return False, "model is declared N/A but model configuration is not marked not_required"
+    for condition, filename in RESULT_MANIFESTS.items():
+        path = ROOT / "results" / filename
+        if not path.is_file() or read_json(path).get("external_model_calls") != 0:
+            return False, f"condition {condition} lacks evidence of zero external model calls"
+    return True, "not required: A-D manifests each record zero external model calls"
 
 
 def preregistration_checks(protocol, blockers):
@@ -144,7 +170,7 @@ def main():
     checks.extend(design_checks(protocol, blockers))
     checks.extend(manifest_checks(blockers))
     checks.extend(adapter_checks(blockers))
-    checks.extend(configuration_checks(blockers))
+    checks.extend(configuration_checks(protocol, blockers))
     checks.extend(preregistration_checks(protocol, blockers))
     report = {"protocol": "OMEGA-BENCH-2026",
               "status": "ready" if not blockers else "blocked",

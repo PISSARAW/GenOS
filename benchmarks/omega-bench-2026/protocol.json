@@ -17,7 +17,9 @@
     "experiments": 12,
     "scenario_count": 3400,
     "split": "public_development_only",
-    "sealed_holdout": false
+    "sealed_holdout": true,
+    "sealed_holdout_cases": 680,
+    "sealed_holdout_policy": "20 percent per experiment, generated with a private seed and stored outside the repository under the local assessor profile; adapters receive public inputs only, and the holdout oracle is read after candidate outputs are closed."
   },
   "source_proposed_sample_counts": {
     "E01": 200,
@@ -55,7 +57,8 @@
     "calculation": "3,400 proposed scenarios x 4 conditions x 3 repetitions",
     "does_not_include": ["seven external baseline families", "eight ablations", "additional load tests", "larger per-experiment corpora"]
   },
-  "controls": ["same model and model version", "same temperature and decoding settings", "same tools and permissions", "same resource budgets", "same hardware", "same scenario and random seed", "condition-specific features declared before run"],
+  "model_required": false,
+  "controls": ["zero external model calls in A-D", "same tools and permissions", "same resource budgets", "same hardware", "same scenario and random seed", "condition-specific features declared before run"],
   "proposed_thresholds": {
     "E01": {"metric": "exact semantic compliance", "target": 0.99},
     "E02": {"metric": "fewer episode bytes than JSON without significant compliance loss", "target_relative_saving": 0.30},
@@ -72,5 +75,5 @@
   },
   "baseline_families": ["MLIR", "Temporal", "LangGraph", "Agent2Agent", "MCP", "Open Policy Agent", "JSON Schema + Python reference"],
   "ablations": ["optimizer", "static verification", "strong typing", "replay and journaling", "morphogenesis", "physiological adaptation", "compact encoding", "all G-CIR Ω features against equivalent typed JSON"],
-  "preregistration_required": ["freeze corpus hash and protocol revision", "resolve per-experiment sample-count mismatches", "specify adapters and N/A capabilities", "define cost and latency measurement boundary", "define hidden holdout and access controls", "power analysis", "lock primary contrasts and multiplicity correction"]
+  "preregistration_required": ["freeze corpus hash and protocol revision", "specify adapters and N/A capabilities", "define cost and latency measurement boundary", "power analysis", "lock primary contrasts and multiplicity correction"]
 }

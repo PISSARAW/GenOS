@@ -13,6 +13,8 @@ const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'sr
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
+const DATASET_ROOT = process.env.OMEGA_DATASET_ROOT || path.join(ROOT, 'dataset');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS || path.join(DATASET_ROOT, 'public', 'inputs');
 const REPETITIONS = 3;
 
 function operationsFor(row) {
@@ -97,7 +99,7 @@ async function timedRow(row, repetition) {
 }
 
 function manifestFor(rows, outputPath) {
-  const datasetManifest = path.join(ROOT, 'dataset', 'manifest.json');
+  const datasetManifest = path.join(DATASET_ROOT, 'manifest.json');
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
   return {
     protocol: 'OMEGA-BENCH-2026', condition_id: 'C',
@@ -115,7 +117,7 @@ function manifestFor(rows, outputPath) {
 async function main() {
   const experiments = Array.from({ length: 12 }, (_, index) => `E${String(index + 1).padStart(2, '0')}`);
   const rows = experiments.flatMap((experiment) => reference.readRows(
-    path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
   const outputPath = process.argv[2] || path.join(ROOT, 'results', 'C-gcir-optimized.jsonl');
   const results = [];
   for (let repetition = 1; repetition <= REPETITIONS; repetition += 1) {

@@ -1,5 +1,6 @@
 {
-  "status": "template_not_observed",
+  "status": "not_required",
+  "reason": "A-D use deterministic adapters and make zero external model calls.",
   "provider": null,
   "model_id": null,
   "model_revision": null,

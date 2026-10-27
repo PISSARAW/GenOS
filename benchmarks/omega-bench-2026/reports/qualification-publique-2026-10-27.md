@@ -43,7 +43,10 @@ Cette qualification est descriptive et limitée au corpus synthétique public.
 Elle n'est pas préenregistrée, ne teste pas de holdout caché et ne démontre ni
 généralisation métier ni avantage de G-CIR Ω. Elle ne comprend pas les baselines
 externes, les huit ablations, les essais de charge ou l'analyse de puissance.
-La campagne confirmatoire reste bloquée jusqu'à résolution de ces conditions,
+Un holdout distinct de 680 cas (20 % par expérience) a été généré ensuite avec
+une graine privée stockée hors dépôt. Son manifeste et ses hashes sont vérifiés;
+il n'a pas encore été scoré et n'a pas servi à adapter les runners. La campagne
+confirmatoire reste bloquée jusqu'à exécution du holdout, résolution des baselines,
 du verrouillage matériel et des exigences de préenregistrement.
 
 Les JSONL et manifestes sont générés sous `results/`, ignoré par Git. Leurs

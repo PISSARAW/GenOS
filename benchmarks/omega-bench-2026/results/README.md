@@ -7,8 +7,9 @@ Chaque condition a exécuté 3 400 cas × 3 répétitions (10 200 résultats), a
 `D-qualification.json` permet au contrôle readiness de vérifier la qualification
 de l'adaptateur D; les sorties JSONL et manifestes restent ignorés par Git.
 
-Ces exécutions ne terminent pas la campagne confirmatoire. Restent le holdout
-scellé, les baselines externes applicables, les configurations de comparaison,
+Ces exécutions ne terminent pas la campagne confirmatoire. Le holdout local de
+680 cas est préparé, mais reste à scorer après gel des sorties candidates.
+Restent les baselines externes applicables, les configurations de comparaison,
 le préenregistrement, les ablations, les essais de charge et l'analyse de
 puissance. Les résultats sont descriptifs et ne démontrent pas un gain de
 performance.

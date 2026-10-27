@@ -2,16 +2,19 @@
 
 Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas, les oracles et l'évaluateur n'importent aucun module GenOS. Il fournit un corpus synthétique déterministe de **3 400 cas** avec entrées candidates et réponses de référence dans des fichiers distincts. E01/E02 ont 200 cas; E03/E08 en ont 1 000; E04/E05/E10/E12 en ont 100; E06 en a 150 (trois taux de panne); E07/E09 en ont 200 (quatre échelles); E11 en a 50.
 
-**État au 2026-10-27 : A/B/C/D exécutées sur le corpus public v0.4.0; campagne confirmatoire bloquée.** Chaque condition a 10 200 exécutions complètes, 100 % de conformité à l'oracle, aucun doublon, manque, statut invalide ou échec critique. Cela qualifie les adaptateurs sur le jeu public, pas une supériorité comparative ni un effet de production. Le corpus n'est pas le holdout caché. La campagne complète proposée ajoute des baselines, des ablations, des essais de charge et l'analyse de puissance aux `40 800` exécutions principales.
+**État au 2026-10-28 : A/B/C/D exécutées sur le corpus public v0.4.0; campagne confirmatoire bloquée.** Chaque condition a 10 200 exécutions complètes, 100 % de conformité à l'oracle, aucun doublon, manque, statut invalide ou échec critique. Cela qualifie les adaptateurs sur le jeu public, pas une supériorité comparative ni un effet de production. Un holdout local de 680 cas est créé hors dépôt; il n'a pas encore été scoré ni utilisé pour régler les adaptateurs. La campagne complète proposée ajoute des baselines, des ablations, des essais de charge et l'analyse de puissance aux `40 800` exécutions principales.
 
 ## Contenu
 
 - `protocol.json` : conditions, facteurs contrôlés, seuils proposés et limites du pilote.
 - `dataset/public/inputs/` : cas que les adaptateurs peuvent lire.
 - `dataset/oracle/` : réponses attendues séparées des entrées.
+- Le holdout local (680 cas) et sa graine sont dans le profil privé de l'assesseur, hors dépôt; les adaptateurs ne reçoivent pas ces fichiers.
 - `schemas/` : contrats du cas et du résultat d'adaptateur.
 - `src/generate_dataset.py` : régénération déterministe du corpus.
+- `src/generate_holdout.py` : création idempotente et vérification du jeu caché local, à partir d'une graine privée.
 - `src/evaluate.py` : comparaison exacte des réponses, détection des cas manquants/dupliqués et résumé descriptif.
+- `src/evaluate_holdout.py` : scoring du holdout après gel des sorties candidates; les données et la graine privées ne sont pas versionnées.
 - `adapters/README.md` : contrat à implémenter pour chaque baseline.
 - `statistics/plan.md` : analyses prévues et limites d'inférence.
 - `results/README.md` : statut des résultats.
@@ -22,12 +25,21 @@ Depuis ce dossier, Python 3.12+ et sa bibliothèque standard suffisent :
 
 ```powershell
 python src/generate_dataset.py
+python src/generate_holdout.py
 node src/run_e03_pilot.cjs
 node adapters/json_reference.cjs
 node adapters/gcir_minimal.cjs
 python src/evaluate.py --results chemin/vers/resultats.jsonl --condition A
 python src/evaluate.py --results results/E03-pilot.jsonl --condition A --experiment E03
 ```
+
+Pour qualifier les adaptateurs sur le holdout, définir `OMEGA_DATASET_ROOT` vers
+`~/.codex/benchmark-secrets/omega-bench-2026/holdout-v0.4.0` et
+`OMEGA_DATASET_INPUTS` vers son sous-dossier `inputs/`, puis lancer l'adaptateur
+avec un chemin de sortie distinct. Après fermeture et gel des sorties, appeler
+`python src/evaluate_holdout.py --condition A --results <sortie.jsonl>`.
+Le scorer vérifie le manifeste privé avant de lire l'oracle et émet un hash des
+sorties évaluées. Ne pas lancer ce scoring avant le préenregistrement.
 
 Avant de présenter ou lancer la campagne confirmatoire complète, exécuter
 `python src/check_readiness.py`. Le contrôle échoue tant que les volumes proposés,

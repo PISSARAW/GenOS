@@ -10,6 +10,8 @@ const { performance } = require('node:perf_hooks');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
+const DATASET_ROOT = process.env.OMEGA_DATASET_ROOT || path.join(ROOT, 'dataset');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS || path.join(DATASET_ROOT, 'public', 'inputs');
 const backendRequire = createRequire(path.join(REPO, 'backend', 'package.json'));
 const Ajv2020 = backendRequire('ajv/dist/2020');
 const addFormats = backendRequire('ajv-formats');
@@ -174,7 +176,7 @@ function createValidator() {
 }
 
 function main() {
-  const rows = EXPERIMENTS.flatMap((experiment) => readRows(path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+  const rows = EXPERIMENTS.flatMap((experiment) => readRows(path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
   const validator = createValidator();
   const outputPath = process.argv[2] || path.join(ROOT, 'results', 'A-reference.jsonl');
   const output = [];
@@ -184,7 +186,8 @@ function main() {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${output.map((item) => JSON.stringify(item)).join('\n')}\n`);
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
-  const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: 'A', status: 'reference_condition_only', scenarios: rows.length, repetitions: REPETITIONS, runs: output.length, repository_revision: revision, adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'dataset', 'manifest.json'))).digest('hex'), runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() } };
+  const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: 'A', status: 'reference_condition_only', scenarios: rows.length, repetitions: REPETITIONS, runs: output.length, repository_revision: revision, adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(DATASET_ROOT, 'manifest.json'))).digest('hex'), runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() } };
+  manifest.external_model_calls = 0;
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   process.stdout.write(`Condition A complete: ${output.length} reference runs across ${rows.length} cases.\n`);
 }

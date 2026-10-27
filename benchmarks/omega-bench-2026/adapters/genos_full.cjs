@@ -11,6 +11,8 @@ process.env.GENOS_ADMIN_PASSWORD ||= 'omega-bench-local-fixture';
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
+const DATASET_ROOT = process.env.OMEGA_DATASET_ROOT || path.join(ROOT, 'dataset');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS || path.join(DATASET_ROOT, 'public', 'inputs');
 const REPETITIONS = 3;
 const reference = require('./json_reference.cjs');
 const optimized = require('./gcir_optimized.cjs');
@@ -185,7 +187,7 @@ async function timedRow(row, repetition, harness) {
 function manifestFor(input) {
   const { rows, outputPath, repetitions, pilot } = input;
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
-  const datasetManifest = path.join(ROOT, 'dataset', 'manifest.json');
+  const datasetManifest = path.join(DATASET_ROOT, 'manifest.json');
   return { protocol: 'OMEGA-BENCH-2026', condition_id: 'D',
     status: pilot ? 'exploratory_pilot_not_qualified'
       : 'GenOS transition service on E10; biome physiology allocator on E11; C runtime elsewhere',
@@ -214,7 +216,7 @@ async function main() {
   const pilotExperiment = pilotSelection?.slice(0, 3) || null;
   const experiments = Array.from({ length: 12 }, (_, index) => `E${String(index + 1).padStart(2, '0')}`);
   let rows = experiments.flatMap((experiment) => reference.readRows(
-    path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
   rows = selectPilotRows(rows, pilotSelection);
   const repetitions = pilotExperiment ? 1 : REPETITIONS;
   const outputPath = process.argv[pilotExperiment ? 4 : 2]
