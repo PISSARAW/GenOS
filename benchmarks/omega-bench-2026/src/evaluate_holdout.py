@@ -7,10 +7,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PRIVATE_ROOT = Path.home() / ".codex" / "benchmark-secrets" / "omega-bench-2026"
-HOLDOUT_ROOT = PRIVATE_ROOT / "holdout-v0.4.0"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluate import finalize, load_results, read_jsonl, summarize
-from generate_holdout import HOLDOUT_COUNTS, verify_holdout
+from generate_holdout import DATASET_VERSION, HOLDOUT_COUNTS, verify_holdout
+
+HOLDOUT_ROOT = PRIVATE_ROOT / f"holdout-v{DATASET_VERSION}"
 
 
 def holdout_oracle():

@@ -1,6 +1,6 @@
 {
   "protocol": "OMEGA-BENCH-2026",
-  "dataset_version": "0.4.0",
+  "dataset_version": "0.6.0",
   "seed": 20261027,
   "cases_by_experiment": {
     "E01": 200,
@@ -25,8 +25,8 @@
     "oracle/E02.jsonl": "a22b68be2a30c3481d50eabca8ebbe4a14a25b006a52f2e7910564ef2eb236c1",
     "inputs/E03.jsonl": "e412a21440f5aded113ff3bbd5b1e1ce8cbb10878cab5aee32bf5f0e5887bd58",
     "oracle/E03.jsonl": "7d12bc40293c1a7536f3d6faec11d7c448c24c0ec4408d8559ec5de7322bb1d8",
-    "inputs/E04.jsonl": "6707883b18ef98da7b5eeb430766810fbb58db86524bd8201430fee1a5d7fa50",
-    "oracle/E04.jsonl": "a04f37ae8ee591cb61d3dc4af2fcfafdb11d8494cb496a736d717b9fdb4fc3fc",
+    "inputs/E04.jsonl": "1f885bb8d7994a8da75a1fd30c38f2f277041b45be4e8cedb6bf259594801a84",
+    "oracle/E04.jsonl": "f38e586d2df1db0ba01c836182afb1400efbbb03f06e09361448a709f68fbaf3",
     "inputs/E05.jsonl": "17ea04e9c05639fec950a026d059ecf2e3f1673cf0eb090058fd53c488612ee4",
     "oracle/E05.jsonl": "4d968df782b559ba7f6c4b1c5a880b5f47be58b9ae6f83a260ba3234350be1d2",
     "inputs/E06.jsonl": "348325399ac60c936b8913a4eeb64729977fa7164e7a23c09f49b29298956826",
@@ -41,7 +41,7 @@
     "oracle/E10.jsonl": "f6f9994576dd30f26601de4b99c88c43ad7949a6ed26814798cd9f94bdb9f4fc",
     "inputs/E11.jsonl": "9022be75d6f0f3dce16bb0d05a2188a7beca9bbbfbfd2b6e6a2381543a62ab26",
     "oracle/E11.jsonl": "5b4fb5e0ee8f8cd6d13cfda4f53cb7d11cb5209ed069d9906030d26fcd8f8ec3",
-    "inputs/E12.jsonl": "c7bc319f4f3f85534643d1a539afdd9692d6f1c971276d4ef4f064156f3a2463",
-    "oracle/E12.jsonl": "bdc6399d0f64e96db0413a9b2907d2331a4ca5e5e688df999f8d43ad17c55895"
+    "inputs/E12.jsonl": "ad7a75a37939027cb3e3118884648fea9fe5e9c62545141a46d96e7e9d3a94bb",
+    "oracle/E12.jsonl": "b45e55be4a457ceb520ffd94106895b8e43fa1d96298bce2a0ad40931319f33d"
   }
 }

@@ -28,6 +28,7 @@ function numericInputs(value, collected = []) {
 }
 
 function mlirSource(row) {
+  if (row.experiment_id === 'E04') return mlirE04Source(row.input);
   const values = numericInputs(row.input);
   const lines = values.map((value, index) => `    %v${index} = arith.constant ${value} : i64`);
   let result = values.length ? '%v0' : '%zero';
@@ -48,6 +49,18 @@ function mlirSource(row) {
     lines.push(`    %sum${index} = arith.addi ${result}, %v${index} : i64`);
     result = `%sum${index}`;
   }
+  return `module {\n  func.func @omega() -> i64 {\n${lines.join('\n')}\n    return ${result} : i64\n  }\n}\n`;
+}
+
+function mlirE04Source(input) {
+  const lines = [`    %initial = arith.constant ${input.initial} : i64`];
+  let result = '%initial';
+  input.program.forEach((operation, index) => {
+    const mnemonic = operation.op === 'mul' ? 'muli' : 'addi';
+    lines.push(`    %step${index} = arith.constant ${operation.value} : i64`);
+    lines.push(`    %value${index} = arith.${mnemonic} ${result}, %step${index} : i64`);
+    result = `%value${index}`;
+  });
   return `module {\n  func.func @omega() -> i64 {\n${lines.join('\n')}\n    return ${result} : i64\n  }\n}\n`;
 }
 
@@ -114,3 +127,5 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error); process.exitCode = 1; }
 }
+
+module.exports = { mlirSource };

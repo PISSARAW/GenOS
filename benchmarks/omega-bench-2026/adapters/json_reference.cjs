@@ -38,7 +38,10 @@ function answerE01(input) {
 function answerE02(input) { return { decoded_object: input.object }; }
 
 function answerE04(input) {
-  return { result: input.initial + input.program.reduce((sum, item) => sum + item.value, 0) };
+  const operations = { add: (value, operand) => value + operand,
+    mul: (value, operand) => value * operand };
+  const result = input.program.reduce((value, item) => operations[item.op](value, item.value), input.initial);
+  return { result };
 }
 
 function answerE05(input) {

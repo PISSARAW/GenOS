@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
+const { transformE04 } = require('./e04-optimizer.cjs');
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaCompiler'));
 const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend',
@@ -18,20 +19,11 @@ const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
 const DATASET_ROOT = process.env.OMEGA_DATASET_ROOT || path.join(ROOT, 'dataset');
 
-function foldProgram(input) {
-  const program = input.program || [];
-  const eligible = program.length > 1 && program.every((operation) => operation.op === 'add'
-    && Number.isFinite(operation.value));
-  if (!eligible) return { input, before: program.length, after: program.length, applied: false };
-  const folded = [{ op: 'add', value: program.reduce((sum, operation) => sum + operation.value, 0) }];
-  return { input: { ...input, program: folded }, before: program.length, after: 1, applied: true };
-}
-
 async function runA1(row, repetition, optimized) {
   const started = performance.now();
-  const plan = optimized ? foldProgram(row.input)
-    : { input: row.input, before: (row.input.program || []).length,
-      after: (row.input.program || []).length, applied: false };
+  const plan = optimized ? transformE04(row.input,
+    (input) => reference.execute({ ...row, input }, null))
+    : { input: row.input, passes: [], all_invariants_preserved: true };
   const operations = [
     { id: 'read', kind: 'READ', reference: 'bench/input', dependsOn: [], state: 'open' },
     { id: 'select', kind: 'SELECT', reference: 'bench/input', dependsOn: ['read'], state: 'open' },
@@ -50,8 +42,8 @@ async function runA1(row, repetition, optimized) {
   if (executed.status !== 'emitted') throw new Error(`a1_runtime_${executed.reason}`);
   const answer = executed.values.call;
   return resultRow({ row, repetition, condition: optimized ? 'A1-on' : 'A1-off', answer,
-    metrics: { optimizer: 'adjacent_addition_fold', applied: plan.applied,
-      operation_count_before: plan.before, operation_count_after: plan.after }, started });
+    metrics: { optimizer: 'five_semantics_preserving_passes', transformations: plan.passes,
+      all_invariants_preserved: plan.all_invariants_preserved }, started });
 }
 
 function envelopeFor(row) {
@@ -92,6 +84,8 @@ function manifest(input) {
     scenarios: rows.length, repetitions: 3, runs: results.length, feature,
     repository_revision: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim(),
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
+    optimizer_sha256: crypto.createHash('sha256').update(fs.readFileSync(
+      path.join(__dirname, 'e04-optimizer.cjs'))).digest('hex'),
     implementation_sha256: crypto.createHash('sha256').update(fs.readFileSync(
       path.join(REPO, 'backend/src/services/cognitiveOmegaInteropService.js'))).digest('hex'),
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
@@ -128,7 +122,7 @@ function readExperiment(experiment) {
 
 async function main() {
   await runArms({ rows: readExperiment('E04'), condition: 'A1-{arm}', runCase: runA1,
-    feature: 'adjacent addition fold enabled versus disabled' });
+    feature: 'five semantics-preserving arithmetic passes with per-pass invariant checks' });
   await runArms({ rows: readExperiment('E03'), condition: 'A3-{arm}', runCase: runA3,
     feature: 'strict schema typing versus container-only structural validation' });
 }
@@ -138,4 +132,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { foldProgram, looseStructuralCheck, runA1, runA3 };
+module.exports = { looseStructuralCheck, runA1, runA3 };

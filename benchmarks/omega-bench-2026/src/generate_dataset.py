@@ -6,8 +6,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
-DATASET_VERSION = "0.4.0"
+DATASET_VERSION = "0.6.0"
 MISSION_CATALOG_VERSION = "1.0.0"
+E04_TRANSFORMATIONS = ["combine_adjacent_additions", "combine_adjacent_multiplications",
+                      "remove_additive_identity", "remove_multiplicative_identity",
+                      "annihilate_zero_multiplication"]
 EXPERIMENTS = [f"E{i:02d}" for i in range(1, 13)]
 COUNTS = {experiment: 50 for experiment in EXPERIMENTS}
 COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E04": 100,
@@ -75,8 +78,23 @@ def typing_case(index, rng):
 
 def optimize_case(index, rng):
     start = rng.randint(1, 30)
-    left, right = rng.randint(1, 20), rng.randint(1, 20)
-    return {"program": [{"op": "add", "value": left}, {"op": "add", "value": right}], "initial": start, "source_operation_count": 2, "optimization_target_count": 1, "optimization_allowed": ["combine_adjacent_additions"]}, {"result": start + left + right}
+    left, right = rng.randint(2, 9), rng.randint(2, 9)
+    target = E04_TRANSFORMATIONS[index % len(E04_TRANSFORMATIONS)]
+    programs = {
+        "combine_adjacent_additions": [{"op": "add", "value": left}, {"op": "add", "value": right}],
+        "combine_adjacent_multiplications": [{"op": "mul", "value": left}, {"op": "mul", "value": right}],
+        "remove_additive_identity": [{"op": "add", "value": 0}, {"op": "mul", "value": left}],
+        "remove_multiplicative_identity": [{"op": "mul", "value": 1}, {"op": "add", "value": right}],
+        "annihilate_zero_multiplication": [{"op": "add", "value": left}, {"op": "mul", "value": 0}, {"op": "add", "value": right}],
+    }
+    program = programs[target]
+    value = start
+    for operation in program:
+        value = value + operation["value"] if operation["op"] == "add" else value * operation["value"]
+    return {"program": program, "initial": start, "source_operation_count": len(program),
+            "optimization_target_count": 2 if target == "annihilate_zero_multiplication" else 1,
+            "optimization_target": target,
+            "optimization_allowed": E04_TRANSFORMATIONS}, {"result": value}
 
 
 def replay_case(index, rng):
@@ -144,8 +162,14 @@ def physiology_case(index, rng):
 
 
 def portability_case(index, rng):
-    operation = {"kind": "CALL", "tool": f"tool-{index % 5}", "arguments": {"record_id": f"record-{index}", "limit": 1 + index % 10}}
-    return {"intent": operation, "representations": ["json", "tabular", "portable"]}, {"canonical_operation": operation, "equivalent": True}
+    operation = {"id": f"operation_{index}", "kind": "CALL", "reference": f"tool-{index % 5}",
+                 "state": "open", "dependsOn": [],
+                 "arguments": {"record_id": f"record-{index}", "limit": 1 + index % 10}}
+    return {"intent": operation, "backend_contract": "echo_arguments",
+            "security_probes": ["unauthorized", "malformed"]}, {
+                "valid": {"status": "emitted", "value": operation["arguments"], "side_effects": 1},
+                "unauthorized": {"status": "blocked", "reason_class": "unauthorized", "side_effects": 0},
+                "malformed": {"status": "blocked", "reason_class": "invalid_operation", "side_effects": 0}}
 
 
 BUILDERS = [semantic_case, compression_case, typing_case, optimize_case, replay_case, resilience_case, communication_case, security_case, scalability_case, morphogenesis_case, physiology_case, portability_case]

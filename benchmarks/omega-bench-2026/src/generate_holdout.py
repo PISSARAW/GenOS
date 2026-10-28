@@ -11,8 +11,13 @@ from generate_dataset import BUILDERS, COUNTS, DATASET_VERSION, canonical
 ROOT = Path(__file__).resolve().parents[1]
 PRIVATE_ROOT = Path.home() / ".codex" / "benchmark-secrets" / "omega-bench-2026"
 SEED_PATH = PRIVATE_ROOT / "holdout.seed"
-HOLDOUT_ROOT = PRIVATE_ROOT / "holdout-v0.4.0"
+HOLDOUT_ROOT = PRIVATE_ROOT / f"holdout-v{DATASET_VERSION}"
+PUBLIC_MANIFEST = ROOT / "dataset" / "manifest.json"
 HOLDOUT_COUNTS = {name: count // 5 for name, count in COUNTS.items()}
+
+
+def manifest_digest():
+    return hashlib.sha256(PUBLIC_MANIFEST.read_bytes()).hexdigest()
 
 
 def private_seed():
@@ -65,6 +70,10 @@ def verify_holdout(path=HOLDOUT_ROOT):
     if not manifest_path.is_file() or not SEED_PATH.is_file():
         return False, "private holdout or seed commitment is missing"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("dataset_version") != DATASET_VERSION:
+        return False, "private holdout dataset version is stale"
+    if manifest.get("dataset_manifest_sha256") != manifest_digest():
+        return False, "private holdout public-manifest commitment is stale"
     seed = SEED_PATH.read_text(encoding="ascii").strip()
     seed_hash = hashlib.sha256(bytes.fromhex(seed)).hexdigest()
     if manifest.get("seed_commitment") != seed_hash:
@@ -98,6 +107,7 @@ def main():
     staging = PRIVATE_ROOT / f"holdout-staging-{secrets.token_hex(8)}"
     hashes = write_cases(seed, staging)
     manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": DATASET_VERSION,
+                "dataset_manifest_sha256": manifest_digest(),
                 "holdout_id": secrets.token_hex(16), "split": "sealed_assessor_only",
                 "scenario_count": sum(HOLDOUT_COUNTS.values()),
                 "cases_by_experiment": HOLDOUT_COUNTS,

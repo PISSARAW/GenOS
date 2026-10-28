@@ -10,6 +10,7 @@ const reference = require('./json_reference.cjs');
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaCompiler'));
 const runtimeModule = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaInteropService'));
+const { transformE04 } = require('./e04-optimizer.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -31,22 +32,13 @@ function envelopeFor(row, operations) {
     payload: row.input };
 }
 
-function foldAdjacentAdditions(input) {
-  const program = input.program || [];
-  const applicable = program.length > 1 && program.every((operation) => operation.op === 'add'
-    && Number.isFinite(operation.value));
-  if (!applicable) return { input, applied: false, sourceCount: program.length, targetCount: program.length };
-  const folded = [{ op: 'add', value: program.reduce((total, operation) => total + operation.value, 0) }];
-  return { input: { ...input, program: folded }, applied: true,
-    sourceCount: program.length, targetCount: folded.length };
-}
-
 function taskInput(row) {
   if (row.experiment_id !== 'E04') {
-    return { input: row.input, optimization: { pass: 'adjacent_addition_fold', applied: false } };
+    return { input: row.input, optimization: null };
   }
-  const folded = foldAdjacentAdditions(row.input);
-  return { input: folded.input, optimization: { pass: 'adjacent_addition_fold', ...folded } };
+  const optimized = transformE04(row.input,
+    (input) => reference.execute({ ...row, input }, null));
+  return { input: optimized.input, optimization: optimized };
 }
 
 function registerHandlers(runtime, row, input) {
@@ -76,11 +68,10 @@ function executionAnswer(result, optimization) {
   if (result.status !== 'emitted' || result.values.call === undefined) {
     throw new Error(`runtime_${result.reason || result.status}`);
   }
+  const passes = optimization?.passes || [];
   return { answer: result.values.call, metrics: {
-    static_validation: 'passed', optimization_pass: optimization.pass,
-    optimization_applied: optimization.applied === true,
-    source_operation_count: optimization.sourceCount ?? null,
-    optimized_operation_count: optimization.targetCount ?? null
+    static_validation: 'passed', e04_transformations: passes,
+    e04_all_invariants_preserved: optimization?.all_invariants_preserved ?? null
   } };
 }
 
@@ -103,10 +94,12 @@ function manifestFor(rows, outputPath) {
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
   return {
     protocol: 'OMEGA-BENCH-2026', condition_id: 'C',
-    status: 'static_interop_validation_and_E04_addition_fold_reference_handlers_elsewhere',
+    status: 'static_interop_validation_and_five_invariant_checked_E04_passes_reference_handlers_elsewhere',
     scenarios: rows.length, repetitions: REPETITIONS, runs: rows.length * REPETITIONS,
     repository_revision: revision,
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
+    e04_optimizer_sha256: crypto.createHash('sha256').update(fs.readFileSync(
+      path.join(__dirname, 'e04-optimizer.cjs'))).digest('hex'),
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
@@ -135,4 +128,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { foldAdjacentAdditions, executeRow };
+module.exports = { executeRow, taskInput };
