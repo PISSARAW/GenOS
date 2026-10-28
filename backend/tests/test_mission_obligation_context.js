@@ -77,7 +77,9 @@ async function verifyRuntimeEntry() {
     assert.deepEqual(calls[0].opts.obligationContext.open.map((item) => item.id), ['second']);
     assert.equal(calls[0].opts.scopeTask, 'Check claims');
     assert.ok(mission.prompt.includes(`version=4; hash=${hash}`));
-    assert.ok(mission.prompt.includes('historical-memory'));
+    assert.ok(!mission.prompt.includes('historical-memory'));
+    assert.equal(mission.memoryContext.status, 'attached');
+    assert.equal(mission.memoryContext.text, 'historical-memory');
 
     const mandatory = { prompt: 'Check claims', contextTokenBudget: 200,
       obligationProgress: progress(), useMemoryContext: false };
@@ -91,6 +93,8 @@ async function verifyRuntimeEntry() {
       obligationProgress: progress() };
     await attachMissionMemoryContext(degraded, 'agent-test', record);
     assert.equal(degraded.memoryContextDegradation, 'optional_memory_exceeds_context_budget');
+    assert.equal(degraded.memoryContext.status, 'omitted_budget');
+    assert.equal(degraded.memoryContext.text, '');
     assert.ok(!degraded.prompt.includes('xxx'));
     await assert.rejects(attachMissionMemoryContext({ prompt: 'Check claims',
       contextTokenBudget: 2 }, 'agent-test', record),

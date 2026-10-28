@@ -71,6 +71,9 @@ function decodeMissionInput(buffer) {
     try {
       const value = JSON.parse(buffer.toString('utf8').trim());
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Mission must be a JSON object');
+      if (value.memoryContextJson && !value.memoryContext) {
+        value.memoryContext = JSON.parse(value.memoryContextJson);
+      }
       return value;
     } catch {
       throw binaryError;
