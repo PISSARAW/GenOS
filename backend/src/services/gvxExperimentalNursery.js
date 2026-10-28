@@ -141,8 +141,9 @@ function receiptBinding(receipt) {
 }
 
 function mergeTrialMission(options, input, arm) {
-  const sources = [options, input, options.trialMission, input.trialMission, arm].filter(isObject);
-  if (!sources.some(hasTrialMarker)) return null;
+  const missionSources = [options, input, options.trialMission, input.trialMission].filter(isObject);
+  if (!missionSources.some(hasTrialMarker)) return null;
+  const sources = [...missionSources, arm].filter(isObject);
   const selected = options.trialMission || input.trialMission || input;
   const mission = { ...selected };
   for (const key of ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash',
