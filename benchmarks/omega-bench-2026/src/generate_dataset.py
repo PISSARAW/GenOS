@@ -192,27 +192,35 @@ def write_mission_catalog(assignments):
         .encode("utf-8"))
 
 
+def mission_for(experiment, index):
+    missions = [mission for mission in MISSIONS if experiment in mission["experiments"]]
+    if not missions:
+        raise ValueError(f"no mission is bound to {experiment}")
+    return missions[index % len(missions)]
+
+
+def assignment_for(row, index, counts):
+    experiment = row["experiment_id"]
+    mission = mission_for(experiment, index)
+    mission_id = mission["id"]
+    counts[mission_id] = counts.get(mission_id, 0) + 1
+    return {"scenario_id": row["scenario_id"], "experiment_id": experiment,
+        "mission_id": mission_id, "mission_variant_id": f"{mission_id}-V{counts[mission_id]:05d}",
+        "mission_context_status": mission["status"],
+        "mission_context": mission["description"], "variant_index": index}
+
+
+def experiment_assignments(experiment, public_inputs, counts):
+    rows = [row for row in public_inputs if row["experiment_id"] == experiment]
+    if len(rows) < 50:
+        raise ValueError(f"{experiment} has fewer than 50 public variants")
+    return [assignment_for(row, index, counts) for index, row in enumerate(rows)]
+
+
 def mission_assignments(public_inputs):
-    bindings = {experiment: [mission["id"] for mission in MISSIONS
-        if experiment in mission["experiments"]] for experiment in EXPERIMENTS}
     counts = {}
-    assignments = []
-    for experiment in EXPERIMENTS:
-        missions = bindings[experiment]
-        if not missions:
-            raise ValueError(f"no mission is bound to {experiment}")
-        rows = [row for row in public_inputs if row["experiment_id"] == experiment]
-        if len(rows) < 50:
-            raise ValueError(f"{experiment} has fewer than 50 public variants")
-        for index, row in enumerate(rows):
-            mission_id = missions[index % len(missions)]
-            counts[mission_id] = counts.get(mission_id, 0) + 1
-            mission = next(item for item in MISSIONS if item["id"] == mission_id)
-            assignments.append({"scenario_id": row["scenario_id"], "experiment_id": experiment,
-                "mission_id": mission_id, "mission_variant_id": f"{mission_id}-V{counts[mission_id]:05d}",
-                "mission_context_status": mission["status"],
-                "mission_context": mission["description"], "variant_index": index})
-    return assignments
+    return [assignment for experiment in EXPERIMENTS
+        for assignment in experiment_assignments(experiment, public_inputs, counts)]
 
 
 def build_experiment(number, count):
