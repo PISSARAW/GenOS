@@ -31,7 +31,8 @@ function proof(missionId = OWNER) {
   const content = { schema: 'genos.worker-biological-receipt/v1', missionId,
     workerId: WORKER, runId: `run:${missionId}:${WORKER}`,
     receiptId: `receipt:${missionId}:${WORKER}`,
-    result: { status: 'completed', verified: true } };
+    result: { status: 'completed', verified: true },
+    budgetAssessment: { satisfied: true } };
   return { reference: `sha256:${biologicalDigest(content)}`, content,
     source: 'biological_worker_receipts' };
 }
