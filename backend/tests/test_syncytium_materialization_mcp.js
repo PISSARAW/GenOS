@@ -33,7 +33,8 @@ async function persistMissionProof(db, missionId) {
   await workerStore.ensure(db);
   const content = { schema: 'genos.worker-biological-execution-receipt/v1',
     receiptId: `receipt-${missionId}`, runId: `run-${missionId}`, missionId,
-    workerId: 'worker', result: { status: 'completed', verified: true } };
+    workerId: 'worker', result: { status: 'completed', verified: true },
+    budgetAssessment: { satisfied: true } };
   await db.run(`INSERT INTO biological_worker_receipts
     (receipt_id, run_id, mission_id, payload_hash, receipt_json) VALUES (?, ?, ?, ?, ?)`,
   content.receiptId, content.runId, missionId, digest(content), encode(content));
