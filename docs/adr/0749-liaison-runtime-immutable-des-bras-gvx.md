@@ -119,6 +119,28 @@ Chaque runtime cognitif admissible doit appliquer ces frontières. Une version
 Node ou Rust qui ne possède pas le binding complet est refusée pour un trial
 GVX; la parité ne se déduit pas de la seule parité MCP ou d’un manifeste valide.
 
+### État des frontières dans le dépôt
+
+L’implémentation actuelle ne satisfait pas ces exigences; aucun bras A–G n’est
+exécutable. Les points d’entrée et écarts à traiter sont :
+
+| Frontière | Point d’entrée actuel | Écart à combler |
+| --- | --- | --- |
+| Admission et exécution d’un bras | `backend/src/services/gvxExperimentalNursery.js` (`run`, `runArm`) | `runArm` appelle un `options.runWorld` opaque. Les appelants existants — `agow/experiments/rivalChallengeRunner.js`, `gvxPairedReplayBridge.js`, `gvxTraceGuidedRepair.js` et `gvxCycleExecution.js` — n’implémentent pas un exécuteur A–G scellé. |
+| Missions, workers et reprise | `agentFleetWorkers.js` (`createAutonomousWorkers`), `agentContinuationQueueService.js`, `agentRecovery/dispatchWorkerRecovery.js` | Il n’existe pas de contrat de mission expérimental commun portant et vérifiant `profileHash` chez l’orchestrateur, les enfants, les continuations et les reprises. |
+| Acquisition et ontogenèse | `developmentalBridge/agowToGvxSignalAdapter.js` (`recordAgowSignal`), `gvxDevelopmentController.js` (`processSignal`, `runCycle`), `gvxCycleExecution.js` | Ces chemins GVX n’acceptent aucun profil d’essai; aucun gate d’acquisition ne distingue les quatre modes d’armement. |
+| Évolution | `agentEvolutionService.js` (`evolveWorkerGenome`), appelé notamment par `agentFleetWorkers.js`; mutation GVX dans `gvxCycleExecution.js` | L’évolution de workers est un chemin général partagé. Il n’existe pas de voie d’évolution GVX dédiée sous profil; ce service partagé ne doit pas être modifié pour appliquer l’ablation aux trials. |
+| Vérification apprenant | `gvxAssessmentVerification.js` (`verifyAssessment`, `verifyLongitudinal`), appelé depuis `gvxCycleExecution.js` | La vérification existe dans le cycle GVX mais n’est pas gouvernée par le profil d’un trial ni séparée d’un canal de décision de l’apprenant. |
+| Transmission | `gvxTransferLifecycle.js` (`startTransfer`, `advanceTransfer`) | Le cycle de transfert de compétences ne reçoit pas de contexte d’essai ni de gate `transmission`. |
+| Évaluateur externe | `gvxExperimentalNursery.js` et `gvxVerifierRegistry.js` | La nurserie exige un registre de vérificateurs, mais l’admission n’atteste pas un évaluateur externe obligatoire, son indépendance ni son isolation vis-à-vis de `runWorld`; aucun profil ne peut donc prouver cet invariant aujourd’hui. |
+
+La réalisation nécessite d’abord un `GvxTrialExecutionAdapter` dédié, le seul
+adaptateur admis pour A–G, qui scelle le contexte et rejette les exécuteurs
+incapables de prouver l’application des gates et l’évaluation indépendante.
+Les callbacks historiques restent hors de ce chemin. Tant que ce contrat et
+ses tests de frontière ne sont pas en place, la validation d’un manifeste ou
+d’un hash ne rend pas un bras exécutable.
+
 ### Intégrité et reçus
 
 Le runtime canonise le profil, calcule `profileHash` (SHA-256), le lie au hash
