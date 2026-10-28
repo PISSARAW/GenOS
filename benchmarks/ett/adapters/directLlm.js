@@ -26,7 +26,8 @@ async function runActions(input) {
   for (let turn = 1; turn <= maxTurns; turn += 1) {
     const generated = await input.ledger.generateJson({ model: input.model,
       prompt: directPrompt({ ...input, latest, turn, maxTurns }),
-      seed: `${input.testCase.caseId}:llm_only:${turn}`, maxTokens: 128 });
+      seed: `${input.testCase.caseId}:llm_only:${turn}`, maxTokens: 128,
+      callContext: { stage: 'direct_action', action: turn } });
     value = generated.value;
     latest = applyAction(input.testCase.world, value);
     if (input.testCase.world.terminal) break;
@@ -64,7 +65,9 @@ function failureOutcome(context, ledger, error) {
 }
 
 async function executeDirectModel(context) {
-  const ledger = createLedger();
+  const ledger = createLedger({ budgetGuard: context.budgetGuard,
+    callContext: { caseId: context.testCase.caseId, condition: 'llm_only',
+      scenarioId: context.testCase.scenarioId, difficulty: context.testCase.difficulty } });
   try {
     const result = await runActions({ model: context.model, testCase: context.testCase, ledger });
     return successOutcome({ context, ledger, ...result });

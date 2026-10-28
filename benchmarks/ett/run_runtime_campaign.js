@@ -9,6 +9,9 @@ const { createRuntimeAdapter } = require('./adapters/genosRuntime');
 const { executeDirectModel } = require('./adapters/directLlm');
 const { SYSTEM_IDS: ADAPTED_SYSTEMS, createIndependentAdapter } = require('./adapters/independent');
 const { verifyInChild } = require('./evaluation/verifyInChild');
+const { createCampaignBudgetGuard } = require('./adapters/campaignBudgetGuard');
+const { createUsageJournal } = require('./adapters/campaignUsageJournal');
+const { campaignStatus, createReport } = require('./adapters/campaignReceipt');
 const experimentExecutor = require('../../backend/src/services/endogenousThoughtCampaignExecutor');
 const { CONDITIONS } = require('../../backend/src/services/endogenousThoughtExperimentService');
 
@@ -122,8 +125,11 @@ async function executePair(context) {
   const agentCase = { caseId: testCase.caseId, scenarioId: testCase.scenarioId,
     difficulty: testCase.difficulty, observation: world.observation, world };
   const input = casePayload(agentCase, model);
+  context.budgetGuard?.setContext({ caseId: testCase.caseId, scenarioId: testCase.scenarioId,
+    difficulty, seed, condition });
   const outcome = condition === 'llm_only'
     ? await executeDirectModel({ model, testCase: agentCase,
+      budgetGuard: context.budgetGuard,
       oracle: { ...testCase.oracle, requireInspection: true, requireInteraction: true } })
     : ADAPTED_SYSTEMS.includes(condition)
       ? await executeAdaptedModel({ adapter: context.externalAdapters.get(condition),
@@ -170,7 +176,9 @@ async function executeAdaptedModel(context) {
 async function executeGenosRuntime(context) {
   const runtimeAdapter = createRuntimeAdapter({ model: context.model,
     observation: context.testCase.observation, oracle: context.oracle,
-    world: context.testCase.world });
+    world: context.testCase.world, budgetGuard: context.budgetGuard,
+    callContext: { caseId: context.caseId, scenarioId: context.testCase.scenarioId,
+      difficulty: context.testCase.difficulty, condition: context.condition } });
   const outcome = await experimentExecutor.execute({ condition: context.condition,
     caseId: context.caseId, input: context.input, runtimeAdapter });
   return { ...outcome, actions: actionsTaken(context.testCase.world),
@@ -202,7 +210,7 @@ function remainingTasks(tasks, records) {
 }
 
 function validateResumeMetadata(report, options) {
-  const expected = { schema: 'genos.ett-runtime-campaign/v3', model: options.model,
+  const expected = { schema: 'genos.ett-runtime-campaign/v4', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {
@@ -300,20 +308,26 @@ function beginSegment(report, options) {
 
 async function executeTasks(context) {
   let exhausted = false;
+  let stopReason = null;
   for (const task of context.tasks) {
     if (context.options.tokenBudget - context.report.measuredTokens < 12000) {
       exhausted = true;
+      stopReason = 'token_budget_case_reserve_reached';
       break;
     }
     const record = await executePair({ ...task, model: context.options.model,
-      externalAdapters: context.externalAdapters });
-    context.report.measuredTokens += record.outcome.measuredTokens || 0;
+      externalAdapters: context.externalAdapters, budgetGuard: context.budgetGuard });
     context.report.records.push(record);
-    context.segment.measuredTokens += record.outcome.measuredTokens || 0;
+    context.segment.measuredTokens = context.report.measuredTokens - context.segment.startingMeasuredTokens;
     context.segment.endingRecordCount = context.report.records.length;
     writeReport(context.output, context.report, false);
+    if (context.budgetGuard.stopReason) {
+      exhausted = true;
+      stopReason = context.budgetGuard.stopReason;
+      break;
+    }
   }
-  return exhausted;
+  return { exhausted, stopReason };
 }
 
 async function main(args = process.argv.slice(2)) {
@@ -323,20 +337,34 @@ async function main(args = process.argv.slice(2)) {
   const tasks = buildTasks(options, scenarios);
   const report = options.resume ? JSON.parse(fs.readFileSync(output, 'utf8'))
     : createReport(options, tasks.length);
+  if (!options.resume && fs.existsSync(output)) throw new Error(`Output already exists: ${output}`);
+  let segment = null;
+  const usageJournal = createUsageJournal({ output, report, resume: Boolean(options.resume),
+    persist: () => {
+      if (segment) segment.measuredTokens = report.measuredTokens - segment.startingMeasuredTokens;
+      writeReport(output, report, false);
+    } });
   if (options.resume) {
     validateResume(report, options);
     validateStoredRecords(report, scenarios);
   }
   report.seeds = seedList(options.seeds);
   report.expectedRecords = tasks.length;
-  const segment = beginSegment(report, options);
+  segment = beginSegment(report, options);
+  segment.startingMeasuredTokens = report.measuredTokens;
   writeReport(output, report, !options.resume);
+  const budgetGuard = createCampaignBudgetGuard({ tokenBudget: options.tokenBudget,
+    initialTokens: usageJournal.initialTokens || 0, initialSequence: usageJournal.initialSequence || 0,
+    onDispatch: usageJournal.onDispatch, onResponse: usageJournal.onResponse });
   const externalAdapters = new Map(ADAPTED_SYSTEMS.filter((id) => options.conditions.includes(id))
-    .map((id) => [id, createIndependentAdapter(id, { model: options.model })]));
+    .map((id) => [id, createIndependentAdapter(id, { model: options.model, budgetGuard })]));
   restoreAdapterState(externalAdapters, report.records);
   const pending = remainingTasks(tasks, report.records);
-  const exhausted = await executeTasks({ report, options, tasks: pending, externalAdapters, output, segment });
-  report.status = exhausted ? 'partial_campaign_token_budget_reached' : 'descriptive_runtime_run_complete';
+  const execution = await executeTasks({ report, options, tasks: pending, externalAdapters,
+    output, segment, budgetGuard });
+  report.stopReason = execution.stopReason;
+  report.status = execution.exhausted ? campaignStatus(execution.stopReason)
+    : 'descriptive_runtime_run_complete';
   segment.status = report.status === 'descriptive_runtime_run_complete' ? 'complete' : report.status;
   segment.finishedAt = new Date().toISOString();
   report.finishedAt = new Date().toISOString();
@@ -347,16 +375,6 @@ async function main(args = process.argv.slice(2)) {
     completedRecords: report.completedRecords, expectedRecords: report.expectedRecords,
     measuredTokens: report.measuredTokens, scientificClaimAllowed: false }) + '\n');
   return report;
-}
-
-function createReport(options, expectedRecords) {
-  return { schema: 'genos.ett-runtime-campaign/v3', status: 'running',
-    startedAt: new Date().toISOString(), model: options.model,
-    scenarioSet: options.scenarios, conditions: options.conditions, seeds: seedList(options.seeds),
-    tokenBudget: options.tokenBudget, split: 'development', holdout: false,
-    expectedRecords, measuredTokens: 0, records: [], segments: [], scientificClaimAllowed: false,
-    limitations: ['Local model run; no external API price is measured.',
-      'Original Voyager, AI Scientist v2 and DGM executables are not included.'] };
 }
 
 function restoreAdapterState(adapters, records) {
@@ -377,4 +395,4 @@ if (require.main === module) main().catch((error) => {
 
 module.exports = { parseArguments, scenarioModules, buildTasks, casePayload,
   taskKey, remainingTasks, validateResume, validateStoredRecords,
-  restoreAdapterState, main };
+  restoreAdapterState, executeTasks, campaignStatus, main };

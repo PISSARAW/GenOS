@@ -16,8 +16,9 @@ function sandbox(worker, observation) {
   });
 }
 
-function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, world }) {
-  const ledger = createLedger();
+function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, world,
+  budgetGuard, callContext }) {
+  const ledger = createLedger({ budgetGuard, callContext });
   const worker = createModelWorker({ ledger, model, observation, world });
   let verificationSummary = null;
   return {

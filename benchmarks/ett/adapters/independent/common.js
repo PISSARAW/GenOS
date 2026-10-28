@@ -40,7 +40,10 @@ async function runAdapter(input) {
       lastObservation: input.testCase.lastObservation || null });
     const generated = await input.ledger.generateJson({ model: input.options.model,
       prompt: `${policyPrompt}\n${actionContext(input)}`,
-      seed: `${input.testCase.caseId}:${input.options.id}:${round}`, maxTokens: 160 });
+      seed: `${input.testCase.caseId}:${input.options.id}:${round}`, maxTokens: 160,
+      callContext: { caseId: input.testCase.caseId, condition: input.options.id,
+        scenarioId: input.testCase.scenarioId, difficulty: input.testCase.difficulty,
+        stage: 'independent_action', action: round } });
     response = generated.value;
     prior = JSON.stringify(response).slice(0, 1000);
     applyAction({ ...input, response });
@@ -60,7 +63,7 @@ function proposalFromResult(input) {
 }
 
 function createAdapter(options) {
-  const ledger = options.ledger || createLedger();
+  const ledger = options.ledger || createLedger({ budgetGuard: options.budgetGuard });
   const memory = [];
   return {
     id: options.id,

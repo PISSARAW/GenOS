@@ -4,40 +4,58 @@ const modelProvider = require('../../../backend/src/services/modelProvider');
 
 const DEFAULT_MODEL = 'ollama://qwen2.5-coder:7b';
 
-function createLedger() {
-  const calls = [];
-  const callHistory = [];
-  const totals = { tokens: 0, usd: 0, seconds: 0, measured: true, calls: 0 };
-  return {
-    calls,
-    async generateJson({ model = DEFAULT_MODEL, prompt, seed, maxTokens = 128 }) {
-      const started = process.hrtime.bigint();
-      const response = await modelProvider.generate({ model, prompt, seed,
-        temperature: 0, stream: false, enforceSchema: false, maxTokens, timeoutMs: 120000 });
-      const row = { model: response.servedModel || model, provider: response.provider,
-        inputTokens: response.inputTokens, outputTokens: response.outputTokens,
-        measured: response.tokenUsageMeasured === true,
-        elapsedMs: Number(process.hrtime.bigint() - started) / 1e6 };
-      calls.push(row);
-      callHistory.push(row);
-      totals.tokens += row.inputTokens + row.outputTokens;
-      totals.seconds += Math.ceil(row.elapsedMs / 1000);
-      totals.calls += 1;
-      totals.measured &&= row.measured;
-      return { value: parseJson(response.text), usage: row };
-    },
-    takeSnapshot() {
-      const snapshot = calls.splice(0, calls.length);
-      return snapshot.reduce((total, row) => ({
-        tokens: total.tokens + row.inputTokens + row.outputTokens,
-        usd: total.usd,
-        seconds: total.seconds + Math.ceil(row.elapsedMs / 1000),
-        measured: total.measured && row.measured,
-        calls: total.calls + 1
-      }), { tokens: 0, usd: 0, seconds: 0, measured: true, calls: 0 });
-    },
-    summary: () => ({ ...totals, callDetails: [...callHistory] })
-  };
+function ledgerRow(response, model, elapsedMs) {
+  return { model: response.servedModel || model, provider: response.provider,
+    inputTokens: response.inputTokens, outputTokens: response.outputTokens,
+    measured: response.tokenUsageMeasured === true
+      && Number.isSafeInteger(response.inputTokens) && response.inputTokens >= 0
+      && Number.isSafeInteger(response.outputTokens) && response.outputTokens >= 0, elapsedMs };
+}
+
+function updateTotals(state, row) {
+  state.calls.push(row);
+  state.callHistory.push(row);
+  if (row.measured) state.totals.tokens += row.inputTokens + row.outputTokens;
+  state.totals.seconds += Math.ceil(row.elapsedMs / 1000);
+  state.totals.calls += 1;
+  state.totals.measured &&= row.measured;
+}
+
+async function generateResponse(input) {
+  const { options, state, request } = input;
+  const { model = DEFAULT_MODEL, prompt, seed, maxTokens = 128, callContext } = request;
+  const started = process.hrtime.bigint();
+  const reservation = options.budgetGuard?.beginCall({ prompt, maxTokens,
+    callContext: { ...(options.callContext || {}), ...(callContext || {}) } });
+  let response;
+  try {
+    response = await (options.generate || modelProvider.generate)({ model, prompt, seed,
+      temperature: 0, stream: false, enforceSchema: false, maxTokens, timeoutMs: 120000 });
+  } catch (error) {
+    if (reservation) options.budgetGuard.failCall(reservation, error);
+    throw error;
+  }
+  const row = ledgerRow(response, model, Number(process.hrtime.bigint() - started) / 1e6);
+  updateTotals(state, row);
+  if (reservation) options.budgetGuard.completeCall(reservation, row);
+  return { value: parseJson(response.text), usage: row };
+}
+
+function takeSnapshot(state) {
+  return state.calls.splice(0, state.calls.length).reduce((total, row) => ({
+    tokens: total.tokens + (row.measured ? row.inputTokens + row.outputTokens : 0),
+    usd: total.usd, seconds: total.seconds + Math.ceil(row.elapsedMs / 1000),
+    measured: total.measured && row.measured, calls: total.calls + 1
+  }), { tokens: 0, usd: 0, seconds: 0, measured: true, calls: 0 });
+}
+
+function createLedger(options = {}) {
+  const state = { calls: [], callHistory: [],
+    totals: { tokens: 0, usd: 0, seconds: 0, measured: true, calls: 0 } };
+  return { calls: state.calls,
+    generateJson: (request) => generateResponse({ options, state, request }),
+    takeSnapshot: () => takeSnapshot(state),
+    summary: () => ({ ...state.totals, callDetails: [...state.callHistory] }) };
 }
 
 function parseJson(text) {
@@ -55,7 +73,8 @@ function questionGenerator(ledger, model) {
     const prompt = ['Return JSON with text, hypothesis, falsifier, method.',
       `Observation: ${input.summary}`, `Dimension: ${input.dimension.name}`,
       `Acceptance: ${input.dimension.expected}`, 'Propose one discriminating, read-only test.'].join('\n');
-    const { value } = await ledger.generateJson({ model, prompt, maxTokens: 128 });
+    const { value } = await ledger.generateJson({ model, prompt, maxTokens: 128,
+      callContext: { stage: 'endogenous_question_generation' } });
     return value;
   };
 }
@@ -86,7 +105,8 @@ async function runWorkerTurns(input) {
       `Required next action: ${JSON.stringify(current.nextAction)}.`,
       'Return JSON with an action matching the required type and fields. When nextAction is null, submit_answer with an inspected answerId.'].join('\n');
     const result = await input.ledger.generateJson({ model: input.model, prompt,
-      seed: `${input.request.executionId}:${turn}`, maxTokens: 128 });
+      seed: `${input.request.executionId}:${turn}`, maxTokens: 128,
+      callContext: { stage: 'worker_action', action: turn } });
     value = result.value;
     if (!input.world) break;
     latest = applyWorkerAction(input.world, value);

@@ -8,6 +8,7 @@ const { scenarioModules, parseArguments, buildTasks, casePayload, remainingTasks
 const { verifyInChild } = require('../evaluation/verifyInChild');
 const { compareRows, compareSystems } = require('../evaluation/replay');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
+const { testCampaignBudgetGuard } = require('./test_campaign_budget_guard');
 
 function testActionFor(world, answerId, evidence = {}) {
   const next = world.observation.nextAction;
@@ -234,7 +235,7 @@ function testRunnerOptions() {
 function testResumeContracts() {
   const options = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--conditions', 'full,voyager_adapted']);
-  const report = { schema: 'genos.ett-runtime-campaign/v3', model: options.model,
+  const report = { schema: 'genos.ett-runtime-campaign/v4', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,
     measuredTokens: 200000, status: 'partial_global_token_budget_reserve_reached', records: [] };
@@ -344,6 +345,7 @@ async function main() {
   testReplayComparison();
   testRunnerOptions();
   testResumeContracts();
+  await testCampaignBudgetGuard();
   await testIndependentAdapters();
   process.stdout.write('ETT runtime campaign contracts passed.\n');
 }
