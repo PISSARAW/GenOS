@@ -13,7 +13,7 @@ const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt, appendCoordinationEvidence,
-  buildOrchestratorAuthorityInstruction } = require('./agent-runtime-prompt.cjs');
+  buildAuthorityInstruction: buildRuntimeAuthorityInstruction } = require('./agent-runtime-prompt.cjs');
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
 const runtimeStdio = require('./agent-runtime-stdio.cjs');
@@ -111,16 +111,7 @@ function resolveIdentity(mission) {
 }
 
 function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
-  if (isWorker) return workerAuthorityInstruction(mission);
-  if (autonomyPlan.synthesisOnly) return 'You are the GenOS orchestrator in the enforced final-synthesis phase. The control plane has completed delegated workers and recoveries. Compare all dossiers and produce the official result; do not dispatch or launch another topology.';
-  return buildOrchestratorAuthorityInstruction(autonomyPlan);
-}
-
-function workerAuthorityInstruction(mission) {
-  const routing = workerMcpPreflight.continuousCoordination(mission)
-    ? 'Follow the assigned coordination policy.'
-    : 'This worker world is isolated; do not call peer coordination tools.';
-  return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a strategy contract, spawn peer agents, or promote a result. ${routing} Return final evidence to the orchestrator.`;
+  return buildRuntimeAuthorityInstruction(mission, isWorker, autonomyPlan);
 }
 
 function createState(mission, data) {

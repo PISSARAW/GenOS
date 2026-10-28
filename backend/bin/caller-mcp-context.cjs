@@ -19,7 +19,7 @@ function createContext(mission, emit) {
     exactTokens: 0, observedCostUsd: 0, conscienceState: conscience.createConscienceState(), emit };
   state.prompt = prompts.buildAgentRuntimePrompt({ ...state,
     selfIntro: `You are ${agentName}, GenOS ${mission.executionMode}.`, conscienceBlock: '', memoryBlock,
-    authorityInstruction: isWorker ? `Return evidence to ${mission.orchestratorAgentId}. Do not spawn agents or promote results.` : 'Own the GenOS mission. Account for all attached worker dossiers. Do not redispatch workers in final synthesis.',
+    authorityInstruction: prompts.buildAuthorityInstruction(mission, isWorker, autonomyPlan),
     runtimeContract: prompts.compactStrategyContract(strategyContract, isWorker),
     runtimeAutonomyPlan: prompts.compactAutonomyPlan(autonomyPlan),
     executionPolicy: JSON.parse(mission.executionPolicyJson || '{}'),

@@ -79,6 +79,19 @@ function buildOrchestratorAuthorityInstruction(plan = {}) {
   return directives.join(' ');
 }
 
+function buildAuthorityInstruction(mission, isWorker, autonomyPlan = {}) {
+  if (isWorker) return buildWorkerAuthorityInstruction(mission);
+  if (autonomyPlan.synthesisOnly) return 'You are the GenOS orchestrator in final synthesis. Compare completed worker dossiers and produce the official result; do not dispatch more workers or launch another topology.';
+  return buildOrchestratorAuthorityInstruction(autonomyPlan);
+}
+
+function buildWorkerAuthorityInstruction(mission) {
+  const { continuousCoordination } = require('./worker-mcp-inventory-preflight.cjs');
+  const authority = `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a strategy contract, spawn peer agents, or promote a result. Return final evidence to the orchestrator.`;
+  return continuousCoordination(mission) ? authority
+    : `${authority} This worker world is isolated; do not call peer coordination tools.`;
+}
+
 function buildContinuationContext(previous, dossier, assignedTokens) {
   const compiled = dossier ? require('../src/services/agentEvidence/continuationContextCompiler').compileEvidenceDelta(dossier) : null;
   return [
@@ -293,6 +306,7 @@ module.exports = {
   compactAutonomyPlan,
   hasActiveAutonomyWork,
   buildOrchestratorAuthorityInstruction,
+  buildAuthorityInstruction,
   buildAgentRuntimePrompt,
   buildContinuationContext,
   buildCapabilityBlock,
