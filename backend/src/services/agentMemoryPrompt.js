@@ -18,7 +18,6 @@ const microRnaPrompt = require('./microRnaPromptService');
 const causalSources = require('./agentCausalMemorySource');
 const scope = require('./agentMemoryScope');
 const { sanitizeMemorySourceText } = require('./memoryScoring');
-const { MAX_TOKEN_BUDGET, compileContext } = require('./memory/memoryContextCompiler');
 const { rankMemories } = require('./memory/situationalRecallService');
 const { metadataFor, hasMetadata } = require('./memory/historicalMemoryMetadata');
 const memoryPromptBudget = require('./agentMemoryPromptBudget');
@@ -227,12 +226,6 @@ function buildMemorySections(memories, regular) {
   return sections;
 }
 
-function historicalBudget(options) {
-  const requested = Number(options?.historicalMemoryTokenBudget);
-  if (!Number.isFinite(requested) || requested < 0) return 2000;
-  return Math.min(2000, Math.floor(requested));
-}
-
 function estimateMemoryTokens(text) {
   return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
 }
@@ -240,65 +233,6 @@ function estimateMemoryTokens(text) {
 function memoryMetadataSuffix(item) {
   const metadata = metadataFor(item);
   return hasMetadata(metadata) ? ` [références historiques, non preuve indépendante: ${JSON.stringify(metadata)}]` : '';
-}
-
-function selectionTokens(memories) {
-  const rendered = buildMemorySections(memories, []).join('\n\n');
-  return estimateMemoryTokens(rendered);
-}
-
-function renderedMemoryTokens(memories, regular, shield) {
-  const sections = buildMemorySections(memories, regular);
-  return estimateMemoryTokens(assemblePromptBlock(sections, shield));
-}
-
-function emptyMemorySelection() {
-  return { experiences: [], pitfalls: [], goldenPaths: [], episodes: [] };
-}
-
-function rankHistoricalMemories(memories, query) {
-  const kinds = ['experiences', 'pitfalls', 'goldenPaths', 'episodes'];
-  const keyed = Object.fromEntries(kinds.map((kind) => [kind,
-    (memories[kind] || []).map((item, index) => ({
-      ...item,
-      _promptMemoryKey: `${kind}:${index}`,
-      similarityScore: Number(item.similarityScore ?? item.similarity) || 0
-    }))]));
-  const compiled = compileContext({
-    relevantFacts: keyed.pitfalls,
-    relevantEpisodes: keyed.episodes,
-    procedures: [...keyed.experiences, ...keyed.goldenPaths],
-    budget: MAX_TOKEN_BUDGET,
-    query
-  });
-  const rankedKeys = compiled.items.map((item) => item._promptMemoryKey);
-  return Object.fromEntries(kinds.map((kind) => {
-    const source = keyed[kind];
-    const ranked = rankedKeys.map((key) => source.find((item) => item._promptMemoryKey === key)).filter(Boolean);
-    const selected = new Set(ranked.map((item) => item._promptMemoryKey));
-    return [kind, [...ranked, ...source.filter((item) => !selected.has(item._promptMemoryKey))]];
-  }));
-}
-
-function selectHistoricalMemories(memories, options, query) {
-  const selected = emptyMemorySelection();
-  const budget = historicalBudget(options);
-  const regular = options?._memoryContextRegularLines || [];
-  const shield = options?._memoryContextShield || null;
-  const totalBudget = memoryPromptBudget.contextBudget(options, MAX_TOKEN_BUDGET);
-  const ranked = rankHistoricalMemories(memories, query);
-  const cautions = ranked.experiences.filter(scope.isCaution);
-  const ordinary = ranked.experiences.filter((item) => !scope.isCaution(item));
-  const queues = [['pitfalls', ranked.pitfalls], ['experiences', cautions],
-    ['goldenPaths', ranked.goldenPaths], ['experiences', ordinary], ['episodes', ranked.episodes]];
-  for (const [kind, entries] of queues) {
-    for (const entry of entries || []) {
-      selected[kind].push(entry);
-      if (selectionTokens(selected) > budget
-        || renderedMemoryTokens(selected, regular, shield) > totalBudget) selected[kind].pop();
-    }
-  }
-  return selected;
 }
 
 function assemblePromptBlock(sections, shield) {
@@ -323,15 +257,20 @@ function assembleGenomeBlock(options) {
   return `${promptGenome.render(regulated)}\n\n`;
 }
 
+const memorySelection = memoryPromptBudget.createSelection({
+  buildMemorySections,
+  assemblePromptBlock,
+  estimateMemoryTokens
+});
+
 async function formatCognitiveMemoryPrompt(agentId, task, options) {
   const opts = options || {};
   try {
     const memories = await retrieveAgentMemories(agentId, task, opts);
     const injections = await collectVesicleSections(agentId, opts);
-    const regular = memoryPromptBudget.selectRegularVesicles(injections.regular,
-      memoryPromptBudget.contextBudget(opts, MAX_TOKEN_BUDGET), (lines) =>
-        renderedMemoryTokens(emptyMemorySelection(), lines, injections.shield));
-    const selected = selectHistoricalMemories(memories, { ...opts,
+    const regular = memorySelection.selectRegular(injections.regular, { ...opts,
+      _memoryContextShield: injections.shield });
+    const selected = memorySelection.selectHistorical(memories, { ...opts,
       _memoryContextRegularLines: regular, _memoryContextShield: injections.shield }, task);
     const sections = buildMemorySections(selected, regular);
     const promptBlock = assemblePromptBlock(sections, injections.shield);
@@ -394,5 +333,5 @@ module.exports = {
   formatCognitiveMemoryPrompt,
   formatGoldenPath,
   truncateWords,
-  selectHistoricalMemories
+  selectHistoricalMemories: memorySelection.selectHistorical
 };
