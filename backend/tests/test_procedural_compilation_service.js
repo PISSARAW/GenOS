@@ -20,6 +20,11 @@ const trust = { validateReceipt: async () => true, validateResult: async () => t
     organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(agent_id, organization_id, project_id));`);
+  await db.exec(`CREATE TABLE provider_configs (
+    id TEXT PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL, endpoint TEXT,
+    capabilities_json TEXT DEFAULT '[]', cost_input REAL DEFAULT 0,
+    cost_output REAL DEFAULT 0, latency_ms REAL DEFAULT 0, enabled INTEGER DEFAULT 1,
+    UNIQUE(provider, model));`);
   for (let i = 0; i < 3; i++) await service.recordTrace(db, { agentId: 'a1', contextHash: 'ctx',
     steps: ['read', 'select', 'write'], input: { i }, success: true, evidenceRefs: [`receipt:${i}`] });
   const candidate = await service.compile(db, { agentId: 'a1', contextHash: 'ctx' });
@@ -92,11 +97,12 @@ const trust = { validateReceipt: async () => true, validateResult: async () => t
     cognitiveProcedureReceiptValidator: async () => true,
     cognitiveProcedureResultValidator: async () => true };
   const context = service.contextFor(options, options.cognitiveContract);
-  for (let i = 0; i < 3; i++) await service.recordTrace(db, { agentId: 'router',
+  for (let i = 0; i < 3; i++) await service.recordTrace(db, { id: `route-trace-${i}`, agentId: 'router',
     contextHash: 'route-ctx', context, input: 'task', steps: ['read', 'write'],
     success: true, evidenceRefs: [`route:${i}`] });
-  await service.compileAndPromote(db, { agentId: 'router', contextHash: 'route-ctx', context,
+  const routeProcedure = await service.compileAndPromote(db, { agentId: 'router', contextHash: 'route-ctx', context,
     autoPromote: true, validator: async () => ({ status: 'verified' }) });
+  assert.equal(routeProcedure.status, 'promoted', JSON.stringify(routeProcedure));
   const routed = await router.generate(options);
   assert.equal(routed.provider, 'procedural');
   assert.equal(routed.inputTokens, 0);
