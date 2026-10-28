@@ -112,20 +112,62 @@ fn record_trace_event(events: &mut Vec<Value>, name: &str, started: Instant) {
 }
 
 fn checked_results_dir(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let results_root = root.join("results");
     let configured = std::env::var_os("OMEGA_RESULTS_DIR")
-        .map(PathBuf::from).unwrap_or_else(|| results_root.clone());
-    let candidate = if configured.is_absolute() { configured } else { root.join(configured) };
-    if candidate.components().any(|part| part == Component::ParentDir) {
+        .map(PathBuf::from);
+    configured_results_dir(root, configured.as_deref())
+}
+
+fn configured_results_dir(
+    root: &Path,
+    configured: Option<&Path>,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let canonical_root = fs::canonicalize(root)?;
+    let canonical_results = fs::canonicalize(canonical_root.join("results"))?;
+    let candidate = match configured {
+        Some(path) if path.components().any(|part| part == Component::ParentDir) => {
+            return Err("E12 output path must stay under public results/".into());
+        }
+        Some(path) if path.is_absolute() => path.to_path_buf(),
+        Some(path) => canonical_root.join(path),
+        None => canonical_results.clone(),
+    };
+    if !candidate.starts_with(&canonical_results) {
         return Err("E12 output path must stay under public results/".into());
     }
-    fs::create_dir_all(&candidate)?;
-    let canonical_results = fs::canonicalize(results_root)?;
-    let canonical_candidate = fs::canonicalize(candidate)?;
+    let safe_candidate = confined_candidate(&canonical_results, &candidate)?;
+    fs::create_dir_all(&safe_candidate)?;
+    let canonical_candidate = fs::canonicalize(safe_candidate)?;
     if !canonical_candidate.starts_with(&canonical_results) {
         return Err("E12 output path must stay under public results/".into());
     }
     Ok(canonical_candidate)
+}
+
+fn confined_candidate(
+    results_root: &Path,
+    candidate: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut ancestor = candidate;
+    let mut missing = Vec::new();
+    while let Err(error) = fs::symlink_metadata(ancestor) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            return Err(error.into());
+        }
+        let name = ancestor.file_name().ok_or("invalid E12 results path")?;
+        missing.push(name.to_os_string());
+        ancestor = ancestor.parent().ok_or("invalid E12 results path")?;
+    }
+    let mut safe = fs::canonicalize(ancestor)?;
+    if !safe.starts_with(results_root) {
+        return Err("E12 output path must stay under public results/".into());
+    }
+    for name in missing.iter().rev() {
+        safe.push(name);
+    }
+    if !safe.starts_with(results_root) {
+        return Err("E12 output path must stay under public results/".into());
+    }
+    Ok(safe)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -182,4 +224,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(output_path.with_extension("manifest.json"), serde_json::to_vec_pretty(&manifest)?)?;
     println!("Rust Omega runtime: {} cases -> {}", outputs.len(), output_path.display());
     Ok(())
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::configured_results_dir;
+    use std::fs;
+    use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temporary_root() -> std::path::PathBuf {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        std::env::temp_dir().join(format!("omega-e12-path-{}-{nonce}", std::process::id()))
+    }
+
+    #[test]
+    fn default_results_path_canonicalizes_trusted_parent_components() {
+        let base = temporary_root();
+        let root = base.join("parent").join("..").join("benchmark");
+        fs::create_dir_all(root.join("results")).unwrap();
+        let actual = configured_results_dir(&root, None).unwrap();
+        assert_eq!(actual, fs::canonicalize(root.join("results")).unwrap());
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn configured_traversal_is_rejected_before_creating_outside_directory() {
+        let root = temporary_root();
+        fs::create_dir_all(root.join("results")).unwrap();
+        let outside = root.join("escaped");
+        let result = configured_results_dir(&root, Some(Path::new("results/../escaped")));
+        assert!(result.is_err());
+        assert!(!outside.exists());
+        let absolute_outside = root.with_file_name(format!(
+            "{}-outside",
+            root.file_name().unwrap().to_string_lossy()
+        ));
+        let result = configured_results_dir(&root, Some(&absolute_outside));
+        assert!(result.is_err());
+        assert!(!absolute_outside.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }
