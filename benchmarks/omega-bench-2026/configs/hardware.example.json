@@ -6,5 +6,11 @@
   "memory_bytes": null,
   "gpu_model": null,
   "os": null,
-  "runtime_versions": {}
+  "runtime_versions": {},
+  "confirmatory_controls": {
+    "host_dedicated": false,
+    "cpu_isolated": false,
+    "memory_isolated": false,
+    "serialized_runs": false
+  }
 }

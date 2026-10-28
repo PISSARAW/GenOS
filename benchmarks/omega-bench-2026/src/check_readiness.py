@@ -281,9 +281,20 @@ def configuration_checks(protocol, blockers):
         check(blockers, "auxiliary_trace_artifacts", auxiliary_trace_status(ROOT, protocol)),
         check(blockers, "hardware_lock", (hardware.get("status") == "locked" and hardware.get("cpu_model")
               and hardware.get("memory_bytes"), "hardware configuration must be observed and locked")),
+        check(blockers, "confirmatory_hardware", confirmatory_hardware_status(hardware)),
         check(blockers, "model_lock", model_control_status(protocol, model)),
     ]
     return checks
+
+
+def confirmatory_hardware_status(hardware):
+    controls = hardware.get("confirmatory_controls", {})
+    required = ("host_dedicated", "cpu_isolated", "memory_isolated", "serialized_runs")
+    missing = [key for key in required if controls.get(key) is not True]
+    passed = not missing
+    detail = "verified dedicated host, isolated resources and serialized runs" \
+        if passed else f"unverified confirmatory controls={missing}"
+    return passed, detail
 
 
 def baseline_status(baseline, protocol):

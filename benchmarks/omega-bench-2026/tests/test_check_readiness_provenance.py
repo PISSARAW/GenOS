@@ -186,6 +186,16 @@ class ReadinessProvenanceTests(unittest.TestCase):
         self.assertIsNone(readiness.confined_path(self.root, "../outside.jsonl"))
         self.assertIsNone(readiness.confined_path(self.root, "../outside.traces.jsonl"))
 
+    def test_confirmatory_hardware_requires_all_isolation_controls(self):
+        hardware = {"confirmatory_controls": {
+            "host_dedicated": True, "cpu_isolated": True,
+            "memory_isolated": True, "serialized_runs": True}}
+        self.assertTrue(readiness.confirmatory_hardware_status(hardware)[0])
+        hardware["confirmatory_controls"]["host_dedicated"] = False
+        passed, detail = readiness.confirmatory_hardware_status(hardware)
+        self.assertFalse(passed)
+        self.assertIn("host_dedicated", detail)
+
     def _auxiliary_ablation_fixture(self):
         manifest = dict(self.manifest, condition_id="A1-off", scope=["E01"])
         context = self._auxiliary_context({"E01": 2})

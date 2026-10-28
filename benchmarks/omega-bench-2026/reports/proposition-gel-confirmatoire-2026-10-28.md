@@ -6,19 +6,19 @@
 
 `python benchmarks/omega-bench-2026/src/check_readiness.py` a confirmé `sealed_holdout: passed`, 680 cas et `location=outside_repository`. Le contrôle appelle `generate_holdout.verify_holdout`: il vérifie commitment, présence, volumes et empreintes des fichiers privés; il ne compare pas les sorties de candidats aux oracles et ne produit aucun score. Cette vérification n'est pas un scoring du holdout.
 
-Le préflight public donne **24/26**. Les 24 contrôles réussis couvrent les 3 400 cas et 12 expériences, les 40 800 exécutions principales prévues, les 24 fichiers d'entrée/oracle publics et leurs empreintes, A–D, les sept familles de baselines, le verrou matériel et zéro appel modèle. Les deux contrôles en échec sont exactement `protocol_preregistered` et `preregistration_requirements`.
+Le préflight public donne maintenant **26/29**. Les contrôles réussis couvrent les 3 400 cas et 12 expériences, les 40 800 exécutions principales prévues, les 24 fichiers d'entrée/oracle publics et leurs empreintes, A–D, les sept familles de baselines, l’observation de l’hôte et zéro appel modèle. Les trois contrôles en échec sont `confirmatory_hardware`, `protocol_preregistered` et `preregistration_requirements`. La VM est partagée; les indicateurs d’hôte dédié, d’isolation CPU/mémoire et d’exécution sérialisée ne sont pas vérifiés.
 
 ## Empreintes publiques observées
 
 | Objet | Empreinte SHA-256 / état |
 | --- | --- |
-| `protocol.json` | `627b14065575a4bd3b9d7f34d4fa350b1f4fc82b060afd99af050c288fd16e2f` |
-| `dataset/manifest.json` | `e8714de000ade8dce84d5cf3f294b23c6f54701293d6fd0f83c76526e90373ab` |
+| `protocol.json` | `3f1ccc24d71c5e0475c15c8045fdfc3eed981c80860dc01a6c98eb6612e3ee84` |
+| `dataset/manifest.json` | `830dd926a8bb4ecf6749f62bd26165a6efacd263004d95df8499b563bbad4134` |
 | Corpus public | 3 400 cas, 24/24 fichiers vérifiés contre le manifeste |
 | Protocole | `0.4.0-draft`; `public_development_qualification_complete_confirmatory_campaign_blocked` |
 | Seuils | `draft_requires_preregistration` |
 
-Les empreintes du manifeste couvrent les JSONL publics d'entrée et d'oracle. Elles ne figent pas à elles seules les adaptateurs, les dépendances, le plan statistique ou les frontières d'instrumentation; le gel proposé doit enregistrer aussi ces objets.
+Les empreintes du manifeste couvrent les JSONL publics d'entrée et d'oracle. Elles ne figent pas à elles seules les adaptateurs, les dépendances, le plan statistique ou les frontières d'instrumentation; le gel proposé doit enregistrer aussi ces objets. Les lockfiles et commandes ne sont pas encore liés à un manifeste campagne unique; les sorties brutes/traces sont locales sous `results/` et ne sont pas versionnées.
 
 ## Conditions principales et baselines
 
@@ -58,9 +58,9 @@ A2 a été relancée après mise à jour du runner et son hash est synchronisé 
 2. **Définition A2.** Le rerun public mesure ON=validation d'enveloppe+compilation+runtime contre OFF=runtime seul, la garde runtime restant active. L'oracle confirme que le runtime transmet 750 enveloppes `state`-missing non canoniques au handler factice; aucune action dangereuse réelle n'est représentée. Décider si le contraste restreint répond à l'ablation visée, et fixer le traitement contractuel de `state` manquant. Ne pas interpréter ces handlers factices comme une mesure de sûreté de production.
 3. **Définition A4.** Une tranche runtime-native publique E05 est maintenant mesurée sans modification du protocole. Elle reste exploratoire et n’atteste pas la durabilité d’un système externe réel. Le test harness-level précédent n’est plus le résultat A4 courant.
 4. **Provenance.** Les résultats D rafraîchis et A8 correspondent maintenant aux sources présentes. Après tout changement d'adaptateur, revalider les hashes; ne pas réutiliser les résultats d'une source antérieure.
-5. **Puissance.** L'analyse publique `src/analyze_power_public.py` et `reports/analyse-puissance-publique-2026-10-28.md` couvrent les contrastes antérieurs; sa ligne A4 décrit l’ancien contrôle harness-level et doit être régénérée avant toute décision de puissance confirmatoire. Elle utilise les sorties/oracles publics uniquement, l'unité scénario et les médianes des répétitions; elle produit des estimations de planification sous correction Bonferroni, pas des p-values confirmatoires sous Holm. A2 demeure un contraste restreint de validation. A5 ne valide pas la persistance morphogénétique et A6 ne couvre pas le coût en euros. Confirmer les portées puis figer puissance, correction multiple, marges et limites.
+5. **Puissance.** L'analyse publique `src/analyze_power_public.py` et `reports/analyse-puissance-publique-2026-10-28.md` couvrent maintenant 74 contrastes publics; elle reste une planification exploratoire, post hoc, et ne définit pas des marges confirmatoires. Elle utilise les sorties/oracles publics uniquement, l'unité scénario et les médianes des répétitions; elle produit des estimations de planification sous correction Bonferroni, pas des p-values confirmatoires sous Holm. A2 demeure un contraste restreint de validation. A5 ne valide pas la persistance morphogénétique et A6 ne couvre pas le coût en euros. Confirmer les portées puis figer puissance, correction multiple, marges et limites.
 6. **Frontières d'instrumentation.** Le plan propose latence du JSON déjà chargé/encodé à la réponse décodée, inclut transports/reprises/erreurs, exclut démarrage/installation/génération/scoring; octets UTF-8 au même point; coûts API `N/A` sans appels payants. Confirmer que chaque baseline et ablation mesure bien ces frontières ou spécifier des métriques `N/A` non comparables. Fixer pour E09 p99, débit, mesure RSS et régime froid/chaud.
-7. **Comparateurs et artefacts scellés.** Figer le comparateur externe applicable de chaque famille à chaque expérience à partir du développement public; figer versions, matériel, commandes, hashes de tous les adaptateurs/configurations et la sortie du calcul de puissance avant d'exécuter `evaluate_holdout.py`.
+7. **Comparateurs et artefacts scellés.** Figer le comparateur externe applicable de chaque famille à chaque expérience à partir du développement public; figer versions, matériel dédié et isolation, commandes, hashes de tous les adaptateurs/configurations/lockfiles et la sortie du calcul de puissance avant d'exécuter `evaluate_holdout.py`.
 8. **A8 — interprétation de portée.** Le runner couvre maintenant les douze expériences et utilise le même mappage de handlers que D : services GenOS réels en E10/E11, handlers déterministes de référence ailleurs. Cela satisfait un contraste complet du chemin G-CIR contre dispatch JSON dans la composition D actuelle, sans modifier D ni prétendre à une intégration GenOS sur douze tâches. Si l'interprétation exigée est plutôt « mêmes services GenOS réels sur chaque tâche », cette comparaison reste impossible à partir de l'implémentation actuelle et demanderait d'ajouter ces services; ne pas extrapoler les résultats E01–E09/E12 comme effet des services GenOS.
 
 ## Checklist de gel proposée
@@ -100,4 +100,4 @@ node benchmarks/omega-bench-2026/adapters/ablation-a8-json.cjs
 node benchmarks/omega-bench-2026/src/run_e09_load.cjs --output=benchmarks/omega-bench-2026/results/E09-load.json
 ```
 
-Ces commandes ne score pas le holdout. Garder le protocole au statut brouillon jusqu'à décision sur les items ci-dessus; ne pas inscrire `status: preregistered` par simple complétion technique du préflight.
+Ces commandes ne score pas le holdout. Garder le protocole au statut brouillon jusqu'à décision sur les items ci-dessus et disponibilité d'un matériel confirmatoire contrôlé; ne pas inscrire `status: preregistered` par simple complétion technique du préflight.

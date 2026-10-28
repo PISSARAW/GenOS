@@ -13,8 +13,7 @@ générale.
 
 Les JSONL, évaluations, manifestes et journaux restent générés sous ce dossier
 ignoré par Git. L'analyse appariée de 74 contrastes est post hoc, publique et
-non confirmatoire. Le holdout local de 680 cas a été régénéré et vérifié hors
-dépôt; il n'a pas été lu ni scoré. Le préflight reste à 26/28. Six points
+non confirmatoire. Le holdout local de 680 cas passe le contrôle d’intégrité hors dépôt; aucun résultat candidat n’a été comparé à son oracle et aucun score n’a été calculé. Le préflight reste à 26/29 : le matériel observé est partagé et ne vérifie pas les contrôles requis pour le confirmatoire (hôte dédié, isolation CPU/mémoire, exécution sérialisée). Le statut du protocole est toujours brouillon et six décisions restent ouvertes. Six points
 doivent être résolus avant approbation : E11 énergie/tarif (ou amendement),
 plan d'inférence, preuve E09 ou revendication mémoire réduite, frontières
 d'instrumentation, gel des adaptateurs/configurations/dépendances/commandes,
