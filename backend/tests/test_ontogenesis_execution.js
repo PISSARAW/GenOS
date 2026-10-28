@@ -80,6 +80,65 @@ async function recoverCommit(db, root) {
   assert.strictEqual(await integration.currentSha(git, run.worktree), sha);
 }
 
+function failFirstDispatchStart(journal) {
+  const transition = journal.transitionOperation;
+  let failed = false;
+  journal.transitionOperation = async (db, input) => {
+    if (!failed && input.state === 'started' && input.operationId.startsWith('onto_run_')) {
+      failed = true;
+      throw new Error('injected-dispatch-crash');
+    }
+    return transition(db, input);
+  };
+  return () => { journal.transitionOperation = transition; };
+}
+
+async function retryPreparedDispatch(db, root) {
+  const project = await fixture.project(db, root);
+  const harness = fixture.fakeHarness(db);
+  const tick = () => tickOnce(db, { projectId: project.id, owner: 'execution-recovery-test', harness });
+  const journal = require('../src/services/ontogenesis/operationJournal');
+  assert.strictEqual((await tick()).state, 'PLANNING');
+  const restore = failFirstDispatchStart(journal);
+  try {
+    await assert.rejects(tick(), /injected-dispatch-crash/);
+  } finally {
+    restore();
+  }
+  await assertPreparedDispatch(db, project);
+  assert.strictEqual((await tick()).state, 'EXECUTING');
+  await assertRetriedDispatch(db, project, harness);
+}
+
+async function assertPreparedDispatch(db, project) {
+  const operation = await db.get("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
+    [project.id]);
+  assert.ok(operation);
+  assert.strictEqual(operation.state, 'prepared');
+  assert.strictEqual(operation.idempotency_key, `dispatch:${project.task}:0`);
+  assert.strictEqual((await db.get('SELECT COUNT(*) AS count FROM ontogenesis_execution WHERE project_id = ?',
+    [project.id])).count, 0);
+  assert.strictEqual((await db.get('SELECT COUNT(*) AS count FROM ontogenesis_runs WHERE project_id = ?',
+    [project.id])).count, 0);
+  assert.strictEqual((await db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?',
+    [project.task])).status, 'todo');
+}
+
+async function assertRetriedDispatch(db, project, harness) {
+  const operations = await db.all("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
+    [project.id]);
+  const executions = await db.all('SELECT * FROM ontogenesis_execution WHERE project_id = ?', [project.id]);
+  const runs = await db.all('SELECT * FROM ontogenesis_runs WHERE project_id = ?', [project.id]);
+  assert.strictEqual(operations.length, 1);
+  assert.strictEqual(executions.length, 1);
+  assert.strictEqual(runs.length, 1);
+  assert.strictEqual(executions[0].id, operations[0].id);
+  assert.strictEqual(operations[0].state, 'completed');
+  assert.strictEqual(harness.launches, 1);
+  assert.strictEqual((await db.get('SELECT COUNT(*) AS count FROM ontogenesis_recovery_receipts WHERE operation_id = ?',
+    [operations[0].id])).count, 1);
+}
+
 async function isolatedTest(test) {
   const db = await fixture.memoryDb();
   const root = await fixture.repository();
@@ -92,6 +151,7 @@ async function main() {
   await isolatedTest(successfulCommit);
   await isolatedTest(rejectedCheck);
   await isolatedTest(recoverCommit);
+  await isolatedTest(retryPreparedDispatch);
   console.log('ontogenesis execution checks passed (injected worker, real checks and Git).');
 }
 
