@@ -63,7 +63,7 @@ async function runOrchestratorMcpPreflight(input) {
   const client = await connectPreflightClient(input, tools);
   const receipts = [];
   try {
-    for (const tool of tools) receipts.push(await runPreflightTool(client, input, tool, receipts));
+    for (const tool of tools) receipts.push(await runPreflightTool({ client, input, tool, receipts }));
   } finally {
     await client.close().catch(() => {});
   }
@@ -87,7 +87,10 @@ function assertPreflightContext(input) {
 }
 
 function preflightEnvironment(input, tools) {
-  return { ...process.env, GENOS_REPO_ROOT: input.repoRoot, GENOS_WORKSPACE_ROOT: input.workspaceRoot,
+  const environment = { ...process.env };
+  delete environment.GENOS_ORCHESTRATOR_AGENT_ID;
+  if (input.orchestratorId) environment.GENOS_ORCHESTRATOR_AGENT_ID = input.orchestratorId;
+  return { ...environment, GENOS_REPO_ROOT: input.repoRoot, GENOS_WORKSPACE_ROOT: input.workspaceRoot,
     GENOS_AGENT_ID: input.orchestratorId, GENOS_MCP_LEASE: tools.join(','), GENOS_DISABLE_DOTENV: '1' };
 }
 
@@ -111,7 +114,8 @@ async function connectPreflightClient(input, tools) {
   return client;
 }
 
-async function runPreflightTool(client, input, tool, receipts = []) {
+async function runPreflightTool(request) {
+  const { client, input, tool, receipts = [] } = request;
   const prepared = prepareToolArguments(input, tool, receipts);
   const result = await client.callTool({ name: tool, arguments: prepared.args });
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });

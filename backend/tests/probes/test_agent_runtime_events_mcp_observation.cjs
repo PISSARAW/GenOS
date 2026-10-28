@@ -50,14 +50,23 @@ const environment = preflightEnvironment({ repoRoot: 'repo-root', workspaceRoot:
 assert.equal(environment.GENOS_REPO_ROOT, 'repo-root');
 assert.equal(environment.GENOS_WORKSPACE_ROOT, 'workspace-root');
 assert.equal(environment.GENOS_AGENT_ID, undefined, 'missing agent identity remains unavailable in unit fixtures');
+const previousOrchestrator = process.env.GENOS_ORCHESTRATOR_AGENT_ID;
+process.env.GENOS_ORCHESTRATOR_AGENT_ID = 'stale-parent';
+const boundEnvironment = preflightEnvironment({ repoRoot: 'repo-root', workspaceRoot: 'workspace-root',
+  orchestratorId: 'current-root' }, ['genos_snapshot']);
+if (previousOrchestrator === undefined) delete process.env.GENOS_ORCHESTRATOR_AGENT_ID;
+else process.env.GENOS_ORCHESTRATOR_AGENT_ID = previousOrchestrator;
+assert.equal(boundEnvironment.GENOS_AGENT_ID, 'current-root');
+assert.equal(boundEnvironment.GENOS_ORCHESTRATOR_AGENT_ID, 'current-root',
+  'preflight identity must not inherit a stale parent orchestrator');
 assert(PREFLIGHT_TOOLS.has('genos_diagnose'));
 assert.deepEqual(prepareToolArguments({ task: 'delivery recovery', hypotheses: [{
   statement: 'A restart omits messages beyond the checkpoint.'
 }] }, 'genos_diagnose').args.hypotheses, [{
   statement: 'A restart omits messages beyond the checkpoint.'
 }]);
-assert.throws(() => prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose'),
-  error => error.code === 'ORCHESTRATOR_PREFLIGHT_HYPOTHESES_MISSING');
+const generatedDiagnosis = prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose');
+assert.match(generatedDiagnosis.args.hypotheses[0].statement, /authorized workspace/);
 
 const missionFrame = encodeMission({ agentId: 'orchestrator', missionId: 'mission-preflight-binding', prompt: 'synthesize' });
 assert.equal(decodeMissionInput(missionFrame).missionId, 'mission-preflight-binding',
