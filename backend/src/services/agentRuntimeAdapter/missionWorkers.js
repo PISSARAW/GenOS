@@ -179,15 +179,22 @@ async function orchestrateAutonomousWorkers(ctx) {
       'Worker assignments were bound to the validated mission MorphologyGraph before dispatch.', bound.binding, 'info');
   }
   const autonomousWorkers = await dispatchSelectedWorkers(ctx, assignments);
-  if (ctx.normalizedMission.missionId) {
-    const identities = require('../missionIdentityService');
-    for (const worker of autonomousWorkers) {
-      await identities.attachAgent(ctx.db, { missionId: ctx.normalizedMission.missionId, agentId: worker.agentId, role: worker.role });
+  try {
+    if (ctx.normalizedMission.missionId) {
+      const identities = require('../missionIdentityService');
+      for (const worker of autonomousWorkers) {
+        await identities.attachAgent(ctx.db, { missionId: ctx.normalizedMission.missionId, agentId: worker.agentId, role: worker.role });
+      }
     }
+    emitDispatchReconciled(ctx, assignments, autonomousWorkers);
+    await activateCreatedWorkers(ctx, autonomousWorkers);
+    return autonomousWorkers;
+  } catch (error) {
+    await require('./workerPostCreationFailureCompensation').compensate({
+      ctx, workers: autonomousWorkers, assignments, error
+    });
+    throw error;
   }
-  emitDispatchReconciled(ctx, assignments, autonomousWorkers);
-  await activateCreatedWorkers(ctx, autonomousWorkers);
-  return autonomousWorkers;
 }
 
 function capAssignments(requested, ctx) {
