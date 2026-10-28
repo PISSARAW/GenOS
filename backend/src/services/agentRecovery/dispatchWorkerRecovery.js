@@ -240,6 +240,7 @@ function buildRecoveryMission(input) {
     workspaceId: workspace.workspaceId,
     workspaceProvisioned: true,
     orchestratorAgentId: orchestratorId,
+    ...recoveryBudgetContract(mission),
     budgetRound: undefined,
     localModel: decision.action === 'replace_worker' ? undefined : mission.localModel,
     localRoutingPolicy: decision.action === 'replace_worker' ? undefined : mission.localRoutingPolicy,
@@ -248,6 +249,18 @@ function buildRecoveryMission(input) {
     capabilities: launchCaps.capabilities,
     capabilityManifest: launchCaps.capabilityManifest,
     autonomousOrchestration: false
+  };
+}
+
+function recoveryBudgetContract(mission) {
+  const sourceContract = mission.workerContract || {};
+  const sourceMission = sourceContract.mission || {};
+  const workerTokenLimit = mission.workerTokenLimit ?? sourceContract.resources?.maxTokens;
+  const coordinationPolicy = mission.coordinationPolicy || sourceMission.coordinationPolicy;
+  return {
+    ...(workerTokenLimit === undefined ? {} : { workerTokenLimit }),
+    communicationRequired: mission.communicationRequired === true || sourceMission.communicationRequired === true,
+    ...(coordinationPolicy ? { coordinationPolicy } : {})
   };
 }
 
@@ -280,40 +293,48 @@ async function handleRecoveryDispatchFailure(db, error, data) {
 }
 
 async function dispatchWorkerRecovery(sourceAgentId) {
-  const { startMission } = require('../agentRuntimeAdapter');
   if (activeWorkerRecoveryDispatches.has(sourceAgentId)) return false;
   const recovery = pendingWorkerRecoveries.get(sourceAgentId);
   if (!recovery) return false;
   activeWorkerRecoveryDispatches.add(sourceAgentId);
   pendingWorkerRecoveries.delete(sourceAgentId);
   pendingContinuations.delete(sourceAgentId);
-  const { mission, report, decision } = recovery;
-  let db;
-  let source;
   let missionDispatched = false;
   try {
-    db = await getDatabase();
-    source = await loadSourceWorker(db, sourceAgentId);
-  } catch (error) {
+    missionDispatched = await runRecoveryDispatch(sourceAgentId, recovery);
+    return missionDispatched;
+  } finally {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
-    throw error;
+    if (missionDispatched && pendingWorkerRecoveries.has(sourceAgentId)) scheduleQueuedRecovery(sourceAgentId);
   }
+}
+
+async function runRecoveryDispatch(sourceAgentId, recovery) {
+  const { startMission } = require('../agentRuntimeAdapter');
+  const { mission, report, decision } = recovery;
+  const db = await getDatabase();
+  const source = await loadSourceWorker(db, sourceAgentId);
   if (!hasRecoveryParent(source)) {
     emitRecoveryUnavailable(sourceAgentId, source, recovery);
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
   const orchestratorId = source.parent_agent_id;
-  if (isAlreadyValidated(source)) {
-    emit(orchestratorId, 'WORKER_RECOVERY_REDUNDANT', 'RECOVERY_SKIPPED', `Recovery skipped: source worker '${sourceAgentId}' already completed with validated work; no replacement will be promoted.`, { sourceWorkerId: sourceAgentId, workerId: sourceAgentId, terminal: true }, 'info');
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
-    return false;
-  }
+  if (isAlreadyValidated(source)) return emitRecoveryRedundant(orchestratorId, sourceAgentId);
   const recoveryBarrier = activeWorkerBarriers.get(orchestratorId);
-  if (isCancelled(recoveryBarrier)) {
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
-    return false;
-  }
+  if (isCancelled(recoveryBarrier)) return false;
+  return launchRecovery({ db, source, recovery, sourceAgentId, orchestratorId, recoveryBarrier, startMission });
+}
+
+function emitRecoveryRedundant(orchestratorId, sourceAgentId) {
+  emit(orchestratorId, 'WORKER_RECOVERY_REDUNDANT', 'RECOVERY_SKIPPED',
+    `Recovery skipped: source worker '${sourceAgentId}' already completed with validated work; no replacement will be promoted.`,
+    { sourceWorkerId: sourceAgentId, workerId: sourceAgentId, terminal: true }, 'info');
+  return false;
+}
+
+async function launchRecovery(input) {
+  const { db, source, recovery, sourceAgentId, orchestratorId, recoveryBarrier, startMission } = input;
+  const { mission, report, decision } = recovery;
   let workspace = { workspaceRoot: null, capsuleName: null };
   let target = null;
   try {
@@ -330,23 +351,17 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       return false;
     }
     await startMission(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
-    missionDispatched = true;
     return true;
   } catch (error) {
     await handleRecoveryDispatchFailure(db, error, { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId });
     return false;
-  } finally {
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
-    // A same-identity recovery can fail while this dispatch is still active.
-    // queueWorkerRecovery refreshes the pending entry, but its shutdown hook
-    // cannot dispatch until this active lease is released. Drain that entry
-    // after a successful launch; dispatch failures already have their own
-    // bounded retry/backoff path in handleRecoveryDispatchFailure.
-    if (missionDispatched && pendingWorkerRecoveries.has(sourceAgentId)) {
-      const barrier = activeWorkerBarriers.get(orchestratorId);
-      if (!isCancelled(barrier)) setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 0).unref();
-    }
   }
 }
 
-module.exports = { dispatchWorkerRecovery, MAX_RECOVERY_DISPATCH_ATTEMPTS };
+function scheduleQueuedRecovery(sourceAgentId) {
+  const orchestratorId = pendingWorkerRecoveries.get(sourceAgentId)?.mission?.orchestratorAgentId;
+  if (isCancelled(activeWorkerBarriers.get(orchestratorId))) return;
+  setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 0).unref();
+}
+
+module.exports = { dispatchWorkerRecovery, MAX_RECOVERY_DISPATCH_ATTEMPTS, buildRecoveryMission };
