@@ -64,6 +64,21 @@ function compactAutonomyPlan(plan = {}) {
   };
 }
 
+function hasActiveAutonomyWork(plan = {}) {
+  return plan.synthesisOnly !== true
+    && Boolean(plan.phases?.length || plan.requiredTools?.length || plan.dispatchWorkers?.length);
+}
+
+function buildOrchestratorAuthorityInstruction(plan = {}) {
+  const directives = ['You are the GenOS orchestrator. Own decomposition, dispatch, evaluation, replay and promotion. Follow the validated plan and evidence gates; a tool name, plan entry or transport receipt is not proof of task completion. Change strategy or organization only when evidence justifies it.'];
+  if (plan.trinity?.activated === true) directives.push('The validated plan activates Trinity; use its precomposed worlds and do not launch a second topology.');
+  else if (plan.trinity?.interviewForPlan === true) directives.push('The validated plan requires an interview before considering Trinity; wait for concrete answers before launching it.');
+  if (plan.aTeam?.activated === true && plan.trinity?.activated !== true) directives.push('The validated plan activates the composed A-Team; use those members and do not add a competing topology.');
+  if (plan.dispatchWorkers?.some((worker) => worker.methodContract?.methodId
+    || worker.workerAssignment?.methodContract?.methodId)) directives.push('Preserve assigned method contracts in worker_assignments; the control plane selects worker kinds.');
+  return directives.join(' ');
+}
+
 function buildContinuationContext(previous, dossier, assignedTokens) {
   const compiled = dossier ? require('../src/services/agentEvidence/continuationContextCompiler').compileEvidenceDelta(dossier) : null;
   return [
@@ -91,8 +106,9 @@ function buildStrategyBlock(runtimeContract, strategyContract) {
   return strategyContract.selected_strategy?.primary ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}` : 'No explicit strategy contract was attached; use the safest verified execution path.';
 }
 
-function buildAutonomyBlock(isWorker, autonomyPlan, runtimeAutonomyPlan) {
-  if (isWorker || !autonomyPlan.schema) return '';
+function buildAutonomyBlock(isWorker, autonomyPlan = {}, runtimeAutonomyPlan = {}) {
+  if (isWorker || !autonomyPlan.schema || runtimeAutonomyPlan.synthesisOnly === true
+    || !hasActiveAutonomyWork(runtimeAutonomyPlan)) return '';
   const plannedTools = [...new Set((runtimeAutonomyPlan.requiredTools || []).map(String))];
   const requiredCalls = plannedTools.length ? `\n\nROOT MCP CALLS REQUIRED: ${plannedTools.join(', ')}. The plan does not execute these calls for you. Invoke each leased tool yourself and inspect its result. Do not infer that a leased tool is unavailable; report it unavailable only after a direct MCP call returns an error. Do not return a worker-dossier synthesis or final report until every planned phase has a successful tool result.` : '';
   return `MANDATORY ORCHESTRATOR PROTOCOL. This plan is a hard execution contract. Call every required tool directly, in phase order, and verify a successful result for each. Complete all baseline, diagnosis, and snapshot phases before dispatching any worker or mutating the workspace. Complete every remaining required evidence, evaluation, replay, and decision phase before returning a final report. If a required tool is unavailable or a phase fails, stop and report the exact blocker; do not dispatch work or claim completion. A tool name in a plan, prompt, lease, or report is not evidence that it ran. Respect each phase's stated preconditions. For additional decision gates, use only the smallest safe tools justified by evidence. Preserve replay/merge evidence before promotion:${requiredCalls}\n\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`;
@@ -146,6 +162,7 @@ function buildIdentityBlock(params) {
 
 function buildCoordinationHint(params) {
   if (!params.isWorker) return '';
+  if ((params.coordinationOwner || 'model') !== 'model') return '';
   const { continuousCoordination } = require('./worker-mcp-inventory-preflight.cjs');
   if (!continuousCoordination(params.mission)) return '';
   const orchestratorId = params.mission.orchestratorAgentId || 'unknown';
@@ -187,6 +204,7 @@ function runtimePromptParameters(ctx) {
     capabilityManifest: ctx.capabilityManifest,
     capabilities: ctx.capabilities,
     agentName: ctx.agentName,
+    coordinationOwner: ctx.coordinationOwner,
   };
   return params;
 }
@@ -233,7 +251,18 @@ function buildAgentRuntimePrompt(ctx) {
 
 function appendCoordinationEvidence(prompt, evidence) {
   if (!evidence) return prompt;
-  return `${prompt}\n\n[VERIFIED COORDINATION BOOTSTRAP]\nThe runtime already executed the mandatory MCP handshake under this worker identity. This authoritative receipt satisfies the mandatory coordination calls; do not repeat them. If its persistent evidence proves the assigned mission, return outcome success and cite its IDs in every supported claim:\n${JSON.stringify(evidence, null, 2)}`;
+  const receipt = coordinationReceiptProjection(evidence);
+  return `${prompt}\n\n[COORDINATION BOOTSTRAP VERIFIED]\nThe runtime completed and recorded the coordination handshake (${JSON.stringify(receipt)}). Do not repeat it. This verifies transport coordination only; complete the assigned mission and support its result with task-specific evidence.`;
+}
+
+function coordinationReceiptProjection(evidence) {
+  return {
+    directMessageId: evidence.directMessageId ?? null,
+    sharedMessageId: evidence.sharedMessageId ?? null,
+    replyMessageId: evidence.replyMessageId ?? null,
+    receivedMessageCount: Array.isArray(evidence.receivedMessageIds) ? evidence.receivedMessageIds.length : 0,
+    acknowledgedCount: Number(evidence.acknowledgement?.acknowledged) || 0,
+  };
 }
 
 function buildWorkerOutputInstruction(params) {
@@ -262,6 +291,8 @@ function buildCapabilityBlock(isWorker, capabilities, manifest) {
 module.exports = {
   compactStrategyContract,
   compactAutonomyPlan,
+  hasActiveAutonomyWork,
+  buildOrchestratorAuthorityInstruction,
   buildAgentRuntimePrompt,
   buildContinuationContext,
   buildCapabilityBlock,

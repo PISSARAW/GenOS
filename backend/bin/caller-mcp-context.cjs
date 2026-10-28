@@ -1,6 +1,8 @@
 const prompts = require('./agent-runtime-prompt.cjs');
 const conscience = require('../src/services/agentConscienceService');
 const { handleSuccessfulReport } = require('./agent-runtime-close.cjs');
+const workerMcpPreflight = require('./worker-mcp-inventory-preflight.cjs');
+const missionMemoryContext = require('../src/services/agentRuntimeAdapter/missionMemoryContext');
 
 function createContext(mission, emit) {
   const strategyContract = JSON.parse(mission.strategyContractJson || '{}');
@@ -9,18 +11,20 @@ function createContext(mission, emit) {
   const agentName = mission.name || mission.agentId;
   const nameMeaning = mission.nameMeaning || mission.role;
   const hostExecutionContext = parseHostExecutionContext(mission.hostExecutionContextJson, mission);
+  const memoryBlock = missionMemoryContext.isResolved(mission) ? missionMemoryContext.textForMission(mission) : '';
   const state = { mission, strategyContract, autonomyPlan, isWorker, agentName, nameMeaning,
     hostExecutionContext,
     toolLease: JSON.parse(mission.toolLeaseJson || '[]'), executionBudget: JSON.parse(mission.executionBudgetJson || '{}'),
     observedTools: new Set(), recordedTurns: [], code: 0, eventCount: 0, estimatedTokens: 0,
     exactTokens: 0, observedCostUsd: 0, conscienceState: conscience.createConscienceState(), emit };
   state.prompt = prompts.buildAgentRuntimePrompt({ ...state,
-    selfIntro: `You are ${agentName}, GenOS ${mission.executionMode}.`, conscienceBlock: '', memoryBlock: '',
+    selfIntro: `You are ${agentName}, GenOS ${mission.executionMode}.`, conscienceBlock: '', memoryBlock,
     authorityInstruction: isWorker ? `Return evidence to ${mission.orchestratorAgentId}. Do not spawn agents or promote results.` : 'Own the GenOS mission. Account for all attached worker dossiers. Do not redispatch workers in final synthesis.',
     runtimeContract: prompts.compactStrategyContract(strategyContract, isWorker),
     runtimeAutonomyPlan: prompts.compactAutonomyPlan(autonomyPlan),
     executionPolicy: JSON.parse(mission.executionPolicyJson || '{}'),
-    genosCapsule: JSON.parse(mission.genosCapsuleJson || '{}'), allowFileEdits: false, allowedCommands: []
+    genosCapsule: JSON.parse(mission.genosCapsuleJson || '{}'), allowFileEdits: false, allowedCommands: [],
+    coordinationOwner: isWorker && workerMcpPreflight.continuousCoordination(mission) ? 'model' : 'none'
   });
   return state;
 }
