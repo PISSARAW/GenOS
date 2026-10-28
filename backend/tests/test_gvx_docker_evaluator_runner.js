@@ -59,6 +59,7 @@ async function testSuccessfulRun() {
   const fake = fakeDocker({ outputDirectory: input.outputDirectory });
   const receipt = await runner.runAggregateEvaluator(input, { spawn: fake.fakeSpawn });
   const runCall = fake.calls[0];
+  assert.equal(runCall.program, 'docker');
   for (const flag of ['--pull=never', '--network=none', '--read-only', '--cap-drop=ALL',
     '--security-opt=no-new-privileges:true', '--pids-limit', '--memory', '--memory-swap', '--cpus', '--user']) {
     assert.ok(runCall.args.includes(flag), `missing Docker restriction ${flag}`);
@@ -84,6 +85,7 @@ async function testFailClosedInputs() {
     { code: 'GVX_EVALUATOR_IMAGE_DIGEST_REQUIRED' });
   await assert.rejects(runner.runAggregateEvaluator({ ...input, command: ['python', '\0'] },
     { spawn: fake.fakeSpawn }), { code: 'GVX_EVALUATOR_COMMAND_INVALID' });
+  assert.equal(runner.validateRequest({ ...input, dockerPath: 'powershell' }).dockerPath, 'docker');
   assert.equal(fake.calls.length, 0);
   await fs.rm(root, { recursive: true, force: true });
 }

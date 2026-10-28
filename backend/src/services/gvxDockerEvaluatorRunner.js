@@ -27,7 +27,7 @@ function validateRequest(request) {
   if (!hasPaths(request)) throw failure('GVX_EVALUATOR_PATH_REQUIRED');
   return { image, command, suiteHash: request.suiteHash, limits,
     candidateDirectory: path.resolve(request.candidateDirectory), outputDirectory: path.resolve(request.outputDirectory),
-    dockerPath: request.dockerPath || 'docker' };
+    dockerPath: 'docker' };
 }
 
 function validImage(image) {
