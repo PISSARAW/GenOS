@@ -1,31 +1,42 @@
 'use strict';
 
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 
 const LEDGER_PATH = process.env.OMEGA_TEMPORAL_LEDGER;
+const LEDGER_DIRECTORY = LEDGER_PATH ? `${LEDGER_PATH}.scopes` : null;
 let activityQueue = Promise.resolve();
 
-function readLedger() {
-  if (!LEDGER_PATH || !fs.existsSync(LEDGER_PATH)) return { completed: {}, effects: {}, failed: {} };
-  return JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
+function ledgerFile(scope) {
+  if (!LEDGER_DIRECTORY) throw new Error('OMEGA_TEMPORAL_LEDGER is required.');
+  if (typeof scope !== 'string' || !scope) throw new Error('Activity scope is required.');
+  const digest = crypto.createHash('sha256').update(scope).digest('hex');
+  return path.join(LEDGER_DIRECTORY, `${digest}.json`);
 }
 
-function persistLedger(ledger) {
-  const temporary = `${LEDGER_PATH}.${process.pid}.tmp`;
-  fs.mkdirSync(path.dirname(LEDGER_PATH), { recursive: true });
+function readLedger(scope) {
+  const filename = ledgerFile(scope);
+  if (!fs.existsSync(filename)) return { completed: {}, effects: {}, failed: {} };
+  return JSON.parse(fs.readFileSync(filename, 'utf8'));
+}
+
+function persistLedger(scope, ledger) {
+  const filename = ledgerFile(scope);
+  const temporary = `${filename}.${process.pid}.tmp`;
+  fs.mkdirSync(LEDGER_DIRECTORY, { recursive: true });
   fs.writeFileSync(temporary, JSON.stringify(ledger));
-  fs.renameSync(temporary, LEDGER_PATH);
+  fs.renameSync(temporary, filename);
 }
 
 function applyTask(input) {
-  const ledger = readLedger();
+  const ledger = readLedger(input.scope);
   const taskKey = `${input.scope}/${input.taskId}`;
   ledger.completed[taskKey] = true;
   if (input.effectKey) ledger.effects[`${input.scope}/${input.effectKey}`] = true;
   const fail = input.failOnce && !ledger.failed[taskKey];
   if (fail) ledger.failed[taskKey] = true;
-  persistLedger(ledger);
+  persistLedger(input.scope, ledger);
   if (fail) throw new Error('Injected crash after durable effect.');
   return { taskId: input.taskId };
 }
