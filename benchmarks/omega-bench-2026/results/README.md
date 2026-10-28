@@ -1,16 +1,9 @@
 # Résultats
 
-Les qualifications publiques courantes sont décrites dans
-`../reports/point-campagne-2026-10-28.md`, `../reports/ablations-a1-a3.md`,
-`../reports/ablations-a5-a6-2026-10-28.md`,
-`../reports/a4-harness-control-2026-10-28.md` et
-`../reports/charge-e09-2026-10-28.md`. A/B/C/D totalisent 40 800 résultats,
-les sept baselines sont qualifiées sur leurs portées, les huit ablations ont
-des mesures ciblées ou des limites explicites, et E09 a été lancé jusqu'à
-10 000 invocations asynchrones.
+Les qualifications consignées dans les rapports du 2026-10-28 utilisent le corpus v0.4.0 et sont historiques. Elles ne sont pas des résultats du corpus v0.6.0, qui modifie E04 et E12. Les sorties A–D, sept baselines, A1–A8, E09 et les analyses doivent être régénérées avant toute comparaison avec la version actuelle. Les exécutions E12 ciblées des trois backends métier v0.6.0 sont vérifiées séparément.
 
 Les sorties JSONL, évaluations et manifestes restent générés sous ce dossier
 ignoré par Git. Le holdout local de 680 cas reste scellé et n'a pas été scoré.
-Le préflight confirmatoire demeure bloqué par le préenregistrement et les
-mesures/marges non finalisées; les résultats publics sont descriptifs et ne
-démontrent pas un gain de performance.
+Le préflight confirmatoire demeure bloqué par le statut de préenregistrement,
+la qualification D et neuf exigences de protocole encore ouvertes. Aucun
+résultat confirmatoire ni gain de performance n'est revendiqué.

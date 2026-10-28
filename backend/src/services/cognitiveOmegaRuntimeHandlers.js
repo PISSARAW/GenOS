@@ -80,6 +80,7 @@ async function call(operation, state, tools) {
     if (!tool) return blocked('tool_missing', operation);
     const input = operationInput(operation, state.values);
     const value = await tool({ arguments: operation.arguments ?? input, input, operation,
+      idempotencyKey: operation.idempotencyKey || null,
       context: state.context, values: state.values });
     state.values[operation.id] = value;
     return { status: 'ready', value };
@@ -126,6 +127,7 @@ async function emit(operation, state, emitters) {
     const emitter = emitters.get(operation.reference);
     if (!emitter) return blocked('emitter_missing', operation);
     const value = await emitter({ ...proof,
+      idempotencyKey: operation.idempotencyKey || null,
       context: { ...state.context, effect: operation.effectContract || null } });
     state.values[operation.id] = value;
     return { status: 'emitted', value, receipt: proof.receipt };

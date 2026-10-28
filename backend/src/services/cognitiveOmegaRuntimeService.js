@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const registry = require('./cognitiveObligationRegistry');
 const handlersService = require('./cognitiveOmegaRuntimeHandlers');
+const executionJournal = require('./cognitiveOmegaExecutionJournal');
 
 const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
 
@@ -51,6 +52,7 @@ function createRuntime(input = {}) {
   const inferers = new Map();
   const verifiers = new Map();
   const emitters = new Map();
+  const idempotentEffects = new Set();
 
   function register(map, reference, handler) {
     if (typeof reference !== 'string' || !reference || typeof handler !== 'function') {
@@ -82,13 +84,20 @@ function createRuntime(input = {}) {
     CHECK: (operation, state) => handlersService.check(operation, state, verifiers),
     EMIT: (operation, state) => handlersService.emit(operation, state, emitters)
   };
-  return { execute: (request) => execute(request, handlers),
+  return { execute: (request) => execute(request, handlers,
+    { journal: input.journal, idempotentEffects }),
     registerReader: (reference, handler) => register(readers, reference, handler),
     registerSelector: (reference, handler) => register(selectors, reference, handler),
-    registerTool: (reference, handler) => register(tools, reference, handler),
+    registerTool: (reference, handler, options = {}) => {
+      if (options.idempotent === true) idempotentEffects.add(`CALL:${reference}`);
+      return register(tools, reference, handler);
+    },
     registerInferer: (reference, handler) => register(inferers, reference, handler),
     registerVerifier: (reference, handler) => register(verifiers, reference, handler),
-    registerEmitter: (reference, handler) => register(emitters, reference, handler) };
+    registerEmitter: (reference, handler, options = {}) => {
+      if (options.idempotent === true) idempotentEffects.add(`EMIT:${reference}`);
+      return register(emitters, reference, handler);
+    } };
 }
 
 module.exports = { createRuntime };
@@ -99,7 +108,7 @@ function executeState(input) {
     verifierRegistry: input.verifierRegistry || createDefaultVerifierRegistry(input), mmu: input.mmu || null };
 }
 
-async function execute(input = {}, handlers) {
+async function execute(input = {}, handlers, runtimeState = {}) {
     if (!Array.isArray(input.operations) || !input.operations.length) return handlersService.blocked('program_empty');
     const operations = input.operations.map((operation) => (executeResult2(operation)));
     if (operations.some((operation) => !KINDS.has(operation.kind))) return handlersService.blocked('operation_kind_invalid');
@@ -109,6 +118,15 @@ async function execute(input = {}, handlers) {
     const byId = new Map(operations.map((operation) => [operation.id, operation]));
     const state = executeState(input);
     const results = [];
+    const journalDb = runtimeState.journal;
+    if (journalDb) {
+      if (typeof input.runId !== 'string' || !input.runId) return handlersService.blocked('journal_run_id_required');
+      try {
+        await executionJournal.beginRun(journalDb, input.runId, journalRequest(input));
+      } catch (error) {
+        return handlersService.blocked(error.message);
+      }
+    }
     for (const obligation of plan.obligations) {
       const operation = byId.get(obligation.id);
       const dependenciesReady = dependenciesExecuted(operation, results);
@@ -116,7 +134,28 @@ async function execute(input = {}, handlers) {
       registerOperationVerifier(operation, state.verifierRegistry);
       const handler = handlers[operation.kind];
       try {
-        const result = await handler(operation, state);
+        const cached = journalDb ? await executionJournal.findOperation(journalDb,
+          input.runId, operation.id, operation) : null;
+        if (cached?.status === 'completed') {
+          applyJournalResult(state, operation, cached.result);
+          results.push({ id: operation.id, kind: operation.kind, ...cached.result.operationResult });
+          if (cached.result.operationResult.status === 'blocked') return {
+            status: 'blocked', reason: cached.result.operationResult.reason, results };
+          continue;
+        }
+        if (journalDb && ['CALL', 'EMIT'].includes(operation.kind)
+          && !runtimeState.idempotentEffects.has(`${operation.kind}:${operation.reference}`)) {
+          return { status: 'blocked', reason: 'durable_effect_idempotency_required',
+            operation: operation.id, results };
+        }
+        if (journalDb && !cached) await executionJournal.beginOperation(journalDb,
+          { runId: input.runId, operationId: operation.id, operation });
+        const executable = journalDb && ['CALL', 'EMIT'].includes(operation.kind)
+          ? { ...operation, idempotencyKey: `gcir:${input.runId}:${operation.id}` } : operation;
+        const result = await handler(executable, state);
+        if (journalDb) await executionJournal.completeOperation(journalDb,
+          { runId: input.runId, operationId: operation.id,
+            result: journalResult(result, state, operation) });
         results.push({ id: operation.id, kind: operation.kind, ...result });
         if (result.status === 'blocked') return { status: 'blocked', reason: result.reason, results };
       } catch (error) {
@@ -131,6 +170,22 @@ async function execute(input = {}, handlers) {
 function executeResult({ results, state, digest, input }) {
   return { status: 'emitted', results, values: state.values, digest: `sha256:${digest}`,
       economy: input.economy || null, mmu: state.mmu?.metrics?.() || null };
+}
+
+function journalRequest(input) {
+  return { operations: input.operations, context: input.context || {}, objects: input.objects || {},
+    policy: input.policy || {}, allowEmit: input.allowEmit === true, economy: input.economy || null };
+}
+
+function journalResult(result, state, operation) {
+  return { operationResult: result, value: state.values[operation.id],
+    receipt: state.receipts[operation.id], proofDigest: state.proofDigests[operation.id] };
+}
+
+function applyJournalResult(state, operation, result) {
+  if (Object.hasOwn(result, 'value')) state.values[operation.id] = result.value;
+  if (result.receipt !== undefined) state.receipts[operation.id] = result.receipt;
+  if (result.proofDigest !== undefined) state.proofDigests[operation.id] = result.proofDigest;
 }
 
 function executeResult2(operation) {

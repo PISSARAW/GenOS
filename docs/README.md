@@ -939,3 +939,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0709a — Dossier de campagnes de qualification non promoteur](adr/0709-dossier-campagnes-qualification-non-promoteur.md) — campagnes scellées et reprenables sans conférer d’autorité de promotion.
 - [ADR 0709b — Progression canonique des résultats topologiques](adr/0709-progression-resultats-topologiques.md) — routeur fail-closed entre reçus workers persistés, runtime spécialisé et clôture de mission.
 - [ADR 0710 — Harnais transactionnel de restauration morphogénétique](adr/0710-harnais-restauration-morphogenetique.md) — snapshot lié à l'état, restauration rejouée, vérification indépendante et dossier terminal sans autorité de promotion.
+- [ADR 0749 — Journal durable d’exécution G-CIR Ω](adr/0749-journal-durable-runtime-gcir.md) — intention SQLite, rejeu des opérations terminées et clé stable pour les handlers d’effets idempotents.
