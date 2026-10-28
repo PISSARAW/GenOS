@@ -55,6 +55,21 @@ async function binding(db, runId) {
   return verifiedJson(await db.get('SELECT * FROM biological_worker_bindings WHERE run_id = ?', runId), 'binding_json');
 }
 
+async function latestBindingForMission(db, scope) {
+  if (!scope?.missionId || !scope?.workerId) return null;
+  await ensure(db);
+  const row = await db.get(`SELECT * FROM biological_worker_bindings
+    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+  scope.missionId, scope.workerId);
+  if (!row) return null;
+  const value = verifiedJson(row, 'binding_json');
+  if (value.runId !== row.run_id || value.missionId !== scope.missionId
+      || value.workerId !== scope.workerId) {
+    throw biologyError('BIOLOGICAL_WORKER_BINDING_SCOPE_MISMATCH');
+  }
+  return { runId: row.run_id, binding: value };
+}
+
 async function eventBinding(db, request) {
   await ensure(db);
   const runId = request.event.payload?.executionRunId;
@@ -113,4 +128,4 @@ async function receipt(db, runId) {
 }
 
 module.exports = { ensure, bindRun, binding, eventBinding, observe, observation, observations,
-  markApplied, putReceipt, receipt, biologyError, verifiedJson };
+  latestBindingForMission, markApplied, putReceipt, receipt, biologyError, verifiedJson };

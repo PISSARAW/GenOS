@@ -98,6 +98,7 @@ async function waitForWorkerExit(runner, db, workerId) {
 function workerSummary(member, index, workerId) {
   return {
     workerId,
+    executionRunId: member.executionRunId || null,
     subSystem: member.subSystem,
     memberNumber: member.memberNumber || index,
     role: member.role,
@@ -127,8 +128,18 @@ async function launchWorker({ db, context, member, index, parent, suppliedWorker
   if (context.missionId) {
     await attachAgent(db, { missionId: context.missionId, agentId: workerId, role: member.role || 'worker' });
   }
+  const biologicalWorkers = require('../biologicalWorkerStore');
+  const previousBinding = await biologicalWorkers.latestBindingForMission(db,
+    { missionId: context.missionId, workerId });
   await spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
-  return workerSummary(member, index, workerId);
+  const currentBinding = await biologicalWorkers.latestBindingForMission(db,
+    { missionId: context.missionId, workerId });
+  if (context.missionId && (!currentBinding || currentBinding.runId === previousBinding?.runId)) {
+    throw Object.assign(new Error('Topology worker completed without a new persisted execution run binding.'), {
+      code: 'TOPOLOGY_WORKER_RUN_BINDING_REQUIRED'
+    });
+  }
+  return workerSummary({ ...member, executionRunId: currentBinding?.runId || null }, index, workerId);
 }
 
 module.exports = {

@@ -36,7 +36,8 @@ async function readValidatedWorkerResults(input, reader = defaultReader) {
   const results = [];
   for (const member of members) {
     const evidence = await reader.readEvidence(input.db, {
-      member, missionId: input.missionId
+      member, missionId: input.missionId,
+      executionRunId: member.executionRunId
     });
     results.push(validatedResult(member, evidence));
   }

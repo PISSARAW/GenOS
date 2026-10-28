@@ -13,7 +13,8 @@ async function read(db, input) {
 async function readAll(db, input) {
   const members = input.members || [];
   await Promise.all(members.map(async (member) => {
-    const generic = await read(db, { member, missionId: input.missionId });
+    const generic = await read(db, { member, missionId: input.missionId,
+      executionRunId: member.executionRunId });
     member.result = mergeSpecializedResult(generic, member.result);
   }));
   return members;
@@ -34,10 +35,15 @@ async function readEvidence(db, input) {
 }
 
 async function latestBinding(db, input) {
-  const rows = await db.all(`SELECT * FROM biological_worker_bindings
-    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 2`,
+  const executionRunId = input.executionRunId || input.member.executionRunId;
+  if (executionRunId) {
+    return db.get(`SELECT * FROM biological_worker_bindings
+      WHERE mission_id = ? AND agent_id = ? AND run_id = ?`,
+    input.missionId, input.member.workerId, executionRunId);
+  }
+  return db.get(`SELECT * FROM biological_worker_bindings
+    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
   input.missionId, input.member.workerId);
-  return rows.length === 1 ? rows[0] : null;
 }
 
 async function evidenceForBinding(db, bindingRow, binding) {
