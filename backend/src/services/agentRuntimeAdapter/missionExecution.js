@@ -141,6 +141,7 @@ async function finalizeMissionStart(agentId) {
   const { cancelledStarts, activeWorkerBarriers, missionStarts } = require('../agentOrchestrationState');
   const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
   missionStarts.delete(agentId);
+  require('./missionStartIdentityState').missionStartIdentities.delete(agentId);
   try { await require('../garageRuntimeService').finalizeAgent(agentId); }
   catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
   try { await require('../agentRoundService').resumeMorphogenesisBarrierForWorker(agentId); }
@@ -215,10 +216,19 @@ function startMission(mission) {
   const agentId = mission.agentId || mission.id;
   if (!agentId) return Promise.reject(new Error('agentId is required'));
   const state = require('../agentOrchestrationState');
+  const identities = require('./missionStartIdentityState').missionStartIdentities;
+  const identity = require('./missionStartIdentity');
+  let fingerprint;
+  try { fingerprint = identity.missionStartFingerprint(mission); }
+  catch (error) { return Promise.reject(error); }
   if (state.activeProcesses.has(agentId) || state.missionStarts.has(agentId)) {
-    return Promise.resolve({ started: true, duplicate: true });
+    const existingStart = state.missionStarts.get(agentId);
+    if (identities.get(agentId) === fingerprint && existingStart) return existingStart;
+    return Promise.reject(identity.activeMissionConflict(agentId));
   }
-  const start = startMissionInternal(mission).finally(() => finalizeMissionStart(agentId)).catch(async (failure) => {
+  identities.set(agentId, fingerprint);
+  const start = Promise.resolve().then(() => startMissionInternal(mission))
+    .finally(() => finalizeMissionStart(agentId)).catch(async (failure) => {
     await recordMissionStartFailure(agentId, failure);
     throw failure;
   });
