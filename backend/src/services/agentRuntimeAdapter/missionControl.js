@@ -3,6 +3,7 @@ const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activ
 const { terminateChild } = require('../processTermination');
 
 async function stopMission(agentId, options = {}) {
+  await require('../agentRecovery/durableRecoveryQueue').cancel(agentId).catch(() => {});
   pendingContinuations.delete(agentId);
   pendingWorkerRecoveries.delete(agentId);
   autonomousRounds.delete(agentId);

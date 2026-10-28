@@ -130,6 +130,7 @@ async function bootstrapWorkerDatabase() {
   if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
     await circuitBreaker.hydrateToolLocks(db);
     await runtimeAdapter.reconcilePersistedRuntimes(db);
+    await runtimeAdapter.resumeDurableWorkerRecoveries(db);
     await organismRestoreRecovery.recoverPending(db);
     require('./src/services/survivalWakeSchedulerService').start(db);
     await reconcileDetachedProcesses(db);

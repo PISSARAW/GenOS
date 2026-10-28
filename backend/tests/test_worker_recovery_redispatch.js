@@ -235,11 +235,15 @@ async function checkRecoveryLineageUsesWorkspaceParent(db) {
     'replacement recovery must pass the parent garage workspace check while preserving worker lineage');
   const dispatched = startedMissions.at(-1);
   const recoveredAgent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatched.agentId);
-  assert.equal(recoveredAgent.workspace_id, 'rec-ws-other',
-    'replacement recovery must bind its garage identity to the parent domain workspace');
-  const edge = await db.get('SELECT workspace_id, source_node_id, target_node_id FROM lineage_edges WHERE target_node_id = ?', dispatched.agentId);
-  assert.deepEqual(edge, { workspace_id: 'rec-ws', source_node_id: 'rec-w-cross', target_node_id: dispatched.agentId },
-    'recovery lineage must point to the failed worker in the same workspace');
+  assert.equal(recoveredAgent.workspace_id, dispatched.workspaceId,
+    'the replacement keeps its isolated capsule after passing the parent garage workspace check');
+  const edge = await db.get('SELECT workspace_id, source_node_id, target_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?', dispatched.agentId);
+  assert.deepEqual(edge, { workspace_id: 'rec-ws-other', source_node_id: 'rec-orch-other',
+    target_node_id: dispatched.agentId, edge_type: 'recovery' },
+  'recovery lineage remains in the orchestrator workspace across a cross-workspace source failure');
+  assert.equal(await db.get(`SELECT 1 FROM lineage_edges WHERE source_node_id = 'rec-w-cross'
+    AND target_node_id = ? AND edge_type = 'recovery_transition'`, dispatched.agentId), undefined,
+  'cross-workspace failures remain provenance metadata, not a cross-workspace lineage edge');
 }
 
 async function checkValidatedWorkNotRedispatched(db) {
@@ -274,15 +278,15 @@ async function checkExhaustionVerdict(db) {
   assert.ok(!orchestrationState.pendingWorkerRecoveries.has('rec-fail'), 'nothing is re-queued after exhaustion');
 }
 
-function checkQueueRefresh() {
+async function checkQueueRefresh() {
   clearSharedState();
-  const first = queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 0 }), failureEvent('unresolved_task'));
+  const first = await queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 0 }), failureEvent('unresolved_task'));
   assert.equal(first.queued, true);
-  const refreshed = queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 1 }), failureEvent('unresolved_task'));
+  const refreshed = await queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 1 }), failureEvent('unresolved_task'));
   assert.equal(refreshed.queued, true, 'a newer failure refreshes the pending recovery checkpoint');
   assert.equal(refreshed.refreshed, true);
   assert.equal(orchestrationState.pendingWorkerRecoveries.get('rec-q').report.attempt, 1);
-  const duplicate = queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 1 }), failureEvent('unresolved_task'));
+  const duplicate = await queueWorkerRecovery(baseMission('rec-q', { recoveryAttempt: 1 }), failureEvent('unresolved_task'));
   assert.equal(duplicate.duplicate, true, 'an identical failure stays deduplicated');
 }
 
@@ -330,7 +334,7 @@ async function run() {
     await checkRecoveryLineageUsesWorkspaceParent(db);
     await checkValidatedWorkNotRedispatched(db);
     await checkExhaustionVerdict(db);
-    checkQueueRefresh();
+    await checkQueueRefresh();
     await checkBoundedObservation();
   } finally {
     clearSharedState();

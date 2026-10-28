@@ -32,7 +32,7 @@ async function publish(ctx) {
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, failed);
   }
   await advanceAutonomousRound(ctx.mission, failed);
-  if (!state.blocked) agentRecoveryService.queueWorkerRecovery(ctx.mission, failed);
+  if (!state.blocked) await agentRecoveryService.queueWorkerRecovery(ctx.mission, failed);
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
   return { started: false, executionRun: ctx.executionRun, local: true,
     error: ctx.error.message };

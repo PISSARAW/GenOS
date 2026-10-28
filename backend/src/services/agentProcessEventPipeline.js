@@ -346,7 +346,7 @@ async function handleChildClose(ctx, code, signal) {
     clearTerminationTimer(ctx.child);
     await require('./continuousExecution/runtimeBridge').close(ctx);
     await state.executionQueue;
-    await state.eventProcessingPromise;
+    await Promise.all([state.eventProcessingPromise, state.recoveryQueuePromise]);
   } catch (err) {
     console.error('%s', `[AgentSupervisor] Error draining event queue for ${agentId}: ${String(err?.message || err)}`);
   } finally {

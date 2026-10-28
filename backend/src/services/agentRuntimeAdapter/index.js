@@ -1,6 +1,6 @@
 const { startMission } = require('./missionExecution');
 const { stopMission, stopAllMissions } = require('./missionControl');
-const { reconcilePersistedRuntimes } = require('./missionReconcile');
+const { reconcilePersistedRuntimes, resumeDurableWorkerRecoveries } = require('./missionReconcile');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability, isLocalRuntime } = require('../agentRuntimeExecutable');
 const { createIsolatedWorkspace } = require('../agentWorkspaceLifecycleService');
 const { provisionMissionWorkspace } = require('../agentWorkspaceLifecycleService');
@@ -18,6 +18,7 @@ module.exports = {
   stopMission,
   stopAllMissions,
   reconcilePersistedRuntimes,
+  resumeDurableWorkerRecoveries,
   configuredExecutable,
   bundledRuntimeEnvironment,
   runtimeAvailability,

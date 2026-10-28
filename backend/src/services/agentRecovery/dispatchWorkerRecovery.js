@@ -16,6 +16,7 @@ const { createOrchestratorId } = require('../orchestratorIdFactory');
 const recoveryLineage = require('./recoveryLineage');
 const { getDatabase, withTransaction } = require('../../db');
 const { MAX_RECOVERY_DISPATCH_ATTEMPTS } = require('./constants');
+const durableQueue = require('./durableRecoveryQueue');
 
 function firstTruthy(...values) {
   return values.find(Boolean) || values[values.length - 1];
@@ -273,16 +274,30 @@ async function handleRecoveryDispatchFailure(db, error, data) {
   });
   if (dispatchAttempts < MAX_RECOVERY_DISPATCH_ATTEMPTS && !isCancelled(recoveryBarrier)) {
     pendingWorkerRecoveries.set(sourceAgentId, { ...recovery, dispatchAttempts });
+    await durableQueue.finish(recovery.durableItem, 'retry');
     setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 50 * (2 ** (dispatchAttempts - 1))).unref();
   } else if (!isCancelled(recoveryBarrier)) {
+    await durableQueue.finish(recovery.durableItem, 'exhausted');
     emit(worker.orchId, 'WORKER_RECOVERY_EXHAUSTED', decision.action, `Recovery dispatch budget exhausted after ${dispatchAttempts} attempts for '${worker.workerName}'. Validated work is preserved; nothing was promoted.`, { sourceWorkerId: sourceAgentId, workerId: worker.targetId, attempt: report.attempt + 1, dispatchAttempts, maxAttempts: MAX_RECOVERY_DISPATCH_ATTEMPTS, terminal: true }, 'error');
   }
+}
+
+async function loadDurableRecovery(sourceAgentId, recovery) {
+  if (recovery?.durableItem) return recovery;
+  const durableItem = await durableQueue.claim(sourceAgentId);
+  if (durableItem) {
+    const payload = recovery || durableItem.payload;
+    return { ...payload, durableItem, dispatchAttempts: Math.max(
+      Number(payload.dispatchAttempts || 0), durableItem.attempts - 1) };
+  }
+  return recovery || null;
 }
 
 async function dispatchWorkerRecovery(sourceAgentId) {
   const { startMission } = require('../agentRuntimeAdapter');
   if (activeWorkerRecoveryDispatches.has(sourceAgentId)) return false;
-  const recovery = pendingWorkerRecoveries.get(sourceAgentId);
+  const recovery = await loadDurableRecovery(sourceAgentId, pendingWorkerRecoveries.get(sourceAgentId));
+  if (recovery && !pendingWorkerRecoveries.has(sourceAgentId)) pendingWorkerRecoveries.set(sourceAgentId, recovery);
   if (!recovery) return false;
   activeWorkerRecoveryDispatches.add(sourceAgentId);
   pendingWorkerRecoveries.delete(sourceAgentId);
@@ -299,21 +314,28 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     throw error;
   }
   if (!hasRecoveryParent(source)) {
+    await durableQueue.finish(recovery.durableItem, 'exhausted');
     emitRecoveryUnavailable(sourceAgentId, source, recovery);
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
   const orchestratorId = source.parent_agent_id;
   if (isAlreadyValidated(source)) {
+    await durableQueue.finish(recovery.durableItem, 'dispatched');
     emit(orchestratorId, 'WORKER_RECOVERY_REDUNDANT', 'RECOVERY_SKIPPED', `Recovery skipped: source worker '${sourceAgentId}' already completed with validated work; no replacement will be promoted.`, { sourceWorkerId: sourceAgentId, workerId: sourceAgentId, terminal: true }, 'info');
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
   const recoveryBarrier = activeWorkerBarriers.get(orchestratorId);
   if (isCancelled(recoveryBarrier)) {
+    await durableQueue.finish(recovery.durableItem, 'cancelled');
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
+  const claimHeartbeat = recovery.durableItem ? setInterval(() => {
+    durableQueue.renew(recovery.durableItem).catch(() => {});
+  }, 30000) : null;
+  if (claimHeartbeat) claimHeartbeat.unref();
   let workspace = { workspaceRoot: null, capsuleName: null };
   let target = null;
   try {
@@ -325,17 +347,20 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: target.targetId, name: target.name, role: target.role, mission: target.prompt });
     workspace = await createRecoveryWorkspace(db, source, mission, target);
     const nextVariant = emitRecoveryDispatch(orchestratorId, target, { sourceAgentId, report, decision, garage, mission });
-    if (isCancelled(recoveryBarrier)) {
+    if (isCancelled(recoveryBarrier) || !(await durableQueue.isClaimActive(recovery.durableItem))) {
+      await durableQueue.finish(recovery.durableItem, 'cancelled');
       await cancelRecoveryDispatch(db, target, workspace);
       return false;
     }
     await startMission(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
     missionDispatched = true;
+    await durableQueue.finish(recovery.durableItem, 'dispatched');
     return true;
   } catch (error) {
     await handleRecoveryDispatchFailure(db, error, { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId });
     return false;
   } finally {
+    if (claimHeartbeat) clearInterval(claimHeartbeat);
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     // A same-identity recovery can fail while this dispatch is still active.
     // queueWorkerRecovery refreshes the pending entry, but its shutdown hook
@@ -349,4 +374,17 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   }
 }
 
-module.exports = { dispatchWorkerRecovery, MAX_RECOVERY_DISPATCH_ATTEMPTS };
+async function resumeDurableWorkerRecoveries(db, dispatch = dispatchWorkerRecovery) {
+  const readyWorkers = await durableQueue.recoverAbandonedClaims(db);
+  let resumed = 0;
+  for (const { worker_id: workerId } of readyWorkers) {
+    try {
+      if (await dispatch(workerId)) resumed += 1;
+    } catch (error) {
+      console.error('[WorkerRecovery] Startup resume failed.', { workerId, code: error.code || 'UNKNOWN' });
+    }
+  }
+  return { queued: readyWorkers.length, resumed };
+}
+
+module.exports = { dispatchWorkerRecovery, resumeDurableWorkerRecoveries, MAX_RECOVERY_DISPATCH_ATTEMPTS };

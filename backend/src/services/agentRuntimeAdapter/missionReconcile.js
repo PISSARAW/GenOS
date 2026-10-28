@@ -170,6 +170,10 @@ async function reconcilePersistedRuntimes(db) {
   return reconciled;
 }
 
+async function resumeDurableWorkerRecoveries(db) {
+  return require('../agentRecovery/dispatchWorkerRecovery').resumeDurableWorkerRecoveries(db);
+}
+
 module.exports = { reconcileDeadOrchestratorChildren, reconcilePersistedRuntimes,
   reconcilePersistedRuntimeRow, reconcileOrphanedRunning, reconcileUntrackedWorkers,
-  RUNTIME_DRAIN_GRACE_SECONDS };
+  resumeDurableWorkerRecoveries, RUNTIME_DRAIN_GRACE_SECONDS };

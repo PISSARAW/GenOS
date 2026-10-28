@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('109-worker-recovery-queue', 'Persist idempotent worker recovery queue, claims, retries and terminal states', async (db) => {
+    await require('./migrateWorkerRecoveryQueue').migrateWorkerRecoveryQueue(db);
+  }),
   createMigrationRunner('155-gci-evolution', 'Persist GCI revocations and immutable upgrade candidates', async (db) => {
     await require('./migrateGciEvolution').migrateGciEvolution(db);
   }),

@@ -25,7 +25,7 @@ async function emitLocalCompleted(ctx, publishSuccess) {
   }, ctx.unresolved ? 'warning' : 'info', deferred ? 'running' : terminalStatus);
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
   if (ctx.unresolved) {
-    require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
+    await require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
   }
   return completed;
 }

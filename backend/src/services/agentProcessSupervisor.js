@@ -118,7 +118,11 @@ function emitTrackedImpl(ctx, ...args) {
   recordWorkerEvidence(ctx.normalizedMission, event);
   reportUserMilestone(ctx, event);
   const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
-  if (workerFailure) agentRecoveryService.queueWorkerRecovery(ctx.normalizedMission, event);
+  if (workerFailure) {
+    ctx.state.recoveryQueuePromise = (ctx.state.recoveryQueuePromise || Promise.resolve())
+      .then(() => agentRecoveryService.queueWorkerRecovery(ctx.normalizedMission, event))
+      .catch((err) => console.error('[WorkerRecovery] Durable queue write failed.', { code: err.code || 'UNKNOWN' }));
+  }
   handleWorkerNoAnswer(ctx, event, eventType);
   enqueueTrackedEvent(ctx, event);
   if (!ctx.state.isProcessingEvents) ctx.state.eventProcessingPromise = ctx.processEventQueue(ctx);

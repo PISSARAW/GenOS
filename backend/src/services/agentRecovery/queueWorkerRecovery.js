@@ -6,6 +6,7 @@ const { pendingWorkerRecoveries, emit } = require('../agentOrchestrationState');
 const workerRecovery = require('../workerFailureRecoveryService');
 const { applyOrganizationDecision } = require('./organizationDecision');
 const handledFailures = new Map();
+const durableQueue = require('./durableRecoveryQueue');
 
 function requiresContinuousCoordination(mission = {}) {
   const policy = mission.coordinationPolicy || mission.coordination_policy || {};
@@ -61,18 +62,26 @@ function handleRecoveryDecision(report, decision, context) {
   return { report, decision, queued: false };
 }
 
-function refreshPendingRecovery(pending, mission, event) {
+async function refreshPendingRecovery(pending, mission, event) {
   const workerId = mission.agentId || mission.id;
   const report = workerRecovery.failureReport(event, mission);
   const decision = workerRecovery.decideRecovery(report);
   if (Number(report.attempt || 0) > Number(pending.report?.attempt || 0) && decision.retry) {
+    await durableQueue.enqueue({ workerId, mission, report, decision,
+      key: JSON.stringify([mission.missionId || mission.id, workerId, report.attempt, report.category]) });
     pendingWorkerRecoveries.set(workerId, { mission, report, decision, dispatchAttempts: pending.dispatchAttempts || 0 });
     return { report, decision, queued: true, refreshed: true };
   }
   return { report: pending.report, decision: pending.decision, queued: false, duplicate: true };
 }
 
-function queueWorkerRecovery(mission, event) {
+async function persistQueuedOutcome(outcome, context) {
+  const { workerId, mission, report, decision, failureKey } = context;
+  if (outcome.queued) await durableQueue.enqueue({ workerId, mission, report, decision, key: failureKey });
+  return outcome;
+}
+
+async function queueWorkerRecovery(mission, event) {
   const workerId = mission.agentId || mission.id;
   const pending = pendingWorkerRecoveries.get(workerId);
   if (pending) {
@@ -94,7 +103,8 @@ function queueWorkerRecovery(mission, event) {
   if (repeatedStrategy) {
     return handleRecoveryCycle(report, decision, { orchestratorId, workerId, recoveryHistory });
   }
-  return handleRecoveryDecision(report, decision, { orchestratorId, mission });
+  return persistQueuedOutcome(handleRecoveryDecision(report, decision, { orchestratorId, mission }),
+    { workerId, mission, report, decision, failureKey });
 }
 
 module.exports = { queueWorkerRecovery, getRecoveryOrganization };
