@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const fixture = require('./ontogenesisFixture');
+const { dockerReadiness } = require('../src/services/ontogenesis/readinessService');
 
 const CLI = path.resolve(__dirname, '../bin/genos-ontogenesis.cjs');
 
@@ -42,6 +43,50 @@ async function rejectInit(context, input) {
   await assertProjectMissing(context.database, input.projectId);
 }
 
+async function createPreflightFailureProject(context, nonGitRoot) {
+  const projectId = 'onto_preflight_invalid_root';
+  const task = JSON.parse(invoke(context, ['task', '--project', projectId, '--title', 'Must not start'])).taskId;
+  const { open } = require('sqlite');
+  const db = await open({ filename: context.database, driver: require('sqlite3').Database });
+  try {
+    await db.run('UPDATE ontogenesis_projects SET root_path = ? WHERE id = ?', [nonGitRoot, projectId]);
+  } finally {
+    await db.close();
+  }
+  return { projectId, task };
+}
+
+async function assertNoPreflightEffects(database, input) {
+  const { open } = require('sqlite');
+  const db = await open({ filename: database, driver: require('sqlite3').Database });
+  try {
+    assert.strictEqual(await db.get('SELECT project_id FROM ontogenesis_claims WHERE project_id = ?', [input.projectId]), undefined);
+    assert.strictEqual((await db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [input.task])).status, 'todo');
+  } finally {
+    await db.close();
+  }
+}
+
+async function testConditionalDockerReadiness(root) {
+  let probes = 0;
+  const probe = async (_root, images) => {
+    probes += 1;
+    assert.deepStrictEqual(images, ['registry.invalid/verifier@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']);
+  };
+  const noDocker = await dockerReadiness({ checks: [{ program: 'npm', args: ['test'] }] }, root, probe);
+  assert.strictEqual(noDocker, 'not_required');
+  assert.strictEqual(probes, 0);
+  const required = await dockerReadiness({ checks: [
+    { sandbox: { runtime: 'docker', image: 'registry.invalid/verifier@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } },
+    { sandbox: { runtime: 'docker', image: 'registry.invalid/verifier@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }
+  ] }, root, probe);
+  assert.strictEqual(required, 'ready');
+  assert.strictEqual(probes, 1);
+  await assert.rejects(dockerReadiness({ checks: [
+    { sandbox: { runtime: 'docker', image: 'registry.invalid/verifier@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }
+  ] }, root, async () => { throw new Error('moteur-docker-indisponible'); }), /moteur-docker-indisponible/);
+}
+
 async function main() {
   const db = await fixture.memoryDb();
   const root = await fixture.repository();
@@ -56,6 +101,7 @@ async function main() {
     fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
     fs.mkdirSync(nonGitRoot);
     fs.mkdirSync(nestedRoot);
+    await testConditionalDockerReadiness(root);
     await rejectInit(context, { root: path.join(scratch, 'missing'), projectId: 'onto_cli_missing_root' });
     await rejectInit(context, { root: nonGitRoot, projectId: 'onto_cli_non_git_root' });
     await rejectInit(context, { root: nestedRoot, projectId: 'onto_cli_nested_root' });
@@ -70,6 +116,17 @@ async function main() {
     assert.match(invoke(context, ['init', '--root', worktree, '--project', 'onto_cli_worktree', '--config', config]),
       /projet-cree:onto_cli_worktree/);
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli', '--config', config]), /projet-cree:onto_cli/);
+    assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"status":"ready"/);
+    assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"docker":"not_required"/);
+    assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_preflight_invalid_root', '--config', config]),
+      /projet-cree:onto_preflight_invalid_root/);
+    const invalidProject = await createPreflightFailureProject(context, nonGitRoot);
+    const refusedPreflight = execute(context, ['preflight', '--project', invalidProject.projectId]);
+    assert.strictEqual(refusedPreflight.status, 1);
+    const refusedTick = execute(context, ['tick', '--project', invalidProject.projectId]);
+    assert.strictEqual(refusedTick.status, 1);
+    assert.match(refusedTick.stderr, /--root doit être un dépôt Git valide/);
+    await assertNoPreflightEffects(context.database, { projectId: invalidProject.projectId, task: invalidProject.task });
     const flags = ['--project', 'onto_cli'];
     const task = JSON.parse(invoke(context, ['task', ...flags, '--title', 'CLI task', '--acceptance', '["Complete"]'])).taskId;
     invoke(context, ['priority', ...flags, '--task', task, '--priority', '70']);

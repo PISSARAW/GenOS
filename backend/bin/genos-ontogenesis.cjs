@@ -14,6 +14,7 @@ const { validateProjectRoot } = require('../src/services/ontogenesis/projectRoot
 const control = require('../src/services/ontogenesis/controlService');
 const autostart = require('../src/services/ontogenesis/autostartService');
 const { createRuntimeHarness } = require('../src/services/ontogenesis/runtimeHarness');
+const { assertProjectReady } = require('../src/services/ontogenesis/readinessService');
 
 function flags(argv) {
   const values = {};
@@ -39,6 +40,7 @@ function usage() {
   console.log('  status [--json]');
   console.log('  run --project ID [--interval-ms N] [--max-ticks N]');
   console.log('  tick --project ID');
+  console.log('  preflight --project ID');
   console.log('  task --project ID --title TXT [--priority N] [--depends JSON] [--acceptance JSON]');
   console.log('  tasks|notifications --project ID');
   console.log('  message --project ID --body TXT');
@@ -140,6 +142,7 @@ async function runPurge(db, options) {
 
 async function runTick(db, options) {
   if (!options.project) throw new Error('--project requis');
+  await assertProjectReady(db, options.project);
   const { tickOnce } = require('../src/services/ontogenesis/tickService');
   const outcome = await tickOnce(db, { projectId: options.project,
     owner: `cli:${options.host || 'local'}:${process.pid}`, harness: createRuntimeHarness(db),
@@ -149,6 +152,7 @@ async function runTick(db, options) {
 
 async function runLoop(db, options) {
   if (!options.project) throw new Error('--project requis');
+  await assertProjectReady(db, options.project);
   const { runResidentLoop } = require('../src/services/ontogenesis/residentLoopService');
   const controller = new AbortController();
   const signalStop = () => controller.abort();
@@ -164,6 +168,12 @@ async function runLoop(db, options) {
     process.removeListener('SIGTERM', signalStop);
     process.removeListener('SIGINT', signalStop);
   }
+}
+
+async function runPreflight(db, options) {
+  if (!options.project) throw new Error('--project requis');
+  const readiness = await assertProjectReady(db, options.project);
+  console.log(JSON.stringify(readiness));
 }
 
 async function runStopTask(db, options) {
@@ -187,6 +197,7 @@ const DB_COMMANDS = {
   ...require('../src/services/ontogenesis/operatorCli.cjs'),
   ...require('../src/services/ontogenesis/continuityCli.cjs'),
   init: runInit,
+  preflight: runPreflight,
   prune: runPrune,
   purge: runPurge,
   tick: runTick,

@@ -92,6 +92,14 @@ async function assertLinuxDocker(cwd, env) {
   if (info.stdout.trim() !== 'linux') throw new Error('moteur-docker-linux-requis');
 }
 
+async function assertDockerReady(cwd, images = []) {
+  const env = dockerClientEnvironment();
+  await assertLinuxDocker(cwd, env);
+  for (const image of new Set(images)) {
+    await runCommand('docker', ['image', 'inspect', image], { cwd, env, timeoutMs: 10000 });
+  }
+}
+
 async function runDockerVerifier(input) {
   if (!input?.sandbox || input.sandbox.runtime !== 'docker') throw new Error('sandbox-docker-requis');
   imageDigest(input.sandbox.image);
@@ -117,4 +125,4 @@ async function runDockerVerifier(input) {
 }
 
 module.exports = { runDockerVerifier, dockerRunArgs, resolveMountRoots, containerProgram,
-  containerArguments, imageDigest, TIMEOUT_MS };
+  containerArguments, imageDigest, assertDockerReady, TIMEOUT_MS };
