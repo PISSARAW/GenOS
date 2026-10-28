@@ -33,4 +33,12 @@ assert.match(diagnosis.args.hypotheses[0].statement, /authorized workspace/);
 const suppliedDiagnosis = prepareToolArguments({ task: 'Maintain site', hypotheses: request.diagnosticHypotheses }, 'genos_diagnose');
 assert.deepEqual(suppliedDiagnosis.args.hypotheses, request.diagnosticHypotheses);
 assert.equal(missionRuntimeContext({ communication_required: true }).communicationRequired, true);
+const workerRuntimeContext = require('../bin/orchestratorMissionHelpers.cjs').missionRuntimeContext({
+  communicationRequired: true, coordinationPolicy: { communicationCadence: 'continuous_sync' },
+  workerTokenLimit: 30000
+});
+assert.equal(workerRuntimeContext.communicationRequired, true,
+  'the actual orchestrator mission builder must preserve the communication budget contract');
+assert.deepEqual(workerRuntimeContext.coordinationPolicy, { communicationCadence: 'continuous_sync' });
+assert.equal(workerRuntimeContext.workerTokenLimit, 30000);
 console.log('Orchestrator preflight forwards falsifiable hypotheses and the bound D: workspace.');

@@ -100,6 +100,16 @@ assert.deepEqual(communicating.map(profile => profile.runtimeMaximumTokens), [40
 assert.equal(communicating[0].runtimeCeilingExceeded, false,
   'a contract that explicitly grants a larger communication budget can fund the requested worker minimum');
 
+const coordinatedPlan = require('../src/services/autonomousOrchestrationService/tokenPlanner').buildTokenPlan({
+  tokens: 80000, workerShare: 0.8, minimumWorkerTokens: 30000, communicationRequired: true
+}, {}, [
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+  { workerKind: 'scout_cell', role: 'log_auditor', methodContract: { methodId: 'prompt_defined' } }
+]);
+assert.equal(coordinatedPlan.admission.valid, true);
+assert.deepEqual(coordinatedPlan.workerBudgets.map(item => item.runtimeMaximumTokens), [40000, 40000]);
+assert.deepEqual(coordinatedPlan.rounds.initial.workerTokens, [30000, 30000]);
+
 const unsafeOverride = policy.budgetEnvelope(64000, profiles, { workerShare: 0.95 });
 assert.equal(unsafeOverride.valid, false);
 assert.equal(unsafeOverride.invalidReason, 'orchestrator_reserve_below_minimum');

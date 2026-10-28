@@ -191,7 +191,7 @@ function missionWorkspaceOptions(request) {
 
 function missionRuntimeContext(request) {
   const normalized = { ...request, successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
-    workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
+    workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms, communicationRequired: pickOr(request, ['communicationRequired', 'communication_required']), coordinationPolicy: pickOr(request, ['coordinationPolicy', 'coordination_policy']), workerTokenLimit: pickOr(request, ['workerTokenLimit', 'worker_token_limit']),
     morphologyExpression: request.morphologyExpression || request.morphology_expression,
     morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy,
     userTopologyRequested: hasUserTopologyRequest(request) };
@@ -200,7 +200,7 @@ function missionRuntimeContext(request) {
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
-    'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
+    'localCodeWorker', 'communicationRequired', 'coordinationPolicy', 'workerTokenLimit', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
     'requiredTools', 'toolLease', 'userTopologyRequested'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
@@ -210,11 +210,12 @@ function hasUserTopologyRequest(request) {
   const topologyFields = ['topologyId', 'topology_id', 'proposedTopology', 'proposed_topology',
     'morphologyTopology', 'morphology_topology', 'trinityMode', 'trinity_mode',
     'trinityVariantId', 'trinity_variant_id', 'trinityVariant', 'variant_id'];
-  return topologyFields.some((field) => request[field] !== undefined && request[field] !== null && request[field] !== '')
-    || Boolean(request.morphology?.topology || request.morphologyExpression || request.morphology_expression
-      || request.morphologyPlan?.selectedTopology || request.missionCapabilityPlan?.topology
-      || request.mission_capability_plan?.topology || request.topologyContract?.mode
-      || request.topologyContract?.topology);
+  const topologyValues = [request.morphology?.topology, request.morphologyExpression,
+    request.morphology_expression, request.morphologyPlan?.selectedTopology,
+    request.missionCapabilityPlan?.topology, request.mission_capability_plan?.topology,
+    request.topologyContract?.mode, request.topologyContract?.topology];
+  return topologyFields.some((field) => request[field] != null && request[field] !== '')
+    || topologyValues.some(Boolean);
 }
 function promptWithWorkerAssignments(prompt, request = {}) {
   const assignments = request.worker_assignments || request.workerAssignments;
@@ -341,26 +342,26 @@ function tokenUsage(runs, usageRows = []) {
   return { executionRuns, totalTokens, allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
 }
 
+function isUnmeasuredProviderAttempt(row) {
+  return Number(row.provider_called) === 1 && [row.token_usage_source !== 'provider',
+    row.input_tokens == null, row.output_tokens == null, row.cost_usd == null,
+    !Number.isSafeInteger(Number(row.input_tokens)), !Number.isSafeInteger(Number(row.output_tokens)),
+    !Number.isFinite(Number(row.cost_usd))].some(Boolean);
+}
+function measuredRunUsage(run, attempts, usageRunIds) {
+  const rows = attempts.filter((attempt) => attempt.run_id === run.id);
+  const incomplete = (rows.length === 0 && usageRunIds.has(run.id)) || rows.some(isUnmeasuredProviderAttempt);
+  const providerRows = rows.filter((row) => Number(row.provider_called) === 1);
+  const tokens = providerRows.reduce((sum, row) => sum + Number(row.input_tokens) + Number(row.output_tokens), 0);
+  const costUsd = Number(providerRows.reduce((sum, row) => sum + Number(row.cost_usd), 0).toFixed(8));
+  return { runId: run.id, agentId: run.agent_id, status: run.status,
+    providerAttempts: providerRows.length, tokens: incomplete ? null : tokens,
+    costUsd: incomplete ? null : costUsd, complete: !incomplete };
+}
+
 function measuredModelUsage(runs, attempts = [], usageRows = []) {
   const usageRunIds = new Set(usageRows.map((row) => row.run_id));
-  const executionRuns = runs.map((run) => {
-    const rows = attempts.filter((attempt) => attempt.run_id === run.id);
-    const unboundUsage = rows.length === 0 && usageRunIds.has(run.id);
-    const incomplete = unboundUsage || rows.some((row) => Number(row.provider_called) === 1
-      && (row.token_usage_source !== 'provider'
-        || row.input_tokens == null || row.output_tokens == null || row.cost_usd == null
-        || !Number.isSafeInteger(Number(row.input_tokens))
-        || !Number.isSafeInteger(Number(row.output_tokens))
-        || !Number.isFinite(Number(row.cost_usd))));
-    const providerRows = rows.filter((row) => Number(row.provider_called) === 1);
-    return { runId: run.id, agentId: run.agent_id, status: run.status,
-      providerAttempts: providerRows.length,
-      tokens: incomplete ? null : providerRows.reduce((sum, row) =>
-        sum + Number(row.input_tokens) + Number(row.output_tokens), 0),
-      costUsd: incomplete ? null : Number(providerRows.reduce((sum, row) =>
-        sum + Number(row.cost_usd), 0).toFixed(8)),
-      complete: !incomplete };
-  });
+  const executionRuns = runs.map((run) => measuredRunUsage(run, attempts, usageRunIds));
   const allRunsCompleted = executionRuns.length > 0
     && executionRuns.every((run) => run.status === 'completed');
   const complete = allRunsCompleted && executionRuns.every((run) => run.complete);

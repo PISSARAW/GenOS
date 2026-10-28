@@ -15,6 +15,14 @@ function resolveMinimumWorkerTokens(budget, workerCount) {
   return Number(budget.minimumWorkerTokens ?? fallback);
 }
 
+function inheritCommunicationPolicy(workers, budget) {
+  return workers.map(worker => ({
+    ...worker,
+    communicationRequired: worker.communicationRequired === true || budget.communicationRequired === true,
+    coordinationPolicy: worker.coordinationPolicy || budget.coordinationPolicy
+  }));
+}
+
 function affordablePrefix(envelope, workerBudgets) {
   if (!envelope.valid) return 0;
   let funded = 0;
@@ -50,7 +58,7 @@ function buildTokenPlan(budget, flags, workers) {
   const totalTokens = resolveTotalTokens(budget, workers.length);
   const minimumWorkerTokens = resolveMinimumWorkerTokens(budget, workers.length);
   const override = budget.minimumWorkerTokens ?? tokenPolicyValue(budget, 'minimumWorkerTokens');
-  const workerBudgets = policy.profileWorkers(workers, override);
+  const workerBudgets = policy.profileWorkers(inheritCommunicationPolicy(workers, budget), override);
   const envelope = policy.budgetEnvelope(totalTokens, workerBudgets, budget);
   const atomic = flags.security || budget.atomicTopology === true;
   const affordableWorkers = affordablePrefix(envelope, workerBudgets);
