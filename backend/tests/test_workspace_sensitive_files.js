@@ -15,6 +15,8 @@ async function run() {
 	assert.equal(isExcluded('.codex-worktrees'), true);
 	assert.equal(isExcluded('.genos-runtime'), true);
 	assert.equal(isExcluded('.genos-runner-logs'), true);
+	assert.equal(isExcluded('mcp_orchestrator_12345678-1234-5678-abcd-1234567890ab'), true);
+	assert.equal(isExcluded('mcp_orchestrator_notes'), false);
 	assert.equal(isExcluded('runner-logs'), true);
 	assert.equal(isExcluded('artifacts'), true);
 	assert.equal(isExcluded('README.md'), false);

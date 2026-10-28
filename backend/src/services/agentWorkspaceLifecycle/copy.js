@@ -34,10 +34,14 @@ function createExclusionFilter() {
     'runner-logs', 'artifacts', 'node_modules', 'target'
   ]);
   return (name) => {
-    return excluded.has(name) || SENSITIVE_COPY_FILES.test(name)
+    return excluded.has(name) || isOrchestratorWorkspace(name) || SENSITIVE_COPY_FILES.test(name)
       || isDatabaseArtifact(name) || isAgentRunWorkspace(name)
       || isCargoTargetVariant(name);
   };
+}
+
+function isOrchestratorWorkspace(name) {
+  return /^mcp_orchestrator_[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(name);
 }
 
 function isCargoTargetVariant(name) {
