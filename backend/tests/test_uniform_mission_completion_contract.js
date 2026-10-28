@@ -65,11 +65,21 @@ function testTerminalStatus(input) {
     trackedEventId: 'completed', payload: { completionInput: input } }, 'completed');
   assert.equal(succeeded.verdict, 'succeeded');
   assert.equal(ctx.state.pendingTerminalStatuses.get('completed').nextStatus, 'completed');
+  const inferredCompleted = terminalStatus.queue(ctx, { eventType: 'AGENT_COMPLETED',
+    trackedEventId: 'completed-without-status', payload: { completionInput: input } });
+  assert.equal(inferredCompleted.verdict, 'succeeded',
+    'missing status uses the completion contract with complete evidence');
+  assert.equal(ctx.state.pendingTerminalStatuses.get('completed-without-status').nextStatus, 'completed');
   const incomplete = { ...input, evidenceProofs: [] };
   const partial = terminalStatus.queue(ctx, { eventType: 'AGENT_COMPLETED', status: 'completed',
     trackedEventId: 'partial', payload: { completionInput: incomplete } }, 'completed');
   assert.equal(partial.verdict, 'partial');
   assert.equal(ctx.state.pendingTerminalStatuses.get('partial').nextStatus, 'unverified');
+  const inferredPartial = terminalStatus.queue(ctx, { eventType: 'AGENT_COMPLETED',
+    trackedEventId: 'completed-without-status-and-evidence', payload: { completionInput: incomplete } });
+  assert.equal(inferredPartial.verdict, 'partial',
+    'missing status cannot bypass incomplete evidence');
+  assert.equal(ctx.state.pendingTerminalStatuses.get('completed-without-status-and-evidence').nextStatus, 'unverified');
   const leafCtx = { ...ctx, dispatchedAgent: { execution_mode: 'worker' } };
   const leaf = terminalStatus.queue(leafCtx, { eventType: 'AGENT_COMPLETED', status: 'completed',
     trackedEventId: 'leaf', payload: {} }, 'completed');

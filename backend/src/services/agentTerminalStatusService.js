@@ -61,23 +61,24 @@ function persistedStatus(verdict, fallback) {
 }
 
 function queue(ctx, event, nextStatus) {
-  if (!(nextStatus || event.currentTask)) return;
-  if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
-  if (!nextStatus && !isTerminalEvent(event.eventType)) {
+  const status = nextStatus || event.status
+    || (event.eventType === 'AGENT_COMPLETED' ? 'completed' : null);
+  if (!(status || event.currentTask)) return;
+  if (!status && !isTerminalEvent(event.eventType)) {
     ctx.state.executionQueue = ctx.state.executionQueue.then(() => updateAgent(ctx.agentId,
       null, event.currentTask));
     return null;
   }
-  const completion = evaluateTerminalStatus(ctx, event, nextStatus);
-  const status = persistedStatus(completion.verdict, nextStatus);
+  const completion = evaluateTerminalStatus(ctx, event, status);
+  const persisted = persistedStatus(completion.verdict, status);
   if (isTerminalEvent(event.eventType)) {
     ctx.state.pendingTerminalStatuses.set(event.trackedEventId, {
-      nextStatus: status, currentTask: event.currentTask, completion
+      nextStatus: persisted, currentTask: event.currentTask, completion
     });
     return completion;
   }
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => updateAgent(ctx.agentId,
-    status, event.currentTask));
+    persisted, event.currentTask));
   return completion;
 }
 
