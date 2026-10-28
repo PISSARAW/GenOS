@@ -251,7 +251,7 @@ def planned_specs():
             "scope": ["E03"], "eligible": True}),
         pair_spec({"id": "A4_harness_replay_E05", "family": "ablations",
             "left": ("A4-E05-control.jsonl", "A4_CONTROL"),
-            "right": ("A4-E05-journal-replay.jsonl", "A4_JOURNAL_REPLAY"),
+            "right": ("A4-E05-journal-native.jsonl", "A4_JOURNAL_NATIVE"),
             "scope": ["E05"], "eligible": False,
             "limitation": "Harness-level journal/fsync/reexecute control; not native G-CIR journaling/replay."}),
         pair_spec({"id": "A5_morphogenesis_E10", "family": "ablations",
