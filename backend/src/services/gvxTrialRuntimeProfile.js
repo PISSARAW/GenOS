@@ -75,12 +75,15 @@ function missionFields(context) {
   if (!bound) return {};
   const profile = bound.profile;
   return { gvxTrialCampaign: true, trialProtocol: VERSION, campaignId: profile.campaignId, trialId: profile.trialId, armId: profile.armId,
+    scenarioId: profile.scenarioId, seed: profile.seed, workspaceSnapshotHash: profile.workspaceSnapshotHash,
     missionId: profile.missionId, codeRevision: profile.codeRevision, gvxTrialContext: bound };
 }
 
 function missionMatches(profile, mission) {
   return profile.campaignId === mission.campaignId && profile.trialId === mission.trialId
     && profile.armId === mission.armId && profile.missionId === mission.missionId
+    && profile.scenarioId === mission.scenarioId && profile.seed === mission.seed
+    && profile.workspaceSnapshotHash === mission.workspaceSnapshotHash
     && sameScope(profile.scope, mission.scope) && profile.codeRevision === mission.codeRevision;
 }
 

@@ -3,12 +3,15 @@
   "$id": "genos.gvx.runtime-arm-profile/v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "campaignId", "trialId", "armId", "scope", "missionId", "codeRevision", "acquisition", "evolution", "learnerFacingVerification", "transmission", "modelProvider", "modelId", "toolsetHash", "manifestHash", "phaseBudgets", "externalEvaluator", "authorityId", "profileHash", "authoritySignature"],
+  "required": ["schema", "campaignId", "trialId", "armId", "scenarioId", "seed", "workspaceSnapshotHash", "scope", "missionId", "codeRevision", "acquisition", "evolution", "learnerFacingVerification", "transmission", "modelProvider", "modelId", "toolsetHash", "manifestHash", "phaseBudgets", "externalEvaluator", "authorityId", "profileHash", "authoritySignature"],
   "properties": {
     "schema": { "const": "genos.gvx.runtime-arm-profile/v1" },
     "campaignId": { "type": "string", "minLength": 1, "maxLength": 200 },
     "trialId": { "type": "string", "minLength": 1, "maxLength": 200 },
     "armId": { "enum": ["A", "B", "C", "D", "E", "F", "G"] },
+    "scenarioId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "workspaceSnapshotHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "scope": {
       "type": "object", "additionalProperties": false,
       "required": ["organizationId", "projectId", "entityId"],

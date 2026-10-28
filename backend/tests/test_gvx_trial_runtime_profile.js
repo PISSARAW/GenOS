@@ -15,7 +15,8 @@ const scope = { organizationId: 'org-test', projectId: 'project-test', entityId:
 function profile(armId) {
   const modes = profiles.ARMS[armId];
   return profiles.seal({ schema: profiles.VERSION, campaignId: 'campaign-test', trialId: `trial-${armId}`,
-    armId, scope, missionId: 'mission-test', codeRevision: 'a'.repeat(40),
+    armId, scenarioId: 'scenario-test', seed: 17, workspaceSnapshotHash: 'e'.repeat(64),
+    scope, missionId: 'mission-test', codeRevision: 'a'.repeat(40),
     acquisition: modes[0], evolution: modes[1], learnerFacingVerification: modes[2], transmission: modes[3],
     modelProvider: 'provider', modelId: 'model-v1', toolsetHash: 'b'.repeat(64), manifestHash: 'c'.repeat(64),
     phaseBudgets: { acquisition: 1, evolution: 1, verification: 1, transmission: 1 },
@@ -28,7 +29,8 @@ function contextFor(armId) {
 }
 
 function missionFor(armId) {
-  return { campaignId: 'campaign-test', trialId: `trial-${armId}`, armId, missionId: 'mission-test',
+  return { campaignId: 'campaign-test', trialId: `trial-${armId}`, armId, scenarioId: 'scenario-test', seed: 17,
+    workspaceSnapshotHash: 'e'.repeat(64), missionId: 'mission-test',
     codeRevision: 'a'.repeat(40), scope, gvxTrialContext: contextFor(armId) };
 }
 
@@ -79,7 +81,13 @@ async function admissionFailsClosed() {
         artifactReader: async () => Buffer.alloc(0) }), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
       assert.equal(markerLaunched, false);
     }
-    await runWorldReceivesBoundTrialContext(db);
+    let directRunLaunched = false;
+    await assert.rejects(nursery.runArm({ db, trialMission: missionFor('C'),
+      input: { scope, entityId: scope.entityId, candidateHash: 'd'.repeat(64) },
+      plan: { experimentId: 'direct-profile-run', snapshotHash: 'e'.repeat(64), worldBudget: 1, controls: {} },
+      runWorld: async () => { directRunLaunched = true; } }, { armId: 'C', budget: 1 }),
+    { code: 'GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE' });
+    assert.equal(directRunLaunched, false);
     const transfer = require('../src/services/gvxTransferLifecycle');
     const started = await transfer.startTransfer(db, { scope: { organizationId: scope.organizationId,
       projectId: scope.projectId }, entityId: scope.entityId, sourceLineage: 'source-lineage',
@@ -93,24 +101,29 @@ async function admissionFailsClosed() {
   } finally { await db.close(); }
 }
 
-async function runWorldReceivesBoundTrialContext(db) {
-  const runWorldInputs = [];
-  const worldInputs = [];
+async function executionContractChecks() {
   const trialContext = contextFor('C');
-  const arm = { armId: 'arm-propagation', worldId: 'world-propagation', isolationId: 'isolation-propagation', budget: 1 };
-  await nursery.runArm({ db, input: { scope, entityId: scope.entityId, candidateHash: 'd'.repeat(64) },
-    plan: { experimentId: 'profile-propagation', snapshotHash: 'e'.repeat(64), worldBudget: 1, controls: {} },
-    gvxTrialContext: trialContext, profileHash: trialContext.profileHash,
-    createIsolatedWorld: async (worldInput) => {
-      worldInputs.push(worldInput);
-      return { worldId: arm.worldId, isolationId: arm.isolationId };
-    },
-    runWorld: async (runInput) => { runWorldInputs.push(runInput); return { status: 'ok', evidence: [] }; },
-    artifactReader: async () => Buffer.alloc(0) }, arm);
-  assert.equal(worldInputs[0].gvxTrialContext.profileHash, trialContext.profileHash);
-  assert.equal(worldInputs[0].profileHash, trialContext.profileHash);
-  assert.equal(runWorldInputs[0].gvxTrialContext.profileHash, trialContext.profileHash);
-  assert.equal(runWorldInputs[0].profileHash, trialContext.profileHash);
+  const arm = { armId: 'C', budget: 1 };
+  const options = { gvxTrialContext: trialContext, profileHash: trialContext.profileHash,
+    plan: { snapshotHash: 'e'.repeat(64), worldBudget: 1 } };
+  const { executeTrial } = nursery.trialRuntimeContext(options, arm);
+  assert.deepEqual(executeTrial, { schema: 'genos.gvx.execute-trial/v1', scenarioId: 'scenario-test',
+    seed: 17, armId: 'C', profileHash: trialContext.profileHash,
+    workspaceSnapshotHash: 'e'.repeat(64), budget: 1 });
+  for (const divergent of [
+    { ...options, plan: { ...options.plan, snapshotHash: 'f'.repeat(64) } },
+    { ...options, plan: { ...options.plan, worldBudget: 2 } }
+  ]) assert.throws(() => nursery.trialRuntimeContext(divergent, arm),
+    { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
+  assert.throws(() => nursery.trialRuntimeContext(options, { ...arm, armId: 'D' }),
+    { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
+  assert.throws(() => nursery.trialRuntimeContext(options, { ...arm, seed: 18 }),
+    { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
+  assert.throws(() => nursery.assertCachedExecution({ payload: { executeTrial } },
+    { ...executeTrial, seed: 18 }), { code: 'GVX_NURSERY_CACHED_EXECUTION_MISMATCH' });
+  assert.doesNotThrow(() => nursery.assertCachedExecution({ payload: { executeTrial } }, executeTrial));
+  assert.deepEqual(nursery.trialRuntimeContext({ plan: options.plan }, arm),
+    { gvxTrialContext: null, profileHash: null });
   assert.throws(() => nursery.trialRuntimeContext({ gvxTrialContext: trialContext, profileHash: 'f'.repeat(64) }),
     { code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH' });
 }
@@ -130,6 +143,18 @@ async function profileAndMissionChecks() {
     { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
   const extra = { ...profile('C'), unboundFlag: true };
   assert.throws(() => profiles.verify(extra, SECRET), { code: 'GVX_TRIAL_PROFILE_INVALID' });
+  for (const invalidSeed of [-1, 4294967296, 1.5, '17']) {
+    assert.throws(() => profiles.seal({ ...profile('C'), seed: invalidSeed,
+      profileHash: undefined, authoritySignature: undefined }, SECRET), { code: 'GVX_TRIAL_PROFILE_INVALID' });
+  }
+  const changedSeed = profiles.seal({ ...profile('C'), seed: 18,
+    profileHash: undefined, authoritySignature: undefined }, SECRET);
+  assert.notEqual(changedSeed.profileHash, profile('C').profileHash);
+  for (const [field, value] of [['scenarioId', 'different-scenario'], ['seed', 18],
+    ['workspaceSnapshotHash', 'f'.repeat(64)]]) {
+    assert.throws(() => profiles.bindMission({ ...missionFor('C'), [field]: value }, SECRET),
+      { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  }
   assert.throws(() => profiles.bindContext({ ...contextFor('C'), schema: 'wrong' }, SECRET),
     { code: 'GVX_TRIAL_CONTEXT_SCHEMA_INVALID' });
   const ordinary = { missionId: 'ordinary-task' };
@@ -167,6 +192,7 @@ async function profileAndMissionChecks() {
 
 async function main() {
   await profileAndMissionChecks();
+  await executionContractChecks();
   await gateChecks();
   await admissionFailsClosed();
   console.log('GVX trial runtime profile gates and closed admission checks passed.');

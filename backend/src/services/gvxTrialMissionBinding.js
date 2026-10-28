@@ -14,7 +14,7 @@ function bindCampaignMission(mission) {
     throw Object.assign(new Error('GVX trial mission profile is required.'), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
   }
   const fields = profiles.missionFields(mission.gvxTrialContext);
-  for (const key of ['campaignId', 'trialId', 'armId', 'missionId', 'codeRevision']) {
+  for (const key of ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash', 'missionId', 'codeRevision']) {
     if (mission[key] !== undefined && mission[key] !== fields[key]) {
       throw Object.assign(new Error('GVX trial mission identity changed.'), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
     }

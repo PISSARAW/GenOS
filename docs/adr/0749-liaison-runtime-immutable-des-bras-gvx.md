@@ -34,8 +34,9 @@ peuvent la créer, la modifier ou la remplacer.
 
 Le profil canonique `genos.gvx.runtime-arm-profile/v1` déclare exactement :
 
-- `campaignId`, `trialId`, `armId`, scope organisation/projet, identité de
-  mission et révision du code GenOS;
+- `campaignId`, `trialId`, `armId`, `scenarioId`, une `seed` entière entre 0
+  et 2³²−1, le hash du snapshot de workspace, scope organisation/projet,
+  identité de mission et révision du code GenOS;
 - les modes `acquisition`, `evolution`, `learnerFacingVerification` et
   `transmission`;
 - modèle/fournisseur, empreinte du jeu d’outils, budgets par phase, limites
@@ -78,6 +79,15 @@ ablation n’autorise pas à déployer une modification non vérifiée.
 Cette matrice fixe la sémantique de départ. Toute modification exige une nouvelle
 version du protocole et un nouveau hash; un runner ne peut pas réinterpréter un
 bras existant.
+
+Le contrat `genos.gvx.execute-trial/v1` transmis au runner lie le `scenarioId`,
+la seed, le bras, le `profileHash`, le `snapshotHash` du plan et le budget
+effectivement déclaré pour le bras. Le reçu de résultat est l’événement GVX
+immuable déjà écrit au ledger; son entrée de reprise doit contenir le même
+contrat. Une tentative réutilisant l’identité expérimentale avec une seed,
+snapshot, un bras ou un budget différent est rejetée. Les coûts et métriques
+restent soumis aux preuves autoritatives existantes; aucun reçu synthétique
+n’est créé pour les données absentes.
 
 ### Frontières d’application obligatoires
 
@@ -173,6 +183,12 @@ retenues, les contrats enfants/reprise, le test d’isolation de l’évaluateur
 la revue de sûreté ne sont pas implémentés et passants. Un profil descriptif ou
 un dry-run de manifeste seul ne rend pas un bras exécutable.
 
+L’adaptateur Node actuel refuse chaque admission GVX avec
+`GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE`. Le contrat `executeTrial` lie
+les identifiants et permet de détecter les reprises divergentes, mais il ne
+rend aucun bras exécutable tant qu’une capacité d’évaluateur isolée et auditée
+n’est pas fournie.
+
 ## Tests d’acceptation
 
 La mise en œuvre devra démontrer au minimum :
@@ -192,6 +208,9 @@ La mise en œuvre devra démontrer au minimum :
   n’entre dans la décision de l’apprenant;
 - une mutation du profil ou de son manifeste entre admission et clôture rend le
   trial invalide et non comptable;
+- `scenarioId`, seed uint32, bras, `profileHash`, snapshot du plan et budget
+  passent inchangés dans `executeTrial`; une reprise sous la même identité avec
+  une valeur divergente est refusée;
 - les implémentations de runtime autorisées par le protocole passent les mêmes
   vecteurs de conformance Node/Rust; un runtime non conforme est refusé;
 - un dry-run teste le binding et l’isolation sans lancer de modèle, d’agent ni
