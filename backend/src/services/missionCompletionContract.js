@@ -53,9 +53,15 @@ function verifiedContent(content) {
   return content?.result?.status === 'completed' && content.result.verified === true;
 }
 
+function satisfiedBiologicalBudget(proof) {
+  return proof.source !== 'biological_worker_receipts'
+    || proof.content?.budgetAssessment?.satisfied === true;
+}
+
 function validProof(context) {
   const proof = context.index.get(context.reference);
-  if (!proof || !proof.content || digest(proof.content) !== context.reference) return false;
+  if (!proof || !proof.content || digest(proof.content) !== context.reference
+      || !satisfiedBiologicalBudget(proof)) return false;
   const identity = proofIdentity(proof.content);
   return identity.missionId === context.missionId && identity.memberId === context.memberId
     && verifiedContent(proof.content);
