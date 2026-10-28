@@ -3,11 +3,11 @@ systems:
   genos_no_endogenous_thought: { status: executable_ablation_condition, adapter: backend/src/services/endogenousThoughtCampaignExecutor.js, condition: curiosity_ablated }
   genos_no_persistent_memory: { status: executable_ablation_condition, adapter: backend/src/services/endogenousThoughtCampaignExecutor.js, condition: memory_ablated }
   llm_only: { status: executable_local_model, adapter: run_runtime_campaign.js, fidelity: one_shot_same_model }
-  react_classic: { status: executable_prompt_adaptation, adapter: adapters/independent/reactClassic.js, fidelity: react_style_single_step }
-  periodic_llm_loop: { status: executable_prompt_adaptation, adapter: adapters/independent/periodicLlmLoop.js, fidelity: repeated_same_observation_no_tools }
-  voyager_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/voyagerAdapted.js, fidelity: verified_example_memory_proxy }
-  ai_scientist_v2_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/aiScientistV2Adapted.js, fidelity: two_step_hypothesis_experiment_prompt }
-  darwin_godel_machine_adapted: { status: executable_prompt_adaptation, adapter: adapters/independent/darwinGodelMachineAdapted.js, fidelity: two_step_strategy_selection_no_code_mutation }
+  react_classic: { status: executable_local_model_adapter, adapter: adapters/independent/reactClassic.js, fidelity: repeated_observe_inspect_submit_react_prompt }
+  periodic_llm_loop: { status: executable_local_model_adapter, adapter: adapters/independent/periodicLlmLoop.js, fidelity: periodic_re_evaluation_without_persistent_state }
+  voyager_adapted: { status: executable_local_model_adapter, adapter: adapters/independent/voyagerAdapted.js, fidelity: verified_example_memory_proxy_with_action_world }
+  ai_scientist_v2_adapted: { status: executable_local_model_adapter, adapter: adapters/independent/aiScientistV2Adapted.js, fidelity: hypothesis_experiment_decision_prompt_with_action_world }
+  darwin_godel_machine_adapted: { status: executable_local_model_adapter, adapter: adapters/independent/darwinGodelMachineAdapted.js, fidelity: strategy_selection_prompt_with_action_world_no_code_mutation }
   oracle_score_upper_bound: { status: development_control_only, adapter: adapters/referenceSystems.js, output_is_not_system_performance: true }
   fixed_first_candidate: { status: development_control_only, adapter: adapters/referenceSystems.js }
   scenario_rule_solver: { status: development_control_only, adapter: adapters/referenceSystems.js }
@@ -16,6 +16,8 @@ systems:
   darwin_godel_machine_original: { status: unavailable, reason: original_runtime_not_installed }
   google_co_scientist_reference: { status: secondary_reference_only }
 adapter_requirements:
+  shared_action_contract: [inspect_candidate, submit_answer]
+  independent_policy_modules: true
   same_model_and_limits: true
   disclose_adaptations: true
   do_not_label_adaptations_as_original_system: true

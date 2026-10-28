@@ -67,18 +67,46 @@ function solutionPrompt(request, observation) {
     'Return only JSON: {"answerId":"candidate-id","evidenceRefs":["candidate-id:metric"],"reason":"short"}.'].join('\n');
 }
 
-function createModelWorker({ ledger, model, observation }) {
-  return {
-    async solve(request) {
-      const { value } = await ledger.generateJson({ model,
-        prompt: solutionPrompt(request, observation), seed: request.executionId, maxTokens: 128 });
-      if (typeof value.answerId !== 'string') throw new Error('Model omitted answerId.');
-      const refs = Array.isArray(value.evidenceRefs) ? value.evidenceRefs : [];
-      return { proposal: { hypothesis: request.question.hypothesis,
-        method: request.question.method, falsifier: request.question.falsifier },
-        evidenceRefs: [`ett-answer:${value.answerId}`, ...refs] };
-    }
-  };
+function applyWorkerAction(world, value) {
+  if (value.action?.type === 'inspect_candidate') return world.act(value.action);
+  if (value.action?.type === 'submit_answer') return world.act(value.action);
+  if (typeof value.answerId === 'string') {
+    return world.act({ type: 'submit_answer', answerId: value.answerId });
+  }
+  return null;
+}
+
+async function runWorkerTurns(input) {
+  let value = null;
+  let latest = null;
+  const maxCalls = input.world?.observation.actionBudget || 1;
+  for (let turn = 1; turn <= maxCalls; turn += 1) {
+    const current = input.world?.observation || input.observation;
+    const prompt = [solutionPrompt(input.request, current),
+      `Action ${turn}/${maxCalls}. Latest environment response: ${JSON.stringify(latest)}`,
+      'Return JSON with either action {type:"inspect_candidate",candidateId:"candidate-N"} or action {type:"submit_answer",answerId:"candidate-N"}. Inspect evidence before submitting.'].join('\n');
+    const result = await input.ledger.generateJson({ model: input.model, prompt,
+      seed: `${input.request.executionId}:${turn}`, maxTokens: 128 });
+    value = result.value;
+    if (!input.world) break;
+    latest = applyWorkerAction(input.world, value);
+    if (input.world.terminal) break;
+  }
+  return workerProposal({ ...input, value, worldResult: input.world?.result() });
+}
+
+function workerProposal(input) {
+  const answerId = input.worldResult?.answerId || input.value?.answerId;
+  if (typeof answerId !== 'string') throw new Error('Model omitted answerId.');
+  const refs = Array.isArray(input.value.evidenceRefs) ? input.value.evidenceRefs : [];
+  return { proposal: { hypothesis: input.request.question.hypothesis,
+    method: input.request.question.method, falsifier: input.request.question.falsifier,
+    actions: input.worldResult?.actions || 0 },
+  evidenceRefs: [`ett-answer:${answerId}`, ...(input.worldResult?.evidenceRefs || []), ...refs] };
+}
+
+function createModelWorker(input) {
+  return { solve: (request) => runWorkerTurns({ ...input, request }) };
 }
 
 module.exports = { DEFAULT_MODEL, createLedger, questionGenerator, createModelWorker };

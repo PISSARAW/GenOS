@@ -16,9 +16,9 @@ function sandbox(worker, observation) {
   });
 }
 
-function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle }) {
+function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, world }) {
   const ledger = createLedger();
-  const worker = createModelWorker({ ledger, model, observation });
+  const worker = createModelWorker({ ledger, model, observation, world });
   return {
     model, ledger, questionGenerator: questionGenerator(ledger, model),
     budget: { tokens: 12000, usd: 0.1, seconds: 1800 },

@@ -6,7 +6,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const runtime = require('./scenarios/runtime');
 const { createRuntimeAdapter } = require('./adapters/genosRuntime');
-const { createLedger } = require('./adapters/localModel');
+const { executeDirectModel } = require('./adapters/directLlm');
 const { SYSTEM_IDS: ADAPTED_SYSTEMS, createIndependentAdapter } = require('./adapters/independent');
 const { verifyInChild } = require('./evaluation/verifyInChild');
 const experimentExecutor = require('../../backend/src/services/endogenousThoughtCampaignExecutor');
@@ -57,7 +57,11 @@ function scenarioModules(selection) {
     const folders = fs.readdirSync(path.join(__dirname, 'scenarios'));
     const folder = folders.find((entry) => scenarioIdAt(entry) === id);
     if (!folder) throw new Error(`Executable scenario module missing: ${id}`);
-    return require(path.join(__dirname, 'scenarios', folder, 'scenario.js'));
+    const scenario = require(path.join(__dirname, 'scenarios', folder, 'scenario.js'));
+    if (typeof scenario.createWorld !== 'function' || typeof scenario.run !== 'function') {
+      throw new Error(`Scenario is not executable through the action contract: ${id}`);
+    }
+    return scenario;
   });
 }
 
@@ -79,6 +83,10 @@ function orderedConditions(conditions, caseId) {
 
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function actionsTaken(world) {
+  return world.observation.actionBudget - world.remaining;
 }
 
 function writeReport(filename, report, initial) {
@@ -110,28 +118,35 @@ function redactOutcome(outcome) {
 async function executePair(context) {
   const { scenario, difficulty, seed, condition, model } = context;
   const testCase = scenario.build(difficulty, seed);
-  const input = casePayload(testCase, model);
+  const world = scenario.createWorld(difficulty, seed);
+  const agentCase = { caseId: testCase.caseId, scenarioId: testCase.scenarioId,
+    difficulty: testCase.difficulty, observation: world.observation, world };
+  const input = casePayload(agentCase, model);
   const outcome = condition === 'llm_only'
-    ? await executeDirectModel({ model, testCase })
+    ? await executeDirectModel({ model, testCase: agentCase,
+      oracle: { ...testCase.oracle, requireInspection: true } })
     : ADAPTED_SYSTEMS.includes(condition)
-      ? await executeAdaptedModel({ adapter: context.externalAdapters.get(condition), testCase })
-      : await executeGenosRuntime({ condition, caseId: testCase.caseId, input, model, testCase });
+      ? await executeAdaptedModel({ adapter: context.externalAdapters.get(condition),
+        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true } })
+      : await executeGenosRuntime({ condition, caseId: testCase.caseId, input, model,
+        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true } });
   return { caseId: testCase.caseId, scenarioId: scenario.id, difficulty, seed, condition,
-    split: 'development', holdout: false, observation: testCase.observation,
-    observationHash: digest(testCase.observation), outcome: redactOutcome(outcome) };
+    split: 'development', holdout: false, observation: agentCase.observation,
+    observationHash: digest(agentCase.observation), outcome: redactOutcome(outcome) };
 }
 
 async function executeAdaptedModel(context) {
   const system = context.adapter;
   try {
     const proposal = await system.solve(context.testCase);
-    const verification = verifyInChild(context.testCase.oracle, proposal);
+    const verification = verifyInChild(context.oracle, proposal);
     system.recordVerified(context.testCase, proposal, verification);
     const usage = system.takeUsage();
     return { success: true, scientificEvidence: usage.measured,
       condition: system.id, verifiedDiscoveries: verification.usefulDiscoveries,
       normalizedCost: usage.tokens / 12000, measuredTokens: usage.tokens,
       measuredHostSeconds: usage.seconds, measuredCostUsd: 0,
+      actions: proposal.actions || 0,
       provider: system.model, providerCalls: usage.calls, providerCallDetails: usage.callDetails,
       submittedAnswerId: proposal.answerId, oracleVerdict: verification.verdict,
       oracleDigest: verification.oracleDigest, modelOutputIsEvidence: false,
@@ -139,6 +154,7 @@ async function executeAdaptedModel(context) {
   } catch (error) {
     const usage = system.takeUsage();
     return { success: false, scientificEvidence: false, condition: system.id,
+      actions: actionsTaken(context.testCase.world),
       verifiedDiscoveries: 0, normalizedCost: usage.tokens / 12000,
       measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds,
       measuredCostUsd: 0, provider: system.model, providerCalls: usage.calls,
@@ -149,40 +165,11 @@ async function executeAdaptedModel(context) {
 
 async function executeGenosRuntime(context) {
   const runtimeAdapter = createRuntimeAdapter({ model: context.model,
-    observation: context.testCase.observation, oracle: context.testCase.oracle });
-  return experimentExecutor.execute({ condition: context.condition,
+    observation: context.testCase.observation, oracle: context.oracle,
+    world: context.testCase.world });
+  const outcome = await experimentExecutor.execute({ condition: context.condition,
     caseId: context.caseId, input: context.input, runtimeAdapter });
-}
-
-async function executeDirectModel(context) {
-  const ledger = createLedger();
-  try {
-    const prompt = ['Choose the best candidate for the task objective using only the public evidence.',
-      `Scenario: ${context.testCase.observation.scenario}`,
-      `Objective: ${context.testCase.observation.objective}`,
-      `Candidates: ${JSON.stringify(context.testCase.observation.candidates)}`,
-      'Return JSON containing answerId and evidenceRefs.'].join('\n');
-    const { value } = await ledger.generateJson({ model: context.model, prompt, maxTokens: 128 });
-    const answerId = value.answerId;
-    if (typeof answerId !== 'string') throw new Error('Direct model omitted answerId.');
-    const evidenceRefs = Array.isArray(value.evidenceRefs) ? value.evidenceRefs : [`${answerId}:evidence`];
-    const oracle = verifyInChild(context.testCase.oracle, { answerId, evidenceRefs });
-    return { success: true, scientificEvidence: true, condition: 'llm_only',
-      verifiedDiscoveries: oracle.usefulDiscoveries, normalizedCost: ledger.summary().tokens / 12000,
-      measuredTokens: ledger.summary().tokens, measuredHostSeconds: ledger.summary().seconds,
-      measuredCostUsd: 0, provider: context.model, providerCalls: ledger.summary().calls,
-      providerCallDetails: ledger.summary().callDetails, submittedAnswerId: answerId,
-      oracleVerdict: oracle.verdict, oracleDigest: oracle.oracleDigest,
-      modelOutputIsEvidence: false, measurementStatus: 'ollama_provider_token_counters_and_host_time' };
-  } catch (error) {
-    const usage = ledger.summary();
-    return { success: false, scientificEvidence: false, condition: 'llm_only',
-      verifiedDiscoveries: 0, normalizedCost: usage.tokens / 12000,
-      measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds,
-      measuredCostUsd: 0, provider: context.model, providerCalls: usage.calls,
-      providerCallDetails: usage.callDetails, modelOutputIsEvidence: false,
-      failure: { stage: 'direct_solve', code: 'ETT_DIRECT_MODEL_FAILED', message: error.message } };
-  }
+  return { ...outcome, actions: actionsTaken(context.testCase.world) };
 }
 
 function buildTasks(options, scenarios) {
@@ -210,7 +197,7 @@ function remainingTasks(tasks, records) {
 }
 
 function validateResumeMetadata(report, options) {
-  const expected = { schema: 'genos.ett-runtime-campaign/v1', model: options.model,
+  const expected = { schema: 'genos.ett-runtime-campaign/v2', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {
@@ -280,8 +267,8 @@ function validateStoredRecords(report, scenarios) {
     if (!scenario || seen.has(key) || !report.conditions.includes(record.condition)) {
       throw new Error(`Resume report contains an unknown or duplicate case: ${key}.`);
     }
-    const testCase = scenario.build(record.difficulty, record.seed);
-    if (digest(testCase.observation) !== record.observationHash) {
+    const world = scenario.createWorld(record.difficulty, record.seed);
+    if (digest(world.observation) !== record.observationHash) {
       throw new Error(`Resume report scenario data changed for ${key}.`);
     }
     seen.add(key);
@@ -358,7 +345,7 @@ async function main(args = process.argv.slice(2)) {
 }
 
 function createReport(options, expectedRecords) {
-  return { schema: 'genos.ett-runtime-campaign/v1', status: 'running',
+  return { schema: 'genos.ett-runtime-campaign/v2', status: 'running',
     startedAt: new Date().toISOString(), model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: seedList(options.seeds),
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,

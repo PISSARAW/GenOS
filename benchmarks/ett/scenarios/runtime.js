@@ -95,6 +95,66 @@ function buildCase(scenarioId, difficulty, seed) {
   return { ...publicCase, oracle: { answerId: ranked[0].id, runnerUpId: ranked[1].id } };
 }
 
+function createWorld(scenarioId, difficulty, seed) {
+  const testCase = buildCase(scenarioId, difficulty, seed);
+  const evidence = new Map(testCase.observation.candidates.map((candidate) =>
+    [candidate.id, candidate.evidence]));
+  const state = { evidence, inspected: new Set(), trace: [], remaining: testCase.budget,
+    submitted: null, observation: null };
+  const observation = Object.freeze({ ...testCase.observation,
+    objective: `${SPECS[scenarioId].objective} Inspect candidates with inspect_candidate before submission.`,
+    candidates: testCase.observation.candidates.map(({ id }) => ({ id })),
+    availableActions: ['inspect_candidate', 'submit_answer'],
+    actionBudget: testCase.budget,
+    });
+  state.observation = observation;
+  return Object.freeze({ scenarioId, difficulty, seed, caseId: testCase.caseId,
+    observation, act: (action) => actWorldAction(state, action),
+    result: () => state.submitted ? { ...state.submitted, trace: [...state.trace],
+      inspectedCandidates: [...state.inspected] } : null,
+    get remaining() { return state.remaining; }, get terminal() { return state.submitted !== null; } });
+}
+
+function actWorldAction(state, action) {
+  if (state.submitted) throw new Error('Scenario is terminal.');
+  if (state.remaining < 1) {
+    return { status: 'rejected', reason: 'invalid_action_or_budget_exhausted', remaining: state.remaining };
+  }
+  state.remaining -= 1;
+  if (!action || typeof action !== 'object') {
+    state.trace.push({ type: 'invalid', actionType: 'malformed' });
+    return { status: 'rejected', reason: 'unknown_action_or_candidate', remaining: state.remaining };
+  }
+  if (action.type === 'inspect_candidate') return inspectCandidate(state, action);
+  if (action.type === 'submit_answer' && typeof action.answerId === 'string') {
+    return submitAnswer(state, action);
+  }
+  state.trace.push({ type: 'invalid', actionType: String(action.type || '') });
+  return { status: 'rejected', reason: 'unknown_action_or_candidate', remaining: state.remaining };
+}
+
+function inspectCandidate(state, action) {
+  if (!state.evidence.has(action.candidateId)) return nullCandidateResult(state, action);
+  state.inspected.add(action.candidateId);
+  state.trace.push({ type: action.type, candidateId: action.candidateId });
+  return { status: 'observed', candidateId: action.candidateId,
+    domain: state.observation.domain, evidence: state.evidence.get(action.candidateId),
+    remaining: state.remaining };
+}
+
+function nullCandidateResult(state, action) {
+  state.trace.push({ type: 'invalid', candidateId: String(action.candidateId || '') });
+  return { status: 'rejected', reason: 'unknown_candidate', remaining: state.remaining };
+}
+
+function submitAnswer(state, action) {
+  state.submitted = { answerId: action.answerId,
+    evidenceRefs: [...state.inspected].map((candidateId) => `candidate:${candidateId}:inspection`),
+    actions: state.trace.length + 1 };
+  state.trace.push({ type: action.type, answerId: action.answerId });
+  return { status: 'submitted', remaining: state.remaining, inspected: state.inspected.size };
+}
+
 function domainFor(id) {
   const domains = { 'ETT-01': 'sensor-anomaly', 'ETT-02': 'experimental-planning',
     'ETT-03': 'causal-intervention', 'ETT-04': 'heldout-transfer', 'ETT-05': 'reproduction-audit',
@@ -115,4 +175,5 @@ function validateProposal(proposal) {
     && proposal.actions >= 0;
 }
 
-module.exports = { SCENARIO_IDS, LEVELS, SPECS, buildCase, referenceScore, validateProposal };
+module.exports = { SCENARIO_IDS, LEVELS, SPECS, buildCase, createWorld,
+  referenceScore, validateProposal };
