@@ -2,9 +2,13 @@
 
 const profiles = require('./gvxTrialRuntimeProfile');
 
+function hasCampaignIdentity(mission) {
+  return Boolean(mission?.campaignId || mission?.trialId || mission?.armId);
+}
+
 function bindCampaignMission(mission) {
   const requested = Boolean(mission?.gvxTrialCampaign === true || mission?.trialProtocol === profiles.VERSION
-    || mission?.gvxTrialContext);
+    || mission?.gvxTrialContext || hasCampaignIdentity(mission));
   if (!requested) return mission;
   if (!mission.gvxTrialContext) {
     throw Object.assign(new Error('GVX trial mission profile is required.'), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });

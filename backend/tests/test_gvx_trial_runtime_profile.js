@@ -102,8 +102,15 @@ async function profileAndMissionChecks() {
     { code: 'GVX_TRIAL_CONTEXT_SCHEMA_INVALID' });
   const ordinary = { missionId: 'ordinary-task' };
   assert.equal(require('../src/services/gvxTrialMissionBinding').bindCampaignMission(ordinary), ordinary);
-  const unrelatedCampaign = { campaignId: 'other-system-campaign', trialId: 'other-trial' };
-  assert.equal(require('../src/services/gvxTrialMissionBinding').bindCampaignMission(unrelatedCampaign), unrelatedCampaign);
+  const missionBinding = require('../src/services/gvxTrialMissionBinding');
+  const missionExecution = require('../src/services/agentRuntimeAdapter/missionExecution');
+  for (const field of ['campaignId', 'trialId', 'armId']) {
+    const partialMission = { [field]: `${field}-only` };
+    assert.throws(() => missionBinding.bindCampaignMission(partialMission),
+      { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+    await assert.rejects(missionExecution.startMissionInternal(partialMission),
+      { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+  }
   assert.throws(() => require('../src/services/gvxTrialMissionBinding').bindCampaignMission({ gvxTrialCampaign: true }),
     { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
   const workerContract = require('../src/services/agents/workerKindService').buildWorkerContract('bounded_worker', {
