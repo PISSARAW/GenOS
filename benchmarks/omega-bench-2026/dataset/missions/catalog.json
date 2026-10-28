@@ -1,0 +1,73 @@
+{
+  "catalog_version": "1.0.0",
+  "assignment_policy": "each experiment is deterministically bound to one mission context; variants are keyed by scenario_id and do not alter the workload input or oracle",
+  "context_role": "public scenario metadata for grouping and stratification; not evidence that an integrated GenOS mission service was executed",
+  "missions": [
+    {
+      "id": "M1",
+      "title": "Réorganisation d'une équipe",
+      "status": "source_exact",
+      "source_excerpt": "Quatre agents se répartissent une tâche, échangent leurs résultats et réattribuent une sous-tâche après indisponibilité d'un agent. Expériences concernées : 01, 05, 07.",
+      "description": "Quatre agents se répartissent une tâche, échangent leurs résultats et réattribuent une sous-tâche après indisponibilité d'un agent.",
+      "experiments": [
+        "E01",
+        "E05",
+        "E07"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Filtrage de commandes adversariales",
+      "status": "synthetic_example_derived_from_experiments",
+      "source_excerpt": null,
+      "description": "Un opérateur reçoit des commandes typées, vérifie les contrats puis bloque toute action non autorisée avant son exécution.",
+      "experiments": [
+        "E03",
+        "E08"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Réduction du coût des échanges",
+      "status": "synthetic_example_derived_from_experiments",
+      "source_excerpt": null,
+      "description": "Une équipe transmet des intentions de travail compactes et optimise des séquences équivalentes sans changer leurs résultats.",
+      "experiments": [
+        "E02",
+        "E04"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Reprise après panne et changement d'équipe",
+      "status": "synthetic_example_derived_from_experiments",
+      "source_excerpt": null,
+      "description": "Après une panne récupérable, une mission reprend ses tâches restantes puis adapte sa topologie en conservant ses obligations.",
+      "experiments": [
+        "E06",
+        "E10"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Adaptation aux ressources collectives",
+      "status": "synthetic_example_derived_from_experiments",
+      "source_excerpt": null,
+      "description": "Une équipe partage un budget limité entre agents selon leurs minima et priorités, puis mesure la viabilité et l'équité de l'allocation.",
+      "experiments": [
+        "E11"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Mission portable à grande échelle",
+      "status": "synthetic_example_derived_from_experiments",
+      "source_excerpt": null,
+      "description": "Une mission augmente le nombre d'agents et transfère ses intentions entre backends sans perdre leur sens.",
+      "experiments": [
+        "E09",
+        "E12"
+      ]
+    }
+  ]
+}

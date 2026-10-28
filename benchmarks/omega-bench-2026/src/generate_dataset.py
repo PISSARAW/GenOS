@@ -7,12 +7,44 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
 DATASET_VERSION = "0.4.0"
+MISSION_CATALOG_VERSION = "1.0.0"
 EXPERIMENTS = [f"E{i:02d}" for i in range(1, 13)]
 COUNTS = {experiment: 50 for experiment in EXPERIMENTS}
 COUNTS.update({"E01": 200, "E02": 200, "E03": 1000, "E04": 100,
                "E05": 100, "E06": 150, "E07": 200, "E08": 1000,
                "E09": 200, "E10": 100, "E12": 100})
 TOPOLOGIES = ["trinity", "rhizome", "metapopulation", "holobionte", "biome", "biocenose", "a-team", "syncytium"]
+MISSIONS = [
+    {"id": "M1", "title": "Réorganisation d'une équipe",
+     "status": "source_exact", "source_excerpt": "Quatre agents se répartissent une tâche, échangent leurs résultats et réattribuent une sous-tâche après indisponibilité d'un agent. Expériences concernées : 01, 05, 07.",
+     "description": "Quatre agents se répartissent une tâche, échangent leurs résultats et réattribuent une sous-tâche après indisponibilité d'un agent.",
+     "experiments": ["E01", "E05", "E07"]},
+    {"id": "M2", "title": "Filtrage de commandes adversariales",
+     "status": "synthetic_example_derived_from_experiments",
+     "source_excerpt": None,
+     "description": "Un opérateur reçoit des commandes typées, vérifie les contrats puis bloque toute action non autorisée avant son exécution.",
+     "experiments": ["E03", "E08"]},
+    {"id": "M3", "title": "Réduction du coût des échanges",
+     "status": "synthetic_example_derived_from_experiments",
+     "source_excerpt": None,
+     "description": "Une équipe transmet des intentions de travail compactes et optimise des séquences équivalentes sans changer leurs résultats.",
+     "experiments": ["E02", "E04"]},
+    {"id": "M4", "title": "Reprise après panne et changement d'équipe",
+     "status": "synthetic_example_derived_from_experiments",
+     "source_excerpt": None,
+     "description": "Après une panne récupérable, une mission reprend ses tâches restantes puis adapte sa topologie en conservant ses obligations.",
+     "experiments": ["E06", "E10"]},
+    {"id": "M5", "title": "Adaptation aux ressources collectives",
+     "status": "synthetic_example_derived_from_experiments",
+     "source_excerpt": None,
+     "description": "Une équipe partage un budget limité entre agents selon leurs minima et priorités, puis mesure la viabilité et l'équité de l'allocation.",
+     "experiments": ["E11"]},
+    {"id": "M6", "title": "Mission portable à grande échelle",
+     "status": "synthetic_example_derived_from_experiments",
+     "source_excerpt": None,
+     "description": "Une mission augmente le nombre d'agents et transfère ses intentions entre backends sans perdre leur sens.",
+     "experiments": ["E09", "E12"]},
+]
 
 
 def canonical(value):
@@ -124,6 +156,65 @@ def write_jsonl(path, rows):
     path.write_text("".join(canonical(row) + "\n" for row in rows), encoding="utf-8")
 
 
+def content_sha256(path):
+    return hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+
+
+def write_mission_catalog(assignments):
+    dataset_root = ROOT / "dataset"
+    catalog_path = dataset_root / "missions" / "catalog.json"
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog = {"catalog_version": MISSION_CATALOG_VERSION,
+        "assignment_policy": "each experiment is deterministically bound to one mission context; variants are keyed by scenario_id and do not alter the workload input or oracle",
+        "context_role": "public scenario metadata for grouping and stratification; not evidence that an integrated GenOS mission service was executed",
+        "missions": MISSIONS}
+    catalog_bytes = (json.dumps(catalog, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    catalog_path.write_bytes(catalog_bytes)
+    assignments_path = dataset_root / "public" / "mission-assignments.jsonl"
+    write_jsonl(assignments_path, assignments)
+    assignment_hash = content_sha256(assignments_path)
+    parent_manifest_path = dataset_root / "manifest.json"
+    parent_manifest_hash = content_sha256(parent_manifest_path)
+    parent_manifest_raw_hash = hashlib.sha256(parent_manifest_path.read_bytes()).hexdigest()
+    extension_manifest = {"catalog_version": MISSION_CATALOG_VERSION,
+        "hash_policy": "SHA-256 of UTF-8 text after line-ending normalization to LF",
+        "interpretation": "mission fields label and stratify public scenarios; they do not change candidate workloads, oracles or executed GenOS services",
+        "parent_dataset_version": DATASET_VERSION,
+        "parent_dataset_manifest_sha256": parent_manifest_hash,
+        "parent_dataset_manifest_raw_sha256": parent_manifest_raw_hash,
+        "mission_count": len(MISSIONS), "assignment_count": len(assignments),
+        "variants_by_experiment": {experiment: sum(row["experiment_id"] == experiment
+            for row in assignments) for experiment in EXPERIMENTS},
+        "sha256": {"missions/catalog.json": content_sha256(catalog_path),
+            "public/mission-assignments.jsonl": assignment_hash}}
+    manifest_path = dataset_root / "missions" / "manifest.json"
+    manifest_path.write_bytes((json.dumps(extension_manifest, ensure_ascii=False, indent=2) + "\n")
+        .encode("utf-8"))
+
+
+def mission_assignments(public_inputs):
+    bindings = {experiment: [mission["id"] for mission in MISSIONS
+        if experiment in mission["experiments"]] for experiment in EXPERIMENTS}
+    counts = {}
+    assignments = []
+    for experiment in EXPERIMENTS:
+        missions = bindings[experiment]
+        if not missions:
+            raise ValueError(f"no mission is bound to {experiment}")
+        rows = [row for row in public_inputs if row["experiment_id"] == experiment]
+        if len(rows) < 50:
+            raise ValueError(f"{experiment} has fewer than 50 public variants")
+        for index, row in enumerate(rows):
+            mission_id = missions[index % len(missions)]
+            counts[mission_id] = counts.get(mission_id, 0) + 1
+            mission = next(item for item in MISSIONS if item["id"] == mission_id)
+            assignments.append({"scenario_id": row["scenario_id"], "experiment_id": experiment,
+                "mission_id": mission_id, "mission_variant_id": f"{mission_id}-V{counts[mission_id]:05d}",
+                "mission_context_status": mission["status"],
+                "mission_context": mission["description"], "variant_index": index})
+    return assignments
+
+
 def build_experiment(number, count):
     experiment = f"E{number:02d}"
     inputs, oracle = [], []
@@ -133,24 +224,41 @@ def build_experiment(number, count):
         case_input, expected = BUILDERS[number - 1](index, rng)
         inputs.append({"scenario_id": scenario_id, "experiment_id": experiment, "seed": SEED + index, "input": case_input})
         oracle.append({"scenario_id": scenario_id, "experiment_id": experiment, "expected": expected})
-    write_jsonl(ROOT / "dataset" / "public" / "inputs" / f"{experiment}.jsonl", inputs)
-    write_jsonl(ROOT / "dataset" / "oracle" / f"{experiment}.jsonl", oracle)
     return inputs, oracle
 
 
 def main():
     digests = {}
+    public_inputs = []
+    oracles_by_experiment = {}
     for number in range(1, 13):
         experiment = f"E{number:02d}"
         inputs, oracle = build_experiment(number, COUNTS[experiment])
-        for split, rows in (("inputs", inputs), ("oracle", oracle)):
+        public_inputs.extend(inputs)
+        oracles_by_experiment[experiment] = oracle
+    assignments = mission_assignments(public_inputs)
+    assignment_by_id = {row["scenario_id"]: row for row in assignments}
+    inputs_by_experiment = {experiment: [] for experiment in EXPERIMENTS}
+    for row in public_inputs:
+        enriched = {**row, **{key: assignment_by_id[row["scenario_id"]][key]
+            for key in ("mission_id", "mission_variant_id", "mission_context_status", "mission_context")}}
+        inputs_by_experiment[row["experiment_id"]].append(enriched)
+    for experiment in EXPERIMENTS:
+        input_rows = inputs_by_experiment[experiment]
+        oracle_rows = oracles_by_experiment[experiment]
+        write_jsonl(ROOT / "dataset" / "public" / "inputs" / f"{experiment}.jsonl", input_rows)
+        write_jsonl(ROOT / "dataset" / "oracle" / f"{experiment}.jsonl", oracle_rows)
+        for split, rows in (("inputs", input_rows), ("oracle", oracle_rows)):
             data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
-            digests[f"{split}/E{number:02d}.jsonl"] = hashlib.sha256(data).hexdigest()
+            digests[f"{split}/E{experiment[1:]}.jsonl"] = hashlib.sha256(data).hexdigest()
     manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": DATASET_VERSION, "seed": SEED,
                 "cases_by_experiment": COUNTS, "total_cases": sum(COUNTS.values()),
                 "split": "public_development_only", "sha256": digests}
-    (ROOT / "dataset" / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (ROOT / "dataset" / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_mission_catalog(assignments)
     print(f"Generated {manifest['total_cases']} cases; manifest: dataset/manifest.json")
+    print(f"Generated {len(MISSIONS)} missions and {len(assignments)} deterministic public assignments.")
 
 
 if __name__ == "__main__":

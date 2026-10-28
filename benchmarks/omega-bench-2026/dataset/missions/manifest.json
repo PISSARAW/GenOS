@@ -1,0 +1,28 @@
+{
+  "catalog_version": "1.0.0",
+  "hash_policy": "SHA-256 of UTF-8 text after line-ending normalization to LF",
+  "interpretation": "mission fields label and stratify public scenarios; they do not change candidate workloads, oracles or executed GenOS services",
+  "parent_dataset_version": "0.4.0",
+  "parent_dataset_manifest_sha256": "8dce9d21a952d9f27704b3a294f5cbd21d81e1d54c6550a31ca81b5ad4a4bfc1",
+  "parent_dataset_manifest_raw_sha256": "1792cadad75e33f7df4f3cde30c8a6eab3f844b5f2fa7e383caa1613fcb0d2f6",
+  "mission_count": 6,
+  "assignment_count": 3400,
+  "variants_by_experiment": {
+    "E01": 200,
+    "E02": 200,
+    "E03": 1000,
+    "E04": 100,
+    "E05": 100,
+    "E06": 150,
+    "E07": 200,
+    "E08": 1000,
+    "E09": 200,
+    "E10": 100,
+    "E11": 50,
+    "E12": 100
+  },
+  "sha256": {
+    "missions/catalog.json": "e90d08c5d1cae97124b53a937f8608a602fe39bf638f66fff1a108c2d30bb12a",
+    "public/mission-assignments.jsonl": "4b4ff0e63d78f98413a4d2e6175630ae5b2e7fe099bf532397c5f1ed50da5cde"
+  }
+}
