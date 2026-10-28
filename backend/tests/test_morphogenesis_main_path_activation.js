@@ -226,6 +226,10 @@ async function verifyCommunicationBudgetSurvivesMorphology() {
   });
   assert.deepEqual(ctx.autonomyPlan.tokenPolicy.workerBudgets.map(item => item.runtimeMaximumTokens), [40000, 40000, 40000]);
   assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [30000, 30000, 30000]);
+  assert.equal(ctx.autonomyPlan.dispatchWorkers.every((worker) => worker.communicationRequired), true,
+    'dispatch assignments retain the required communication contract');
+  assert.equal(ctx.autonomyPlan.dispatchWorkers.every((worker) => worker.coordinationPolicy === ctx.normalizedMission.coordinationPolicy), true,
+    'dispatch assignments retain the coordination policy used for budget allocation');
 }
 
 async function verifyFanoutReducesWorkerShareToPreserveReserve() {
