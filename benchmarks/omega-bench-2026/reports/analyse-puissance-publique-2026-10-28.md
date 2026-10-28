@@ -39,11 +39,11 @@ Tous les contrastes D/A ont une couverture complète du scope public et les 10 2
 | A4_harness_replay_E05 | 100 | non | 6.020 | 1.570 | 0.562 | 0/0 | 111 |
 | A5_morphogenesis_E10 | 100 | oui | 280.167 | 75.082 | 26.849 | 0/0 | 111 |
 | A6_physiology_E11 | 50 | oui | -0.281 | 0.717 | 0.363 | 0/0 | 111 |
-| A8_typed_JSON_E10_E11 | 150 | oui | -20.650 | 103.888 | 30.333 | 0/0 | 111 |
+| A8_typed_JSON_all_experiments | 3400 | oui | 3.123 | 18.809 | 1.154 | 0/0 | 111 |
 
 A7: 200 scénarios; moyenne économisée 180.400 octets/scénario, variance 0.241, médiane de sauvegarde relative 29.292 %. Le round-trip/oracle a 0/0 discordances; n80 à 15 points vaut 111 sous la discordance de planification 0,20. Le MDE continu et le n requis sont disponibles dans le JSON à `alpha=0,05/8`; l'encodage compact et l'enveloppe JSON sont mesurés dans le même adaptateur, pas dans deux processus indépendants.
 
-A2 est un contraste de banc (compilateur contourné contre compile+runtime restant gardé) et A4 est journal/replay au niveau harness; ils sont fournis à titre descriptif et exclus de la preuve confirmatoire comme ablations runtime natives. A5/A6 sont maintenant des contrôles appariés: même enveloppe, compileur, politique et runtime D, seul le handler CALL passe du service GenOS au handler de référence. A8 reste limité à E10/E11 et compare JSON direct aux mêmes services GenOS. Tous ces résultats sont publics et non préenregistrés; les résultats statistiques restent descriptifs.
+A2 est un contraste de banc (compilateur contourné contre compile+runtime restant gardé) et A4 est journal/replay au niveau harness; ils sont fournis à titre descriptif et exclus de la preuve confirmatoire comme ablations runtime natives. A5/A6 sont maintenant des contrôles appariés: même enveloppe, compileur, politique et runtime D, seul le handler CALL passe du service GenOS au handler de référence. A8 couvre les douze expériences publiques en JSON direct avec la même carte de services que D; les services GenOS réels ne sont utilisés que pour E10/E11, et les autres expériences gardent les handlers de référence. L'attribution GenOS reste donc limitée à E10/E11. Tous ces résultats sont publics et non préenregistrés; les résultats statistiques restent descriptifs.
 
 ## Baselines et portée
 

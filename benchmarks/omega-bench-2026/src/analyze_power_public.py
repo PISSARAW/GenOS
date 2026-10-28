@@ -262,10 +262,10 @@ def planned_specs():
             "left": ("ABLATION-A6.jsonl", "A6"), "right": ("D-genos-full.jsonl", "D"),
             "scope": ["E11"], "eligible": True,
             "limitation": "Same D envelope/compiler/policy/runtime; only CALL handler changes. Public development scope E11."}),
-        pair_spec({"id": "A8_typed_JSON_E10_E11", "family": "ablations",
+        pair_spec({"id": "A8_typed_JSON_all_experiments", "family": "ablations",
             "left": ("ABLATION-A8.jsonl", "A8"), "right": ("D-genos-full.jsonl", "D"),
-            "scope": ["E10", "E11"], "eligible": True,
-            "limitation": "Scoped JSON control uses the same GenOS services; only E10/E11 are observed."}),
+            "scope": [f"E{number:02d}" for number in range(1, 13)], "eligible": True,
+            "limitation": "Full public scope uses D's task service map; real GenOS services are present only on E10/E11, while other workloads use the same deterministic reference handlers."}),
     ])
     return specs
 
@@ -347,7 +347,7 @@ def render_report(report):
     a7_binary = a7["binary_roundtrip_and_oracle_success"]
     a7_n15 = a7_binary["planning"]["0.8"]["n_required_by_absolute_difference"]["0.15"]
     lines.extend(["", f"A7: {a7['paired_scenarios']} scénarios; moyenne économisée {format_number(a7['mean_bytes_saved'])} octets/scénario, variance {format_number(a7['variance_bytes_saved'])}, médiane de sauvegarde relative {format_number(a7['median_fraction_saved'] * 100)} %. Le round-trip/oracle a {a7_binary['control_only_success']}/{a7_binary['treatment_only_success']} discordances; n80 à 15 points vaut {a7_n15} sous la discordance de planification 0,20. Le MDE continu et le n requis sont disponibles dans le JSON à `alpha=0,05/8`; l'encodage compact et l'enveloppe JSON sont mesurés dans le même adaptateur, pas dans deux processus indépendants.", "",
-        "A2 est un contraste de banc (compilateur contourné contre compile+runtime restant gardé) et A4 est journal/replay au niveau harness; ils sont fournis à titre descriptif et exclus de la preuve confirmatoire comme ablations runtime natives. A5/A6 sont maintenant des contrôles appariés: même enveloppe, compileur, politique et runtime D, seul le handler CALL passe du service GenOS au handler de référence. A8 reste limité à E10/E11 et compare JSON direct aux mêmes services GenOS. Tous ces résultats sont publics et non préenregistrés; les résultats statistiques restent descriptifs.", "",
+        "A2 est un contraste de banc (compilateur contourné contre compile+runtime restant gardé) et A4 est journal/replay au niveau harness; ils sont fournis à titre descriptif et exclus de la preuve confirmatoire comme ablations runtime natives. A5/A6 sont maintenant des contrôles appariés: même enveloppe, compileur, politique et runtime D, seul le handler CALL passe du service GenOS au handler de référence. A8 couvre les douze expériences publiques en JSON direct avec la même carte de services que D; les services GenOS réels ne sont utilisés que pour E10/E11, et les autres expériences gardent les handlers de référence. L'attribution GenOS reste donc limitée à E10/E11. Tous ces résultats sont publics et non préenregistrés; les résultats statistiques restent descriptifs.", "",
         "## Baselines et portée", "",
         f"Les {families['external_baselines']} contrastes baseline applicables sont appariés sur leurs scénarios communs déclarés. Ils restent descriptifs: les stacks, les métriques fonctionnelles et les frontières de latence ne sont pas interchangeables. Le calcul inclut toutes les expériences applicables disponibles depuis MLIR, Temporal, LangGraph, A2A, MCP et OPA; A est la référence JSON, déjà couverte par la famille D/A.", "",
         "Lorsque les données ont zéro discordance binaire, la variance observée ne peut pas estimer la puissance d'un effet non nul. Pour les tableaux `n requis`, le script emploie explicitement l'hypothèse de planification `p(discordance)=0,20`; le JSON indique cette source. Sinon, le taux de discordance observé sur données publiques est utilisé comme hypothèse de planification, sans valeur confirmatoire.", "",
@@ -368,7 +368,7 @@ def build_report():
                        "power_approximation": "two-sided normal planning; no p-values or confirmatory claims",
                        "family_correction": "Bonferroni alpha=0.05/m, conservative planning bound; final preregistered tests use Holm"},
             "family_sizes": counts,
-            "ablation_scope": {"design_eligible_for_future_confirmatory_candidates": ["A1_optimizer_E04", "A3_strong_typing_E03", "A5_morphogenesis_E10", "A6_physiology_E11", "A7_compact_bytes_vs_JSON_E02", "A8_typed_JSON_E10_E11"],
+            "ablation_scope": {"design_eligible_for_future_confirmatory_candidates": ["A1_optimizer_E04", "A3_strong_typing_E03", "A5_morphogenesis_E10", "A6_physiology_E11", "A7_compact_bytes_vs_JSON_E02", "A8_typed_JSON_all_experiments"],
                                "excluded_from_confirmatory_evidence": ["A2_static_verification_E03", "A4_harness_replay_E05"]},
             "contrasts": contrasts}
 
