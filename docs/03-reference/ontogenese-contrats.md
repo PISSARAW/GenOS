@@ -76,6 +76,7 @@ Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 | --- | --- | --- |
 | `version` | `2` | doit égaler `CONFIG_VERSION`, sinon `version-inconnue` |
 | `branch` | `'codex/ontogenesis'` | chaîne non vide requise, sinon `branch-requise` |
+| `patchContract` | absent | optionnel ; `{ id: 'nox-velocity', version: 1 }` active les exigences de patch NOX ; identifiants et versions inconnus refusés |
 | `budgets` | `{ tokens: 140000, usd: 1, seconds: 120 }` | objet requis sinon `budgets-requis` ; `tokens > 0` sinon `budgets.tokens-positif-requis` ; `seconds > 0` sinon `budgets.seconds-positif-requis` (`tokens` et `seconds` finis positifs ; `usd` fini non négatif) |
 | `topologies` | `['trinity']` | liste non vide de noms connus ; `topologies-non-vides-requises` ou `topologie-inconnue` |
 | `memory` | `{ envelopeMb: 2048, reserveMb: 512 }` | objet requis sinon `memory-requis` ; `envelopeMb > 0` sinon `memory.envelopeMb-positif-requis` ; `reserveMb >= 0` sinon `memory.reserveMb-negatif-interdit` ; `reserveMb < envelopeMb` sinon `memory.reserve-inferieure-enveloppe` |
@@ -89,6 +90,13 @@ Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 
 `validateProjectConfig(input)` fusionne `Object.assign(defaultConfig(), input || {})` et retourne
 `{ ok, errors, config }`. La CLI `init` échoue avec `configuration-invalide:${errors.join(',')}` si `!ok`.
+La fusion porte sur les champs de premier niveau ; un objet imbriqué fourni remplace
+le sous-objet par défaut et doit satisfaire son schéma complet.
+
+Les checks Git directs du vérificateur autorisent uniquement `status`, `diff`, `log`,
+`ls-files`, `merge-base` et `rev-parse`. Les checks Docker gardent leur confinement
+réseau désactivé ; l'allowlist des commandes Git directes ne confine pas les commandes
+qu'un script de test pourrait lancer indirectement.
 
 ## 3. Machine à états
 
@@ -194,6 +202,9 @@ Blocage : `aucune-topologie-autorisee` (liste ordonnée vide), `aucune-topologie
 `role-worker-inconnu` (rôle rejeté par `workerKindService`, fail-closed).
 Variantes : repli `default` avec note `variante-indisponible:${demandee}` ou `catalogue-indisponible`.
 Traces : `${id}:elimine:${motif}`, `${id}:repli:${note}`, `${id}:retenu:cout-${cout}`.
+Le plan de capacité est recalculé après le choix effectif du dispatch. La morphologie
+inférée ne peut pas remplacer une topologie absente de `config.topologies` ; le contrat
+et les rôles transmis au worker correspondent à la topologie dispatchée.
 
 ## 7. Pression mémoire
 
@@ -305,6 +316,7 @@ Transport inter-processus via SQLite WAL (`ontogenesis_inbox`, `ontogenesis_even
 | Commande | Flags | Sortie |
 | --- | --- | --- |
 | `init` | `--root DIR` (requis), `--branch B`, `--objective TXT`, `--project ID` | `projet-cree:${id}` |
+| `preflight` | `--project ID` (requis) | JSON `ready` avec contrôles structurels ; disponibilité fournisseur `unknown` |
 | `start` | `--project ID` (requis), `--reason TXT` (accepté, inutilisé pour l'affichage) | vue statut (texte ou JSON) |
 | `status` | `--project ID` (requis), `--json` | vue statut (texte ou JSON) |
 | `pause` | `--project ID` (requis), `--reason TXT` | vue statut (texte ou JSON) |
@@ -313,6 +325,10 @@ Transport inter-processus via SQLite WAL (`ontogenesis_inbox`, `ontogenesis_even
 | `autostart` | `--on` (+ `--project ID` optionnel) active, sinon désactive | `autostart-active:${batFile}` ou `autostart-desactive:${batFile}` |
 | `prune` | `--project ID` (requis), `--days N` (défaut `30`) | `purge:evenements=${events} notifications=${notifications}` |
 | `purge` | `--project ID --confirm ID`, ou `--project ID --dry-run` | plan JSON ou reçu et compteurs JSON |
+
+`init` refuse de créer un projet si `--root` n'est pas la racine canonique d'un
+worktree Git valide. `run` et `tick` exécutent le même préflight en lecture seule
+avant tout claim ; Docker n'est vérifié que si un check le demande.
 
 Vue texte (`printStatus`) : lignes `projet`, `objectif`, `etat` (`${state} (controle: ${control})`),
 `branche`, `commit`, `tache` (`topologie= workers=`), `backlog` (`total= todo= doing= bloque= fait=`),

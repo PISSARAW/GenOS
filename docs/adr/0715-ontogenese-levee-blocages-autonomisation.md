@@ -26,15 +26,17 @@ Le principe fondateur de GenOS s'applique : un transport réussi n'est pas une p
 | 9 | Pas de suspension fiable → reprise à l'identique | By design | **Maintenu** | `continuation_queue` est une brique de transport |
 | 10 | Pas de fournisseur externe attesté | Déploiement | **Confirmé** | Les tests utilisent `fakeHarness`, pas un vrai LLM |
 | 11 | Pas de push/fusion | By design | **Maintenu** | `authorizationService.js` refuse push et merge |
-| 12 | Aucune topologie branchée de bout en bout | By design | **Maintenu** | Le contrat existe, l'implémentation complète vient après |
+| 12 | Contrat de capacité calculé avant le choix effectif du dispatch | Défaut ciblé corrigé | **À requalifier** | Le plan est recalculé pour la topologie dispatchée ; la qualification générale des topologies reste à établir |
 | 13 | Claim peut expirer et être volé | By design | **Maintenu** | Exclusion mutuelle avec TTL et heartbeat |
 | 14 | Pas de création de fichiers directe par le contrôleur | By design | **Maintenu** | Le contrôleur décide, le worker exécute, l'intégrateur écrit |
 
 ## Décision
 
-**L'ontogenèse reste un contrôleur qui délègue l'exécution.** Les points 1, 3, 4, 7, 8, 9, 11, 12, 13, 14 sont des garde-fous architecturaux délibérés et ne seront pas levés. Les points 2, 5, 6, 10 relèvent de la configuration et du déploiement : ils sont déjà couverts par les valeurs par défaut du code, mais nécessitent un environnement d'exécution (LLM, base SQLite, dépôt Git) pour fonctionner de bout en bout.
+**L'ontogenèse reste un contrôleur qui délègue l'exécution.** Les points 1, 3, 4, 7, 8, 9, 11, 13, 14 sont des garde-fous architecturaux délibérés et ne seront pas levés. Le point 12 décrivait un défaut de cohérence entre morphologie inférée et dispatch autorisé ; un test React a reproduit puis vérifié son alignement avec le contrat transmis au worker. Cette preuve ciblée ne qualifie pas toutes les topologies ni les déploiements réels. Les points 2, 5, 6, 10 relèvent de la configuration et du déploiement : ils nécessitent un environnement d'exécution (LLM, base SQLite, dépôt Git) pour fonctionner de bout en bout.
 
-**Aucun fichier de code n'est modifié par cette décision.** Elle confirme l'état actuel et documente les conditions nécessaires à un fonctionnement autonome :
+**La proposition initiale du 2026-10-21 ne modifiait aucun fichier de code.** Elle décrivait alors les conditions nécessaires à un fonctionnement autonome :
+
+Note de suivi du 2026-10-28 : ce document conserve le statut **Proposé**. Depuis sa rédaction, les changements d'implémentation ajoutent la validation de la racine, un préflight structurel et l'alignement du contrat de capacité sur la topologie dispatchée. La qualification du 23/10 reste un parcours isolé ; elle n'atteste pas une disponibilité générale d'un fournisseur ni la qualification de toutes les topologies.
 
 - Un runtime LLM accessible (Ollama configuré dans `.env`) ;
 - Une base SQLite WAL accessible (`GENOS_DB_PATH`) ;
