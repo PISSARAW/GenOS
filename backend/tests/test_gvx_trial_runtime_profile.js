@@ -73,7 +73,9 @@ async function admissionFailsClosed() {
     assert.equal(event.payload.executable, false);
     assert.equal(event.payload.reason, 'GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE');
     const unprofiledMarkers = [{ trialId: 'trial-only' }, { armId: 'arm-only' },
-      { trialProtocol: profiles.VERSION }, { gvxTrialCampaign: true }, { profileHash: 'f'.repeat(64) }];
+      { scenarioId: 'scenario-only' }, { seed: 0 }, { workspaceSnapshotHash: 'e'.repeat(64) },
+      { trialProtocol: profiles.VERSION }, { trialProtocol: 'unknown-version' },
+      { gvxTrialCampaign: true }, { profileHash: 'f'.repeat(64) }];
     for (const marker of unprofiledMarkers) {
       let markerLaunched = false;
       await assert.rejects(nursery.run({ db, input: marker,
@@ -81,6 +83,12 @@ async function admissionFailsClosed() {
         artifactReader: async () => Buffer.alloc(0) }), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
       assert.equal(markerLaunched, false);
     }
+    let directWorldCreated = false;
+    await assert.rejects(nursery.buildWorld({ db, scenarioId: 'scenario-only',
+      plan: { snapshotHash: 'e'.repeat(64), worldBudget: 1 },
+      createIsolatedWorld: async () => { directWorldCreated = true; } }, { armId: 'C', budget: 1 }),
+    { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+    assert.equal(directWorldCreated, false);
     let directRunLaunched = false;
     await assert.rejects(nursery.runArm({ db, trialMission: missionFor('C'),
       input: { scope, entityId: scope.entityId, candidateHash: 'd'.repeat(64) },
@@ -123,7 +131,11 @@ async function executionContractChecks() {
     { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
   assert.throws(() => nursery.trialRuntimeContext(options, { ...arm, armId: 'D' }),
     { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
+  assert.throws(() => nursery.trialRuntimeContext(options, { ...arm, scenarioId: '' }),
+    { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
   assert.throws(() => nursery.trialRuntimeContext(options, { ...arm, seed: 18 }),
+    { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
+  assert.throws(() => nursery.trialRuntimeContext(options),
     { code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH' });
   assert.throws(() => nursery.assertCachedExecution({ payload: { executeTrial } },
     { ...executeTrial, seed: 18 }), { code: 'GVX_NURSERY_CACHED_EXECUTION_MISMATCH' });
@@ -147,6 +159,16 @@ async function profileAndMissionChecks() {
     { code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH' });
   assert.throws(() => profiles.bindMission({ ...missionFor('C'), trialId: 'other' }, SECRET),
     { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  for (const marker of [{ scenarioId: 'scenario-only' }, { seed: 0 }, { workspaceSnapshotHash: 'e'.repeat(64) }]) {
+    assert.throws(() => require('../src/services/gvxTrialMissionBinding').bindCampaignMission(marker),
+      { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+  }
+  assert.throws(() => require('../src/services/gvxTrialMissionBinding').bindCampaignMission({ trialProtocol: 'unknown-version' }),
+    { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+  assert.throws(() => require('../src/services/gvxTrialMissionBinding').bindCampaignMission({
+    ...missionFor('C'), trialProtocol: 'unknown-version' }), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  assert.throws(() => require('../src/services/gvxTrialMissionBinding').bindCampaignMission({
+    ...missionFor('C'), profileHash: 'f'.repeat(64) }), { code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH' });
   const extra = { ...profile('C'), unboundFlag: true };
   assert.throws(() => profiles.verify(extra, SECRET), { code: 'GVX_TRIAL_PROFILE_INVALID' });
   for (const invalidSeed of [-1, 4294967296, 1.5, '17']) {
@@ -179,11 +201,28 @@ async function profileAndMissionChecks() {
   const workerContract = require('../src/services/agents/workerKindService').buildWorkerContract('bounded_worker', {
     prompt: 'scoped task', scope: 'workspace', gvxTrialContext: contextFor('C') });
   assert.equal(workerContract.mission.gvxTrialContext.profileHash, contextFor('C').profileHash);
+  assert.equal(workerContract.mission.scenarioId, 'scenario-test');
+  assert.equal(workerContract.mission.seed, 17);
+  assert.equal(workerContract.mission.workspaceSnapshotHash, 'e'.repeat(64));
   require('../src/services/agents/workerContractEnforcement').assertRuntimeContract(workerContract, 'bounded_worker');
+  for (const [field, value] of [['scenarioId', 'different-scenario'], ['seed', 18],
+    ['workspaceSnapshotHash', 'f'.repeat(64)]]) {
+    const divergentWorker = structuredClone(workerContract);
+    divergentWorker.mission[field] = value;
+    assert.throws(() => require('../src/services/agents/workerContractEnforcement')
+      .assertRuntimeContract(divergentWorker, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
+  }
+  assert.throws(() => require('../src/services/gvxTrialMissionBinding').assertWorkerContract({
+    workerContract: { mission: { ...workerContract.mission, seed: 18 } } }, missionFor('C')),
+  { code: 'GVX_TRIAL_WORKER_CONTEXT_MISMATCH' });
   const stripped = structuredClone(workerContract);
   delete stripped.mission.gvxTrialContext;
   assert.throws(() => require('../src/services/agents/workerContractEnforcement')
     .assertRuntimeContract(stripped, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
+  const markerOnly = structuredClone(workerContract);
+  markerOnly.mission = { scenarioId: 'scenario-test' };
+  assert.throws(() => require('../src/services/agents/workerContractEnforcement')
+    .assertRuntimeContract(markerOnly, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
   const recovery = require('../src/services/agentRecovery/dispatchWorkerRecovery').buildRecoveryMission({
     mission: { ...missionFor('C'), prompt: 'recover task' }, sourceAgentId: 'worker-a',
     target: { targetId: 'worker-b', name: 'Worker B', role: 'bounded_worker', prompt: 'recover task' },
@@ -191,9 +230,15 @@ async function profileAndMissionChecks() {
     report: { mission: 'task', attempt: 0, maxAttempts: 2, category: 'timeout' },
     orchestratorId: 'orchestrator', decision: { action: 'replace_worker' }, nextVariant: 1 });
   assert.equal(recovery.gvxTrialContext.profileHash, missionFor('C').gvxTrialContext.profileHash);
+  assert.equal(recovery.scenarioId, missionFor('C').scenarioId);
+  assert.equal(recovery.seed, missionFor('C').seed);
+  assert.equal(recovery.workspaceSnapshotHash, missionFor('C').workspaceSnapshotHash);
   const continuation = require('../src/services/agentContinuationQueueService').continuationTrialContext(
     { normalizedMission: missionFor('C') }, {});
   assert.equal(continuation.gvxTrialContext.profileHash, missionFor('C').gvxTrialContext.profileHash);
+  assert.equal(continuation.scenarioId, missionFor('C').scenarioId);
+  assert.equal(continuation.seed, missionFor('C').seed);
+  assert.equal(continuation.workspaceSnapshotHash, missionFor('C').workspaceSnapshotHash);
 }
 
 async function main() {

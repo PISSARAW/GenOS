@@ -1,25 +1,48 @@
 'use strict';
 
 const profiles = require('./gvxTrialRuntimeProfile');
+const IDENTITY_FIELDS = Object.freeze(['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash']);
+const BINDING_FIELDS = Object.freeze([...IDENTITY_FIELDS, 'trialProtocol', 'missionId', 'codeRevision']);
 
 function hasCampaignIdentity(mission) {
-  return Boolean(mission?.campaignId || mission?.trialId || mission?.armId);
+  return Boolean(mission) && IDENTITY_FIELDS.some((key) => mission[key] !== undefined);
 }
 
 function bindCampaignMission(mission) {
-  const requested = Boolean(mission?.gvxTrialCampaign === true || mission?.trialProtocol === profiles.VERSION
-    || mission?.gvxTrialContext || hasCampaignIdentity(mission));
-  if (!requested) return mission;
+  if (!isTrialMission(mission)) return mission;
   if (!mission.gvxTrialContext) {
     throw Object.assign(new Error('GVX trial mission profile is required.'), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
   }
   const fields = profiles.missionFields(mission.gvxTrialContext);
-  for (const key of ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash', 'missionId', 'codeRevision']) {
-    if (mission[key] !== undefined && mission[key] !== fields[key]) {
-      throw Object.assign(new Error('GVX trial mission identity changed.'), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
-    }
-  }
+  assertIdentityFields(mission, fields);
+  assertProfileHash(mission, fields);
+  assertCampaignMarker(mission);
   return { ...mission, ...fields };
+}
+
+function isTrialMission(mission) {
+  return Boolean(mission && (mission.gvxTrialCampaign === true || mission.trialProtocol !== undefined
+    || mission.profileHash !== undefined || mission.gvxTrialContext || hasCampaignIdentity(mission)));
+}
+
+function assertIdentityFields(mission, fields) {
+  if (BINDING_FIELDS.some((key) => mission[key] !== undefined && mission[key] !== fields[key])) {
+    throw Object.assign(new Error('GVX trial mission identity changed.'), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  }
+}
+
+function assertProfileHash(mission, fields) {
+  if (mission.profileHash !== undefined && mission.profileHash !== fields.gvxTrialContext.profileHash) {
+    throw Object.assign(new Error('GVX trial profile hash does not match its context.'), {
+      code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH'
+    });
+  }
+}
+
+function assertCampaignMarker(mission) {
+  if (mission.gvxTrialCampaign !== undefined && mission.gvxTrialCampaign !== true) {
+    throw Object.assign(new Error('GVX trial campaign marker is invalid.'), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  }
 }
 
 function missionContractFields(mission) {
@@ -33,11 +56,15 @@ function attachToContract(contract, context) {
 
 function assertWorkerContract(worker, mission) {
   if (!mission.gvxTrialContext) return;
-  const expected = mission.gvxTrialContext.profileHash;
-  const observed = worker.workerContract?.mission?.gvxTrialContext?.profileHash;
-  if (observed !== expected) throw Object.assign(new Error('Worker contract did not inherit the GVX trial profile.'), {
-    code: 'GVX_TRIAL_WORKER_CONTEXT_MISMATCH'
-  });
+  const expected = profiles.missionFields(mission.gvxTrialContext);
+  const observed = worker.workerContract?.mission || {};
+  const bindingFields = BINDING_FIELDS;
+  if (observed.gvxTrialContext?.profileHash !== expected.gvxTrialContext.profileHash
+    || bindingFields.some((key) => observed[key] !== expected[key])) {
+    throw Object.assign(new Error('Worker contract did not inherit the GVX trial profile.'), {
+      code: 'GVX_TRIAL_WORKER_CONTEXT_MISMATCH'
+    });
+  }
 }
 
 module.exports = { bindCampaignMission, missionContractFields, attachToContract, assertWorkerContract };
