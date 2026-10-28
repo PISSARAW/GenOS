@@ -292,8 +292,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0271](0271-adaptation-predictive-et-self-twin.md) | Campagnes CTM externes et modèles adaptatifs | Accepté | 2026-10-02 | AGOW, Self-Twin, prédiction, expérimentation |
 | [0272a](0272-execution-cycle-developpemental-gvx.md) | Dispatch runtime du cycle développemental GVX | Accepté | 2026-10-02 | GVX, runtime AGOW, expérimentation et plasticité |
 | [0272b](0272-self-twin-dependency-recovery.md) | Découverte de dépendances et récupération Self-Twin | Accepté | 2026-10-02 | Self-Twin, causalité, récupération, preuves |
-| [0273](0273-adaptateurs-perception-incarnee.md) | Adaptateurs de perception incarnée | Accepté | 2026-10-02 | Perception multimodale, AGOW, environnement |
-| [0274](0274-jspace-adaptateurs-inspectables.md) | Adaptateurs J-space pour modèles inspectables | Accepté | 2026-10-02 | AGOW, interprétabilité, modèles locaux, causalité |
+| [0273a](0273-adaptateurs-perception-incarnee.md) | Adaptateurs de perception incarnée | Accepté | 2026-10-02 | Perception multimodale, AGOW, environnement |
+| [0273b](0273-agent-git-scope-helper.md) | Extraction du helper de portée AgentGit | Accepté | 2026-10-27 | Backend, AgentGit, dépendances de modules |
+| [0274a](0274-backup-sqlite-en-ligne.md) | Snapshot SQLite cohérent avant migration | Accepté | 2026-10-27 | Backend, persistance, migrations |
+| [0274b](0274-jspace-adaptateurs-inspectables.md) | Adaptateurs J-space pour modèles inspectables | Accepté | 2026-10-02 | AGOW, interprétabilité, modèles locaux, causalité |
 | [0275a](0275-evidence-conscience-suite-unifiee.md) | Gates Butlin et suite fonctionnelle unifiée | Accepté | 2026-10-02 | Épistémologie, benchmarks, promotion, AGOW |
 | [0275b](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
 | [0276](0276-phases-runtime-core-et-portefeuille.md) | Séparation des phases du runtime core et du portefeuille de stratégies | Accepté | 2026-10-03 | Orchestration, stratégie, leases, benchmarks |
@@ -864,6 +866,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0746](0746-rappel-borne-pour-fp-amb.md) | Rappel mémoire borné pour le raccord FP-AMB | Accepté — campagne exécutée, amélioration à confirmer | 2026-10-26 | Mémoire vectorielle, GraphRAG, intégration de benchmark |
 | [0747](0747-contrats-assemblage-prompt-et-cycle-communication.md) | Contrats d’assemblage des prompts et du cycle de communication | Proposé pour implémentation | 2026-10-26 | Runtime, prompts, communication inter-agents, budgets et preuves |
 | [0748](0748-agow-viabilite-collective-multiniveau.md) | Viabilité collective et allostasie multiniveau dans AGOW | Accepté — implémentation incrémentale | 2026-10-27 | Arbitrage AGOW, scopes allostatiques, morphogenèse et validation causale |
+| [0749](0749-liaison-runtime-immutable-des-bras-gvx.md) | Liaison runtime immuable des bras expérimentaux GVX | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, exécution d’agents, ontogenèse, vérification, transmission et provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
