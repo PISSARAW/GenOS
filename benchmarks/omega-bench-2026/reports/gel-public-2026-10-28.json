@@ -4,7 +4,7 @@
   "freeze_date": "2026-10-28",
   "freeze_scope": "public development corpus and analysis plan only; not preregistration",
   "protocol_version": "0.4.0-draft",
-  "protocol_sha256": "1e3c7e4ffc693c20fc9d35cc03bd7a753e5a25649e9e4f335e1b71ad8cd2ec22",
+  "protocol_sha256": "e856aa335a2ae16e1ee04e4c43cf1f3768b903f198b1e0e6ca12f6f980535f14",
   "dataset_version": "0.4.0",
   "dataset_manifest_sha256": "1792cadad75e33f7df4f3cde30c8a6eab3f844b5f2fa7e383caa1613fcb0d2f6",
   "dataset_cases": 3400,
@@ -22,5 +22,23 @@
     "contrasts": 74
   },
   "source_revision_at_freeze": "8ba1367e768b34df5d8b7688b36e2f418af5f74d",
-  "confirmatory_status": "blocked_pending_E11_euro_measurement_boundary"
+  "confirmatory_status": "blocked_pending_methodological_scope_and_measurement_decisions",
+  "open_preregistration_requirements": [
+    "finalize E11 monetary measurement with attributable cumulative energy and a documented tariff, or explicitly amend the research question and threshold",
+    "finalize and run the preregistered inferential analysis: paired tests, 95% confidence intervals, Holm correction, practical margins, and the six-of-twelve victory rule",
+    "resolve A2 scope: the current OFF arm retains runtime guards and uses a no-op handler; define missing-state behavior and test effects without claiming production safety from fake handlers",
+    "resolve A4 scope: implement native G-CIR journaling and replay with durability/idempotence evidence, or obtain an explicit protocol amendment limiting A4 to the harness",
+    "extend E04 beyond adjacent-addition folding to the five proposed optimization transformations, with equivalence checks after each pass, or explicitly amend its scope and threshold",
+    "complete E09 repeated-load evidence for a bounded-memory claim, or narrow that claim to the current single-process asynchronous test",
+    "establish three independent business backends for E12; current JSON, A2A and MCP paths reuse the JavaScript reference executor",
+    "make the six concrete missions executable workload variants rather than metadata-only annotations; M2-M6 are currently synthetic interpretations",
+    "finalize common instrumentation boundaries for latency, bytes, resource cost and memory across each applicable adapter and ablation",
+    "freeze all adapter and configuration hashes, dependency lockfiles, run commands, hardware/model controls, raw traces and statistical plan before holdout execution",
+    "publish auditable per-run event traces and result artifacts for every condition, baseline, ablation and load run"
+  ],
+  "readiness_mechanical_checks": {
+    "passed": 24,
+    "total": 26,
+    "unresolved": "protocol status and preregistration requirements"
+  }
 }
