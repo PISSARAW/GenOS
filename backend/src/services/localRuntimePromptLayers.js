@@ -5,6 +5,10 @@ function rebuild(state) {
     state.intraEpochPromptBlock].filter(Boolean);
   state.framedPrompt = `${layers.join('\n\n')}\n`;
   state.promptTokenEstimate = Math.ceil(Buffer.byteLength(state.framedPrompt, 'utf8') / 4);
+  if (state.mission) {
+    require('./agentRuntimeAdapter/missionPromptBudget')
+      .assertMissionPromptBudget(state.mission, state.framedPrompt);
+  }
   return state.framedPrompt;
 }
 
