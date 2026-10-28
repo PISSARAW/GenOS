@@ -20,6 +20,9 @@ const planner = require(path.join(REPO, 'backend/src/services/morphogenesis/morp
 const collective = require(path.join(REPO, 'backend/src/services/collectiveStateService'));
 const morphogenesis = require(path.join(REPO, 'backend/src/services/morphogenesis/morphogenesisGitService'));
 const physiology = require(path.join(REPO, 'backend/src/services/biome/variants/variantSessionOperations'));
+const { createRuntime } = require(path.join(REPO, 'backend/src/services/cognitiveOmegaRuntimeService'));
+const compiler = require(path.join(REPO, 'backend/src/services/cognitiveOmegaCompiler'));
+const interop = require(path.join(REPO, 'backend/src/services/cognitiveOmegaInteropService'));
 
 function configureAuthority() {
   const pair = crypto.generateKeyPairSync('ed25519');
@@ -155,10 +158,68 @@ function executePhysiology(row) {
   violations: allocation.conserved ? [] : ['resource_budget_not_conserved'] };
 }
 
+async function closeHarness(harness) {
+  const { closeDatabase } = require(path.join(REPO, 'backend/src/db'));
+  await closeDatabase();
+  fs.rmSync(harness.root, { recursive: true, force: true });
+  delete process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM;
+  delete process.env.GENOS_CLI_AUTHORITY_TRUST_JSON;
+}
+
 async function executeRowD(row, repetition, harness) {
-  if (row.experiment_id === 'E10') return executeMorphogenesis(row, repetition, harness);
-  if (row.experiment_id === 'E11') return executePhysiology(row);
+  if (['E10', 'E11'].includes(row.experiment_id)) {
+    return executeGcirGenosService(row, repetition, harness);
+  }
   return optimized.executeRow(row);
+}
+
+function operationsFor(row) {
+  return [{ id: 'read', kind: 'READ', reference: 'bench/input', dependsOn: [], state: 'open' },
+    { id: 'select', kind: 'SELECT', reference: 'bench/input', dependsOn: ['read'], state: 'open' },
+    { id: 'call', kind: 'CALL', reference: `bench/${row.experiment_id}`,
+      dependsOn: ['select'], state: 'open' }];
+}
+
+function envelopeFor(row, operations) {
+  return { schema: interop.SCHEMA, version: 1, id: row.scenario_id, operations,
+    policy: { read: ['bench/input'], select: ['bench/input'],
+      call: [`bench/${row.experiment_id}`] }, payload: row.input };
+}
+
+function policyFor(row) {
+  return { read: ['bench/input'], select: ['bench/input'],
+    call: [`bench/${row.experiment_id}`] };
+}
+
+async function executeGcirGenosService(row, repetition, harness) {
+  const operations = operationsFor(row);
+  if (!interop.validate(envelopeFor(row, operations)).valid) {
+    throw new Error('genos_service_gcir_envelope_invalid');
+  }
+  const compiled = compiler.compile({ operations, targets: ['call'],
+    model: 'deterministic-benchmark-handler' });
+  if (compiled.status !== 'ready') throw new Error(`compile_${compiled.status}`);
+  return invokeGcirService({ row, repetition, harness, operations: compiled.slice.nodes });
+}
+
+async function invokeGcirService(input) {
+  const { row, repetition, harness, operations } = input;
+  let serviceResult;
+  const runtime = createRuntime();
+  runtime.registerReader('bench/input', async () => row.input);
+  runtime.registerTool(`bench/${row.experiment_id}`, async ({ input: payload }) => {
+    const task = { ...row, input: payload };
+    serviceResult = row.experiment_id === 'E10'
+      ? await executeMorphogenesis(task, repetition, harness) : executePhysiology(task);
+    return { value: serviceResult.answer };
+  });
+  const result = await runtime.execute({ operations, policy: policyFor(row), allowEmit: true });
+  if (result.status !== 'emitted' || result.values.call === undefined || !serviceResult) {
+    throw new Error(`gcir_runtime_${result.reason || result.status}`);
+  }
+  return { ...serviceResult, metrics: { ...serviceResult.metrics,
+    gcir_static_validation: 'passed', gcir_runtime: 'emitted',
+    gcir_operations: operations.length } };
 }
 
 async function timedRow(row, repetition, harness) {
@@ -185,13 +246,15 @@ async function timedRow(row, repetition, harness) {
 }
 
 function manifestFor(input) {
-  const { rows, outputPath, repetitions, pilot } = input;
+  const { rows, outputPath, repetitions, pilot, partialScope } = input;
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
   const datasetManifest = path.join(DATASET_ROOT, 'manifest.json');
   return { protocol: 'OMEGA-BENCH-2026', condition_id: 'D',
     status: pilot ? 'exploratory_pilot_not_qualified'
-      : 'GenOS transition service on E10; biome physiology allocator on E11; C runtime elsewhere',
+      : partialScope ? 'scoped_gcir_genos_service_refresh'
+      : 'G-CIR runtime wrapping GenOS morphogenesis on E10 and physiology on E11; C runtime elsewhere',
     scenarios: rows.length, repetitions, runs: rows.length * repetitions,
+    scope: [...new Set(rows.map((row) => row.experiment_id))],
     repository_revision: revision,
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
@@ -209,35 +272,47 @@ function selectPilotRows(rows, selection) {
   return scenarioId ? matching : matching.slice(0, 1);
 }
 
+function runOptions(args) {
+  const pilotSelection = args[2] === '--pilot' ? args[3] : null;
+  const scopeSelection = args[2] === '--scope' ? args[3]?.split(',') : null;
+  const pilotExperiment = pilotSelection?.slice(0, 3) || null;
+  const experiments = scopeSelection || Array.from({ length: 12 }, (_, index) => `E${String(index + 1).padStart(2, '0')}`);
+  const outputIndex = pilotExperiment || scopeSelection ? 4 : 2;
+  const defaultName = pilotExperiment ? `D-pilot-${pilotExperiment}.jsonl` : 'D-genos-full.jsonl';
+  return { pilotSelection, scopeSelection, pilotExperiment, experiments,
+    repetitions: pilotExperiment ? 1 : REPETITIONS,
+    outputPath: args[outputIndex] || path.join(ROOT, 'results', defaultName) };
+}
+
+function rowsForRun(options) {
+  const rows = options.experiments.flatMap((experiment) => reference.readRows(
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
+  return selectPilotRows(rows, options.pilotSelection);
+}
+
+function persistResults(rows, results, options) {
+  fs.mkdirSync(path.dirname(options.outputPath), { recursive: true });
+  fs.writeFileSync(options.outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
+  fs.writeFileSync(options.outputPath.replace(/\.jsonl$/i, '.manifest.json'),
+    `${JSON.stringify(manifestFor({ rows, outputPath: options.outputPath,
+      repetitions: options.repetitions, pilot: Boolean(options.pilotExperiment),
+      partialScope: Boolean(options.scopeSelection) }), null, 2)}\n`);
+}
+
 async function main() {
   configureAuthority();
   const harness = await createHarness();
-  const pilotSelection = process.argv[2] === '--pilot' ? process.argv[3] : null;
-  const pilotExperiment = pilotSelection?.slice(0, 3) || null;
-  const experiments = Array.from({ length: 12 }, (_, index) => `E${String(index + 1).padStart(2, '0')}`);
-  let rows = experiments.flatMap((experiment) => reference.readRows(
-    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
-  rows = selectPilotRows(rows, pilotSelection);
-  const repetitions = pilotExperiment ? 1 : REPETITIONS;
-  const outputPath = process.argv[pilotExperiment ? 4 : 2]
-    || path.join(ROOT, 'results', pilotExperiment ? `D-pilot-${pilotExperiment}.jsonl` : 'D-genos-full.jsonl');
+  const options = runOptions(process.argv);
+  const rows = rowsForRun(options);
   const results = [];
   try {
-    for (let repetition = 1; repetition <= repetitions; repetition += 1) {
+    for (let repetition = 1; repetition <= options.repetitions; repetition += 1) {
       for (const row of rows) results.push(await timedRow(row, repetition, harness));
     }
-    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-    fs.writeFileSync(outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
-    fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-      `${JSON.stringify(manifestFor({ rows, outputPath, repetitions,
-        pilot: Boolean(pilotExperiment) }), null, 2)}\n`);
+    persistResults(rows, results, options);
     process.stdout.write(`Condition D complete: ${results.length} GenOS runs across ${rows.length} cases.\n`);
   } finally {
-    const { closeDatabase } = require(path.join(REPO, 'backend/src/db'));
-    await closeDatabase();
-    fs.rmSync(harness.root, { recursive: true, force: true });
-    delete process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM;
-    delete process.env.GENOS_CLI_AUTHORITY_TRUST_JSON;
+    await closeHarness(harness);
   }
 }
 
@@ -246,4 +321,5 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { correctTopology: actualTopology, executePhysiology, transitionPlan };
+module.exports = { configureAuthority, createHarness, closeHarness, correctTopology: actualTopology,
+  executeGcirGenosService, executeMorphogenesis, executePhysiology, transitionPlan };
