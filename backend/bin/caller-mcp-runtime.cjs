@@ -4,6 +4,8 @@ const http = require('http');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const { createContext, finishContext } = require('./caller-mcp-context.cjs');
 const sharedBudget = require('../src/services/externalSubprocessModelBudget');
+const { assertMissionPromptBudget, estimateInputTokens } = require('../src/services/agentRuntimeAdapter/missionPromptBudget');
+const SYSTEM_PROMPT = 'You are an agent executing under GenOS governance. Return only the requested result.';
 
 let input = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { input = Buffer.concat([input, chunk]); });
@@ -15,6 +17,9 @@ async function run(raw) {
   state.modelBudgetRoute = await sharedBudget.openForState(state);
   try {
     const prompt = state.prompt;
+    const inputTokens = estimateInputTokens([SYSTEM_PROMPT, prompt]);
+    assertMissionPromptBudget(mission, prompt, SYSTEM_PROMPT);
+    const maxTokens = resolveMaxTokens(state.executionBudget, inputTokens);
     if (mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null) {
       await require('../src/services/agentMemoryVesicles').consumeVesicles(mission.agentId);
     }
@@ -26,21 +31,34 @@ async function run(raw) {
     }, status: 'running' });
     const response = await sampleWithTools({
       messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
-      maxTokens: Math.max(1, Number(state.executionBudget.tokens || 2048) - Math.ceil(Buffer.byteLength(prompt) / 4)),
+      maxTokens,
       agentContext: { agentId: mission.agentId, executionRunId: mission.executionRunId,
         organizationId: mission.organizationId, projectId: mission.projectId,
         executionMode: mission.executionMode, orchestratorAgentId: mission.orchestratorAgentId,
         toolLease: state.toolLease },
-      systemPrompt: 'You are an agent executing under GenOS governance. Return only the requested result.'
+      systemPrompt: SYSTEM_PROMPT
     }, state);
     const text = extractText(response);
     if (!text.trim()) throw new Error('MCP sampling returned an empty response.');
-    state.estimatedTokens = Math.ceil((Buffer.byteLength(prompt) + Buffer.byteLength(text)) / 4);
+    state.estimatedTokens = inputTokens + Math.ceil(Buffer.byteLength(text) / 4);
     await finishContext(state, text);
   } finally {
     await sharedBudget.close(state.modelBudgetRoute);
   }
   process.stdout.write('', () => process.exit(process.exitCode || 0));
+}
+
+function resolveMaxTokens(executionBudget, inputTokens) {
+  const tokenBudget = Number(executionBudget.tokens || 2048);
+  const remaining = Math.floor(tokenBudget - inputTokens);
+  if (!Number.isSafeInteger(tokenBudget) || remaining < 1) {
+    const error = new Error(`Caller-MCP input estimate ${inputTokens} leaves no completion token within token budget ${tokenBudget}.`);
+    error.code = 'CALLER_MCP_TOKEN_BUDGET_EXCEEDED';
+    error.estimatedInputTokens = inputTokens;
+    error.tokenBudget = tokenBudget;
+    throw error;
+  }
+  return remaining;
 }
 
 async function sampleWithTools(params, state) {
