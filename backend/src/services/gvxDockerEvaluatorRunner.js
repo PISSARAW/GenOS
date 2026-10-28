@@ -150,6 +150,13 @@ async function prepareDockerConfig(tempRoot) {
   await fs.writeFile(path.join(configDirectory, 'config.json'), '{}\n', { mode: 0o600 });
 }
 
+async function prepareEvaluatorOutput(tempRoot) {
+  const directory = path.join(tempRoot, 'evaluator-output');
+  await fs.mkdir(directory, { mode: 0o777 });
+  await fs.chmod(directory, 0o777);
+  return directory;
+}
+
 function mountSpec(source, target, readOnly) {
   return `type=bind,source=${source},target=${target}${readOnly ? ',readonly' : ''}`;
 }
@@ -245,18 +252,22 @@ async function runAggregateEvaluator(request, dependencies = {}) {
   const directories = await prepareDirectories(config);
   const initialCandidateHash = await hashCandidate(directories.candidate);
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-gvx-docker-'));
-  await prepareDockerConfig(tempRoot);
   const name = `genos-gvx-${randomUUID()}`;
   const env = dockerEnvironment(tempRoot);
-  const processOptions = { program: config.dockerPath, args: dockerArguments(config, directories, name), env,
-    timeoutMs: config.limits.timeoutMs, maxOutputBytes: MAX_DOCKER_OUTPUT_BYTES };
   try {
+    await prepareDockerConfig(tempRoot);
+    const evaluatorOutput = await prepareEvaluatorOutput(tempRoot);
+    assertSeparateDirectories(directories.candidate, evaluatorOutput);
+    assertMountPathsSupported(directories.candidate, evaluatorOutput);
+    const processOptions = { program: config.dockerPath,
+      args: dockerArguments(config, { ...directories, output: evaluatorOutput }, name), env,
+      timeoutMs: config.limits.timeoutMs, maxOutputBytes: MAX_DOCKER_OUTPUT_BYTES };
     const result = await runProcess(processOptions, dependencies);
     if (result.timedOut || result.overflow) await rejectLimitedExecution({ result, config, name, env, dependencies });
     if (result.spawnFailed) throw failure('GVX_DOCKER_UNAVAILABLE');
     if (result.code !== 0) throw failure('GVX_EVALUATOR_DOCKER_FAILED');
     if (await hashCandidate(directories.candidate) !== initialCandidateHash) throw failure('GVX_EVALUATOR_CANDIDATE_CHANGED');
-    const aggregate = await readAggregate(directories.output, config.suiteHash);
+    const aggregate = await readAggregate(evaluatorOutput, config.suiteHash);
     const receipt = createReceipt(config, initialCandidateHash, aggregate);
     await persistReceipt(directories.output, receipt);
     return receipt;

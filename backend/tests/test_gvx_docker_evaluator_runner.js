@@ -43,7 +43,7 @@ function fakeDocker(options = {}) {
         if (args[0] === 'run') {
           const report = options.report || { schema: runner.AGGREGATE_SCHEMA, suiteHash: SUITE_HASH,
             total: 10, passed: 8, failed: 1, errors: 1 };
-          await fs.writeFile(path.join(options.outputDirectory, 'aggregate.json'), JSON.stringify(report));
+          await fs.writeFile(path.join(mountSource(args, '/out'), 'aggregate.json'), JSON.stringify(report));
         }
         child.emit('close', 0, null);
       });
@@ -53,10 +53,18 @@ function fakeDocker(options = {}) {
   return { fakeSpawn, calls };
 }
 
+function mountSource(args, target) {
+  const mount = args.filter((value, index) => args[index - 1] === '--mount')
+    .find((value) => value.endsWith(`target=${target}`));
+  const prefix = 'type=bind,source=';
+  const end = mount.indexOf(`,target=${target}`);
+  return mount.slice(prefix.length, end);
+}
+
 async function testSuccessfulRun() {
   const root = await fixture();
   const input = request(root);
-  const fake = fakeDocker({ outputDirectory: input.outputDirectory });
+  const fake = fakeDocker();
   const receipt = await runner.runAggregateEvaluator(input, { spawn: fake.fakeSpawn });
   const runCall = fake.calls[0];
   assert.equal(runCall.program, 'docker');
@@ -66,7 +74,9 @@ async function testSuccessfulRun() {
   }
   assert.ok(runCall.args.includes(IMAGE));
   assert.ok(runCall.args.some((value) => value.includes('/candidate,readonly')));
-  assert.ok(runCall.args.some((value) => value.includes('/out')));
+  const evaluatorOutput = mountSource(runCall.args, '/out');
+  assert.notEqual(evaluatorOutput, path.resolve(input.outputDirectory));
+  assert.equal(path.basename(evaluatorOutput), 'evaluator-output');
   assert.equal(runCall.spawnOptions.shell, false);
   assert.equal(Object.keys(runCall.spawnOptions.env).some((key) => /TOKEN|SECRET|KEY/i.test(key)), false);
   assert.equal(receipt.total, 10);
@@ -80,7 +90,7 @@ async function testSuccessfulRun() {
 async function testFailClosedInputs() {
   const root = await fixture();
   const input = request(root);
-  const fake = fakeDocker({ outputDirectory: input.outputDirectory });
+  const fake = fakeDocker();
   await assert.rejects(runner.runAggregateEvaluator({ ...input, image: 'latest' }, { spawn: fake.fakeSpawn }),
     { code: 'GVX_EVALUATOR_IMAGE_DIGEST_REQUIRED' });
   await assert.rejects(runner.runAggregateEvaluator({ ...input, command: ['python', '\0'] },
@@ -93,7 +103,7 @@ async function testFailClosedInputs() {
 async function testAggregateSanitizationAndTimeout() {
   const root = await fixture();
   const badInput = request(root);
-  const bad = fakeDocker({ outputDirectory: badInput.outputDirectory,
+  const bad = fakeDocker({
     report: { schema: runner.AGGREGATE_SCHEMA, suiteHash: SUITE_HASH, total: 1,
       passed: 1, failed: 0, errors: 0, caseDetails: ['fixture-only private detail'] } });
   await assert.rejects(runner.runAggregateEvaluator(badInput, { spawn: bad.fakeSpawn }),
