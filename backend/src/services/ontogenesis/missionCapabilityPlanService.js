@@ -106,6 +106,13 @@ function configurationPlanFields(config) {
     recovery: buildRecoveryContract(config) };
 }
 
+function morphologyForSelection(mission, topology, organization) {
+  const morphology = mission.morphology || null;
+  if (!morphology) return null;
+  return { ...morphology, inferredTopology: morphology.selectedTopology,
+    selectedTopology: topology, selectedOrganization: organization };
+}
+
 function capabilityRequirements(mission, concepts) {
   return unique([...(mission.capabilities || []), ...operationalConcepts(concepts)]);
 }
@@ -115,8 +122,9 @@ function buildMissionCapabilityPlan(input) {
   const config = input.config || {};
   const concepts = mission.concepts || { operational: [], unavailable: [] };
   const required = capabilityRequirements(mission, concepts);
-  const topology = input.selection?.topology || mission.morphology?.selectedTopology || null;
-  const organization = mission.morphology?.selectedOrganization || null;
+  const inferredTopology = mission.morphology?.selectedTopology || null;
+  const topology = input.selection?.topology || inferredTopology;
+  const organization = topology === inferredTopology ? mission.morphology?.selectedOrganization || null : null;
   const preflight = buildMissionPreflight({ mission, config, topology, organization });
   const topologyContract = preflight.topology.contract;
   const runtimeBridges = runtimeBridgePlan({ mission, concepts, topology, organization });
@@ -129,7 +137,7 @@ function buildMissionCapabilityPlan(input) {
     capabilityRequirements: required,
     capabilityCatalog: mission.capabilityCatalog || [],
     runtimeBridges,
-    morphology: mission.morphology || null,
+    morphology: morphologyForSelection(mission, topology, organization),
     topology,
     organization,
     topologyContract,

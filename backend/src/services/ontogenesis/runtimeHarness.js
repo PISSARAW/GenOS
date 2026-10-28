@@ -71,10 +71,12 @@ function capabilityRequestFields(mission, plan, selection) {
 }
 
 function contextRequestFields(mission) {
+  const plan = mission.plan;
+  const morphology = plan?.morphology || mission.morphology || {};
   return {
-    organization: mission.morphology?.selectedOrganization || undefined,
-    developmentalContext: mission.developmentalContext || null, morphologyPlan: mission.morphology || null,
-    missionCapabilityPlan: mission.plan || null,
+    organization: plan ? plan.organization || undefined : morphology.selectedOrganization || undefined,
+    developmentalContext: mission.developmentalContext || null, morphologyPlan: morphology,
+    missionCapabilityPlan: plan || null,
     problemProfile: { ...(mission.profile || {}), ...(mission.kind === 'implement' ? { type: 'implementation' } : {}) },
     sensoryContext: mission.sensoryContext || null
   };

@@ -9,6 +9,8 @@ const { activeExecution } = require('../src/services/ontogenesis/executionStore'
 const integration = require('../src/services/ontogenesis/integrationService');
 const workspaces = require('../src/services/ontogenesis/worktreeService');
 const { getSpend } = require('../src/services/ontogenesis/ledgerService');
+const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
+const { compileMission } = require('../src/services/ontogenesis/missionContextService');
 
 async function readyCandidate(db, root, harness) {
   const project = await fixture.project(db, root);
@@ -110,6 +112,39 @@ async function retryPreparedDispatch(db, root) {
   await assertRetriedDispatch(db, project, harness);
 }
 
+async function selectedTopologyContractMatchesDispatch(db, root) {
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+    dependencies: { react: '^18.0.0' }, scripts: { test: 'node -e "process.exit(0)"' }
+  }));
+  const project = await fixture.project(db, root);
+  const config = fixture.testConfig();
+  config.topologies = ['trinity'];
+  const objective = 'Create a React reservation site';
+  await db.run('UPDATE ontogenesis_projects SET objective = ?, config_json = ? WHERE id = ?',
+    [objective, JSON.stringify(config), project.id]);
+  assert.strictEqual(compileMission({ root_path: root, objective }).morphology.selectedTopology, 'a_team');
+  const harness = fixture.fakeHarness(db);
+  const start = harness.start;
+  let dispatched;
+  harness.start = (input) => { dispatched = input; return start(input); };
+  const tick = () => tickOnce(db, { projectId: project.id, owner: 'topology-contract-test', harness });
+  assert.strictEqual((await tick()).state, 'PLANNING');
+  assert.strictEqual((await tick()).state, 'EXECUTING');
+  assert.ok(dispatched, 'dispatch input is captured');
+  const request = requestFor(dispatched);
+  assert.strictEqual(dispatched.selection.topology, 'trinity');
+  assert.strictEqual(dispatched.mission.plan.topology, 'trinity');
+  assert.strictEqual(dispatched.mission.plan.morphology.inferredTopology, 'a_team');
+  assert.strictEqual(dispatched.mission.plan.topologyContract.mode, 'trinity');
+  assert.deepStrictEqual(dispatched.selection.preflight.topology.contract.required,
+    dispatched.mission.plan.topologyContract.required);
+  assert.strictEqual(request.topologyId, dispatched.selection.topology);
+  assert.strictEqual(request.morphologyPlan.selectedTopology, request.topologyId);
+  assert.strictEqual(request.topologyContract.mode, request.topologyId);
+  assert.strictEqual(request.missionCapabilityPlan.topologyContract.mode, request.topologyId);
+  assert.deepStrictEqual(Object.keys(request.worker_assignments).sort(), dispatched.selection.workerRoles.sort());
+}
+
 async function assertPreparedDispatch(db, project) {
   const operation = await db.get("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
     [project.id]);
@@ -152,6 +187,7 @@ async function main() {
   await isolatedTest(rejectedCheck);
   await isolatedTest(recoverCommit);
   await isolatedTest(retryPreparedDispatch);
+  await isolatedTest(selectedTopologyContractMatchesDispatch);
   console.log('ontogenesis execution checks passed (injected worker, real checks and Git).');
 }
 

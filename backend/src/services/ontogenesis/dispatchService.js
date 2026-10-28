@@ -3,7 +3,8 @@
 const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { selectTopology } = require('./topologySelector');
-const { buildMissionPreflight, dispatchRefusal } = require('./missionPreflightService');
+const { dispatchRefusal } = require('./missionPreflightService');
+const { buildMissionCapabilityPlan } = require('./missionCapabilityPlanService');
 const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memoryService');
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
@@ -37,13 +38,11 @@ function capabilitiesOf(config) {
   return { list: config.availableCapabilities.slice(), defaulted: false };
 }
 
-function preflightSelection(ctx, selection) {
-  return buildMissionPreflight({
-    mission: ctx.mission,
-    config: ctx.config,
-    topology: selection.topology,
-    organization: ctx.mission?.morphology?.selectedOrganization
-  });
+function missionForDispatch(ctx, selection) {
+  const mission = { ...ctx.mission };
+  mission.plan = buildMissionCapabilityPlan({ project: ctx.project,
+    task: ctx.selection?.task || {}, mission, config: ctx.config, selection });
+  return mission;
 }
 
 async function topologyFor(db, ctx) {
@@ -155,7 +154,8 @@ async function dispatchTask(db, ctx, harness) {
   if (envelope?.blocked) return blockDispatch(db, ctx, envelope.blocked);
   const selection = await topologyFor(db, ctx);
   if (selection.blocked) return blockDispatch(db, ctx, selection.blocked);
-  selection.preflight = preflightSelection(ctx, selection);
+  ctx.mission = missionForDispatch(ctx, selection);
+  selection.preflight = ctx.mission.plan.preflight;
   const refusal = dispatchRefusal(selection.preflight);
   if (refusal) return blockDispatch(db, ctx, refusal);
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
