@@ -35,6 +35,7 @@ function execution(ctx) {
     threadId: firstOr(mission.threadId, mission.missionScope?.threadId, ''),
     organizationId: valueOr(ctx.controlTenant?.organization_id, ''),
     projectId: valueOr(ctx.controlTenant?.project_id, ''),
+    memoryContextJson: optionalJson(mission.memoryContext),
     autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(valueOr(ctx.autonomyPlan, {}))),
     toolLeaseJson: JSON.stringify(valueOr(mission.toolLease, [])),
     organization: valueOr(mission.organization, ''),

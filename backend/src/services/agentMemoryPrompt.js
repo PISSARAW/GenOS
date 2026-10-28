@@ -21,6 +21,7 @@ const { sanitizeMemorySourceText } = require('./memoryScoring');
 const { MAX_TOKEN_BUDGET, compileContext } = require('./memory/memoryContextCompiler');
 const { rankMemories } = require('./memory/situationalRecallService');
 const { metadataFor, hasMetadata } = require('./memory/historicalMemoryMetadata');
+const memoryPromptBudget = require('./agentMemoryPromptBudget');
 
 function applyScope(list, task, opts) {
   const scoped = scope.filterScoped(filterUnverified(list), opts.missionScope, task);
@@ -246,6 +247,11 @@ function selectionTokens(memories) {
   return estimateMemoryTokens(rendered);
 }
 
+function renderedMemoryTokens(memories, regular, shield) {
+  const sections = buildMemorySections(memories, regular);
+  return estimateMemoryTokens(assemblePromptBlock(sections, shield));
+}
+
 function emptyMemorySelection() {
   return { experiences: [], pitfalls: [], goldenPaths: [], episodes: [] };
 }
@@ -277,6 +283,9 @@ function rankHistoricalMemories(memories, query) {
 function selectHistoricalMemories(memories, options, query) {
   const selected = emptyMemorySelection();
   const budget = historicalBudget(options);
+  const regular = options?._memoryContextRegularLines || [];
+  const shield = options?._memoryContextShield || null;
+  const totalBudget = memoryPromptBudget.contextBudget(options, MAX_TOKEN_BUDGET);
   const ranked = rankHistoricalMemories(memories, query);
   const cautions = ranked.experiences.filter(scope.isCaution);
   const ordinary = ranked.experiences.filter((item) => !scope.isCaution(item));
@@ -285,7 +294,8 @@ function selectHistoricalMemories(memories, options, query) {
   for (const [kind, entries] of queues) {
     for (const entry of entries || []) {
       selected[kind].push(entry);
-      if (selectionTokens(selected) > budget) selected[kind].pop();
+      if (selectionTokens(selected) > budget
+        || renderedMemoryTokens(selected, regular, shield) > totalBudget) selected[kind].pop();
     }
   }
   return selected;
@@ -318,8 +328,12 @@ async function formatCognitiveMemoryPrompt(agentId, task, options) {
   try {
     const memories = await retrieveAgentMemories(agentId, task, opts);
     const injections = await collectVesicleSections(agentId, opts);
-    const selected = selectHistoricalMemories(memories, opts, task);
-    const sections = buildMemorySections(selected, injections.regular);
+    const regular = memoryPromptBudget.selectRegularVesicles(injections.regular,
+      memoryPromptBudget.contextBudget(opts, MAX_TOKEN_BUDGET), (lines) =>
+        renderedMemoryTokens(emptyMemorySelection(), lines, injections.shield));
+    const selected = selectHistoricalMemories(memories, { ...opts,
+      _memoryContextRegularLines: regular, _memoryContextShield: injections.shield }, task);
+    const sections = buildMemorySections(selected, regular);
     const promptBlock = assemblePromptBlock(sections, injections.shield);
     await injections.consume();
     return `${assembleGenomeBlock(opts)}${promptBlock}`;

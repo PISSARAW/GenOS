@@ -22,6 +22,9 @@ function encodeMission(mission) {
     coordinationPolicyJson: coordinationPolicy
       ? JSON.stringify(coordinationPolicy)
       : mission.coordinationPolicyJson,
+    memoryContextJson: mission.memoryContext
+      ? JSON.stringify(mission.memoryContext)
+      : mission.memoryContextJson,
     promptCapsule: mission.prompt
       ? encodePromptCapsule({ prompt: mission.prompt, sourceAgentId: mission.agentId, recipientAgentId: mission.orchestratorAgentId })
       : mission.promptCapsule
@@ -51,6 +54,9 @@ function decodeMission(buffer) {
   const result = Mission.toObject(message, { defaults: false, bytes: Buffer });
   if (result.coordinationPolicyJson) {
     result.coordinationPolicy = JSON.parse(result.coordinationPolicyJson);
+  }
+  if (result.memoryContextJson) {
+    result.memoryContext = JSON.parse(result.memoryContextJson);
   }
   if (!result.prompt && result.promptCapsule) {
     result.prompt = decodePromptCapsule(result.promptCapsule).prompt;

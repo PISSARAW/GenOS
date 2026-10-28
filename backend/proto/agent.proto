@@ -67,6 +67,8 @@ message AgentMission {
   string project_id = 46;
   // Backend-issued run identity for authority-bound MCP tool execution.
   string execution_run_id = 47;
+  // Resolved memory context is carried separately from the user prompt.
+  string memory_context_json = 48;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
