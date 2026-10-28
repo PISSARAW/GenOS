@@ -4,6 +4,8 @@ console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const runtimeBudget = require('./runtime-budget-limit.cjs');
 const { localArtifactInstruction } = require('../src/services/localArtifactInstruction');
+const { assertMissionPromptBudget } = require('../src/services/agentRuntimeAdapter/missionPromptBudget');
+const missionMemoryContext = require('../src/services/agentRuntimeAdapter/missionMemoryContext');
 const modelRouter = require('../src/services/modelRouter');
 const localSynthesis = require('../src/services/localRuntimeSynthesis');
 const captureBarrier = require('../src/services/localRuntimeCaptureBarrier');
@@ -84,8 +86,9 @@ async function runMission(state, services) {
   const checkpoint = require('../src/services/localRuntimeCheckpoint');
   emitEvent(state, { eventType: 'AGENT_PLAN_CREATED', action: 'PLAN',
     detail: 'Local cognitive router runtime accepted the mission.', status: 'running', currentTask: state.prompt });
-  guardBudget(state);
   try {
+    assertMissionPromptBudget(state.mission, state.framedPrompt);
+    guardBudget(state);
     let reply = state.resumeCheckpoint?.reply || null;
     const generate = () => require('../src/services/localRuntimeObservedGeneration').generate(state, {
       checkpoint, synthesis: localSynthesis, createGeneration, awaitGeneration, validateGeneration, emitEvent });
@@ -140,6 +143,7 @@ function guardBudget(state) {
   process.exit(1);
 }
 async function createGeneration(state) {
+  assertMissionPromptBudget(state.mission, state.framedPrompt);
   state.modelBudgetRoute ||= await require('../src/services/subprocessModelBudgetRoute').openForMission(state.mission, state.executionBudget);
   const { withTextImmunity } = require('../src/services/immuneSystem.js');
   const griotValidator = (text) => {
@@ -234,6 +238,9 @@ async function buildStrategyContext(adapter, state) {
   } catch (e) {}
 }
 async function loadMemoryBlock(agentMemory, state) {
+  if (missionMemoryContext.isResolved(state.mission)) {
+    return missionMemoryContext.textForMission(state.mission);
+  }
   try {
     return await agentMemory.formatCognitiveMemoryPrompt(state.agentName, state.prompt, { missionScope: state.mission.missionScope });
   } catch (e) { return ''; }

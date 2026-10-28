@@ -15,6 +15,8 @@ const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
+const { assertMissionPromptBudget } = require('../src/services/agentRuntimeAdapter/missionPromptBudget');
+const missionMemoryContext = require('../src/services/agentRuntimeAdapter/missionMemoryContext');
 const solarTools = require('./solar-tool-runtime.cjs');
 const sharedBudget = require('../src/services/externalSubprocessModelBudget');
 const path = require('path');
@@ -88,6 +90,7 @@ async function runMission(state, services) {
   });
   try {
     state.modelBudgetRoute = await sharedBudget.openForState(state);
+    assertMissionPromptBudget(state.mission, state.framedPrompt);
     guardBudget(state);
     const tools = solarTools.loadLeasedTools(state.toolLease);
     const reply = await solarTools.runToolSession({
@@ -217,6 +220,9 @@ async function buildStrategyContext(adapter, state) {
 }
 
 async function loadMemoryBlock(agentMemory, state) {
+  if (missionMemoryContext.isResolved(state.mission)) {
+    return missionMemoryContext.textForMission(state.mission);
+  }
   try { return await agentMemory.formatCognitiveMemoryPrompt(state.agentName, state.prompt); } catch (e) { return ''; }
 }
 
