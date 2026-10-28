@@ -12,6 +12,7 @@ const { verifyInChild } = require('./evaluation/verifyInChild');
 const { createCampaignBudgetGuard } = require('./adapters/campaignBudgetGuard');
 const { createUsageJournal } = require('./adapters/campaignUsageJournal');
 const { campaignStatus, createReport } = require('./adapters/campaignReceipt');
+const { writeReport } = require('./adapters/campaignReportWriter');
 const experimentExecutor = require('../../backend/src/services/endogenousThoughtCampaignExecutor');
 const { CONDITIONS } = require('../../backend/src/services/endogenousThoughtExperimentService');
 
@@ -90,20 +91,6 @@ function digest(value) {
 
 function actionsTaken(world) {
   return world.observation.actionBudget - world.remaining;
-}
-
-function writeReport(filename, report, initial) {
-  fs.mkdirSync(path.dirname(filename), { recursive: true });
-  if (initial && fs.existsSync(filename)) throw new Error(`Output already exists: ${filename}`);
-  const data = `${JSON.stringify(report, null, 2)}\n`;
-  const temporary = `${filename}.${process.pid}.tmp`;
-  try {
-    fs.writeFileSync(temporary, data, { flag: initial ? 'wx' : 'w' });
-    fs.renameSync(temporary, filename);
-  } catch (error) {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
-    throw error;
-  }
 }
 
 function casePayload(testCase, model) {

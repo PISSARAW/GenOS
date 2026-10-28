@@ -1,10 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { SCENARIO_IDS, LEVELS, SPECS, buildCase, referenceScore } = require('../scenarios/runtime');
 const { scenarioModules, parseArguments, buildTasks, casePayload, remainingTasks,
   validateResume, validateStoredRecords, restoreAdapterState } = require('../run_runtime_campaign');
+const { renameReportWithRetry } = require('../adapters/campaignReportWriter');
 const { verifyInChild } = require('../evaluation/verifyInChild');
 const { compareRows, compareSystems } = require('../evaluation/replay');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
@@ -338,6 +342,30 @@ async function testIndependentAdapters() {
   }
 }
 
+function testReportRenameRetry() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ett-report-'));
+  const source = path.join(directory, 'report.tmp');
+  const destination = path.join(directory, 'report.json');
+  const rename = fs.renameSync;
+  let attempts = 0;
+  fs.writeFileSync(source, 'updated');
+  fs.writeFileSync(destination, 'prior');
+  fs.renameSync = (...args) => {
+    attempts += 1;
+    if (attempts === 1) throw Object.assign(new Error('temporary lock'), { code: 'EPERM' });
+    return rename(...args);
+  };
+  try {
+    renameReportWithRetry(source, destination, 1);
+    assert.equal(attempts, 2);
+    assert.equal(fs.readFileSync(destination, 'utf8'), 'updated');
+    assert.equal(fs.existsSync(source), false);
+  } finally {
+    fs.renameSync = rename;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   testScenarioRegistry();
   testIndependentOracle();
@@ -345,6 +373,7 @@ async function main() {
   testReplayComparison();
   testRunnerOptions();
   testResumeContracts();
+  testReportRenameRetry();
   await testCampaignBudgetGuard();
   await testIndependentAdapters();
   process.stdout.write('ETT runtime campaign contracts passed.\n');
