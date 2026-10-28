@@ -11,7 +11,9 @@ préétabli; il ne démontre pas de borne mémoire.
 Les JSONL, évaluations, manifestes et journaux restent générés sous ce dossier
 ignoré par Git. L'analyse appariée de 74 contrastes est post hoc, publique et
 non confirmatoire. Le holdout local de 680 cas a été régénéré et vérifié hors
-dépôt; il n'a pas été lu ni scoré. Le préflight reste à 25/27 : le statut
-d'approbation du préenregistrement et ses six exigences restent ouverts.
-Aucun résultat €/mission, gain de 15 % ou résultat confirmatoire n'est
-revendiqué.
+dépôt; il n'a pas été lu ni scoré. Le préflight reste à 25/27. Six points
+doivent être résolus avant approbation : E11 énergie/tarif (ou amendement),
+plan d'inférence, preuve E09 ou revendication mémoire réduite, frontières
+d'instrumentation, gel des adaptateurs/configurations/dépendances/commandes,
+et publication des traces et résultats auditables. Aucun résultat €/mission,
+gain de 15 % ou résultat confirmatoire n'est revendiqué.
