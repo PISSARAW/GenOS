@@ -9,6 +9,7 @@ const { terminatePid } = require('../processTermination');
 const { launchInWindowsJob } = require('./windowsJobObject');
 const workerKinds = require('../agents/workerKindService');
 const { instructionFor } = require('./philosophicalMissionContract');
+const { resolvePatchContract } = require('./patchContractService');
 const { verifierCheckReason } = require('./gitAuthority');
 
 const RUNNER = path.resolve(__dirname, '../../../bin/ontogenesisMissionRunner.cjs');
@@ -143,9 +144,7 @@ function requestFor(input) {
     workspaceProvisioned: true,
     capsuleRoot: path.join(path.dirname(path.resolve(input.worktree)), 'capsules'),
     localCodeWorker: codeChangeTask,
-    requiredPatchPaths: requiredWebPatchPaths(input),
-    requiredPatchMarkers: requiredWebPatchMarkers(input),
-    requiredPatchMinimumBytes: requiredWebPatchMinimumBytes(input),
+    ...resolvePatchContract(input.config.patchContract),
     autonomousOrchestration: true, useMemoryContext: true,
     operatorContext: input.mission?.operatorContext || [],
     topologyId: input.selection.topology,
@@ -190,29 +189,6 @@ function workerAllowedCommand(check) {
   const args = Array.isArray(check.args) ? check.args : [];
   if (program === 'node.exe' || program === 'node') return ['node', ...args].join(' ');
   return [check.program, ...args].join(' ');
-}
-
-function requiredWebPatchPaths(input) {
-  const text = `${input.project.objective || ''} ${input.task.title || ''}`;
-  return /\b(site|web)\b/i.test(text) ? ['index.html', 'styles.css', 'script.js'] : undefined;
-}
-
-function requiredWebPatchMarkers(input) {
-  if (!requiredWebPatchPaths(input)) return undefined;
-  return {
-    'index.html': ['lang="fr"', '<nav', '<main', 'id="hero"', 'id="synopsis"', 'id="casting"',
-      'id="moments"', 'id="cta"', 'aria-label', 'NOX VELOCITY',
-      'Au cinéma', 'Mara Voss', 'Kane Mercer', 'data-reveal'],
-    'styles.css': [':root', '--accent', 'prefers-reduced-motion'],
-    'script.js': ['addEventListener', 'IntersectionObserver', "querySelectorAll('[data-reveal]')",
-      "classList.add('is-visible')", "matchMedia('(prefers-reduced-motion: reduce)')",
-      "getElementById('menu-toggle')", "setAttribute('aria-expanded'"]
-  };
-}
-
-function requiredWebPatchMinimumBytes(input) {
-  if (!requiredWebPatchPaths(input)) return undefined;
-  return { 'index.html': 1000, 'styles.css': 800, 'script.js': 650 };
 }
 
 function workerRequirementsFor(role) {

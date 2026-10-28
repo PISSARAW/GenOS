@@ -6,6 +6,7 @@
  */
 
 const { validateExecutionConfig } = require('./configValidation');
+const { isSupportedPatchContract } = require('./patchContractService');
 
 const CONFIG_VERSION = 2;
 const LEGACY_CONFIG_VERSION = 1;
@@ -118,6 +119,12 @@ function checkExternalAuthority(config, errors) {
   if (!isPlainObject(config.merge) || config.merge.enabled !== false) errors.push('fusion-interdite-lot0');
 }
 
+function checkPatchContract(config, errors) {
+  if (config.patchContract !== undefined && !isSupportedPatchContract(config.patchContract)) {
+    errors.push('patchContract-invalide');
+  }
+}
+
 function checkDaemonStewardship(config, errors) {
   const policy = config.daemonStewardship;
   if (!isPlainObject(policy)) return errors.push('daemonStewardship-requis');
@@ -161,6 +168,7 @@ function validateProjectConfig(input) {
   checkDurability(config, errors);
   checkRetention(config, errors);
   checkExternalAuthority(config, errors);
+  checkPatchContract(config, errors);
   checkDaemonStewardship(config, errors);
   validateExecutionConfig(config, errors);
   return { ok: errors.length === 0, errors, config };

@@ -40,19 +40,33 @@ try {
   assert.strictEqual(request.workspaceProvisioned, true);
   assert.strictEqual(request.capsuleRoot, path.join(path.dirname(root), 'capsules'));
   assert.strictEqual(request.localCodeWorker, true);
-  assert.deepStrictEqual(request.requiredPatchPaths, ['index.html', 'styles.css', 'script.js']);
-  assert.deepStrictEqual(request.requiredPatchMarkers['index.html'],
+  assert.strictEqual(request.requiredPatchPaths, undefined,
+    'generic React/site missions must not inherit a campaign-specific patch contract');
+  assert.strictEqual(request.requiredPatchMarkers, undefined);
+  assert.strictEqual(request.requiredPatchMinimumBytes, undefined);
+  const { defaultConfig, validateProjectConfig } = require('../src/services/ontogenesis/configSchema');
+  const noxConfig = { ...defaultConfig(), patchContract: { id: 'nox-velocity', version: 1 } };
+  assert.strictEqual(validateProjectConfig(noxConfig).ok, true);
+  const noxRequest = requestFor({ id: 'nox-run', project, task: { title: 'Créer une page de campagne',
+    acceptance_json: '[]', id: 'nox-task' }, selection: { topology: 'a_team', variant: 'default', workerRoles: [] },
+  worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: noxConfig, mission: compiled });
+  assert.deepStrictEqual(noxRequest.requiredPatchPaths, ['index.html', 'styles.css', 'script.js']);
+  assert.deepStrictEqual(noxRequest.requiredPatchMarkers['index.html'],
     ['lang="fr"', '<nav', '<main', 'id="hero"', 'id="synopsis"', 'id="casting"',
       'id="moments"', 'id="cta"', 'aria-label', 'NOX VELOCITY',
       'Au cinéma', 'Mara Voss', 'Kane Mercer', 'data-reveal']);
-  assert.deepStrictEqual(request.requiredPatchMarkers['styles.css'],
+  assert.deepStrictEqual(noxRequest.requiredPatchMarkers['styles.css'],
     [':root', '--accent', 'prefers-reduced-motion']);
-  assert.deepStrictEqual(request.requiredPatchMarkers['script.js'],
+  assert.deepStrictEqual(noxRequest.requiredPatchMarkers['script.js'],
     ['addEventListener', 'IntersectionObserver', "querySelectorAll('[data-reveal]')",
       "classList.add('is-visible')", "matchMedia('(prefers-reduced-motion: reduce)')",
       "getElementById('menu-toggle')", "setAttribute('aria-expanded'"]);
-  assert.deepStrictEqual(request.requiredPatchMinimumBytes,
+  assert.deepStrictEqual(noxRequest.requiredPatchMinimumBytes,
     { 'index.html': 1000, 'styles.css': 800, 'script.js': 650 });
+  assert.strictEqual(validateProjectConfig({ ...defaultConfig(), patchContract: { id: 'unknown', version: 1 } }).ok,
+    false, 'unknown patch contracts fail closed');
+  assert.strictEqual(validateProjectConfig({ ...defaultConfig(), patchContract: { id: 'nox-velocity', version: 2 } }).ok,
+    false, 'unsupported patch contract versions fail closed');
   assert.strictEqual(request.problemProfile.type, 'implementation');
   assert.deepStrictEqual(request.philosophicalContracts, []);
   assert.strictEqual(reservationFor({ config: { memory: { envelopeMb: 2048 } } },
