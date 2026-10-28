@@ -197,6 +197,14 @@ async function stopContainer(options) {
   return !result.spawnFailed && !result.timedOut && !result.overflow && result.code === 0;
 }
 
+async function rejectLimitedExecution(input) {
+  const { result, config, name, env, dependencies } = input;
+  const stopped = await stopContainer({ config, name, env, dependencies });
+  if (!stopped) throw failure(result.timedOut
+    ? 'GVX_EVALUATOR_TIMEOUT_STOP_UNVERIFIED' : 'GVX_EVALUATOR_OUTPUT_LIMIT_STOP_UNVERIFIED');
+  throw failure(result.timedOut ? 'GVX_EVALUATOR_TIMEOUT' : 'GVX_EVALUATOR_OUTPUT_LIMIT_EXCEEDED');
+}
+
 async function readAggregate(directory, expectedSuiteHash) {
   const entries = await fs.readdir(directory);
   if (entries.length !== 1 || entries[0] !== AGGREGATE_FILE) throw failure('GVX_EVALUATOR_OUTPUT_INVALID');
@@ -244,13 +252,9 @@ async function runAggregateEvaluator(request, dependencies = {}) {
     timeoutMs: config.limits.timeoutMs, maxOutputBytes: MAX_DOCKER_OUTPUT_BYTES };
   try {
     const result = await runProcess(processOptions, dependencies);
-    if (result.timedOut) {
-      const stopped = await stopContainer({ config, name, env, dependencies });
-      if (!stopped) throw failure('GVX_EVALUATOR_TIMEOUT_STOP_UNVERIFIED');
-      throw failure('GVX_EVALUATOR_TIMEOUT');
-    }
+    if (result.timedOut || result.overflow) await rejectLimitedExecution({ result, config, name, env, dependencies });
     if (result.spawnFailed) throw failure('GVX_DOCKER_UNAVAILABLE');
-    if (result.overflow || result.code !== 0) throw failure('GVX_EVALUATOR_DOCKER_FAILED');
+    if (result.code !== 0) throw failure('GVX_EVALUATOR_DOCKER_FAILED');
     if (await hashCandidate(directories.candidate) !== initialCandidateHash) throw failure('GVX_EVALUATOR_CANDIDATE_CHANGED');
     const aggregate = await readAggregate(directories.output, config.suiteHash);
     const receipt = createReceipt(config, initialCandidateHash, aggregate);

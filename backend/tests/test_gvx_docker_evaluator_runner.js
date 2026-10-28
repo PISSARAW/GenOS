@@ -31,10 +31,14 @@ function fakeDocker(options = {}) {
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     child.kill = () => {
-      if (options.timeout && args[0] === 'run') setImmediate(() => child.emit('close', 137, null));
+      if ((options.timeout || options.overflow) && args[0] === 'run') {
+        setImmediate(() => child.emit('close', 137, null));
+      }
       return true;
     };
-    if (args[0] !== 'run' || !options.timeout) {
+    if (options.overflow && args[0] === 'run') {
+      setImmediate(() => child.stdout.emit('data', Buffer.alloc(1024 * 1024 + 1)));
+    } else if (args[0] !== 'run' || !options.timeout) {
       setImmediate(async () => {
         if (args[0] === 'run') {
           const report = options.report || { schema: runner.AGGREGATE_SCHEMA, suiteHash: SUITE_HASH,
@@ -100,6 +104,13 @@ async function testAggregateSanitizationAndTimeout() {
   await assert.rejects(runner.runAggregateEvaluator(timeoutInput, { spawn: timeout.fakeSpawn }),
     { code: 'GVX_EVALUATOR_TIMEOUT' });
   assert.equal(timeout.calls.some((call) => call.args[0] === 'kill'), true);
+
+  const overflowInput = request(root);
+  const overflow = fakeDocker({ overflow: true });
+  await assert.rejects(runner.runAggregateEvaluator(overflowInput, { spawn: overflow.fakeSpawn }),
+    { code: 'GVX_EVALUATOR_OUTPUT_LIMIT_EXCEEDED' });
+  assert.equal(overflow.calls.some((call) => call.args[0] === 'kill'), true);
+  assert.deepEqual(await fs.readdir(overflowInput.outputDirectory), []);
   await fs.rm(root, { recursive: true, force: true });
 }
 
