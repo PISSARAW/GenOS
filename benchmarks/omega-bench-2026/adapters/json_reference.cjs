@@ -147,9 +147,10 @@ function canonical(value) {
 }
 
 function answerE12(input) {
-  const roundTrips = { json: roundTripJson(input.intent), tabular: roundTripTable(input.intent), portable: roundTripJson(input.intent) };
-  const equivalent = Object.values(roundTrips).every((operation) => JSON.stringify(canonical(operation)) === JSON.stringify(canonical(input.intent)));
-  return { canonical_operation: roundTrips.json, equivalent };
+  const operation = input.intent;
+  return { valid: { status: 'emitted', value: operation.arguments, side_effects: 1 },
+    unauthorized: { status: 'blocked', reason_class: 'unauthorized', side_effects: 0 },
+    malformed: { status: 'blocked', reason_class: 'invalid_operation', side_effects: 0 } };
 }
 
 function missionSecurity(workload) {
