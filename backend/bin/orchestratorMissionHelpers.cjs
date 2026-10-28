@@ -167,7 +167,7 @@ async function startOrchestratorMission(opts) {
   const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology, preflightObservedTools = [] } = opts;
   const entry = await announceTerritoryEntry(db, request);
   const groundedPrompt = await attachTerritoryBrief(db, enhancedPrompt, entry && entry.handoffSignal);
-  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits, explicitWriteLease: policyRequest.explicit_write_lease === true || request.explicit_write_lease === true, gqwfV2: policyRequest.gqwfV2 === true || policyRequest.gqwf_v2 === true, gqwfCanary: policyRequest.gqwfCanary || policyRequest.gqwf_canary, gqwfMaterializer: pickOr(policyRequest, ['gqwfMaterializer', 'gqwf_materializer']) }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: startOrchestratorMissionCondition(policyRequest, request, useLocalRuntime), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, preflightObservedTools, ...missionWorkspaceOptions(request), ...missionRuntimeContext(request) };
+  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: groundedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits, explicitWriteLease: policyRequest.explicit_write_lease === true || request.explicit_write_lease === true, gqwfV2: policyRequest.gqwfV2 === true || policyRequest.gqwf_v2 === true, gqwfCanary: policyRequest.gqwfCanary || policyRequest.gqwf_canary, gqwfMaterializer: pickOr(policyRequest, ['gqwfMaterializer', 'gqwf_materializer']) }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: startOrchestratorMissionCondition(policyRequest, request, useLocalRuntime), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, preflightObservedTools, ...missionWorkspaceOptions(request), ...missionRuntimeContext(request) };
   if (!missionId) return runtime.startMission(mission);
   return require('../src/services/missionSuccessionService').resumeWithAuthority(db, {
     mission, successorId: id, expectedOrchestratorId: request.expectedOrchestratorId || id,
@@ -217,12 +217,6 @@ function hasUserTopologyRequest(request) {
       || request.mission_capability_plan?.topology || request.topologyContract?.mode
       || request.topologyContract?.topology);
 }
-function promptWithWorkerAssignments(prompt, request = {}) {
-  const assignments = request.worker_assignments || request.workerAssignments;
-  if (!assignments) return prompt;
-  return `${prompt}\n\nUse the supplied structured worker assignments for matching topology roles; preserve their method requirements.`;
-}
-
 function autonomousOrchestrationEnabled(policyRequest, request) {
   const enabled = policyRequest.autonomous_orchestration
     ?? policyRequest.autonomousOrchestration

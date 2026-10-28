@@ -179,19 +179,21 @@ function buildWorkerPrompt(details) {
     enabled: morphogenesisCompactWorkerRole(assignment)
   });
   if (compactPrompt) return compactPrompt;
+  const fullMissionPrompt = missionPrompt || context.parent.current_task || 'Autonomous task execution';
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
-  const dnaPrompt = promptComposer.formatDnaPromptBlock(dnaSelection, { assignment, workerSelf });
+  const assignmentBlocks = promptComposer.buildAssignmentPromptBlocks({ assignment, workerSelf, dnaSelection, missionPrompt: fullMissionPrompt });
   return [
     workerSelfBlock ? null : identity.introduction,
     workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
-    missionPrompt || context.parent.current_task || 'Autonomous task execution',
-    `${morphogenesisRoleInstruction(assignment) ? `${morphogenesisRoleInstruction(assignment)}\n` : ''}Assigned branch: ${assignment.label}.`,
-    dnaPrompt,
+    fullMissionPrompt,
+    morphogenesisRoleInstruction(assignment),
+    assignmentBlocks.branch,
+    assignmentBlocks.dna,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
-    `Hypothesis: ${assignment.hypothesis}`,
-    require('./trinityWorldDesign').factorialInstruction(assignment),
+    assignmentBlocks.hypothesis,
+    assignmentBlocks.factorial,
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, {
       prompt: missionPrompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
