@@ -1,0 +1,101 @@
+# Proposition de gel confirmatoire — OMEGA-BENCH 2026
+
+**État : proposition seulement. Le protocole reste en brouillon et aucun résultat du holdout n'a été scoré.** Audit établi le 2026-10-28 à partir du dépôt courant, des manifestes de résultats publics et du préflight.
+
+## État du holdout
+
+`python benchmarks/omega-bench-2026/src/check_readiness.py` a confirmé `sealed_holdout: passed`, 680 cas et `location=outside_repository`. Le contrôle appelle `generate_holdout.verify_holdout`: il vérifie commitment, présence, volumes et empreintes des fichiers privés; il ne compare pas les sorties de candidats aux oracles et ne produit aucun score. Cette vérification n'est pas un scoring du holdout.
+
+Le préflight public donne **24/26**. Les 24 contrôles réussis couvrent les 3 400 cas et 12 expériences, les 40 800 exécutions principales prévues, les 24 fichiers d'entrée/oracle publics et leurs empreintes, A–D, les sept familles de baselines, le verrou matériel et zéro appel modèle. Les deux contrôles en échec sont exactement `protocol_preregistered` et `preregistration_requirements`.
+
+## Empreintes publiques observées
+
+| Objet | Empreinte SHA-256 / état |
+| --- | --- |
+| `protocol.json` | `627b14065575a4bd3b9d7f34d4fa350b1f4fc82b060afd99af050c288fd16e2f` |
+| `dataset/manifest.json` | `e8714de000ade8dce84d5cf3f294b23c6f54701293d6fd0f83c76526e90373ab` |
+| Corpus public | 3 400 cas, 24/24 fichiers vérifiés contre le manifeste |
+| Protocole | `0.4.0-draft`; `public_development_qualification_complete_confirmatory_campaign_blocked` |
+| Seuils | `draft_requires_preregistration` |
+
+Les empreintes du manifeste couvrent les JSONL publics d'entrée et d'oracle. Elles ne figent pas à elles seules les adaptateurs, les dépendances, le plan statistique ou les frontières d'instrumentation; le gel proposé doit enregistrer aussi ces objets.
+
+## Conditions principales et baselines
+
+A, B, C et D ont chacun 10 200 lignes (3 400 cas × trois répétitions) et leur évaluation publique complète rapporte 100 % de conformité, aucun manque, doublon, statut invalide ou échec critique. Les hashes source des adaptateurs A/B/C correspondent à leurs manifestes. D a été fusionné à partir d'un manifeste initial et d'un rafraîchissement E10/E11. Le hash de l'adaptateur D courant est `14a43f7fda3fcda4d7eadbee6c4cb8ad6668acd836df0ca38fee29711884e2d7`; le manifeste D complet, le rafraîchissement E10/E11 et le manifeste A8 déclarent maintenant le même hash GenOS. Les 450 clés scénario/répétition D E10/E11 et A8 correspondent, et les 450 réponses sont identiques (300/300 E10, 150/150 E11). Les manifestes concordent avec les fichiers sources actuels.
+
+| Baseline | Portée déclarée | Exécutions correctes |
+| --- | --- | ---: |
+| MLIR | E01–E04, E12 | 4 800/4 800 |
+| Temporal | E05–E07 | 1 350/1 350 |
+| LangGraph | E05–E07, E10 | 1 650/1 650 |
+| Agent2Agent | E07, E12 | 900/900 |
+| MCP | E07, E12 | 900/900 |
+| OPA | E03, E08 | 6 000/6 000 |
+| JSON Schema + référence Python | E01–E12 | 10 200/10 200 |
+
+Les sept adaptateurs et leurs manifestes déclarent les mêmes hashes source; les évaluations ont zéro échec critique dans les périmètres qualifiés. Les périmètres `N/A` ne sont pas des échecs. Le statut global de `configs/baselines.json` a été mis à `qualified_public_development`; cela ne vaut pas préenregistrement ni qualification confirmatoire.
+
+## Ablations et charge disponibles
+
+| Item | Périmètre / résultat public actuel | État pour un gel confirmatoire |
+| --- | --- | --- |
+| A1 — repli d'additions | E04, 300 par bras; 300/300 corrects ON et OFF; deux opérations deviennent une; médianes 1,94 ms OFF, 1,72 ms ON | Mesure exploratoire du seul repli adjacent; ne représente pas toutes les optimisations. |
+| A2 — précontrôle de compilation | E03, 3 000 par bras; 2 250/3 000 corrects (75 %) ON et OFF. 750 kinds invalides sont rejetés avant handler: compilateur ON, runtime OFF. 750 candidats `state` manquant sont admis par les deux chemins; médianes totales 0,044 ms ON, 0,0195 ms OFF. | La comparaison mesure le coût et le lieu de rejet du précontrôle ajouté à la garde runtime. Il faut décider si ce contraste restreint satisfait la définition A2; il ne mesure pas le retrait de la garde runtime. L'oracle révèle aussi le défaut de `state` absent. |
+| A3 — typage strict | E03, 3 000 par bras; strict 3 000/3 000, validation conteneur seule 1 500/3 000 | Portée claire et reproductible; public seulement. |
+| A4 — journal/replay | E05, contrôle et contrôle journal/relecture/réexécution au niveau du banc, 300 chacun; oracle 300/300 et sorties appariées 300/300; 1,91 ms contre 6,95 ms médianes | Le runtime G-CIR ne fournit pas de journal/replay commutable. Le test harness-level n'établit pas la durabilité des effets, l'idempotence, ni un A4 natif. Choisir entre redéfinir A4 au niveau du banc et l'exclure comme non mesurée. |
+| A5 — service remplacé par handler de référence | E10: A5 300/300, D 300/300; réponses identiques sur les 300 paires | Enveloppe, compilateur et runtime G-CIR appariés. Le handler de référence ne persiste pas la transition. |
+| A6 — allocateur remplacé par handler de référence | E11: A6 150/150, D 150/150; réponses différentes sur les 150 paires, les deux satisfont le contrat | C courant et A6 donnent également 150/150; un ancien rapport 54/150 était périmé et a été corrigé. E11 en euros reste non mesuré. |
+| A7 — encodage compact | E02, 600/600; gain médian d'octets 29,29 % | Le seuil proposé de 30 % n'est pas atteint par la médiane. |
+| A8 — mêmes services GenOS en JSON | E10/E11, 450 exécutions; 450/450, mêmes réponses que D sur les 450 paires (300 E10, 150 E11) | Hash du runner A8 et hash du runner GenOS concordent avec les sources courantes; couverture et réponses appariées vérifiées. |
+| Charge E09 | 10, 100, 1 000, 10 000 invocations async, trois répétitions; 33 330/33 330; RSS maximale 319,3 MiB | Un processus Node, commandes logiques agrégées par l'oracle, pas des agents OS ou une instance GenOS complète; la borne mémoire de production n'est pas établie. |
+
+A2 a été relancée après mise à jour du runner et son hash est synchronisé au manifeste. A1/A3, A4, A7 et le runner E09 ont aussi des hashes source synchronisés. D E10/E11 et A8 ont été relancés après le refactor final; leurs hashes source sont maintenant synchronisés.
+
+## Frontières de métriques et décisions à prendre
+
+1. **E11 en euros — décision bloquante.** Le seuil demande des missions réussies par euro et un gain relatif de 15 %. Le VM Shadow partagé ne fournit pas de compteur d'énergie attribuable à l'exécution. CPU-time et TDP ne sont pas des mesures en euros. Choisir soit un hôte instrumenté avec méthode d'attribution et tarif fixe documenté, soit retirer formellement cette métrique de la portée confirmatoire et définir avant gel une mesure substitutive; ne pas marquer le seuil actuel satisfait.
+2. **Définition A2.** Accepter explicitement ON=prévalidation compilation+runtime contre OFF=runtime seul, avec `state` absent signalé comme échec de conformité aux deux bras; ou changer les contrôles d'exécution en gardant la sécurité fail-closed et rerun. Ne jamais retirer le contrôle runtime pour créer un effet artificiel.
+3. **Définition A4.** Soit faire évoluer G-CIR pour un vrai journal/replay commutable puis exécuter les bras, soit amender le protocole pour nommer A4 « journal/relecture/réexécution au niveau du banc » et limiter les conclusions à ce périmètre. L'audit ne justifie pas de l'appeler une fonction native du runtime.
+4. **Provenance.** Les résultats D rafraîchis et A8 correspondent maintenant aux sources présentes. Après tout changement d'adaptateur, revalider les hashes; ne pas réutiliser les résultats d'une source antérieure.
+5. **Puissance.** L'analyse publique `src/analyze_power_public.py` et `reports/analyse-puissance-publique-2026-10-28.md` couvrent 74 contrastes: 12 primaires, 36 d'attribution, 18 comparaisons externes et 8 ablations. Elle utilise les sorties/oracles publics uniquement, l'unité scénario et les médianes des répétitions; elle produit des estimations de planification sous correction Bonferroni, pas des p-values confirmatoires sous Holm. Elle considère A1/A3/A5/A6/A7/A8 comme candidats de conception et exclut A2 (précontrôle compilateur ajouté au contrôle runtime) et A4 (journal/replay au niveau du banc) des preuves confirmatoires. A5 ne valide pas la persistance morphogénétique et A6 ne couvre pas le coût en euros. Confirmer les portées puis figer puissance, correction multiple, marges et limites.
+6. **Frontières d'instrumentation.** Le plan propose latence du JSON déjà chargé/encodé à la réponse décodée, inclut transports/reprises/erreurs, exclut démarrage/installation/génération/scoring; octets UTF-8 au même point; coûts API `N/A` sans appels payants. Confirmer que chaque baseline et ablation mesure bien ces frontières ou spécifier des métriques `N/A` non comparables. Fixer pour E09 p99, débit, mesure RSS et régime froid/chaud.
+7. **Comparateurs et artefacts scellés.** Figer le comparateur externe applicable de chaque famille à chaque expérience à partir du développement public; figer versions, matériel, commandes, hashes de tous les adaptateurs/configurations et la sortie du calcul de puissance avant d'exécuter `evaluate_holdout.py`.
+
+## Checklist de gel proposée
+
+- [ ] Décider et écrire le statut de la métrique E11 en euros; obtenir le matériel/tarif si elle est conservée.
+- [ ] Adopter ou amender la définition A2; corriger le traitement de `state` absent ou limiter explicitement la conclusion.
+- [ ] Adopter une des deux portées A4; ne pas présenter le test de banc comme replay natif.
+- [x] Rafraîchir D E10/E11 et A8 après le refactor final; vérifier hash des adaptateurs, couverture des paires et égalité des sorties.
+- [x] Produire l'analyse de planification publique pour les contrastes principaux, d'attribution, comparateurs applicables et ablations; décider encore quelles portées et exclusions entreront au protocole.
+- [ ] Vérifier les frontières latence/octets/coûts/RSS et consigner toute métrique non comparable comme `N/A`.
+- [ ] Mettre à jour `protocol.json`, `configs/thresholds.json`, `configs/baselines.json` et le plan statistique ensemble; calculer leurs hashes finaux.
+- [ ] Créer un manifeste de gel versionné comprenant hashes (protocole, corpus et fichiers, adaptateurs, lockfiles, configuration matérielle, plan/puissance), commande par bras et portées.
+- [ ] Obtenir un préflight sans blockers, puis commit du gel avant toute lecture des oracles du holdout.
+- [ ] Seulement après ce commit, produire les sorties candidates du holdout, les fermer et lancer le score indépendant.
+
+## Commandes de contrôle et reproduction
+
+État courant et intégrité du corpus/holdout, sans scorer :
+
+```powershell
+python benchmarks/omega-bench-2026/src/check_readiness.py
+```
+
+Campagne publique principale et contrôles reproductibles ciblés :
+
+```powershell
+node benchmarks/omega-bench-2026/adapters/json_reference.cjs
+node benchmarks/omega-bench-2026/adapters/gcir_minimal.cjs
+node benchmarks/omega-bench-2026/adapters/gcir_optimized.cjs
+node benchmarks/omega-bench-2026/adapters/genos_full.cjs
+node benchmarks/omega-bench-2026/adapters/ablation-a1-a3.cjs
+node benchmarks/omega-bench-2026/adapters/ablation-a2-static-boundary.cjs
+node benchmarks/omega-bench-2026/adapters/a4-e05-journal-control.cjs
+node benchmarks/omega-bench-2026/adapters/ablation-a7-compact.cjs
+node benchmarks/omega-bench-2026/adapters/ablation-a8-json.cjs
+node benchmarks/omega-bench-2026/src/run_e09_load.cjs --output=benchmarks/omega-bench-2026/results/E09-load.json
+```
+
+Ces commandes ne score pas le holdout. Garder le protocole au statut brouillon jusqu'à décision sur les items ci-dessus; ne pas inscrire `status: preregistered` par simple complétion technique du préflight.

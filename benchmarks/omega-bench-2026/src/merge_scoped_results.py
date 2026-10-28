@@ -58,7 +58,11 @@ def main():
         raise ValueError("condition IDs differ")
     if refresh_manifest["runs"] != len(read_jsonl(args.refresh)):
         raise ValueError("refresh manifest run count does not match result file")
-    base_results_sha256 = sha256(args.base)
+    previous_provenance = base_manifest.get("provenance", {})
+    original_manifest = previous_provenance.get("base_manifest", base_manifest)
+    original_results_sha256 = previous_provenance.get(
+        "base_results_sha256", sha256(args.base)
+    )
     merged = merge_rows(read_jsonl(args.base), read_jsonl(args.refresh), scope)
     write_atomic(args.output, merged)
     provenance = {
@@ -70,11 +74,14 @@ def main():
         "runs": len(merged),
         "scope": sorted({row["experiment_id"] for row in merged}),
         "repository_revision": refresh_manifest["repository_revision"],
+        "adapter_sha256": refresh_manifest["adapter_sha256"],
         "dataset_manifest_sha256": refresh_manifest["dataset_manifest_sha256"],
+        "runtime": refresh_manifest["runtime"],
         "result_file": args.output.name,
+        "external_model_calls": refresh_manifest["external_model_calls"],
         "provenance": {
-            "base_manifest": base_manifest,
-            "base_results_sha256": base_results_sha256,
+            "base_manifest": original_manifest,
+            "base_results_sha256": original_results_sha256,
             "refreshed_scopes": {
                 "experiments": sorted(scope),
                 "manifest": refresh_manifest,

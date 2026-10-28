@@ -1,5 +1,5 @@
 {
-  "status": "in_progress",
+  "status": "qualified_public_development",
   "applicability_rule": "Adapters run only the declared applicable experiments. Every other experiment is explicitly reported N/A, not as a failed or missing run.",
   "families": [
     {

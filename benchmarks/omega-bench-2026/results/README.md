@@ -1,15 +1,16 @@
 # Résultats
 
-Le compte rendu versionné des qualifications A/B/C/D sur le corpus public
-v0.4.0 est dans `../reports/qualification-publique-2026-10-27.md`.
-Chaque condition a exécuté 3 400 cas × 3 répétitions (10 200 résultats), avec
-100 % de conformité et aucun échec critique. Le fichier local
-`D-qualification.json` permet au contrôle readiness de vérifier la qualification
-de l'adaptateur D; les sorties JSONL et manifestes restent ignorés par Git.
+Les qualifications publiques courantes sont décrites dans
+`../reports/point-campagne-2026-10-28.md`, `../reports/ablations-a1-a3.md`,
+`../reports/ablations-a5-a6-2026-10-28.md`,
+`../reports/a4-harness-control-2026-10-28.md` et
+`../reports/charge-e09-2026-10-28.md`. A/B/C/D totalisent 40 800 résultats,
+les sept baselines sont qualifiées sur leurs portées, les huit ablations ont
+des mesures ciblées ou des limites explicites, et E09 a été lancé jusqu'à
+10 000 invocations asynchrones.
 
-Ces exécutions ne terminent pas la campagne confirmatoire. Le holdout local de
-680 cas est préparé, mais reste à scorer après gel des sorties candidates.
-Restent les baselines externes applicables, les configurations de comparaison,
-le préenregistrement, les ablations, les essais de charge et l'analyse de
-puissance. Les résultats sont descriptifs et ne démontrent pas un gain de
-performance.
+Les sorties JSONL, évaluations et manifestes restent générés sous ce dossier
+ignoré par Git. Le holdout local de 680 cas reste scellé et n'a pas été scoré.
+Le préflight confirmatoire demeure bloqué par le préenregistrement et les
+mesures/marges non finalisées; les résultats publics sont descriptifs et ne
+démontrent pas un gain de performance.

@@ -15,7 +15,7 @@ Le run complet a d'abord terminé par une exception native Windows `0xC0000005` 
 | Ablation | Portée et contrôle | Résultat descriptif |
 | --- | --- | --- |
 | A7 — encodage compact | E02, 200 scénarios × 3; round-trip MessagePack G-CIR comparé à la même enveloppe JSON | 600/600 sorties conformes; gain médian d'octets 29,29 % (moyenne 29,83 %). Le seuil proposé de 30 % n'est pas atteint par la médiane. |
-| A8 — JSON avec services GenOS | E10/E11, mêmes services que D mais sans runtime G-CIR | 450/450 sorties conformes. Sorties identiques à D pour les 450 paires. Latence médiane: E10 215 ms JSON contre 317 ms D; E11 0,009 ms contre 2,20 ms. Mesures exploratoires sur hôte partagé, sans conclusion de supériorité. |
+| A8 — JSON avec services GenOS | E10/E11, mêmes services que D mais sans runtime G-CIR | 450/450 sorties conformes. Sorties identiques à D pour les 450 paires. Lors du rerun de provenance, latence médiane: E10 290 ms JSON contre 257 ms D; E11 0,009 ms contre 1,70 ms. La variation des mesures sur VM partagée confirme qu'aucune conclusion de performance ne doit en être tirée. |
 
 Les manifestes et résultats générés sont ignorés par Git. Les adaptateurs et la commande de fusion avec contrôle de couverture sont les artefacts reproductibles versionnables. Les latences incluent des frontières d'exécution différentes et ne doivent pas être interprétées comme une comparaison produit.
 
