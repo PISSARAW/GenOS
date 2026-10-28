@@ -1,13 +1,30 @@
 'use strict';
 
-function formatDnaPromptBlock(dnaSelection) {
+function formatDnaPromptBlock(dnaSelection, context = {}) {
   if (!dnaSelection?.genes?.role) return null;
   const { genes } = dnaSelection;
-  const parts = [`Inherited DNA phenotype — role: ${genes.role}, strategy: ${genes.strategy}.`];
+  const assignmentRole = normalize(context.assignment?.role);
+  const parts = [assignmentRole === normalize(genes.role)
+    ? `Inherited DNA strategy: ${genes.strategy}.`
+    : `Inherited DNA phenotype — role: ${genes.role}, strategy: ${genes.strategy}.`];
   if (genes.prompt) parts.push(`DNA prompt brief: ${genes.prompt}`);
-  if (Array.isArray(genes.tools) && genes.tools.length) parts.push(`DNA tools: ${genes.tools.join(', ')}.`);
-  if (Array.isArray(genes.capabilities) && genes.capabilities.length) parts.push(`DNA capabilities: ${genes.capabilities.join(', ')}.`);
+  const tools = uniqueInheritedItems(genes.tools, [context.workerSelf?.operational?.tools]);
+  const capabilities = uniqueInheritedItems(genes.capabilities, [context.assignment?.capabilities]);
+  if (tools.length) parts.push(`DNA tools: ${tools.join(', ')}.`);
+  if (capabilities.length) parts.push(`DNA capabilities: ${capabilities.join(', ')}.`);
   return parts.join(' ');
+}
+
+function normalize(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function uniqueInheritedItems(items, existingLists) {
+  if (!Array.isArray(items)) return [];
+  const existing = new Set(existingLists.flatMap((list) => Array.isArray(list) ? list : [])
+    .map(normalize).filter(Boolean));
+  return [...new Set(items.map((item) => String(item).trim()).filter(Boolean))]
+    .filter((item) => !existing.has(normalize(item)));
 }
 
 function buildCompactMorphogenesisPrompt(input) {

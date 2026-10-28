@@ -171,7 +171,7 @@ function workerBudgets(context) {
 }
 
 function buildWorkerPrompt(details) {
-  const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
+  const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock, workerSelf } = details;
   const missionPrompt = morphogenesisMissionPrompt(assignment, context.mission.prompt);
   const promptComposer = require('./agentFleetWorkerPrompt');
   const compactPrompt = promptComposer.buildCompactMorphogenesisPrompt({
@@ -181,9 +181,9 @@ function buildWorkerPrompt(details) {
   if (compactPrompt) return compactPrompt;
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
-  const dnaPrompt = promptComposer.formatDnaPromptBlock(dnaSelection);
+  const dnaPrompt = promptComposer.formatDnaPromptBlock(dnaSelection, { assignment, workerSelf });
   return [
-    identity.introduction,
+    workerSelfBlock ? null : identity.introduction,
     workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
     missionPrompt || context.parent.current_task || 'Autonomous task execution',
@@ -231,17 +231,18 @@ async function prepareWorkerAssets(workerContext) {
 
   // Build WorkerSelf for introspection
   let workerSelfBlock = '';
+  let workerSelf = null;
   try {
-    const workerSelf = require('./workerSelfService');
-    const ws = await workerSelf.buildWorkerSelf(db, {
+    const workerSelfService = require('./workerSelfService');
+    workerSelf = await workerSelfService.buildWorkerSelf(db, {
       agentId: id,
       workerRole: assignment.role,
       workerContext: { mission: morphogenesisMissionPrompt(assignment, mission.prompt), hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
     });
-    workerSelfBlock = workerSelf.formatWorkerSelfPrompt(ws);
+    workerSelfBlock = workerSelfService.formatWorkerSelfPrompt(workerSelf);
   } catch (_) {}
 
-  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: { ...workerContext, allocationTokens: assignedTokens }, dnaSelection, workerSelfBlock });
+  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: { ...workerContext, allocationTokens: assignedTokens }, dnaSelection, workerSelfBlock, workerSelf });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);

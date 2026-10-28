@@ -190,7 +190,8 @@ function missionWorkspaceOptions(request) {
 }
 
 function missionRuntimeContext(request) {
-  const normalized = { ...request, successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
+  const normalized = { ...request, worker_assignments: request.worker_assignments ?? request.workerAssignments,
+    successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
     workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
     morphologyExpression: request.morphologyExpression || request.morphology_expression,
     morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy,
@@ -219,7 +220,7 @@ function hasUserTopologyRequest(request) {
 function promptWithWorkerAssignments(prompt, request = {}) {
   const assignments = request.worker_assignments || request.workerAssignments;
   if (!assignments) return prompt;
-  return `${prompt}\n\nUser-supplied topology worker assignments: ${JSON.stringify(assignments)}. Pass these contracts to the matching topology roles without changing their method requirements.`;
+  return `${prompt}\n\nUse the supplied structured worker assignments for matching topology roles; preserve their method requirements.`;
 }
 
 function autonomousOrchestrationEnabled(policyRequest, request) {
