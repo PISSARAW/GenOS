@@ -867,6 +867,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0747](0747-contrats-assemblage-prompt-et-cycle-communication.md) | Contrats d’assemblage des prompts et du cycle de communication | Proposé pour implémentation | 2026-10-26 | Runtime, prompts, communication inter-agents, budgets et preuves |
 | [0748](0748-agow-viabilite-collective-multiniveau.md) | Viabilité collective et allostasie multiniveau dans AGOW | Accepté — implémentation incrémentale | 2026-10-27 | Arbitrage AGOW, scopes allostatiques, morphogenèse et validation causale |
 | [0749](0749-liaison-runtime-immutable-des-bras-gvx.md) | Liaison runtime immuable des bras expérimentaux GVX | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, exécution d’agents, ontogenèse, vérification, transmission et provenance |
+| [0750](0750-runner-evaluateur-gvx-isole-docker.md) | Isoler le runner d’évaluation GVX dans Docker | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, évaluation externe, isolation et provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
