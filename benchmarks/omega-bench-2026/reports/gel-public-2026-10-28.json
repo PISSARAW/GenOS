@@ -1,0 +1,26 @@
+{
+  "protocol": "OMEGA-BENCH-2026",
+  "status": "public_development_frozen_confirmatory_blocked",
+  "freeze_date": "2026-10-28",
+  "freeze_scope": "public development corpus and analysis plan only; not preregistration",
+  "protocol_version": "0.4.0-draft",
+  "protocol_sha256": "1e3c7e4ffc693c20fc9d35cc03bd7a753e5a25649e9e4f335e1b71ad8cd2ec22",
+  "dataset_version": "0.4.0",
+  "dataset_manifest_sha256": "1792cadad75e33f7df4f3cde30c8a6eab3f844b5f2fa7e383caa1613fcb0d2f6",
+  "dataset_cases": 3400,
+  "experiments": 12,
+  "public_splits_only": true,
+  "holdout_scored": false,
+  "power_analysis": {
+    "sha256": "358e9679cdb6c99fd03143e93741b2c22cbe5a665571da9fbcac680d6e0a97eb",
+    "family_sizes": {
+      "primary_D_A": 12,
+      "attribution": 36,
+      "external_baselines": 18,
+      "ablations": 8
+    },
+    "contrasts": 74
+  },
+  "source_revision_at_freeze": "8ba1367e768b34df5d8b7688b36e2f418af5f74d",
+  "confirmatory_status": "blocked_pending_E11_euro_measurement_boundary"
+}

@@ -1,7 +1,7 @@
 {
   "protocol": "OMEGA-BENCH-2026",
   "version": "0.4.0-draft",
-  "status": "public_development_qualification_complete_confirmatory_campaign_blocked",
+  "status": "public_development_frozen_confirmatory_blocked",
   "independence": {
     "rule": "Dataset generation, scoring and oracles use only Python standard library and do not import GenOS or G-CIR Ω code.",
     "oracle_location": "dataset/oracle/",
@@ -77,5 +77,5 @@
   "ablations": ["optimizer", "static verification", "strong typing", "replay and journaling", "morphogenesis", "physiological adaptation", "compact encoding", "all G-CIR Ω features against equivalent typed JSON"],
   "baseline_applicability": "configs/baselines.json",
   "primary_contrasts": "statistics/preregistration-draft.md",
-  "preregistration_required": ["freeze corpus hash and protocol revision", "finalize cost and latency measurement boundary including E11 monetary accounting", "finalize power analysis across external baselines and ablations"]
+  "preregistration_required": ["finalize cost and latency measurement boundary including E11 monetary accounting"]
 }

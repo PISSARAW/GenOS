@@ -6,8 +6,8 @@ Ces contrôles utilisent les mêmes entrées publiques E10/E11 et les mêmes ré
 
 | Ablation | Portée | Référence/oracle | D/oracle | Réponses identiques à D | Latence médiane réf. / D |
 | --- | --- | ---: | ---: | ---: | ---: |
-| A5 — service de morphogenèse remplacé | E10, 100 scénarios × 3 | 300/300 | 300/300 | 300/300 | 1,97 / 256,97 ms |
-| A6 — allocateur physiologique remplacé | E11, 50 scénarios × 3 | 150/150 | 150/150 | 0/150 | 1,84 / 1,70 ms |
+| A5 — service de morphogenèse remplacé | E10, 100 scénarios × 3 | 300/300 | 300/300 | 300/300 | 0,81 / 166,74 ms |
+| A6 — allocateur physiologique remplacé | E11, 50 scénarios × 3 | 150/150 | 150/150 | 0/150 | 0,90 / 0,63 ms |
 
 Les deux contrôles et D ont les clés scénario/répétition exactes. Les résultats A5/A6 passent l'évaluateur indépendant sans manque, doublon, statut invalide ni échec critique. Le runner A6 reproduit aussi les 150 réponses E11 actuelles de C; un ancien compte rendu indiquant 54/150 pour C ne correspond pas aux résultats/hashes courants et a été corrigé ici.
 

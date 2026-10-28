@@ -14,18 +14,18 @@ La différence de latence est calculée D moins A en ms; `SD` est l'écart-type 
 
 | Contraste | n scénarios | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| D_vs_A_E01 | 200 | 0.925 | 0.152 | 0.040 | 0/0 | 119 |
-| D_vs_A_E02 | 200 | 0.876 | 0.135 | 0.035 | 0/0 | 119 |
-| D_vs_A_E03 | 1000 | 1.563 | 0.170 | 0.020 | 0/0 | 119 |
-| D_vs_A_E04 | 100 | 0.818 | 0.101 | 0.037 | 0/0 | 119 |
-| D_vs_A_E05 | 100 | 0.847 | 0.181 | 0.067 | 0/0 | 119 |
-| D_vs_A_E06 | 150 | 0.868 | 0.137 | 0.041 | 0/0 | 119 |
-| D_vs_A_E07 | 200 | 0.898 | 0.248 | 0.065 | 0/0 | 119 |
-| D_vs_A_E08 | 1000 | 0.856 | 0.123 | 0.014 | 0/0 | 119 |
-| D_vs_A_E09 | 200 | 0.864 | 0.126 | 0.033 | 0/0 | 119 |
-| D_vs_A_E10 | 100 | 282.716 | 75.091 | 27.835 | 0/0 | 119 |
-| D_vs_A_E11 | 50 | 1.742 | 0.185 | 0.097 | 0/0 | 119 |
-| D_vs_A_E12 | 100 | 0.799 | 0.099 | 0.037 | 0/0 | 119 |
+| D_vs_A_E01 | 200 | 0.595 | 0.086 | 0.023 | 0/0 | 119 |
+| D_vs_A_E02 | 200 | 0.612 | 0.104 | 0.027 | 0/0 | 119 |
+| D_vs_A_E03 | 1000 | 1.128 | 0.148 | 0.017 | 0/0 | 119 |
+| D_vs_A_E04 | 100 | 0.636 | 0.090 | 0.033 | 0/0 | 119 |
+| D_vs_A_E05 | 100 | 0.642 | 0.087 | 0.032 | 0/0 | 119 |
+| D_vs_A_E06 | 150 | 0.646 | 0.093 | 0.028 | 0/0 | 119 |
+| D_vs_A_E07 | 200 | 0.745 | 0.152 | 0.040 | 0/0 | 119 |
+| D_vs_A_E08 | 1000 | 0.601 | 0.084 | 0.010 | 0/0 | 119 |
+| D_vs_A_E09 | 200 | 0.603 | 0.091 | 0.024 | 0/0 | 119 |
+| D_vs_A_E10 | 100 | 167.117 | 10.383 | 3.849 | 0/0 | 119 |
+| D_vs_A_E11 | 50 | 0.623 | 0.089 | 0.047 | 0/0 | 119 |
+| D_vs_A_E12 | 100 | 0.620 | 0.095 | 0.035 | 0/0 | 119 |
 
 Tous les contrastes D/A ont une couverture complète du scope public et les 10 200 paires scénario-répétition attendues au total. Le JSON associé contient aussi les variances et effets détectables pour latence, octets d'entrée/sortie, tailles `n` pour effets standardisés 0,2/0,5/0,8, et les discordances binaires.
 
@@ -33,13 +33,13 @@ Tous les contrastes D/A ont une couverture complète du scope public et les 10 2
 
 | Ablation/contrôle | n | Éligible comme candidat confirmatoire | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| A1_optimizer_E04 | 100 | oui | -0.039 | 0.364 | 0.130 | 0/0 | 111 |
-| A2_static_verification_E03 | 1000 | non | 0.719 | 0.123 | 0.014 | 0/250 | 140 |
-| A3_strong_typing_E03 | 1000 | oui | 1.596 | 0.433 | 0.049 | 0/500 | 282 |
-| A4_harness_replay_E05 | 100 | non | 6.020 | 1.570 | 0.562 | 0/0 | 111 |
-| A5_morphogenesis_E10 | 100 | oui | 280.167 | 75.082 | 26.849 | 0/0 | 111 |
-| A6_physiology_E11 | 50 | oui | -0.281 | 0.717 | 0.363 | 0/0 | 111 |
-| A8_typed_JSON_all_experiments | 3400 | oui | 3.123 | 18.809 | 1.154 | 0/0 | 111 |
+| A1_optimizer_E04 | 100 | oui | -0.038 | 0.123 | 0.044 | 0/0 | 111 |
+| A2_static_verification_E03 | 1000 | non | 0.503 | 0.068 | 0.008 | 0/250 | 140 |
+| A3_strong_typing_E03 | 1000 | oui | 0.478 | 0.069 | 0.008 | 0/500 | 282 |
+| A4_harness_replay_E05 | 100 | non | 3.136 | 0.309 | 0.111 | 0/0 | 111 |
+| A5_morphogenesis_E10 | 100 | oui | 166.316 | 10.388 | 3.715 | 0/0 | 111 |
+| A6_physiology_E11 | 50 | oui | -0.272 | 0.126 | 0.064 | 0/0 | 111 |
+| A8_typed_JSON_all_experiments | 3400 | oui | 0.453 | 3.782 | 0.232 | 0/0 | 111 |
 
 A7: 200 scénarios; moyenne économisée 180.400 octets/scénario, variance 0.241, médiane de sauvegarde relative 29.292 %. Le round-trip/oracle a 0/0 discordances; n80 à 15 points vaut 111 sous la discordance de planification 0,20. Le MDE continu et le n requis sont disponibles dans le JSON à `alpha=0,05/8`; l'encodage compact et l'enveloppe JSON sont mesurés dans le même adaptateur, pas dans deux processus indépendants.
 
