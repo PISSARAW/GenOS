@@ -117,6 +117,7 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
   workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
+  assertTrialMissionBinding(contract.mission);
   assertCanonicalContract(contract, kind);
   assertHostCapabilityBoundary(contract, kind);
   if (contract.assignment?.workerKind && contract.assignment.workerKind !== kind) {
@@ -127,6 +128,16 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
   }
   return true;
+}
+
+function assertTrialMissionBinding(mission = {}) {
+  const requested = ['campaignId', 'trialId', 'armId'].some((key) => mission[key]) || mission.gvxTrialContext;
+  if (!requested) return;
+  if (!mission.gvxTrialContext) throw invalidContract();
+  const fields = require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext);
+  for (const key of ['campaignId', 'trialId', 'armId', 'missionId', 'codeRevision']) {
+    if (mission[key] !== fields[key]) throw invalidContract();
+  }
 }
 
 function assertCanonicalContract(contract, kind) {

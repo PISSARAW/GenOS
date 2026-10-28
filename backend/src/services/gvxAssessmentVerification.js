@@ -4,9 +4,13 @@ const registry = require('./gvxVerifierRegistry');
 const { error } = require('./gvxContracts');
 
 async function verifyAssessment(options) {
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(options.gvxTrialContext, 'learnerFacingVerification');
+  assertBindingScope(trialProfile, options.gvxTrialContext, options.assessmentInput?.binding);
   if (!options.verifierRegistry?.remote) throw error('GVX_REMOTE_VERIFIER_REQUIRED');
   const artifact = Buffer.from(JSON.stringify({ schema: 'genos.gvx.somatic-assessment/v1',
-    assessmentInput: options.assessmentInput, assessment: options.assessment }));
+    assessmentInput: options.assessmentInput, assessment: options.assessment,
+    ...(options.gvxTrialContext ? { runtimeProfileHash: options.gvxTrialContext.profileHash } : {}) }));
   const evidence = { artifactRef: options.artifactRef, artifactHash: registry.digest(artifact),
     verifierId: 'gvx-somatic-assessment-v1', supportingReceipts: options.verificationReceipts };
   const result = await registry.verifyEvidence({ registry: options.verifierRegistry,
@@ -16,10 +20,14 @@ async function verifyAssessment(options) {
 }
 
 async function verifyLongitudinal(options) {
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(options.gvxTrialContext, 'learnerFacingVerification');
+  assertBindingScope(trialProfile, options.gvxTrialContext, options.binding);
   const windows = options.monitoring.results.map((item) => ({
     observationId: item.observationId, contextHash: item.contextHash,
     artifactHash: item.verification?.evidenceRef?.artifactHash }));
   const payload = { schema: 'genos.gvx.longitudinal-assessment/v1', binding: options.binding, windows,
+    ...(options.gvxTrialContext ? { runtimeProfileHash: options.gvxTrialContext.profileHash } : {}),
     minimumStableWindows: options.minimumStableWindows || 3 };
   const artifact = Buffer.from(JSON.stringify(payload));
   const evidence = { artifactRef: `gvx-monitor:${options.binding.applicationId}`,
@@ -29,6 +37,11 @@ async function verifyLongitudinal(options) {
     artifactReader: async () => artifact, evidence, requirement: 'gvx-longitudinal-assessment' });
   return { verified: result.verified === true, evidenceRef: { artifactHash: evidence.artifactHash,
     verifierId: evidence.verifierId }, signedReceipt: result.signedReceipt };
+}
+
+function assertBindingScope(trialProfile, context, binding) {
+  if (!context) return;
+  trialProfile.assertScope(context, binding?.scope, binding?.scope?.entityId);
 }
 
 module.exports = { verifyAssessment, verifyLongitudinal };

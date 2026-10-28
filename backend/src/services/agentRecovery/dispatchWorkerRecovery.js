@@ -212,6 +212,9 @@ function recoveryCapabilities(mission, target) {
 
 function buildRecoveryMission(input) {
   const { mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant } = input;
+  const sourceTrialContext = mission.gvxTrialContext || mission.workerContract?.mission?.gvxTrialContext;
+  const gvxTrialFields = sourceTrialContext
+    ? require('../gvxTrialRuntimeProfile').missionFields(sourceTrialContext) : {};
   const launchCaps = recoveryCapabilities(mission, target);
   const recoveryContext = { ...mission };
   // The failed worker's garage claim is terminal. The recovery worker must
@@ -241,6 +244,7 @@ function buildRecoveryMission(input) {
     workspaceProvisioned: true,
     orchestratorAgentId: orchestratorId,
     ...recoveryBudgetContract(mission),
+    ...gvxTrialFields,
     budgetRound: undefined,
     localModel: decision.action === 'replace_worker' ? undefined : mission.localModel,
     localRoutingPolicy: decision.action === 'replace_worker' ? undefined : mission.localRoutingPolicy,

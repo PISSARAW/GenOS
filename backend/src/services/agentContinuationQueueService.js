@@ -83,7 +83,15 @@ function continuationMission(input) {
     executionBudget: { ...previous.executionBudget, tokens,
       events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },
     budgetRound: continuationBudgetRound({ state, continuation, orchestratorId, adaptation, epoch }),
+    ...continuationTrialContext(state, previous),
     ...(morphology || {}) };
+}
+
+function continuationTrialContext(state, previous) {
+  const context = state.normalizedMission?.gvxTrialContext || previous.gvxTrialContext
+    || previous.workerContract?.mission?.gvxTrialContext;
+  if (!context) return {};
+  return require('./gvxTrialRuntimeProfile').missionFields(context);
 }
 
 function continuationPrompt(prompt, morphology, adaptation) {
@@ -107,4 +115,4 @@ async function queueContinuationMissions(contexts) {
   return prepared.map((item) => item.agentId);
 }
 
-module.exports = { queueContinuationMissions };
+module.exports = { queueContinuationMissions, continuationTrialContext };

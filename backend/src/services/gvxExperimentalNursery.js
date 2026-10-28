@@ -56,8 +56,9 @@ function metricsVerified(metrics, evidence) {
 
 async function run(options) {
   if (!validAdapters(options)) throw new Error('nursery-adapters-required');
-  verifierRegistry.validateRegistry(options.verifierRegistry);
   const input = options.input || options;
+  await admitCampaignTrial(options, input);
+  verifierRegistry.validateRegistry(options.verifierRegistry);
   const event = await protocol.recordExperimentPlan(options.db, input);
   const plan = event.payload.plan;
   const outcomes = [];
@@ -67,6 +68,13 @@ async function run(options) {
   const finished = await protocol.recordExperimentOutcomes(options.db, { ...input, plan, outcomes });
   return { experimentId: plan.experimentId, startedEventId: event.id, finishedEventId: finished.id,
     assessment: finished.payload.assessment, outcomes, promotionAllowed: false };
+}
+
+async function admitCampaignTrial(options, input) {
+  const mission = options.trialMission || input.trialMission || input;
+  const requested = Boolean(options.campaignId || input.campaignId || options.trialMission
+    || input.trialMission || mission.gvxTrialContext);
+  if (requested) await require('./gvxTrialExecutionAdapter').admit(options.db, mission);
 }
 
 async function runArm(options, arm) {

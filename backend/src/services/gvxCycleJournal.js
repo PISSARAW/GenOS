@@ -5,8 +5,10 @@ const ledger = require('./gvxDevelopmentLedger');
 const leases = require('./gvxRuntimeLease');
 
 function cycleId(signal) {
-  return crypto.createHash('sha256').update(JSON.stringify([signal.scope.organizationId,
-    signal.scope.projectId, signal.entityId, signal.sourceEventId, signal.signalType])).digest('hex');
+  const identity = [signal.scope.organizationId, signal.scope.projectId, signal.entityId,
+    signal.sourceEventId, signal.signalType];
+  if (signal.gvxTrialContext) identity.push(signal.gvxTrialContext.profileHash);
+  return crypto.createHash('sha256').update(JSON.stringify(identity)).digest('hex');
 }
 
 async function runStage(context, stage, execute) {
@@ -20,11 +22,13 @@ async function runStage(context, stage, execute) {
     await leases.assertOwned(context.lease);
     if (context.isComplete && !context.isComplete(stage, value)) return value;
     await ledger.appendEvent(context.db, { id, ...scope, type: 'decision_recorded',
-      payload: { kind: 'gvx_cycle_stage', cycleId: context.cycleId, stage, value } });
+      payload: { kind: 'gvx_cycle_stage', cycleId: context.cycleId, stage, value,
+        ...(context.signal.gvxTrialContext ? { runtimeProfileHash: context.signal.gvxTrialContext.profileHash } : {}) } });
     return value;
   } catch (error) {
     await ledger.appendEvent(context.db, { ...scope, type: 'decision_recorded',
       payload: { kind: 'gvx_cycle_failure', cycleId: context.cycleId, stage,
+        ...(context.signal.gvxTrialContext ? { runtimeProfileHash: context.signal.gvxTrialContext.profileHash } : {}),
         retryable: true, errorCode: error.code || 'GVX_STAGE_FAILED' } }).catch(() => {});
     throw error;
   }
