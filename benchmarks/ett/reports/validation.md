@@ -11,10 +11,23 @@ Date de mise à jour : 2026-10-28. Résultats observés dans le workspace, sans 
 | `node benchmarks/ett/tests/test_statistics.js` | Réussi | Bootstrap apparié, correction de Holm et contrats CLI. |
 | `node benchmarks/ett/run_reference_campaign.js --seeds 1 --output <temporaire>` | Réussi | 8 contrôles × 36 cas, zéro erreur d'exécution; contrôle déterministe de compatibilité, aucune mesure de capacité LLM. |
 | `python scripts/ci/check_code_quality.py` | Échec global | 185 violations recensées (182 au-dessus de la baseline); aucune violation `benchmarks/ett` dans le relevé filtré après refactorisation. La porte globale est déjà rouge sur le monorepo et n'est pas attribuée au seul ETT. |
-| `npm test` | Bloqué au milieu | Les suites guard, biology et worker-workspaces passent; le préflight de la suite backend exige 512 Mio libres et en détecte 212. |
-| `cargo test --workspace` | Relancé sur D: | La première exécution a échoué faute d'espace sur C: (erreur linker 112); une seconde compile sur une cible D: et reste à qualifier. |
+| `npm test` | Réussi le 2026-10-28 | La relance complète a terminé avec code 0; voir le détail dans le relevé ci-dessous. |
+| `cargo test --workspace` | Réussi le 2026-10-28 | La relance sur cible D: a terminé avec code 0; voir le détail dans le relevé ci-dessous. |
 
-Les tests d'action synthétiques confirment la cohérence interne du protocole, pas sa validité empirique. Les environnements fournissent des preuves déterministes fabriquées pour l'évaluation; l'oracle mesure les décisions correspondantes et ne remplace pas les critères proposés du protocole original. Aucune campagne modèle v3 n'a été lancée : l'ancien plafond de 250 000 tokens n'a pas été révisé. Les 13 conditions enregistrées nécessitent au minimum 124 800 appels d'action pour 30 seeds, hors génération endogène, reprises et erreurs. Les adaptateurs Voyager, AI Scientist v2 et DGM demeurent des politiques locales adaptées; leurs systèmes originaux ne sont pas installés. Les niveaux ETT-L1 à ETT-L5 restent non qualifiés.
+Les tests d'action synthétiques confirment la cohérence interne du protocole, pas sa validité empirique. Les environnements fournissent des preuves déterministes fabriquées pour l'évaluation; l'oracle mesure les décisions correspondantes et ne remplace pas les critères proposés du protocole original. Une campagne modèle runtime v3 (reçu v4) a été lancée sur les 12 scénarios, 3 niveaux, 30 seeds et 13 conditions, mais le plafond de 250 000 tokens l'a arrêtée à 156/14 040 enregistrements après 239 766 tokens mesurés. Le reçu `runtime-v4-full-30seed-launch-02.json` et son journal `.usage.jsonl` conservent cet état partiel; `scientificClaimAllowed` est faux et les niveaux ETT-L1 à ETT-L5 restent non qualifiés. Les 13 conditions enregistrées nécessitent au minimum 124 800 appels d'action pour 30 seeds, hors génération endogène, reprises et erreurs. Les adaptateurs Voyager, AI Scientist v2 et DGM demeurent des politiques locales adaptées; leurs systèmes originaux ne sont pas installés.
+
+## Lancement de la campagne runtime modèle
+
+| Vérification | Résultat observé | Portée |
+| --- | --- | --- |
+| `npm run benchmark:ett:runtime -- --model ollama://qwen2.5-coder:7b ...` | Partiel, arrêt contrôlé au budget | 156/14 040 enregistrements, 528 appels fournisseur mesurés, 239 766/250 000 tokens. Aucun appel n'a dépassé le plafond; `scientificClaimAllowed: false`. Le reçu v4 et le journal durable d'usage sont conservés à côté de ce rapport. |
+| Réparation Ollama | Runtime restauré sur D: | L'installation C: était incomplète (`llama-server.exe` manquant). Le programme d'installation officiel, signature éditeur valide, a échoué faute d'espace sur C:; il a ensuite réussi sur D:. Le serveur et les compteurs Ollama ont été validés avant la reprise. |
+| Reprise après `EPERM` de renommage du reçu | Réussi | Le journal réconcilie 291 appels/129 909 tokens. Le reçu a été repris sans perte ni double comptage du plafond; les actions après le dernier enregistrement checkpointé ont pu être rejouées et restent débitées. Le runner réessaie les renommages Windows temporaires (`EPERM`, `EBUSY`, `EACCES`). |
+| `node benchmarks/ett/tests/test_campaign_budget_guard.js` | Réussi | Garde par appel, journalisation durable, budget et reprise fail-closed. |
+| `node benchmarks/ett/tests/test_runtime_campaign.js` | Réussi | Contrats runtime, scénarios et adaptateurs, incluant la reprise après renommage temporairement bloqué. |
+| `python scripts/ci/check_code_quality.py --staged` avant les commits | Réussi pour les changements ETT | 10 puis 3 fichiers source contrôlés; 0 nouvelle violation. |
+
+Le reçu est un lancement empirique partiel, pas une qualification. Aucune comparaison, conclusion causale ou réussite scientifique ne peut être tirée de ces 156 enregistrements. Le plafond protège l'exécution mais ne couvre pas la matrice demandée; augmenter ce plafond demande un budget de campagne distinct.
 
 | Commande | Résultat | Détail |
 | --- | --- | --- |
