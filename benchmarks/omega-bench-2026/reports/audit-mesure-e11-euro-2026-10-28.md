@@ -10,6 +10,7 @@ L'hôte de campagne est une VM Shadow partagée (Blade Shadow Computer, hypervis
 - `Win32_Battery` et le rapport batterie sont vides; aucun périphérique PnP Battery/Energy/Power/Sensor n'est présent.
 - La collecte SRUM par `powercfg /srumutil` échoue (`0x1f`, puis `SruUpdateStats failed / status 5`) et ne produit pas de relevé exploitable.
 - AMD uProf n'est pas installé. WSL utilise un noyau Microsoft dont les interfaces `/sys/class/powercap` et `/sys/class/hwmon` et l'outil `perf` sont absents.
+- L'hôte expose une RTX A4500, mais `nvidia-smi` ne fournit qu'un échantillon de puissance de carte sur une fenêtre d'environ une seconde (un instantané observé: 189,18 W, 52 % d'utilisation); le champ `energy.consumption` n'est pas disponible. La carte est partagée entre plusieurs processus, dont certains ne sont pas visibles au compte de campagne. E11 appelle un allocateur Node CPU sans modèle ni code GPU; ces watts ne peuvent donc pas être attribués à ses missions.
 
 Le contrat Microsoft Energy Meter Interface expose des mesures provenant d'un compteur matériel fourni par un pilote; la disponibilité de classes WMI ne prouve pas que le matériel ou un canal de mesure existe. Le rail E3 privilégie l'interface EMI lorsqu'un rail matériel compatible est présent ([Energy Meter Interface](https://learn.microsoft.com/en-us/windows-hardware/drivers/powermeter/energy-meter-interface), [noms de rails](https://learn.microsoft.com/en-us/windows-hardware/drivers/powermeter/rail_naming)).
 
