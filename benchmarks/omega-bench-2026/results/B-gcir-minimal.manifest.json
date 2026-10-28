@@ -5,9 +5,9 @@
   "scenarios": 3400,
   "repetitions": 3,
   "runs": 10200,
-  "repository_revision": "9110da6950e18abad18e83029dc01142f0b47ea3",
-  "adapter_sha256": "b9b1b9a0fdd75a68e43250d845ac11f46d080f76fd53d55c623101a4b09dc7ef",
-  "dataset_manifest_sha256": "bf44d3faa3e4b339a383fd94d2ac0816169d1a1891ed72e555d7c7151f2bdc3e",
+  "repository_revision": "0f8203765159b8ca7e473ff40753a07287f41baa",
+  "adapter_sha256": "c4de2cbd7bdd884d3677ef936b1d39733756d63ea2edf7dce215315d6008e72f",
+  "dataset_manifest_sha256": "e8714de000ade8dce84d5cf3f294b23c6f54701293d6fd0f83c76526e90373ab",
   "runtime": {
     "node": "v24.18.0",
     "platform": "win32",

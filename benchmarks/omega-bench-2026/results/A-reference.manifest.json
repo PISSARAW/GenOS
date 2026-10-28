@@ -5,14 +5,15 @@
   "scenarios": 3400,
   "repetitions": 3,
   "runs": 10200,
-  "repository_revision": "9110da6950e18abad18e83029dc01142f0b47ea3",
-  "adapter_sha256": "219f2ff9347a9ab24f5e2c42cf22e1db14dcb1f12fd64da8a296bf84aeeb09ea",
-  "dataset_manifest_sha256": "bf44d3faa3e4b339a383fd94d2ac0816169d1a1891ed72e555d7c7151f2bdc3e",
+  "repository_revision": "0f8203765159b8ca7e473ff40753a07287f41baa",
+  "adapter_sha256": "4cedc417d3a4335f255bb16bb61d95eff4339cd530666784fcf3579e0689da21",
+  "dataset_manifest_sha256": "e8714de000ade8dce84d5cf3f294b23c6f54701293d6fd0f83c76526e90373ab",
   "runtime": {
     "node": "v24.18.0",
     "platform": "win32",
     "arch": "x64",
     "cpu": "AMD EPYC 7543P 32-Core Processor               ",
     "memory_bytes": 30044250112
-  }
+  },
+  "external_model_calls": 0
 }

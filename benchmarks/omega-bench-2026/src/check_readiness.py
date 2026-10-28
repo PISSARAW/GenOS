@@ -26,6 +26,20 @@ def count_rows(path):
     return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 
+def file_sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def qualification_matches_manifest(qualification, manifest, adapter_path):
+    same_provenance = all(qualification.get(key) == manifest.get(key)
+                          for key in ("repository_revision", "adapter_sha256",
+                                      "dataset_manifest_sha256", "result_file"))
+    adapter_matches = manifest.get("adapter_sha256") == file_sha256(adapter_path)
+    dataset_path = ROOT / "dataset" / "manifest.json"
+    dataset_matches = manifest.get("dataset_manifest_sha256") == file_sha256(dataset_path)
+    return same_provenance and adapter_matches and dataset_matches
+
+
 def check(blockers, name, outcome):
     condition, detail = outcome
     condition = bool(condition)
@@ -109,11 +123,14 @@ def adapter_checks(blockers):
         if condition == "D":
             qualification_path = ROOT / "results" / "D-qualification.json"
             qualification = read_json(qualification_path) if qualification_path.is_file() else {}
+            manifest_path = ROOT / "results" / RESULT_MANIFESTS[condition]
+            manifest = read_json(manifest_path) if manifest_path.is_file() else {}
             expected_runs = sum(protocol_counts().values()) * read_json(ROOT / "protocol.json")["minimum_design"]["repetitions"]
             qualified = qualification.get("status") == "qualified" \
                 and qualification.get("runs") == expected_runs \
-                and qualification.get("critical_failures") == 0
-            detail = f"{filename}: {'present' if exists else 'missing'}; qualification={'passed' if qualified else 'missing or incomplete'}"
+                and qualification.get("critical_failures") == 0 \
+                and qualification_matches_manifest(qualification, manifest, adapter_root / filename)
+            detail = f"{filename}: {'present' if exists else 'missing'}; qualification={'passed and provenance-matched' if qualified else 'missing, incomplete or stale'}"
             checks.append(check(blockers, f"adapter_{condition}", (exists and qualified, detail)))
             continue
         checks.append(check(blockers, f"adapter_{condition}",
