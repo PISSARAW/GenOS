@@ -70,6 +70,16 @@ async function admissionFailsClosed() {
     const event = await ledger.getEvent(db, `gvx-trial-admission:${missionFor('C').gvxTrialContext.profileHash}`, scope);
     assert.equal(event.payload.executable, false);
     assert.equal(event.payload.reason, 'GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE');
+    const unprofiledMarkers = [{ trialId: 'trial-only' }, { armId: 'arm-only' },
+      { trialProtocol: profiles.VERSION }, { gvxTrialCampaign: true }, { profileHash: 'f'.repeat(64) }];
+    for (const marker of unprofiledMarkers) {
+      let markerLaunched = false;
+      await assert.rejects(nursery.run({ db, input: marker,
+        createIsolatedWorld: async () => ({}), runWorld: async () => { markerLaunched = true; },
+        artifactReader: async () => Buffer.alloc(0) }), { code: 'GVX_TRIAL_PROFILE_REQUIRED' });
+      assert.equal(markerLaunched, false);
+    }
+    await runWorldReceivesBoundTrialContext(db);
     const transfer = require('../src/services/gvxTransferLifecycle');
     const started = await transfer.startTransfer(db, { scope: { organizationId: scope.organizationId,
       projectId: scope.projectId }, entityId: scope.entityId, sourceLineage: 'source-lineage',
@@ -81,6 +91,28 @@ async function admissionFailsClosed() {
       projectId: scope.projectId, entityId: scope.entityId, transferId: started.payload.transfer.transferId,
       state: 'trial' }), { code: 'GVX_TRANSFER_PROFILE_MISMATCH' });
   } finally { await db.close(); }
+}
+
+async function runWorldReceivesBoundTrialContext(db) {
+  const runWorldInputs = [];
+  const worldInputs = [];
+  const trialContext = contextFor('C');
+  const arm = { armId: 'arm-propagation', worldId: 'world-propagation', isolationId: 'isolation-propagation', budget: 1 };
+  await nursery.runArm({ db, input: { scope, entityId: scope.entityId, candidateHash: 'd'.repeat(64) },
+    plan: { experimentId: 'profile-propagation', snapshotHash: 'e'.repeat(64), worldBudget: 1, controls: {} },
+    gvxTrialContext: trialContext, profileHash: trialContext.profileHash,
+    createIsolatedWorld: async (worldInput) => {
+      worldInputs.push(worldInput);
+      return { worldId: arm.worldId, isolationId: arm.isolationId };
+    },
+    runWorld: async (runInput) => { runWorldInputs.push(runInput); return { status: 'ok', evidence: [] }; },
+    artifactReader: async () => Buffer.alloc(0) }, arm);
+  assert.equal(worldInputs[0].gvxTrialContext.profileHash, trialContext.profileHash);
+  assert.equal(worldInputs[0].profileHash, trialContext.profileHash);
+  assert.equal(runWorldInputs[0].gvxTrialContext.profileHash, trialContext.profileHash);
+  assert.equal(runWorldInputs[0].profileHash, trialContext.profileHash);
+  assert.throws(() => nursery.trialRuntimeContext({ gvxTrialContext: trialContext, profileHash: 'f'.repeat(64) }),
+    { code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH' });
 }
 
 async function profileAndMissionChecks() {
