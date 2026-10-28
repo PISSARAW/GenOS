@@ -14,6 +14,27 @@ un exemple pour les clients qui lisent ce format ; sa présence ne configure pas
 à elle seule Codex. Pour une installation MCP directe, transposer cette configuration
 dans les tables `mcp_servers` de la configuration Codex.
 
+Au premier appel d'outil, le serveur MCP valide `GENOS_AGENT_ID` s'il est fourni.
+Sinon, le profil Codex crée de façon idempotente un véritable agent GenOS dans la
+base locale du projet : un orchestrateur racine limité au workspace, ou un worker
+rattaché à `GENOS_ORCHESTRATOR_AGENT_ID` si le runtime a fourni ce parent de confiance.
+L'identifiant est stable pour le workspace et le parent ; il est conservé dans
+`agents` et réutilisé aux redémarrages. Tous les processus MCP utilisant cette base,
+ce workspace et ce parent partagent donc le même principal de service. Il reste
+inactif entre les appels et n'a pas de TTL. Retirer l'intégration ne supprime pas
+la ligne d'historique ; pour révoquer le principal, désactiver le bootstrap ou le
+bail des outils, puis supprimer la ligne si la politique de conservation le permet.
+Supprimer seulement la ligne alors que le bootstrap reste actif la recréera au
+prochain appel. Un mode worker sans parent échoue fermé.
+
+Cette création est différée jusqu'au premier appel GenOS : charger le plugin ou
+énumérer ses outils ne crée aucun agent. Le hook de session continue d'utiliser un
+identifiant local distinct pour ses checkpoints ; il n'est pas lui-même une ligne
+`agents` et ne sert pas de preuve d'appartenance. Le parent d'un worker est toujours
+fourni par le runtime ou la configuration de confiance, jamais par les arguments
+du tool call. Sans parent, un client local ne peut accéder qu'à l'organisation de
+son propre agent racine.
+
 Pour réparer le plugin GenOS déjà installé :
 
 ```powershell

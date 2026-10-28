@@ -8,17 +8,23 @@ const { serverConfig, validateSkills, installPlugin } = require('./configure.cjs
 
 validateSkills();
 const target = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-plugin-test-'));
+const originalAgentId = process.env.GENOS_AGENT_ID;
+delete process.env.GENOS_AGENT_ID;
 try {
   fs.mkdirSync(path.join(target, '.codex-plugin'));
   fs.writeFileSync(path.join(target, '.codex-plugin/plugin.json'), JSON.stringify({ name: 'genos', interface: { displayName: 'GenOS' } }));
   fs.writeFileSync(path.join(target, '.mcp.json'), JSON.stringify({ mcpServers: {
     other: { command: 'preserved' },
-    genos: { command: 'missing.exe', env: { GENOS_MCP_DISABLED_TOOLS: 'genos_audit' } }
+    genos: { command: 'missing.exe', env: {
+      GENOS_AGENT_ID: 'preserved-caller', GENOS_MCP_DISABLED_TOOLS: 'genos_audit'
+    } }
   } }));
   const result = installPlugin(target);
   assert.equal(result.mcpServers.other.command, 'preserved');
   assert.equal(result.mcpServers.genos.command, process.execPath);
   assert.equal(result.mcpServers.genos.env.GENOS_MCP_DISABLED_TOOLS, 'genos_audit');
+  assert.equal(result.mcpServers.genos.env.GENOS_AGENT_ID, 'preserved-caller');
+  assert.equal(result.mcpServers.genos.env.GENOS_CODEX_AUTO_PROVISION_IDENTITY, '1');
   assert.equal(result.mcpServers.genos.env.GENOS_CAPSULE_ROOT, path.resolve(__dirname, '../..'));
   assert.equal(result.mcpServers.genos.env.GENOS_VFS_WORKSPACES, '1');
   assert.ok(result.mcpServers.genos.env.GENOS_MCP_LEASE.includes('genos_record_decision'));
@@ -34,7 +40,11 @@ try {
   assert.equal(sessionHook.statusMessage, 'Chargement du contexte de session GenOS');
   assert.ok(hooks.hooks.Stop);
   assert.deepEqual(serverConfig().args, result.mcpServers.genos.args);
+  assert.equal(serverConfig({}, 'configured-caller').env.GENOS_AGENT_ID, 'configured-caller');
+  assert.equal(serverConfig().env.GENOS_CODEX_AUTO_PROVISION_IDENTITY, '1');
 } finally {
+  if (originalAgentId === undefined) delete process.env.GENOS_AGENT_ID;
+  else process.env.GENOS_AGENT_ID = originalAgentId;
   fs.rmSync(target, { recursive: true, force: true });
 }
 console.log('Codex plugin configuration and all skill references verified.');

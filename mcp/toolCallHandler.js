@@ -17,6 +17,8 @@ const DEVELOPMENT = REPO_REQUIRE ? REPO_REQUIRE('./backend/src/services/mcpDevel
 const CATALOG = loadToolCatalog(REPO_ROOT);
 const CATALOG_TOOLS = new Set(CATALOG.map((tool) => tool.name));
 const BACKEND_REGISTRY = REPO_REQUIRE ? REPO_REQUIRE('./backend/src/services/mcpToolRegistry.js') : null;
+const CALLER_IDENTITY = REPO_REQUIRE ? REPO_REQUIRE('./mcp/callerIdentity.cjs') : null;
+let callerIdentityInitialization;
 
 const CLI_TOOL_NAMES = new Set([
   'genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge',
@@ -84,24 +86,28 @@ function withBiomimicryParams(command, args) {
 }
 
 async function cliCall({ args, runGenosCli }) {
-  const commands = {
-    genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
-    genos_replay: ['replay', 'basic', '--snapshot', args.snapshot || args.snapshot_id],
-    genos_capsule_create: ['capsule', 'create', '--snapshot', args.snapshot_id, ...(args.seed ? ['--seed', args.seed] : [])],
-    genos_merge: ['merge', args.branch_id, ...(args.conditions ? ['--conditions', args.conditions] : [])],
-    genos_audit: ['audit', args.snapshot_id, '--output', args.output || 'audit.log'],
-    genos_biomimicry: ['biomimicry', 'bio-feature', '--feature', args.feature, '--action', args.action],
-    genos_v2_init: ['init'],
-    genos_v2_fork: ['agent', 'fork', '--parent-id', args.parent_id]
-  };
   if (args.toolName === 'genos_replay') await assertOwnWorkerReplay(args.snapshot || args.snapshot_id);
-  const command = commands[args.toolName];
+  const command = buildCliCommand(args);
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
   const text = await runGenosCli(withBiomimicryParams(command, args), args);
   if (!text || !String(text).trim()) throw new Error(`CLI tool '${args.toolName}' returned empty output.`);
   const result = parseCliOutput(text);
   if (result?.success === false) throw new Error(result.error || 'CLI operation was not completed.');
   return text;
+}
+
+function buildCliCommand(args) {
+  const builders = {
+    genos_snapshot: (input) => ['snapshot', 'create', '--agent', input.agent, '--out', input.out, '--force'],
+    genos_replay: (input) => ['replay', 'basic', '--snapshot', input.snapshot || input.snapshot_id],
+    genos_capsule_create: (input) => ['capsule', 'create', '--snapshot', input.snapshot_id, ...(input.seed ? ['--seed', input.seed] : [])],
+    genos_merge: (input) => ['merge', input.branch_id, ...(input.conditions ? ['--conditions', input.conditions] : [])],
+    genos_audit: (input) => ['audit', input.snapshot_id, '--output', input.output || 'audit.log'],
+    genos_biomimicry: (input) => ['biomimicry', 'bio-feature', '--feature', input.feature, '--action', input.action],
+    genos_v2_init: () => ['init'],
+    genos_v2_fork: (input) => ['agent', 'fork', '--parent-id', input.parent_id]
+  };
+  return builders[args.toolName]?.(args);
 }
 
 async function assertOwnWorkerReplay(reference) {
@@ -126,7 +132,11 @@ function orchestratorRequest(action, args) {
   if (args.orchestrator_id && args.orchestratorId && args.orchestrator_id !== args.orchestratorId) {
     throw new Error('Conflicting orchestrator identifiers.');
   }
-  return { action, ...args, orchestratorId: args.orchestrator_id || args.orchestratorId };
+  const requested = args.orchestrator_id || args.orchestratorId;
+  const scopedOrganizationAction = ['organization_state', 'organization_inbox', 'organization_publish'].includes(action);
+  const orchestratorId = requested || (scopedOrganizationAction
+    ? process.env.GENOS_ORCHESTRATOR_AGENT_ID || process.env.GENOS_AGENT_ID : undefined);
+  return { action, ...args, ...(orchestratorId ? { orchestrator_id: orchestratorId, orchestratorId } : {}) };
 }
 
 async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
@@ -186,6 +196,7 @@ async function handleToolRequest(input) {
   const onTelemetry = telemetryHandler(request, extra);
   let actor = null;
   try {
+    if (requiresCallerIdentity(name)) await ensureMcpCallerIdentity();
     actor = await beginActorCall(name);
     const text = await dispatchWithActor({ actor, name, args, onTelemetry,
       runOrchestrator, runGenosCli, executeStrategyTool });
@@ -195,6 +206,27 @@ async function handleToolRequest(input) {
     return { content: [{ type: 'text', text: error.message }], isError: true,
       _meta: { 'genos.body': bodyMetadata(actor) } };
   }
+}
+
+function requiresCallerIdentity(name) {
+  return process.env.GENOS_CODEX_AUTO_PROVISION_IDENTITY === '1'
+    || new Set(['genos_organization_state', 'genos_worker_inbox', 'genos_worker_publish', 'genos_biological_mode']).has(name);
+}
+
+function ensureMcpCallerIdentity() {
+  if (!callerIdentityInitialization) callerIdentityInitialization = initializeMcpCallerIdentity();
+  return callerIdentityInitialization;
+}
+
+async function initializeMcpCallerIdentity() {
+  if (!REPO_REQUIRE || !CALLER_IDENTITY) throw new Error('GenOS caller identity provisioning requires the local backend runtime.');
+  const workspaceRoot = path.resolve(process.env.GENOS_WORKSPACE_ROOT || process.env.GENOS_REPO_ROOT || process.cwd());
+  process.env.GENOS_WORKSPACE_ROOT = workspaceRoot;
+  const db = await REPO_REQUIRE('./backend/src/db').getDatabase();
+  const identity = await CALLER_IDENTITY.ensureCallerIdentity(db, { workspaceRoot });
+  process.env.GENOS_AGENT_ID = identity.agentId;
+  if (identity.orchestratorId) process.env.GENOS_ORCHESTRATOR_AGENT_ID = identity.orchestratorId;
+  return identity;
 }
 
 async function dispatchWithActor(input) {

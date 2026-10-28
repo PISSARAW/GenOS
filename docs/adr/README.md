@@ -867,6 +867,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0747](0747-contrats-assemblage-prompt-et-cycle-communication.md) | Contrats d’assemblage des prompts et du cycle de communication | Proposé pour implémentation | 2026-10-26 | Runtime, prompts, communication inter-agents, budgets et preuves |
 | [0748](0748-agow-viabilite-collective-multiniveau.md) | Viabilité collective et allostasie multiniveau dans AGOW | Accepté — implémentation incrémentale | 2026-10-27 | Arbitrage AGOW, scopes allostatiques, morphogenèse et validation causale |
 | [0749](0749-journal-durable-runtime-gcir.md) | Journal durable d’exécution G-CIR Ω | Accepté — première tranche implémentée | 2026-10-28 | Runtime G-CIR Ω, persistance, reprise, effets idempotents |
+| [0750](0750-identite-persistante-du-client-mcp-codex.md) | Identité persistante du client MCP Codex | accepté. | 2026-10-28. | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

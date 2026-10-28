@@ -26,7 +26,8 @@ function hookHandler(command, commandWindows) {
   };
 }
 
-function serverConfig(existing = {}) {
+function serverConfig(existing = {}, configuredAgentId = process.env.GENOS_AGENT_ID) {
+  const agentId = String(existing.env?.GENOS_AGENT_ID || configuredAgentId || '').trim();
   return {
     ...existing,
     command: process.execPath,
@@ -34,6 +35,8 @@ function serverConfig(existing = {}) {
     cwd: root,
     env: {
       ...existing.env,
+      ...(agentId ? { GENOS_AGENT_ID: agentId } : {}),
+      GENOS_CODEX_AUTO_PROVISION_IDENTITY: '1',
       GENOS_REPO_ROOT: root,
       GENOS_WORKSPACE_ROOT: root,
       GENOS_CAPSULE_ROOT: root,
