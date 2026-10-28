@@ -8,6 +8,7 @@ const { runCommand } = require('../agentWorkspaceLifecycle/git');
 const { buildIsolatedEnv } = require('../sandboxExecutor');
 const { assertContainedFiles } = require('./pathAuthority');
 const { maxOutputBytes } = require('../boundedOutput');
+const { verifierCheckReason } = require('./gitAuthority');
 
 const SOURCE = 'ontogenesis-verifier';
 const HASH = /^[a-f0-9]{64}$/;
@@ -66,6 +67,8 @@ async function treeHash(worktree) {
 function checkSpec(check) {
   if (!check || typeof check.program !== 'string' || !Array.isArray(check.args)) throw new Error('verification-structuree-requise');
   if (!check.args.every((arg) => typeof arg === 'string')) throw new Error('verification-arguments-invalides');
+  const verifierReason = verifierCheckReason(check);
+  if (verifierReason) throw new Error(verifierReason);
   if (check.sandbox !== undefined && (check.sandbox?.runtime !== 'docker'
     || typeof check.sandbox.image !== 'string' || typeof check.sandbox.oracleRoot !== 'string')) {
     throw new Error('verification-sandbox-invalide');

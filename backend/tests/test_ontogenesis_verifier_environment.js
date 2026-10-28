@@ -14,6 +14,11 @@ async function main() {
     const proof = await verifyChecks(root, [{ program: process.execPath, args: ['-e', script] }], { timeoutMs: 30000 });
     assert.strictEqual(proof.proofs.length, 1);
     assert.strictEqual(proof.proofs[0].exitCode, 0);
+    let forbiddenCommandRan = false;
+    await assert.rejects(verifyChecks(root, [{ program: 'git', args: ['fetch', 'origin'] }], {
+      run: async () => { forbiddenCommandRan = true; }
+    }), /verification-git-fetch-hors-autorite/);
+    assert.strictEqual(forbiddenCommandRan, false, 'unsafe Git check must be rejected before host execution');
     console.log('Ontogenesis verifier receives a minimal environment without orchestration secrets.');
   } finally {
     for (const name of names) {

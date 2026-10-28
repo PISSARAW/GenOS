@@ -6,6 +6,9 @@ const LOCAL_SUBCOMMANDS = new Set([
   'add', 'cat-file', 'commit', 'diff', 'log', 'ls-files', 'merge-base', 'restore', 'rev-parse', 'status'
 ]);
 const EXTERNAL_SUBCOMMANDS = new Set(['merge', 'push']);
+const VERIFIER_READ_ONLY_SUBCOMMANDS = new Set([
+  'diff', 'log', 'ls-files', 'merge-base', 'rev-parse', 'status'
+]);
 const OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--exec-path', '--git-dir', '--namespace', '--work-tree']);
 
 function gitSubcommand(args) {
@@ -26,11 +29,11 @@ function isGitProgram(program) {
   return path.win32.basename(String(program || '')).toLowerCase().replace(/\.(exe|cmd|bat|com)$/, '') === 'git';
 }
 
-function externalCheckReason(check) {
+function verifierCheckReason(check) {
   if (!isGitProgram(check?.program)) return null;
   const subcommand = gitSubcommand(check.args);
-  if (!EXTERNAL_SUBCOMMANDS.has(subcommand)) return null;
-  return `verification-git-${subcommand}-hors-autorite`;
+  if (VERIFIER_READ_ONLY_SUBCOMMANDS.has(subcommand)) return null;
+  return `verification-git-${subcommand || 'inconnue'}-hors-autorite`;
 }
 
 function assertLocalGitCommand(args) {
@@ -41,5 +44,5 @@ function assertLocalGitCommand(args) {
   return subcommand;
 }
 
-module.exports = { LOCAL_SUBCOMMANDS, EXTERNAL_SUBCOMMANDS,
-  gitSubcommand, isGitProgram, externalCheckReason, assertLocalGitCommand };
+module.exports = { LOCAL_SUBCOMMANDS, EXTERNAL_SUBCOMMANDS, VERIFIER_READ_ONLY_SUBCOMMANDS,
+  gitSubcommand, isGitProgram, verifierCheckReason, assertLocalGitCommand };

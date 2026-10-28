@@ -9,8 +9,15 @@ const { terminatePid } = require('../processTermination');
 const { launchInWindowsJob } = require('./windowsJobObject');
 const workerKinds = require('../agents/workerKindService');
 const { instructionFor } = require('./philosophicalMissionContract');
+const { verifierCheckReason } = require('./gitAuthority');
 
 const RUNNER = path.resolve(__dirname, '../../../bin/ontogenesisMissionRunner.cjs');
+const SOURCE_PATH_PATTERN = /\b(?:src|lib|app|backend)[/\\][\w./\\-]+\.(?:[cm]?[jt]sx?)\b/i;
+const IMPLEMENTATION_PATTERNS = [
+  /\bexports?\b/i, /\bmodule\.exports\b/i, /\bfunction\b/i, /\breturns?\b/i,
+  /\bthrows?\b/i, /\bimplement(?:ation)?\b/i, /\bmodify\b/i, /\bupdate\b/i,
+  /\bchange\b/i, /\bimplementer\b/i, /\btypeerror\b/i
+];
 
 function createRuntimeHarness(db) {
   return {
@@ -80,16 +87,26 @@ function workerAssignmentsFor(roles) {
   return workerAssignments;
 }
 
-function acceptanceRequiresCodeChange(task) {
+function acceptanceValue(task) {
   let acceptance = task?.acceptance_json ?? task?.acceptance ?? [];
   if (typeof acceptance === 'string') {
     try { acceptance = JSON.parse(acceptance); } catch (_) { acceptance = [acceptance]; }
   }
-  const text = [task?.title, task?.goal, ...(Array.isArray(acceptance) ? acceptance : [acceptance])]
+  return acceptance;
+}
+
+function acceptanceText(task, acceptance) {
+  return [task?.title, task?.goal, ...(Array.isArray(acceptance) ? acceptance : [acceptance])]
     .filter((value) => typeof value === 'string').join(' ');
-  const sourcePath = /\b(?:src|lib|app|backend)[/\\][\w./\\-]+\.(?:[cm]?[jt]sx?)\b/i.test(text);
-  const implementationContract = /\b(?:exports?|module\.exports|function|returns?|throws?|implement(?:ation)?|modify|update|change|implementer|typeerror)\b/i.test(text);
-  return sourcePath && implementationContract;
+}
+
+function containsImplementationIntent(text) {
+  return IMPLEMENTATION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function acceptanceRequiresCodeChange(task) {
+  const text = acceptanceText(task, acceptanceValue(task));
+  return SOURCE_PATH_PATTERN.test(text) && containsImplementationIntent(text);
 }
 
 function isCodeTask(input) {
@@ -112,7 +129,7 @@ function minimumWorkerTokensForCodeTask(input, codeChangeTask) {
 }
 
 function requestFor(input) {
-  const checks = input.config.checks || [];
+  const checks = verifierChecksForWorker(input.config.checks);
   const roles = input.selection.workerRoles || [];
   const mission = input.mission || {};
   const codeChangeTask = isCodeTask(input);
@@ -157,6 +174,15 @@ function requestFor(input) {
     explicit_write_lease: input.config.authority?.allowEdit === true,
     git_authority: { localCommit: false, push: false, merge: false, remoteMutation: false }
   };
+}
+
+function verifierChecksForWorker(checks) {
+  const resolved = checks || [];
+  for (const check of resolved) {
+    const reason = verifierCheckReason(check);
+    if (reason) throw new Error(reason);
+  }
+  return resolved;
 }
 
 function workerAllowedCommand(check) {

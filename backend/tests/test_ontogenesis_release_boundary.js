@@ -25,7 +25,25 @@ function rejectsExternalChecks() {
   assert.ok(push.errors.includes('verification-git-push-hors-autorite'));
   const merge = validateProjectConfig(configWithCheck('C:\\Program Files\\Git\\cmd\\git.cmd', ['-c', 'x=y', 'merge', 'main']));
   assert.ok(merge.errors.includes('verification-git-merge-hors-autorite'));
-  assert.strictEqual(validateProjectConfig(configWithCheck('git', ['merge-base', 'HEAD', 'main'])).ok, true);
+  for (const args of [['fetch', 'origin'], ['remote', 'update'], ['pull'], ['clone', 'url', 'repo'],
+    ['checkout', 'main'], ['commit', '-m', 'unsafe'], ['-C', '/tmp/repo', 'fetch', 'origin']]) {
+    const rejected = validateProjectConfig(configWithCheck('git', args));
+    assert.ok(rejected.errors.includes(`verification-git-${args.includes('-C') ? 'fetch' : args[0]}-hors-autorite`),
+      `must reject git ${args.join(' ')}`);
+  }
+  for (const args of [['status', '--short'], ['diff', '--check'], ['log', '-1'],
+    ['ls-files'], ['merge-base', 'HEAD', 'main'], ['rev-parse', '--show-toplevel']]) {
+    assert.strictEqual(validateProjectConfig(configWithCheck('git', args)).ok, true,
+      `must allow read-only git ${args.join(' ')}`);
+  }
+  assert.strictEqual(validateProjectConfig(configWithCheck('C:\\Program Files\\Git\\cmd\\git.exe',
+    ['-C', '/tmp/repo', 'fetch', 'origin'])).ok, false);
+  assert.throws(() => requestFor({ id: 'run-boundary', project: { id: 'project', objective: 'Verifier' },
+    task: { id: 'task', title: 'Boundary', acceptance_json: '[]' },
+    selection: { topology: 'trinity', variant: 'default' }, mission: {}, worktree: '/tmp/candidate',
+    budgets: { tokens: 10, usd: 0, seconds: 10 },
+    config: { checks: [{ program: 'git', args: ['fetch', 'origin'] }],
+      authority: { allowEdit: false, allowTests: true } } }), /verification-git-fetch-hors-autorite/);
 }
 
 async function guardsIntegrationGit() {
