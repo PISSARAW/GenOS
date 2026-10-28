@@ -9,24 +9,66 @@ const fixture = require('./ontogenesisFixture');
 
 const CLI = path.resolve(__dirname, '../bin/genos-ontogenesis.cjs');
 
-function invoke(context, args, expected = 0) {
+function execute(context, args) {
   const result = spawnSync(process.execPath, [CLI, ...args], { cwd: path.resolve(__dirname, '../..'),
     env: { ...process.env, GENOS_DB_PATH: context.database, GENOS_DB_BOOTSTRAP_SKIP: '1', GENOS_DB_BACKUP_SKIP: '1' },
     encoding: 'utf8', windowsHide: true, timeout: 120000 });
   assert.ifError(result.error);
+  return result;
+}
+
+function invoke(context, args, expected = 0) {
+  const result = execute(context, args);
   assert.strictEqual(result.status, expected, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
   return result.stdout.trim();
+}
+
+async function assertProjectMissing(database, projectId) {
+  const { open } = require('sqlite');
+  const db = await open({ filename: database, driver: require('sqlite3').Database });
+  try {
+    assert.strictEqual(await db.get('SELECT id FROM ontogenesis_projects WHERE id = ?', [projectId]), undefined);
+  } finally {
+    await db.close();
+  }
+}
+
+async function rejectInit(context, input) {
+  const args = ['init', '--root', input.root, '--project', input.projectId];
+  if (input.config) args.push('--config', input.config);
+  const result = execute(context, args);
+  assert.strictEqual(result.status, 1, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stderr, /--root|branche Git/);
+  await assertProjectMissing(context.database, input.projectId);
 }
 
 async function main() {
   const db = await fixture.memoryDb();
   const root = await fixture.repository();
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'onto-cli-test-'));
+  const nonGitRoot = path.join(scratch, 'not-a-repository');
+  const nestedRoot = path.join(root, 'nested');
+  const worktree = path.join(scratch, 'linked-worktree');
   const context = { database: path.join(scratch, 'genos.db') };
   try {
     await db.run('VACUUM INTO ?', [context.database]);
     const config = path.join(scratch, 'config.json');
     fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
+    fs.mkdirSync(nonGitRoot);
+    fs.mkdirSync(nestedRoot);
+    await rejectInit(context, { root: path.join(scratch, 'missing'), projectId: 'onto_cli_missing_root' });
+    await rejectInit(context, { root: nonGitRoot, projectId: 'onto_cli_non_git_root' });
+    await rejectInit(context, { root: nestedRoot, projectId: 'onto_cli_nested_root' });
+    const invalidBranchConfig = { ...fixture.testConfig(), branch: 'invalid..branch',
+      authority: { ...fixture.testConfig().authority, branches: ['invalid..branch'] } };
+    fs.writeFileSync(config, JSON.stringify(invalidBranchConfig));
+    await rejectInit(context, { root, projectId: 'onto_cli_invalid_branch', config });
+    fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
+    const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
+    await runCommand('git', ['worktree', 'add', '--detach', worktree, 'HEAD'], { cwd: root });
+    assert.ok(fs.statSync(path.join(worktree, '.git')).isFile(), 'linked worktree uses a .git file');
+    assert.match(invoke(context, ['init', '--root', worktree, '--project', 'onto_cli_worktree', '--config', config]),
+      /projet-cree:onto_cli_worktree/);
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli', '--config', config]), /projet-cree:onto_cli/);
     const flags = ['--project', 'onto_cli'];
     const task = JSON.parse(invoke(context, ['task', ...flags, '--title', 'CLI task', '--acceptance', '["Complete"]'])).taskId;
@@ -50,6 +92,10 @@ async function main() {
     invoke(context, ['prune', ...flags, '--days', '-1'], 1);
     console.log('ontogenesis operator CLI checks passed (separate processes, persistent SQLite, no external provider).');
   } finally {
+    if (fs.existsSync(worktree)) {
+      const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
+      await runCommand('git', ['worktree', 'remove', '--force', worktree], { cwd: root });
+    }
     await db.close();
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(scratch, { recursive: true, force: true });

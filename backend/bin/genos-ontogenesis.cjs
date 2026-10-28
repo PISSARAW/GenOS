@@ -10,6 +10,7 @@
 const { getDatabase, closeDatabase } = require('../src/db');
 const { validateProjectConfig } = require('../src/services/ontogenesis/configSchema');
 const { createProject } = require('../src/services/ontogenesis/projectStore');
+const { validateProjectRoot } = require('../src/services/ontogenesis/projectRootValidation');
 const control = require('../src/services/ontogenesis/controlService');
 const autostart = require('../src/services/ontogenesis/autostartService');
 const { createRuntimeHarness } = require('../src/services/ontogenesis/runtimeHarness');
@@ -82,8 +83,9 @@ async function runInit(db, options) {
   if (options.branch) requested.branch = options.branch;
   const checked = validateProjectConfig(requested);
   if (!checked.ok) throw new Error(`configuration-invalide:${checked.errors.join(',')}`);
+  const rootPath = await validateProjectRoot({ root: options.root, branch: checked.config.branch });
   const id = await createProject(db, {
-    id: options.project || undefined, rootPath: options.root,
+    id: options.project || undefined, rootPath,
     branch: checked.config.branch, objective: options.objective || '', config: checked.config
   });
   console.log(`projet-cree:${id}`);
