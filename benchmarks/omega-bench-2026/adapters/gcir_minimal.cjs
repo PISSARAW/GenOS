@@ -5,12 +5,12 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
 const { execFileSync } = require('node:child_process');
-const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
 const { createRuntime } = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaCompiler'));
 const omegaInterop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaInteropService'));
 const traces = require('../src/run-trace.cjs');
+const { createRunMeasurement } = require('../src/measure-adapter-run.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -43,15 +43,15 @@ function policyFor(row) {
   };
 }
 
-async function executeRow(row, trace) {
+async function executeRow(row, emitPhase) {
   const operations = operationsFor(row);
   const compiled = compiler.compile({ operations, targets: ['call'], model: 'deterministic-benchmark-handler' });
   if (compiled.status !== 'ready') throw new Error(`compile_${compiled.status}`);
-  traces.phase(trace, 'gcir_compile_completed');
+  emitPhase('gcir_compile_completed');
   const runtime = createRuntimeFor(row);
   const result = await runtime.execute({ operations: compiled.slice.nodes, policy: policyFor(row), allowEmit: true });
   if (result.status !== 'emitted' || result.values.call === undefined) throw new Error(`runtime_${result.reason || result.status}`);
-  traces.phase(trace, 'gcir_runtime_completed');
+  emitPhase('gcir_runtime_completed');
   return result.values.call;
 }
 
@@ -59,10 +59,11 @@ async function timedRow(row, repetition) {
   const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'B', repetition }, row.input);
   const input = JSON.stringify(row.input);
-  const started = performance.now();
-  const answer = await executeRow(row, trace);
+  const measurement = createRunMeasurement();
+  const emitPhase = (name) => measurement.exclude(() => traces.phase(trace, name));
+  const answer = await executeRow(row, emitPhase);
+  const latency = measurement.elapsedMs();
   traces.finish(trace, answer);
-  const latency = performance.now() - started;
   const output = JSON.stringify(answer);
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id, condition_id: 'B', repetition,
@@ -80,6 +81,7 @@ function manifestFor(rows, outputPath) {
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
+    latency_scope: 'decoded_input_object_to_semantic_answer; trace events excluded',
     result_file: path.basename(outputPath), external_model_calls: 0
   };
 }

@@ -331,7 +331,6 @@ def ablation_line(item):
             f"{format_number(latency.get('planning', {}).get('0.8', {}).get('mde_observed_units'))} | "
             f"{binary.get('control_only_success', 'N/A')}/{binary.get('treatment_only_success', 'N/A')} | "
             f"{n_required if n_required is not None else 'N/A'} |")
-
 def render_report(report):
     families = report["family_sizes"]
     contrasts = report["contrasts"]
@@ -343,6 +342,7 @@ def render_report(report):
         "## Méthode", "",
         "L'unité indépendante est le scénario. Les trois répétitions sont résumées par leur médiane avant calcul de la variance des différences appariées. Les issues binaires sont résumées par scénario: succès seulement si les trois répétitions sont conformes à l'oracle. Aucun p-value ni résultat confirmatoire n'est produit.", "",
         f"Les effets détectables et tailles requises utilisent une approximation normale bilatérale, puissance 80 %/90 %, et une borne Bonferroni `alpha=0,05/m`. Les familles et `m` retenus sont: D/A = {families['primary_D_A']}, attribution B/A-C/B-D/C = {families['attribution']}, baselines externes = {families['external_baselines']}, ablations prévues = {families['ablations']}. Le plan confirmatoire proposé devra encore appliquer Holm aux résultats d'une campagne gelée.", "",
+        "**Audit des chronométrages : les `latency_ms` présents dans les anciens résultats ne sont pas comparables et restent descriptifs.** A et D arrêtaient leur timer avant les événements de fin de trace; B et C les incluaient, et C comptait aussi des événements de validation/compilation. Le code A–D applique maintenant une frontière commune (objet scénario déjà décodé → réponse sémantique, événements de trace exclus), mais les fichiers JSONL actuels ont été produits avant ce changement. Leurs différences et estimations de puissance de latence ne sont donc pas des preuves de performance; il faut relancer A–D avant le gel.", "",
         "## Contrastes principaux D/A", "",
         "La différence de latence est calculée D moins A en ms; `SD` est l'écart-type des différences appariées par scénario. `MDE80` est l'effet minimum détectable dans ces unités à 80 % de puissance et sous la correction familiale ci-dessus. `discordances C/T` compte les scénarios où seul le contrôle C ou seul le traitement T réussit aux trois répétitions.", "",
         "| Contraste | n scénarios | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
@@ -358,9 +358,8 @@ def render_report(report):
         "## Baselines et portée", "",
         f"Les {families['external_baselines']} contrastes baseline applicables sont appariés sur leurs scénarios communs déclarés. Ils restent descriptifs: les stacks, les métriques fonctionnelles et les frontières de latence ne sont pas interchangeables. Le calcul inclut toutes les expériences applicables disponibles depuis MLIR, Temporal, LangGraph, A2A, MCP et OPA; A est la référence JSON, déjà couverte par la famille D/A.", "",
         "Lorsque les données ont zéro discordance binaire, la variance observée ne peut pas estimer la puissance d'un effet non nul. Pour les tableaux `n requis`, le script emploie explicitement l'hypothèse de planification `p(discordance)=0,20`; le JSON indique cette source. Sinon, le taux de discordance observé sur données publiques est utilisé comme hypothèse de planification, sans valeur confirmatoire.", "",
-        "Limites: corpus synthétique public, matériel partagé, adaptateurs non tous équivalents, approximation normale plutôt que test exact, et quelques contrastes limités à une expérience. Cette analyse sert à dimensionner une étude ultérieure; elle ne débloque pas le préenregistrement ni le holdout.", ""])
+        "Limites: corpus synthétique public, matériel partagé, adaptateurs non tous équivalents, résultats de latence antérieurs à l'alignement, approximation normale plutôt que test exact, et quelques contrastes limités à une expérience. Cette analyse sert à dimensionner une étude ultérieure; ses latences restent descriptives et elle ne débloque pas le préenregistrement ni le holdout.", ""])
     return "\n".join(lines)
-
 def build_report():
     oracle = load_oracle()
     specs = planned_specs()
@@ -371,6 +370,8 @@ def build_report():
     return {"protocol": "OMEGA-BENCH-2026", "source_scope": "public result files only; sealed holdout not read",
             "method": {"independent_unit": "scenario; median of three repetitions",
                        "continuous_variance": "sample variance of paired scenario-level median latency differences",
+                       "latency_status": "descriptive only; existing A-D results predate common timing boundary; no latency superiority or confirmatory power claim",
+                       "common_latency_boundary": "implemented in A-D adapters: decoded scenario object to semantic answer, trace events excluded; public rerun required before freeze",
                        "binary": "scenario passes only when all three repetitions are oracle-correct; discordances are counted by scenario",
                        "power_approximation": "two-sided normal planning; no p-values or confirmatory claims",
                        "family_correction": "Bonferroni alpha=0.05/m, conservative planning bound; final preregistered tests use Holm"},
@@ -378,7 +379,6 @@ def build_report():
             "ablation_scope": {"design_eligible_for_future_confirmatory_candidates": ["A1_optimizer_E04", "A3_strong_typing_E03", "A5_morphogenesis_E10", "A6_physiology_E11", "A7_compact_bytes_vs_JSON_E02", "A8_typed_JSON_all_experiments"],
                                "excluded_from_confirmatory_evidence": ["A2_static_verification_E03", "A4_harness_replay_E05"]},
             "contrasts": contrasts}
-
 def main():
     global RESULTS
     parser = argparse.ArgumentParser(description=__doc__)

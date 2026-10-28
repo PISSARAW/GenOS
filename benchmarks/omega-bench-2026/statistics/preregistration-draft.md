@@ -44,10 +44,17 @@ campagne à l'état préenregistré.
 
 ## Frontières de mesure proposées
 
-- Latence : mesurer en régime établi, de l'entrée JSON déjà chargée et encodée
-  jusqu'à la réponse sémantique décodée. Inclure les transports locaux MCP,
-  OPA et Temporal, les reprises et les erreurs; exclure démarrage du serveur,
-  compilation des bundles, installation, génération et scoring des données.
+- Latence : proposition à valider, mesurer en régime établi de l'objet scénario
+  déjà chargé et décodé jusqu'à la réponse sémantique. Inclure le travail du
+  candidat et les reprises/erreurs; exclure JSON.stringify utilisé pour compter
+  les octets, les événements d'écriture de trace, le démarrage des serveurs,
+  l'installation, la compilation des bundles et la génération/scoring des données.
+  Les comparaisons externes ne pourront utiliser la latence que si leur adapter
+  matérialise la même frontière; sinon cette métrique sera `N/A` et descriptive.
+  Audit du corpus public du 2026-10-28 : A et D arrêtent le timer avant les
+  événements de fin de trace, alors que B/C en incluent; C compte aussi des
+  événements de validation/compilation. Les `latency_ms` courants ne sont donc
+  pas comparables et devront être recalculés après alignement de l'instrumentation.
 - Octets : taille UTF-8 des entrées et réponses sérialisées au même point de
   frontière; distinguer charge utile logique et octets de transport lorsque le
   protocole les expose.

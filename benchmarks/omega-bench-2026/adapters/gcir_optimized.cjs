@@ -5,13 +5,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
 const { execFileSync } = require('node:child_process');
-const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaCompiler'));
 const runtimeModule = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaInteropService'));
 const { transformE04 } = require('./e04-optimizer.cjs');
 const traces = require('../src/run-trace.cjs');
+const { createRunMeasurement } = require('../src/measure-adapter-run.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -52,15 +52,15 @@ function registerHandlers(runtime, row, input) {
   });
 }
 
-function executeRow(row, trace) {
+function executeRow(row, emitPhase) {
   const operations = operationsFor(row);
   const staticResult = interop.validate(envelopeFor(row, operations));
   if (!staticResult.valid) throw new Error(`static_validation_${staticResult.errors[0] || 'invalid'}`);
-  if (trace) traces.phase(trace, 'static_validation_completed');
+  if (emitPhase) emitPhase('static_validation_completed');
   const task = taskInput(row);
   const compiled = compiler.compile({ operations, targets: ['call'], model: 'deterministic-benchmark-handler' });
   if (compiled.status !== 'ready') throw new Error(`compile_${compiled.status}`);
-  if (trace) traces.phase(trace, 'gcir_compile_completed');
+  if (emitPhase) emitPhase('gcir_compile_completed');
   const runtime = runtimeModule.createRuntime();
   registerHandlers(runtime, row, task.input);
   return runtime.execute({ operations: compiled.slice.nodes,
@@ -83,12 +83,13 @@ async function timedRow(row, repetition) {
   const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'C', repetition }, row.input);
   const input = JSON.stringify(row.input);
-  const started = performance.now();
-  const output = await executeRow(row, trace);
+  const measurement = createRunMeasurement();
+  const emitPhase = (name) => measurement.exclude(() => traces.phase(trace, name));
+  const output = await executeRow(row, emitPhase);
+  const latency = measurement.elapsedMs();
   traces.phase(trace, row.experiment_id === 'E04' ? 'optimization_and_runtime_completed'
     : 'gcir_runtime_completed');
   traces.finish(trace, output.answer);
-  const latency = performance.now() - started;
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id, condition_id: 'C',
     repetition, status: 'completed', answer: output.answer, metrics: output.metrics,
@@ -112,6 +113,7 @@ function manifestFor(rows, outputPath) {
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
+    latency_scope: 'decoded_input_object_to_semantic_answer; trace events excluded',
     result_file: path.basename(outputPath), external_model_calls: 0
   };
 }

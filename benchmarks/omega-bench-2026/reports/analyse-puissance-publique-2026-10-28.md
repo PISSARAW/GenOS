@@ -8,24 +8,26 @@ L'unité indépendante est le scénario. Les trois répétitions sont résumées
 
 Les effets détectables et tailles requises utilisent une approximation normale bilatérale, puissance 80 %/90 %, et une borne Bonferroni `alpha=0,05/m`. Les familles et `m` retenus sont: D/A = 12, attribution B/A-C/B-D/C = 36, baselines externes = 18, ablations prévues = 8. Le plan confirmatoire proposé devra encore appliquer Holm aux résultats d'une campagne gelée.
 
+**Audit des chronométrages : les `latency_ms` présents dans les anciens résultats ne sont pas comparables et restent descriptifs.** A et D arrêtaient leur timer avant les événements de fin de trace; B et C les incluaient, et C comptait aussi des événements de validation/compilation. Le code A–D applique maintenant une frontière commune (objet scénario déjà décodé → réponse sémantique, événements de trace exclus), mais les fichiers JSONL actuels ont été produits avant ce changement. Leurs différences et estimations de puissance de latence ne sont donc pas des preuves de performance; il faut relancer A–D avant le gel.
+
 ## Contrastes principaux D/A
 
 La différence de latence est calculée D moins A en ms; `SD` est l'écart-type des différences appariées par scénario. `MDE80` est l'effet minimum détectable dans ces unités à 80 % de puissance et sous la correction familiale ci-dessus. `discordances C/T` compte les scénarios où seul le contrôle C ou seul le traitement T réussit aux trois répétitions.
 
 | Contraste | n scénarios | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| D_vs_A_E01 | 200 | 0.595 | 0.086 | 0.023 | 0/0 | 119 |
-| D_vs_A_E02 | 200 | 0.612 | 0.104 | 0.027 | 0/0 | 119 |
-| D_vs_A_E03 | 1000 | 1.128 | 0.148 | 0.017 | 0/0 | 119 |
-| D_vs_A_E04 | 100 | 0.636 | 0.090 | 0.033 | 0/0 | 119 |
-| D_vs_A_E05 | 100 | 0.642 | 0.087 | 0.032 | 0/0 | 119 |
-| D_vs_A_E06 | 150 | 0.646 | 0.093 | 0.028 | 0/0 | 119 |
-| D_vs_A_E07 | 200 | 0.745 | 0.152 | 0.040 | 0/0 | 119 |
-| D_vs_A_E08 | 1000 | 0.601 | 0.084 | 0.010 | 0/0 | 119 |
-| D_vs_A_E09 | 200 | 0.603 | 0.091 | 0.024 | 0/0 | 119 |
-| D_vs_A_E10 | 100 | 167.117 | 10.383 | 3.849 | 0/0 | 119 |
-| D_vs_A_E11 | 50 | 0.623 | 0.089 | 0.047 | 0/0 | 119 |
-| D_vs_A_E12 | 100 | 0.620 | 0.095 | 0.035 | 0/0 | 119 |
+| D_vs_A_E01 | 200 | 1.046 | 0.072 | 0.019 | 0/0 | 119 |
+| D_vs_A_E02 | 200 | 1.080 | 0.098 | 0.026 | 0/0 | 119 |
+| D_vs_A_E03 | 1000 | 1.991 | 0.119 | 0.014 | 0/0 | 119 |
+| D_vs_A_E04 | 100 | 1.186 | 0.092 | 0.034 | 0/0 | 119 |
+| D_vs_A_E05 | 100 | 1.024 | 0.068 | 0.025 | 0/0 | 119 |
+| D_vs_A_E06 | 150 | 1.021 | 0.070 | 0.021 | 0/0 | 119 |
+| D_vs_A_E07 | 200 | 1.049 | 0.149 | 0.039 | 0/0 | 119 |
+| D_vs_A_E08 | 1000 | 1.008 | 0.059 | 0.007 | 0/0 | 119 |
+| D_vs_A_E09 | 200 | 1.011 | 0.051 | 0.013 | 0/0 | 119 |
+| D_vs_A_E10 | 100 | 150.814 | 4.336 | 1.607 | 0/0 | 119 |
+| D_vs_A_E11 | 50 | 1.034 | 0.069 | 0.036 | 0/0 | 119 |
+| D_vs_A_E12 | 100 | 1.032 | 0.055 | 0.020 | 0/0 | 119 |
 
 Tous les contrastes D/A ont une couverture complète du scope public et les 10 200 paires scénario-répétition attendues au total. Le JSON associé contient aussi les variances et effets détectables pour latence, octets d'entrée/sortie, tailles `n` pour effets standardisés 0,2/0,5/0,8, et les discordances binaires.
 
@@ -33,15 +35,15 @@ Tous les contrastes D/A ont une couverture complète du scope public et les 10 2
 
 | Ablation/contrôle | n | Éligible comme candidat confirmatoire | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| A1_optimizer_E04 | 100 | oui | -0.038 | 0.123 | 0.044 | 0/0 | 111 |
-| A2_static_verification_E03 | 1000 | non | 0.503 | 0.068 | 0.008 | 0/250 | 140 |
-| A3_strong_typing_E03 | 1000 | oui | 0.478 | 0.069 | 0.008 | 0/500 | 282 |
-| A4_harness_replay_E05 | 100 | non | 3.136 | 0.309 | 0.111 | 0/0 | 111 |
-| A5_morphogenesis_E10 | 100 | oui | 166.316 | 10.388 | 3.715 | 0/0 | 111 |
-| A6_physiology_E11 | 50 | oui | -0.272 | 0.126 | 0.064 | 0/0 | 111 |
-| A8_typed_JSON_all_experiments | 3400 | oui | 0.453 | 3.782 | 0.232 | 0/0 | 111 |
+| A1_optimizer_E04 | 100 | oui | 0.309 | 0.340 | 0.121 | 0/0 | 111 |
+| A2_static_verification_E03 | 1000 | non | 1.143 | 0.127 | 0.014 | 0/250 | 140 |
+| A3_strong_typing_E03 | 1000 | oui | 1.186 | 0.161 | 0.018 | 0/500 | 282 |
+| A4_harness_replay_E05 | 100 | non | 23.310 | 2.397 | 0.857 | 0/0 | 111 |
+| A5_morphogenesis_E10 | 100 | oui | 149.506 | 4.321 | 1.545 | 0/0 | 111 |
+| A6_physiology_E11 | 50 | oui | -0.284 | 0.121 | 0.061 | 0/0 | 111 |
+| A8_typed_JSON_all_experiments | 3400 | oui | 0.820 | 4.874 | 0.299 | 0/0 | 111 |
 
-A7: 200 scénarios; moyenne économisée 180.400 octets/scénario, variance 0.241, médiane de sauvegarde relative 29.292 %. Le round-trip/oracle a 0/0 discordances; n80 à 15 points vaut 111 sous la discordance de planification 0,20. Le MDE continu et le n requis sont disponibles dans le JSON à `alpha=0,05/8`; l'encodage compact et l'enveloppe JSON sont mesurés dans le même adaptateur, pas dans deux processus indépendants.
+A7: 200 scénarios; moyenne économisée 180.000 octets/scénario, variance 0.000, médiane de sauvegarde relative 16.745 %. Le round-trip/oracle a 0/0 discordances; n80 à 15 points vaut 111 sous la discordance de planification 0,20. Le MDE continu et le n requis sont disponibles dans le JSON à `alpha=0,05/8`; l'encodage compact et l'enveloppe JSON sont mesurés dans le même adaptateur, pas dans deux processus indépendants.
 
 A2 est un contraste de banc (compilateur contourné contre compile+runtime restant gardé) et A4 est journal/replay au niveau harness; ils sont fournis à titre descriptif et exclus de la preuve confirmatoire comme ablations runtime natives. A5/A6 sont maintenant des contrôles appariés: même enveloppe, compileur, politique et runtime D, seul le handler CALL passe du service GenOS au handler de référence. A8 couvre les douze expériences publiques en JSON direct avec la même carte de services que D; les services GenOS réels ne sont utilisés que pour E10/E11, et les autres expériences gardent les handlers de référence. L'attribution GenOS reste donc limitée à E10/E11. Tous ces résultats sont publics et non préenregistrés; les résultats statistiques restent descriptifs.
 
@@ -51,4 +53,4 @@ Les 18 contrastes baseline applicables sont appariés sur leurs scénarios commu
 
 Lorsque les données ont zéro discordance binaire, la variance observée ne peut pas estimer la puissance d'un effet non nul. Pour les tableaux `n requis`, le script emploie explicitement l'hypothèse de planification `p(discordance)=0,20`; le JSON indique cette source. Sinon, le taux de discordance observé sur données publiques est utilisé comme hypothèse de planification, sans valeur confirmatoire.
 
-Limites: corpus synthétique public, matériel partagé, adaptateurs non tous équivalents, approximation normale plutôt que test exact, et quelques contrastes limités à une expérience. Cette analyse sert à dimensionner une étude ultérieure; elle ne débloque pas le préenregistrement ni le holdout.
+Limites: corpus synthétique public, matériel partagé, adaptateurs non tous équivalents, résultats de latence antérieurs à l'alignement, approximation normale plutôt que test exact, et quelques contrastes limités à une expérience. Cette analyse sert à dimensionner une étude ultérieure; ses latences restent descriptives et elle ne débloque pas le préenregistrement ni le holdout.

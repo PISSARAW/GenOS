@@ -6,8 +6,8 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { createRequire } = require('node:module');
 const { execFileSync } = require('node:child_process');
-const { performance } = require('node:perf_hooks');
 const traces = require('../src/run-trace.cjs');
+const { createRunMeasurement } = require('../src/measure-adapter-run.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -225,11 +225,11 @@ function timedRow(row, repetition, validator) {
   const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'A', repetition }, row.input);
   const input = JSON.stringify(row.input);
-  const started = performance.now();
+  const measurement = createRunMeasurement();
   const answer = execute(row, validator);
+  const latency = measurement.elapsedMs();
   traces.phase(trace, row.experiment_id === 'E03' ? 'schema_validation_and_reference_execution_completed'
     : 'reference_execution_completed');
-  const latency = performance.now() - started;
   const result = JSON.stringify(answer);
   traces.finish(trace, answer);
   return {
@@ -257,7 +257,7 @@ function main() {
   fs.writeFileSync(outputPath, `${output.map((item) => JSON.stringify(item)).join('\n')}\n`);
   const traceManifest = traces.writeSidecar(outputPath, 'A');
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
-  const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: 'A', status: 'reference_condition_only', scenarios: rows.length, repetitions: REPETITIONS, runs: output.length, repository_revision: revision, adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(DATASET_ROOT, 'manifest.json'))).digest('hex'), runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() } };
+  const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: 'A', status: 'reference_condition_only', scenarios: rows.length, repetitions: REPETITIONS, runs: output.length, repository_revision: revision, adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(DATASET_ROOT, 'manifest.json'))).digest('hex'), latency_scope: 'decoded_input_object_to_semantic_answer; trace events excluded', runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() } };
   manifest.external_model_calls = 0;
   Object.assign(manifest, traceManifest);
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

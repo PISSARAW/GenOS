@@ -6,8 +6,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
 const { execFileSync } = require('node:child_process');
-const { performance } = require('node:perf_hooks');
 const traces = require('../src/run-trace.cjs');
+const { createRunMeasurement } = require('../src/measure-adapter-run.cjs');
 process.env.GENOS_ADMIN_PASSWORD ||= 'omega-bench-local-fixture';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -229,7 +229,7 @@ async function timedRow(row, repetition, harness) {
   const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'D', repetition }, row.input);
   const input = JSON.stringify(row.input);
-  const started = performance.now();
+  const measurement = createRunMeasurement();
   let output;
   let status = 'completed';
   try {
@@ -239,7 +239,7 @@ async function timedRow(row, repetition, harness) {
     status = 'failed';
     output = { answer: null, metrics: { adapter_error: error.message }, violations: [error.message] };
   }
-  const latency = performance.now() - started;
+  const latency = measurement.elapsedMs();
   const answer = output.answer;
   traces.phase(trace, row.experiment_id === 'E10' ? 'genos_morphogenesis_and_gcir_completed'
     : row.experiment_id === 'E11' ? 'genos_physiology_and_gcir_completed' : 'gcir_runtime_completed');
@@ -268,6 +268,7 @@ function manifestFor(input) {
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(datasetManifest)).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
+    latency_scope: 'decoded_input_object_to_semantic_answer; trace events excluded',
     result_file: path.basename(outputPath), external_model_calls: 0 };
 }
 
