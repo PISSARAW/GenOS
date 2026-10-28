@@ -12,17 +12,18 @@ function actionContext(input) {
   if (!input.world) return '';
   return [`Current scenario observation: ${JSON.stringify(input.world.observation)}`,
     `Latest environment response: ${JSON.stringify(input.testCase.lastObservation || null)}`,
-    'Choose one JSON action: inspect_candidate with candidateId, or submit_answer with answerId.',
-    'Inspect evidence before submitting, within the action budget.'].join('\n');
+    'Return JSON with an action matching nextAction.type and every requiredFields entry.',
+    'When nextAction is null, submit_answer with answerId of an inspected candidate.',
+    'Follow the required protocol in order and stay within the action budget.'].join('\n');
 }
 
 function applyAction(input) {
   const { world, testCase, response } = input;
   if (!world) return;
-  if (response?.action?.type === 'inspect_candidate') {
+  if (typeof response?.action?.type === 'string') {
     const observed = world.act(response.action);
     if (observed.status === 'observed') testCase.lastObservation = observed;
-  } else if (response?.action?.type === 'submit_answer') world.act(response.action);
+  }
   else if (typeof response?.answerId === 'string') {
     world.act({ type: 'submit_answer', answerId: response.answerId });
   }
@@ -55,7 +56,7 @@ function proposalFromResult(input) {
   return { answerId,
     evidenceRefs: worldResult ? worldResult.evidenceRefs
       : Array.isArray(input.response.evidenceRefs) ? input.response.evidenceRefs : [`${answerId}:response`],
-    actions: worldResult?.actions || 0 };
+    actions: worldResult?.actions || 0, actionTrace: worldResult?.trace || [] };
 }
 
 function createAdapter(options) {

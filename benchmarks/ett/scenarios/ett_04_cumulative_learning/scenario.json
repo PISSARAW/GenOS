@@ -2,7 +2,7 @@
   "id": "ETT-04",
   "name": "apprentissage-cumulatif",
   "priority": true,
-  "status": "executable_domain_calibration_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -25,5 +25,6 @@
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
   },
-  "domain": "heldout-transfer"
+  "domain": "heldout-transfer",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-04" }
 }

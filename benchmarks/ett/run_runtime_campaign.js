@@ -124,15 +124,18 @@ async function executePair(context) {
   const input = casePayload(agentCase, model);
   const outcome = condition === 'llm_only'
     ? await executeDirectModel({ model, testCase: agentCase,
-      oracle: { ...testCase.oracle, requireInspection: true } })
+      oracle: { ...testCase.oracle, requireInspection: true, requireInteraction: true } })
     : ADAPTED_SYSTEMS.includes(condition)
       ? await executeAdaptedModel({ adapter: context.externalAdapters.get(condition),
-        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true } })
+        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true,
+          requireInteraction: true } })
       : await executeGenosRuntime({ condition, caseId: testCase.caseId, input, model,
-        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true } });
+        testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true,
+          requireInteraction: true } });
   return { caseId: testCase.caseId, scenarioId: scenario.id, difficulty, seed, condition,
     split: 'development', holdout: false, observation: agentCase.observation,
-    observationHash: digest(agentCase.observation), outcome: redactOutcome(outcome) };
+    observationHash: digest(agentCase.observation), actionTrace: world.trace,
+    outcome: redactOutcome(outcome) };
 }
 
 async function executeAdaptedModel(context) {
@@ -149,7 +152,8 @@ async function executeAdaptedModel(context) {
       actions: proposal.actions || 0,
       provider: system.model, providerCalls: usage.calls, providerCallDetails: usage.callDetails,
       submittedAnswerId: proposal.answerId, oracleVerdict: verification.verdict,
-      oracleDigest: verification.oracleDigest, modelOutputIsEvidence: false,
+      oracleDigest: verification.oracleDigest, oracleMetrics: verification.domainMetrics,
+      modelOutputIsEvidence: false,
       measurementStatus: 'ollama_provider_token_counters_and_host_time' };
   } catch (error) {
     const usage = system.takeUsage();
@@ -169,7 +173,8 @@ async function executeGenosRuntime(context) {
     world: context.testCase.world });
   const outcome = await experimentExecutor.execute({ condition: context.condition,
     caseId: context.caseId, input: context.input, runtimeAdapter });
-  return { ...outcome, actions: actionsTaken(context.testCase.world) };
+  return { ...outcome, actions: actionsTaken(context.testCase.world),
+    oracleMetrics: runtimeAdapter.verificationSummary()?.domainMetrics || {} };
 }
 
 function buildTasks(options, scenarios) {
@@ -197,7 +202,7 @@ function remainingTasks(tasks, records) {
 }
 
 function validateResumeMetadata(report, options) {
-  const expected = { schema: 'genos.ett-runtime-campaign/v2', model: options.model,
+  const expected = { schema: 'genos.ett-runtime-campaign/v3', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {
@@ -345,7 +350,7 @@ async function main(args = process.argv.slice(2)) {
 }
 
 function createReport(options, expectedRecords) {
-  return { schema: 'genos.ett-runtime-campaign/v2', status: 'running',
+  return { schema: 'genos.ett-runtime-campaign/v3', status: 'running',
     startedAt: new Date().toISOString(), model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: seedList(options.seeds),
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,

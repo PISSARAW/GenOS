@@ -64,12 +64,11 @@ function solutionPrompt(request, observation) {
   return ['Select the best candidate using the task objective and public evidence.',
     `Question: ${request.question.text}`, `Hypothesis: ${request.question.hypothesis}`,
     `Task: ${JSON.stringify(observation)}`,
-    'Return only JSON: {"answerId":"candidate-id","evidenceRefs":["candidate-id:metric"],"reason":"short"}.'].join('\n');
+    'Use the required action schema from the current environment observation.'].join('\n');
 }
 
 function applyWorkerAction(world, value) {
-  if (value.action?.type === 'inspect_candidate') return world.act(value.action);
-  if (value.action?.type === 'submit_answer') return world.act(value.action);
+  if (typeof value.action?.type === 'string') return world.act(value.action);
   if (typeof value.answerId === 'string') {
     return world.act({ type: 'submit_answer', answerId: value.answerId });
   }
@@ -84,7 +83,8 @@ async function runWorkerTurns(input) {
     const current = input.world?.observation || input.observation;
     const prompt = [solutionPrompt(input.request, current),
       `Action ${turn}/${maxCalls}. Latest environment response: ${JSON.stringify(latest)}`,
-      'Return JSON with either action {type:"inspect_candidate",candidateId:"candidate-N"} or action {type:"submit_answer",answerId:"candidate-N"}. Inspect evidence before submitting.'].join('\n');
+      `Required next action: ${JSON.stringify(current.nextAction)}.`,
+      'Return JSON with an action matching the required type and fields. When nextAction is null, submit_answer with an inspected answerId.'].join('\n');
     const result = await input.ledger.generateJson({ model: input.model, prompt,
       seed: `${input.request.executionId}:${turn}`, maxTokens: 128 });
     value = result.value;
@@ -102,7 +102,8 @@ function workerProposal(input) {
   return { proposal: { hypothesis: input.request.question.hypothesis,
     method: input.request.question.method, falsifier: input.request.question.falsifier,
     actions: input.worldResult?.actions || 0 },
-  evidenceRefs: [`ett-answer:${answerId}`, ...(input.worldResult?.evidenceRefs || []), ...refs] };
+  evidenceRefs: [`ett-answer:${answerId}`, ...(input.worldResult?.evidenceRefs || []), ...refs],
+  actionTrace: input.worldResult?.trace || [] };
 }
 
 function createModelWorker(input) {

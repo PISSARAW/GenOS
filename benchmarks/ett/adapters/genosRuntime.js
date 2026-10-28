@@ -19,6 +19,7 @@ function sandbox(worker, observation) {
 function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, world }) {
   const ledger = createLedger();
   const worker = createModelWorker({ ledger, model, observation, world });
+  let verificationSummary = null;
   return {
     model, ledger, questionGenerator: questionGenerator(ledger, model),
     budget: { tokens: 12000, usd: 0.1, seconds: 1800 },
@@ -27,8 +28,12 @@ function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, worl
       const sample = ledger.takeSnapshot();
       return { tokens: sample.tokens, usd: sample.usd, seconds: sample.seconds };
     } },
-    verify: (proposal, evidenceRefs) => verifyInChild(oracle,
-      { ...proposal, answerId: answerIdFromEvidence(evidenceRefs), evidenceRefs }),
+    verify: (proposal, evidenceRefs) => {
+      verificationSummary = verifyInChild(oracle,
+        { ...proposal, answerId: answerIdFromEvidence(evidenceRefs), evidenceRefs });
+      return verificationSummary;
+    },
+    verificationSummary: () => verificationSummary,
     usageSummary: () => ledger.summary()
   };
 }

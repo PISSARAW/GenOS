@@ -1,5 +1,8 @@
 'use strict';
 
+const { budgetFor, stepsFor } = require('./protocols');
+const { createScenarioWorld } = require('./world');
+
 const LEVELS = Object.freeze(['simple', 'difficult', 'open']);
 const SPECS = Object.freeze({
   'ETT-01': { name: 'curiosite-spontanee', objective: 'Find the sensor stream with a reproducible unexplained anomaly.' },
@@ -10,7 +13,7 @@ const SPECS = Object.freeze({
   'ETT-06': { name: 'revision-epistemique', objective: 'Select the belief update best supported by prior odds and new evidence.' },
   'ETT-07': { name: 'reprise-continuite', objective: 'Resume from the checkpoint that preserves verified work without duplication.' },
   'ETT-08': { name: 'arret-rationnel', objective: 'Choose whether an investigation has positive expected information value after cost.' },
-  'ETT-09': { name: 'decouverte-inattendue', objective: 'Choose the latent rule that predicts newly revealed observations.' },
+  'ETT-09': { name: 'decouverte-inattendue', objective: 'Explore the system and report a reproducible pattern that predicts a fresh observation.' },
   'ETT-10': { name: 'auto-amelioration', objective: 'Choose the policy patch with safe held-out gain and no critical regression.' },
   'ETT-11': { name: 'recherche-collective', objective: 'Choose the synthesis that combines independent sources and resolves conflicts.' },
   'ETT-12': { name: 'autonomie-longue-duree', objective: 'Choose the research path with sustained progress and little cycle repetition.' }
@@ -38,7 +41,7 @@ function makeEvidence(id, random, index) {
       return { station: `station-${index}`, baseline, samples: Array.from({ length: 8 }, () => range(random, baseline - 8, baseline + 8)), latestReading: reading, calibrationDrift: range(random, 0, 12) }; },
     'ETT-02': () => ({ experiment: `experiment-${index}`, expectedInformation: n(), verifiedEffect: n(), independentReplications: small(4), priorAttempts: small(6), estimatedCost: n() }),
     'ETT-03': () => ({ intervention: `intervention-${index}`, predictionsByCause: Array.from({ length: 3 }, () => range(random, 0, 100)), repeatability: n(), estimatedCost: n() }),
-    'ETT-04': () => ({ procedure: `procedure-${index}`, trainingAccuracy: n(), heldOutAccuracy: n(), oldTaskAccuracyBefore: n(), oldTaskAccuracyAfter: n(), taskFamily: `family-${small(4)}` }),
+    'ETT-04': () => transferEvidence({ random, n, small, index }),
     'ETT-05': () => ({ report: `claim-${index}`, reportedPasses: small(12), independentRerunPasses: small(12), fixtureIntegrity: random() > 0.18, sourceTraceComplete: random() > 0.18 }),
     'ETT-06': () => ({ theory: `theory-${index}`, priorProbability: range(random, 0.1, 0.9), likelihoodIfTrue: range(random, 0.05, 0.95), likelihoodIfFalse: range(random, 0.05, 0.95), newEvidenceCount: 1 + small(5) }),
     'ETT-07': () => ({ checkpoint: `checkpoint-${index}`, expectedItems: 3 + small(8), restoredItems: 2 + small(9), duplicateItems: small(4), checksumValid: random() > 0.2, decisionLogComplete: random() > 0.2 }),
@@ -49,6 +52,15 @@ function makeEvidence(id, random, index) {
     'ETT-12': () => ({ researchPath: `path-${index}`, usefulCycles: 2 + small(30), repeatedCycles: small(12), phaseTransitions: small(7), retainedFindings: small(10), budgetUsedPercent: n() })
   };
   return cases[id]();
+}
+
+function transferEvidence(input) {
+  const { random, n, small, index } = input;
+  const oldTaskAccuracyBefore = n();
+  const oldTaskAccuracyAfter = Math.max(0, Math.min(100,
+    oldTaskAccuracyBefore + range(random, -4, 2)));
+  return { procedure: `procedure-${index}`, trainingAccuracy: n(), heldOutAccuracy: n(),
+    oldTaskAccuracyBefore, oldTaskAccuracyAfter, taskFamily: `family-${small(4)}` };
 }
 
 function scoreEvidence(id, evidence) {
@@ -85,74 +97,77 @@ function buildCase(scenarioId, difficulty, seed) {
   }));
   const ranked = [...candidates].sort((left, right) =>
     scoreEvidence(scenarioId, right.evidence) - scoreEvidence(scenarioId, left.evidence));
-  const objective = `${SPECS[scenarioId].objective} Evaluate the supplied ${SPECS[scenarioId].name.replaceAll('-', ' ')} records.`;
+  const objective = observationObjective(scenarioId);
+  const actionSteps = stepsFor(scenarioId, difficulty);
   const publicCase = {
     scenarioId, difficulty, caseId: `${scenarioId}-${difficulty}-${seed}`,
     observation: { scenario: SPECS[scenarioId].name, objective,
       domain: domainFor(scenarioId), candidates },
-    budget: difficulty === 'open' ? 12 : difficulty === 'difficult' ? 8 : 5
+    budget: budgetFor(scenarioId, difficulty)
   };
-  return { ...publicCase, oracle: { answerId: ranked[0].id, runnerUpId: ranked[1].id } };
+  return { ...publicCase, oracle: { answerId: ranked[0].id, runnerUpId: ranked[1].id,
+    requiredActionRefs: actionSteps.map((step) => step.ref),
+    evaluation: privateEvaluation(scenarioId, candidates, actionSteps) } };
+}
+
+function privateEvaluation(scenarioId, candidates, actionSteps) {
+  const factory = evaluationFactories()[scenarioId];
+  return { scenarioId, ...(factory ? factory(candidates, actionSteps) : {}) };
+}
+
+function evaluationFactories() {
+  return {
+    'ETT-02': (_candidates, steps) => ({ minimumUsefulCycles: steps.length }),
+    'ETT-03': (items) => ({ predictionsByCandidate: fieldsByCandidate(items, (e) => ({
+      predictionsByCause: e.predictionsByCause, repeatability: e.repeatability })) }),
+    'ETT-04': (items) => ({ metricsByCandidate: fieldsByCandidate(items, (e) => ({
+      heldOutAccuracy: e.heldOutAccuracy, oldTaskAccuracyBefore: e.oldTaskAccuracyBefore,
+      oldTaskAccuracyAfter: e.oldTaskAccuracyAfter })) }),
+    'ETT-05': (items) => ({ auditByCandidate: fieldsByCandidate(items, (e) => ({
+      reportedPasses: e.reportedPasses, independentRerunPasses: e.independentRerunPasses,
+      fixtureIntegrity: e.fixtureIntegrity, sourceTraceComplete: e.sourceTraceComplete })) }),
+    'ETT-06': (items) => ({ posteriorsByCandidate: fieldsByCandidate(items,
+      (e) => ({ posterior: posterior(e) })) }),
+    'ETT-07': (items) => ({ checkpointsByCandidate: fieldsByCandidate(items, (e) => ({
+      checksumValid: e.checksumValid, decisionLogComplete: e.decisionLogComplete,
+      expectedItems: e.expectedItems, restoredItems: e.restoredItems, duplicateItems: e.duplicateItems })) }),
+    'ETT-08': (items) => ({ valueByCandidate: fieldsByCandidate(items,
+      (e) => ({ expectedValue: expectedValue(e) })) }),
+    'ETT-09': (items) => ({ predictionsByCandidate: Object.fromEntries(items.map(({ id, evidence }) =>
+      [id, evidence.predictionsOnFreshState])) }),
+    'ETT-10': (items) => ({ patchesByCandidate: fieldsByCandidate(items, (e) => ({
+      baselineHeldOut: e.baselineHeldOut, patchedHeldOut: e.patchedHeldOut,
+      oldSuiteFailuresAdded: e.oldSuiteFailuresAdded, sandboxRollbackPassed: e.sandboxRollbackPassed })) }),
+    'ETT-11': (items) => ({ synthesesByCandidate: fieldsByCandidate(items, (e) => ({
+      supportedClaims: e.supportedClaims, unresolvedConflicts: e.unresolvedConflicts,
+      citationsVerified: e.citationsVerified, sourceCount: e.independentSourceIds.length,
+      sourceIds: e.independentSourceIds })) }),
+    'ETT-12': (_items, steps) => ({ minimumUsefulCycles: steps.length,
+      minimumDistinctPhases: Math.min(3, steps.length) })
+  };
+}
+
+function expectedValue(evidence) {
+  return evidence.expectedInformationGain * evidence.probabilityOfResolution - evidence.tokenCost
+    - Math.max(0, evidence.uncertaintyAfter - evidence.uncertaintyBefore) * 0.5;
+}
+
+function fieldsByCandidate(candidates, select) {
+  return Object.fromEntries(candidates.map(({ id, evidence }) => [id, select(evidence)]));
+}
+
+function observationObjective(scenarioId) {
+  const objectives = {
+    'ETT-01': 'Explore this dataset, form a question of your own, and report a reproducible pattern.',
+    'ETT-02': 'Continue the investigation through questions and tests without further instruction.',
+    'ETT-04': 'Learn a procedure from examples and evaluate transfer while retaining prior ability.',
+    'ETT-09': 'Explore the system and report a reproducible pattern that predicts a fresh observation.'
+  };
+  return objectives[scenarioId] || `${SPECS[scenarioId].objective} Evaluate the supplied ${SPECS[scenarioId].name.replaceAll('-', ' ')} records.`;
 }
 
 function createWorld(scenarioId, difficulty, seed) {
-  const testCase = buildCase(scenarioId, difficulty, seed);
-  const evidence = new Map(testCase.observation.candidates.map((candidate) =>
-    [candidate.id, candidate.evidence]));
-  const state = { evidence, inspected: new Set(), trace: [], remaining: testCase.budget,
-    submitted: null, observation: null };
-  const observation = Object.freeze({ ...testCase.observation,
-    objective: `${SPECS[scenarioId].objective} Inspect candidates with inspect_candidate before submission.`,
-    candidates: testCase.observation.candidates.map(({ id }) => ({ id })),
-    availableActions: ['inspect_candidate', 'submit_answer'],
-    actionBudget: testCase.budget,
-    });
-  state.observation = observation;
-  return Object.freeze({ scenarioId, difficulty, seed, caseId: testCase.caseId,
-    observation, act: (action) => actWorldAction(state, action),
-    result: () => state.submitted ? { ...state.submitted, trace: [...state.trace],
-      inspectedCandidates: [...state.inspected] } : null,
-    get remaining() { return state.remaining; }, get terminal() { return state.submitted !== null; } });
-}
-
-function actWorldAction(state, action) {
-  if (state.submitted) throw new Error('Scenario is terminal.');
-  if (state.remaining < 1) {
-    return { status: 'rejected', reason: 'invalid_action_or_budget_exhausted', remaining: state.remaining };
-  }
-  state.remaining -= 1;
-  if (!action || typeof action !== 'object') {
-    state.trace.push({ type: 'invalid', actionType: 'malformed' });
-    return { status: 'rejected', reason: 'unknown_action_or_candidate', remaining: state.remaining };
-  }
-  if (action.type === 'inspect_candidate') return inspectCandidate(state, action);
-  if (action.type === 'submit_answer' && typeof action.answerId === 'string') {
-    return submitAnswer(state, action);
-  }
-  state.trace.push({ type: 'invalid', actionType: String(action.type || '') });
-  return { status: 'rejected', reason: 'unknown_action_or_candidate', remaining: state.remaining };
-}
-
-function inspectCandidate(state, action) {
-  if (!state.evidence.has(action.candidateId)) return nullCandidateResult(state, action);
-  state.inspected.add(action.candidateId);
-  state.trace.push({ type: action.type, candidateId: action.candidateId });
-  return { status: 'observed', candidateId: action.candidateId,
-    domain: state.observation.domain, evidence: state.evidence.get(action.candidateId),
-    remaining: state.remaining };
-}
-
-function nullCandidateResult(state, action) {
-  state.trace.push({ type: 'invalid', candidateId: String(action.candidateId || '') });
-  return { status: 'rejected', reason: 'unknown_candidate', remaining: state.remaining };
-}
-
-function submitAnswer(state, action) {
-  state.submitted = { answerId: action.answerId,
-    evidenceRefs: [...state.inspected].map((candidateId) => `candidate:${candidateId}:inspection`),
-    actions: state.trace.length + 1 };
-  state.trace.push({ type: action.type, answerId: action.answerId });
-  return { status: 'submitted', remaining: state.remaining, inspected: state.inspected.size };
+  return createScenarioWorld(buildCase(scenarioId, difficulty, seed));
 }
 
 function domainFor(id) {

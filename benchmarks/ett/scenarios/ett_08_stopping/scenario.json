@@ -2,7 +2,7 @@
   "id": "ETT-08",
   "name": "arret-rationnel",
   "priority": false,
-  "status": "executable_domain_calibration_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -21,5 +21,6 @@
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
   },
-  "domain": "value-of-information"
+  "domain": "value-of-information",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-08" }
 }

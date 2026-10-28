@@ -2,7 +2,7 @@
   "id": "ETT-05",
   "name": "autocritique-correction",
   "priority": false,
-  "status": "executable_domain_calibration_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -20,5 +20,6 @@
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
   },
-  "domain": "reproduction-audit"
+  "domain": "reproduction-audit",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-05" }
 }

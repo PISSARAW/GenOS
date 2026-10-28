@@ -9,6 +9,85 @@ const { verifyInChild } = require('../evaluation/verifyInChild');
 const { compareRows, compareSystems } = require('../evaluation/replay');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
 
+function testActionFor(world, answerId, evidence = {}) {
+  const next = world.observation.nextAction;
+  if (!next) return { type: 'submit_answer', answerId };
+  const action = { type: next.type };
+  for (const [field, kind] of Object.entries(next.requiredFields)) {
+    action[field] = testValue({ field, kind, next, scenarioId: world.scenarioId, answerId, evidence });
+  }
+  return action;
+}
+
+function testValue(input) {
+  if (input.kind === 'candidate') return input.answerId;
+  if (input.kind === 'text') return testText(input);
+  if (input.kind === 'number' || input.kind === 'probability') return testNumber(input.next, input.evidence);
+  if (input.kind === 'boolean') return testBoolean(input.next, input.evidence);
+  if (input.kind === 'number_vector') return input.evidence.predictionsByCause;
+  if (input.kind === 'boolean_vector') return input.evidence.predictionsOnFreshState;
+  return null;
+}
+
+function testText(input) {
+  const { field, next, scenarioId, evidence } = input;
+  const values = { firstQuestion: 'Why does this sensor reading depart from its baseline?',
+    rule: 'The signal follows a stable relation across independent observations.' };
+  if (field === 'question' && scenarioId === 'ETT-01') return values.firstQuestion;
+  if (field === 'question') return `What does cycle ${next.step} show about the evidence?`;
+  if (field === 'rule') return values.rule;
+  if (field === 'method') return 'compare repeated readings against the baseline';
+  if (field === 'sourceIds') return evidence.independentSourceIds.join(',');
+  return `${field} ${next.step} provides a falsifiable observation`;
+}
+
+function testNumber(next, evidence) {
+  if (next.type === 'measure_heldout_transfer') return evidence.heldOutAccuracy;
+  if (next.type === 'check_prior_task_retention') return evidence.oldTaskAccuracyAfter;
+  if (next.type === 'update_belief_probability') return testPosterior(evidence);
+  if (next.type === 'estimate_information_value') return testExpectedValue(evidence);
+  if (next.type === 'resume_investigation') return evidence.restoredItems;
+  if (next.type === 'synthesize_supported_claims') return evidence.citationsVerified
+    ? evidence.supportedClaims : 0;
+  return 2;
+}
+
+function testPosterior(evidence) {
+  const numerator = evidence.priorProbability * evidence.likelihoodIfTrue;
+  const denominator = numerator + (1 - evidence.priorProbability) * evidence.likelihoodIfFalse;
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function testExpectedValue(evidence) {
+  return evidence.expectedInformationGain * evidence.probabilityOfResolution - evidence.tokenCost
+    - Math.max(0, evidence.uncertaintyAfter - evidence.uncertaintyBefore) * 0.5;
+}
+
+function testBoolean(next, evidence) {
+  const decisions = { verify_checkpoint_integrity: () => evidence.checksumValid,
+    resume_investigation: () => checkpointIsValid(evidence),
+    compare_expected_value_and_cost: () => testExpectedValue(evidence) > 0,
+    submit_corrected_conclusion: () => auditPasses(evidence),
+    accept_or_rollback_patch: () => patchIsSafe(evidence),
+    resolve_source_conflict: () => evidence.citationsVerified && evidence.unresolvedConflicts === 0 };
+  return decisions[next.type]?.() ?? true;
+}
+
+function checkpointIsValid(evidence) {
+  return evidence.checksumValid && evidence.decisionLogComplete
+    && evidence.restoredItems === evidence.expectedItems && evidence.duplicateItems === 0;
+}
+
+function auditPasses(evidence) {
+  return evidence.reportedPasses === evidence.independentRerunPasses
+    && evidence.fixtureIntegrity && evidence.sourceTraceComplete;
+}
+
+function patchIsSafe(evidence) {
+  return evidence.patchedHeldOut > evidence.baselineHeldOut
+    && evidence.oldSuiteFailuresAdded === 0 && evidence.sandboxRollbackPassed;
+}
+
 function testScenarioRegistry() {
   const modules = scenarioModules('all');
   assert.deepEqual(modules.map((item) => item.id), SCENARIO_IDS);
@@ -35,16 +114,22 @@ function testScenarioRegistry() {
       assert.equal(executableModule.build(difficulty, 901).observation.domain, first.observation.domain);
       assert.equal(Number.isFinite(referenceScore(scenarioId, first.observation.candidates[0].evidence)), true);
       const world = executableModule.createWorld(difficulty, 901);
+      const answerEvidence = first.observation.candidates.find((candidate) =>
+        candidate.id === first.oracle.answerId).evidence;
       assert.equal(world.observation.candidates.every((candidate) => !Object.hasOwn(candidate, 'evidence')), true);
-      assert.equal(world.observation.availableActions.includes('inspect_candidate'), true);
-      const inspected = world.act({ type: 'inspect_candidate', candidateId: world.observation.candidates[0].id });
-      assert.equal(inspected.status, 'observed');
-      assert.equal(Object.hasOwn(inspected, 'evidence'), true);
-      const submitted = world.act({ type: 'submit_answer', answerId: first.oracle.answerId });
-      assert.equal(submitted.status, 'submitted');
+      assert.equal(typeof world.observation.nextAction.type, 'string');
+      const early = world.act({ type: 'submit_answer', answerId: first.oracle.answerId });
+      assert.equal(early.status, 'rejected');
+      let last = early;
+      while (!world.terminal) last = world.act(testActionFor(world, first.oracle.answerId, answerEvidence));
+      assert.equal(last.status, 'submitted');
       assert.equal(world.terminal, true);
       assert.equal(world.result().answerId, first.oracle.answerId);
       assert.equal(Object.hasOwn(world.observation, 'oracle'), false);
+      const validation = verifyInChild({ ...first.oracle, requireInspection: true,
+        requireInteraction: true }, world.result());
+      assert.equal(validation.verdict, 'supported',
+        `${scenarioId}/${difficulty}: ${JSON.stringify(validation.domainMetrics)}`);
       const malformedWorld = executableModule.createWorld(difficulty, 902);
       const budgetBeforeInvalid = malformedWorld.remaining;
       assert.equal(malformedWorld.act(null).status, 'rejected');
@@ -69,6 +154,53 @@ function testIndependentOracle() {
   const legacyControl = verifyInChild({ answerId: 'candidate-2' },
     { answerId: 'candidate-2', evidenceRefs: ['trace:legacy'] });
   assert.equal(legacyControl.verdict, 'supported');
+}
+
+function verifyDomainFailure(expected, actionTrace) {
+  const proposal = { answerId: expected.answerId, actionTrace,
+    evidenceRefs: [`candidate:${expected.answerId}:inspection`, ...expected.requiredActionRefs] };
+  return verifyInChild({ ...expected, requireInspection: true, requireInteraction: true }, proposal);
+}
+
+function testDomainOracleRejections() {
+  const curiosity = buildCase('ETT-01', 'simple', 2301).oracle;
+  const weakQuestion = verifyDomainFailure(curiosity, [{ type: 'form_research_question',
+    action: { question: 'What is happening here?' } }]);
+  assert.equal(weakQuestion.domainChecksPassed, false);
+  const wrongTest = verifyDomainFailure(curiosity, [
+    { type: 'form_research_question', action: { question: 'Why does this sensor reading depart from its baseline?' } },
+    { type: 'test_anomaly_hypothesis', action: { candidateId: curiosity.answerId,
+      method: 'random unrelated operation' } }
+  ]);
+  assert.equal(wrongTest.domainChecksPassed, false);
+
+  const chain = buildCase('ETT-02', 'open', 2301).oracle;
+  const repeatedCycles = Array.from({ length: chain.evaluation.minimumUsefulCycles }, () => ({
+    stepId: 'research_cycle', action: { question: 'same question each time',
+      evidenceCandidateId: chain.answerId } }));
+  assert.equal(verifyDomainFailure(chain, repeatedCycles).domainChecksPassed, false);
+
+  const transfer = buildCase('ETT-04', 'simple', 2301).oracle;
+  const metrics = transfer.evaluation.metricsByCandidate[transfer.answerId];
+  const poorTransfer = verifyDomainFailure(transfer, [
+    { type: 'measure_heldout_transfer', action: { candidateId: transfer.answerId,
+      prediction: metrics.heldOutAccuracy + 40 } },
+    { type: 'check_prior_task_retention', action: { candidateId: transfer.answerId,
+      prediction: metrics.oldTaskAccuracyAfter } }
+  ]);
+  assert.equal(poorTransfer.domainChecksPassed, false);
+
+  const discovery = buildCase('ETT-09', 'simple', 2301).oracle;
+  const target = discovery.evaluation.predictionsByCandidate[discovery.answerId];
+  const wrong = [...target];
+  wrong[0] = !wrong[0];
+  const falsePrediction = verifyDomainFailure(discovery, [
+    { type: 'state_latent_rule', action: { rule: 'A stable relation predicts new observations.',
+      falsifier: 'A repeated contradiction refutes the rule.' } },
+    { type: 'predict_fresh_state', action: { candidateId: discovery.answerId, prediction: wrong } },
+    { type: 'verify_fresh_prediction', action: { candidateId: discovery.answerId, prediction: wrong } }
+  ]);
+  assert.equal(falsePrediction.domainChecksPassed, false);
 }
 
 function testReplayComparison() {
@@ -102,7 +234,7 @@ function testRunnerOptions() {
 function testResumeContracts() {
   const options = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--conditions', 'full,voyager_adapted']);
-  const report = { schema: 'genos.ett-runtime-campaign/v2', model: options.model,
+  const report = { schema: 'genos.ett-runtime-campaign/v3', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,
     measuredTokens: 200000, status: 'partial_global_token_budget_reserve_reached', records: [] };
@@ -178,36 +310,37 @@ async function testIndependentAdapters() {
   assert.match(captures.get('darwin_godel_machine_adapted')[0], /bounded decision-policy/);
   assert.throws(() => createIndependentAdapter('unknown', { model: 'ollama://test' }));
 
-  const interactive = SYSTEM_IDS.map((id) => {
+  for (const id of SYSTEM_IDS) {
+    const caseData = buildCase('ETT-01', 'simple', 1103);
+    const answerEvidence = caseData.observation.candidates.find((candidate) =>
+      candidate.id === caseData.oracle.answerId).evidence;
+    const world = scenarioModules('priority').find((item) => item.id === 'ETT-01')
+      .createWorld('simple', 1103);
     const prompts = [];
     let calls = 0;
     const ledger = { async generateJson(request) {
       prompts.push(request.prompt);
       calls += 1;
-      const action = calls === 1
-        ? { type: 'inspect_candidate', candidateId: 'candidate-0' }
-        : { type: 'submit_answer', answerId: 'candidate-0' };
-      return { value: { action } };
+      return { value: { action: testActionFor(world, caseData.oracle.answerId, answerEvidence) } };
     }, takeSnapshot: () => ({ tokens: calls, usd: 0, seconds: 0,
       measured: true, calls, callDetails: [] }) };
-    return { id, prompts, adapter: createIndependentAdapter(id,
-      { model: 'ollama://test', ledger }) };
-  });
-  for (const entry of interactive) {
-    const world = scenarioModules('priority').find((item) => item.id === 'ETT-01')
-      .createWorld('simple', 1103);
-    const proposal = await entry.adapter.solve({ caseId: world.caseId,
+    const adapter = createIndependentAdapter(id, { model: 'ollama://test', ledger });
+    const proposal = await adapter.solve({ caseId: world.caseId,
       scenarioId: 'ETT-01', difficulty: 'simple', observation: world.observation, world });
-    assert.equal(proposal.answerId, 'candidate-0');
-    assert.equal(proposal.actions, 2);
-    assert.deepEqual(proposal.evidenceRefs, ['candidate:candidate-0:inspection']);
-    assert.match(entry.prompts[1], /Latest environment response/);
+    assert.equal(proposal.answerId, caseData.oracle.answerId);
+    assert.equal(proposal.actions, world.observation.totalSteps + 1);
+    assert.equal(proposal.evidenceRefs.includes(`candidate:${caseData.oracle.answerId}:inspection`), true);
+    const verification = verifyInChild({ ...caseData.oracle, requireInspection: true,
+      requireInteraction: true }, proposal);
+    assert.equal(verification.verdict, 'supported');
+    assert.match(prompts[1], /Latest environment response/);
   }
 }
 
 async function main() {
   testScenarioRegistry();
   testIndependentOracle();
+  testDomainOracleRejections();
   testReplayComparison();
   testRunnerOptions();
   testResumeContracts();

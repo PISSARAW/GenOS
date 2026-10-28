@@ -2,6 +2,20 @@
 
 Date de mise à jour : 2026-10-28. Résultats observés dans le workspace, sans inférer la réussite des commandes interrompues ou échouées.
 
+## Qualification du protocole runtime v3
+
+| Vérification | Résultat observé | Portée |
+| --- | --- | --- |
+| `node benchmarks/ett/tests/test_runtime_campaign.js` | Réussi après correction | 12 scénarios × 3 niveaux, monde déterministe, étapes spécifiques, budget, traces, refus d'actions hors protocole, réponses sémantiquement fausses et 5 adaptateurs indépendants via doubles de modèle. |
+| `npm --prefix backend run test:ett` | Réussi | Contrats ETT backend, admission, cycles, reprise, mémoire, vérification et campagne; messages de tables vectorielles optionnelles absentes non bloquants. |
+| `node benchmarks/ett/tests/test_statistics.js` | Réussi | Bootstrap apparié, correction de Holm et contrats CLI. |
+| `node benchmarks/ett/run_reference_campaign.js --seeds 1 --output <temporaire>` | Réussi | 8 contrôles × 36 cas, zéro erreur d'exécution; contrôle déterministe de compatibilité, aucune mesure de capacité LLM. |
+| `python scripts/ci/check_code_quality.py` | Échec global | 185 violations recensées (182 au-dessus de la baseline); aucune violation `benchmarks/ett` dans le relevé filtré après refactorisation. La porte globale est déjà rouge sur le monorepo et n'est pas attribuée au seul ETT. |
+| `npm test` | Bloqué au milieu | Les suites guard, biology et worker-workspaces passent; le préflight de la suite backend exige 512 Mio libres et en détecte 212. |
+| `cargo test --workspace` | Relancé sur D: | La première exécution a échoué faute d'espace sur C: (erreur linker 112); une seconde compile sur une cible D: et reste à qualifier. |
+
+Les tests d'action synthétiques confirment la cohérence interne du protocole, pas sa validité empirique. Les environnements fournissent des preuves déterministes fabriquées pour l'évaluation; l'oracle mesure les décisions correspondantes et ne remplace pas les critères proposés du protocole original. Aucune campagne modèle v3 n'a été lancée : l'ancien plafond de 250 000 tokens n'a pas été révisé. Les 13 conditions enregistrées nécessitent au minimum 124 800 appels d'action pour 30 seeds, hors génération endogène, reprises et erreurs. Les adaptateurs Voyager, AI Scientist v2 et DGM demeurent des politiques locales adaptées; leurs systèmes originaux ne sont pas installés. Les niveaux ETT-L1 à ETT-L5 restent non qualifiés.
+
 | Commande | Résultat | Détail |
 | --- | --- | --- |
 | `npm --prefix backend run test:ett` | Réussi | Contrats, reprise multicycle, intégration campagne et frontières de preuve passés. La commande a fini avant que le runner synthétique lancé dans la même session n'échoue initialement faute de dossier de sortie ; elle a ensuite été suivie d'une relance réussie du pilote. |

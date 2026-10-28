@@ -2,7 +2,7 @@
   "id": "ETT-09",
   "name": "decouverte-inattendue",
   "priority": true,
-  "status": "executable_domain_calibration_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -25,5 +25,6 @@
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
   },
-  "domain": "latent-rule-prediction"
+  "domain": "latent-rule-prediction",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-09" }
 }

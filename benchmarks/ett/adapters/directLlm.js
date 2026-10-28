@@ -7,12 +7,12 @@ function directPrompt(input) {
   return ['Choose the best candidate using the public evidence revealed so far.',
     `Scenario observation: ${JSON.stringify(input.testCase.observation)}`,
     `Latest environment response: ${JSON.stringify(input.latest)}`,
-    `Action ${input.turn}/${input.maxTurns}. Return JSON with action {type:"inspect_candidate",candidateId:"candidate-N"} or {type:"submit_answer",answerId:"candidate-N"}.`].join('\n');
+    `Action ${input.turn}/${input.maxTurns}. Required next action: ${JSON.stringify(input.testCase.world.observation.nextAction)}.`,
+    'Return JSON with an action matching the required type and fields. When nextAction is null, submit_answer with an inspected answerId.'].join('\n');
 }
 
 function applyAction(world, value) {
-  if (value.action?.type === 'inspect_candidate') return world.act(value.action);
-  if (value.action?.type === 'submit_answer') return world.act(value.action);
+  if (typeof value.action?.type === 'string') return world.act(value.action);
   if (typeof value.answerId === 'string') {
     return world.act({ type: 'submit_answer', answerId: value.answerId });
   }
@@ -40,9 +40,11 @@ function successOutcome(input) {
   if (typeof answerId !== 'string') throw new Error('Direct model omitted answerId.');
   const evidenceRefs = input.worldResult ? input.worldResult.evidenceRefs
     : Array.isArray(input.value.evidenceRefs) ? input.value.evidenceRefs : [`${answerId}:evidence`];
-  const oracle = verifyInChild(input.context.oracle, { answerId, evidenceRefs });
+  const oracle = verifyInChild(input.context.oracle, { answerId, evidenceRefs,
+    actionTrace: input.worldResult?.trace || [] });
   return { success: true, scientificEvidence: usage.measured, condition: 'llm_only',
     actions: input.worldResult?.actions || 0,
+    actionTrace: input.worldResult?.trace || [], oracleMetrics: oracle.domainMetrics,
     verifiedDiscoveries: oracle.usefulDiscoveries, normalizedCost: usage.tokens / 12000,
     measuredTokens: usage.tokens, measuredHostSeconds: usage.seconds, measuredCostUsd: 0,
     provider: input.context.model, providerCalls: usage.calls, providerCallDetails: usage.callDetails,
