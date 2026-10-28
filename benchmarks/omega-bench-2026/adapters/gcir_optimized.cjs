@@ -11,6 +11,7 @@ const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend', 's
 const runtimeModule = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaInteropService'));
 const { transformE04 } = require('./e04-optimizer.cjs');
+const traces = require('../src/run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -51,13 +52,15 @@ function registerHandlers(runtime, row, input) {
   });
 }
 
-function executeRow(row) {
+function executeRow(row, trace) {
   const operations = operationsFor(row);
   const staticResult = interop.validate(envelopeFor(row, operations));
   if (!staticResult.valid) throw new Error(`static_validation_${staticResult.errors[0] || 'invalid'}`);
+  if (trace) traces.phase(trace, 'static_validation_completed');
   const task = taskInput(row);
   const compiled = compiler.compile({ operations, targets: ['call'], model: 'deterministic-benchmark-handler' });
   if (compiled.status !== 'ready') throw new Error(`compile_${compiled.status}`);
+  if (trace) traces.phase(trace, 'gcir_compile_completed');
   const runtime = runtimeModule.createRuntime();
   registerHandlers(runtime, row, task.input);
   return runtime.execute({ operations: compiled.slice.nodes,
@@ -77,9 +80,14 @@ function executionAnswer(result, optimization) {
 }
 
 async function timedRow(row, repetition) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'C', repetition }, row.input);
   const input = JSON.stringify(row.input);
   const started = performance.now();
-  const output = await executeRow(row);
+  const output = await executeRow(row, trace);
+  traces.phase(trace, row.experiment_id === 'E04' ? 'optimization_and_runtime_completed'
+    : 'gcir_runtime_completed');
+  traces.finish(trace, output.answer);
   const latency = performance.now() - started;
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id, condition_id: 'C',
@@ -119,8 +127,9 @@ async function main() {
   }
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(outputPath, 'C');
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifestFor(rows, outputPath), null, 2)}\n`);
+    `${JSON.stringify({ ...manifestFor(rows, outputPath), ...traceManifest }, null, 2)}\n`);
   process.stdout.write(`Condition C complete: ${results.length} statically verified runs across ${rows.length} cases.\n`);
 }
 

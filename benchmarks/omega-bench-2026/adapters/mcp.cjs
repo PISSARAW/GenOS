@@ -17,6 +17,7 @@ const { McpServer } = mcpRequire('@modelcontextprotocol/sdk/server/mcp.js');
 const { InMemoryTransport } = mcpRequire('@modelcontextprotocol/sdk/inMemory.js');
 const { z } = mcpRequire('zod');
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 const REPETITIONS = 3;
 const EXPERIMENTS = ['E07', 'E12'];
 
@@ -40,12 +41,16 @@ async function connectPair(server) {
 }
 
 async function runRow(row, repetition, client) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'MCP', repetition }, row.input);
   const input = JSON.stringify(row.input);
   const started = performance.now();
   const response = await client.callTool({ name: 'execute_case', arguments: { scenario: row } });
   const latency = performance.now() - started;
   const text = response.content?.find((item) => item.type === 'text')?.text;
   const answer = text ? JSON.parse(text) : null;
+  traces.phase(trace, 'mcp_tool_result_observed');
+  traces.finish(trace, answer, response.isError || answer === null ? 'failed' : 'completed');
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'MCP', repetition,
@@ -79,6 +84,7 @@ function writeResults(rows, outputPath, results) {
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
     external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'MCP'));
   const manifestPath = outputPath.replace(/\.jsonl$/i, '.manifest.json');
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }

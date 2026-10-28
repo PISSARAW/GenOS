@@ -10,16 +10,19 @@ const { performance } = require('node:perf_hooks');
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
 const RUNTIME = path.join(__dirname, 'langgraph-runtime');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS
+  || path.join(ROOT, 'dataset', 'public', 'inputs');
 const graphRequire = createRequire(path.join(RUNTIME, 'package.json'));
 const { Annotation, END, START, StateGraph } = graphRequire('@langchain/langgraph');
 const { SqliteSaver } = graphRequire('@langchain/langgraph-checkpoint-sqlite');
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 const EXPERIMENTS = ['E05', 'E06', 'E07', 'E10'];
 const REPETITIONS = 3;
 
 function readRows() {
   return EXPERIMENTS.flatMap((experiment) => reference.readRows(
-    path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
 }
 
 function createGraph(validator, saver, failureState) {
@@ -60,6 +63,8 @@ async function stateHistory(graph, config) {
 }
 
 async function runScenario(row, repetition, context) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'LANGGRAPH', repetition }, row.input);
   const threadId = `omega-${row.scenario_id}-r${repetition}`;
   const config = { configurable: { thread_id: threadId } };
   const serialized = JSON.stringify(row.input);
@@ -87,6 +92,8 @@ async function runScenario(row, repetition, context) {
     output.metrics = { ...output.metrics,
       checkpoint_count: await stateHistory(context.graph, config) };
   }
+  traces.phase(trace, 'langgraph_state_and_checkpoint_observed');
+  traces.finish(trace, { answer: output.answer, metrics: output.metrics });
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'LANGGRAPH', repetition, status: 'completed', answer: output.answer,
@@ -113,6 +120,7 @@ function saveResults(rows, results, outputPath) {
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() }, external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'LANGGRAPH'));
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`);
 }

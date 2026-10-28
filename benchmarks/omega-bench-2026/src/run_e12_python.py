@@ -1,6 +1,8 @@
 """Independent Python reference for E12 business-operation semantics."""
 import hashlib
 import json
+import os
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,22 +58,65 @@ def mission_transfer(workload):
 
 
 def run_case(row):
+    started = time.perf_counter_ns()
+    events = []
+
+    def record(name):
+        events.append({"name": name, "at_unix_ms": time.time_ns() // 1_000_000,
+                       "elapsed_ms": (time.perf_counter_ns() - started) / 1_000_000})
+
+    record("run_started")
     operation = row["input"]["intent"]
-    return {"scenario_id": row["scenario_id"], "valid": execute(operation, [operation["reference"]]),
-            "unauthorized": execute(operation, []),
-            "malformed": execute({**operation, "kind": "CALLX"}, [operation["reference"]]),
-            "mission_execution": mission_transfer(row["input"]["mission_workload"])}
+    valid = execute(operation, [operation["reference"]])
+    record("valid_operation_observed")
+    unauthorized = execute(operation, [])
+    record("unauthorized_operation_observed")
+    malformed = execute({**operation, "kind": "CALLX"}, [operation["reference"]])
+    record("malformed_operation_observed")
+    mission = mission_transfer(row["input"]["mission_workload"])
+    record("mission_transfer_observed")
+    output = {"scenario_id": row["scenario_id"], "valid": valid,
+              "unauthorized": unauthorized, "malformed": malformed,
+              "mission_execution": mission}
+    record("run_completed")
+    trace = {"schema": "omega-bench-e12-trace/v1", "backend": "standalone_python_reference",
+             "scenario_id": row["scenario_id"],
+             "started_at_unix_ms": events[0]["at_unix_ms"],
+             "ended_at_unix_ms": events[-1]["at_unix_ms"],
+             "duration_ms": events[-1]["elapsed_ms"],
+             "input_sha256": hashlib.sha256(canonical(row["input"]).encode("utf-8")).hexdigest(),
+             "result_sha256": hashlib.sha256(canonical(output).encode("utf-8")).hexdigest(),
+             "status": "completed", "events": events}
+    return output, trace
+
+
+def public_path(base, filename):
+    results_root = (ROOT / "results").resolve()
+    candidate = (Path(base) / filename).resolve()
+    try:
+        candidate.relative_to(results_root)
+    except ValueError as error:
+        raise ValueError("E12 output path must stay under public results/") from error
+    return candidate
 
 
 def main():
-    inputs = [json.loads(line) for line in (ROOT / "dataset/public/inputs/E12.jsonl").read_text(encoding="utf-8").splitlines()]
-    outputs = [run_case(row) for row in inputs]
-    path = ROOT / "results/E12-python.jsonl"
+    input_root = Path(os.environ.get("OMEGA_DATASET_INPUTS", ROOT / "dataset/public/inputs"))
+    inputs = [json.loads(line) for line in (input_root / "E12.jsonl").read_text(encoding="utf-8").splitlines()]
+    runs = [run_case(row) for row in inputs]
+    outputs = [run[0] for run in runs]
+    traces = [run[1] for run in runs]
+    path = public_path(os.environ.get("OMEGA_RESULTS_DIR", ROOT / "results"), "E12-python.jsonl")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(canonical(row) + "\n" for row in outputs), encoding="utf-8")
+    trace_path = path.with_name(path.stem + ".traces.jsonl")
+    trace_body = "".join(canonical(row) + "\n" for row in traces)
+    trace_path.write_text(trace_body, encoding="utf-8")
     manifest = {"backend": "standalone_python_reference", "business_backend": True,
                 "cases": len(outputs), "dataset_manifest_sha256": hashlib.sha256((ROOT / "dataset/manifest.json").read_bytes()).hexdigest(),
-                "output_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                "output_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "trace_file": trace_path.name, "trace_records": len(traces),
+                "trace_sha256": hashlib.sha256(trace_path.read_bytes()).hexdigest()}
     path.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"Python reference: {len(outputs)} cases -> {path.relative_to(ROOT)}")
 

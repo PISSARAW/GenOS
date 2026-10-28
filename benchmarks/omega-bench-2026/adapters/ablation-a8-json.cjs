@@ -8,6 +8,7 @@ const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
 const genos = require('./genos_full.cjs');
+const traces = require('../src/run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -28,6 +29,8 @@ function executeReferenceJson(row, validator) {
 
 async function runRow(input) {
   const { row, repetition, harness, validator } = input;
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'A8', repetition }, row.input);
   const inputJson = JSON.stringify(row.input);
   const started = performance.now();
   const result = row.experiment_id === 'E10'
@@ -39,6 +42,9 @@ async function runRow(input) {
       mission_execution: reference.executeMissionWorkload(row.input.mission_workload) };
   }
   const answer = result.answer;
+  traces.phase(trace, row.experiment_id === 'E10' ? 'json_morphogenesis_service_completed'
+    : row.experiment_id === 'E11' ? 'json_physiology_service_completed' : 'json_reference_dispatch_completed');
+  traces.finish(trace, answer, result.violations?.length ? 'failed' : 'completed');
   return { scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'A8', repetition, status: result.violations?.length ? 'failed' : 'completed',
     answer, metrics: { ...result.metrics,
@@ -83,8 +89,9 @@ async function main() {
     }
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, `${results.map((row) => JSON.stringify(row)).join('\n')}\n`);
+    const traceManifest = traces.writeSidecar(outputPath, 'A8');
     fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-      `${JSON.stringify(manifestFor(rows, outputPath, results), null, 2)}\n`);
+      `${JSON.stringify({ ...manifestFor(rows, outputPath, results), ...traceManifest }, null, 2)}\n`);
     process.stdout.write(`A8 matched JSON control complete: ${results.length} runs across ${rows.length} cases.\n`);
   } finally {
     await genos.closeHarness(harness);

@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
+const traces = require('../src/run-trace.cjs');
 const reference = require('./json_reference.cjs');
 const genos = require('./genos_full.cjs');
 const { createRuntime } = require(path.resolve(__dirname, '..', '..', '..', 'backend',
@@ -61,10 +62,16 @@ async function executeControl(row) {
 }
 
 async function timedRow(row, repetition) {
+  const condition = row.experiment_id === 'E10' ? 'A5' : 'A6';
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: condition, repetition }, row.input);
   const started = performance.now();
   const output = await executeControl(row);
+  traces.phase(trace, row.experiment_id === 'E10' ? 'morphogenesis_control_completed'
+    : 'physiology_control_completed');
+  traces.finish(trace, output.answer);
   return { scenario_id: row.scenario_id, experiment_id: row.experiment_id,
-    condition_id: row.experiment_id === 'E10' ? 'A5' : 'A6', repetition,
+    condition_id: condition, repetition,
     status: 'completed', answer: output.answer, metrics: output.metrics,
     telemetry: { latency_ms: performance.now() - started,
       input_bytes: Buffer.byteLength(JSON.stringify(row.input)),
@@ -75,10 +82,12 @@ async function timedRow(row, repetition) {
 function writeResults(input) {
   const { experiment, rows, results } = input;
   const condition = experiment === 'E10' ? 'A5' : 'A6';
-  const outputPath = path.join(ROOT, 'results', `ABLATION-${condition}.jsonl`);
+  const resultsDir = process.env.OMEGA_RESULTS_DIR || path.join(ROOT, 'results');
+  const outputPath = path.join(resultsDir, `ABLATION-${condition}.jsonl`);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((result) => JSON.stringify(result)).join('\n')}\n`);
-  const manifest = manifestFor({ experiment, rows, results, outputPath });
+  const manifest = { ...manifestFor({ experiment, rows, results, outputPath }),
+    ...traces.writeSidecar(outputPath, condition) };
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`);
 }

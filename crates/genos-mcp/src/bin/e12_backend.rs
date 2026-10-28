@@ -8,7 +8,8 @@ use omega_runtime::{ExecutionInput, OmegaRuntime, OperationContext};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 
 fn operation(value: &Value, malformed: bool) -> OmegaOperation {
@@ -101,31 +102,83 @@ fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+fn timestamp_ms() -> u128 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
+}
+
+fn record_trace_event(events: &mut Vec<Value>, name: &str, started: Instant) {
+    events.push(json!({"name":name, "at_unix_ms":timestamp_ms(),
+        "elapsed_ms":started.elapsed().as_secs_f64() * 1000.0}));
+}
+
+fn checked_results_dir(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let results_root = root.join("results");
+    let configured = std::env::var_os("OMEGA_RESULTS_DIR")
+        .map(PathBuf::from).unwrap_or_else(|| results_root.clone());
+    let candidate = if configured.is_absolute() { configured } else { root.join(configured) };
+    if candidate.components().any(|part| part == Component::ParentDir) {
+        return Err("E12 output path must stay under public results/".into());
+    }
+    fs::create_dir_all(&candidate)?;
+    let canonical_results = fs::canonicalize(results_root)?;
+    let canonical_candidate = fs::canonicalize(candidate)?;
+    if !canonical_candidate.starts_with(&canonical_results) {
+        return Err("E12 output path must stay under public results/".into());
+    }
+    Ok(canonical_candidate)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks/omega-bench-2026");
-    let input_path = root.join("dataset/public/inputs/E12.jsonl");
+    let input_root = std::env::var_os("OMEGA_DATASET_INPUTS").map(PathBuf::from)
+        .unwrap_or_else(|| root.join("dataset/public/inputs"));
+    let input_path = input_root.join("E12.jsonl");
     let input = fs::read_to_string(&input_path)?;
     let mut outputs = Vec::new();
+    let mut traces = Vec::new();
     for line in input.lines() {
         let row: Value = serde_json::from_str(line)?;
+        let started = Instant::now();
+        let mut events = Vec::new();
+        record_trace_event(&mut events, "run_started", started);
         let intent = &row["input"]["intent"];
         let valid = execute(ExecutionRequest { value:intent, authorized:true,
             malformed:false, workload:Some(&row["input"]["mission_workload"]) });
+        record_trace_event(&mut events, "valid_operation_observed", started);
         let unauthorized = execute(ExecutionRequest { value:intent, authorized:false,
             malformed:false, workload:None });
+        record_trace_event(&mut events, "unauthorized_operation_observed", started);
         let malformed = execute(ExecutionRequest { value:intent, authorized:true,
             malformed:true, workload:None });
-        outputs.push(json!({"scenario_id":row["scenario_id"],
+        record_trace_event(&mut events, "malformed_operation_observed", started);
+        let output = json!({"scenario_id":row["scenario_id"],
             "valid":valid["response"], "unauthorized":unauthorized["response"],
-            "malformed":malformed["response"], "mission_execution":valid["mission_execution"]}));
+            "malformed":malformed["response"], "mission_execution":valid["mission_execution"]});
+        record_trace_event(&mut events, "mission_transfer_observed", started);
+        record_trace_event(&mut events, "run_completed", started);
+        let input_bytes = serde_json::to_vec(&row["input"])?;
+        let result_bytes = serde_json::to_vec(&output)?;
+        traces.push(json!({"schema":"omega-bench-e12-trace/v1",
+            "backend":"production_rust_omega_runtime", "scenario_id":row["scenario_id"],
+            "started_at_unix_ms":events.first().and_then(|event|event["at_unix_ms"].as_u64()),
+            "ended_at_unix_ms":events.last().and_then(|event|event["at_unix_ms"].as_u64()),
+            "duration_ms":started.elapsed().as_secs_f64() * 1000.0,
+            "input_sha256":hash(&input_bytes), "result_sha256":hash(&result_bytes),
+            "status":"completed", "events":events}));
+        outputs.push(output);
     }
     let body = outputs.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n";
-    let output_path = root.join("results/E12-rust.jsonl");
+    let output_path = checked_results_dir(&root)?.join("E12-rust.jsonl");
     fs::create_dir_all(output_path.parent().unwrap())?;
     fs::write(&output_path, body.as_bytes())?;
+    let trace_path = output_path.with_file_name("E12-rust.traces.jsonl");
+    let trace_body = traces.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n";
+    fs::write(&trace_path, trace_body.as_bytes())?;
     let dataset_manifest = fs::read(root.join("dataset/manifest.json"))?;
     let manifest = json!({"backend":"production_rust_omega_runtime", "business_backend":true,
-        "cases":outputs.len(), "dataset_manifest_sha256":hash(&dataset_manifest), "output_sha256":hash(body.as_bytes())});
+        "cases":outputs.len(), "dataset_manifest_sha256":hash(&dataset_manifest), "output_sha256":hash(body.as_bytes()),
+        "trace_file":trace_path.file_name().and_then(|name|name.to_str()).unwrap_or_default(),
+        "trace_records":traces.len(), "trace_sha256":hash(trace_body.as_bytes())});
     fs::write(output_path.with_extension("manifest.json"), serde_json::to_vec_pretty(&manifest)?)?;
     println!("Rust Omega runtime: {} cases -> {}", outputs.len(), output_path.display());
     Ok(())

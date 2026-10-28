@@ -7,6 +7,7 @@ const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
 const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
+const traces = require('../src/run-trace.cjs');
 process.env.GENOS_ADMIN_PASSWORD ||= 'omega-bench-local-fixture';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -225,6 +226,8 @@ async function invokeGcirService(input) {
 }
 
 async function timedRow(row, repetition, harness) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'D', repetition }, row.input);
   const input = JSON.stringify(row.input);
   const started = performance.now();
   let output;
@@ -238,6 +241,9 @@ async function timedRow(row, repetition, harness) {
   }
   const latency = performance.now() - started;
   const answer = output.answer;
+  traces.phase(trace, row.experiment_id === 'E10' ? 'genos_morphogenesis_and_gcir_completed'
+    : row.experiment_id === 'E11' ? 'genos_physiology_and_gcir_completed' : 'gcir_runtime_completed');
+  traces.finish(trace, answer, status);
   const result = { scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'D', repetition, status, answer,
     metrics: output.metrics, violations: output.violations || [],
@@ -295,10 +301,11 @@ function rowsForRun(options) {
 function persistResults(rows, results, options) {
   fs.mkdirSync(path.dirname(options.outputPath), { recursive: true });
   fs.writeFileSync(options.outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(options.outputPath, 'D');
   fs.writeFileSync(options.outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifestFor({ rows, outputPath: options.outputPath,
+    `${JSON.stringify({ ...manifestFor({ rows, outputPath: options.outputPath,
       repetitions: options.repetitions, pilot: Boolean(options.pilotExperiment),
-      partialScope: Boolean(options.scopeSelection) }), null, 2)}\n`);
+      partialScope: Boolean(options.scopeSelection) }), ...traceManifest }, null, 2)}\n`);
 }
 
 async function main() {

@@ -14,16 +14,21 @@ const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaInteropService'));
 const { createRuntime } = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaRuntimeService'));
+const traces = require('../src/run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
 const DATASET_ROOT = process.env.OMEGA_DATASET_ROOT || path.join(ROOT, 'dataset');
 
 async function runA1(row, repetition, optimized) {
+  const condition = optimized ? 'A1-on' : 'A1-off';
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: condition, repetition }, row.input);
   const started = performance.now();
   const plan = optimized ? transformE04(row.input,
     (input) => reference.execute({ ...row, input }, null))
     : { input: row.input, passes: [], all_invariants_preserved: true };
+  if (optimized) traces.phase(trace, 'five_optimization_passes_completed');
   const operations = [
     { id: 'read', kind: 'READ', reference: 'bench/input', dependsOn: [], state: 'open' },
     { id: 'select', kind: 'SELECT', reference: 'bench/input', dependsOn: ['read'], state: 'open' },
@@ -34,6 +39,7 @@ async function runA1(row, repetition, optimized) {
   if (!interop.validate(envelope).valid) throw new Error('a1_envelope_invalid');
   const compiled = compiler.compile({ operations, targets: ['call'], model: 'a1-optimizer-ablation' });
   if (compiled.status !== 'ready') throw new Error(`a1_compile_${compiled.status}`);
+  traces.phase(trace, 'gcir_compile_completed');
   const runtime = createRuntime();
   runtime.registerReader('bench/input', async () => plan.input);
   runtime.registerTool('bench/E04', async ({ input }) => reference.execute({ ...row, input }, null));
@@ -41,7 +47,9 @@ async function runA1(row, repetition, optimized) {
     policy: envelope.policy, allowEmit: true });
   if (executed.status !== 'emitted') throw new Error(`a1_runtime_${executed.reason}`);
   const answer = executed.values.call;
-  return resultRow({ row, repetition, condition: optimized ? 'A1-on' : 'A1-off', answer,
+  traces.phase(trace, 'gcir_runtime_completed');
+  traces.finish(trace, answer);
+  return resultRow({ row, repetition, condition, answer,
     metrics: { optimizer: 'five_semantics_preserving_passes', transformations: plan.passes,
       all_invariants_preserved: plan.all_invariants_preserved }, started });
 }
@@ -58,11 +66,17 @@ function looseStructuralCheck(candidate) {
 }
 
 function runA3(row, repetition, typed) {
+  const condition = typed ? 'A3-on' : 'A3-off';
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: condition, repetition }, row.input);
   const candidate = envelopeFor(row);
   const started = performance.now();
   const accepted = typed ? interop.validate(candidate).valid : looseStructuralCheck(candidate);
-  return resultRow({ row, repetition, condition: typed ? 'A3-on' : 'A3-off',
-    answer: { accepted, mission_execution: reference.executeMissionWorkload(row.input.mission_workload) },
+  const answer = { accepted,
+    mission_execution: reference.executeMissionWorkload(row.input.mission_workload) };
+  traces.phase(trace, typed ? 'schema_typing_validation_completed' : 'structural_check_completed');
+  traces.finish(trace, answer);
+  return resultRow({ row, repetition, condition, answer,
     metrics: { typing: typed ? 'schema+enum+field-types' : 'container-shape-only',
       schema_validation: typed ? 'enabled' : 'disabled', json_parse: 'enabled' }, started });
 }
@@ -97,11 +111,14 @@ function manifest(input) {
 
 function saveArm(input) {
   const { condition, experiment, rows, results, feature } = input;
-  const outputPath = path.join(ROOT, 'results', `${condition}.jsonl`);
+  const resultsDir = process.env.OMEGA_RESULTS_DIR || path.join(ROOT, 'results');
+  const outputPath = path.join(resultsDir, `${condition}.jsonl`);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(outputPath, condition);
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifest({ condition, experiment, rows, results, outputPath, feature }), null, 2)}\n`);
+    `${JSON.stringify({ ...manifest({ condition, experiment, rows, results, outputPath, feature }),
+      ...traceManifest }, null, 2)}\n`);
 }
 
 async function runArms(input) {

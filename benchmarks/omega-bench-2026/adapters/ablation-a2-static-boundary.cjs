@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
+const traces = require('../src/run-trace.cjs');
 const reference = require('./json_reference.cjs');
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaCompiler'));
@@ -66,15 +67,22 @@ function rejectionLayer(stage, outcome) {
 }
 
 async function runRow(row, repetition, compileEnabled) {
+  const condition = compileEnabled ? 'A2-on' : 'A2-off';
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: 'E03',
+    condition_id: condition, repetition }, row.input);
   const candidate = row.input.candidate;
   const operations = executionGraph(candidate);
   const stage = compilerStage(candidate, operations, compileEnabled);
+  traces.phase(trace, 'validation_and_compile_stage_completed');
   const outcome = await runtimeStage({ candidate, operations, stage });
+  traces.phase(trace, 'runtime_stage_evaluated');
   const accepted = outcome.execution.status === 'emitted';
+  const answer = { accepted,
+    mission_execution: reference.executeMissionWorkload(row.input.mission_workload) };
+  traces.finish(trace, answer);
   return { scenario_id: row.scenario_id, experiment_id: 'E03',
     condition_id: compileEnabled ? 'A2-on' : 'A2-off', repetition,
-    status: 'completed', answer: { accepted,
-      mission_execution: reference.executeMissionWorkload(row.input.mission_workload) },
+    status: 'completed', answer,
     metrics: { rejection_layer: rejectionLayer(stage, outcome),
       static_schema_status: compileEnabled ? (stage.phase === 'static_schema' ? 'rejected' : 'valid') : 'bypassed',
       compile_status: stage.compiled?.status || 'bypassed', compile_reason: stage.reason,
@@ -90,10 +98,12 @@ async function runRow(row, repetition, compileEnabled) {
 
 function writeArm(rows, condition, results) {
   const prefix = process.argv[2] || 'ABLATION';
-  const outputPath = path.join(ROOT, 'results', `${prefix}-${condition}.jsonl`);
+  const resultsDir = process.env.OMEGA_RESULTS_DIR || path.join(ROOT, 'results');
+  const outputPath = path.join(resultsDir, `${prefix}-${condition}.jsonl`);
   const implementation = path.join(REPO, 'backend/src/services/cognitiveOmegaCompiler.js');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((row) => JSON.stringify(row)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(outputPath, condition);
   const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: condition,
     status: 'scoped_public_development_ablation', scope: ['E03'], scenarios: rows.length,
     repetitions: 3, runs: results.length,
@@ -106,7 +116,8 @@ function writeArm(rows, condition, results) {
     dataset_manifest_sha256: crypto.createHash('sha256').update(fs.readFileSync(
       path.join(DATASET_ROOT, 'manifest.json'))).digest('hex'),
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
-      cpu: os.cpus()[0]?.model || null }, result_file: path.basename(outputPath), external_model_calls: 0 };
+      cpu: os.cpus()[0]?.model || null }, result_file: path.basename(outputPath), external_model_calls: 0,
+    ...traceManifest };
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 

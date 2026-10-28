@@ -8,6 +8,7 @@ const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual } = require('node:util');
 const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaInteropService'));
 
@@ -27,6 +28,8 @@ function envelopeFor(row) {
 }
 
 function runRow(row, repetition) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: 'E02',
+    condition_id: 'A7', repetition }, row.input);
   const source = envelopeFor(row);
   const jsonBytes = Buffer.byteLength(JSON.stringify(source));
   const started = performance.now();
@@ -37,6 +40,8 @@ function runRow(row, repetition) {
   const referenceAnswer = reference.execute(row, null);
   const verified = isDeepStrictEqual(answer, referenceAnswer);
   if (!verified) throw new Error(`compact_roundtrip_mismatch:${row.scenario_id}`);
+  traces.phase(trace, 'compact_encode_decode_oracle_check_completed');
+  traces.finish(trace, answer);
   return { scenario_id: row.scenario_id, experiment_id: 'E02', condition_id: 'A7',
     repetition, status: 'completed', answer,
     metrics: { compact_roundtrip_verified: verified, json_bytes: jsonBytes,
@@ -66,8 +71,9 @@ function manifestFor(rows, outputPath, results) {
 function writeResults(rows, results, outputPath) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((row) => JSON.stringify(row)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(outputPath, 'A7');
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifestFor(rows, outputPath, results), null, 2)}\n`);
+    `${JSON.stringify({ ...manifestFor(rows, outputPath, results), ...traceManifest }, null, 2)}\n`);
 }
 
 function main() {

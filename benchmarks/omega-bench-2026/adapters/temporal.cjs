@@ -8,6 +8,7 @@ const { spawn, spawnSync } = require('node:child_process');
 const { createRequire } = require('node:module');
 const { performance } = require('node:perf_hooks');
 const net = require('node:net');
+const traces = require('../src/run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -61,16 +62,21 @@ function datasetRows() {
 }
 
 async function runRow(row, repetition, context) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'TEMPORAL', repetition }, row.input);
   const input = JSON.stringify(row.input);
   const workflowId = `omega-${row.scenario_id}-r${repetition}`;
   const started = performance.now();
   const execution = await context.client.workflow.start('omegaWorkflow', {
     args: [row.experiment_id, row.input], taskQueue: context.taskQueue, workflowId
   });
+  traces.phase(trace, 'temporal_workflow_started');
   const answer = await execution.result();
+  traces.phase(trace, 'temporal_workflow_result_observed');
   if (row.experiment_id === 'E05') {
     context.replayHistories.push({ history: await execution.fetchHistory(), workflowId });
   }
+  traces.finish(trace, answer);
   const latency = performance.now() - started;
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
@@ -103,6 +109,7 @@ function writeResults(rows, outputPath, results) {
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
     external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'TEMPORAL'));
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`);
 }

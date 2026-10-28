@@ -10,6 +10,7 @@ const reference = require('./json_reference.cjs');
 const { createRuntime } = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaCompiler'));
 const omegaInterop = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaInteropService'));
+const traces = require('../src/run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -42,20 +43,25 @@ function policyFor(row) {
   };
 }
 
-async function executeRow(row) {
+async function executeRow(row, trace) {
   const operations = operationsFor(row);
   const compiled = compiler.compile({ operations, targets: ['call'], model: 'deterministic-benchmark-handler' });
   if (compiled.status !== 'ready') throw new Error(`compile_${compiled.status}`);
+  traces.phase(trace, 'gcir_compile_completed');
   const runtime = createRuntimeFor(row);
   const result = await runtime.execute({ operations: compiled.slice.nodes, policy: policyFor(row), allowEmit: true });
   if (result.status !== 'emitted' || result.values.call === undefined) throw new Error(`runtime_${result.reason || result.status}`);
+  traces.phase(trace, 'gcir_runtime_completed');
   return result.values.call;
 }
 
 async function timedRow(row, repetition) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'B', repetition }, row.input);
   const input = JSON.stringify(row.input);
   const started = performance.now();
-  const answer = await executeRow(row);
+  const answer = await executeRow(row, trace);
+  traces.finish(trace, answer);
   const latency = performance.now() - started;
   const output = JSON.stringify(answer);
   return {
@@ -88,7 +94,9 @@ async function main() {
   }
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${results.map((item) => JSON.stringify(item)).join('\n')}\n`);
-  fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify(manifestFor(rows, outputPath), null, 2)}\n`);
+  const traceManifest = traces.writeSidecar(outputPath, 'B');
+  fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify({
+    ...manifestFor(rows, outputPath), ...traceManifest }, null, 2)}\n`);
   process.stdout.write(`Condition B complete: ${results.length} G-CIR minimal runs across ${rows.length} cases.\n`);
 }
 

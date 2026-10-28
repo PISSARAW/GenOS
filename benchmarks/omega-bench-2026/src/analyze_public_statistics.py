@@ -1,5 +1,6 @@
 """Exploratory paired statistics over public OMEGA-BENCH result files only."""
 
+import argparse
 import hashlib
 import json
 import math
@@ -24,6 +25,18 @@ METRICS = ("latency_ms", "input_bytes", "output_bytes")
 def read_jsonl(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()]
+
+
+def public_results_dir(path):
+    root = RESULTS.resolve()
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as error:
+        raise ValueError("results directory must stay under public results/") from error
+    if not resolved.is_dir():
+        raise FileNotFoundError(resolved)
+    return resolved
 
 
 def load_pair_rows(spec):
@@ -343,6 +356,13 @@ def build_report():
 
 
 def main():
+    global RESULTS, JSON_REPORT
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results-dir", type=Path, default=RESULTS,
+                        help="public result directory (defaults to results/)")
+    args = parser.parse_args()
+    RESULTS = public_results_dir(args.results_dir)
+    JSON_REPORT = RESULTS / "statistiques-exploratoires.json"
     report = build_report()
     REPORT.write_text(render_report(report) + "\n", encoding="utf-8")
     JSON_REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",

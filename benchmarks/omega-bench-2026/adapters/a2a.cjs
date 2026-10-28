@@ -9,6 +9,8 @@ const { performance } = require('node:perf_hooks');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS
+  || path.join(ROOT, 'dataset', 'public', 'inputs');
 const RUNTIME = path.join(__dirname, 'a2a-runtime');
 const sdkRequire = createRequire(path.join(RUNTIME, 'package.json'));
 const express = sdkRequire('express');
@@ -17,6 +19,7 @@ const { AgentEvent, DefaultRequestHandler, InMemoryTaskStore } = sdkRequire('@a2
 const { agentCardHandler, jsonRpcHandler, UserBuilder } = sdkRequire('@a2a-js/sdk/server/express');
 const { Role } = sdkRequire('@a2a-js/sdk');
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 const EXPERIMENTS = ['E07', 'E12'];
 const REPETITIONS = 3;
 
@@ -57,10 +60,12 @@ function makeServer(handler) {
 
 function inputRows() {
   return EXPERIMENTS.flatMap((experiment) => reference.readRows(
-    path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
 }
 
 async function runCase(row, repetition, client) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'A2A', repetition }, row.input);
   const serialized = JSON.stringify(row);
   const started = performance.now();
   const result = await client.sendMessage({ message: {
@@ -70,6 +75,8 @@ async function runCase(row, repetition, client) {
   } });
   const answerText = result.parts?.find((part) => part.content?.$case === 'text')?.content.value;
   const answer = answerText ? JSON.parse(answerText) : null;
+  traces.phase(trace, 'a2a_response_observed');
+  traces.finish(trace, answer, answer === null ? 'failed' : 'completed');
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'A2A', repetition,
@@ -94,6 +101,7 @@ function writeResults(rows, results, outputPath) {
     runtime: { node: process.version, platform: process.platform, arch: process.arch,
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() }, external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'A2A'));
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 

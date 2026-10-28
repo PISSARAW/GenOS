@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+from readiness_trace_inventory import auxiliary_trace_status
 
 ROOT = Path(__file__).resolve().parents[1]
 CONDITIONS = {
@@ -16,6 +17,20 @@ RESULT_MANIFESTS = {
     "C": "C-gcir-optimized.manifest.json",
     "D": "D-genos-full.manifest.json",
 }
+RESULT_FILES = {
+    "A": "A-reference.jsonl",
+    "B": "B-gcir-minimal.jsonl",
+    "C": "C-gcir-optimized.jsonl",
+    "D": "D-genos-full.jsonl",
+}
+MANIFEST_SOURCES = {
+    "C": {"e04_optimizer_sha256": "adapters/e04-optimizer.cjs"},
+    "TEMPORAL": {
+        "workflow_sha256": "adapters/temporal-runtime/workflows.js",
+        "activity_sha256": "adapters/temporal-runtime/activities.js",
+    },
+    "OPA": {"policy_sha256": "adapters/opa.rego"},
+}
 
 
 def read_json(path):
@@ -28,6 +43,91 @@ def count_rows(path):
 
 def file_sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def confined_path(root, relative):
+    if not isinstance(relative, str) or not relative.strip():
+        return None
+    root = root.resolve()
+    candidate = (root / relative).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate
+
+
+def result_artifact_path(manifest, fallback_name):
+    result_root = ROOT / "results"
+    filename = manifest.get("result_file") or fallback_name
+    return confined_path(result_root, filename)
+
+
+def source_paths(manifest, adapter_path):
+    sources = {"adapter_sha256": adapter_path,
+               "dataset_manifest_sha256": ROOT / "dataset" / "manifest.json"}
+    declared = MANIFEST_SOURCES.get(manifest.get("condition_id"), {})
+    for digest, relative in declared.items():
+        sources[digest] = confined_path(ROOT, relative)
+    return sources
+
+
+def source_hashes_match(manifest, sources):
+    return all(path is not None and path.is_file()
+               and manifest.get(digest) == file_sha256(path)
+               for digest, path in sources.items())
+
+
+def result_rows_match(manifest, result_path):
+    if result_path is None or not result_path.is_file():
+        return False
+    if manifest.get("result_file") and Path(manifest["result_file"]).name != result_path.name:
+        return False
+    try:
+        rows = result_path.read_text(encoding="utf-8").splitlines()
+        expected = manifest_run_count(manifest)
+        return expected is not None and len(rows) == expected and all(row.strip() for row in rows)
+    except OSError:
+        return False
+
+
+def manifest_run_count(manifest):
+    for key in ("runs", "cases"):
+        value = manifest.get(key)
+        if isinstance(value, int) and value > 0:
+            return value
+    results = manifest.get("results")
+    return len(results) if isinstance(results, list) and results else None
+
+
+def trace_sidecar_matches(manifest, trace_path):
+    expected = manifest.get("runs")
+    if trace_path is None or not trace_path.is_file() \
+            or manifest.get("trace_records") != expected:
+        return False
+    try:
+        content = trace_path.read_bytes()
+        rows = content.decode("utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return manifest.get("trace_sha256") == hashlib.sha256(content).hexdigest() \
+        and len(rows) == expected and all(row.strip() for row in rows)
+
+
+def trace_artifact_path(manifest):
+    return confined_path(ROOT / "results", manifest.get("trace_file"))
+
+
+def manifest_matches_plan(manifest, plan):
+    keys = ("condition_id", "scenarios", "repetitions", "runs")
+    return all(manifest.get(key) == plan.get(key) for key in keys)
+
+
+def condition_evidence_matches(manifest, plan, paths):
+    return manifest_matches_plan(manifest, plan) \
+        and source_hashes_match(manifest, paths["sources"]) \
+        and result_rows_match(manifest, paths["result"]) \
+        and trace_sidecar_matches(manifest, paths["trace"])
 
 
 def qualification_matches_manifest(qualification, manifest, adapter_path):
@@ -130,27 +230,43 @@ def adapter_checks(blockers):
     checks = []
     adapter_root = ROOT / "adapters"
     for condition, filename in CONDITIONS.items():
-        exists = (adapter_root / filename).is_file()
+        adapter_path = adapter_root / filename
+        exists = adapter_path.is_file()
+        manifest_path = ROOT / "results" / RESULT_MANIFESTS[condition]
+        manifest = read_json(manifest_path) if manifest_path.is_file() else {}
+        result_path = result_artifact_path(manifest, RESULT_FILES[condition])
+        plan = main_condition_plan(condition)
+        paths = {"sources": source_paths(manifest, adapter_path), "result": result_path,
+                 "trace": trace_artifact_path(manifest)}
+        evidence_ready = condition_evidence_matches(manifest, plan, paths)
         if condition == "D":
             qualification_path = ROOT / "results" / "D-qualification.json"
             qualification = read_json(qualification_path) if qualification_path.is_file() else {}
-            manifest_path = ROOT / "results" / RESULT_MANIFESTS[condition]
-            manifest = read_json(manifest_path) if manifest_path.is_file() else {}
             expected_runs = sum(protocol_counts().values()) * read_json(ROOT / "protocol.json")["minimum_design"]["repetitions"]
             qualified = qualification.get("status") == "qualified" \
                 and qualification.get("runs") == expected_runs \
                 and qualification.get("critical_failures") == 0 \
                 and qualification_matches_manifest(qualification, manifest, adapter_root / filename)
-            detail = f"{filename}: {'present' if exists else 'missing'}; qualification={'passed and provenance-matched' if qualified else 'missing, incomplete or stale'}"
-            checks.append(check(blockers, f"adapter_{condition}", (exists and qualified, detail)))
+            ready = exists and evidence_ready and qualified
+            detail = f"{filename}: {'present' if exists else 'missing'}; run evidence={'current and complete' if evidence_ready else 'missing, incomplete or stale'}; qualification={'passed and provenance-matched' if qualified else 'missing, incomplete or stale'}"
+            checks.append(check(blockers, f"adapter_{condition}", (ready, detail)))
             continue
         checks.append(check(blockers, f"adapter_{condition}",
-                            (exists, f"{filename}: {'present' if exists else 'missing'}")))
+                            (exists and evidence_ready,
+                             f"{filename}: {'present' if exists else 'missing'}; run evidence={'current and complete' if evidence_ready else 'missing, incomplete or stale'}")))
     return checks
 
 
 def protocol_counts():
     return read_json(ROOT / "protocol.json").get("dataset", {}).get("scenarios_by_experiment", {})
+
+
+def main_condition_plan(condition):
+    protocol = read_json(ROOT / "protocol.json")
+    scenarios = sum(protocol_counts().values())
+    repetitions = protocol.get("minimum_design", {}).get("repetitions", 0)
+    return {"condition_id": condition, "scenarios": scenarios,
+            "repetitions": repetitions, "runs": scenarios * repetitions}
 
 
 def configuration_checks(protocol, blockers):
@@ -162,6 +278,7 @@ def configuration_checks(protocol, blockers):
     model = read_json(ROOT / "configs" / "models.example.json")
     checks = [
         check(blockers, "external_baselines", baseline_status(baseline, protocol)),
+        check(blockers, "auxiliary_trace_artifacts", auxiliary_trace_status(ROOT, protocol)),
         check(blockers, "hardware_lock", (hardware.get("status") == "locked" and hardware.get("cpu_model")
               and hardware.get("memory_bytes"), "hardware configuration must be observed and locked")),
         check(blockers, "model_lock", model_control_status(protocol, model)),
@@ -186,37 +303,43 @@ def baseline_status(baseline, protocol):
 
 
 def baseline_family_ready(family, protocol):
-    if family.get("status") not in {"configured", "qualified_public_development"} \
+    if family.get("status") != "qualified_public_development" \
             or not family.get("adapter") or not family.get("version"):
         return False
-    if family.get("status") == "configured":
-        return (ROOT / family["adapter"]).is_file()
-    manifest_path = ROOT / family.get("results_manifest", "")
-    evaluation_path = ROOT / family.get("evaluation_file", "")
-    if not manifest_path.is_file() or not evaluation_path.is_file():
+    manifest_path = confined_path(ROOT, family.get("results_manifest"))
+    evaluation_path = confined_path(ROOT, family.get("evaluation_file"))
+    adapter_path = confined_path(ROOT, family.get("adapter"))
+    if any(path is None or not path.is_file()
+           for path in (manifest_path, evaluation_path, adapter_path)):
         return False
     try:
         manifest = read_json(manifest_path)
         evaluation = read_json(evaluation_path)
     except (OSError, ValueError):
         return False
-    return baseline_evidence_matches(family, protocol, (manifest, evaluation))
+    result_name = evaluation_path.name.replace(".evaluation.json", ".jsonl")
+    result_path = result_artifact_path(manifest, result_name)
+    paths = {"sources": source_paths(manifest, adapter_path), "result": result_path,
+             "trace": trace_artifact_path(manifest)}
+    return baseline_evidence_matches(family, protocol, (manifest, evaluation, paths))
 
 
 def baseline_evidence_matches(family, protocol, evidence):
-    manifest, evaluation = evidence
+    manifest, evaluation, paths = evidence
     experiments = set(family.get("applicable_experiments", []))
     counts = protocol.get("dataset", {}).get("scenarios_by_experiment", {})
     repetitions = protocol.get("minimum_design", {}).get("repetitions", 0)
     expected_runs = sum(counts.get(name, 0) for name in experiments) * repetitions
+    plan = {"condition_id": family.get("result_condition"),
+            "scenarios": sum(counts.get(name, 0) for name in experiments),
+            "repetitions": repetitions, "runs": expected_runs}
     summary = evaluation.get("summary", {})
     observed_runs = sum(item.get("runs", 0) for item in summary.values())
     completeness = all(item.get("missing_runs", 1) == 0
                        and item.get("duplicate_repetitions", 1) == 0
                        and item.get("invalid_status", 1) == 0
                        for item in summary.values())
-    return manifest.get("runs") == expected_runs \
-        and manifest.get("condition_id") == family.get("result_condition") \
+    return condition_evidence_matches(manifest, plan, paths) \
         and evaluation.get("condition_id") == family.get("result_condition") \
         and set(summary) == experiments and observed_runs == expected_runs \
         and completeness and not evaluation.get("unexpected_scenario_ids")

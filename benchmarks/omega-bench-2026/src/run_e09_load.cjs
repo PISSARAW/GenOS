@@ -13,6 +13,7 @@ const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaCompiler'));
 const runtimeModule = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaRuntimeService'));
+const traces = require('./run-trace.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
@@ -122,6 +123,15 @@ function memoryBytes() {
   return { rss: memory.rss, heapUsed: memory.heapUsed, external: memory.external };
 }
 
+function workloadFor(options) {
+  const { scale, repetition, scenarios, runType } = options;
+  return { experiment_id: 'E09', scale, repetition, run_type: runType,
+    scenarios: scenarios.map((row) => ({ scenario_id: row.scenario_id,
+      command_count: row.input.command_count,
+      command_value_start: row.input.command_value_start,
+      mission_workload: row.input.mission_workload })) };
+}
+
 function maxRssBytes() {
   const value = process.resourceUsage().maxRSS;
   return process.platform === 'win32' ? value : value * 1024;
@@ -169,6 +179,12 @@ function soakAssessment(cycles) {
 
 async function runScale(options) {
   const { scale, repetition, scenarios, operations, sampleMemory = false } = options;
+  const runType = options.trace_type || 'scale_repetition';
+  const workload = workloadFor({ scale, repetition, scenarios, runType });
+  const workloadHash = crypto.createHash('sha256').update(JSON.stringify(workload)).digest('hex');
+  const trace = traces.start({ run_id: `E09-${runType}-${scale}-r${repetition}`,
+    scenario_id: `E09-${runType}-${scale}`, experiment_id: 'E09', condition_id: 'E09',
+    repetition, scale, run_type: runType, workload_sha256: workloadHash }, workload);
   const before = memoryBytes();
   const processPeakBefore = maxRssBytes();
   if (sampleMemory) await new Promise((resolve) => setImmediate(resolve));
@@ -184,7 +200,7 @@ async function runScale(options) {
   const commands = agents.reduce((sum, item) => sum + item.commands, 0);
   const correct = agents.filter((item) => item.correct).length;
   const latency = agents.map((item) => item.latency);
-  return { agents: scale, repetition, elapsed_ms: elapsedMs,
+  const summary = { agents: scale, repetition, elapsed_ms: elapsedMs,
     agents_per_second: scale / (elapsedMs / 1000), logical_commands_total: commands,
     logical_commands_per_second: commands / (elapsedMs / 1000), processed_rate: correct / scale,
     latency_ms: { p50: percentile(latency, 0.50), p95: percentile(latency, 0.95),
@@ -195,6 +211,9 @@ async function runScale(options) {
       process_highwater_rss_growth: Math.max(0, processPeakAfter - processPeakBefore),
       sampled_highwater: sampledHighwater },
     correct_agents: correct, incorrect_agents: scale - correct };
+  traces.phase(trace, 'async_runtime_invocations_completed');
+  traces.finish(trace, summary);
+  return summary;
 }
 
 function manifestFor(options, results, initialMemory) {
@@ -223,7 +242,7 @@ function manifestFor(options, results, initialMemory) {
 
 async function runSoakCycle(cycle, scenarios, operations) {
   const observation = await runScale({ scale: SOAK_SCALE, repetition: cycle,
-    scenarios, operations, sampleMemory: true });
+    scenarios, operations, sampleMemory: true, trace_type: 'soak_cycle' });
   return { ...observation, cycle, rss_after: observation.memory_bytes.after.rss,
     heap_after: observation.memory_bytes.after.heapUsed };
 }
@@ -248,8 +267,9 @@ async function main() {
     }
   }
   fs.mkdirSync(path.dirname(options.output), { recursive: true });
+  const traceManifest = traces.writeSidecar(options.output, 'E09');
   fs.writeFileSync(options.output,
-    `${JSON.stringify(manifestFor(options, results, initialMemory), null, 2)}\n`);
+    `${JSON.stringify({ ...manifestFor(options, results, initialMemory), ...traceManifest }, null, 2)}\n`);
 }
 
 if (require.main === module) main().catch((error) => {

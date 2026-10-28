@@ -1,5 +1,6 @@
 """Estimate paired effect sizes and detectable effects from public OMEGA outputs."""
 
+import argparse
 import json
 import math
 import statistics
@@ -19,6 +20,12 @@ SCENARIO_COUNTS = json.loads((ROOT / "protocol.json").read_text(encoding="utf-8"
 
 def read_jsonl(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+def public_results_dir(path):
+    root, resolved = RESULTS.resolve(), path.resolve()
+    if not resolved.is_relative_to(root): raise ValueError("results directory must stay under public results/")
+    if not resolved.is_dir(): raise FileNotFoundError(resolved)
+    return resolved
 
 @lru_cache(maxsize=None)
 def read_condition(filename, condition):
@@ -373,6 +380,11 @@ def build_report():
             "contrasts": contrasts}
 
 def main():
+    global RESULTS
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results-dir", type=Path, default=RESULTS, help="public result directory (defaults to results/)")
+    args = parser.parse_args()
+    RESULTS = public_results_dir(args.results_dir)
     output = RESULTS / "power-analysis-public.json"
     report = build_report()
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

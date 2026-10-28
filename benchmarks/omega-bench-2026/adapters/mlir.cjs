@@ -9,13 +9,16 @@ const { performance } = require('node:perf_hooks');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
+const INPUTS_ROOT = process.env.OMEGA_DATASET_INPUTS
+  || path.join(ROOT, 'dataset', 'public', 'inputs');
 const EXPERIMENTS = ['E01', 'E02', 'E03', 'E04', 'E12'];
 const REPETITIONS = 3;
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 
 function inputRows() {
   return EXPERIMENTS.flatMap((experiment) => reference.readRows(
-    path.join(ROOT, 'dataset', 'public', 'inputs', `${experiment}.jsonl`)));
+    path.join(INPUTS_ROOT, `${experiment}.jsonl`)));
 }
 
 function numericInputs(value, collected = []) {
@@ -77,9 +80,15 @@ function invokeMlir(source) {
 }
 
 function runRow(row, repetition, validator) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'MLIR', repetition }, row.input);
   const source = mlirSource(row);
+  traces.phase(trace, 'mlir_source_generated');
   const { optimized, latency } = invokeMlir(source);
+  traces.phase(trace, 'mlir_verification_completed');
   const answer = reference.execute(row, validator);
+  traces.phase(trace, 'reference_answer_observed');
+  traces.finish(trace, answer);
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'MLIR', repetition, status: 'completed', answer,
@@ -108,6 +117,7 @@ function saveResults(rows, results, outputPath) {
     execution_platform: 'Ubuntu 26.04 under WSL; latency is not pooled with Windows baselines',
     external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'MLIR'));
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`);
 }

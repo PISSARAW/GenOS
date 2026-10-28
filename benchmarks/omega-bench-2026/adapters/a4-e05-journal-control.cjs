@@ -8,6 +8,7 @@ const { createRequire } = require('node:module');
 const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual } = require('node:util');
 const { performance } = require('node:perf_hooks');
+const traces = require('../src/run-trace.cjs');
 const reference = require('./json_reference.cjs');
 const runtimeModule = require(path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'services', 'cognitiveOmegaRuntimeService'));
 
@@ -140,19 +141,31 @@ function manifestFor(input) {
 function writeResults(results, input) {
   fs.mkdirSync(path.dirname(input.outputPath), { recursive: true });
   fs.writeFileSync(input.outputPath, `${results.map((row) => JSON.stringify(row)).join('\n')}\n`);
+  const traceManifest = traces.writeSidecar(input.outputPath, input.condition);
   fs.writeFileSync(input.outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifestFor({ ...input, results }), null, 2)}\n`);
+    `${JSON.stringify({ ...manifestFor({ ...input, results }), ...traceManifest }, null, 2)}\n`);
 }
 
 async function runPair(row, repetition, dbPath) {
+  const controlTrace = traces.start({ scenario_id: row.scenario_id, experiment_id: 'E05',
+    condition_id: 'A4_CONTROL', repetition }, row.input);
   const started = performance.now();
   const control = await runControl(row, repetition);
+  traces.phase(controlTrace, 'gcir_control_runtime_completed');
   const controlElapsed = performance.now() - started;
+  const nativeTrace = traces.start({ scenario_id: row.scenario_id, experiment_id: 'E05',
+    condition_id: 'A4_JOURNAL_NATIVE', repetition }, row.input);
   const nativeStarted = performance.now();
   const native = await runNative({ row, repetition, dbPath });
+  traces.phase(nativeTrace, 'sqlite_interruption_recovery_and_replay_completed');
   const nativeElapsed = performance.now() - nativeStarted;
   const pairedEqual = isDeepStrictEqual(control.answer, native.answer);
   if (!pairedEqual) throw new Error(`paired_answer_mismatch:${row.scenario_id}`);
+  traces.phase(controlTrace, 'paired_answers_verified');
+  traces.phase(nativeTrace, 'paired_answers_verified');
+  traces.finish(controlTrace, { answer: control.answer, pairedEqual });
+  traces.finish(nativeTrace, { answer: native.answer, replayVerified: native.replayVerified,
+    pairedEqual });
   return [
     resultRow({ row, repetition, condition: 'A4_CONTROL', answer: control.answer,
       probes: control.probes, elapsed: controlElapsed, pairedEqual }),
@@ -163,7 +176,7 @@ async function runPair(row, repetition, dbPath) {
 
 async function main() {
   const rows = reference.readRows(INPUT_PATH).slice(0, 100);
-  const resultsDir = path.join(ROOT, 'results');
+  const resultsDir = process.env.OMEGA_RESULTS_DIR || path.join(ROOT, 'results');
   const runStamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dbPath = path.join(resultsDir, `A4-E05-native-${runStamp}.sqlite`);
   const controlPath = path.join(resultsDir, 'A4-E05-control.jsonl');

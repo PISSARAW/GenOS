@@ -16,6 +16,7 @@ const PRIVATE_TOOLS = path.join(process.env.LOCALAPPDATA || '', 'OMEGA-BENCH-202
 const OPA_BINARY = process.env.OMEGA_OPA_BINARY || path.join(PRIVATE_TOOLS, 'opa-1.21.4-windows-amd64.exe');
 const OPA_POLICY = path.join(__dirname, 'opa.rego');
 const reference = require('./json_reference.cjs');
+const traces = require('../src/run-trace.cjs');
 const REPETITIONS = 3;
 const EXPERIMENTS = ['E03', 'E08'];
 
@@ -79,6 +80,8 @@ async function missionExecution(row, port) {
 }
 
 async function runRow(row, repetition, port) {
+  const trace = traces.start({ scenario_id: row.scenario_id, experiment_id: row.experiment_id,
+    condition_id: 'OPA', repetition }, row.input);
   const query = queryFor(row);
   const payload = JSON.stringify({ input: query.input });
   const started = performance.now();
@@ -87,6 +90,7 @@ async function runRow(row, repetition, port) {
   });
   if (!response.ok) throw new Error(`OPA returned HTTP ${response.status}.`);
   const result = await response.json();
+  traces.phase(trace, 'opa_policy_decision_observed');
   const latency = performance.now() - started;
   const allowed = Boolean(result.result);
   const answer = row.experiment_id === 'E03'
@@ -94,6 +98,8 @@ async function runRow(row, repetition, port) {
     : { allowed, executed_effects: allowed ? ['requested_action'] : [] };
   const mission = await missionExecution(row, port);
   if (mission) answer.mission_execution = mission;
+  if (mission) traces.phase(trace, 'opa_mission_outcome_observed');
+  traces.finish(trace, answer);
   const output = JSON.stringify(answer);
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
@@ -125,6 +131,7 @@ function writeResults(rows, outputPath, results) {
       cpu: os.cpus()[0]?.model || null, memory_bytes: os.totalmem() },
     external_model_calls: 0
   };
+  Object.assign(manifest, traces.writeSidecar(outputPath, 'OPA'));
   fs.writeFileSync(outputPath.replace(/\.jsonl$/i, '.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`);
 }
