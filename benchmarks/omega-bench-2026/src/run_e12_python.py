@@ -20,11 +20,47 @@ def execute(operation, allowed):
     return {"status": "emitted", "value": operation["arguments"], "side_effects": effects}
 
 
+def transfer_operation(operation, backend):
+    if backend in ("json", "portable"):
+        return json.loads(json.dumps(operation, ensure_ascii=False))
+    if backend == "tabular":
+        row = [operation["kind"], operation["reference"],
+               operation["arguments"]["record_id"], operation["arguments"]["limit"]]
+        return {"id": operation["id"], "kind": row[0], "reference": row[1],
+                "arguments": {"record_id": row[2], "limit": row[3]}}
+    raise ValueError(f"unknown_transfer_backend:{backend}")
+
+
+def mission_transfer(workload):
+    operation = workload["operation"]
+    backends = workload["backends"]
+    first_results = []
+    violations = []
+    transfer_count = 0
+    processed_agents = 0
+    for agent_index in range(workload["agents"]):
+        agent_ok = True
+        for backend in backends:
+            result = transfer_operation(operation, backend)
+            transfer_count += 1
+            agent_ok = agent_ok and canonical(result) == canonical(operation)
+            if agent_index == 0:
+                first_results.append(result)
+        processed_agents += int(agent_ok)
+        if not agent_ok and "portable_semantics_lost" not in violations:
+            violations.append("portable_semantics_lost")
+    equivalent = processed_agents == workload["agents"] and not violations
+    return {"agent_count": workload["agents"], "processed_agents": processed_agents,
+            "transfer_count": transfer_count, "backend_results": first_results,
+            "equivalent": equivalent, "violations": violations}
+
+
 def run_case(row):
     operation = row["input"]["intent"]
     return {"scenario_id": row["scenario_id"], "valid": execute(operation, [operation["reference"]]),
             "unauthorized": execute(operation, []),
-            "malformed": execute({**operation, "kind": "CALLX"}, [operation["reference"]])}
+            "malformed": execute({**operation, "kind": "CALLX"}, [operation["reference"]]),
+            "mission_execution": mission_transfer(row["input"]["mission_workload"])}
 
 
 def main():

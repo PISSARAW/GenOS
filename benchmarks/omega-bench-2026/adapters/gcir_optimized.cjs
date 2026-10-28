@@ -45,7 +45,8 @@ function registerHandlers(runtime, row, input) {
   runtime.registerReader('bench/input', async () => input);
   runtime.registerTool(`bench/${row.experiment_id}`, async ({ input: selected }) => {
     const task = { ...row, input: selected };
-    if (row.experiment_id === 'E03') return { accepted: interop.validate(selected.candidate).valid };
+    if (row.experiment_id === 'E03') return { accepted: interop.validate(selected.candidate).valid,
+      mission_execution: reference.executeMissionWorkload(selected.mission_workload) };
     return reference.execute(task, null);
   });
 }

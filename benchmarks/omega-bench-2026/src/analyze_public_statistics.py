@@ -43,26 +43,33 @@ def load_pair_rows(spec):
     return pair
 
 
-def scenario_summary(rows, scope, oracle):
+def summarize_scenario(scenario, repetitions, oracle):
+    if len(repetitions) != 3 or scenario not in oracle:
+        return None
+    result = {metric: statistics.median(
+        row.get("telemetry", {}).get(metric) for row in repetitions)
+        for metric in METRICS
+        if all(isinstance(row.get("telemetry", {}).get(metric), (int, float))
+               for row in repetitions)}
+    result["correct"] = all(row.get("status") == "completed"
+                            and is_correct(row.get("answer"), oracle[scenario])
+                            for row in repetitions)
+    result["run_failure"] = any(row.get("status") != "completed"
+                                or row.get("violations") for row in repetitions)
+    return result
+
+
+def scenario_summary(rows, context):
+    scope, oracle = context
     grouped = defaultdict(list)
     for row in rows.values():
         if row.get("experiment_id") in scope:
             grouped[row["scenario_id"]].append(row)
     output = {}
     for scenario, repetitions in grouped.items():
-        if len(repetitions) != 3 or scenario not in oracle:
-            continue
-        result = {metric: statistics.median(
-            row.get("telemetry", {}).get(metric) for row in repetitions)
-            for metric in METRICS
-            if all(isinstance(row.get("telemetry", {}).get(metric), (int, float))
-                   for row in repetitions)}
-        result["correct"] = all(row.get("status") == "completed"
-                                and is_correct(row.get("answer"), oracle[scenario])
-                                for row in repetitions)
-        result["run_failure"] = any(row.get("status") != "completed"
-                                    or row.get("violations") for row in repetitions)
-        output[scenario] = result
+        result = summarize_scenario(scenario, repetitions, oracle)
+        if result is not None:
+            output[scenario] = result
     return output
 
 
@@ -107,7 +114,8 @@ def bootstrap_mean_ci(differences, label):
             estimates[int(0.975 * BOOTSTRAP_REPLICATES)]]
 
 
-def paired_metric(left, right, metric, label):
+def paired_metric(left, right, metric_spec):
+    metric, label = metric_spec
     shared = sorted(set(left) & set(right))
     differences = [right[key][metric] - left[key][metric] for key in shared
                    if metric in left[key] and metric in right[key]]
@@ -122,8 +130,8 @@ def paired_metric(left, right, metric, label):
 def add_tests(record, left, right):
     tests = {}
     for metric in METRICS:
-        tests[metric] = paired_metric(left, right, metric,
-                                      f"{record['id']}:{metric}")
+        tests[metric] = paired_metric(
+            left, right, (metric, f"{record['id']}:{metric}"))
     shared = sorted(set(left) & set(right))
     left_correct = [left[key]["correct"] for key in shared]
     right_correct = [right[key]["correct"] for key in shared]
@@ -145,8 +153,9 @@ def add_tests(record, left, right):
 def analyze_spec(spec, oracle):
     scope = set(spec["scope"])
     left_rows, right_rows = load_pair_rows(spec)
-    left = scenario_summary(left_rows, scope, oracle)
-    right = scenario_summary(right_rows, scope, oracle)
+    context = (scope, oracle)
+    left = scenario_summary(left_rows, context)
+    right = scenario_summary(right_rows, context)
     shared = sorted(set(left) & set(right))
     record = {"id": spec["id"], "family": spec["family"], "scope": spec["scope"],
               "left_scenarios": len(left), "right_scenarios": len(right),
@@ -155,42 +164,66 @@ def analyze_spec(spec, oracle):
     return add_tests(record, left, right)
 
 
-def analyze_a7(oracle):
+def a7_scenario_result(scenario, repetitions, oracle):
+    if len(repetitions) != 3 or scenario not in oracle:
+        return None
+    saving = statistics.median(row["metrics"]["json_bytes"]
+                               - row["metrics"]["compact_bytes"]
+                               for row in repetitions)
+    correct = all(row.get("status") == "completed"
+                  and row["metrics"].get("compact_roundtrip_verified") is True
+                  and is_correct(row.get("answer"), oracle[scenario])
+                  for row in repetitions)
+    failed = any(row.get("status") != "completed" for row in repetitions)
+    return saving, correct, failed
+
+
+def group_a7_rows():
     rows = [row for row in read_jsonl(RESULTS / "ABLATION-A7.jsonl")
             if row.get("condition_id") == "A7"]
     grouped = defaultdict(list)
     for row in rows:
         grouped[row["scenario_id"]].append(row)
-    savings = []
-    correctness = []
-    failures = 0
-    for scenario, repetitions in grouped.items():
-        if len(repetitions) != 3 or scenario not in oracle:
-            continue
-        savings.append(statistics.median(row["metrics"]["json_bytes"]
-                                         - row["metrics"]["compact_bytes"]
-                                         for row in repetitions))
-        correctness.append(all(row.get("status") == "completed"
-                               and row["metrics"].get("compact_roundtrip_verified") is True
-                               and is_correct(row.get("answer"), oracle[scenario])
-                               for row in repetitions))
-        failures += any(row.get("status") != "completed" for row in repetitions)
+    return grouped
+
+
+def valid_a7_results(oracle, grouped):
+    results = [a7_scenario_result(scenario, repetitions, oracle)
+               for scenario, repetitions in grouped.items()]
+    return [result for result in results if result is not None]
+
+
+def a7_byte_test(savings):
     diff = statistics.mean(savings) if savings else None
+    return {"n": len(savings), "mean_right_minus_left": diff,
+            "median_right_minus_left": statistics.median(savings) if savings else None,
+            "bootstrap_95_ci_mean": bootstrap_mean_ci(savings, "A7:byte_savings"),
+            "sign_test_p": sign_test_p(savings)}
+
+
+def a7_correctness_test(correctness):
+    return {"n": len(correctness), "left_successes": sum(correctness),
+            "right_successes": sum(correctness),
+            "success_rate_difference": 0.0 if correctness else None,
+            "bootstrap_95_ci_rate_difference": [0.0, 0.0] if correctness else None,
+            "left_only": 0, "right_only": 0, "p_value": 1.0}
+
+
+def a7_summary(oracle, grouped):
+    results = valid_a7_results(oracle, grouped)
+    savings = [result[0] for result in results]
+    correctness = [result[1] for result in results]
     return {"id": "A7_compact_bytes_vs_JSON_E02", "family": "ablations",
             "scope": ["E02"], "left_scenarios": len(savings),
             "right_scenarios": len(savings), "paired_scenarios": len(savings),
             "limitation": "Embedded size measures from one adapter; no independent runtime timing arm.",
             "tests": {
-                "compact_bytes_saved": {"n": len(savings),
-                    "mean_right_minus_left": diff,
-                    "median_right_minus_left": statistics.median(savings) if savings else None,
-                    "bootstrap_95_ci_mean": bootstrap_mean_ci(savings, "A7:byte_savings"),
-                    "sign_test_p": sign_test_p(savings)},
-                "oracle_correct": {"n": len(correctness),
-                    "left_successes": sum(correctness), "right_successes": sum(correctness),
-                    "success_rate_difference": 0.0 if correctness else None,
-                    "bootstrap_95_ci_rate_difference": [0.0, 0.0] if correctness else None,
-                    "left_only": 0, "right_only": 0, "p_value": 1.0}}}
+                "compact_bytes_saved": a7_byte_test(savings),
+                "oracle_correct": a7_correctness_test(correctness)}}
+
+
+def analyze_a7(oracle):
+    return a7_summary(oracle, group_a7_rows())
 
 
 def collect_pvalues(records):
@@ -253,7 +286,7 @@ def format_num(value):
 
 def render_report(report):
     lines = ["# Statistiques exploratoires publiques — OMEGA-BENCH 2026", "",
-        f"**PROVISOIRE — analyse post hoc, non préenregistrée et non confirmatoire.** Hash du manifeste de corpus lu: `{report['dataset_manifest_sha256']}`. Les résultats doivent appartenir au corpus v0.6.0 et porter ce hash; les sorties d'une autre version sont ignorées. L'analyse rapporte uniquement les résultats publics effectivement disponibles. Aucun fichier du holdout n'est ouvert ni scoré; aucune conclusion de victoire ou de supériorité n'en découle.", "",
+        f"**PROVISOIRE — analyse post hoc, non préenregistrée et non confirmatoire.** Corpus `{report['dataset_version']}`; hash brut du manifeste: `{report['dataset_manifest_sha256']}`. Seuls les résultats dont le manifeste porte cette empreinte peuvent être appariés; les sorties d'une autre version sont ignorées. L'analyse rapporte uniquement les résultats publics effectivement disponibles. Aucun fichier du holdout n'est ouvert ni scoré; aucune conclusion de victoire ou de supériorité n'en découle.", "",
         "## Méthodes", "",
         f"L'unité est le scénario; les trois répétitions sont résumées par leur médiane. Les différences continues sont calculées à droite moins à gauche. Les IC à 95 % des différences moyennes sont des percentiles bootstrap appariés ({BOOTSTRAP_REPLICATES} rééchantillonnages déterministes par scénario). Les p-values continues viennent du test bilatéral des signes; les succès appariés utilisent McNemar exact bilatéral. Holm est appliqué à toutes les p-values disponibles dans chaque famille et endpoint (primaire, attribution, baselines externes, ablations).", "",
         "Les analyses de latence, octets et conformité restent des descriptions de ces adaptateurs. Les comparateurs externes n'ont pas tous des implémentations fonctionnellement équivalentes; leurs p-values ne démontrent pas une supériorité technologique. Les coûts monétaires sont N/A: aucune mesure d'énergie attribuable n'existe.", "",
@@ -296,9 +329,11 @@ def build_report():
     comparisons = [analyze_spec(spec, oracle) for spec in planned_specs()]
     comparisons.append(analyze_a7(oracle))
     apply_holm(comparisons)
+    dataset_manifest = json.loads((ROOT / "dataset" / "manifest.json").read_text(encoding="utf-8"))
     return {"status": "provisional_exploratory_public_only_nonconfirmatory",
             "holdout_read": False, "bootstrap_replicates": BOOTSTRAP_REPLICATES,
-            "provisional_due_to_pending_e04_expansion": PROVISIONAL,
+            "nonconfirmatory": PROVISIONAL,
+            "dataset_version": dataset_manifest["dataset_version"],
             "dataset_manifest_sha256": hashlib.sha256(
                 (ROOT / "dataset" / "manifest.json").read_bytes()).hexdigest(),
             "holm_family_sizes": {f"{family}:{endpoint}": len(values)
@@ -314,8 +349,8 @@ def main():
                            encoding="utf-8")
     print(json.dumps({"status": report["status"], "comparisons": len(report["comparisons"]),
                       "holdout_read": report["holdout_read"],
-                      "provisional_due_to_pending_e04_expansion": report[
-                          "provisional_due_to_pending_e04_expansion"],
+                      "nonconfirmatory": report["nonconfirmatory"],
+                      "dataset_version": report["dataset_version"],
                       "dataset_manifest_sha256": report["dataset_manifest_sha256"],
                       "report": str(REPORT)}, ensure_ascii=False))
 

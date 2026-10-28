@@ -8,8 +8,10 @@
     "candidate_input_location": "dataset/public/inputs/"
   },
   "dataset": {
-    "dataset_version": "0.6.0",
-    "dataset_manifest_sha256": "d9644a8239042dba2e5923b167d27dcfc064a268b222e85c822662263f6aacff",
+    "dataset_version": "0.7.0",
+    "mission_catalog_version": "2.0.0",
+    "dataset_manifest_sha256": "4604c2f870044c3b94fcd71ca833dcf561f91ba53f1869ddfc4d63b9ee54ffd2",
+    "mission_variant_policy": "M1 follows the provided source excerpt; M2-M6 are executable synthetic derivatives because the proposal does not provide their descriptions.",
     "generator_seed": 20261027,
     "scenarios_by_experiment": {
       "E01": 200, "E02": 200, "E03": 1000, "E04": 100, "E05": 100, "E06": 150,
@@ -81,10 +83,7 @@
   "preregistration_required": [
     "finalize E11 monetary measurement with attributable cumulative energy and a documented tariff, or explicitly amend the research question and threshold",
     "finalize and run the preregistered inferential analysis: paired tests, 95% confidence intervals, Holm correction, practical margins, and the six-of-twelve victory rule",
-    "resolve A2 scope: the current OFF arm retains runtime guards and uses a no-op handler; define missing-state behavior and test effects without claiming production safety from fake handlers",
-    "resolve A4 scope: implement native G-CIR journaling and replay with durability/idempotence evidence, or obtain an explicit protocol amendment limiting A4 to the harness",
     "complete E09 repeated-load evidence for a bounded-memory claim, or narrow that claim to the current single-process asynchronous test",
-    "make the six concrete missions executable workload variants rather than metadata-only annotations; M2-M6 are currently synthetic interpretations",
     "finalize common instrumentation boundaries for latency, bytes, resource cost and memory across each applicable adapter and ablation",
     "freeze all adapter and configuration hashes, dependency lockfiles, run commands, hardware/model controls, raw traces and statistical plan before holdout execution",
     "publish auditable per-run event traces and result artifacts for every condition, baseline, ablation and load run"

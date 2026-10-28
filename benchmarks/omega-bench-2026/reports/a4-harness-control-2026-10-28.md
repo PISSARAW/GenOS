@@ -12,8 +12,8 @@ L’interruption est simulée par une exception et des connexions fermées/réou
 
 | Bras | Exécutions | Oracle correctes | Sorties appariées égales | Effets observables par cas | Appels du handler par cas | Latence médiane |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| A4_CONTROL — G-CIR en mémoire | 300 | 300/300 | — | 1 | 1 | 0,08 ms |
-| A4_JOURNAL_NATIVE — G-CIR + SQLite | 300 | 300/300 | 300/300 | 1 | 2 (appel interrompu, reprise dédupliquée) | 22,13 ms |
+| A4_CONTROL — G-CIR en mémoire | 300 | 300/300 | — | 1 | 1 | 0,09 ms |
+| A4_JOURNAL_NATIVE — G-CIR + SQLite | 300 | 300/300 | 300/300 | 1 | 2 (appel interrompu, reprise dédupliquée) | 22,89 ms |
 
 Les 300 récupérations réutilisent la même clé par run/opération; aucun cas ne répète l’effet simulé. Le rejeu du résultat terminé après la seconde réouverture SQLite ne rappelle pas le handler. Le rapport de l’évaluateur public indique 300/300 réponses exactes à l’oracle dans chaque bras, sans scénario manquant ni échec critique.
 

@@ -2,9 +2,9 @@
 
 Ce dépôt de benchmark est séparé du code G-CIR Ω : le générateur, les cas, les oracles et l'évaluateur n'importent aucun module GenOS. Il fournit un corpus synthétique déterministe de **3 400 cas** avec entrées candidates et réponses de référence dans des fichiers distincts. E01/E02 ont 200 cas; E03/E08 en ont 1 000; E04/E05/E10/E12 en ont 100; E06 en a 150 (trois taux de panne); E07/E09 en ont 200 (quatre échelles); E11 en a 50.
 
-**État au 2026-10-28 : les résultats publics précédents sont périmés pour le corpus v0.6.0.** Ils ont été produits sur le corpus v0.4.0 et ne doivent pas être attribués aux entrées E04/E12 révisées. Le corpus v0.6.0 comprend cinq transformations E04 et trois backends métier indépendants E12; il est figé à SHA-256 `d9644a8239042dba2e5923b167d27dcfc064a268b222e85c822662263f6aacff`. Les trois backends E12 ont passé 100 cas chacun, sans divergence; les probes non autorisées et malformées n'ont produit aucun effet. A–D, les baselines, A1–A8, E09, les analyses et les traces doivent être relancés ou régénérés sur cette version avant toute interprétation.
+**État au 2026-10-28 : le corpus public v0.7.0 remplace v0.6.0.** Les charges M2–M6 sont maintenant incluses dans les entrées, exécutées par les adapters applicables et vérifiées par des oracles Python indépendants. Elles restent des variantes synthétiques dérivées du catalogue, car la source fournie ne décrit en détail que M1. E04 garde ses cinq transformations et E12 garde ses trois parcours de portabilité; leurs lignes d’entrée et d’oracle incluent désormais aussi la preuve de mission. Les résultats antérieurs à v0.7.0 sont périmés. A–D, les baselines, A1–A8, E09, les analyses et les traces doivent être relancés ou régénérés avant toute interprétation.
 
-**La campagne confirmatoire reste bloquée.** Le préflight mécanique antérieur de 24/26 ne correspond pas au corpus courant. E04 et E12 sont maintenant implémentés; leurs sorties publiques complètes, A–D, les baselines, A1–A8 et E09 restent à relancer. Les points ouverts incluent la mesure E11 en euros, le plan d'inférence, la portée A2/A4, les missions exécutables, l'instrumentation commune et la publication des traces. La VM partagée ne fournit aucun compteur d'énergie attribuable; aucun résultat €/mission ni gain de 15 % n'est revendiqué. Un holdout de 680 cas versionné v0.6.0 a été créé et vérifié hors dépôt, mais n'a pas été scoré. L'analyse confirmatoire et la levée du scellement exigent toujours une préinscription approuvée.
+**La campagne confirmatoire reste bloquée.** E04, E12, A2 et A4 disposent de preuves ciblées; A–D, les baselines, A1–A8, E09, E12, les analyses et les traces doivent être relancés sur v0.7.0. Les points ouverts incluent la mesure E11 en euros, le plan d'inférence, le soak E09, l'instrumentation commune, le gel des configurations et la publication des traces. La VM partagée ne fournit aucun compteur d'énergie attribuable; aucun résultat €/mission ni gain de 15 % n'est revendiqué. Le holdout v0.7.0 sera régénéré après commit et ne sera pas scoré avant un préenregistrement approuvé.
 
 ## Contenu
 
@@ -37,7 +37,7 @@ python src/evaluate.py --results results/E03-pilot.jsonl --condition A --experim
 ```
 
 Pour qualifier les adaptateurs sur le holdout, définir `OMEGA_DATASET_ROOT` vers
-`~/.codex/benchmark-secrets/omega-bench-2026/holdout-v0.6.0` et
+`~/.codex/benchmark-secrets/omega-bench-2026/holdout-v0.7.0` et
 `OMEGA_DATASET_INPUTS` vers son sous-dossier `inputs/`, puis lancer l'adaptateur
 avec un chemin de sortie distinct. Après fermeture et gel des sorties, appeler
 `python src/evaluate_holdout.py --condition A --results <sortie.jsonl>`.

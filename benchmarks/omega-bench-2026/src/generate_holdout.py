@@ -63,36 +63,50 @@ def write_cases(seed, stage):
     return digests
 
 
+def verify_manifest(manifest_path):
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("dataset_version") != DATASET_VERSION:
+        return None, "private holdout dataset version is stale"
+    if manifest.get("dataset_manifest_sha256") != manifest_digest():
+        return None, "private holdout public-manifest commitment is stale"
+    seed = SEED_PATH.read_text(encoding="ascii").strip()
+    seed_hash = hashlib.sha256(bytes.fromhex(seed)).hexdigest()
+    if manifest.get("seed_commitment") != seed_hash:
+        return None, "holdout seed commitment does not match"
+    if manifest.get("scenario_count") != sum(HOLDOUT_COUNTS.values()):
+        return None, "holdout sample count does not match the 20 percent design"
+    return manifest, None
+
+
+def verify_holdout_files(path, manifest):
+    observed = {}
+    for split in ("inputs", "oracle"):
+        for name in HOLDOUT_COUNTS:
+            file_path = path / split / f"{name}.jsonl"
+            if not file_path.is_file():
+                return f"holdout file is missing: {split}/{name}.jsonl"
+            data = file_path.read_bytes()
+            rows = [line for line in data.splitlines() if line.strip()]
+            if len(rows) != HOLDOUT_COUNTS[name]:
+                return f"holdout count is invalid: {split}/{name}.jsonl"
+            observed[f"{split}/{name}.jsonl"] = hashlib.sha256(data).hexdigest()
+    if observed != manifest.get("sha256"):
+        return "holdout content hashes do not match the private manifest"
+    return None
+
+
 def verify_holdout(path=HOLDOUT_ROOT):
     if path.resolve().is_relative_to(ROOT.resolve()):
         return False, "holdout path must remain outside the public repository"
     manifest_path = path / "manifest.json"
     if not manifest_path.is_file() or not SEED_PATH.is_file():
         return False, "private holdout or seed commitment is missing"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("dataset_version") != DATASET_VERSION:
-        return False, "private holdout dataset version is stale"
-    if manifest.get("dataset_manifest_sha256") != manifest_digest():
-        return False, "private holdout public-manifest commitment is stale"
-    seed = SEED_PATH.read_text(encoding="ascii").strip()
-    seed_hash = hashlib.sha256(bytes.fromhex(seed)).hexdigest()
-    if manifest.get("seed_commitment") != seed_hash:
-        return False, "holdout seed commitment does not match"
-    if manifest.get("scenario_count") != sum(HOLDOUT_COUNTS.values()):
-        return False, "holdout sample count does not match the 20 percent design"
-    observed = {}
-    for split in ("inputs", "oracle"):
-        for name in HOLDOUT_COUNTS:
-            file_path = path / split / f"{name}.jsonl"
-            if not file_path.is_file():
-                return False, f"holdout file is missing: {split}/{name}.jsonl"
-            data = file_path.read_bytes()
-            rows = [line for line in data.splitlines() if line.strip()]
-            if len(rows) != HOLDOUT_COUNTS[name]:
-                return False, f"holdout count is invalid: {split}/{name}.jsonl"
-            observed[f"{split}/{name}.jsonl"] = hashlib.sha256(data).hexdigest()
-    if observed != manifest.get("sha256"):
-        return False, "holdout content hashes do not match the private manifest"
+    manifest, error = verify_manifest(manifest_path)
+    if error:
+        return False, error
+    error = verify_holdout_files(path, manifest)
+    if error:
+        return False, error
     return True, f"verified={sum(HOLDOUT_COUNTS.values())}; location=outside_repository"
 
 

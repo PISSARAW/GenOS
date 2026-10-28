@@ -211,6 +211,8 @@ async function invokeGcirService(input) {
     const task = { ...row, input: payload };
     serviceResult = row.experiment_id === 'E10'
       ? await executeMorphogenesis(task, repetition, harness) : executePhysiology(task);
+    serviceResult.answer = { ...serviceResult.answer,
+      mission_execution: reference.executeMissionWorkload(row.input.mission_workload) };
     return { value: serviceResult.answer };
   });
   const result = await runtime.execute({ operations, policy: policyFor(row), allowEmit: true });

@@ -89,16 +89,27 @@ def design_checks(protocol, blockers):
                   (planned == expected, f"planned={planned}; derived={expected}"))]
 
 
-def manifest_checks(blockers):
+def manifest_checks(protocol, blockers):
     dataset_root = ROOT / "dataset"
     manifest = read_json(dataset_root / "manifest.json")
+    mission_manifest = read_json(dataset_root / "missions" / "manifest.json")
+    declared_dataset = protocol.get("dataset", {})
+    protocol_hash = hashlib.sha256((dataset_root / "manifest.json").read_bytes()
+                                   .replace(b"\r\n", b"\n")).hexdigest()
+    protocol_matches = declared_dataset.get("dataset_version") == manifest.get("dataset_version") \
+        and declared_dataset.get("dataset_manifest_sha256") == protocol_hash \
+        and declared_dataset.get("mission_catalog_version") == mission_manifest.get("catalog_version")
+    checks = [check(blockers, "protocol_dataset_freeze",
+                    (protocol_matches, f"version={manifest.get('dataset_version')}; protocol_hash_match="
+                     f"{declared_dataset.get('dataset_manifest_sha256') == protocol_hash}; "
+                     f"mission_catalog={mission_manifest.get('catalog_version')}"))]
     inputs = dataset_root / "public" / "inputs"
     observed_counts = {path.stem: count_rows(path) for path in inputs.glob("E*.jsonl")}
     expected_counts = manifest.get("cases_by_experiment", {})
-    checks = [check(blockers, "dataset_manifest_counts",
-                    (expected_counts == observed_counts
-                     and manifest.get("total_cases") == sum(observed_counts.values()),
-                     f"manifest_total={manifest.get('total_cases')}; observed_total={sum(observed_counts.values())}"))]
+    checks.append(check(blockers, "dataset_manifest_counts",
+                        (expected_counts == observed_counts
+                         and manifest.get("total_cases") == sum(observed_counts.values()),
+                         f"manifest_total={manifest.get('total_cases')}; observed_total={sum(observed_counts.values())}")))
     hashes = manifest.get("sha256", {})
     mismatches = []
     for split, folder in (("inputs", dataset_root / "public" / "inputs"),
@@ -239,7 +250,7 @@ def main():
     checks = []
     checks.extend(dataset_checks(protocol, blockers))
     checks.extend(design_checks(protocol, blockers))
-    checks.extend(manifest_checks(blockers))
+    checks.extend(manifest_checks(protocol, blockers))
     checks.extend(adapter_checks(blockers))
     checks.extend(configuration_checks(protocol, blockers))
     checks.extend(preregistration_checks(protocol, blockers))

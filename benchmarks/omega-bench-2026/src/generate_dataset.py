@@ -3,11 +3,12 @@ import hashlib
 import json
 import random
 from pathlib import Path
+from mission_oracle import execute as execute_mission_oracle
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261027
-DATASET_VERSION = "0.6.0"
-MISSION_CATALOG_VERSION = "1.0.0"
+DATASET_VERSION = "0.7.0"
+MISSION_CATALOG_VERSION = "2.0.0"
 E04_TRANSFORMATIONS = ["combine_adjacent_additions", "combine_adjacent_multiplications",
                       "remove_additive_identity", "remove_multiplicative_identity",
                       "annihilate_zero_multiplication"]
@@ -172,6 +173,40 @@ def portability_case(index, rng):
                 "malformed": {"status": "blocked", "reason_class": "invalid_operation", "side_effects": 0}}
 
 
+def mission_workload(mission_id, index):
+    """Synthetic executable mission variant derived from the public catalog."""
+    if mission_id == "M2":
+        commands = [{"principal": "operator", "action": "read"},
+            {"principal": "observer", "action": "delete"}]
+        return {"kind": "security_filter", "commands": commands,
+            "policy": {"operator": ["read"], "observer": ["read"]}}
+    if mission_id == "M3":
+        messages = [{"id": f"m{index}-{n}", "sender": f"agent-{n % 4}",
+            "recipient": f"agent-{(n + 1) % 4}", "intent": f"task-{index}-{n}",
+            "depends_on": [] if n == 0 else [f"m{index}-{n-1}"]} for n in range(4)]
+        return {"kind": "message_round_trip", "messages": messages}
+    if mission_id == "M4":
+        tasks = [f"obligation-{index}-{n}" for n in range(5)]
+        return {"kind": "recoverable_handoff", "tasks": tasks,
+            "crash_after": index % 3, "effect_key": f"mission-effect-{index}"}
+    if mission_id == "M5":
+        demands = [{"agent": f"agent-{n}", "minimum": 1,
+            "priority": (n + index) % 4 + 1} for n in range(4)]
+        return {"kind": "collective_budget", "budget": 8 + index % 5,
+            "demands": demands}
+    agents = [10, 100, 1000, 10000][index % 4]
+    operation = {"id": f"intent-{index}", "kind": "CALL",
+        "reference": f"tool-{index % 5}", "arguments": {"record_id": f"record-{index}",
+            "limit": 1 + index % 10}}
+    return {"kind": "portable_scale", "agents": agents, "operation": operation,
+        "backends": ["json", "tabular", "portable"]}
+
+
+def mission_oracle(workload):
+    """Independent Python reference for the synthetic mission task."""
+    return execute_mission_oracle(workload)
+
+
 BUILDERS = [semantic_case, compression_case, typing_case, optimize_case, replay_case, resilience_case, communication_case, security_case, scalability_case, morphogenesis_case, physiology_case, portability_case]
 
 
@@ -189,8 +224,8 @@ def write_mission_catalog(assignments):
     catalog_path = dataset_root / "missions" / "catalog.json"
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
     catalog = {"catalog_version": MISSION_CATALOG_VERSION,
-        "assignment_policy": "each experiment is deterministically bound to one mission context; variants are keyed by scenario_id and do not alter the workload input or oracle",
-        "context_role": "public scenario metadata for grouping and stratification; not evidence that an integrated GenOS mission service was executed",
+        "assignment_policy": "each experiment is bound to its catalog mission; M2-M6 are synthetic executable workload variants included in public inputs and checked by independent oracles",
+        "context_role": "M1 has the source excerpt; M2-M6 are explicitly synthetic derivatives of the descriptions available in the proposal and are executed by deterministic workload handlers",
         "missions": MISSIONS}
     catalog_bytes = (json.dumps(catalog, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     catalog_path.write_bytes(catalog_bytes)
@@ -202,7 +237,7 @@ def write_mission_catalog(assignments):
     parent_manifest_raw_hash = hashlib.sha256(parent_manifest_path.read_bytes()).hexdigest()
     extension_manifest = {"catalog_version": MISSION_CATALOG_VERSION,
         "hash_policy": "SHA-256 of UTF-8 text after line-ending normalization to LF",
-        "interpretation": "mission fields label and stratify public scenarios; they do not change candidate workloads, oracles or executed GenOS services",
+        "interpretation": "M2-M6 workloads are synthetic derivatives, encoded in public inputs, executed by deterministic adapters and checked by independent Python oracles; they do not claim to reproduce unavailable original mission descriptions",
         "parent_dataset_version": DATASET_VERSION,
         "parent_dataset_manifest_sha256": parent_manifest_hash,
         "parent_dataset_manifest_raw_sha256": parent_manifest_raw_hash,
@@ -259,8 +294,7 @@ def build_experiment(number, count):
     return inputs, oracle
 
 
-def main():
-    digests = {}
+def generate_cases():
     public_inputs = []
     oracles_by_experiment = {}
     for number in range(1, 13):
@@ -268,26 +302,62 @@ def main():
         inputs, oracle = build_experiment(number, COUNTS[experiment])
         public_inputs.extend(inputs)
         oracles_by_experiment[experiment] = oracle
-    assignments = mission_assignments(public_inputs)
+    return public_inputs, oracles_by_experiment
+
+
+def enrich_case(row, assignment, oracle_lookup):
+    enriched_input = row["input"]
+    if assignment["mission_id"] != "M1":
+        index = int(row["scenario_id"][-3:])
+        workload = mission_workload(assignment["mission_id"], index)
+        enriched_input = {**enriched_input, "mission_workload": workload}
+        oracle_lookup[row["scenario_id"]]["expected"]["mission_execution"] = mission_oracle(workload)
+    fields = ("mission_id", "mission_variant_id", "mission_context_status", "mission_context")
+    return {**row, "input": enriched_input, **{key: assignment[key] for key in fields}}
+
+
+def enrich_public_inputs(public_inputs, assignments, oracles_by_experiment):
     assignment_by_id = {row["scenario_id"]: row for row in assignments}
     inputs_by_experiment = {experiment: [] for experiment in EXPERIMENTS}
+    oracle_lookup = {experiment: {row["scenario_id"]: row
+        for row in oracles_by_experiment[experiment]} for experiment in EXPERIMENTS}
     for row in public_inputs:
-        enriched = {**row, **{key: assignment_by_id[row["scenario_id"]][key]
-            for key in ("mission_id", "mission_variant_id", "mission_context_status", "mission_context")}}
-        inputs_by_experiment[row["experiment_id"]].append(enriched)
+        assignment = assignment_by_id[row["scenario_id"]]
+        experiment = row["experiment_id"]
+        inputs_by_experiment[experiment].append(enrich_case(
+            row, assignment, oracle_lookup[experiment]))
+    return inputs_by_experiment
+
+
+def write_experiment_data(experiment, input_rows, oracle_rows):
+    digests = {}
+    for split, rows in (("inputs", input_rows), ("oracle", oracle_rows)):
+        path = ROOT / "dataset" / ("public/inputs" if split == "inputs" else "oracle") \
+            / f"{experiment}.jsonl"
+        write_jsonl(path, rows)
+        data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
+        digests[f"{split}/E{experiment[1:]}.jsonl"] = hashlib.sha256(data).hexdigest()
+    return digests
+
+
+def write_dataset_manifest(inputs_by_experiment, oracles_by_experiment):
+    digests = {}
     for experiment in EXPERIMENTS:
-        input_rows = inputs_by_experiment[experiment]
-        oracle_rows = oracles_by_experiment[experiment]
-        write_jsonl(ROOT / "dataset" / "public" / "inputs" / f"{experiment}.jsonl", input_rows)
-        write_jsonl(ROOT / "dataset" / "oracle" / f"{experiment}.jsonl", oracle_rows)
-        for split, rows in (("inputs", input_rows), ("oracle", oracle_rows)):
-            data = "".join(canonical(row) + "\n" for row in rows).encode("utf-8")
-            digests[f"{split}/E{experiment[1:]}.jsonl"] = hashlib.sha256(data).hexdigest()
+        digests.update(write_experiment_data(experiment, inputs_by_experiment[experiment],
+            oracles_by_experiment[experiment]))
     manifest = {"protocol": "OMEGA-BENCH-2026", "dataset_version": DATASET_VERSION, "seed": SEED,
                 "cases_by_experiment": COUNTS, "total_cases": sum(COUNTS.values()),
                 "split": "public_development_only", "sha256": digests}
     (ROOT / "dataset" / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return manifest
+
+
+def main():
+    public_inputs, oracles = generate_cases()
+    assignments = mission_assignments(public_inputs)
+    grouped_inputs = enrich_public_inputs(public_inputs, assignments, oracles)
+    manifest = write_dataset_manifest(grouped_inputs, oracles)
     write_mission_catalog(assignments)
     print(f"Generated {manifest['total_cases']} cases; manifest: dataset/manifest.json")
     print(f"Generated {len(MISSIONS)} missions and {len(assignments)} deterministic public assignments.")

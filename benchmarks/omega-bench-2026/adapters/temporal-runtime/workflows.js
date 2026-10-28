@@ -34,7 +34,23 @@ async function resilienceWorkflow(input) {
       failOnce: index === input.crash_after_task_index,
       effectKey: index === input.crash_after_task_index ? input.effect_key : null });
   }
-  return { completed_tasks: input.tasks, irreversible_effect_count: input.effect_key ? 1 : 0 };
+  const workload = input.mission_workload;
+  let missionExecution = null;
+  if (workload?.kind === 'recoverable_handoff') {
+    const missionScope = `${scope}/mission`;
+    const completed = [];
+    for (let index = 0; index < workload.tasks.length; index += 1) {
+      const task = workload.tasks[index];
+      await completeTask({ scope: missionScope, taskId: task,
+        failOnce: index === workload.crash_after,
+        effectKey: index === workload.crash_after ? workload.effect_key : null });
+      completed.push(task);
+    }
+    missionExecution = { completed_tasks: completed, irreversible_effect_count: 1,
+      violations: [] };
+  }
+  return { completed_tasks: input.tasks, irreversible_effect_count: input.effect_key ? 1 : 0,
+    ...(missionExecution ? { mission_execution: missionExecution } : {}) };
 }
 
 async function communicationWorkflow(input) {

@@ -1,7 +1,7 @@
 {
-  "catalog_version": "1.0.0",
-  "assignment_policy": "each experiment is deterministically bound to one mission context; variants are keyed by scenario_id and do not alter the workload input or oracle",
-  "context_role": "public scenario metadata for grouping and stratification; not evidence that an integrated GenOS mission service was executed",
+  "catalog_version": "2.0.0",
+  "assignment_policy": "each experiment is bound to its catalog mission; M2-M6 are synthetic executable workload variants included in public inputs and checked by independent oracles",
+  "context_role": "M1 has the source excerpt; M2-M6 are explicitly synthetic derivatives of the descriptions available in the proposal and are executed by deterministic workload handlers",
   "missions": [
     {
       "id": "M1",

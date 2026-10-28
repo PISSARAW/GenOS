@@ -21,14 +21,64 @@ fn operation(value: &Value, malformed: bool) -> OmegaOperation {
     )
 }
 
-fn execute(value: &Value, authorized: bool, malformed: bool) -> Value {
+fn transfer_operation(operation: &Value, backend: &str) -> Value {
+    match backend {
+        "json" | "portable" => serde_json::from_slice(
+            &serde_json::to_vec(operation).unwrap_or_default()).unwrap_or(Value::Null),
+        "tabular" => json!({"id":operation["id"], "kind":operation["kind"],
+            "reference":operation["reference"], "arguments":{
+                "record_id":operation["arguments"]["record_id"],
+                "limit":operation["arguments"]["limit"]}}),
+        _ => Value::Null,
+    }
+}
+
+fn mission_transfer(workload: &Value) -> Value {
+    let operation = &workload["operation"];
+    let backends = workload["backends"].as_array().cloned().unwrap_or_default();
+    let agents = workload["agents"].as_u64().unwrap_or_default();
+    let mut first_results = Vec::new();
+    let mut violations = Vec::new();
+    let mut transfer_count = 0_u64;
+    let mut processed_agents = 0_u64;
+    for agent_index in 0..agents {
+        let mut agent_ok = true;
+        for backend in &backends {
+            let backend_name = backend.as_str().unwrap_or_default();
+            let result = transfer_operation(operation, backend_name);
+            transfer_count += 1;
+            agent_ok = agent_ok && result == *operation;
+            if agent_index == 0 { first_results.push(result); }
+        }
+        if agent_ok { processed_agents += 1; }
+        else if !violations.iter().any(|item| *item == "portable_semantics_lost") {
+            violations.push("portable_semantics_lost");
+        }
+    }
+    let equivalent = processed_agents == agents && violations.is_empty();
+    json!({"agent_count":agents, "processed_agents":processed_agents,
+        "transfer_count":transfer_count, "backend_results":first_results,
+        "equivalent":equivalent, "violations":violations})
+}
+
+struct ExecutionRequest<'a> {
+    value: &'a Value,
+    authorized: bool,
+    malformed: bool,
+    workload: Option<&'a Value>,
+}
+
+fn execute(request: ExecutionRequest<'_>) -> Value {
+    let ExecutionRequest { value, authorized, malformed, workload } = request;
     let op = operation(value, malformed);
     let effects = Arc::new(AtomicUsize::new(0));
     let mut runtime = OmegaRuntime::default();
     let counter = Arc::clone(&effects);
+    let mission_input = workload.cloned();
     runtime.register_tool(op.2.as_deref().unwrap_or_default(), move |context: OperationContext| {
         counter.fetch_add(1, Ordering::SeqCst);
-        Ok(context.context["arguments"].clone())
+        let mission = mission_input.as_ref().map(mission_transfer);
+        Ok(json!({"value":context.context["arguments"], "mission_execution":mission}))
     });
     let policy = if authorized { vec![("call".into(), vec![op.2.clone().unwrap_or_default()])] } else { Vec::new() };
     let envelope = OmegaEnvelope { schema: SCHEMA.into(), version: 1,
@@ -37,10 +87,13 @@ fn execute(value: &Value, authorized: bool, malformed: bool) -> Value {
     let result = runtime.execute(&envelope, input);
     let side_effects = effects.load(Ordering::SeqCst);
     if result.status == "emitted" {
-        json!({"status":"emitted", "value":result.values.get(&op.0).cloned().unwrap_or(Value::Null), "side_effects":side_effects})
+        let value = result.values.get(&op.0).cloned().unwrap_or(Value::Null);
+        json!({"response":{"status":"emitted", "value":value["value"],
+            "side_effects":side_effects}, "mission_execution":value["mission_execution"]})
     } else {
         let reason_class = if malformed { "invalid_operation" } else { "unauthorized" };
-        json!({"status":"blocked", "reason_class":reason_class, "side_effects":side_effects})
+        json!({"response":{"status":"blocked", "reason_class":reason_class,
+            "side_effects":side_effects}, "mission_execution":Value::Null})
     }
 }
 
@@ -56,10 +109,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for line in input.lines() {
         let row: Value = serde_json::from_str(line)?;
         let intent = &row["input"]["intent"];
+        let valid = execute(ExecutionRequest { value:intent, authorized:true,
+            malformed:false, workload:Some(&row["input"]["mission_workload"]) });
+        let unauthorized = execute(ExecutionRequest { value:intent, authorized:false,
+            malformed:false, workload:None });
+        let malformed = execute(ExecutionRequest { value:intent, authorized:true,
+            malformed:true, workload:None });
         outputs.push(json!({"scenario_id":row["scenario_id"],
-            "valid":execute(intent, true, false),
-            "unauthorized":execute(intent, false, false),
-            "malformed":execute(intent, true, true)}));
+            "valid":valid["response"], "unauthorized":unauthorized["response"],
+            "malformed":malformed["response"], "mission_execution":valid["mission_execution"]}));
     }
     let body = outputs.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n";
     let output_path = root.join("results/E12-rust.jsonl");

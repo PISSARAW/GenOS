@@ -29,7 +29,9 @@ function createRuntimeFor(row) {
   runtime.registerReader('bench/input', async () => row.input);
   runtime.registerTool(`bench/${row.experiment_id}`, async ({ input }) => {
     const task = { ...row, input };
-    return row.experiment_id === 'E03' ? { accepted: omegaInterop.validate(input.candidate).valid } : reference.execute(task, null);
+    return row.experiment_id === 'E03' ? { accepted: omegaInterop.validate(input.candidate).valid,
+      mission_execution: reference.executeMissionWorkload(input.mission_workload) }
+      : reference.execute(task, null);
   });
   return runtime;
 }

@@ -46,7 +46,8 @@ function effectHandler(row, effects, probes) {
   };
 }
 
-function createE05Runtime(row, journal, effects, probes) {
+function createE05Runtime(input) {
+  const { row, journal, effects, probes } = input;
   const runtime = runtimeModule.createRuntime(journal ? { journal } : {});
   runtime.registerTool('e05/apply-events', effectHandler(row, effects, probes), { idempotent: true });
   return runtime;
@@ -68,29 +69,30 @@ async function openJournal(filename) {
 async function runControl(row, repetition) {
   const probes = { handlerInvocations: 0, effectCount: 0, idempotencyKeys: [], simulateInterruption: false };
   const effects = new Map();
-  const runtime = createE05Runtime(row, null, effects, probes);
+  const runtime = createE05Runtime({ row, journal: null, effects, probes });
   const result = await runtime.execute(requestFor(row, repetition));
   if (result.status !== 'emitted') throw new Error(`control_runtime_${result.reason || result.status}`);
   return { answer: result.values.apply, probes };
 }
 
-async function runNative(row, repetition, filename) {
+async function runNative(input) {
+  const { row, repetition, dbPath } = input;
   const probes = { handlerInvocations: 0, effectCount: 0, idempotencyKeys: [], simulateInterruption: true };
   const effects = new Map();
   const request = requestFor(row, repetition);
-  let db = await openJournal(filename);
-  const first = await createE05Runtime(row, db, effects, probes).execute(request);
+  let db = await openJournal(dbPath);
+  const first = await createE05Runtime({ row, journal: db, effects, probes }).execute(request);
   if (first.reason !== 'operation_failed') throw new Error(`interruption_not_observed:${row.scenario_id}`);
   await db.close();
 
-  db = await openJournal(filename);
-  const recovered = await createE05Runtime(row, db, effects, probes).execute(request);
+  db = await openJournal(dbPath);
+  const recovered = await createE05Runtime({ row, journal: db, effects, probes }).execute(request);
   if (recovered.status !== 'emitted') throw new Error(`recovery_${recovered.reason || recovered.status}`);
   const answer = recovered.values.apply;
   await db.close();
 
-  db = await openJournal(filename);
-  const replayed = await createE05Runtime(row, db, effects, probes).execute(request);
+  db = await openJournal(dbPath);
+  const replayed = await createE05Runtime({ row, journal: db, effects, probes }).execute(request);
   await db.close();
   const replayVerified = replayed.status === 'emitted'
     && isDeepStrictEqual(answer, replayed.values.apply)
@@ -113,7 +115,8 @@ function resultRow(input) {
       output_tokens: null, cost_usd: null } };
 }
 
-function manifestFor(condition, outputPath, results, dbPath) {
+function manifestFor(input) {
+  const { condition, outputPath, results, dbPath } = input;
   const datasetManifest = path.join(DATASET_ROOT, 'manifest.json');
   return { protocol: 'OMEGA-BENCH-2026', condition_id: condition,
     status: 'public_gcir_native_sqlite_journal_recovery_idempotency_E05', scope: ['E05'],
@@ -138,7 +141,7 @@ function writeResults(results, input) {
   fs.mkdirSync(path.dirname(input.outputPath), { recursive: true });
   fs.writeFileSync(input.outputPath, `${results.map((row) => JSON.stringify(row)).join('\n')}\n`);
   fs.writeFileSync(input.outputPath.replace(/\.jsonl$/i, '.manifest.json'),
-    `${JSON.stringify(manifestFor(input.condition, input.outputPath, results, input.dbPath), null, 2)}\n`);
+    `${JSON.stringify(manifestFor({ ...input, results }), null, 2)}\n`);
 }
 
 async function runPair(row, repetition, dbPath) {
@@ -146,7 +149,7 @@ async function runPair(row, repetition, dbPath) {
   const control = await runControl(row, repetition);
   const controlElapsed = performance.now() - started;
   const nativeStarted = performance.now();
-  const native = await runNative(row, repetition, dbPath);
+  const native = await runNative({ row, repetition, dbPath });
   const nativeElapsed = performance.now() - nativeStarted;
   const pairedEqual = isDeepStrictEqual(control.answer, native.answer);
   if (!pairedEqual) throw new Error(`paired_answer_mismatch:${row.scenario_id}`);

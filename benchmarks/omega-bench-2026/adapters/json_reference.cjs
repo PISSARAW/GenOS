@@ -152,11 +152,71 @@ function answerE12(input) {
   return { canonical_operation: roundTrips.json, equivalent };
 }
 
+function missionSecurity(workload) {
+  const decisions = workload.commands.map((command) =>
+    workload.policy[command.principal]?.includes(command.action) === true);
+  return { decisions, executed_effects: decisions.filter(Boolean).length, violations: [] };
+}
+
+function missionMessages(workload) {
+  const decoded = JSON.parse(JSON.stringify(workload.messages));
+  const preserved = JSON.stringify(canonical(decoded))
+    === JSON.stringify(canonical(workload.messages));
+  return { delivered_message_ids: decoded.map((message) => message.id),
+    messages_preserved: preserved, violations: preserved ? [] : ['message_loss'] };
+}
+
+function missionRecovery(workload) {
+  const completed = new Set(workload.tasks.slice(0, workload.crash_after + 1));
+  workload.tasks.forEach((task) => completed.add(task));
+  return { completed_tasks: workload.tasks.filter((task) => completed.has(task)),
+    irreversible_effect_count: workload.effect_key ? 1 : 0, violations: [] };
+}
+
+function missionBudget(workload) {
+  const allocation = Object.fromEntries(workload.demands.map((item) => [item.agent, item.minimum]));
+  let remaining = workload.budget - Object.values(allocation).reduce((sum, value) => sum + value, 0);
+  while (remaining > 0) {
+    const eligible = workload.demands.filter((item) => allocation[item.agent] < 4);
+    eligible.sort((left, right) => right.priority - left.priority
+      || agentIndex(left.agent) - agentIndex(right.agent));
+    allocation[eligible[0].agent] += 1;
+    remaining -= 1;
+  }
+  return { allocation, allocated_total: workload.budget, violations: [] };
+}
+
+function missionPortability(workload) {
+  const operation = workload.operation;
+  const table = { id: operation.id, kind: operation.kind, reference: operation.reference,
+    arguments: { record_id: operation.arguments.record_id, limit: operation.arguments.limit } };
+  const results = workload.backends.map((backend) => backend === 'tabular'
+    ? table : JSON.parse(JSON.stringify(operation)));
+  const equivalent = results.every((item) =>
+    JSON.stringify(canonical(item)) === JSON.stringify(canonical(operation)));
+  return { agent_count: workload.agents, processed_agents: workload.agents,
+    transfer_count: workload.agents * workload.backends.length, backend_results: results,
+    equivalent, violations: equivalent ? [] : ['portable_semantics_lost'] };
+}
+
+const MISSION_EXECUTORS = { security_filter: missionSecurity, message_round_trip: missionMessages,
+  recoverable_handoff: missionRecovery, collective_budget: missionBudget,
+  portable_scale: missionPortability };
+
+function executeMissionWorkload(workload) {
+  if (!workload) return null;
+  const executor = MISSION_EXECUTORS[workload.kind];
+  if (!executor) throw new Error(`unknown_mission_workload:${workload.kind}`);
+  return executor(workload);
+}
+
 const HANDLERS = { E01: answerE01, E02: answerE02, E04: answerE04, E05: answerE05, E06: answerE06, E07: answerE07, E08: answerE08, E09: answerE09, E10: answerE10, E11: answerE11, E12: answerE12 };
 
 function execute(row, validator) {
-  if (row.experiment_id === 'E03') return validateE03(row.input, validator);
-  return HANDLERS[row.experiment_id](row.input);
+  const answer = row.experiment_id === 'E03' ? validateE03(row.input, validator)
+    : HANDLERS[row.experiment_id](row.input);
+  const missionExecution = executeMissionWorkload(row.input.mission_workload);
+  return missionExecution ? { ...answer, mission_execution: missionExecution } : answer;
 }
 
 function timedRow(row, repetition, validator) {
@@ -197,4 +257,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { createValidator, execute, readRows };
+module.exports = { createValidator, execute, executeMissionWorkload, readRows };

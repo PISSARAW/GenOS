@@ -18,7 +18,8 @@ def main():
         mismatches = []
         for row in rows:
             wanted = expected_by_id.get(row["scenario_id"])
-            actual = {key: row[key] for key in ("valid", "unauthorized", "malformed")}
+            actual = {key: row[key] for key in (
+                "valid", "unauthorized", "malformed", "mission_execution")}
             if actual != wanted:
                 mismatches.append(row["scenario_id"])
         print(f"{backend}: {len(rows)} cases; {len(mismatches)} mismatches")

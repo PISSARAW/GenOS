@@ -59,6 +59,25 @@ function queryFor(row) {
     : { endpoint: 'allowed', input: row.input };
 }
 
+async function policyDecision(port, input) {
+  const response = await fetch(`http://127.0.0.1:${port}/v1/data/omega/allowed`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ input })
+  });
+  if (!response.ok) throw new Error(`OPA mission policy returned HTTP ${response.status}.`);
+  return Boolean((await response.json()).result);
+}
+
+async function missionExecution(row, port) {
+  const workload = row.input.mission_workload;
+  if (workload?.kind !== 'security_filter') return undefined;
+  const decisions = [];
+  for (const command of workload.commands) {
+    decisions.push(await policyDecision(port, { ...command, policy: workload.policy }));
+  }
+  return { decisions, executed_effects: decisions.filter(Boolean).length, violations: [] };
+}
+
 async function runRow(row, repetition, port) {
   const query = queryFor(row);
   const payload = JSON.stringify({ input: query.input });
@@ -73,6 +92,8 @@ async function runRow(row, repetition, port) {
   const answer = row.experiment_id === 'E03'
     ? { accepted: allowed }
     : { allowed, executed_effects: allowed ? ['requested_action'] : [] };
+  const mission = await missionExecution(row, port);
+  if (mission) answer.mission_execution = mission;
   const output = JSON.stringify(answer);
   return {
     scenario_id: row.scenario_id, experiment_id: row.experiment_id,
@@ -132,4 +153,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { queryFor, runRow };
+module.exports = { missionExecution, policyDecision, queryFor, runRow };

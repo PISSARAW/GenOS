@@ -1,10 +1,10 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "2.0.0",
   "hash_policy": "SHA-256 of UTF-8 text after line-ending normalization to LF",
-  "interpretation": "mission fields label and stratify public scenarios; they do not change candidate workloads, oracles or executed GenOS services",
-  "parent_dataset_version": "0.6.0",
-  "parent_dataset_manifest_sha256": "d76a91e6b9532c25a1646c8aea9301d7e3170f5602c9ad2098519bd59e920aac",
-  "parent_dataset_manifest_raw_sha256": "d9644a8239042dba2e5923b167d27dcfc064a268b222e85c822662263f6aacff",
+  "interpretation": "M2-M6 workloads are synthetic derivatives, encoded in public inputs, executed by deterministic adapters and checked by independent Python oracles; they do not claim to reproduce unavailable original mission descriptions",
+  "parent_dataset_version": "0.7.0",
+  "parent_dataset_manifest_sha256": "4604c2f870044c3b94fcd71ca833dcf561f91ba53f1869ddfc4d63b9ee54ffd2",
+  "parent_dataset_manifest_raw_sha256": "830dd926a8bb4ecf6749f62bd26165a6efacd263004d95df8499b563bbad4134",
   "mission_count": 6,
   "assignment_count": 3400,
   "variants_by_experiment": {
@@ -22,7 +22,7 @@
     "E12": 100
   },
   "sha256": {
-    "missions/catalog.json": "e90d08c5d1cae97124b53a937f8608a602fe39bf638f66fff1a108c2d30bb12a",
+    "missions/catalog.json": "39b9050a0108f5afa59075466a5e52fe0126db566f1c558cc26be257bc120744",
     "public/mission-assignments.jsonl": "4b4ff0e63d78f98413a4d2e6175630ae5b2e7fe099bf532397c5f1ed50da5cde"
   }
 }

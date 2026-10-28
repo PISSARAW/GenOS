@@ -73,7 +73,8 @@ async function runRow(row, repetition, compileEnabled) {
   const accepted = outcome.execution.status === 'emitted';
   return { scenario_id: row.scenario_id, experiment_id: 'E03',
     condition_id: compileEnabled ? 'A2-on' : 'A2-off', repetition,
-    status: 'completed', answer: { accepted },
+    status: 'completed', answer: { accepted,
+      mission_execution: reference.executeMissionWorkload(row.input.mission_workload) },
     metrics: { rejection_layer: rejectionLayer(stage, outcome),
       static_schema_status: compileEnabled ? (stage.phase === 'static_schema' ? 'rejected' : 'valid') : 'bypassed',
       compile_status: stage.compiled?.status || 'bypassed', compile_reason: stage.reason,

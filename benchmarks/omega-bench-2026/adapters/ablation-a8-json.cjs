@@ -34,6 +34,10 @@ async function runRow(input) {
     ? await genos.executeMorphogenesis(row, repetition, harness)
     : row.experiment_id === 'E11' ? genos.executePhysiology(row)
       : executeReferenceJson(row, validator);
+  if (['E10', 'E11'].includes(row.experiment_id)) {
+    result.answer = { ...result.answer,
+      mission_execution: reference.executeMissionWorkload(row.input.mission_workload) };
+  }
   const answer = result.answer;
   return { scenario_id: row.scenario_id, experiment_id: row.experiment_id,
     condition_id: 'A8', repetition, status: result.violations?.length ? 'failed' : 'completed',

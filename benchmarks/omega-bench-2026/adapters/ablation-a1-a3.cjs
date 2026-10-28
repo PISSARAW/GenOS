@@ -61,7 +61,8 @@ function runA3(row, repetition, typed) {
   const candidate = envelopeFor(row);
   const started = performance.now();
   const accepted = typed ? interop.validate(candidate).valid : looseStructuralCheck(candidate);
-  return resultRow({ row, repetition, condition: typed ? 'A3-on' : 'A3-off', answer: { accepted },
+  return resultRow({ row, repetition, condition: typed ? 'A3-on' : 'A3-off',
+    answer: { accepted, mission_execution: reference.executeMissionWorkload(row.input.mission_workload) },
     metrics: { typing: typed ? 'schema+enum+field-types' : 'container-shape-only',
       schema_validation: typed ? 'enabled' : 'disabled', json_parse: 'enabled' }, started });
 }

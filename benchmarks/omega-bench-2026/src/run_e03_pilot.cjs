@@ -42,6 +42,8 @@ function resultRow({ row, condition, repetition, validator }) {
   const inputBytes = Buffer.byteLength(JSON.stringify(candidate));
   const started = performance.now();
   const evaluated = validateCandidate({ condition, candidate, validator });
+  evaluated.answer.mission_execution = require('../adapters/json_reference.cjs')
+    .executeMissionWorkload(row.input.mission_workload);
   const latency = performance.now() - started;
   return {
     scenario_id: row.scenario_id,

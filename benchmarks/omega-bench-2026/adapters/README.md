@@ -6,4 +6,6 @@ Familles comparées : MLIR (représentation/validation), Temporal (durabilité/r
 
 `gcir_optimized.cjs` est une qualification partielle de C : elle valide chaque enveloppe avec le validateur d'interopérabilité G-CIR, compile/exécute le graphe Omega et applique cinq transformations E04 (fusion d'additions, fusion de multiplications, retrait des identités additive et multiplicative, annihilation par zéro). Elle compare l'oracle sémantique avant et après chaque passe. Hors E03 (validation G-CIR) et E04 (optimisations), les handlers de travail de A sont réutilisés; ce passage ne mesure pas une optimisation générale ou un gain face à A.
 
+Les charges M2–M6 sont encodées dans les entrées candidates, exécutées par les adaptateurs concernés et vérifiées par les oracles indépendants. Elles restent identifiées comme variantes synthétiques dans `../dataset/missions/catalog.json`, car le texte source fourni ne décrit que M1.
+
 Avant de comparer une famille, spécifier l'adaptateur fonctionnellement équivalent, sa version exacte et ses capacités applicables. Marquer `N/A` les métriques hors contrat. Ne pas remplacer les fonctionnalités absentes par des échecs artificiels ni accorder à une condition des outils ou budgets différents.
