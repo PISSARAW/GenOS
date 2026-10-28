@@ -339,7 +339,7 @@ def build_report():
             "holm_family_sizes": {f"{family}:{endpoint}": len(values)
                                   for (family, endpoint), values in
                                   collect_pvalues(comparisons).items()},
-            "comparisons": comparisons, "rare_events": rare_event_summary(oracle)}
+            "comparisons": comparisons, "rare_events": rare_event_summary()}
 
 
 def main():
