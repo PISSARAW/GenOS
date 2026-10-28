@@ -59,20 +59,32 @@ function fallbackHostExecutionContext(mission) {
 }
 
 async function finishContext(state, text) {
-  const report = validateCallerReport(text);
+  const report = validateCallerReport(text, state.isWorker ? state.mission : null);
   state.finalReportText = text;
   const ok = await handleSuccessfulReport(state);
   if (!ok) throw new Error('GenOS rejected the caller evidence report.');
   if (report.outcome === 'failed') process.exitCode = 1;
 }
 
-function validateCallerReport(text) {
+function validateCallerReport(text, workerMission = null) {
   const report = JSON.parse(text);
   if (!report || !['success', 'failed', 'no_answer'].includes(report.outcome)) throw new Error('Caller report requires an explicit outcome.');
   if (report.outcome !== 'success') return report;
   if (!Array.isArray(report.claims) || !report.claims.length) throw new Error('Successful caller report requires evidence-bearing claims.');
   if (report.artifact === 'creative' && !String(report.artifactText || '').trim()) throw new Error('Creative caller report requires a non-empty artifactText.');
+  if (workerMission) validateWorkerSuccess(report, workerMission);
   return report;
 }
 
-module.exports = { createContext, finishContext, validateCallerReport };
+function validateWorkerSuccess(report, mission) {
+  const responseFormat = require('../src/services/workerEvidenceIdentityPrompt').workerResponseFormat(mission);
+  const validate = new (require('ajv'))({ allErrors: true, strict: false }).compile(responseFormat.schema);
+  if (validate({ ...report, outcome: 'success' })) return;
+  const violations = (validate.errors || []).map((error) => `${error.instancePath || '$'} ${error.message}`);
+  throw Object.assign(new Error(`Successful caller worker report violates its typed response schema: ${violations.join('; ')}`), {
+    code: 'CALLER_WORKER_RESPONSE_SCHEMA_INVALID',
+    violations
+  });
+}
+
+module.exports = { createContext, finishContext, validateCallerReport, validateWorkerSuccess };
