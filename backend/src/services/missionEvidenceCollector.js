@@ -32,7 +32,7 @@ async function collectMissionEvidence(db, missionId, agents) {
   const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState, missionId, testExecutionReceipts });
   const profiles = buildTypedProfiles(dossiers, runs);
   const completion = await evaluateCollectedCompletion({ db, missionId,
-    orchestratorId: identity?.orchestratorAgentId, agents: effective, flags });
+    orchestratorId: identity?.orchestratorAgentId, agents: effective, dossiers, flags });
   flags.missionOutcome = completion.success;
   flags.completionVerdict = completion.verdict;
   return { flags, evidence, profiles, dossiers, runs, telemetry, testExecutionReceipts, completion };
@@ -60,11 +60,30 @@ async function evaluateCollectedCompletion(input) {
   const evidence = await completionEvidence.collect({ db: input.db, missionId: input.missionId,
     members: workers.map((worker) => ({ ...worker, memberId: worker.id })),
     evidenceProofs: input.evidenceProofs });
-  return completionContract.evaluate({ missionId: input.missionId,
+  const completion = completionContract.evaluate({ missionId: input.missionId,
     lifecycleState: collectedLifecycle(input.agents), requiredMemberIds: required,
     members: evidence.members, evidenceProofs: evidence.evidenceProofs,
     barrierStatus: input.barrierStatus ?? 'complete',
     topologyValidation: collectedTopology(input.flags) });
+  if (completion.verdict !== 'partial' || !workers.length) return completion;
+  return verifiedDossierCompletion(input, workers) || completion;
+}
+
+function verifiedDossierCompletion(input, workers) {
+  const closure = require('./missionClosureDossierAdapter').buildClosureInput({
+    missionId: input.missionId, producerId: input.orchestratorId || input.missionId,
+    lifecycleState: collectedLifecycle(input.agents),
+    barrierStatus: input.barrierStatus ?? 'complete',
+    workers: workers.map((worker) => ({ agentId: worker.id, role: worker.role })),
+    dossiers: input.dossiers || []
+  });
+  closure.topologyValidation = collectedTopology(input.flags);
+  const rosterVerified = closure.members.length === workers.length
+    && closure.members.every((member) => member.status === 'completed'
+      && Array.isArray(member.evidenceRefs) && member.evidenceRefs.length > 0);
+  closure.invariants = [{ id: 'required_worker_dossiers_verified', passed: rosterVerified }];
+  const result = require('./missionClosureService').closeMission(closure);
+  return result.success ? result : null;
 }
 
 function collectWorkerDossiers(orchestratorId, agents) {
