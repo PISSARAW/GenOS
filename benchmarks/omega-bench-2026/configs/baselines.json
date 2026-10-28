@@ -7,7 +7,7 @@
       "capability": "typed intermediate representation, validation and optimization",
       "adapter": "adapters/mlir.cjs",
       "version": "mlir-opt-22 22.1.2 (Ubuntu 26.04 under WSL)",
-      "status": "pending",
+      "status": "qualified_public_development",
       "applicable_experiments": [
         "E01",
         "E02",
@@ -23,7 +23,10 @@
         "E09",
         "E10",
         "E11"
-      ]
+      ],
+      "results_manifest": "results/MLIR-baseline.manifest.json",
+      "evaluation_file": "results/MLIR-baseline.evaluation.json",
+      "result_condition": "MLIR"
     },
     {
       "id": "temporal",

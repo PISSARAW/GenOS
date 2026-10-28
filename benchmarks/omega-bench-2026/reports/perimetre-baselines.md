@@ -8,12 +8,12 @@ Cette décision suit la consigne de la campagne de comparer des fonctionnalités
 
 | Baseline | Expériences applicables | Justification du périmètre | État local |
 |---|---|---|---|
-| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | exécution en cours sous WSL; latence exclue des comparaisons Windows |
+| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | 4 800/4 800 cas passés; IR vérifiées, réponse métier par référence; latence WSL exclue |
 | Temporal | E05, E06, E07 | exécution durable, historique/replay et reprise de workflows | 1 350/1 350 corrects; E05 replay vérifié 300/300, effets E06 sans doublon |
 | LangGraph | E05, E06, E07, E10 | transitions de graphes, checkpoints et reprise d'état | 1 650/1 650 corrects, évalués |
 | A2A | E07, E12 | délégation, tâches interagents et échange portable | 900/900 corrects, évalués |
 | MCP | E07, E12 | découverte et appel d'outils typés, avec réponse au client | 900/900 corrects, évalués |
-| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | relance corrigée: 6 000/6 000 corrects, évalués |
+| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | relance corrigée: 6 000/6 000 corrects; l’ancien score à 4 500 est rejeté |
 | JSON Schema + référence Python | E01–E12 | contrôle déterministe indépendant qui implémente les contrats de sortie | runner A réutilisé, jeu public exécuté |
 
 ## Adaptateur MCP
@@ -44,11 +44,11 @@ une panne injectée, avec journal durable des effets idempotents. Le graphe
 exécute un nœud déterministe par cas; ce résultat qualifie le runtime de graphe
 et le checkpoint, pas une orchestration multi-agent optimisée.
 
-`adapters/opa.cjs` exécute OPA 1.21.4 via son serveur local sur E03/E08. Les
-4 500 réponses correctes sur 6 000 comprennent 1 500/3 000 sur E03 (jeu de
-validation équilibré contenant des demandes valides et invalides) et 3 000/3 000
-sur E08. Ce score décrit les règles de politique déclarées et n'est pas une
-mesure de l'ensemble des contrôles de sécurité GenOS.
+`adapters/opa.cjs` exécute OPA 1.21.4 via son serveur local sur E03/E08. Après
+correction de l’entrée de politique Rego, les 6 000 réponses sont conformes :
+3 000/3 000 sur E03 et 3 000/3 000 sur E08. Le run antérieur à 4 500/6 000
+est rejeté; il évaluait le mauvais chemin d’entrée pour E03. Ce score décrit
+les règles déclarées et ne mesure pas l’ensemble des contrôles de sécurité GenOS.
 
 Les manifestes et évaluations JSONL bruts restent des artefacts locaux ignorés
 par Git; les compteurs ci-dessus sont des résultats descriptifs sur le jeu
@@ -62,7 +62,8 @@ puis appelle l'exécuteur de référence indépendant pour la réponse métier. 
 runner utilise Ubuntu 26.04 sous WSL et le paquet `mlir-22-tools` 22.1.2; il ne
 compare pas les latences avec les adaptateurs Windows. Cette qualification
 porte sur la vérification et la canonicalisation de l'IR générée par
-l'adaptateur, pas sur une implémentation MLIR des douze contrats métiers.
+l'adaptateur, pas sur une implémentation MLIR des douze contrats métiers. Le run public a
+validé les 4 800 IR et les 4 800 réponses de référence; l'évaluation est descriptive.
 
 ## Sources de contrat
 
