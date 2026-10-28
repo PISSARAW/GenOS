@@ -28,9 +28,9 @@
     {
       "id": "temporal",
       "capability": "durable workflow execution, replay and recovery",
-      "adapter": null,
-      "version": null,
-      "status": "pending",
+      "adapter": "adapters/temporal.cjs",
+      "version": "@temporalio/client|worker|workflow@1.25.0; Temporal CLI 1.9.1 (server 1.32.0)",
+      "status": "qualified_public_development",
       "applicable_experiments": [
         "E05",
         "E06",
@@ -46,7 +46,10 @@
         "E10",
         "E11",
         "E12"
-      ]
+      ],
+      "results_manifest": "results/TEMPORAL-baseline.manifest.json",
+      "evaluation_file": "results/TEMPORAL-baseline.evaluation.json",
+      "result_condition": "TEMPORAL"
     },
     {
       "id": "langgraph",

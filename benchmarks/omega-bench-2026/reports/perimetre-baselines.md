@@ -8,12 +8,12 @@ Cette décision suit la consigne de la campagne de comparer des fonctionnalités
 
 | Baseline | Expériences applicables | Justification du périmètre | État local |
 |---|---|---|---|
-| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | runner en cours sous WSL |
-| Temporal | E05, E06, E07 | exécution durable, historique/replay et reprise de workflows | run public en cours |
+| MLIR | E01, E02, E03, E04, E12 | IR typée, vérification, transformations et représentations portables | exécution en cours sous WSL; latence exclue des comparaisons Windows |
+| Temporal | E05, E06, E07 | exécution durable, historique/replay et reprise de workflows | 1 350/1 350 corrects; E05 replay vérifié 300/300, effets E06 sans doublon |
 | LangGraph | E05, E06, E07, E10 | transitions de graphes, checkpoints et reprise d'état | 1 650/1 650 corrects, évalués |
 | A2A | E07, E12 | délégation, tâches interagents et échange portable | 900/900 corrects, évalués |
 | MCP | E07, E12 | découverte et appel d'outils typés, avec réponse au client | 900/900 corrects, évalués |
-| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | 4 500/6 000 corrects, évalués |
+| OPA | E03, E08 | décisions de politique sur entrées structurées et demandes adversariales | relance corrigée: 6 000/6 000 corrects, évalués |
 | JSON Schema + référence Python | E01–E12 | contrôle déterministe indépendant qui implémente les contrats de sortie | runner A réutilisé, jeu public exécuté |
 
 ## Adaptateur MCP
