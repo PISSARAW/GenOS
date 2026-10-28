@@ -10,6 +10,14 @@ Le runtime agentique GenOS est le plan d'execution qui transforme une mission au
 
 Ce n'est ni un ordonnanceur distribue avec reprise transparente, ni une garantie de correction d'un modele. C'est un superviseur Node.js autour de processus enfants et de fournisseurs de modeles, avec des capsules de travail isolees, une base SQLite et des portes d'evidence. Les termes biologiques designent des politiques logicielles, pas une equivalence avec une cellule vivante.
 
+Pour les workers, le backend Node.js est aujourd'hui le runtime exécutable : il
+construit les affectations, lance et supervise les workers, puis valide leurs
+résultats à la barrière de preuves. Le crate Rust `genos-worker` fournit des
+contrats, presets, dossiers typés et un automate de cycle ; il n'est pas raccordé
+au dispatch actif et n'exécute pas ces missions. Les outils MCP Rust
+`genos_worker_publish` et `genos_worker_inbox` assurent la communication de
+l'organisation, pas le lancement ni la clôture d'un worker.
+
 Le point d'entree applicatif est [backend/src/services/agentRuntimeAdapter/index.js](../../backend/src/services/agentRuntimeAdapter/index.js). La supervision du processus est concentree dans [backend/src/services/agentProcessSupervisor.js](../../backend/src/services/agentProcessSupervisor.js), tandis que [backend/bin/genos-agent-runtime.cjs](../../backend/bin/genos-agent-runtime.cjs) adapte Codex au protocole d'evenements cadre.
 
 ## Objectifs et frontieres

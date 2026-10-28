@@ -88,8 +88,8 @@ ETT démontre aujourd’hui une chaîne de contrôle durable et falsifiable, pas
 
 ### Surfaces opérateur
 
-- backend Node.js : API REST Express, services gRPC et SQLite en mode WAL ;
-- cœur Rust : store, cellule, biologie, orchestration, CLI et serveur MCP ;
+- backend Node.js : API REST Express, services gRPC, SQLite en mode WAL et runtime exécutable des workers (dispatch, lancement, supervision et barrière de preuves) ;
+- cœur Rust : store, cellule, biologie, orchestration, CLI et serveur MCP ; `genos-worker` y fournit des contrats, presets, dossiers et un automate de cycle, mais n'est pas raccordé au dispatch worker actif ;
 - deux serveurs MCP stdio, Node et Rust, fermés par défaut sans lease explicite ;
 - [GenOS Studio](integrations/studio/README.md) pour inspecter missions, agents, fichiers, preuves et opérations ;
 - intégrations Codex, VS Code, OpenTelemetry, Temporal et moteurs spécialisés.

@@ -2213,8 +2213,8 @@ La Morphogenèse GenOS est le système de contrôle vivant qui donne aux organis
 ### Garage Fabric : circulation distincte de la morphologie
 
 La construction morphogénétique choisit les rôles, méthodes, dépendances et
-contrats. [Garage Fabric](garage-fabric.md) contrôle leur circulation dans le
-runtime commun des workers : douze politiques d'admission, file SQLite durable,
+contrats. Le runtime exécutable des workers est celui du backend Node.
+[Garage Fabric](garage-fabric.md) contrôle leur circulation dans ce runtime : douze politiques d'admission, file SQLite durable,
 baux clôturés, réservation locale/projet et préemption consentie. Il ne crée
 pas une neuvième topologie, ne change pas un `WorkerKind` et n'accorde pas de
 permissions MCP supplémentaires.

@@ -1,4 +1,4 @@
-//! Tests du runtime worker commun.
+//! Tests des contrats et primitives du modèle worker Rust.
 
 #[cfg(test)]
 mod worker_tests {

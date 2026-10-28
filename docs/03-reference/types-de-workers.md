@@ -1,18 +1,20 @@
 # Types de workers GenOS
 
-Mise à jour du 2026-10-10 : les 19 types disposent de méthodes natives structurées. Le [catalogue des méthodes exécutables](execution-native-workers.md) précise leurs entrées et leurs limites ; la [matrice de qualification](../06-qualite-preuves/qualification-workers.md) sépare les tests de méthode des preuves de mission et des oracles indépendants. Les états de disponibilité historiques ci-dessous doivent être lus avec cette mise à jour.
+Mise à jour du 2026-10-28 : les 19 types disposent de méthodes natives structurées. Le [catalogue des méthodes exécutables](execution-native-workers.md) précise leurs entrées et leurs limites ; la [matrice de qualification](../06-qualite-preuves/qualification-workers.md) sépare les tests de méthode des preuves de mission et des oracles indépendants. Les états de disponibilité historiques ci-dessous doivent être lus avec cette mise à jour.
+
+**Frontière d'exécution actuelle :** le backend Node.js est le runtime worker exécutable : il planifie les affectations, dispatch les workers, supervise leurs missions et valide leurs résultats. `crates/genos-worker` fournit des contrats, presets, dossiers typés et primitives de cycle Rust, mais ce crate n'est pas raccordé au dispatch actif. Les sections Rust ci-dessous décrivent ces modèles et leurs tests, pas un second runtime de production.
 
 - **Statut** : La campagne locale du 2026-09-25 couvrait les contrats des 19 kinds avec `qwen2.5:14b` ; elle ne mesurait ni les exécuteurs déterministes ni la parité avec des agents concurrents. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
-- **Portée** : `crates/genos-worker` (autorité Rust), registre Node des phénotypes et des `WorkerKind`, vocabulaire des rôles de mission, preuves et dispatch.
+- **Portée** : runtime exécutable et dispatch Node (`agentFleetWorkers`, `agentRuntimeAdapter`, barrières de preuve) ; modèles de contrats et de cycle Rust dans `crates/genos-worker`, non raccordés au dispatch.
 - **Dernière revue** : 2026-09-25
 
 ---
 
 ## 1. Définition
 
-Les **types de workers** GenOS sont les 19 phénotypes d'exécution du runtime worker commun. Ils répondent à la question : *quel contrat d'autorité, de cognition, de mémoire, de communication et de preuves s'applique à un agent enfant pour une mission donnée ?*
+Les **types de workers** GenOS sont les 19 profils de contrat utilisés pour caractériser les agents enfants. Ils répondent à la question : *quel contrat d'autorité, de cognition, de mémoire, de communication et de preuves s'applique à un agent enfant pour une mission donnée ?* Aujourd'hui, le runtime Node applique ses contrats et exécute les missions ; le modèle Rust parallèle n'est pas appelé par le dispatch.
 
-Contrairement à un simple rôle de mission (`implementation`, `analyst`, `frontend_developer`), un type de worker est un **contrat exécutable** : il est résolu depuis un identifiant canonique, reconstruit côté serveur à l'incarnation, appliqué aux appels d'outils MCP, et vérifié à la barrière de preuves par un artefact typé avec provenance.
+Contrairement à un simple rôle de mission (`implementation`, `analyst`, `frontend_developer`), un type de worker porte un contrat d'autorité et de preuve. Dans le runtime actuel, ce contrat est résolu et appliqué par le backend Node, puis vérifié à la barrière de preuves par un artefact typé avec provenance. Le `WorkerRuntimeContract` Rust est un modèle de contrat distinct : il n'est pas lu par le dispatch Node.
 
 ### 1.1 Principe fondateur
 
@@ -20,11 +22,10 @@ $$\text{Worker} : \text{Mission} \times \text{Contrat} \times \text{Lease} \maps
 
 Le worker vise, pour toute mission et tout contexte, un dossier **valide** (artefact attendu conforme), **sourcé** (provenance présente) et **borné** (scope, budget, itérations respectés). Il ne prétend jamais qu'un transport réussi vaut décision valide : un succès sans preuve n'est pas un succès vérifié.
 
-La proposition d'architecture distingue trois couches de contrat ; seule la couche Rust est l'autorité de conception, la couche Node est une projection appliquée :
+Les implémentations actuelles se répartissent ainsi :
 
-1. **Contrat Rust** (`crates/genos-worker`) : `WorkerRuntimeContract` commun + 19 presets + invariants `check_action` + cycle universel + dossiers typés.
-2. **Contrat Node effectif** (`backend/src/services/agents/workerKindService.js` + `phenotypeRegistryService.js`) : catalogue des 19 identifiants, profils d'autorité projetés, reconstruction serveur, refus fail-closed.
-3. **Preuve consommée** (`workerArtifactContract.js` + `workerEvidenceBarrier*.js`) : `evidenceReport.workerArtifact` typé, champs requis, provenance, barrière `SATISFIED` vs `PARTIAL`.
+1. **Runtime effectif Node** (`backend/src/services/agents/workerKindService.js`, `agentFleetWorkers.js`, `agentRuntimeAdapter/`, `workerEvidenceBarrier*.js`) : catalogue, contrat reconstruit côté serveur, dispatch, supervision et contrôle de preuve.
+2. **Modèle Rust non raccordé** (`crates/genos-worker`) : `WorkerRuntimeContract`, presets, `check_action`, automate de cycle et dossiers typés. Ces API s'exécutent dans les tests de ce crate, pas dans une mission worker dispatchée.
 
 ---
 
@@ -34,9 +35,9 @@ Les formules de cette fiche ont des statuts différents. Elles sont soit des inv
 
 Dans cette documentation, **vérifié formellement** signifie accepté par un vérificateur de preuve avec son environnement explicite ; **invariant logiciel** signifie contrôlé par une précondition ou un validateur ; **résultat empirique** exige un protocole et des données reproductibles ; **heuristique** désigne une règle déterministe ou un score non validé ; **analogie** est un vocabulaire inspiré d'un autre domaine. Ces statuts ne sont pas interchangeables.
 
-## 2.1 Représentation du WorkerRuntimeContract
+## 2.1 Modèle Rust `WorkerRuntimeContract` (non raccordé au dispatch)
 
-Le contrat commun est défini dans `crates/genos-worker/src/contract.rs` (~215 lignes). Chaque worker, quel que soit son type, est incarné sous le même `WorkerRuntimeContract` ; seul le preset remplit différemment les champs.
+Le contrat commun est défini dans `crates/genos-worker/src/contract.rs` (~215 lignes). Chaque preset Rust construit le même type `WorkerRuntimeContract` avec des champs différents. Le backend Node construit et applique séparément son contrat effectif ; il ne charge pas cette structure Rust.
 
 $$\text{WorkerRuntimeContract} = \langle \text{identity}, \text{mission}, \text{niche}, \text{cognition}, \text{capabilities}, \text{authority}, \text{lease}, \text{memory}, \text{comms}, \text{resources}, \text{evidence}, \text{resilience}, \text{lifecycle}, \text{bornes} \rangle$$
 
@@ -116,17 +117,17 @@ Les 20 `WorkerKind` exacts (`phenotype.rs`, `all()`, `name()`, `family_of()`) :
 
 Fonctions de plasticité : `niche_fit(phenotype, niche) = 1.0` si niche égale, `0.2` si différente, `0.5` si aucune spécialisation ; `dedifferentiate()` clone avec `specialization=None, cognition=Adaptive, adaptation=Local`.
 
-### 2.3 Cycle universel partagé
+### 2.3 Automate de cycle Rust (modèle non exécuté par le runtime Node)
 
-Défini dans `crates/genos-worker/src/cycle.rs` (~187 lignes). Ordre nominal : `INCARNATE → LOAD → PERCEIVE → … → ACT → EVIDENCE → MEMOIRE → COMMUNICATION → CONTINUE / ADAPT / ESCALATE / TERMINATE`.
+Défini dans `crates/genos-worker/src/cycle.rs`. Ordre nominal : `INCARNATE → LOAD → PERCEIVE → … → ACT → EVIDENCE → MEMOIRE → COMMUNICATION → CONTINUE / ADAPT / ESCALATE / COMPLETE / EXHAUST`.
 
 Les 18 `CycleStep` exacts : `Incarnate, LoadSelf, LoadMission, LoadAuthority, Perceive, UpdateEpistemics, RetrieveMemory, CheckRegulation, SelectRecipe, SelectStrategy, SelectProcedures, Act, CollectReceipts, AssessEvidence, UpdateMemory, Communicate, Review, Done`. `next()` chaîne linéairement jusqu'à `Done`.
 
-$$\text{review} : \text{WorkerState} \times \text{ReviewDecision} \mapsto \{\text{Continue}, \text{Adapt}, \text{RequestCapability}, \text{Escalate}, \text{Terminate}\}$$
+$$\text{review} : \text{WorkerState} \times \text{ReviewDecision} \mapsto \{\text{Continue}, \text{Adapt}, \text{RequestCapability}, \text{Escalate}, \text{Completed}, \text{Exhausted}\}$$
 
-Priorité de `decide_outcome` : `success ⇒ Terminate` ; `unhealthy ∨ need_parent ⇒ Escalate` ; `blocked ∧ ¬need_adaptation ⇒ Escalate` ; `need_capability ⇒ RequestCapability` ; `need_adaptation ⇒ Adapt` ; sinon `Continue`. Budget (`tokens_spent ≥ token_budget`) ou itérations (`iteration ≥ max_iterations`) épuisés ⇒ `Done + Terminate`. `Continue|Adapt` incrémente `iteration` et repart à `Perceive` ; `RequestCapability|Escalate` va à `Communicate` ; `Terminate` va à `Done`.
+`success` n'aboutit à `Completed` que si un `WorkerDossier` typé passe `is_verified_success()` : statut `Completed`, références d'artefact et provenance non vides. Un succès sans dossier valide escalade vers `Communicate`. Le budget (`tokens_spent ≥ token_budget`) ou les itérations (`iteration ≥ max_iterations`) épuisés sans dossier vérifié produisent `Exhausted`, distinct de `Completed`. `Continue|Adapt` incrémente `iteration` et repart à `Perceive` ; `RequestCapability|Escalate` va à `Communicate` ; `Completed|Exhausted` va à `Done`.
 
-`WorkerState` porte `step, iteration, max_iterations (défaut 10), tokens_spent, token_budget (défaut 8000), strategy_changes / max (défaut 3), cognitive_changes / max (défaut 2), recipe_trajectory, strategy_trajectory, receipts`. `record_strategy_change` / `record_cognitive_change` refusent (`false`) au-delà du plafond, sinon incrémentent et tracent.
+`WorkerState` porte `step, iteration, max_iterations (défaut 10), tokens_spent, token_budget (défaut 8000), strategy_changes / max (défaut 3), cognitive_changes / max (défaut 2), recipe_trajectory, strategy_trajectory, receipts`. `record_strategy_change` / `record_cognitive_change` refusent (`false`) au-delà du plafond, sinon incrémentent et tracent. Cet automate reste une primitive Rust; aucune étape n'est automatiquement appelée par le dispatch Node.
 
 Ce cycle est une **définition opérationnelle candidate côté Rust** : le backend Node n'exécute pas `cycle.rs` tel quel ; il applique un pipeline mission + barrière de preuves décrit en §8-§9. Ne pas présenter le cycle comme exécuté par Node.
 
@@ -134,7 +135,7 @@ Ce cycle est une **définition opérationnelle candidate côté Rust** : le back
 
 Définis dans `crates/genos-worker/src/dossier.rs` (~145 lignes). Principe : le parent consomme un `WorkerDossier` typé + artefacts spécialisés, jamais du texte libre.
 
-`WorkerDossier` : `worker_id, objective, scope, status (chaîne libre : "completed", "blocked", …), progress, claims, artifacts, tests, receipts, provenance, unresolved, confidence, rejected_hypotheses, actions_taken, strategy_trajectory, cognitive_trajectory, tokens_spent, requested_capabilities, escalation, recommendations, health`. Note : `status` est une `String`, pas l'enum `WorkerStatus` ; seul `status_name()` fait le pont (`Completed→"completed"`, etc.). `is_verified_success() = status=="completed" ∧ artifacts≠∅ ∧ provenance≠∅`.
+`WorkerDossier` : `worker_id, objective, scope, status: WorkerStatus, progress, claims, artifacts, tests, receipts, provenance, unresolved, confidence, rejected_hypotheses, actions_taken, strategy_trajectory, cognitive_trajectory, tokens_spent, requested_capabilities, escalation, recommendations, health`. `WorkerStatus` est sérialisé en minuscules (`completed`, `blocked`, …). `is_verified_success()` exige `Completed` ainsi qu'au moins une référence non vide à un artefact et à une provenance. Cette vérification est une API Rust locale et n'est pas appelée par le runtime Node.
 
 Artefacts spécialisés exacts :
 
@@ -369,7 +370,7 @@ $$\text{is\_verified\_success} = (\text{artifacts} \neq \emptyset) \land (\text{
 
 ## 10. Continuations : snapshots, reprises et escalades
 
-- `CycleOutcome` Rust : `Continue` (itération++, retour `Perceive`), `Adapt` (changement borné puis `Perceive`), `RequestCapability` / `Escalate` (vers `Communicate`), `Terminate` (vers `Done`). `Escalation{kind, reason}` et `AdaptiveEnvelope` cadrent la remontée.
+- `CycleOutcome` du modèle Rust : `Continue` (itération++, retour `Perceive`), `Adapt` (changement borné puis `Perceive`), `RequestCapability` / `Escalate` (vers `Communicate`), `Completed` (dossier vérifié) et `Exhausted` (budget ou itérations consommés). `Escalation{kind, reason}` et `AdaptiveEnvelope` cadrent la remontée.
 - Côté Node : `subOrchestratorService` définit `ESCALATION_REASONS`, `requestEscalation/evaluateEscalation/grantLease/revokeLease`, mais sans persistance SQL ni dispatch enfant : ce sont des baux mémoire, pas des continuations exécutées.
 - Barrière : reprise par `retry`, `revokeLease`, dépendances `dependsOn`, handoffs typés et réconciliation ; timeouts et annulations terminaux explicites (voir §8).
 
@@ -488,10 +489,10 @@ Les topologies (voir `morphogenese.md`) composent des organisations ; les worker
 
 | Document | Rôle |
 |---|---|
-| [ADR 0043](../adr/0043-runtime-worker-phenotypes.md) | Runtime worker commun et phénotypes composables (19 types, 5 familles). |
+| [ADR 0043](../adr/0043-runtime-worker-phenotypes.md) | Décision initiale sur les phénotypes et le cycle worker (19 types, 5 familles) ; voir son encadré pour l'état d'implémentation actuel. |
 | [ADR 0044](../adr/0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité Node et gates double runtime. |
 | [ADR 0064](../adr/0064-registre-workerkind-node-et-dispatch.md) | Registre canonique Node et raccordement au dispatch. |
-| `crates/genos-worker/src/lib.rs` | Runtime unique, 20 invariants annoncés, dossiers typés. |
+| `crates/genos-worker/src/lib.rs` | API de primitives contractuelles et d'automate Rust, non raccordée au dispatch Node. |
 | `crates/genos-worker/src/contract.rs` | `WorkerRuntimeContract` et `validate_contract`. |
 | `crates/genos-worker/src/phenotype.rs` | `AgentPhenotype`, `WorkerKind`, `family_of`, `niche_fit`, `dedifferentiate`. |
 | `crates/genos-worker/src/cycle.rs` | Cycle universel 18 étapes, `review`, plafonds. |
@@ -1241,13 +1242,13 @@ Associativité, commutativité, idempotence ou monotonie des compositions de wor
 
 ## 44. Conclusion
 
-Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts attendus; `test_worker_kind_registry.js` compare ces trois dimensions aux sources Rust. Cette parité de catalogue ne signifie pas identité des contrats. Rust exécute les presets, recettes, baux et budgets de `WorkerRuntimeContract`; Node projette certains kinds sur des phénotypes d'autorité existants, puis applique ses propres leases, overrides, contrats d'artefacts et règles de dispatch. Les différences connues sont listées ci-dessous et doivent rester visibles. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type doit être validé dans son runtime avec ses refus attendus, son artefact et sa provenance.
+Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts attendus; `test_worker_kind_registry.js` compare ces trois dimensions aux sources Rust. Cette parité de catalogue ne signifie pas identité des contrats. Le crate Rust définit des presets, recettes, baux et budgets dans `WorkerRuntimeContract`, mais le dispatch Node ne charge ni n'exécute ces valeurs. Le backend Node construit et applique son contrat indépendant, projette certains kinds sur des phénotypes d'autorité existants, puis applique ses propres leases, overrides, contrats d'artefacts et règles de dispatch. Les différences connues sont listées ci-dessous et doivent rester visibles. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type doit être validé dans son runtime avec ses refus attendus, son artefact et sa provenance.
 
 ---
 
 ## 45. État d'implémentation du runtime (audit 2026-09-25)
 
-- **Rust** : `genos-worker` expose contrat, cycle (18 étapes), dossiers, 8 règles `check_action` (+ succès vérifié), 19 presets, 16 tests. Annonce « 20 invariants » : seuls 8 numéros + succès vérifié sont encodés ; le reste est objectif de conception.
+- **Rust (modèles seulement)** : `genos-worker` expose contrat, cycle (18 étapes), dossiers, 8 règles `check_action` (+ succès vérifié), 19 presets. Ces primitives ne sont pas appelées par le runtime worker Node.
 - **Node** : `workerKindService` (19 `KINDS`, 19 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
 - **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, plafonne les tokens à 10 000 (et au budget du parent), attend le résultat pendant 60 secondes et autorise jusqu'à cinq enfants. Le contrat de délégation dure une heure. Les presets Rust donnent également spawn=5/profondeur=1, mais avec un budget tokens de 20 000 et sans cette expiration Node. Les tests simulent la base et le superviseur; ils ne prouvent pas une mission parent-enfant réelle.
 - **Parité vérifiée** : les identifiants canoniques, familles et artefacts des 19 kinds sont comparés entre `WorkerKind`/`family_of`/`preset_for` Rust et `KINDS` Node par `test_worker_kind_registry.js`.

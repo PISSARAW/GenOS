@@ -8,6 +8,12 @@ decision-id: 0043
 
 # ADR 0043 : Runtime Worker Commun et Phenotypes Composables
 
+> **État d'implémentation (2026-10-28)** — Cette ADR conserve la décision
+> d'architecture initiale. Aujourd'hui, les workers exécutables sont lancés et
+> supervisés par le backend Node.js. `crates/genos-worker` fournit des contrats,
+> presets, dossiers et primitives de cycle Rust qui ne sont pas raccordés au
+> dispatch actif. Voir la [référence des types de workers](../03-reference/types-de-workers.md).
+
 ## Contexte
 
 Les workers GenOS (scout, executeur, verifieur, daemon, sub-orchestrateur...)

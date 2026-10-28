@@ -1,12 +1,12 @@
-//! genos-worker : un seul runtime, des phenotypes specialises.
+//! `genos-worker` : contrats et primitives de cycle des workers côté Rust.
 //!
-//! Chaque worker execute le meme cycle universel (`cycle`) sous un
-//! `WorkerRuntimeContract` commun (`contract`). Ce qui change par type :
-//! persistence, scope, autorite, liberte d'adaptation, memoire,
-//! communication, strategie, spawn, topologie, obligations d'evidence.
+//! Le backend Node.js porte aujourd'hui le runtime worker exécutable et son
+//! dispatch. Ce crate expose des modèles Rust (`WorkerRuntimeContract`, cycle,
+//! dossiers et presets) qui ne sont pas encore raccordés à ce dispatch.
+//! Ils décrivent des contrats et transitions ; ils ne lancent pas un worker.
 //!
-//! Les 20 invariants (`invariants`) sont non negociables ; le parent
-//! consomme un `WorkerDossier` type (`dossier`), jamais un texte libre.
+//! Les vérifications de ce crate restent locales à ses API. Le runtime Node
+//! applique ses propres contrats et barrières de preuve.
 
 pub mod contract;
 pub mod cycle;
