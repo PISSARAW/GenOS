@@ -1,8 +1,9 @@
 //! Cycle universel partage par tous les workers.
 //!
 //! INCARNATE -> LOAD -> PERCEIVE -> ... -> ACT -> EVIDENCE ->
-//! MEMOIRE -> COMMUNICATION -> CONTINUE / ADAPT / ESCALATE / TERMINATE.
+//! MEMOIRE -> COMMUNICATION -> CONTINUE / ADAPT / ESCALATE / COMPLETE / EXHAUST.
 
+use crate::dossier::WorkerDossier;
 use serde::{Deserialize, Serialize};
 
 /// Etapes du cycle universel.
@@ -59,6 +60,7 @@ impl CycleStep {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ReviewDecision {
     pub success: bool,
+    pub dossier: Option<WorkerDossier>,
     pub blocked: bool,
     pub need_adaptation: bool,
     pub need_capability: bool,
@@ -73,7 +75,8 @@ pub enum CycleOutcome {
     Adapt,
     RequestCapability,
     Escalate,
-    Terminate,
+    Completed,
+    Exhausted,
 }
 
 /// Etat runtime d'un worker en cours de cycle.
@@ -114,7 +117,11 @@ impl Default for WorkerState {
 
 fn decide_outcome(decision: &ReviewDecision) -> CycleOutcome {
     if decision.success {
-        return CycleOutcome::Terminate;
+        return if decision.dossier.as_ref().is_some_and(WorkerDossier::is_verified_success) {
+            CycleOutcome::Completed
+        } else {
+            CycleOutcome::Escalate
+        };
     }
     if decision.unhealthy || decision.need_parent {
         return CycleOutcome::Escalate;
@@ -141,11 +148,15 @@ fn iterations_exhausted(state: &WorkerState) -> bool {
 
 /// Evalue la revue de fin de cycle et fait avancer l'etat.
 pub fn review(state: &mut WorkerState, decision: &ReviewDecision) -> CycleOutcome {
+    let outcome = decide_outcome(decision);
+    if outcome == CycleOutcome::Completed {
+        state.step = CycleStep::Done;
+        return outcome;
+    }
     if budget_exhausted(state) || iterations_exhausted(state) {
         state.step = CycleStep::Done;
-        return CycleOutcome::Terminate;
+        return CycleOutcome::Exhausted;
     }
-    let outcome = decide_outcome(decision);
     match outcome {
         CycleOutcome::Continue | CycleOutcome::Adapt => {
             state.iteration += 1;
@@ -154,7 +165,7 @@ pub fn review(state: &mut WorkerState, decision: &ReviewDecision) -> CycleOutcom
         CycleOutcome::RequestCapability | CycleOutcome::Escalate => {
             state.step = CycleStep::Communicate;
         }
-        CycleOutcome::Terminate => {
+        CycleOutcome::Completed | CycleOutcome::Exhausted => {
             state.step = CycleStep::Done;
         }
     }

@@ -195,9 +195,11 @@ mod worker_tests {
         let mut s = WorkerState::default();
         let done = review(&mut s, &ReviewDecision {
             success: true,
+            dossier: Some(verified_dossier()),
             ..Default::default()
         });
-        assert_eq!(done, CycleOutcome::Terminate);
+        assert_eq!(done, CycleOutcome::Completed);
+        assert_eq!(s.step, crate::cycle::CycleStep::Done);
         let mut s2 = WorkerState::default();
         let esc = review(&mut s2, &ReviewDecision {
             need_parent: true,
@@ -209,10 +211,75 @@ mod worker_tests {
         assert_ne!(s3.step, crate::cycle::CycleStep::Incarnate);
     }
 
+    fn verified_dossier() -> WorkerDossier {
+        WorkerDossier {
+            status: WorkerStatus::Completed,
+            artifacts: vec!["artifact://result".into()],
+            provenance: vec!["receipt://worker-run".into()],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn review_rejects_success_without_verified_dossier() {
+        let mut state = WorkerState::default();
+        let outcome = review(&mut state, &ReviewDecision {
+            success: true,
+            ..Default::default()
+        });
+
+        assert_eq!(outcome, CycleOutcome::Escalate);
+        assert_eq!(state.step, crate::cycle::CycleStep::Communicate);
+    }
+
+    #[test]
+    fn review_rejects_dossier_missing_artifacts_or_provenance() {
+        for dossier in [
+            WorkerDossier { status: WorkerStatus::Completed, provenance: vec!["receipt://run".into()], ..Default::default() },
+            WorkerDossier { status: WorkerStatus::Completed, artifacts: vec!["artifact://result".into()], ..Default::default() },
+            WorkerDossier { status: WorkerStatus::Blocked, artifacts: vec!["artifact://result".into()], provenance: vec!["receipt://run".into()], ..Default::default() },
+            WorkerDossier { status: WorkerStatus::Completed, artifacts: vec![" ".into()], provenance: vec!["receipt://run".into()], ..Default::default() },
+        ] {
+            let mut state = WorkerState::default();
+            let outcome = review(&mut state, &ReviewDecision {
+                success: true,
+                dossier: Some(dossier),
+                ..Default::default()
+            });
+
+            assert_eq!(outcome, CycleOutcome::Escalate);
+            assert_ne!(state.step, crate::cycle::CycleStep::Done);
+        }
+    }
+
+    #[test]
+    fn resource_exhaustion_is_not_successful_completion() {
+        let mut token_limited = WorkerState { tokens_spent: 10, token_budget: 10, ..Default::default() };
+        let outcome = review(&mut token_limited, &ReviewDecision::default());
+        assert_eq!(outcome, CycleOutcome::Exhausted);
+        assert_eq!(token_limited.step, crate::cycle::CycleStep::Done);
+
+        let mut iteration_limited = WorkerState { iteration: 3, max_iterations: 3, ..Default::default() };
+        let outcome = review(&mut iteration_limited, &ReviewDecision::default());
+        assert_eq!(outcome, CycleOutcome::Exhausted);
+        assert_ne!(outcome, CycleOutcome::Completed);
+    }
+
+    #[test]
+    fn exhausted_worker_with_verified_dossier_can_complete_successfully() {
+        let mut state = WorkerState { tokens_spent: 10, token_budget: 10, ..Default::default() };
+        let outcome = review(&mut state, &ReviewDecision {
+            success: true,
+            dossier: Some(verified_dossier()),
+            ..Default::default()
+        });
+        assert_eq!(outcome, CycleOutcome::Completed);
+    }
+
     #[test]
     fn dossier_success_requires_evidence() {
         let d = WorkerDossier {
-            status: "completed".to_string(),
+            status: WorkerStatus::Completed,
             ..Default::default()
         };
         assert!(!d.is_verified_success());

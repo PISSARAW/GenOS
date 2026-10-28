@@ -6,10 +6,12 @@
 use serde::{Deserialize, Serialize};
 
 /// Etat final d'une mission worker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WorkerStatus {
     Completed,
     Blocked,
+    #[default]
     Unknown,
     Escalated,
     Terminated,
@@ -21,7 +23,7 @@ pub struct WorkerDossier {
     pub worker_id: String,
     pub objective: String,
     pub scope: String,
-    pub status: String,
+    pub status: WorkerStatus,
     pub progress: f64,
     pub claims: Vec<String>,
     pub artifacts: Vec<String>,
@@ -44,10 +46,14 @@ pub struct WorkerDossier {
 impl WorkerDossier {
     /// Succes verifie = termine + preuves + provenance.
     pub fn is_verified_success(&self) -> bool {
-        self.status == "completed"
-            && !self.artifacts.is_empty()
-            && !self.provenance.is_empty()
+        self.status == WorkerStatus::Completed
+            && has_non_empty_refs(&self.artifacts)
+            && has_non_empty_refs(&self.provenance)
     }
+}
+
+fn has_non_empty_refs(refs: &[String]) -> bool {
+    !refs.is_empty() && refs.iter().all(|reference| !reference.trim().is_empty())
 }
 
 /// Observation structuree d'une ScoutCell.
