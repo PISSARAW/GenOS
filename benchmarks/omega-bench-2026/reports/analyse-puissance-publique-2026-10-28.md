@@ -34,7 +34,7 @@ Tous les contrastes D/A ont une couverture complète du scope public et les 10 2
 | Ablation/contrôle | n | Éligible comme candidat confirmatoire | Δ latence moyenne (ms) | SD Δ (ms) | MDE80 (ms) | Discordances C/T | n80 pour différence binaire 15 pp |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
 | A1_optimizer_E04 | 100 | oui | -0.039 | 0.364 | 0.130 | 0/0 | 111 |
-| A2_static_verification_E03 | 1000 | non | 0.028 | 0.034 | 0.004 | 0/0 | 111 |
+| A2_static_verification_E03 | 1000 | non | 0.719 | 0.123 | 0.014 | 0/250 | 140 |
 | A3_strong_typing_E03 | 1000 | oui | 1.596 | 0.433 | 0.049 | 0/500 | 282 |
 | A4_harness_replay_E05 | 100 | non | 6.020 | 1.570 | 0.562 | 0/0 | 111 |
 | A5_morphogenesis_E10 | 100 | oui | 280.167 | 75.082 | 26.849 | 0/0 | 111 |

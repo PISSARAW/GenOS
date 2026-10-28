@@ -8,13 +8,13 @@ Sur E04 (100 scénarios, 300 exécutions par bras), les deux bras traversent la 
 
 Ce contrôle isole le repli adjacent sur le workload E04; il ne mesure pas l'ensemble des optimisations du compilateur.
 
-## A2 — validation à la compilation en plus du runtime
+## A2 — validation de schéma avant exécution
 
-Le bras ON compile le graphe puis le remet au runtime. Le bras OFF appelle directement `runtime.execute` sur le même graphe. Les contrôles obligatoires du runtime restent actifs dans les deux bras. E03 contient 500 candidats valides, 250 avec kind `EXECUTE` et 250 où `state` manque.
+Le bras ON valide l'enveloppe brute contre le schéma G-CIR, puis compile et appelle le runtime. Le bras OFF contourne le contrôle de schéma et le compilateur, mais garde les contrôles du runtime. E03 contient 500 candidats valides, 250 avec kind `EXECUTE` et 250 où le champ obligatoire `state` manque. Les lecteurs enregistrés sont des handlers factices sans effet externe; leur compteur mesure uniquement le franchissement de la frontière d'exécution.
 
-Les deux bras ont 2 250/3 000 résultats conformes (75 %). Le bras ON rejette les 750 kinds invalides au compilateur avant tout appel de handler; le bras OFF les rejette au runtime, également avant tout appel. Les deux bras exécutent le handler pour les 2 250 autres lignes; le runtime matérialise `state` absent comme `open`, ce qui accepte 750 entrées que l'oracle de schéma considère invalides. La validation de compilation ne change donc pas la conformité ici, mais déplace le point de rejet et ajoute un précontrôle.
+Le bras ON rejette les 1 500 lignes invalides avant le runtime et passe 3 000/3 000 selon l'oracle. Le bras OFF rejette les 750 kinds `EXECUTE` au runtime, mais celui-ci matérialise un `state` absent en `open` et appelle le handler pour ces 750 candidats pourtant invalides selon le schéma; il passe donc 2 250/3 000. A2 évite ici 750 dispatchs vers un handler factice sur des enveloppes non canoniques. Cela démontre l'utilité d'un contrôle de schéma au point d'entrée si celui-ci est contourné; cela ne démontre pas la prévention d'effets dangereux réels ni un gain de sûreté en production, où le routage doit être audité séparément.
 
-Latence médiane totale exploratoire: 0,04245 ms avec compilation contre 0,0166 ms sans compilation; le runtime seul reste autour de 0,02 ms dans les deux bras. Le contraste mesure le coût de la compilation ajoutée au garde d'exécution, pas la valeur du garde runtime ni une amélioration de qualité. Cette expérience n'autorise pas à désactiver la validation runtime.
+Le temps médian total exploratoire est de 0,716 ms pour ON et 0,0124 ms pour OFF sur cet hôte partagé. Le runtime accepte actuellement un champ `state` manquant en le remplaçant par `open`, contrairement au schéma versionné qui le rend obligatoire; cet écart reste à traiter ou à exclure explicitement du contrat. Ces résultats publics ne sont pas préenregistrés.
 
 ## A3 — typage strict contre forme JSON permissive
 

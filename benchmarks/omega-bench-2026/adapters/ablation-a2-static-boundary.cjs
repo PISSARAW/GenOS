@@ -9,6 +9,8 @@ const { performance } = require('node:perf_hooks');
 const reference = require('./json_reference.cjs');
 const compiler = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaCompiler'));
+const interop = require(path.resolve(__dirname, '..', '..', '..', 'backend',
+  'src', 'services', 'cognitiveOmegaInteropService'));
 const { createRuntime } = require(path.resolve(__dirname, '..', '..', '..', 'backend',
   'src', 'services', 'cognitiveOmegaRuntimeService'));
 
@@ -37,18 +39,23 @@ async function runtimeFor(candidate, operations) {
   return { execution, handlerCalls, runtimeMs: performance.now() - started };
 }
 
-function compilerStage(operations, enabled) {
+function compilerStage(candidate, operations, enabled) {
   const compileStarted = performance.now();
+  const validation = enabled ? interop.validate(candidate) : null;
+  if (enabled && !validation.valid) {
+    return { compiled: null, compileMs: performance.now() - compileStarted, phase: 'static_schema',
+      reason: validation.errors.join(',') };
+  }
   const compiled = enabled ? compiler.compile({ operations,
     targets: operations.map((operation) => operation.id), model: 'a2-static-ablation' }) : null;
   const compileMs = performance.now() - compileStarted;
   const phase = enabled && compiled.status !== 'ready' ? 'compiler' : null;
-  return { compiled, compileMs, phase };
+  return { compiled, compileMs, phase, reason: compiled?.reason || null };
 }
 
 async function runtimeStage(input) {
   const { candidate, operations, stage } = input;
-  if (stage.phase) return { execution: { status: 'blocked', reason: stage.compiled.reason },
+  if (stage.phase) return { execution: { status: 'blocked', reason: stage.reason },
     handlerCalls: 0, runtimeMs: 0 };
   const runtimeOperations = stage.compiled?.slice.nodes || operations;
   return runtimeFor(candidate, runtimeOperations);
@@ -61,14 +68,15 @@ function rejectionLayer(stage, outcome) {
 async function runRow(row, repetition, compileEnabled) {
   const candidate = row.input.candidate;
   const operations = executionGraph(candidate);
-  const stage = compilerStage(operations, compileEnabled);
+  const stage = compilerStage(candidate, operations, compileEnabled);
   const outcome = await runtimeStage({ candidate, operations, stage });
   const accepted = outcome.execution.status === 'emitted';
   return { scenario_id: row.scenario_id, experiment_id: 'E03',
     condition_id: compileEnabled ? 'A2-on' : 'A2-off', repetition,
     status: 'completed', answer: { accepted },
     metrics: { rejection_layer: rejectionLayer(stage, outcome),
-      compile_status: stage.compiled?.status || 'bypassed', compile_reason: stage.compiled?.reason || null,
+      static_schema_status: compileEnabled ? (stage.phase === 'static_schema' ? 'rejected' : 'valid') : 'bypassed',
+      compile_status: stage.compiled?.status || 'bypassed', compile_reason: stage.reason,
       runtime_status: stage.phase ? 'not_called' : outcome.execution.status,
       runtime_reason: stage.phase ? null : outcome.execution.reason || null,
       handler_calls: outcome.handlerCalls, compile_ms: stage.compileMs,
@@ -88,8 +96,9 @@ function writeArm(rows, condition, results) {
   const manifest = { protocol: 'OMEGA-BENCH-2026', condition_id: condition,
     status: 'scoped_public_development_ablation', scope: ['E03'], scenarios: rows.length,
     repetitions: 3, runs: results.length,
-    feature: condition === 'A2-on' ? 'compiler compile followed by guarded runtime'
-      : 'compiler bypass followed by the same guarded runtime',
+    feature: condition === 'A2-on'
+      ? 'strict raw-envelope schema verification, compile, then guarded runtime'
+      : 'schema/compiler bypass followed by the guarded runtime',
     repository_revision: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim(),
     adapter_sha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
     compiler_sha256: crypto.createHash('sha256').update(fs.readFileSync(implementation)).digest('hex'),
