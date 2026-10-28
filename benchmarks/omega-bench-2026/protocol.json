@@ -8,7 +8,8 @@
     "candidate_input_location": "dataset/public/inputs/"
   },
   "dataset": {
-    "dataset_version": "0.4.0",
+    "dataset_version": "0.6.0",
+    "dataset_manifest_sha256": "d9644a8239042dba2e5923b167d27dcfc064a268b222e85c822662263f6aacff",
     "generator_seed": 20261027,
     "scenarios_by_experiment": {
       "E01": 200, "E02": 200, "E03": 1000, "E04": 100, "E05": 100, "E06": 150,
@@ -47,7 +48,7 @@
   "conditions": [
     {"id": "A", "name": "json_reference", "description": "JSON Schema + reference executor; no G-CIR Ω."},
     {"id": "B", "name": "gcir_minimal", "description": "G-CIR Ω parser, IR and interpreter without optional optimizations or dynamic adaptation."},
-    {"id": "C", "name": "gcir_optimized", "description": "B plus G-CIR envelope schema validation; declared adjacent-addition fold on E04 only. Other workloads reuse deterministic reference handlers and are adapter plumbing qualifications."},
+    {"id": "C", "name": "gcir_optimized", "description": "B plus G-CIR envelope schema validation; five integer-safe E04 transformations with semantic equivalence checked after every pass. Other workloads reuse deterministic reference handlers and are adapter plumbing qualifications."},
     {"id": "D", "name": "genos_full", "description": "Real GenOS transition service on E10 and biome physiology allocator on E11; C runtime elsewhere. This task-scoped integration is not full GenOS execution across all experiments."}
   ],
   "minimum_design": {
@@ -82,9 +83,7 @@
     "finalize and run the preregistered inferential analysis: paired tests, 95% confidence intervals, Holm correction, practical margins, and the six-of-twelve victory rule",
     "resolve A2 scope: the current OFF arm retains runtime guards and uses a no-op handler; define missing-state behavior and test effects without claiming production safety from fake handlers",
     "resolve A4 scope: implement native G-CIR journaling and replay with durability/idempotence evidence, or obtain an explicit protocol amendment limiting A4 to the harness",
-    "extend E04 beyond adjacent-addition folding to the five proposed optimization transformations, with equivalence checks after each pass, or explicitly amend its scope and threshold",
     "complete E09 repeated-load evidence for a bounded-memory claim, or narrow that claim to the current single-process asynchronous test",
-    "establish three independent business backends for E12; current JSON, A2A and MCP paths reuse the JavaScript reference executor",
     "make the six concrete missions executable workload variants rather than metadata-only annotations; M2-M6 are currently synthetic interpretations",
     "finalize common instrumentation boundaries for latency, bytes, resource cost and memory across each applicable adapter and ablation",
     "freeze all adapter and configuration hashes, dependency lockfiles, run commands, hardware/model controls, raw traces and statistical plan before holdout execution",
