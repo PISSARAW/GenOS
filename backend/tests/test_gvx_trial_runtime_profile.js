@@ -88,6 +88,12 @@ async function admissionFailsClosed() {
       runWorld: async () => { directRunLaunched = true; } }, { armId: 'C', budget: 1 }),
     { code: 'GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE' });
     assert.equal(directRunLaunched, false);
+    let worldCreated = false;
+    await assert.rejects(nursery.buildWorld({ db, trialMission: missionFor('C'),
+      plan: { snapshotHash: 'e'.repeat(64), worldBudget: 1 },
+      createIsolatedWorld: async () => { worldCreated = true; } }, { armId: 'C', budget: 1 }),
+    { code: 'GVX_EXTERNAL_EVALUATOR_ISOLATION_UNAVAILABLE' });
+    assert.equal(worldCreated, false);
     const transfer = require('../src/services/gvxTransferLifecycle');
     const started = await transfer.startTransfer(db, { scope: { organizationId: scope.organizationId,
       projectId: scope.projectId }, entityId: scope.entityId, sourceLineage: 'source-lineage',

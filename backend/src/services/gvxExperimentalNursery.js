@@ -11,6 +11,7 @@ function validAdapters(options) {
 
 async function buildWorld(options, arm) {
   const trialRuntime = trialRuntimeContext(options, arm);
+  await admitTrialRuntime(options, trialRuntime);
   const world = await options.createIsolatedWorld({ arm, snapshotHash: options.plan.snapshotHash,
     budget: options.plan.worldBudget, controls: options.plan.controls, ...trialRuntime });
   if (world?.worldId !== arm.worldId || world.isolationId !== arm.isolationId) throw new Error('nursery-isolation-contract-failed');
@@ -84,13 +85,12 @@ async function runArm(options, arm) {
   const input = options.input || options;
   const scope = { ...input.scope, entityId: input.entityId };
   const trialRuntime = trialRuntimeContext(options, arm);
-  if (trialRuntime.gvxTrialContext) {
-    await require('./gvxTrialExecutionAdapter').admit(options.db,
-      { ...trialRuntime.gvxTrialContext.profile, gvxTrialContext: trialRuntime.gvxTrialContext });
-  }
   const id = `gvx-experiment:${options.plan.experimentId}:arm:${arm.armId}`;
   const prior = await ledger.getEvent(options.db, id, scope);
-  if (prior) return revalidateArm({ options, arm, prior, executeTrial: trialRuntime.executeTrial });
+  if (prior) {
+    await admitTrialRuntime(options, trialRuntime);
+    return revalidateArm({ options, arm, prior, executeTrial: trialRuntime.executeTrial });
+  }
   const world = await buildWorld(options, arm);
   try {
     const raw = await options.runWorld({ world, arm, budget: arm.budget,
@@ -125,6 +125,12 @@ function assertCachedExecution(prior, executeTrial) {
       code: 'GVX_NURSERY_CACHED_EXECUTION_MISMATCH'
     });
   }
+}
+
+async function admitTrialRuntime(options, trialRuntime) {
+  if (!trialRuntime.gvxTrialContext) return;
+  const mission = { ...trialRuntime.gvxTrialContext.profile, gvxTrialContext: trialRuntime.gvxTrialContext };
+  await require('./gvxTrialExecutionAdapter').admit(options.db, mission);
 }
 
 function receiptBinding(receipt) {
