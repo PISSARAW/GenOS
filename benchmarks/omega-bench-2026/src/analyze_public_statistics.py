@@ -332,7 +332,7 @@ def render_report(report):
         "- E09 est un seul processus Node d'invocations asynchrones; aucune borne mémoire de production ou charge de processus système n'est estimée.",
         "- Aucune analyse n'établit trois backends métier indépendants pour E12; A2A/MCP transportent le handler de référence.",
         "- Les coûts API et euros sont N/A; il n'y a pas de données indépendantes permettant un test de coût.",
-        "- E04 n'exerce actuellement que le repli adjacent d'additions; cinq transformations et le seuil coût 15 % ne sont pas validés.",
+        "- E04 exerce les cinq passes dans A1-on, chacune sur 20 scénarios (60 exécutions sur 300); l'effet individuel n'est pas isolé et le seuil d'économie de 15 % n'est pas établi.",
         "- Un p ajusté inférieur à 0,05 dans cette analyse post hoc ne remplace pas le préenregistrement, les métriques primaires fixées, les marges d'équivalence ou le score indépendant caché.", ""])
     return "\n".join(lines)
 
