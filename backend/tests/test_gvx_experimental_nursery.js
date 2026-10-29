@@ -18,6 +18,10 @@ async function main() {
   const hash = 'a'.repeat(64);
   const arm = (armId, role, worldId) => ({ armId, role, worldId, isolationId: `iso-${armId}`,
     snapshotHash: hash, strategyId: armId, budget: 1 });
+  const directArm = arm('C', 'baseline', 'w-direct');
+  const directWorld = await nursery.buildWorld({ plan: { snapshotHash: hash, worldBudget: 1 },
+    createIsolatedWorld: async ({ arm: selected }) => ({ worldId: selected.worldId, isolationId: selected.isolationId }) }, directArm);
+  assert.equal(directWorld.worldId, directArm.worldId);
   const result = await nursery.run({ db, scope, entityId: 'agent', snapshotHash: hash, worldBudget: 1,
     controls: { model: 'test', toolsetHash: hash, environmentHash: hash }, verifierRequirements: ['task'],
     experimentDesign: { type: 'paired', arms: [arm('a', 'baseline', 'wa'), arm('b', 'candidate', 'wb')] },

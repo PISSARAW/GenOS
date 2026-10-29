@@ -10,6 +10,9 @@ const SIGNAL_TYPES = Object.freeze([
 ]);
 
 async function recordAgowSignal(db, input) {
+  const trialProfile = require('../gvxTrialRuntimeProfile');
+  trialProfile.assertMode(input.gvxTrialContext, 'acquisition');
+  trialProfile.assertScope(input.gvxTrialContext, input.scope, input.entityId);
   validateSignal(input);
   const id = eventId(input);
   const prior = await getEvent(db, id, ledgerScope(input));
@@ -19,6 +22,7 @@ async function recordAgowSignal(db, input) {
       sourceEventId: input.sourceEventId, signalType: input.signalType, agentId: input.agentId,
       observedAt: input.observedAt || new Date().toISOString(),
       epistemicStatus: 'reported', evidenceRefs: [...new Set(input.evidenceRefs)],
+      ...(input.gvxTrialContext ? { runtimeProfileHash: input.gvxTrialContext.profileHash } : {}),
       context: safeContext(input.context) }
   });
   const result = prior ? { ...event, replayed: true } : event;
@@ -42,7 +46,8 @@ function requiresDevelopmentCycle(action) {
 
 async function runDevelopmentCycle(db, input) {
   const signal = { scope: input.scope, entityId: input.entityId, agentId: input.agentId, sourceEventId: input.sourceEventId,
-    signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context) };
+    signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context),
+    gvxTrialContext: input.gvxTrialContext || null };
   try { return await require('../gvxLifecycleAdapterProvider').runConfiguredCycle(db, signal); }
   catch (error) { return { status: 'deferred', reason: error.code || 'gvx-lifecycle-adapters-unavailable' }; }
 }
@@ -95,7 +100,9 @@ function safeContext(context) {
 function ledgerScope(input) { return { ...input.scope, entityId: input.entityId }; }
 
 function eventId(input) {
-  const identity = [input.scope.organizationId, input.scope.projectId, input.entityId, input.signalId].join('\0');
+  const parts = [input.scope.organizationId, input.scope.projectId, input.entityId, input.signalId];
+  if (input.gvxTrialContext) parts.push(input.gvxTrialContext.profileHash);
+  const identity = parts.join('\0');
   return `agow-signal:${crypto.createHash('sha256').update(identity).digest('hex')}`;
 }
 

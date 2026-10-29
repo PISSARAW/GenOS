@@ -91,7 +91,8 @@ function preflightEnvironment(input, tools) {
   delete environment.GENOS_ORCHESTRATOR_AGENT_ID;
   if (input.orchestratorId) environment.GENOS_ORCHESTRATOR_AGENT_ID = input.orchestratorId;
   return { ...environment, GENOS_REPO_ROOT: input.repoRoot, GENOS_WORKSPACE_ROOT: input.workspaceRoot,
-    GENOS_AGENT_ID: input.orchestratorId, GENOS_MCP_LEASE: tools.join(','), GENOS_DISABLE_DOTENV: '1' };
+    GENOS_AGENT_ID: input.orchestratorId, GENOS_MCP_LEASE: tools.join(','),
+    GENOS_MCP_TOOL_TIMEOUT_MS: String(input.toolTimeoutMs || 120000), GENOS_DISABLE_DOTENV: '1' };
 }
 
 async function connectPreflightClient(input, tools) {

@@ -104,7 +104,10 @@ async function run(options) {
       || JSON.stringify(options.input.verifierRequirements) !== '["artifact-integrity"]') {
     throw error('GVX_PAIRED_DESIGN_INVALID');
   }
-  const result = await nursery.run({ ...options, metricAllowlist: [],
+  const nurseryOptions = { ...options };
+  // This protocol seed belongs to the causal replay adapter, not a GVX runtime profile.
+  delete nurseryOptions.seed;
+  const result = await nursery.run({ ...nurseryOptions, metricAllowlist: [],
     verifierRegistry: verifiers.fromTrustedRegistry(['artifact-integrity-v1']),
     createIsolatedWorld: async ({ arm }) => {
       await current(options);

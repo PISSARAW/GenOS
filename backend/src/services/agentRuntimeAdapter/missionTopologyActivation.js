@@ -159,7 +159,10 @@ function componentWorkers(composition, node, componentIndex) {
 }
 
 function applyCompositions(ctx, morphologyPlan, components) {
-  const workers = components.flatMap((entry, index) => componentWorkers(entry.composition, entry.node, index));
+  const workers = components.flatMap((entry, index) => componentWorkers(entry.composition, entry.node, index))
+    .map((worker) => ({ ...worker,
+    communicationRequired: ctx.normalizedMission.communicationRequired === true || worker.communicationRequired === true,
+    coordinationPolicy: worker.coordinationPolicy || ctx.normalizedMission.coordinationPolicy }));
   const topology = morphologyPlan.selectedTopology;
   assertFanout(ctx.autonomyPlan, workers.length, topology);
   const allocation = allocationFor(ctx.autonomyPlan, workers, topology);

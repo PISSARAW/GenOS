@@ -6,12 +6,16 @@ const { hash, error } = require('./gvxContracts');
 
 async function execute(context) {
   const { db, input, signal, action } = context;
+  const gvxTrialContext = signal.gvxTrialContext || null;
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(gvxTrialContext, 'learnerFacingVerification');
+  trialProfile.assertScope(gvxTrialContext, signal.scope, signal.entityId);
   const fingerprint = await stages.runStage(context, 'controls', async () => input.controlFingerprint);
   if (fingerprint !== input.controlFingerprint) throw error('GVX_CYCLE_CONTROLS_CHANGED');
   const goal = await stages.runStage(context, 'hypothesis', (operationId) => input.hypothesisPlanner({ signal, action, operationId }));
   const proposal = await stages.runStage(context, 'proposal', (operationId) => require('./gvxMutationProposer').propose({
     db, scope: signal.scope, entityId: signal.entityId, goal, context: { signal, action },
-    selfTwinPredictor: input.selfTwinPredictor, operationId }));
+    selfTwinPredictor: input.selfTwinPredictor, operationId, gvxTrialContext }));
   const experimentInput = await input.experimentInput({ signal, candidate: proposal.candidate,
     operationId: `gvx-cycle:${context.cycleId}:experiment` });
   const experiment = await stages.runStage(context, 'experiment', () => require('./gvxExperimentalNursery').run({ ...experimentInput, db }));
@@ -26,7 +30,8 @@ async function execute(context) {
   const state = { ...context, proposal, experiment, experimentInput, assessmentEvent, assessment };
   const checked = await stages.runStage(context, 'assessment-verification', () => verification.verifyAssessment({
     verifierRegistry: experimentInput.verifierRegistry, assessmentInput: assessmentEvent.payload.assessmentInput,
-    assessment, artifactRef: `gvx-assessment:${assessmentEvent.id}`, verificationReceipts: experimentReceipts(experiment) }));
+    assessment, artifactRef: `gvx-assessment:${assessmentEvent.id}`, verificationReceipts: experimentReceipts(experiment),
+    gvxTrialContext }));
   if (!checked.verified) return result(state, 'assessment_verification_failed');
   if (input.predictionFeedback) await stages.runStage(context, 'prediction-feedback', () => input.predictionFeedback(state));
   if (assessment.status !== 'recommend_somatic_trial') return result(state, 'assessment_complete');
@@ -52,11 +57,11 @@ async function applyAndMonitor(context) {
     applicationId: application.payload.applicationId };
   const longitudinal = await stages.runStage(context, 'monitoring-verification', () => verification.verifyLongitudinal({
     verifierRegistry: context.experimentInput.verifierRegistry, binding, monitoring,
-    minimumStableWindows: monitorInput.minimumStableWindows }));
+    minimumStableWindows: monitorInput.minimumStableWindows, gvxTrialContext: signal.gvxTrialContext || null }));
   if (!longitudinal.verified) return result(state, 'monitoring_verification_failed');
   const receipt = await stages.runStage(context, 'receipt', (operationId) => issueReceipt({ ...state, longitudinal, operationId }));
   const plasticityCredit = await stages.runStage(context, 'credit', () =>
-    require('./developmentalBridge/gvxToAgowReceiptAdapter').creditVerifiedReceipt(db, { ...receipt, db }));
+    require('./developmentalBridge/gvxToAgowReceiptAdapter').creditVerifiedReceipt(db, { ...receipt, db, gvxTrialContext: signal.gvxTrialContext || null }));
   return { ...result(state, monitoring.maturity), plasticityCredit };
 }
 

@@ -940,3 +940,5 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0709b — Progression canonique des résultats topologiques](adr/0709-progression-resultats-topologiques.md) — routeur fail-closed entre reçus workers persistés, runtime spécialisé et clôture de mission.
 - [ADR 0710 — Harnais transactionnel de restauration morphogénétique](adr/0710-harnais-restauration-morphogenetique.md) — snapshot lié à l'état, restauration rejouée, vérification indépendante et dossier terminal sans autorité de promotion.
 - [ADR 0749 — Journal durable d’exécution G-CIR Ω](adr/0749-journal-durable-runtime-gcir.md) — intention SQLite, rejeu des opérations terminées et clé stable pour les handlers d’effets idempotents.
+- [ADR 0751 — Liaison runtime immuable des bras expérimentaux GVX](adr/0751-liaison-runtime-immutable-des-bras-gvx.md) — liaison vérifiable entre protocole, exécution, budgets et transmission GVX.
+- [ADR 0752 — Isoler le runner d’évaluation GVX dans Docker](adr/0752-runner-evaluateur-gvx-isole-docker.md) — isolation des évaluations externes GVX.

@@ -7,13 +7,20 @@ const { recommendAction } = require('./developmentalBridge');
 function signalKey(input) {
   const parts = [input.scope.organizationId, input.scope.projectId, input.entityId,
     input.signalType, input.context?.pathwayId || 'global'];
+  if (input.gvxTrialContext) parts.push(input.gvxTrialContext.profileHash);
   return crypto.createHash('sha256').update(parts.join('\0')).digest('hex');
 }
 
 function matchingSignals(events, input) {
   return events.filter((event) => event.payload.kind === 'developmental_signal'
     && event.payload.signalType === input.signalType
+    && matchesTrialProfile(event, input)
     && (event.payload.context?.pathwayId || 'global') === (input.context?.pathwayId || 'global'));
+}
+
+function matchesTrialProfile(event, input) {
+  const profileHash = input.gvxTrialContext?.profileHash || null;
+  return (event.payload.runtimeProfileHash || null) === profileHash;
 }
 
 function uniqueSources(events) {
@@ -21,6 +28,9 @@ function uniqueSources(events) {
 }
 
 async function processSignal(db, input) {
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(input.gvxTrialContext, 'acquisition');
+  trialProfile.assertScope(input.gvxTrialContext, input.scope, input.entityId);
   validateInput(input);
   const scope = { ...input.scope, entityId: input.entityId };
   const events = await listAllEvents(db, scope);
@@ -35,6 +45,7 @@ async function processSignal(db, input) {
     id, ...input.scope, entityId: input.entityId, type: 'decision_recorded',
     payload: { kind: 'development_controller_action', status: 'proposed', action,
       signalType: input.signalType, signalCount: sourceEventIds.length,
+      ...(input.gvxTrialContext ? { runtimeProfileHash: input.gvxTrialContext.profileHash } : {}),
       sourceEventIds, evidenceRefs: [...new Set(input.evidenceRefs)],
       epistemicStatus: 'reported', promotionAllowed: false }
   });
@@ -46,6 +57,7 @@ async function runCycle(db, input) {
   if (!['create_hypothesis', 'schedule_experiment'].includes(action.payload.action)) {
     return { status: 'accumulating_evidence', action, promotionAllowed: false };
   }
+  require('./gvxTrialRuntimeProfile').assertMode(signal.gvxTrialContext, 'evolution');
   validateCycleAdapters(input);
   return require('./gvxCycleJournal').runCycle({ db, input, signal, action },
     require('./gvxCycleExecution').execute);

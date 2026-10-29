@@ -10,6 +10,7 @@ const SHARED_STORAGE_KEYS = [
 function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env }) {
   const leaseExpiresAt = resolveLeaseExpiresAt(state, sourceEnv);
   const environment = {
+    GENOS_REPO_ROOT: path.resolve(__dirname, '../../..'),
     GENOS_WORKSPACE_ROOT: binaries.workspace,
     GENOS_BIN: binaries.genosBinary || '',
     GENOS_MCP_TOOL_TIMEOUT_MS: '120000',

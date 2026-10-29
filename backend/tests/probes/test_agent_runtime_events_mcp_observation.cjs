@@ -66,7 +66,10 @@ assert.deepEqual(prepareToolArguments({ task: 'delivery recovery', hypotheses: [
   statement: 'A restart omits messages beyond the checkpoint.'
 }]);
 const generatedDiagnosis = prepareToolArguments({ task: 'delivery recovery' }, 'genos_diagnose');
+assert.equal(generatedDiagnosis.args.hypotheses.length, 1,
+  'an absent hypothesis list must produce a falsifiable fallback hypothesis');
 assert.match(generatedDiagnosis.args.hypotheses[0].statement, /authorized workspace/);
+assert.match(generatedDiagnosis.args.hypotheses[0].statement, /delivery recovery/);
 
 const missionFrame = encodeMission({ agentId: 'orchestrator', missionId: 'mission-preflight-binding', prompt: 'synthesize' });
 assert.equal(decodeMissionInput(missionFrame).missionId, 'mission-preflight-binding',

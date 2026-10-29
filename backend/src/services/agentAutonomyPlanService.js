@@ -354,7 +354,8 @@ function applyAbstentionToMission(mission, model, bench) {
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
   const regulationBudget = {
-    ...missionBudget,
+    ...missionBudget, communicationRequired: normalizedMission.communicationRequired === true,
+    coordinationPolicy: normalizedMission.coordinationPolicy,
     morphogenesisPolicy: normalizedMission.morphogenesisPolicy || missionBudget.morphogenesisPolicy,
     survivalState: normalizedMission.survivalState || missionBudget.survivalState
   };

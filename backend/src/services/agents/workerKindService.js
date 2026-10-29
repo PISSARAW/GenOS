@@ -214,6 +214,7 @@ function assignmentContractFields(mission) {
 function missionContractFields(mission) {
   return {
     ...missionScopeFields(mission), ...assignmentContractFields(mission),
+    ...(mission.gvxTrialContext ? require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext) : {}),
     methodContract: mission.methodContract,
     codeVerificationContract: mission.codeVerificationContract || null,
     regulatoryRecovery: mission.regulatoryRecovery || null,

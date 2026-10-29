@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "genos.gvx.runtime-arm-profile/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "campaignId", "trialId", "armId", "scenarioId", "seed", "workspaceSnapshotHash", "scope", "missionId", "codeRevision", "acquisition", "evolution", "learnerFacingVerification", "transmission", "modelProvider", "modelId", "toolsetHash", "manifestHash", "phaseBudgets", "externalEvaluator", "authorityId", "profileHash", "authoritySignature"],
+  "properties": {
+    "schema": { "const": "genos.gvx.runtime-arm-profile/v1" },
+    "campaignId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "trialId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "armId": { "enum": ["A", "B", "C", "D", "E", "F", "G"] },
+    "scenarioId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "workspaceSnapshotHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["organizationId", "projectId", "entityId"],
+      "properties": {
+        "organizationId": { "type": "string", "minLength": 1 },
+        "projectId": { "type": "string", "minLength": 1 },
+        "entityId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "missionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "codeRevision": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "acquisition": { "enum": ["disabled", "simple_reflection_memory", "gvx"] },
+    "evolution": { "enum": ["disabled", "gvx"] },
+    "learnerFacingVerification": { "enum": ["disabled", "gvx"] },
+    "transmission": { "enum": ["disabled", "gvx"] },
+    "modelProvider": { "type": "string", "minLength": 1 },
+    "modelId": { "type": "string", "minLength": 1 },
+    "toolsetHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "manifestHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "phaseBudgets": {
+      "type": "object", "additionalProperties": false,
+      "required": ["acquisition", "evolution", "verification", "transmission"],
+      "properties": {
+        "acquisition": { "type": "number", "exclusiveMinimum": 0 },
+        "evolution": { "type": "number", "exclusiveMinimum": 0 },
+        "verification": { "type": "number", "exclusiveMinimum": 0 },
+        "transmission": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "externalEvaluator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required", "capabilityId"],
+      "properties": {
+        "required": { "const": true },
+        "capabilityId": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "authorityId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "profileHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "authoritySignature": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

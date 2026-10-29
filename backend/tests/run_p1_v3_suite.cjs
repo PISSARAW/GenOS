@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const tests = ['test_gvx_experimental_nursery.js', 'test_gvx_paired_replay_bridge.js',
+const tests = ['test_gvx_trial_runtime_profile.js', 'test_gvx_experimental_nursery.js', 'test_gvx_paired_replay_bridge.js',
   'test_gvx_candidate_dataset.js', 'test_gvx_candidate_metric_binding.js', 'test_failure_memory_scope.js',
   'test_failure_memory_effect_order.js', 'test_memory_consumers_authority.js', 'test_memory_prompt_project_scope.js'];
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-p1-v3-'));

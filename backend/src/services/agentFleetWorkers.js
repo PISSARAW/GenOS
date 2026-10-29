@@ -14,7 +14,7 @@ const config = require('../config/orchestratorConfig');
 const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget');
 const { buildExecutionBudget, splitBudget } = require('./workerBudgetAllocationService');
 const cohortWorkerService = require('./agentCohortWorkerService');
-const { buildWorkerMeta } = require('./agentFleetWorkerMetadata');
+const { buildWorkerMeta } = require('./agentFleetWorkerMetadata'); const trialMissionBinding = require('./gvxTrialMissionBinding');
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission } = ctx;
   const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
@@ -57,7 +57,6 @@ function assignmentCapabilities(assignment) {
     ? [...new Set(assignment.capabilities)]
     : manifestFallbackCaps(assignment);
 }
-
 function effectiveToolLease(assignment, capabilities, dnaSelection) {
   const base = workerToolLeaseForCapabilities(assignment.role, capabilities);
   if (!dnaSelection || !dnaSelection.genes) return base;
@@ -69,13 +68,12 @@ function effectiveToolLease(assignment, capabilities, dnaSelection) {
   }
   return lease;
 }
-
 async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const circuit = circuitBreaker.canExecute('worker_deployment', orchestrator.agent_type);
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-  const { plan, mission } = options;
+  const { plan, mission: sourceMission } = options; const mission = trialMissionBinding.bindCampaignMission(sourceMission);
   if (!plan || !mission) throw Object.assign(new Error('Worker creation requires explicit plan and mission options.'), { code: 'INVALID_WORKER_CREATION_OPTIONS' });
   const assignments = plan.dispatchWorkers || [];
   validateAssignments(assignments, plan);
@@ -123,11 +121,10 @@ async function createAssignedWorkers(context) {
         tokenBudget: workerContext.initialWorkerTokens?.[index] ?? workerContext.perWorkerTokens, mission })
       : await createWorker({ ...workerContext, db, orchestrator, assignment: typed,
         index, id: workerIds[index], usedNames });
-    workers.push(worker);
+    trialMissionBinding.assertWorkerContract(worker, mission); workers.push(worker);
     await bindWorkerGqwf({ db, mission, parent, worker });
   }
 }
-
 async function bindWorkerGqwf(context) {
   const { db, mission, parent, worker } = context;
   if (mission.executionPolicy?.gqwfV2 !== true) return;
@@ -308,7 +305,7 @@ function workerInsertValues(details) {
 
 function fleetWorkerContract(details) {
   const { assignment, parent, mission, assignedTokens } = details;
-  if (details.plan?.morphogenesisCohort === true) return morphogenesisWorkerContract(assignment, parent, assignedTokens);
+  if (details.plan?.morphogenesisCohort === true) return morphogenesisWorkerContract({ assignment, parent, assignedTokens, mission });
   const contract = workerKinds.buildWorkerContract(assignment.workerKind, {
     prompt: morphogenesisMissionPrompt(assignment, mission.prompt),
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
@@ -320,13 +317,15 @@ function fleetWorkerContract(details) {
     codeVerificationContract: mission.codeVerificationContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
     workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens, communicationRequired: mission.communicationRequired === true,
-    delegatedTokenLimit: assignment.delegatedTokenLimit
+    delegatedTokenLimit: assignment.delegatedTokenLimit,
+    ...trialMissionBinding.missionContractFields(mission)
   });
   if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
 }
 
-function morphogenesisWorkerContract(assignment, parent, assignedTokens) {
+function morphogenesisWorkerContract(context) {
+  const { assignment, parent, assignedTokens, mission } = context;
   const contract = assignment.workerContract;
   const kind = workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role);
   if (!contract || contract.identity?.workerKind !== kind
@@ -343,7 +342,7 @@ function morphogenesisWorkerContract(assignment, parent, assignedTokens) {
       code: 'MORPHOGENESIS_WORKER_BUDGET_INVALID'
     });
   }
-  return contract;
+  return trialMissionBinding.attachToContract(contract, mission.gvxTrialContext);
 }
 
 function workerWriteLease(mission) {
@@ -358,7 +357,7 @@ function formatWorker(details) {
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease,
     capabilities, assignments: assignmentList, mission, assignment, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
-  ...buildWorkerMeta(details) };
+  ...buildWorkerMeta(details), ...trialMissionBinding.missionContractFields(mission) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }

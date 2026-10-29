@@ -30,12 +30,40 @@ function bindGraphMission(graph, input) {
 
 function bindDispatchAssignments(autonomyPlan, assignments) {
   const originalCount = autonomyPlan.dispatchWorkers?.length || 0;
+  const failures = runtimeCeilingFailures(autonomyPlan, assignments);
+  if (failures.length) return blockRuntimeCeilingAssignments(autonomyPlan, assignments, failures);
   reconcileDispatchBudget(autonomyPlan, originalCount, assignments.length);
   const graph = autonomyPlan.morphogenesisPlan?.morphologyPatch?.graph;
   if (!graph) return fallbackAssignments(autonomyPlan, assignments);
   const root = graph.nodes?.find((node) => node.nodeId === graph.rootNodeId);
   if (!root) throw invalidMorphologyGraph();
   return bindToRoot({ plan: autonomyPlan, graph, root, assignments });
+}
+
+function runtimeCeilingFailures(plan, assignments) {
+  const policy = plan.tokenPolicy || {};
+  const minimum = policy.minimumWorkerTokensExplicit ? policy.minimumWorkerTokens : undefined;
+  return require('../workerTokenBudgetPolicy').profileWorkers(assignments, minimum)
+    .filter(profile => profile.runtimeCeilingExceeded)
+    .map(profile => ({ workerKind: profile.workerKind, role: profile.role,
+      requestedMinimumTokens: profile.minimumStartTokens,
+      runtimeMaximumTokens: profile.runtimeMaximumTokens }));
+}
+
+function blockRuntimeCeilingAssignments(plan, assignments, failures) {
+  plan.tokenPolicy = plan.tokenPolicy || {};
+  const admission = { ...(plan.tokenPolicy.admission || {}), atomic: true, valid: false,
+    requestedWorkers: assignments.length, fundedWorkers: 0,
+    reason: 'worker_minimum_exceeds_runtime_ceiling', runtimeCeilingFailures: failures };
+  plan.tokenPolicy.admission = admission;
+  plan.dispatchWorkers = [];
+  plan.morphogenesisDispatchAssignments = [];
+  plan.dispatchDecision = require('../autonomousOrchestrationService/dispatchDecision')
+    .buildDispatchDecision(plan.workers || assignments, [], admission);
+  plan.exploration = require('../autonomousOrchestrationService/dispatchDecision')
+    .buildExploration(plan.workers || assignments, []);
+  return { assignments: [], binding: { blocked: true, reason: admission.reason,
+    runtimeCeilingFailures: failures }, admissionBlocked: true };
 }
 
 function bindDispatchResults(autonomyPlan, workers, results) {

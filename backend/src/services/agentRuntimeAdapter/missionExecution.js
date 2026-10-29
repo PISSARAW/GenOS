@@ -27,7 +27,11 @@ const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
  * Enchaîne : initialize → contract → workspace → budgets → capsule → monitoring → planning.
  */
 async function bootstrapMission(mission) {
+  mission = require('../gvxTrialMissionBinding').bindCampaignMission(mission);
   const ctx = await initializeMissionContext(mission);
+  if (ctx.normalizedMission.gvxTrialContext) {
+    await require('../gvxTrialExecutionAdapter').admit(ctx.db, ctx.normalizedMission);
+  }
   await resolveMissionContract(ctx);
   await require('../workerCellBootstrapBridge').activate(ctx);
   await require('../garageAdmissionService').adopt(ctx);

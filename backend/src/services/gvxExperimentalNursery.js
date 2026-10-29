@@ -10,8 +10,10 @@ function validAdapters(options) {
 }
 
 async function buildWorld(options, arm) {
+  const trialRuntime = trialRuntimeContext(options, arm);
+  await admitTrialRuntime(options, arm);
   const world = await options.createIsolatedWorld({ arm, snapshotHash: options.plan.snapshotHash,
-    budget: options.plan.worldBudget, controls: options.plan.controls });
+    budget: options.plan.worldBudget, controls: options.plan.controls, ...trialRuntime });
   if (world?.worldId !== arm.worldId || world.isolationId !== arm.isolationId) throw new Error('nursery-isolation-contract-failed');
   return world;
 }
@@ -56,37 +58,54 @@ function metricsVerified(metrics, evidence) {
 
 async function run(options) {
   if (!validAdapters(options)) throw new Error('nursery-adapters-required');
-  verifierRegistry.validateRegistry(options.verifierRegistry);
   const input = options.input || options;
+  const trialMission = await admitCampaignTrial(options, input);
+  verifierRegistry.validateRegistry(options.verifierRegistry);
   const event = await protocol.recordExperimentPlan(options.db, input);
   const plan = event.payload.plan;
   const outcomes = [];
+  const runOptions = trialMission ? { ...options, trialMission } : options;
   for (const arm of plan.experimentDesign.arms) {
-    outcomes.push(await runArm({ ...options, plan }, arm));
+    outcomes.push(await runArm({ ...runOptions, plan }, arm));
   }
   const finished = await protocol.recordExperimentOutcomes(options.db, { ...input, plan, outcomes });
   return { experimentId: plan.experimentId, startedEventId: event.id, finishedEventId: finished.id,
     assessment: finished.payload.assessment, outcomes, promotionAllowed: false };
 }
 
+async function admitCampaignTrial(options, input) {
+  const mission = mergeTrialMission(options, input);
+  if (!mission) return null;
+  const bound = require('./gvxTrialMissionBinding').bindCampaignMission(mission);
+  await require('./gvxTrialExecutionAdapter').admit(options.db, bound);
+  return bound;
+}
+
 async function runArm(options, arm) {
   const input = options.input || options;
   const scope = { ...input.scope, entityId: input.entityId };
+  const trialRuntime = trialRuntimeContext(options, arm);
   const id = `gvx-experiment:${options.plan.experimentId}:arm:${arm.armId}`;
   const prior = await ledger.getEvent(options.db, id, scope);
-  if (prior) return revalidateArm({ options, arm, prior });
+  if (prior) {
+    await admitTrialRuntime(options, arm);
+    return revalidateArm({ options, arm, prior, executeTrial: trialRuntime.executeTrial });
+  }
   const world = await buildWorld(options, arm);
   try {
-    const raw = await options.runWorld({ world, arm, budget: arm.budget, controls: options.plan.controls });
+    const raw = await options.runWorld({ world, arm, budget: arm.budget,
+      controls: options.plan.controls, ...trialRuntime });
     const outcome = await verifyOutcome({ options, arm, world, outcome: raw });
     await ledger.appendEvent(options.db, { id, ...scope, type: 'evidence_attached',
       parentHash: options.plan.snapshotHash, candidateHash: input.candidateHash,
-      payload: { kind: 'gvx_experiment_arm', experimentId: options.plan.experimentId, outcome } });
+      payload: { kind: 'gvx_experiment_arm', experimentId: options.plan.experimentId,
+        executeTrial: trialRuntime.executeTrial, outcome } });
     return outcome;
   } finally { if (options.disposeIsolatedWorld) await options.disposeIsolatedWorld(world); }
 }
 
-async function revalidateArm({ options, arm, prior }) {
+async function revalidateArm({ options, arm, prior, executeTrial }) {
+  assertCachedExecution(prior, executeTrial);
   const outcome = prior.payload.outcome;
   if (!Array.isArray(outcome?.evidence)) {
     throw Object.assign(new Error('GVX_NURSERY_CACHED_EVIDENCE_INVALID'), { code: 'GVX_NURSERY_CACHED_EVIDENCE_INVALID' });
@@ -100,9 +119,121 @@ async function revalidateArm({ options, arm, prior }) {
   return outcome;
 }
 
+function assertCachedExecution(prior, executeTrial) {
+  if (executeTrial && JSON.stringify(prior.payload.executeTrial) !== JSON.stringify(executeTrial)) {
+    throw Object.assign(new Error('GVX_NURSERY_CACHED_EXECUTION_MISMATCH'), {
+      code: 'GVX_NURSERY_CACHED_EXECUTION_MISMATCH'
+    });
+  }
+}
+
+async function admitTrialRuntime(options, arm) {
+  const input = options.input || options;
+  const mission = mergeTrialMission(options, input, arm);
+  if (!mission) return;
+  const bound = require('./gvxTrialMissionBinding').bindCampaignMission(mission);
+  await require('./gvxTrialExecutionAdapter').admit(options.db, bound);
+}
+
 function receiptBinding(receipt) {
   return [receipt.requirement, receipt.verifierId, receipt.verifierVersion, receipt.artifactRef,
     receipt.artifactHash, receipt.evidenceClass, receipt.signedReceipt?.businessDecision || receipt.businessDecision || null];
 }
 
-module.exports = { run, validAdapters, buildWorld, verifyOutcome, verifiedMetrics, metricsVerified };
+function mergeTrialMission(options, input, arm) {
+  const missionSources = [options, input, options.trialMission, input.trialMission].filter(isObject);
+  if (!missionSources.some(hasTrialMarker)) return null;
+  const sources = [...missionSources, arm].filter(isObject);
+  const selected = options.trialMission || input.trialMission || input;
+  const mission = { ...selected };
+  for (const key of ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash',
+    'trialProtocol', 'gvxTrialCampaign', 'gvxTrialContext', 'profileHash']) {
+    copyMarker(mission, sources, key);
+  }
+  if (mission.gvxTrialContext && mission.profileHash
+    && mission.profileHash !== mission.gvxTrialContext.profileHash) {
+    throw Object.assign(new Error('GVX trial profile hash does not match its context.'), {
+      code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH'
+    });
+  }
+  if (options.trialMission || input.trialMission) mission.gvxTrialCampaign = true;
+  return mission;
+}
+
+function copyMarker(mission, sources, key) {
+  const values = sources.map((source) => source[key]).filter((value) => value !== undefined);
+  if (!values.length) return;
+  const first = values[0];
+  if (values.some((value) => !sameMarker(key, first, value))
+    || (mission[key] !== undefined && !sameMarker(key, mission[key], first))) {
+    throw Object.assign(new Error('GVX trial mission identity changed.'), { code: 'GVX_TRIAL_MISSION_BINDING_INVALID' });
+  }
+  mission[key] = first;
+}
+
+function sameMarker(key, left, right) {
+  if (key !== 'gvxTrialContext') return left === right;
+  return left?.profileHash === right?.profileHash && left?.schema === right?.schema;
+}
+
+function hasTrialMarker(source) {
+  const identity = ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash']
+    .some((key) => source[key] !== undefined);
+  return Boolean(identity || source.gvxTrialCampaign === true
+    || source.trialProtocol !== undefined || source.trialMission || source.gvxTrialContext
+    || source.profileHash !== undefined);
+}
+
+function isObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function trialRuntimeContext(options, arm) {
+  const input = options.input || options;
+  const context = resolveTrialContext(options, input);
+  const suppliedHash = resolveTrialProfileHash(options, input, context);
+  if (!context) {
+    if (suppliedHash) throw Object.assign(new Error('GVX trial profile context is required.'), {
+      code: 'GVX_TRIAL_CONTEXT_REQUIRED'
+    });
+    return { gvxTrialContext: null, profileHash: null };
+  }
+  const bound = require('./gvxTrialRuntimeProfile').bindContext(context);
+  if (bound.profileHash !== suppliedHash) {
+    throw Object.assign(new Error('GVX trial profile hash does not match its context.'), {
+      code: 'GVX_TRIAL_CONTEXT_HASH_MISMATCH'
+    });
+  }
+  return { gvxTrialContext: bound, profileHash: bound.profileHash,
+    executeTrial: buildExecutionContract(bound, options.plan, arm) };
+}
+
+function buildExecutionContract(context, plan, arm) {
+  if (!arm || typeof arm !== 'object') {
+    throw Object.assign(new Error('GVX trial execution binding does not include an arm.'), {
+      code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH'
+    });
+  }
+  const profile = context.profile;
+  if (profile.workspaceSnapshotHash !== plan?.snapshotHash || profile.armId !== arm.armId
+    || arm.budget !== plan.worldBudget || (arm.scenarioId !== undefined && arm.scenarioId !== profile.scenarioId)
+    || (arm.seed !== undefined && arm.seed !== profile.seed)) {
+    throw Object.assign(new Error('GVX trial execution binding does not match its profile.'), {
+      code: 'GVX_TRIAL_EXECUTION_BINDING_MISMATCH'
+    });
+  }
+  return Object.freeze({ schema: 'genos.gvx.execute-trial/v1', scenarioId: profile.scenarioId,
+    seed: profile.seed, armId: profile.armId, profileHash: context.profileHash,
+    workspaceSnapshotHash: plan.snapshotHash, budget: arm.budget });
+}
+
+function resolveTrialContext(options, input) {
+  return options.trialMission?.gvxTrialContext || options.gvxTrialContext || input.gvxTrialContext || null;
+}
+
+function resolveTrialProfileHash(options, input, context) {
+  return options.profileHash || input.profileHash || context?.profileHash || null;
+}
+
+module.exports = { run, validAdapters, buildWorld, runArm, trialRuntimeContext, assertCachedExecution,
+  verifyOutcome, verifiedMetrics, metricsVerified };
