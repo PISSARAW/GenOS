@@ -271,9 +271,6 @@ async function prepareMissionContext(db, ctx, input) {
   ctx.mission.operatorContext = await operatorContext(db, ctx.project.id);
   ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
   ctx.mission.sensoryContext = ctx.sensory;
-  ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
-    (capability) => ctx.mission.capabilities.includes(capability)
-  );
   const selectedTopology = ctx.mission.morphology.selectedTopology;
   if (selectedTopology && (ctx.config.topologies || []).includes(selectedTopology)) {
     ctx.config.topologies = [selectedTopology];

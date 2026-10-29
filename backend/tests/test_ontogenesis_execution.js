@@ -145,6 +145,47 @@ async function selectedTopologyContractMatchesDispatch(db, root) {
   assert.deepStrictEqual(Object.keys(request.worker_assignments).sort(), dispatched.selection.workerRoles.sort());
 }
 
+async function configuredTopologyUsesDeclaredRuntimeCapabilities(db, root) {
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ dependencies: { react: '^18.0.0' } }));
+  const project = await fixture.project(db, root);
+  const config = fixture.testConfig();
+  config.topologies = ['trinity'];
+  const objective = 'Create a React reservation site';
+  await db.run('UPDATE ontogenesis_projects SET objective = ?, config_json = ? WHERE id = ?',
+    [objective, JSON.stringify(config), project.id]);
+  const harness = fixture.fakeHarness(db);
+  const start = harness.start;
+  let dispatched;
+  harness.start = (input) => { dispatched = input; return start(input); };
+  const tick = () => tickOnce(db, { projectId: project.id, owner: 'topology-capability-test', harness });
+
+  assert.strictEqual((await tick()).state, 'PLANNING');
+  assert.strictEqual((await tick()).state, 'EXECUTING');
+  assert.strictEqual(dispatched.selection.topology, 'trinity');
+  assert.ok(dispatched.selection.preflight.execution.admitted.includes('verify'));
+  assert.strictEqual(dispatched.mission.capabilities.includes('verify'), false,
+    'inferred A-Team requirements remain separate from runtime availability');
+}
+
+async function configuredTopologyBlocksWhenRuntimeCapabilityIsMissing(db, root) {
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ dependencies: { react: '^18.0.0' } }));
+  const project = await fixture.project(db, root);
+  const config = fixture.testConfig();
+  config.topologies = ['trinity'];
+  config.availableCapabilities = config.availableCapabilities.filter((capability) => capability !== 'verify');
+  const objective = 'Create a React reservation site';
+  await db.run('UPDATE ontogenesis_projects SET objective = ?, config_json = ? WHERE id = ?',
+    [objective, JSON.stringify(config), project.id]);
+  const harness = fixture.fakeHarness(db);
+  const tick = () => tickOnce(db, { projectId: project.id, owner: 'topology-capability-test', harness });
+
+  assert.strictEqual((await tick()).state, 'PLANNING');
+  const blocked = await tick();
+  assert.strictEqual(blocked.state, 'WAITING_INPUT');
+  assert.match(blocked.note, /aucune-topologie-admissible/);
+  assert.strictEqual(harness.launches, 0, 'Trinity must stay blocked without its declared verify capability');
+}
+
 async function assertPreparedDispatch(db, project) {
   const operation = await db.get("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
     [project.id]);
@@ -188,6 +229,8 @@ async function main() {
   await isolatedTest(recoverCommit);
   await isolatedTest(retryPreparedDispatch);
   await isolatedTest(selectedTopologyContractMatchesDispatch);
+  await isolatedTest(configuredTopologyUsesDeclaredRuntimeCapabilities);
+  await isolatedTest(configuredTopologyBlocksWhenRuntimeCapabilityIsMissing);
   console.log('ontogenesis execution checks passed (injected worker, real checks and Git).');
 }
 
