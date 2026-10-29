@@ -6,6 +6,12 @@
 const http = require('http');
 const https = require('https');
 const cluster = require('cluster');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const envPath = path.resolve(__dirname, '../.env');
+if (fs.existsSync(envPath)) process.loadEnvFile(envPath);
+
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
