@@ -26,14 +26,16 @@ function record(input) {
 function database(records, statuses = {}) {
   return {
     exec: async () => undefined,
-    get: async (query, value) => get({ records, statuses, query, value }),
+    get: async (query, ...values) => get({ records, statuses, query, values }),
     all: async (query, first, second) => all({ records, query, first, second })
   };
 }
 
 function get(input) {
-  const { records, statuses, query, value } = input;
+  const { records, statuses, query, values } = input;
+  const [value] = values;
   if (query.includes('FROM agents')) return { status: statuses[value] || 'completed' };
+  if (query.includes('FROM biological_worker_bindings')) return findBinding(records, values);
   if (query.includes('FROM biological_worker_receipts')) {
     return records.find((item) => item.receiptRow.run_id === value)?.receiptRow || null;
   }
@@ -41,6 +43,13 @@ function get(input) {
   if (query.includes("name = 'morph_risk_nodes'")) return null;
   if (query.includes('telemetry_events')) throw new Error('UNSCOPED_TELEMETRY_READ');
   return null;
+}
+
+function findBinding(records, values) {
+  const [missionId, workerId, runId] = values;
+  return records.find((item) => item.bindingRow.mission_id === missionId
+    && item.bindingRow.agent_id === workerId
+    && item.bindingRow.run_id === runId)?.bindingRow || null;
 }
 
 function all(input) {

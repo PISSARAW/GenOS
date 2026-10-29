@@ -41,9 +41,10 @@ async function latestBinding(db, input) {
       WHERE mission_id = ? AND agent_id = ? AND run_id = ?`,
     input.missionId, input.member.workerId, executionRunId);
   }
-  return db.get(`SELECT * FROM biological_worker_bindings
-    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+  const rows = await db.all(`SELECT * FROM biological_worker_bindings
+    WHERE mission_id = ? AND agent_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 2`,
   input.missionId, input.member.workerId);
+  return rows.length === 1 ? rows[0] : null;
 }
 
 async function evidenceForBinding(db, bindingRow, binding) {
