@@ -136,19 +136,49 @@ function parseNdjsonLine(line) {
   }
 }
 
+function assertSseLineBeforeTerminal(ctx, line) {
+  if (!ctx.state.done) return false;
+  if (line.startsWith('data:') && line.slice(5).trim()) {
+    throw Object.assign(new Error('Model provider emitted data after its terminal SSE marker.'), { code: 'MODEL_PROVIDER_INCOMPLETE_STREAM' });
+  }
+  return true;
+}
+
+function isSseDoneLine(ctx, line) {
+  if (!line.startsWith('data:') || line.slice(5).trim() !== '[DONE]') return false;
+  ctx.state.done = true;
+  return true;
+}
+
+function recordSseFinishReason(ctx, payload) {
+  const finishReason = payload.choices?.[0]?.finish_reason;
+  if (!finishReason) return;
+  ctx.state.finishReason = finishReason;
+  if (finishReason === 'stop') return;
+  const filtered = finishReason === 'content_filter';
+  const reason = filtered ? 'filtered' : 'truncated or nonterminal';
+  throw Object.assign(new Error(`Model provider stream ended as ${reason} (${finishReason}).`), {
+    code: filtered ? 'MODEL_PROVIDER_CONTENT_FILTERED' : 'MODEL_PROVIDER_INCOMPLETE_STREAM', finishReason
+  });
+}
+
+async function consumeSseLine(ctx, line) {
+  if (assertSseLineBeforeTerminal(ctx, line) || isSseDoneLine(ctx, line)) return;
+  const payload = parseSseLine(line);
+  if (!payload) return;
+  recordSseFinishReason(ctx, payload);
+  if (payload.model) ctx.state.servedModel = payload.model;
+  if (payload.id) ctx.state.responseId = payload.id;
+  const delta = sseDelta(payload);
+  if (delta) { ctx.state.text += delta; await ctx.onToken(delta); }
+  if (payload.usage) ctx.state.usage = payload.usage;
+}
+
 async function consumeSse(ctx, chunk) {
   ctx.state.buffer += ctx.decoder.decode(chunk, { stream: true });
   const lines = ctx.state.buffer.split(/\r?\n/);
   ctx.state.buffer = lines.pop() || '';
-  for (const line of lines) {
-    const payload = parseSseLine(line);
-    if (!payload) continue;
-    if (payload.model) ctx.state.servedModel = payload.model;
-    if (payload.id) ctx.state.responseId = payload.id;
-    const delta = sseDelta(payload);
-    if (delta) { ctx.state.text += delta; await ctx.onToken(delta); }
-    if (payload.usage) ctx.state.usage = payload.usage;
-  }
+  for (const line of lines) await consumeSseLine(ctx, line);
 }
 
 async function consumeNdjson(ctx, chunk) {
@@ -187,12 +217,18 @@ function pumpStream(reader, consume, idleTimeoutMs) {
 async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   const reader = response.body?.getReader ? response.body.getReader() : null;
   if (!reader) return null;
-  const ctx = { decoder: new TextDecoder(), state: { buffer: '', text: '', usage: {}, servedModel: null }, onToken };
+  const ctx = { decoder: new TextDecoder(), state: { buffer: '', text: '', usage: {}, servedModel: null,
+    done: false, finishReason: null }, onToken };
   const consume = async (chunk) => { await consumeSse(ctx, chunk); };
   await pumpStream(reader, consume, idleTimeoutMs);
   if (ctx.state.buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${ctx.state.buffer}\n`));
+  if (!ctx.state.done || (ctx.state.finishReason && ctx.state.finishReason !== 'stop')) {
+    throw Object.assign(new Error('Model provider stream ended without a valid terminal marker.'), {
+      code: 'MODEL_PROVIDER_INCOMPLETE_STREAM', finishReason: ctx.state.finishReason
+    });
+  }
   return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel,
-    responseId: ctx.state.responseId };
+    responseId: ctx.state.responseId, finishReason: ctx.state.finishReason };
 }
 
 async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
