@@ -92,6 +92,7 @@ async function main() {
   const root = await fixture.repository();
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'onto-cli-test-'));
   const nonGitRoot = path.join(scratch, 'not-a-repository');
+  const unbornRoot = path.join(scratch, 'unborn-repository');
   const nestedRoot = path.join(root, 'nested');
   const worktree = path.join(scratch, 'linked-worktree');
   const context = { database: path.join(scratch, 'genos.db') };
@@ -101,6 +102,9 @@ async function main() {
     fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
     fs.mkdirSync(nonGitRoot);
     fs.mkdirSync(nestedRoot);
+    fs.mkdirSync(unbornRoot);
+    const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
+    await runCommand('git', ['init', '-b', 'main'], { cwd: unbornRoot });
     await testConditionalDockerReadiness(root);
     await rejectInit(context, { root: path.join(scratch, 'missing'), projectId: 'onto_cli_missing_root' });
     await rejectInit(context, { root: nonGitRoot, projectId: 'onto_cli_non_git_root' });
@@ -110,7 +114,6 @@ async function main() {
     fs.writeFileSync(config, JSON.stringify(invalidBranchConfig));
     await rejectInit(context, { root, projectId: 'onto_cli_invalid_branch', config });
     fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
-    const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
     await runCommand('git', ['worktree', 'add', '--detach', worktree, 'HEAD'], { cwd: root });
     assert.ok(fs.statSync(path.join(worktree, '.git')).isFile(), 'linked worktree uses a .git file');
     assert.match(invoke(context, ['init', '--root', worktree, '--project', 'onto_cli_worktree', '--config', config]),
@@ -118,6 +121,19 @@ async function main() {
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli', '--config', config]), /projet-cree:onto_cli/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"status":"ready"/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"docker":"not_required"/);
+    const busyBranchConfig = fixture.testConfig();
+    busyBranchConfig.branch = 'main';
+    busyBranchConfig.authority.branches = ['main'];
+    fs.writeFileSync(config, JSON.stringify(busyBranchConfig));
+    invoke(context, ['init', '--root', root, '--project', 'onto_busy_branch', '--config', config]);
+    const busyBranchPreflight = execute(context, ['preflight', '--project', 'onto_busy_branch']);
+    assert.strictEqual(busyBranchPreflight.status, 1);
+    assert.match(busyBranchPreflight.stderr, /branche-integration-deja-extraite/);
+    fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
+    invoke(context, ['init', '--root', unbornRoot, '--project', 'onto_unborn_repo', '--config', config]);
+    const unbornPreflight = execute(context, ['preflight', '--project', 'onto_unborn_repo']);
+    assert.strictEqual(unbornPreflight.status, 1);
+    assert.match(unbornPreflight.stderr, /commit-initial-requis-pour-worktree-integration/);
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_preflight_invalid_root', '--config', config]),
       /projet-cree:onto_preflight_invalid_root/);
     const invalidProject = await createPreflightFailureProject(context, nonGitRoot);
