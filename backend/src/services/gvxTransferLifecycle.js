@@ -23,6 +23,9 @@ function validateStart(input) {
 }
 
 async function startTransfer(db, input) {
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(input.gvxTrialContext, 'transmission');
+  trialProfile.assertScope(input.gvxTrialContext, input.scope, input.entityId);
   const errors = validateStart(input);
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_TRANSFER_INVALID', errors });
   const gates = evaluateAllGates(input.plasmid, input.recipient);
@@ -33,6 +36,7 @@ async function startTransfer(db, input) {
     plasmidId: input.plasmid.id,
     plasmidHash: input.plasmidHash || null,
     contextHash: input.contextHash,
+    ...(input.gvxTrialContext ? { runtimeProfileHash: input.gvxTrialContext.profileHash } : {}),
     state: gates.passed ? 'quarantined' : 'rejected',
     gateResults: gates,
     rationale: gates.passed ? 'await_local_trial' : 'gate_rejected'
@@ -44,8 +48,13 @@ async function startTransfer(db, input) {
 }
 
 async function advanceTransfer(db, input) {
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(input.gvxTrialContext, 'transmission');
+  trialProfile.assertScope(input.gvxTrialContext,
+    { organizationId: input.organizationId, projectId: input.projectId }, input.entityId);
   const events = await listEvents(db, input);
   const previous = latestTransfer(events, input.transferId);
+  assertTransferProfile(previous, input.gvxTrialContext);
   const next = input.state;
   assertTransition(previous, next);
   const evidence = validateTransitionEvidence(input, next);
@@ -59,6 +68,13 @@ async function advanceTransfer(db, input) {
     organizationId: input.organizationId, projectId: input.projectId,
     entityId: input.entityId, type: 'transfer_recorded', payload: { transfer }
   });
+}
+
+function assertTransferProfile(transfer, context) {
+  const expected = context?.profileHash || null;
+  if ((transfer.runtimeProfileHash || null) !== expected) {
+    throw Object.assign(new Error('GVX transfer profile binding changed.'), { code: 'GVX_TRANSFER_PROFILE_MISMATCH' });
+  }
 }
 
 async function verifyTransitionEvidence(context) {

@@ -2,7 +2,7 @@
   "id": "ETT-02",
   "name": "chaine-autonome",
   "priority": true,
-  "status": "executable_reference_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -22,8 +22,9 @@
   ],
   "implementation": {
     "module": "scenario.js",
-    "primaryMetric": "validatedProgress",
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
-  }
+  },
+  "domain": "experimental-planning",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-02" }
 }

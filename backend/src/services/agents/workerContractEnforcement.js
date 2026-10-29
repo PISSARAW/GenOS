@@ -117,6 +117,7 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
   workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
+  assertTrialMissionBinding(contract.mission);
   assertCanonicalContract(contract, kind);
   assertHostCapabilityBoundary(contract, kind);
   if (contract.assignment?.workerKind && contract.assignment.workerKind !== kind) {
@@ -127,6 +128,26 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
   }
   return true;
+}
+
+function assertTrialMissionBinding(mission = {}) {
+  const bindingFields = ['campaignId', 'trialId', 'armId', 'scenarioId', 'seed', 'workspaceSnapshotHash'];
+  if (!hasTrialMissionMarker(mission, bindingFields)) return;
+  if (!mission.gvxTrialContext) throw invalidContract();
+  const fields = require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext);
+  assertTrialIdentityMatches(mission, fields, bindingFields);
+}
+
+function hasTrialMissionMarker(mission, bindingFields) {
+  return bindingFields.some((key) => mission[key] !== undefined) || Boolean(mission.gvxTrialContext)
+    || mission.gvxTrialCampaign === true || mission.trialProtocol !== undefined || mission.profileHash !== undefined;
+}
+
+function assertTrialIdentityMatches(mission, fields, bindingFields) {
+  const allFields = [...bindingFields, 'trialProtocol', 'missionId', 'codeRevision'];
+  if (allFields.some((key) => mission[key] !== fields[key])
+    || (mission.profileHash !== undefined && mission.profileHash !== fields.gvxTrialContext.profileHash)
+    || (mission.gvxTrialCampaign !== undefined && mission.gvxTrialCampaign !== true)) throw invalidContract();
 }
 
 function assertCanonicalContract(contract, kind) {

@@ -4,6 +4,9 @@ const { proposeTransformation, validateCandidate } = require('./gvxTransformatio
 
 async function propose(options) {
   const { db, scope, entityId, goal, context, selfTwinPredictor } = options || {};
+  const trialProfile = require('./gvxTrialRuntimeProfile');
+  trialProfile.assertMode(options?.gvxTrialContext, 'evolution');
+  trialProfile.assertScope(options?.gvxTrialContext, scope, entityId);
   if (!goal || typeof selfTwinPredictor !== 'function') throw new Error('mutation-proposal-controls-required');
   const prediction = await selfTwinPredictor({ target: goal.target, intervention: goal.intervention, context });
   if (!prediction?.predictionId || !Array.isArray(prediction.effects)) throw new Error('self-twin-impact-prediction-required');

@@ -11,6 +11,10 @@ function profilesFor(tokenPolicy, workers) {
   return budgetPolicy.profileWorkers(workers, override);
 }
 
+function hasRuntimeCeilingFailure(profiles) {
+  return profiles.some(profile => profile.runtimeCeilingExceeded);
+}
+
 function envelopeFor(tokenPolicy, profiles) {
   const budget = tokenPolicy.explicitWorkerShare
     ? { workerShare: tokenPolicy.workerShare } : {};
@@ -20,6 +24,7 @@ function envelopeFor(tokenPolicy, profiles) {
 function affordableWorkerCount(tokenPolicy, workerShare, workers) {
   if (Array.isArray(workers)) {
     const profiles = profilesFor(tokenPolicy, workers);
+    if (hasRuntimeCeilingFailure(profiles)) return 0;
     const envelope = envelopeFor(tokenPolicy, profiles);
     if (!envelope.valid) return 0;
     return envelope.workerPool >= budgetPolicy.sumField(profiles, 'minimumStartTokens')
@@ -42,6 +47,27 @@ function buildRoundAllocation(tokenPolicy, workerShare, workers) {
   });
 }
 
+function buildAdmission(input) {
+  const { tokenPolicy, profiles, envelope, required, requestedShare } = input;
+  const runtimeCeilingFailures = profiles.filter(profile => profile.runtimeCeilingExceeded);
+  const runtimeCeilingFailure = runtimeCeilingFailures.length > 0;
+  const funded = !runtimeCeilingFailure && envelope.valid && envelope.workerPool >= required;
+  return { atomic: true, valid: funded, requestedWorkers: profiles.length,
+    fundedWorkers: funded ? profiles.length : 0,
+    availableWorkerTokens: envelope.workerPool, requiredWorkerTokens: required,
+    shortfallTokens: Math.max(0, required - envelope.workerPool),
+    minimumAcceptableTotal: runtimeCeilingFailure ? null : budgetPolicy.minimumAcceptableTotal(profiles,
+      tokenPolicy.explicitWorkerShare ? { workerShare: requestedShare } : {}),
+    runtimeCeilingFailures: runtimeCeilingFailures.map(profile => ({
+      workerKind: profile.workerKind, role: profile.role,
+      requestedMinimumTokens: profile.minimumStartTokens,
+      runtimeMaximumTokens: profile.runtimeMaximumTokens
+    })),
+    reason: envelope.invalidReason || (runtimeCeilingFailure
+      ? 'worker_minimum_exceeds_runtime_ceiling' : envelope.workerPool < required
+        ? 'worker_budget_below_role_minimum' : null) };
+}
+
 function applyWorkerBudget(tokenPolicy, workers) {
   const profiles = profilesFor(tokenPolicy, workers);
   const requestedShare = tokenPolicy.workerShare;
@@ -53,16 +79,7 @@ function applyWorkerBudget(tokenPolicy, workers) {
   tokenPolicy.minimumOrchestratorReserveTokens = envelope.minimumOrchestratorReserveTokens;
   tokenPolicy.workerBudgets = profiles;
   tokenPolicy.rounds = buildRoundAllocation(tokenPolicy, envelope.workerShare, workers);
-  tokenPolicy.admission = { atomic: true,
-    valid: envelope.valid && envelope.workerPool >= required,
-    requestedWorkers: workers.length,
-    fundedWorkers: envelope.valid && envelope.workerPool >= required ? workers.length : 0,
-    availableWorkerTokens: envelope.workerPool, requiredWorkerTokens: required,
-    shortfallTokens: Math.max(0, required - envelope.workerPool),
-    minimumAcceptableTotal: budgetPolicy.minimumAcceptableTotal(profiles,
-      tokenPolicy.explicitWorkerShare ? { workerShare: requestedShare } : {}),
-    reason: envelope.invalidReason || (envelope.workerPool < required
-      ? 'worker_budget_below_role_minimum' : null) };
+  tokenPolicy.admission = buildAdmission({ tokenPolicy, profiles, envelope, required, requestedShare });
   return tokenPolicy;
 }
 

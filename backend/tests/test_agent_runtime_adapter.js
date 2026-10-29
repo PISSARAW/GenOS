@@ -44,7 +44,8 @@ try {
     path.resolve(__dirname, '../bin/agent-runtime-events.cjs'), path.resolve(__dirname, '../bin/agent-runtime-home.cjs')]
     .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   assert(runtimeSource.includes("'genos-runtime-'"), 'runtime agents must receive an isolated CODEX_HOME');
-  assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
+  assert(!runtimeSource.includes('--dangerously-bypass-hook-trust'), 'runtime must rely on reviewed hook trust');
+  assert(runtimeSource.includes('GENOS_PERSISTENT_CODEX_HOME'), 'runtime must preserve the hook trust store between runs');
   assert(!runtimeSource.includes('--dangerously-bypass-approvals-and-sandbox'), 'runtime must never disable the Codex sandbox');
   assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
   assert(!runtimeSource.includes('GENOS_MCP_EXPOSE_ALL="true"'), 'runtime agents must use their explicit MCP lease');
@@ -61,6 +62,10 @@ try {
     state: { executionMode: 'worker', mission: { agentId: 'agent-under-test' }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
     binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
   });
+  assert.strictEqual(leasedEnv.GENOS_REPO_ROOT, path.resolve(__dirname, '../..'),
+    'the MCP server must load the GenOS backend from its source repository, not the candidate workspace');
+  assert.notStrictEqual(leasedEnv.GENOS_REPO_ROOT, leasedEnv.GENOS_WORKSPACE_ROOT,
+    'the GenOS source root and worker workspace must remain independently scoped');
   assert.strictEqual(leasedEnv.GENOS_EXECUTION_MODE, 'worker', 'the leased MCP server must receive the same authority mode');
   const supervisedWorkerEnv = mcpEnvConfig.buildMcpServerEnvironment({
     state: { executionMode: 'supervised', mission: { agentId: 'worker-child' }, orchestratorAgentId: 'root-orchestrator',

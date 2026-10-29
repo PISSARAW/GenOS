@@ -1,6 +1,7 @@
 'use strict';
 
 const DEFAULT_PROFILE = Object.freeze({ minimumStartTokens: 8000, targetTokens: 12000, maximumTokens: 20000 });
+const { workerResources } = require('./agents/workerResourcePolicy');
 const PROFILES = Object.freeze({
   scout_cell: { minimumStartTokens: 3000, targetTokens: 5000, maximumTokens: 8000 },
   procedural_executor: { minimumStartTokens: 0, targetTokens: 0, maximumTokens: 0 },
@@ -40,9 +41,19 @@ function profileWorker(worker, minimumOverride) {
   const kind = workerKind(worker);
   const role = String(worker?.role || '').trim().toLowerCase();
   const roleProfile = ROLE_PROFILES[role];
-  const profile = applyMinimumOverride(roleProfile || PROFILES[kind] || DEFAULT_PROFILE,
+  const requestedProfile = applyMinimumOverride(roleProfile || PROFILES[kind] || DEFAULT_PROFILE,
     minimumOverride, Boolean(roleProfile));
-  return { workerKind: kind, role: worker?.role || null, ...profile };
+  const runtimeMaximumTokens = whole(workerResources(kind, {
+    ...worker, workerTokenLimit: Number.MAX_SAFE_INTEGER
+  }).maxTokens);
+  const profile = { ...requestedProfile,
+    maximumTokens: runtimeMaximumTokens > 0
+      ? Math.min(requestedProfile.maximumTokens, runtimeMaximumTokens)
+      : requestedProfile.maximumTokens };
+  return { workerKind: kind, role: worker?.role || null, ...profile,
+    runtimeMaximumTokens,
+    runtimeCeilingExceeded: runtimeMaximumTokens > 0
+      && profile.minimumStartTokens > runtimeMaximumTokens };
 }
 
 function profileWorkers(workers = [], minimumOverride) {

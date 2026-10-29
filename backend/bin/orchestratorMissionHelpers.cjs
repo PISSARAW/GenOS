@@ -194,6 +194,9 @@ function missionRuntimeContext(request) {
   const normalized = { ...request, worker_assignments: request.worker_assignments ?? request.workerAssignments,
     successCriteria: request.successCriteria || request.success_criteria || request.acceptanceCriteria || request.acceptance_criteria,
     workerBarrierTimeoutMs: request.workerBarrierTimeoutMs || request.worker_barrier_timeout_ms,
+    communicationRequired: pickOr(request, ['communicationRequired', 'communication_required']),
+    coordinationPolicy: pickOr(request, ['coordinationPolicy', 'coordination_policy']),
+    workerTokenLimit: pickOr(request, ['workerTokenLimit', 'worker_token_limit']),
     morphologyExpression: request.morphologyExpression || request.morphology_expression,
     morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy,
     userTopologyRequested: hasUserTopologyRequest(request) };

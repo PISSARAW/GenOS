@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const evidenceView = require('../src/db/migrations/migrateDaemonEvidenceView');
@@ -41,6 +44,28 @@ async function main() {
     assert.equal(repaired.total, 1);
   } finally {
     await db.close();
+  }
+  await verifyConcurrentRebuild();
+}
+
+async function verifyConcurrentRebuild() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-view-migration-'));
+  const filename = path.join(directory, 'migration.db');
+  const connections = await Promise.all(Array.from({ length: 4 }, () => open({
+    filename, driver: sqlite3.Database
+  })));
+  try {
+    await connections[0].exec('PRAGMA busy_timeout = 5000; CREATE TABLE daemon_finding_evidence (finding_id TEXT, side TEXT);');
+    await Promise.all(connections.slice(1).map((connection) => connection.exec('PRAGMA busy_timeout = 5000;')));
+    await Promise.all(connections.map((connection) => evidenceView.run(connection)));
+    const view = await connections[0].get("SELECT type FROM sqlite_master WHERE name = 'v_daemon_evidence_balance'");
+    assert.equal(view.type, 'view', 'concurrent schema boots leave the shared view installed');
+  } finally {
+    await Promise.all(connections.map((connection) => connection.close()));
+    const tempRoot = path.resolve(os.tmpdir());
+    const resolved = path.resolve(directory);
+    if (!resolved.startsWith(`${tempRoot}${path.sep}`)) throw new Error('Migration test temp path escaped OS temp directory.');
+    fs.rmSync(resolved, { recursive: true, force: true });
   }
 }
 

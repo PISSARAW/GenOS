@@ -174,7 +174,12 @@ async function orchestrateAutonomousWorkers(ctx) {
   }
   const bound = bindDispatchAssignments(ctx.autonomyPlan, assignments);
   assignments = bound.assignments;
-  if (bound.binding) {
+  if (bound.admissionBlocked) {
+    emit(ctx.agentId, 'WORKER_RUNTIME_BUDGET_BLOCKED', 'BUDGET_GUARD',
+      'Worker assignments exceed their canonical runtime token ceilings; no worker was dispatched.',
+      bound.binding, 'warning');
+    return [];
+  } else if (bound.binding) {
     emit(ctx.agentId, 'MORPHOGENESIS_MISSION_DISPATCH_BOUND', 'DISPATCH_WORKERS',
       'Worker assignments were bound to the validated mission MorphologyGraph before dispatch.', bound.binding, 'info');
   }

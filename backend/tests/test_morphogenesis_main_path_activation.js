@@ -210,6 +210,28 @@ async function verifyResourceStewardReceivesPromptSizedInitialBudget() {
   assert.equal(ctx.autonomyPlan.tokenPolicy.admission.valid, true);
 }
 
+async function verifyCommunicationBudgetSurvivesMorphology() {
+  const ctx = context();
+  ctx.normalizedMission.communicationRequired = true;
+  ctx.normalizedMission.coordinationPolicy = { communicationCadence: 'continuous_sync' };
+  ctx.autonomyPlan.tokenPolicy = { total: 120000, workerShare: 0.8,
+    minimumWorkerTokens: 30000, minimumWorkerTokensExplicit: true,
+    allocation: 'equal_minimum_then_score_weighted' };
+  const roles = [['environment_mapper', 'scout_cell'], ['resource_steward', 'specialist'],
+    ['population_specialist', 'specialist']];
+  await activation.activateMorphogenesisPlan(ctx, plan('biome'), {
+    composeMode: async () => ({ members: roles.map(([role, workerKind]) => ({
+      role, workerKind, executionMode: 'worker', methodContract: { methodId: 'prompt_defined' }
+    })) })
+  });
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.workerBudgets.map(item => item.runtimeMaximumTokens), [40000, 40000, 40000]);
+  assert.deepEqual(ctx.autonomyPlan.tokenPolicy.rounds.initial.workerTokens, [30000, 30000, 30000]);
+  assert.equal(ctx.autonomyPlan.dispatchWorkers.every((worker) => worker.communicationRequired), true,
+    'dispatch assignments retain the required communication contract');
+  assert.equal(ctx.autonomyPlan.dispatchWorkers.every((worker) => worker.coordinationPolicy === ctx.normalizedMission.coordinationPolicy), true,
+    'dispatch assignments retain the coordination policy used for budget allocation');
+}
+
 async function verifyFanoutReducesWorkerShareToPreserveReserve() {
   const ctx = context();
   ctx.autonomyPlan.tokenPolicy = { total: 20000, workerShare: 0.7,
@@ -251,6 +273,7 @@ async function main() {
   await verifyIncompatibleDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
   await verifyResourceStewardReceivesPromptSizedInitialBudget();
+  await verifyCommunicationBudgetSurvivesMorphology();
   await verifyFanoutReducesWorkerShareToPreserveReserve();
   await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');

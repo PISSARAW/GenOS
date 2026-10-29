@@ -64,6 +64,52 @@ const morphogenesisProfiles = policy.profileWorkers([
 assert.deepEqual(morphogenesisProfiles.map(profile => profile.minimumStartTokens), [1500, 3000],
   'resource steward retains enough initial tokens for the measured Qwen prompt while honoring the configured minimum floor');
 
+const overContract = policy.profileWorkers([
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+  { workerKind: 'specialist', role: 'resource_steward', methodContract: { methodId: 'prompt_defined' } }
+], 30000);
+assert.deepEqual(overContract.map(profile => profile.runtimeMaximumTokens), [8000, 20000]);
+assert.deepEqual(overContract.map(profile => profile.runtimeCeilingExceeded), [true, true]);
+const rejectedPlan = buildTokenPlan({ tokens: 200000, workerShare: 0.8, minimumWorkerTokens: 30000 },
+  { security: true }, [
+    { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+    { workerKind: 'specialist', role: 'resource_steward', methodContract: { methodId: 'prompt_defined' } }
+  ]);
+assert.equal(rejectedPlan.dispatchWorkers.length, 0,
+  'workers must not be dispatched when their requested floor exceeds the canonical runtime contract');
+assert.equal(rejectedPlan.admission.valid, false);
+assert.equal(rejectedPlan.admission.reason, 'worker_minimum_exceeds_runtime_ceiling');
+assert.deepEqual(rejectedPlan.admission.runtimeCeilingFailures.map(failure => failure.runtimeMaximumTokens), [8000, 20000]);
+const rejectedTeamPolicy = { total: 200000, workerShare: 0.8, minimumWorkerTokens: 30000,
+  minimumWorkerTokensExplicit: true, explicitWorkerShare: true };
+assert.equal(teamBudget.affordableWorkerCount(rejectedTeamPolicy, 0.8, [
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+  { workerKind: 'specialist', role: 'resource_steward', methodContract: { methodId: 'prompt_defined' } }
+]), 0, 'A-Team admission must also respect canonical worker runtime ceilings');
+teamBudget.applyWorkerBudget(rejectedTeamPolicy, [
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+  { workerKind: 'specialist', role: 'resource_steward', methodContract: { methodId: 'prompt_defined' } }
+]);
+assert.equal(rejectedTeamPolicy.admission.reason, 'worker_minimum_exceeds_runtime_ceiling');
+
+const communicating = policy.profileWorkers([
+  { workerKind: 'scout_cell', role: 'environment_mapper', communicationRequired: true,
+    methodContract: { methodId: 'prompt_defined' } }
+], 30000);
+assert.deepEqual(communicating.map(profile => profile.runtimeMaximumTokens), [40000]);
+assert.equal(communicating[0].runtimeCeilingExceeded, false,
+  'a contract that explicitly grants a larger communication budget can fund the requested worker minimum');
+
+const coordinatedPlan = require('../src/services/autonomousOrchestrationService/tokenPlanner').buildTokenPlan({
+  tokens: 80000, workerShare: 0.8, minimumWorkerTokens: 30000, communicationRequired: true
+}, {}, [
+  { workerKind: 'scout_cell', role: 'environment_mapper', methodContract: { methodId: 'prompt_defined' } },
+  { workerKind: 'scout_cell', role: 'log_auditor', methodContract: { methodId: 'prompt_defined' } }
+]);
+assert.equal(coordinatedPlan.admission.valid, true);
+assert.deepEqual(coordinatedPlan.workerBudgets.map(item => item.runtimeMaximumTokens), [40000, 40000]);
+assert.deepEqual(coordinatedPlan.rounds.initial.workerTokens, [30000, 30000]);
+
 const unsafeOverride = policy.budgetEnvelope(64000, profiles, { workerShare: 0.95 });
 assert.equal(unsafeOverride.valid, false);
 assert.equal(unsafeOverride.invalidReason, 'orchestrator_reserve_below_minimum');

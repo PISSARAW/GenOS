@@ -26,7 +26,9 @@ function loadAdapter(filename) {
 function requiredScenarioPairs() {
   const root = path.join(__dirname, 'scenarios');
   const levels = ['simple', 'difficult', 'open'];
-  return fs.readdirSync(root).flatMap((directory) => {
+  return fs.readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory()).flatMap((entry) => {
+    const directory = entry.name;
     const scenario = JSON.parse(fs.readFileSync(path.join(root, directory, 'scenario.json'), 'utf8'));
     return levels.map((level) => `${scenario.id}:${level}`);
   });

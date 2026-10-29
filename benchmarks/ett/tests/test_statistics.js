@@ -46,8 +46,9 @@ assert.throws(() => validateAdapter(adapter), /lacks scenario coverage/);
 adapter.cases.push(scenarioCases[35]);
 assert.doesNotThrow(() => validateAdapter(adapter));
 const scenarioRoot = path.join(__dirname, '../scenarios');
-const scenarios = fs.readdirSync(scenarioRoot).map((name) => JSON.parse(fs.readFileSync(
-  path.join(scenarioRoot, name, 'scenario.json'), 'utf8')));
+const scenarios = fs.readdirSync(scenarioRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory()).map((entry) => JSON.parse(fs.readFileSync(
+    path.join(scenarioRoot, entry.name, 'scenario.json'), 'utf8')));
 assert.equal(scenarios.length, 12);
 assert.equal(scenarios.filter((scenario) => scenario.priority).length, 4);
 assert(scenarios.every((scenario) => scenario.levels.length === 3));

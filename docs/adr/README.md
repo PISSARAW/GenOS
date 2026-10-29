@@ -868,6 +868,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0748](0748-agow-viabilite-collective-multiniveau.md) | Viabilité collective et allostasie multiniveau dans AGOW | Accepté — implémentation incrémentale | 2026-10-27 | Arbitrage AGOW, scopes allostatiques, morphogenèse et validation causale |
 | [0749](0749-journal-durable-runtime-gcir.md) | Journal durable d’exécution G-CIR Ω | Accepté — première tranche implémentée | 2026-10-28 | Runtime G-CIR Ω, persistance, reprise, effets idempotents |
 | [0750](0750-identite-persistante-du-client-mcp-codex.md) | Identité persistante du client MCP Codex | accepté. | 2026-10-28. | -- |
+| [0751](0751-liaison-runtime-immutable-des-bras-gvx.md) | Liaison runtime immuable des bras expérimentaux GVX | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, exécution d’agents, ontogenèse, vérification, transmission et provenance |
+| [0752](0752-runner-evaluateur-gvx-isole-docker.md) | Isoler le runner d’évaluation GVX dans Docker | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, évaluation externe, isolation et provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

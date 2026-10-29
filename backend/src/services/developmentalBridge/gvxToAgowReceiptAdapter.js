@@ -6,6 +6,10 @@ const { verifyDevelopmentReceipt } = require('./developmentReceiptVerifier');
 const creditQueues = new WeakMap();
 
 async function creditVerifiedReceipt(db, input) {
+  const trialProfile = require('../gvxTrialRuntimeProfile');
+  trialProfile.assertMode(input.gvxTrialContext, 'acquisition');
+  trialProfile.assertMode(input.gvxTrialContext, 'learnerFacingVerification');
+  trialProfile.assertScope(input.gvxTrialContext, input.scope, input.entityId);
   validateRequest(input);
   const receipt = verifyDevelopmentReceipt(input);
   const key = creditKey(input, receipt);
