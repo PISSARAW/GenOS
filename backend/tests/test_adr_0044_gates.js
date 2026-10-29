@@ -51,7 +51,7 @@ check(
 check(
   'topology with provenance allowed',
   gate.gate({
-    action: 'topology', risk: 'LOW', provenanceHash: 'abc', evidenceRefs: ['e1']
+    action: 'topology', risk: 'LOW', provenanceHash: 'a'.repeat(64), evidenceRefs: ['b'.repeat(64)]
   }).verdict === 'ALLOW'
 );
 check(

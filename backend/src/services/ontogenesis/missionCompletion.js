@@ -54,7 +54,8 @@ function identityReceiptSucceeded(receipt) {
 function validPassingReport(report, { requireDossier = false } = {}) {
   if (!report || report.outcome !== 'success' || !Array.isArray(report.claims) || report.claims.length === 0) return false;
   if (!Array.isArray(report.tests) || report.tests.length === 0
-      || report.tests.some((test) => Number(test.exitCode) !== 0 || test.signal)) return false;
+      || report.tests.some((test) => !test || typeof test !== 'object'
+        || !Number.isInteger(test.exitCode) || test.exitCode !== 0 || test.signal)) return false;
   if (!requireDossier) return true;
   const artifact = report.workerArtifact;
   const provenance = artifact?.provenance;
@@ -96,12 +97,14 @@ async function rootCompletionEvidence(db, agent) {
     if (event.event_type !== 'AGENT_COMPLETED') return false;
     const payload = parsePayload(event);
     const report = payload.evidenceReport;
-    return report?.outcome === 'success' && Array.isArray(report.claims) && report.claims.length > 0
-      && reports.some((reportEvent) => {
-        const evidence = parsePayload(reportEvent);
-        const saved = evidence.evidenceReport || evidence;
-        return saved.outcome === 'success' && Array.isArray(saved.claims) && saved.claims.length > 0;
-      });
+    const runId = payload.executionRunId;
+    if (!runId || !validPassingReport(report, { requireDossier: true })) return false;
+    return reports.some((reportEvent) => {
+      const evidence = parsePayload(reportEvent);
+      const saved = evidence.evidenceReport || evidence;
+      return evidence.executionRunId === runId
+        && validPassingReport(saved, { requireDossier: true });
+    });
   });
 }
 

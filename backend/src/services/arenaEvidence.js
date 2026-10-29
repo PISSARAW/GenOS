@@ -20,7 +20,7 @@ function isVerifiableEvidenceText(value) {
 }
 
 function isStructuredReceipt(item) {
-  return Boolean(item) && typeof item === 'object';
+  return isTangibleReceipt(item);
 }
 
 function singleEvidenceCounts(item) {
@@ -59,7 +59,7 @@ function claimHasVerifiableEvidence(claim) {
 
 function claimsWithVerifiableSupport(claims) {
   if (!Array.isArray(claims) || claims.length === 0) return false;
-  return claims.some(claimHasVerifiableEvidence);
+  return claims.every(claimHasVerifiableEvidence);
 }
 
 function scoreClaimsEvidence(claims) {
