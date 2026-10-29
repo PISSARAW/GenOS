@@ -20,7 +20,9 @@ function isVerifiableEvidenceText(value) {
 }
 
 function isStructuredReceipt(item) {
-  return isTangibleReceipt(item);
+  return item !== null && typeof item === 'object' && !Array.isArray(item)
+    && typeof item.receiptHash === 'string' && /^[a-f0-9]{64}$/i.test(item.receiptHash)
+    && typeof item.source === 'string' && Boolean(item.source.trim());
 }
 
 function singleEvidenceCounts(item) {

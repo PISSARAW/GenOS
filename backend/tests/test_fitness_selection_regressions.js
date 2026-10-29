@@ -28,6 +28,13 @@ const trustMe = dossierToCandidate({
   evidenceReport: { claims: Array.from({ length: 20 }, () => ({ evidence: ['proof'] })) }
 });
 assert(trustMe.fitnessScore < 37, 'Unverifiable "trust me" strings must not back a declared fitness.');
+const malformedReceipt = dossierToCandidate({
+  workerId: 'malformed-receipt-worker',
+  fitnessScore: 100,
+  evidenceReport: { claims: [{ evidence: [{}] }], tests: ['passed'] }
+});
+assert(malformedReceipt.fitnessScore < 100,
+  'An arbitrary object must not back a declared fitness score.');
 const inflated = dossierToCandidate({ workerId: 'inflated-worker', fitnessScore: 100, evidenceReport: { claims: [], tests: ['failed'] } });
 assert(inflated.fitnessScore < 100, 'Declared fitness must not override failed evidence.');
 const untested = dossierToCandidate({ workerId: 'untested-worker', evidenceReport: { claims: [] } });
