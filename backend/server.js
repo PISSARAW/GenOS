@@ -127,20 +127,20 @@ async function bootstrapWorkerDatabase() {
   // Reconciliation touches every live runtime / detached PID, so exactly one
   // worker (the leader) may run it. Running it on all workers caused SQLITE_BUSY
   // storms and duplicated taskkill calls against the same PID.
-  if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
+  if (ownsRuntimeRecovery(process.env)) {
     await circuitBreaker.hydrateToolLocks(db);
     await runtimeAdapter.reconcilePersistedRuntimes(db);
     await runtimeAdapter.resumeDurableWorkerRecoveries(db);
+    await require('./src/services/workerGarageService').recoverAbandonedClaims(db);
     await organismRestoreRecovery.recoverPending(db);
-    require('./src/services/survivalWakeSchedulerService').start(db);
-    await reconcileDetachedProcesses(db);
-    await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
-    await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
-      console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
-    });
-  }
-  if (process.env.GENOS_STUDIO_SUPERVISED === '1' && process.env.GENOS_RUNTIME_MAINTENANCE !== '1') {
-    await organismRestoreRecovery.recoverPending(db);
+    if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
+      require('./src/services/survivalWakeSchedulerService').start(db);
+      await reconcileDetachedProcesses(db);
+      await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
+      await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
+        console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
+      });
+    }
   }
   await organismRestoreRecovery.waitUntilClear(db);
   if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
@@ -180,7 +180,7 @@ async function recoverRuntimeControlAtStartup(db, options = {}) {
 }
 
 async function recoverMorphogenesisAtStartup(db) {
-  if (process.env.GENOS_RUNTIME_MAINTENANCE !== '1') return;
+  if (!ownsRuntimeRecovery(process.env)) return;
   try {
     const transitions = await require('./src/services/morphogenesis/morphogenesisTransitionRecovery')
       .recoverStartupTransitions(db);
@@ -201,6 +201,11 @@ async function recoverMorphogenesisAtStartup(db) {
   } catch (error) {
     console.warn(`[GenOS Morphogenesis Recovery] Startup sweep skipped: ${error.message}`);
   }
+}
+
+function ownsRuntimeRecovery(env = process.env) {
+  return env.GENOS_RUNTIME_MAINTENANCE === '1'
+    || (env.GENOS_STUDIO_SUPERVISED === '1' && env.GENOS_RUNTIME_MAINTENANCE !== '1');
 }
 
 // Boots the gRPC microservices server on the designated worker only, or returns null.
@@ -324,6 +329,9 @@ async function runWorkerProcess() {
     require('./src/services/garageRuntimeService').start({ db });
     signalPlaneSubscriber.startSignalPlaneSubscriber();
     await recoverMorphogenesisAtStartup(db);
+    if (ownsRuntimeRecovery(process.env)) {
+      await require('./src/services/durableContinuationService').recoverPendingContinuations({ db });
+    }
 
     server.listen(PORT, HOST, () => {
       console.log(`[GenOS Full-Stack] Server running on ${HOST}:${PORT}`);
@@ -359,4 +367,4 @@ if (require.main === module) {
 }
 
 module.exports = { startServer, createHttpServer, recoverMorphogenesisAtStartup,
-  recoverRuntimeControlAtStartup };
+  recoverRuntimeControlAtStartup, ownsRuntimeRecovery };
