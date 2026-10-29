@@ -15,6 +15,7 @@ const { routeMessage, assertRoutingAuthority } = require('./organizationRouting'
 const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
 const messageReceipts = require('./communication/organizationMessageReceipts');
 const memberView = require('./communication/organizationMemberView');
+const workerStatus = require('./communication/organizationWorkerStatus');
 const organizationCommunicationPolicy = require('./organizationCommunicationPolicy');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
 // capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
@@ -388,7 +389,6 @@ async function inbox(db, options = {}) {
     messages: messages.map(mapInboxRow)
   };
 }
-
 async function acknowledge(db, options = {}) {
   const { orchestratorId, requesterAgentId, messageIds = [] } = options;
   await assertOrchestrator(db, orchestratorId);
@@ -397,4 +397,4 @@ async function acknowledge(db, options = {}) {
 }
 
 module.exports = { ORGANIZATIONS, MESSAGE_KINDS, organizationProfile, ensureTables, getState,
-  getStateForMember, changeOrganization, routeMessage, publish, inbox, acknowledge };
+  getStateForMember, getWorkerStatusForMember: (db, options = {}) => workerStatus.getWorkerStatusForMember(db, options, { assertOrchestrator, assertMember }), changeOrganization, routeMessage, publish, inbox, acknowledge };

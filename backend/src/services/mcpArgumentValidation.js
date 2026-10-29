@@ -66,7 +66,7 @@ const REQUIRED_STRINGS = {
   genos_change_strategy: ['strategy', 'reason'],
   genos_report_progress: ['phase', 'message'],
   genos_change_organization: ['organization', 'reason'],
-  genos_organization_state: [],
+  genos_organization_state: [], genos_worker_status: [],
   genos_worker_publish: ['kind', 'signal_type'],
   genos_evolution_assimilate_plasmid: ['agent_id', 'plasmid_id'],
   genos_worker_inbox: [],

@@ -3,42 +3,15 @@ use serde_json::{Value, json};
 use std::path::Path;
 use std::process::Command;
 
-const BRIDGED_TOOLS: &[&str] = &[
-    "genos_execute_strategy_pipeline",
-    "genos_fossil_record",
-    "genos_fossil_list",
-    "genos_fossil_strata",
-    "genos_fossil_excavate",
-    "genos_fossil_decode",
-    "genos_fossil_candidate",
-    "genos_topology_session",
-    "genos_signal_publish",
-    "genos_signal_read",
-    "genos_signal_purge",
-    "genos_signal_ground",
-    "genos_signal_electrocyte_vote",
-    "genos_signal_chemotactic_follow",
-    "genos_signal_plasmid_transfer",
-    "genos_signal_collective_decision",
-    "genos_agent_fork_snapshot",
-    "genos_agent_inherited_memory_read",
-    "genos_agent_state_restore_inspect",
-    "genos_search_failures",
-    "genos_diagnose",
-    "genos_analyze_trajectory",
-    "genos_record_decision",
-    "genos_record_experience",
-    "genos_compile_memory",
-    "genos_blame",
-    "genos_working_memory",
-    "genos_ancestral_memory",
-    "genos_risk_inheritance",
-    "genos_collective_plasticity",
-    "genos_teaching_worker",
+pub(crate) const UNAVAILABLE_TOOLS: &[&str] = &[
+    "genos_browser_act",
+    "genos_computer_use",
+    "genos_foveal_crop",
+    "genos_optimal_foraging",
 ];
 
 pub(crate) fn is_bridged_tool(name: &str) -> bool {
-    BRIDGED_TOOLS.contains(&name)
+    !UNAVAILABLE_TOOLS.contains(&name) && crate::tools::is_backend_routed_tool(name)
 }
 
 fn reject_failed_backend_result(result: (i32, String)) -> (i32, String) {
@@ -78,7 +51,7 @@ pub(super) fn execute(workspace: &Path, name: &str, args: &Value) -> (i32, Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{execute, is_bridged_tool, reject_failed_backend_result};
+    use super::{UNAVAILABLE_TOOLS, execute, is_bridged_tool, reject_failed_backend_result};
     use serde_json::json;
     use std::path::Path;
 
@@ -107,12 +80,7 @@ mod tests {
 
     #[test]
     fn tools_without_backend_route_fail_closed() {
-        for name in [
-            "genos_browser_act",
-            "genos_computer_use",
-            "genos_foveal_crop",
-            "genos_optimal_foraging",
-        ] {
+        for name in UNAVAILABLE_TOOLS {
             assert!(!is_bridged_tool(name));
             let (code, output) = execute(Path::new("."), name, &json!({}));
             assert_ne!(code, 0);

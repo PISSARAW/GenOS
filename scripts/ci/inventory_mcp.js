@@ -60,18 +60,27 @@ function rustServer() {
   const catalogSrc = readIfExists(catalogTools);
   const baseSrc = readIfExists(baseSpecs);
   const bridgeSrc = readIfExists(bridge);
-  const bridgeList = bridgeSrc.split('const BRIDGED_TOOLS: &[&str] = &[')[1]?.split('];')[0] || '';
-  const unavailableList = src.match(/for unavailable in \[([\s\S]*?)\]/)?.[1] || '';
-  const names = [...new Set([
-    ...[...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1]),
-    ...[...bridgeList.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1])
-  ])].sort();
+  const catalog = lib.readJson(CANONICAL);
+  const catalogToolsList = catalog.tools || catalog;
+  const nativeTools = [...new Set([...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)]
+    .map((match) => match[1]))].sort();
+  const routedTools = Object.fromEntries(catalogToolsList
+    .filter((tool) => ['backend', 'orchestrator'].includes(tool['x-genos-rust-route']))
+    .map((tool) => [tool.name, tool['x-genos-rust-route']])
+    .sort(([left], [right]) => left.localeCompare(right)));
+  const unavailableList = bridgeSrc.match(/UNAVAILABLE_TOOLS: &\[&str\] = &\[([\s\S]*?)\]/)?.[1] || '';
+  const unavailableInRust = [...unavailableList.matchAll(/"(genos_[^"]+)"/g)]
+    .map((match) => match[1]).sort();
+  const names = [...new Set([...nativeTools, ...Object.keys(routedTools)])].sort();
   return { entry: 'crates/genos-mcp/src/main.rs',
     leaseEnv: src.includes('GENOS_MCP_LEASE') && src.includes('GENOS_MCP_DISABLED_TOOLS'),
     outsideLeaseRefusal: readIfExists(main).includes('outside the active GenOS MCP lease'),
-    canonicalBridge: catalogSrc.includes('shared/toolDefinitions.json'),
+    canonicalBridge: catalogSrc.includes('shared/toolDefinitions.json')
+      && catalogSrc.includes('x-genos-rust-route'),
+    nativeTools,
+    routedTools,
     declaredTools: names,
-    unavailableInRust: [...unavailableList.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1]).sort() };
+    unavailableInRust };
 }
 
 function backendDispatch() {

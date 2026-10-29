@@ -178,9 +178,9 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
 }
 async function handleOrganizationRead({ db, request, action, orchestratorId }) {
   const requesterAgentId = requiredOrganizationActor();
-  const result = action === 'organization_state'
-    ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
-    : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
+  const result = action === 'organization_state' ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
+    : action === 'worker_status' ? await dynamicOrganization.getWorkerStatusForMember(db, { orchestratorId, requesterAgentId, workerId: request.worker_id || request.workerId, limit: request.limit })
+      : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   if (action === 'organization_inbox' && Array.isArray(request.acknowledge_message_ids)) {
     result.acknowledgement = await dynamicOrganization.acknowledge(db, {
       orchestratorId, requesterAgentId, messageIds: request.acknowledge_message_ids
@@ -269,7 +269,6 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
 }
-
 function buildWorkerMetadata(workerKind, contract, request) {
   return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
 }
@@ -386,7 +385,8 @@ async function handleTrinityMerge({ db, context }) {
 const HANDLERS = {
   report_progress: handleReportProgress, execute_primitive: handlePrimitive, execute_mission_action: handleMissionAction,
   change_strategy: handleStrategy, change_organization: handleOrganizationChange, organization_publish: handleOrganizationPublish,
-  organization_inbox: handleOrganizationRead, organization_state: handleOrganizationRead, dispatch_trinity: handleTrinity,
+  organization_inbox: handleOrganizationRead, organization_state: handleOrganizationRead,
+  worker_status: handleOrganizationRead, dispatch_trinity: handleTrinity,
   merge_trinity: handleTrinityMerge, compare_trinity: handleTrinityMerge, dispatch_team: handleTeam,
   dispatch_biological: handleBiological, dispatch_worker: handleWorker, ontology: handleOntologyRequest, philosophy: handlePhilosophyRequest
 };

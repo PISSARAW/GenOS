@@ -47,7 +47,7 @@ const ROUTABLE_TOOLS = Object.freeze([
   'genos_execute_primitive', 'genos_execute_strategy_pipeline',
   'genos_fossil_candidate', 'genos_fossil_decode', 'genos_fossil_excavate', 'genos_fossil_list',
   'genos_fossil_record', 'genos_fossil_strata', 'genos_foveal_crop', 'genos_merge', 'genos_optimal_foraging', 'genos_orchestrate',
-  'genos_organization_state', 'genos_philosophy', 'genos_record_decision',
+  'genos_organization_state', 'genos_worker_status', 'genos_philosophy', 'genos_record_decision',
   'genos_record_experience', 'genos_replay', 'genos_report_progress',
   'genos_search_failures', 'genos_snapshot', 'genos_topology_session', 'genos_trinity_launch',
   'genos_signal_publish', 'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground',

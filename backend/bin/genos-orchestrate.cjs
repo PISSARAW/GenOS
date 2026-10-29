@@ -53,7 +53,7 @@ const allowedCommands = normalizeAllowedCommands(
 const allowFileEdits = policyRequest.allow_file_edits === true || policyRequest.allowFileEdits === true;
 try { if (!isMathMission) require('./orchestratorRequestValidation.cjs').validateRequest(action, { ...policyRequest, timeoutMs: policyRequest.timeoutMs ?? request.timeoutMs }); }
 catch (error) { process.stderr.write(error.message + '\n'); process.exit(1); }
-const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
+const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'worker_status', 'philosophy']);
 if (!isMathMission && String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
   const msg = `GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`;

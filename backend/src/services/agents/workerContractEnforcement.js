@@ -13,7 +13,7 @@ const AUTHORITY_TOOLS = Object.freeze({
   topologySession: ['genos_topology_session'],
   strategy: ['genos_change_strategy'],
   write: ['genos_run', 'genos_execute_primitive'],
-  read: ['genos_inspect', 'genos_memory_query', 'genos_search_failures', 'genos_evidence_check', 'genos_validate', 'genos_diff', 'genos_organization_state', 'genos_philosophy', 'genos_lineage', 'genos_blame'],
+  read: ['genos_inspect', 'genos_memory_query', 'genos_search_failures', 'genos_evidence_check', 'genos_validate', 'genos_diff', 'genos_organization_state', 'genos_worker_status', 'genos_philosophy', 'genos_lineage', 'genos_blame'],
   analyze: ['genos_diagnose', 'genos_hypothesis_evidence', 'genos_evaluate_trajectories', 'genos_adversarial_review', 'genos_security_coevolution'],
   execute: ['genos_snapshot', 'genos_test', 'genos_solve', 'genos_browser_act', 'genos_optimal_foraging', 'genos_computer_use', 'genos_execute_strategy_pipeline'],
   replay: ['genos_replay'],

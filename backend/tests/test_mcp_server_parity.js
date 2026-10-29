@@ -18,6 +18,12 @@ assert.deepStrictEqual(bundledNames.sort(), [...canonicalNames].sort(), 'Node ca
 assert(rust.canonicalBridge, 'Rust bridged tools must use the canonical catalog');
 const expectedRust = canonicalNames.filter((name) => !rust.unavailableInRust.includes(name)).sort();
 assert.deepStrictEqual(rust.declaredTools, expectedRust, 'Rust MCP declarations must match the supported catalog subset');
+assert.deepStrictEqual([...rust.nativeTools, ...Object.keys(rust.routedTools)].sort(), rust.declaredTools,
+  'Every Rust MCP declaration must have a native or canonical route classification');
+assert(Object.values(rust.routedTools).every((route) => ['backend', 'orchestrator'].includes(route)),
+  'Rust catalog routes must use a supported route kind');
+assert.equal(rust.routedTools.genos_worker_status, 'orchestrator',
+  'worker status must use the explicit orchestrator route');
 assert.deepStrictEqual(rust.unavailableInRust, [
   'genos_browser_act', 'genos_computer_use', 'genos_foveal_crop', 'genos_optimal_foraging'
 ]);

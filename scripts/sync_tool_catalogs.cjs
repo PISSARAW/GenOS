@@ -42,6 +42,7 @@ const CONTRACT_OWNED = new Set([
   'genos_report_progress',
   'genos_change_organization',
   'genos_organization_state',
+  'genos_worker_status',
 ]);
 
 const PIPELINE_ENTRY = {
