@@ -8,29 +8,68 @@ function caseContext(testCase) {
     `Candidates: ${JSON.stringify(testCase.observation.candidates)}`].join('\n');
 }
 
+function actionContext(input) {
+  if (!input.world) return '';
+  return [`Current scenario observation: ${JSON.stringify(input.world.observation)}`,
+    `Latest environment response: ${JSON.stringify(input.testCase.lastObservation || null)}`,
+    'Return JSON with an action matching nextAction.type and every requiredFields entry.',
+    'When nextAction is null, submit_answer with answerId of an inspected candidate.',
+    'Follow the required protocol in order and stay within the action budget.'].join('\n');
+}
+
+function applyAction(input) {
+  const { world, testCase, response } = input;
+  if (!world) return;
+  if (typeof response?.action?.type === 'string') {
+    const observed = world.act(response.action);
+    if (observed.status === 'observed') testCase.lastObservation = observed;
+  }
+  else if (typeof response?.answerId === 'string') {
+    world.act({ type: 'submit_answer', answerId: response.answerId });
+  }
+}
+
+async function runAdapter(input) {
+  let response = null;
+  let prior = '';
+  const maxTurns = input.world?.observation.actionBudget || input.options.rounds || 1;
+  for (let round = 1; round <= maxTurns; round += 1) {
+    const policyPrompt = input.options.prompt({ testCase: input.testCase,
+      memory: input.memory.slice(-8), round, maxTurns, prior,
+      observation: input.world?.observation || input.testCase.observation,
+      lastObservation: input.testCase.lastObservation || null });
+    const generated = await input.ledger.generateJson({ model: input.options.model,
+      prompt: `${policyPrompt}\n${actionContext(input)}`,
+      seed: `${input.testCase.caseId}:${input.options.id}:${round}`, maxTokens: 160,
+      callContext: { caseId: input.testCase.caseId, condition: input.options.id,
+        scenarioId: input.testCase.scenarioId, difficulty: input.testCase.difficulty,
+        stage: 'independent_action', action: round } });
+    response = generated.value;
+    prior = JSON.stringify(response).slice(0, 1000);
+    applyAction({ ...input, response });
+    if (input.world?.terminal) break;
+  }
+  return proposalFromResult({ world: input.world, response, id: input.options.id });
+}
+
+function proposalFromResult(input) {
+  const worldResult = input.world?.result();
+  const answerId = worldResult?.answerId || input.response?.answerId;
+  if (typeof answerId !== 'string') throw new Error(`${input.id} omitted answerId.`);
+  return { answerId,
+    evidenceRefs: worldResult ? worldResult.evidenceRefs
+      : Array.isArray(input.response.evidenceRefs) ? input.response.evidenceRefs : [`${answerId}:response`],
+    actions: worldResult?.actions || 0, actionTrace: worldResult?.trace || [] };
+}
+
 function createAdapter(options) {
-  const ledger = options.ledger || createLedger();
+  const ledger = options.ledger || createLedger({ budgetGuard: options.budgetGuard });
   const memory = [];
-  const rounds = options.rounds || 1;
   return {
     id: options.id,
     model: options.model,
     disclosure: options.disclosure,
-    async solve(testCase) {
-      let response = null;
-      let prior = '';
-      for (let round = 1; round <= rounds; round += 1) {
-        const prompt = options.prompt({ testCase, memory: memory.slice(-8), round, prior });
-        const result = await ledger.generateJson({ model: options.model, prompt,
-          seed: `${testCase.caseId}:${options.id}:${round}`, maxTokens: 160 });
-        response = result.value;
-        prior = JSON.stringify(response).slice(0, 1000);
-      }
-      if (typeof response?.answerId !== 'string') throw new Error(`${options.id} omitted answerId.`);
-      return { answerId: response.answerId,
-        evidenceRefs: Array.isArray(response.evidenceRefs)
-          ? response.evidenceRefs : [`${response.answerId}:response`] };
-    },
+    solve: (testCase) => runAdapter({ options, ledger, memory, testCase, world: testCase.world }),
     recordVerified(testCase, proposal, verification) {
       if (verification.verdict === 'supported') {
         options.onVerified?.({ testCase, proposal, memory });

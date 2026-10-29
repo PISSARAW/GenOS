@@ -2,7 +2,7 @@
   "id": "ETT-03",
   "name": "hypotheses-falsifiables",
   "priority": false,
-  "status": "executable_reference_world",
+  "status": "executable_multistep_calibration_world",
   "levels": [
     "simple",
     "difficult",
@@ -17,8 +17,9 @@
   ],
   "implementation": {
     "module": "scenario.js",
-    "primaryMetric": "causalSeparation",
     "runtime": "../runtime.js",
     "oracle": "../../evaluation/oracle_worker.js"
-  }
+  },
+  "domain": "causal-intervention",
+  "action_protocol": { "module": "../protocols.js", "scenario_id": "ETT-03" }
 }

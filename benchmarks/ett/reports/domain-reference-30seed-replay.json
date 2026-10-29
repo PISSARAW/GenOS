@@ -1,0 +1,130 @@
+{
+  "schema": "genos.ett-replay/v1",
+  "status": "deterministic_reference_replay_verified",
+  "sourceReport": "C:\\Users\\Shadow\\.codex\\worktrees\\ett-bench-push\\GenOS\\benchmarks\\ett\\reports\\domain-reference-30seed.json",
+  "sourceReportSha256": "74d6a4cbd24f43237fc57ba1c064182b054624f6f812bab8bb32fc30bea326ff",
+  "sourceStatus": "executable_local_reference_only",
+  "seeds": [
+    1001,
+    8920,
+    16839,
+    24758,
+    32677,
+    40596,
+    48515,
+    56434,
+    64353,
+    72272,
+    80191,
+    88110,
+    96029,
+    103948,
+    111867,
+    119786,
+    127705,
+    135624,
+    143543,
+    151462,
+    159381,
+    167300,
+    175219,
+    183138,
+    191057,
+    198976,
+    206895,
+    214814,
+    222733,
+    230652
+  ],
+  "scenarioCount": 12,
+  "systemCount": 8,
+  "comparison": {
+    "checks": [
+      {
+        "systemId": "oracle_score_upper_bound",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "fixed_first_candidate",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "scenario_rule_solver",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "react_classic",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "periodic_llm_loop",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "voyager_adapted",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "ai_scientist_v2_adapted",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      },
+      {
+        "systemId": "darwin_godel_machine_adapted",
+        "missing": false,
+        "rows": {
+          "expectedRows": 1080,
+          "replayedRows": 1080,
+          "mismatches": 0,
+          "firstMismatch": null
+        }
+      }
+    ],
+    "unexpectedSystems": [],
+    "mismatches": 0
+  },
+  "replayedAt": "2026-10-27T23:52:04.068Z",
+  "scientificClaimAllowed": false,
+  "scope": "Deterministic reference policies and oracle replay only; no LLM results or scientific qualification."
+}
