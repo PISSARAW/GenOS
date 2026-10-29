@@ -25,6 +25,11 @@ function textOf(value, fallback) {
   return String(value);
 }
 
+function isSha256Reference(value) {
+  if (typeof value !== 'string') return false;
+  return /^(?:sha256:)?[a-f0-9]{64}$/i.test(value.trim());
+}
+
 function isHighImpact(input) {
   const source = safeInput(input);
   const action = textOf(source.action, '').toLowerCase();
@@ -42,8 +47,10 @@ function provenanceStatus(input) {
   const source = safeInput(input);
   const refs = Array.isArray(source.evidenceRefs) ? source.evidenceRefs : [];
   const hash = textOf(source.provenanceHash || source.provenanceRecordId, '');
-  const complete = Boolean(hash) && refs.length > 0;
-  return { complete, hasHash: Boolean(hash), evidenceCount: refs.length };
+  const hasHash = isSha256Reference(hash);
+  const complete = hasHash && refs.length > 0
+    && refs.every(isSha256Reference);
+  return { complete, hasHash, evidenceCount: refs.length };
 }
 
 function gate(input) {
