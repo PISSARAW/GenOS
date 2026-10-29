@@ -242,6 +242,9 @@ async function executeRequestedAction(input) {
   const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, missionId, waitForCompletion });
   const handled = await runActionWithCleanup(actionContext, handleAction, state);
   if (!handled) return false;
+  if (synthesizedWorkerMission) await require('./orchestratorWorkerMissionFinalization.cjs').finalize({
+    db, missionId, orchestratorId, task, evaluateMissionContinuity
+  });
   emitTopologyEvent(actionContext.orchestratorId, actionContext.action);
   return true;
 }
