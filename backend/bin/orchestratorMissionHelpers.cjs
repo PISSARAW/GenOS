@@ -205,7 +205,8 @@ function missionRuntimeContext(request) {
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'workerBarrierTimeoutMs',
-    'localCodeWorker', 'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
+    'localCodeWorker', 'communicationRequired', 'coordinationPolicy', 'workerTokenLimit',
+    'requiredPatchPaths', 'requiredPatchMarkers', 'requiredPatchMinimumBytes',
     'requiredTools', 'toolLease', 'userTopologyRequested'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));

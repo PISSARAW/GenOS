@@ -72,11 +72,19 @@ async function runOrchestratorMcpPreflight(input) {
 
 function buildOrchestratorPreflightInput(input) {
   const request = input.request || {};
+  const budget = request.executionBudget || request.execution_budget || {};
   return { db: input.db, orchestratorId: input.orchestratorId, missionId: input.missionId,
     task: input.task, repoRoot: input.repoRoot,
     workspaceRoot: request.workspaceRoot || request.workspace_root || input.workspaceRoot,
     snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent || input.snapshotAgent,
+    toolTimeoutMs: resolveToolTimeout(request, budget),
     hypotheses: request.diagnosticHypotheses || request.hypotheses, tools: input.tools };
+}
+
+function resolveToolTimeout(request, budget) {
+  const requested = Number(request.timeoutMs || budget.latencyMs);
+  return Number.isFinite(requested) && requested > 0
+    ? Math.min(120000, Math.max(30000, requested)) : 120000;
 }
 function assertPreflightContext(input) {
   const { db, orchestratorId, missionId, repoRoot, workspaceRoot } = input || {};
@@ -118,12 +126,18 @@ async function connectPreflightClient(input, tools) {
 async function runPreflightTool(request) {
   const { client, input, tool, receipts = [] } = request;
   const prepared = prepareToolArguments(input, tool, receipts);
-  const result = await client.callTool({ name: tool, arguments: prepared.args });
+  const result = await client.callTool({ name: tool, arguments: prepared.args }, undefined,
+    mcpRequestTimeout(input));
   const success = assertSuccessfulTool(tool, result, { outputPath: prepared.outputPath });
   assertSnapshotExists(tool, prepared.outputPath);
   const receipt = createReceipt({ input, tool, prepared, resultTextValue: success.text });
   await recordPreflightSuccess(input.db, receipt, prepared.args);
   return receipt;
+}
+
+function mcpRequestTimeout(input) {
+  const timeout = Number(input.toolTimeoutMs) || 120000;
+  return { timeout, maxTotalTimeout: timeout, resetTimeoutOnProgress: true };
 }
 
 function prepareToolArguments(input, tool, receipts = []) {
@@ -370,4 +384,4 @@ function pathToFileURL(filePath) {
 module.exports = { runOrchestratorMcpPreflight, snapshotAgentPath, assertSuccessfulTool,
   runOrchestratorMcpPostflight, assertPreflightContext, preflightEnvironment,
   prepareToolArguments, PREFLIGHT_TOOLS, assertReplayProof, evidenceForWorker, baselineTools,
-  parseWorkerEvidence, normalizeWorkerTerminalEvent, buildOrchestratorPreflightInput };
+  parseWorkerEvidence, normalizeWorkerTerminalEvent, buildOrchestratorPreflightInput, mcpRequestTimeout };
