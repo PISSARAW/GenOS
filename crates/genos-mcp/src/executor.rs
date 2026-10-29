@@ -300,6 +300,14 @@ fn with_action(args: &Value, action: &str) -> Value {
     payload
 }
 
+fn delegate_worker_payload(args: &Value) -> Value {
+    let mut payload = with_action(args, "dispatch_worker");
+    if let Some(object) = payload.as_object_mut() {
+        object.insert("background".into(), json!(false));
+    }
+    payload
+}
+
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {
     let bridge = resolve_bridge_path(workspace);
     match name {
@@ -314,10 +322,7 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             execute_orchestrator(&bridge, &payload, workspace)
         }
         "genos_delegate_worker" => {
-            let mut payload = with_action(args, "dispatch_worker");
-            if let Some(obj) = payload.as_object_mut() {
-                obj.insert("background".into(), json!(false));
-            }
+            let payload = delegate_worker_payload(args);
             execute_orchestrator(&bridge, &payload, workspace)
         }
         "genos_change_strategy" => {
@@ -369,5 +374,24 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
         | "genos_v2_init"
         | "genos_v2_fork" => execute_cli(workspace, name, args),
         _ => backend_dispatch::execute(workspace, name, args),
+    }
+}
+
+#[cfg(test)]
+mod worker_dispatch_tests {
+    use super::delegate_worker_payload;
+    use serde_json::json;
+
+    #[test]
+    fn delegate_worker_maps_to_bounded_synchronous_dispatch() {
+        let payload = delegate_worker_payload(&json!({
+            "mission": "inspect worker routing",
+            "background": true,
+            "role": "reviewer"
+        }));
+        assert_eq!(payload["action"], "dispatch_worker");
+        assert_eq!(payload["background"], false);
+        assert_eq!(payload["mission"], "inspect worker routing");
+        assert_eq!(payload["role"], "reviewer");
     }
 }

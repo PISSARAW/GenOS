@@ -23,7 +23,10 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
                 "properties": {
                     "mission": { "type": "string", "description": "Sub-task for the delegated worker." },
                     "role": { "type": "string", "description": "Specialized role of the worker." },
-                    "background": { "type": "boolean", "description": "Defaults to true. False waits within the MCP timeout." }
+                    "background": { "type": "boolean", "description": "Defaults to true: return a launch receipt and run detached. Set false to wait for the worker within the MCP timeout." },
+                    "executor": { "type": "string", "enum": ["caller_mcp", "codex", "local", "hermes", "antigravity"], "description": "Cognitive executor inherited by the worker." },
+                    "provider": { "type": "string", "description": "Optional declared provider identity for the worker; GenOS does not infer it from the harness." },
+                    "modelId": { "type": "string", "description": "Optional declared model identity. Leave unspecified when the host does not disclose it." }
                 },
                 "required": ["mission"]
             }
@@ -130,12 +133,38 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "description": "Type of publication (evidence, challenge, vote, trace)." },
-                    "content": { "type": "string", "description": "Message payload." },
-                    "signal_type": { "type": "string", "enum": ["ligand", "voltage", "pheromone", "plasmid", "tensor", "text"], "description": "Biomimetic non-textual signal type." },
-                    "signal_data": { "type": "object", "description": "Physico-chemical signal data (0 LLM tokens)." }
+                    "kind": { "type": "string", "enum": ["evidence", "question", "answer", "challenge", "proposal", "vote", "trace", "budget", "critical", "success", "handoff"], "description": "Immutable organization message kind." },
+                    "signal_type": { "type": "string", "enum": ["ligand", "voltage", "pheromone", "plasmid", "tensor"], "description": "Required non-text biomimetic signal type." },
+                    "signal_data": { "type": ["object", "string"], "description": "Physico-chemical signal payload (0-token) — object or string." },
+                    "orchestrator_id": { "type": "string", "description": "Owning orchestrator that may react to the collective signal." },
+                    "recipient_agent_id": { "type": "string", "description": "Explicit direct recipient; omit for topology-defined shared delivery." },
+                    "in_reply_to": { "type": "integer", "minimum": 1, "description": "Message ID this publication answers." },
+                    "relational": {
+                        "type": "object",
+                        "description": "HTTP MCP: targeted typed references; signal_type=ligand and signal_data={}.",
+                        "properties": {
+                            "operationId": { "type": "string" },
+                            "receiverId": { "type": "string" },
+                            "refs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": { "type": "string" },
+                                        "hash": { "type": "string" },
+                                        "kind": { "type": "string" }
+                                    },
+                                    "required": ["id", "hash", "kind"]
+                                }
+                            },
+                            "event": { "type": "string" },
+                            "blind": { "type": "boolean" },
+                            "expectedRevision": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["operationId", "receiverId", "refs"]
+                    }
                 },
-                "required": ["kind"]
+                "required": ["kind", "signal_type", "signal_data"]
             }
         }),
         json!({
@@ -145,7 +174,15 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "after_id": { "type": "integer", "description": "Cursor offset." },
-                    "limit": { "type": "integer", "description": "Max messages to return." }
+                    "limit": { "type": "integer", "description": "Max messages to return." },
+                    "acknowledge_message_ids": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "Messages explicitly understood by this worker." },
+                    "orchestrator_id": { "type": "string", "description": "Owning orchestrator to monitor." },
+                    "cursor_only": { "type": "boolean", "description": "Return the latest visible inbox cursor without marking messages read." },
+                    "include_bootstrap_requests": { "type": "boolean", "description": "Include only verified, newly delivered initial coordination requests alongside a matching reply." },
+                    "handshake_id": { "type": "string", "description": "Filter to a verified reply for this coordination handshake." },
+                    "in_reply_to": { "type": "integer", "minimum": 1, "description": "Require a reply to this exact message." },
+                    "sender_agent_id": { "type": "string", "description": "Require the reply from this exact worker." },
+                    "mission_id": { "type": "string", "description": "Require bootstrap messages for this exact mission cycle." }
                 }
             }
         }),
@@ -253,5 +290,76 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
             }
         }),
     ];
-    all_tools
+    canonicalize_worker_specs(all_tools)
+}
+
+fn canonicalize_worker_specs(mut specs: Vec<Value>) -> Vec<Value> {
+    let catalog: Value = serde_json::from_str(include_str!(
+        "../../../../shared/toolDefinitions.json"
+    ))
+    .expect("canonical tool catalog");
+    let canonical_tools = catalog["tools"].as_array().expect("catalog tools");
+    for worker_name in ["genos_delegate_worker", "genos_worker_publish", "genos_worker_inbox"] {
+        let canonical = canonical_tools
+            .iter()
+            .find(|tool| tool["name"] == worker_name)
+            .unwrap_or_else(|| panic!("missing canonical worker tool: {worker_name}"));
+        if let Some(spec) = specs.iter_mut().find(|tool| tool["name"] == worker_name) {
+            *spec = canonical.clone();
+        }
+    }
+    specs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::base_tool_specs;
+
+    fn tool_schema<'a>(tools: &'a [serde_json::Value], name: &str) -> &'a serde_json::Value {
+        tools
+            .iter()
+            .find(|tool| tool["name"] == name)
+            .unwrap_or_else(|| panic!("missing tool spec: {name}"))
+            .get("inputSchema")
+            .expect("tool inputSchema")
+    }
+
+    #[test]
+    fn worker_tools_advertise_routing_replies_and_acknowledgements() {
+        let tools = base_tool_specs();
+        let publish = tool_schema(&tools, "genos_worker_publish");
+        let publish_fields = publish["properties"].as_object().expect("publish properties");
+        for field in ["orchestrator_id", "recipient_agent_id", "in_reply_to", "relational"] {
+            assert!(publish_fields.contains_key(field), "missing publish field {field}");
+        }
+        assert_eq!(publish["required"], serde_json::json!(["kind", "signal_type", "signal_data"]));
+
+        let inbox = tool_schema(&tools, "genos_worker_inbox");
+        let inbox_fields = inbox["properties"].as_object().expect("inbox properties");
+        for field in ["acknowledge_message_ids", "orchestrator_id"] {
+            assert!(inbox_fields.contains_key(field), "missing inbox field {field}");
+        }
+    }
+
+    #[test]
+    fn worker_tool_schemas_match_the_canonical_catalog() {
+        let tools = base_tool_specs();
+        let catalog: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../shared/toolDefinitions.json"
+        ))
+        .expect("canonical tool catalog");
+        for name in ["genos_delegate_worker", "genos_worker_publish", "genos_worker_inbox"] {
+            let canonical = catalog["tools"]
+                .as_array()
+                .expect("catalog tools")
+                .iter()
+                .find(|tool| tool["name"] == name)
+                .unwrap_or_else(|| panic!("missing canonical tool: {name}"));
+            assert_eq!(
+                tool_schema(&tools, name),
+                &canonical["inputSchema"],
+                "Rust schema drift for {name}"
+            );
+        }
+    }
 }
