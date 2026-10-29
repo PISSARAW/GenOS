@@ -33,6 +33,17 @@ async function proofBinding() {
     assert.deepEqual(proofService.validateProofs(forged, checks), ['preuve-invalide']);
     assert.deepEqual(proofService.validateProofs(proof, [{ ...checks[0], sandbox: { ...checks[0].sandbox,
       image: `${IMAGE.slice(0, -64)}${'b'.repeat(64)}` } }]), ['preuve-invalide']);
+    let dockerInvocation;
+    await proofService.verifyChecks(workspace, [{ program: 'npm', args: ['test'], sandbox: checks[0].sandbox }], {
+      runDocker: async (input) => {
+        dockerInvocation = { program: input.program, args: input.args };
+        return { sandboxEvidence: { runtime: 'docker-linux', imageDigest: IMAGE, network: 'none',
+          rootFilesystem: 'read-only', workspaceMount: 'read-only', oracleMount: 'read-only',
+          capabilitySet: 'drop-all', memoryLimitMb: 768, cpuLimit: 1, pidLimit: 64 } };
+      }
+    });
+    assert.deepEqual(dockerInvocation, { program: 'npm', args: ['test'] },
+      'Docker must run npm from its pinned image, not a host npm-cli path');
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });
     fs.rmSync(oracleRoot, { recursive: true, force: true });
@@ -51,9 +62,18 @@ function runnerContract() {
   assert.ok(args.some((value) => value === `type=bind,src=${workspace},dst=/workspace,readonly`));
   assert.ok(args.some((value) => value === `type=bind,src=${oracleRoot},dst=/oracle,readonly`));
   assert.equal(args.at(-1), 'rs-median');
+  const npmArgs = dockerRunArgs({ program: 'npm', args: ['test'], sandbox: { image: IMAGE } },
+    'genos-onto-npm-test', { workspace, oracleRoot });
+  assert.equal(npmArgs[npmArgs.indexOf('--entrypoint') + 1], '/usr/local/bin/npm');
+  assert.equal(npmArgs.at(-1), 'test');
+  assert.deepEqual(dockerRunArgs({ program: 'npm', args: ['run', 'verify'], sandbox: { image: IMAGE } },
+    'genos-onto-npm-run', { workspace, oracleRoot }).slice(-3), [IMAGE, 'run', 'verify']);
+  assert.throws(() => dockerRunArgs({ program: 'npm', args: ['install'], sandbox: { image: IMAGE } },
+    'genos-onto-npm-install', { workspace, oracleRoot }), /commande-npm-docker-non-autorisee/);
   assert.equal(containerProgram('C:\\Program Files\\nodejs\\node.exe'), '/usr/local/bin/node');
+  assert.equal(containerProgram('npm'), '/usr/local/bin/npm');
   assert.throws(() => imageDigest('latest'), /epinglee-par-digest/);
-  assert.throws(() => containerArguments(['node', 'rs-median'], oracleRoot), /hors-racine-oracle/);
+  assert.throws(() => containerArguments([path.resolve('outside.cjs'), 'rs-median'], oracleRoot), /hors-racine-oracle/);
   assert.throws(() => containerArguments([path.join(oracleRoot, 'verify.cjs'), '--privileged'], oracleRoot), /argument-verificateur/);
 }
 
@@ -66,6 +86,11 @@ function campaignProfileContract() {
     runtime: 'docker', image: IMAGE, oracleRoot: path.resolve('campaign/oracles/case')
   } }];
   assert.equal(validateProjectConfig(config).ok, true);
+  config.checks[0] = { program: 'npm', args: ['test'], sandbox: config.checks[0].sandbox };
+  assert.equal(validateProjectConfig(config).ok, true);
+  config.checks[0].args = ['install'];
+  assert.ok(validateProjectConfig(config).errors.includes('commande-npm-docker-non-autorisee'));
+  config.checks[0] = { program: 'node', args: ['verify.cjs'], sandbox: config.checks[0].sandbox };
   config.checks[0].sandbox.image = 'latest';
   assert.ok(validateProjectConfig(config).errors.includes('verification-sandbox-docker-invalide'));
   if (previous !== undefined) process.env.GENOS_ONTOGENESIS_G1_VERIFIER_IMAGE = previous;

@@ -97,7 +97,8 @@ async function verifyChecks(worktree, checks, options = {}) {
   try {
     for (const check of checks) {
       checkSpec(check);
-      const invocation = check.program === 'npm' ? npmInvocation(check.args) : { program: check.program, args: check.args };
+      const invocation = check.program === 'npm' && check.sandbox?.runtime !== 'docker'
+        ? npmInvocation(check.args) : { program: check.program, args: check.args };
       const remaining = deadline - Date.now();
       if (remaining <= 0) throw new Error('budget-verification-epuise');
       const sandboxEvidence = await runConfiguredCheck(invocation, check, { options, worktree,

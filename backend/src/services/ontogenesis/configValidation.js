@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { verifierCheckReason } = require('./gitAuthority');
 const { DEFAULT_THRESHOLDS } = require('./memoryPressure');
+const { validateDockerCommand } = require('./dockerVerifierRunner');
 
 const TOPOLOGIES = ['trinity', 'a_team', 'biocenose', 'holobionte', 'syncytium', 'biome', 'rhizome', 'metapopulation'];
 
@@ -49,7 +50,13 @@ function checkChecks(checks, errors) {
     const verifierReason = verifierCheckReason(check);
     if (verifierReason) errors.push(verifierReason);
     if (check?.sandbox !== undefined) checkVerifierSandbox(check.sandbox, errors);
+    if (check?.sandbox?.runtime === 'docker') validateDockerCheck(check, errors);
   }
+}
+
+function validateDockerCheck(check, errors) {
+  try { validateDockerCommand(check); }
+  catch (error) { errors.push(error.message); }
 }
 
 function checkVerifierSandbox(sandbox, errors) {
