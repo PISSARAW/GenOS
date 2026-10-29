@@ -8,6 +8,7 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+import { parseEnv } from "node:util";
 import { filterLeasedTools, toolIsLeased } from "./lease.js";
 import { createToolCallHandler, filterRoutableTools } from "./toolCallHandler.js";
 import { executeNodeFallback } from "./nodeCliFallback.js";
@@ -23,6 +24,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const repoRoot = resolveRepoRoot();
 const workingDir = repoRoot || process.cwd();
+const localEnvPath = repoRoot && path.join(repoRoot, ".env");
+if (!process.env.GENOS_ADMIN_PASSWORD && localEnvPath && fs.existsSync(localEnvPath)) {
+  const localAdminPassword = parseEnv(fs.readFileSync(localEnvPath, "utf8")).GENOS_ADMIN_PASSWORD;
+  if (localAdminPassword) process.env.GENOS_ADMIN_PASSWORD = localAdminPassword;
+}
 
 const { terminateChild, clearTerminationTimer } = require("./processTermination.cjs");
 const strategyTools = loadStrategyBridge(repoRoot);
