@@ -13,7 +13,7 @@ const SOLAR = `const {writeArtifact}=require(process.argv[1]);const p=require('n
 
 const LOCAL = `const writer=require(process.argv[1]);(async()=>{writer.writeArtifacts(
   JSON.stringify({artifactText:'[ARTIFACT: direct-local.txt]direct local bytes[/ARTIFACT]'}),
-  {allowFileEdits:true,workspaceRoot:process.argv[2]});
+  {allowFileEdits:true,allowedWritePaths:['*'],workspaceRoot:process.argv[2]});
   await require(process.argv[3]).flush();})().catch(e=>{
   console.error(e);process.exitCode=1;});`;
 
