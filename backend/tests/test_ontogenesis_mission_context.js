@@ -161,6 +161,8 @@ try {
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
   assert.strictEqual(classifyMission('Réparer la régression', compiled.profile), 'repair');
   assert.strictEqual(classifyMission('Créer un site React avec une preuve de build', compiled.profile), 'implement');
+  assert.strictEqual(classifyMission('Revisiter l’audit et les preuves', compiled.profile), 'verify');
+  assert.strictEqual(classifyMission('Créer une application web', compiled.profile), 'implement');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Explorer les branches distribuées' }).morphology.selectedTopology, 'rhizome');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Explorer les branches distribuées' }).morphology.selectedOrganization, 'mycelial_routing');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Vérifier les résultats' }).morphology.selectedTopology, 'trinity');

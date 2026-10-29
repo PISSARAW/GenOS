@@ -3,6 +3,7 @@ const { withTransaction } = require('../db');
 const garageFabric = require('./garageFabricService');
 const garagePreemption = require('./garagePreemptionService');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
+const { releasableClaimStatus, recoverAbandonedClaims } = require('./workerGarageClaimRecovery');
 
 const dynamicCapacities = new Map();
 
@@ -260,15 +261,6 @@ async function reserveSlotInternal(db, { orchestratorId, workerId, name, role, m
   };
 }
 
-const TERMINAL_WORKER_STATUSES = new Set(['error', 'terminated', 'failed', 'apoptosis']);
-
-function releasableClaimStatus(row, workerStatus, now) {
-  const expired = (row.lease_expires_at && Date.parse(row.lease_expires_at) <= now)
-    || (row.deadline_at && Date.parse(row.deadline_at) <= now);
-  if (!workerStatus || TERMINAL_WORKER_STATUSES.has(workerStatus)) return expired ? 'expired' : 'failed';
-  return workerStatus !== 'running' && workerStatus !== 'blocked' && expired ? 'expired' : null;
-}
-
 async function releaseStaleWorkerClaims(db, workerId) {
   if (!db || !workerId) return 0;
   const worker = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
@@ -388,6 +380,7 @@ module.exports = {
   enterOrchestratorIdleState,
   armWakeHandler,
   rearmIdleWorkers,
+  recoverAbandonedClaims,
   getDynamicCapacity,
   setDynamicCapacity,
   releaseDynamicCapacity,

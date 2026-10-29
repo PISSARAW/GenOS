@@ -45,6 +45,32 @@ async function loadContinuation(input = {}) {
   return row ? { id: row.id, mission: deserializeMission(row), row } : null;
 }
 
+async function recoverPendingContinuations(input = {}) {
+  const db = input.db || await getDatabase();
+  const rows = await db.all(`SELECT id, agent_id, orchestrator_id, mission_json
+    FROM continuation_queue WHERE status = 'pending' AND available_at <= CURRENT_TIMESTAMP
+    ORDER BY available_at ASC, created_at ASC`);
+  const { pendingContinuations, autonomousRounds } = require('./agentOrchestrationState');
+  const roundService = require('./agentRoundService');
+  let hydrated = 0;
+  let dispatched = 0;
+  for (const row of rows || []) {
+    const mission = deserializeMission(row);
+    if (!mission) continue;
+    pendingContinuations.set(row.agent_id, mission);
+    hydrated += 1;
+    const roundId = mission.budgetRound?.orchestratorId || row.orchestrator_id;
+    if (mission.budgetRound?.stage === 'morphogenesis_epoch' && !autonomousRounds.has(roundId)) continue;
+    try {
+      await roundService.dispatchPendingContinuation(row.agent_id);
+      dispatched += 1;
+    } catch (error) {
+      console.warn(`[Continuation Recovery] Could not dispatch ${row.id}: ${error.message}`);
+    }
+  }
+  return { hydrated, dispatched };
+}
+
 async function loadCohortContinuations(input = {}) {
   const db = input.db || await getDatabase();
   const rows = await db.all(`SELECT * FROM continuation_queue WHERE orchestrator_id = ?
@@ -72,5 +98,5 @@ async function claimContinuation(input = {}) {
   return Number(result?.changes || 0) === 1;
 }
 
-module.exports = { persistContinuation, persistContinuations, loadContinuation, loadCohortContinuations,
+module.exports = { persistContinuation, persistContinuations, loadContinuation, recoverPendingContinuations, loadCohortContinuations,
   markContinuation, claimContinuation };

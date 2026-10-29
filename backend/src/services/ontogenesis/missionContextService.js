@@ -16,6 +16,14 @@ const dynamicOrganization = require('../dynamicOrganizationService');
 
 const MAX_FILE_BYTES = 128 * 1024;
 const MAX_CONTEXT_CHARS = 4000;
+const CLASSIFICATION_RULES = [
+  { kind: 'repair', pattern: /\b(?:repar\w*|fix\w*|bug\w*|regression\w*|corrig\w*)\b/ },
+  { kind: 'implement', objectiveOnly: true,
+    pattern: /\b(?:creer\w*|cree|creation|creations|constru\w*|developp\w*|implement\w*|sites?|applications?|react|web)\b/ },
+  { kind: 'verify', pattern: /\b(?:audit\w*|verif\w*|test\w*|preuve\w*|controle\w*)\b/ },
+  { kind: 'explore', pattern: /\b(?:explor\w*|cartograph\w*|compren\w*|inventair\w*)\b/ },
+  { kind: 'decide', pattern: /\b(?:decid\w*|arbitr\w*|choix|strateg\w*)\b/ }
+];
 
 function readJson(root, name) {
   try {
@@ -44,12 +52,9 @@ function fileProfile(root) {
 function classifyMission(objective, profile) {
   const objectiveText = normalizeText(objective);
   const text = normalizeText(`${objective} ${profile.stack.join(' ')}`);
-  if (/répar|repar|fix|bug|regression|corrig/.test(text)) return 'repair';
-  if (/creer|construire|developper|implementer|site|application|react|web/.test(objectiveText)) return 'implement';
-  if (/audit|verif|test|preuve|controle/.test(text)) return 'verify';
-  if (/explor|cartograph|comprendre|inventaire/.test(text)) return 'explore';
-  if (/décid|decid|arbitr|choix|stratég|strateg/.test(text)) return 'decide';
-  return 'implement';
+  const selected = CLASSIFICATION_RULES.find((rule) =>
+    rule.pattern.test(rule.objectiveOnly ? objectiveText : text));
+  return selected ? selected.kind : 'implement';
 }
 
 function normalizeText(value) {

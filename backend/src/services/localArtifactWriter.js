@@ -4,6 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { parseReply } = require('./localRuntimeSynthesis');
 const writeIpc = require('./runtimeFileWriteIpc');
+const { pathAllowed } = require('./ontogenesis/pathAuthority');
 
 const ARTIFACT_TAG_RE = /<ARTIFACT:\s*([^>]+)>([\s\S]*?)<\/ARTIFACT>/gi;
 const BRACKET_ARTIFACT_RE = /\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi;
@@ -62,21 +63,14 @@ function validateArtifactPath(entry, state) {
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     return [`artifact.path.escapes:${entry.name}`];
   }
+  if (state.allowFileEdits === true && !Array.isArray(state.allowedWritePaths)) {
+    return ['artifact.path.scope_required'];
+  }
   if (Array.isArray(state.allowedWritePaths)
-      && !state.allowedWritePaths.some((prefix) => matchesAllowedPrefix(relative, prefix, state.workspaceRoot))) {
+      && !pathAllowed({ paths: state.allowedWritePaths }, relative)) {
     return [`artifact.path.not_authorized:${entry.name}`];
   }
   return [];
-}
-
-function matchesAllowedPrefix(relative, prefix, workspaceRoot) {
-  const value = String(prefix || '').trim();
-  if (!value) return false;
-  const resolved = path.resolve(workspaceRoot, value);
-  const allowed = path.relative(workspaceRoot, resolved).replace(/\\/g, '/').replace(/\/+$/, '');
-  const target = String(relative).replace(/\\/g, '/');
-  if (allowed.startsWith('../') || path.isAbsolute(allowed)) return false;
-  return allowed === '' || target === allowed || target.startsWith(`${allowed}/`);
 }
 
 function validateArtifactEntry(entry, state) {
@@ -89,6 +83,7 @@ function validateArtifactEntry(entry, state) {
 
 function writeArtifacts(reply, state) {
   if (!state.allowFileEdits) return { written: [], rejected: [] };
+  if (!Array.isArray(state.allowedWritePaths)) throw new Error('artifact.path.scope_required');
   const artifactText = parseReply(reply).artifactText;
   if (typeof artifactText !== 'string' || !artifactText.trim()) {
     return { written: [], rejected: [{ name: null, issues: ['artifact.text.missing_or_empty'] }] };

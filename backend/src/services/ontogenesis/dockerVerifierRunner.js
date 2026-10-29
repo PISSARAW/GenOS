@@ -30,12 +30,13 @@ function containerProgram(program) {
   const name = path.win32.basename(String(program || '')).toLowerCase().replace(/\.exe$/, '');
   if (name === 'node') return '/usr/local/bin/node';
   if (name === 'python') return '/usr/local/bin/python3';
+  if (name === 'npm') return '/usr/local/bin/npm';
   throw new Error('interpreteur-verificateur-docker-non-autorise');
 }
 
 function containerArguments(args, oracleRoot) {
   if (!Array.isArray(args) || !args.length) throw new Error('arguments-verificateur-docker-requis');
-  const script = path.resolve(args[0]);
+  const script = path.isAbsolute(args[0]) ? path.resolve(args[0]) : path.resolve(oracleRoot, args[0]);
   const relative = path.relative(oracleRoot, script);
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error('script-verificateur-hors-racine-oracle');
@@ -48,6 +49,21 @@ function containerArguments(args, oracleRoot) {
   return [mapped, ...tail];
 }
 
+function containerNpmArguments(args) {
+  if (!Array.isArray(args) || !args.every((value) => typeof value === 'string')) {
+    throw new Error('arguments-verificateur-docker-requis');
+  }
+  if (args.length === 1 && args[0] === 'test') return args;
+  if (args.length === 2 && args[0] === 'run' && SAFE_CASE_ARGUMENT.test(args[1])) return args;
+  throw new Error('commande-npm-docker-non-autorisee');
+}
+
+function validateDockerCommand(input) {
+  const program = containerProgram(input.program);
+  if (program === '/usr/local/bin/npm') return containerNpmArguments(input.args);
+  return containerArguments(input.args, input.sandbox.oracleRoot);
+}
+
 function imageDigest(value) {
   if (typeof value !== 'string' || !IMAGE_DIGEST.test(value)) {
     throw new Error('image-verificateur-docker-doit-etre-epinglee-par-digest');
@@ -58,7 +74,8 @@ function imageDigest(value) {
 function dockerRunArgs(input, name, roots) {
   const image = imageDigest(input.sandbox.image);
   const program = containerProgram(input.program);
-  const args = containerArguments(input.args, roots.oracleRoot);
+  const args = program === '/usr/local/bin/npm'
+    ? containerNpmArguments(input.args) : containerArguments(input.args, roots.oracleRoot);
   return ['run', '--rm', '--pull=never', '--name', name,
     '--label', 'genos.role=ontogenesis-verifier', '--network', 'none', '--read-only',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true', '--user', '65532:65532',
@@ -125,4 +142,4 @@ async function runDockerVerifier(input) {
 }
 
 module.exports = { runDockerVerifier, dockerRunArgs, resolveMountRoots, containerProgram,
-  containerArguments, imageDigest, assertDockerReady, TIMEOUT_MS };
+  containerArguments, containerNpmArguments, validateDockerCommand, imageDigest, assertDockerReady, TIMEOUT_MS };
