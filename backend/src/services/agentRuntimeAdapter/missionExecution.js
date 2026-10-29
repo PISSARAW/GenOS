@@ -22,6 +22,11 @@ const {
 } = require('./missionPlanning');
 const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
 
+function attachExecutionRunId(failure, executionRun) {
+  if (executionRun?.id) failure.executionRunId = executionRun.id;
+  return failure;
+}
+
 /**
  * Reconstruit le contexte de mission complet (bootstrapMission refactoré).
  * Enchaîne : initialize → contract → workspace → budgets → capsule → monitoring → planning.
@@ -29,34 +34,38 @@ const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
 async function bootstrapMission(mission) {
   mission = require('../gvxTrialMissionBinding').bindCampaignMission(mission);
   const ctx = await initializeMissionContext(mission);
-  if (ctx.normalizedMission.gvxTrialContext) {
-    await require('../gvxTrialExecutionAdapter').admit(ctx.db, ctx.normalizedMission);
+  try {
+    if (ctx.normalizedMission.gvxTrialContext) {
+      await require('../gvxTrialExecutionAdapter').admit(ctx.db, ctx.normalizedMission);
+    }
+    await resolveMissionContract(ctx);
+    await require('../workerCellBootstrapBridge').activate(ctx);
+    await require('../garageAdmissionService').adopt(ctx);
+    await require('../garageAdmissionService').provisionWorker(ctx);
+    await provisionWorkspaceAndModel(ctx);
+    await require('../missionHabitatRuntime').bindMissionHabitat(ctx);
+    normalizeMissionBudgets(ctx);
+    await enableMissionMonitoring(ctx);
+    await planMission(ctx);
+    assertAutonomyPlanExecutable(ctx);
+    await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId, ctx.contractRecord);
+    assertMissionNotCancelled(ctx.agentId);
+    applyExecutionPolicy(ctx);
+    await enforceMissionToolLease(ctx);
+    computeRuntimeBudget(ctx);
+    incarnateOrchestrator(ctx);
+    await createMissionExecutionRun(ctx);
+    await provisionMissionCapsule(ctx);
+    await require('../garageRuntimeService').bindExecution(ctx);
+    await require('../trinityQualificationDispatch').recordStarted(ctx);
+    ctx.authorityExecutable = executionEntrypoint(ctx);
+    await require('../missionEnvelopeAuthority').seal(ctx);
+    await require('../orchestratorBodyAuthority').bind(ctx);
+    reportOrchestratorStart(ctx);
+    return ctx;
+  } catch (failure) {
+    throw attachExecutionRunId(failure, ctx.executionRun);
   }
-  await resolveMissionContract(ctx);
-  await require('../workerCellBootstrapBridge').activate(ctx);
-  await require('../garageAdmissionService').adopt(ctx);
-  await require('../garageAdmissionService').provisionWorker(ctx);
-  await provisionWorkspaceAndModel(ctx);
-  await require('../missionHabitatRuntime').bindMissionHabitat(ctx);
-  normalizeMissionBudgets(ctx);
-  await enableMissionMonitoring(ctx);
-  await planMission(ctx);
-  assertAutonomyPlanExecutable(ctx);
-  await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId, ctx.contractRecord);
-  assertMissionNotCancelled(ctx.agentId);
-  applyExecutionPolicy(ctx);
-  await enforceMissionToolLease(ctx);
-  computeRuntimeBudget(ctx);
-  incarnateOrchestrator(ctx);
-  await createMissionExecutionRun(ctx);
-  await provisionMissionCapsule(ctx);
-  await require('../garageRuntimeService').bindExecution(ctx);
-  await require('../trinityQualificationDispatch').recordStarted(ctx);
-  ctx.authorityExecutable = executionEntrypoint(ctx);
-  await require('../missionEnvelopeAuthority').seal(ctx);
-  await require('../orchestratorBodyAuthority').bind(ctx);
-  reportOrchestratorStart(ctx);
-  return ctx;
 }
 
 async function startMissionInternal(mission) {
@@ -252,6 +261,12 @@ async function recordMissionStartFailure(agentId, failure) {
     const db = await require('../../db').getDatabase();
     await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       detail, agentId);
+    if (failure?.executionRunId) {
+      const status = failure.code === 'MISSION_CANCELLED' ? 'cancelled' : 'failed';
+      await db.run(`UPDATE strategy_execution_runs SET status = ?, guardrail_reason = ?,
+        completed_at = CURRENT_TIMESTAMP WHERE id = ? AND agent_id = ?
+        AND status IN ('planned', 'running')`, status, detail, failure.executionRunId, agentId);
+    }
   } catch (recordingFailure) {
     console.error('[AgentRuntimeAdapter] Mission start failure could not be persisted.', {
       agentId, error: recordingFailure.message
@@ -262,4 +277,4 @@ async function recordMissionStartFailure(agentId, failure) {
   }, 'error');
 }
 
-module.exports = { startMissionInternal, startMission, missionStartFailureDetail, finalizeMissionStart, handlePostShutdown, observeIdlePostShutdown, resetPostShutdownObservation, postShutdownBackoffDelayMs, MAX_IDLE_POST_SHUTDOWN_CHECKS, postShutdownObservations };
+module.exports = { startMissionInternal, startMission, missionStartFailureDetail, attachExecutionRunId, recordMissionStartFailure, finalizeMissionStart, handlePostShutdown, observeIdlePostShutdown, resetPostShutdownObservation, postShutdownBackoffDelayMs, MAX_IDLE_POST_SHUTDOWN_CHECKS, postShutdownObservations };
