@@ -214,6 +214,7 @@ const TOOL_BASE_SCHEMAS = {
     required: ['organization', 'reason'],
   },
   genos_organization_state: { type: 'object', properties: { orchestrator_id: { type: 'string', description: 'Owning orchestrator whose organization is read.' } } },
+  genos_worker_status: require('./workerStatusMcpSchema'),
   genos_worker_publish: {
     type: 'object',
     properties: {

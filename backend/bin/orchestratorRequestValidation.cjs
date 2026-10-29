@@ -1,7 +1,7 @@
 'use strict';
 const ACTIONS = new Set(['orchestrate', 'dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological',
   'merge_trinity', 'compare_trinity', 'report_progress', 'execute_primitive', 'change_strategy', 'change_organization',
-  'organization_publish', 'organization_inbox', 'organization_state', 'ontology', 'philosophy',
+  'organization_publish', 'organization_inbox', 'organization_state', 'worker_status', 'ontology', 'philosophy',
   'execute_mission_action']);
 function validatePayload(request) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) throw new Error('The orchestration request must be a JSON object.');

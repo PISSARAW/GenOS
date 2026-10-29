@@ -50,7 +50,8 @@
           "reason",
           "source_event_id"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_fossil_list",
@@ -66,7 +67,8 @@
             "maximum": 1000
           }
         }
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_fossil_strata",
@@ -76,7 +78,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_fossil_excavate",
@@ -93,7 +96,8 @@
         "required": [
           "fossil_id"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_fossil_decode",
@@ -110,7 +114,8 @@
         "required": [
           "fossil_id"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_fossil_candidate",
@@ -130,7 +135,8 @@
         "required": [
           "fossil_id"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_orchestrate",
@@ -1181,7 +1187,8 @@
           "primitives"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_change_strategy",
@@ -3396,7 +3403,8 @@
           "operation"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_merge",
@@ -3917,7 +3925,8 @@
           "snapshot_id"
         ],
         "additionalProperties": false
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_agent_inherited_memory_read",
@@ -3951,7 +3960,8 @@
           "kind"
         ],
         "additionalProperties": false
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_agent_fork_snapshot",
@@ -3985,7 +3995,8 @@
           "budget"
         ],
         "additionalProperties": false
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_v2_fork",
@@ -4118,7 +4129,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_read",
@@ -4132,7 +4144,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_purge",
@@ -4142,7 +4155,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_ground",
@@ -4177,7 +4191,8 @@
           "agent_id",
           "grounding_level"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_electrocyte_vote",
@@ -4187,7 +4202,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {}
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_chemotactic_follow",
@@ -4201,7 +4217,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_plasmid_transfer",
@@ -4246,7 +4263,8 @@
           "decision",
           "voters"
         ]
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_signal_collective_decision",
@@ -4292,7 +4310,8 @@
             }
           }
         }
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_browser_act",
@@ -4522,7 +4541,8 @@
         },
         "required": [],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_diagnose",
@@ -4574,7 +4594,8 @@
           "hypotheses"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_analyze_trajectory",
@@ -4606,7 +4627,8 @@
           "actionHistory"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_record_decision",
@@ -4666,7 +4688,8 @@
           "evidence"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_record_experience",
@@ -4711,7 +4734,8 @@
           "observationOutput"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_compile_memory",
@@ -4766,7 +4790,8 @@
           "agentId"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_working_memory",
@@ -4814,7 +4839,8 @@
           "action"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_ancestral_memory",
@@ -4871,7 +4897,8 @@
           "lineageId"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_risk_inheritance",
@@ -4929,7 +4956,8 @@
           "lineageId"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_collective_plasticity",
@@ -4982,7 +5010,8 @@
           "action"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_teaching_worker",
@@ -5038,7 +5067,8 @@
           "action"
         ],
         "additionalProperties": true
-      }
+      },
+      "x-genos-rust-route": "backend"
     },
     {
       "name": "genos_blame",
@@ -5069,6 +5099,33 @@
           "target_id"
         ],
         "additionalProperties": true
+      },
+      "x-genos-rust-route": "backend"
+    },
+    {
+      "name": "genos_worker_status",
+      "category": "Orchestration",
+      "risk": "Green",
+      "description": "Read the status of direct child workers in the caller’s authorized orchestrator scope.",
+      "x-genos-rust-route": "orchestrator",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator for the worker roster."
+          },
+          "worker_id": {
+            "type": "string",
+            "description": "Optional direct child worker ID to inspect."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Maximum workers to return when worker_id is omitted."
+          }
+        }
       }
     }
   ]

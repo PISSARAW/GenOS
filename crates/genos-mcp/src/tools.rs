@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::env;
 mod base_specs;
 mod catalog_tools;
+pub(crate) use catalog_tools::is_backend_routed_tool;
 
 struct ToolVisibility {
     lease: Option<Vec<String>>,
@@ -43,7 +44,7 @@ pub fn public_tool_specs() -> Vec<Value> {
     );
 
     let mut all_tools = base_specs::base_tool_specs();
-    all_tools.extend(catalog_tools::bridged_catalog_specs());
+    all_tools.extend(catalog_tools::routed_catalog_specs());
     filter_visible_tools(
         all_tools,
         ToolVisibility {
@@ -210,7 +211,8 @@ fn expose_all_allowed(requested: bool, node_env: Option<&str>, unsafe_production
 #[cfg(test)]
 mod lease_tests {
     use super::{
-        biological_feature_scope, capability_scope_granted, catalog_tools::bridged_catalog_specs,
+        biological_feature_scope, capability_scope_granted, catalog_tools,
+        catalog_tools::bridged_catalog_specs,
         expose_all_allowed, lease_expired_at, CapabilityLease,
     };
     use serde_json::json;
@@ -228,6 +230,15 @@ mod lease_tests {
             assert!(tools.iter().all(|tool| tool.get("name").and_then(serde_json::Value::as_str)
                 != Some(unavailable)));
         }
+    }
+
+    #[test]
+    fn worker_status_uses_orchestrator_route_metadata() {
+        let tools = catalog_tools::routed_catalog_specs();
+        let worker_status = tools.iter().find(|tool| tool["name"] == "genos_worker_status")
+            .expect("worker status catalog spec");
+        assert_eq!(worker_status["x-genos-rust-route"], "orchestrator");
+        assert!(!crate::executor::backend_dispatch::is_bridged_tool("genos_worker_status"));
     }
 
     #[test]

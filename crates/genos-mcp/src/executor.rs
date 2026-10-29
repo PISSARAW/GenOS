@@ -1,4 +1,5 @@
 use serde_json::{json, Value};
+mod worker_dispatch;
 use std::env;
 use std::io::Read;
 use std::path::Path;
@@ -26,7 +27,6 @@ fn tool_timeout_ms() -> u64 {
         .map(|value| value.min(30 * 60 * 1000))
         .unwrap_or(DEFAULT_TOOL_TIMEOUT_MS)
 }
-
 pub fn read_bounded(mut stream: impl Read) -> Vec<u8> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 8192];
@@ -300,14 +300,6 @@ fn with_action(args: &Value, action: &str) -> Value {
     payload
 }
 
-fn delegate_worker_payload(args: &Value) -> Value {
-    let mut payload = with_action(args, "dispatch_worker");
-    if let Some(object) = payload.as_object_mut() {
-        object.insert("background".into(), json!(false));
-    }
-    payload
-}
-
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {
     let bridge = resolve_bridge_path(workspace);
     match name {
@@ -322,9 +314,14 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             execute_orchestrator(&bridge, &payload, workspace)
         }
         "genos_delegate_worker" => {
-            let payload = delegate_worker_payload(args);
+            let payload = worker_dispatch::delegate_payload(args);
             execute_orchestrator(&bridge, &payload, workspace)
         }
+        "genos_worker_status" => execute_orchestrator(
+            &bridge,
+            &worker_dispatch::status_payload(args),
+            workspace,
+        ),
         "genos_change_strategy" => {
             execute_orchestrator(&bridge, &with_action(args, "change_strategy"), workspace)
         }
@@ -374,24 +371,5 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
         | "genos_v2_init"
         | "genos_v2_fork" => execute_cli(workspace, name, args),
         _ => backend_dispatch::execute(workspace, name, args),
-    }
-}
-
-#[cfg(test)]
-mod worker_dispatch_tests {
-    use super::delegate_worker_payload;
-    use serde_json::json;
-
-    #[test]
-    fn delegate_worker_maps_to_bounded_synchronous_dispatch() {
-        let payload = delegate_worker_payload(&json!({
-            "mission": "inspect worker routing",
-            "background": true,
-            "role": "reviewer"
-        }));
-        assert_eq!(payload["action"], "dispatch_worker");
-        assert_eq!(payload["background"], false);
-        assert_eq!(payload["mission"], "inspect worker routing");
-        assert_eq!(payload["role"], "reviewer");
     }
 }

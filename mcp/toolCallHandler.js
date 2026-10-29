@@ -32,6 +32,7 @@ const ORCHESTRATOR_ACTIONS = Object.freeze({
   genos_report_progress: 'report_progress',
   genos_change_organization: 'change_organization',
   genos_organization_state: 'organization_state',
+  genos_worker_status: 'worker_status',
   genos_worker_publish: 'organization_publish',
   genos_worker_inbox: 'organization_inbox',
   genos_trinity_launch: 'dispatch_trinity',
@@ -133,7 +134,7 @@ function orchestratorRequest(action, args) {
     throw new Error('Conflicting orchestrator identifiers.');
   }
   const requested = args.orchestrator_id || args.orchestratorId;
-  const scopedOrganizationAction = ['organization_state', 'organization_inbox', 'organization_publish'].includes(action);
+  const scopedOrganizationAction = ['organization_state', 'worker_status', 'organization_inbox', 'organization_publish'].includes(action);
   const orchestratorId = requested || (scopedOrganizationAction
     ? process.env.GENOS_ORCHESTRATOR_AGENT_ID || process.env.GENOS_AGENT_ID : undefined);
   return { action, ...args, ...(orchestratorId ? { orchestrator_id: orchestratorId, orchestratorId } : {}) };
@@ -210,7 +211,7 @@ async function handleToolRequest(input) {
 
 function requiresCallerIdentity(name) {
   return process.env.GENOS_CODEX_AUTO_PROVISION_IDENTITY === '1'
-    || new Set(['genos_organization_state', 'genos_worker_inbox', 'genos_worker_publish', 'genos_biological_mode']).has(name);
+    || new Set(['genos_organization_state', 'genos_worker_status', 'genos_worker_inbox', 'genos_worker_publish', 'genos_biological_mode']).has(name);
 }
 
 function ensureMcpCallerIdentity() {

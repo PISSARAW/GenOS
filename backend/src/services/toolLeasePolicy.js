@@ -17,6 +17,7 @@ const WORKER_BASE_LEASE = [
   'genos_record_experience',
   'genos_replay',
   'genos_organization_state',
+  'genos_worker_status',
   'genos_worker_publish',
   'genos_worker_inbox',
   // Read-only ontology/philosophy registry and bounded evaluations.
@@ -48,6 +49,7 @@ const ORCHESTRATOR_CORE_LEASE = [
   'genos_change_strategy',
   'genos_change_organization',
   'genos_organization_state',
+  'genos_worker_status',
   'genos_worker_publish',
   'genos_worker_inbox',
   'genos_philosophy',
