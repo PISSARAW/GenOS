@@ -86,18 +86,18 @@ function checkPathConfinement(capsule) {
 function checkArtifactApplication(capsule) {
   assert.deepEqual(runtime.applyWorkerArtifacts('[ARTIFACT: probe.js]probe[/ARTIFACT]', capsule, false), []);
   assert.equal(fs.existsSync(path.join(capsule, 'probe.js')), false);
-  assert.throws(() => runtime.applyWorkerArtifacts('[ARTIFACT: ../escape.js]evil[/ARTIFACT]', capsule, true), /escapes/);
+  assert.throws(() => runtime.applyWorkerArtifacts(artifactReply('../escape.js', 'evil'), capsule, true, ['*']), /escapes/);
   assert.equal(fs.existsSync(path.join(path.dirname(capsule), 'escape.js')), false);
-  const applied = runtime.applyWorkerArtifacts(`[ARTIFACT: buggy-sum.js]${FIXED_SUM}[/ARTIFACT]`, capsule, true);
+  const applied = runtime.applyWorkerArtifacts(artifactReply('buggy-sum.js', FIXED_SUM), capsule, true, ['*']);
   assert.deepEqual(applied, ['buggy-sum.js']);
-  assert.equal(fs.readFileSync(path.join(capsule, 'buggy-sum.js'), 'utf8'), FIXED_SUM.trim());
+  assert.equal(fs.readFileSync(path.join(capsule, 'buggy-sum.js'), 'utf8'), FIXED_SUM);
   fs.writeFileSync(path.join(capsule, 'verify.cjs'), 'authoritative verifier');
   assert.throws(() => runtime.applyWorkerArtifacts(
-    '[ARTIFACT: verify.cjs]model-controlled verifier[/ARTIFACT]', capsule, true, ['src/']),
+    artifactReply('verify.cjs', 'model-controlled verifier'), capsule, true, ['src/']),
   /not_authorized/);
   assert.equal(fs.readFileSync(path.join(capsule, 'verify.cjs'), 'utf8'), 'authoritative verifier');
   assert.deepEqual(runtime.applyWorkerArtifacts(
-    '[ARTIFACT: src/pricing.js]module.exports = { sumPrices() {} }[/ARTIFACT]', capsule, true, ['src/']),
+    artifactReply('src/pricing.js', 'module.exports = { sumPrices() {} }'), capsule, true, ['src/']),
   ['src/pricing.js']);
   assert.equal(fs.existsSync(path.join(path.dirname(capsule), 'escape.js')), false);
 }
@@ -118,13 +118,17 @@ async function checkSandboxExecution(capsule) {
   const dangerous = await runtime.collectCommandProofs(JSON.stringify({ tests: ['rm -rf /'] }), capsule, { allowedCommands: ['rm -rf /'] });
   assert.equal(dangerous[0].executed, false);
   assert.equal(dangerous[0].reason, 'not_allowlisted');
-  runtime.applyWorkerArtifacts(`[ARTIFACT: buggy-sum.js]${FIXED_SUM}[/ARTIFACT]`, capsule, true);
+  runtime.applyWorkerArtifacts(artifactReply('buggy-sum.js', FIXED_SUM), capsule, true, ['*']);
   const passing = await runtime.collectCommandProofs(JSON.stringify({ tests: ['npm test'] }), capsule, { allowedCommands: ['npm test'] });
   assert.equal(passing[0].executed, true);
   assert.equal(passing[0].exitCode, 0);
   assert.match(passing[0].stdout, /sum checks passed/);
   assert.match(passing[0].digest, /^[a-f0-9]{64}$/);
   return passing;
+}
+
+function artifactReply(file, content) {
+  return JSON.stringify({ artifactText: `[ARTIFACT: ${file}]${content}[/ARTIFACT]` });
 }
 
 function checkContractInvalidation() {
