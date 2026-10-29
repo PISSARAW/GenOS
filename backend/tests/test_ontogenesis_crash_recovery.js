@@ -1,11 +1,13 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
 const fixture = require('./ontogenesisFixture');
 const projectStore = require('../src/services/ontogenesis/projectStore');
 const executionStore = require('../src/services/ontogenesis/executionStore');
 const journal = require('../src/services/ontogenesis/operationJournal');
 const recovery = require('../src/services/ontogenesis/crashRecoveryService');
+const { tickOnce } = require('../src/services/ontogenesis/tickService');
 
 async function project(db, id) {
   await projectStore.createProject(db, { id, rootPath: '.', branch: 'codex/test',
@@ -33,8 +35,63 @@ async function testPreparedReset(db, scope) {
     owner: 'recovery-one', harness: { observe: async () => ({ alive: false }) } });
   assert.deepStrictEqual(first, [{ operationId: operation.id, outcome: 'reset_prepared' }]);
   assert.strictEqual((await journal.getOperation(db, operation.id)).state, 'prepared');
-  assert.deepStrictEqual(await recovery.recoverIncompleteOperations(db, { projectId: scope.projectId,
-    owner: 'recovery-two', harness: { observe: async () => ({ alive: false }) } }), []);
+  await db.run("UPDATE ontogenesis_operations SET updated_at = datetime('now', '-60 seconds') WHERE id = ?", [operation.id]);
+  const second = await recovery.recoverIncompleteOperations(db, { projectId: scope.projectId,
+    owner: 'recovery-two', harness: { observe: async () => ({ alive: false }) } });
+  assert.deepStrictEqual(second, [{ operationId: operation.id, outcome: 'retry_safe' }]);
+  assert.strictEqual((await journal.getOperation(db, operation.id)).state, 'prepared');
+  for (let attempt = 3; attempt <= 5; attempt += 1) {
+    await db.run("UPDATE ontogenesis_operations SET updated_at = datetime('now', '-60 seconds') WHERE id = ?", [operation.id]);
+    const retried = await recovery.recoverIncompleteOperations(db, { projectId: scope.projectId,
+      owner: `recovery-${attempt}`, harness: { observe: async () => ({ alive: false }) } });
+    assert.deepStrictEqual(retried, [{ operationId: operation.id, outcome: 'retry_safe' }]);
+  }
+  await db.run("UPDATE ontogenesis_operations SET updated_at = datetime('now', '-60 seconds') WHERE id = ?", [operation.id]);
+  const exhausted = await recovery.recoverIncompleteOperations(db, { projectId: scope.projectId,
+    owner: 'recovery-exhausted', harness: { observe: async () => ({ alive: false }) } });
+  assert.deepStrictEqual(exhausted, [{ operationId: operation.id, outcome: 'escalated' }]);
+  assert.strictEqual((await journal.getOperation(db, operation.id)).state, 'escalated');
+}
+
+function failFirstDispatchStart() {
+  const transition = journal.transitionOperation;
+  let failed = false;
+  journal.transitionOperation = async (db, input) => {
+    if (!failed && input.state === 'started' && input.operationId.startsWith('onto_run_')) {
+      failed = true;
+      throw new Error('injected-dispatch-crash');
+    }
+    return transition(db, input);
+  };
+  return () => { journal.transitionOperation = transition; };
+}
+
+async function testPreparedRetryDispatch(db, root) {
+  const created = await fixture.project(db, root);
+  const harness = fixture.fakeHarness(db);
+  const tick = () => tickOnce(db, { projectId: created.id, owner: 'prepared-retry-dispatch', harness });
+  assert.strictEqual((await tick()).state, 'PLANNING');
+  const restore = failFirstDispatchStart();
+  try { await assert.rejects(tick(), /injected-dispatch-crash/); }
+  finally { restore(); }
+  const operation = await db.get("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
+    [created.id]);
+  assert.strictEqual(operation.state, 'prepared');
+  assert.deepStrictEqual(await recovery.recoverIncompleteOperations(db, { projectId: created.id,
+    owner: 'prepared-retry-first', harness }), [{ operationId: operation.id, outcome: 'retry_safe' }]);
+  await db.run("UPDATE ontogenesis_operations SET updated_at = datetime('now', '-60 seconds') WHERE id = ?", [operation.id]);
+  assert.deepStrictEqual(await recovery.recoverIncompleteOperations(db, { projectId: created.id,
+    owner: 'prepared-retry-second', harness }), [{ operationId: operation.id, outcome: 'retry_safe' }]);
+  await db.run("UPDATE ontogenesis_operations SET updated_at = datetime('now', '-60 seconds') WHERE id = ?", [operation.id]);
+  assert.strictEqual((await tick()).state, 'EXECUTING');
+  const executions = await db.all('SELECT * FROM ontogenesis_execution WHERE project_id = ?', [created.id]);
+  const operations = await db.all("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
+    [created.id]);
+  assert.strictEqual(executions.length, 1);
+  assert.strictEqual(operations.length, 1);
+  assert.strictEqual(executions[0].id, operation.id);
+  assert.strictEqual(operations[0].state, 'completed');
+  assert.strictEqual(harness.launches, 1);
 }
 
 async function testDeadRuntime(db, scope) {
@@ -110,19 +167,22 @@ async function testCommittedIntegration(db, scope) {
 
 async function main() {
   const db = await fixture.memoryDb();
+  const root = await fixture.repository();
   try {
     const created = await project(db, 'crash-recovery');
     const scope = { projectId: created.id, taskId: created.taskId };
     await testPreparedReset(db, scope);
+    await testPreparedRetryDispatch(db, root);
     await testDeadRuntime(db, scope);
     await testLiveRuntime(db, scope);
     await testAmbiguousLiveRuntime(db, scope);
     await testAmbiguousEscalation(db, scope);
     await testCommittedIntegration(db, scope);
     const receipts = await db.get('SELECT COUNT(*) AS count FROM ontogenesis_recovery_receipts');
-    assert.strictEqual(receipts.count, 6);
+    assert.strictEqual(receipts.count, 14);
   } finally {
     await db.close();
+    fs.rmSync(root, { recursive: true, force: true });
   }
   console.log('Ontogenesis crash recovery checks passed.');
 }

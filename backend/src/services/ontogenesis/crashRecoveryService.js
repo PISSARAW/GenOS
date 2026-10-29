@@ -5,6 +5,10 @@ const journal = require('./operationJournal');
 const outbox = require('./outboxStore');
 const { canonicalJson } = require('./durableJson');
 
+const MAX_PREPARED_RECOVERY_ATTEMPTS = 5;
+const PREPARED_RECOVERY_BASE_DELAY_MS = 1000;
+const PREPARED_RECOVERY_MAX_DELAY_MS = 30000;
+
 async function recordReceipt(db, input) {
   await db.run(`INSERT OR IGNORE INTO ontogenesis_recovery_receipts
     (id, project_id, operation_id, recovery_attempt, owner, before_state,
@@ -21,8 +25,22 @@ async function advance(db, input) {
 }
 
 async function recoverPrepared(db, input) {
+  if (input.attempt > MAX_PREPARED_RECOVERY_ATTEMPTS) {
+    return escalate(db, input, 'reprises-preparation-epuisees');
+  }
   await recordReceipt(db, { ...input, disposition: 'retry_safe', observedState: 'no_effect', evidence: {} });
   return 'retry_safe';
+}
+
+function preparedRecoveryDelayMs(attempt) {
+  return Math.min(PREPARED_RECOVERY_BASE_DELAY_MS * (2 ** (attempt - 1)), PREPARED_RECOVERY_MAX_DELAY_MS);
+}
+
+async function preparedRecoveryDue(db, row) {
+  if (!row.recovery_attempt) return true;
+  const elapsed = await db.get(`SELECT (julianday('now') - julianday(?)) * 86400000 AS elapsed_ms`,
+    [row.updated_at]);
+  return elapsed?.elapsed_ms == null || elapsed.elapsed_ms >= preparedRecoveryDelayMs(row.recovery_attempt);
 }
 
 async function recoverCommitted(db, input) {
@@ -123,7 +141,7 @@ async function recoverIncompleteOperations(db, input) {
   const rows = await journal.listIncompleteOperations(db, input.projectId);
   const outcomes = [];
   for (const row of rows) {
-    if (row.state === 'prepared' && row.recovery_attempt > 0) continue;
+    if (row.state === 'prepared' && !await preparedRecoveryDue(db, row)) continue;
     const claimed = await journal.claimForRecovery(db, { operationId: row.id, owner: input.owner, ttlMs: 120000 });
     if (!claimed) continue;
     const claimedRow = await journal.getOperation(db, row.id);
