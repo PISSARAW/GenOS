@@ -387,4 +387,5 @@ async function resumeDurableWorkerRecoveries(db, dispatch = dispatchWorkerRecove
   return { queued: readyWorkers.length, resumed };
 }
 
-module.exports = { dispatchWorkerRecovery, resumeDurableWorkerRecoveries, MAX_RECOVERY_DISPATCH_ATTEMPTS };
+module.exports = { buildRecoveryMission, dispatchWorkerRecovery, resumeDurableWorkerRecoveries,
+  MAX_RECOVERY_DISPATCH_ATTEMPTS };
