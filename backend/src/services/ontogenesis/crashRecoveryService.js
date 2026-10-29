@@ -68,6 +68,9 @@ async function recoverDispatch(db, input) {
     return 'completed';
   }
   const observed = await input.harness.observe(execution);
+  if (observed.alive && observed.observable === false) {
+    return escalate(db, input, 'observation-runtime-ambigue');
+  }
   if (!observed.alive) return recoverDeadDispatch(db, input, execution);
   let row = await journal.getOperation(db, input.operationId);
   if (row.state === 'started') row = await advance(db, { operationId: row.id, state: 'effect_applied',

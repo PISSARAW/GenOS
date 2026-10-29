@@ -61,6 +61,23 @@ async function testLiveRuntime(db, scope) {
   await db.run("UPDATE ontogenesis_execution SET phase = 'integrated' WHERE id = ?", [operation.id]);
 }
 
+async function testAmbiguousLiveRuntime(db, scope) {
+  const isolated = await project(db, 'crash-recovery-ambiguous');
+  scope = { projectId: isolated.id, taskId: isolated.taskId };
+  const operation = await dispatchOperation(db, { id: 'onto_run_ambiguous', ...scope });
+  await createExecution(db, { id: operation.id, ...scope });
+  await db.run("UPDATE ontogenesis_execution SET phase = 'running', pid = 42 WHERE id = ?", [operation.id]);
+  const outcomes = await recovery.recoverIncompleteOperations(db, { projectId: scope.projectId,
+    owner: 'recovery-ambiguous-runtime', harness: { observe: async () => ({ alive: true, observable: false }) } });
+  assert.strictEqual(outcomes[0].outcome, 'escalated');
+  assert.strictEqual((await journal.getOperation(db, operation.id)).state, 'escalated');
+  const execution = await db.get('SELECT * FROM ontogenesis_execution WHERE id = ?', [operation.id]);
+  assert.strictEqual(execution.phase, 'running');
+  assert.strictEqual(execution.pid, 42);
+  const message = await db.get('SELECT * FROM ontogenesis_outbox WHERE operation_id = ?', [operation.id]);
+  assert.strictEqual(message.kind, 'recovery_escalation');
+}
+
 async function testAmbiguousEscalation(db, scope) {
   const operation = await journal.prepareOperation(db, { id: 'onto_unknown', projectId: scope.projectId,
     kind: 'external_unknown', idempotencyKey: 'unknown:1', intent: { external: true } });
@@ -99,10 +116,11 @@ async function main() {
     await testPreparedReset(db, scope);
     await testDeadRuntime(db, scope);
     await testLiveRuntime(db, scope);
+    await testAmbiguousLiveRuntime(db, scope);
     await testAmbiguousEscalation(db, scope);
     await testCommittedIntegration(db, scope);
     const receipts = await db.get('SELECT COUNT(*) AS count FROM ontogenesis_recovery_receipts');
-    assert.strictEqual(receipts.count, 5);
+    assert.strictEqual(receipts.count, 6);
   } finally {
     await db.close();
   }
