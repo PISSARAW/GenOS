@@ -9,6 +9,7 @@ const { buildIsolatedEnv } = require('../sandboxExecutor');
 const { assertContainedFiles } = require('./pathAuthority');
 const { maxOutputBytes } = require('../boundedOutput');
 const { verifierCheckReason } = require('./gitAuthority');
+const { isDockerCheck, hostVerificationEvidence, validHostVerificationEvidence } = require('./verificationTrust');
 
 const SOURCE = 'ontogenesis-verifier';
 const HASH = /^[a-f0-9]{64}$/;
@@ -26,12 +27,15 @@ function validSandboxEvidence(evidence, sandbox) {
 function validProof(proof, treeHash, check) {
   if (!proof || proof.source !== SOURCE || proof.exitCode !== 0) return false;
   if (!proof.command || !proof.completedAt || !HASH.test(proof.treeHash || '')) return false;
-  return proof.treeHash === treeHash && validSandboxEvidence(proof.sandboxEvidence, check?.sandbox);
+  if (proof.treeHash !== treeHash) return false;
+  if (isDockerCheck(check)) return validSandboxEvidence(proof.sandboxEvidence, check.sandbox);
+  return validHostVerificationEvidence(proof.verificationEvidence, check);
 }
 
 function validateProofs(candidate, checks = []) {
   if (!HASH.test(candidate.treeHash || '')) return ['empreinte-contenu-requise'];
   if (!Array.isArray(candidate.proofs) || !candidate.proofs.length) return ['preuves-requises'];
+  if (!Array.isArray(checks) || checks.length !== candidate.proofs.length) return ['preuves-checks-incoherentes'];
   return candidate.proofs.every((proof, index) => validProof(proof, candidate.treeHash, checks[index]))
     ? [] : ['preuve-invalide'];
 }
@@ -73,6 +77,8 @@ function checkSpec(check) {
     || typeof check.sandbox.image !== 'string' || typeof check.sandbox.oracleRoot !== 'string')) {
     throw new Error('verification-sandbox-invalide');
   }
+  if (!isDockerCheck(check)) hostVerificationEvidence(check);
+  else if (check.trustMode !== undefined) throw new Error('verification-trust-mode-invalide');
 }
 
 async function runConfiguredCheck(invocation, check, context) {
@@ -80,12 +86,12 @@ async function runConfiguredCheck(invocation, check, context) {
     const runner = context.options.runDocker || require('./dockerVerifierRunner').runDockerVerifier;
     const result = await runner({ ...invocation, cwd: context.worktree,
       timeoutMs: context.timeoutMs, sandbox: check.sandbox });
-    return result.sandboxEvidence;
+    return { sandboxEvidence: result.sandboxEvidence };
   }
   const run = context.options.run || runCommand;
   await run(invocation.program, invocation.args, { cwd: context.worktree,
     timeoutMs: context.timeoutMs, env: context.environment });
-  return null;
+  return { verificationEvidence: hostVerificationEvidence(check) };
 }
 
 async function verifyChecks(worktree, checks, options = {}) {
@@ -101,10 +107,10 @@ async function verifyChecks(worktree, checks, options = {}) {
         ? npmInvocation(check.args) : { program: check.program, args: check.args };
       const remaining = deadline - Date.now();
       if (remaining <= 0) throw new Error('budget-verification-epuise');
-      const sandboxEvidence = await runConfiguredCheck(invocation, check, { options, worktree,
+      const evidence = await runConfiguredCheck(invocation, check, { options, worktree,
         timeoutMs: remaining, environment: verifierEnvironment.env });
       proofs.push({ source: SOURCE, exitCode: 0, command: [check.program, ...check.args].join(' '),
-        treeHash: digest, completedAt: new Date().toISOString(), ...(sandboxEvidence ? { sandboxEvidence } : {}) });
+        treeHash: digest, completedAt: new Date().toISOString(), ...evidence });
     }
     if (await treeHash(worktree) !== digest) throw new Error('contenu-modifie-par-verification');
     return { treeHash: digest, proofs };

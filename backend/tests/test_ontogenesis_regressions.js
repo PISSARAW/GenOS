@@ -26,13 +26,14 @@ function rejectInvalidCandidates() {
   assert.equal(sourceFile('onto-config.json'), false, 'runner configuration is not a deliverable source file');
   assert.equal(sourceFile('src/onto-config.json'), true, 'a nested application file with the same name remains source');
   const authority = { branches: ['codex/ontogenesis'], paths: ['backend/src/'] };
+  const checks = [{ program: 'npm', args: ['test'], trustMode: 'operator_trusted_host' }];
   const candidate = { branch: 'codex/ontogenesis', baseSha: 'abc', treeHash: 'a'.repeat(64), files: ['backend/src/../../outside.js'], proofs: [{}] };
-  const result = integration.validateCandidate({ candidate, authority });
+  const result = integration.validateCandidate({ candidate, authority, checks });
   assert.ok(result.errors.includes('chemin-hors-perimetre:backend/src/../../outside.js'));
   assert.ok(result.errors.includes('preuve-invalide'));
   candidate.files = ['backend/src/a.js'];
   candidate.proofs = [{ source: 'ontogenesis-verifier', exitCode: 1, command: 'npm test', treeHash: candidate.treeHash, completedAt: new Date().toISOString() }];
-  assert.strictEqual(integration.validateCandidate({ candidate, authority }).ok, false);
+  assert.strictEqual(integration.validateCandidate({ candidate, authority, checks }).ok, false);
   const auth = require('../src/services/ontogenesis/authorizationService');
   assert.strictEqual(auth.isPathAllowed({ paths: ['src'] }, 'src-extra/a.js'), false);
   assert.strictEqual(auth.isPathAllowed({ paths: ['*'] }, 'C:\\outside.js'), false);

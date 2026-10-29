@@ -49,10 +49,13 @@ function workerWriterRejectsOutOfScopeBeforeMutation() {
 
 function integrationKeepsIndependentPathGate() {
   const treeHash = 'a'.repeat(64);
+  const checks = [{ program: 'npm', args: ['test'], trustMode: 'operator_trusted_host' }];
   const result = validateCandidate({
     candidate: { branch: 'main', baseSha: 'base', treeHash, files: ['docs/change.md'],
       proofs: [{ source: 'ontogenesis-verifier', exitCode: 0, command: 'node verify.cjs',
-        completedAt: '2026-10-29T00:00:00.000Z', treeHash }] },
+        completedAt: '2026-10-29T00:00:00.000Z', treeHash,
+        verificationEvidence: { runtime: 'host', trustMode: 'operator_trusted_host' } }] },
+    checks,
     authority: { branches: ['main'], paths: ['src/'] }
   });
   assert.ok(result.errors.includes('chemin-hors-perimetre:docs/change.md'));

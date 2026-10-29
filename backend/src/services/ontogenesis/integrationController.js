@@ -64,7 +64,8 @@ function authorizeCommit(ctx) {
 async function candidateFor(ctx, run) {
   const result = JSON.parse(run.result_json);
   const candidate = { ...result, baseSha: run.base_sha, branch: ctx.project.branch };
-  const checked = integration.validateCandidate({ candidate, authority: ctx.config.authority });
+  const checked = integration.validateCandidate({ candidate, authority: ctx.config.authority,
+    checks: ctx.config.checks });
   if (!checked.ok) throw new Error(checked.errors.join(','));
   const path = workspaces.assertCandidate(ctx.project, result.candidateWorktree);
   if (await treeHash(path) !== candidate.treeHash) throw new Error('preuve-contenu-obsolete');

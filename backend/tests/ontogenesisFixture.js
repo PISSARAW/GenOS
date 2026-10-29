@@ -48,7 +48,8 @@ async function repository() {
 
 function testConfig() {
   const config = require('../src/services/ontogenesis/configSchema').defaultConfig();
-  config.checks = [{ program: process.execPath, args: ['-e', 'if (require("./app") !== "complete") process.exit(1)'] }];
+  config.checks = [{ program: process.execPath, args: ['-e', 'if (require("./app") !== "complete") process.exit(1)'],
+    trustMode: 'operator_trusted_host' }];
   config.memory.recoveryStableMs = 0;
   config.budgets.seconds = 300;
   return config;

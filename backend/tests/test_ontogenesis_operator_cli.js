@@ -121,6 +121,35 @@ async function main() {
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli', '--config', config]), /projet-cree:onto_cli/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"status":"ready"/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"docker":"not_required"/);
+    const untrustedConfig = fixture.testConfig();
+    delete untrustedConfig.checks[0].trustMode;
+    fs.writeFileSync(config, JSON.stringify(untrustedConfig));
+    invoke(context, ['init', '--root', root, '--project', 'onto_cli_host_untrusted', '--config', config]);
+    const hostTask = JSON.parse(invoke(context, ['task', '--project', 'onto_cli_host_untrusted',
+      '--title', 'Must wait for host trust'])).taskId;
+    const blockedPreflight = execute(context, ['preflight', '--project', 'onto_cli_host_untrusted']);
+    assert.strictEqual(blockedPreflight.status, 1);
+    const blockedReadiness = JSON.parse(blockedPreflight.stdout);
+    assert.strictEqual(blockedReadiness.status, 'blocked');
+    assert.strictEqual(blockedReadiness.hostVerification.blockedChecks[0].index, 0);
+    const blockedTick = execute(context, ['tick', '--project', 'onto_cli_host_untrusted']);
+    assert.strictEqual(blockedTick.status, 1);
+    assert.match(blockedTick.stderr, /verification-hote-confiance-operateur-requise/);
+    await assertNoPreflightEffects(context.database, { projectId: 'onto_cli_host_untrusted', task: hostTask });
+    fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
+    const revised = JSON.parse(invoke(context, ['config', '--project', 'onto_cli_host_untrusted',
+      '--file', config, '--reason', 'Operator trusts this repository check']));
+    assert.strictEqual(revised.updated, true);
+    assert.match(revised.configHash, /^[a-f0-9]{64}$/);
+    assert.match(invoke(context, ['preflight', '--project', 'onto_cli_host_untrusted']), /"status":"ready"/);
+    const { open } = require('sqlite');
+    const auditDb = await open({ filename: context.database, driver: require('sqlite3').Database });
+    try {
+      const audit = await auditDb.get(`SELECT content, provenance_json FROM ontogenesis_memory
+        WHERE project_id = ? AND kind = 'decision' ORDER BY created_at DESC LIMIT 1`, 'onto_cli_host_untrusted');
+      assert.strictEqual(audit.content, 'Operator trusts this repository check');
+      assert.deepStrictEqual(JSON.parse(audit.provenance_json).hostTrustDeclarations, [0]);
+    } finally { await auditDb.close(); }
     const busyBranchConfig = fixture.testConfig();
     busyBranchConfig.branch = 'main';
     busyBranchConfig.authority.branches = ['main'];

@@ -65,7 +65,7 @@ function validateCandidate(input) {
   checkCandidateBranch(candidate, authority, errors);
   checkCandidateShape(candidate, errors);
   checkCandidateFiles(candidate, authority, errors);
-  errors.push(...validateProofs(candidate));
+  errors.push(...validateProofs(candidate, input.checks));
   return { ok: errors.length === 0, errors };
 }
 

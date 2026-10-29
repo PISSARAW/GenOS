@@ -1,11 +1,13 @@
 'use strict';
 
+const crypto = require('crypto');
 const { withTransaction } = require('../../db');
 const { getProject, addTask, listTasks } = require('./projectStore');
 const { postEvent, postInbox } = require('./inboxService');
 const { recordMemory } = require('./memoryService');
 const { validateProjectConfig } = require('./configSchema');
 const { activeExecution } = require('./executionStore');
+const { HOST_TRUST_MODE } = require('./verificationTrust');
 
 async function requireProject(db, projectId) {
   const project = await getProject(db, projectId);
@@ -104,4 +106,41 @@ async function reviseAttemptLimit(db, input) {
   });
 }
 
-module.exports = { requireProject, addOperatorTask, sendMessage, reprioritize, reviseBudgets, reviseAttemptLimit };
+function configDigest(config) {
+  return crypto.createHash('sha256').update(JSON.stringify(config)).digest('hex');
+}
+
+async function assertConfigRevisionAvailable(db, projectId) {
+  if (await activeExecution(db, projectId)) throw new Error('execution-en-cours');
+  const claim = await db.get("SELECT project_id FROM ontogenesis_claims WHERE project_id = ? AND julianday(expires_at) > julianday('now')", [projectId]);
+  if (claim) throw new Error('claim-actif');
+}
+
+async function reviseProjectConfig(db, input) {
+  if (typeof input.reason !== 'string' || !input.reason.trim()) throw new Error('raison-requise');
+  if (input.reason.length > 2000) throw new Error('raison-trop-longue');
+  return withTransaction(db, async () => {
+    const project = await requireProject(db, input.projectId);
+    await assertConfigRevisionAvailable(db, input.projectId);
+    const checked = validateProjectConfig(input.config);
+    if (!checked.ok) throw new Error(`configuration-invalide:${checked.errors.join(',')}`);
+    if (checked.config.branch !== project.branch) throw new Error('branche-projet-configuration-incoherente');
+    const previous = JSON.parse(project.config_json || '{}');
+    const previousHash = configDigest(previous);
+    const configHash = configDigest(checked.config);
+    const hostTrustDeclarations = checked.config.checks.flatMap((check, index) =>
+      check.trustMode === HOST_TRUST_MODE ? [index] : []);
+    await recordMemory(db, { projectId: input.projectId, kind: 'decision', content: input.reason,
+      provenance: { action: 'revise-project-config', previousHash, configHash,
+        hostTrustMode: HOST_TRUST_MODE, hostTrustDeclarations } });
+    await db.run("UPDATE ontogenesis_projects SET config_json = ?, updated_at = datetime('now') WHERE id = ?",
+      [JSON.stringify(checked.config), input.projectId]);
+    await postEvent(db, { projectId: input.projectId, type: 'user_reply', payload: {
+      reason: 'configuration-projet-revisee', previousHash, configHash
+    } });
+    return { config: checked.config, previousHash, configHash };
+  });
+}
+
+module.exports = { requireProject, addOperatorTask, sendMessage, reprioritize, reviseBudgets,
+  reviseAttemptLimit, reviseProjectConfig };

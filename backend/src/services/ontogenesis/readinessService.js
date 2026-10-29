@@ -7,6 +7,7 @@ const { validateProjectConfig } = require('./configSchema');
 const { validateProjectRoot } = require('./projectRootValidation');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
 const { managedRoot } = require('./worktreeService');
+const { hostChecks, untrustedHostChecks } = require('./verificationTrust');
 
 function parseProjectConfig(project) {
   try {
@@ -83,15 +84,27 @@ async function inspectProject(db, projectId, dependencies = {}) {
   await validateIntegrationBranch(project, rootPath);
   const databasePath = await validateDatabase(db);
   const docker = await dockerReadiness(config, rootPath, dependencies.dockerProbe || defaultDockerProbe);
+  const hostVerification = hostVerificationReadiness(config.checks);
   return {
-    status: 'ready', projectId, rootPath, branch: project.branch, databasePath,
+    status: hostVerification.status === 'blocked' ? 'blocked' : 'ready', projectId, rootPath,
+    branch: project.branch, databasePath,
     checks: config.checks.length, executor: config.executor || 'codex',
-    executorAvailability: 'unknown', docker
+    executorAvailability: 'unknown', docker, hostVerification
   };
 }
 
-async function assertProjectReady(db, projectId, dependencies) {
-  return inspectProject(db, projectId, dependencies);
+function hostVerificationReadiness(checks) {
+  const hosts = hostChecks(checks);
+  const untrusted = untrustedHostChecks(checks);
+  return { status: untrusted.length ? 'blocked' : hosts.length ? 'operator_trusted' : 'not_required',
+    checks: hosts.length, trustedChecks: hosts.length - untrusted.length, blockedChecks: untrusted };
 }
 
-module.exports = { assertProjectReady, dockerReadiness, validateIntegrationBranch };
+async function assertProjectReady(db, projectId, dependencies) {
+  const readiness = await inspectProject(db, projectId, dependencies);
+  if (readiness.status !== 'ready') throw new Error('verification-hote-confiance-operateur-requise');
+  return readiness;
+}
+
+module.exports = { assertProjectReady, inspectProject, dockerReadiness, validateIntegrationBranch,
+  hostVerificationReadiness };

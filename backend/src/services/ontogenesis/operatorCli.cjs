@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const operator = require('./operatorService');
 const store = require('./projectStore');
 const inbox = require('./inboxService');
@@ -47,6 +48,17 @@ async function attemptLimit(db, options) {
   console.log(JSON.stringify({ maxAttempts }));
 }
 
+async function reviseConfig(db, options) {
+  if (typeof options.file !== 'string' || !options.file.trim()) throw new Error('--file requis');
+  let config;
+  try { config = JSON.parse(fs.readFileSync(options.file, 'utf8')); }
+  catch (_) { throw new Error('configuration-json-invalide'); }
+  const result = await operator.reviseProjectConfig(db, { projectId: projectId(options),
+    config, reason: options.reason });
+  console.log(JSON.stringify({ updated: true, configHash: result.configHash,
+    previousHash: result.previousHash }));
+}
+
 async function event(db, options) {
   const id = projectId(options);
   await operator.requireProject(db, id);
@@ -72,4 +84,4 @@ async function ack(db, options) {
 }
 
 module.exports = { task, tasks, message, priority, budgets, 'attempt-limit': attemptLimit,
-  event, notifications: notes, ack };
+  config: reviseConfig, event, notifications: notes, ack };

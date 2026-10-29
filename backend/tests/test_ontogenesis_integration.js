@@ -12,8 +12,10 @@ assert.ok(message.includes('Genos-Task: t-1'));
 // Candidat valide puis refus sans preuves.
 const authority = { branches: ['codex/ontogenesis'], paths: ['backend/src/'] };
 const treeHash = 'a'.repeat(64);
-const good = service.validateCandidate({ authority, candidate: { branch: 'codex/ontogenesis', baseSha: 'abc', files: ['backend/src/a.js'], treeHash,
-  proofs: [{ source: 'ontogenesis-verifier', command: 'npm test', exitCode: 0, treeHash, completedAt: new Date().toISOString() }] } });
+const checks = [{ program: 'npm', args: ['test'], trustMode: 'operator_trusted_host' }];
+const good = service.validateCandidate({ authority, checks, candidate: { branch: 'codex/ontogenesis', baseSha: 'abc', files: ['backend/src/a.js'], treeHash,
+  proofs: [{ source: 'ontogenesis-verifier', command: 'npm test', exitCode: 0, treeHash,
+    completedAt: new Date().toISOString(), verificationEvidence: { runtime: 'host', trustMode: 'operator_trusted_host' } }] } });
 assert.strictEqual(good.ok, true);
 const noProof = service.validateCandidate({ authority, candidate: { branch: 'codex/ontogenesis', baseSha: 'abc', files: ['backend/src/a.js'], proofs: [] } });
 assert.ok(noProof.errors.includes('preuves-requises'));

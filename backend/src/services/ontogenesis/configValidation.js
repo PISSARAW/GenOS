@@ -4,6 +4,7 @@ const path = require('node:path');
 const { verifierCheckReason } = require('./gitAuthority');
 const { DEFAULT_THRESHOLDS } = require('./memoryPressure');
 const { validateDockerCommand } = require('./dockerVerifierRunner');
+const { HOST_TRUST_MODE } = require('./verificationTrust');
 
 const TOPOLOGIES = ['trinity', 'a_team', 'biocenose', 'holobionte', 'syncytium', 'biome', 'rhizome', 'metapopulation'];
 
@@ -51,6 +52,14 @@ function checkChecks(checks, errors) {
     if (verifierReason) errors.push(verifierReason);
     if (check?.sandbox !== undefined) checkVerifierSandbox(check.sandbox, errors);
     if (check?.sandbox?.runtime === 'docker') validateDockerCheck(check, errors);
+    checkTrustMode(check, errors);
+  }
+}
+
+function checkTrustMode(check, errors) {
+  if (check?.trustMode === undefined) return;
+  if (check.trustMode !== HOST_TRUST_MODE || check.sandbox?.runtime === 'docker') {
+    errors.push('verification-trust-mode-invalide');
   }
 }
 

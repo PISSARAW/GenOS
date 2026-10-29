@@ -31,7 +31,8 @@ async function repository() {
 
 async function main() {
   const root = await repository();
-  const checks = [{ program: process.execPath, args: ['-e', 'if (require("./app") !== "complete") process.exit(1)'] }];
+  const checks = [{ program: process.execPath, args: ['-e', 'if (require("./app") !== "complete") process.exit(1)'],
+    trustMode: 'operator_trusted_host' }];
   try {
     const receipt = await receipts.createReceipt({ missionId: 'onto-1', workspaceRoot: root,
       checks, allowExecution: true, transitionId: 'morph_epoch-a', timeoutMs: 10000 });

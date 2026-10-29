@@ -14,7 +14,7 @@ const { validateProjectRoot } = require('../src/services/ontogenesis/projectRoot
 const control = require('../src/services/ontogenesis/controlService');
 const autostart = require('../src/services/ontogenesis/autostartService');
 const { createRuntimeHarness } = require('../src/services/ontogenesis/runtimeHarness');
-const { assertProjectReady } = require('../src/services/ontogenesis/readinessService');
+const { assertProjectReady, inspectProject } = require('../src/services/ontogenesis/readinessService');
 
 function flags(argv) {
   const values = {};
@@ -46,6 +46,7 @@ function usage() {
   console.log('  message --project ID --body TXT');
   console.log('  priority --project ID --task ID --priority N');
   console.log('  budgets --project ID --tokens N --usd N --seconds N --reason TXT');
+  console.log('  config --project ID --file JSON --reason TXT');
   console.log('  attempt-limit --project ID --max-attempts N --reason TXT');
   console.log('  event --project ID --type TYPE [--payload JSON]');
   console.log('  ack --project ID --notification ID');
@@ -172,8 +173,9 @@ async function runLoop(db, options) {
 
 async function runPreflight(db, options) {
   if (!options.project) throw new Error('--project requis');
-  const readiness = await assertProjectReady(db, options.project);
+  const readiness = await inspectProject(db, options.project);
   console.log(JSON.stringify(readiness));
+  if (readiness.status !== 'ready') process.exitCode = 1;
 }
 
 async function runStopTask(db, options) {
