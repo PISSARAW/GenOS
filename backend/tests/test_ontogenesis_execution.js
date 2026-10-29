@@ -112,6 +112,43 @@ async function retryPreparedDispatch(db, root) {
   await assertRetriedDispatch(db, project, harness);
 }
 
+async function preserveLiveDispatchAfterPidPersistenceFailure(db, root) {
+  const project = await fixture.project(db, root);
+  const harness = fixture.fakeHarness(db);
+  const originalRun = db.run.bind(db);
+  const start = harness.start;
+  let failPidPersistence = true;
+  harness.start = async (input) => {
+    harness.live = true;
+    await start(input);
+    await originalRun("UPDATE ontogenesis_execution SET phase = 'running', pid = ?, executable = ? WHERE id = ? AND phase = 'prepared'",
+      [4321, 'active-test-worker', input.id]);
+    return { pid: 4321, executable: 'active-test-worker' };
+  };
+  db.run = async (sql, ...args) => {
+    if (failPidPersistence && sql.startsWith('UPDATE ontogenesis_execution SET pid = ?, executable = ?')) {
+      failPidPersistence = false;
+      throw new Error('injected-pid-persistence-failure');
+    }
+    return originalRun(sql, ...args);
+  };
+  const tick = () => tickOnce(db, { projectId: project.id, owner: 'dispatch-persistence-test', harness });
+  try {
+    assert.strictEqual((await tick()).state, 'PLANNING');
+    await assert.rejects(tick(), /injected-pid-persistence-failure/);
+    const execution = await db.get('SELECT * FROM ontogenesis_execution WHERE project_id = ?', [project.id]);
+    const operation = await db.get("SELECT * FROM ontogenesis_operations WHERE project_id = ? AND kind = 'dispatch'",
+      [project.id]);
+    assert.strictEqual(execution.phase, 'running');
+    assert.strictEqual(execution.pid, 4321);
+    assert.strictEqual(JSON.parse(execution.result_json).error, undefined);
+    assert.strictEqual(operation.state, 'started');
+    assert.strictEqual(harness.live, true);
+  } finally {
+    db.run = originalRun;
+  }
+}
+
 async function selectedTopologyContractMatchesDispatch(db, root) {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
     dependencies: { react: '^18.0.0' }, scripts: { test: 'node -e "process.exit(0)"' }
@@ -228,6 +265,7 @@ async function main() {
   await isolatedTest(rejectedCheck);
   await isolatedTest(recoverCommit);
   await isolatedTest(retryPreparedDispatch);
+  await isolatedTest(preserveLiveDispatchAfterPidPersistenceFailure);
   await isolatedTest(selectedTopologyContractMatchesDispatch);
   await isolatedTest(configuredTopologyUsesDeclaredRuntimeCapabilities);
   await isolatedTest(configuredTopologyBlocksWhenRuntimeCapabilityIsMissing);
