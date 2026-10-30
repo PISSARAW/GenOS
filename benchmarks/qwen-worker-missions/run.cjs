@@ -26,6 +26,12 @@ function producerRecord(name) {
     detail: terminal?.detail, claims: terminal?.report?.claims || [], uncertainties: terminal?.report?.uncertainties || [],
     content: terminal?.report?.workerArtifact?.content || null, receipts: evidence.receipts };
 }
+function assessment(item, evidence, suffix) {
+  const measured = evidence.events.some(event => event.model?.startsWith('ollama://qwen') && event.usage?.tokens > 0);
+  const result = require('./assess.cjs').assess(item.id, evidence, { negative: suffix === 'neg' });
+  return measured ? { ...result, modelInvocationMeasured: true }
+    : { ...result, status: 'unmeasured', reason: 'No metered Qwen response in evidence.', modelInvocationMeasured: false };
+}
 function fixture(item) {
   const workspace = path.join(root, `workspace-${item.id}`);
   fs.mkdirSync(workspace);
@@ -86,7 +92,7 @@ function execute(item, workspace, suffix) {
   if (inspected.status === 0) {
     const evidence = JSON.parse(inspected.stdout);
     write(path.join(dir, 'evidence.json'), evidence);
-    write(path.join(dir, 'assessment.json'), require('./assess.cjs').assess(item.id, evidence, { negative: suffix === 'neg' }));
+    write(path.join(dir, 'assessment.json'), assessment(item, evidence, suffix));
   } else write(path.join(dir, 'assessment.json'), { status: 'unmeasured', reason: 'Evidence inspection failed', exitCode: inspected.status });
   process.stdout.write(`FINISH ${name} exit=${result.status}\n`);
   if (workspaceHash(workspace) !== initialWorkspaceHash) throw new Error('Initial source workspace mutated during execution.');
