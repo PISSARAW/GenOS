@@ -262,8 +262,6 @@ async function runGenerationStage(ctx) {
   if (codeWorker && codeRepairPlans) {
     result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
   }
-  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
@@ -326,6 +324,7 @@ async function runLocalWorker(db, mission, executionRun) {
     const attempt = await workerCodeTestRepair.run({
       mission,
       runAttempt: async (currentMission) => {
+        generation = undefined;
         generation = await runGenerationStage({ db, mission: currentMission, executionRun, stageTimings, identity });
         identityLeaseHeartbeat.assertHealthy();
         const evidence = await runEvidenceStage({ db, executionRun, result: generation.result, budget: generation.budget,
@@ -348,7 +347,7 @@ async function runLocalWorker(db, mission, executionRun) {
       cost_usd: generation.result.costUsd, tokens: consumedTokensOf(generation.result)
     } : undefined;
     return await require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
-      error, usage, stageTimings, reportMilestone });
+      error, usage, model: generation?.result?.model, provider: generation?.result?.provider, stageTimings, reportMilestone });
   } finally {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
