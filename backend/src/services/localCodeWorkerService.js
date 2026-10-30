@@ -16,8 +16,8 @@ const PROPOSAL_RESPONSE_FORMAT = Object.freeze({ name: 'genos_file_replacement_v
     patches: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object',
       additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' },
         edits: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'object', additionalProperties: false,
-          properties: { find: { type: 'string' }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
-      anyOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
+          properties: { find: { type: 'string', minLength: 1 }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
+      oneOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
     tests: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } },
     evidence: { type: 'string' }
   }, required: ['format', 'patches', 'tests', 'evidence']
@@ -214,7 +214,7 @@ function proposalResponseFormat(options = {}) {
   if (resolved.forceFullFileReplacement) {
     format.schema.properties.format.enum = ['genos.file-replacement/v1'];
     format.schema.properties.patches.items.properties = { path: { type: 'string' }, content: { type: 'string' } };
-    delete format.schema.properties.patches.items.anyOf;
+    delete format.schema.properties.patches.items.oneOf;
     format.schema.properties.patches.items.required = ['path', 'content'];
   }
   if (commands.length) format.schema.properties.tests.items.enum = commands;
@@ -247,8 +247,14 @@ function assertProposalSchema(proposal, options = {}) {
   const allowedFormats = options.forceFullFileReplacement
     ? ['genos.file-replacement/v1'] : ['genos.file-replacement/v1', 'genos.file-edits/v1'];
   if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !allowedFormats.includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
-  if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
+  assertProposalLists(proposal);
   assertProposalPatches(proposal, options);
+}
+
+function assertProposalLists(proposal) {
+  if (proposal.patches.length < 1 || proposal.patches.length > 12) throw new Error('Patch proposal must contain 1-12 patches.');
+  if (proposal.tests.length < 1 || proposal.tests.length > 2
+    || !proposal.tests.every(command => typeof command === 'string')) throw new Error('Patch proposal must contain one or two capsule test commands.');
 }
 
 function assertProposalPatches(proposal, options = {}) {
