@@ -61,3 +61,5 @@ Remplacer le modèle par celui réellement installé. L’exemple choisit explic
 - Pour les missions de code et sécurité, utiliser un workspace jetable et ne pas fusionner automatiquement les changements.
 - Rapporter succès vérifiés, échecs, refus corrects, coûts, latences et receipts. Une note de qualité textuelle ne remplace ni un run terminé ni une vérification indépendante.
 - L’épreuve collective est la mission 12 ; lancer les précédentes isolément pour localiser les pannes et éviter d’attribuer à Qwen le résultat d’un exécuteur déterministe.
+
+La présence de completion.json avec xecutionStatus: finished atteste uniquement la fin de la boucle des 48 scénarios. Les verdicts restent ceux des évaluations individuelles. Une erreur interrompant cette boucle écrit xecutionStatus: aborted ; une interruption forcée doit être documentée séparément si le processus ne peut pas écrire son état.

@@ -118,4 +118,10 @@ async function main() {
     for (const suffix of ['r1', 'r2', 'r3', 'neg']) execute(item, workspace, suffix);
   }
 }
-main().catch(error => { process.stderr.write(error.stack); process.exitCode = 1; });
+main().then(() => write(path.join(root, 'completion.json'), {
+  executionStatus: 'finished', scenarioCount: cases.length * 4, revision, at: new Date().toISOString(),
+  qualification: 'Inspect individual assessments; finished does not mean all scenarios passed.'
+})).catch(error => {
+  write(path.join(root, 'completion.json'), { executionStatus: 'aborted', revision, error: error.message, at: new Date().toISOString() });
+  process.stderr.write(error.stack); process.exitCode = 1;
+});
