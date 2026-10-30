@@ -6,6 +6,16 @@ Cette suite propose des missions réelles à exécuter avec un worker GenOS rout
 
 ## Lancement
 
+Pour une campagne complète depuis une révision commitée et figée :
+
+```powershell
+node benchmarks/qwen-worker-missions/run.cjs D:\GenOS-runs\qwen-campagne-corrigee-unique
+```
+
+Le répertoire de sortie doit être nouveau. Le serveur Ollama de D: doit écouter sur `127.0.0.1:11435`, avec les modèles 7B et 32B du catalogue. Le runner refuse un checkout modifié, vérifie la révision entre scénarios et conserve les empreintes des payloads et du workspace initial. Les capsules et bases restent sur D:. Il produit trois répétitions et un négatif par carte, les journaux, les manifestes et les dossiers SQLite inspectés. La passation reçoit les vrais résultats producteurs sous forme de fichiers inspectables, plutôt que les seules sorties du CLI.
+
+Les entrées sont versionnées dans `cases.json`. Les négatifs ne prescrivent plus la réponse `unresolved` : le worker doit détecter la contradiction ou l'absence de preuve. Ce changement de protocole doit être pris en compte dans toute comparaison avec la première campagne. Un échec numérique du modèle reste un échec ; le protocole ne remplace pas sa réponse par une solution prédéfinie.
+
 Pour un lancement local direct, fournir un budget parent explicite et un plafond inférieur pour le worker. Le runtime crée et lie le scope budgétaire parent. Le [rapport du pilote](rapport-pilote-2026-10-30.md) décrit les résultats et limites observés.
 
 Payload de référence :
