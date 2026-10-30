@@ -129,22 +129,7 @@ async function runTest(command, root) {
       cwd: root,
       shell: process.platform === 'win32',
       detached: process.platform !== 'win32',
-      env: {
-        PATH: process.env.PATH || '/usr/bin:/bin',
-        CI: '1',
-        GENOS_ISOLATED_RUNNER: '1',
-        ...(process.platform === 'win32' ? {
-          SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
-          SystemDrive: process.env.SystemDrive || 'C:',
-          PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
-          ComSpec: process.env.ComSpec || 'cmd.exe',
-          TEMP: testTempRoot,
-          TMP: testTempRoot,
-          TMPDIR: testTempRoot
-        } : {
-          TMPDIR: testTempRoot
-        })
-      },
+      env: require('./localCodeTestEnvironment').build(testTempRoot),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);
