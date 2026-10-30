@@ -18,6 +18,8 @@ Les entrées sont versionnées dans `cases.json`. Les négatifs ne prescrivent p
 
 La fenêtre locale est déclarée explicitement à 16 384 tokens et transmise à Ollama. Le contrôle préalable utilise une estimation du prompt ; il ne constitue pas un comptage exact du tokenizer. Les manifests enregistrent la version Node, les empreintes des lockfiles et les digests des modèles. Les dépendances installées doivent rester stables pendant la campagne.
 
+Les cartes numériques demandent un objet JSON unique dans le texte du claim. L'évaluateur recalcule ses valeurs et refuse les formes ambiguës, contradictoires ou non exploitables ; il ne déduit pas la réussite de la simple présence d'un nombre dans une phrase. Le rapport évalué et sa télémétrie doivent appartenir au worker et au run identifiés par le reçu CLI, avec le modèle demandé.
+
 Pour un lancement local direct, fournir un budget parent explicite et un plafond inférieur pour le worker. Le runtime crée et lie le scope budgétaire parent. Le [rapport du pilote](rapport-pilote-2026-10-30.md) décrit les résultats et limites observés.
 
 Payload de référence :

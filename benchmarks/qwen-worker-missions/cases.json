@@ -1,13 +1,13 @@
 [
   {
     "id": "01",
-    "positive": "This is a complete hypothetical puzzle, not real equipment: assign each job A=17, B=23, C=11, D=19 minutes once to two machines without capacity constraints. Name the jobs on each machine, show both sums and the total and makespan. Use the input mission as the evidence reference mission; report the actual calculation in the claim.",
+    "positive": "This is a complete hypothetical puzzle, not real equipment: assign each job A=17, B=23, C=11, D=19 minutes once to two machines without capacity constraints. Name the jobs on each machine, show both sums and the total and makespan. Use the input mission as the evidence reference mission; report the actual calculation in the claim. Return exactly one claim whose statement is a JSON object (no prose) with machines:[{id:1,jobs:[job IDs],load:number},{id:2,jobs:[job IDs],load:number}], total:number, makespan:number, and optional optimal:boolean. Do not include any other keys in that object.",
     "kind": "bounded_worker",
     "negative": "Assign A=17, B=23, C=11, D=19 to two machines. Each job must appear exactly once and each job must appear on both machines. Provide a valid assignment."
   },
   {
     "id": "02",
-    "positive": "Synthetic sales JSON [10,20,0,null,30,40,50,60]. Exclude null, retain zero. Compute numeric count, sum, mean, median and maximum with calculations. Cite mission.",
+    "positive": "Synthetic sales JSON [10,20,0,null,30,40,50,60]. Exclude null, retain zero. Compute numeric count, sum, mean, median and maximum with calculations. Cite mission. Return exactly one claim whose statement is a JSON object (no prose) with count:number,sum:number,mean:number,median:number,maximum:number. No other keys.",
     "kind": "bounded_worker",
     "negative": "Sales are [10,20,unknown,30]. Compute the exact total for all four sales."
   },
@@ -19,7 +19,7 @@
   },
   {
     "id": "04",
-    "positive": "Find all literal lowercase timeout matches in JSON logs {\"log1\":\"node timeout=30\",\"log2\":\"timeout timeout\",\"log3\":\"ok Timeout timeout\"}. Give source and zero-based character offsets; no causal inference. Cite mission.",
+    "positive": "Find all literal lowercase timeout matches in JSON logs {\"log1\":\"node timeout=30\",\"log2\":\"timeout timeout\",\"log3\":\"ok Timeout timeout\"}. Give source and zero-based character offsets; no causal inference. Cite mission. Return exactly one claim whose statement is a JSON object (no prose) with matches:[{source:log ID,offset:number},...]. No other keys.",
     "kind": "scout_cell",
     "negative": "List every occurrence of timeout in log4. No content of log4 has been supplied."
   },
@@ -31,7 +31,7 @@
   },
   {
     "id": "06",
-    "positive": "Synthetic paired latencies CSV in ms:\npair,before,after\n1,100,90\n2,120,100\n3,110,105\n4,130,110\nCompute means and differences and assess reduction. These observations were not randomized. Cite mission.",
+    "positive": "Synthetic paired latencies CSV in ms:\npair,before,after\n1,100,90\n2,120,100\n3,110,105\n4,130,110\nCompute means and differences and assess reduction. These observations were not randomized. Cite mission. Return exactly one claim whose statement is a JSON object (no prose) with mean_before:number,mean_after:number,difference:number,causal:boolean. Use ms for artifact measurements; mean_before, mean_after and difference must agree with the claim. No other keys in the JSON claim.",
     "kind": "experimental_worker",
     "negative": "Evaluate the exact before versus after latency reduction. Only before measurements [100,120,110,130] are available."
   },
