@@ -52,6 +52,19 @@ reproduction, et les 8 modes de composition (topologies).
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
 - [politique-morphogenetique-conditionnelle.md](politique-morphogenetique-conditionnelle.md) — compiler et réévaluer représentation, recette, workers, preuves et budgets depuis un diagnostic.
 
+## Workers locaux : code, contexte et preuves
+
+- [contexte-modele-worker-local.md](contexte-modele-worker-local.md) — fenêtre explicite du fournisseur, propagation et refus avant dépassement estimé.
+- [schema-proposition-code-local.md](schema-proposition-code-local.md) — schéma des patches générés et contrat de l'exécuteur.
+- [scope-ecritures-tests-code.md](scope-ecritures-tests-code.md) — contrôle des fichiers modifiés par les tests et confinement des effets.
+- [tests-python-sans-caches.md](tests-python-sans-caches.md) — exécution Python sans caches parasites dans le patch.
+- [revue-code-deleguee-sans-patch.md](revue-code-deleguee-sans-patch.md) — reviewer distinct, snapshot testé et exécution sans mutation.
+- [echec-preparation-enfant-delegue.md](echec-preparation-enfant-delegue.md) — terminaison et libération d'un enfant dont la préparation échoue avant son run.
+- [passation-worker-local.md](passation-worker-local.md) — dossier remis au parent, références réelles et absence d'accusé inventé.
+- [consommation-reponse-worker-rejetee.md](consommation-reponse-worker-rejetee.md) — usage mesuré conservé même si le schéma est refusé.
+- [consommation-cumulee-tentatives-worker.md](consommation-cumulee-tentatives-worker.md) — cumul des tentatives d'un run et distinction des compteurs complets ou partiels.
+- [fermeture-runtime-foreground.md](fermeture-runtime-foreground.md) — drainage des finalisations et reprises avant fermeture SQLite.
+
 ## Développement vérifié GVX
 
 - [campagne-evolution-aide2.md](campagne-evolution-aide2.md) — campagne multi-générations, holdout/OOD, reward hacking et double preuve causale non promotrice.

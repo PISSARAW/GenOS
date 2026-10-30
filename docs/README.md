@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Workers Qwen — corrections et campagne du 30 octobre 2026](06-qualite-preuves/rapport-corrections-campagne-qwen-2026-10-30.md) — schéma d'exécution, corrections, résultats réels et limites de qualification ; [évaluateur externe](06-qualite-preuves/evaluateur-campagne-qwen.md).
+
 - [Expérience — mission chanson A-Team du 20 octobre 2026](06-qualite-preuves/experience-mission-chanson-a-team-2026-10-20.md) — artefact réellement produit, chronologie des refus, correctifs de clôture, preuves vérifiées et limites du rejeu.
 
 - [Dossier AEIS](01-concepts/adaptive-epistemic-immune-system.md) — modèle borné, [référence runtime](03-reference/runtime-aeis.md), [runbook opérateur](04-exploitation/aeis.md), [contrat de preuve](06-qualite-preuves/immunite-epistemique.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-aeis-2026-10-20.md).
@@ -448,6 +450,10 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [economie-et-scalabilite.md](07-positionnement/economie-et-scalabilite.md) — analyse économique et scalabilité.
 
 ### 9. Décisions d'architecture (ADR)
+
+- [ADR 0757 — Délégation locale par plan modèle borné](adr/0757-delegation-modele-locale-bornee.md) — vrais enfants, dépendances liées aux reçus, scope budgétaire et revalidation avant synthèse.
+- [ADR 0758 — Relais de dossier et admission runtime](adr/0758-relais-dossier-et-admission-runtime.md) — transport signé dans la mission source ; admission distincte de la validité sémantique.
+- [ADR 0759 — Finalisation avant fermeture SQLite](adr/0759-attendre-finalisation-runtime-avant-fermeture-sqlite.md) — drainage des reprises et reçu CLI délimité avant fermeture.
 
 - [ADR 0733 — Rappel mémoire situationnel inspiré des recherches de Tsao](adr/0733-rappel-memoire-situationnel-inspire-tsao.md) — classement local en deux étapes, phases explicites, traçabilité et limites de la transposition neuroscientifique.
 - [ADR 0746 — Rappel mémoire borné pour le raccord FP-AMB](adr/0746-rappel-borne-pour-fp-amb.md) — contexte borné et dédupliqué, exclusion des exemples mémoire et critères de validité de campagne.

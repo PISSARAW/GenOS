@@ -4,6 +4,8 @@ Cette suite propose des missions réelles à exécuter avec un worker GenOS rout
 
 > **État d'exécution :** les douze cartes ont été lancées avec répétitions et cas négatifs sur D:. Les résultats sont contrastés et ne qualifient pas l'ensemble des workers. Voir le [rapport de campagne](rapport-campagne-2026-10-30.md) et le [rapport du pilote](rapport-pilote-2026-10-30.md).
 
+Les corrections ultérieures, les schémas de preuve et les campagnes de requalification sont suivis dans le [rapport du 30 octobre 2026](../../docs/06-qualite-preuves/rapport-corrections-campagne-qwen-2026-10-30.md), avec séparation explicite des diagnostics et des résultats finaux.
+
 ## Lancement
 
 Pour une campagne complète depuis une révision commitée et figée :
