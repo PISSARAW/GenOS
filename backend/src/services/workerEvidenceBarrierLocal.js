@@ -73,6 +73,7 @@ async function generateWorkerResultOnce(ctx) {
     timeoutMs: ctx.latencyMs,
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
+    contextTokens: ctx.mission.localContextTokens,
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,

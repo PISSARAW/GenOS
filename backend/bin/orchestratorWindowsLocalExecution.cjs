@@ -63,7 +63,7 @@ function buildLocalMission(input) {
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
     readOnlyWorkspaceEvidence: request.readOnlyWorkspaceEvidence === true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: identity.allowedEvidenceRefs,
-    localModel, localRoutingPolicy: resolveRouting(request, localModel),
+    localModel, localContextTokens: request.localContextTokens, localRoutingPolicy: resolveRouting(request, localModel),
     identityExperimentArm: identity.identityExperimentArm,
     identityExperimentSeed: identity.identityExperimentSeed,
     timeoutMs: requestTimeoutMs, executionBudget: resolveBudget(missionBudget, requestTimeoutMs),

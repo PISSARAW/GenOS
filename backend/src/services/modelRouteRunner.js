@@ -138,7 +138,7 @@ function mapAttemptError(attempt, uri, error) {
 }
 
 async function invokeProvider(ctx, outcome) {
-  const { prepared, uri } = outcome;
+  const { prepared, uri } = outcome; require('./modelContextBudget').assertContextBudget(ctx);
   const attemptTimeout = ctx.remainingMs();
   if (attemptTimeout <= 0) throw Object.assign(
     new Error('Model routing deadline exhausted before attempting provider ' + uri + '.'),
@@ -158,7 +158,7 @@ async function invokeProvider(ctx, outcome) {
       projectId: ctx.projectId,
       seed: ctx.seed,
       stream: ctx.stream,
-      responseFormat: ctx.responseFormat, reasoningEffort: ctx.reasoningEffort,
+      responseFormat: ctx.responseFormat, reasoningEffort: ctx.reasoningEffort, contextTokens: ctx.contextTokens,
       providerContinuity: ctx.providerContinuity,
       enforceSchema: ctx.enforceSchema,
       signal: attempt.controller.signal,
