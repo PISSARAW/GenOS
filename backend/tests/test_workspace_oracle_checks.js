@@ -62,6 +62,9 @@ const music = subject('bar_durations', { 'bars.txt': 'Mesure 1 : noire noire noi
   'units.txt': 'Mesure a 4 temps. Noire=1, blanche=2, ronde=4.' },
 { files: { music: 'bars.txt', musicRules: 'units.txt' } });
 verify(music, { durations: [4, 4, 5, 4], invalidBars: [3], correctedMeasure3: ['blanche', 'blanche'] });
+verify(music, { durations: [4, 4, 5, 4], invalidBars: [3], correctedMeasure3: ['blanche', 'noire', 'noire'] });
+verify(music, { durations: [4, 4, 5, 4], invalidBars: [3], correctedMeasure3: ['noire', 'noire', 'noire', 'noire'] }, 'refuted');
+verify(music, { durations: [4, 4, 5, 4], invalidBars: [3], correctedMeasure3: ['ronde'] }, 'refuted');
 verify(music, { durations: [4, 4, 4, 4], invalidBars: [], correctedMeasure3: ['blanche', 'blanche'] }, 'refuted');
 
 const history = subject('git_numeric_history', { 'current.txt': 'timeout_ms = 1500\n', 'history.txt': 'Previous 1000, now 1500.' },

@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const SOURCES = Object.freeze([
+  'epistemic/workspaceMusicCorrection.js',
   "../../bin/caller-mcp-contextValues1.cjs",
   "../../bin/field-campaign-genos-repository-adapterValues1.cjs",
   "../../bin/genos-orchestrateStages1.cjs",

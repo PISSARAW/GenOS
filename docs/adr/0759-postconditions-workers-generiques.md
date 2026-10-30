@@ -50,3 +50,16 @@ pour fabriquer le résultat ne mesurerait plus Qwen. Ces deux options sont rejet
 contrats substitués et limites humaines. `test_workspace_oracle_runtime.js`
 traverse le vrai dispatch, le transport modèle de test et les deux processus
 d'oracle ; le mauvais résultat conserve un reçu non vérifié.
+
+## Correction musicale minimale
+
+Le prédicat musical exige aussi la minimalité : parmi toutes les séquences de
+notes totalisant quatre temps, il retient le coût minimal d'insertion, suppression
+ou substitution d'une note. Les deux processus calculent cette distance par
+programmation dynamique itérative et par récurrence mémoïsée. Une correction
+valide en durée mais nécessitant davantage d'éditions est réfutée. Le nouveau
+module entre dans le manifeste signé des vérificateurs.
+
+La campagne diagnostique `D:/GenOS-runs/daemon-requalified-20261030` est conservée
+et interrompue avant qualification finale. Les 36 exécutions finales sont
+relancées sur une révision unique après cette correction.

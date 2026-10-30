@@ -14,7 +14,12 @@ function music(subject, strategy, candidate) {
   if (subject.contract.kind === 'publication_dossier') return true;
   const invalidBars = durations.map((beats, index) => beats !== 4 ? index + 1 : null).filter(Boolean);
   return values.fields(candidate, { invalidBars }) && Array.isArray(candidate.correctedMeasure3)
-    && candidate.correctedMeasure3.length > 0 && duration(candidate.correctedMeasure3, strategy) === 4;
+    && validCorrection(bars[2], candidate.correctedMeasure3, strategy);
+}
+
+function validCorrection(original, candidate, strategy) {
+  return candidate.length > 0 && duration(candidate, strategy) === 4
+    && require('./workspaceMusicCorrection').minimalCorrection(original, candidate, strategy);
 }
 
 function validUnits(guide) {
