@@ -122,7 +122,7 @@ async function prepareRuntime(initDb) {
   if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
   if (action === 'dispatch_worker' && !missionId) {
     missionId = missionIdentity.newMissionId();
-    await missionIdentity.create(initDb, { missionId, objective: task, orchestratorAgentId: orchestratorId });
+    await require('./directWorkerMissionInitialization.cjs').initializeDirectWorkerMission({ db: initDb, missionId, task, orchestratorId, request }, { initializeMission, missionIdentity });
     synthesizedWorkerMission = true;
   }
   if (TOP_LEVEL_MISSION_ACTIONS.has(action)) await ensureMissionIdentity(initDb);
