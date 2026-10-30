@@ -8,12 +8,7 @@ function keys(value, required, optional = []) {
 function canonical(report) {
   if (!Array.isArray(report.claims) || report.claims.length !== 1
     || typeof report.claims[0].statement !== 'string') return null;
-  const text = report.claims[0].statement.trim();
-  try {
-    const value = JSON.parse(text);
-    const compact = text.replace(/("(?:\\.|[^"\\])*")|\s+/g, (match, quoted) => quoted || '');
-    return compact === JSON.stringify(value) ? value : null;
-  } catch { return null; }
+  return require('./assess-json.cjs').parseExactJson(report.claims[0].statement);
 }
 function result(checks) {
   return { status: checks.every(row => row.actual === row.expected) ? 'passed' : 'failed', checks };

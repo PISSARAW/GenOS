@@ -25,8 +25,10 @@ liaisons, le résultat est `unmeasured`.
 
 
 Les cartes 01, 02, 04 et 06 exigent désormais un seul claim dont le champ
-`statement` contient un objet JSON canonique. Une prose, des claims supplémentaires,
-des clés dupliquées ou des nombres encodés comme chaînes restent `unmeasured`.
+`statement` contient un objet JSON non ambigu. Les nombres décimaux et scientifiques
+équivalents sont acceptés : `115`, `115.0` et `1.15e2` représentent la même valeur.
+Une prose, des claims supplémentaires, des clés dupliquées à toute profondeur
+(y compris via des échappements) ou des nombres encodés comme chaînes restent `unmeasured`.
 L'évaluateur n'extrait plus le premier nombre d'une phrase : une négation ou une
 correction contradictoire ne peut ainsi valoir une preuve positive.
 
@@ -35,4 +37,15 @@ facultatif), `count/sum/mean/median/maximum`, `matches`, et
 `mean_before/mean_after/difference/causal`. Les calculs sont refaits à partir des
 fixtures ; la carte 06 contrôle aussi les mesures structurées présentes dans
 l'artefact, leurs unités et l'absence de causalité déclarée.
+
+Le parseur contrôle les lexèmes avant `JSON.parse`. Il normalise les décimales
+par chiffres et exposant entier, sans calcul de puissance ni arrondi numérique,
+puis compare à la représentation décimale de la valeur décodée. Ainsi,
+`210.00000000000001` n'est pas accepté comme `210` après l'arrondi de JavaScript.
+Les valeurs non finies, l'underflow vers zéro et les entiers hors de la plage sûre
+sont refusés. Le parseur est borné à 65 536 caractères et 64 niveaux ; dépasser
+ces bornes reste non mesuré. Ce contrôle ne prétend pas fournir un calcul décimal
+arbitraire : les comparaisons de valeurs des missions conservent leurs critères
+numériques explicites. `test_qwen_json_numeric_forms.cjs` couvre les formes
+équivalentes, les doublons échappés/profonds et les pertes de précision.
 
