@@ -36,8 +36,7 @@ function verificationRef(event) {
   if (event?.nativeOracleRef?.hash && event.nativeOracleRef?.eventId) {
     return { kind: 'native-oracle', id: event.nativeOracleRef.hash, value: event.nativeOracleRef };
   }
-  if (!validReplay(event?.replayReceipt, event?.snapshot)) return null;
-  return { kind: 'genos-replay', id: digest(event.replayReceipt), value: event.replayReceipt };
+  return null;
 }
 
 function memberRecord(missionId, worker, dossier) {

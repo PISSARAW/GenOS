@@ -1,0 +1,10 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { semanticProofAccepted } = require('../src/services/biologicalWorkerReceiptService');
+const verification = (domain, accepted = true) => ({ proof: { attestation: { value: { domain, accepted } } } });
+assert.equal(semanticProofAccepted(null), false);
+assert.equal(semanticProofAccepted(verification('worker_artifact')), false);
+assert.equal(semanticProofAccepted(verification('model_subset_sum', false)), false);
+assert.equal(semanticProofAccepted(verification('unknown')), false);
+assert.equal(semanticProofAccepted(verification('model_subset_sum')), true);
+console.log('Worker receipt semantic proof: PASS');

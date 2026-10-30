@@ -38,7 +38,8 @@ function buildReceipt(input) {
     lineage: { parentWorkerId: binding.parentWorkerId }, costs: evidence.costs(observations, run),
     accounting: evidence.accounting(observations, run),
     result: { status: run.status, completed: run.status === 'completed',
-      verified: run.status === 'completed' && successfulTerminal(snapshot) && !guardrail && evidence.hasResultEvidence(snapshot),
+      verified: run.status === 'completed' && successfulTerminal(snapshot) && !guardrail
+        && evidence.hasResultEvidence(snapshot) && semanticProofAccepted(verification),
       gate: 'strategy_execution_gate', reason: run.guardrailReason || guardrail || null },
     evidence: snapshot, completedAt: run.completedAt || null };
   receipt.budgetAssessment = evidence.budgetAssessment(receipt, binding);
@@ -47,6 +48,13 @@ function buildReceipt(input) {
     receipt.budgetAssessment.satisfied &&= receipt.semanticVerification.budgetAssessment.satisfied;
   }
   return receipt;
+}
+
+function semanticProofAccepted(verification) {
+  const attestation = verification?.proof?.attestation?.value;
+  if (attestation?.accepted !== true || !attestation.domain || attestation.domain === 'worker_artifact') return false;
+  try { require('./epistemic/nativeOracleDomains').definition(attestation.domain); return true; }
+  catch { return false; }
 }
 
 function semanticVerification(verification) {
@@ -178,4 +186,4 @@ async function observationsComplete(db, receipt) {
     && digest(observations.map(item => item.hash)) === digest(receipt.evidence.observations);
 }
 
-module.exports = { finalize, record, recover, missionEvidence, TERMINAL_STATUSES };
+module.exports = { finalize, record, recover, missionEvidence, TERMINAL_STATUSES, semanticProofAccepted };

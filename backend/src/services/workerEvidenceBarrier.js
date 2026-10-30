@@ -227,7 +227,7 @@ async function finishBarrier(ctx) {
   } else {
     await finishSatisfiedBarrier(ctx);
   }
-  if (!ctx.autonomyPlan?.missionClosure) ctx.autonomyPlan.missionClosure = applyCommonClosure({ ...ctx, partial: ctx.partial || false });
+  if (!ctx.autonomyPlan?.missionClosure) ctx.autonomyPlan.missionClosure = await applyCommonClosure({ ...ctx, partial: ctx.partial || false });
 }
 
 async function finishPartialBarrier(ctx) {
@@ -244,7 +244,7 @@ async function finishPartialBarrier(ctx) {
   const comparison = await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan,
     normalizedMission: ctx.normalizedMission, usable }).catch(() => {});
   const integration = await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
-  applyCommonClosure({ ...ctx, dossiers: usable, comparison, integration, partial: true });
+  await applyCommonClosure({ ...ctx, dossiers: usable, comparison, integration, partial: true });
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
   await finalizePartial({
     agentId: ctx.agentId,
@@ -298,7 +298,7 @@ function attachSemanticReport(ctx, dossiers) {
   } catch (_) {}
 }
 
-function applyCommonClosure(ctx) {
+async function applyCommonClosure(ctx) {
   const missionId = ctx.normalizedMission?.missionId
     || ctx.autonomyPlan?.trinity?.missionId || ctx.agentId;
   const topology = closureAdapter.topologyContext(ctx);
@@ -309,8 +309,9 @@ function applyCommonClosure(ctx) {
     { id: 'topology_decision_recorded', passed: topology.decisionPassed },
     { id: 'report_gate_clear', passed: !(ctx.autonomyPlan?.reportGateViolations || []).length }
   ];
+  const dossiers = await require('./missionDossierOracleVerification').validateDossiers(ctx.db, missionId, ctx.dossiers);
   const input = closureAdapter.buildClosureInput({ missionId, topology: topology.id,
-    producerId: ctx.agentId, workers: closureAdapter.resolveRequiredWorkers(ctx.workers, ctx.dossiers), dossiers: ctx.dossiers, invariants,
+    producerId: ctx.agentId, workers: closureAdapter.resolveRequiredWorkers(ctx.workers, dossiers), dossiers, invariants,
     barrierStatus: ctx.partial ? 'partial' : 'complete' });
   const result = closeMission(input);
   ctx.autonomyPlan.missionClosure = result;
@@ -345,7 +346,7 @@ async function finishSatisfiedBarrier(ctx) {
     });
   }
   const pipelineClosure = reusablePipelineClosure(ctx);
-  const closure = pipelineClosure || applyCommonClosure({ ...ctx, dossiers, comparison, integration, partial: false });
+  const closure = pipelineClosure || await applyCommonClosure({ ...ctx, dossiers, comparison, integration, partial: false });
   if (pipelineClosure) ctx.autonomyPlan.missionClosure = closure;
   if (!closure.success) {
     throw Object.assign(new Error('Common mission closure rejected the worker evidence barrier.'), {

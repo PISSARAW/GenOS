@@ -66,16 +66,17 @@ async function evaluateCollectedCompletion(input) {
     barrierStatus: input.barrierStatus ?? 'complete',
     topologyValidation: collectedTopology(input.flags) });
   if (completion.verdict !== 'partial' || !workers.length) return completion;
-  return verifiedDossierCompletion(input, workers) || completion;
+  return await verifiedDossierCompletion(input, workers) || completion;
 }
 
-function verifiedDossierCompletion(input, workers) {
+async function verifiedDossierCompletion(input, workers) {
+  const dossiers = await require('./missionDossierOracleVerification').validateDossiers(input.db, input.missionId, input.dossiers);
   const closure = require('./missionClosureDossierAdapter').buildClosureInput({
     missionId: input.missionId, producerId: input.orchestratorId || input.missionId,
     lifecycleState: collectedLifecycle(input.agents),
     barrierStatus: input.barrierStatus ?? 'complete',
     workers: workers.map((worker) => ({ agentId: worker.id, role: worker.role })),
-    dossiers: input.dossiers || []
+    dossiers
   });
   closure.topologyValidation = collectedTopology(input.flags);
   const rosterVerified = closure.members.length === workers.length

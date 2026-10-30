@@ -15,7 +15,8 @@ async function measuredExecution(db) {
   assert.equal(binding.runtime, 'node-worker');
   const event = completion(run.id);
   const first = await execution.recordExecutionEvent(db, 'worker', event);
-  assert.equal(first.biologicalReceipt.result.verified, true);
+  assert.equal(first.biologicalReceipt.result.completed, true);
+  assert.equal(first.biologicalReceipt.result.verified, false, 'a sourced claim without a semantic oracle remains unverified');
   assert.equal(first.biologicalReceipt.genomeHash, binding.genomeHash);
   assert.equal(first.biologicalReceipt.costs[0].quantity, 3);
   assert.equal(first.biologicalReceipt.costs[1].quantity, 0.01);
@@ -38,7 +39,7 @@ async function measuredExecution(db) {
     payload: { ...event.payload, usage: { total_tokens: 4 } } }), { code: 'BIOLOGICAL_WORKER_EVENT_CONFLICT' });
   await assert.rejects(db.run('UPDATE biological_worker_bindings SET binding_json = ?', '{}'), /Immutable/);
   await assert.rejects(db.run('DELETE FROM biological_worker_receipts'), /Immutable/);
-  assert.equal((await biology.missionEvidence(db, 'worker-mission')).satisfied, true);
+  assert.equal((await biology.missionEvidence(db, 'worker-mission')).satisfied, false);
 }
 
 async function refusals(db) {

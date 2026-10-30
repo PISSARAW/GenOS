@@ -83,13 +83,13 @@ function verifyWorkerBarrierAdapter() {
     nativeOracleRef: null, snapshot: 'capsule/snapshot.json', replayReceipt: replay }] }];
   const replayInput = dossierAdapter.buildClosureInput({ missionId: 'mission-barrier', producerId: 'root',
     workers, dossiers: replayDossier, invariants: [{ id: 'dossiers_valid', passed: true }] });
-  assert.equal(closeMission(replayInput).verdict, 'succeeded');
+  assert.equal(closeMission(replayInput).verdict, 'partial');
   const failedOriginal = { workerId: 'worker-old', role: 'resource_steward', events: [{
     eventType: 'AGENT_FAILED', executionRunId: 'run-old', evidenceReport: { outcome: 'failure' }
   }] };
   const verifiedReplacement = { workerId: 'worker-replacement', role: 'resource_steward', events: [{
-    eventType: 'AGENT_COMPLETED', executionRunId: 'run-replacement', snapshot: replay.snapshot,
-    replayReceipt: { ...replay, snapshot: replay.snapshot },
+    eventType: 'AGENT_COMPLETED', executionRunId: 'run-replacement',
+    nativeOracleRef: { hash: 'oracle-replacement', eventId: 'oracle-event' },
     evidenceReport: { outcome: 'success', claims: [{ statement: 'recovered', evidence: ['mission'] }] }
   }] };
   assert.deepEqual(dossierAdapter.resolveRequiredWorkers([{ agentId: 'worker-old', role: 'resource_steward' }],

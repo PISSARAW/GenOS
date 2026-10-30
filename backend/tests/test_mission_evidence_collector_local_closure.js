@@ -20,11 +20,8 @@ async function verifiedLocalDossierCompletesWithoutBiologicalReceipt() {
     evidenceReport: { outcome: 'success', claims: [{ statement: 'verified local result', evidence: ['source'] }] }
   }] };
   const result = await evaluateCollectedCompletion(inputFor(dossier));
-  assert.equal(result.verdict, 'succeeded');
-  assert.equal(result.success, true);
-  assert.equal(result.closureChecks.independentOracle, true);
-  assert.equal(result.closureChecks.evidence, true);
-  assert.equal(result.evidenceRefs.length, 1);
+  assert.equal(result.verdict, 'partial');
+  assert.equal(result.success, false);
 }
 
 async function missingVerifierKeepsCompletionPartial() {
