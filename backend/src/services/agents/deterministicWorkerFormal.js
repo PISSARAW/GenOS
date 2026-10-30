@@ -2,6 +2,7 @@
 
 const { createHash } = require('node:crypto');
 const { executeLeanCheck } = require('../epistemicScheduler/leanProcessExecutor');
+const { passingExecution } = require('../epistemicScheduler/leanSourceContract');
 
 const ARITHMETIC_CLAIM = /^\s*\d+(?:\s*[+*%]\s*\d+)*\s*(?:=|<=|>=|≤|<|≥|>)\s*\d+(?:\s*[+*%]\s*\d+)*\s*$/u;
 
@@ -30,10 +31,9 @@ async function runFormal(methodContract, options = {}) {
   const execution = await execute({
     source, toolchainVersion: parameters.toolchainVersion, strictToolchainVersion: true,
     leanExecutable: options.leanExecutable || process.env.GENOS_LEAN_EXECUTABLE || 'lean',
-    timeoutMs: options.timeoutMs || 30000
+    timeoutMs: options.timeoutMs || 90000
   });
-  if (execution.exitCode !== 0 || execution.axioms.length
-    || execution.toolchainVersion !== parameters.toolchainVersion) {
+  if (!passingExecution(execution, { toolchainVersion: parameters.toolchainVersion })) {
     throw Object.assign(new Error(`Lean did not certify the claim: ${String(executionDetail(execution)).slice(0, 500)}`), {
       code: 'WORKER_FORMAL_CHECK_FAILED'
     });

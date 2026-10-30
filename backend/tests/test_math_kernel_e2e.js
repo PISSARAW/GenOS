@@ -30,7 +30,7 @@ const { MathematicalCulture } = require('../src/services/mathematical/mathematic
 // ─── Lean availability — FAIL if missing ──────────────────────────────────────
 
 function findLeanExecutable() {
-  for (const name of ['lean', 'lean.exe', 'lean4']) {
+  for (const name of [process.env.GENOS_LEAN_EXECUTABLE, 'lean', 'lean.exe', 'lean4'].filter(Boolean)) {
     try {
       execFileSync(name, ['--version'], { encoding: 'utf8', timeout: 10000 });
       return name;
@@ -40,6 +40,7 @@ function findLeanExecutable() {
 }
 
 const LEAN = findLeanExecutable();
+let measuredEnvironment;
 
 async function getVersion() {
   try {
@@ -50,16 +51,9 @@ async function getVersion() {
 }
 
 function makeGate(rawVersion) {
-  const m = rawVersion.match(/version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i);
-  const semver = m ? m[1] : rawVersion.trim().split(/\s+/)[0];
-  const graph = new MathematicalDependencyGraph();
-  return new LeanIncrementalGate({
-    graph,
-    executor: executeLeanCheck,
-    toolchainVersion: semver,
-    environmentDigest: `sha256:${crypto.createHash('sha256').update('genos-v3-lean-env').digest('hex')}`,
-    allowedAxioms: new Set(),
-  });
+  return new LeanIncrementalGate({ graph: new MathematicalDependencyGraph(),
+    executor: executeLeanCheck, toolchainVersion: rawVersion, leanExecutable: LEAN,
+    environmentDigest: measuredEnvironment, allowedAxioms: [], timeoutMs: 90000 });
 }
 
 // ─── Test 1: Real Lean E2E — simple arithmetic ────────────────────────────────
@@ -86,18 +80,18 @@ async function testRealLeanSimple() {
   assert.ok(header.includes('∀ n : Nat, n + 0 = n'), 'Header has formal statement');
   assert.ok(!header.includes('"'), 'Header MUST NOT quote statement as string literal');
 
-  const fullSource = formalization.generateLeanSource({ name: 'nat_zero_add', proofBody: '  simp' });
+  const fullSource = formalization.generateLeanSource({ name: 'nat_zero_add', proofBody: '  intro n\n  rfl' });
   assert.ok(fullSource.includes('theorem nat_zero_add :'), 'Full source has theorem');
   assert.ok(fullSource.includes('∀ n : Nat, n + 0 = n'), 'Full source has formal statement');
   assert.ok(fullSource.includes(':= by'), 'Full source has proof separator');
-  assert.ok(fullSource.includes('simp'), 'Full source has proof body');
+  assert.ok(fullSource.includes('rfl'), 'Full source has proof body');
 
   // Real Lean kernel check
   const result = await executeLeanCheck({
     leanExecutable: LEAN,
-    toolchainVersion: version.match(/version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i)?.[1] || version.trim().split(/\s+/)[0],
+    toolchainVersion: version,
     source: fullSource,
-    timeoutMs: 30000,
+    timeoutMs: 90000,
   });
 
   console.log(`Lean execution: exitCode=${result.exitCode}`);
@@ -211,7 +205,7 @@ async function testCulturePreserves() {
     formalStatement: '∀ n : Nat, n + 0 = n',
   });
 
-  const fullSource = formalization.generateLeanSource({ proofBody: '  simp' });
+  const fullSource = formalization.generateLeanSource({ proofBody: '  intro n\n  rfl' });
   const gate = makeGate(version);
   const nodeId = `node-culture-${crypto.createHash('sha256').update('culture').digest('hex').slice(0, 32)}`;
   gate.graph.addNode({ nodeId, type: 'lemma', canonicalStatement: '∀ n : Nat, n + 0 = n', status: 'formalized' });
@@ -348,6 +342,8 @@ async function testHGTFingerprint() {
   const version = await getVersion();
   console.log(`Lean version: ${version}`);
 
+  process.env.GENOS_LEAN_EXECUTABLE ||= LEAN;
+  measuredEnvironment = (await require('./helpers/leanTestConfiguration.cjs').leanTestConfiguration()).environmentDigest;
   await testRealLeanSimple();
   await testMismatchRejected();
   await testCulturePreserves();

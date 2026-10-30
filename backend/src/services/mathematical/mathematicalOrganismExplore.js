@@ -9,6 +9,7 @@ const crypto = require('node:crypto');
 const { createFormalResult } = require('../formalResultService');
 const { createProofArtifact } = require('./proofArtifact');
 const { createFormalizationArtifact } = require('./formalizationArtifact');
+const { proofBodyFor } = require('./leanProofStrategies');
 
 function allocate(runtime) {
   for (const [, niche] of runtime.nicheService.niches) {
@@ -124,7 +125,12 @@ async function verify(runtime, attempts) {
     // Generate Lean source from the immutable FormalizationArtifact.
     // The theorem header comes from the FormalizationArtifact (binding authority),
     // the proof body is supplied here. The worker never controls the header.
-    const leanSource = formalization.generateLeanSource({ proofBody: '  simp' });
+    const proofBody = proofBodyFor(attempt);
+    if (!proofBody) {
+      runtime.history.push({ event: 'proof_strategy_unavailable', attempt: attempt.id, strategy: attempt.strategy });
+      continue;
+    }
+    const leanSource = formalization.generateLeanSource({ proofBody });
     let success = false;
     try {
       success = await artifact.verifyThroughLean(runtime.leanGate, leanSource);

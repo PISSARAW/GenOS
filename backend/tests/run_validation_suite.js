@@ -233,7 +233,8 @@ const suites = {
     ['counterexample propagation', 'test_epistemic_scheduler_counterexample.js'],
     ['Pareto budget reallocation', 'test_epistemic_scheduler_budget.js'],
     ['mathematical dependency graph', 'test_epistemic_scheduler_mathematical_graph.js'],
-    ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
+    ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js'],
+    ['Lean and Omega false-positive contract', 'test_lean_verification_contract.js']
   ],
   signalPlane: [
     ['cognitive obligation registry', 'test_cognitive_obligation_registry.js'],

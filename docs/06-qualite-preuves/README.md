@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [Vérification Lean, Omega et gestion des preuves](verification-lean-et-omega.md) — axiomes transitifs, reçus liés, environnement mesuré, régressions et schémas ; ADR 0758.
+
 - [qualification-metacognition-agow-2026-10-24.md](qualification-metacognition-agow-2026-10-24.md) — calibration non circulaire, reproduction AGOW et pilote Ollama avec oracle séparé, résultats défavorables et limites du corpus.
 
 - [campagne-autonomie-ontogenese-2026-10-24.md](campagne-autonomie-ontogenese-2026-10-24.md) — protocole progressif et premier relevé de qualification multi-niveaux.

@@ -60,7 +60,7 @@ async function qualifyProducer(options) {
     assert.equal(negative.runtime.metrics.totalVerified, 0);
     console.log(JSON.stringify({ phase: 'real-producer', published: rows.length,
       positiveLeanExecutions: positive.executions(), negativeLeanExecutions: negative.executions(),
-      falsePublicationRefused: true, proofStrategy: 'fixed-simp', autonomousServerBootstrap: false }));
+      falsePublicationRefused: true, proofStrategy: 'bounded-strategy-tactics', autonomousServerBootstrap: false }));
   } finally { globalRegistry.clear(); await db.close(); }
 }
 

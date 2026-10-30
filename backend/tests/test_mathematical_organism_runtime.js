@@ -97,7 +97,7 @@ async function testRuntimeWithValidSources() {
         return { exitCode: 1, nodeId: input.nodeId, status: 'failed', reason: 'placeholder_proof', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
       }
       if (statementMatch) {
-        return { exitCode: 0, nodeId: input.nodeId, status: 'passed', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
+        return { exitCode: 0, nodeId: input.nodeId, status: 'checked', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
       }
       return { exitCode: 1, nodeId: input.nodeId, status: 'failed', reason: 'proof_failed_wrong_statement', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
     },

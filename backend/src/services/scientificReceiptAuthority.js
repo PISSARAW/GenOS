@@ -4,6 +4,7 @@ const { createHash } = require('node:crypto');
 const { receiptDigest, PLACEHOLDER_PROOF } = require('./epistemicScheduler/leanIncrementalGate');
 const { executeLeanCheck } = require('./epistemicScheduler/leanProcessExecutor');
 const { FormalizationArtifact, naturalStatementFingerprint } = require('./mathematical/formalizationArtifact');
+const { passingExecution } = require('./epistemicScheduler/leanSourceContract');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const replayed = new WeakSet();
@@ -95,10 +96,9 @@ async function replayLean(input, options) {
   });
   const expectedAxioms = receipt.axioms.slice().sort();
   const actualAxioms = Array.isArray(execution?.axioms) ? execution.axioms.slice().sort() : null;
-  const allowed = new Set(options.allowedAxioms || []);
-  if (execution?.exitCode !== 0 || execution.toolchainVersion !== options.toolchainVersion ||
+  if (!passingExecution(execution, options) ||
       !actualAxioms || JSON.stringify(actualAxioms) !== JSON.stringify(expectedAxioms) ||
-      actualAxioms.some((item) => !allowed.has(item))) {
+      execution.environmentDigest && execution.environmentDigest !== options.environmentDigest) {
     throw fail('SCI_RECEIPT_REPLAY_FAILED', 'Pinned Lean replay failed or axioms changed.');
   }
 }

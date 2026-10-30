@@ -1,6 +1,6 @@
 /**
- * Decision-evidence detection: whether an agent event carries substantiated
- * evidence sufficient to unlock a collective decision.
+ * Detect usable reports for orchestration control, including documented failures.
+ * This presence check neither authenticates evidence nor verifies a claim.
  */
 const { FAILURE_EVENT_TYPES, extractEvidenceReport, hasEvidenceItem, normalizeNoAnswerProof } = require('./evidenceHelpers');
 

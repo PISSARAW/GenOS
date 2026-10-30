@@ -57,6 +57,10 @@ function testCanonicalIdentity() {
   const baseline = createFormalResult(fixture());
   assert.equal(changedProducer.semanticFingerprint, baseline.semanticFingerprint);
   assert.notEqual(changedProducer.resultId, baseline.resultId);
+  const spaced = createFormalResult(fixture({ canonicalStatement: '"a  b" = "a b"' }));
+  const collapsed = createFormalResult(fixture({ canonicalStatement: '"a b" = "a b"' }));
+  assert.equal(spaced.canonicalStatement, '"a  b" = "a b"');
+  assert.notEqual(spaced.semanticFingerprint, collapsed.semanticFingerprint);
 }
 
 function testBinaryDensity() {

@@ -19,10 +19,14 @@ function createScientificMathematicalRuntime(options = {}) {
   const gate = new LeanIncrementalGate({ graph: new MathematicalDependencyGraph(),
     executor: options.executor, toolchainVersion: options.toolchainVersion,
     environmentDigest: options.environmentDigest,
+    leanExecutable: options.leanExecutable,
+    timeoutMs: options.timeoutMs,
     allowedAxioms: options.allowedAxioms || [] });
   const authority = createScientificReceiptAuthority({ db: options.db,
     executor: options.executor, toolchainVersion: options.toolchainVersion,
     environmentDigest: options.environmentDigest,
+    leanExecutable: options.leanExecutable,
+    timeoutMs: options.timeoutMs,
     allowedAxioms: options.allowedAxioms || [] });
   const referenceStore = createScientificReferenceStore({
     verifyReceipt: authority.verifyReceipt,

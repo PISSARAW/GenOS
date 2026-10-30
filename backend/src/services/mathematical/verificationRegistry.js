@@ -8,28 +8,21 @@
  * The culture asks "Is this receipt digest valid?" to this registry, not
  * "Does this object say it is verified?" to the ProofArtifact itself.
  *
- * The registry is populated exclusively by LeanIncrementalGate.publish() when
- * a receipt with status === 'passed' is produced. No other path can register
- * a digest — self-declaration is impossible.
+ * Registration requires an immutable receipt issued by a gate in this process.
+ * Injected gate executors remain trusted configuration, never caller evidence.
  */
 
 class VerificationRegistry {
-  constructor() {
-    this._verifiedReceipts = new Map(); // receiptDigest → { nodeId, toolchainVersion, checkedAt }
-  }
-
+  #verifiedReceipts = new Map();
   /**
    * Register a verified receipt. Called by LeanIncrementalGate.publish().
    * @param {object} receipt — the receipt produced by verifyNode()
    */
   registerVerified(receipt) {
-    if (!receipt || receipt.status !== 'passed') return false;
+    const { isGateReceipt } = require('../epistemicScheduler/leanIncrementalGate');
+    if (!receipt || receipt.status !== 'passed' || !isGateReceipt(receipt)) return false;
     if (!receipt.receiptDigest || !/^sha256:[a-f0-9]{64}$/.test(receipt.receiptDigest)) return false;
-    this._verifiedReceipts.set(receipt.receiptDigest, {
-      nodeId: receipt.nodeId || null,
-      toolchainVersion: receipt.toolchainVersion || null,
-      checkedAt: receipt.checkedAt || new Date().toISOString(),
-    });
+    this.#verifiedReceipts.set(receipt.receiptDigest, receipt);
     return true;
   }
 
@@ -40,7 +33,7 @@ class VerificationRegistry {
    */
   isReceiptValid(receiptDigest) {
     if (!receiptDigest || !/^sha256:[a-f0-9]{64}$/.test(receiptDigest)) return false;
-    return this._verifiedReceipts.has(receiptDigest);
+    return this.#verifiedReceipts.has(receiptDigest);
   }
 
   /**
@@ -50,7 +43,16 @@ class VerificationRegistry {
    */
   isLeanReceiptValid(receipt) {
     if (!receipt || receipt.status !== 'passed') return false;
-    return this.isReceiptValid(receipt.receiptDigest || '');
+    const { receiptDigest } = require('../epistemicScheduler/leanIncrementalGate');
+    try {
+      return this.isReceiptValid(receipt.receiptDigest || '') && receiptDigest(receipt) === receipt.receiptDigest;
+    } catch (_) { return false; }
+  }
+
+  revokeNode(nodeId) {
+    for (const [digest, receipt] of this.#verifiedReceipts) {
+      if (receipt.nodeId === nodeId) this.#verifiedReceipts.delete(digest);
+    }
   }
 
   /**
@@ -59,15 +61,16 @@ class VerificationRegistry {
    * @returns {object|null}
    */
   getVerification(receiptDigest) {
-    return this._verifiedReceipts.get(receiptDigest) || null;
+    const receipt = this.#verifiedReceipts.get(receiptDigest);
+    return receipt ? { nodeId: receipt.nodeId, toolchainVersion: receipt.toolchainVersion, checkedAt: receipt.checkedAt } : null;
   }
 
   size() {
-    return this._verifiedReceipts.size;
+    return this.#verifiedReceipts.size;
   }
 
   clear() {
-    this._verifiedReceipts.clear();
+    this.#verifiedReceipts.clear();
   }
 }
 

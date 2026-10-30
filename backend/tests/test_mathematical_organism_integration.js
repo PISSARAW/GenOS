@@ -1,5 +1,7 @@
 'use strict';
 
+(async () => {
+
 const assert = require('node:assert');
 const math = require('../src/services/mathematical');
 
@@ -35,17 +37,14 @@ const pop = satNiche.population;
 pop.evaluateFitness(l1, { verifiedObligations: 2, totalObligations: 5, novelty: 0.6 });
 
 // Culture - requires valid ProofArtifact for verified artifacts
-const createMockVerifiedProofArtifact = () => ({
-  isVerified: () => true,
-  _leanReceipt: { status: 'passed', receiptDigest: 'sha256:mock' },
-});
+const { mockVerifiedProof: createMockVerifiedProofArtifact } = require('./helpers/mockVerifiedProof.cjs');
 
 const culture = new math.MathematicalCulture();
 const culturalArtifact = culture.addArtifact({ 
   type: 'lemma', 
-  content: 'graph_coloring_bounds', 
+  content: '0 = 0',
   verified: true,
-  proofArtifact: createMockVerifiedProofArtifact(),
+  proofArtifact: await createMockVerifiedProofArtifact(),
 });
 culture.transmit(culturalArtifact.id, l2);
 
@@ -54,3 +53,5 @@ assert.ok(nps.niches.size === 2);
 assert.ok(l2._knowledge && l2._knowledge.length === 1, 'Lineage should have received cultural knowledge');
 
 console.log('OK MathematicalOrganismRuntime simulation');
+
+})().catch(error => { console.error(error); process.exitCode = 1; });

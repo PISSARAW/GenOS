@@ -27,6 +27,8 @@
 const { createFormalResult, decodeFormalResult } = require('../formalResultService');
 const { LeanIncrementalGate, PLACEHOLDER_PROOF } = require('../epistemicScheduler/leanIncrementalGate');
 const { createHash } = require('node:crypto');
+const { sourceTarget } = require('../epistemicScheduler/leanSourceContract');
+const { deepFreeze } = require('./formalizationArtifact');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const ARTIFACT_TYPES = Object.freeze(['conjecture', 'lemma', 'theorem', 'counterexample', 'obligation']);
@@ -54,23 +56,7 @@ function isTrivialLeanSource(source) {
  * Returns the statement text between `theorem ... :` and `:=`, with surrounding quotes stripped, or null if not found.
  */
 function extractLeanTheoremStatement(source) {
-  if (!source || typeof source !== 'string') return null;
-  const trimmed = source.trim();
-  // Match theorem statement: theorem name : "statement" := or theorem name : statement :=
-  const match = trimmed.match(/^theorem\s+\w+\s*:\s*"((?:[^"\\]|\\.)*)"\s*:=/);
-  if (match) {
-    return match[1];
-  }
-  const match2 = trimmed.match(/^theorem\s+\w+\s*:\s*((?:[^"\\]|\\.)*)\s*:=/);
-  if (match2) {
-    return match2[1];
-  }
-  // Try thin colon pattern: theorem name : statement :=
-  const match3 = trimmed.match(/^theorem\s+\S+\s*:\s*((?:[^"\\]|\\.)*)\s*=/);
-  if (match3) {
-    return match3[1];
-  }
-  return null;
+  return sourceTarget(source)?.statement || null;
 }
 
 /** 
@@ -94,6 +80,7 @@ function statementFingerprint(statement) {
 }
 
 class ProofArtifact {
+  #verification = null;
   constructor(options = {}) {
     this.id = options.id || `art-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this.type = options.type || 'conjecture';
@@ -263,11 +250,11 @@ class ProofArtifact {
       nodeId: leanNodeId,
       source,
       ...(this._formalization ? { formalization: this._formalization } : {}),
-      timeoutMs: 300000,
-      leanExecutable: 'lean',
+      timeoutMs: leanGate.timeoutMs || 300000,
+      leanExecutable: leanGate.leanExecutable,
     });
 
-    if (receipt.status !== 'passed') {
+    if (receipt.status !== 'passed' || leanGate.registry?.isLeanReceiptValid(receipt) !== true) {
       this.status = 'failed';
       this._leanReceipt = receipt;
       return false;
@@ -304,8 +291,10 @@ class ProofArtifact {
       throw new Error('Verified FormalResult creation failed integrity check.');
     }
 
-    this._formalResult = verifiedFormalResult;
+    this._formalResult = deepFreeze(verifiedFormalResult);
     this._leanReceipt = receipt;
+    this.#verification = Object.freeze({ result: this._formalResult, receipt,
+      registry: leanGate.registry, statement: this.statement });
     this.receipt = {
       resultId: this._formalResult.resultId,
       semanticFingerprint: this._formalResult.semanticFingerprint,
@@ -324,15 +313,11 @@ class ProofArtifact {
    * Requires: verified status, real FormalResult(status=verified), real Lean receipt with valid SHA-256 digests.
    */
   isVerified() {
-    return this.status === 'verified'
-      && this._formalResult !== null
-      && this._formalResult.status === 'verified'
-      && this._formalResult.evidence?.kind === 'proof'
-      && this._leanReceipt !== null
-      && this._leanReceipt.status === 'passed'
-      && SHA256.test(this._leanReceipt.sourceDigest || '')
-      && SHA256.test(this._leanReceipt.receiptDigest || '')
-      && SHA256.test(this._leanReceipt.environmentDigest || '');
+    const verified = this.#verification;
+    if (!verified || this.status !== 'verified') return false;
+    return this._formalResult === verified.result && this._leanReceipt === verified.receipt
+      && this.statement === verified.statement
+      && verified.registry?.isLeanReceiptValid(verified.receipt) === true;
   }
 
   summary() {

@@ -157,7 +157,7 @@ async function testProofArtifactWithMockLean() {
   console.log('OK StructuralProofArtifactMock');
 }
 
-function testCultureTransmission() {
+async function testCultureTransmission() {
   const formalization = createFormalizationArtifact({
     naturalStatement: 'forall n : Nat, n + 0 = n',
     formalStatement: '∀ n : Nat, n + 0 = n',
@@ -185,14 +185,7 @@ function testCultureTransmission() {
   });
   artifact.attachFormalResult(formalResult, formalization);
 
-  // Mock verification
-  artifact._leanReceipt = {
-    status: 'passed', sourceDigest: sha256(source),
-    receiptDigest: sha256('culture-receipt'), environmentDigest: sha256('mock-env'),
-  };
-  artifact.status = 'verified';
-  artifact._formalResult.status = 'verified';
-  artifact._formalResult.evidence = { kind: 'proof', content: source };
+  await artifact.verifyThroughLean(makeMockGate(), source);
 
   const culture = new MathematicalCulture({ fidelityRate: 0.95 });
 
@@ -228,6 +221,6 @@ function testCultureTransmission() {
   testFormalizationRegistry();
   testBindingAuthority();
   await testProofArtifactWithMockLean();
-  testCultureTransmission();
+  await testCultureTransmission();
   console.log('All STRUCTURAL Part A tests passed.');
 })().catch(e => { console.error(e); process.exit(1); });

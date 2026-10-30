@@ -60,15 +60,7 @@ async function checkCommand(descriptor, runner) {
 }
 
 async function checkLean(candidate, descriptor, context) {
-  const { executeLeanCheck } = require('./epistemicScheduler/leanProcessExecutor');
-  const source = descriptor.source || candidate?.source || candidate;
-  if (typeof source !== 'string' || !source.trim()) return statusResult('inconclusive', [], { reason: 'lean_source_missing' });
-  const execution = await executeLeanCheck({ ...descriptor, source,
-    toolchainVersion: descriptor.toolchainVersion || context.toolchainVersion });
-  const passed = execution.exitCode === 0 && (!execution.axioms || !descriptor.allowedAxioms
-    || execution.axioms.every((axiom) => descriptor.allowedAxioms.includes(axiom)));
-  return statusResult(passed ? 'verified' : 'refuted', [{ step: 'lean:check', result: execution }], {
-    execution, formal: true });
+  return require('./leanVerificationService').verifyLeanCandidate(candidate, descriptor, context);
 }
 
 async function checkAeis(candidate, descriptor, context) {

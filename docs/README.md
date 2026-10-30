@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Vérification Lean, Omega et gestion des preuves](06-qualite-preuves/verification-lean-et-omega.md) — contrats communs, régressions et schémas ; [ADR 0758](adr/0758-verification-lean-et-recus-lies.md).
+
 - [Expérience — mission chanson A-Team du 20 octobre 2026](06-qualite-preuves/experience-mission-chanson-a-team-2026-10-20.md) — artefact réellement produit, chronologie des refus, correctifs de clôture, preuves vérifiées et limites du rejeu.
 
 - [Dossier AEIS](01-concepts/adaptive-epistemic-immune-system.md) — modèle borné, [référence runtime](03-reference/runtime-aeis.md), [runbook opérateur](04-exploitation/aeis.md), [contrat de preuve](06-qualite-preuves/immunite-epistemique.md) et [qualification du 2026-10-20](06-qualite-preuves/qualification-aeis-2026-10-20.md).

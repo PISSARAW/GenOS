@@ -17,11 +17,12 @@
  * This is the architectural replacement for the text-comparison approach where
  * extractLeanTheoremStatement() was used to compare fingerprints. The old approach
  * was spoofable because the worker could wrap the goal in a Lean string literal.
- * The new approach is NOT spoofable because GenOS generates the header from the
- * FormalizationArtifact itself.
+ * Header generation fixes the intended proposition. The gate must still inspect
+ * the compiled theorem and its axioms; natural/formal equivalence is separate.
  */
 
 const { createHash } = require('node:crypto');
+const { sourceTarget } = require('../epistemicScheduler/leanSourceContract');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
@@ -32,7 +33,7 @@ function naturalStatementFingerprint(statement) {
 
 function formalStatementFingerprint(statement) {
   if (!statement || typeof statement !== 'string') return null;
-  return `sha256:${createHash('sha256').update(statement.normalize('NFC').trim()).digest('hex')}`;
+  return `sha256:${createHash('sha256').update(statement.trim()).digest('hex')}`;
 }
 
 /**
@@ -133,51 +134,10 @@ class FormalizationArtifact {
    * @returns {object} { matched: boolean, headerStatement: string | null, error: string | null }
    */
   checkSourceBinding(source) {
-    if (!source || typeof source !== 'string') {
-      return { matched: false, headerStatement: null, error: 'Source is empty or not a string.' };
-    }
-    const trimmed = source.trim();
-    // Les imports générés par generateLeanSource() précèdent le header :
-    // on ignore les lignes d'import (et lignes vides) de tête avant
-    // d'extraire le header `theorem`. Seules les lignes de tête sont
-    // ignorées, le header reste soumis au contrôle de fingerprint exact.
-    const lines = trimmed.split('\n');
-    let start = 0;
-    while (start < lines.length && (/^\s*$/.test(lines[start]) || /^\s*import\s+[\w.]+/.test(lines[start]))) {
-      start++;
-    }
-    const body = lines.slice(start).join('\n').trim();
-    // Extract the theorem header from the source.
-    // We match: theorem <name> : <statement>
-    // The statement is everything between `:` and `:=` (or end of line if no `:=`).
-    const headerMatch = body.match(/^theorem\s+\w+\s*:\s*([\s\S]*?)\s*(:=|$)/);
-    if (!headerMatch) {
-      return { matched: false, headerStatement: null, error: 'Could not extract theorem header from Lean source.' };
-    }
-    let headerStatement = headerMatch[1].trim();
-    // Normalize: collapse all whitespace (including newlines) into single spaces.
-    // This handles multi-line theorem headers like:
-    //   theorem foo
-    //   (n : Nat)
-    //   :
-    //   n + 0 = n := by
-    // The formalStatement is a single-line normalized expression, so we must
-    // normalize the extracted header the same way before fingerprint comparison.
-    headerStatement = headerStatement.replace(/\s+/g, ' ');
-    headerStatement = headerStatement.trim();
-    // Compare fingerprints.
-    const sourceFp = formalStatementFingerprint(headerStatement);
-    if (!sourceFp) {
-      return { matched: false, headerStatement, error: 'Could not compute fingerprint of extracted header.' };
-    }
-    if (sourceFp !== this.formalStatementFingerprint) {
-      return {
-        matched: false,
-        headerStatement,
-        error: `Statement fingerprint mismatch. Source header proves: "${headerStatement}" (fp: ${sourceFp}). Expected: "${this.formalStatement}" (fp: ${this.formalStatementFingerprint}).`,
-      };
-    }
-    return { matched: true, headerStatement, error: null };
+    const target = sourceTarget(source);
+    if (!target) return { matched: false, headerStatement: null, error: 'Could not extract theorem header from Lean source.' };
+    const matched = formalStatementFingerprint(target.statement) === this.formalStatementFingerprint;
+    return { matched, headerStatement: target.statement, error: matched ? null : 'Statement fingerprint mismatch.' };
   }
 
   /**
@@ -272,4 +232,5 @@ module.exports = {
   createFormalizationRegistry,
   naturalStatementFingerprint,
   formalStatementFingerprint,
+  deepFreeze,
 };

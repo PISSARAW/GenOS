@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — contrat claim/evidence, services preuve, falsification et promotion sont disponibles dans le runtime.
 - **Portée** : `backend/src/services/agentEvidenceService.js`, superviseur de runtime, primitive handlers et policy de promotion.
-- **Dernière revue** : 2026-09-26.
+- **Dernière revue** : 2026-10-30.
 
 ## Definition
 
@@ -91,13 +91,19 @@ l'appelant, pas une propriété déclarée par le générateur. Voir [ADR 0173](
 
 Un claim sans evidence est insuffisant. Pour les workers, `classifyFinalReport()` transforme une sortie `success` avec zero claim ou un claim non etaye en `failed` / `unresolved_task`. Cette regle evite qu'un worker transforme une simple assertion en succes valide.
 
-`evidenceScore()` offre une priorisation, pas une mesure de verite. Hors contenu creatif, il ajoute 10 points par evidence non vide et 2 points par claim ayant de l'evidence, retire 3 points par incertitude, puis borne le resultat dans $[0,100]$ :
+`evidenceScore()` offre une priorisation, pas une mesure de verite. Hors contenu creatif, il déduplique les éléments entre tous les claims, ajoute 10 points par élément distinct et 2 points par claim étayé dans la limite du nombre d'éléments distincts, retire 3 points par incertitude, puis borne le résultat dans $[0,100]$. Avec $d$ éléments distincts, $c$ claims étayés et $u$ incertitudes :
 
 $$
-E = clamp_{[0,100]}\left(\sum_c (10n_c + 2\mathbf{1}_{n_c>0}) - 3u\right)
+E = clamp_{[0,100]}\left(10d + 2\min(c,d) - 3u\right)
 $$
 
-Tout rapport `failed` ou payload `failure` recoit 0. Un `no_answer` prouve et sans claim recoit $\min(100, 25 + 10n)$, avec $n$ evidences non blanches. Ce score sert au tri et aux evaluations de dossiers ; il ne valide ni la pertinence d'un test, ni la veracite d'un artefact fourni par un agent.
+Tout rapport `failed` ou payload `failure` recoit 0. Un `no_answer` documenté et sans claim reçoit $\min(100, 25 + 10n)$, avec $n$ éléments distincts non blancs. Ce score sert au tri et aux evaluations de dossiers ; il ne valide ni la pertinence d'un test, ni la veracite d'un artefact fourni par un agent.
+
+La [vérification Lean et Omega](../06-qualite-preuves/verification-lean-et-omega.md)
+décrit les contrôles partagés : liaison à l'énoncé, inspection des axiomes transitifs
+du théorème compilé, mesure du runtime et des imports, reçus immuables et révocation.
+Une indisponibilité ou une tactique échouée laisse la proposition indéterminée.
+La correspondance entre énoncé humain et formalisation reste une obligation séparée.
 
 ## Dossiers workers et influence
 

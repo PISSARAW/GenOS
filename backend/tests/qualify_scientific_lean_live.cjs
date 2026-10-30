@@ -22,11 +22,7 @@ const source = 'theorem source : 0 = 0 := by rfl';
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 async function configuration() {
-  const leanExecutable = process.env.GENOS_LEAN_EXECUTABLE;
-  if (!leanExecutable) throw new Error('GENOS_LEAN_EXECUTABLE required; real Lean qualification cannot be substituted.');
-  const toolchainVersion = execFileSync(leanExecutable, ['--version'], { windowsHide: true, encoding: 'utf8' }).trim();
-  const environmentDigest = hash(await fs.readFile(leanExecutable));
-  return { leanExecutable, toolchainVersion, environmentDigest, strictToolchainVersion: true };
+  return require('./helpers/leanTestConfiguration.cjs').leanTestConfiguration();
 }
 
 async function database(filename) {
@@ -66,7 +62,7 @@ async function primary(filename, config) {
       { code: 'SCI_REF_SCOPE_FORBIDDEN' });
     await forgedFalseReceipt(authority, config);
     console.log(JSON.stringify({ phase: 'primary', leanExecutions: compilations, publication: published.status,
-      localBinding: 'executable-hash-only', transitiveImportsAudit: false }));
+      localBinding: 'measured-runtime-and-imports', transitiveImportsAudit: true }));
   } finally { globalRegistry.clear(); await db.close(); }
 }
 

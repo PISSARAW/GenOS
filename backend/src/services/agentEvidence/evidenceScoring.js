@@ -12,6 +12,12 @@ const {
 } = require('./evidenceHelpers');
 
 const RUBRIC_WEIGHTS = { craft: 0.25, coherence: 0.2, original: 0.2, emotionalImpact: 0.15, constraintCoverage: 0.2 };
+const { canonicalValue } = require('../stateFingerprint');
+
+function uniqueEvidence(items) {
+  return new Set(items.map((item) => typeof item === 'string'
+    ? item.trim().replace(/\s+/gu, ' ') : JSON.stringify(canonicalValue(item))));
+}
 
 function isExplicitFailure(payload, report) {
   if (payload.failure || report.outcome === 'failed') return true;
@@ -22,7 +28,7 @@ function countNoAnswerEvidence(report) {
   if (report.outcome !== 'no_answer') return 0;
   const evidence = report.noAnswerProof?.evidence;
   if (!Array.isArray(evidence)) return 0;
-  return evidence.filter(isTextItem).length;
+  return uniqueEvidence(evidence.filter(isTextItem)).size;
 }
 
 function isCreative(report, context) {
@@ -43,17 +49,14 @@ function claimEvidence(claim) {
   return claim.evidence.filter(hasEvidenceItem);
 }
 
-function sumClaimEvidence(count, claim) {
-  const evidence = claimEvidence(claim);
-  return count + evidence.length * 10 + (evidence.length > 0 ? 2 : 0);
-}
-
 function uncertaintyPenalty(report, weight) {
   return Array.isArray(report.uncertainties) ? report.uncertainties.length * weight : 0;
 }
 
 function nonCreativeScore(report, claims) {
-  const score = claims.reduce(sumClaimEvidence, 0);
+  const count = uniqueEvidence(claims.flatMap(claimEvidence)).size;
+  const supported = claims.filter((claim) => claimEvidence(claim).length > 0).length;
+  const score = count * 10 + Math.min(count, supported) * 2;
   return score - uncertaintyPenalty(report, 3);
 }
 

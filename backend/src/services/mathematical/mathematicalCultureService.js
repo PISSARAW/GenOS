@@ -12,6 +12,14 @@
 
 const crypto = require('node:crypto');
 const { globalRegistry } = require('./verificationRegistry');
+const { ProofArtifact } = require('./proofArtifact');
+
+function verifiedArtifact(artifact, registry) {
+  const proof = artifact.proofArtifact;
+  return proof instanceof ProofArtifact && proof.isVerified()
+    && artifact.content === proof._formalResult.canonicalStatement
+    && registry?.isLeanReceiptValid(proof._leanReceipt) === true;
+}
 
 function culturalArtifactId() {
   return `culture-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -45,11 +53,7 @@ class MathematicalCulture {
     if (artifact.proofArtifact) {
       // Primary path: ask the VerificationRegistry whether this artifact's
       // receipt is genuinely verified by the Lean kernel.
-      if (this.registry && this.registry.isLeanReceiptValid(artifact.proofArtifact._leanReceipt)) {
-        verified = true;
-        proofReceipt = artifact.proofArtifact._leanReceipt;
-      } else if (!this.registry && artifact.proofArtifact.isVerified()) {
-        // Legacy fallback when no registry is supplied (back-compat for tests).
+      if (verifiedArtifact(artifact, this.registry)) {
         verified = true;
         proofReceipt = artifact.proofArtifact._leanReceipt;
       }
@@ -87,6 +91,7 @@ class MathematicalCulture {
     if (!artifact) return null;
 
     const isFact = artifact.type === 'theorem' || artifact.type === 'lemma';
+    if (isFact && artifact.verified) artifact.verified = verifiedArtifact(artifact, this.registry);
     // Use configured fidelityRate for facts, slightly lower for heuristics
     const factDecay = this.fidelityRate;
     const heuristicDecay = Math.max(0.5, this.fidelityRate - 0.1); // At least 0.5

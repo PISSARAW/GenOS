@@ -19,6 +19,12 @@ function canonicalText(value, field) {
   return value.normalize('NFC').trim().replace(/\s+/gu, ' ');
 }
 
+function canonicalStatementText(value) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error('canonicalStatement must be a non-empty string.');
+  // Whitespace and Unicode normalization can change Lean string literals.
+  return value.trim();
+}
+
 function sha256Text(value, field) {
   const normalized = canonicalText(value, field);
   if (!SHA256_PATTERN.test(normalized)) throw new Error(`${field} must be a SHA-256 fingerprint.`);
@@ -144,7 +150,7 @@ function createFormalResult(input = {}) {
   validateStatusEvidence(input.status, evidence);
   const result = {
     contractVersion: CONTRACT_VERSION,
-    canonicalStatement: canonicalText(input.canonicalStatement, 'canonicalStatement'),
+    canonicalStatement: canonicalStatementText(input.canonicalStatement),
     assumptions: normalizeAssumptions(input.assumptions),
     validityDomain: normalizeValidityDomain(input.validityDomain),
     dependencies: normalizeDependencies(input.dependencies),

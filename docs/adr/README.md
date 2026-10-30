@@ -1,5 +1,7 @@
 # Décisions d'architecture (ADR)
 
+- [0758 — Vérification Lean commune et reçus liés](0758-verification-lean-et-recus-lies.md).
+
 Un **ADR** (*Architecture Decision Record*) capture une décision structurante : son
 contexte, les options considérées, la décision retenue et ses conséquences. La règle
 de gouvernance de GenOS impose un ADR pour toute modification d'architecture
@@ -870,6 +872,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0750](0750-identite-persistante-du-client-mcp-codex.md) | Identité persistante du client MCP Codex | accepté. | 2026-10-28. | -- |
 | [0751](0751-liaison-runtime-immutable-des-bras-gvx.md) | Liaison runtime immuable des bras expérimentaux GVX | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, exécution d’agents, ontogenèse, vérification, transmission et provenance |
 | [0752](0752-runner-evaluateur-gvx-isole-docker.md) | Isoler le runner d’évaluation GVX dans Docker | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, évaluation externe, isolation et provenance |
+| [0758](0758-verification-lean-et-recus-lies.md) | Vérification Lean commune et reçus liés | Accepté | 2026-10-30 | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

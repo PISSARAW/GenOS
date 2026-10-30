@@ -8,6 +8,7 @@
     "test:worker-workspaces": "node backend/tests/test_worker_workspace_binding.js",
     "test:p1-v3": "node backend/tests/run_p1_v3_suite.cjs",
     "qualify:p1-lean": "node backend/tests/qualify_scientific_lean_live.cjs",
+    "test:lean": "node backend/tests/test_lean_verification_contract.js && node backend/tests/test_lean_kernel_regressions.cjs",
     "qualify:p1-stdio": "node backend/tests/qualify_p1_stdio.cjs",
     "test:biology": "node backend/tests/run_biology_suite.cjs",
     "test:garage": "node backend/tests/run_validation_suite.js garage",

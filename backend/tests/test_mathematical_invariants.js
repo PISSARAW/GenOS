@@ -299,16 +299,13 @@ async function testCultureKnowledgeSeparation() {
   const culture = new math.MathematicalCulture({ fidelityRate: 0.9 });
   const target = math.createResearchLineage({ name: 'target' });
 
-  const createMockVerifiedProofArtifact = () => ({
-    isVerified: () => true,
-    _leanReceipt: { status: 'passed', receiptDigest: 'sha256:mock' },
-  });
+  const { mockVerifiedProof } = require('./helpers/mockVerifiedProof.cjs');
 
   // Verified lemma -> knowledge
-  const lemma = culture.addArtifact({ type: 'lemma', content: 'important_lemma', verified: true, proofArtifact: createMockVerifiedProofArtifact() });
+  const lemma = culture.addArtifact({ type: 'lemma', content: '0 = 0', verified: true, proofArtifact: await mockVerifiedProof() });
   culture.transmit(lemma.id, target);
   assert.ok(target._knowledge && target._knowledge.length === 1, 'Verified lemma should be in knowledge');
-  assert.ok(!target.genome.strategies.includes('important_lemma'), 'Verified lemma should NOT be in strategies');
+  assert.ok(!target.genome.strategies.includes('0 = 0'), 'Verified lemma should NOT be in strategies');
 
   // Unverified heuristic -> strategies
   const heuristic = culture.addArtifact({ type: 'heuristic', content: 'try_this', verified: false });

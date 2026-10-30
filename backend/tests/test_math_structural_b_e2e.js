@@ -142,7 +142,7 @@ function testIsVerifiedRequiresReceipt() {
 
   artifact._leanReceipt = { status: 'passed', sourceDigest: sha256('test'), receiptDigest: sha256('receipt'), environmentDigest: sha256('env') };
   artifact._formalResult = { status: 'verified', evidence: { kind: 'proof' } };
-  assert.strictEqual(artifact.isVerified(), true, 'All conditions met → verified');
+  assert.strictEqual(artifact.isVerified(), false, 'Fabricated receipt fields cannot establish verification');
 
   console.log('OK StructuralIsVerifiedReceipt');
 }

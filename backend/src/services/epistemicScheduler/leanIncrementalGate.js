@@ -4,9 +4,11 @@ const { createHash } = require('node:crypto');
 const { pack } = require('msgpackr');
 const { globalRegistry } = require('../mathematical/verificationRegistry');
 const { FormalizationArtifact, FormalizationRegistry, naturalStatementFingerprint, formalStatementFingerprint } = require('../mathematical/formalizationArtifact');
+const { PLACEHOLDER_PROOF, forbiddenAxioms, passingExecution } = require('./leanSourceContract');
+const { dependencyModule } = require('./leanDependencyModules');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
-const PLACEHOLDER_PROOF = /\b(?:sorry|admit)\b/u;
+const issuedReceipts = new WeakSet();
 
 function digest(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -24,7 +26,7 @@ function receiptDigest(receipt) {
     receipt.nodeId, receipt.canonicalStatementDigest, receipt.formalStatementDigest,
     receipt.sourceDigest, receipt.toolchainVersion,
     receipt.environmentDigest, receipt.dependencyReceiptDigests,
-    receipt.status, receipt.axioms, receipt.checkedAt,
+    receipt.status, receipt.axioms, receipt.checkedAt, receipt.reason,
   ]));
 }
 
@@ -85,12 +87,16 @@ class LeanIncrementalGate {
     // single source of truth across the whole process.
     const explicitRegistry = options.registry || null;
     const registry = explicitRegistry || globalRegistry;
+    this.registry = registry;
+    this.leanExecutable = options.leanExecutable;
+    this.timeoutMs = options.timeoutMs || 90000;
     const userPublish = options.publish || null;
     this.publish = (receipt) => {
       registry.registerVerified(receipt);
       if (userPublish) userPublish(receipt);
     };
     this.receipts = new Map();
+    this.sourceModules = new Map();
   }
 
   setFormalizationRegistry(registry) {
@@ -111,7 +117,8 @@ class LeanIncrementalGate {
   prerequisitesVerified(nodeId) {
     const ids = this.prerequisiteIds(nodeId);
     const receipts = this.dependencyReceipts(nodeId);
-    return receipts.length === ids.length && receipts.every((receipt) => receipt.status === 'passed');
+    return receipts.length === ids.length && receipts.every((receipt) =>
+      this.registry.isLeanReceiptValid(receipt) && this.graph.getNode(receipt.nodeId)?.status === 'verified');
   }
 
   pendingVerifications() {
@@ -122,6 +129,7 @@ class LeanIncrementalGate {
   }
 
   rejectedReceipt(nodeId, reason, source = '') {
+    this.invalidate(nodeId);
     const node = this.graph.getNode(nodeId);
     const receipt = {
       nodeId, status: 'failed', reason,
@@ -135,7 +143,7 @@ class LeanIncrementalGate {
     };
     receipt.receiptDigest = receiptDigest(receipt);
     this.receipts.set(nodeId, receipt);
-    this.graph.updateStatus(nodeId, 'blocked');
+    if (node) this.graph.updateStatus(nodeId, 'blocked');
     this.publish(receipt);
     return receipt;
   }
@@ -151,20 +159,34 @@ class LeanIncrementalGate {
   }
 
   forbiddenAxioms(axioms = []) {
-    return axioms.filter((axiom) => !this.allowedAxioms.has(axiom));
+    return forbiddenAxioms(axioms, this.allowedAxioms);
+  }
+
+  invalidate(nodeId) {
+    const affected = [nodeId, ...this.graph.descendants(nodeId)];
+    for (const id of affected) {
+      const hadReceipt = this.receipts.has(id);
+      this.registry.revokeNode(id);
+      this.receipts.delete(id);
+      this.sourceModules.delete(id);
+      if (this.graph.getNode(id) && (id === nodeId || hadReceipt)) this.graph.updateStatus(id, 'blocked');
+    }
   }
 
   async verifyNode(input = {}) {
     const rejection = this.validateRequest(input);
     if (rejection) return this.rejectedReceipt(input.nodeId, rejection, input.source);
     const dependencyReceiptDigests = this.dependencyReceipts(input.nodeId).map((item) => item.receiptDigest);
+    const dependencyModules = this.materializedPrerequisites(input.nodeId);
     const execution = await this.executor({
-      nodeId: input.nodeId, source: input.source, timeoutMs: input.timeoutMs,
-      leanExecutable: input.leanExecutable, toolchainVersion: this.toolchainVersion,
+      nodeId: input.nodeId, source: input.source, timeoutMs: input.timeoutMs || this.timeoutMs,
+      leanExecutable: input.leanExecutable || this.leanExecutable, toolchainVersion: this.toolchainVersion,
       environmentDigest: this.environmentDigest, dependencyReceiptDigests,
+      dependencyModules,
     });
     const forbidden = this.forbiddenAxioms(execution.axioms);
-    const passed = execution.exitCode === 0 && execution.toolchainVersion === this.toolchainVersion && forbidden.length === 0;
+    const passed = passingExecution(execution, this) && this.prerequisitesVerified(input.nodeId);
+    if (!passed) this.invalidate(input.nodeId);
     const receipt = {
       nodeId: input.nodeId, status: passed ? 'passed' : 'failed',
       reason: passed ? null : (forbidden.length ? 'forbidden_axioms' : 'lean_execution_failed'),
@@ -174,6 +196,13 @@ class LeanIncrementalGate {
       axioms: execution.axioms || [], checkedAt: this.clock(),
     };
     receipt.receiptDigest = receiptDigest(receipt);
+    Object.freeze(receipt.axioms);
+    Object.freeze(receipt.dependencyReceiptDigests);
+    Object.freeze(receipt);
+    if (passed) {
+      issuedReceipts.add(receipt);
+      this.sourceModules.set(input.nodeId, dependencyModule(receipt, input.source, this.dependencyReceipts(input.nodeId)));
+    }
     this.receipts.set(input.nodeId, receipt);
     this.graph.updateStatus(input.nodeId, passed ? 'verified' : 'blocked');
     this.publish(receipt);
@@ -184,6 +213,21 @@ class LeanIncrementalGate {
     const receipt = this.receipts.get(nodeId);
     return receipt ? { ...receipt } : null;
   }
+
+  materializedPrerequisites(nodeId) {
+    const modules = new Map();
+    const visit = (id) => {
+      for (const parent of this.prerequisiteIds(id)) visit(parent);
+      const entry = this.sourceModules.get(id);
+      if (entry) modules.set(entry.moduleName, entry);
+    };
+    for (const id of this.prerequisiteIds(nodeId)) visit(id);
+    return [...modules.values()];
+  }
 }
 
-module.exports = { PLACEHOLDER_PROOF, LeanIncrementalGate, receiptDigest };
+function isGateReceipt(receipt) {
+  return issuedReceipts.has(receipt) && receiptDigest(receipt) === receipt.receiptDigest;
+}
+
+module.exports = { PLACEHOLDER_PROOF, LeanIncrementalGate, receiptDigest, isGateReceipt };
