@@ -16,7 +16,7 @@ const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
-const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
+const { estimatePromptTokens, resolveTokenBudget, resolveRequestTokenBudget, throwIfPromptOverBudget,
   resolveMaxOutputTokens, consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
 const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
@@ -74,6 +74,7 @@ async function generateWorkerResultOnce(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     contextTokens: ctx.mission.localContextTokens,
+    requestTokenBudget: resolveRequestTokenBudget(ctx),
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
@@ -241,6 +242,7 @@ async function runGenerationStage(ctx) {
     workerInstruction: stageDetails.workerInstruction(ctx.mission, kind),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
+  throwIfPromptOverBudget(estimatePromptTokens(promptText), budget);
   await stageDetails.recordAudit(ctx, { audit: identityExperimentAudit, promptText });
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
   let result = await generateWorkerResult({

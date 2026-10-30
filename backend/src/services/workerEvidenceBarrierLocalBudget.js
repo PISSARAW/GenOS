@@ -7,15 +7,13 @@ function estimatePromptTokens(prompt) {
   return Math.ceil(Buffer.byteLength(String(prompt), 'utf8') / 4);
 }
 
-const MIN_WORKER_OUTPUT_TOKENS = 256;
-
 function resolveMaxOutputTokens(budget, prompt, outputCap) {
   const tokenBudget = Number(budget);
   if (!Number.isFinite(tokenBudget) || tokenBudget <= 0) return undefined;
   const boundedBudget = Math.floor(tokenBudget);
-  const completionFloor = Math.min(MIN_WORKER_OUTPUT_TOKENS, boundedBudget);
-  const available = Math.min(boundedBudget,
-    Math.max(completionFloor, boundedBudget - estimatePromptTokens(prompt)));
+  const estimate = estimatePromptTokens(prompt);
+  throwIfPromptOverBudget(estimate, boundedBudget);
+  const available = boundedBudget - estimate;
   const cap = Number(outputCap);
   return Number.isFinite(cap) && cap > 0 ? Math.min(available, Math.floor(cap)) : available;
 }
@@ -24,6 +22,10 @@ function resolveTokenBudget(mission) {
   if (!mission) return 0;
   if (!mission.executionBudget) return 0;
   return Number(mission.executionBudget.tokens);
+}
+
+function resolveRequestTokenBudget(ctx) {
+  return ctx.requestTokenBudget ?? (resolveTokenBudget(ctx.mission) || undefined);
 }
 
 function promptBudgetError(estimate, budget) {
@@ -46,5 +48,5 @@ function throwIfConsumedOverBudget(consumed, budget) {
     + ' tokens above its ' + String(budget) + '-token budget.'), { code: 'BUDGET_EXHAUSTED' });
 }
 
-module.exports = { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
+module.exports = { estimatePromptTokens, resolveTokenBudget, resolveRequestTokenBudget, throwIfPromptOverBudget,
   resolveMaxOutputTokens, consumedTokensOf, throwIfConsumedOverBudget };

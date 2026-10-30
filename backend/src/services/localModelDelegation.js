@@ -62,7 +62,8 @@ function synthesisContext(ctx, planResult, children) {
   budget.throwIfPromptOverBudget(budget.estimatePromptTokens(promptText), remaining);
   const latencyMs = ctx.delegationDeadline - Date.now();
   if (latencyMs <= 0) throw failure('Delegation synthesis deadline exhausted.');
-  return { ...ctx, promptText, latencyMs, maxTokens: budget.resolveMaxOutputTokens(remaining, promptText) };
+  return { ...ctx, promptText, latencyMs, requestTokenBudget: remaining,
+    maxTokens: budget.resolveMaxOutputTokens(remaining, promptText) };
 }
 
 function combineResults(plan, synthesis) {
@@ -89,9 +90,12 @@ async function generate(ctx, generateOnce) {
   const planning = { ...ctx, maxTokens: Math.min(ctx.maxTokens, 1024),
     responseFormatOverride: planFormat(contract.spawnBudget),
     promptText: `${ctx.promptText}\n\nDELEGATION PLANNING PHASE: return only children with workerKind, mission, modelTokens, mode, dependsOn. Do not produce childSummaries yet. Use leaf workers only; total child modelTokens <= ${contract.limits.maxTokens}. mode is analysis, code (bounded_worker, requires existing write lease), or review (verifier_worker test-only). dependsOn=-1 means independent; review must refer to the zero-based index of an earlier code child whose tested files will be copied into the review capsule. Children use the same Qwen route. Never pretend tools ran.` };
+  planning.requestTokenBudget = Number(ctx.mission.executionBudget.tokens);
+  planning.maxTokens = budget.resolveMaxOutputTokens(planning.requestTokenBudget, planning.promptText, planning.maxTokens);
   const plan = await generateOnce(planning);
   let result;
   try {
+  assertPlanHasRemainder(ctx, plan);
   if (plan.schemaViolation) throw failure('Delegation plan does not match its provider schema.');
   const children = checkPlan(JSON.parse(plan.text), contract);
   const observed = [];
@@ -106,6 +110,12 @@ async function generate(ctx, generateOnce) {
       tokens: budget.consumedTokensOf(usage), cost_usd: usage.costUsd };
     throw error;
   }
+}
+
+function assertPlanHasRemainder(ctx, plan) {
+  const consumed = budget.consumedTokensOf(plan);
+  const limit = Number(ctx.mission.executionBudget.tokens);
+  if (consumed >= limit) throw Object.assign(new Error('Delegation plan exhausted its model budget before children or synthesis.'), { code: 'BUDGET_EXHAUSTED' });
 }
 
 module.exports = { enabled, generate, planFormat, checkPlan, combineResults };

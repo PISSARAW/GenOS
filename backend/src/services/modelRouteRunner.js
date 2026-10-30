@@ -99,7 +99,7 @@ function checkBudget(ctx, registered, prompt) {
   if (ctx.maxTokens === 0) throw Object.assign(new Error('Model output token budget is zero.'), { code: 'MODEL_TOKEN_BUDGET_EXCEEDED' });
   const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
   const inputTokens = modelProvider.estimateTokenCount(promptText);
-  const outputTokens = floorPositive(ctx.maxTokens, 2048);
+  const outputTokens = require('./modelRequestTokenBudget').outputLimit(ctx, inputTokens, floorPositive(ctx.maxTokens, 2048));
   const estimated = estimateCostUsd(quoteOf(registered), inputTokens, outputTokens);
   if (ctx.maxCostUsd != null && estimated > remainingBudget(ctx)) throw Object.assign(new Error(`Estimated model cost ${estimated} exceeds remaining budget ${remainingBudget(ctx)}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
   return { costUsd: estimated, tokens: inputTokens + outputTokens };
