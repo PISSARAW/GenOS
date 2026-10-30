@@ -13,7 +13,7 @@ function metadata(agent) {
   catch { throw denied('INVALID_SUBORCHESTRATOR_CONTRACT'); }
 }
 
-async function parent(db, agentId) {
+async function parent(db, agentId, runId) {
   const agent = await db.get('SELECT * FROM agents WHERE id = ?', agentId);
   const contract = agent && metadata(agent).workerContract;
   assertParentContract(agent, contract);
@@ -24,10 +24,26 @@ async function parent(db, agentId) {
   const scope = await provenance.agentScope(db, agentId);
   const rootScope = await provenance.agentScope(db, root.id);
   if (!scope?.organizationId || !scope.projectId || !provenance.sameTenant(scope, rootScope)) throw denied('DELEGATION_TENANT_MISMATCH');
-  await require('../missionEnvelopeAuthority').assertTool(db, { agentId, toolName: 'genos_delegate_worker' });
-  const mission = await db.get(`SELECT m.mission_id FROM missions m JOIN mission_agents ma ON ma.mission_id=m.mission_id
-    WHERE ma.agent_id=? AND m.status='active' AND m.orchestrator_agent_id=? ORDER BY ma.rowid DESC LIMIT 1`, agentId, root.id);
-  return { agent, contract, scope, root, missionId: mission?.mission_id || null };
+  const authority = await require('../missionEnvelopeAuthority').assertTool(db, { agentId, runId, toolName: 'genos_delegate_worker' });
+  const run = await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', authority.envelope.runId);
+  if (!['planned', 'running'].includes(run?.status)) throw denied('DELEGATION_PARENT_RUN_TERMINAL');
+  return { agent, contract, scope, root, missionId: authority.envelope.missionId, runId: authority.envelope.runId };
+}
+
+async function parentForChild(db, input) {
+  const scope = await provenance.agentScope(db, input.parentId);
+  const event = await ledger.getEvent(db, `gvx-delegation:${input.childId}`, scope);
+  const binding = event?.payload.binding;
+  if (event?.payload.kind !== 'bounded_worker_delegation' || binding?.schema !== SCHEMA
+      || binding.parentId !== input.parentId || binding.childId !== input.childId) throw denied('DELEGATION_BINDING_INVALID');
+  return parent(db, input.parentId, await bindingRunId(db, binding));
+}
+
+async function bindingRunId(db, binding) {
+  if (binding.parentRunId) return binding.parentRunId;
+  const runs = await db.all('SELECT id FROM strategy_execution_runs WHERE agent_id=? LIMIT 2', binding.parentId);
+  if (runs.length !== 1) throw Object.assign(new Error('Legacy delegation binding has no unique parent run; explicit rebinding is required.'), { code: 'DELEGATION_PARENT_RUN_UNBOUND' });
+  return runs[0].id;
 }
 
 function assertParentContract(agent, contract) {
@@ -70,7 +86,7 @@ function allocatedTokens(record, authorized) {
 }
 
 async function bindBound(db, input) {
-  const fresh = await parent(db, input.parentId);
+  const fresh = await parent(db, input.parentId, input.parentRunId);
   const agent = await db.get('SELECT * FROM agents WHERE id = ?', input.childId);
   const contract = agent && metadata(agent).workerContract;
   await assertChild(db, { agent, contract, authorized: fresh });
@@ -80,7 +96,7 @@ async function bindBound(db, input) {
   if (!Number.isSafeInteger(input.allocation) || input.allocation < 0 || modelTokens > input.allocation
       || !Number.isSafeInteger(modelTokens) || modelTokens < 0) throw denied('SUBORCHESTRATOR_TOKEN_LIMIT');
   const binding = values.canonical({ schema: SCHEMA, parentId: fresh.agent.id, childId: agent.id,
-    scope: fresh.scope, rootId: fresh.root.id, missionId: fresh.missionId, parentContractHash: values.digest(fresh.contract),
+    scope: fresh.scope, rootId: fresh.root.id, missionId: fresh.missionId, parentRunId: fresh.runId, parentContractHash: values.digest(fresh.contract),
     childContractHash: values.digest(contract), modelTokens, depth: 1,
     expiresAt: new Date(fresh.contract.delegationExpiresAt).toISOString() });
   await ledger.appendEvent(db, { id: `gvx-delegation:${agent.id}`, ...fresh.scope,
@@ -107,7 +123,7 @@ async function assertChild(db, input) {
 }
 
 async function authorize(db, input) {
-  const authorized = await parent(db, input.parent.id);
+  const authorized = await parentForChild(db, { parentId: input.parent.id, childId: input.agent.id });
   const contract = metadata(await db.get('SELECT * FROM agents WHERE id = ?', input.agent.id)).workerContract;
   const resource = await assertChild(db, { agent: input.agent, contract, authorized });
   const event = await ledger.getEvent(db, `gvx-delegation:${input.agent.id}`, authorized.scope);
@@ -124,10 +140,11 @@ async function authorize(db, input) {
 
 function bindingIsCurrent(binding, authorized, contract) {
   return binding.parentId === authorized.agent.id && binding.depth === 1
+    && (!binding.parentRunId || binding.parentRunId === authorized.runId)
     && binding.modelTokens === contract.resources.maxTokens && binding.missionId === authorized.missionId
     && values.digest(binding.scope) === values.digest(authorized.scope)
     && binding.expiresAt === new Date(authorized.contract.delegationExpiresAt).toISOString()
     && Date.now() < Date.parse(binding.expiresAt);
 }
 
-module.exports = { SCHEMA, parent, capacity, bind, authorize };
+module.exports = { SCHEMA, parent, parentForChild, capacity, bind, authorize };

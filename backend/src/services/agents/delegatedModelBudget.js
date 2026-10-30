@@ -5,7 +5,7 @@ async function scopeOwner(db, mission, scope) {
   const saved = await db.get('SELECT parent_agent_id FROM mission_model_budget_scopes WHERE scope_id = ?', scope.id);
   if (!saved || saved.parent_agent_id === immediate) return immediate;
   const bounded = require('./boundedDelegationAuthority');
-  const authorized = await bounded.parent(db, immediate);
+  const authorized = await bounded.parentForChild(db, { parentId: immediate, childId: mission.agentId });
   if (authorized.root.id !== saved.parent_agent_id || authorized.missionId !== mission.missionId) {
     throw Object.assign(new Error('Delegated budget belongs to another root or mission.'), { code: 'MISSION_MODEL_BUDGET_SCOPE_INVALID' });
   }

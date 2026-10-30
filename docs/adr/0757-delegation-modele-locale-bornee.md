@@ -13,3 +13,26 @@ Validation : `test_local_model_delegation.cjs` utilise une vraie base et un four
 Une dépendance `dependsOn` en mode analyse ou code projette le rapport du receipt producteur dans le prompt enfant. La projection vérifie les deux workers frères, leur mission, tenant et run producteur, puis relit le receipt scellé et son hash. Elle est bornée à 24 Ko et conserve explicitement `verified: false` si le résultat ne possède pas de preuve sémantique. Cette transmission est une donnée, pas une instruction d'autorité ni une promotion. Elle ne copie aucun fichier ; seule la revue de code utilise le snapshot testé prévu à cet effet. Une référence manquante, hors scope ou falsifiée est refusée.
 
 Le runtime revalide l’autorité de mission après le dernier enfant et juste avant la synthèse modèle. Une révocation pendant ce dernier enfant interdit ainsi tout nouvel appel fournisseur de synthèse. `test_local_delegation_synthesis_authority.cjs` vérifie le chemin valide et cette révocation, avec un seul appel de planification consommé en cas de refus.
+
+Une reprise du même sous-orchestrateur crée un nouveau run. Le dispatcher transmet
+désormais explicitement le run parent scellé à l'autorisation de délégation et au
+binding signé de chaque enfant (`parentRunId`). Le bootstrap de l'enfant et son
+budget partagé retrouvent ce run depuis le binding, sans choisir le dernier run
+de l'agent. La mission provient de l'enveloppe du run, et le run parent doit être
+encore `planned` ou `running`. Un run étranger, terminal ou révoqué reste refusé.
+Le nombre d'enfants et les allocations restent cumulés sur le contrat du worker,
+y compris entre reprises ; un nouveau run ne réinitialise pas ces plafonds.
+
+Les bindings v1 historiques sans `parentRunId` ne restent utilisables que si le
+parent possède exactement un run, encore autorisé. Dès que plusieurs runs rendent
+la liaison ambiguë, `DELEGATION_PARENT_RUN_UNBOUND` demande un raccordement explicite ;
+aucun rattrapage par « dernier run » n'est effectué. L'appel de délégation sans run
+explicite continue à produire `EXECUTION_AUTHORITY_RUN_REQUIRED` en cas d'ambiguïté.
+
+La sonde `test_cli_local_delegation_recovery.cjs` lance le vrai CLI avec la requête
+du mini-projet CSV et un provider simulé. Une première synthèse volontairement
+rejetée déclenche la récupération réelle du même worker. La sonde de perte de
+contexte reproduit le refus, puis le chemin corrigé crée des enfants et une revue
+`pytest` dans des runs distincts liés au nouveau parent. Ce test n'est pas une
+mesure Qwen. `test_bounded_delegation_parent_run.cjs` vérifie aussi la compatibilité
+v1 à run unique et le refus des bindings ambigus, runs clos et missions révoquées.

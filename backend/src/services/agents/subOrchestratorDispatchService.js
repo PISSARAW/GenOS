@@ -67,7 +67,7 @@ async function createChild(db, parent, args) {
   if (args[TRUSTED_RUNTIME]) Object.assign(mission, inheritedModelRuntime(args[TRUSTED_RUNTIME], args));
   const workers = await withTransaction(db, async () => {
     const bounded = require('./boundedDelegationAuthority');
-    const current = await bounded.parent(db, parent.id);
+    const current = await bounded.parent(db, parent.id, args[TRUSTED_RUNTIME]?.executionRun.id);
     mission.missionId = current.missionId;
     const remaining = await bounded.capacity(db, current);
     const plan = workerPlan({ ...current.agent, metadata: { workerContract: current.contract } }, assignment, remaining);
@@ -76,7 +76,7 @@ async function createChild(db, parent, args) {
       plan, mission
     });
     if (created.length !== 1) throw Object.assign(new Error('Delegation requires exactly one persisted child.'), { code: 'DELEGATION_BINDING_INVALID' });
-    await bounded.bind(db, { parentId: parent.id, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
+    await bounded.bind(db, { parentId: parent.id, parentRunId: current.runId, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
     return created;
   });
   await prepareModelWorkspace(db, { parent, args, worker: workers[0], mission });
