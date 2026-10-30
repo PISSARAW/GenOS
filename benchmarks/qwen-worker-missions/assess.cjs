@@ -10,6 +10,7 @@ function negativeResult(terminal) {
   const completion = ['scopeCompletion', 'handoff', 'childSummaries', 'recoveryReceipt']
     .some(key => report[key] !== undefined || content[key] !== undefined);
   if (completion || report.tests?.length) return { status: 'failed', reason: 'Negative case claims completed work.' };
+  if ((report.claims || []).length) return { status: 'unmeasured', reason: 'Negative verdict with claims is not an unambiguous claim-free refusal.' };
   if (report.workerArtifact?.type === 'verification_report' && content.verdict === 'unresolved') {
     return { status: 'passed', reason: 'Verification verdict remains unresolved; no completed work claimed.' };
   }

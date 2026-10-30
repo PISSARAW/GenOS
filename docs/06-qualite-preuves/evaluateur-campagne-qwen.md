@@ -11,6 +11,10 @@ Pour le poème, seuls le nombre de lignes, les strophes et le mot interdit sont 
 Cet évaluateur est indépendant du worker et ne crée aucun oracle ni receipt sémantique GenOS. Son champ `genosSemanticOracle` vaut toujours `false`. Les métadonnées du run et la preuve d'appel Qwen doivent être examinées séparément dans la campagne.
 # Entrées numériques non ambiguës
 
+Un cas négatif ne peut passer qu'avec un refus sans claim ni trace d'accomplissement.
+Un verdict `unresolved` accompagné de claims reste non mesuré, car un contrôleur
+structurel ne sait pas distinguer un claim explicatif d'une action prétendument faite.
+
 L'inspection relit l'identité du worker dans le reçu final CLI, la confirme dans
 les agents, les membres de mission et le binding biologique du run. L'évaluation
 porte uniquement sur le dernier run de ce worker et son propre événement terminal.

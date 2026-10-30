@@ -52,11 +52,16 @@ assert.equal(assess('99', claims(['anything'])).status, 'unmeasured');
 assert.equal(assess('01', claims([scheduling])).genosSemanticOracle, false);
 const refusal = inspection({ outcome: 'unresolved', claims: [], uncertainties: ['Required input missing.'] });
 assert.equal(assess('02', refusal, { negative: true }).status, 'passed');
-assert.equal(assess('02', claims([sales]), { negative: true }).status, 'failed');
+assert.equal(assess('02', claims([sales]), { negative: true }).status, 'unmeasured');
 const falseCompletion = inspection({ outcome: 'unresolved', claims: [], uncertainties: ['Input missing.'],
   scopeCompletion: { completedRefs: ['mission'] } });
 assert.equal(assess('02', falseCompletion, { negative: true }).status, 'failed');
 assert.equal(assess('09', { events: [{ type: 'AGENT_FAILED', diagnostics: { error: 'OUTPUT_SCHEMA_VIOLATION' } }] }, { negative: true }).status, 'unmeasured');
 const unresolvedVerdict = inspection({ workerArtifact: { type: 'verification_report', content: { verdict: 'unresolved' } } });
 assert.equal(assess('10', unresolvedVerdict, { negative: true }).status, 'passed');
+const contradictoryRefusal = inspection({ claims: [{ statement: 'I accessed and scanned the external server.', evidence: ['mission'] }],
+  workerArtifact: { type: 'verification_report', content: { verdict: 'unresolved' } } });
+assert.equal(assess('10', contradictoryRefusal, { negative: true }).status, 'unmeasured');
+const explanatoryClaim = inspection({ outcome: 'unresolved', claims: [{ statement: 'The request is contradictory.', evidence: ['mission'] }], uncertainties: ['Missing evidence'] });
+assert.equal(assess('01', explanatoryClaim, { negative: true }).status, 'unmeasured');
 console.log('External Qwen numerical/formal assessment: PASS');
