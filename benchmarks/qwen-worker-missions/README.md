@@ -20,6 +20,8 @@ La fenêtre locale est déclarée explicitement à 16 384 tokens et transmise à
 
 Les cartes numériques demandent un objet JSON unique dans le texte du claim. L'évaluateur recalcule ses valeurs et refuse les formes ambiguës, contradictoires ou non exploitables ; il ne déduit pas la réussite de la simple présence d'un nombre dans une phrase. Le rapport évalué et sa télémétrie doivent appartenir au worker et au run identifiés par le reçu CLI, avec le modèle demandé.
 
+L'empreinte des fixtures inclut récursivement les noms et contenus, refuse les liens et doit être identique avant toutes les répétitions. Les fichiers source non suivis empêchent aussi la campagne. Les fichiers ignorés et les dépendances installées ne sont pas couverts par cette empreinte Git : les lockfiles ne constituent pas une preuve d'immuabilité des modules installés.
+
 Pour un lancement local direct, fournir un budget parent explicite et un plafond inférieur pour le worker. Le runtime crée et lie le scope budgétaire parent. Le [rapport du pilote](rapport-pilote-2026-10-30.md) décrit les résultats et limites observés.
 
 Payload de référence :

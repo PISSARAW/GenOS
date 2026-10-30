@@ -10,12 +10,16 @@ if (!/^D:\\/i.test(root)) throw new Error('Supply an absolute campaign directory
 if (fs.existsSync(root)) throw new Error('Campaign directory must be new.');
 const git = args => spawnSync('git', args, { cwd: source, encoding: 'utf8', windowsHide: true });
 const revision = git(['rev-parse', 'HEAD']).stdout.trim();
-if (git(['status', '--porcelain', '--untracked-files=no']).stdout.trim()) throw new Error('Commit source changes before running.');
+if (git(['status', '--porcelain']).stdout.trim()) throw new Error('Commit source changes before running.');
 fs.mkdirSync(root, { recursive: true });
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const write = (file, value) => fs.writeFileSync(file, typeof value === 'string' ? value : JSON.stringify(value, null, 2));
 function workspaceHash(workspace) {
-  return hash(fs.readdirSync(workspace).sort().map(name => [name, hash(fs.readFileSync(path.join(workspace, name)))]).map(entry => JSON.stringify(entry)).join('\n'));
+  return hash(fs.readdirSync(workspace, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).map(entry => {
+    if (entry.isSymbolicLink()) throw new Error('Fixture symlinks are not supported.');
+    const file = path.join(workspace, entry.name);
+    return [entry.name, entry.isDirectory() ? 'directory' : 'file', entry.isDirectory() ? workspaceHash(file) : hash(fs.readFileSync(file))];
+  }).map(entry => JSON.stringify(entry)).join('\n'));
 }
 function producerRecord(name) {
   const artifact = path.join(root, name, 'evidence.json');
@@ -49,7 +53,7 @@ function fixture(item) {
     write(path.join(workspace, 'parser.py'), "def parse(lines):\n    return [int(line.strip() or 0) for line in lines]\n");
     write(path.join(workspace, 'test_parser.py'), "from parser import parse\ndef test_missing():\n    assert parse(['10', '', '20']) == [10,20]\n");
   }
-  return workspace;
+  return { path: workspace, hash: workspaceHash(workspace) };
 }
 function budgets(id) {
   return id === '12' ? { worker: 12000, parent: 40000 } : { worker: 9000, parent: 24000 };
@@ -66,7 +70,9 @@ function payload(item, workspace, negative) {
   if (item.id === '12' && negative) request.delegationLimit = 0;
   return request;
 }
-function execute(item, workspace, suffix) {
+function execute(item, snapshot, suffix) {
+  const workspace = snapshot.path;
+  if (workspaceHash(workspace) !== snapshot.hash) throw new Error('Initial fixture differs between repetitions.');
   if (git(['rev-parse', 'HEAD']).stdout.trim() !== revision) throw new Error('Source revision changed during campaign.');
   const name = `${item.id}-${suffix}`;
   const dir = path.join(root, name);
@@ -93,7 +99,7 @@ function execute(item, workspace, suffix) {
   } else write(path.join(dir, 'assessment.json'), { status: 'unmeasured', reason: 'Evidence inspection failed', exitCode: inspected.status });
   process.stdout.write(`FINISH ${name} exit=${result.status}\n`);
   if (workspaceHash(workspace) !== initialWorkspaceHash) throw new Error('Initial source workspace mutated during execution.');
-  if (git(['rev-parse', 'HEAD']).stdout.trim() !== revision || git(['status', '--porcelain', '--untracked-files=no']).stdout.trim()) throw new Error('Source code changed during execution.');
+  if (git(['rev-parse', 'HEAD']).stdout.trim() !== revision || git(['status', '--porcelain']).stdout.trim()) throw new Error('Source code changed during execution.');
 }
 async function main() {
   const endpoint = 'http://127.0.0.1:11435';
