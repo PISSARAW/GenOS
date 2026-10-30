@@ -1,6 +1,6 @@
 # ADR 0756 — Handoff résident pour les workers directs
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-10-30
 
 ## Contexte

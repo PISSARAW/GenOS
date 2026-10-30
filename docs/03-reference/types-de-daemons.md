@@ -672,6 +672,8 @@ Source : `backend/src/services/daemon/daemonStigmergyService.js:11-111`,
   et ne garantissent ni la pertinence sémantique ni la vérification de leur contenu.
   Le lancement direct d'un worker annonce aussi la mission au pont territorial et
   joint le brief disponible au prompt sous forme de contexte à vérifier (ADR 0756).
+  La [campagne Qwen du 30 octobre 2026](../06-qualite-preuves/campagne-daemons-qwen-2026-10-30.md)
+  vérifie ce transport et distingue ses résultats de l'acceptation sémantique des missions.
 - Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement;
   le signal local n'est pas le transport du dossier. Le brief est consommé via la
   récupération explicite et passe alors de `READY` à `CONSUMED`.
