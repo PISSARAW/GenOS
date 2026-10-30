@@ -1,6 +1,8 @@
 'use strict';
 
 function definition(domain = 'subset_sum') {
+  if (domain === 'workspace_claims') return { subject: require('./oracleWorkspaceSubject'),
+    claim: require('./oracleWorkspaceClaim'), checks: require('./oracleWorkspaceChecks'), verifierType: 'workspace_semantic' };
   if (domain === 'model_subset_sum') return { subject: require('./oracleModelSubject'),
     claim: require('./oracleModelClaim'), checks: require('./oracleModelChecks'), verifierType: 'model_semantic' };
   const observations = require('./oracleObservationSubject').SPECS;
@@ -23,6 +25,9 @@ function definition(domain = 'subset_sum') {
 async function load(db, request) {
   const binding = await require('../biologicalWorkerStore').binding(db, request.runId);
   const method = binding?.genome.workerContract?.mission?.methodContract;
+  if (binding?.genome.workerContract?.assignment?.workspaceVerificationContract) {
+    return require('./oracleWorkspaceSubject').load(db, request);
+  }
   if (method?.methodId === 'model_subset_sum') return require('./oracleModelSubject').load(db, request);
   if (method?.methodId === 'replenish_external_quota') {
     const subject = await require('./oracleExternalCreditSubject').load(db, request);
@@ -49,6 +54,7 @@ async function load(db, request) {
 }
 
 function executionOptions(subject, request) {
+  if (subject.domain === 'workspace_claims') return { nativeWorkspaceSubject: request };
   if (subject.domain === 'model_subset_sum') return { nativeModelSubject: request };
   if (['literal_observation', 'monitor_window', 'claim_synthesis', 'declared_causality', 'lpt_experiment',
     'procedure_verification', 'procedure_falsification', 'subset_sum_teaching', 'formal_theorem',

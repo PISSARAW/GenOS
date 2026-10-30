@@ -3,6 +3,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const SOURCES = Object.freeze([
+  'epistemic/verifierSemanticAdapters.js',
+  'epistemic/workspaceVerificationContract.js', 'epistemic/oracleWorkspaceSubject.js',
+  'epistemic/oracleWorkspaceClaim.js', 'epistemic/oracleWorkspaceAdapter.js',
+  'epistemic/oracleWorkspaceChecks.js', 'epistemic/oracleWorkspaceNativeEntry.cjs',
+  'epistemic/workspaceOracleValues.js', 'epistemic/workspaceOracleNumerics.js',
+  'epistemic/workspaceOracleRecords.js', 'epistemic/workspaceOracleCreative.js',
+  'epistemic/workspacePalindromeKernel.js',
   'verifierTrustRegistry.js', 'epistemic/verifierAdapters.js',
   'epistemic/verifierRuntimeBridge.js', 'epistemic/verifierReceiptBuilder.js',
   'epistemicVerifierReceiptService.js', 'sandboxExecutor.js',

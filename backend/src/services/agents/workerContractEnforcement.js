@@ -245,6 +245,7 @@ function invalidContract() {
 }
 
 function assertAssignmentMatches(contract, request) {
+  require('../epistemic/workspaceVerificationContract').assertMatches(contract, request);
   const kind = contract?.identity?.workerKind;
   if (require('./workerRuntimeLimitsService').isDeterministicWorkerMission({ workerKind: kind,
     methodContract: contract.mission?.methodContract })) {

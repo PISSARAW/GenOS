@@ -137,6 +137,7 @@ const KNOWN_VERIFIER_TYPES = [
   'memory_semantic',
   'code_semantic',
   'model_semantic',
+  'workspace_semantic',
   'native_oracle_quality',
 ];
 

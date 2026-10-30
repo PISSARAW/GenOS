@@ -193,10 +193,11 @@ async function runSingleVerifier(antigen, verifier, ctx) {
       nativeMemoryRuntimeSubject: ctx.opts.nativeMemoryRuntimeSubject, nativeCodeSubject: ctx.opts.nativeCodeSubject,
       nativeObservationSubject: ctx.opts.nativeObservationSubject,
       nativeModelSubject: ctx.opts.nativeModelSubject,
+      nativeWorkspaceSubject: ctx.opts.nativeWorkspaceSubject,
       onOracleExecution: ctx.opts.onOracleExecution }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
-  const executed = ['procedure_semantic', 'external_credit_semantic', 'worker_artifact_semantic',
+  const executed = ['workspace_semantic', 'procedure_semantic', 'external_credit_semantic', 'worker_artifact_semantic',
     'memory_semantic', 'code_semantic', 'observation_semantic', 'model_semantic'].includes(verifier.type)
     ? require('./oracleProcedureAdapter').executedVerifier(verifier, outcome) : { ...verifier, executionWorkspace };
   const independence = executionWorkspace
