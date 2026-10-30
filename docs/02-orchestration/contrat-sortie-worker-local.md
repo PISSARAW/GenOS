@@ -9,3 +9,7 @@ Lorsque `artifactText` est fourni, son format balisÃ© reste contrÃ´lÃ©. Les expÃ
 Une mission locale peut activer `readOnlyWorkspaceEvidence: true` pour recevoir le contenu borné des fichiers de sa capsule et les références SHA-256 réellement lues. Le dispatch direct et le fallback Windows transmettent cette option au worker. Cette option n'accorde aucune écriture. Le modèle doit citer les références SHA-256 listées, et non inventer des reçus ou des chemins producteur.
 
 L'identité d'exécution est explicite : un identifiant contenant `orchestrator` ne transforme pas un worker en orchestrateur. Les missions marquées `executionMode: worker` conservent donc le contexte de preuves de fichiers. Sans cette option, le contexte de fichiers n'est pas fourni implicitement.
+
+## Politique du worker direct
+
+Le dispatch direct conserve la priorité des paramètres explicites sur `executionPolicy`, puis sur les valeurs d'environnement pour les commandes et les éditions. Une liste de commandes invalide ou un JSON d'environnement illisible donne une liste vide. La normalisation est isolée dans `directWorkerPolicy.cjs` ; cette extraction ne modifie pas les autorisations accordées.

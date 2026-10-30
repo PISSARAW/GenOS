@@ -15,7 +15,7 @@ const dynamicOrganization = require('../src/services/dynamicOrganizationService'
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
-const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { workerPolicy } = require('./directWorkerPolicy.cjs');
 const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { workerToolLeaseForCapabilities } = require('../src/services/agentOrchestrationState');
@@ -335,15 +335,7 @@ function requestLocalRuntime(request = {}) {
   if (request.localRuntime === true) return true;
   return String(request.executor || request.runtime || '').trim().toLowerCase() === 'local';
 }
-function workerPolicy(request = {}) {
-  const policy = request.executionPolicy || {};
-  const explicitCommands = firstPresent(request.allowed_commands, request.allowedCommands, policy.allowedCommands);
-  const explicitEdits = firstPresent(request.allow_file_edits, request.allowFileEdits, policy.allowFileEdits);
-  let inherited;
-  if (explicitCommands !== undefined) inherited = normalizeAllowedCommands(explicitCommands) || [];
-  else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
-  return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, ...(Array.isArray(firstPresent(request.allowed_write_paths, request.allowedWritePaths, policy.allowedWritePaths)) ? { allowedWritePaths: firstPresent(request.allowed_write_paths, request.allowedWritePaths, policy.allowedWritePaths) } : {}), silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')), gqwfV2: policy.gqwfV2 === true, gqwfMaterializer: policy.gqwfMaterializer };
-}
+
 async function handleWorker({ db, context }) {
   const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
   if (!parent) throw new Error(`Orchestrator '${context.orchestratorId}' was not found.`);
