@@ -14,3 +14,9 @@ Avant les tests, le runner contrôle l'identité du reviewer, la mission, le has
 du manifeste délégué et les hashes des fichiers candidats. Le reçu de tests
 conserve le hash du snapshot, son reçu de délégation et le run producteur ;
 la revue reste ainsi rattachée au candidat effectivement testé.
+
+L'assemblage du prompt sépare le bloc d'instructions de code ou de revue du
+contexte d'analyse. Cette extraction conserve le texte et la sélection du
+protocole : une revue reçoit toujours le format `genos.test-only/v1`, aucun patch
+et la même liste de commandes autorisées. Les tests de revue et de lecture seule
+contrôlent ces chemins après refactorisation.
