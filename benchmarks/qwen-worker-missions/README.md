@@ -16,6 +16,8 @@ Le répertoire de sortie doit être nouveau. Le serveur Ollama de D: doit écout
 
 Les entrées sont versionnées dans `cases.json`. Les négatifs ne prescrivent plus la réponse `unresolved` : le worker doit détecter la contradiction ou l'absence de preuve. Ce changement de protocole doit être pris en compte dans toute comparaison avec la première campagne. Un échec numérique du modèle reste un échec ; le protocole ne remplace pas sa réponse par une solution prédéfinie.
 
+La fenêtre locale est déclarée explicitement à 16 384 tokens et transmise à Ollama. Le contrôle préalable utilise une estimation du prompt ; il ne constitue pas un comptage exact du tokenizer. Les manifests enregistrent la version Node, les empreintes des lockfiles et les digests des modèles. Les dépendances installées doivent rester stables pendant la campagne.
+
 Pour un lancement local direct, fournir un budget parent explicite et un plafond inférieur pour le worker. Le runtime crée et lie le scope budgétaire parent. Le [rapport du pilote](rapport-pilote-2026-10-30.md) décrit les résultats et limites observés.
 
 Payload de référence :

@@ -62,7 +62,7 @@ function payload(item, workspace, negative) {
   const request = { action: 'dispatch_worker', workspaceRoot: workspace,
     mission: negative ? item.negative : item.positive, role: item.kind, workerKind: item.kind,
     executor: 'local', localModel: ['01', '03', '11', '12'].includes(item.id) ? 'ollama://qwen2.5-coder:32b' : 'ollama://qwen2.5-coder:7b',
-    readOnlyWorkspaceEvidence: true, workerTokenLimit: budget.worker,
+    readOnlyWorkspaceEvidence: true, localContextTokens: 16384, workerTokenLimit: budget.worker,
     execution_budget: { tokens: budget.parent, costUsd: 1 }, timeoutMs: 300000 };
   if (item.id === '03' && !negative) Object.assign(request, { localCodeWorker: true, allowFileEdits: true, allowedWritePaths: ['palindrome.py'], requiredPatchPaths: ['palindrome.py'], allowedCommands: ['pytest'] });
   if (item.id === '12' && !negative) Object.assign(request, { allowFileEdits: true, allowedWritePaths: ['parser.py'], allowedCommands: ['pytest'] });
