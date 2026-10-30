@@ -91,6 +91,7 @@ function daemonState(runtime) {
   return {
     live: runtime?.live === true,
     daemonId: runtime?.daemonId || null,
+    health: runtime?.health || null,
     reason: runtime?.reason || null
   };
 }

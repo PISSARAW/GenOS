@@ -88,6 +88,13 @@ async function main() {
   assert.equal((await db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [taskA.id])).status, 'blocked');
 
   const taskB = (await store.listTasks(db, projectId)).find((task) => task.status === 'todo');
+  await db.run("UPDATE daemon_runtime_state SET health = 'DEGRADED' WHERE territory_id = ?", [TERRITORY]);
+  const degraded = await stewardship.reconcileBacklog(db, {
+    project: await store.getProject(db, projectId), config,
+    snapshot: await sensory.observeProject(db, { root_path: ROOT })
+  });
+  assert.equal(degraded.reason, 'daemon-unhealthy');
+  await db.run("UPDATE daemon_runtime_state SET health = 'HEALTHY' WHERE territory_id = ?", [TERRITORY]);
   await db.run("UPDATE daemon_runtime_state SET last_heartbeat_at = datetime('now', '-5 minutes') WHERE territory_id = ?", [TERRITORY]);
   const offline = await stewardship.reconcileBacklog(db, {
     project: await store.getProject(db, projectId), config,

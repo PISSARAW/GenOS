@@ -96,7 +96,7 @@ function parseSqliteUtc(text) {
 async function daemonLive(db, territoryId) {
   try {
     const row = await db.get(
-      `SELECT daemon_id, last_heartbeat_at FROM daemon_runtime_state
+      `SELECT daemon_id, health, last_heartbeat_at FROM daemon_runtime_state
        WHERE territory_id = ? ORDER BY last_heartbeat_at DESC LIMIT 1`,
       territoryId
     );
@@ -104,7 +104,7 @@ async function daemonLive(db, territoryId) {
     const beat = parseSqliteUtc(row.last_heartbeat_at);
     if (beat === null) return { live: false, daemonId: row.daemon_id, reason: 'heartbeat-unparsable' };
     const ageMs = Date.now() - beat;
-    return { live: ageMs <= DAEMON_LIVE_AFTER_MS, daemonId: row.daemon_id, ageMs };
+    return { live: ageMs <= DAEMON_LIVE_AFTER_MS, daemonId: row.daemon_id, health: row.health, ageMs };
   } catch (_) {
     return { live: false, reason: 'liveness-unavailable' };
   }

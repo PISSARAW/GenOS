@@ -126,6 +126,9 @@ async function reconcileFresh(db, input) {
   if (input.policy.requireLiveDaemon && input.snapshot.daemon?.live !== true) {
     return { enabled: true, enqueued: 0, retired, eligible: input.findings.length, reason: 'daemon-not-live' };
   }
+  if (input.policy.requireLiveDaemon && input.snapshot.daemon?.health !== 'HEALTHY') {
+    return { enabled: true, enqueued: 0, retired, eligible: input.findings.length, reason: 'daemon-unhealthy' };
+  }
   const enqueued = await enqueueAvailable(db, {
     policy: input.policy, projectId: input.project.id,
     findings: input.findings, snapshot: input.snapshot
