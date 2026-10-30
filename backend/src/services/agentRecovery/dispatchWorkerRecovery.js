@@ -38,10 +38,6 @@ function isCancelled(barrier) {
   return Boolean(barrier && barrier.cancelled);
 }
 
-function isAlreadyValidated(source) {
-  return source?.status === 'completed';
-}
-
 function addWorkerToBarrier(barrier, workerId) {
   if (barrier && barrier.workerIds) barrier.workerIds.add(workerId);
 }
@@ -320,9 +316,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     return false;
   }
   const orchestratorId = source.parent_agent_id;
-  if (isAlreadyValidated(source)) {
-    await durableQueue.finish(recovery.durableItem, 'dispatched');
-    emit(orchestratorId, 'WORKER_RECOVERY_REDUNDANT', 'RECOVERY_SKIPPED', `Recovery skipped: source worker '${sourceAgentId}' already completed with validated work; no replacement will be promoted.`, { sourceWorkerId: sourceAgentId, workerId: sourceAgentId, terminal: true }, 'info');
+  if (await require('./recoveryAdmission').skipValidatedOrExpired(recovery, source)) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
@@ -347,12 +341,14 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: target.targetId, name: target.name, role: target.role, mission: target.prompt });
     workspace = await createRecoveryWorkspace(db, source, mission, target);
     const nextVariant = emitRecoveryDispatch(orchestratorId, target, { sourceAgentId, report, decision, garage, mission });
-    if (isCancelled(recoveryBarrier) || !(await durableQueue.isClaimActive(recovery.durableItem))) {
-      await durableQueue.finish(recovery.durableItem, 'cancelled');
+    const stopped = await require('./recoveryAdmission').beforeLaunch({ mission, barrier: recoveryBarrier, durableItem: recovery.durableItem });
+    if (stopped) {
+      await durableQueue.finish(recovery.durableItem, stopped);
       await cancelRecoveryDispatch(db, target, workspace);
       return false;
     }
-    await startMission(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
+    const recoveryMission = require('./recoveryDeadline').limit(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
+    await startMission(recoveryMission);
     missionDispatched = true;
     await durableQueue.finish(recovery.durableItem, 'dispatched');
     return true;

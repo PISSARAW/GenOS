@@ -257,6 +257,22 @@ async function checkValidatedWorkNotRedispatched(db) {
   assert.ok(!orchestrationState.pendingWorkerRecoveries.has('rec-done'), 'the moot recovery is dropped');
 }
 
+async function checkExpiredRecoveryNotRedispatched(db) {
+  clearSharedState();
+  const before = recoveryWorkspaceCalls;
+  const { mission, report, decision } = queuedRecovery('rec-w', 'unresolved_task', {
+    executionDeadlineAt: iso(-1000), readOnlyWorkspaceEvidence: true
+  });
+  const durable = require('../src/services/agentRecovery/durableRecoveryQueue');
+  await durable.enqueue({ workerId: 'rec-w', mission, report, decision, key: 'expired-recovery' });
+  assert.equal(await dispatchWorkerRecovery('rec-w'), false);
+  assert.equal(startedMissions.length, 0, 'expired durable recovery cannot start a model');
+  assert.equal(recoveryWorkspaceCalls, before, 'expired recovery cannot allocate a capsule');
+  const row = await db.get('SELECT status, claim_token FROM worker_recovery_queue WHERE recovery_key = ?', 'expired-recovery');
+  assert.deepEqual(row, { status: 'exhausted', claim_token: null });
+  assert.ok(emitted.some(args => args[1] === 'WORKER_RECOVERY_EXHAUSTED' && args[2] === 'DEADLINE'));
+}
+
 async function checkExhaustionVerdict(db) {
   clearSharedState();
   const garage = require('../src/services/workerGarageService');
@@ -333,6 +349,7 @@ async function run() {
     await checkTrinityRecoveryKeepsSealedWorkspace(db);
     await checkRecoveryLineageUsesWorkspaceParent(db);
     await checkValidatedWorkNotRedispatched(db);
+    await checkExpiredRecoveryNotRedispatched(db);
     await checkExhaustionVerdict(db);
     await checkQueueRefresh();
     await checkBoundedObservation();
