@@ -22,6 +22,10 @@ async function main() {
     assert.equal(refused.verified, false);
     delete process.env.GENOS_AGENT_GIT_MERGE_PROBES;
     assert.equal((await verifyFunctionalMerge(state)).verified, false);
+    process.env.GENOS_AGENT_GIT_REQUIRE_MERGE_PROBES = 'false';
+    assert.equal((await verifyFunctionalMerge(state)).verified, false);
+    delete process.env.GENOS_AGENT_GIT_REQUIRE_MERGE_PROBES;
+    assert.equal((await verifyFunctionalMerge(state)).verified, false);
   } finally {
     for (const key of keys) {
       if (original[key] === undefined) delete process.env[key];
