@@ -2,7 +2,7 @@
 
 Cette suite propose des missions réelles à exécuter avec un worker GenOS routé vers un modèle Qwen local. Elle complète `benchmarks/workers/`, dont plusieurs cas testent directement les exécuteurs déterministes et ne mesurent donc pas la génération Qwen.
 
-> **État d'exécution :** après correction du lancement et du schéma, un run Qwen 32B de la mission 01 a produit une affectation correcte, recalculée indépendamment. GenOS indique encore `missionOutcome: unmeasured` et les répétitions et missions suivantes restent à réaliser. Voir le [rapport du pilote](rapport-pilote-2026-10-30.md).
+> **État d'exécution :** les douze cartes ont été lancées avec répétitions et cas négatifs sur D:. Les résultats sont contrastés et ne qualifient pas l'ensemble des workers. Voir le [rapport de campagne](rapport-campagne-2026-10-30.md) et le [rapport du pilote](rapport-pilote-2026-10-30.md).
 
 ## Lancement
 
