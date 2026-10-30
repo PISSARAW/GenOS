@@ -52,8 +52,28 @@ async function applyCheapUpdate(bridge, event, receptor) {
   if (receptor.cheapUpdate === 'head') {
     return applyHeadUpdate(bridge, { ...event, rootPath: event.rootPath || stored.territory.rootPath });
   }
+  if (event.type === 'TERRITORY_FILE_CHANGED') {
+    const files = safeChangedFiles(event.payload?.files || (event.payload?.file ? [event.payload.file] : []));
+    const fresh = stored.territory.state !== 'STALE' && stored.territory.indexedHeadSha === stored.territory.headSha;
+    if (!files?.length || !fresh) {
+      await markIndexStale(bridge.db, event.territoryId);
+      return { applied: false, reason: files?.length ? 'index-already-stale' : 'changed-files-unavailable' };
+    }
+    try {
+      const result = await cartographer.updateFiles(bridge.db, { territoryId: event.territoryId,
+        rootPath: stored.territory.rootPath, files });
+      return { applied: true, kind: 'files', ...result };
+    } catch (_) {
+      await markIndexStale(bridge.db, event.territoryId);
+      return { applied: false, reason: 'file-index-refresh-failed' };
+    }
+  }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
+}
+
+async function markIndexStale(db, territoryId) {
+  await db.run("UPDATE daemon_territories SET state = 'STALE', indexed_head_sha = NULL WHERE id = ? AND state != 'APOPTOTIC'", territoryId);
 }
 
 async function refreshDelta(bridge, job) {
