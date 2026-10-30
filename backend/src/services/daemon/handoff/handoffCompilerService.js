@@ -75,6 +75,15 @@ async function architectureRefs(db, territoryId) {
     .map((node) => ({ path: node.path, headSha: node.head_sha || null }));
 }
 
+async function missionFileRefs(db, job) {
+  const mission = String(job.mission || '').toLowerCase();
+  const nodes = await graphStore.listNodes(db, { territoryId: job.territoryId });
+  return nodes.filter((node) => ['file', 'test'].includes(node.kind) && typeof node.path === 'string')
+    .filter((node) => mission.includes(node.path.toLowerCase()))
+    .slice(0, MAX_ARCHITECTURE_REFS)
+    .map((node) => ({ path: node.path, hash: node.hash || null }));
+}
+
 function isArchitecturePath(path) {
   return typeof path === 'string' && (
     /(^|\/)(AGENTS\.md|README(?:\.[^/]*)?|package\.json|Cargo\.toml)$/i.test(path)
@@ -152,6 +161,7 @@ async function buildBrief(db, job) {
   const attention = await stigmergyService.readAttention(db, { territoryId: args.territoryId, limit: 5 });
   const phenotypes = await activePhenotypeSection(db, args.territoryId);
   const refs = await architectureRefs(db, args.territoryId);
+  const missionFiles = await missionFileRefs(db, { territoryId: args.territoryId, mission: args.mission });
   const tests = await testPaths(db, args.territoryId);
   const deadEndRows = await deadEnds(db, args.territoryId);
   const findingRows = top.map(toBriefFinding);
@@ -178,10 +188,11 @@ async function buildBrief(db, job) {
     tests,
     relevantTests: tests,
     relevantArchitectureRefs: refs,
+    relevantMissionFiles: missionFiles,
     recentRegressions: regressionFindings(ranked),
     unresolvedContradictions: contradictionFindings(ranked),
     staleSections,
-    recommendedInspectionTargets: inspectionTargets(findingRows, refs),
+    recommendedInspectionTargets: inspectionTargets(findingRows, [...missionFiles, ...refs]),
     attention,
     stalenessWarnings: stalenessWarnings(territory, ranked.map((r) => r.finding)),
     generatedAt: new Date().toISOString()

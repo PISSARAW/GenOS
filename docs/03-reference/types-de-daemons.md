@@ -667,6 +667,9 @@ Source : `backend/src/services/daemon/daemonStigmergyService.js:11-111`,
   de la mission qui l'a demandé; si le daemon ou le brief manque, la mission continue.
 - Inclus : top 20 findings, 10 dead-ends `REFUTED`, 50 tests, findings ouverts
   (`NOT IN (REFUTED, EXPIRED)`), phénotypes actifs, attention stigmergique, `stalenessWarnings`.
+  `relevantMissionFiles` référence les chemins de fichiers indexés explicitement cités
+  par la mission, avec leur hash de contenu. Ces références sont des pistes de lecture,
+  et ne garantissent ni la pertinence sémantique ni la vérification de leur contenu.
 - Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement;
   le signal local n'est pas le transport du dossier. Le brief est consommé via la
   récupération explicite et passe alors de `READY` à `CONSUMED`.

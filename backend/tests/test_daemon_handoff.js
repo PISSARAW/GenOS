@@ -39,6 +39,8 @@ async function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-handoff-'));
   fs.writeFileSync(path.join(root, 'auth.js'), 'module.exports = 1;\n');
   fs.writeFileSync(path.join(root, 'auth.test.js'), 'it();\n');
+  fs.mkdirSync(path.join(root, 'planning'));
+  fs.writeFileSync(path.join(root, 'planning', 'taches.csv'), 'task,minutes\nA,17\n');
 
   await territoryService.createTerritory(db, {
     id: 'territory.handoff-test',
@@ -83,6 +85,10 @@ async function main() {
   assert.equal(res.brief.findings[0].id, 'finding.handoff-open');
   assert.equal(res.brief.deadEnds.length, 1);
   assert.ok(res.brief.tests.includes('auth.test.js'));
+  const missionBrief = await compiler.compileBrief(db, { territoryId: 'territory.handoff-test', mission: 'Lire planning/taches.csv' });
+  assert.equal(missionBrief.brief.relevantMissionFiles[0].path, 'planning/taches.csv');
+  assert.match(missionBrief.brief.relevantMissionFiles[0].hash, /^[a-f0-9]{16}$/);
+  assert.ok(missionBrief.brief.recommendedInspectionTargets.includes('planning/taches.csv'));
   assert.equal(res.brief.attention[0].scope, 'auth.js');
   assert.ok(res.brief.summary.files >= 2);
 
