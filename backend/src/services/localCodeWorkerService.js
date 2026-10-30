@@ -140,6 +140,8 @@ async function runTest(command, root) {
 }
 async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   allowedPatchPaths, requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
+  if (mission?.delegatedReviewOnly === true) return require('./localCodeReview').execute({
+    workspaceRoot, text, allowedCommands, db, mission, executionRun, runTest, allowedTest });
   const proposal = parseProposal(text, usage, { forceFullFileReplacement: mission?.forceFullFileReplacement === true });
   assertAllowedPatchPaths(proposal, allowedPatchPaths);
   try { await materializePatchEdits(workspaceRoot, proposal); }
@@ -207,6 +209,7 @@ function assertAllowedPatchPaths(proposal, allowedPaths) {
 }
 
 function proposalResponseFormat(options = {}) {
+  if (options.delegatedReviewOnly === true) return require('./localCodeReview').responseFormat(options.allowedCommands);
   const resolved = responseOptions(options);
   const commands = [...new Set(resolved.allowedCommands.map(normalizeSandboxCommand)
     .filter(isAllowedSandboxTestCommand))];

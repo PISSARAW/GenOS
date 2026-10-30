@@ -78,6 +78,7 @@ async function generateWorkerResult(ctx) {
     ...sharedBudget,
     responseFormat: ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
+        delegatedReviewOnly: ctx.mission.delegatedReviewOnly === true,
         allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
         allowedPatchPaths: ctx.mission.allowedPatchPaths,
         requiredPatchPaths: ctx.mission.requiredPatchPaths,
@@ -295,7 +296,6 @@ async function runGenerationStage(ctx) {
   if (schemaFailure) throw schemaFailure;
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
-
 
 async function assertEvidenceAuthority(db, mission, executionRun) {
   await require('./missionEnvelopeAuthority').assertRun(db, {

@@ -6,8 +6,10 @@ function buildAnalysisPrompt(context) {
     allowedCommands, forceFullFileReplacement } = context;
   const morphogenesisPrompt = require('./morphogenesisRolePrompt');
   const assignment = context.assignment || {};
+  const reviewInstruction = assignment.delegatedReviewOnly === true
+    ? `Return only JSON with format "genos.test-only/v1", patches [], tests selected from ${JSON.stringify(allowedCommands || [])}, and evidence explaining the review. Execute no edits; tests must inspect the supplied snapshot.` : null;
   const workerBlock = [workerInstruction, codeWorker
-    ? codeProposalInstruction(allowedCommands, forceFullFileReplacement) : evidenceRule]
+    ? (reviewInstruction || codeProposalInstruction(allowedCommands, forceFullFileReplacement)) : evidenceRule]
     .filter(Boolean).join('\n');
   if (!codeWorker && morphogenesisPrompt.morphogenesisCompactWorkerRole(assignment)) {
     return [morphogenesisPrompt.morphogenesisMissionPrompt(assignment, prompt),
@@ -53,6 +55,7 @@ function codeProposalInstruction(allowedCommands = [], forceFullFileReplacement 
 }
 
 function isCodeWorkerMission(mission) {
+  if (mission.delegatedReviewOnly === true && mission.localCodeWorker === true && mission.workerKind === 'verifier_worker') return true;
   const explicitlyEnabled = mission.localCodeWorker === true
     || mission.executionPolicy?.localCodeWorker === true;
   const codeRole = /^(implementation|coder|developer|basic_implementation|interview_plan_implementation|self_correcting_implementation)$/i
