@@ -20,10 +20,13 @@ function negativeResult(terminal) {
 }
 
 function assess(id, inspection, options = {}) {
-  const terminal = (inspection.events || []).filter(event =>
-    ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.type)).at(-1);
+  const selected = require('./evidence-scope.cjs').select(inspection);
+  const terminal = selected.terminal;
   const base = { mission: id, run: terminal?.run || null,
-    scope: 'external numeric/formal constraints only', genosSemanticOracle: false };
+    scope: 'external numeric/formal constraints only', genosSemanticOracle: false,
+    modelInvocationMeasured: selected.modelInvocationMeasured === true };
+  if (selected.reason || !selected.modelInvocationMeasured) return { ...base, status: 'unmeasured',
+    reason: selected.reason || 'No metered Qwen response tied to the assessed terminal run.' };
   if (options.negative) return { ...base, scope: 'external structural refusal check only', ...negativeResult(terminal) };
   if (!terminal?.report || terminal.report.outcome !== 'success') {
     return { ...base, status: 'unmeasured', reason: 'No successful terminal report to assess.' };

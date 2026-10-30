@@ -11,6 +11,15 @@ Pour le poème, seuls le nombre de lignes, les strophes et le mot interdit sont 
 Cet évaluateur est indépendant du worker et ne crée aucun oracle ni receipt sémantique GenOS. Son champ `genosSemanticOracle` vaut toujours `false`. Les métadonnées du run et la preuve d'appel Qwen doivent être examinées séparément dans la campagne.
 # Entrées numériques non ambiguës
 
+L'inspection relit l'identité du worker dans le reçu final CLI, la confirme dans
+les agents, les membres de mission et le binding biologique du run. L'évaluation
+porte uniquement sur le dernier run de ce worker et son propre événement terminal.
+Un succès ou une consommation d'un sibling de reprise ne qualifie pas ce résultat.
+Le modèle Ollama mesuré doit être celui demandé dans le payload, avec une
+consommation terminale non nulle identique aux métriques de ce même run. Sans ces
+liaisons, le résultat est `unmeasured`.
+
+
 Les cartes 01, 02, 04 et 06 exigent désormais un seul claim dont le champ
 `statement` contient un objet JSON canonique. Une prose, des claims supplémentaires,
 des clés dupliquées ou des nombres encodés comme chaînes restent `unmeasured`.

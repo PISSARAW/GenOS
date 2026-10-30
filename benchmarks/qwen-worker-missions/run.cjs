@@ -21,16 +21,13 @@ function producerRecord(name) {
   const artifact = path.join(root, name, 'evidence.json');
   const raw = fs.readFileSync(artifact);
   const evidence = JSON.parse(raw);
-  const terminal = evidence.events.filter(event => ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.type)).at(-1);
+  const terminal = require('./evidence-scope.cjs').select(evidence).terminal;
   return { producer: name, artifact, sha256: hash(raw), run: terminal?.run, status: terminal?.type,
     detail: terminal?.detail, claims: terminal?.report?.claims || [], uncertainties: terminal?.report?.uncertainties || [],
     content: terminal?.report?.workerArtifact?.content || null, receipts: evidence.receipts };
 }
 function assessment(item, evidence, suffix) {
-  const measured = evidence.events.some(event => event.model?.startsWith('ollama://qwen') && event.usage?.tokens > 0);
-  const result = require('./assess.cjs').assess(item.id, evidence, { negative: suffix === 'neg' });
-  return measured ? { ...result, modelInvocationMeasured: true }
-    : { ...result, status: 'unmeasured', reason: 'No metered Qwen response in evidence.', modelInvocationMeasured: false };
+  return require('./assess.cjs').assess(item.id, evidence, { negative: suffix === 'neg' });
 }
 function fixture(item) {
   const workspace = path.join(root, `workspace-${item.id}`);
