@@ -306,7 +306,7 @@ async function evidenceReportFromModel(ctx) {
     const immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName,
       nameMeaning: ctx.nameMeaning, role: ctx.mission.role });
     throwIfImmuneRejected(immuneReport, ctx.result.text);
-    return immuneReport.report;
+    return require('./workerDossierHandoffService').attachReport(ctx.mission, immuneReport.report);
   } finally { ctx.stageTimings.responseParsingMs = Date.now() - startedAt; }
 }
 async function runLocalWorker(db, mission, executionRun) {
@@ -321,6 +321,7 @@ async function runLocalWorker(db, mission, executionRun) {
     identity = await workerIdentity.begin(db, { mission, executionRun });
     identityLeaseHeartbeat = require('./identity/leaseHeartbeat').start({ renew: () => workerIdentity.renew(db, identity), intervalMs: 60000 });
     await identityLeaseHeartbeat.pulse();
+    await require('./workerDossierHandoffService').admit(db, { mission, executionRun });
     const attempt = await workerCodeTestRepair.run({
       mission,
       runAttempt: async (currentMission) => {
