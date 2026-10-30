@@ -35,6 +35,7 @@ function runGenosSync(commandLine, options = {}) {
   if (args[0] === 'genos') args.shift();
   const bin = resolveGenosBin();
   if (!fs.existsSync(bin)) throw new Error(`genos binary not found at ${bin}.`);
+  require('./genosCliCompatibility').assertCommandCompatible(bin, args);
   const root = ensureRoot();
   return execFileSync(bin, args, {
     cwd: root,
@@ -65,6 +66,8 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null,
     }
 
     let stdout = '';
+    try { require('./genosCliCompatibility').assertCommandCompatible(bin, args); }
+    catch (error) { return resolvePromise({ ok: false, code: error.code, error: error.message }); }
     let stderr = '';
     let settled = false;
     const root = ensureRoot(rootOverride);
