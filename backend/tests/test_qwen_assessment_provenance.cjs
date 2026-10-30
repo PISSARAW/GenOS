@@ -25,6 +25,17 @@ assert.equal(assess('02', sibling).status, 'failed');
 const wrongUsage = fixture(); delete wrongUsage.events[0].usage;
 wrongUsage.events.push({ ...fixture().events[0], agentId: 'sibling', run: 'sibling-run' });
 assert.equal(assess('02', wrongUsage).status, 'unmeasured');
+const partialUsage = fixture();
+partialUsage.events[0].modelUsageAccounting = { complete: false,
+  scope: 'execution_run_measured_total', executionRunId: 'run',
+  unmeasuredAttemptIds: ['last-producer-attempt'], byModel: [{ model: 'ollama://qwen-test',
+    provider: 'ollama', attemptIds: ['earlier-attempt'], usage: { tokens: 12 } }] };
+assert.equal(assess('02', partialUsage).status, 'unmeasured');
+assert.match(assess('02', partialUsage).reason, /usage is incomplete/i);
+const completeUsage = fixture();
+completeUsage.events[0].modelUsageAccounting = { ...partialUsage.events[0].modelUsageAccounting,
+  complete: true, unmeasuredAttemptIds: [] };
+assert.equal(assess('02', completeUsage).status, 'passed');
 const anotherRun = fixture(); anotherRun.events[0].run = 'unbound-run';
 assert.equal(assess('02', anotherRun).status, 'unmeasured');
 const latestRunning = fixture(); latestRunning.runs.push({ id: 'new-run', agent_id: 'worker', status: 'running' });

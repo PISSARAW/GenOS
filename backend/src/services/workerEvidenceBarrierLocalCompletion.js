@@ -14,13 +14,7 @@ async function emitLocalCompleted(ctx, publishSuccess) {
     }, 'info', deferred ? 'running' : 'completed');
   const eventType = deferred ? 'LOCAL_WORKER_COMPLETED' : ctx.eventType;
   const completed = emit(ctx.mission.agentId, eventType, ctx.kind, ctx.detail, {
-    executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
-    evidenceReport: ctx.evidenceReport,
-    identityReceipt: ctx.identityReceipt,
-    snapshot: ctx.replaySnapshotPath || ctx.mission.runtimeCapsule?.snapshotPath,
-    ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
-    noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
-    stageTimings: ctx.stageTimings,
+    ...await terminalPayload(ctx),
     ...(deferred ? { deferredTerminalEventType: ctx.eventType } : {})
   }, ctx.unresolved ? 'warning' : 'info', deferred ? 'running' : terminalStatus);
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
@@ -28,6 +22,19 @@ async function emitLocalCompleted(ctx, publishSuccess) {
     await require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
   }
   return completed;
+}
+
+async function terminalPayload(ctx) {
+  return {
+    executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
+    evidenceReport: ctx.evidenceReport,
+    identityReceipt: ctx.identityReceipt,
+    snapshot: ctx.replaySnapshotPath || ctx.mission.runtimeCapsule?.snapshotPath,
+    ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
+    noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
+    ...await require('./workerModelRunUsage').forRun(ctx),
+    stageTimings: ctx.stageTimings
+  };
 }
 
 module.exports = { emit: emitLocalCompleted, emitLocalCompleted };

@@ -17,6 +17,6 @@ const query = sql => new Promise((resolve, reject) => db.all(sql, (error, rows) 
   const receipts = await query('SELECT run_id,receipt_json FROM biological_worker_receipts');
   process.stdout.write(JSON.stringify({ cli, expectedModel, runs, agents, missions, members, bindings, events: events.map(event => {
     const p = JSON.parse(event.payload_json || '{}');
-    return { agentId: event.agent_id, type: event.event_type, detail: event.detail, run: p.executionRunId, model: p.model, provider: p.provider, usage: p.usage, report: p.evidenceReport, diagnostics: p.workerArtifactDiagnostics };
+    return { agentId: event.agent_id, type: event.event_type, detail: event.detail, run: p.executionRunId, model: p.model, provider: p.provider, usage: p.usage, modelUsageAccounting: p.modelUsageAccounting, report: p.evidenceReport, diagnostics: p.workerArtifactDiagnostics };
   }), receipts: receipts.map(row => ({ run: row.run_id, result: JSON.parse(row.receipt_json).result })) }));
 })().catch(error => { process.stderr.write(error.message); process.exitCode = 1; }).finally(() => db.close());

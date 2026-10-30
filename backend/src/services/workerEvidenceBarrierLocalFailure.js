@@ -20,7 +20,7 @@ async function publish(ctx) {
   if (!deferred) await updateAgent(ctx.mission.agentId, state.status, ctx.error.message);
   const eventType = deferred ? 'LOCAL_WORKER_FAILED' : state.eventType;
   const failed = emit(ctx.mission.agentId, eventType, state.action, ctx.error.message,
-    { ...failurePayload(ctx),
+    { ...failurePayload(ctx), ...await require('./workerModelRunUsage').forRun(ctx),
       ...(deferred ? { deferredTerminalEventType: state.eventType } : {}) }, 'warning', deferred ? 'running' : state.status);
   require('./agentEvidenceService').recordWorkerEvidence(ctx.mission, failed);
   ctx.reportMilestone(ctx.mission, failed);

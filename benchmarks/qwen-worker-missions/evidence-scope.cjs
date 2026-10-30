@@ -30,9 +30,16 @@ function select(inspection) {
   const binding = (inspection.bindings || []).find(row => row.run_id === run?.id);
   if (!run || binding?.agent_id !== scope.workerId || binding.mission_id !== scope.missionId) return { reason: 'Latest intended worker run has no matching mission binding.' };
   if (!['completed','failed','blocked','cancelled'].includes(run.status)) return { reason: 'Latest intended worker run is not terminal.' };
+  return selectTerminal(inspection, scope, run);
+}
+function selectTerminal(inspection, scope, run) {
   const terminal = (inspection.events || []).filter(event => event.agentId === scope.workerId
     && event.run === run.id && terminalTypes.has(event.type)).at(-1);
   if (!terminal || (terminal.type === 'AGENT_COMPLETED' && run.status !== 'completed')) return { reason: 'No consistent terminal event for intended worker run.' };
+  if (terminal.modelUsageAccounting?.complete === false) return {
+    ...scope, run, terminal, modelInvocationMeasured: false,
+    reason: 'Model usage is incomplete: at least one provider attempt has no measured token receipt.'
+  };
   return { ...scope, run, terminal, modelInvocationMeasured: invocationMeasured(terminal, run, inspection.expectedModel) };
 }
 module.exports = { cliReceipt, select };
