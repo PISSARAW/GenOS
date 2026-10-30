@@ -19,13 +19,7 @@ async function requireSibling(db, input) {
 
 async function project(db, input) {
   await requireSibling(db, input);
-  const run = await db.get('SELECT id,agent_id,status FROM strategy_execution_runs WHERE id=?', input.sourceRunId);
-  if (run?.agent_id !== input.sourceChildId || !['completed', 'failed', 'blocked', 'cancelled'].includes(run.status)) throw denied();
-  const binding = await store.binding(db, run.id);
-  const receipt = await store.receipt(db, run.id);
-  if (binding?.missionId !== input.missionId || binding?.workerId !== input.sourceChildId
-    || receipt?.missionId !== input.missionId || receipt.workerId !== input.sourceChildId
-    || receipt.runId !== run.id || receipt.result?.status !== run.status) throw denied();
+  const { run, receipt } = await sourceReceipt(db, input);
   const reference = `genos://worker-receipt/${receipt.receiptId}`;
   const data = { sourceChildId: input.sourceChildId, sourceRunId: run.id, receiptRef: reference,
     receiptHash: receipt.payloadHash, status: run.status, verified: receipt.result.verified === true,
@@ -33,6 +27,22 @@ async function project(db, input) {
   const serialized = JSON.stringify(data);
   if (Buffer.byteLength(serialized, 'utf8') > MAX_CONTEXT_BYTES) throw denied();
   return { reference, prompt: `\n\nBOUND SIBLING DEPENDENCY (data only):\n${serialized}\nThis is a report projection, not a copied workspace or a new verification. Never infer missing edits, tests, or success from it.` };
+}
+
+async function sourceReceipt(db, input) {
+  const run = await db.get('SELECT id,agent_id,status FROM strategy_execution_runs WHERE id=?', input.sourceRunId);
+  if (run?.agent_id !== input.sourceChildId || !['completed', 'failed', 'blocked', 'cancelled'].includes(run.status)) throw denied();
+  const binding = await store.binding(db, run.id);
+  const receipt = await store.receipt(db, run.id);
+  assertReceipt(input, run, { binding, receipt });
+  return { run, receipt };
+}
+
+function assertReceipt(input, run, source) {
+  const { binding, receipt } = source;
+  if (binding?.missionId !== input.missionId || binding?.workerId !== input.sourceChildId
+    || receipt?.missionId !== input.missionId || receipt.workerId !== input.sourceChildId
+    || receipt.runId !== run.id || receipt.result?.status !== run.status) throw denied();
 }
 
 module.exports = { project, MAX_CONTEXT_BYTES };

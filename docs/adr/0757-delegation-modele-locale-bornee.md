@@ -36,3 +36,9 @@ contexte reproduit le refus, puis le chemin corrigé crée des enfants et une re
 `pytest` dans des runs distincts liés au nouveau parent. Ce test n'est pas une
 mesure Qwen. `test_bounded_delegation_parent_run.cjs` vérifie aussi la compatibilité
 v1 à run unique et le refus des bindings ambigus, runs clos et missions révoquées.
+
+Le contrôle du contexte de dépendance est décomposé en lecture du run/reçu,
+validation de leurs liaisons et sérialisation de la projection. Cette extraction
+de qualité ne change ni le contenu transmis, ni la limite de 24 Ko, ni les refus
+de mission, parent, tenant, run ou hash étrangers. La sonde
+`test_delegated_dependency_context.cjs` reste exécutée sur les mêmes chemins.
