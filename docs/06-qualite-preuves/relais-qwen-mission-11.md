@@ -13,7 +13,7 @@ mission active entre le producteur et le destinataire dans une nouvelle base.
 Depuis un checkout Git propre et figé contenant le correctif ADR 0758 :
 
 ```powershell
-node benchmarks/qwen-worker-missions/relay-11.cjs D:\GenOS-runs\campagne\11-r1 D:\GenOS-runs\supplement-relais-11-r1
+node --env-file=.env benchmarks/qwen-worker-missions/relay-11.cjs D:\GenOS-runs\campagne\11-r1 D:\GenOS-runs\supplement-relais-11-r1
 ```
 
 Le dossier de supplément doit être nouveau. Le serveur Ollama reste sur
@@ -47,3 +47,27 @@ node backend/tests/test_worker_dossier_handoff_transport.cjs
 
 Ce test utilise SQLite, les workers, le routage et les reçus réels avec un provider
 simulé ; il ne doit pas être présenté comme une mesure Qwen.
+
+## Essai réel dans une mission encore active
+
+```powershell
+node --env-file=.env benchmarks/qwen-worker-missions/live-handoff.cjs D:\GenOS-runs\relais-actif-unique ollama://qwen2.5:14b
+```
+
+Ce complément crée une nouvelle mission par les services de production, avec un
+parent et un vrai run de budget collectif de 24 000 tokens. Le producteur de type
+`liaison_worker` lit un petit fichier de faits, puis le destinataire reçoit son
+rapport signé avant la clôture de la mission. Chaque worker possède un plafond de
+9 000 tokens ; les deux utilisent le vrai fournisseur Qwen, sans mock ni mode test.
+Le protocole s'arrête après cet essai : il ne répète pas jusqu'à obtenir un succès.
+
+Aucune identité de l'ancienne base n'est importée et aucune mission terminale
+n'est rouverte. La mission reste active durant les deux exécutions puis est
+annulée pour clore l'expérience, sans affirmer de décision parent qualifiée.
+Les runs des workers, messages, admissions, réservations et consommations restent
+archivés. L'expérience trace sa révision, le modèle, son digest et les versions.
+
+Un `passed` exige deux workers terminés, une consommation Qwen mesurée pour
+chacun et une admission liée à leurs vrais runs. Il ne prouve ni la justesse de
+leur réponse ni une acceptation sémantique. Ce complément n'est pas la mission 11
+complexe de la campagne et ses résultats ne changent pas les 48 scores de base.
