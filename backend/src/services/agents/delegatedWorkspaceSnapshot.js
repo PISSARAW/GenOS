@@ -20,7 +20,13 @@ async function sourceReceipt(db, input) {
   const receipt = JSON.parse(row.receipt_json);
   if (require('../biologicalIntegrity').digest(receipt) !== row.receipt_hash || receipt.agentId !== source.id
     || receipt.executionRunId !== row.execution_run_id || receipt.missionId !== input.missionId) throw denied();
+  if (!validPassedReceipt(row, receipt, input.missionId)) throw denied();
   return { source, receipt, row };
+}
+
+function validPassedReceipt(row, receipt, missionId) {
+  const tests = require('../localCodeTestExecutionReceiptService');
+  return tests.validRow(row, receipt, missionId) && receipt.tests.every(test => test.exitCode === 0 && test.signal === null);
 }
 
 async function assertTarget(db, input, source) {
