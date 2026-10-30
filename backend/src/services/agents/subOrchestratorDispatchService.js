@@ -79,9 +79,19 @@ async function createChild(db, parent, args) {
     await bounded.bind(db, { parentId: parent.id, parentRunId: current.runId, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
     return created;
   });
-  await prepareModelWorkspace(db, { parent, args, worker: workers[0], mission });
-  await prepareModelDependency(db, { parent, args, worker: workers[0], mission });
+  await prepareCreatedChild(db, { parent, args, worker: workers[0], mission });
   return { child: workers[0], mission };
+}
+
+async function prepareCreatedChild(db, input) {
+  try {
+    await prepareModelWorkspace(db, input);
+    await prepareModelDependency(db, input);
+  } catch (error) {
+    await require('./delegatedChildPreparationFailure').record(db,
+      { parentId: input.parent.id, child: input.worker, error });
+    throw error;
+  }
 }
 
 async function prepareModelDependency(db, input) {
