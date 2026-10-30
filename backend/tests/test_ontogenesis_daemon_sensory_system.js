@@ -86,6 +86,16 @@ async function main() {
   assert.equal(snapshot.mayAuthorize, false);
   assert.equal(snapshot.mayPromote, false);
 
+  for (let i = 0; i < 20; i += 1) {
+    await db.run(`INSERT INTO daemon_findings
+      (id, territory_id, claim, scope_type, scope_value, head_sha, status, created_by)
+      VALUES (?, ?, 'old risk', 'file', 'src/old.js', ?, 'REPAIRABLE', 'daemon.sensory')`,
+    [`finding.old-${i}`, 'territory.ontogenesis-sensory', OLD_HEAD]);
+  }
+  const filtered = await sensory.observeProject(db, { root_path: ROOT });
+  assert.deepEqual(filtered.findings.map((item) => item.id), ['finding.current']);
+  await db.run("DELETE FROM daemon_findings WHERE id LIKE 'finding.old-%'");
+
   const first = await sensory.publishObservation(db, { projectId, snapshot });
   await new Promise((resolve) => setTimeout(resolve, 5));
   const observedAgain = await sensory.observeProject(db, { root_path: ROOT });

@@ -109,11 +109,13 @@ async function readPhenotypes(db, territoryId) {
 
 async function readFindings(db, territoryId) {
   return safeAll(db, {
-    sql: `SELECT id, status, claim, scope_type, scope_value, detector_id, head_sha
-      FROM daemon_findings WHERE territory_id = ?
-      ORDER BY CASE status WHEN 'REPAIRABLE' THEN 6 WHEN 'CAUSALLY_SUPPORTED' THEN 5
+    sql: `SELECT f.id, f.status, f.claim, f.scope_type, f.scope_value, f.detector_id, f.head_sha
+      FROM daemon_findings f JOIN daemon_territories t ON t.id = f.territory_id
+      WHERE f.territory_id = ? AND f.head_sha = t.head_sha
+        AND f.status NOT IN ('REFUTED', 'EXPIRED', 'STALE')
+      ORDER BY CASE f.status WHEN 'REPAIRABLE' THEN 6 WHEN 'CAUSALLY_SUPPORTED' THEN 5
         WHEN 'REPRODUCED' THEN 4 WHEN 'SUPPORTED' THEN 3 WHEN 'HYPOTHESIZED' THEN 2 ELSE 1 END DESC,
-        updated_at DESC LIMIT ?`,
+        f.updated_at DESC LIMIT ?`,
     args: [territoryId, MAX_FINDINGS]
   });
 }
