@@ -18,6 +18,7 @@ const { applyCognitiveSynthesis } = require('./cognitiveSynthesisService');
 const { closeMission } = require('./missionClosureService');
 const closureAdapter = require('./missionClosureDossierAdapter');
 const helpers = require('./workerEvidenceBarrierHelpers');
+const truthGate = require('./workerEvidenceTruthGate');
 
 const {
   applySynthesisPlan, clearBarrier, emitDossiersAttached, emitHaltedOrFailed,
@@ -290,40 +291,10 @@ async function attachReconstructions(ctx, dossiers) {
   } catch (_) {}
 }
 
-async function attachTruthGraph(ctx) {
-  try {
-    const compiler = require('./reportCompilerService');
-    const graph = await compiler.buildTruthGraph(ctx.db, ctx.agentId, { missionId: ctx.autonomyPlan?.trinity?.missionId || null });
-    if (ctx.autonomyPlan && graph.status === 'measured') ctx.autonomyPlan.missionTruthGraph = compiler.compileReport(graph);
-  } catch (_) {}
-}
-
 function attachSemanticReport(ctx, dossiers) {
   try {
     const semantic = require('./semanticReportService');
     if (ctx.autonomyPlan) ctx.autonomyPlan.semanticReport = semantic.buildSemanticReport(dossiers, {});
-  } catch (_) {}
-}
-
-async function enforceReportGate(ctx) {
-  try {
-    const compiled = ctx.autonomyPlan?.missionTruthGraph;
-    if (!compiled || !Array.isArray(compiled.claims)) return;
-    const compiler = require('./reportCompilerService');
-    const violations = [];
-    for (const claim of compiled.claims) {
-      if (claim.outcome !== 'success') continue;
-      if (claim.confidence !== 'supported') {
-        violations.push(claim.id);
-        continue;
-      }
-      if (compiler.nliVerdict(claim.proposition, claim.evidenceTexts) === 'contradiction') violations.push(claim.id);
-    }
-    if (!violations.length) return;
-    emit(ctx.agentId, 'REPORT_GATE_VIOLATION', 'EVIDENCE_GATE',
-      `${violations.length} success claim(s) without supporting source in the mission truth graph.`,
-      { claimIds: violations.map((claim) => claim.id), count: violations.length }, 'warning');
-    ctx.autonomyPlan.reportGateViolations = violations.map((claim) => claim.id);
   } catch (_) {}
 }
 
@@ -394,6 +365,8 @@ module.exports = {
   isUsablePartialDossier,
   selectUsablePartialDossiers,
   runEvidenceBarrier,
+  attachTruthGraph: truthGate.attachTruthGraph,
+  enforceReportGate: truthGate.enforceReportGate,
   resolveTimeoutFlag,
   resolveCancelledFlag
 };
