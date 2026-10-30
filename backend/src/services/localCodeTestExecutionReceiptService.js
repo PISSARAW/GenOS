@@ -41,7 +41,7 @@ async function recordExecutedBatch(db, input = {}) {
     batchId: crypto.randomUUID(), missionId, agentId, executionRunId, workspaceRoot,
     startedAt: input.startedAt || null, completedAt: input.completedAt || new Date().toISOString(),
     outcome, tests, workspaceDigest: workspaceDigest(input.workspaceFiles),
-    ...(input.reviewSnapshot ? { reviewSnapshot: input.reviewSnapshot } : {}),
+    ...reviewSnapshotFields(input.reviewSnapshot),
     changedFileHashes: (input.changedFileHashes || []).map(({ path: file, hash }) => ({ path: file, hash }))
       .sort((left, right) => left.path.localeCompare(right.path)) };
   const receiptHash = digest(payload);
@@ -51,6 +51,10 @@ async function recordExecutedBatch(db, input = {}) {
   outcome, receiptHash, encode(payload));
   return { receiptId: payload.receiptId, batchId: payload.batchId,
     outcome, receiptHash, workspaceDigest: payload.workspaceDigest };
+}
+
+function reviewSnapshotFields(reviewSnapshot) {
+  return reviewSnapshot ? { reviewSnapshot } : {};
 }
 
 async function collectVerifiedForMission(db, missionId, agents = []) {
