@@ -27,4 +27,14 @@ async function settleDeferredAgent({ agentId, status, verdict }) {
   await require('../src/services/agentOrchestrationState').updateAgent(agentId, status, `Mission ${verdict}`);
 }
 
-module.exports = { finalizeMissionStatus, destructureContResult, computeFinalVerdict, settleDeferredAgent };
+async function settleMissionIdentities(input) {
+  if (input.dormant) return;
+  const status = input.success ? 'completed' : 'failed';
+  if (input.missionId) await require('../src/services/missionIdentityService')
+    .setStatus(input.db, input.missionId, status);
+  if (input.deferredAgentTerminalStatus) await settleDeferredAgent({
+    agentId: input.agentId, status, verdict: input.verdict
+  });
+}
+
+module.exports = { finalizeMissionStatus, destructureContResult, computeFinalVerdict, settleDeferredAgent, settleMissionIdentities };

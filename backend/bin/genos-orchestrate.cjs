@@ -9,7 +9,6 @@ const { getDatabase, closeDatabase, withWriteRetry } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const missionIdentity = require('../src/services/missionIdentityService');
-const { missionExecutionTerminal } = require('../src/services/orchestratorMissionStatus');
 const { finalizeMissionStatus, destructureContResult, computeFinalVerdict } = require('./orchestratorMissionFinalization.cjs');
 const telemetry = require('../src/services/telemetryObserver');
 const missionContinuity = require('../src/services/missionContinuityService');
@@ -79,7 +78,7 @@ async function waitForCompletion(db) {
     if (poll.retry) { busyRetries = poll.busyRetries; continue; }
     const { agents, trinityWorlds } = poll;
     busyRetries = 0;
-    if (missionExecutionTerminal(agents, trinityWorlds, id)) return agents;
+    if (completionPolling.terminalReady(agents, trinityWorlds, id)) return agents;
     if (completionPolling.allOrphaned(agents, SCRIPT_START_TIME)) {
       process.stderr.write(`[genos-orchestrate] All agents orphaned (running, no pid) after 30s; concluding mission.\n`);
       return agents;
@@ -316,9 +315,9 @@ async function finalizeOrchestratedMission(input) {
 
   const dormant = await suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
-  if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
-  if (input.deferredAgentTerminalStatus && !dormant) await require('./orchestratorMissionFinalization.cjs').settleDeferredAgent({
-    agentId: id, status: finalStatus.success ? 'completed' : 'failed', verdict: finalVerdict
+  await require('./orchestratorMissionFinalization.cjs').settleMissionIdentities({
+    db, missionId, agentId: id, dormant, success: finalStatus.success,
+    deferredAgentTerminalStatus: input.deferredAgentTerminalStatus, verdict: finalVerdict
   });
 
   if (finalStatus.success) await persistChampion(db, outcome);
@@ -365,7 +364,8 @@ async function executeForeground(db) {
   try { await executeMission(db, state); } catch (error) { await cleanupFailure(db, state, error); throw error; }
   finally {
     if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
-    await require('../src/services/telemetryShutdownService').closeAfterFlush({ telemetry, closeDatabase });
+    await require('../src/services/telemetryShutdownService').closeAfterFlush({ telemetry, closeDatabase,
+      beforeFlush: require('../src/services/runtimeMissionTasks').drain });
   }
 }
 

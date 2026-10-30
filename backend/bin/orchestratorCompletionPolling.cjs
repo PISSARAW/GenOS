@@ -33,8 +33,14 @@ function withinDeadline(unbounded, deadline) {
 
 function allOrphaned(agents, startedAt) {
   return agents.length > 0
+    && !require('../src/services/runtimeMissionTasks').hasPending()
     && agents.every((agent) => agent.status === 'running' && !agent.runtime_pid)
     && Date.now() > startedAt + 30000;
 }
 
-module.exports = { allOrphaned, poll, withinDeadline };
+function terminalReady(agents, worlds, agentId) {
+  return !require('../src/services/runtimeMissionTasks').hasPending()
+    && require('../src/services/orchestratorMissionStatus').missionExecutionTerminal(agents, worlds, agentId);
+}
+
+module.exports = { allOrphaned, poll, withinDeadline, terminalReady };

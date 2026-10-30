@@ -301,7 +301,7 @@ async function startWorker({ db, context, parent, reusable, worker }) {
     await require('./directWorkerBudgetScope.cjs').closeParentBudgetRun(db, context, 'failed'); await require('../src/services/directWorkerCellBridge').fail(db, context, error); await workerGarage.releaseSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id }); throw error;
   }
   const agents = await context.waitForCompletion(db); await require('./directWorkerBudgetScope.cjs').closeParentFromWorkers(db, context, agents);
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, workerId: context.id, workerName: worker.name, reusedWorker: context.reusedWorker, ...require('../src/services/directWorkerCellBridge').receipt(context), ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}), garage: { slot: garage.slot, capacity: garage.capacity }, agents }));
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, workerId: context.id, workerName: worker.name, reusedWorker: context.reusedWorker, ...require('../src/services/directWorkerCellBridge').receipt(context), ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}), garage: { slot: garage.slot, capacity: garage.capacity }, agents }) + '\n');
 }
 async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const strategyContract = await contracts.getLatestContract(db, context.orchestratorId);

@@ -9,6 +9,7 @@ function incompleteFlush(result) {
 
 async function closeAfterFlush(input) {
   try {
+    await input.beforeFlush?.();
     const result = await input.telemetry.flush(input.timeoutMs ?? 5000);
     if (!result?.flushed) throw incompleteFlush(result);
     return result;
