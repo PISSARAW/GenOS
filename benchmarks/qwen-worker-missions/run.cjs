@@ -33,12 +33,13 @@ function producerRecord(name) {
 function assessment(item, evidence, suffix) {
   return require('./assess.cjs').assess(item.id, evidence, { negative: suffix === 'neg' });
 }
+const { palindromeTests } = require('./fixtures.cjs');
 function fixture(item) {
   const workspace = path.join(root, `workspace-${item.id}`);
   fs.mkdirSync(workspace);
   if (item.id === '03') {
     write(path.join(workspace, 'palindrome.py'), 'def is_palindrome(text):\n    return text == text[::-1]\n');
-    write(path.join(workspace, 'test_palindrome.py'), "from palindrome import is_palindrome\ndef test_case_and_spaces():\n    assert is_palindrome('Never odd or even')\n    assert is_palindrome('A b A')\ndef test_punctuation():\n    assert not is_palindrome('a!a?')\n    assert not is_palindrome('abc')\n");
+    write(path.join(workspace, 'test_palindrome.py'), palindromeTests());
   }
   if (item.id === '10') write(path.join(workspace, 'vulnerable.py'), 'import os\ndef read(root, name):\n    return open(os.path.join(root, name)).read()\n');
   if (item.id === '11') {
