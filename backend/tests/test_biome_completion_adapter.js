@@ -18,8 +18,9 @@ const { digest: biologicalDigest } = require('../src/services/biologicalIntegrit
 const goalOracle = require('../src/services/biome/contracts/goalVerificationReceipt');
 const verifierReceipts = require('../src/services/epistemicVerifierReceiptService');
 
-const OWNER = 'mission-biome-owner';
-const WORKER = 'biome-worker-1';
+let OWNER;
+let WORKER;
+let realProof;
 
 function opportunity() {
   return { id: 'analysis', descriptor: 'Analyze the mission', opportunityScore: 1,
@@ -28,11 +29,8 @@ function opportunity() {
 }
 
 function proof(missionId = OWNER) {
-  const content = { schema: 'genos.worker-biological-receipt/v1', missionId,
-    workerId: WORKER, runId: `run:${missionId}:${WORKER}`,
-    receiptId: `receipt:${missionId}:${WORKER}`,
-    result: { status: 'completed', verified: true },
-    budgetAssessment: { satisfied: true } };
+  const content = structuredClone(realProof);
+  content.missionId = missionId;
   return { reference: `sha256:${biologicalDigest(content)}`, content,
     source: 'biological_worker_receipts' };
 }
@@ -124,7 +122,7 @@ async function nominal(fixture) {
   const dossier = await adapter.build(input(fixture.db, fixture));
   assert.equal(dossier.topologyValidation.status, 'verified');
   assert.equal(dossier.oracle.receipt.sessionId, fixture.sessionId);
-  assert.equal(dossier.oracle.receipt.workerRunIds[0], `run:${OWNER}:${WORKER}`);
+  assert.equal(dossier.oracle.receipt.workerRunIds[0], realProof.runId);
   const closed = await adapter.finalize({ input: input(fixture.db, fixture),
     dossier, closeMission });
   assert.equal(closed.verdict, 'succeeded', JSON.stringify(closed));
@@ -369,6 +367,9 @@ const alteredHealthFails = subjectMutation('health', (state) => {
 });
 
 async function run() {
+  realProof = await require('./helpers/realCompletionProof.cjs').realCompletionProof();
+  OWNER = realProof.missionId;
+  WORKER = realProof.workerId;
   const tests = [nominal, servicePipeline, foreignMissionFails, missingPhaseIsPartial,
     missingProofIsPartial, alteredProofFails, alteredReferenceFails,
     missingOracleIsPartial, alteredOracleFails, inventedVerifierFails,
