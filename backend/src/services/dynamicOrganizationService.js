@@ -7,12 +7,13 @@ function withTransactionDb(db, callback) {
   return require('../db').withTransaction(db, callback);
 }
 const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
-const { refreshFlushedRow } = require('./communication/flushEnvelopeRefresh');
+const { releaseBufferedMessages } = require('./communication/releaseBufferedMessages');
+const { projectInboxMessage } = require('./communication/organizationInboxProjection');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const swarmTopologyPreferences = require('./swarmTopologyPreferenceStore');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
-const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
+const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope } = require('./communication/organizationEnvelopeAdapter');
 const messageReceipts = require('./communication/organizationMessageReceipts');
 const memberView = require('./communication/organizationMemberView');
 const workerStatus = require('./communication/organizationWorkerStatus');
@@ -61,15 +62,6 @@ function organizationError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
-}
-
-function parsePayload(payloadJson) {
-  try {
-    const payload = JSON.parse(payloadJson || '{}');
-    return payload && typeof payload === 'object' ? payload : {};
-  } catch (_) {
-    return {};
-  }
 }
 
 async function ensureTables(db) {
@@ -194,23 +186,6 @@ async function recordOrganizationTransition(tx, ctx) {
   );
 }
 
-async function flushBufferedMessages(tx, ctx) {
-  const { orchestratorId, organization, version, profile } = ctx;
-  if (organization === 'network_silence') return;
-  const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
-  const pending = await tx.all("SELECT id, sender_agent_id as senderAgentId, content, payload_json, signal_type, signal_blob FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'buffered'", orchestratorId);
-  await tx.run(
-    "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
-    flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
-  );
-  for (const row of pending) {
-    await refreshFlushedRow(tx, { row, channel: flushRoute.channel, version });
-    await messageReceipts.recordAvailable(tx, {
-      messageId: row.id, orchestratorId, senderAgentId: row.senderAgentId, route: flushRoute
-    });
-  }
-}
-
 function buildUnchangedState(orchestratorId, current, reason) {
   const activeReason = String(reason || (current && current.reason) || 'Organization already active.');
   return {
@@ -245,7 +220,7 @@ async function changeOrganization(db, options = {}) {
   await withTransactionDb(db, async (tx) => {
     await require('./axolotlTopologyService').assertMutable({ db: tx, orchestratorId });
     await recordOrganizationTransition(tx, ctx);
-    await flushBufferedMessages(tx, ctx);
+    await releaseBufferedMessages(tx, ctx);
   });
   swarmTopologyPreferences.clear(orchestratorId);
   return { orchestratorId, previous: prevOrg, organization, version, policy: profile, capabilities: topologyCapabilityService.contractFor({ organization }).required, runStep: (state, options) => swarmTopologyAlgorithms.runTopologyStep(organization, state, options), reason: finalReason, changed: true };
@@ -302,17 +277,22 @@ async function publish(db, options = {}) {
     contentPayload: organizationCommunicationPolicy.envelopePayload({ signalInfo, payload, communicationPolicy, signalData })
   });
   signalInfo = resolveSignalPayload(content, signalType, signalDataWithEnvelope(signalData, envelope));
-  const result = await db.run(
-    `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
-      recipient_agent_id, channel, kind, content, payload_json, signal_type, signal_blob, delivery, organization_id, project_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
-    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payloadWithEnvelope({ ...payload, communicationPolicy }, envelope)),
-    signalInfo.signalType, signalInfo.signalBlob, route.delivery,
-    scope.organizationId, scope.projectId
-  );
-  const recipientAgentIds = await messageReceipts.recordAvailable(db, {
-    messageId: result.lastID, orchestratorId, senderAgentId, route
+  const { result, recipientAgentIds } = await withTransactionDb(db, async (tx) => {
+    const active = await getState(tx, orchestratorId);
+    if (active.version !== state.version) throw organizationError('ORGANIZATION_VERSION_CHANGED', 'Organization changed before publication; retry with the current state.');
+    const result = await tx.run(
+      `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
+        recipient_agent_id, channel, kind, content, payload_json, signal_type, signal_blob, delivery, organization_id, project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
+      route.channel, normalizedKind, signalInfo.content, JSON.stringify(payloadWithEnvelope({ ...payload, communicationPolicy }, envelope)),
+      signalInfo.signalType, signalInfo.signalBlob, route.delivery,
+      scope.organizationId, scope.projectId
+    );
+    const recipientAgentIds = await messageReceipts.recordPublication(tx, {
+      messageId: result.lastID, orchestratorId, senderAgentId, route
+    });
+    return { result, recipientAgentIds };
   });
   const routing = await signalRouter().routeCollectiveSignal({
     db, signalId: `organization-message-${result.lastID}`, signalType: signalInfo.signalType,
@@ -331,25 +311,8 @@ async function publish(db, options = {}) {
   };
 }
 
-function mapInboxRow(row) {
-  const signal = unpackSignalPayload(row.signalBlob, row.signalType, row.payloadJson);
-  const payload = parsePayload(row.payloadJson);
-  const integrity = verifyOrganizationMessage(row, payload, signal);
-  const profile = organizationProfile(row.organization);
-  const isAnonymous = Boolean(profile && profile.visibility === 'anonymous');
-  return {
-    ...row,
-    senderAgentId: isAnonymous ? 'anonymous_worker' : row.senderAgentId,
-    content: integrity.status === 'rejected' ? '' : row.content,
-    payload: integrity.status === 'rejected' ? null : payload,
-    signal: integrity.status === 'rejected' ? null : signal,
-    integrity,
-    hasBiomimeticSignal: row.signalType !== 'text' && Boolean(signal)
-  };
-}
-
 async function fetchInboxMessages(db, query) {
-  const { orchestratorId, version, scope, afterId, requesterAgentId, limit } = query;
+  const { orchestratorId, scope, afterId, requesterAgentId, limit } = query;
   return db.all(
     `SELECT m.id, m.organization, m.organization_version as organizationVersion, m.sender_agent_id as senderAgentId,
             m.recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
@@ -362,10 +325,10 @@ async function fetchInboxMessages(db, query) {
        ON receipt.message_id = m.id AND receipt.recipient_agent_id = ?
      LEFT JOIN agents sender ON sender.id = m.sender_agent_id
      LEFT JOIN agents recipient ON recipient.id = m.recipient_agent_id
-    WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.organization_id IS ? AND m.project_id IS ? AND m.id > ? AND m.sender_agent_id <> ?
+    WHERE m.orchestrator_id = ? AND m.organization_id IS ? AND m.project_id IS ? AND m.id > ? AND m.sender_agent_id <> ?
        AND m.delivery = 'delivered'
      ORDER BY m.id LIMIT ?`,
-    requesterAgentId, orchestratorId, version, scope.organizationId, scope.projectId,
+    requesterAgentId, orchestratorId, scope.organizationId, scope.projectId,
     Math.max(0, Number(afterId || 0)), requesterAgentId,
     Math.min(50, Math.max(1, Number(limit || 20)))
   );
@@ -386,7 +349,7 @@ async function inbox(db, options = {}) {
   return {
     state,
     members,
-    messages: messages.map(mapInboxRow)
+    messages: messages.map(projectInboxMessage)
   };
 }
 async function acknowledge(db, options = {}) {

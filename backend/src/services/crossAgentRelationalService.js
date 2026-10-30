@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
+const { objectMetadata, validateRelationMetadata } = require('./relationMetadataValidation');
 
 const RELATION_CLASSES = Object.freeze({
   lineage: { types: new Set(['parent', 'child', 'sibling', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft']) },
@@ -155,8 +156,10 @@ function buildInsertValues(edge, metadata, scope) {
 
 async function createRelation(input) {
   const checked = assertRelationInput(input || {});
-  const db = await resolveDb(input.db);
+  if (input.metadata !== undefined) objectMetadata(input.metadata);
   const metadata = Object.assign(deriveProperties(checked.relationType), input.metadata);
+  validateRelationMetadata(metadata, { ...checked, classes: RELATION_CLASSES });
+  const db = await resolveDb(input.db);
   const edge = buildEdge(checked, input, metadata);
   await db.run(
     `INSERT INTO agent_relations

@@ -95,8 +95,11 @@ async function learnRelation(query) {
        metadata_json = json_set(COALESCE(metadata_json, '{}'), '$.familiarity', MIN(1.0, MAX(0.0, familiarity + ?)),
          '$.interactionCount', interaction_count + 1),
        last_interaction = CURRENT_TIMESTAMP
-     WHERE (source_agent_id = ? AND target_agent_id = ?) OR (source_agent_id = ? AND target_agent_id = ?)`,
-    [delta, delta, query.senderId, query.receiverId, query.receiverId, query.senderId]
+     WHERE ((source_agent_id = ? AND target_agent_id = ?) OR (source_agent_id = ? AND target_agent_id = ?))
+       AND organization_id IS ? AND project_id IS ?
+       AND (? IS NULL OR id = ?)`,
+    [delta, delta, query.senderId, query.receiverId, query.receiverId, query.senderId,
+      query.organizationId ?? null, query.projectId ?? null, query.relationId ?? null, query.relationId ?? null]
   );
   return { noted: result.changes > 0 };
 }

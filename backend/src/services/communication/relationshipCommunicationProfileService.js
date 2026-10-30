@@ -24,12 +24,12 @@ const STRANGER_PROFILE = Object.freeze({
   relationTypes: [], relations: [],
   trustForDomain: null,
   inheritedContext: 'none', dialectProbability: 'low', explanationRequirement: 'high',
-  epistemicIndependence: 1, errorCorrelation: 0, authority: 0, disclosureLevel: 0.3,
+  epistemicIndependence: null, errorCorrelation: null, independenceStatus: 'unknown', authority: 0, disclosureLevel: 0.3,
   preferredEncoding: 'canonical', recommendedGrounding: 'semantic_ack', explicitAssumptions: true
 });
 
 function numOf(value, fallback) {
-  if (typeof value === 'number') return value;
+  if (Number.isFinite(value) && value >= 0 && value <= 1) return value;
   return fallback;
 }
 

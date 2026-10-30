@@ -106,7 +106,7 @@ async function verifyScopedCommunicationRouting() {
     organizationId: 'org', projectId: 'project' });
   assert.equal(scoped.length, 0);
   const unscoped = await routing.profileAudience({ db, intent, candidates });
-  assert.equal(unscoped.length, 1);
+  assert.equal(unscoped.length, 0, 'an unknown unscoped relation cannot establish independence');
 }
 
 async function verifyVerifiedDomainTrustRanksRecipients() {

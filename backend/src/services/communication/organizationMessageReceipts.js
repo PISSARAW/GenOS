@@ -17,6 +17,12 @@ async function ensureTable(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_agent_org_receipts_inbox
       ON agent_organization_message_receipts(recipient_agent_id, message_id);
+    CREATE TABLE IF NOT EXISTS agent_organization_message_audiences (
+      message_id INTEGER NOT NULL,
+      recipient_agent_id TEXT NOT NULL,
+      PRIMARY KEY(message_id, recipient_agent_id),
+      FOREIGN KEY(message_id) REFERENCES agent_organization_messages(id) ON DELETE CASCADE
+    );
   `).catch((failure) => {
     tableInitializations.delete(db);
     throw failure;
@@ -46,7 +52,7 @@ async function recipientIds(db, input) {
 
 async function recordAvailable(db, input) {
   await ensureTable(db);
-  const recipients = await recipientIds(db, input);
+  const recipients = input.recipientAgentIds || await recipientIds(db, input);
   for (const recipientAgentId of recipients) {
     await db.run(
       `INSERT OR IGNORE INTO agent_organization_message_receipts
@@ -56,6 +62,16 @@ async function recordAvailable(db, input) {
     );
   }
   return recipients;
+}
+
+async function recordPublication(db, input) {
+  await ensureTable(db);
+  const recipients = await recipientIds(db, { ...input, route: { ...input.route, delivery: 'delivered' } });
+  for (const recipient of recipients) {
+    await db.run('INSERT OR IGNORE INTO agent_organization_message_audiences(message_id, recipient_agent_id) VALUES (?, ?)', input.messageId, recipient);
+  }
+  if (input.route.delivery !== 'delivered') return [];
+  return recordAvailable(db, { ...input, recipientAgentIds: recipients });
 }
 
 function placeholders(ids) {
@@ -105,4 +121,4 @@ async function acknowledge(db, input) {
   return { acknowledged: result.changes, receipts: [...states.values()] };
 }
 
-module.exports = { ensureTable, recipientIds, recordAvailable, markRead, acknowledge };
+module.exports = { ensureTable, recipientIds, recordAvailable, recordPublication, markRead, acknowledge };

@@ -30,8 +30,14 @@ function rankByDomainTrust(candidates, domain) {
 }
 
 function eligible(profile, intent) {
-  if (intent.independenceRequired && profile.epistemicIndependence < Number(intent.independenceThreshold ?? 0.7)) return false;
+  if (intent.independenceRequired && !sufficientIndependence(profile, intent)) return false;
   return profile.disclosureLevel >= DISCLOSURE_REQUIRED[intent.risk];
+}
+
+function sufficientIndependence(profile, intent) {
+  const threshold = intent.independenceThreshold ?? 0.7;
+  return Number.isFinite(threshold) && threshold >= 0 && threshold <= 1
+    && Number.isFinite(profile.epistemicIndependence) && profile.epistemicIndependence >= threshold;
 }
 
 function dialectAllowed(candidates) {

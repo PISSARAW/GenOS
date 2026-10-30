@@ -269,6 +269,8 @@ const suites = {
     ['worker idle lifecycle', 'test_worker_idle_lifecycle.js']
   ],
   relationalPhysiology: [
+    ['agent relationship integration regressions', 'test_agent_relation_regressions.js'],
+    ['organization message tenant isolation', 'test_agent_message_scope.js'],
     ['relational physiology core', 'relationalPhysiology/core.test.cjs'],
     ['relational physiology communication', 'relationalPhysiology/communication.test.cjs'],
     ['relational physiology delegation and learning', 'relationalPhysiology/delegation-learning.test.cjs'],
