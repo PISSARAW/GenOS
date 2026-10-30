@@ -45,7 +45,7 @@ function main() {
   assert.equal(receipt.universalClaim, false);
   assert.match(receipt.receiptHash, /^[a-f0-9]{64}$/);
   const persistedReceipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'docs',
-    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase15.json'), 'utf8'));
+    '06-qualite-preuves', 'receipts', 'principes-fondateurs-2026-10-30.json'), 'utf8'));
   assert.deepEqual(receipt, persistedReceipt, 'The versioned qualification receipt is stale.');
   const revocationLedger = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
     manifest.lifecyclePolicy.revocationLedger), 'utf8'));
@@ -55,6 +55,12 @@ function main() {
     revocationTrustRegistry, now: new Date().toISOString() });
   lifecycle.assertCurrent(assessment);
   assert.equal(assessment.authorizesPromotion, false);
+  const historicalReceipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'docs',
+    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase15.json'), 'utf8'));
+  const historical = lifecycle.assess({ ...spec, persistedReceipt: historicalReceipt,
+    revocationLedger, revocationTrustRegistry, now: new Date().toISOString() });
+  assert.equal(historical.status, 'quarantined');
+  assert.ok(historical.reasons.includes('qualification-drift'));
   assertFailClosed(spec);
   console.log('Foundational principles: 19/19 score 4 in the declared bounded scope.');
   console.log(`QUALIFICATION_STATUS=${assessment.status};VALID_UNTIL=${assessment.validUntil}`);
