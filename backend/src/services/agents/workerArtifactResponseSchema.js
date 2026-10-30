@@ -86,7 +86,8 @@ function artifactSchema(input) {
     return object({ type: { const: artifactType }, content,
       provenance: object({ sourceRefs: refs }, ['sourceRefs']) }, ['type', 'content', 'provenance']);
   }
-  return object({ type: { const: artifactType }, content: { type: 'object' }, provenance: object({ sourceRefs: refs }, ['sourceRefs']) },
+  const content = require('./workerSpecializedArtifactSchema').contentSchema(artifactType) || { type: 'object' };
+  return object({ type: { const: artifactType }, content, provenance: object({ sourceRefs: refs }, ['sourceRefs']) },
     ['type', 'content', 'provenance']);
 }
 
