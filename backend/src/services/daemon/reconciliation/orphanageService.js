@@ -26,6 +26,7 @@ async function ensureSchema(db) {
 
 async function admitWorker(db, admission) {
   await ensureSchema(db);
+  if (!admission?.territoryId) return { admitted: false, reason: 'territory-required' };
   const {
     workerId,
     territoryId,
@@ -33,8 +34,8 @@ async function admitWorker(db, admission) {
     ttlMs = DEFAULT_ORPHAN_TTL_MS,
     nowIso = new Date().toISOString()
   } = admission;
-  const worker = await db.get('SELECT current_budget FROM agents WHERE id = ?', workerId);
-  const budgetFrozenAt = worker ? Number(worker.current_budget || 0) : 0;
+  const worker = await db.get('SELECT cognitive_budget FROM agents WHERE id = ?', workerId);
+  const budgetFrozenAt = worker ? Number(worker.cognitive_budget || 0) : 0;
   const graceExpiresAt = new Date(Date.now() + ttlMs).toISOString();
 
   await db.run(

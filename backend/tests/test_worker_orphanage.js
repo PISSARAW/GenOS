@@ -35,7 +35,7 @@ async function setupAgentsTable(db) {
       id TEXT PRIMARY KEY,
       execution_mode TEXT NOT NULL DEFAULT 'worker',
       status TEXT NOT NULL DEFAULT 'running',
-      current_budget INTEGER NOT NULL DEFAULT 100,
+      cognitive_budget INTEGER NOT NULL DEFAULT 100,
       parent_agent_id TEXT,
       territory_id TEXT,
       runtime_pid INTEGER,
@@ -48,12 +48,12 @@ async function setupAgentsTable(db) {
 
 async function insertWorker(db, id, overrides = {}) {
   await db.run(
-    `INSERT INTO agents (id, execution_mode, status, current_budget, parent_agent_id, territory_id, updated_at)
+    `INSERT INTO agents (id, execution_mode, status, cognitive_budget, parent_agent_id, territory_id, updated_at)
      VALUES (?, 'worker', 'running', ?, NULL, ?, datetime('now'))
      ON CONFLICT(id) DO UPDATE SET
        execution_mode = excluded.execution_mode,
        status = excluded.status,
-       current_budget = excluded.current_budget,
+       cognitive_budget = excluded.cognitive_budget,
        parent_agent_id = excluded.parent_agent_id,
        territory_id = excluded.territory_id`,
     id,
@@ -65,6 +65,9 @@ async function insertWorker(db, id, overrides = {}) {
 async function main() {
   const db = await openDb();
   await setupAgentsTable(db);
+  const unscoped = await orphanage.admitWorker(db, { workerId: 'unscoped' });
+  assert.equal(unscoped.admitted, false);
+  assert.equal(unscoped.reason, 'territory-required');
 
   // ---- 1. Admission au sas : budget gelé, statut SUSPECT, signal émis ----
   await insertWorker(db, 'w-admit', { budget: 50 });

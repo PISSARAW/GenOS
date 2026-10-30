@@ -108,13 +108,13 @@ async function reconcileDeadOrchestratorChildren(db) {
   let admitted = 0;
   for (const orphan of orphans) {
     try {
-      await orphanageService.admitWorker(db, {
+      const result = await orphanageService.admitWorker(db, {
         workerId: orphan.id,
         territoryId: orphan.territory_id,
         formerParentId: orphan.former_parent_id,
         ttlMs: orphanageService.DEFAULT_ORPHAN_TTL_MS
       });
-      admitted += 1;
+      if (result.admitted) admitted += 1;
     } catch (err) {
       console.error(`[MissionReconcile] Error admitting orphan ${orphan.id} to orphanage:`, err.message);
     }
@@ -139,15 +139,17 @@ async function reconcileUntrackedWorkers(db) {
   let admitted = 0;
   for (const row of rows) {
     try {
-      await orphanageService.admitWorker(db, {
+      const result = await orphanageService.admitWorker(db, {
         workerId: row.id,
         territoryId: row.territory_id,
         formerParentId: row.former_parent_id,
         ttlMs: orphanageService.DEFAULT_ORPHAN_TTL_MS
       });
+      if (!result.admitted) continue;
       admitted += 1;
     } catch (err) {
       console.error(`[MissionReconcile] Error admitting untracked worker ${row.id} to orphanage:`, err.message);
+      continue;
     }
     emit(row.id, 'UNTRACKED_WORKER_RECONCILED', 'RECONCILE',
       `Untracked worker ${row.id} has no active parent, runtime PID, or garage lease; admitted to orphanage.`,
