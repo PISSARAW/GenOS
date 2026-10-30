@@ -8,7 +8,7 @@ const { abortable } = require('./operationDeadline');
 
 class BrowserPuppeteerAdapter {
   constructor(options = {}) {
-    this.puppeteer = options.puppeteer || require('puppeteer');
+    this.puppeteer = options.puppeteer || null;
     this.artifactsDir = options.artifactsDir || path.resolve(process.cwd(), '.genos', 'workspace', 'screenshots');
     this.allowedHosts = new Set(options.allowedHosts || []);
     this.navigationScopes = new WeakMap();
@@ -16,6 +16,7 @@ class BrowserPuppeteerAdapter {
   }
 
   async open(options = {}) {
+    const puppeteer = this.puppeteer || require('puppeteer');
     fs.mkdirSync(this.artifactsDir, { recursive: true });
     const configuredExecutable = process.env.GENOS_BROWSER_EXECUTABLE_PATH;
     const launchOptions = { ...options.launchOptions };
@@ -24,7 +25,7 @@ class BrowserPuppeteerAdapter {
       const args = launchOptions.args || [];
       if (!args.includes('--no-sandbox')) launchOptions.args = [...args, '--no-sandbox'];
     }
-    const browser = await this.puppeteer.launch({ headless: true, ...launchOptions });
+    const browser = await puppeteer.launch({ headless: true, ...launchOptions });
     const page = await browser.newPage();
     await page.setViewport({ width: options.width || 1280, height: options.height || 900 });
     await page.setRequestInterception(true);
