@@ -52,13 +52,18 @@ function buildReceipt(input) {
 
 function semanticProofAccepted(verification) {
   const attestation = verification?.proof?.attestation?.value;
-  return semanticReceiptAccepted(attestation);
+  return semanticDomainAccepted(attestation);
 }
 
-function semanticReceiptAccepted(attestation) {
+function semanticDomainAccepted(attestation) {
   if (attestation?.accepted !== true || !attestation.domain || attestation.domain === 'worker_artifact') return false;
   try { require('./epistemic/nativeOracleDomains').definition(attestation.domain); return true; }
   catch { return false; }
+}
+
+function semanticReceiptAccepted(attestation) {
+  return semanticDomainAccepted(attestation) && ['hash', 'eventId', 'acceptanceHash']
+    .every(key => typeof attestation[key] === 'string' && attestation[key].trim().length > 0);
 }
 
 function semanticVerification(verification) {
