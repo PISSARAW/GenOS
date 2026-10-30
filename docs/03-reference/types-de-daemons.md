@@ -893,8 +893,8 @@ register(territory) → dormant
 ```
 
 1. Enregistrer le territoire (`createTerritory`, `ON CONFLICT DO NOTHING`).
-2. Démarrer le host avec `--territory` + `--daemon-id` (refus sinon) ; il ne lance
-   pas de scan initial. L’indexation initiale relève de l’appelant (`scanTerritory`).
+2. Démarrer le host avec `--territory` + `--daemon-id` (refus sinon) ; son premier
+   cycle effectue l’indexation initiale du territoire.
 3. Le pont de production annonce `ORCHESTRATOR_ENTERED` sans créer de territoire.
 4. Ingérer les événements, mettre à jour le HEAD ou toucher `last_observed_at`, puis
    réveiller sous cooldown/budget et journaliser en best-effort.
@@ -997,8 +997,8 @@ pas un succès LLM bout en bout.
 5. 10 variables d'interoception `DEFERRED` explicitement absentes.
 6. `PERFORMANCE_REGRESSION` non pontée ; adaptateur JS par regex ; graphe plafonné
    (2000 fichiers, 200 Ko) avec répertoires exclus.
-7. Routes `daemonRoutes.js` limitées à Sentinel/autostart/audit ; aucun endpoint
-   resident-daemon / territoire / event.
+7. Les routes résidentes exposent territoires, briefs, réparations et états ;
+   l’ingestion des événements reste raccordée par les ponts de production et le journal.
 8. Documentation d'exploitation encore partiellement en termes d'audit/autofix
    historiques : distinguer le host du runtime résident actuel.
 9. `WorkspaceGitDaemon` en compatibilité, sans nouvelle capacité autonome.
