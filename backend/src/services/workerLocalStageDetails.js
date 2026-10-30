@@ -32,6 +32,21 @@ function outputCap(mission) {
   return mission.identityExperimentScenario ? 1024 : undefined;
 }
 
+async function recordAudit(ctx, input) {
+  const audit = input.audit;
+  if (!audit) return;
+  const { emit } = require('./agentOrchestrationState');
+  const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
+    `Applied identity experiment arm ${audit.arm}.`, { ...audit,
+      identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
+      identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
+      allowedEvidenceRefs: require('./workerEvidenceIdentityPrompt').missionEvidenceRefs(ctx.mission),
+      promptText: input.promptText,
+      promptSha256: require('./identityExperimentPromptTreatment').promptSha256(input.promptText),
+      promptCharacters: input.promptText.length }, 'info', 'running');
+  await require('./strategyExecutionService').recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
+}
+
 async function proposal(ctx) {
   return require('./workerEvidenceBarrierLocalProposal').resolveProposal({ codeWorker: ctx.codeWorker,
     result: ctx.result, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
@@ -52,4 +67,4 @@ function validateArtifact(ctx, evidenceReport, proposalResult) {
     .allocationFailure(evidenceReport.claims?.[0]?.statement, validation.issues);
 }
 
-module.exports = { treatment, workspace, workerInstruction, outputCap, proposal, validateArtifact };
+module.exports = { treatment, workspace, workerInstruction, outputCap, recordAudit, proposal, validateArtifact };
