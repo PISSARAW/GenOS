@@ -32,6 +32,7 @@ async function execute(input) {
   assertMission(mission);
   const proposal = parse(input.text, input.allowedTest, input.allowedCommands || []);
   const before = await snapshots.collectFiles(workspaceRoot);
+  const reviewSnapshot = require('./localCodeReviewSnapshot').assertSnapshot(mission, before);
   const tests = [];
   for (const command of proposal.tests) tests.push(await input.runTest(normalizeSandboxCommand(command), workspaceRoot));
   const after = await snapshots.collectFiles(workspaceRoot);
@@ -40,7 +41,7 @@ async function execute(input) {
   const testExecutionReceipt = await require('./localCodeTestExecutionReceiptService').recordExecutedBatch(db, {
     missionId: mission.missionId || mission.mission_id || mission.id,
     agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
-    tests, workspaceFiles: after, changedFileHashes: [] });
+    tests, workspaceFiles: after, changedFileHashes: [], reviewSnapshot });
   return { proposal, changedFiles: [], changedFileHashes: [], tests, testExecutionReceipt,
     reviewedFiles: before, reviewOnly: true, merged: false,
     testStatus: tests.every(test => test.exitCode === 0) ? 'passed' : 'failed' };

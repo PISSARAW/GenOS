@@ -41,6 +41,7 @@ async function recordExecutedBatch(db, input = {}) {
     batchId: crypto.randomUUID(), missionId, agentId, executionRunId, workspaceRoot,
     startedAt: input.startedAt || null, completedAt: input.completedAt || new Date().toISOString(),
     outcome, tests, workspaceDigest: workspaceDigest(input.workspaceFiles),
+    ...(input.reviewSnapshot ? { reviewSnapshot: input.reviewSnapshot } : {}),
     changedFileHashes: (input.changedFileHashes || []).map(({ path: file, hash }) => ({ path: file, hash }))
       .sort((left, right) => left.path.localeCompare(right.path)) };
   const receiptHash = digest(payload);

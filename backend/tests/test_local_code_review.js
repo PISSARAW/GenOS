@@ -19,11 +19,18 @@ async function main() {
   try {
     await fs.writeFile(path.join(root, 'answer.py'), 'value = 42\n');
     await fs.writeFile(path.join(root, 'test_answer.py'), 'from answer import value\ndef test_value():\n    assert value == 42\n');
+    const content = { sourceWorkerId: 'producer', sourceRunId: 'producer-run', sourceReceiptHash: 'producer-receipt',
+      reviewerId: mission.agentId, missionId: mission.missionId,
+      files: [{ path: 'answer.py', hash: require('node:crypto').createHash('sha256').update('value = 42\n').digest('hex') }] };
+    mission.delegatedReviewSnapshot = { ...content, hash: require('../src/services/trinityProvenanceValues').digest(content), receiptRef: 'genos://delegated-review/fixture' };
     const result = await run(proposal);
     assert.equal(result.testStatus, 'passed');
     assert.deepEqual(result.changedFiles, []);
     const saved = await db.get('SELECT execution_run_id, agent_id FROM local_code_test_execution_receipts');
     assert.deepEqual(saved, { execution_run_id: 'review-run', agent_id: 'reviewer' });
+    const receipt = JSON.parse((await db.get('SELECT receipt_json FROM local_code_test_execution_receipts')).receipt_json);
+    assert.equal(receipt.reviewSnapshot.sourceRunId, 'producer-run');
+    assert.equal(receipt.reviewSnapshot.hash, mission.delegatedReviewSnapshot.hash);
     const report = require('../src/services/workerCodeEvidenceReport').build({ mission, proposal: result });
     assert.equal(report.workerArtifact.type, 'verification_report');
     await assert.rejects(run({ ...proposal, patches: [{ path: 'answer.py', content: 'value=0' }] }), { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION' });
