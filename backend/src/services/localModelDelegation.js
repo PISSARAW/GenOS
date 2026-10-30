@@ -96,6 +96,7 @@ async function generate(ctx, generateOnce) {
   const children = checkPlan(JSON.parse(plan.text), contract);
   const observed = [];
   for (const child of children) observed.push(await childEvidence(ctx, child, observed));
+  await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission });
   result = await generateOnce(synthesisContext(ctx, plan, observed));
   assertSynthesis(result, observed);
   return combineResults(plan, result);
