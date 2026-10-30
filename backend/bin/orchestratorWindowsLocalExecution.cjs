@@ -61,6 +61,7 @@ function buildLocalMission(input) {
     executionMode: 'worker',
     deferAgentTerminalStatus: true,
     workspaceRoot: requestedWorkspace(request), workspaceProvisioned: true,
+    readOnlyWorkspaceEvidence: request.readOnlyWorkspaceEvidence === true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: identity.allowedEvidenceRefs,
     localModel, localRoutingPolicy: resolveRouting(request, localModel),
     identityExperimentArm: identity.identityExperimentArm,

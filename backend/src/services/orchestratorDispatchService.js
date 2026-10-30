@@ -19,6 +19,7 @@ function buildWorkerMission(input = {}) {
   const workerKind = workerKinds.resolveWorkerKind(input.workerKind, defaults.role);
   const mission = {
     agentId: input.agentId,
+    executionMode: 'worker',
     name: input.name,
     nameMeaning: input.nameMeaning,
     missionId: input.missionId,
@@ -39,6 +40,8 @@ function buildWorkerMission(input = {}) {
     workerTokenLimit: input.workerTokenLimit ?? defaults.executionBudget.tokens,
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
+    readOnlyWorkspaceEvidence: input.readOnlyWorkspaceEvidence === true,
+    executionDeadlineAt: input.executionDeadlineAt,
     workspaceProvisioned: input.workspaceProvisioned === true,
     workspaceBackend: input.workspaceBackend,
     gqwfWorkerLease: input.gqwfWorkerLease || null,

@@ -670,6 +670,8 @@ Source : `backend/src/services/daemon/daemonStigmergyService.js:11-111`,
   `relevantMissionFiles` référence les chemins de fichiers indexés explicitement cités
   par la mission, avec leur hash de contenu. Ces références sont des pistes de lecture,
   et ne garantissent ni la pertinence sémantique ni la vérification de leur contenu.
+  Le lancement direct d'un worker annonce aussi la mission au pont territorial et
+  joint le brief disponible au prompt sous forme de contexte à vérifier (ADR 0756).
 - Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement;
   le signal local n'est pas le transport du dossier. Le brief est consommé via la
   récupération explicite et passe alors de `READY` à `CONSUMED`.

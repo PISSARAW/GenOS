@@ -40,12 +40,10 @@ function resolveWorkerModel(mission) {
   return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
 }
 function isOrchestratorMission(mission) {
-  if (mission.role === 'Autonomous Orchestrator') return true;
-  if (mission.executionMode === 'orchestrator') return true;
-  if (mission.execution_mode === 'orchestrator') return true;
-  if (mission.executionMode === 'worker' || mission.execution_mode === 'worker') return false;
-  if (/orchestrator/i.test(mission.agentId)) return true;
-  return false;
+  const mode = mission.executionMode ?? mission.execution_mode;
+  if (mode === 'orchestrator') return true;
+  if (mode === 'worker') return false;
+  return mission.role === 'Autonomous Orchestrator' && !mission.workerKind;
 }
 
 function resolveMaxCost(mission) {
@@ -399,4 +397,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
   }
-} module.exports = { runLocalWorker, generateWorkerResult, assertEvidenceAuthority };
+} module.exports = { runLocalWorker, generateWorkerResult, assertEvidenceAuthority, isOrchestratorMission };

@@ -372,6 +372,7 @@ function measuredModelUsage(runs, attempts = [], usageRows = []) {
 }
 
 module.exports = {
+  attachTerritoryBrief,
   buildNceInput,
   shouldAttachMissionOrchestrator,
   buildEnhancedPrompt,
