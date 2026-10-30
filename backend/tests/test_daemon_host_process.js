@@ -65,7 +65,8 @@ async function main() {
     });
     const before = await observedState(value);
     assert.equal(before.cognitive_revisions, 0);
-    await stop(host);
+    host.child.kill('SIGKILL');
+    await host.completion;
     if (process.platform === 'win32') {
       const replacement = require('../src/services/daemon/residentDaemonRuntime').createRuntime(value.db);
       await assert.rejects(() => require('../src/services/daemon/residentDaemonRuntime').registerDaemon(replacement, {
@@ -74,16 +75,19 @@ async function main() {
       const after = await observedState(value);
       assert.equal(after.last_event_id, before.last_event_id);
       assert.equal(after.cognitive_revisions, before.cognitive_revisions);
-      console.log('Actual resident process: liveness, persisted cursor and abrupt-stop identity fence passed.');
-      return;
+      console.log('Abrupt-stop identity fence prevents an immediate replacement.');
     }
+    await bridge.ingestEvent(producer, { territoryId: value.context.territoryId,
+      type: 'BUILD_FAILED', payload: { scope: 'probe.js' } });
+    // Simulate the passage of the identity lease TTL after process death.
+    await value.db.run('UPDATE agent_identity_heads SET lease_until = 0 WHERE agent_id = ?', value.context.daemonId);
     host = launch(value);
     await waitFor(host, () => host.output.includes(' active on '));
+    await waitFor(host, async () => (await observedState(value)).last_event_id > before.last_event_id);
     const after = await observedState(value);
-    assert.equal(after.last_event_id, before.last_event_id);
+    assert.ok(after.last_event_id > before.last_event_id);
     assert.equal(after.cognitive_revisions, before.cognitive_revisions);
-    assert.equal(after.activity, 'DORMANT');
-    console.log('Actual resident process: liveness, interprocess delivery, persisted cursor and restart passed.');
+    console.log('Actual resident process: abrupt stop, identity fence and event replay after lease expiry passed.');
   } finally {
     await stop(host);
     await closeFixture(value);

@@ -3,6 +3,7 @@
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 const { migrateDaemonEventCursor } = require('../../db/migrations/migrateDaemonEventCursor');
 const eventBridge = require('./daemonEventBridgeService');
+const searchState = require('./daemonSearchStateService');
 
 const MAX_BATCH = 100;
 
@@ -41,7 +42,13 @@ async function pollDaemonEvents(context) {
   );
   let lastEventId = cursor;
   for (const row of rows || []) {
-    await eventBridge.processPersistedEvent(context.bridge, row);
+    const outcome = await eventBridge.processPersistedEvent(context.bridge, row);
+    if (outcome.retryable) break;
+    if (outcome.woke && context.bridge.deferInvestigation) {
+      await searchState.ensure(context);
+      context.retryInvestigation = true;
+      await searchState.save(context);
+    }
     await advanceCursor(context.db, context.daemonId, row.id);
     lastEventId = Number(row.id);
   }

@@ -161,7 +161,8 @@ async function processPersistedEvent(bridge, event) {
     territoryId: event.territory_id,
     type: event.event_type
   }, { receptor, wake });
-  return { processed: true, woke: wake.woke, reason: wake.reason, investigation };
+  return { processed: true, woke: wake.woke, reason: wake.reason,
+    retryable: !wake.woke && wake.reason !== 'low-priority-persist-only', investigation };
 }
 
 async function investigateAfterWake(bridge, event, outcome) {
