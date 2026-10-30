@@ -264,16 +264,7 @@ async function genosFull(task, state) {
     toolLease: ['genos_change_organization', 'genos_replay'], requiredTools: ['genos_change_organization'], allowed_commands: [], allow_file_edits: true,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
-  const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
-    GENOS_AGENT_EXECUTOR: '', GENOS_LOCAL_MODEL: state.model,
-    GENOS_GVX_LEDGER_HMAC_SECRET: process.env.GENOS_GVX_LEDGER_HMAC_SECRET
-      || require('crypto').randomBytes(32).toString('hex'),
-    GENOS_TOOL_MEMBRANE_HMAC_SECRET: process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET || require('crypto').randomBytes(32).toString('hex'),
-    GENOS_IN_PROCESS_WORKERS: process.platform === 'win32' ? '1' : process.env.GENOS_IN_PROCESS_WORKERS || '',
-    GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
-    GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
-    GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
-    GENOS_COMPARISON_TOOL_POLICY: 'empty', GENOS_MORPHOGENESIS_V2_SHADOW: '0' };
+  const env = require('./comparisonAdaptersValues1.cjs').genosFullValue1({ ensureAttemptWorkspace, process, require, get state() { return state; } });
   const started = performance.now();
   const execution = await executeGenos({ payload, env, repo, state });
   const result = execution.receipt;
@@ -283,8 +274,7 @@ async function genosFull(task, state) {
     throw error;
   }
   const usage = result.token_usage;
-  const evidenceUsage = (result.telemetry || []).filter(event => event.event_type === 'AGENT_COMPLETED')
-    .map(event => { try { return Number(JSON.parse(event.payload_json || '{}').usage?.tokens); } catch { return NaN; } })
+  const evidenceUsage = require('./comparisonAdaptersValues1.cjs').genosFullValue3({ JSON, NaN, Number, get result() { return result; } })
     .find(Number.isFinite);
   const tokens = Number(usage.totalTokens) > 0 ? Number(usage.totalTokens) : evidenceUsage;
   if (!Number.isFinite(tokens)) {
@@ -360,13 +350,14 @@ function tokenTotal(condition, state, result) {
     : state.meteringComplete ? state.tokensUsed : null;
 }
 
+function nullableReceipt(result) { return result.receipt || null; }
+
 function measuredMetrics(condition, state, result) {
   const totalTokens = tokenTotal(condition, state, result);
   return {
     tokenUsage: { total: Number.isFinite(totalTokens) ? totalTokens : null,
       prompt: state.promptTokens, completion: state.completionTokens, measured: Number.isFinite(totalTokens) },
-    servedModel: result.servedModel || (state.servedModels.size === 1 ? [...state.servedModels][0]
-      : state.servedModels.size ? 'mixed' : null),
+    servedModel: require('./comparisonAdaptersValues1.cjs').measuredMetricsValue2({ get result() { return result; }, get state() { return state; } }),
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     transitionEvidence: evidenceOf(result),
@@ -376,7 +367,7 @@ function measuredMetrics(condition, state, result) {
     executionStderrExcerpt: result.execution?.stderrExcerpt || null,
     runtimeSucceeded: result.receipt?.success ?? null,
     allWorkersCompleted: result.receipt?.token_usage?.allRunsCompleted ?? null,
-    latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null
+    latencyMs: Date.now() - state.startedAt, receipt: nullableReceipt(result)
   };
 }
 

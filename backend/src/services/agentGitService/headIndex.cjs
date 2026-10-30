@@ -129,19 +129,7 @@ async function status(req) {
   const base = baseId ? await getObject(db, req, baseId) : null;
   const baseState = base ? JSON.parse(base.state_json) : null;
   const unstaged = require('./stagingPolicy.cjs').unstagedSections(baseState, current, indexData.sections || {});
-  return {
-    success: true,
-    operation: 'status',
-    agentId,
-    head: head?.object_id || null,
-    staged: stagedSections.map(section => ({ section,
-      count: Array.isArray(indexData.sections[section]) ? indexData.sections[section].length : 1 })),
-    stagedCount,
-    unstagedSections: unstaged,
-    indexBaseMoved: !!index && ((ref?.object_id || null) !== indexData.baseObjectId
-      || Number(ref?.version || 0) !== indexData.baseRefVersion),
-    indexExists: !!index
-  };
+  return require('./headIndexValues1.cjs').statusValue1({ Array, Number, agentId, head, index, get indexData() { return indexData; }, ref, stagedCount, stagedSections, unstaged });
 }
 
 function buildStateFromIndex(index, agentId) {

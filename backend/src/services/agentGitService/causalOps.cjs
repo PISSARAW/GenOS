@@ -34,25 +34,16 @@ function checkDecisions(decisions) {
 
 function checkOutcomeInvariants(state) {
   const invariants = {};
-  if (state.runs && Array.isArray(state.runs)) invariants.budgetsConsistent = checkBudgets(state.runs);
+  require('./causalOpsStages1.cjs').checkOutcomeInvariantsStage2({ Array, checkBudgets, get invariants() { return invariants; }, set invariants(__genosNextStageValue) { invariants = __genosNextStageValue; }, state });
   if (state.permissions && Array.isArray(state.permissions)) invariants.permissionsConsistent = checkPermissions(state.permissions);
   if (state.decisions && Array.isArray(state.decisions)) invariants.decisionsValid = checkDecisions(state.decisions);
   if (state.relations && Array.isArray(state.relations)) {
     const ids = new Set(state.relations.map((row) => row.id));
-    invariants.relationsConsistent = ids.size === state.relations.length && state.relations.every((row) =>
-      row.source_agent_id !== row.target_agent_id && Number.isFinite(Number(row.authority))
-      && Number(row.authority) >= 0 && Number(row.authority) <= 1);
+    invariants.relationsConsistent = require('./causalOpsValues1.cjs').checkOutcomeInvariantsValue1({ Number, ids, state });
   }
   if (state.epistemicClaims && Array.isArray(state.epistemicClaims)) {
     const { calibrate } = require('./epistemicClaimMerge.cjs');
-    invariants.claimsCalibrated = state.epistemicClaims.every((row) => {
-      const derived = calibrate(row);
-      if (!derived) return false;
-      try {
-        const claim = JSON.parse(row.claim_json || '{}');
-        return claim.confidence == null && Number(row.quality) === derived.quality;
-      } catch (_) { return false; }
-    });
+    invariants.claimsCalibrated = require('./causalOpsValues1.cjs').checkOutcomeInvariantsValue3({ JSON, Number, calibrate, state });
   }
   return invariants;
 }
@@ -106,25 +97,7 @@ async function buildCausalBlame(db, commit, section) {
 
   // Remonter les ancêtres : si un item existe déjà avec la même valeur, on
   // remonte l'attribution vers l'ancêtre (la valeur n'a pas changé depuis lui).
-  while (current && current.parentIds && current.parentIds.length > 0) {
-    current = await getCommit(db, current.parentIds[0]);
-    if (!current || visited.has(current.id)) break;
-    visited.add(current.id);
-    for (const item of sectionItems(current)) {
-      const id = identityOf(section, item);
-      if (id === undefined) continue;
-      const existing = attribution.get(id);
-      if (existing && existing.value === canonicalize(item)) {
-        attribution.set(id, {
-          commitId: current.id,
-          item,
-          value: existing.value,
-          createdAt: current.created_at,
-          createdBy: current.created_by || 'unknown'
-        });
-      }
-    }
-  }
+  await require('./causalOpsStages1.cjs').buildCausalBlameStage1({ attribution, canonicalize, get current() { return current; }, set current(__genosNextStageValue) { current = __genosNextStageValue; }, db, getCommit, identityOf, require, section, sectionItems, undefined, visited });
 
   return Array.from(attribution.values()).map(({ commitId, item, createdAt, createdBy }) => ({
     commitId, item, createdAt, createdBy

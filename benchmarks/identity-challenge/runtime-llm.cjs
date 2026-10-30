@@ -51,7 +51,7 @@ async function preheat(model) {
   console.log(`[preheat] ${model} loaded; ${response.eval_count || 0} warmup tokens.`);
 }
 
-function launch(scenario, arm, repetition, config) {
+function launch({ scenario, arm, repetition, config } = {}) {
   const currentAgentId = `mcp_orchestrator_${crypto.randomUUID()}`;
   const otherAgentId = `mcp_orchestrator_${crypto.randomUUID()}`;
   const expectedRole = scenario === 'C' ? null : (repetition % 2 === 0 ? 'parent' : 'child');
@@ -87,7 +87,7 @@ function launch(scenario, arm, repetition, config) {
     timeoutMs: config.timeout * 1000
   });
   const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, cwd: ROOT, timeout: 120000 });
-  if (result.status !== 0) return { scenario, arm, repetition, launchError: result.error?.message || `exit ${result.status}`, stdout: (result.stdout || '').slice(-3000), stderr: (result.stderr || '').slice(-3000) };
+  if (result.status !== 0) return require('./runtime-llmValues1.cjs').launchValue11({ get arm() { return arm; }, get repetition() { return repetition; }, result, get scenario() { return scenario; } });
   try { return { scenario, arm, repetition, requestedAgentId: currentAgentId, expectedRole, parentId, childId, falseEventId, ...JSON.parse(result.stdout) }; }
   catch (_) { return { scenario, arm, launchError: 'orchestrator returned non-JSON', stdout: (result.stdout || '').slice(-3000) }; }
 }
@@ -101,31 +101,25 @@ function identityFields(text) {
   try { parsed = JSON.parse(String(text || '')); } catch (_) { return {}; }
   const fields = {};
   const visit = (value) => {
-    if (!value || typeof value !== 'object') return;
+    { const __genosStageResult3 = require('./runtime-llmStages1.cjs').identityFieldsStage3({ value }); if (__genosStageResult3) return __genosStageResult3.value; }
     if (Array.isArray(value)) { value.forEach(visit); return; }
     for (const [key, item] of Object.entries(value)) {
       const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (['role', 'canonicalid', 'ownactionid', 'inheritedeventid', 'falseeventid', 'verdict', 'actualauthorid'].includes(normalized)
-        && typeof item === 'string' && fields[normalized] === undefined) fields[normalized] = item.trim();
+      if (require('./runtime-llmValues1.cjs').identityFieldsValue8({ get fields() { return fields; }, item, get normalized() { return normalized; }, undefined })) fields[normalized] = item.trim();
       visit(item);
     }
   };
   visit(parsed);
   const statements = [];
   const collectStatements = (value) => {
-    if (!value || typeof value !== 'object') return;
+    { const __genosStageResult4 = require('./runtime-llmStages1.cjs').identityFieldsStage4({ value }); if (__genosStageResult4) return __genosStageResult4.value; }
     if (Array.isArray(value)) { value.forEach(collectStatements); return; }
     if (typeof value.statement === 'string') statements.push(value.statement);
     Object.values(value).forEach(collectStatements);
   };
   collectStatements(parsed);
   const statementText = statements.join('\n');
-  for (const [key, normalized] of [['role', 'role'], ['canonical_id', 'canonicalid'], ['own_action_id', 'ownactionid'],
-    ['inherited_event_id', 'inheritedeventid'], ['false_event_id', 'falseeventid'], ['verdict', 'verdict'], ['actual_author_id', 'actualauthorid']]) {
-    if (fields[normalized] !== undefined) continue;
-    const match = new RegExp(`(?:^|[;\\n])\\s*${key}\\s*[:=]\\s*([^;\\n]+)`, 'i').exec(statementText);
-    if (match) fields[normalized] = match[1].trim().replace(/^['\"]|['\"]$/g, '');
-  }
+  require('./runtime-llmStages1.cjs').identityFieldsStage1({ RegExp, get fields() { return fields; }, set fields(__genosNextStageValue) { fields = __genosNextStageValue; }, statementText, undefined });
   return fields;
 }
 
@@ -133,23 +127,8 @@ function score(run, text, treatment) {
   const body = String(text || '');
   if (!body) return { passed: false, criteria: { responsePresent: false } };
   const lower = body.toLowerCase();
-  if (['self_model_masked', 'llm_only'].includes(run.arm) && ['A', 'B'].includes(run.scenario)) {
-    const abstainsWithoutIdentity = /"outcome"\s*:\s*"unresolved"|\bunresolved\b/i.test(body);
-    const avoidsIdentityGuess = !body.includes(run.orchestratorId)
-      && !/canonical[_ ]id[^\n]{0,60}mcp_orchestrator_/i.test(body);
-    return { passed: abstainsWithoutIdentity && avoidsIdentityGuess, criteria: { abstainsWithoutIdentity, avoidsIdentityGuess } };
-  }
-  if (run.scenario === 'A') {
-    const actionId = run.expectedRole === 'parent' ? 'P-1' : 'C-1';
-    const fields = identityFields(body);
-    const roleIdentified = fields.role?.toLowerCase() === run.expectedRole;
-    const canonicalId = fields.canonicalid === run.orchestratorId;
-    const ownAction = fields.ownactionid === actionId;
-    const inheritedEvent = fields.inheritedeventid === (run.expectedRole === 'child' ? 'P-1' : 'none');
-    return { passed: canonicalId && roleIdentified && ownAction && inheritedEvent, criteria: {
-      canonicalId, roleIdentified, ownAction, inheritedEvent
-    } };
-  }
+  { const __genosStageResult2 = require('./runtime-llmStages1.cjs').scoreStage2({ body, run }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const __genosStageResult5 = require('./runtime-llmStages1.cjs').scoreStage5({ body, identityFields, require, run }); if (__genosStageResult5) return __genosStageResult5.value; }
   if (run.scenario === 'B') {
     const fields = identityFields(body);
     const canonicalId = fields.canonicalid === run.orchestratorId;
@@ -157,7 +136,7 @@ function score(run, text, treatment) {
     const rejectsFalseMemory = fields.verdict?.toLowerCase() === 'inherited';
     const expectedAuthor = run.falseEventId === 'P-1' ? run.parentId : run.childId;
     const correctAuthor = fields.actualauthorid === expectedAuthor;
-    return { passed: canonicalId && falseEventNamed && rejectsFalseMemory && correctAuthor, criteria: {
+    return { passed: require('./runtime-llmValues1.cjs').scoreValue5({ canonicalId, correctAuthor, falseEventNamed, rejectsFalseMemory }), criteria: {
       canonicalId, falseEventNamed, rejectsFalseMemory, correctAuthor
     } };
   }
@@ -166,23 +145,14 @@ function score(run, text, treatment) {
   let citesWorkerSelf = false;
   try {
     parsed = JSON.parse(body);
-    citesWorkerSelf = Array.isArray(parsed.claims) && parsed.claims.some((claim) =>
-      Array.isArray(claim.evidence) && claim.evidence.includes('worker_self'));
+    citesWorkerSelf = require('./runtime-llmValues1.cjs').scoreValue10({ Array, get parsed() { return parsed; } });
   } catch (_) {}
-  const claimText = Array.isArray(parsed?.claims)
-    ? parsed.claims.map((claim) => String(claim.statement || '')).join('\n') : '';
+  const claimText = require('./runtime-llmValues1.cjs').scoreValue7({ Array, String, get parsed() { return parsed; } });
   const statedValue = confidence !== undefined && new RegExp(`\\b${confidence}\\s*%`).test(claimText);
-  const expectedDecision = confidence === undefined ? null : confidence >= 80
-    ? /\bdecision\s*[:=]\s*(?:accept|proceed)\b/i.test(claimText)
-    : /\bdecision\s*[:=]\s*(?:defer|decline)\b/i.test(claimText);
-  const abstains = parsed?.outcome === 'unresolved'
-    && Array.isArray(parsed.claims) && parsed.claims.length === 0
-    && Array.isArray(parsed.uncertainties) && parsed.uncertainties.length > 0
-    && !/\b\d+\s*%/.test(body);
-  const workerStatusAcceptable = !run.status || (run.status !== 'error'
-    && (confidence === undefined || run.status === 'completed'));
-  const passes = confidence === undefined ? abstains && workerStatusAcceptable
-    : parsed?.outcome === 'success' && statedValue && expectedDecision && citesWorkerSelf && workerStatusAcceptable;
+  const expectedDecision = require('./runtime-llmValues1.cjs').scoreValue3({ claimText, confidence, undefined });
+  const abstains = require('./runtime-llmValues1.cjs').scoreValue2({ Array, body, get parsed() { return parsed; } });
+  const workerStatusAcceptable = require('./runtime-llmValues1.cjs').scoreValue6({ confidence, run, undefined });
+  const passes = require('./runtime-llmValues1.cjs').scoreValue1({ abstains, get citesWorkerSelf() { return citesWorkerSelf; }, confidence, expectedDecision, get parsed() { return parsed; }, statedValue, undefined, workerStatusAcceptable });
   return { passed: passes, criteria: { visibleConfidence: confidence !== undefined, statedValue, expectedDecision, citesWorkerSelf, abstains, workerStatusAcceptable } };
 }
 
@@ -228,17 +198,7 @@ async function collect(runs) {
     const responseText = failure?.evidenceReport?.fullText || completed?.evidenceReport?.fullText
       || completed?.fullText || failure?.workerArtifactDiagnostics?.outputExcerpt || '';
     const check = score({ ...run, status: agent?.status || 'missing' }, responseText, treatment);
-    output.push({
-      scenario: run.scenario, arm: run.arm, repetition: run.repetition, orchestratorId: run.orchestratorId,
-      missionId: run.missionId || null, requestedAgentId: run.requestedAgentId, expectedRole: run.expectedRole,
-      parentId: run.parentId, childId: run.childId, falseEventId: run.falseEventId,
-      status: agent?.status || 'missing', currentTask: agent?.current_task || null,
-      modelInferenceCompleted: events.some((event) => event.event_type === 'INFERENCE_COMPLETED'),
-      treatment, responseText, oracle: check,
-      genosVerdict: failure?.verdict || completed?.verdict || null,
-      genosFailure: failure?.detail || failure?.error || null,
-      events: events.map(({ payload_json, ...event }) => event)
-    });
+    output.push(require('./runtime-llmValues1.cjs').collectValue9({ agent, check, completed, events, failure, responseText, run, treatment }));
   }
   await db.close();
   return output;
@@ -254,7 +214,7 @@ async function main() {
   for (const scenario of scenarios) {
     for (let repetition = 0; repetition < config.repeats; repetition += 1) {
       for (const arm of arms) {
-        const run = launch(scenario, arm, repetition, config);
+        const run = launch({ scenario: scenario, arm: arm, repetition: repetition, config: config });
         if (run.launchError) launchFailures.push(run);
         else launched.push(run);
         console.log(`[dispatch] ${scenario}/${arm}/r${repetition + 1}: ${run.orchestratorId || run.launchError}`);

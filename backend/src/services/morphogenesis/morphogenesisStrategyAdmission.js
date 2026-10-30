@@ -121,11 +121,7 @@ function validateWorkers(input) {
   if (kindDenial) return kindDenial;
   const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
     requiredCapabilities: candidate.requiredCapabilities || [] }];
-  return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments,
-    requiredWorkerCapabilities: requirement.requiredWorkerCapabilities
-      || (requirements.length === 1 ? candidate.requiredWorkerCapabilities || [] : []),
-    strictAttribution: requirements.length > 1 }))
-    .find(Boolean) || null;
+  return require('./morphogenesisStrategyAdmissionValues1.js').validateWorkersValue2({ Boolean, assignments, candidate, requirements, workerCapabilityDenial });
 }
 
 function validateBudget(plan, budget) {
@@ -149,9 +145,7 @@ function validateLease(candidate, plan, lease) {
   }
   const allowed = new Set(ceiling.map(String));
   const requested = Array.isArray(plan?.requestedTools) ? plan.requestedTools : [];
-  const selectedMutation = plan?.morphologyPatch?.graph
-    && plan.selectedTopology === candidate.topology
-    && (candidate.kind !== 'VARIANT' || (plan.selectedVariant || 'default') === (candidate.variant || 'default'));
+  const selectedMutation = require('./morphogenesisStrategyAdmissionValues1.js').validateLeaseValue1({ candidate, plan });
   if (!requested.includes(operation) && !selectedMutation) {
     return deny('morphogenesis_operation_not_requested', { operation });
   }

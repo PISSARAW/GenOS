@@ -50,10 +50,7 @@ async function main() {
     const observed = { state: wake.state?.state, restoredMarker: wake.restored?.state?.marker,
       communicationCount: messages.filter((message) => message.checkpoint === 'route-7' && message.integrity === 'verified').length,
       inventedMessage: messages.length !== 1 || messages[0]?.id !== communication.id };
-    const enginePass = suspended.success && wrongWake.code === 'SURVIVAL_WAKE_EVENT_MISMATCH'
-      && dormant.state === 'dormant' && wake.success && wake.resumed?.resumed === null
-      && observed.state === expected.state && observed.restoredMarker === expected.restoredMarker
-      && observed.communicationCount === 1 && !observed.inventedMessage;
+    const enginePass = require('./run-s26-qwenValues1.cjs').mainValue1({ dormant, expected, observed, suspended, wake, wrongWake });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Inspect this GenOS continuity result. Copy only the recovered state, restored marker, count of verified pre-fault communications and whether a message was invented.',
         `Evidence: ${JSON.stringify({ observed, messages, wrongWake: wrongWake.code, wakeSuccess: wake.success })}`,

@@ -368,12 +368,10 @@ async function planContinuation(input, dependencies = {}) {
   const result = await compileReplacementRoster({ input: continuationInput, plan, decision, signals, dependencies });
   if (!result.adapted) return result;
   const admission = await (dependencies.admissionForTransition || admissionForTransition)(continuationInput, result);
-  if (admission.status !== 'admitted' && admission.status !== 'not_applicable') {
-    return { ...result, adapted: false, reason: `strategy_admission_denied:${admission.reason}`, admission };
-  }
-  if (admission.status === 'admitted') result.plan = admission.actualPlan;
+  { const __genosStageResult1 = require('./missionMorphogenesisContinuationStages1.js').planContinuationStage1({ get admission() { return admission; }, set admission(__genosNextStageValue) { admission = __genosNextStageValue; }, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; } }); if (__genosStageResult1) return __genosStageResult1.value; }
+  require('./missionMorphogenesisContinuationStages1.js').planContinuationStage3({ get admission() { return admission; }, set admission(__genosNextStageValue) { admission = __genosNextStageValue; }, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; } });
   result.admission = admission;
-  if (result.receipt) result.receipt.strategyAdmission = admission;
+  require('./missionMorphogenesisContinuationStages1.js').planContinuationStage2({ get admission() { return admission; }, set admission(__genosNextStageValue) { admission = __genosNextStageValue; }, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; } });
   input.state.plan.morphogenesisPlan = result.plan;
   input.state.plan.selectedTopology = result.plan.selectedTopology;
   input.state.plan.morphogenesisDispatchAssignments = Object.values(result.assignments);

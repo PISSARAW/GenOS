@@ -6,6 +6,16 @@ import re
 import sys
 
 
+def function_body(source, name):
+    lines = source.splitlines()
+    start = next((index for index, line in enumerate(lines) if re.match(rf"^def\s+{name}\s*\(", line)), None)
+    if start is None:
+        return ""
+    end = next((index for index in range(start + 1, len(lines))
+                if lines[index] and not lines[index][0].isspace()), len(lines))
+    return "\n".join(lines[start:end])
+
+
 def main():
     case_id = sys.argv[1]
     root = pathlib.Path.cwd().resolve()
@@ -14,15 +24,6 @@ def main():
     spec = importlib.util.spec_from_file_location("g1_metrics_candidate", source_path)
     api = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(api)
-
-    def function_body(name):
-        lines = source.splitlines()
-        start = next((index for index, line in enumerate(lines) if re.match(rf"^def\s+{name}\s*\(", line)), None)
-        if start is None:
-            return ""
-        end = next((index for index in range(start + 1, len(lines))
-                    if lines[index] and not lines[index][0].isspace()), len(lines))
-        return "\n".join(lines[start:end])
 
     if case_id == "average-empty":
         assert api.average([]) is None
@@ -54,7 +55,7 @@ def main():
         assert re.search(r"median\s*\(\s*\[\s*1\s*,\s*2\s*,\s*3\s*,\s*4\s*\]\s*\)", readme, re.I)
     elif case_id == "shared-validation":
         helper_names = re.findall(r"^def\s+(_\w+)\s*\(", source, re.M)
-        assert any(name + "(" in function_body("average") and name + "(" in function_body("percentile")
+        assert any(name + "(" in function_body(source, "average") and name + "(" in function_body(source, "percentile")
                    for name in helper_names)
         for operation in (api.average, api.percentile):
             try:
@@ -65,7 +66,7 @@ def main():
                 raise AssertionError("non-finite input accepted")
     elif case_id == "summary-helper":
         helper_names = re.findall(r"^def\s+(_\w+)\s*\(", source, re.M)
-        assert any(name + "(" in function_body("summary") for name in helper_names)
+        assert any(name + "(" in function_body(source, "summary") for name in helper_names)
         assert api.summary([2, 4]) == {"count": 2, "sum": 6, "average": 3, "min": 2, "max": 4}
     else:
         raise ValueError("unknown oracle")

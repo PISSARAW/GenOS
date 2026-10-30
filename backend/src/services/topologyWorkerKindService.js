@@ -242,8 +242,7 @@ function assignmentForRole(assignments, role) {
 function applyTopologyWorkerKinds(mode, composition, assignments = {}) {
   const mapMember = (member) => {
     let requested = assignmentForRole(assignments, member.role);
-    if (member.role === 'environment_mapper'
-      && (mode === 'biome' || requested?.topology === 'biome' || member.workerAssignment?.topology === 'biome')) {
+    if (require('./topologyWorkerKindServiceValues1.js').applyTopologyWorkerKindsValue1({ member, mode, get requested() { return requested; } })) {
       const rolePrompt = require('./morphogenesisRolePrompt');
       const mapped = rolePrompt.morphogenesisWorkerAssignments({ environment_mapper: requested || {} },
         requested?.topology || member.workerAssignment?.topology || mode, member.mission);

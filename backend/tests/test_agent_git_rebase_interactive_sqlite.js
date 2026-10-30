@@ -20,15 +20,12 @@ async function main() {
   assert.throws(() => validateActions(['a'], [{ action: 'squash' }]), /First action/);
   const original = { agent: { id: 'a' }, decisions: [], permissions: [] };
   const altered = { ...original, permissions: [{ permissions_json: '["admin"]' }] };
-  assert.throws(() => planReplay(original, [{ id: 'c', state_json: JSON.stringify(original), metadata_json: '{}' }],
-    [{ action: 'edit', state: altered }], original), /cannot change permissions/);
+  assert.throws(() => planReplay({ ontoState: original, commits: [{ id: 'c', state_json: JSON.stringify(original), metadata_json: '{}' }], actions: [{ action: 'edit', state: altered }], parentState: original }), /cannot change permissions/);
   const baseState = { ...original, decisions: [{ id: 'belief', content: 'old', synaptic_weight: 1 }] };
   const changed = { ...baseState, decisions: [{ id: 'belief', content: 'new', synaptic_weight: 1 }] };
   const competing = { ...baseState, decisions: [{ id: 'belief', content: 'other', synaptic_weight: 1 }] };
-  assert.throws(() => planReplay(competing, [{ id: 'c', state_json: JSON.stringify(changed), metadata_json: '{}' }],
-    [{ action: 'pick' }], baseState), /Rebase conflict/);
-  const dropped = planReplay(original, [{ id: 'c', state_json: JSON.stringify(changed), metadata_json: '{}' }],
-    [{ action: 'drop' }], baseState);
+  assert.throws(() => planReplay({ ontoState: competing, commits: [{ id: 'c', state_json: JSON.stringify(changed), metadata_json: '{}' }], actions: [{ action: 'pick' }], parentState: baseState }), /Rebase conflict/);
+  const dropped = planReplay({ ontoState: original, commits: [{ id: 'c', state_json: JSON.stringify(changed), metadata_json: '{}' }], actions: [{ action: 'drop' }], parentState: baseState });
   assert.equal(dropped.planned.length, 0);
   const db = await getDatabase(file);
   const workspace = await db.get('SELECT id FROM workspaces LIMIT 1');

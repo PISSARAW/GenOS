@@ -12,7 +12,7 @@ async function stage(req, opts) {
   }
   const state = await require('./index').collectState(db, req, agentId);
   if (!state) return { success: false, error: 'Agent is unavailable in the current tenant.' };
-  const items = state[section] || (section === 'agent' ? state.agent : []);
+  const items = require('./headIndexWrappersValues1.cjs').stageValue1({ section, state });
   if (req.body?.items !== undefined && JSON.stringify(req.body.items) !== JSON.stringify(items)) {
     return { success: false, error: 'Staged items must match the current scoped state.' };
   }

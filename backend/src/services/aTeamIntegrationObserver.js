@@ -131,19 +131,7 @@ function isAcceptedHandoffInput(input) {
   const targetId = member.memberId;
   if (!targetId) return false;
   const evaluations = Array.isArray(report?.handoffEvaluations) ? report.handoffEvaluations : [];
-  return evaluations.some((evaluation) => {
-    if (evaluation.passed !== true || !/^[a-f0-9]{64}$/i.test(String(evaluation.digest || ''))
-      || !Number.isSafeInteger(evaluation.version) || evaluation.version < 1
-      || !Array.isArray(evaluation.evidenceRefs) || evaluation.evidenceRefs.length === 0) return false;
-    const identity = /^work:([^:]+):\d+->work:([^:]+):\d+:\d+$/.exec(evaluation.handoffId || '');
-    if (!identity || identity[2] !== targetId) return false;
-    const producer = membersById.get(identity[1]);
-    const producerId = producer?.agentId || producer?.workerId;
-    if (!producerId || !ownerIds.includes(producerId)) return false;
-    const producerReport = latestReport(byWorker.get(producerId));
-    return (Array.isArray(producerReport?.artifacts) ? producerReport.artifacts : [])
-      .some((item) => artifactKey(item) === artifact);
-  });
+  return require('./aTeamIntegrationObserverValues1.js').isAcceptedHandoffInputValue2({ Array, Number, String, artifact, artifactKey, byWorker, evaluations, latestReport, membersById, ownerIds, require, targetId });
 }
 
 function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {

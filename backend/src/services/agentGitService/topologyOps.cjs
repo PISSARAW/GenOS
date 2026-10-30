@@ -8,7 +8,7 @@ async function recordTopologyTransition(req) {
   const agentId = String(req.body?.agentId || '');
   const eventId = String(req.body?.eventId || '');
   if (!agentId || !eventId) return { success: false, error: 'agentId and eventId are required.' };
-  const event = await findCommittedEvent(db, req, agentId, eventId);
+  const event = await findCommittedEvent({ db: db, req: req, agentId: agentId, eventId: eventId });
   if (!event) return { success: false, error: 'A committed topology transition event for this agent is required.' };
   const receipt = readTransitionReceipt(event.payload_json);
   if (!receipt.valid) return { success: false, error: receipt.error };
@@ -21,7 +21,7 @@ async function recordTopologyTransition(req) {
   return { success: true, operation: 'record-topology-transition', sourceEventId: event.event_id, ...result };
 }
 
-async function findCommittedEvent(db, req, agentId, eventId) {
+async function findCommittedEvent({ db, req, agentId, eventId } = {}) {
   const scope = req.tenant ? 'AND organization_id = ? AND project_id = ?' : '';
   const params = req.tenant ? [eventId, agentId, req.tenant.organizationId, req.tenant.projectId] : [eventId, agentId];
   return db.get(`SELECT event_id, payload_json FROM telemetry_events WHERE event_id = ? AND agent_id = ? AND event_type = 'MORPHOGENESIS_COMPLETED' ${scope}`, ...params);

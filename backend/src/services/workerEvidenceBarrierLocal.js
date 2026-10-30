@@ -225,47 +225,14 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
-  const workspaceDetails = codeWorker
-    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
-      allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
-    }) : { text: '', candidatePaths: [] };
+  const workspaceDetails = require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue1({ codeWorker, get ctx() { return ctx; }, require });
   if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
-  const promptText = localEvidencePrompt.buildAnalysisPrompt({
-    assignment: ctx.mission,
-    codeWorker: codeWorker,
-    requiredPatchPaths: ctx.mission.requiredPatchPaths,
-    requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
-    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
-    forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true,
-
-    orchestrator: isOrchestratorMission(ctx.mission),
-    selfIntro: selfIntro,
-    conscienceBlock: conscienceBlock,
-    agentName: agentName,
-    prompt: ctx.mission.prompt,
-    workerSelfBlock: wsBlock,
-    identityExperimentArm: experimentArm || null,
-    workspaceContext: workspaceContext,
-    workerInstruction: [`Worker kind: ${kind}. ${require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(ctx.mission)
-      ? 'Solve the assigned in-scope allocation; only abstain after exhaustive proof no solution exists.'
-      : workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
-      require('./workerEvidenceIdentityPrompt').sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
-    evidenceRule: workerKinds.evidenceRule(workerContract)
-  });
+  const promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
-      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
-        ...identityExperimentAudit,
-        identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
-        identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
-        allowedEvidenceRefs: require('./workerEvidenceIdentityPrompt').missionEvidenceRefs(ctx.mission),
-        promptText,
-        promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
-        promptCharacters: promptText.length
-      }, 'info', 'running');
+      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
@@ -275,8 +242,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxOutputTokens(budget, promptText, ctx.mission.workerKind === 'resource_steward' ? 768
-      : (ctx.mission.identityExperimentScenario ? 1024 : undefined)),
+    maxTokens: resolveMaxOutputTokens(budget, promptText, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue2({ get ctx() { return ctx; }, undefined })),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
@@ -286,9 +252,7 @@ async function runGenerationStage(ctx) {
   });
   result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
-  if (codeWorker && codeRepairPlans) {
-    result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
-  }
+  require('./workerEvidenceBarrierLocalStages1.js').runGenerationStageStage2({ codeRepairPlans, codeWorker, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; }, workerCodeTestRepair });
   if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
     { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
@@ -326,20 +290,14 @@ async function runEvidenceStage(ctx) {
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
   if (!ctx.codeWorker) evidenceReport = require('./morphogenesis/biomeAllocationRecovery')
     .applyExhaustedRecovery(evidenceReport, ctx.mission, ctx.result.text);
-  if (!ctx.codeWorker && evidenceReport.outcome === 'unresolved') {
-    return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
-      proof: null, noAnswer: false, unresolved: true };
-  }
+  { const __genosStageResult1 = require('./workerEvidenceBarrierLocalStages1.js').runEvidenceStageStage1({ consumed, get ctx() { return ctx; }, set ctx(__genosNextStageValue) { ctx = __genosNextStageValue; }, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, proposal }); if (__genosStageResult1) return __genosStageResult1.value; }
   const validationStartedAt = Date.now();
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const allocationValidation = require('./morphogenesisRolePrompt').validateBiomeAllocation(
     evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
     { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
-  if (allocationValidation && !allocationValidation.passed) {
-    throw require('./morphogenesis/biomeAllocationFeedback')
-      .allocationFailure(evidenceReport.claims?.[0]?.statement, allocationValidation.issues);
-  }
+  require('./workerEvidenceBarrierLocalStages1.js').runEvidenceStageStage3({ allocationValidation, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, require });
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);

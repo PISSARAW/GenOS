@@ -29,7 +29,7 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
   for (const key of SHARED_STORAGE_KEYS) {
     if (!['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP'].includes(key) && sourceEnv[key]) environment[key] = sourceEnv[key];
   }
-  applyWorkerDatabasePolicy(environment, state, binaries, sourceEnv);
+  applyWorkerDatabasePolicy({ environment: environment, state: state, binaries: binaries, sourceEnv: sourceEnv });
   return environment;
 }
 
@@ -46,14 +46,13 @@ function resolveLeaseExpiresAt(state, sourceEnv = {}) {
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 
-function applyWorkerDatabasePolicy(environment, state, binaries, sourceEnv) {
+function applyWorkerDatabasePolicy({ environment, state, binaries, sourceEnv } = {}) {
   const agentId = String(state?.mission?.agentId || '').trim();
   const orchestratorId = String(state?.orchestratorAgentId || '').trim();
   const workspaceRoot = String(binaries?.workspace || '').trim();
   const capsuleRoot = String(sourceEnv?.GENOS_CAPSULE_ROOT || '').trim();
   const isCapsuleWorker = isWithin(capsuleRoot, workspaceRoot);
-  const isWorker = state?.executionMode === 'worker'
-    || Boolean(agentId && orchestratorId && agentId !== orchestratorId) || isCapsuleWorker;
+  const isWorker = require('./agentRuntimeMcpConfigurationValues1.js').applyWorkerDatabasePolicyValue1({ Boolean, agentId, isCapsuleWorker, orchestratorId, state });
   for (const key of ['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (isWorker) environment[key] = '1';
     else if (sourceEnv[key]) environment[key] = sourceEnv[key];

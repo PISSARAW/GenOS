@@ -1,5 +1,7 @@
 'use strict';
 
+const ALLOCATION_PATTERN_1 = /\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b|\babove\s+(\d+)\b/i;
+
 function allocationFailure(candidate, issues) {
   let serialized;
   try { serialized = typeof candidate === 'string' ? candidate : JSON.stringify(candidate); }
@@ -17,15 +19,10 @@ function allocationWitness(source) {
   const text = String(source || '');
   const items = [...text.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], weight: Number(match[2]) }));
-  const groups = Number(text.match(/\b(\d+)\s+groupes?\b/i)?.[1]
-    || text.match(/\bgroups\s*=\s*(\d+)\b/i)?.[1]
-    || text.match(/\bexactly\s+(\d+)\s+non-empty\s+bins\b/i)?.[1]);
-  const capacityMatch = text.match(/\b(?:plafond|capacit[eé])\s+(?:de\s+)?(\d+)\b|\bd[eé]pass(?:e|er)\s+(?:un\s+)?(?:total\s+)?(?:de\s+)?(\d+)\b|\bexceed\s+(?:a\s+)?(?:total\s+)?(?:of\s+)?(\d+)\b|\babove\s+(\d+)\b/i);
-  const capacity = Number(capacityMatch?.[1] || capacityMatch?.[2] || capacityMatch?.[3]
-    || capacityMatch?.[4] || text.match(/\bmax\s*=\s*(\d+)\b/i)?.[1]);
-  if (!items.length || items.length > 24 || !groups || groups > items.length || !capacity
-    || new Set(items.map((item) => item.id)).size !== items.length
-    || items.some((item) => !Number.isSafeInteger(item.weight) || item.weight < 0)) return null;
+  const groups = Number(require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue3({ text }));
+  const capacityMatch = text.match(ALLOCATION_PATTERN_1);
+  const capacity = Number(require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue2({ capacityMatch, text }));
+  if (require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue1({ Number, Set, capacity, groups, items })) return null;
   if (items.reduce((sum, item) => sum + item.weight, 0) > groups * capacity) return null;
 
   const ordered = items.slice().sort((left, right) => right.weight - left.weight || left.id.localeCompare(right.id));
@@ -37,22 +34,13 @@ function allocationWitness(source) {
     if (remaining < bins.filter((bin) => bin.length === 0).length) return false;
     const item = ordered[index];
     const visitedTotals = new Set();
-    for (let slot = 0; slot < groups; slot += 1) {
-      if (visitedTotals.has(totals[slot]) || totals[slot] + item.weight > capacity) continue;
-      visitedTotals.add(totals[slot]);
-      totals[slot] += item.weight;
-      bins[slot].push(item.id);
-      if (place(index + 1)) return true;
-      bins[slot].pop();
-      totals[slot] -= item.weight;
-      if (totals[slot] === 0) break;
-    }
+    { const __genosStageResult1 = require('./biomeAllocationFeedbackStages1.js').allocationWitnessStage1({ bins, capacity, groups, index, item, place, get totals() { return totals; }, set totals(__genosNextStageValue) { totals = __genosNextStageValue; }, visitedTotals }); if (__genosStageResult1) return __genosStageResult1.value; }
     return false;
   }
   return place(0) ? { bins: bins.map((bin) => bin.slice()) } : null;
 }
 
-function recoveryFailureReason(reason, diagnostics, evidenceReport, priorFailure) {
+function recoveryFailureReason({ reason, diagnostics, evidenceReport, priorFailure } = {}) {
   const base = String(reason || 'Worker did not produce a verified answer.');
   if (diagnostics?.code !== 'BIOME_ALLOCATION_INVALID') {
     const unresolved = evidenceReport?.outcome === 'unresolved'

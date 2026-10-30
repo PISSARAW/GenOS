@@ -217,10 +217,7 @@ function hasUserTopologyRequest(request) {
     'morphologyTopology', 'morphology_topology', 'trinityMode', 'trinity_mode',
     'trinityVariantId', 'trinity_variant_id', 'trinityVariant', 'variant_id'];
   return topologyFields.some((field) => request[field] !== undefined && request[field] !== null && request[field] !== '')
-    || Boolean(request.morphology?.topology || request.morphologyExpression || request.morphology_expression
-      || request.morphologyPlan?.selectedTopology || request.missionCapabilityPlan?.topology
-      || request.mission_capability_plan?.topology || request.topologyContract?.mode
-      || request.topologyContract?.topology);
+    || Boolean(require('./orchestratorMissionHelpersValues1.cjs').hasUserTopologyRequestValue2({ request }));
 }
 function autonomousOrchestrationEnabled(policyRequest, request) {
   const enabled = policyRequest.autonomous_orchestration
@@ -346,12 +343,7 @@ function measuredModelUsage(runs, attempts = [], usageRows = []) {
   const executionRuns = runs.map((run) => {
     const rows = attempts.filter((attempt) => attempt.run_id === run.id);
     const unboundUsage = rows.length === 0 && usageRunIds.has(run.id);
-    const incomplete = unboundUsage || rows.some((row) => Number(row.provider_called) === 1
-      && (row.token_usage_source !== 'provider'
-        || row.input_tokens == null || row.output_tokens == null || row.cost_usd == null
-        || !Number.isSafeInteger(Number(row.input_tokens))
-        || !Number.isSafeInteger(Number(row.output_tokens))
-        || !Number.isFinite(Number(row.cost_usd))));
+    const incomplete = require('./orchestratorMissionHelpersValues1.cjs').measuredModelUsageValue1({ Number, rows, unboundUsage });
     const providerRows = rows.filter((row) => Number(row.provider_called) === 1);
     return { runId: run.id, agentId: run.agent_id, status: run.status,
       providerAttempts: providerRows.length,

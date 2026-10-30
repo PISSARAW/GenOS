@@ -1,7 +1,13 @@
 use serde_json::{json, Value};
 
 pub(super) fn base_tool_specs() -> Vec<Value> {
-    let all_tools = vec![
+    let mut specs = core_specs();
+    specs.extend(worker_specs());
+    canonicalize_worker_specs(specs)
+}
+
+fn core_specs() -> Vec<Value> {
+    vec![
         json!({
             "name": "genos_orchestrate",
             "description": "Launch or continue an autonomous GenOS mission. Decomposes tasks, coordinates workers, and produces verified claims.",
@@ -127,6 +133,11 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
                 "properties": {}
             }
         }),
+    ]
+}
+
+fn worker_specs() -> Vec<Value> {
+    vec![
         json!({
             "name": "genos_worker_publish",
             "description": "Publish evidence, hypotheses, or signals to peer workers through enforced routing.",
@@ -289,8 +300,7 @@ pub(super) fn base_tool_specs() -> Vec<Value> {
                 "required": ["operation"]
             }
         }),
-    ];
-    canonicalize_worker_specs(all_tools)
+    ]
 }
 
 fn canonicalize_worker_specs(mut specs: Vec<Value>) -> Vec<Value> {

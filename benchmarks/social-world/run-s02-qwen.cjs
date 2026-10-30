@@ -61,10 +61,7 @@ async function main() {
     ];
     const edgeRows = await db.all("SELECT source_agent_id AS sourceAgentId, target_agent_id AS targetAgentId, json_extract(metadata_json, '$.distance') AS distance FROM agent_relations WHERE relation_type = 'neighbor' ORDER BY source_agent_id, target_agent_id");
     observed = edgeRows.map((edge) => ({ ...edge, distance: Number(edge.distance) }));
-    enginePass = JSON.stringify(canonical(observed)) === JSON.stringify(canonical(expected))
-      && !observed.some((edge) => edge.sourceAgentId === 'agent-a' || edge.targetAgentId === 'agent-a')
-      && friend.relationType === 'friend'
-      && after.changes.removed === 1;
+    enginePass = require('./run-s02-qwenValues1.cjs').mainValue1({ JSON, get after() { return after; }, canonical, expected, friend, get observed() { return observed; } });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['A resident moved. Copy the exact neighbor pairs and distances recalculated by GenOS from positions; do not use the former zone labels.',
         `Before move: ${JSON.stringify(before.neighbors)}`,

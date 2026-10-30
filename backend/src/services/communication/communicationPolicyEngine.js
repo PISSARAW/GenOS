@@ -361,9 +361,7 @@ async function decideCommunication(input) {
   const requestedCandidates = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
   const informed = await relationshipRouting.profileAudience({ db: input.db, intent, candidates: requestedCandidates,
     ...relationScope(input, intent) });
-  if (informed.length === 0 && stigmergyEligible(intent, input)) {
-    return logAndDecide(input, await decideStigmergy(input, intent, refs));
-  }
+  { const __genosStageResult1 = await require('./communicationPolicyEngineStages1.js').decideCommunicationStage1({ decideStigmergy, informed, input, intent, logAndDecide, refs, stigmergyEligible }); if (__genosStageResult1) return __genosStageResult1.value; }
   if (informed.length === 0) {
     return logAndDecide(input, silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 }));
   }

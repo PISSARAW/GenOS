@@ -116,7 +116,7 @@ async function assertOwnWorkerReplay(reference) {
   if (!agentId || !HAS_BACKEND_RUNTIME) throw new Error('Worker identity is required to replay a capsule.');
   const db = await REPO_REQUIRE('./backend/src/db').getDatabase();
   const owns = await REPO_REQUIRE('./backend/src/services/agents/workerContractEnforcement')
-    .ownsReplaySnapshot(db, agentId, reference);
+    .ownsReplaySnapshot({ db: db, agentId: agentId, reference: reference });
   if (!owns) throw new Error('Workers may replay only their own evidence capsule.');
 }
 

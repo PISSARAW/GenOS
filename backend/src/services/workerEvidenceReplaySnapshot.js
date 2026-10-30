@@ -24,16 +24,7 @@ function makeSnapshot(base, input) {
   const runId = String(input.runId || '');
   const reportHash = evidenceDigest(input.evidenceReport);
   const snapshotId = `snap-${digest(`${workerId}|${runId}|${reportHash}`).slice(0, 32)}`;
-  const snapshot = {
-    snapshot_id: snapshotId,
-    agent_id: source.agent_id || workerId,
-    branch_id: source.branch_id || `branch-${digest(workerId).slice(0, 8)}`,
-    world_id: source.world_id || input.worldId || 'world-main',
-    created_at: new Date().toISOString(),
-    genome: source.genome || {},
-    state: { ...(source.state || {}), execution_status: 'completed',
-      working_memory: [] }
-  };
+  const snapshot = require('./workerEvidenceReplaySnapshotValues1.js').makeSnapshotValue2({ Date, digest, input, snapshotId, source, workerId });
   const genesisHash = genesis(snapshot);
   snapshot.state.genesis_hash = genesisHash;
   const previous = snapshot.state.working_memory.at(-1)?.step_hash || genesisHash;
@@ -68,9 +59,7 @@ async function createReplaySnapshot(input) {
     if (error.code !== 'EEXIST' && error.code !== 'EPERM') throw error;
     const existing = JSON.parse(await fs.readFile(output, 'utf8'));
     const last = existing.state?.working_memory?.at(-1);
-    if (existing.snapshot_id !== snapshot.snapshot_id || last?.action !== 'worker_evidence_report'
-        || last.payload?.executionRunId !== input.runId
-        || last.payload?.evidenceReportHash !== reportHash) throw error;
+    if (require('./workerEvidenceReplaySnapshotValues1.js').createReplaySnapshotValue1({ existing, input, last, reportHash, get snapshot() { return snapshot; } })) throw error;
   }
   return { snapshotPath: output, reportHash };
 }

@@ -204,14 +204,11 @@ function runWorkspaceMission(request, workspacesRoot, artifactsRoot) {
 function computeMetrics(artifact) {
   const summary = artifact.missionSummary || parseMissionSummary(artifact.stdout);
   const usage = summary.measured_usage;
-  if (usage?.schema !== 'genos.measured-model-usage/v1' || usage.complete !== true
-    || usage.allRunsCompleted !== true || !Number.isSafeInteger(usage.totalTokens)
-    || !Number.isFinite(usage.totalCostUsd) || usage.totalCostUsd < 0) {
+  if (require('./field-campaign-genos-repository-adapterValues1.cjs').computeMetricsValue2({ Number, usage })) {
     throw fieldEvidenceError('SHEV_FIELD_USAGE_UNVERIFIED',
       'Mission has no complete run-bound provider token and cost measurements.');
   }
-  if (artifact.exitCode !== 0 || artifact.error || summary.success !== true
-    || summary.completionGate?.allowed !== true) {
+  if (require('./field-campaign-genos-repository-adapterValues1.cjs').computeMetricsValue4({ artifact, summary })) {
     throw fieldEvidenceError('SHEV_FIELD_MISSION_UNVERIFIED',
       'The mission did not exit successfully with an allowed completion gate.');
   }
@@ -224,20 +221,8 @@ function computeMetrics(artifact) {
     .find(({ event, payload }) => event.event_type === 'SHEV_PAIN_OBSERVED'
       && /^[a-f0-9]{64}$/.test(payload?.evidenceHash || ''));
   const evaluation = summary.independentEvaluation;
-  const pressure = evaluation?.verified === true
-    && evaluation.verifierId && evaluation.verifierId !== summary.orchestratorId
-    && /^[a-f0-9]{64}$/.test(evaluation.evidenceHash || '')
-    && Number.isFinite(evaluation.pressureBefore) && evaluation.pressureBefore >= 0
-    && evaluation.pressureBefore <= 1 && Number.isFinite(evaluation.pressureAfter)
-    && evaluation.pressureAfter >= 0 && evaluation.pressureAfter <= 1
-    ? evaluation : null;
-  return { success: true, regressions, humanInterventions,
-    durationMs: Number.isFinite(artifact.durationMs) ? artifact.durationMs : 0,
-    costUsd: usage.totalCostUsd, tokens: usage.totalTokens,
-    painObserved: Boolean(pain), painObservationHash: pain?.payload.evidenceHash || null,
-    developmentalPressureBefore: pressure?.pressureBefore ?? null,
-    developmentalPressureAfter: pressure?.pressureAfter ?? null,
-    pressureEvidenceHash: pressure?.evidenceHash || null };
+  const pressure = require('./field-campaign-genos-repository-adapterValues1.cjs').computeMetricsValue5({ Number, evaluation, require, summary });
+  return require('./field-campaign-genos-repository-adapterValues1.cjs').computeMetricsValue3({ Boolean, Number, artifact, humanInterventions, pain, pressure, regressions, usage });
 }
 
 function parseMissionSummary(stdout) {

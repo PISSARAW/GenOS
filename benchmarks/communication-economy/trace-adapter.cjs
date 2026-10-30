@@ -12,10 +12,7 @@ function parseRows(text) {
 }
 
 function assertRow(row, expected) {
-  if (row.runId !== expected.runId || row.scenarioId !== expected.scenarioId
-    || row.seed !== expected.seed || row.armId !== expected.armId
-    || row.model !== expected.model || row.provider !== expected.provider
-    || typeof row.taskId !== 'string' || !expected.taskIds.includes(row.taskId)) {
+  if (require('./trace-adapterValues1.cjs').assertRowValue1({ expected, row })) {
     throw new Error('Trace row does not match the declared run and shared task set.');
   }
   const verification = row.verification;
@@ -47,9 +44,7 @@ function assertReceipts(row, expected, receipts) {
     throw new Error(`Trace row ${row.taskId} declares complete coverage without call IDs.`);
   }
   for (const receipt of receipts) {
-    if (receipt.runId !== row.runId || receipt.armId !== row.armId
-      || receipt.taskId !== row.taskId || receipt.provider !== expected.provider
-      || receipt.model !== expected.model) {
+    if (require('./trace-adapterValues1.cjs').assertReceiptsValue2({ expected, receipt, row })) {
       throw new Error(`Usage receipt does not match task ${row.taskId}.`);
     }
   }

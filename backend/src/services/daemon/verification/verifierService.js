@@ -26,7 +26,7 @@ const path = require('node:path');
 const territoryFiles = require('../cartography/territoryFiles');
 
 async function verifyFinding(db, args) {
-  if (!db || !args || !args.findingId) return { verified: false, reason: 'args-required' };
+  if (require('./verifierServiceValues1.js').verifyFindingValue1({ args, db })) return { verified: false, reason: 'args-required' };
   const stored = await findingService.getFinding(db, { id: args.findingId });
   if (!stored.found) return { verified: false, reason: 'not-found' };
   if (lifecycle.isTerminal(stored.finding.status)) return { verified: false, reason: 'terminal', status: stored.finding.status };

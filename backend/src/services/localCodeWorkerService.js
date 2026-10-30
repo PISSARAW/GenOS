@@ -167,27 +167,13 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
   let tests;
-  try {
-    for (const patch of proposal.patches) {
-      const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
-      if (!destination.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
-      await assertNoSymlinkPath(workspaceRoot, destination);
-      await fs.mkdir(path.dirname(destination), { recursive: true });
-      await assertNoSymlinkPath(workspaceRoot, destination);
-      await fs.writeFile(destination, patch.content, 'utf8');
-    }
-    tests = [];
-    for (const command of proposal.tests) tests.push(await runTest(command, workspaceRoot));
-  } catch (error) {
-    await restorePatchState(workspaceRoot, patchState).catch(() => {});
-    throw error;
-  }
+  await require('./localCodeWorkerServiceStages1.js').executeProposalStage1({ Error, assertNoSymlinkPath, fs, normalizeRelativePath, patchState, get path() { return path; }, set path(__genosNextStageValue) { path = __genosNextStageValue; }, proposal, restorePatchState, runTest, get tests() { return tests; }, set tests(__genosNextStageValue) { tests = __genosNextStageValue; }, workspaceRoot });
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
     .map(({ path: filePath, hash }) => ({ path: filePath, hash }));
-  const testExecutionReceipt = db && mission && executionRun?.id
+  const testExecutionReceipt = require('./localCodeWorkerServiceValues1.js').executeProposalValue3({ db, executionRun, mission })
     ? await require('./localCodeTestExecutionReceiptService').recordExecutedBatch(db, {
-      missionId: mission.missionId || mission.mission_id || mission.id,
+      missionId: require('./localCodeWorkerServiceValues1.js').executeProposalValue5({ mission }),
       agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
       tests, workspaceFiles: after, changedFileHashes
     }) : null;
@@ -224,7 +210,7 @@ function proposalResponseFormat(options = {}) {
     .filter(isAllowedSandboxTestCommand))];
   const paths = [...new Set(resolved.requiredPatchPaths.filter(safePath))].slice(0, 12);
   const allowedPaths = [...new Set(resolved.allowedPatchPaths.filter(safePath))].slice(0, 12);
-  if (!commands.length && !paths.length && !allowedPaths.length && !resolved.forceFullFileReplacement) return PROPOSAL_RESPONSE_FORMAT;
+  if (require('./localCodeWorkerServiceValues1.js').proposalResponseFormatValue6({ allowedPaths, commands, paths, resolved })) return PROPOSAL_RESPONSE_FORMAT;
   const format = JSON.parse(JSON.stringify(PROPOSAL_RESPONSE_FORMAT));
   if (resolved.forceFullFileReplacement) {
     format.schema.properties.format.enum = ['genos.file-replacement/v1'];
@@ -261,24 +247,20 @@ module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath
 function assertProposalSchema(proposal, options = {}) {
   const allowedFormats = options.forceFullFileReplacement
     ? ['genos.file-replacement/v1'] : ['genos.file-replacement/v1', 'genos.file-edits/v1'];
-  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || !allowedFormats.includes(proposal.format) || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+  if (require('./localCodeWorkerServiceValues1.js').assertProposalSchemaValue7({ Array, Object, allowedFormats, proposal })) throw new Error('Patch proposal violates the strict schema.');
   if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
   assertProposalPatches(proposal, options);
 }
 
 function assertProposalPatches(proposal, options = {}) {
   for (const patch of proposal.patches) {
-    if (options.forceFullFileReplacement && (!Object.hasOwn(patch || {}, 'content') || Object.hasOwn(patch || {}, 'edits'))) {
+    if (require('./localCodeWorkerServiceValues1.js').assertProposalPatchesValue2({ Object, options, get patch() { return patch; } })) {
       throw new Error(`Full-file replacement is required for '${patch?.path || '<unknown>'}' after an ambiguous anchor.`);
     }
     if (!patch || Object.keys(patch).some((key) => !['path', 'content', 'edits'].includes(key)) || !safePath(patch.path)) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
     const hasContent = typeof patch.content === 'string' && !Object.hasOwn(patch, 'edits');
-    const hasEdits = Array.isArray(patch.edits) && !Object.hasOwn(patch, 'content')
-      && patch.edits.length > 0 && patch.edits.length <= 8
-      && patch.edits.every((edit) => edit && Object.keys(edit).every((key) => ['find', 'replace'].includes(key))
-        && typeof edit.find === 'string' && edit.find.length > 0 && Buffer.byteLength(edit.find) <= 10000
-        && typeof edit.replace === 'string' && Buffer.byteLength(edit.replace) <= 10000);
-    if ((!hasContent && !hasEdits) || (hasContent && Buffer.byteLength(patch.content) > 200000)) {
+    const hasEdits = require('./localCodeWorkerServiceValues1.js').assertProposalPatchesValue4({ Array, Buffer, Object, get patch() { return patch; }, require });
+    if (require('./localCodeWorkerServiceValues1.js').assertProposalPatchesValue8({ Buffer, hasContent, hasEdits, get patch() { return patch; } })) {
       throw new Error(`Unsafe patch proposal for '${patch.path}'. Provide either full content or bounded exact edits.`);
     }
   }

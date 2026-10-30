@@ -26,7 +26,7 @@ async function provisionRecoveryWorkspace(sourceRoot, capsuleName, capsuleRoot) 
   return { workspaceRoot, capsuleName };
 }
 
-async function createRecoveryWorkspace(db, source, mission, target) {
+async function createRecoveryWorkspace({ db, source, mission, target } = {}) {
   if (target.sameIdentity || (mission.missionScope?.trinityExperimentId && source.workspace_root)) {
     return { workspaceRoot: firstTruthy(source.workspace_root, mission.workspaceRoot),
       workspaceId: source.workspace_id || mission.workspaceId || null, reused: true };
@@ -35,17 +35,15 @@ async function createRecoveryWorkspace(db, source, mission, target) {
     process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
   const capsuleName = `${target.targetId}_${target.decision.action}_${target.report.attempt + 1}`;
   try {
-    return await bindRecoveryWorkspace(db, target, source,
-      await provisionRecoveryWorkspace(sourceRoot, capsuleName, mission.capsuleRoot));
+    return await bindRecoveryWorkspace({ db: db, target: target, source: source, workspace: await provisionRecoveryWorkspace(sourceRoot, capsuleName, mission.capsuleRoot) });
   } catch (error) {
     const fallbackRoot = process.env.GENOS_WORKSPACE_ROOT;
     if (!canRetryFromStableWorkspace(error, sourceRoot, fallbackRoot)) throw error;
-    return bindRecoveryWorkspace(db, target, source,
-      await provisionRecoveryWorkspace(fallbackRoot, capsuleName, mission.capsuleRoot));
+    return bindRecoveryWorkspace({ db: db, target: target, source: source, workspace: await provisionRecoveryWorkspace(fallbackRoot, capsuleName, mission.capsuleRoot) });
   }
 }
 
-async function bindRecoveryWorkspace(db, target, source, workspace) {
+async function bindRecoveryWorkspace({ db, target, source, workspace } = {}) {
   try {
     await trackWorkspace(target.targetId, workspace.workspaceRoot);
     workspace.workspaceId = await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {

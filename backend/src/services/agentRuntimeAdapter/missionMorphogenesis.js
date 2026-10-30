@@ -42,10 +42,7 @@ function proposedTopology(ctx) {
   const requested = mission.missionCapabilityPlan?.topology
     || mission.mission_capability_plan?.topology
     || mission.topologyId || mission.topology_id
-    || (plan.trinity?.activated ? 'trinity'
-      : plan.aTeam?.activated ? 'a_team'
-        : mission.proposedTopology || mission.proposed_topology || mission.morphologyTopology
-          || mission.morphology_topology || mission.morphology?.topology || null);
+    || (require('./missionMorphogenesisValues1.js').proposedTopologyValue1({ mission, plan }));
   const { isTopology } = require('../morphogenesis/morphogenesisOntology');
   return isTopology(requested) ? requested : null;
 }

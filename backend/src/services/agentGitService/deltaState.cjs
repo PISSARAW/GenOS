@@ -9,7 +9,7 @@ function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function encodeDelta(parentId, parent, next, depth) {
+function encodeDelta({ parentId, parent, next, depth } = {}) {
   const set = Object.create(null);
   const remove = [];
   for (const key of Object.keys(next)) {
@@ -20,11 +20,11 @@ function encodeDelta(parentId, parent, next, depth) {
     order: Object.keys(next), set, remove };
 }
 
-function chooseEncoding(parentId, parent, next, parentDepth = 0) {
+function chooseEncoding({ parentId, parent, next, parentDepth = 0 } = {}) {
   const full = JSON.stringify(next);
   if (!parentId || !parent || parentDepth >= MAX_DEPTH) return { serialized: full, depth: 0 };
   const depth = parentDepth + 1;
-  const delta = JSON.stringify(encodeDelta(parentId, parent, next, depth));
+  const delta = JSON.stringify(encodeDelta({ parentId: parentId, parent: parent, next: next, depth: depth }));
   return delta.length < full.length * 0.8
     ? { serialized: delta, depth }
     : { serialized: full, depth: 0 };

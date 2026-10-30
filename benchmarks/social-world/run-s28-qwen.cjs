@@ -55,8 +55,8 @@ function simulate(seed) {
     }
     const active = new Set(slime.edges.map((edge) => edge.id));
     edges = edges.map((edge) => ({ ...edge, flow: active.has(edge.id) ? Math.min(1, edge.flow + 0.002) : 0, conductivity: Math.min(2, edge.conductivity) }));
-    if (!finiteAgents(agents) || agents.length !== AGENT_COUNT || edges.length !== AGENT_COUNT * 2) { finite = false; break; }
-    if (cycle % 100 === 0 && cycle < CYCLES && finiteAgents(agents)) shocksRecovered++;
+    if (require('./run-s28-qwenValues1.cjs').simulateValue3({ AGENT_COUNT, agents, get edges() { return edges; }, finiteAgents })) { finite = false; break; }
+    if (require('./run-s28-qwenValues1.cjs').simulateValue1({ CYCLES, agents, get cycle() { return cycle; }, finiteAgents })) shocksRecovered++;
   }
   return { cycles: finite ? CYCLES : null, agents: agents.length, topologySteps, shocksInjected, shocksRecovered, finiteState: finite, relationshipEdges: edges.length, maximumRadius: Number(maximumRadius.toFixed(4)), finalMeanFitness: Number((agents.reduce((sum, agent) => sum + agent.fitness, 0) / agents.length).toFixed(4)) };
 }
@@ -65,7 +65,7 @@ async function main() {
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); const startedAt = Date.now(); let qwenResponse = null;
   try {
     const observed = simulate(seed); const expected = { cycles: CYCLES, agents: AGENT_COUNT, topologySteps: CYCLES * 4, shocksRecovered: 9, finiteState: true };
-    const enginePass = observed.cycles === CYCLES && observed.agents === AGENT_COUNT && observed.topologySteps === CYCLES * 4 && observed.shocksInjected === 9 && observed.shocksRecovered === 9 && observed.relationshipEdges === AGENT_COUNT * 2 && observed.finiteState && observed.maximumRadius <= 12;
+    const enginePass = require('./run-s28-qwenValues1.cjs').mainValue2({ AGENT_COUNT, CYCLES, observed });
     const response = await modelProvider.generate({ model: MODEL, prompt: ['Read this 24-agent SocialWorld integration result from 1,000 cycles. Copy the cycle count, agent count, topology step count, recovered shock count and finite-state result.', `Observed: ${JSON.stringify(observed)}`, 'Return ONLY JSON with cycles, agents, topologySteps, shocksRecovered, finiteState.'].join('\n\n'), seed, temperature: 0, enforceSchema: false, stream: false, maxTokens: 80, timeoutMs: 180000 });
     qwenResponse = response.text; const answer = parseAnswer(qwenResponse); const passed = enginePass && JSON.stringify(answer) === JSON.stringify(expected);
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S28', seed, status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected, observed, qwenResponse, answer, enginePass, verified: passed, oracle: '24 agents execute four GenOS topology algorithms for 1,000 bounded cycles; all nine injected shocks recover with finite state and stable population/relations', humanInstructionsAfterSetup: 0, durationMs: Date.now() - startedAt };

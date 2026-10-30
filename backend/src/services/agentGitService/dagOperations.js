@@ -43,7 +43,7 @@ async function reset(req) {
 
   await db.exec('BEGIN IMMEDIATE');
   try {
-    const { version, oldObjectId } = await executeResetWithinTransaction(db, req, agentId, refName, objectId, mode, obj);
+    const { version, oldObjectId } = await executeResetWithinTransaction({ db: db, req: req, agentId: agentId, refName: refName, objectId: objectId, mode: mode, obj: obj });
     await db.exec('COMMIT');
     return { success: true, operation: 'reset', mode, objectId, agentId, refName, version, oldObjectId };
   } catch (err) {
@@ -52,7 +52,7 @@ async function reset(req) {
   }
 }
 
-async function executeResetWithinTransaction(db, req, agentId, refName, objectId, mode, obj) {
+async function executeResetWithinTransaction({ db, req, agentId, refName, objectId, mode, obj } = {}) {
   const { version, oldObjectId } = await updateRef({ db, req, agentId, refName, objectId, options: { action: 'reset', inTransaction: true } });
   if (mode === 'mixed' || mode === 'hard') {
     await db.run('DELETE FROM agent_git_indexes WHERE agent_id = ?', agentId);
@@ -78,21 +78,8 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
   const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']);
   const inTransaction = options.inTransaction === true;
 
-  if (!inTransaction) await db.exec('BEGIN IMMEDIATE');
-  try {
-    if (selected.has('agent')) await replaceAgentState(ctx, targetAgentId, state.agent);
-    if (selected.has('decisions')) await replaceDecisionState(ctx, targetAgentId, state.decisions);
-    if (selected.has('memories')) await replaceMemoryState(ctx, targetAgentId, state.memories);
-    if (selected.has('runs')) await replaceRunState(ctx, targetAgentId, state.runs);
-    if (selected.has('plasmids')) await replacePlasmidState(ctx, targetAgentId, state.plasmids);
-    if (selected.has('permissions')) await replacePermissionState(ctx, targetAgentId, state.permissions);
-    if (selected.has('relations')) await require('./institutionalRelations.cjs').replaceRelations({ db, req, targetAgentId }, state.relations);
-    if (selected.has('epistemicClaims')) await require('./epistemicClaimMerge.cjs').replaceClaims({ db, req, targetAgentId, state });
-    if (!inTransaction) await db.exec('COMMIT');
-  } catch (err) {
-    if (!inTransaction) { await db.exec('ROLLBACK').catch(() => {}); }
-    throw err;
-  }
+  await require('./dagOperationsStages1.js').replaceStateStage3({ db, inTransaction });
+  await require('./dagOperationsStages1.js').replaceStateStage5({ ctx, db, inTransaction, replaceAgentState, replaceDecisionState, replaceMemoryState, replacePermissionState, replacePlasmidState, replaceRunState, req, require, selected, get state() { return state; }, set state(__genosNextStageValue) { state = __genosNextStageValue; }, targetAgentId });
   return { targetAgentId, sections: [...selected] };
 }
 

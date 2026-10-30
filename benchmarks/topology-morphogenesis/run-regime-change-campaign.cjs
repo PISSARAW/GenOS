@@ -180,15 +180,7 @@ function selectFrozen(trainingAttempts, plan) {
       && attempt.oraclePassed === true && attempt.servedModelOk === true && attempt.budgetOk === true
       && Number.isFinite(Number(attempt.tokenUsage?.total)));
     if (!verified.length) throw new Error(`No verified Qwen training outcome for family ${family}.`);
-    const ranked = plan.training.candidateTopologies.map((topology) => {
-      const subset = rows.filter((a) => a.topology === topology);
-      const valid = subset.filter((attempt) => attempt.error == null && attempt.parsePassed === true
-        && attempt.servedModelOk === true && attempt.budgetOk === true
-        && Number.isFinite(Number(attempt.tokenUsage?.total)));
-      const passed = valid.filter((a) => a.oraclePassed === true).length;
-      const tokens = valid.reduce((s, a) => s + Number(a.tokenUsage.total), 0);
-      return { topology, passed, total: subset.length, tokens };
-    }).sort((a, b) => b.passed - a.passed || a.tokens - b.tokens || (a.topology < b.topology ? -1 : 1));
+    const ranked = require('./run-regime-change-campaignValues1.cjs').selectFrozenValue1({ Number, plan, rows });
     frozen[family] = ranked[0].topology;
   }
   return frozen;

@@ -14,7 +14,7 @@ function classifyFailure(error) {
   const code = String(error?.code || '');
   const text = `${code}\n${error?.message || ''}\n${testOutput(error)}\n${error?.workerArtifactDiagnostics?.error || ''}`;
   if (code === 'WORKER_OUTPUT_SCHEMA_VIOLATION') return 'schema_rejection';
-  if (/MODEL_ROUTE_DEADLINE_EXCEEDED|(?:model|provider|route).{0,40}(?:timeout|deadline)|(?:timeout|deadline).{0,40}(?:model|provider|route)/i.test(text)) {
+  if (require('./workerCodeTestRepairTelemetryValues1.js').classifyFailureValue2({ text })) {
     return 'model_provider_timeout';
   }
   if (code === 'WORKER_TEST_ENVIRONMENT_FAILED') return 'test_environment_unavailable';
@@ -24,12 +24,14 @@ function classifyFailure(error) {
   if (/browserType\.launch|failed to create initial profile|<launching>|target page, context or browser has been closed/i.test(text)) {
     return 'browser_launch_failure';
   }
-  if (/strict mode violation|locator\.(?:click|fill|selectOption|waitFor)|waiting for getBy(?:Label|Role|Text)|getBy(?:Label|Role|Text)\(/i.test(text)) {
+  if (require('./workerCodeTestRepairTelemetryValues1.js').classifyFailureValue1({ text })) {
     return 'app_locator_failure';
   }
-  if (/AssertionError|assert\.(?:equal|strictEqual|ok|match)|expected values to be strictly equal/i.test(text)) {
-    return 'app_assertion_failure';
-  }
+  { const __genosStageResult1 = require('./workerCodeTestRepairTelemetryStages1.js').classifyFailureStage1({ text }); if (__genosStageResult1) return __genosStageResult1.value; }
+  return remainingFailure(code, text);
+}
+
+function remainingFailure(code, text) {
   if (/ECONN|fetch failed|provider/i.test(text)) return 'model_provider_failure';
   if (code === 'WORKER_TESTS_FAILED') return 'app_test_failure';
   return 'worker_failure';
@@ -144,12 +146,9 @@ function summarizeFailedPatches(error) {
 function exportedFunctionSnippets(source, failureText = '') {
   const names = new Set();
   const exportsObject = String(source).match(/\bmodule\.exports\s*=\s*\{([^}]+)\}/);
-  for (const declaration of (exportsObject?.[1] || '').split(',')) {
-    const name = declaration.trim().split(/\s*:\s*/)[0];
-    if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
-  }
+  require('./workerCodeTestRepairTelemetryStages1.js').exportedFunctionSnippetsStage2({ exportsObject, names });
   for (const match of String(source).matchAll(/\bexports\.([A-Za-z_$][\w$]*)\s*=/g)) names.add(match[1]);
-  for (const match of String(source).matchAll(/\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
+  for (const match of require('./workerCodeTestRepairTelemetryValues1.js').exportedFunctionSnippetsValue3({ String, source })) names.add(match[1]);
 
   const relevantNames = [...names].filter((name) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(failureText));
   const functions = [];

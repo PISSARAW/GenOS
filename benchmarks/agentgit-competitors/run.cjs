@@ -11,8 +11,7 @@ function digest(value) {
 }
 
 function validateManifest(manifest) {
-  if (manifest?.schema !== 'genos.agentgit-benchmark-manifest/v1' || !Array.isArray(manifest.tasks)
-      || !Array.isArray(manifest.systems) || manifest.tasks.length === 0 || manifest.systems.length === 0) {
+  if (require('./runValues1.cjs').validateManifestValue1({ Array, manifest })) {
     throw new Error('A nonempty benchmark manifest v1 is required.');
   }
   const ids = manifest.tasks.map((task) => task.id);

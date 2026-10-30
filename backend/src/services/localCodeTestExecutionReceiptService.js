@@ -29,20 +29,14 @@ async function recordExecutedBatch(db, input = {}) {
   const agentId = String(input.agentId || '').trim();
   const executionRunId = String(input.executionRunId || '').trim();
   const workspaceRoot = path.resolve(String(input.workspaceRoot || '.'));
-  if (!db || !missionId || !agentId || !executionRunId || !Array.isArray(input.tests)
-      || input.tests.length === 0 || !Array.isArray(input.workspaceFiles)) {
+  if (require('./localCodeTestExecutionReceiptServiceValues1.js').recordExecutedBatchValue1({ Array, agentId, db, executionRunId, input, missionId })) {
     throw Object.assign(new Error('Local test receipt context is incomplete.'), {
       code: 'LOCAL_CODE_TEST_RECEIPT_CONTEXT_INVALID'
     });
   }
   const tests = input.tests.map(testEvidence);
   const outcome = tests.every(test => test.exitCode === 0 && test.signal === null) ? 'passed' : 'failed';
-  const payload = { schema: SCHEMA, receiptId: `test_${crypto.randomUUID()}`,
-    batchId: crypto.randomUUID(), missionId, agentId, executionRunId, workspaceRoot,
-    startedAt: input.startedAt || null, completedAt: input.completedAt || new Date().toISOString(),
-    outcome, tests, workspaceDigest: workspaceDigest(input.workspaceFiles),
-    changedFileHashes: (input.changedFileHashes || []).map(({ path: file, hash }) => ({ path: file, hash }))
-      .sort((left, right) => left.path.localeCompare(right.path)) };
+  const payload = require('./localCodeTestExecutionReceiptServiceValues1.js').recordExecutedBatchValue4({ Date, SCHEMA, agentId, crypto, executionRunId, input, missionId, outcome, tests, workspaceDigest, workspaceRoot });
   const receiptHash = digest(payload);
   await db.run(`INSERT INTO local_code_test_execution_receipts
     (receipt_id, mission_id, agent_id, execution_run_id, outcome, receipt_hash, receipt_json)
@@ -63,8 +57,8 @@ async function collectVerifiedForMission(db, missionId, agents = []) {
   const verified = [];
   for (const row of rows) {
     const payload = parsePayload(row.receipt_json);
-    if (!payload || !completedMembers.has(row.agent_id) || !validRow(row, payload, missionId)) continue;
-    if (payload.outcome !== 'passed' || !payload.tests.every(test => test.exitCode === 0 && test.signal === null)) continue;
+    if (require('./localCodeTestExecutionReceiptServiceValues1.js').collectVerifiedForMissionValue3({ completedMembers, missionId, payload, row, validRow })) continue;
+    if (require('./localCodeTestExecutionReceiptServiceValues1.js').collectVerifiedForMissionValue5({ payload })) continue;
     try {
       const files = await snapshots.collectFiles(payload.workspaceRoot);
       if (workspaceDigest(files) !== payload.workspaceDigest) continue;
@@ -82,10 +76,7 @@ function parsePayload(serialized) {
 }
 
 function validRow(row, payload, missionId) {
-  return payload.schema === SCHEMA && payload.receiptId === row.receipt_id
-    && payload.missionId === missionId && payload.agentId === row.agent_id
-    && payload.executionRunId === row.execution_run_id && payload.outcome === row.outcome
-    && Array.isArray(payload.tests) && payload.tests.length > 0
+  return require('./localCodeTestExecutionReceiptServiceValues1.js').validRowValue2({ Array, SCHEMA, missionId, payload, row })
     && payload.tests.every(test => isAllowedSandboxTestCommand(test.command)
       && Number.isInteger(test.exitCode) && /^[a-f0-9]{64}$/.test(test.stdoutHash)
       && /^[a-f0-9]{64}$/.test(test.stderrHash))

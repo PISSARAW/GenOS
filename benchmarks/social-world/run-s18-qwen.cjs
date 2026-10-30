@@ -44,9 +44,7 @@ async function main() {
       senderAgentId: pheromone.communicationEnvelope?.senderAgentId,
       semanticRefs: pheromone.communicationEnvelope?.semanticRefs || [], intensity: pheromone.intensity,
       isRepellent: pheromone.isRepellent, localOnly: deposited.localOnly };
-    const enginePass = Boolean(observed) && JSON.stringify({ type: observed.type, locus: observed.locus,
-      senderAgentId: observed.senderAgentId, semanticRefs: observed.semanticRefs }) === JSON.stringify(EXPECTED)
-      && observed.localOnly === false && observed.isRepellent === true;
+    const enginePass = require('./run-s18-qwenValues1.cjs').mainValue1({ Boolean, EXPECTED, JSON, get observed() { return observed; } });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Copy the exact signal type, locus, sender ID, and semantic reference from this GenOS environmental signal.',
         `Signal: ${JSON.stringify(observed)}`,

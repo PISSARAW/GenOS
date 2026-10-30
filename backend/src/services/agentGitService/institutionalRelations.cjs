@@ -33,14 +33,13 @@ function mergeRelations(ctx) {
     const b = right.get(id);
     const aChanged = !same(original, a);
     const bChanged = !same(original, b);
-    if (aChanged && bChanged && !same(a, b)) {
+    if (require('./institutionalRelationsValues1.cjs').mergeRelationsValue5({ a, aChanged, b, bChanged, same })) {
       conflicts.push({ section: 'relations', id, reason: 'divergent_institutional_relation' });
       continue;
     }
     const selected = bChanged ? b : a;
     if (!selected) continue;
-    if (Number(selected.authority || 0) > Number(original?.authority || 0)
-        || original && selected.relation_type !== original.relation_type) {
+    if (require('./institutionalRelationsValues1.cjs').mergeRelationsValue2({ Number, original, selected })) {
       conflicts.push({ section: 'relations', id, reason: 'authority_change_requires_review' });
     } else merged.push(selected);
   }
@@ -52,15 +51,13 @@ async function assertRelation(ctx, relation) {
   if (!relation.id || ![relation.source_agent_id, relation.target_agent_id].includes(agentId)) {
     throw new Error('Relation does not belong to the target agent.');
   }
-  if (!Number.isFinite(Number(relation.authority)) || Number(relation.authority) < 0
-      || Number(relation.authority) > 1) throw new Error('Relation authority is outside [0,1].');
+  if (require('./institutionalRelationsValues1.cjs').assertRelationValue4({ Number, relation })) throw new Error('Relation authority is outside [0,1].');
   const peerId = relation.source_agent_id === agentId ? relation.target_agent_id : relation.source_agent_id;
   const scope = req.tenant ? 'AND w.organization_id = ? AND w.project_id = ?' : '';
   const args = req.tenant ? [peerId, req.tenant.organizationId, req.tenant.projectId] : [peerId];
   const peer = await db.get(`SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? ${scope}`, ...args);
   if (!peer || peerId === agentId) throw new Error('Relation peer is unavailable in the target scope.');
-  if (req.tenant && (relation.organization_id && relation.organization_id !== req.tenant.organizationId
-      || relation.project_id && relation.project_id !== req.tenant.projectId)) {
+  if (require('./institutionalRelationsValues1.cjs').assertRelationValue1({ relation, req })) {
     throw new Error('Relation tenant metadata is outside the target scope.');
   }
 }
@@ -74,8 +71,7 @@ async function replaceRelations(ctx, rows) {
   for (const relation of rows) {
     await assertRelation({ db, req, agentId: targetAgentId }, relation);
     const old = previous.get(relation.id);
-    if (Number(relation.authority || 0) > Number(old?.authority || 0)
-        || old && relation.relation_type !== old.relation_type) {
+    if (require('./institutionalRelationsValues1.cjs').replaceRelationsValue3({ Number, old, relation })) {
       throw new Error('Relation authority change requires an institutional review.');
     }
   }

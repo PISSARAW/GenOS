@@ -109,7 +109,7 @@ function executeState(input) {
 }
 
 async function execute(input = {}, handlers, runtimeState = {}) {
-    if (!Array.isArray(input.operations) || !input.operations.length) return handlersService.blocked('program_empty');
+    { const __genosStageResult2 = require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage2({ Array, handlersService, input }); if (__genosStageResult2) return __genosStageResult2.value; }
     const operations = input.operations.map((operation) => (executeResult2(operation)));
     if (operations.some((operation) => !KINDS.has(operation.kind))) return handlersService.blocked('operation_kind_invalid');
     const plan = registry.plan({ version: registry.VERSION, operation: 'OMEGA',
@@ -119,50 +119,8 @@ async function execute(input = {}, handlers, runtimeState = {}) {
     const state = executeState(input);
     const results = [];
     const journalDb = runtimeState.journal;
-    if (journalDb) {
-      if (typeof input.runId !== 'string' || !input.runId) return handlersService.blocked('journal_run_id_required');
-      try {
-        await executionJournal.beginRun(journalDb, input.runId, journalRequest(input));
-      } catch (error) {
-        return handlersService.blocked(error.message);
-      }
-    }
-    for (const obligation of plan.obligations) {
-      const operation = byId.get(obligation.id);
-      const dependenciesReady = dependenciesExecuted(operation, results);
-      if (!dependenciesReady) return { status: 'blocked', reason: 'dependency_execution_failed', results };
-      registerOperationVerifier(operation, state.verifierRegistry);
-      const handler = handlers[operation.kind];
-      try {
-        const cached = journalDb ? await executionJournal.findOperation(journalDb,
-          input.runId, operation.id, operation) : null;
-        if (cached?.status === 'completed') {
-          applyJournalResult(state, operation, cached.result);
-          results.push({ id: operation.id, kind: operation.kind, ...cached.result.operationResult });
-          if (cached.result.operationResult.status === 'blocked') return {
-            status: 'blocked', reason: cached.result.operationResult.reason, results };
-          continue;
-        }
-        if (journalDb && ['CALL', 'EMIT'].includes(operation.kind)
-          && !runtimeState.idempotentEffects.has(`${operation.kind}:${operation.reference}`)) {
-          return { status: 'blocked', reason: 'durable_effect_idempotency_required',
-            operation: operation.id, results };
-        }
-        if (journalDb && !cached) await executionJournal.beginOperation(journalDb,
-          { runId: input.runId, operationId: operation.id, operation });
-        const executable = journalDb && ['CALL', 'EMIT'].includes(operation.kind)
-          ? { ...operation, idempotencyKey: `gcir:${input.runId}:${operation.id}` } : operation;
-        const result = await handler(executable, state);
-        if (journalDb) await executionJournal.completeOperation(journalDb,
-          { runId: input.runId, operationId: operation.id,
-            result: journalResult(result, state, operation) });
-        results.push({ id: operation.id, kind: operation.kind, ...result });
-        if (result.status === 'blocked') return { status: 'blocked', reason: result.reason, results };
-      } catch (error) {
-        return { status: 'blocked', reason: 'operation_failed', operation: operation.id,
-          error: error.message, results };
-      }
-    }
+    { const __genosStageResult1 = await require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage1({ executionJournal, handlersService, input, journalDb, journalRequest }); if (__genosStageResult1) return __genosStageResult1.value; }
+    { const __genosStageResult5 = await require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage5({ applyJournalResult, byId, dependenciesExecuted, executionJournal, handlers, input, journalDb, journalResult, plan, registerOperationVerifier, require, results, runtimeState, get state() { return state; }, set state(__genosNextStageValue) { state = __genosNextStageValue; } }); if (__genosStageResult5) return __genosStageResult5.value; }
     const digest = crypto.createHash('sha256').update(JSON.stringify(results)).digest('hex');
     return executeResult({ results, state, digest, input });
   }

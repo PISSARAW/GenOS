@@ -73,7 +73,7 @@ function buildPhases(flags, modes, branchCount) {
   if (branchCount > 1) phases.push(runtimePhase('evidence_and_evaluation', ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'], 'Score evidence and suspend dominated trajectories.'));
   if (modes.evolution) phases.push(phase('controlled_mutation', ['genos_resilience_hypermutation'], 'Use bounded mutation only after a baseline and evidence exist.'));
   // Only add competition phase if competition mode but NOT security (security uses red/blue/observer workers)
-  if (modes.competition && !flags.security) phases.push(phase('competition_and_selection', ['genos_adversarial_review'], 'Run adversarial comparison and select a Pareto-safe winner.'));
+  require('./phaseBuilderStages1.js').buildPhasesStage1({ flags, modes, phase, phases });
   if (flags.security) phases.push(phase('red_queen', ['genos_security_coevolution'], 'Run Red/Blue/neutral-observer coevolution in isolated worlds.'));
   if (branchCount > 1) phases.push(runtimePhase('replay_and_promote', ['genos_replay', 'genos_record_decision'], 'Replay the selected result and preserve the rationale before promotion.'));
   return phases;

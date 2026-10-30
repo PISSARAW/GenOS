@@ -42,10 +42,7 @@ function ontogenesisRuntimeExecution(mission, registered) {
   const requiredEvidence = mission.completionContract?.requiredEvidence || [];
   if (requiredEvidence.includes('biological_worker_receipt')) return null;
   const proof = mission.context?.ontogenesisRuntimeCompletionProof;
-  if (proof?.schema !== 'genos.ontogenesis-agent-completion-proof/v1'
-      || proof.missionId !== mission.missionId || proof.completionVerified !== true
-      || !Array.isArray(proof.agentIds) || proof.agentIds.length === 0
-      || !/^[a-f0-9]{64}$/i.test(proof.candidateTreeHash || '')) return null;
+  if (require('./homeostasisExecutionEvidenceValues1.js').ontogenesisRuntimeExecutionValue1({ Array, mission, proof })) return null;
   const { payloadHash, ...body } = proof;
   if (digest(body) !== payloadHash) return null;
   const reference = { runtime: 'ontogenesis-agent-runtime', schema: proof.schema,

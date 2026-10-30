@@ -47,7 +47,7 @@ async function rootRecord(db, record, scope) {
   return current;
 }
 
-async function socialEdge(db, senderAgentId, recipientAgentId, scope) {
+async function socialEdge({ db, senderAgentId, recipientAgentId, scope } = {}) {
   const relation = await db.get(`SELECT id, relation_type AS relationType FROM agent_relations
     WHERE ((source_agent_id = ? AND target_agent_id = ?) OR (source_agent_id = ? AND target_agent_id = ?))
       AND relation_type IN ('friend', 'neighbor') AND organization_id = ? AND project_id = ?
@@ -62,21 +62,21 @@ function receiptId(recipientAgentId, rootHash, scope) {
   return `social-receipt-${crypto.createHash('sha256').update(value).digest('hex')}`;
 }
 
-function transmissionPayload(input, source, root, relation) {
+function transmissionPayload({ input, source, root, relation } = {}) {
   return { kind: 'social_evidence_transmission', senderAgentId: input.senderAgentId,
     recipientAgentId: input.recipientAgentId, sourceHash: source.payload_hash,
     rootHash: root.payload_hash, sourceRef: input.sourceRef, relationId: relation.id,
     relationType: relation.relationType };
 }
 
-async function existingReceipt(db, recipientAgentId, rootHash, scope) {
+async function existingReceipt({ db, recipientAgentId, rootHash, scope } = {}) {
   return db.get(`SELECT id, transmission_hash AS transmissionHash FROM social_knowledge_receipts
     WHERE recipient_agent_id = ? AND root_hash = ? AND organization_id = ? AND project_id = ?`,
   recipientAgentId, rootHash, scope.organizationId, scope.projectId);
 }
 
-async function persistTransmission(db, input, scope, source, root, relation) {
-  const payload = transmissionPayload(input, source, root, relation);
+async function persistTransmission({ db, input, scope, source, root, relation } = {}) {
+  const payload = transmissionPayload({ input: input, source: source, root: root, relation: relation });
   const payloadJson = JSON.stringify(canonicalize(payload));
   const parentHash = source.payload_hash;
   const transmissionHash = provenanceHash.payloadHash(payloadJson, parentHash);
@@ -106,14 +106,14 @@ async function transmitEvidence(input = {}) {
   const db = input.db || await require('../db').getDatabase();
   return require('../db').withTransaction(db, async (tx) => {
     await ensureTables(tx);
-    const relation = await socialEdge(tx, senderAgentId, recipientAgentId, scope);
+    const relation = await socialEdge({ db: tx, senderAgentId: senderAgentId, recipientAgentId: recipientAgentId, scope: scope });
     const source = await sourceRecord(tx, sourceRef, scope);
     const root = await rootRecord(tx, source, scope);
-    const prior = await existingReceipt(tx, recipientAgentId, root.payload_hash, scope);
+    const prior = await existingReceipt({ db: tx, recipientAgentId: recipientAgentId, rootHash: root.payload_hash, scope: scope });
     if (prior) return { delivered: false, duplicate: true, receiptId: prior.id,
       sourceHash: source.payload_hash, rootHash: root.payload_hash,
       transmissionHash: prior.transmissionHash, relationId: relation.id, relationType: relation.relationType };
-    return persistTransmission(tx, { senderAgentId, recipientAgentId, sourceRef }, scope, source, root, relation);
+    return persistTransmission({ db: tx, input: { senderAgentId, recipientAgentId, sourceRef }, scope: scope, source: source, root: root, relation: relation });
   });
 }
 

@@ -121,7 +121,7 @@ function preValidateTool(context) {
   if (!directToolLeaseAllows(toolName, authorityLease) && !scopedReplay) return leaseDeniedResult(toolName, executionKind);
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
-  if (steric) context.docking = steric.docking || { mode: steric.mode };
+  require('./dispatchStages1.js').preValidateToolStage1({ get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, steric });
   const argumentError = scopedReplay
     ? require('../mcpArgumentValidation').validateScopedReplayArguments(args)
     : validateToolArguments(toolName, args);
@@ -197,7 +197,7 @@ function createLocalRunner(timeoutMs, scopedReplayAllowed = false) {
   };
 }
 
-async function executeRemoteTransport(toolName, args, timeoutMs, agentId = null) {
+async function executeRemoteTransport({ toolName, args, timeoutMs, agentId = null } = {}) {
   const transport = configuredTransport();
   if (transport && transport.type === 'invalid') return invalidConfigResult(transport);
   const result = transport.type === 'http'
@@ -222,8 +222,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
   let stericDocking = null;
-  const scoped = normalizedToolName === 'genos_replay' && scopedReplayAllowed === true
-    && !hasConfiguredEndpoint() && require('./config').scopedWorkerReplayLeaseOpen();
+  const scoped = require('./dispatchValues1.js').executeConfiguredTransportValue1({ hasConfiguredEndpoint, normalizedToolName, require, scopedReplayAllowed });
   const validationContext = { registry, toolName: normalizedToolName, args, executionKind, authorityLease, scopedReplayAllowed: scoped };
   const rejection = preValidateTool(validationContext);
   if (rejection) return rejection;
@@ -244,7 +243,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     return withDocking(result, stericDocking);
   }
   if (hasConfiguredEndpoint()) {
-    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs, agentId);
+    const result = await executeRemoteTransport({ toolName: normalizedToolName, args: args, timeoutMs: timeoutMs, agentId: agentId });
     return withDocking(result, stericDocking);
   }
   return withDocking(await executeToolLogic(toolName, args,
