@@ -71,3 +71,7 @@ Un `passed` exige deux workers terminés, une consommation Qwen mesurée pour
 chacun et une admission liée à leurs vrais runs. Il ne prouve ni la justesse de
 leur réponse ni une acceptation sémantique. Ce complément n'est pas la mission 11
 complexe de la campagne et ses résultats ne changent pas les 48 scores de base.
+
+Ce driver est réservé à un opérateur. Un contexte `GENOS_EXECUTION_MODE=worker`
+est refusé avant toute création de dossier, mission ou budget ; le test
+`test_handoff_operator_boundary.cjs` vérifie cette absence de mutation.

@@ -9,6 +9,7 @@ const git = args => spawnSync('git', args, { cwd: source, encoding: 'utf8', wind
 const write = (name, value) => fs.writeFileSync(path.join(output, name), JSON.stringify(value, null, 2));
 
 function prepare() {
+  if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker') throw Object.assign(new Error('Delegated workers cannot run this operator protocol.'), { code: 'GENOS_WORKER_RECURSION_BLOCKED' });
   if (!/^D:\\/i.test(output) || fs.existsSync(output)) throw new Error('Supply a new absolute D: directory.');
   if (!/^ollama:\/\/qwen[A-Za-z0-9_.:/-]+$/.test(model)) throw new Error('Use an explicit local Qwen model.');
   if (git(['status', '--porcelain']).stdout.trim()) throw new Error('Use a clean committed source.');
