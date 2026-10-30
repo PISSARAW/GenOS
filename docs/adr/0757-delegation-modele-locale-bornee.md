@@ -1,0 +1,11 @@
+# ADR 0757 — Délégation locale par plan modèle borné
+
+Le runtime local des `sub_orchestrator` produisait auparavant une réponse JSON unique ; le modèle ne pouvait pas créer les enfants dont il décrivait les résultats. Le chemin natif `coordinate_children` reste distinct.
+
+Un sous-orchestrateur possédant un contrat actif de délégation produit désormais un plan structuré Qwen. Le runtime valide types de workers, nombre d'enfants, dépendances antérieures et plafond cumulé de tokens, puis appelle le dispatcher réel. Les enfants gardent l'identité du sous-orchestrateur comme parent immédiat. Ils héritent de la route modèle et consomment le même scope budgétaire racine, après vérification de la chaîne et du ledger de délégation. Une autre mission ou un frère ne peut pas utiliser ce scope.
+
+Un enfant `code` exige un bail d'écriture déjà fourni par l'opérateur et reste confiné aux chemins et commandes permis. Un enfant `review` doit être un `verifier_worker` dépendant d'un enfant code antérieur. Seuls les fichiers autorisés, dont les hashes concordent avec son reçu de tests terminé, sont matérialisés dans une capsule de revue distincte. Le ledger lie source, candidat, mission et reviewer. Le reviewer exécute ses propres tests sans patch via le chemin test-only. Aucune copie dans le workspace parent ni promotion globale n'est effectuée.
+
+La synthèse Qwen reçoit les identités et reçus persistés. Les résumés de succès sont contrôlés contre les enfants réellement exécutés. La fin d'exécution d'un enfant ne suffit pas à déclarer sa correction sémantique : le champ de vérification du reçu reste explicite. Les délais, leases et budgets restent imposés par le runtime. `delegationLimit: 0` conserve un contrat sans autorité de spawn et sans enfant.
+
+Validation : `test_local_model_delegation.cjs` utilise une vraie base et un fournisseur simulé pour vérifier les enfants et réservations ; `test_local_model_delegated_review.cjs` exécute réellement `pytest` dans deux capsules distinctes et vérifie reçus séparés, source immuable et refus des snapshots étrangers ou modifiés après test. Ces tests ne constituent pas une mesure du modèle Qwen réel ; la campagne doit vérifier ses plans et résultats.

@@ -23,7 +23,7 @@ async function publish(ctx) {
     { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel,
       workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics,
       proposalTests: ctx.error.proposal?.tests,
-      appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.usage,
+      appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.usage || ctx.error.modelUsage,
       stageTimings: ctx.stageTimings,
       ...(deferred ? { deferredTerminalEventType: state.eventType } : {}) }, 'warning', deferred ? 'running' : state.status);
   require('./agentEvidenceService').recordWorkerEvidence(ctx.mission, failed);

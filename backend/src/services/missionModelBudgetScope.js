@@ -119,7 +119,8 @@ async function routeBudget(mission, db) {
   if (!Number.isFinite(childCost) || childCost < 0) {
     throw budgetError('Dispatched worker cost ceiling is missing or invalid.');
   }
-  await assertPersisted(db, scope, mission.orchestratorAgentId || mission.agentId);
+  const owner = await require('./agents/delegatedModelBudget').scopeOwner(db, mission, scope);
+  await assertPersisted(db, scope, owner);
   return {
     organizationId: scope.organizationId,
     projectId: scope.projectId,

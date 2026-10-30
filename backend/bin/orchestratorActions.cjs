@@ -266,7 +266,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
     workerTokenLimit: request.workerTokenLimit ?? budget.tokens
   });
-  if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
+  if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract, request.delegationLimit ?? 5);
   return contract;
 }
 function buildWorkerMetadata(workerKind, contract, request) {

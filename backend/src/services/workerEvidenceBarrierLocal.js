@@ -45,14 +45,14 @@ function isOrchestratorMission(mission) {
   if (mission.executionMode === 'worker' || mission.execution_mode === 'worker') return false;
   return mission.role === 'Autonomous Orchestrator' && !mission.workerKind;
 }
-
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
   if (Number.isFinite(value)) return value;
   return undefined;
 }
-async function generateWorkerResult(ctx) {
+async function generateWorkerResult(ctx) { const delegation = require('./localModelDelegation'); return delegation.enabled(ctx.mission) ? delegation.generate(ctx, generateWorkerResultOnce) : generateWorkerResultOnce(ctx); }
+async function generateWorkerResultOnce(ctx) {
   if (!ctx.executionRun?.id) {
     throw Object.assign(new Error('Local worker generation requires its execution run.'), {
       code: 'WORKER_EXECUTION_RUN_REQUIRED'
@@ -76,7 +76,7 @@ async function generateWorkerResult(ctx) {
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
-    responseFormat: ctx.codeWorker
+    responseFormat: ctx.responseFormatOverride || (ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
         delegatedReviewOnly: ctx.mission.delegatedReviewOnly === true,
         allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
@@ -86,7 +86,7 @@ async function generateWorkerResult(ctx) {
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
         forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true
       })
-      : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission),
+      : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission)),
     reasoningEffort: ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined,
 
     policy: ctx.policy,
@@ -240,19 +240,7 @@ async function runGenerationStage(ctx) {
     workerInstruction: stageDetails.workerInstruction(ctx.mission, kind),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
-  if (identityExperimentAudit) {
-    const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
-      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, {
-        ...identityExperimentAudit,
-        identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
-        identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
-        allowedEvidenceRefs: require('./workerEvidenceIdentityPrompt').missionEvidenceRefs(ctx.mission),
-        promptText,
-        promptSha256: require('./identityExperimentPromptTreatment').promptSha256(promptText),
-        promptCharacters: promptText.length
-      }, 'info', 'running');
-    await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
-  }
+  await stageDetails.recordAudit(ctx, { audit: identityExperimentAudit, promptText });
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
   let result = await generateWorkerResult({
     db: ctx.db,
