@@ -80,7 +80,18 @@ async function createChild(db, parent, args) {
     return created;
   });
   await prepareModelWorkspace(db, { parent, args, worker: workers[0], mission });
+  await prepareModelDependency(db, { parent, args, worker: workers[0], mission });
   return { child: workers[0], mission };
+}
+
+async function prepareModelDependency(db, input) {
+  const runtime = input.args[TRUSTED_RUNTIME];
+  if (!runtime || !Number.isInteger(input.args.dependsOn) || input.args.dependsOn < 0 || input.args.mode === 'review') return;
+  const dependency = await require('./delegatedDependencyContext').project(db, {
+    parentId: input.parent.id, sourceChildId: input.args.sourceChildId, sourceRunId: input.args.sourceRunId,
+    childId: input.worker.agentId, missionId: runtime.mission.missionId });
+  input.mission.prompt += dependency.prompt;
+  input.mission.allowedEvidenceRefs = [...new Set([...(input.mission.allowedEvidenceRefs || ['mission']), dependency.reference])];
 }
 
 async function prepareModelWorkspace(db, input) {

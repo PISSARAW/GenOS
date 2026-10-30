@@ -27,14 +27,14 @@ async function dispatch(db, workspace) {
   discovery.discoverLocalModels = async () => [{ uri: 'ollama://test-qwen', chatCapable: true }];
   const original = provider.generate;
   let calls = 0;
-  provider.generate = async () => { calls++; return { text: JSON.stringify({ outcome: 'success',
+  provider.generate = async options => { calls++; if (calls === 3) assert.match(options.prompt, /BOUND SIBLING DEPENDENCY/); return { text: JSON.stringify({ outcome: 'success',
     claims: [{ statement: 'Fixture observed.', evidence: ['mission'] }], uncertainties: [],
     scopeCompletion: { scopeRef: 'mission', completedRefs: ['mission'] } }),
     inputTokens: 20, outputTokens: 30, tokenUsageMeasured: true }; };
   try {
     const result = await require('../src/services/agents/subOrchestratorDispatchService').dispatchLocalModelChild(db,
       { mission, executionRun: { id: saved.envelope.runId } },
-      { workerKind: 'bounded_worker', mission: 'Observe the supplied fixture and cite mission.', modelTokens: 4000, mode: 'analysis' });
+      { workerKind: 'bounded_worker', mission: 'Observe the supplied fixture and cite mission.', modelTokens: 3000, mode: 'analysis' });
     assert.equal(result.success, true, JSON.stringify(result));
     assert.equal(calls, 1);
     const child = await db.get('SELECT parent_agent_id FROM agents WHERE id=?', result.childAgentId);
@@ -56,14 +56,15 @@ async function dispatch(db, workspace) {
       promptText: 'Observe the fixture through a child.', maxTokens: 4000 }, async context => {
       generations++;
       if (generations === 1) return { text: JSON.stringify({ children: [{ workerKind: 'bounded_worker',
-        mission: 'Observe fixture and cite mission.', modelTokens: 4000, mode: 'analysis', dependsOn: -1 }] }),
+        mission: 'Observe fixture and cite mission.', modelTokens: 3000, mode: 'analysis', dependsOn: -1 },
+        { workerKind: 'bounded_worker', mission: 'Use the predecessor report.', modelTokens: 4000, mode: 'analysis', dependsOn: 0 }] }),
       inputTokens: 20, outputTokens: 30, costUsd: 0 };
       assert.match(context.promptText, /genos:\/\/worker-receipt\//);
       assert.match(context.promptText, /verified.*false/);
       return { text: '{"outcome":"unresolved"}', inputTokens: 30, outputTokens: 40, costUsd: 0 };
     });
     assert.equal(generations, 2);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     assert.equal(composed.inputTokens + composed.outputTokens, 120);
   } finally { provider.generate = original; discovery.discoverLocalModels = originalDiscovery; }
 }

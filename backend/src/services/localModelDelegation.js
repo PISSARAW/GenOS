@@ -43,7 +43,8 @@ function validateDependency(child, index, children) {
 function failure(message) { return Object.assign(new Error(message), { code: 'LOCAL_DELEGATION_PLAN_INVALID' }); }
 
 async function childEvidence(ctx, child, observed) {
-  const request = { ...child, sourceChildId: child.dependsOn < 0 ? undefined : observed[child.dependsOn]?.childId };
+  const dependency = child.dependsOn < 0 ? null : observed[child.dependsOn];
+  const request = { ...child, sourceChildId: dependency?.childId, sourceRunId: dependency?.runId };
   const result = await require('./agents/subOrchestratorDispatchService').dispatchLocalModelChild(ctx.db, ctx, request);
   const run = await ctx.db.get('SELECT id FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', result.childAgentId);
   const receipt = run && await require('./biologicalWorkerStore').receipt(ctx.db, run.id);
