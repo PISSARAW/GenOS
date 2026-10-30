@@ -7,3 +7,5 @@ Avant d'utiliser un dossier pour la clôture, la référence est reliée à l'é
 Les runs sans cette preuve conservent leur statut d'exécution et leur dossier ; leur receipt ne les qualifie pas comme résultat vérifié. Les domaines couverts par les oracles sémantiques existants restent utilisables.
 
 Les anciens receipts qui ne portent pas le domaine et l'acceptation de l'oracle ne sont pas considérés comme preuve sémantique. Une clôture par dossier peut toutefois vérifier l'attestation historique à nouveau.
+
+Un appel direct à `runProcedure`, même réellement exécuté dans un autre processus, ne produit pas cette attestation. Le test de redémarrage biologique vérifie que son résultat et son receipt restent non qualifiés après récupération et qu'un indicateur `checked` ne permet pas de fermer la mission. Le parcours natif complet avec les deux vérificateurs reste le contrôle positif de qualification.

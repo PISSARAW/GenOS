@@ -23,7 +23,7 @@ function probe(mode, filename, runId) {
   return JSON.parse(child.stdout);
 }
 
-async function executeAndGate(db, filename, contractRecord) {
+async function executeWithoutOracle(db, filename, contractRecord) {
   const run = await execution.createExecutionRun(db, { agentId: 'worker', contractRecord, budget: { tokens: 0, deterministic: true } });
   const result = probe('execute', filename, run.id);
   assert.equal(result.result.output.sum, 5, 'the real bounded subset-sum executor produced the result');
@@ -33,9 +33,12 @@ async function executeAndGate(db, filename, contractRecord) {
   assert.equal(saved.biologicalReceipt.budgetAssessment.satisfied, true);
   const target = { mission, context: { flags: { checked: true } } };
   const allowed = await homeostasis.transitionMissionToComplete(db, target);
-  assert.equal(allowed.allowed, true);
-  assert.equal(allowed.receipt.executionReceipts[0].payloadHash, saved.biologicalReceipt.payloadHash);
-  await require('../src/services/homeostasisClosureService').assertClosure(db, mission.id);
+  assert.equal(saved.biologicalReceipt.result.completed, true);
+  assert.equal(saved.biologicalReceipt.result.verified, false, 'runProcedure has no accepted semantic attestation');
+  assert.equal(saved.biologicalReceipt.semanticVerification, undefined);
+  assert.equal(allowed.allowed, false, 'a real calculation and a checked flag do not replace semantic verification');
+  await assert.rejects(require('../src/services/homeostasisClosureService').assertClosure(db, mission.id),
+    { code: 'HOMEOSTASIS_COMPLETION_RECEIPT_REQUIRED' });
   return { run, target, receipt: saved.biologicalReceipt };
 }
 
@@ -52,7 +55,9 @@ async function pendingRun(db, filename, contractRecord) {
 
 async function afterRestart(filename, previous, run) {
   const reopened = probe('recover', filename, run.id);
-  assert.equal(reopened.receipt.result.verified, true);
+  assert.equal(reopened.receipt.result.completed, true);
+  assert.equal(reopened.receipt.result.verified, false, 'recovery preserves the absence of a semantic proof');
+  assert.equal(reopened.receipt.semanticVerification, undefined);
   assert.equal(reopened.receipt.cellId, previous.receipt.cellId);
   assert.equal(reopened.receipt.genomeHash, previous.receipt.genomeHash);
   assert.equal(reopened.authority.requiredEvidence[0], 'biological_worker_receipt');
@@ -61,11 +66,11 @@ async function afterRestart(filename, previous, run) {
     const denied = await homeostasis.transitionMissionToComplete(db, { mission: { id: mission.id }, context: { missionOutcome: true } });
     assert.equal(denied.allowed, false, 'restart cannot replace the persisted checked flag by a weaker prompt fallback');
     await assert.rejects(db.run("UPDATE missions SET status = 'completed' WHERE mission_id = ?", mission.id), /receipt required/);
-    const allowed = await homeostasis.transitionMissionToComplete(db, previous.target);
-    assert.equal(allowed.allowed, true);
-    const closed = await identity.setStatus(db, mission.id, 'completed');
-    assert.equal(closed.status, 'completed');
-    assert.equal(allowed.receipt.from, denied.status);
+    const checked = await homeostasis.transitionMissionToComplete(db, previous.target);
+    assert.equal(checked.allowed, false, 'even the persisted checked flag cannot qualify an unverified receipt');
+    await assert.rejects(identity.setStatus(db, mission.id, 'completed'),
+      { code: 'HOMEOSTASIS_COMPLETION_RECEIPT_REQUIRED' });
+    assert.equal((await identity.get(db, mission.id)).status, 'active');
   } finally { await db.close(); }
 }
 
@@ -77,7 +82,7 @@ async function main() {
   try {
     await workerSchema(db);
     const contractRecord = await addWorker(db);
-    const previous = await executeAndGate(db, filename, contractRecord);
+    const previous = await executeWithoutOracle(db, filename, contractRecord);
     const run = await pendingRun(db, filename, contractRecord);
     await db.close(); db = null;
     await afterRestart(filename, previous, run);
@@ -86,6 +91,6 @@ async function main() {
     telemetry.persistAsync = originalPersist;
     fs.rmSync(filename, { force: true });
   }
-  console.log('Real procedure execution, fresh transition binding, durable replay and closure across process restart passed.');
+  console.log('Real procedure execution and unverified receipt remain non-promotable across process restart: PASS');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
