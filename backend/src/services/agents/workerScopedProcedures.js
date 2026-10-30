@@ -77,14 +77,15 @@ function runHost(method, context) {
 }
 
 function validTrial(trial) {
-  return ['controlled_probe', 'causal_bisection'].includes(trial?.strategy)
+  return trial?.strategy === 'controlled_probe'
     && trial.procedure?.methodId === 'lpt';
 }
 
 function assertAdaptiveInput(method) {
   const input = methodInput(method, 'adapt_procedure');
   if (!list(input.trials, validTrial, 20)) {
-    throw error('WORKER_ADAPTATION_INVALID', 'Use 1-20 LPT trials with allowed strategies.');
+    throw error('WORKER_ADAPTATION_INVALID',
+      "Only the 'controlled_probe' LPT strategy is implemented; use 1-20 trials with that strategy.");
   }
   input.trials.forEach((trial) => assertProcedure(trial.procedure));
   const baseline = JSON.stringify(input.trials[0].procedure.parameters);
@@ -107,8 +108,8 @@ function runAdaptive(method, context) {
   assertTrialBudget(trials, context.mission.workerContract.limits);
   const executions = trials.map((trial) => ({ strategy: trial.strategy, ...runProcedure(trial.procedure) }));
   const strategyTrace = executions.map((execution, index) => ({ strategy: execution.strategy,
-    decision: index > 0 && execution.strategy !== executions[index - 1].strategy ? 'changed' : 'retained',
-    reason: `Controlled trial ${index + 1}; observed makespan ${execution.output.makespan}.`,
+    decision: 'retained',
+    reason: `Controlled probe ${index + 1}; the declared strategy is unchanged and observed makespan is ${execution.output.makespan}.`,
     evidence: [execution.receipt.id] }));
   const selected = executions.reduce((best, item) => item.output.makespan < best.output.makespan ? item : best);
   return resultReport(method, { strategyTrace, result: selected.output,

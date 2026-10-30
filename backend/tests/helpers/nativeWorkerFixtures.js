@@ -23,7 +23,7 @@ function fixtures(root) {
       samples: [{ value: 3, sourceRef: 'samples://native/1', observedAt: '2026-10-06T10:00:00Z' }] }),
     bounded_worker: scoped,
     adaptive_worker: method('adapt_procedure', { trials: [
-      { strategy: 'controlled_probe', procedure: lpt }, { strategy: 'causal_bisection', procedure: lpt }
+      { strategy: 'controlled_probe', procedure: lpt }, { strategy: 'controlled_probe', procedure: lpt }
     ] }),
     specialist: method('niche_procedure', { niche: 'scheduling', procedure: lpt }),
     procedural_executor: subset,

@@ -32,9 +32,20 @@ function assertRefuted(input, strategy, mutate) {
 const scope = { mission: { scope: 'fixture://scope', limits: { maxIterations: 3, maxStrategyChanges: 2 },
   specialtyNiche: 'scheduling', hostContractId: 'host-fixture', hostCapabilities: ['deterministic_procedure'] } };
 const adaptiveMethod = fixtures.method('adaptive_worker');
+const adaptiveReport = scoped.runAdaptive(adaptiveMethod, { mission: { workerContract: { mission: scope.mission,
+  limits: scope.mission.limits } }, deadline: Date.now() + 10000 });
 const adaptive = subject({ kind: 'adaptive_worker', domain: 'adaptive_strategy', workerContract: {},
-  report: scoped.runAdaptive(adaptiveMethod, { mission: { workerContract: { mission: scope.mission,
-    limits: scope.mission.limits } }, deadline: Date.now() + 10000 }) });
+  report: adaptiveReport });
+const adaptiveContent = adaptiveReport.evidenceReport.workerArtifact.content;
+assert.equal(new Set(adaptiveContent.strategyTrace.map((item) => item.strategy)).size, 1);
+assert.ok(adaptiveContent.strategyTrace.every((item) => item.decision === 'retained'));
+assert.equal(new Set(adaptiveContent.trialReceipts.map((item) => item.id)).size, 1,
+  'repeated controlled probes must not claim different strategies produced different results');
+assert.throws(() => scoped.runAdaptive({ ...adaptiveMethod, parameters: { trials: [
+  ...adaptiveMethod.parameters.trials.slice(0, 1),
+  { ...adaptiveMethod.parameters.trials[0], strategy: 'causal_bisection' }
+] } }, { mission: { workerContract: { mission: scope.mission, limits: scope.mission.limits } } }),
+{ code: 'WORKER_ADAPTATION_INVALID' }, 'unimplemented causal bisection must be rejected');
 checkEveryStrategy(adaptive, ['adaptive_trial_map', 'adaptive_trial_replay']);
 assertRefuted(adaptive, 'adaptive_trial_map', (input) => { input.result.result.makespan += 1; });
 

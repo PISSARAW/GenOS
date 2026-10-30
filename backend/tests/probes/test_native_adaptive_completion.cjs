@@ -29,7 +29,7 @@ async function main() {
     const procedure = { version: 1, methodId: 'lpt', parameters: {
       jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2 } };
     const methodContract = { version: 1, methodId: 'adapt_procedure', parameters: { trials: [
-      { strategy: 'controlled_probe', procedure }, { strategy: 'causal_bisection', procedure }] } };
+      { strategy: 'controlled_probe', procedure }, { strategy: 'controlled_probe', procedure }] } };
     const result = await require('../../src/services/agents/subOrchestratorDispatchService')
       .dispatchSubOrchestratorWorker(db, 'delegation-sub', { mission: 'Run the bounded adaptive trials.',
         workerKind: 'adaptive_worker', methodContract, timeoutMs: 60000 });

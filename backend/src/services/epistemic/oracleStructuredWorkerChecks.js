@@ -25,8 +25,8 @@ function checkAdaptive(subject, strategy) {
   const receipts = subject.result.trialReceipts || [];
   const best = expected.reduce((selected, value) => value.makespan < selected.makespan ? value : selected);
   const trace = trials.map((trial, index) => ({ strategy: trial.strategy,
-    decision: index > 0 && trial.strategy !== trials[index - 1].strategy ? 'changed' : 'retained',
-    reason: `Controlled trial ${index + 1}; observed makespan ${expected[index].makespan}.`,
+    decision: 'retained',
+    reason: `Controlled probe ${index + 1}; the declared strategy is unchanged and observed makespan is ${expected[index].makespan}.`,
     evidence: [receipts[index]?.id] }));
   const validReceipts = receipts.length === trials.length && receipts.every((receipt, index) =>
     receiptMatches(receipt, 'lpt', expected[index]));
