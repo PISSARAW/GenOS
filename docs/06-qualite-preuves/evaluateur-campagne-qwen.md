@@ -6,6 +6,11 @@ Le résultat contient `passed`, `failed` ou `unmeasured`, les contrôles appliqu
 
 L'option `--negative` (ou troisième argument `{ negative: true }` de `assess`) contrôle la structure d'un refus : `unresolved`, raisons explicites, aucun claim ni achèvement revendiqué. Un rapport de vérification avec verdict `unresolved` est aussi accepté. Une erreur de schéma sans rapport exploitable est non mesurée. Ce contrôle ne détermine pas automatiquement si la raison donnée est sémantiquement correcte.
 
+Les contrôles de refus restent ordonnés : les traces d'accomplissement et les
+claims sont examinés avant le verdict de vérification ou les raisons. Leur
+extraction en fonctions bornées ne change ni cet ordre ni les verdicts ; un
+`unresolved` ne neutralise jamais une trace d'achèvement déjà détectée.
+
 Pour le poème, seuls le nombre de lignes, les strophes et le mot interdit sont contrôlés. Pour ABC, l'évaluateur accepte un sous-ensemble monophonique explicite avec notes, silences et durées simples ; les constructions non prises en charge restent non mesurées. Il vérifie les en-têtes, huit mesures complètes en 4/4 et le retour des deux premières mesures à la fin. L'interprétation de A-prime et B, l'écoute et l'esthétique ne sont pas automatisées. La causalité scientifique n'est pas évaluée par le contrôle numérique des latences.
 
 Cet évaluateur est indépendant du worker et ne crée aucun oracle ni receipt sémantique GenOS. Son champ `genosSemanticOracle` vaut toujours `false`. Les métadonnées du run et la preuve d'appel Qwen doivent être examinées séparément dans la campagne.
