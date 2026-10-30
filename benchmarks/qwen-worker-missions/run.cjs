@@ -6,6 +6,8 @@ const { spawnSync } = require('node:child_process');
 const cases = require('./cases.json');
 const source = path.resolve(__dirname, '../..');
 const root = path.resolve(process.argv[2] || '');
+const modelOverride = process.argv[3];
+if (modelOverride && !/^ollama:\/\/qwen[A-Za-z0-9_.:/-]+$/.test(modelOverride)) throw new Error('Campaign model override must be an explicit local Qwen URI.');
 if (!/^D:\\/i.test(root)) throw new Error('Supply an absolute campaign directory on D:.');
 if (fs.existsSync(root)) throw new Error('Campaign directory must be new.');
 const git = args => spawnSync('git', args, { cwd: source, encoding: 'utf8', windowsHide: true });
@@ -59,11 +61,14 @@ function fixture(item) {
 function budgets(id) {
   return id === '12' ? { worker: 12000, parent: 40000 } : { worker: 9000, parent: 24000 };
 }
+function modelFor(id) {
+  return modelOverride || (['01', '03', '11', '12'].includes(id) ? 'ollama://qwen2.5-coder:32b' : 'ollama://qwen2.5-coder:7b');
+}
 function payload(item, workspace, negative) {
   const budget = budgets(item.id);
   const request = { action: 'dispatch_worker', workspaceRoot: workspace,
     mission: negative ? item.negative : item.positive, role: item.kind, workerKind: item.kind,
-    executor: 'local', localModel: ['01', '03', '11', '12'].includes(item.id) ? 'ollama://qwen2.5-coder:32b' : 'ollama://qwen2.5-coder:7b',
+    executor: 'local', localModel: modelFor(item.id),
     readOnlyWorkspaceEvidence: true, localContextTokens: 16384, workerTokenLimit: budget.worker,
     execution_budget: { tokens: budget.parent, costUsd: 1 }, timeoutMs: 300000 };
   if (item.id === '03' && !negative) Object.assign(request, { localCodeWorker: true, allowFileEdits: true, allowedWritePaths: ['palindrome.py'], requiredPatchPaths: ['palindrome.py'], allowedCommands: ['pytest'] });
@@ -107,7 +112,7 @@ async function main() {
   const version = await (await fetch(`${endpoint}/api/version`)).json();
   const tags = await (await fetch(`${endpoint}/api/tags`)).json();
   const dependencyLocks = Object.fromEntries(['package-lock.json', 'backend/package-lock.json', 'mcp/package-lock.json'].map(name => [name, hash(fs.readFileSync(path.join(source, name)))]));
-  write(path.join(root, 'campaign.json'), { revision, source, node: process.version, dependencyLocks, started: new Date().toISOString(), caseHash: hash(JSON.stringify(cases)), version, models: tags.models, sourcePinned: true });
+  write(path.join(root, 'campaign.json'), { revision, source, node: process.version, dependencyLocks, modelOverride: modelOverride || null, started: new Date().toISOString(), caseHash: hash(JSON.stringify(cases)), version, models: tags.models, sourcePinned: true });
   for (const item of cases) {
     const workspace = fixture(item);
     for (const suffix of ['r1', 'r2', 'r3', 'neg']) execute(item, workspace, suffix);

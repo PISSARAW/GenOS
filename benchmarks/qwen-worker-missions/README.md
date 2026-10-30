@@ -12,6 +12,8 @@ Pour une campagne complète depuis une révision commitée et figée :
 node benchmarks/qwen-worker-missions/run.cjs D:\GenOS-runs\qwen-campagne-corrigee-unique
 ```
 
+Un troisième argument permet un profil uniforme explicitement tracé, par exemple `ollama://qwen2.5-coder:7b`. Le modèle doit être local et appartenir à la famille Qwen ; ce profil change les conditions de comparaison et doit être signalé dans le bilan.
+
 Le répertoire de sortie doit être nouveau. Le serveur Ollama de D: doit écouter sur `127.0.0.1:11435`, avec les modèles 7B et 32B du catalogue. Le runner refuse un checkout modifié, vérifie la révision entre scénarios et conserve les empreintes des payloads et du workspace initial. Les capsules et bases restent sur D:. Il produit trois répétitions et un négatif par carte, les journaux, les manifestes et les dossiers SQLite inspectés. La passation reçoit les vrais résultats producteurs sous forme de fichiers inspectables, plutôt que les seules sorties du CLI.
 
 Les entrées sont versionnées dans `cases.json`. Les négatifs ne prescrivent plus la réponse `unresolved` : le worker doit détecter la contradiction ou l'absence de preuve. Ce changement de protocole doit être pris en compte dans toute comparaison avec la première campagne. Un échec numérique du modèle reste un échec ; le protocole ne remplace pas sa réponse par une solution prédéfinie.
