@@ -52,6 +52,10 @@ function buildReceipt(input) {
 
 function semanticProofAccepted(verification) {
   const attestation = verification?.proof?.attestation?.value;
+  return semanticReceiptAccepted(attestation);
+}
+
+function semanticReceiptAccepted(attestation) {
   if (attestation?.accepted !== true || !attestation.domain || attestation.domain === 'worker_artifact') return false;
   try { require('./epistemic/nativeOracleDomains').definition(attestation.domain); return true; }
   catch { return false; }
@@ -62,7 +66,8 @@ function semanticVerification(verification) {
   const costs = attestation.value.costs;
   const limits = verification.proof.allocation.value.limits;
   return { schema: 'genos.native-oracle-receipt-reference/v1', eventId: attestation.eventId, hash: attestation.hash,
-    acceptanceHash: verification.acceptance.hash, costs,
+    acceptanceHash: verification.acceptance.hash, domain: attestation.value.domain,
+    accepted: attestation.value.accepted, costs,
     budgetAssessment: { limits, satisfied: costs.processes <= limits.executions && costs.runtimeMs <= limits.latencyMs,
       localComputeUsdMeasured: costs.localComputeUsd !== null } };
 }
@@ -177,7 +182,8 @@ async function missionEvidence(db, missionId) {
 }
 
 function receiptSatisfied(item) {
-  return item.complete && item.receipt.result.verified === true && item.receipt.budgetAssessment.satisfied === true;
+  return item.complete && item.receipt.result.verified === true && item.receipt.budgetAssessment.satisfied === true
+    && semanticReceiptAccepted(item.receipt.semanticVerification);
 }
 
 async function observationsComplete(db, receipt) {
@@ -186,4 +192,4 @@ async function observationsComplete(db, receipt) {
     && digest(observations.map(item => item.hash)) === digest(receipt.evidence.observations);
 }
 
-module.exports = { finalize, record, recover, missionEvidence, TERMINAL_STATUSES, semanticProofAccepted };
+module.exports = { finalize, record, recover, missionEvidence, TERMINAL_STATUSES, semanticProofAccepted, semanticReceiptAccepted };

@@ -14,6 +14,7 @@ function normalizeMembers(members) {
 function proofFromRow(row) {
   try {
     const content = store.verifiedJson(row, 'receipt_json');
+    if (!require('./biologicalWorkerReceiptService').semanticReceiptAccepted(content?.semanticVerification)) return null;
     return { reference: `sha256:${row.payload_hash}`, content,
       source: 'biological_worker_receipts' };
   } catch {
