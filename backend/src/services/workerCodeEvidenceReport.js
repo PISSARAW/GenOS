@@ -4,6 +4,10 @@ const values = require('./trinityProvenanceValues');
 
 function build(input) {
   if (input.mission.delegatedReviewOnly === true) return require('./localCodeReviewReport').build(input);
+  return buildCodeReport(input);
+}
+
+function buildCodeReport(input) {
   const { mission, proposal } = input;
   const files = proposal?.changedFileHashes;
   const tests = proposal?.tests;
