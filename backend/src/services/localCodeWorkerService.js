@@ -149,7 +149,8 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
   for (const command of proposal.tests) {
     if (!allowedTest(command, allowedCommands)) throw new Error(`Test command is not allow-listed: ${command}`);
   }
-  const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
+  const beforeFiles = await snapshotStore.collectFiles(workspaceRoot);
+  const before = new Map(beforeFiles.map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
   let tests;
   try {
@@ -176,6 +177,8 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
       agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
       tests, workspaceFiles: after, changedFileHashes
     }) : null;
+  await require('./localCodeTestScope').enforce({ before: beforeFiles, after, patches: proposal.patches,
+    restore: () => restorePatchState(workspaceRoot, patchState), tests, testExecutionReceipt });
   if (tests.some((test) => test.exitCode !== 0)) {
     const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
     if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
