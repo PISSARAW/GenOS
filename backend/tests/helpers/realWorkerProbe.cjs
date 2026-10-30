@@ -11,7 +11,14 @@ const original = biology.record;
 biology.record = async (db, request) => {
   if (mode === 'crash' && request.event.eventType === 'AGENT_COMPLETED'
       && request.event.payload?.nativeOracleRef) {
-    await require('../../src/services/biologicalWorkerStore').observe(db, request);
+    const observed = await require('../../src/db').withTransaction(db, tx =>
+      require('../../src/services/biologicalWorkerStore').observe(tx, request));
+    const reader = require('./biologyDatabase').openDatabase(process.env.GENOS_DB_PATH);
+    try {
+      const durable = await reader.get('SELECT applied FROM biological_worker_observations WHERE run_id=? AND event_key=?',
+        observed.binding.runId, observed.eventKey);
+      if (durable?.applied !== 0) throw new Error('Abrupt-exit probe requires a committed, unapplied observation');
+    } finally { await reader.close(); }
     fs.writeFileSync(receiptFile, JSON.stringify({ agentId: request.agentId,
       runId: request.event.payload.executionRunId, eventId: request.event.id }));
     process.exit(77);

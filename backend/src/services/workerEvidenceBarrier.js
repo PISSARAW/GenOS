@@ -299,8 +299,8 @@ function attachSemanticReport(ctx, dossiers) {
 }
 
 async function applyCommonClosure(ctx) {
-  const missionId = ctx.normalizedMission?.missionId
-    || ctx.autonomyPlan?.trinity?.missionId || ctx.agentId;
+  const missionId = ctx.autonomyPlan?.trinity?.missionId
+    || ctx.normalizedMission?.missionId || ctx.agentId;
   const topology = closureAdapter.topologyContext(ctx);
   const invariants = ctx.partial ? [
     { id: 'partial_worker_evidence_preserved', passed: Array.isArray(ctx.dossiers) && ctx.dossiers.length > 0 }
@@ -335,8 +335,8 @@ async function finishSatisfiedBarrier(ctx) {
   await attachCounterfactualScores(ctx, dossiers);
   await attachProbeVerdicts(ctx, dossiers);
   await attachReconstructions(ctx, dossiers);
-  await attachTruthGraph(ctx);
-  await enforceReportGate(ctx);
+  await truthGate.attachTruthGraph(ctx);
+  await truthGate.enforceReportGate(ctx);
   attachSemanticReport(ctx, dossiers);
   const integration = await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers });
   if (integration && !integration.canMerge) {

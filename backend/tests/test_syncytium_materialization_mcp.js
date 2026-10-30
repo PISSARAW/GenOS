@@ -102,7 +102,7 @@ async function main() {
     const output = await completion.validateAndComplete({ db, missionId: 'closure-mission', sessionId: closure.sessionId,
       output: workerOutput(), validation: { status: 'complete', workerCount: 1, coveredWorkers: 1 },
       expectedCount: 1 });
-    assert.equal(output.complete, true);
+    assert.equal(output.complete, false, 'a self-declared receipt without signed semantic verification is refused');
     assert.equal(output.materialization.status, 'verified');
     assert.equal(output.stateValidation.snapshotId, output.materialization.snapshotId);
     const empty = await syncytium.createSession('No invented shared proof.', missionOptions(db));
@@ -113,8 +113,34 @@ async function main() {
     assert.equal(incomplete.complete, false);
     assert.equal(incomplete.materialization.reason, 'EMPTY_SHARED_STATE');
     assert.equal((await syncytium.listSnapshots(empty.sessionId, { db })).length, 0);
-    console.log('Syncytium MCP materialization and mission closure: PASS');
   } finally { await db.close(); }
+  await realWorkerClosure();
+  console.log('Syncytium MCP materialization and mission closure: PASS');
+}
+
+async function realWorkerClosure() {
+  const fixture = require('./helpers/realWorkerFixture.cjs');
+  const value = await fixture.fixture({ 'task.txt': 'Verify subset sum before closing shared state.' });
+  try {
+    const result = await fixture.dispatch(value, { payload: { methodContract: {
+      version: 1, methodId: 'scoped_procedure', parameters: { procedure: {
+        version: 1, methodId: 'subset_sum', parameters: { values: [2, 3, 7], target: 5 }
+      } }
+    } } });
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    const binding = await value.db.get('SELECT * FROM biological_worker_bindings ORDER BY rowid DESC LIMIT 1');
+    const receipt = await workerStore.receipt(value.db, binding.run_id);
+    assert.equal(receipt.semanticVerification.accepted, true);
+    assert.equal(receipt.oracleExecution.costs.processes, 2);
+    const session = await syncytium.createSession('Close with a signed real worker receipt.', missionOptions(value.db));
+    await syncytium.applyOperation(session.sessionId, { opId: 'verified-closure', actorId: receipt.workerId,
+      kind: { type: 'set_field', key: 'result', value: 'done' } }, { db: value.db });
+    const output = await completion.validateAndComplete({ db: value.db, missionId: binding.mission_id,
+      sessionId: session.sessionId, output: { members: [{ workerId: receipt.workerId, status: 'completed' }],
+        dispatchFailures: [] }, validation: { status: 'complete', workerCount: 1, coveredWorkers: 1 }, expectedCount: 1 });
+    assert.equal(output.complete, true, JSON.stringify(output.completionContract));
+    assert.equal(output.materialization.status, 'verified');
+  } finally { await fixture.close(value); }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

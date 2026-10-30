@@ -1,10 +1,23 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const cliPath = path.resolve(__dirname, '../src/services/genosCli.js');
-const source = fs.readFileSync(cliPath, 'utf8');
+'use strict';
 
-assert.match(source, /SAFE_GENOS_ENV/);
-assert.match(source, /!\/\(TOKEN\|SECRET\|KEY\|PASSWORD\|CREDENTIAL\|API\)/);
-assert.doesNotMatch(source, /env:\s*\{\.\.\.process\.env/);
-console.log('GenOS CLI environment filtering checks passed.');
+const assert = require('node:assert/strict');
+const { genosEnvironment } = require('../src/services/genosCliEnv');
+const names = ['GENOS_TEST_TOKEN', 'GENOS_TEST_SECRET', 'GENOS_TEST_PASSWORD',
+  'GENOS_TEST_KEY', 'GENOS_TEST_CREDENTIAL', 'GENOS_API_URL', 'GENOS_DB_PATH', 'UNRELATED_PRIVATE_VALUE'];
+const saved = new Map(names.map(name => [name, process.env[name]]));
+try {
+  for (const name of names) process.env[name] = 'environment-filter-test-only';
+  const child = genosEnvironment('test-bridge-root');
+  for (const name of names.filter(name => name !== 'GENOS_DB_PATH')) {
+    assert.equal(Object.hasOwn(child, name), false, name);
+  }
+  assert.equal(child.GENOS_DB_PATH, 'environment-filter-test-only');
+  assert.equal(child.GENOS_STUDIO_ROOT, 'test-bridge-root');
+  assert.equal(child.GENOS_ROOT, 'test-bridge-root');
+} finally {
+  for (const [name, value] of saved) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+}
+console.log('Real CLI environment filters credentials and preserves safe configuration: PASS');

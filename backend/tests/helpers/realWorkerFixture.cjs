@@ -20,6 +20,7 @@ async function fixture(files) {
   await db.run("INSERT INTO organizations(id,name) VALUES('proof-org','Proof')");
   await db.run("INSERT INTO projects(id,organization_id,name) VALUES('proof-project','proof-org','Proof')");
   await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('proof-ws','Proof',?,'proof-org','proof-project')", workspace);
+  await require('../../src/services/garageRuntimeService').stop(db);
   return { root, workspace, db };
 }
 
