@@ -21,6 +21,9 @@ const eventLog = require('../daemonEventLog');
 const reproduction = require('./reproductionService');
 const receipts = require('./observationReceiptService');
 const extended = require('./extendedDetectorRules');
+const fs = require('node:fs');
+const path = require('node:path');
+const territoryFiles = require('../cartography/territoryFiles');
 
 async function verifyFinding(db, args) {
   if (!db || !args || !args.findingId) return { verified: false, reason: 'args-required' };
@@ -33,9 +36,12 @@ async function verifyFinding(db, args) {
   const headCheck = await checkHeadFreshness(db, { finding: stored.finding, territory: territory.territory, daemonId: args.daemonId });
   checks.push(headCheck.name);
   if (headCheck.transition) return { verified: true, findingId: args.findingId, checks, transition: headCheck.transition };
-  const scopeCheck = await checkScopeExists(db, { finding: stored.finding, daemonId: args.daemonId });
+  const scopeCheck = await checkScopeExists(db, { finding: stored.finding, territory: territory.territory, daemonId: args.daemonId });
   checks.push(scopeCheck.name);
   if (scopeCheck.transition) return { verified: true, findingId: args.findingId, checks, transition: scopeCheck.transition };
+  if (scopeCheck.name === 'scope-unindexed' || scopeCheck.name === 'scope-unverified') {
+    return { verified: false, reason: scopeCheck.name, findingId: args.findingId, checks };
+  }
   const rule = await applyDetectorRule(db, { finding: stored.finding, territory: territory.territory, daemonId: args.daemonId });
   checks.push(rule.name);
   return { verified: true, findingId: args.findingId, checks, transition: rule.transition };
@@ -58,6 +64,15 @@ async function checkScopeExists(db, ctx) {
   if (scope.type !== 'file' && scope.type !== 'test') return { name: 'scope-nonlocal', transition: null };
   const nodes = await graphStore.listNodes(db, { territoryId: ctx.finding.territoryId, path: scope.value });
   if ((nodes || []).length > 0) return { name: 'scope-present', transition: null };
+  if (!territoryFiles.safeFile(ctx.territory.rootPath, scope.value, ctx.territory.scopePath)) {
+    return { name: 'scope-unverified', transition: null };
+  }
+  try {
+    fs.statSync(path.join(ctx.territory.rootPath, scope.value));
+    return { name: 'scope-unindexed', transition: null };
+  } catch (error) {
+    if (error.code !== 'ENOENT') return { name: 'scope-unverified', transition: null };
+  }
   await appendDraft(db, ctx, {
     side: 'contradicting',
     evidenceType: 'observational',
