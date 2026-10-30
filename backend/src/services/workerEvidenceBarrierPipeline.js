@@ -14,6 +14,7 @@ const { waitForAutonomousWorkerQuiescence } = require('./workerEvidenceBarrierQu
 const externalRecovery = require('./workerExternalRecoveryPipeline');
 const dependencies = require('./workerEvidenceBarrierDependencies');
 const { indexWorkersByKey, validateWorkerDependencies, collectStages, workersForStage, throwIfStageBlocked } = dependencies;
+const reconciliation = require('./workerStageReconciliation');
 
 function collectPrerequisites(stageWorkers) {
   const prerequisites = new Set();
@@ -101,16 +102,10 @@ async function readWorkerOutcomes(ctx) {
   return ctx.db.all(`SELECT id, status FROM agents WHERE id IN (${placeholders})`, ...workerIds);
 }
 
-function isFailedWorkerStatus(status) {
-  return ['error', 'failed', 'terminated', 'apoptosis', 'quarantined', 'unverified'].includes(String(status).toLowerCase());
-}
-
 function emitStageReconciliation(ctx, outcome) {
-  const { startedWorkers, rows, dispatchFailures } = outcome;
-  const completedWorkers = rows.filter((row) => String(row.status).toLowerCase() === 'completed').length;
-  const failedWorkers = rows.filter((row) => isFailedWorkerStatus(row.status)).length + dispatchFailures;
-  const blockedWorkers = rows.filter((row) => String(row.status).toLowerCase() === 'blocked').length;
-  const pendingWorkers = rows.length - completedWorkers - failedWorkers - blockedWorkers;
+  const counts = reconciliation.counts({ workers: ctx.stageWorkers, rows: outcome.rows,
+    dispatchFailures: outcome.dispatchFailureWorkerIds, startedWorkers: outcome.startedWorkers });
+  const { startedWorkers, completedWorkers, failedWorkers, blockedWorkers, pendingWorkers } = counts;
   emit(ctx.orchestratorId, 'WORKER_STAGE_DISPATCH_RECONCILED', 'RECONCILE', 'Reconciled terminal worker states for pipeline stage ' + String(ctx.stage) + '.', {
     stage: ctx.stage,
     selectedWorkers: ctx.stageWorkers.length,
@@ -297,7 +292,7 @@ async function runStageBatch(ctx) {
   emitStageReconciliation(ctx, {
     startedWorkers: await countStartedWorkers(ctx, watermark),
     rows: await readWorkerOutcomes(ctx),
-    dispatchFailures: results.filter((result) => !result.ok).length
+    dispatchFailureWorkerIds: results.filter((result) => !result.ok).map((result) => result.worker.agentId)
   });
   if (waitError) throw waitError;
 }
