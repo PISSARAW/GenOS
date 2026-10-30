@@ -9,3 +9,17 @@ L'option `--negative` (ou troisième argument `{ negative: true }` de `assess`) 
 Pour le poème, seuls le nombre de lignes, les strophes et le mot interdit sont contrôlés. Pour ABC, l'évaluateur accepte un sous-ensemble monophonique explicite avec notes, silences et durées simples ; les constructions non prises en charge restent non mesurées. Il vérifie les en-têtes, huit mesures complètes en 4/4 et le retour des deux premières mesures à la fin. L'interprétation de A-prime et B, l'écoute et l'esthétique ne sont pas automatisées. La causalité scientifique n'est pas évaluée par le contrôle numérique des latences.
 
 Cet évaluateur est indépendant du worker et ne crée aucun oracle ni receipt sémantique GenOS. Son champ `genosSemanticOracle` vaut toujours `false`. Les métadonnées du run et la preuve d'appel Qwen doivent être examinées séparément dans la campagne.
+# Entrées numériques non ambiguës
+
+Les cartes 01, 02, 04 et 06 exigent désormais un seul claim dont le champ
+`statement` contient un objet JSON canonique. Une prose, des claims supplémentaires,
+des clés dupliquées ou des nombres encodés comme chaînes restent `unmeasured`.
+L'évaluateur n'extrait plus le premier nombre d'une phrase : une négation ou une
+correction contradictoire ne peut ainsi valoir une preuve positive.
+
+Les objets portent respectivement `machines/total/makespan` (et `optimal`
+facultatif), `count/sum/mean/median/maximum`, `matches`, et
+`mean_before/mean_after/difference/causal`. Les calculs sont refaits à partir des
+fixtures ; la carte 06 contrôle aussi les mesures structurées présentes dans
+l'artefact, leurs unités et l'absence de causalité déclarée.
+
