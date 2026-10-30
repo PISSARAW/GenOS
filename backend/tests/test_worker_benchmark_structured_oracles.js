@@ -30,6 +30,9 @@ async function main() {
     assert.equal(await score(testCase, tamper(kind, execution)), 'failed',
       `${kind} independent oracle should reject tampered evidence`);
   }
+  const unsupported = structuredClone(CASES.find(item => item.workerKind === 'adaptive_worker'));
+  unsupported.methodContract.parameters.trials[1].strategy = 'causal_bisection';
+  await assert.rejects(adapter.runCase(unsupported), { code: 'WORKER_ADAPTATION_INVALID' });
   console.log('Eight additional worker benchmark oracles pass and reject tampering.');
 }
 

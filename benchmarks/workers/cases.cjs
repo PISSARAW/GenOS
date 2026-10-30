@@ -27,11 +27,11 @@ const CASES = Object.freeze([
   { id: 'bounded-procedure', workerKind: 'bounded_worker', task: 'Exécuter le sous-ensemble borné dans le scope assigné.',
     methodContract: { version: 1, methodId: 'scoped_procedure', parameters: {
       procedure: VERIFICATION_PROCEDURE } }, oracle: { path: 'result.found', equals: true } },
-  { id: 'adaptive-shift', workerKind: 'adaptive_worker', task: 'Changer de stratégie après une mesure défavorable.',
+  { id: 'adaptive-probes', workerKind: 'adaptive_worker', task: 'Répéter deux essais contrôlés avec la stratégie LPT implémentée.',
     methodContract: { version: 1, methodId: 'adapt_procedure', parameters: { trials: [
       { strategy: 'controlled_probe', procedure: { version: 1, methodId: 'lpt', parameters: {
         jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2 } } },
-      { strategy: 'causal_bisection', procedure: { version: 1, methodId: 'lpt', parameters: {
+      { strategy: 'controlled_probe', procedure: { version: 1, methodId: 'lpt', parameters: {
         jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2 } } }
     ] } }, oracle: { path: 'result.makespan', equals: 7 } },
   { id: 'specialist-niche', workerKind: 'specialist', task: 'Résoudre une tâche dans une niche déclarée et refuser une tâche hors niche.',
