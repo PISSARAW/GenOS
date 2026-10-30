@@ -56,7 +56,7 @@ function customInstruction(kind, contract) {
   if (kind === 'symbiotic_worker') return schemaInstruction(`Use only the host contract '${contract.mission.hostContractId}' and its declared capabilities.`, { hostContribution: { hostContractId: contract.mission.hostContractId, capability: '<host-capability>', contractCompliant: true, evidence: ['<receipt-ref>'] } });
   if (kind === 'sub_orchestrator') return schemaInstruction(`Coordinate no more than ${contract.limits?.maxChildren || 0} children. Report each child outcome with its evidence references.`, { childSummaries: [{ childId: '<child-id>', outcome: 'success', evidence: ['<child-receipt-ref>'] }] });
   if (kind === 'recovery_worker') return schemaInstruction('Return a dossier plus the executed recovery receipt. Do not claim restoration without a receipt.', { recoveryReceipt: { action: '<leased-action>', restoredState: '<restored-state>', receiptId: '<receipt-id>', evidence: ['<receipt-ref>'] } });
-  if (kind === 'liaison_worker') return schemaInstruction('Return the dossier and explicit recipient-bound handoff. Keep the groups distinct and cite every transferred item.', { handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'] } });
+  if (kind === 'liaison_worker') return schemaInstruction('Prepare a recipient-bound handoff in the parent dossier. Keep groups distinct and cite every item. This output does not prove transport delivery or recipient acknowledgement; never claim either.', { handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'], delivery: 'parent_dossier', recipientAcknowledged: false } });
   return '';
 }
 
