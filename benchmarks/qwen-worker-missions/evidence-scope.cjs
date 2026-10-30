@@ -40,6 +40,9 @@ function selectTerminal(inspection, scope, run) {
     ...scope, run, terminal, modelInvocationMeasured: false,
     reason: 'Model usage is incomplete: at least one provider attempt has no measured token receipt.'
   };
+  const ledger = require('./evidence-ledger.cjs').measurement(inspection,
+    { workerId: scope.workerId, run, terminal, expectedModel: inspection.expectedModel });
+  if (ledger) return { ...scope, run, terminal, ...ledger };
   return { ...scope, run, terminal, modelInvocationMeasured: invocationMeasured(terminal, run, inspection.expectedModel) };
 }
 module.exports = { cliReceipt, select };

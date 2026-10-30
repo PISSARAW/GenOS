@@ -12,10 +12,11 @@ const query = sql => new Promise((resolve, reject) => db.all(sql, (error, rows) 
   const missions = await query('SELECT mission_id,orchestrator_agent_id FROM missions');
   const members = await query('SELECT mission_id,agent_id FROM mission_agents');
   const bindings = await query('SELECT run_id,mission_id,agent_id FROM biological_worker_bindings');
+  const modelAttempts = await query('SELECT id,agent_id,mission_id,model,provider_called,token_usage_source,input_tokens,output_tokens,cost_usd FROM model_attempt_ledger ORDER BY rowid');
   const cli = require('./evidence-scope.cjs').cliReceipt(fs.readFileSync(path.join(dir, 'output.log'), 'utf8'));
   const expectedModel = JSON.parse(fs.readFileSync(path.join(dir, 'payload.json'), 'utf8')).localModel;
   const receipts = await query('SELECT run_id,receipt_json FROM biological_worker_receipts');
-  process.stdout.write(JSON.stringify({ cli, expectedModel, runs, agents, missions, members, bindings, events: events.map(event => {
+  process.stdout.write(JSON.stringify({ cli, expectedModel, runs, agents, missions, members, bindings, modelAttempts, events: events.map(event => {
     const p = JSON.parse(event.payload_json || '{}');
     return { agentId: event.agent_id, type: event.event_type, detail: event.detail, run: p.executionRunId, model: p.model, provider: p.provider, usage: p.usage, modelUsageAccounting: p.modelUsageAccounting, report: p.evidenceReport, diagnostics: p.workerArtifactDiagnostics };
   }), receipts: receipts.map(row => ({ run: row.run_id, result: JSON.parse(row.receipt_json).result })) }));
