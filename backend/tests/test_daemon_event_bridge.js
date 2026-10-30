@@ -6,6 +6,9 @@ const wakePolicy = require('../src/services/daemon/daemonWakePolicyService');
 const bridgeService = require('../src/services/daemon/daemonEventBridgeService');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const daemonRuntime = require('../src/services/daemon/residentDaemonRuntime');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
@@ -51,18 +54,22 @@ async function main() {
 
   // 5. Bridge bout-en-bout : TEST_FAILED réveille, AGENT_COMPLETED persiste silencieux
   const db = await openDb();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-event-bridge-'));
+  fs.writeFileSync(path.join(root, 'probe.js'), 'module.exports = 1;\n');
   await territoryService.createTerritory(db, {
     id: 'territory.bridge-test',
     organizationId: 'org-1',
     projectId: 'proj-1',
     workspaceId: 'ws-1',
     repoIdentity: 'bridge-test',
-    rootPath: '/tmp/bridge-test',
+    rootPath: root,
     scopePath: '/',
     ref: 'main',
     headSha: HEAD_A,
     state: 'ACTIVE'
   });
+  await require('../src/services/daemon/cartography/cartographerService').scanTerritory(db,
+    { territoryId: 'territory.bridge-test', rootPath: root, scopePath: '/' });
   const rt = daemonRuntime.createRuntime(db, {});
   await daemonRuntime.registerDaemon(rt, { daemonId: 'daemon.bridge-1', territoryId: 'territory.bridge-test' });
   await daemonRuntime.heartbeat(rt, { daemonId: 'daemon.bridge-1', activity: 'SURVEYING' });
@@ -102,6 +109,38 @@ async function main() {
   assert.equal(quiet.ingested, true);
   assert.equal(quiet.woke, false);
 
+  const graphBefore = await db.get("SELECT hash FROM territory_graph_nodes WHERE territory_id = ? AND path = 'probe.js' AND kind = 'file'", 'territory.bridge-test');
+  fs.writeFileSync(path.join(root, 'probe.js'), 'module.exports = 2;\n');
+  const changed = await bridgeService.ingestEvent(bridge, { type: 'TERRITORY_FILE_CHANGED',
+    territoryId: 'territory.bridge-test', payload: { files: ['probe.js'] } });
+  assert.equal(changed.cheapUpdate.applied, true);
+  assert.equal(changed.cheapUpdate.kind, 'files');
+  const graphAfter = await db.get("SELECT hash FROM territory_graph_nodes WHERE territory_id = ? AND path = 'probe.js' AND kind = 'file'", 'territory.bridge-test');
+  assert.notEqual(graphAfter.hash, graphBefore.hash);
+
+  const consumer = require('../src/services/daemon/daemonEventConsumerService');
+  await daemonRuntime.heartbeat(rt, { daemonId: 'daemon.bridge-1', activity: 'DORMANT' });
+  const consumerContext = { db, runtime: rt, bridge: bridgeService.createBridge({ db, runtime: rt,
+    daemonId: 'daemon.bridge-1', policy: wakePolicy.createWakePolicy({ maxWakes: 1 }) }),
+    daemonId: 'daemon.bridge-1', territoryId: 'territory.bridge-test' };
+  await consumer.initializeCursor(consumerContext);
+  await bridgeService.ingestEvent(bridgeService.createBridge({ db }), {
+    type: 'TEST_FAILED', territoryId: 'territory.bridge-test' });
+  await consumer.pollDaemonEvents(consumerContext);
+  await bridgeService.ingestEvent(bridgeService.createBridge({ db }), {
+    type: 'BUILD_FAILED', territoryId: 'territory.bridge-test' });
+  const deferredDelivery = await consumer.pollDaemonEvents(consumerContext);
+  assert.equal(deferredDelivery.count, 1, 'pending event is observed for retry');
+  const pendingEvent = await db.get("SELECT id, woke FROM daemon_events WHERE event_type = 'BUILD_FAILED' ORDER BY id DESC LIMIT 1");
+  const cursor = await db.get('SELECT last_event_id FROM daemon_event_cursors WHERE daemon_id = ?', 'daemon.bridge-1');
+  assert.equal(cursor.last_event_id < pendingEvent.id, true);
+
+  const restored = await wakePolicy.loadWakePolicy(db, 'territory.bridge-test');
+  assert.equal(restored.found, true);
+  assert.equal(restored.policy.wakeStampsByTerritory.get('territory.bridge-test').length, 1);
+  await wakePolicy.saveWakePolicy(db, 'territory.bridge-test', bridge.policy);
+  assert.equal((await wakePolicy.loadWakePolicy(db, 'territory.bridge-test')).found, true);
+
   // 6. TERRITORY_COMMIT avance le HEAD (commit-aware)
   const commit = await bridgeService.ingestEvent(bridge, {
     type: 'TERRITORY_COMMIT',
@@ -123,6 +162,7 @@ async function main() {
   assert.equal(bad.ingested, false);
 
   await db.close();
+  fs.rmSync(root, { recursive: true, force: true });
   console.log('Daemon event bridge tests passed (registry, policy, cheap updates, head advance, handoff flag).');
 }
 

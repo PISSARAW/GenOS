@@ -15,6 +15,7 @@
 const DEFAULT_COOLDOWN_MS = 5000;
 const DEFAULT_MAX_WAKES = 10;
 const DEFAULT_WINDOW_MS = 60000;
+const { migrateDaemonWakePolicy } = require('../../db/migrations/migrateDaemonWakePolicy');
 
 function createWakePolicy(options) {
   const opts = options || {};
@@ -70,10 +71,36 @@ function releaseWake(policy, ask) {
   return true;
 }
 
+async function loadWakePolicy(db, territoryId) {
+  if (!db || !territoryId) return { found: false };
+  await migrateDaemonWakePolicy(db);
+  const row = await db.get('SELECT snapshot_json FROM daemon_wake_policy WHERE territory_id = ?', territoryId);
+  if (!row) return { found: false };
+  const saved = JSON.parse(row.snapshot_json);
+  const policy = createWakePolicy(saved);
+  policy.lastWakeByKey = new Map(saved.lastWakeByKey || []);
+  policy.wakeStampsByTerritory = new Map(saved.wakeStampsByTerritory || []);
+  return { found: true, policy };
+}
+
+async function saveWakePolicy(db, territoryId, policy) {
+  if (!db || !territoryId || !policy) return { saved: false };
+  await migrateDaemonWakePolicy(db);
+  const policyJson = JSON.stringify({ cooldownMs: policy.cooldownMs, maxWakes: policy.maxWakes,
+    windowMs: policy.windowMs, lastWakeByKey: [...policy.lastWakeByKey],
+    wakeStampsByTerritory: [...policy.wakeStampsByTerritory] });
+  await db.run(`INSERT INTO daemon_wake_policy (territory_id, snapshot_json, updated_at)
+    VALUES (?, ?, datetime('now')) ON CONFLICT(territory_id) DO UPDATE SET
+    snapshot_json = excluded.snapshot_json, updated_at = excluded.updated_at`, territoryId, policyJson);
+  return { saved: true };
+}
+
 module.exports = {
   createWakePolicy,
   shouldWake,
   releaseWake,
+  loadWakePolicy,
+  saveWakePolicy,
   DEFAULT_COOLDOWN_MS,
   DEFAULT_MAX_WAKES,
   DEFAULT_WINDOW_MS

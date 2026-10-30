@@ -4,6 +4,7 @@ const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents
 const { migrateDaemonEventCursor } = require('../../db/migrations/migrateDaemonEventCursor');
 const eventBridge = require('./daemonEventBridgeService');
 const searchState = require('./daemonSearchStateService');
+const wakePolicy = require('./daemonWakePolicyService');
 
 const MAX_BATCH = 100;
 
@@ -44,6 +45,7 @@ async function pollDaemonEvents(context) {
   for (const row of rows || []) {
     const outcome = await eventBridge.processPersistedEvent(context.bridge, row);
     if (outcome.retryable) break;
+    if (outcome.woke) await wakePolicy.saveWakePolicy(context.db, context.territoryId, context.bridge.policy);
     if (outcome.woke && context.bridge.deferInvestigation) {
       await searchState.ensure(context);
       context.retryInvestigation = true;
