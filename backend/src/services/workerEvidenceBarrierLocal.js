@@ -299,10 +299,18 @@ async function runGenerationStage(ctx) {
 }
 
 
+async function assertEvidenceAuthority(db, mission, executionRun) {
+  await require('./missionEnvelopeAuthority').assertRun(db, {
+    agentId: mission.agentId,
+    runId: executionRun.id,
+    mission
+  });
+}
+
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
-  try { await require('./missionEnvelopeAuthority').assertRun(ctx.db, { agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission }); } catch (_) {}
+  await assertEvidenceAuthority(ctx.db, ctx.mission, ctx.executionRun);
   const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker, result: ctx.result,
     workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
     allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
@@ -391,4 +399,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
   }
-} module.exports = { runLocalWorker, generateWorkerResult };
+} module.exports = { runLocalWorker, generateWorkerResult, assertEvidenceAuthority };
