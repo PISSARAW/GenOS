@@ -178,10 +178,9 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   const schema = object(properties, required);
   const successRequired = artifactType === 'dossier'
     ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];
-  successRequired.push('artifactText');
   schema.allOf = [{
     if: { properties: { outcome: { const: 'success' } }, required: ['outcome'] },
-    then: { properties: { claims: { minItems: 1 }, artifactText: artifactTextSchema() }, required: successRequired },
+    then: { properties: { claims: { minItems: 1 } }, required: successRequired },
     else: { properties: { claims: { maxItems: 0 }, uncertainties: { minItems: 1 } },
       required: ['uncertainties'] }
   }];

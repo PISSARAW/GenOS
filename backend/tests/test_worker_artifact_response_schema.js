@@ -2,6 +2,17 @@
 
 const assert = require('node:assert/strict');
 const { workerArtifactResponseFormat } = require('../src/services/agents/workerArtifactResponseSchema');
+const Ajv = require('ajv');
+
+const bounded = workerArtifactResponseFormat('bounded_worker', ['mission']).schema;
+const validateBounded = new Ajv({ strict: false }).compile(bounded);
+const answer = { outcome: 'success', claims: [{ statement: 'A=17, B=23.', evidence: ['mission'] }],
+  scopeCompletion: { scopeRef: 'mission', completedRefs: ['mission'] } };
+assert.equal(validateBounded(answer), true, JSON.stringify(validateBounded.errors));
+assert.equal(validateBounded({ ...answer, claims: [] }), false);
+assert.equal(validateBounded({ ...answer, scopeCompletion: undefined }), false);
+assert.equal(validateBounded({ ...answer, claims: [{ statement: 'Claim', evidence: ['invented'] }] }), false);
+assert.equal(validateBounded({ outcome: 'unresolved', claims: [], uncertainties: ['Missing evidence'] }), true);
 
 const red = workerArtifactResponseFormat('red_worker');
 assert.equal(red.name, 'genos_worker_artifact');
