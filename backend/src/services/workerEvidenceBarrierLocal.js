@@ -22,7 +22,7 @@ const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 const { reportMilestone } = require('./workerEvidenceBarrierLocalEvents');
-const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
+const stageDetails = require('./workerLocalStageDetails');
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
   return 'GenOS Worker';
@@ -207,16 +207,9 @@ async function runGenerationStage(ctx) {
   let wsBlock = ctx.identity.prompt;
   let identityExperimentAudit = null;
   const experimentArm = ctx.mission.identityExperimentArm;
-  if (experimentArm) {
-    const treatment = require('./identityExperimentPromptTreatment').applyIdentityExperimentTreatment({
-      arm: experimentArm, agentId: ctx.mission.agentId, agentName, role: ctx.mission.role,
-      selfIntro, conscienceBlock, workerSelfBlock: wsBlock
-    });
-    selfIntro = treatment.selfIntro;
-    conscienceBlock = treatment.conscienceBlock;
-    wsBlock = treatment.workerSelfBlock;
-    identityExperimentAudit = treatment.audit;
-  }
+  const identityDetails = stageDetails.treatment(ctx.mission, { agentName, selfIntro, conscienceBlock, wsBlock });
+  selfIntro = identityDetails.selfIntro; conscienceBlock = identityDetails.conscienceBlock;
+  wsBlock = identityDetails.wsBlock; identityExperimentAudit = identityDetails.audit;
   const workerKinds = require('./agents/workerKindService');
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -226,13 +219,7 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment
   });
-  const workspaceDetails = codeWorker
-    ? require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(ctx.mission.workspaceRoot, {
-      allowedCommands: ctx.mission.allowedCommands || ctx.mission.executionPolicy?.allowedCommands || []
-    }) : { text: '', candidatePaths: [] };
-  if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
-    .filter((candidate) => localCodeWorker.safePath(candidate));
-  const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
+  const workspaceContext = stageDetails.workspace(ctx.mission, codeWorker);
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     assignment: ctx.mission,
     codeWorker: codeWorker,
@@ -250,10 +237,7 @@ async function runGenerationStage(ctx) {
     workerSelfBlock: wsBlock,
     identityExperimentArm: experimentArm || null,
     workspaceContext: workspaceContext,
-    workerInstruction: [`Worker kind: ${kind}. ${require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(ctx.mission)
-      ? 'Solve the assigned in-scope allocation; only abstain after exhaustive proof no solution exists.'
-      : workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
-      require('./workerEvidenceIdentityPrompt').sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
+    workerInstruction: stageDetails.workerInstruction(ctx.mission, kind),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   if (identityExperimentAudit) {
@@ -276,8 +260,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxOutputTokens(budget, promptText, ctx.mission.workerKind === 'resource_steward' ? 768
-      : (ctx.mission.identityExperimentScenario ? 1024 : undefined)),
+    maxTokens: resolveMaxOutputTokens(budget, promptText, stageDetails.outputCap(ctx.mission)),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
@@ -309,14 +292,7 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   await assertEvidenceAuthority(ctx.db, ctx.mission, ctx.executionRun);
-  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker, result: ctx.result,
-    workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
-    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
-    requiredPatchPaths: ctx.mission.requiredPatchPaths,
-    allowedPatchPaths: ctx.mission.allowedPatchPaths,
-    requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
-    db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });
+  const proposal = await stageDetails.proposal(ctx);
   if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
   require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
   let evidenceReport = ctx.codeWorker
@@ -330,16 +306,7 @@ async function runEvidenceStage(ctx) {
     return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
       proof: null, noAnswer: false, unresolved: true };
   }
-  const validationStartedAt = Date.now();
-  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
-  finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
-  const allocationValidation = require('./morphogenesisRolePrompt').validateBiomeAllocation(
-    evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
-    { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
-  if (allocationValidation && !allocationValidation.passed) {
-    throw require('./morphogenesis/biomeAllocationFeedback')
-      .allocationFailure(evidenceReport.claims?.[0]?.statement, allocationValidation.issues);
-  }
+  stageDetails.validateArtifact(ctx, evidenceReport, proposal);
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);

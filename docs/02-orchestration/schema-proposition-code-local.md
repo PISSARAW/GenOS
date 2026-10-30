@@ -10,3 +10,8 @@ que le contenu complet.
 Les contrôles de chemins sûrs, de taille en octets, d'unicité d'ancre et de
 commandes autorisées restent effectués après réception. Le schéma fournisseur
 ne remplace pas ces validations exécutables.
+
+Les détails de préparation du prompt et de validation d'artefact sont regroupés
+dans `workerLocalStageDetails.js`. La barrière locale garde l'ordre des étapes :
+préparation, génération, contrôle du budget et de l'autorité, exécution de la
+proposition puis validation de l'artefact. L'extraction ne change pas les gates.
