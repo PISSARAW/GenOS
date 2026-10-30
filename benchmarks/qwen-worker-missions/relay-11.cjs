@@ -73,6 +73,7 @@ async function inherited(db, sourceRunId) {
 }
 
 async function receiver(db, input) {
+  await assertActiveSource(db, input.sourceRunId);
   const modules = '../../backend/src/services/';
   const inheritedSource = await inherited(db, input.sourceRunId);
   const parent = inheritedSource.parent_agent_id;
@@ -96,6 +97,12 @@ async function receiver(db, input) {
     workspaceRoot: child.workspaceRoot, workspaceId: child.workspaceId, workspaceProvisioned: true, toolLease: child.toolLease || [] };
 }
 
+async function assertActiveSource(db, sourceRunId) {
+  const mission = await db.get(`SELECT m.status FROM biological_worker_bindings b
+    JOIN missions m ON m.mission_id=b.mission_id WHERE b.run_id=?`, sourceRunId);
+  if (mission?.status !== 'active') throw Object.assign(new Error('Dossier relay requires an active source mission; terminal missions cannot be reopened.'), { code: 'HANDOFF_MISSION_INACTIVE' });
+}
+
 async function main() {
   const input = prepare();
   write('manifest-before.json', { ...input, source, original, databaseHashes: databaseHashes(), started: new Date().toISOString(), mode: 'same_database_append' });
@@ -104,6 +111,7 @@ async function main() {
   const database = require('../../backend/src/db');
   const db = await database.getDatabase();
   try {
+    await assertActiveSource(db, input.sourceRunId);
     if ((await db.all("SELECT id FROM strategy_execution_runs WHERE status IN ('planned','running')")).length) throw new Error('Wait for all source runs to terminate.');
     write('database-before.json', await state(db));
     const mission = await receiver(db, input);
@@ -130,4 +138,5 @@ async function main() {
     if (revision.stdout.trim() !== input.revision || status.status !== 0 || status.stdout.trim()) throw new Error('Supplement source changed during execution.');
   }
 }
-main().catch(error => { if (outputCreated) write('error.json', { error: error.message, code: error.code, stack: error.stack }); console.error(error); process.exitCode = 1; });
+if (require.main === module) main().catch(error => { if (outputCreated) write('error.json', { error: error.message, code: error.code, stack: error.stack }); console.error(error); process.exitCode = 1; });
+module.exports = { receiver, state, measuredQwen, assertActiveSource };

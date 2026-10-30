@@ -2,8 +2,13 @@
 
 La campagne de base mesure la production du dossier de liaison. Le supplément
 mesure sa livraison à un autre worker Qwen dans la **même base, mission et tenant**.
-Il doit être lancé après la fin de toute la campagne ; il refuse une base contenant
+La mission source doit encore être active. Il refuse une base contenant
 un run `planned` ou `running` et un dossier source sans fin réussie.
+Un CLI de campagne clôture normalement sa mission : ce helper ne peut alors pas
+y créer un destinataire. Le refus `HANDOFF_MISSION_INACTIVE` précède toute
+création de worker. Une mission terminale ne peut pas être rouverte.
+Pour une mesure complète, le driver `live-handoff.cjs` conserve explicitement la
+mission active entre le producteur et le destinataire dans une nouvelle base.
 
 Depuis un checkout Git propre et figé contenant le correctif ADR 0758 :
 
