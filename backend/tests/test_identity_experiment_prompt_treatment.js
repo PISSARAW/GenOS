@@ -63,7 +63,16 @@ assert.ok(challengeFormat.schema.required.includes('specialtyAssessment'));
 assert.ok(challengeFormat.schema.required.includes('uncertainties'));
 assert.equal(challengeFormat.schema.properties.specialtyAssessment.properties.niche.const, challengeMission.specialtyNiche);
 assert.ok(!challengeFormat.schema.properties.scopeCompletion);
-assert.equal(challengeFormat.schema.allOf, undefined);
+const validateChallenge = new (require('ajv'))({ strict: false }).compile(challengeFormat.schema);
+const challengeSuccess = { outcome: 'success', claims: [{ statement: 'Identity inspected.', evidence: ['mission'] }],
+  uncertainties: [], specialtyAssessment: { niche: challengeMission.specialtyNiche, inScope: true, evidence: ['mission'] } };
+assert.equal(validateChallenge(challengeSuccess), false, 'identity success must retain its artifact requirement');
+assert.equal(validateChallenge({ ...challengeSuccess, artifactText: 'unstructured artifact' }), false);
+assert.equal(validateChallenge({ ...challengeSuccess, artifactText: '<ARTIFACT: identity.json>{"agent":"agent-45"}</ARTIFACT>' }), true);
+const challengeRefusal = { ...challengeSuccess, outcome: 'unresolved', claims: [], uncertainties: ['Canonical identity unavailable'] };
+assert.equal(validateChallenge(challengeRefusal), true, 'a refusal must not fabricate an artifact');
+assert.equal(validateChallenge({ ...challengeRefusal, artifactText: '<ARTIFACT: observations.txt>Inspected evidence.</ARTIFACT>' }), true);
+assert.equal(validateChallenge({ ...challengeRefusal, artifactText: '' }), false);
 const invalidScenario = buildLocalMission({ id: 'agent-46', enhancedPrompt: 'Mission',
   request: { identityExperimentArm: 'genos_full', identityExperimentScenario: 'D' }, missionBudget: {},
   requestTimeoutMs: 30000, allowedCommands: [], allowFileEdits: false });
