@@ -209,6 +209,13 @@ function capAssignments(requested, ctx) {
     return capNativeAssignments(requested, limit);
   }
   const capped = requested.slice(0, Math.floor(limit));
+  if (ctx.autonomyPlan?.workerRoster?.exact === true
+    && capped.length !== ctx.autonomyPlan.workerRoster.requestedWorkers) {
+    throw Object.assign(new Error(`Exact worker request requires ${ctx.autonomyPlan.workerRoster.requestedWorkers} workers, above the regulated fan-out ${Math.floor(limit)}.`), {
+      code: 'WORKER_CARDINALITY_UNSATISFIABLE', requestedWorkers: ctx.autonomyPlan.workerRoster.requestedWorkers,
+      selectedWorkers: capped.length
+    });
+  }
   if (capped.length < requested.length) {
     emit(ctx.agentId, capped.length ? 'WORKER_FANOUT_CAPPED' : 'WORKER_FANOUT_BLOCKED', 'FANOUT_CAP',
       `Worker fan-out capped to ${capped.length} of ${requested.length} requested (valence posture).`,
@@ -374,11 +381,8 @@ function assertWorkerDispatchMatches(assignments, workers) {
   });
   const duplicateIds = new Set(workers.map((worker) => worker.agentId)).size !== workers.length;
   if (!assignmentMismatch && !duplicateIds) return;
-  throw Object.assign(new Error('Created workers do not match the selected assignment identities.'), {
-    code: 'WORKER_DISPATCH_ASSIGNMENT_MISMATCH',
-    selectedWorkers: assignments.length,
-    createdWorkers: workers.length
-  });
+  throw Object.assign(new Error('Created workers do not match the selected assignment identities.'),
+    { code: 'WORKER_DISPATCH_ASSIGNMENT_MISMATCH', selectedWorkers: assignments.length, createdWorkers: workers.length });
 }
 
 function emitDispatchDeferred(ctx, assignments) {

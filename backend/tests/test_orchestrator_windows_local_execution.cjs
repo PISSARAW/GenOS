@@ -32,6 +32,29 @@ async function main() {
   assert.equal(observedMission.agentId, input.id);
   assert.equal(observedMission.orchestratorAgentId, input.id);
   assert.equal(observedMission.localModel, 'ollama://qwen2.5-coder:7b');
+  const workerAssignments = Array.from({ length: 10 }, (_, index) => ({
+    role: `worker-${index + 1}`, workerKind: 'bounded_worker', label: `worker-${index + 1}`
+  }));
+  const dispatched = [];
+  const postflights = [];
+  const multiInput = { ...input, autonomyPlan: { dispatchWorkers: workerAssignments,
+    workerRoster: { exact: true, requestedWorkers: 10 } } };
+  await runWindowsLocalExecution(multiInput, {
+    validScope: scope => scope,
+    createAutonomousWorkers: async () => workerAssignments.map((assignment, index) => ({
+      agentId: `worker-${index + 1}`, role: assignment.role, prompt: `Work ${index + 1}`,
+      executionBudget: { tokens: 10, costUsd: 0.01 }, workspaceRoot: `D:/worker-${index + 1}`
+    })),
+    runLocalWorker: async (_db, mission) => {
+      dispatched.push(mission);
+      return { started: true, unresolved: false };
+    },
+    runPostflight: async (context) => { postflights.push(context.workerAgentId); return {}; }
+  });
+  assert.equal(dispatched.length, 10);
+  assert.deepEqual(dispatched.map(worker => worker.agentId), workerAssignments.map((_, index) => `worker-${index + 1}`));
+  assert.ok(dispatched.every(worker => worker.orchestratorAgentId === input.id));
+  assert.deepEqual(postflights, workerAssignments.map((_, index) => `worker-${index + 1}`));
   console.log('Windows local execution recovery identity: PASS');
 }
 

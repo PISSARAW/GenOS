@@ -23,10 +23,8 @@ const REQUIRED_STRINGS = {
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source']
 };
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
-const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']);
-const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
-const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
-const { workerAssignmentsSchema } = require('./workerAssignmentsSchema');
+const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']); const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
+const MCP_CONTRACT_VERSION = 'genos.mcp/v1'; const { workerAssignmentsSchema, workerRosterSchema } = require('./workerAssignmentsSchema');
 const { trinityDesignSchema } = require('./trinityDesignSchema');
 function applyToolSpecificOverrides(toolName, schema) {
   if (toolName === 'genos_replay') {
@@ -92,6 +90,7 @@ const TOOL_BASE_SCHEMAS = {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
       native_objectives: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object' } },
       worker_assignments: workerAssignmentsSchema(),
+      worker_roster: workerRosterSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },

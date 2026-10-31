@@ -362,7 +362,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const configuredWorkerShare = resolveWorkerShare(missionBudget);
   const configuredOrchestratorReserve = resolveOrchestratorReserve(missionBudget, configuredWorkerShare);
   const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
-    ? buildAutonomyPlan(contractRecord.contract, regulationBudget)
+    ? buildAutonomyPlan(contractRecord.contract, regulationBudget, normalizedMission)
     : null;
   if (!autonomyPlan) {
     await require('./autobiographicalMemory/workerRecall').applyWorkerRecall({ db, agentId, normalizedMission });

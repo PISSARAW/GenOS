@@ -45,7 +45,6 @@ function isOrchestratorMission(mission) {
   if (mode === 'worker') return false;
   return mission.role === 'Autonomous Orchestrator' && !mission.workerKind;
 }
-
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
@@ -269,7 +268,26 @@ async function runGenerationStage(ctx) {
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
-  let result = await generateWorkerResult({
+  const generationContext = {
+    db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun, workerModel, latencyMs: resolveLatency(ctx.mission),
+    maxTokens: resolveMaxOutputTokens(budget, promptText, ctx.mission.workerKind === 'resource_steward' ? 768 : (ctx.mission.identityExperimentScenario ? 1024 : undefined)),
+    maxCost: resolveMaxCost(ctx.mission), policy: resolvePolicy(ctx.mission, workerModel), stageTimings: ctx.stageTimings, codeWorker, promptText, identitySession: ctx.identity.session
+  };
+  let result = await require('./workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText,
+    generate: (repairedPrompt) => generateWorkerResult({ ...generationContext, promptText: repairedPrompt }) });
+  result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
+  const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
+  if (codeWorker && codeRepairPlans) {
+    result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
+  }
+  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
+    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
+  const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
+  if (schemaFailure) throw schemaFailure;
+  return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
+}
+
+  const generationContext = {
     db: ctx.db,
     mission: ctx.mission,
     executionRun: ctx.executionRun,
@@ -283,28 +301,9 @@ async function runGenerationStage(ctx) {
     codeWorker: codeWorker,
     promptText: promptText,
     identitySession: ctx.identity.session
-  });
-  result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
-  const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
-  if (codeWorker && codeRepairPlans) {
-    result.text = workerCodeTestRepair.applyRepairPlan(result.text, codeRepairPlans);
-  }
-  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
-  const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
-  if (schemaFailure) throw schemaFailure;
-  return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
-}
-
-
-async function assertEvidenceAuthority(db, mission, executionRun) {
-  await require('./missionEnvelopeAuthority').assertRun(db, {
-    agentId: mission.agentId,
-    runId: executionRun.id,
-    mission
-  });
-}
-
+  };
+  let result = await require('./workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText,
+    generate: (repairedPrompt) => generateWorkerResult({ ...generationContext, promptText: repairedPrompt }) });
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);

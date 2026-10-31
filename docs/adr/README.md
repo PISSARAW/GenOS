@@ -862,6 +862,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0740a](0740-execution-docker-des-verificateurs-ontogenese.md) | Exécuter les vérificateurs G1 Ontogenèse dans Docker | Accepté | 2026-10-24 | Ontogenèse, vérification indépendante, confinement d'exécution |
 | [0740b](0740-native-plan-dispatch-authority.md) | Autorité de dispatch des plans de mission natifs | Accepté | 2026-10-24 | Orchestration, dispatch, morphogenèse, preuves |
 | [0740c](0740-source-signee-memoire-socialworld-v2-03.md) | Source signée et indépendante pour la mémoire SocialWorld V2-03 | Accepté | 2026-10-24 | SocialWorld, mémoire durable, provenance, vérification |
+| [0740d](0740-contrat-cardinalite-et-roster-workers.md) | Contrat de cardinalité et roster des workers | Accepté | 2026-10-24 | Orchestration, workers, roster, budgets |
 | [0741](0741-preuves-runtime-socialworld-v2-06.md) | Preuves runtime de métacognition sociale V2-06 | Accepté | 2026-10-24 | Runtime social, mémoire, expérimentation, preuves |
 | [0742](0742-deploiement-api-gci-sur-vps.md) | Déploiement de l'API GCI sur un VPS partagé | Voir le fichier | -- | -- |
 | [0743](0743-export-gci-approbation-strategie.md) | Export GCI de l'approbation de stratégie | Voir le fichier | -- | -- |

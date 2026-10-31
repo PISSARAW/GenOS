@@ -11,6 +11,8 @@ const { buildRegistry, buildTokenPolicyView } = require('./views');
 const { evaluateSurvival } = require('../survivalModelService');
 const { regulateAutonomyPlan } = require('../controlRegulationService');
 const { maxWorkers } = require('./config');
+const { resolveWorkerRosterRequest } = require('../workerRosterRequestService');
+const { buildWorkerRoster } = require('../workerRosterPlanner');
 
 function computeBranchCount(flags, survival, portfolio) {
   const requested = flags.security || flags.complex || flags.uncertain ? maxWorkers() : 1;
@@ -54,8 +56,10 @@ function executionStatusOf(realizable, omittedPhases) {
   return omittedPhases.length ? 'blocked' : 'ready';
 }
 
-function buildAutonomyPlan(contract, budget = {}) {
+function buildAutonomyPlan(contract, budget = {}, missionRequest = {}) {
   const profile = contract.problem_profile || {};
+  const task = String(missionRequest.mission || missionRequest.task || contract.mission || '');
+  const workerRoster = resolveWorkerRosterRequest(missionRequest, task);
   const flags = profileFlags(profile);
   flags.factualReadOnly = contract.evaluation_mode === 'factual_read_only';
   flags.formalReadOnly = contract.evaluation_mode === 'formal_read_only';
@@ -72,9 +76,11 @@ function buildAutonomyPlan(contract, budget = {}) {
   const phaseValidation = validatePhasesVsPortfolio(phases, portfolio);
   const omittedPhases = omitPhases(phases, phaseValidation);
   const branches = (contract.branches || []).slice(0, branchCount);
-  const workers = buildWorkers(flags, branches).slice(0, branchCount);
+  const defaultWorkers = buildWorkers(flags, branches).slice(0, branchCount);
+  const workers = buildWorkerRoster(workerRoster, task, defaultWorkers);
   const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
-  const tokenPlan = buildTokenPlan(budget, flags, workers);
+  const tokenBudget = workerRoster?.exact ? { ...budget, atomicTopology: true } : budget;
+  const tokenPlan = buildTokenPlan(tokenBudget, flags, workers);
   const executionStatus = executionStatusOf(realizable, omittedPhases);
   const dispatchWorkers = tokenPlan.dispatchWorkers;
   const remediation = buildRemediation(realizable, omittedPhases);
@@ -99,6 +105,10 @@ function buildAutonomyPlan(contract, budget = {}) {
     mandatoryTools: [...requiredTools],
     workers,
     dispatchWorkers,
+    ...(workerRoster ? { workerRoster: { requestedWorkers: workerRoster.requestedWorkers,
+      requestedTasks: workerRoster.requestedTasks, exact: workerRoster.exact,
+      typePolicy: workerRoster.typePolicy, selectedWorkers: dispatchWorkers.length,
+      workerKinds: dispatchWorkers.map((worker) => worker.workerKind) } } : {}),
     dispatchDecision: buildDispatchDecision(workers, dispatchWorkers, tokenPlan.admission),
     competition: buildCompetition(contract, modes.competition),
     evolution: buildEvolution(contract, modes.evolution),
@@ -107,8 +117,29 @@ function buildAutonomyPlan(contract, budget = {}) {
   };
 
   applySurvivalConstraints(plan);
+  enforceRequestedWorkerCount(plan, workerRoster);
   plan.controlRegulation = regulateAutonomyPlan(contract, budget, plan);
   return plan;
+}
+
+function enforceRequestedWorkerCount(plan, roster) {
+  if (!roster?.exact || !roster.requestedWorkers) return;
+  const selected = plan.dispatchWorkers.length;
+  const configuredLimit = maxWorkers();
+  if (selected === roster.requestedWorkers && roster.requestedWorkers <= configuredLimit) return;
+  const message = roster.requestedWorkers > configuredLimit
+    ? `Exact worker request requires ${roster.requestedWorkers} workers; configured maximum is ${configuredLimit}.`
+    : `Exact worker request requires ${roster.requestedWorkers} workers; only ${selected} can be selected under current capacity and budget.`;
+  plan.workerRoster.admission = { status: 'blocked', code: 'WORKER_CARDINALITY_UNSATISFIABLE',
+    requestedWorkers: roster.requestedWorkers, selectedWorkers: selected, reason: message };
+  plan.workerRoster.selectedWorkers = selected;
+  plan.dispatchWorkers = [];
+  plan.dispatchDecision = { status: 'blocked', code: 'WORKER_CARDINALITY_UNSATISFIABLE',
+    requestedWorkers: roster.requestedWorkers, selectedWorkers: selected, reason: message };
+  plan.executionStatus = 'blocked';
+  plan.executionBlockers = [...(plan.executionBlockers || []), {
+    code: 'WORKER_CARDINALITY_UNSATISFIABLE', message
+  }];
 }
 
 function executionBlocker(realizable) {

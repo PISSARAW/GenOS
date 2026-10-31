@@ -256,21 +256,21 @@ async function runOrchestratedMission(db, episodeRuntime) {
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
-  const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
+  const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget, request);
   const preflightBridge = require('./orchestratorMcpPreflight.cjs');
   const preflight = await preflightBridge.runOrchestratorMcpPreflight(
     preflightBridge.buildOrchestratorPreflightInput({ db, orchestratorId: id, missionId, task,
       repoRoot: path.resolve(__dirname, '../..'), request,
       workspaceRoot: process.env.GENOS_WORKSPACE_ROOT,
-      tools: autonomyPlan.phases.slice(0, 2).flatMap(phase => phase.requiredTools || []) }));
+      tools: preflightBridge.baselineTools(autonomyPlan) }));
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
-  if (process.platform === 'win32' && useLocalRuntime) {
+  if (useLocalRuntime) {
     await require('./orchestratorWindowsLocalExecution.cjs').runWindowsLocalExecution({
       db, id, missionId, task, enhancedPrompt, request, missionBudget,
       requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
-      nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
+      autonomyPlan, nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
       finalizeOrchestratedMission, preflight
     });
     return;

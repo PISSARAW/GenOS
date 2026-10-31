@@ -16,6 +16,9 @@ function validatePayload(request) {
 function validateRequest(action, policy) {
   if (!ACTIONS.has(action)) throw new Error(`Unknown orchestration action '${action}'.`);
   if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw new Error('Orchestration policy must be an object.');
+  if (action === 'orchestrate' || action === 'dispatch_team') {
+    require('../src/services/workerRosterRequestService').resolveWorkerRosterRequest(policy, policy.mission || policy.task || '');
+  }
   if (policy.timeoutMs === undefined) return;
   if (typeof policy.timeoutMs !== 'number' || !Number.isFinite(policy.timeoutMs) || policy.timeoutMs <= 0) {
     throw new Error('timeoutMs must be a finite positive number.');

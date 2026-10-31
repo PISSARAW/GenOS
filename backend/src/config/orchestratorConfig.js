@@ -13,7 +13,7 @@ function envFloat(name, fallback) {
 }
 
 const config = {
-  maxWorkers: () => Math.max(1, envInt('GENOS_MAX_WORKERS', envInt('GENOS_MAX_AUTONOMOUS_WORKERS', envInt('GENOS_MAX_ACTIVE_WORKERS', 8)))),
+  maxWorkers: () => Math.max(1, envInt('GENOS_MAX_WORKERS', envInt('GENOS_MAX_AUTONOMOUS_WORKERS', envInt('GENOS_MAX_ACTIVE_WORKERS', 20)))),
   maxActiveWorkers: () => envInt('GENOS_MAX_ACTIVE_WORKERS', config.maxWorkers()),
   maxActiveWorkersPerProject: () => Math.max(12, envInt('GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT', config.maxActiveWorkers())),
   maxAteamMembers: () => envInt('GENOS_MAX_ATEAM_MEMBERS', config.maxActiveWorkers()),
