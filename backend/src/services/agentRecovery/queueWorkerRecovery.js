@@ -77,7 +77,15 @@ async function refreshPendingRecovery(pending, mission, event) {
 
 async function persistQueuedOutcome(outcome, context) {
   const { workerId, mission, report, decision, failureKey } = context;
-  if (outcome.queued) await durableQueue.enqueue({ workerId, mission, report, decision, key: failureKey });
+  if (outcome.queued) {
+    try {
+      await durableQueue.enqueue({ workerId, mission, report, decision, key: failureKey });
+    } catch (err) {
+      handledFailures.delete(failureKey);
+      pendingWorkerRecoveries.delete(workerId);
+      throw err;
+    }
+  }
   return outcome;
 }
 

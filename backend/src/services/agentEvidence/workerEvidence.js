@@ -29,6 +29,20 @@ function reportCarriesEvidence(report) {
   return Boolean(report.claims || report.outcome || report.uncertainties || report.tests);
 }
 
+function isWorkerIdentityMismatch(event, workerId) {
+  if (event.agentId && event.agentId !== workerId) return true;
+  const payload = event.payload;
+  if (!payload || typeof payload !== 'object') return false;
+  return Boolean((payload.workerId && payload.workerId !== workerId)
+    || (payload.agentId && payload.agentId !== workerId));
+}
+
+function isAttemptMismatch(event, expectedRunId) {
+  if (!expectedRunId) return false;
+  const runId = event.payload?.executionRunId || event.executionRunId;
+  return Boolean(runId && runId !== expectedRunId);
+}
+
 function ensureWorkerParticipant(round, mission, workerId) {
   if (round.participants.has(workerId)) return;
   round.participants.set(workerId, {
@@ -39,33 +53,50 @@ function ensureWorkerParticipant(round, mission, workerId) {
   });
 }
 
-function buildWorkerEvidenceEntry(event, report, failure) {
+function attachPayloadArtifacts(entry, payload) {
+  if (!payload || typeof payload !== 'object') return;
+  if (payload.snapshot) entry.snapshot = payload.snapshot;
+  if (payload.nativeOracleRef) entry.nativeOracleRef = payload.nativeOracleRef;
+  if (payload.replayReceipt) entry.replayReceipt = payload.replayReceipt;
+  if (payload.noAnswerProof) entry.noAnswerProof = payload.noAnswerProof;
+}
+
+function buildWorkerEvidenceEntry(event, report, workerId) {
+  const failure = resolveWorkerFailure(event);
+  const payload = event.payload;
   const entry = {
+    workerId: payload?.workerId || event.agentId || workerId,
     eventType: event.eventType,
-    executionRunId: event.payload?.executionRunId || null,
+    executionRunId: payload?.executionRunId || event.executionRunId || null,
     action: event.action,
     detail: String(event.detail || '').slice(0, 500)
   };
   if (reportCarriesEvidence(report)) entry.evidenceReport = report;
-  if (event.payload?.snapshot) entry.snapshot = event.payload.snapshot;
-  if (event.payload?.nativeOracleRef) entry.nativeOracleRef = event.payload.nativeOracleRef;
-  if (event.payload?.replayReceipt) entry.replayReceipt = event.payload.replayReceipt;
   if (failure) entry.failure = failure;
-  if (event.payload?.noAnswerProof) entry.noAnswerProof = event.payload.noAnswerProof;
+  attachPayloadArtifacts(entry, payload);
   return entry;
 }
 
-function recordWorkerEvidence(mission, event) {
+function shouldSkipWorkerEvidence(mission, event) {
   const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId;
-  if (!orchestratorId || !event || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
-  const report = extractEvidenceReport(event.payload);
+  if (!orchestratorId || !event) return true;
+  if (!WORKER_EVIDENCE_EVENTS.has(event.eventType)) return true;
+  const workerId = mission.agentId || mission.id;
+  const expectedRunId = mission.executionRunId || mission.runId;
+  return isWorkerIdentityMismatch(event, workerId) || isAttemptMismatch(event, expectedRunId);
+}
+
+function recordWorkerEvidence(mission, event) {
+  if (shouldSkipWorkerEvidence(mission, event)) return;
+  const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId;
   const round = workerEvidenceRounds.get(orchestratorId);
   if (!round) return;
   const workerId = mission.agentId || mission.id;
   activeWorkerBarriers.get(orchestratorId)?.workerIds.add(workerId);
   ensureWorkerParticipant(round, mission, workerId);
+  const report = extractEvidenceReport(event.payload);
   const events = round.events.get(workerId) || [];
-  events.push(buildWorkerEvidenceEntry(event, report, resolveWorkerFailure(event)));
+  events.push(buildWorkerEvidenceEntry(event, report, workerId));
   round.events.set(workerId, events.slice(-MAX_WORKER_DOSSIER_EVENTS));
 }
 

@@ -17,6 +17,15 @@ function validateSynthesisReply(text, plan) {
   }
 }
 
+function hasPendingTestRequest(parsed) {
+  if (!Array.isArray(parsed?.tests) || !parsed.tests.length) return false;
+  const hasCommands = parsed.tests.some((t) => typeof t === 'string' && t.trim().length > 0);
+  const claims = Array.isArray(parsed?.claims) ? parsed.claims : [];
+  const hasForgedReceipt = claims.some((c) =>
+    Array.isArray(c?.evidence) && c.evidence.some((ref) => typeof ref === 'string' && ref.startsWith('genos://code-test/')));
+  return hasCommands && !hasForgedReceipt;
+}
+
 function validateWorkerReply(text, state) {
   if (state.mission.executionMode !== 'worker') return;
   const workerKinds = require('./agents/workerKindService');
@@ -24,6 +33,11 @@ function validateWorkerReply(text, state) {
   const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
   const inspected = inspectWorkerArtifact(kind, text, { methodContract: state.mission.methodContract || null });
   if (inspected.artifact) return;
+  const parsed = parseReply(text);
+  if (hasPendingTestRequest(parsed)) {
+    const nonProofIssues = inspected.issues.filter((issue) => issue !== 'dossier.code_fix.unsubstantiated');
+    if (!nonProofIssues.length) return;
+  }
   throw new Error(`Artefact worker '${workerKinds.kindDefinition(kind).artifact}' invalide : ${inspected.issues.join(', ')}. Rends uniquement le JSON du contrat avec des claims sourcés.`);
 }
 

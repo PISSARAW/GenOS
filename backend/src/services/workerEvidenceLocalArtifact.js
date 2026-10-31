@@ -69,6 +69,14 @@ function resolveAllowedRefs(mission, context, report) {
   return [...new Set(['mission', ...custom, ...trusted])];
 }
 
+function verificationProvenance(mission, context) {
+  return {
+    codeVerificationContract: mission.codeVerificationContract || null,
+    codeVerification: mission.codeVerification || null,
+    writtenFileHashes: mission.writtenFileHashes || context.writtenFileHashes || null
+  };
+}
+
 function artifactProvenance(mission, context, evidenceReport) {
   const executedTests = extractExecutedTests(context, mission);
   const allowedEvidenceRefs = resolveAllowedRefs(mission, context, evidenceReport);
@@ -77,6 +85,7 @@ function artifactProvenance(mission, context, evidenceReport) {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
     methodContract: mission.methodContract || null,
+    ...verificationProvenance(mission, context),
     readFileHashes, executedTests, allowedEvidenceRefs
   };
 }

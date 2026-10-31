@@ -297,6 +297,29 @@ function validVerdict(verdict) {
   return ['accept', 'reject', 'unresolved'].includes(String(verdict).toLowerCase());
 }
 
+function isWitnessedTest(test) {
+  return Boolean(test && test.exitCode === 0 && (test.executionReceipt || test.passed));
+}
+
+function validationWitnessProvenance(report, worker) {
+  const mission = worker?.workerContract?.mission || {};
+  const executedTests = (report?.tests || []).filter(isWitnessedTest);
+  const tests = executedTests.length ? executedTests : (mission.executedTests || null);
+  return {
+    source: 'runtime-witnessed',
+    methodContract: mission.methodContract || null,
+    codeVerificationContract: mission.codeVerificationContract || null,
+    executedTests: tests,
+    allowedEvidenceRefs: mission.allowedEvidenceRefs || null
+  };
+}
+
+function resolveValidationProvenance(artifact, report, worker) {
+  const witness = validationWitnessProvenance(report, worker);
+  if (artifact?.provenance?.executedTests?.length) return artifact.provenance;
+  return { ...(artifact?.provenance || {}), ...witness };
+}
+
 function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
   if (!required.length) throw Object.assign(new Error('Worker contract declares no required artifacts.'), { code: 'WORKER_CONTRACT_INVALID_NO_ARTIFACTS' });
@@ -304,13 +327,12 @@ function validateWorkerArtifact(dossier, worker) {
   const kind = worker.workerContract?.identity?.workerKind;
   for (const expected of required) {
     const artifact = report.workerArtifact || (expected === 'dossier'
-      ? inspectWorkerArtifact(kind, report, {
-        methodContract: worker.workerContract?.mission?.methodContract || null
-      }).artifact : null);
+      ? inspectWorkerArtifact(kind, report, validationWitnessProvenance(report, worker)).artifact : null);
     const fields = REQUIRED_FIELDS[expected];
+    const provenance = resolveValidationProvenance(artifact, report, worker);
     if (validateWorkerArtifactCondition(artifact, expected, fields) || kindArtifactIsInvalid({
         kind, type: expected, content: artifact.content, contract: worker.workerContract
-      }) || codeDossierUnsubstantiated(kind, artifact?.content, artifact?.provenance)) {
+      }) || codeDossierUnsubstantiated(kind, artifact?.content, provenance)) {
       throw artifactError(worker.agentId, expected);
     }
   }

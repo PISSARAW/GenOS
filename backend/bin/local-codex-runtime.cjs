@@ -201,24 +201,34 @@ function filterPassingProofs(proofs) {
   return (proofs || []).filter((p) => p && p.executed && p.exitCode === 0);
 }
 
+function hasFailedProofTest(proofs) {
+  return (proofs || []).some((p) => p && p.executed && p.exitCode !== 0);
+}
+
 function emitCompletion(state, reply) {
   const { buildDossierArtifact, buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
   const workerKinds = require('../src/services/agents/workerKindService');
   const modelRef = resolveModelRef(state.mission);
   const executedTests = filterPassingProofs(state.commandProofs);
+  const hasFailedProof = hasFailedProofTest(state.commandProofs);
   const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName, methodContract: state.mission.methodContract || null, readFileHashes: state.fileHashes, executedTests };
   const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
   const dossierText = augmentReplyWithProofs(reply, state.commandProofs);
   const workerArtifact = state.mission.executionMode === 'worker' ? buildWorkerArtifact(kind, dossierText, provenance) : buildDossierArtifact(dossierText, provenance);
   if (!workerArtifact) throw new Error(`Local model did not return a valid '${workerKinds.kindDefinition(kind).artifact}' artifact.`);
   const parsedReply = localSynthesis.parseCompletionReply(dossierText);
-  const report = { outcome: 'success', claims: localSynthesis.reportClaims(parsedReply, dossierText, state),
+  const outcome = (hasFailedProof || parsedReply?.outcome === 'failed') ? 'failed' : 'success';
+  const report = { outcome, claims: localSynthesis.reportClaims(parsedReply, dossierText, state),
     workerArtifact, author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' } };
   attachProofTests(report, state.commandProofs);
   localSynthesis.attachInfluence(report, parsedReply);
   require('../src/services/localCompletionEvidence').attachFields(report, parsedReply);
   emitEvent(state, { eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Local runtime emitted its structured evidence report.', payload: report });
-  emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: completionEvidencePayload(state, report) });
+  if (outcome === 'failed') {
+    emitEvent(state, { eventType: 'AGENT_FAILED', action: 'COMPLETE', detail: 'Local cognitive router failed due to test failures.', status: 'failed', payload: completionEvidencePayload(state, report) });
+  } else {
+    emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: completionEvidencePayload(state, report) });
+  }
 }
 function completionEvidencePayload(state, report) {
   const capsule = state.mission?.runtimeCapsule || parseJson(state.mission?.genosCapsuleJson);

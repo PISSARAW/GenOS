@@ -5,7 +5,7 @@ const { isAllowedSandboxTestCommand } = require('../sandboxCommandPolicy');
 
 const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
 const CODE_SUCCESS_HINT = /corrig|correct|\bfix(ed|es)?\b|tests?.*?(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)|r[ée]gression.*disparu|r[ée]solu|stabilis|stable|incident.*r[ée]solu|rectifi|d[ée]faut.*[ée]limin|build est vert/i;
-const CODE_SUCCESS_NEGATION = /\b(pas|aucun|sans)\b|n'a pas|pas de|échou|échec|fail/i;
+const CODE_SUCCESS_NEGATION = /\b(pas|aucun)\b|sans\s+(?:succ[èe]s|r[ée]sultat|effet|r[ée]solu|correct|fix)|n'a pas|pas de|échou|échec|fail/i;
 
 function isLegitimateTestCommand(command) {
   if (typeof command !== 'string') return false;
@@ -50,13 +50,26 @@ function authenticTestRefs(content, provenance) {
     .map((test) => `genos://code-test/${values.digest(test)}`);
 }
 
+function authenticCodeVerification(content, provenance) {
+  const binding = content?.codeVerification;
+  if (!binding || typeof binding.artifactContentHash !== 'string' || !binding.artifactContentHash.trim()) {
+    return false;
+  }
+  const hash = binding.artifactContentHash.trim();
+  const verifiedHash = provenance?.codeVerification?.artifactContentHash
+    || provenance?.codeVerificationContract?.expectedContentHash
+    || provenance?.codeVerificationHash;
+  if (verifiedHash && verifiedHash === hash) return true;
+  const written = Object.values(provenance?.writtenFileHashes || provenance?.changedFileHashes || {});
+  return written.includes(hash);
+}
+
 function dossierCodeProofPresent(content, provenance) {
   const refs = new Set((content?.claims || []).flatMap((claim) => Array.isArray(claim?.evidence) ? claim.evidence : []));
   if (authenticTestRefs(content, provenance).some((ref) => refs.has(ref))) return true;
-  const binding = content?.codeVerification;
-  if (binding && typeof binding.artifactContentHash === 'string' && binding.artifactContentHash.trim()) return true;
-  const known = Object.values(provenance?.readFileHashes || {});
-  return known.length > 0 && [...refs].some((ref) => known.includes(fileHashOf(ref)));
+  if (authenticCodeVerification(content, provenance)) return true;
+  const written = Object.values(provenance?.writtenFileHashes || provenance?.changedFileHashes || {});
+  return written.length > 0 && [...refs].some((ref) => written.includes(fileHashOf(ref)));
 }
 
 function codeDossierUnsubstantiated(kind, content, provenance) {
@@ -75,6 +88,7 @@ module.exports = {
   isLegitimateTestCommand,
   testIsWitnessed,
   authenticTestRefs,
+  authenticCodeVerification,
   dossierCodeProofPresent,
   codeDossierUnsubstantiated
 };

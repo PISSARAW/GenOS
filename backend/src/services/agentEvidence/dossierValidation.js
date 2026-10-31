@@ -95,12 +95,29 @@ function coherentDossierClaims(dossier) {
   return claims;
 }
 
+function assertEventIdentityMatch(events, workerId, expectedRunId) {
+  for (const event of events || []) {
+    if (event.workerId && event.workerId !== workerId) {
+      const error = new Error(`Worker dossier contains event from mismatching worker '${event.workerId}'.`);
+      error.code = 'WORKER_IDENTITY_MISMATCH';
+      throw error;
+    }
+    if (expectedRunId && event.executionRunId && event.executionRunId !== expectedRunId) {
+      const error = new Error(`Worker dossier contains event from mismatching attempt '${event.executionRunId}'.`);
+      error.code = 'WORKER_ATTEMPT_MISMATCH';
+      throw error;
+    }
+  }
+}
+
 function validateWorkerDossierCoherence(dossier, worker, contract = {}) {
   if (!dossier || !worker || dossier.workerId !== worker.agentId) {
     const error = new Error('Worker dossier does not match its assigned worker.');
     error.code = 'INVALID_DOSSIER_COHERENCE';
     throw error;
   }
+  const expectedRunId = worker.executionRunId || contract?.executionRunId || null;
+  assertEventIdentityMatch(dossier.events, worker.agentId, expectedRunId);
   const claims = coherentDossierClaims(dossier);
   if (!claims.length || hasUnsubstantiatedClaim(claims)) {
     const error = new Error('Worker dossier contains no fully substantiated evidence.');

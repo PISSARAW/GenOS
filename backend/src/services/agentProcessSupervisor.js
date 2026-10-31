@@ -39,9 +39,9 @@ const {
 function buildTrackedEventPayload(payload, executionRun, contractRecord) {
   return {
     ...payload,
-    executionRunId: payload.executionRunId || executionRun.id,
-    contractId: payload.contractId || contractRecord.id,
-    contractVersion: payload.contractVersion || contractRecord.version
+    executionRunId: executionRun?.id || payload.executionRunId,
+    contractId: payload.contractId || contractRecord?.id,
+    contractVersion: payload.contractVersion || contractRecord?.version
   };
 }
 
@@ -110,6 +110,9 @@ function haltRuntimeImpl(ctx, ...args) {
 function emitTrackedImpl(ctx, ...args) {
   const [eventType, action, detail, payload = {}, severity = 'info', status] = args;
   const eventPayload = buildTrackedEventPayload(payload, ctx.executionRun, ctx.contractRecord);
+  if (eventPayload.workerId && eventPayload.workerId !== ctx.agentId) {
+    eventPayload.workerId = ctx.agentId;
+  }
   const guarded = continuousExecution.guard(ctx, { eventType, action, detail, payload: eventPayload, severity, status }, false);
   const event = emit(ctx.agentId, guarded.eventType, guarded.action, guarded.detail, guarded.payload, guarded.severity, guarded.status);
   require('./morphogenesis/intraEpochRoundHook').observeRuntimeEvent({
