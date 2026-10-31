@@ -6,46 +6,15 @@ const { hasEvidenceReferences, provenanceReferences,
   unresolvedEvidenceReferences } = require('./workerEvidenceReferenceService');
 const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
 
-const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
-const CODE_SUCCESS_HINT = /corrig|\bfix(ed|es)?\b|tests?\s+(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)/i;
-const CODE_SUCCESS_NEGATION = /\b(pas|aucun|sans)\b|n'a pas|pas de|échou|échec|fail/i;
-
-function statesCodeSuccess(statement) {
-  const text = String(statement || '').toLowerCase();
-  if (!CODE_SUCCESS_HINT.test(text)) return false;
-  return !CODE_SUCCESS_NEGATION.test(text);
-}
-
-function dossierSuccessClaimed(content) {
-  return Array.isArray(content?.claims) && content.claims.some((claim) => statesCodeSuccess(claim?.statement));
-}
-
-function authenticTestRefs(content) {
-  const values = require('../trinityProvenanceValues');
-  const tests = Array.isArray(content?.tests) ? content.tests : [];
-  return tests.filter((test) => test && test.exitCode === 0 && typeof test.command === 'string')
-    .map((test) => `genos://code-test/${values.digest(test)}`);
-}
-
-function fileHashOf(ref) {
-  const text = String(ref || '').trim();
-  return /^sha256:[a-f0-9]{64}$/.test(text) ? text.slice(7) : '';
-}
-
-function dossierCodeProofPresent(content, provenance) {
-  const refs = new Set((content?.claims || []).flatMap((claim) => Array.isArray(claim?.evidence) ? claim.evidence : []));
-  if (authenticTestRefs(content).some((ref) => refs.has(ref))) return true;
-  const binding = content?.codeVerification;
-  if (binding && typeof binding.artifactContentHash === 'string' && binding.artifactContentHash.trim()) return true;
-  const known = Object.values(provenance?.readFileHashes || {});
-  return known.length > 0 && [...refs].some((ref) => known.includes(fileHashOf(ref)));
-}
-
-function codeDossierUnsubstantiated(kind, content, provenance) {
-  if (!CODE_EXECUTION_KINDS.has(kind)) return false;
-  if (!dossierSuccessClaimed(content)) return false;
-  return !dossierCodeProofPresent(content, provenance);
-}
+const {
+  CODE_EXECUTION_KINDS,
+  statesCodeSuccess,
+  dossierSuccessClaimed,
+  fileHashOf,
+  authenticTestRefs,
+  dossierCodeProofPresent,
+  codeDossierUnsubstantiated
+} = require('./workerArtifactCodeProof');
 
 function isSubstantiveReport(report) {
   if (!report || typeof report !== 'object') return false;
@@ -54,17 +23,21 @@ function isSubstantiveReport(report) {
   return Boolean(artifact && typeof artifact === 'object' && artifact.type && artifact.content);
 }
 
+function extractEventReport(event) {
+  return event?.evidenceReport || event?.payload?.evidenceReport || event?.payload?.report || null;
+}
+
 function reportOf(dossier) {
-  const events = [...(dossier.events || [])].reverse(), completeReport = events.filter((event) => event.eventType === 'EVIDENCE_REPORT').map((event) => event.evidenceReport || event.payload?.evidenceReport || event.payload?.report).find(isSubstantiveReport);
-  if (completeReport) return completeReport;
-  let fallback = null;
+  const events = [...(dossier?.events || [])].reverse();
   for (const event of events) {
-    const report = event.evidenceReport || event.payload?.evidenceReport || event.payload?.report;
-    if (!report || typeof report !== 'object') continue;
+    const report = extractEventReport(event);
     if (isSubstantiveReport(report)) return report;
-    if (!fallback) fallback = report;
   }
-  return fallback || {};
+  for (const event of events) {
+    const report = extractEventReport(event);
+    if (report && typeof report === 'object') return report;
+  }
+  return {};
 }
 function hasRequiredFields(content, required) {
   return required.every((field) => hasEvidenceItem(content[field]));
@@ -344,7 +317,7 @@ function validateWorkerArtifact(dossier, worker) {
   return true;
 }
 
-module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
+module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact, authenticTestRefs, statesCodeSuccess, codeDossierUnsubstantiated };
 
 function containsClinicalDirectiveCondition(text) {
   return /\b(?:you|the patient|patient|they)\s+(?:have|has|are|is diagnosed with)\b/.test(text)

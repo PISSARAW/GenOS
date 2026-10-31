@@ -140,7 +140,7 @@ function checkContractInvalidation() {
 
 function checkContractWithProofs(proofs) {
   const augmented = runtime.augmentReplyWithProofs(dossierReply(), proofs);
-  const inspected = contract.inspectWorkerArtifact('bounded_worker', augmented, { source: 'local-codex-runtime' });
+  const inspected = contract.inspectWorkerArtifact('bounded_worker', augmented, { source: 'local-codex-runtime', executedTests: proofs });
   assert.equal(inspected.issues.length, 0);
   assert.equal(inspected.artifact.type, 'dossier');
   const parsed = JSON.parse(augmented);

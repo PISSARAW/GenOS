@@ -57,14 +57,27 @@ function trustedCodeEvidenceRefs(report, codeWorker, proposal) {
   return trusted;
 }
 
+function extractExecutedTests(context, mission) {
+  const tests = context.proposal?.tests || mission.executedTests;
+  if (!Array.isArray(tests)) return [];
+  return tests.filter((t) => t && t.exitCode === 0);
+}
+
+function resolveAllowedRefs(mission, context, report) {
+  const custom = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
+  const trusted = trustedCodeEvidenceRefs(report, context.codeWorker, context.proposal);
+  return [...new Set(['mission', ...custom, ...trusted])];
+}
+
 function artifactProvenance(mission, context, evidenceReport) {
+  const executedTests = extractExecutedTests(context, mission);
+  const allowedEvidenceRefs = resolveAllowedRefs(mission, context, evidenceReport);
+  const readFileHashes = mission.readOnlyWorkspaceEvidence === true ? (mission.readFileHashes || {}) : {};
   return {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
     workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
     methodContract: mission.methodContract || null,
-    readFileHashes: mission.readOnlyWorkspaceEvidence === true ? mission.readFileHashes || {} : {},
-    allowedEvidenceRefs: [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || []),
-      ...trustedCodeEvidenceRefs(evidenceReport, context.codeWorker, context.proposal)])]
+    readFileHashes, executedTests, allowedEvidenceRefs
   };
 }
 

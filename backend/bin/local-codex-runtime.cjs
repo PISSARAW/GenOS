@@ -193,11 +193,20 @@ async function runPostPipeline(services, state, reply) {
     if (state.mission.runtimeCheckpointEnabled) throw e;
   }
 }
+function resolveModelRef(mission) {
+  return String(mission?.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
+}
+
+function filterPassingProofs(proofs) {
+  return (proofs || []).filter((p) => p && p.executed && p.exitCode === 0);
+}
+
 function emitCompletion(state, reply) {
   const { buildDossierArtifact, buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
   const workerKinds = require('../src/services/agents/workerKindService');
-  const modelRef = String(state.mission.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
-  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName, methodContract: state.mission.methodContract || null, readFileHashes: state.fileHashes };
+  const modelRef = resolveModelRef(state.mission);
+  const executedTests = filterPassingProofs(state.commandProofs);
+  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName, methodContract: state.mission.methodContract || null, readFileHashes: state.fileHashes, executedTests };
   const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
   const dossierText = augmentReplyWithProofs(reply, state.commandProofs);
   const workerArtifact = state.mission.executionMode === 'worker' ? buildWorkerArtifact(kind, dossierText, provenance) : buildDossierArtifact(dossierText, provenance);
@@ -323,15 +332,26 @@ async function runAllowedCommand(workspaceRoot, command, allowedCommands) {
     return { command: normalized, executed: false, reason: 'executor_refused' };
   }
 }
+function attachProofRefs(claims, refs) {
+  if (!Array.isArray(claims)) return;
+  for (const claim of claims) {
+    if (claim && typeof claim === 'object') {
+      const existing = Array.isArray(claim.evidence) ? claim.evidence : [];
+      claim.evidence = [...existing, ...refs];
+    }
+  }
+}
+
 function augmentReplyWithProofs(reply, proofs) {
-  const executed = (proofs || []).filter((proof) => proof && proof.executed);
-  if (!executed.length) return reply;
+  const executed = (proofs || []).filter((proof) => proof?.executed);
   const parsed = parseReplyObject(reply);
   if (!parsed) return reply;
-  const refs = executed.map((proof) => `genos://code-test/${proof.digest}`);
-  if (Array.isArray(parsed.claims)) for (const claim of parsed.claims) {
-    if (claim && typeof claim === 'object') claim.evidence = [...(Array.isArray(claim.evidence) ? claim.evidence : []), ...refs];
+  if (!executed.length) {
+    delete parsed.tests;
+    return JSON.stringify(parsed);
   }
+  const refs = executed.map((proof) => `genos://code-test/${proof.digest}`);
+  attachProofRefs(parsed.claims, refs);
   parsed.tests = executed.map((proof) => ({ command: proof.command, exitCode: proof.exitCode, stdout: proof.stdout, stderr: proof.stderr }));
   return JSON.stringify(parsed);
 }

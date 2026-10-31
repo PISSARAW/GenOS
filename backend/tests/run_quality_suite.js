@@ -14,7 +14,8 @@ const tests = [
   'test_evaluation_result_normalization.js',
   'test_metric_semantics.js',
   'test_historical_quality_refactors.js',
-  'test_no_answer_proof_remediation.js'
+  'test_no_answer_proof_remediation.js',
+  'test_polite_liars_benchmark.js'
 ];
 
 for (const test of tests) {
