@@ -111,8 +111,10 @@ function testCollectiveOrganizationRoutes() {
 
 async function testDynamicOrganizationIntegration(db) {
   await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-signaling-root','Root','orchestrator','running','orchestrator')");
-  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('worker-chem-1','Chem1','implementation','running','worker','org-signaling-root')");
-  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('worker-chem-2','Chem2','reviewer','running','worker','org-signaling-root')");
+  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,metadata_json) VALUES ('worker-chem-1','Chem1','implementation','running','worker','org-signaling-root',?)",
+    [JSON.stringify({ phenotypeId: 'AdaptiveWorker' })]);
+  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,metadata_json) VALUES ('worker-chem-2','Chem2','reviewer','running','worker','org-signaling-root',?)",
+    [JSON.stringify({ phenotypeId: 'AdaptiveWorker' })]);
 
   await organization.changeOrganization(db, {
     orchestratorId: 'org-signaling-root',
