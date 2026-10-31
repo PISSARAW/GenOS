@@ -22,6 +22,7 @@ const WORKERS = ['worker-alpha', 'worker-beta'];
 function proof(workerId, overrides = {}) {
   const content = { schema: 'genos.worker-barrier-closure-proof/v1',
     missionId: MISSION_ID, workerId, runId: `run-${workerId}`,
+    budgetAssessment: { satisfied: true },
     result: { status: 'completed', verified: true }, ...overrides };
   return { reference: digest(content), content, source: 'biological_worker_receipts' };
 }

@@ -59,9 +59,6 @@ async function createBoundExecutionRun(db, context) {
   if (context.missionId) {
     await require('./gvxMissionProvenance').requireAgentScope(db, context.agentId);
   }
-  if (context.missionId) {
-    await require('./gvxMissionProvenance').requireAgentScope(db, context.agentId);
-  }
   const plan = compileExecutionPlan(contractRecord.contract, context.budget);
   const id = `strategy_run_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   await db.run(

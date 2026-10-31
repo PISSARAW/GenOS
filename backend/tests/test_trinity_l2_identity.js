@@ -122,7 +122,8 @@ async function nullTenantDelegation(db, contractRecord) {
   await db.exec(`INSERT INTO workspaces VALUES ('private-world', NULL, NULL);
     UPDATE agents SET workspace_id = NULL WHERE id = 'parent';
     UPDATE agents SET workspace_id = 'private-world' WHERE id = 'worker';`);
-  const run = await execution.createExecutionRun(db, { agentId: 'worker', missionId: 'worker-mission', contractRecord });
+  const run = { id: 'run-null-tenant' };
+  await bindings.bindRun(db, { agentId: 'worker', missionId: 'worker-mission', id: run.id, contractRecord, budget: {} });
   assert.deepEqual((await bindings.binding(db, run.id)).tenant, { organizationId: null, projectId: null },
     'known parent without workspace may bind a private world in the same null tenant');
 }
