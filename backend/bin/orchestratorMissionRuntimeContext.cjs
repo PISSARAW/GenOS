@@ -13,7 +13,7 @@ function missionRuntimeContext(request = {}) {
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
-    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria',
+    'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'hypotheses',
     'workerBarrierTimeoutMs', 'communicationRequired', 'coordinationPolicy', 'workerTokenLimit', 'localCodeWorker', 'requiredPatchPaths',
     'requiredPatchMarkers', 'requiredPatchMinimumBytes'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)

@@ -22,9 +22,8 @@ const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 const missionEpisodeRuntime = require('../src/services/missionEpisodeRuntime');
 const { buildActionContext, runActionWithCleanup, emitTopologyEvent, applyNceEnhancements } = require('./orchestratorActionContext.cjs');
-const { buildNceInput, buildEnhancedPrompt, prepareMission, startOrchestratorMission,
-  buildContinuity, emitCompletionEvent, gatherTelemetryAndCoverage, emitFinalTelemetry, tokenUsage,
-  shouldAttachMissionOrchestrator } = helpers;
+const { buildNceInput, buildEnhancedPrompt, prepareMission, startOrchestratorMission, buildContinuity,
+  emitCompletionEvent, gatherTelemetryAndCoverage, emitFinalTelemetry, tokenUsage, shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 const completionPolling = require('./orchestratorCompletionPolling.cjs');
 let request = {};
@@ -115,6 +114,7 @@ async function regenerateDuringExecution(db) {
 }
 
 async function prepareRuntime(initDb) {
+  if (TOP_LEVEL_MISSION_ACTIONS.has(action)) { require('../src/services/gvxLedgerIntegrity').assertSigningKeyConfigured(); await require('./missionWorkspaceScope.cjs').applyMissionWorkspace(initDb, request); }
   await runtime.reconcilePersistedRuntimes(initDb);
   await missionEpisodeRuntime.reconcileAbandoned(initDb);
   if (!orchestratorId && !TOP_LEVEL_MISSION_ACTIONS.has(action)) orchestratorId = await findActiveOrchestrator(initDb);

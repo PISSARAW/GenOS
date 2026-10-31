@@ -67,6 +67,10 @@ async function initializeMissionContext(mission) {
     { maxRetries: 10, baseDelayMs: 200 }
   );
   assertMissionNotCancelled(agentId);
+  require('../gvxLedgerIntegrity').assertSigningKeyConfigured();
+  if (normalizedMission.missionId) {
+    await require('../gvxMissionProvenance').requireAgentScope(db, agentId);
+  }
   await require('../missionExecutionAuthority').assertAuthority(db, normalizedMission.missionExecutionAuthority);
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);

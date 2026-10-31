@@ -356,6 +356,13 @@ genos_sk_admin_...
 - Set `GENOS_ADMIN_TOKEN` to define a static token.
 - Set `GENOS_ADMIN_PASSWORD` to configure the default `admin` user password.
 
+### GVX ledger signing key
+Mission execution and the `/readyz` and `/startupz` probes require an active GVX ledger HMAC key. Provision a per-database key before starting the backend:
+```bash
+node backend/bin/provision-gvx-ledger-key.cjs --db /data/genos.db
+```
+The command writes a 256-bit random key to `/data/genos.db.gvx-ledger-hmac` and never prints the secret. Keep that sidecar private and back it up with the database. The backend loads it at startup and gives it precedence over `GENOS_GVX_LEDGER_HMAC_SECRET`, so workers reopening the same database use the same key. Alternatively, configure `GENOS_GVX_LEDGER_HMAC_SECRET` through the deployment's secret manager. Do not commit either key or sidecar file.
+
 ---
 
 ## Environment Variables

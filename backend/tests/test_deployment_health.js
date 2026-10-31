@@ -8,6 +8,7 @@ const databasePath = path.join(os.tmpdir(), `genos-health-${process.pid}-${Date.
 process.env.NODE_ENV = 'test';
 process.env.GENOS_DB_PATH = databasePath;
 process.env.GENOS_ADMIN_TOKEN = `health-test-${crypto.randomBytes(24).toString('hex')}`;
+delete process.env.GENOS_GVX_LEDGER_HMAC_SECRET;
 
 const { closeDatabase } = require('../src/db');
 const health = require('../src/controllers/healthController');
@@ -35,8 +36,14 @@ async function run() {
 
   const ready = response();
   await health.getReadiness({}, ready);
+  assert.equal(ready.statusCode, 503);
+  assert.equal(ready.body.checks.ledgerSigning, 'failed');
+
+  process.env.GENOS_GVX_LEDGER_HMAC_SECRET = crypto.randomBytes(32).toString('hex');
+  await health.getReadiness({}, ready);
   assert.equal(ready.statusCode, 200);
   assert.equal(ready.body.checks.database, 'ok');
+  assert.equal(ready.body.checks.ledgerSigning, 'ok');
 
   const startup = response();
   await health.getStartup({}, startup);

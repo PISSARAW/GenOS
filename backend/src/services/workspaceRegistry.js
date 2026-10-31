@@ -51,7 +51,9 @@ function isWorkspaceDirectory(directory) {
 }
 
 function workspaceIdForPath(workspacePath) {
-  return `ws-${crypto.createHash('sha256').update(path.resolve(workspacePath)).digest('hex').slice(0, 12)}`;
+  const resolved = path.resolve(workspacePath);
+  const canonical = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  return `ws-${crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 12)}`;
 }
 
 function discoverWorkspaceDirectories(root = resolveWorkspacesRoot()) {
@@ -78,27 +80,77 @@ function workspaceName(root, workspacePath) {
   return relative || path.basename(workspacePath) || 'workspace';
 }
 
-async function syncWorkspaceRegistry(db, root = resolveWorkspacesRoot()) {
+async function nameOwner(db, input) {
+  return db.get(`SELECT id FROM workspaces WHERE COALESCE(organization_id, '') = COALESCE(?, '')
+    AND COALESCE(project_id, '') = COALESCE(?, '') AND name = ?`,
+  input.organizationId, input.projectId, input.name);
+}
+
+async function uniqueWorkspaceName(db, input) {
+  const owner = await nameOwner(db, input);
+  if (!owner || owner.id === input.id) return input.name;
+  const candidate = `${input.name} (${input.id.slice(-8)})`;
+  const candidateOwner = await nameOwner(db, { ...input, name: candidate });
+  return candidateOwner && candidateOwner.id !== input.id ? `${input.name} (${input.id})` : candidate;
+}
+
+function assertTenantScope(scope) {
+  if (!scope?.organizationId || !scope.projectId) {
+    throw Object.assign(new Error('Workspace registration requires an organization and project scope.'), {
+      code: 'WORKSPACE_TENANT_SCOPE_REQUIRED'
+    });
+  }
+}
+
+function assertTenantConsistency(existing, input) {
+  if (!existing || (!existing.organization_id && !existing.project_id) || !input.organizationId) return;
+  if (existing.organization_id !== input.organizationId || existing.project_id !== input.projectId) {
+    throw Object.assign(new Error('Workspace path is already registered under a different tenant.'), {
+      code: 'WORKSPACE_TENANT_MISMATCH'
+    });
+  }
+}
+
+function registeredTenant(input, existing) {
+  return { organizationId: input.organizationId || existing?.organization_id || null,
+    projectId: input.projectId || existing?.project_id || null };
+}
+
+async function saveRegisteredWorkspace(db, entry) {
+  await db.run(`INSERT INTO workspaces (id, name, path, visibility, language, description, tags,
+    organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
+    language = excluded.language,
+    organization_id = COALESCE(workspaces.organization_id, excluded.organization_id),
+    project_id = COALESCE(workspaces.project_id, excluded.project_id),
+    updated_at = CURRENT_TIMESTAMP`,
+  entry.id, entry.name, entry.workspacePath, entry.description,
+  entry.tenant.organizationId, entry.tenant.projectId);
+}
+
+async function registerWorkspace(db, input) {
+  if (input.organizationId || input.projectId) assertTenantScope(input);
+  const workspacePath = path.resolve(input.workspacePath);
+  const id = workspaceIdForPath(workspacePath);
+  const existing = await db.get('SELECT id, organization_id, project_id FROM workspaces WHERE id = ?', id);
+  assertTenantConsistency(existing, input);
+  const tenant = registeredTenant(input, existing);
+  const name = await uniqueWorkspaceName(db, { ...tenant, id,
+    name: input.name || path.basename(workspacePath) || 'workspace' });
+  await saveRegisteredWorkspace(db, { id, name, workspacePath, tenant,
+    description: input.description || 'Workspace registered for a GenOS mission.' });
+  return db.get('SELECT * FROM workspaces WHERE id = ?', id);
+}
+
+async function syncWorkspaceRegistry(db, root = resolveWorkspacesRoot(), tenantScope = null) {
   const resolvedRoot = path.resolve(root);
   const discovered = discoverWorkspaceDirectories(resolvedRoot);
   const workspaces = [];
 
   for (const workspacePath of discovered) {
     const name = workspaceName(resolvedRoot, workspacePath);
-    const id = workspaceIdForPath(workspacePath);
-    await db.run(
-      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
-       VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]')
-       ON CONFLICT(id) DO UPDATE SET
-         path = excluded.path,
-         language = excluded.language,
-         updated_at = CURRENT_TIMESTAMP`,
-      id,
-      name,
-      workspacePath,
-      'Workspace discovered inside GENOS_WORKSPACES_ROOT.'
-    );
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', id);
+    const workspace = await registerWorkspace(db, { workspacePath, name, ...tenantScope,
+      description: 'Workspace discovered inside GENOS_WORKSPACES_ROOT.' });
     if (workspace) workspaces.push(workspace);
   }
 
@@ -110,6 +162,7 @@ module.exports = {
   isPathWithinRoot,
   isWorkspaceDirectory,
   resolveWorkspacesRoot,
+  registerWorkspace,
   syncWorkspaceRegistry,
   workspaceIdForPath
 };

@@ -6,7 +6,9 @@ const missionRuntimeContext = require('../bin/orchestratorMissionRuntimeContext.
 
 const db = {};
 const request = { workspaceRoot: 'D:/isolated-site', preflightSnapshotAgent: 'arch_agent.json',
+  successCriteria: ['The app matches its written mandate.'],
   executionBudget: { latencyMs: 60000 },
+  hypotheses: [{ statement: 'Compare actual user-facing behavior to the written mandate.' }],
   diagnosticHypotheses: [{ statement: 'Compare actual user-facing behavior to the written mandate.' }] };
 const built = buildOrchestratorPreflightInput({ db, orchestratorId: 'agent-1', missionId: 'mission-1',
   task: 'Maintain isolated site', repoRoot: 'D:/GenOS', request, tools: ['genos_diagnose'] });
@@ -18,7 +20,8 @@ assert.equal(built.snapshotAgent, 'arch_agent.json');
 assert.equal(built.toolTimeoutMs, 60000, 'preflight tools must inherit a bounded mission latency timeout');
 assert.deepEqual(mcpRequestTimeout(built), { timeout: 60000, maxTotalTimeout: 60000, resetTimeoutOnProgress: true },
   'the SDK request timeout must inherit the bounded mission timeout');
-assert.deepEqual(built.hypotheses, request.diagnosticHypotheses);
+assert.deepEqual(built.hypotheses, request.hypotheses);
+assert.deepEqual(prepareToolArguments(built, 'genos_diagnose').args.hypotheses, request.hypotheses);
 assert.deepEqual(built.tools, ['genos_diagnose']);
 const decision = prepareToolArguments({ task: 'Maintain site', orchestratorId: 'agent-1' }, 'genos_record_decision', [
   { tool: 'genos_search_failures', status: 'completed', resultDigest: 'search-digest' },
@@ -33,6 +36,9 @@ assert.match(diagnosis.args.hypotheses[0].statement, /authorized workspace/);
 const suppliedDiagnosis = prepareToolArguments({ task: 'Maintain site', hypotheses: request.diagnosticHypotheses }, 'genos_diagnose');
 assert.deepEqual(suppliedDiagnosis.args.hypotheses, request.diagnosticHypotheses);
 assert.equal(missionRuntimeContext({ communication_required: true }).communicationRequired, true);
+assert.deepEqual(missionRuntimeContext(request), {
+  successCriteria: request.successCriteria, hypotheses: request.hypotheses
+});
 const workerRuntimeContext = require('../bin/orchestratorMissionHelpers.cjs').missionRuntimeContext({
   communicationRequired: true, coordinationPolicy: { communicationCadence: 'continuous_sync' },
   workerTokenLimit: 30000
