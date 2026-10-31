@@ -12,6 +12,7 @@ const trinityComparativeBarrier = require('../src/services/trinityComparativeBar
 const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
+const { handleWorkerStatus } = require('./orchestratorWorkerStatus.cjs');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
@@ -272,7 +273,6 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
 function buildWorkerMetadata(workerKind, contract, request) {
   return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
 }
-
 async function updateReusedWorker(db, context, metadata) {
   await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
   if (context.missionId) await require('../src/services/missionIdentityService').attachAgent(db, {
@@ -284,7 +284,6 @@ async function insertNewWorker({ db, context, name, role, workerKind, parent, re
   await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, metadata_json) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task, metadata);
   if (context.missionId) await require('../src/services/missionIdentityService').attachAgent(db, { missionId: context.missionId, agentId: context.id, role });
 }
-
 async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
   const workerKinds = require('../src/services/agents/workerKindService');
   const contract = buildWorkerContract({ workerKinds, workerKind, context, request });

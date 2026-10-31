@@ -19,6 +19,18 @@ if (!backendContract || !fs.existsSync(backendContract)) {
 
 const backend = require(backendContract).getToolInputSchema;
 const tools = loadToolCatalog(repoRoot);
+const workerToolNames = new Set([
+  'genos_delegate_worker', 'genos_worker_publish', 'genos_worker_inbox', 'genos_worker_status'
+]);
+function normalizeObjectSchema(schema) {
+  return {
+    ...schema,
+    type: schema.type || 'object',
+    properties: { ...(schema.properties || {}) },
+    required: [...(schema.required || [])],
+    additionalProperties: schema.additionalProperties !== false
+  };
+}
 for (const tool of tools) {
   const resolved = bundled(tool.name, tool.inputSchema);
   assert.deepEqual(
@@ -31,6 +43,13 @@ for (const tool of tools) {
     Object.keys(tool.inputSchema.properties || {}).sort(),
     `${tool.name} must not advertise unrelated primitive fields`
   );
+  if (workerToolNames.has(tool.name)) {
+    assert.deepEqual(
+      normalizeObjectSchema(backend(tool.name, tool.inputSchema)),
+      normalizeObjectSchema(tool.inputSchema),
+      `${tool.name} backend MCP schema must semantically match the canonical schema used by Rust`
+    );
+  }
 }
 const failures = tools.find((tool) => tool.name === 'genos_search_failures');
 const compiled = tools.find((tool) => tool.name === 'genos_compile_memory');

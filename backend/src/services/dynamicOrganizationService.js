@@ -150,7 +150,6 @@ async function getState(db, orchestratorId) {
   if (!row) return null;
   return { ...row, policy: JSON.parse(row.policyJson || '{}') };
 }
-
 async function getStateForMember(db, orchestratorId, requesterAgentId) {
   await assertOrchestrator(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
@@ -159,6 +158,7 @@ async function getStateForMember(db, orchestratorId, requesterAgentId) {
   return memberView.buildMemberState(state, requesterAgentId, members);
 }
 
+async function getWorkerStatusForMember(db, options = {}) { return workerStatus.getWorkerStatusForMember(db, options, { assertOrchestrator, assertMember }); }
 async function fetchAgentScope(db, agentId) {
   const row = await db.get(
     'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
@@ -169,7 +169,6 @@ async function fetchAgentScope(db, agentId) {
     projectId: row ? row.projectId : null
   };
 }
-
 async function recordOrganizationTransition(tx, ctx) {
   const { orchestratorId, organization, version, profile, reason, actor, prevOrg } = ctx;
   await tx.run(

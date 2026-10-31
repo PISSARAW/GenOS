@@ -27,7 +27,6 @@ fn tool_timeout_ms() -> u64 {
         .map(|value| value.min(30 * 60 * 1000))
         .unwrap_or(DEFAULT_TOOL_TIMEOUT_MS)
 }
-
 pub fn read_bounded(mut stream: impl Read) -> Vec<u8> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 8192];

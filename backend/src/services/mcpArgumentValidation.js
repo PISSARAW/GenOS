@@ -6,7 +6,6 @@ const publicValidators = new Map(PUBLIC_TOOLS.map((tool) => [tool.name, {
   schema: tool.inputSchema,
   validate: schemaCompiler.compile(tool.inputSchema)
 }]));
-
 const REQUIRED_STRINGS = {
   genos_philosophy: ['operation'],
   genos_agent_world_capsule: ['snapshot_id'],
