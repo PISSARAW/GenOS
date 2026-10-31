@@ -100,11 +100,11 @@ async function encodeState(db, parentId, state) {
   if (process.env.GENOS_AGENT_GIT_DELTA_STORAGE !== 'true') {
     return { serialized: JSON.stringify(state), depth: 0, enabled: false };
   }
-  if (!parentId) return { ...chooseEncoding(null, null, state), enabled: true };
+  if (!parentId) return { ...chooseEncoding({ parentId: null, parent: null, next: state }), enabled: true };
   const parent = await db.get('SELECT state_json, metadata_json FROM agent_git_objects WHERE id = ?', parentId);
   if (!parent) throw new Error('AgentGit delta parent is missing.');
   const depth = JSON.parse(parent.metadata_json || '{}').storageDepth || 0;
-  return { ...chooseEncoding(parentId, JSON.parse(parent.state_json), state, depth), enabled: true };
+  return { ...chooseEncoding({ parentId: parentId, parent: JSON.parse(parent.state_json), next: state, parentDepth: depth }), enabled: true };
 }
 
 module.exports = { storeObject };

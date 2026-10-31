@@ -20,20 +20,7 @@ async function publish(db, mission, event) {
     throw failure;
   }
   recordWorkerEvidence(mission, event);
-  if (event.eventType === 'AGENT_COMPLETED' && event.payload?.snapshot) {
-    const decision = require('../orchestrationDecisionService').decideFromEvent(event);
-    const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId || mission.agentId;
-    if (decision?.tool === 'genos_replay') {
-      const action = await require('../orchestrationActionExecutor').execute({
-        orchestratorId, sourceAgentId: mission.agentId, decision, event,
-        workspaceRoot: mission.workspaceRoot
-      }).catch(() => undefined);
-      if (action?.executed && action.result?.proof) {
-        event.payload.replayReceipt = action.result.proof;
-        recordWorkerEvidence(mission, event);
-      }
-    }
-  }
+  await require('./deterministicWorkerRuntimeStages1.js').publishStage1({ get event() { return event; }, set event(__genosNextStageValue) { event = __genosNextStageValue; }, mission, recordWorkerEvidence, require, undefined });
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {
     await require('../agentRoundService').advanceAutonomousRound(mission, event);
   }

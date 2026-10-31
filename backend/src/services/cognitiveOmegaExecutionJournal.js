@@ -34,7 +34,7 @@ async function beginRun(db, runId, request) {
     runId, requestHash);
 }
 
-async function findOperation(db, runId, operationId, operation) {
+async function findOperation({ db, runId, operationId, operation } = {}) {
   const row = await db.get(`SELECT operation_hash, status, result_json, result_hash FROM cognitive_omega_operations
     WHERE run_id = ? AND operation_id = ?`, runId, operationId);
   if (!row) return null;

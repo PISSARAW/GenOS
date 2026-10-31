@@ -71,51 +71,7 @@ async function rotate(db, dbPath) {
   const activeDb = await require('../src/db').getDatabase(dbPath);
   let transactionOpen = false;
   let committed = false;
-  try {
-    process.env.GENOS_GVX_LEDGER_HMAC_SECRET = secret;
-    await activeDb.run('BEGIN IMMEDIATE');
-    transactionOpen = true;
-
-    const updateGuard = await activeDb.get("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'gvx_events_no_update'");
-    const deleteGuard = await activeDb.get("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'gvx_events_no_delete'");
-    if (!updateGuard?.sql || !/BEFORE\s+UPDATE\s+ON\s+gvx_development_events/i.test(updateGuard.sql)
-        || !/RAISE\s*\(\s*ABORT\s*,\s*'gvx_event_is_immutable'\s*\)/i.test(updateGuard.sql)
-        || !deleteGuard?.sql || !/BEFORE\s+DELETE\s+ON\s+gvx_development_events/i.test(deleteGuard.sql)
-        || !/RAISE\s*\(\s*ABORT\s*,\s*'gvx_event_is_immutable'\s*\)/i.test(deleteGuard.sql)) {
-      throw new Error('ledger-immutability-guards-unexpected');
-    }
-    // Keep the guard changes in the same SQLite transaction as the MAC-only
-    // updates. A rollback restores the original immutability trigger.
-    await activeDb.run('DROP TRIGGER gvx_events_no_update');
-
-    rows = await ledgerRows(activeDb);
-    const currentChains = assertChains(rows);
-    if (currentChains !== chainCount) throw new Error('ledger-scope-set-changed');
-    for (const row of rows) {
-      const mac = integrity.macEvent(row.eventHash, secret);
-      await activeDb.run('UPDATE gvx_development_events SET control_plane_mac = ? WHERE id = ?', mac, row.id);
-    }
-
-    await activeDb.exec(`CREATE TRIGGER gvx_events_no_update
-      BEFORE UPDATE ON gvx_development_events BEGIN
-        SELECT RAISE(ABORT, 'gvx_event_is_immutable');
-      END`);
-    const signedRows = await ledgerRows(activeDb);
-    assertChains(signedRows, secret);
-    const restoredGuard = await activeDb.get("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'gvx_events_no_update'");
-    if (!restoredGuard?.sql) throw new Error('ledger-immutability-guard-not-restored');
-    await activeDb.run('COMMIT');
-    transactionOpen = false;
-    committed = true;
-    fs.renameSync(pendingPath, secretPath);
-    return { eventCount: signedRows.length, chainCount, backupPath, secretPath };
-  } catch (error) {
-    if (transactionOpen) await activeDb.run('ROLLBACK').catch(() => {});
-    if (!committed) {
-      try { fs.unlinkSync(pendingPath); } catch (_) {}
-    }
-    throw error;
-  }
+  { const __genosStageResult2 = await require('./rotate-gvx-ledger-keyStages1.cjs').rotateStage2({ Error, activeDb, assertChains, backupPath, chainCount, get committed() { return committed; }, set committed(__genosNextStageValue) { committed = __genosNextStageValue; }, fs, integrity, ledgerRows, pendingPath, get process() { return process; }, set process(__genosNextStageValue) { process = __genosNextStageValue; }, require, get rows() { return rows; }, set rows(__genosNextStageValue) { rows = __genosNextStageValue; }, secret, secretPath, get transactionOpen() { return transactionOpen; }, set transactionOpen(__genosNextStageValue) { transactionOpen = __genosNextStageValue; } }); if (__genosStageResult2) return __genosStageResult2.value; }
 }
 
 async function main(argv = process.argv.slice(2)) {

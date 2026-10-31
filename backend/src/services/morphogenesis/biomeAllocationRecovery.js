@@ -17,8 +17,7 @@ function normalizeUnresolvedResponse(result, responseFormat, mission) {
   if (!response || typeof response !== 'object') {
     try { response = JSON.parse(result.text || ''); } catch { return null; }
   }
-  if (response.outcome !== 'unresolved' || (response.claims || []).length > 0
-    || (Array.isArray(response.uncertainties) && response.uncertainties.length > 0)) return null;
+  if (require('./biomeAllocationRecoveryValues1.js').normalizeUnresolvedResponseValue1({ Array, get response() { return response; } })) return null;
 
   const normalized = { ...response,
     uncertainties: ['The worker returned unresolved without specifying the missing evidence or reason.'] };
@@ -32,10 +31,7 @@ function normalizeGenerationResult(result, mission) {
   if (!result?.schemaViolation || !isBiomeSteward(mission)) return result;
   const supplied = Array.isArray(mission.allowedEvidenceRefs) ? mission.allowedEvidenceRefs
     : (Array.isArray(mission.evidenceRefs) ? mission.evidenceRefs : []);
-  const format = require('../agents/workerArtifactResponseSchema').workerArtifactResponseFormat(
-    mission.workerKind || mission.role, [...new Set(['mission', ...supplied.filter((item) => typeof item === 'string' && item.trim())])],
-    { diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''),
-      missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [] });
+  const format = require('./biomeAllocationRecoveryValues1.js').normalizeGenerationResultValue3({ Set, mission, require, supplied });
   return normalizeUnresolvedResponse(result, format, mission) || result;
 }
 
@@ -43,7 +39,7 @@ function recoverExhaustedAllocation(report, mission, modelOutput = '') {
   if (!isBiomeSteward(mission)) return null;
   const maxAttempts = Number(mission.recoveryMaxAttempts);
   const attempt = Number(mission.recoveryAttempt);
-  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || !Number.isInteger(attempt) || attempt < maxAttempts) return null;
+  if (require('./biomeAllocationRecoveryValues1.js').recoverExhaustedAllocationValue2({ Number, attempt, maxAttempts })) return null;
   if (report?.specialtyAssessment?.inScope === false) return null;
 
   const source = String(mission.prompt || mission.currentTask || '');

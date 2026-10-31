@@ -35,8 +35,12 @@ function classifyFailure(event = {}) {
   const declared = String(payload.failure?.category || payload.category || '').toLowerCase();
   if (declared) return declared;
   if (failedProposalTests(payload).length > 0) return 'test_failure';
-  const text = (event.detail || '') + ' ' + (payload.failure?.reason || '') + ' ' + (payload.stderr || '');
+  const text = failureText(event, payload);
   return matchFailureCategory(text) || (event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure');
+}
+
+function failureText(event, payload) {
+  return (event.detail || '') + ' ' + (payload.failure?.reason || '') + ' ' + (payload.stderr || '');
 }
 
 function proofOfNoAnswer(payload = {}) {
@@ -55,12 +59,6 @@ function hasClaimWithoutEvidence(claims) {
 
 function makeFailure(reason, category = 'unresolved_task') {
   return { outcome: 'failed', failure: { category, reason, evidence: [] } };
-}
-
-function classifyNoAnswer(report) {
-  const noAnswerProof = proofOfNoAnswer(report);
-  if (report.outcome === 'no_answer' && noAnswerProof) return { outcome: 'no_answer', noAnswerProof };
-  return null;
 }
 
 function classifyNoAnswer(report) {
@@ -99,7 +97,7 @@ function reportFailureReason(payload, event, mission = {}) {
   const reason = compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
   const previous = Array.isArray(mission.recoveryHistory) ? mission.recoveryHistory.slice(-1)[0]?.report?.reason : null;
   const campaignReason = require('./morphogenesis/biomeAllocationFeedback')
-    .recoveryFailureReason(reason, payload.workerArtifactDiagnostics, payload.evidenceReport, previous);
+    .recoveryFailureReason({ reason: reason, diagnostics: payload.workerArtifactDiagnostics, evidenceReport: payload.evidenceReport, priorFailure: previous });
   return compact([campaignReason, ...summary].join('\n'));
 }
 

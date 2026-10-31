@@ -7,9 +7,7 @@ const { compareIdentity, compareCapabilities, summarizeRuns } = require('./ontog
 
 function validateInput(body) {
   const names = body?.probeNames;
-  if (!body?.baselineObjectId || !body?.candidateObjectId || !Array.isArray(names)
-    || !names.length || names.length > 8 || new Set(names).size !== names.length
-    || names.some((name) => typeof name !== 'string')) {
+  if (require('./ontogeneticEvaluateValues1.cjs').validateInputValue1({ Array, Set, body, names })) {
     throw new Error('Two object IDs and one to eight distinct registered probe names are required.');
   }
   names.forEach(configuredProbe);

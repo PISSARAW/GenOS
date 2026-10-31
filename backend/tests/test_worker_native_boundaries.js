@@ -46,7 +46,12 @@ async function verifyContractBounds(root, inputs) {
   await rejects(host, 'SYMBIOTIC_HOST_CONTRACT_INVALID');
   const adaptive = missionFor('adaptive_worker', inputs.adaptive_worker, root);
   adaptive.workerContract.limits.maxStrategyChanges = 0;
-  await rejects(adaptive, 'WORKER_STRATEGY_LIMIT');
+  const unchanged = await executeNativeWorker(adaptive.workerKind, adaptive.methodContract, { mission: adaptive });
+  assert.equal(unchanged.output.strategyTrace.length, 2);
+  assert.ok(unchanged.output.strategyTrace.every(trial => trial.strategy === 'controlled_probe'));
+  const unsupported = structuredClone(adaptive);
+  unsupported.methodContract.parameters.trials[1].strategy = 'not_implemented';
+  await rejects(unsupported, 'WORKER_ADAPTATION_INVALID');
   adaptive.workerContract.limits.maxIterations = 1;
   await rejects(adaptive, 'WORKER_ITERATION_LIMIT');
   assert.equal(buildWorkerContract('procedural_executor', { workerTokenLimit: 99999 }).resources.maxTokens, 0);

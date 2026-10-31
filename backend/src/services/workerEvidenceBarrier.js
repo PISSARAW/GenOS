@@ -299,8 +299,8 @@ function attachSemanticReport(ctx, dossiers) {
 }
 
 async function applyCommonClosure(ctx) {
-  const missionId = ctx.normalizedMission?.missionId
-    || ctx.autonomyPlan?.trinity?.missionId || ctx.agentId;
+  const missionId = ctx.autonomyPlan?.trinity?.missionId
+    || ctx.normalizedMission?.missionId || ctx.agentId;
   const topology = closureAdapter.topologyContext(ctx);
   const invariants = ctx.partial ? [
     { id: 'partial_worker_evidence_preserved', passed: Array.isArray(ctx.dossiers) && ctx.dossiers.length > 0 }

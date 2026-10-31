@@ -50,9 +50,7 @@ function main() {
     }
     case 'api-reference': {
       const readme = fs.readFileSync(path.join(workspaceRoot, 'README.md'), 'utf8').toLowerCase();
-      for (const term of ['average', 'percentile', 'summary', 'median', 'filter_above', 'empty']) {
-        assert.ok(readme.includes(term));
-      }
+      require('./verifyStages1.cjs').mainStage1({ assert, readme });
       break;
     }
     case 'boundary-examples': {

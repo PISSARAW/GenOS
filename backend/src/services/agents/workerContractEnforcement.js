@@ -39,9 +39,7 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const kind = contract?.identity?.workerKind;
   const action = toolAction(toolName, args);
   if (!kind || !Object.hasOwn(workerKinds.KINDS, kind)) throw contractError(kind || 'unknown', action);
-  if (String(toolName).toLowerCase() === 'genos_topology_session'
-    && (!contract.mission?.topologySessionId
-      || (args.session_id || args.sessionId) !== contract.mission.topologySessionId)) {
+  if (require('./workerContractEnforcementValues1.js').assertWorkerToolAllowedValue5({ String, args, contract, toolName })) {
     throw contractError(kind, action);
   }
   if (action === 'topology_read') return true;
@@ -51,16 +49,11 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
 }
 
 async function enforcePersistedWorkerTool(db, agentId, toolCall) {
-  const normalizedCall = typeof toolCall === 'string' ? { toolName: toolCall, args: {} } : (toolCall || {});
+  const normalizedCall = require('./workerContractEnforcementValues1.js').enforcePersistedWorkerToolValue4({ toolCall });
   const { toolName, args = {} } = normalizedCall;
   const agent = await db.get('SELECT execution_mode, metadata_json, role, parent_agent_id FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
-  if (String(toolName || '').trim().toLowerCase() === 'genos_replay'
-    && !(await ownsReplaySnapshot(db, agentId, args.snapshot || args.snapshot_id))) {
-    throw Object.assign(new Error('Workers may replay only their own evidence capsule.'), {
-      code: 'WORKER_REPLAY_SNAPSHOT_SCOPE_DENIED'
-    });
-  }
+  await require('./workerContractEnforcementStages1.js').enforcePersistedWorkerToolStage2({ Error, Object, String, agentId, args, db, ownsReplaySnapshot, toolName });
   const metadata = persistedMetadata(agent, toolName);
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
   const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -73,29 +66,18 @@ async function enforcePersistedWorkerTool(db, agentId, toolCall) {
   return assertWorkerToolAllowed(contract, toolName, args);
 }
 
-async function ownsReplaySnapshot(db, agentId, reference, suppliedRoot = null) {
+async function ownsReplaySnapshot({ db, agentId, reference, suppliedRoot = null } = {}) {
   if (typeof reference !== 'string' || !reference.trim()) return false;
   const owner = await db.get('SELECT a.execution_mode, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
-  if (!owner || owner.execution_mode !== 'worker' || typeof owner.path !== 'string') return false;
+  if (require('./workerContractEnforcementValues1.js').ownsReplaySnapshotValue2({ owner })) return false;
   const root = path.resolve(owner.path);
-  if (suppliedRoot !== null && (typeof suppliedRoot !== 'string' || path.resolve(suppliedRoot) !== root)) return false;
+  if (require('./workerContractEnforcementValues1.js').ownsReplaySnapshotValue3({ path, root, suppliedRoot })) return false;
   let directory;
   try { directory = resolveContainedPathNoSymlinkSync(root, '.genos/evidence-snapshots', 'worker replay snapshot directory'); }
   catch (_) { return false; }
   let entries;
   try { entries = await fs.readdir(directory, { withFileTypes: true }); } catch (_) { return false; }
-  for (const entry of entries) {
-    if (!entry.isFile() || !/^[A-Za-z0-9_-]{1,128}\.json$/.test(entry.name)) continue;
-    let snapshotPath;
-    try { snapshotPath = resolveContainedPathNoSymlinkSync(root,
-      path.posix.join('.genos', 'evidence-snapshots', entry.name), 'worker replay snapshot'); }
-    catch (_) { continue; }
-    let snapshot;
-    try { snapshot = JSON.parse(await fs.readFile(snapshotPath, 'utf8')); } catch (_) { continue; }
-    if (typeof snapshot.agent_id !== 'string' || !snapshot.agent_id.trim()
-      || typeof snapshot.snapshot_id !== 'string' || !snapshot.snapshot_id.trim()) continue;
-    if (reference === snapshot.snapshot_id || path.resolve(reference) === snapshotPath) return true;
-  }
+  { const __genosStageResult1 = await require('./workerContractEnforcementStages1.js').ownsReplaySnapshotStage1({ JSON, get entries() { return entries; }, set entries(__genosNextStageValue) { entries = __genosNextStageValue; }, fs, path, reference, require, resolveContainedPathNoSymlinkSync, root }); if (__genosStageResult1) return __genosStageResult1.value; }
   return false;
 }
 
@@ -245,6 +227,7 @@ function invalidContract() {
 }
 
 function assertAssignmentMatches(contract, request) {
+  require('../epistemic/workspaceVerificationContract').assertMatches(contract, request);
   const kind = contract?.identity?.workerKind;
   if (require('./workerRuntimeLimitsService').isDeterministicWorkerMission({ workerKind: kind,
     methodContract: contract.mission?.methodContract })) {

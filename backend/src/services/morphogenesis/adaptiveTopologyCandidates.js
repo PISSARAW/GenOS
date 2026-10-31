@@ -119,7 +119,7 @@ function addSingleTopology(ctx) {
       admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${variantEntry.maturity}.` });
   }
   topology.push(candidate);
-  components.push(componentFor(topologyId, variantEntry, contract, workerKinds));
+  components.push(componentFor({ topologyId: topologyId, variant: variantEntry, contract: contract, workerKinds: workerKinds }));
 }
 
 function addVariantCandidate(ctx) {
@@ -135,27 +135,14 @@ function addVariantCandidate(ctx) {
       admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${entry.maturity}.` });
   }
   variant.push(candidate);
-  components.push(componentFor(topologyId, entry, contract, workerKinds));
+  components.push(componentFor({ topologyId: topologyId, variant: entry, contract: contract, workerKinds: workerKinds }));
 }
 
 function workerKindsForCandidate(topologyId, variantEntry, mission) {
   if (typeof mission !== 'string' || !mission.trim()) return null;
   try {
     let members;
-    if (topologyId === 'trinity') {
-      const options = variantEntry.variantId === 'default' ? {} : { variantId: variantEntry.variantId };
-      members = require('../trinityService').compose(mission, options);
-    } else if (topologyId === 'a_team') {
-      const analysis = require('../aTeamService').analyzeMission(mission);
-      if (!analysis.recommended || !analysis.members.length) {
-        throw Object.assign(new Error('A-Team composition is not executable for this mission.'), {
-          code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED'
-        });
-      }
-      members = analysis.members;
-    } else {
-      members = require('../biologicalModeService').compose(topologyId, mission);
-    }
+    require('./adaptiveTopologyCandidatesStages1.js').workerKindsForCandidateStage1({ Error, Object, get members() { return members; }, set members(__genosNextStageValue) { members = __genosNextStageValue; }, mission, require, topologyId, variantEntry });
     if (topologyId === 'syncytium' && variantEntry.variantId !== 'default') {
       const specialist = require('../syncytiumVariantWorkerService').VARIANT_WORKERS[variantEntry.variantId];
       if (specialist) members = [...members, { role: specialist.role, mission }];
@@ -219,7 +206,7 @@ function addVetoedCandidate(ctx) {
   });
 }
 
-function componentFor(topologyId, variant, contract, workerKinds) {
+function componentFor({ topologyId, variant, contract, workerKinds } = {}) {
   return { topologyId, variant, contract, workerKinds };
 }
 

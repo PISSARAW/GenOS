@@ -56,8 +56,7 @@ async function main() {
     const observed = { relationType: profile.relationType, direction: profile.direction,
       relationGrantsControl: control.granted, actualControlAllowed };
     const bridgeTest = testBridge();
-    const enginePass = JSON.stringify(observed) === JSON.stringify(EXPECTED)
-      && controlError?.code === 'AGENT_CONTROL_FORBIDDEN' && bridgeTest.exitCode === 0;
+    const enginePass = require('./run-s06-qwenValues1.cjs').mainValue1({ EXPECTED, JSON, bridgeTest, get controlError() { return controlError; }, observed });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['A coworker relationship changed to manager in the social graph. Copy the current relationship and actual GenOS authority outcome. A social rank must not grant runtime control by itself.',
         `Observed authority profile: ${JSON.stringify(observed)}`,

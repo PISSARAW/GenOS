@@ -53,17 +53,11 @@ function identityReceiptSucceeded(receipt) {
 
 function validPassingReport(report, { requireDossier = false } = {}) {
   if (!report || report.outcome !== 'success' || !Array.isArray(report.claims) || report.claims.length === 0) return false;
-  if (!Array.isArray(report.tests) || report.tests.length === 0
-      || report.tests.some((test) => !test || typeof test !== 'object'
-        || !Number.isInteger(test.exitCode) || test.exitCode !== 0 || test.signal)) return false;
+  if (require('./missionCompletionValues1.js').validPassingReportValue4({ Array, Number, report })) return false;
   if (!requireDossier) return true;
   const artifact = report.workerArtifact;
   const provenance = artifact?.provenance;
-  return artifact?.type === 'dossier' && Array.isArray(artifact.content?.claims)
-    && artifact.content.claims.length > 0 && typeof provenance?.source === 'string'
-    && provenance.source.length > 0 && typeof provenance.workspaceRoot === 'string'
-    && Array.isArray(provenance.sourceRefs) && provenance.sourceRefs.length > 0
-    && Array.isArray(report.scopeCompletion?.completedRefs) && report.scopeCompletion.completedRefs.length > 0;
+  return require('./missionCompletionValues1.js').validPassingReportValue1({ Array, artifact, provenance, report }) && report.scopeCompletion.completedRefs.length > 0;
 }
 
 async function workerCompletionEvidence(db, agent) {
@@ -140,8 +134,7 @@ async function completionGate(db, input) {
   if (!Array.isArray(agents) || agents.length === 0) return { allowed: false, reason: 'agents-non-verifies' };
   const root = agents.find((agent) => agent.id === request.id);
   const participants = root ? agents.filter((agent) => agent.id !== request.id) : agents;
-  const rootVerified = !root || root.status === 'completed'
-    || (root.status === 'unverified' && root.missionCompletionEvidenceVerified === true);
+  const rootVerified = require('./missionCompletionValues1.js').completionGateValue2({ root });
   const participantsVerified = participants.every((agent) => agent?.status === 'completed'
     || agent?.missionCompletionEvidenceVerified === true);
   if (!rootVerified || !participantsVerified) return { allowed: false, reason: 'agents-non-verifies' };
@@ -152,25 +145,7 @@ async function completionGate(db, input) {
     checks: request.verifierChecks
   });
   context.context.flags.verifierReceiptPresent = verifierReceiptPresent;
-  if (verifierReceiptPresent) {
-    context.context.evidence.push('independent_verifier_receipt');
-    if (rootVerified && participantsVerified) {
-      context.context.missionOutcome = true;
-      context.context.flags.missionOutcome = true;
-      context.context.flags.completionContractConfigured = Boolean(
-        context.completionContract?.invariants?.length
-        || context.completionContract?.requiredEvidence?.length
-        || request.verifierChecks?.length
-      );
-      const proof = { schema: 'genos.ontogenesis-agent-completion-proof/v1',
-        missionId: request.missionId || request.id, orchestratorId: request.id,
-        candidateTreeHash: verifierReceipt.treeHash,
-        agentIds: agents.map((agent) => agent.id).filter(Boolean).sort(),
-        completionVerified: true };
-      proof.payloadHash = digest(proof);
-      context.context.ontogenesisRuntimeCompletionProof = proof;
-    }
-  }
+  require('./missionCompletionStages1.js').completionGateStage1({ Boolean, agents, get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, digest, participantsVerified, request, require, rootVerified, verifierReceipt, get verifierReceiptPresent() { return verifierReceiptPresent; }, set verifierReceiptPresent(__genosNextStageValue) { verifierReceiptPresent = __genosNextStageValue; } });
   const evidenceGate = verifyEvidenceContract(request, context);
   if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {

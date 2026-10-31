@@ -41,13 +41,7 @@ async function main() {
     db = await getDatabase(':memory:');
     await createWorld(db);
     profiles = [];
-    for (const agentId of ['agent-b', 'agent-c']) {
-      const profile = await resolver.getRelationProfile('agent-a', agentId, {
-        db, organizationId: 'socialworld-org', projectId: 'socialworld-project'
-      });
-      profiles.push({ agentId, relationType: profile.relationType,
-        sharedEvents: profile.relations?.[0]?.properties?.sharedEvents || [] });
-    }
+    await require('./run-s03-qwenStages1.cjs').mainStage1({ get db() { return db; }, set db(__genosNextStageValue) { db = __genosNextStageValue; }, get profiles() { return profiles; }, set profiles(__genosNextStageValue) { profiles = __genosNextStageValue; }, resolver });
     const databasePass = JSON.stringify(canonical(profiles)) === JSON.stringify(canonical(EXPECTED));
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['From these GenOS social profiles, identify the friend and recall only the event in shared history. Distinguish the stranger and do not invent shared events.',

@@ -254,20 +254,7 @@ function applyExecutionPolicy(ctx) {
     task,
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
   );
-  normalizedMission.executionPolicy = {
-    allowedCommands: Array.isArray(normalizedMission.executionPolicy?.allowedCommands)
-      ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
-      : [],
-    allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
-    ...(Array.isArray(normalizedMission.executionPolicy?.allowedWritePaths)
-      ? { allowedWritePaths: [...new Set(normalizedMission.executionPolicy.allowedWritePaths
-        .map((value) => String(value).trim()).filter(Boolean))] } : {}),
-    gqwfV2: normalizedMission.executionPolicy?.gqwfV2 === true,
-    gqwfMaterializer: normalizedMission.executionPolicy?.gqwfMaterializer,
-    explicitWriteLease: normalizedMission.executionPolicy?.explicitWriteLease === true,
-    requestedWorkers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 0,
-    silentUpdates
-  };
+  normalizedMission.executionPolicy = require('./missionPlanningValues1.js').applyExecutionPolicyValue1({ Array, Boolean, Number, Set, String, get normalizedMission() { return normalizedMission; }, requestedWorkers, get silentUpdates() { return silentUpdates; } });
   applyRegulatedPosture(normalizedMission, arbitration);
   applyValencePosture(ctx);
   normalizedMission.userReporting = userProgress.reportingPolicy(task, silentUpdates);

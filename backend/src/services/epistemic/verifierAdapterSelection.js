@@ -1,6 +1,7 @@
 'use strict';
 
 const SPECIALIZED = {
+  workspace_semantic: () => require('./oracleWorkspaceAdapter').runWorkspaceOracle,
   code_semantic: () => require('./oracleCodeAdapter').runCodeOracle,
   procedure_semantic: () => require('./oracleProcedureAdapter').runProcedureOracle,
   external_credit_semantic: () => require('./oracleExternalCreditAdapter').runExternalCreditOracle,

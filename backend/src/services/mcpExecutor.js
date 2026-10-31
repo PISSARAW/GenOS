@@ -75,7 +75,7 @@ function resolveGenosBinary(repositoryRoot) {
   return configured;
 }
 
-function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot, agentId = null) {
+function mcpTransportEnvironment({ toolName, repositoryRoot, workspaceRoot, agentId = null } = {}) {
   void toolName;
   const environment = { ...mcpBaseEnvironment(), GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: resolveGenosBinary(repositoryRoot), GENOS_MCP_CLIENT: 'genos-backend' };
   if (typeof agentId === 'string' && agentId.trim()) environment.GENOS_AGENT_ID = agentId.trim();

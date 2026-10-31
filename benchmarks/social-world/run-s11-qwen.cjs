@@ -79,13 +79,9 @@ async function main() {
     decision = receipt.decision;
     execution = receipt.executed;
     signalCount = signals.length;
-    observed = { action: decision.action, recipients: decision.recipients || [],
-      semanticRefs: delivered?.envelope?.semanticRefs
-        || signals.flatMap((signal) => signal.communicationEnvelope?.semanticRefs || []) };
+    observed = require('./run-s11-qwenValues1.cjs').mainValue1({ get decision() { return decision; }, get delivered() { return delivered; }, signals });
     const { response, answer } = await askQwen(observed, seed);
-    enginePass = observed.action === EXPECTED.action
-      && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
-      && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
+    enginePass = require('./run-s11-qwenValues1.cjs').mainValue2({ EXPECTED, JSON, get observed() { return observed; } });
     const qwenPass = JSON.stringify(answer) === JSON.stringify(observed);
     const passed = enginePass && qwenPass;
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S11', seed,

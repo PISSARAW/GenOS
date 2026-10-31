@@ -21,20 +21,15 @@ async function loadPlan(db, req, ids) {
   const base = await getObject(db, req, parentId);
   const ontoId = req.body?.ontoObjectId || parentId;
   const onto = await getObject(db, req, ontoId);
-  if (!base || !onto || ids.includes(ontoId)) throw new Error('Rebase base or onto commit is unavailable.');
-  for (const [index, object] of commits.entries()) {
-    const graph = await getCommit(db, object.id);
-    if (graph?.parentIds?.[0] !== (index ? ids[index - 1] : parentId)) {
-      throw new Error('Interactive rebase commits must form a contiguous first-parent chain.');
-    }
-  }
+  if (require('./rebaseInteractiveValues1.cjs').loadPlanValue1({ base, ids, onto, ontoId })) throw new Error('Rebase base or onto commit is unavailable.');
+  await require('./rebaseInteractiveStages1.cjs').loadPlanStage1({ Error, commits, db, getCommit, ids, get parentId() { return parentId; }, set parentId(__genosNextStageValue) { parentId = __genosNextStageValue; } });
   const scope = [base, onto, ...commits];
   if (scope.some((item) => item.agent_id !== commits[0].agent_id || item.workspace_id !== commits[0].workspace_id)) {
     throw new Error('Interactive rebase cannot cross an agent or workspace.');
   }
   const issues = scope.flatMap(verifySource);
   if (issues.length) throw new Error(`Commit verification failed: ${JSON.stringify(issues)}`);
-  const refName = req.body?.refName || commits.at(-1).ref_name || 'main';
+  const refName = require('./rebaseInteractiveValues1.cjs').loadPlanValue2({ commits, req });
   const ref = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
     commits[0].agent_id, refName);
   if (ref?.object_id !== ids.at(-1)) throw new Error('Target ref does not point to the series head.');
@@ -74,8 +69,7 @@ async function rebaseInteractive(req) {
   validateActions(ids, actions);
   const db = await getDatabase();
   const source = await loadPlan(db, req, ids);
-  const plan = planReplay(JSON.parse(source.onto.state_json), source.commits, actions,
-    JSON.parse(source.base.state_json));
+  const plan = planReplay({ ontoState: JSON.parse(source.onto.state_json), commits: source.commits, actions: actions, parentState: JSON.parse(source.base.state_json) });
   const committed = await withTransaction(db, () => persistPlan(db, req, { source, plan }));
   return { success: true, operation: 'rebase-interactive', ontoObjectId: source.onto.id,
     originalCommits: ids, appliedActions: actions.map((item) => item.action),

@@ -84,20 +84,18 @@ function checkPathConfinement(capsule) {
 }
 
 function checkArtifactApplication(capsule) {
-  assert.deepEqual(runtime.applyWorkerArtifacts('[ARTIFACT: probe.js]probe[/ARTIFACT]', capsule, false), []);
+  assert.deepEqual(runtime.applyWorkerArtifacts({ reply: '[ARTIFACT: probe.js]probe[/ARTIFACT]', workspaceRoot: capsule, allowFileEdits: false }), []);
   assert.equal(fs.existsSync(path.join(capsule, 'probe.js')), false);
-  assert.throws(() => runtime.applyWorkerArtifacts(artifactReply('../escape.js', 'evil'), capsule, true, ['*']), /escapes/);
+  assert.throws(() => runtime.applyWorkerArtifacts({ reply: artifactReply('../escape.js', 'evil'), workspaceRoot: capsule, allowFileEdits: true, allowedWritePaths: ['*'] }), /escapes/);
   assert.equal(fs.existsSync(path.join(path.dirname(capsule), 'escape.js')), false);
-  const applied = runtime.applyWorkerArtifacts(artifactReply('buggy-sum.js', FIXED_SUM), capsule, true, ['*']);
+  const applied = runtime.applyWorkerArtifacts({ reply: artifactReply('buggy-sum.js', FIXED_SUM), workspaceRoot: capsule, allowFileEdits: true, allowedWritePaths: ['*'] });
   assert.deepEqual(applied, ['buggy-sum.js']);
   assert.equal(fs.readFileSync(path.join(capsule, 'buggy-sum.js'), 'utf8'), FIXED_SUM);
   fs.writeFileSync(path.join(capsule, 'verify.cjs'), 'authoritative verifier');
-  assert.throws(() => runtime.applyWorkerArtifacts(
-    artifactReply('verify.cjs', 'model-controlled verifier'), capsule, true, ['src/']),
+  assert.throws(() => runtime.applyWorkerArtifacts({ reply: artifactReply('verify.cjs', 'model-controlled verifier'), workspaceRoot: capsule, allowFileEdits: true, allowedWritePaths: ['src/'] }),
   /not_authorized/);
   assert.equal(fs.readFileSync(path.join(capsule, 'verify.cjs'), 'utf8'), 'authoritative verifier');
-  assert.deepEqual(runtime.applyWorkerArtifacts(
-    artifactReply('src/pricing.js', 'module.exports = { sumPrices() {} }'), capsule, true, ['src/']),
+  assert.deepEqual(runtime.applyWorkerArtifacts({ reply: artifactReply('src/pricing.js', 'module.exports = { sumPrices() {} }'), workspaceRoot: capsule, allowFileEdits: true, allowedWritePaths: ['src/'] }),
   ['src/pricing.js']);
   assert.equal(fs.existsSync(path.join(path.dirname(capsule), 'escape.js')), false);
 }
@@ -118,7 +116,7 @@ async function checkSandboxExecution(capsule) {
   const dangerous = await runtime.collectCommandProofs(JSON.stringify({ tests: ['rm -rf /'] }), capsule, { allowedCommands: ['rm -rf /'] });
   assert.equal(dangerous[0].executed, false);
   assert.equal(dangerous[0].reason, 'not_allowlisted');
-  runtime.applyWorkerArtifacts(artifactReply('buggy-sum.js', FIXED_SUM), capsule, true, ['*']);
+  runtime.applyWorkerArtifacts({ reply: artifactReply('buggy-sum.js', FIXED_SUM), workspaceRoot: capsule, allowFileEdits: true, allowedWritePaths: ['*'] });
   const passing = await runtime.collectCommandProofs(JSON.stringify({ tests: ['npm test'] }), capsule, { allowedCommands: ['npm test'] });
   assert.equal(passing[0].executed, true);
   assert.equal(passing[0].exitCode, 0);

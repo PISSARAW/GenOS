@@ -7,11 +7,9 @@ function buildWorkspaceContext(workspaceRoot, options = {}) {
   const fs = require('fs');
   const root = path.resolve(workspaceRoot || process.cwd());
   const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(root);
-  const candidates = require('./local-code-workspace-context.cjs').collectWorkspaceContextPaths(
-    root, options.allowedCommands || [], readWorkspaceFileExcerpt, LOCAL_WORKER_FILE_BUDGET.maxFiles, fs);
+  const candidates = require('./local-code-workspace-context.cjs').collectWorkspaceContextPaths({ root: root, allowedCommands: options.allowedCommands || [], readExcerpt: readWorkspaceFileExcerpt, maxFiles: LOCAL_WORKER_FILE_BUDGET.maxFiles, fs: fs });
   const names = candidates.join(', ') || '(aucun)';
-  const bootstrapHint = candidates.some(name => /\.(?:html?|css|[cm]?js|jsx?|tsx?|py|rs|go|java|cs|rb|php)$/i.test(name)) ? ''
-    : '\n[WORKSPACE INITIALIZATION] No implementation source files were found. For a create/build task, scaffold from scratch using the mission requirements; an empty starter workspace is not a blocker. For modification or review tasks, report the specific missing source instead of inventing it.';
+  const bootstrapHint = require('./localRuntimeWorkspaceContextValues1.cjs').buildWorkspaceContextValue1({ candidates });
   let text = `[CONTEXTE DU WORKSPACE ACTIF : Projet \"${projectName}\"]\nFichiers analysés (tests autorisés et leurs imports en premier) : ${names}${bootstrapHint}\n\n`;
   const fileHashes = {};
   let total = 0;

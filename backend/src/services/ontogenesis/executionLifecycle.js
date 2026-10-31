@@ -35,26 +35,22 @@ async function haltForControl(db, ctx, harness) {
 async function observeExecution(db, ctx, harness) {
   const run = await activeExecution(db, ctx.project.id);
   if (!run) return failState(db, ctx, 'execution-introuvable');
-  if (run.phase === 'finished' || run.phase === 'verified') return { workerResult: 'done', run };
+  { const __genosStageResult3 = require('./executionLifecycleStages1.js').observeExecutionStage3({ run }); if (__genosStageResult3) return __genosStageResult3.value; }
   const observed = await harness.observe(run);
   // The mission process may persist its terminal result while the harness is
   // observing it. Re-read before marking a dead process interrupted, and use a
   // compare-and-set below so this observer cannot overwrite that result.
   const latest = await activeExecution(db, ctx.project.id);
-  if (!latest || latest.id !== run.id) return { workerResult: 'done', run: latest || run };
-  if (latest.phase === 'finished' || latest.phase === 'verified') return { workerResult: 'done', run: latest };
-  if (observed.alive) {
-    const deadline = Date.parse(latest.started_at) + JSON.parse(latest.budgets_json).seconds * 1000;
-    if (Date.now() < deadline) return { run };
-    if (!await harness.stop(latest)) return { run: latest };
-  }
-  if (latest.phase === 'prepared' && Date.now() - Date.parse(latest.started_at) < 30000) return { run: latest };
+  { const __genosStageResult1 = require('./executionLifecycleStages1.js').observeExecutionStage1({ latest, run }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const __genosStageResult5 = require('./executionLifecycleStages1.js').observeExecutionStage5({ latest }); if (__genosStageResult5) return __genosStageResult5.value; }
+  { const __genosStageResult2 = await require('./executionLifecycleStages1.js').observeExecutionStage2({ Date, JSON, harness, latest, observed, run }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const __genosStageResult6 = require('./executionLifecycleStages1.js').observeExecutionStage6({ Date, latest }); if (__genosStageResult6) return __genosStageResult6.value; }
   const interrupted = await markExecutionInterrupted(db, { id: latest.id });
   if (!interrupted) {
     const raced = await activeExecution(db, ctx.project.id);
     return { workerResult: 'done', run: raced || latest };
   }
-  if (run.phase === 'prepared' && Date.now() - Date.parse(run.started_at) < 30000) return { run };
+  { const __genosStageResult4 = require('./executionLifecycleStages1.js').observeExecutionStage4({ Date, run }); if (__genosStageResult4) return __genosStageResult4.value; }
   await updateExecution(db, { id: run.id, phase: 'finished', result: { success: false, error: 'runtime-interrompu' } });
   return { workerResult: 'done', run: await activeExecution(db, ctx.project.id) };
 }
@@ -83,7 +79,7 @@ async function settleFailedExecution(db, ctx, error) {
   await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: error.message, provenance: { operationId: run && run.id, topology: run && run.topology, taskId: run && run.task_id } });
   let config = {};
   try { config = JSON.parse(ctx.project.config_json || '{}'); } catch (_) {}
-  const state = await failureState(db, run, error, config.durability?.maxAttempts);
+  const state = await failureState({ db, run, error, maxAttempts: config.durability?.maxAttempts });
   if (run) await daemonStewardship.recordFailure(db, {
     projectId: ctx.project.id, taskId: run.task_id, reason: error.message
   }).catch(() => ({ recorded: false }));

@@ -52,22 +52,7 @@ async function applyCheapUpdate(bridge, event, receptor) {
   if (receptor.cheapUpdate === 'head') {
     return applyHeadUpdate(bridge, { ...event, rootPath: event.rootPath || stored.territory.rootPath });
   }
-  if (event.type === 'TERRITORY_FILE_CHANGED') {
-    const files = safeChangedFiles(event.payload?.files || (event.payload?.file ? [event.payload.file] : []));
-    const fresh = stored.territory.state !== 'STALE' && stored.territory.indexedHeadSha === stored.territory.headSha;
-    if (!files?.length || !fresh) {
-      await markIndexStale(bridge.db, event.territoryId);
-      return { applied: false, reason: files?.length ? 'index-already-stale' : 'changed-files-unavailable' };
-    }
-    try {
-      const result = await cartographer.updateFiles(bridge.db, { territoryId: event.territoryId,
-        rootPath: stored.territory.rootPath, files });
-      return { applied: true, kind: 'files', ...result };
-    } catch (_) {
-      await markIndexStale(bridge.db, event.territoryId);
-      return { applied: false, reason: 'file-index-refresh-failed' };
-    }
-  }
+  { const __genosStageResult1 = await require('./daemonEventBridgeServiceStages1.js').applyCheapUpdateStage1({ bridge, cartographer, event, markIndexStale, require, safeChangedFiles, stored }); if (__genosStageResult1) return __genosStageResult1.value; }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
 }

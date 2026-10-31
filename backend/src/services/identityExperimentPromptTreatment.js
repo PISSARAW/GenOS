@@ -7,7 +7,7 @@ function applyIdentityExperimentTreatment(input) {
   if (process.env.GENOS_IDENTITY_EXPERIMENT !== '1') {
     throw new Error('Identity experiment prompt treatments require GENOS_IDENTITY_EXPERIMENT=1');
   }
-  const base = { selfIntro: input.selfIntro || '', conscienceBlock: input.conscienceBlock || '', workerSelfBlock: input.workerSelfBlock || '' };
+  const base = require('./identityExperimentPromptTreatmentValues1.js').applyIdentityExperimentTreatmentValue1({ input });
   const confidenceMatch = base.workerSelfBlock.match(/Confiance calibrée\s*:\s*(\d+)%/i);
   const selfModelFacts = arm === 'genos_full' && confidenceMatch
     ? { calibratedConfidencePercent: Number(confidenceMatch[1]) } : null;

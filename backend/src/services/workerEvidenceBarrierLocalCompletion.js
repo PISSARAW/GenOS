@@ -13,16 +13,7 @@ async function emitLocalCompleted(ctx, publishSuccess) {
       nativeOracleRef: ctx.nativeOracleRef, identityReceipt: ctx.identityReceipt
     }, 'info', deferred ? 'running' : 'completed');
   const eventType = deferred ? 'LOCAL_WORKER_COMPLETED' : ctx.eventType;
-  const completed = emit(ctx.mission.agentId, eventType, ctx.kind, ctx.detail, {
-    executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
-    evidenceReport: ctx.evidenceReport,
-    identityReceipt: ctx.identityReceipt,
-    snapshot: ctx.replaySnapshotPath || ctx.mission.runtimeCapsule?.snapshotPath,
-    ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
-    noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
-    stageTimings: ctx.stageTimings,
-    ...(deferred ? { deferredTerminalEventType: ctx.eventType } : {})
-  }, ctx.unresolved ? 'warning' : 'info', deferred ? 'running' : terminalStatus);
+  const completed = require('./workerEvidenceBarrierLocalCompletionValues1.js').emitLocalCompletedValue1({ ctx, deferred, emit, eventType, terminalStatus });
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
   if (ctx.unresolved) {
     await require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);

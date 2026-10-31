@@ -29,7 +29,7 @@ async function loadRelation(db, relationId, scope) {
   return relation;
 }
 
-async function verifiedEvaluation(db, evaluationRunId, relation, scope, domain) {
+async function verifiedEvaluation({ db, evaluationRunId, relation, scope, domain } = {}) {
   const run = await db.get(
     `SELECT id, score, result_json FROM evaluation_runs
      WHERE id = ? AND agent_id = ? AND organization_id = ? AND project_id = ? AND benchmark = ?`,
@@ -38,7 +38,7 @@ async function verifiedEvaluation(db, evaluationRunId, relation, scope, domain) 
   return { ...resultOf(run), id: run.id };
 }
 
-async function aggregateEvidence(db, relation, scope, domain) {
+async function aggregateEvidence({ db, relation, scope, domain } = {}) {
   const rows = await db.all(
     `SELECT id, score, result_json FROM evaluation_runs
      WHERE agent_id = ? AND organization_id = ? AND project_id = ? AND benchmark = ? ORDER BY id`,
@@ -49,7 +49,7 @@ async function aggregateEvidence(db, relation, scope, domain) {
   return { outcomes, successes, failures, trust: Number(((1 + successes) / (2 + outcomes.length)).toFixed(6)) };
 }
 
-async function updateRelationEvidence(db, relation, domain, aggregate) {
+async function updateRelationEvidence({ db, relation, domain, aggregate } = {}) {
   let metadata;
   try { metadata = JSON.parse(relation.metadataJson || '{}'); }
   catch (_) { throw Object.assign(new Error('Relation metadata is not valid JSON.'), { code: 'RELATION_METADATA_INVALID' }); }
@@ -71,9 +71,9 @@ async function recordEvaluationOutcome(input = {}) {
   const db = input.db || await require('../db').getDatabase();
   return require('../db').withTransaction(db, async (tx) => {
     const relation = await loadRelation(tx, relationId, scope);
-    const current = await verifiedEvaluation(tx, evaluationRunId, relation, scope, domain);
-    const aggregate = await aggregateEvidence(tx, relation, scope, domain);
-    const persisted = await updateRelationEvidence(tx, relation, domain, aggregate);
+    const current = await verifiedEvaluation({ db: tx, evaluationRunId: evaluationRunId, relation: relation, scope: scope, domain: domain });
+    const aggregate = await aggregateEvidence({ db: tx, relation: relation, scope: scope, domain: domain });
+    const persisted = await updateRelationEvidence({ db: tx, relation: relation, domain: domain, aggregate: aggregate });
     return { relationId, domain, evaluationRunId, current, outcomes: aggregate.outcomes,
       successes: aggregate.successes, failures: aggregate.failures, trust: aggregate.trust,
       persisted: persisted.trustByDomain[domain] === aggregate.trust };

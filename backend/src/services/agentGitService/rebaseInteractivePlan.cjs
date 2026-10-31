@@ -12,13 +12,7 @@ function validateActions(ids, actions) {
     || !Array.isArray(actions) || actions.length !== ids.length) {
     throw new Error('A unique ordered series of 1 to 64 commits and one action per commit is required.');
   }
-  actions.forEach((item, index) => {
-    if (!ACTIONS.has(item?.action)) throw new Error(`Unsupported action at ${index}.`);
-    if (['squash', 'fixup'].includes(item.action) && index === 0) throw new Error('First action cannot squash or fixup.');
-    if (item.action === 'edit' && (!item.state || typeof item.state !== 'object')) {
-      throw new Error(`Edit action ${index} requires a state.`);
-    }
-  });
+  require('./rebaseInteractivePlanValues1.cjs').validateActionsValue1({ ACTIONS, Error, actions });
 }
 
 function validateEditedState(original, edited) {
@@ -53,7 +47,7 @@ function applyCheckedPatch(current, previous, next) {
   return state;
 }
 
-function planReplay(ontoState, commits, actions, parentState) {
+function planReplay({ ontoState, commits, actions, parentState } = {}) {
   let current = structuredClone(ontoState);
   let previous = parentState;
   const planned = [];
@@ -65,7 +59,7 @@ function planReplay(ontoState, commits, actions, parentState) {
     if (action.action !== 'drop') {
       if (action.action === 'edit') validateEditedState(original, action.state);
       current = applyCheckedPatch(current, previous, action.action === 'edit' ? action.state : original);
-      const message = action.message || JSON.parse(commit.metadata_json || '{}').message || commit.id;
+      const message = require('./rebaseInteractivePlanValues1.cjs').planReplayValue2({ JSON, action, commit });
       if (['squash', 'fixup'].includes(action.action)) {
         if (!pending) throw new Error('Squash or fixup requires a preceding kept commit.');
         pending.state = structuredClone(current);

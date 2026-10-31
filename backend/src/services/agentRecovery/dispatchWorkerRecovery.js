@@ -293,7 +293,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   const { startMission } = require('../agentRuntimeAdapter');
   if (activeWorkerRecoveryDispatches.has(sourceAgentId)) return false;
   const recovery = await loadDurableRecovery(sourceAgentId, pendingWorkerRecoveries.get(sourceAgentId));
-  if (recovery && !pendingWorkerRecoveries.has(sourceAgentId)) pendingWorkerRecoveries.set(sourceAgentId, recovery);
+  require('./dispatchWorkerRecoveryStages1.js').dispatchWorkerRecoveryStage2({ pendingWorkerRecoveries, recovery, sourceAgentId });
   if (!recovery) return false;
   activeWorkerRecoveryDispatches.add(sourceAgentId);
   pendingWorkerRecoveries.delete(sourceAgentId);
@@ -326,48 +326,11 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
-  const claimHeartbeat = recovery.durableItem ? setInterval(() => {
-    durableQueue.renew(recovery.durableItem).catch(() => {});
-  }, 30000) : null;
+  const claimHeartbeat = require('./dispatchWorkerRecoveryValues1.js').dispatchWorkerRecoveryValue1({ durableQueue, recovery, setInterval });
   if (claimHeartbeat) claimHeartbeat.unref();
   let workspace = { workspaceRoot: null, capsuleName: null };
   let target = null;
-  try {
-    const bisectionResult = await runAutomaticBisection(db, source, { mission, report, decision, orchestratorId, sourceAgentId });
-    target = resolveRecoveryTarget({ sourceAgentId, source, recovery, orchestratorId });
-    addWorkerToBarrier(recoveryBarrier, target.targetId);
-    await workerGarage.releaseStaleWorkerClaims(db, sourceAgentId);
-    await persistRecoveryAgent(db, source, target);
-    const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: target.targetId, name: target.name, role: target.role, mission: target.prompt });
-    workspace = await createRecoveryWorkspace(db, source, mission, target);
-    const nextVariant = emitRecoveryDispatch(orchestratorId, target, { sourceAgentId, report, decision, garage, mission });
-    const stopped = await require('./recoveryAdmission').beforeLaunch({ mission, barrier: recoveryBarrier, durableItem: recovery.durableItem });
-    if (stopped) {
-      await durableQueue.finish(recovery.durableItem, stopped);
-      await cancelRecoveryDispatch(db, target, workspace);
-      return false;
-    }
-    const recoveryMission = require('./recoveryDeadline').limit(buildRecoveryMission({ mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant }));
-    await startMission(recoveryMission);
-    missionDispatched = true;
-    await durableQueue.finish(recovery.durableItem, 'dispatched');
-    return true;
-  } catch (error) {
-    await handleRecoveryDispatchFailure(db, error, { recovery, sourceAgentId, report, decision, recoveryBarrier, workspace, target, orchestratorId });
-    return false;
-  } finally {
-    if (claimHeartbeat) clearInterval(claimHeartbeat);
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
-    // A same-identity recovery can fail while this dispatch is still active.
-    // queueWorkerRecovery refreshes the pending entry, but its shutdown hook
-    // cannot dispatch until this active lease is released. Drain that entry
-    // after a successful launch; dispatch failures already have their own
-    // bounded retry/backoff path in handleRecoveryDispatchFailure.
-    if (missionDispatched && pendingWorkerRecoveries.has(sourceAgentId)) {
-      const barrier = activeWorkerBarriers.get(orchestratorId);
-      if (!isCancelled(barrier)) setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 0).unref();
-    }
-  }
+  { const __genosStageResult1 = await require('./dispatchWorkerRecoveryStages1.js').dispatchWorkerRecoveryStage1({ activeWorkerBarriers, activeWorkerRecoveryDispatches, addWorkerToBarrier, buildRecoveryMission, cancelRecoveryDispatch, claimHeartbeat, clearInterval, createRecoveryWorkspace, get db() { return db; }, set db(__genosNextStageValue) { db = __genosNextStageValue; }, decision, dispatchWorkerRecovery, durableQueue, emitRecoveryDispatch, handleRecoveryDispatchFailure, isCancelled, mission, get missionDispatched() { return missionDispatched; }, set missionDispatched(__genosNextStageValue) { missionDispatched = __genosNextStageValue; }, orchestratorId, pendingWorkerRecoveries, persistRecoveryAgent, recovery, recoveryBarrier, get report() { return report; }, set report(__genosNextStageValue) { report = __genosNextStageValue; }, require, resolveRecoveryTarget, runAutomaticBisection, setTimeout, get source() { return source; }, set source(__genosNextStageValue) { source = __genosNextStageValue; }, sourceAgentId, startMission, get target() { return target; }, set target(__genosNextStageValue) { target = __genosNextStageValue; }, workerGarage, get workspace() { return workspace; }, set workspace(__genosNextStageValue) { workspace = __genosNextStageValue; } }); if (__genosStageResult1) return __genosStageResult1.value; }
 }
 
 async function resumeDurableWorkerRecoveries(db, dispatch = dispatchWorkerRecovery) {

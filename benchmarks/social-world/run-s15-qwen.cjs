@@ -96,10 +96,7 @@ async function main() {
     outcome = result.outcome;
     observed = { recipients: delivered?.envelope?.recipientAgentIds || [],
       semanticRefs: delivered?.envelope?.semanticRefs || [] };
-    enginePass = decision.scope === 'UNICAST'
-      && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
-      && !observed.recipients.includes('agent-c')
-      && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
+    enginePass = require('./run-s15-qwenValues1.cjs').mainValue1({ EXPECTED, JSON, get decision() { return decision; }, get observed() { return observed; } });
     warmup = await warmModel(seed);
     const { response, answer } = await askQwen(observed, seed);
     const qwenPass = JSON.stringify(answer) === JSON.stringify(observed);
@@ -114,10 +111,7 @@ async function main() {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
-    const report = { campaignId: 'socialworld-qwen-20261022', scenario: 'S15', seed,
-      status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
-      stage: observed ? warmup ? 'qwen-verification' : 'qwen-warmup' : 'genos-cycle',
-      observed, decision, outcome, enginePass, warmup, verified: false, durationMs: Date.now() - startedAt };
+    const report = require('./run-s15-qwenValues1.cjs').mainValue2({ Date, MODEL, get decision() { return decision; }, get enginePass() { return enginePass; }, error, get observed() { return observed; }, get outcome() { return outcome; }, seed, sourceCommit, startedAt, get warmup() { return warmup; } });
     saveResult(report);
     process.stderr.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exitCode = 1;

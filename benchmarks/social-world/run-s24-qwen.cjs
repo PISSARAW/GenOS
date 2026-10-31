@@ -40,7 +40,7 @@ async function createWorld(db) {
     metadata: { trustByDomain: {}, learningEvidence: {} } });
 }
 
-async function createEvaluation(db, id, score, verified) {
+async function createEvaluation({ db, id, score, verified } = {}) {
   const result = { verified, oracleRef: verified ? `oracle:${id}` : null };
   await db.run(`INSERT INTO evaluation_runs
     (id, benchmark, model_version, prompt_hash, config_hash, score, result_json, agent_id, organization_id, project_id)
@@ -59,11 +59,11 @@ async function main() {
     await createWorld(db);
     for (const [index, score] of [1, 1, 0, 0, 0].entries()) {
       const evaluationRunId = `s24-eval-${index + 1}`;
-      await createEvaluation(db, evaluationRunId, score, true);
+      await createEvaluation({ db: db, id: evaluationRunId, score: score, verified: true });
       trajectory.push(await learning.recordEvaluationOutcome({ db, relationId: 's24-collaboration',
         evaluationRunId, domain: DOMAIN, ...SCOPE }));
     }
-    await createEvaluation(db, 's24-unverified', 1, false);
+    await createEvaluation({ db: db, id: 's24-unverified', score: 1, verified: false });
     let unverifiedRejected = false;
     try { await learning.recordEvaluationOutcome({ db, relationId: 's24-collaboration',
       evaluationRunId: 's24-unverified', domain: DOMAIN, ...SCOPE }); }
@@ -74,9 +74,7 @@ async function main() {
     const observed = { successCount: final.successes, failureCount: final.failures,
       trust: final.trust, decreasedAfterFailure: final.trust < beforeFailure };
     const stored = await relations.getRelation({ db, id: 's24-collaboration' });
-    const enginePass = JSON.stringify(observed) === JSON.stringify(expected)
-      && unverifiedRejected && stored.metadata.trustByDomain[DOMAIN] === expected.trust
-      && stored.metadata.learningEvidence[DOMAIN].length === 5;
+    const enginePass = require('./run-s24-qwenValues1.cjs').mainValue1({ DOMAIN, JSON, expected, observed, stored, get unverifiedRejected() { return unverifiedRejected; } });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Read the GenOS trust trajectory for one domain after two verified successes and three verified failures. Copy the final evidence counts, trust and direction of change. An unverified evaluation was rejected.',
         `Trajectory: ${JSON.stringify(trajectory.map((entry) => ({ successes: entry.successes, failures: entry.failures, trust: entry.trust })))}`,

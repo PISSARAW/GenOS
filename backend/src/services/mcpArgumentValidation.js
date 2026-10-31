@@ -200,16 +200,10 @@ function validateScopedReplayArguments(args = {}) {
   const allowed = new Set(['root', 'snapshot', 'snapshot_id', 'scenarios', 'injected_keys', 'dag_step', 'patterns_detected']);
   for (const field of Object.keys(args)) if (!allowed.has(field)) return invalid(field, 'is not supported for worker-scoped replay.');
   if (args.snapshot === undefined && args.snapshot_id === undefined) return invalid('snapshot', 'snapshot or snapshot_id is required.');
-  for (const field of ['root', 'snapshot']) {
-    const value = args[field];
-    if (value === undefined) continue;
-    if (typeof value !== 'string' || !value.trim() || value.length > MAX_STRING_LENGTH
-      || /[\0\r\n"'`|&<>$;]/.test(value)) return invalid(field, 'must be a safe capsule path.');
-  }
+  { const __genosStageResult14 = require('./mcpArgumentValidationStages1.js').validateScopedReplayArgumentsStage14({ MAX_STRING_LENGTH, args, invalid, require, undefined }); if (__genosStageResult14) return __genosStageResult14.value; }
   if (args.root !== undefined && !require('node:path').isAbsolute(args.root)) return invalid('root', 'must be an absolute worker workspace path.');
   for (const field of ['scenarios', 'injected_keys', 'dag_step', 'patterns_detected']) {
-    if (args[field] !== undefined && (!Array.isArray(args[field])
-      || args[field].some((item) => typeof item !== 'string' || /[\0\r\n"'`\\;|&<>$]/.test(item)))) {
+    if (require('./mcpArgumentValidationValues1.js').validateScopedReplayArgumentsValue18({ Array, args, field, undefined })) {
       return invalid(field, 'must contain safe replay strings.');
     }
   }
@@ -261,139 +255,62 @@ function validateToolEnums(toolName, args) {
 }
 
 function validateToolArguments(toolName, args = {}) {
-  if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
+  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue6({ Array, args })) return invalid('args', 'must be an object.');
   const publicSchemaError = validatePublicSchema(toolName, args);
   if (publicSchemaError) return publicSchemaError;
   // Validation générique: si le handler déclare required[], chaque champ doit
   // être fourni (non vide). Rejet => invalid_args, jamais de défaut silencieux.
+  for (const validate of [validateRequiredFields, validateStructuredFields, validateRemainingFields]) {
+    const result = validate(toolName, args);
+    if (result) return result;
+  }
+  return null;
+}
+function validateRequiredFields(toolName, args) {
   const required = bioRequiredArgs(toolName);
-  const statusInspection = args.action === undefined || args.action === null || args.action === 'status';
-  if (required && !statusInspection) {
-    for (const field of required) {
-      // 'a|b' = au moins l'un des deux doit être fourni (alias acceptés).
-      const alternatives = String(field).split('|');
-      const provided = alternatives.some((name) => {
-        const value = args[name];
-        return value !== undefined && value !== null && String(value).trim() !== '';
-      });
-      if (!provided) return invalid(alternatives[0], 'is required.');
-    }
-  }
+  const statusInspection = require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue10({ args, undefined });
+  { const __genosStageResult6 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage6({ String, args, invalid, require, required, statusInspection, undefined }); if (__genosStageResult6) return __genosStageResult6.value; }
   const declaredRequired = REQUIRED_STRINGS[toolName] || [];
-  for (const field of declaredRequired) {
-    const error = validateString(args[field], field, true);
-    if (error) return error;
-  }
+  { const __genosStageResult9 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage9({ args, declaredRequired, validateString }); if (__genosStageResult9) return __genosStageResult9.value; }
 
-  if (toolName === 'genos_synaptic_stdp_update') {
-    const aliasGroups = [
-      ['source_id', 'sourceId', 'causeId'],
-      ['target_id', 'targetId', 'effectId'],
-      ['pre_spike_at', 'preSpikeAt'],
-      ['post_spike_at', 'postSpikeAt'],
-      ['learning_rate', 'learningRate', 'outcome_score'],
-      ['transmitter_type', 'transmitterType', 'trait'],
-      ['agent_id', 'agentId']
-    ];
-    for (const aliases of aliasGroups) {
-      const provided = aliases.filter((alias) => args[alias] !== undefined && args[alias] !== null);
-      const values = [...new Set(provided.map((alias) => String(args[alias])))];
-      if (values.length > 1) return invalid(aliases[0], `conflicting aliases supplied: ${provided.join(', ')}.`);
-    }
-    const legacyAliases = ['sourceId', 'targetId', 'preSpikeAt', 'postSpikeAt', 'learningRate', 'transmitterType', 'agentId'];
-    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
-      return invalid('args', `MCP uses snake_case fields; use ${legacyAliases.map((field) => field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)).join(', ')}.`);
-    }
-  }
-  if (toolName === 'genos_cell_division') {
-    const legacyAliases = ['agentId', 'daughterVolume', 'mutationRate', 'hayflickLimit', 'merozoiteCount'];
-    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
-      return invalid('args', 'MCP uses snake_case fields for cell division.');
-    }
-  }
+  { const __genosStageResult4 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage4({ Object, Set, String, args, invalid, toolName, undefined }); if (__genosStageResult4) return __genosStageResult4.value; }
+  { const __genosStageResult13 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage13({ Object, args, invalid, toolName }); if (__genosStageResult13) return __genosStageResult13.value; }
 
+  return null;
+}
+
+function validateStructuredFields(toolName, args) {
   // sub_systems accepte un tableau (schéma MCP) ou une string CSV (rétrocompatibilité)
-  if (toolName === 'genos_a_team_preview' && args.sub_systems !== undefined) {
-    if (!Array.isArray(args.sub_systems) && typeof args.sub_systems !== 'string') {
-      return invalid('sub_systems', 'must be an array of strings or a comma-separated string.');
-    }
-    if (Array.isArray(args.sub_systems) && args.sub_systems.some((item) => typeof item !== 'string' || item.trim() === '')) {
-      return invalid('sub_systems', 'must contain only non-empty strings.');
-    }
-  }
+  { const __genosStageResult3 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage3({ Array, args, invalid, require, toolName, undefined }); if (__genosStageResult3) return __genosStageResult3.value; }
   // signal_data accepte un object (schéma MCP) ou une string non vide (rétrocompatibilité)
-  if (toolName === 'genos_worker_publish' && args.signal_data !== undefined) {
-    if (typeof args.signal_data !== 'string' && typeof args.signal_data !== 'object') {
-      return invalid('signal_data', 'must be a JSON object or a non-empty string.');
-    }
-    if (typeof args.signal_data === 'string' && args.signal_data.trim() === '') {
-      return invalid('signal_data', 'must be a non-empty string.');
-    }
-    if (typeof args.signal_data === 'object' && args.signal_data !== null && Array.isArray(args.signal_data)) {
-      return invalid('signal_data', 'must be a JSON object, not an array.');
-    }
-  }
-  if (toolName === 'genos_worker_publish' && !ORGANIZATION_MESSAGE_KINDS.has(args.kind)) {
-    return invalid('kind', 'must be a supported immutable organization message kind.');
-  }
-  if (toolName === 'genos_worker_inbox' && args.acknowledge_message_ids !== undefined) {
-    const ids = args.acknowledge_message_ids;
-    if (!Array.isArray(ids) || ids.some((id) => !Number.isInteger(id) || id < 1)) {
-      return invalid('acknowledge_message_ids', 'must contain only positive integer message IDs.');
-    }
-  }
+  { const __genosStageResult1 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage1({ Array, args, invalid, require, toolName, undefined }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const __genosStageResult11 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage11({ ORGANIZATION_MESSAGE_KINDS, args, invalid, toolName }); if (__genosStageResult11) return __genosStageResult11.value; }
+  { const __genosStageResult8 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage8({ Array, Number, args, invalid, require, toolName, undefined }); if (__genosStageResult8) return __genosStageResult8.value; }
 
-  if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
+  return null;
+}
+
+function validateRemainingFields(toolName, args) {
+  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue12({ args, toolName, undefined })) {
     return invalid('snapshot', 'snapshot or snapshot_id is required (at least one).');
   }
-  if (toolName === 'genos_replay' && args.root !== undefined) {
-    const error = validateReplaySnapshotPath(args.root, args.snapshot);
-    if (error) return error;
-  }
-  if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string' && !Array.isArray(args.primitives)) {
+  { const __genosStageResult7 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage7({ args, toolName, undefined, validateReplaySnapshotPath }); if (__genosStageResult7) return __genosStageResult7.value; }
+  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue3({ Array, args, toolName })) {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
   }
-  if (toolName === 'genos_execute_primitive' && args.args !== undefined && (typeof args.args !== 'object' || args.args === null || Array.isArray(args.args))) {
+  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue2({ Array, args, toolName, undefined })) {
     return invalid('args', 'args must be an object.');
   }
-  if (toolName === 'genos_execute_strategy_pipeline' && !Array.isArray(args.primitives || args.pipeline)) {
+  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue14({ Array, args, toolName })) {
     return invalid('primitives', 'primitives or pipeline must be an array.');
   }
-  if (toolName === 'genos_procedural_registry_list' && !['runners', 'evaluators', 'environments', 'snapshots'].includes(args.scope)) {
-    return invalid('scope', 'scope must be one of: runners, evaluators, environments, snapshots.');
-  }
-  if (toolName === 'genos_procedural_runner_resolve' && typeof args.id !== 'string') {
-    return invalid('id', 'id must be a string.');
-  }
-  if (toolName === 'genos_deterministic_sha256_rag') {
-    if (!['ingest', 'search'].includes(args.action)) return invalid('action', 'must be ingest or search.');
-    const field = args.action === 'ingest' ? 'document' : 'query';
-    const error = validateString(args[field], field, true);
-    if (error) return error;
-  }
+  { const __genosStageResult12 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage12({ args, invalid, toolName }); if (__genosStageResult12) return __genosStageResult12.value; }
+  { const __genosStageResult10 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage10({ args, invalid, toolName }); if (__genosStageResult10) return __genosStageResult10.value; }
+  { const __genosStageResult5 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage5({ args, invalid, toolName, validateString }); if (__genosStageResult5) return __genosStageResult5.value; }
 
-  for (const [field, value] of Object.entries(args)) {
-    if (typeof value === 'string') {
-      if (value.includes('\0')) return invalid(field, 'contains null bytes.');
-      const decisionText = toolName === 'genos_record_decision' && (field === 'title' || field === 'decision');
-      const validatedReplayPath = toolName === 'genos_replay' && args.root !== undefined && ['root', 'snapshot'].includes(field);
-      if (!validatedReplayPath && !FREEFORM_FIELDS.has(field) && !decisionText && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
-        if (/[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
-        if (/\s/.test(value)) return invalid(field, 'must not contain whitespace.');
-      }
-    }
-    if (ARRAY_FIELDS.has(field) && value !== undefined && !Array.isArray(value)) return invalid(field, 'must be an array.');
-    if (ARRAY_FIELDS.has(field) && Array.isArray(value) && value.some((item) => typeof item !== 'string' || /[\r\n"'`\\;|&<>$]/.test(item))) return invalid(field, 'must contain only safe strings.');
-    if (NON_NEGATIVE_FIELDS.has(field) && value !== undefined) {
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric) || numeric < 0) return invalid(field, 'must be a finite non-negative number.');
-    }
-    if (MAX_ONE_FIELDS.has(field) && value !== undefined) {
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric) || numeric < 0 || numeric > 1) return invalid(field, 'must be a finite number between 0 and 1.');
-    }
-  }
+  { const __genosStageResult2 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage2({ ARRAY_FIELDS, Array, FREEFORM_FIELDS, MAX_ONE_FIELDS, NON_NEGATIVE_FIELDS, Number, Object, args, invalid, require, toolName, undefined }); if (__genosStageResult2) return __genosStageResult2.value; }
 
   return validateToolEnums(toolName, args);
 }
+
 module.exports = { validateToolArguments, validateScopedReplayArguments, REQUIRED_STRINGS };

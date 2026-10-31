@@ -76,7 +76,7 @@ function edgeKey(source, target) {
   return `${source}\u0001${target}`;
 }
 
-async function reconcileNeighborEdges(db, scope, pairs, existing) {
+async function reconcileNeighborEdges({ db, scope, pairs, existing } = {}) {
   const desired = new Map(pairs.map((pair) => [edgeKey(pair.left.id, pair.right.id), pair]));
   const current = new Map(existing.map((edge) => [edgeKey(edge.sourceAgentId, edge.targetAgentId), edge]));
   let created = 0;
@@ -106,7 +106,7 @@ async function recalculateNeighborsOnDb(db, scope) {
   const agents = await loadScopedAgents(db, scope);
   const pairs = neighborPairs(agents, scope.radius);
   const existing = await loadExistingNeighbors(db, scope);
-  const changes = await reconcileNeighborEdges(db, scope, pairs, existing);
+  const changes = await reconcileNeighborEdges({ db: db, scope: scope, pairs: pairs, existing: existing });
   return { organizationId: scope.organizationId, projectId: scope.projectId, radius: scope.radius,
     agents: agents.map((agent) => agent.id), neighbors: pairs.map(({ left, right, distance }) => ({
       sourceAgentId: left.id, targetAgentId: right.id, distance: Number(distance.toFixed(6))

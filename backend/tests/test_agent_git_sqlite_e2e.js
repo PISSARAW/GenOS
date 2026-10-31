@@ -18,6 +18,10 @@ const os = require('node:os');
 const fs = require('node:fs');
 
 process.env.NODE_ENV = 'test';
+process.env.GENOS_AGENT_GIT_REPLAY_PROBES = JSON.stringify({ budget:
+  path.join(__dirname, 'fixtures', 'agentGitBudgetReplay.cjs') });
+process.env.GENOS_AGENT_GIT_MERGE_PROBES = JSON.stringify(['budget']);
+process.env.GENOS_AGENT_GIT_MERGE_FIXTURES = JSON.stringify({ budget: { maxConsumed: 3 } });
 
 const dbModule = require('../src/db');
 const agentGit = require('../src/services/agentGitService');
@@ -272,7 +276,7 @@ async function main() {
   // --- Point 11 : bisect sur DAG avec merge (tri topologique) ---
   // Fusion de feature-rebasé dans main, puis bisect base..merge.
   const mergeRes = await agentGit.merge({ ...makeReq(), body: { leftObjectId: mainAdvanced.id, rightObjectId: reb.id, name: 'MergeE2E' } });
-  assert.ok(mergeRes.success, 'merge doit réussir');
+  assert.ok(mergeRes.success, 'merge doit réussir: ' + JSON.stringify(mergeRes));
   // Audit auto #7 : body.name doit être honoré.
   const mergeState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', mergeRes.id)).state_json);
   assert.equal(mergeState.agent.name, 'MergeE2E', 'merge(body.name) doit nommer l agent fusionné');

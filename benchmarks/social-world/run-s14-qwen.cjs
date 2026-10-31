@@ -100,13 +100,8 @@ async function main() {
     }
     const { receipt, delivered } = await contactNeighbor(db, questionResult.answer.question);
     observed = observedMessage(receipt, delivered);
-    const questionCount = (questionResult.answer.question.match(/\?/g) || []).length;
-    const passed = observed.action === 'SIGNAL'
-      && JSON.stringify(observed.recipients) === JSON.stringify(['agent-b'])
-      && JSON.stringify(observed.semanticRefs) === JSON.stringify(['question:neighbor:cartography'])
-      && observed.publicSummary === questionResult.answer.question
-      && questionCount === 1
-      && questionResult.answer.question.split(/\s+/).length <= 35;
+    const questionCount = (require('./run-s14-qwenValues1.cjs').mainValue3({ get questionResult() { return questionResult; } })).length;
+    const passed = require('./run-s14-qwenValues1.cjs').mainValue1({ JSON, get observed() { return observed; }, questionCount, get questionResult() { return questionResult; } });
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S14', seed,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit,
       selectedDomain: selection, qwenResponse: questionResult.response,
@@ -118,11 +113,7 @@ async function main() {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
-    const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S14', seed,
-      status: 'fail', model: MODEL, sourceCommit, error: error.stack || error.message,
-      selectedDomain: selection, qwenQuestion: questionResult?.answer, observed,
-      stage: observed ? 'delivery-verification' : selection ? 'qwen-question' : 'curiosity-selection',
-      verified: false, durationMs: Date.now() - startedAt };
+    const result = require('./run-s14-qwenValues1.cjs').mainValue2({ Date, MODEL, error, get observed() { return observed; }, get questionResult() { return questionResult; }, seed, get selection() { return selection; }, sourceCommit, startedAt });
     saveResult(result);
     process.stderr.write(`${JSON.stringify(result, null, 2)}\n`);
     process.exitCode = 1;

@@ -180,35 +180,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut traces = Vec::new();
     for line in input.lines() {
         let row: Value = serde_json::from_str(line)?;
-        let started = Instant::now();
-        let mut events = Vec::new();
-        record_trace_event(&mut events, "run_started", started);
-        let intent = &row["input"]["intent"];
-        let valid = execute(ExecutionRequest { value:intent, authorized:true,
-            malformed:false, workload:Some(&row["input"]["mission_workload"]) });
-        record_trace_event(&mut events, "valid_operation_observed", started);
-        let unauthorized = execute(ExecutionRequest { value:intent, authorized:false,
-            malformed:false, workload:None });
-        record_trace_event(&mut events, "unauthorized_operation_observed", started);
-        let malformed = execute(ExecutionRequest { value:intent, authorized:true,
-            malformed:true, workload:None });
-        record_trace_event(&mut events, "malformed_operation_observed", started);
-        let output = json!({"scenario_id":row["scenario_id"],
-            "valid":valid["response"], "unauthorized":unauthorized["response"],
-            "malformed":malformed["response"], "mission_execution":valid["mission_execution"]});
-        record_trace_event(&mut events, "mission_transfer_observed", started);
-        record_trace_event(&mut events, "run_completed", started);
-        let input_bytes = serde_json::to_vec(&row["input"])?;
-        let result_bytes = serde_json::to_vec(&output)?;
-        traces.push(json!({"schema":"omega-bench-e12-trace/v1",
-            "backend":"production_rust_omega_runtime", "scenario_id":row["scenario_id"],
-            "started_at_unix_ms":events.first().and_then(|event|event["at_unix_ms"].as_u64()),
-            "ended_at_unix_ms":events.last().and_then(|event|event["at_unix_ms"].as_u64()),
-            "duration_ms":started.elapsed().as_secs_f64() * 1000.0,
-            "input_sha256":hash(&input_bytes), "result_sha256":hash(&result_bytes),
-            "status":"completed", "events":events}));
+        let (output, trace) = run_case(&row)?;
+        traces.push(trace);
         outputs.push(output);
     }
+    write_results(&root, &outputs, &traces)
+}
+
+fn write_results(root: &std::path::Path, outputs: &[Value], traces: &[Value]) -> Result<(), Box<dyn std::error::Error>> {
     let body = outputs.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n";
     let output_path = checked_results_dir(&root)?.join("E12-rust.jsonl");
     fs::create_dir_all(output_path.parent().unwrap())?;
@@ -265,4 +244,35 @@ mod path_tests {
         assert!(!absolute_outside.exists());
         fs::remove_dir_all(root).unwrap();
     }
+}
+
+fn run_case(row: &Value) -> Result<(Value, Value), Box<dyn std::error::Error>> {
+let started = Instant::now();
+let mut events = Vec::new();
+record_trace_event(&mut events, "run_started", started);
+let intent = &row["input"]["intent"];
+let valid = execute(ExecutionRequest { value:intent, authorized:true,
+    malformed:false, workload:Some(&row["input"]["mission_workload"]) });
+record_trace_event(&mut events, "valid_operation_observed", started);
+let unauthorized = execute(ExecutionRequest { value:intent, authorized:false,
+    malformed:false, workload:None });
+record_trace_event(&mut events, "unauthorized_operation_observed", started);
+let malformed = execute(ExecutionRequest { value:intent, authorized:true,
+    malformed:true, workload:None });
+record_trace_event(&mut events, "malformed_operation_observed", started);
+let output = json!({"scenario_id":row["scenario_id"],
+    "valid":valid["response"], "unauthorized":unauthorized["response"],
+    "malformed":malformed["response"], "mission_execution":valid["mission_execution"]});
+record_trace_event(&mut events, "mission_transfer_observed", started);
+record_trace_event(&mut events, "run_completed", started);
+let input_bytes = serde_json::to_vec(&row["input"])?;
+let result_bytes = serde_json::to_vec(&output)?;
+let trace = json!({"schema":"omega-bench-e12-trace/v1",
+    "backend":"production_rust_omega_runtime", "scenario_id":row["scenario_id"],
+    "started_at_unix_ms":events.first().and_then(|event|event["at_unix_ms"].as_u64()),
+    "ended_at_unix_ms":events.last().and_then(|event|event["at_unix_ms"].as_u64()),
+    "duration_ms":started.elapsed().as_secs_f64() * 1000.0,
+    "input_sha256":hash(&input_bytes), "result_sha256":hash(&result_bytes),
+    "status":"completed", "events":events});
+    Ok((output, trace))
 }

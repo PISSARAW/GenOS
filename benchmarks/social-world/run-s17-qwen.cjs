@@ -96,13 +96,7 @@ async function main() {
     observed = { recipients: result.delivered.envelope.recipientAgentIds,
       acknowledgements: outcome.deliveryAcknowledgements.map((ack) => ack.recipientAgentId),
       semanticRefs: result.delivered.envelope.semanticRefs };
-    enginePass = decision.scope === 'GLOBAL_BROADCAST'
-      && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
-      && !observed.recipients.includes('agent-d')
-      && new Set(observed.recipients).size === observed.recipients.length
-      && JSON.stringify(observed.acknowledgements) === JSON.stringify(EXPECTED.recipients)
-      && outcome.grounding.satisfied
-      && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
+    enginePass = require('./run-s17-qwenValues1.cjs').mainValue1({ EXPECTED, JSON, Set, get decision() { return decision; }, get observed() { return observed; }, get outcome() { return outcome; } });
     warmup = await warmModel(seed);
     const { response, answer } = await askQwen(observed, seed);
     const qwenPass = JSON.stringify(answer) === JSON.stringify(observed);

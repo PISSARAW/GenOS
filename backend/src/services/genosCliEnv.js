@@ -18,21 +18,18 @@ function genosEnvironment(root) {
 }
 
 function resolveGenosBin() {
-  const exe = process.platform === 'win32' ? 'genos.exe' : 'genos';
-  const repoDebug = path.join(repositoryRoot, 'target', 'debug', exe);
-  const repoRelease = path.join(repositoryRoot, 'target', 'release', exe);
+  const candidates = require('./genosCliCheckouts').binaryCandidates(repositoryRoot);
+  const available = candidates.find(candidate => fs.existsSync(candidate));
 
   if (process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)) {
     const isLegacySystemInstall = process.env.GENOS_BIN.toLowerCase().includes('program files');
-    if (isLegacySystemInstall && (fs.existsSync(repoDebug) || fs.existsSync(repoRelease))) {
-      return fs.existsSync(repoDebug) ? repoDebug : repoRelease;
+    if (isLegacySystemInstall && available) {
+      return available;
     }
     return process.env.GENOS_BIN;
   }
 
-  if (fs.existsSync(repoDebug)) return repoDebug;
-  if (fs.existsSync(repoRelease)) return repoRelease;
-  return repoDebug;
+  return available || candidates[0];
 }
 
 function studioBridgeRoot(rootOverride = null) {

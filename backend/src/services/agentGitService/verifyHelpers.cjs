@@ -159,16 +159,16 @@ async function verifySingleObject(db, object, objects) {
 
 function checkStateInvariants(ctx) {
   const { object, state, issues } = ctx;
-  for (const run of stateArray(state, 'runs', object, issues)) checkBudget({ object, run, issues });
-  for (const permission of stateArray(state, 'permissions', object, issues)) checkPermission({ object, permission, issues });
-  for (const decision of stateArray(state, 'decisions', object, issues)) {
+  for (const run of stateArray({ state: state, key: 'runs', object: object, issues: issues })) checkBudget({ object, run, issues });
+  for (const permission of stateArray({ state: state, key: 'permissions', object: object, issues: issues })) checkPermission({ object, permission, issues });
+  for (const decision of stateArray({ state: state, key: 'decisions', object: object, issues: issues })) {
     if (typeof decision.synaptic_weight !== 'number' || decision.synaptic_weight <= 0) {
       issues.push({ id: object.id, issue: 'invalid_decision_weight', decisionId: decision.id || null });
     }
   }
 }
 
-function stateArray(state, key, object, issues) {
+function stateArray({ state, key, object, issues } = {}) {
   if (state[key] === undefined) return [];
   if (Array.isArray(state[key])) return state[key];
   issues.push({ id: object.id, issue: `invalid_${key}_section` });

@@ -73,13 +73,7 @@ function capabilityRequestFields(mission, plan, selection) {
 function contextRequestFields(mission) {
   const plan = mission.plan;
   const morphology = plan?.morphology || mission.morphology || {};
-  return {
-    organization: plan ? plan.organization || undefined : morphology.selectedOrganization || undefined,
-    developmentalContext: mission.developmentalContext || null, morphologyPlan: morphology,
-    missionCapabilityPlan: plan || null,
-    problemProfile: { ...(mission.profile || {}), ...(mission.kind === 'implement' ? { type: 'implementation' } : {}) },
-    sensoryContext: mission.sensoryContext || null
-  };
+  return require('./runtimeHarnessValues1.js').contextRequestFieldsValue1({ mission, morphology, plan, undefined });
 }
 
 function workerAssignmentsFor(roles) {

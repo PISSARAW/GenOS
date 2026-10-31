@@ -316,7 +316,7 @@ async function finalizeOrchestratedMission(input) {
 
   const dormant = await suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
-  if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
+  await require('./genos-orchestrateStages1.cjs').finalizeOrchestratedMissionStage1({ db, dormant, finalStatus, get missionId() { return missionId; }, set missionId(__genosNextStageValue) { missionId = __genosNextStageValue; }, missionIdentity });
   if (input.deferredAgentTerminalStatus && !dormant) await require('./orchestratorMissionFinalization.cjs').settleDeferredAgent({
     agentId: id, status: finalStatus.success ? 'completed' : 'failed', verdict: finalVerdict
   });

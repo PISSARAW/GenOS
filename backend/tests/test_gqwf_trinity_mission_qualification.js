@@ -151,6 +151,8 @@ async function runMission(db, source, missionId) {
   assert.equal(ctx.autonomyPlan.missionClosure?.success, true,
     JSON.stringify(ctx.autonomyPlan.missionClosure || null));
   assert.equal(ctx.autonomyPlan.missionClosure?.closureChecks?.independentOracle, true);
+  assert.equal(ctx.autonomyPlan.missionClosure.missionId, ctx.autonomyPlan.trinity.missionId,
+    'the comparison closure must retain the mission identity sealed into its worker proofs');
   return { ctx, workers, experimentId: ctx.autonomyPlan.trinity.missionId };
 }
 
@@ -163,6 +165,8 @@ async function assertEscalatedComparison(db, result) {
   assert.equal(new Set(worlds.map((world) => world.agent_id)).size, 3);
   const reports = await comparativeBarrier.buildWorldReportsFromMission(db, result.experimentId);
   assert.equal(reports.length, 3);
+  await assertMissionProofBoundary(db, { workerId: worlds[0].agent_id,
+    childMissionId: result.experimentId, rootMissionId: result.ctx.normalizedMission.missionId });
   assert.ok(reports.every((entry) => entry.report?.outcome === 'success'));
   assert.ok(worlds.every((world) => world.status === 'compared'));
   assert.ok(worlds.every((world) => {
@@ -193,6 +197,18 @@ async function assertEscalatedComparison(db, result) {
   const experiment = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE mission_id = ?', result.experimentId);
   assert.equal(experiment.status, 'escalated');
   assert.equal(JSON.parse(experiment.decision_json).outcome, 'ESCALATE_EXPERIMENT');
+}
+
+async function assertMissionProofBoundary(db, input) {
+  const run = await db.get('SELECT id FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', input.workerId);
+  const observations = await require('../src/services/biologicalWorkerStore').observations(db, run.id);
+  const terminal = observations.find(item => item.event.eventType === 'AGENT_COMPLETED').event;
+  const event = { executionRunId: run.id, nativeOracleRef: terminal.payload.nativeOracleRef,
+    evidenceReport: terminal.payload.evidenceReport };
+  const checks = require('../src/services/missionDossierOracleVerification');
+  assert.equal(await checks.trustedEvent({ db, workerId: input.workerId, event, missionId: input.childMissionId }), true);
+  assert.equal(await checks.trustedEvent({ db, workerId: input.workerId, event, missionId: input.rootMissionId }), false,
+    'a valid child proof cannot be relabeled as a root mission proof');
 }
 
 async function qualify(root) {

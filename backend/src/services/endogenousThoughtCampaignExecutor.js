@@ -194,17 +194,7 @@ async function runChain(ctx) {
   const observationId = await setup(ctx);
   const assessment = assessmentFor(scenarioClass);
 
-  const detection = await detector.detectAndQuestion(db, {
-    organizationId: 'org-a', projectId, agentId, observationId, nowMs: NOW,
-    policy: { enabled: true, id: 'ett-detection-v1', condition, cooldownMs: 0,
-      maxOpenEpisodes: 1, maxBudget: ctx.modelAdapter?.budget
-        || { tokens: 1000, usd: 0.1, seconds: 60 },
-      minScore: minimumScore(condition), minInformationGain: 0.1,
-      minLearningProgress: 0.01 },
-    assessment,
-    ...(ctx.modelAdapter ? { questionGenerator: ctx.modelAdapter.questionGenerator } : {}),
-    budget: ctx.modelAdapter?.budget || { tokens: 500, usd: 0.05, seconds: 30 }
-  });
+  const detection = await detector.detectAndQuestion(db, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue1({ NOW, agentId, assessment, condition, get ctx() { return ctx; }, minimumScore, observationId, projectId }));
 
   if (!detection?.episode) return rejectedDetectionOutcome(ctx, detection);
 
@@ -259,26 +249,9 @@ async function runChain(ctx) {
     projectId, episodeId });
   const failed = Boolean(ctx.continuationError);
 
-  if (ctx.modelAdapter) return modelOutcome(ctx, {
-    success: !failed, episodes: 1, verified: v === 'supported', learned, continued,
-    terminalState: finalEpisode.currentState,
-    continuationError: ctx.continuationError || null,
-    failure: failed ? { stage: 'continuation', code: ctx.continuationError,
-      message: 'ETT continuation failed.' } : null
-  });
+  if (ctx.modelAdapter) return modelOutcome(ctx, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue2({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, v }));
 
-  return syntheticOutcome(ctx, {
-    success: !failed,
-    episodes: 1,
-    syntheticVerdict: v,
-    learned,
-    continued,
-    terminalState: finalEpisode.currentState,
-    developmentUtility: usefulDevelopmentResult(v, learned),
-    continuationError: ctx.continuationError || null,
-    failure: failed ? { stage: 'continuation', code: ctx.continuationError,
-      message: 'Synthetic continuation failed.' } : null
-  });
+  return syntheticOutcome(ctx, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue4({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, usefulDevelopmentResult, v }));
 }
 
 function modelOutcome(ctx, values) {
@@ -297,10 +270,7 @@ function modelOutcome(ctx, values) {
     submittedAnswerId: ctx.independentVerification?.submittedAnswerId || null,
     oracleVerdict: ctx.independentVerification?.verdict || null,
     oracleDigest: ctx.independentVerification?.oracleDigest || null,
-    ettTrace: { episodeId: ctx.episodeId || null, questionRef: ctx.questionRef || null,
-      runReceiptRef: ctx.runReceiptRef || null,
-      verificationReceiptRef: ctx.verificationReceiptRef || null,
-      learningId: ctx.learningId || null } };
+    ettTrace: require('./endogenousThoughtCampaignExecutorValues1.js').modelOutcomeValue5({ get ctx() { return ctx; } }) };
 }
 
 async function execute(input) {
@@ -315,10 +285,7 @@ async function execute(input) {
   let db;
   try {
     db = await fixture.memoryDb(filename);
-    const ctx = { db, projectId, agentId, keys, scenarioClass, condition, caseId,
-      caseInput, modelAdapter,
-      publicSummary: caseInput?.publicObservation ? JSON.stringify(caseInput.publicObservation) : null,
-      evidenceRefs: caseInput?.publicObservation ? [`ett-case:${caseId}:observation`] : null };
+    const ctx = require('./endogenousThoughtCampaignExecutorValues1.js').executeValue6({ JSON, agentId, caseId, caseInput, condition, get db() { return db; }, keys, modelAdapter, projectId, scenarioClass });
     const result = await runChain(ctx);
     return result;
   } catch (error) {
@@ -330,8 +297,7 @@ async function execute(input) {
     return syntheticOutcome({ condition, caseId, caseInput }, {
       success: false,
       error: String(error.message).slice(0, 200),
-      failure: { stage: 'execution', code: error.code || 'ETT_CAMPAIGN_EXECUTION_FAILED',
-        message: String(error.message).slice(0, 200), errors: error.errors || [] }
+      failure: require('./endogenousThoughtCampaignExecutorValues1.js').executeValue3({ String, error })
     });
   } finally {
     try { if (db) await db.close(); } catch (_) {}

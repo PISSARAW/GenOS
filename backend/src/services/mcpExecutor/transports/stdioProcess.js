@@ -28,7 +28,7 @@ function startSession(config) {
     cwd: workspaceRoot,
     detached: process.platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: config.mcpTransportEnvironment(config.toolName, repositoryRoot, workspaceRoot, config.agentId)
+    env: config.mcpTransportEnvironment({ toolName: config.toolName, repositoryRoot: repositoryRoot, workspaceRoot: workspaceRoot, agentId: config.agentId })
   });
   const session = {
     child: child,

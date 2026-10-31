@@ -19,7 +19,7 @@ function configured() {
 async function verifyFunctionalMerge(state) {
   const { names, fixtures } = configured();
   if (!names.length) {
-    return { verified: process.env.GENOS_AGENT_GIT_REQUIRE_MERGE_PROBES === 'true',
+    return { verified: false,
       status: 'not_configured', probes: [] };
   }
   const probes = [];

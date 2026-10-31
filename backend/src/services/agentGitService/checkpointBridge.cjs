@@ -44,8 +44,7 @@ async function verifyLink(db, object) {
   try { state = JSON.parse(row.state_json); } catch (_) { return { valid: false, error: 'Linked organism snapshot is invalid JSON.' }; }
   const integrity = require('../../controllers/lineage/snapshots').verifyOrganismSnapshot(state);
   const workspaceHash = state._genosSnapshot?.workspaceSnapshot?.hash || null;
-  if (!integrity.valid || integrity.legacy || integrity.hash !== checkpoint.organismHash ||
-      workspaceHash !== checkpoint.workspaceHash) {
+  if (require('./checkpointBridgeValues1.cjs').verifyLinkValue1({ get checkpoint() { return checkpoint; }, integrity, workspaceHash })) {
     return { valid: false, error: 'Linked organism snapshot integrity mismatch.' };
   }
   return { valid: true, ...checkpoint, objectId: object.id };

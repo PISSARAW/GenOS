@@ -47,15 +47,13 @@ async function pull(req) {
   const agentId = req.body?.targetAgentId || req.body?.agentId;
   const refName = req.body?.refName || 'main';
   const remoteName = req.body?.remoteName || 'default';
-  if (!agentId || req.body?.sections) return { success: false, error: 'A target agent and full-state pull are required.' };
+  { const __genosStageResult1 = require('./remoteRoutesStages1.cjs').pullStage1({ agentId, req }); if (__genosStageResult1) return __genosStageResult1.value; }
   const tracked = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
     agentId, trackingName(remoteName, refName));
   const objectId = req.body?.objectId || tracked?.object_id;
-  if (!tracked?.object_id || objectId !== tracked.object_id) {
-    return { success: false, error: 'Pull requires the current tracked remote tip.' };
-  }
+  { const __genosStageResult2 = require('./remoteRoutesStages1.cjs').pullStage2({ objectId, tracked }); if (__genosStageResult2) return __genosStageResult2.value; }
   const object = await getObject(db, req, objectId);
-  if (!object || object.agent_id !== agentId || verifySource(object).length) {
+  if (require('./remoteRoutesValues1.cjs').pullValue1({ agentId, object, verifySource })) {
     return { success: false, error: 'Tracked remote tip failed scoped verification.' };
   }
   const local = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, refName);

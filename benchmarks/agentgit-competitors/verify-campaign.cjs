@@ -19,8 +19,7 @@ function verify(directory) {
   for (let index = 0; index < manifest.systems.length; index += 1) {
     const system = manifest.systems[index];
     const run = result.runs[index];
-    if (run.system !== system.name || run.version !== system.version || run.tasks?.length !== manifest.tasks.length
-      || run.manifestHash !== digest(manifest.tasks)) throw new Error('Run identity or task count differs from manifest.');
+    if (require('./verify-campaignValues1.cjs').verifyValue1({ digest, manifest, run, system })) throw new Error('Run identity or task count differs from manifest.');
     for (let taskIndex = 0; taskIndex < manifest.tasks.length; taskIndex += 1) {
       const task = manifest.tasks[taskIndex];
       const measured = run.tasks[taskIndex];

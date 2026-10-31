@@ -8,7 +8,7 @@ function validTokenCount(value) {
 
 function assertUsageReceipt(receipt) {
   const identity = ['runId', 'armId', 'taskId', 'agentId', 'responseId', 'provider', 'model'];
-  if (!receipt || identity.some((key) => typeof receipt[key] !== 'string' || !receipt[key])) {
+  if (require('./provider-usageValues1.cjs').assertUsageReceiptValue2({ identity, receipt })) {
     throw new Error('Provider usage receipt is missing benchmark identity.');
   }
   if (TOKEN_FIELDS.slice(0, 2).some((key) => !validTokenCount(receipt[key]))) {
@@ -20,8 +20,7 @@ function assertUsageReceipt(receipt) {
   if (receipt.cachedInputTokens > receipt.inputTokens) {
     throw new Error('Cached input tokens cannot exceed total input tokens.');
   }
-  if (receipt.costUsd !== undefined && receipt.costUsd !== null
-    && (!Number.isFinite(receipt.costUsd) || receipt.costUsd < 0)) {
+  if (require('./provider-usageValues1.cjs').assertUsageReceiptValue1({ Number, receipt, undefined })) {
     throw new Error('Provider cost must be a non-negative number.');
   }
   return { ...receipt, cachedInputTokens: receipt.cachedInputTokens || 0,

@@ -95,29 +95,7 @@ function writeArtifacts(reply, state) {
   }
   const written = [];
   const rejected = [];
-  for (const entry of artifacts) {
-    const issues = validateArtifactEntry(entry, state);
-    if (issues.length) {
-      rejected.push({ name: entry.name, issues });
-      continue;
-    }
-    try {
-      const record = writeArtifact(state, entry.name, entry.content);
-      const target = path.resolve(state.workspaceRoot, entry.name.trim());
-      if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
-        rejected.push({ name: entry.name, issues: ['artifact.write.missing_on_disk'] });
-        continue;
-      }
-      const onDisk = crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex');
-      if (onDisk !== record.sha256) {
-        rejected.push({ name: entry.name, issues: ['artifact.write.hash_mismatch'] });
-        continue;
-      }
-      written.push({ ...record, verified: true });
-    } catch (error) {
-      rejected.push({ name: entry.name, issues: [`artifact.write.error:${error.message}`] });
-    }
-  }
+  require('./localArtifactWriterStages1.js').writeArtifactsStage1({ artifacts, crypto, fs, path, rejected, state, validateArtifactEntry, writeArtifact, written });
   return { written, rejected };
 }
 

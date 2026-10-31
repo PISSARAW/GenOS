@@ -41,7 +41,7 @@ async function main(rawInput) {
   mission.workerContract = parseJson(mission.workerContractJson);
   observationInbox.bind(mission.agentId);
   intraEpochInbox.bind(mission.agentId);
-  const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
+  const prompt = require('./local-codex-runtimeValues1.cjs').mainValue1({ get mission() { return mission; } });
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
   const built = buildWorkspaceContext(workspaceRoot, {
     allowedCommands: mission.allowedCommands || mission.executionPolicy?.allowedCommands || []
@@ -100,8 +100,7 @@ async function runMission(state, services) {
       await captureBarrier.safePoint('generated');
     }
     reply = await refreshObservedReply(state, reply, { generate, checkpoint });
-    applyWorkerArtifacts(reply, state.workspaceRoot, state.allowFileEdits,
-      state.executionPolicy.allowedWritePaths);
+    applyWorkerArtifacts({ reply: reply, workspaceRoot: state.workspaceRoot, allowFileEdits: state.allowFileEdits, allowedWritePaths: state.executionPolicy.allowedWritePaths });
     await require('../src/services/runtimeFileWriteIpc').flush();
     state.commandProofs = await collectCommandProofs(reply, state.workspaceRoot, state.executionPolicy);
     const testReceipt = require('../src/services/codeTestExecutionReceipt').buildReceipt({
@@ -278,7 +277,7 @@ async function loadConscienceBlock(mission, agentConscience) {
   const helper = require('../src/services/agentSelfBlocks');
   return helper.loadConscienceText(null, mission.agentId, agentConscience);
 }
-function applyWorkerArtifacts(reply, workspaceRoot, allowFileEdits, allowedWritePaths = []) {
+function applyWorkerArtifacts({ reply, workspaceRoot, allowFileEdits, allowedWritePaths = [] } = {}) {
   if (!allowFileEdits) return [];
   const found = [...String(reply).matchAll(/\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi)];
   const result = require('../src/services/localArtifactWriter').writeArtifacts(reply,

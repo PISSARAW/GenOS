@@ -49,38 +49,7 @@ async function importCommit(source, destination, commit) {
   }
   await runCommand('git', ['cat-file', '-e', `${fullCommit}^{commit}`], { cwd: source });
   const bundle = path.join(path.dirname(destination), `.handoff-${randomUUID()}.bundle`);
-  try {
-    await runCommand('git', ['bundle', 'create', bundle, 'HEAD'], { cwd: source });
-    if (!fs.existsSync(path.join(destination, '.git'))) {
-      await runCommand('git', ['init', '--quiet', '--initial-branch=main'], { cwd: destination });
-    }
-    const targetRoot = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: destination });
-    if (path.resolve(targetRoot.stdout.trim()) !== destination) {
-      throw Object.assign(new Error('Consumer Git root does not match its isolated workspace.'), {
-        code: 'ATEAM_HANDOFF_TARGET_INVALID'
-      });
-    }
-    const current = await runCommand('git', ['rev-parse', '--verify', 'HEAD'], { cwd: destination }).catch(() => null);
-    if (current) {
-      const status = await runCommand('git', ['status', '--porcelain'], { cwd: destination });
-      if (status.stdout.trim()) {
-        throw Object.assign(new Error('Consumer workspace already has uncommitted work; refusing to replace it with a handoff.'), {
-          code: 'ATEAM_HANDOFF_TARGET_DIRTY'
-        });
-      }
-    }
-    await runCommand('git', ['fetch', '--quiet', bundle, fullCommit], { cwd: destination });
-    await runCommand('git', ['checkout', '--quiet', '--force', '--detach', 'FETCH_HEAD'], { cwd: destination });
-    const head = await runCommand('git', ['rev-parse', 'HEAD'], { cwd: destination });
-    if (head.stdout.trim().toLowerCase() !== fullCommit) {
-      throw Object.assign(new Error('Consumer workspace did not check out the exact producer commit.'), {
-        code: 'ATEAM_HANDOFF_COMMIT_MISMATCH'
-      });
-    }
-    return { commit: fullCommit, sourceWorkspace: source, consumerWorkspace: destination };
-  } finally {
-    await fsPromises.rm(bundle, { force: true }).catch(() => undefined);
-  }
+  { const __genosStageResult1 = await require('./aTeamWorkspaceHandoffServiceStages1.js').importCommitStage1({ Error, Object, bundle, destination, fs, fsPromises, fullCommit, path, runCommand, source, undefined }); if (__genosStageResult1) return __genosStageResult1.value; }
 }
 
 async function materializeHandoffs({ consumer, handoffs, byWorker }) {

@@ -51,9 +51,9 @@ async function main() {
       executionKind: registry.detectExecutionKind('genos_replay'), scopedReplayAllowed: true };
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), true, 'the exact scoped flag passes local dispatch');
     assert.equal(dispatch.preValidateTool(validation), null, 'safe absolute worker capsule paths pass scoped validation');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { root, snapshot: ownedSnapshot }, true), null,
+    assert.equal(toolLogic.revalidateToolCall({ toolName: 'genos_replay', args: { root, snapshot: ownedSnapshot }, authorityLease: true }), null,
       'the transport revalidation accepts the scoped owner grant');
-    assert.equal(toolLogic.revalidateToolCall('genos_replay', { root, snapshot: ownedSnapshot }, false).code,
+    assert.equal(toolLogic.revalidateToolCall({ toolName: 'genos_replay', args: { root, snapshot: ownedSnapshot }, authorityLease: false }).code,
       'MCP_TOOL_LEASE_DENIED', 'the transport still denies replay without scoped proof');
     process.env.GENOS_MCP_DISABLED_TOOLS = 'genos_replay';
     assert.equal(dispatch.scopedReplayLeaseAllowed(validation), false, 'disabled replay cannot use the scoped grant');

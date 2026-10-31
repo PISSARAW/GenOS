@@ -43,8 +43,7 @@ async function main() {
     catch (error) { fallbackRequired = /Never guess|UNKNOWN_SYMBOL/.test(error.message); }
     const observed = { symbol: encoded.symbol, canonicalMeaning: decoded.canonicalMeaning, fallbackRequired,
       dialectId: decoded.dialectId, version: decoded.version, semanticFingerprint: decoded.semanticFingerprint };
-    const enginePass = observed.symbol === EXPECTED.symbol && observed.canonicalMeaning === EXPECTED.canonicalMeaning
-      && observed.fallbackRequired && observed.semanticFingerprint === fingerprint;
+    const enginePass = require('./run-s21-qwenValues1.cjs').mainValue1({ EXPECTED, fingerprint, observed });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['A shared GenOS safety dialect encoded and decoded a signal. Copy its symbol, canonical meaning and unknown-symbol fallback behavior exactly.',
         `Decoded record: ${JSON.stringify(observed)}`,
