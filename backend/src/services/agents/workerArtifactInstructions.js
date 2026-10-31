@@ -19,7 +19,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', evidence: ['<receipt-ref>'] } },
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
   creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
-  clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
+  clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.', missingInformation: [], emergencyWarningSigns: [] },
   causal_dossier: { causalChain: [{ from: '<event-ref>', to: '<event-ref>', relation: '<causal-link>', evidence: ['<receipt-ref>'] }], evidence: ['<receipt-ref>'] },
   training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }
 });
@@ -39,7 +39,8 @@ function artifactInstruction(contract) {
   if (required.every((type) => type === 'dossier')) {
     return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [] })}. The top-level claims form the dossier; cite source references in evidence. ${unresolved}`;
   }
-  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [], workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance. ${unresolved}`;
+  const contentInstruction = require('./workerSpecializedArtifactSchema').contentInstruction(artifact.type);
+  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, uncertainties: [], workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance. ${contentInstruction} ${unresolved}`;
 }
 
 function customInstruction(kind, contract) {
@@ -56,7 +57,7 @@ function customInstruction(kind, contract) {
   if (kind === 'symbiotic_worker') return schemaInstruction(`Use only the host contract '${contract.mission.hostContractId}' and its declared capabilities.`, { hostContribution: { hostContractId: contract.mission.hostContractId, capability: '<host-capability>', contractCompliant: true, evidence: ['<receipt-ref>'] } });
   if (kind === 'sub_orchestrator') return schemaInstruction(`Coordinate no more than ${contract.limits?.maxChildren || 0} children. Report each child outcome with its evidence references.`, { childSummaries: [{ childId: '<child-id>', outcome: 'success', evidence: ['<child-receipt-ref>'] }] });
   if (kind === 'recovery_worker') return schemaInstruction('Return a dossier plus the executed recovery receipt. Do not claim restoration without a receipt.', { recoveryReceipt: { action: '<leased-action>', restoredState: '<restored-state>', receiptId: '<receipt-id>', evidence: ['<receipt-ref>'] } });
-  if (kind === 'liaison_worker') return schemaInstruction('Return the dossier and explicit recipient-bound handoff. Keep the groups distinct and cite every transferred item.', { handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'] } });
+  if (kind === 'liaison_worker') return schemaInstruction('Prepare a recipient-bound handoff in the parent dossier. Keep groups distinct and cite every item. This output does not prove transport delivery or recipient acknowledgement; never claim either.', { handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'], delivery: 'parent_dossier', recipientAcknowledged: false } });
   return '';
 }
 

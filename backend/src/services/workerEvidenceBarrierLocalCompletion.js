@@ -21,6 +21,19 @@ async function emitLocalCompleted(ctx, publishSuccess) {
   return completed;
 }
 
+async function terminalPayload(ctx) {
+  return {
+    executionRunId: ctx.executionRun.id, model: ctx.model, provider: ctx.provider,
+    evidenceReport: ctx.evidenceReport,
+    identityReceipt: ctx.identityReceipt,
+    snapshot: ctx.replaySnapshotPath || ctx.mission.runtimeCapsule?.snapshotPath,
+    ...(ctx.nativeOracleRef ? { nativeOracleRef: ctx.nativeOracleRef } : {}),
+    noAnswerProof: ctx.noAnswerProof, proposal: ctx.proposal, usage: ctx.usage,
+    ...await require('./workerModelRunUsage').forRun(ctx),
+    stageTimings: ctx.stageTimings
+  };
+}
+
 module.exports = { emit: emitLocalCompleted, emitLocalCompleted };
 
 function terminalMetadata(evidence, codeWorker) {

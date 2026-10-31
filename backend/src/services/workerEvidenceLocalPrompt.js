@@ -1,14 +1,11 @@
 'use strict';
 
 function buildAnalysisPrompt(context) {
-  const { selfIntro, workerSelfBlock, conscienceBlock, workerInstruction, evidenceRule,
-    codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm,
-    allowedCommands, forceFullFileReplacement } = context;
+  const { selfIntro, workerSelfBlock, conscienceBlock,
+    codeWorker, orchestrator, agentName, prompt, workspaceContext, identityExperimentArm } = context;
   const morphogenesisPrompt = require('./morphogenesisRolePrompt');
   const assignment = context.assignment || {};
-  const workerBlock = [workerInstruction, codeWorker
-    ? codeProposalInstruction(allowedCommands, forceFullFileReplacement) : evidenceRule]
-    .filter(Boolean).join('\n');
+  const workerBlock = workerInstructionBlock(context, assignment);
   if (!codeWorker && morphogenesisPrompt.morphogenesisCompactWorkerRole(assignment)) {
     return [morphogenesisPrompt.morphogenesisMissionPrompt(assignment, prompt),
       morphogenesisPrompt.morphogenesisRoleInstruction(assignment), workerBlock].filter(Boolean).join('\n');
@@ -20,6 +17,14 @@ function buildAnalysisPrompt(context) {
   const workspaceBlock = workspaceContext
     ? `\nRead-only workspace evidence snapshot (cite only listed sha256 references; no file edits are authorized):\n${workspaceContext}` : '';
   return `${intro}\nYou are ${workerLabel} (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}${workspaceBlock}`;
+}
+
+function workerInstructionBlock(context, assignment) {
+  const reviewInstruction = assignment.delegatedReviewOnly === true
+    ? `Return only JSON with format "genos.test-only/v1", patches [], tests selected from ${JSON.stringify(context.allowedCommands || [])}, and evidence explaining the review. Execute no edits; tests must inspect the supplied snapshot.` : null;
+  return [context.workerInstruction, context.codeWorker
+    ? (reviewInstruction || codeProposalInstruction(context.allowedCommands, context.forceFullFileReplacement)) : context.evidenceRule]
+    .filter(Boolean).join('\n');
 }
 
 function sourceReferenceInstruction(mission) {
@@ -53,6 +58,7 @@ function codeProposalInstruction(allowedCommands = [], forceFullFileReplacement 
 }
 
 function isCodeWorkerMission(mission) {
+  if (mission.delegatedReviewOnly === true && mission.localCodeWorker === true && mission.workerKind === 'verifier_worker') return true;
   const explicitlyEnabled = mission.localCodeWorker === true
     || mission.executionPolicy?.localCodeWorker === true;
   const codeRole = /^(implementation|coder|developer|basic_implementation|interview_plan_implementation|self_correcting_implementation)$/i

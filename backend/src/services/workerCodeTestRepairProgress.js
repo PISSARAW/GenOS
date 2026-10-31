@@ -49,6 +49,7 @@ function noProgressError(error, progress) {
   return Object.assign(new Error(`Stopped local code repair after ${progress.identicalFailures} identical failures with no new assertion or repair strategy.`), {
     code: 'WORKER_TEST_REPAIR_NO_PROGRESS', originalError: error, proposal: error.proposal,
     workerArtifactDiagnostics: error.workerArtifactDiagnostics, usage: error.usage,
+    modelUsage: error.modelUsage, model: error.model, modelProvider: error.modelProvider,
     repairProgress: progress
   });
 }

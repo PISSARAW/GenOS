@@ -26,7 +26,7 @@ function dossierProperties(kind, refs, diagnosis) {
     specialist: ['specialtyAssessment', object({ niche: { type: 'string', minLength: 1 }, inScope: { const: true }, evidence: refs }, ['niche', 'inScope', 'evidence'])],
     adaptive_worker: ['strategyTrace', { type: 'array', minItems: 1, items: object({ strategy: { type: 'string', minLength: 1 }, decision: { enum: ['retained', 'changed'] }, reason: { type: 'string', minLength: 1 }, evidence: refs }, ['strategy', 'decision', 'reason', 'evidence']) }],
     recovery_worker: ['recoveryReceipt', object({ action: { type: 'string', minLength: 1 }, restoredState: { type: 'string', minLength: 1 }, receiptId: { type: 'string', minLength: 1 }, evidence: refs }, ['action', 'restoredState', 'receiptId', 'evidence'])],
-    liaison_worker: ['handoff', object({ sourceGroup: { type: 'string', minLength: 1 }, targetGroup: { type: 'string', minLength: 1 }, deliveredRefs: refs }, ['sourceGroup', 'targetGroup', 'deliveredRefs'])],
+    liaison_worker: ['handoff', object({ sourceGroup: { type: 'string', minLength: 1 }, targetGroup: { type: 'string', minLength: 1 }, deliveredRefs: refs, delivery: { const: 'parent_dossier' }, recipientAcknowledged: { const: false } }, ['sourceGroup', 'targetGroup', 'deliveredRefs', 'delivery', 'recipientAcknowledged'])],
     resident_daemon: ['territoryReport', object({ territoryId: { type: 'string', minLength: 1 }, observedAt: { type: 'string', format: 'date-time' }, sourceRefs: refs }, ['territoryId', 'observedAt', 'sourceRefs'])],
     symbiotic_worker: ['hostContribution', object({ hostContractId: { type: 'string', minLength: 1 }, capability: { type: 'string', minLength: 1 }, contractCompliant: { const: true }, evidence: refs }, ['hostContractId', 'capability', 'contractCompliant', 'evidence'])],
     sub_orchestrator: ['childSummaries', { type: 'array', items: object({ childId: { type: 'string', minLength: 1 }, outcome: { enum: ['success', 'failed', 'blocked'] }, evidence: refs }, ['childId', 'outcome', 'evidence']) }]
@@ -86,7 +86,8 @@ function artifactSchema(input) {
     return object({ type: { const: artifactType }, content,
       provenance: object({ sourceRefs: refs }, ['sourceRefs']) }, ['type', 'content', 'provenance']);
   }
-  return object({ type: { const: artifactType }, content: { type: 'object' }, provenance: object({ sourceRefs: refs }, ['sourceRefs']) },
+  const content = require('./workerSpecializedArtifactSchema').contentSchema(artifactType) || { type: 'object' };
+  return object({ type: { const: artifactType }, content, provenance: object({ sourceRefs: refs }, ['sourceRefs']) },
     ['type', 'content', 'provenance']);
 }
 

@@ -4,7 +4,27 @@ Cette suite propose des missions réelles à exécuter avec un worker GenOS rout
 
 > **État d'exécution :** les douze cartes ont été lancées avec répétitions et cas négatifs sur D:. Les résultats sont contrastés et ne qualifient pas l'ensemble des workers. Voir le [rapport de campagne](rapport-campagne-2026-10-30.md) et le [rapport du pilote](rapport-pilote-2026-10-30.md).
 
+Les corrections ultérieures, les schémas de preuve et les campagnes de requalification sont suivis dans le [rapport du 30 octobre 2026](../../docs/06-qualite-preuves/rapport-corrections-campagne-qwen-2026-10-30.md), avec séparation explicite des diagnostics et des résultats finaux.
+
 ## Lancement
+
+Pour une campagne complète depuis une révision commitée et figée :
+
+```powershell
+node benchmarks/qwen-worker-missions/run.cjs D:\GenOS-runs\qwen-campagne-corrigee-unique
+```
+
+Un troisième argument permet un profil uniforme explicitement tracé, par exemple `ollama://qwen2.5-coder:7b`. Le modèle doit être local et appartenir à la famille Qwen ; ce profil change les conditions de comparaison et doit être signalé dans le bilan.
+
+Le répertoire de sortie doit être nouveau. Le serveur Ollama de D: doit écouter sur `127.0.0.1:11435`, avec les modèles 7B et 32B du catalogue. Le runner refuse un checkout modifié, vérifie la révision entre scénarios et conserve les empreintes des payloads et du workspace initial. Les capsules et bases restent sur D:. Il produit trois répétitions et un négatif par carte, les journaux, les manifestes et les dossiers SQLite inspectés. La passation reçoit les vrais résultats producteurs sous forme de fichiers inspectables, plutôt que les seules sorties du CLI.
+
+Les entrées sont versionnées dans `cases.json`. Les négatifs ne prescrivent plus la réponse `unresolved` : le worker doit détecter la contradiction ou l'absence de preuve. Ce changement de protocole doit être pris en compte dans toute comparaison avec la première campagne. Un échec numérique du modèle reste un échec ; le protocole ne remplace pas sa réponse par une solution prédéfinie.
+
+La fenêtre locale est déclarée explicitement à 16 384 tokens et transmise à Ollama. Le contrôle préalable utilise une estimation du prompt ; il ne constitue pas un comptage exact du tokenizer. Les manifests enregistrent la version Node, les empreintes des lockfiles et les digests des modèles. Les dépendances installées doivent rester stables pendant la campagne.
+
+Les cartes numériques demandent un objet JSON unique dans le texte du claim. L'évaluateur recalcule ses valeurs et refuse les formes ambiguës, contradictoires ou non exploitables ; il ne déduit pas la réussite de la simple présence d'un nombre dans une phrase. Le rapport évalué et sa télémétrie doivent appartenir au worker et au run identifiés par le reçu CLI, avec le modèle demandé.
+
+L'empreinte des fixtures inclut récursivement les noms et contenus, refuse les liens et doit être identique avant toutes les répétitions. Les fichiers source non suivis empêchent aussi la campagne. Les fichiers ignorés et les dépendances installées ne sont pas couverts par cette empreinte Git : les lockfiles ne constituent pas une preuve d'immuabilité des modules installés.
 
 Pour un lancement local direct, fournir un budget parent explicite et un plafond inférieur pour le worker. Le runtime crée et lie le scope budgétaire parent. Le [rapport du pilote](rapport-pilote-2026-10-30.md) décrit les résultats et limites observés.
 
@@ -43,3 +63,5 @@ Remplacer le modèle par celui réellement installé. L’exemple choisit explic
 - Pour les missions de code et sécurité, utiliser un workspace jetable et ne pas fusionner automatiquement les changements.
 - Rapporter succès vérifiés, échecs, refus corrects, coûts, latences et receipts. Une note de qualité textuelle ne remplace ni un run terminé ni une vérification indépendante.
 - L’épreuve collective est la mission 12 ; lancer les précédentes isolément pour localiser les pannes et éviter d’attribuer à Qwen le résultat d’un exécuteur déterministe.
+
+La présence de `completion.json` avec `executionStatus: finished` atteste uniquement la fin de la boucle des 48 scénarios. Les verdicts restent ceux des évaluations individuelles. Une erreur interrompant cette boucle écrit `executionStatus: aborted` ; une interruption forcée doit être documentée séparément si le processus ne peut pas écrire son état.

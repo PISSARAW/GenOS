@@ -248,6 +248,7 @@ function estimateMemoryPressure(agentSelf) {
  * Génère le prompt d'introspection pour le worker.
  */
 function formatWorkerSelfPrompt(workerSelf) {
+  const bounds = require('./workerExecutionPromptBounds').display(workerSelf.operational);
   const lines = [
     `[WORKER SELF — ${workerSelf.workerRole}]`,
     ``,
@@ -259,9 +260,9 @@ function formatWorkerSelfPrompt(workerSelf) {
     ``,
     `[CONTRAINTES HÉRITÉES]`,
     `- Confiance calibrée : ${(workerSelf.operational.confidence * 100).toFixed(0)}%`,
-    `- Budget tokens : ${workerSelf.operational.tokenBudget || 'illimité'}`,
-    `- Workers max : ${workerSelf.operational.workerLimit || 'illimité'}`,
-    `- Outils : ${workerSelf.operational.tools?.join(', ') || 'aucun'}`,
+    `- Budget tokens : ${bounds.tokenBudget}`,
+    `- Workers max : ${bounds.workerLimit}`,
+    `- Outils : ${bounds.tools}`,
     `- Faiblesses : ${workerSelf.operational.limitations?.join(', ') || 'aucune'}`,
     ``,
     `[ÉTAT]`,

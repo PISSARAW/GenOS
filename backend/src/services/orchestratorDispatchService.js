@@ -65,6 +65,7 @@ function buildWorkerMission(input = {}) {
     requiredPatchMarkers: input.requiredPatchMarkers,
     requiredPatchMinimumBytes: input.requiredPatchMinimumBytes,
     localModel: input.localModel,
+    localContextTokens: input.localContextTokens,
     localRoutingPolicy: input.localRoutingPolicy,
     variantIndex: input.variantIndex,
     autonomousOrchestration: false

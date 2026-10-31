@@ -1,5 +1,12 @@
 # 06 — Qualité et preuves
 
+- [rapport-corrections-campagne-qwen-2026-10-30.md](rapport-corrections-campagne-qwen-2026-10-30.md) — corrections des workers locaux, schéma de preuve, diagnostic partiel et campagne finale distincte.
+- [evaluateur-campagne-qwen.md](evaluateur-campagne-qwen.md) — contrôles externes numériques et formels, provenance des runs et limites des verdicts.
+- [fixture-palindrome-qwen.md](fixture-palindrome-qwen.md) — tests différentiels de ponctuation et périmètre réel des assertions Python.
+- [budget-prompts-worker-qwen.md](budget-prompts-worker-qwen.md) — préflight du prompt fournisseur complet, reliquat entre tentatives et limites de l'estimation.
+- [relais-qwen-mission-11.md](relais-qwen-mission-11.md) — supplément de livraison dans la mission source, admission persistante et absence d'acceptation sémantique implicite.
+- [artefact-experience-identite.md](artefact-experience-identite.md) — contrat d'artefact des expériences d'identité et traitement honnête des réponses unresolved.
+
 - [qualification-metacognition-agow-2026-10-24.md](qualification-metacognition-agow-2026-10-24.md) — calibration non circulaire, reproduction AGOW et pilote Ollama avec oracle séparé, résultats défavorables et limites du corpus.
 
 - [campagne-autonomie-ontogenese-2026-10-24.md](campagne-autonomie-ontogenese-2026-10-24.md) — protocole progressif et premier relevé de qualification multi-niveaux.

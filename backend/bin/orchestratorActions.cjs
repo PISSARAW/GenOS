@@ -16,7 +16,7 @@ const { handleWorkerStatus } = require('./orchestratorWorkerStatus.cjs');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
-const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { workerPolicy } = require('./directWorkerPolicy.cjs');
 const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { workerToolLeaseForCapabilities } = require('../src/services/agentOrchestrationState');
@@ -267,7 +267,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
     workerTokenLimit: request.workerTokenLimit ?? budget.tokens
   });
-  if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
+  if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract, request.delegationLimit ?? 5);
   return contract;
 }
 function buildWorkerMetadata(workerKind, contract, request) {
@@ -300,7 +300,7 @@ async function startWorker({ db, context, parent, reusable, worker }) {
     await require('./directWorkerBudgetScope.cjs').closeParentBudgetRun(db, context, 'failed'); await require('../src/services/directWorkerCellBridge').fail(db, context, error); await workerGarage.releaseSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id }); throw error;
   }
   const agents = await context.waitForCompletion(db); await require('./directWorkerBudgetScope.cjs').closeParentFromWorkers(db, context, agents);
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, workerId: context.id, workerName: worker.name, reusedWorker: context.reusedWorker, ...require('../src/services/directWorkerCellBridge').receipt(context), ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}), garage: { slot: garage.slot, capacity: garage.capacity }, agents }));
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, workerId: context.id, workerName: worker.name, reusedWorker: context.reusedWorker, ...require('../src/services/directWorkerCellBridge').receipt(context), ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}), garage: { slot: garage.slot, capacity: garage.capacity }, agents }) + '\n');
 }
 async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const strategyContract = await contracts.getLatestContract(db, context.orchestratorId);
@@ -316,7 +316,7 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const capabilities = capabilityManifest.owned || [];
   const toolLease = require('../src/services/trinityDispatchPreparation').restrictLease(context.request.missionScope, workerToolLeaseForCapabilities(worker.role, capabilities));
   const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier, variantIndex: context.request.variantIndex, localModel: context.request.localModel, localRoutingPolicy: context.request.localRoutingPolicy, executionBudgetTokens: worker.executionBudget?.tokens }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
-  const workerMission = require('./directWorkerContext.cjs').attachEnvelope({ agentId: context.id, missionId: context.missionId, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, missionScope: context.request.missionScope, organization: workerLaunch.organization, coordinationPolicy: workerLaunch.coordinationPolicy, communicationRequired: context.request.communicationRequired === true || context.request.communication_required === true, workerTokenLimit: context.request.workerTokenLimit, modelBudgetScope: context.request.modelBudgetScope, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceProvisioned: true, workspaceIsolation: parent.isolation_mode, workspaceId: worker.workspaceId || parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, executor: workerLaunch.executor, localRuntime, localCodeWorker: worker.localCodeWorker === true || context.request.localCodeWorker === true, requiredPatchPaths: context.request.requiredPatchPaths, requiredPatchMarkers: context.request.requiredPatchMarkers, requiredPatchMinimumBytes: context.request.requiredPatchMinimumBytes, localModel: workerLaunch.localModel, localRoutingPolicy: workerLaunch.localRoutingPolicy, variantIndex: workerLaunch.variantIndex }, context.request);
+  const workerMission = require('./directWorkerContext.cjs').attachEnvelope({ agentId: context.id, missionId: context.missionId, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, missionScope: context.request.missionScope, organization: workerLaunch.organization, coordinationPolicy: workerLaunch.coordinationPolicy, communicationRequired: context.request.communicationRequired === true || context.request.communication_required === true, workerTokenLimit: context.request.workerTokenLimit, handoffFromRunIds: context.request.handoffFromRunIds, modelBudgetScope: context.request.modelBudgetScope, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceProvisioned: true, workspaceIsolation: parent.isolation_mode, workspaceId: worker.workspaceId || parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, executor: workerLaunch.executor, localRuntime, localCodeWorker: worker.localCodeWorker === true || context.request.localCodeWorker === true, requiredPatchPaths: context.request.requiredPatchPaths, requiredPatchMarkers: context.request.requiredPatchMarkers, requiredPatchMinimumBytes: context.request.requiredPatchMinimumBytes, localModel: workerLaunch.localModel, localContextTokens: context.request.localContextTokens, localRoutingPolicy: workerLaunch.localRoutingPolicy, variantIndex: workerLaunch.variantIndex }, context.request);
   await require('./directWorkerBudgetScope.cjs').bindDirectWorkerBudget({ db, context, parent, mission: workerMission, contractRecord: strategyContract }); await dispatchWorkerMission(await require('../src/services/directWorkerCellBridge').prepare(db, { context, mission: workerMission }));
 }
 function buildCapabilityContext(context, parent, missionBudget) {
@@ -333,15 +333,6 @@ function buildCapabilityContext(context, parent, missionBudget) {
 function requestLocalRuntime(request = {}) {
   if (request.localRuntime === true) return true;
   return String(request.executor || request.runtime || '').trim().toLowerCase() === 'local';
-}
-function workerPolicy(request = {}) {
-  const policy = request.executionPolicy || {};
-  const explicitCommands = firstPresent(request.allowed_commands, request.allowedCommands, policy.allowedCommands);
-  const explicitEdits = firstPresent(request.allow_file_edits, request.allowFileEdits, policy.allowFileEdits);
-  let inherited;
-  if (explicitCommands !== undefined) inherited = normalizeAllowedCommands(explicitCommands) || [];
-  else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
-  return require('./orchestratorActionsValues1.cjs').workerPolicyValue1({ Array, String, explicitEdits, firstPresent, get inherited() { return inherited; }, policy, process, request, undefined });
 }
 async function handleWorker({ db, context }) {
   const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);

@@ -69,7 +69,7 @@ async function selfModelCompletionBlock(db, agentId, payload) {
 
 async function resolveRunOutcome(db, row, context) {
   const event = context.event;
-  const delta = events.metricDelta(event.payload);
+  const delta = events.metricDelta(event.payload, events.safeJson(row.metrics_json, {}));
   const startedAt = row.started_at ? new Date(row.started_at).getTime() : Date.now();
   const metrics = accumulateMetrics(events.safeJson(row.metrics_json, {}), delta, startedAt);
   const budget = events.safeJson(row.budget_json, events.DEFAULT_BUDGET);

@@ -16,8 +16,8 @@ const PROPOSAL_RESPONSE_FORMAT = Object.freeze({ name: 'genos_file_replacement_v
     patches: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object',
       additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' },
         edits: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'object', additionalProperties: false,
-          properties: { find: { type: 'string' }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
-      anyOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
+          properties: { find: { type: 'string', minLength: 1 }, replace: { type: 'string' } }, required: ['find', 'replace'] } } },
+      oneOf: [{ required: ['path', 'content'] }, { required: ['path', 'edits'] }] } },
     tests: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } },
     evidence: { type: 'string' }
   }, required: ['format', 'patches', 'tests', 'evidence']
@@ -129,22 +129,7 @@ async function runTest(command, root) {
       cwd: root,
       shell: process.platform === 'win32',
       detached: process.platform !== 'win32',
-      env: {
-        PATH: process.env.PATH || '/usr/bin:/bin',
-        CI: '1',
-        GENOS_ISOLATED_RUNNER: '1',
-        ...(process.platform === 'win32' ? {
-          SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
-          SystemDrive: process.env.SystemDrive || 'C:',
-          PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
-          ComSpec: process.env.ComSpec || 'cmd.exe',
-          TEMP: testTempRoot,
-          TMP: testTempRoot,
-          TMPDIR: testTempRoot
-        } : {
-          TMPDIR: testTempRoot
-        })
-      },
+      env: require('./localCodeTestEnvironment').build(testTempRoot),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);
@@ -153,7 +138,13 @@ async function runTest(command, root) {
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
   });
 }
-async function executeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
+async function executeProposal(input) {
+  if (input.mission?.delegatedReviewOnly === true) return require('./localCodeReview').execute({
+    workspaceRoot: input.workspaceRoot, text: input.text, allowedCommands: input.allowedCommands,
+    db: input.db, mission: input.mission, executionRun: input.executionRun, runTest, allowedTest });
+  return executeCodeProposal(input);
+}
+async function executeCodeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   allowedPatchPaths, requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
   const proposal = parseProposal(text, usage, { forceFullFileReplacement: mission?.forceFullFileReplacement === true });
   assertAllowedPatchPaths(proposal, allowedPatchPaths);
@@ -164,7 +155,8 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
   for (const command of proposal.tests) {
     if (!allowedTest(command, allowedCommands)) throw new Error(`Test command is not allow-listed: ${command}`);
   }
-  const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
+  const beforeFiles = await snapshotStore.collectFiles(workspaceRoot);
+  const before = new Map(beforeFiles.map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
   let tests;
   await require('./localCodeWorkerServiceStages1.js').executeProposalStage1({ Error, assertNoSymlinkPath, fs, normalizeRelativePath, patchState, get path() { return path; }, set path(__genosNextStageValue) { path = __genosNextStageValue; }, proposal, restorePatchState, runTest, get tests() { return tests; }, set tests(__genosNextStageValue) { tests = __genosNextStageValue; }, workspaceRoot });
@@ -177,6 +169,8 @@ async function executeProposal({ workspaceRoot, text, usage, allowedCommands, re
       agentId: mission.agentId, executionRunId: executionRun.id, workspaceRoot,
       tests, workspaceFiles: after, changedFileHashes
     }) : null;
+  await require('./localCodeTestScope').enforce({ before: beforeFiles, after, patches: proposal.patches,
+    restore: () => restorePatchState(workspaceRoot, patchState), tests, testExecutionReceipt });
   if (tests.some((test) => test.exitCode !== 0)) {
     const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
     if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
@@ -205,6 +199,10 @@ function assertAllowedPatchPaths(proposal, allowedPaths) {
 }
 
 function proposalResponseFormat(options = {}) {
+  if (options.delegatedReviewOnly === true) return require('./localCodeReview').responseFormat(options.allowedCommands);
+  return codeProposalResponseFormat(options);
+}
+function codeProposalResponseFormat(options) {
   const resolved = responseOptions(options);
   const commands = [...new Set(resolved.allowedCommands.map(normalizeSandboxCommand)
     .filter(isAllowedSandboxTestCommand))];
@@ -215,7 +213,7 @@ function proposalResponseFormat(options = {}) {
   if (resolved.forceFullFileReplacement) {
     format.schema.properties.format.enum = ['genos.file-replacement/v1'];
     format.schema.properties.patches.items.properties = { path: { type: 'string' }, content: { type: 'string' } };
-    delete format.schema.properties.patches.items.anyOf;
+    delete format.schema.properties.patches.items.oneOf;
     format.schema.properties.patches.items.required = ['path', 'content'];
   }
   if (commands.length) format.schema.properties.tests.items.enum = commands;
@@ -248,8 +246,14 @@ function assertProposalSchema(proposal, options = {}) {
   const allowedFormats = options.forceFullFileReplacement
     ? ['genos.file-replacement/v1'] : ['genos.file-replacement/v1', 'genos.file-edits/v1'];
   if (require('./localCodeWorkerServiceValues1.js').assertProposalSchemaValue7({ Array, Object, allowedFormats, proposal })) throw new Error('Patch proposal violates the strict schema.');
-  if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
+  assertProposalLists(proposal);
   assertProposalPatches(proposal, options);
+}
+
+function assertProposalLists(proposal) {
+  if (proposal.patches.length < 1 || proposal.patches.length > 12) throw new Error('Patch proposal must contain 1-12 patches.');
+  if (proposal.tests.length < 1 || proposal.tests.length > 2
+    || !proposal.tests.every(command => typeof command === 'string')) throw new Error('Patch proposal must contain one or two capsule test commands.');
 }
 
 function assertProposalPatches(proposal, options = {}) {

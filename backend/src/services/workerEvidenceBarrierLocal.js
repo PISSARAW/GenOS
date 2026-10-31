@@ -16,13 +16,13 @@ const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
-const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
+const { estimatePromptTokens, resolveTokenBudget, resolveRequestTokenBudget, throwIfPromptOverBudget,
   resolveMaxOutputTokens, consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
 const emitCodeTestReceipt = require('./workerCodeTestReceipt');
 const workerCodeTestRepair = require('./workerCodeTestRepair');
 const workerCodeTestRepairTelemetry = require('./workerCodeTestRepairTelemetry');
 const { reportMilestone } = require('./workerEvidenceBarrierLocalEvents');
-const proposalExecution = require('./workerEvidenceBarrierLocalProposal');
+const stageDetails = require('./workerLocalStageDetails');
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
   return 'GenOS Worker';
@@ -51,7 +51,8 @@ function resolveMaxCost(mission) {
   if (Number.isFinite(value)) return value;
   return undefined;
 }
-async function generateWorkerResult(ctx) {
+async function generateWorkerResult(ctx) { const delegation = require('./localModelDelegation'); return delegation.enabled(ctx.mission) ? delegation.generate(ctx, generateWorkerResultOnce) : generateWorkerResultOnce(ctx); }
+async function generateWorkerResultOnce(ctx) {
   if (!ctx.executionRun?.id) {
     throw Object.assign(new Error('Local worker generation requires its execution run.'), {
       code: 'WORKER_EXECUTION_RUN_REQUIRED'
@@ -72,11 +73,14 @@ async function generateWorkerResult(ctx) {
     timeoutMs: ctx.latencyMs,
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
+    contextTokens: ctx.mission.localContextTokens,
+    requestTokenBudget: resolveRequestTokenBudget(ctx),
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
-    responseFormat: ctx.codeWorker
+    responseFormat: ctx.responseFormatOverride || (ctx.codeWorker
       ? localCodeWorker.proposalResponseFormat({
+        delegatedReviewOnly: ctx.mission.delegatedReviewOnly === true,
         allowedCommands: ctx.mission.executionPolicy?.allowedCommands,
         allowedPatchPaths: ctx.mission.allowedPatchPaths,
         requiredPatchPaths: ctx.mission.requiredPatchPaths,
@@ -84,7 +88,7 @@ async function generateWorkerResult(ctx) {
         requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
         forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true
       })
-      : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission),
+      : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission)),
     reasoningEffort: ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined,
 
     policy: ctx.policy,
@@ -205,16 +209,9 @@ async function runGenerationStage(ctx) {
   let wsBlock = ctx.identity.prompt;
   let identityExperimentAudit = null;
   const experimentArm = ctx.mission.identityExperimentArm;
-  if (experimentArm) {
-    const treatment = require('./identityExperimentPromptTreatment').applyIdentityExperimentTreatment({
-      arm: experimentArm, agentId: ctx.mission.agentId, agentName, role: ctx.mission.role,
-      selfIntro, conscienceBlock, workerSelfBlock: wsBlock
-    });
-    selfIntro = treatment.selfIntro;
-    conscienceBlock = treatment.conscienceBlock;
-    wsBlock = treatment.workerSelfBlock;
-    identityExperimentAudit = treatment.audit;
-  }
+  const identityDetails = stageDetails.treatment(ctx.mission, { agentName, selfIntro, conscienceBlock, wsBlock });
+  selfIntro = identityDetails.selfIntro; conscienceBlock = identityDetails.conscienceBlock;
+  wsBlock = identityDetails.wsBlock; identityExperimentAudit = identityDetails.audit;
   const workerKinds = require('./agents/workerKindService');
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -229,6 +226,7 @@ async function runGenerationStage(ctx) {
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
   const promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
+  throwIfPromptOverBudget(estimatePromptTokens(promptText), budget);
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');
@@ -272,14 +270,7 @@ async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   await assertEvidenceAuthority(ctx.db, ctx.mission, ctx.executionRun);
-  const proposal = await proposalExecution.resolveProposal({ codeWorker: ctx.codeWorker, result: ctx.result,
-    workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text,
-    allowedCommands: ctx.mission.executionPolicy?.allowedCommands || [],
-    requiredPatchPaths: ctx.mission.requiredPatchPaths,
-    allowedPatchPaths: ctx.mission.allowedPatchPaths,
-    requiredPatchMarkers: ctx.mission.requiredPatchMarkers,
-    requiredPatchMinimumBytes: ctx.mission.requiredPatchMinimumBytes,
-    db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun });
+  const proposal = await stageDetails.proposal(ctx);
   if (ctx.codeWorker) emitCodeTestReceipt(ctx.mission, proposal, emit);
   require('./workerEvidenceBarrierLocalTestFailure').throwIfFailed(proposal, ctx.result, consumed);
   let evidenceReport = ctx.codeWorker
@@ -309,7 +300,7 @@ async function evidenceReportFromModel(ctx) {
     const immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName,
       nameMeaning: ctx.nameMeaning, role: ctx.mission.role });
     throwIfImmuneRejected(immuneReport, ctx.result.text);
-    return immuneReport.report;
+    return require('./workerDossierHandoffService').attachReport(ctx.mission, immuneReport.report);
   } finally { ctx.stageTimings.responseParsingMs = Date.now() - startedAt; }
 }
 async function runLocalWorker(db, mission, executionRun) {
@@ -324,9 +315,11 @@ async function runLocalWorker(db, mission, executionRun) {
     identity = await workerIdentity.begin(db, { mission, executionRun });
     identityLeaseHeartbeat = require('./identity/leaseHeartbeat').start({ renew: () => workerIdentity.renew(db, identity), intervalMs: 60000 });
     await identityLeaseHeartbeat.pulse();
+    await require('./workerDossierHandoffService').admit(db, { mission, executionRun });
     const attempt = await workerCodeTestRepair.run({
       mission,
       runAttempt: async (currentMission) => {
+        generation = undefined;
         generation = await runGenerationStage({ db, mission: currentMission, executionRun, stageTimings, identity });
         identityLeaseHeartbeat.assertHealthy();
         const evidence = await runEvidenceStage({ db, executionRun, result: generation.result, budget: generation.budget,
@@ -349,7 +342,7 @@ async function runLocalWorker(db, mission, executionRun) {
       cost_usd: generation.result.costUsd, tokens: consumedTokensOf(generation.result)
     } : undefined;
     return await require('./workerEvidenceBarrierLocalFailure').publish({ db, mission, executionRun,
-      error, usage, stageTimings, reportMilestone });
+      error, usage, model: generation?.result?.model, provider: generation?.result?.provider, stageTimings, reportMilestone });
   } finally {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);

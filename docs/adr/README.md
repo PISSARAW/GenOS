@@ -695,7 +695,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0549](0549-admission-explicite-des-strategies-morphogenetiques.md) | Admission explicite des stratégies morphogénétiques | Implémenté dans la continuation morphogénétique | 2026-10-15 | orchestration, morphogenèse, stratégies, autorité, quiescence |
 | [0550](0550-frontiere-execution-worker-local-fichiers-preuves.md) | Frontière d'exécution du worker local : fichiers injectés, capsule stricte, preuves exigées | Accepté. | 2026-10-15 | Runtime worker local, sandbox, contrats de preuve. |
 | [0551](0551-liberation-claims-garage-reprise-bornee.md) | Libération des claims garage des workers terminés et reprise bornée | Implémenté | 2026-10-15 | garage, reprise worker, claim, backoff, verdict terminal |
-| [0552](0552-lier-les-effets-au-recu-morphogenetique.md) | Lier les effets d’une époque au reçu morphogénétique | Accepté pour l’exécution du backend | 2026-10-15 | orchestration, morphogenèse, reprise, preuve |
+| [0552a](0552-file-durable-reprises-workers.md) | File durable des reprises de workers | Implémenté | -- | -- |
+| [0552b](0552-lier-les-effets-au-recu-morphogenetique.md) | Lier les effets d’une époque au reçu morphogénétique | Accepté pour l’exécution du backend | 2026-10-15 | orchestration, morphogenèse, reprise, preuve |
 | [0553](0553-lier-le-principal-au-flux-neuro-glial.md) | Lier le principal au flux neuro-glial | Accepté pour le pont HTTP expérimental | 2026-10-15 | Autorité backend, tenant, provenance neuro-gliale |
 | [0554](0554-calibrer-le-selecteur-morphogenetique.md) | Calibrer le sélecteur morphogénétique sur des issues vérifiées | Accepté pour la calibration consultative | 2026-10-15 | orchestration, morphogenèse, calibration, preuve |
 | [0555](0555-reduction-des-communications-a-la-releve.md) | Réduction des communications à la relève morphogénétique | Accepté pour une action consultative et conditionnelle | 2026-10-15 | orchestration, morphogenèse, communication, leases, preuve |
@@ -875,8 +876,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0750](0750-identite-persistante-du-client-mcp-codex.md) | Identité persistante du client MCP Codex | accepté. | 2026-10-28. | -- |
 | [0751](0751-liaison-runtime-immutable-des-bras-gvx.md) | Liaison runtime immuable des bras expérimentaux GVX | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, exécution d’agents, ontogenèse, vérification, transmission et provenance |
 | [0752](0752-runner-evaluateur-gvx-isole-docker.md) | Isoler le runner d’évaluation GVX dans Docker | Proposé pour implémentation et revue de sûreté | 2026-10-28 | GVX, évaluation externe, isolation et provenance |
+| [0753](0753-budget-parent-worker-direct.md) | Budget parent du worker direct | Voir le fichier | -- | -- |
+| [0754](0754-preuve-semantique-cloture-worker.md) | Preuve sémantique pour qualifier un worker | Voir le fichier | -- | -- |
+| [0755](0755-initialisation-worker-direct.md) | Initialisation du worker direct | Voir le fichier | -- | -- |
+| [0757](0757-delegation-modele-locale-bornee.md) | Délégation locale par plan modèle borné | Voir le fichier | -- | -- |
 | [0758a](0758-continuite-et-confinement-des-relations-agents.md) | Continuité et confinement des relations entre agents | Accepté | 2026-10-30 | Relations, communication et confinement |
 | [0758b](0758-verification-lean-et-recus-lies.md) | Vérification Lean commune et reçus liés | Accepté | 2026-10-30 | -- |
+| [0758c](0758-relais-dossier-et-admission-runtime.md) | Relais de dossier et admission persistante du destinataire | Voir le fichier | -- | -- |
+| [0759](0759-attendre-finalisation-runtime-avant-fermeture-sqlite.md) | Attendre la finalisation runtime avant fermeture SQLite | Accepté le 30 octobre 2026. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

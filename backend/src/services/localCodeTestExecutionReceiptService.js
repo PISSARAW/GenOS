@@ -46,6 +46,10 @@ async function recordExecutedBatch(db, input = {}) {
     outcome, receiptHash, workspaceDigest: payload.workspaceDigest };
 }
 
+function reviewSnapshotFields(reviewSnapshot) {
+  return reviewSnapshot ? { reviewSnapshot } : {};
+}
+
 async function collectVerifiedForMission(db, missionId, agents = []) {
   if (!db || !missionId) return [];
   const rows = await db.all(`SELECT * FROM local_code_test_execution_receipts

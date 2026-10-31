@@ -246,7 +246,7 @@ function startMission(mission) {
     throw failure;
   });
   state.missionStarts.set(agentId, start);
-  return start;
+  return require('../runtimeMissionTasks').track(start);
 }
 
 function missionStartFailureDetail(failure) {

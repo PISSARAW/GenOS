@@ -169,10 +169,7 @@ function hasSolverReceipt(receipt, content) {
 }
 
 function isNonDiagnosticClinicalReport(content) {
-  const allowed = new Set(['caseScope', 'differentialConsiderations', 'uncertainty', 'safetyNote', 'evidence']);
-  return content.caseScope === 'synthetic_educational'
-    && Object.keys(content).every((key) => allowed.has(key))
-    && !containsClinicalDirective(content);
+  return require('./workerClinicalArtifactContract').valid(content, containsClinicalDirective);
 }
 
 function containsClinicalDirective(content) {

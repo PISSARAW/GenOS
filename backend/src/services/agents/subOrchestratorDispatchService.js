@@ -5,6 +5,7 @@ const MAX_CHILDREN = 5;
 const MAX_CHILD_TOKENS = 10000;
 const CHILD_TIMEOUT_MS = 60000;
 const CHILD_TERMINAL_STATES = new Set(['completed', 'failed', 'error', 'terminated', 'blocked', 'unverified', 'quarantined']);
+const TRUSTED_RUNTIME = Symbol('sealed local delegation runtime');
 
 function parseMetadata(row) {
   try { return typeof row.metadata_json === 'string' ? JSON.parse(row.metadata_json) : row.metadata_json || {}; }
@@ -37,10 +38,9 @@ function childAssignment(args) {
 }
 
 function workerPlan(parent, assignment, remaining) {
-  const cognitiveBudget = Math.max(1, Number(parent.cognitive_budget) || 1);
   const contractBudget = Math.max(1, Number(parent.metadata.workerContract.limits?.maxTokens) || MAX_CHILD_TOKENS);
-  const tokens = Math.floor(Math.min(MAX_CHILD_TOKENS, contractBudget, cognitiveBudget,
-    Math.floor(remaining.remainingTokens / remaining.remainingChildren)));
+  const requested = assignment.modelTokens || Math.floor(remaining.remainingTokens / remaining.remainingChildren);
+  const tokens = Math.floor(Math.min(MAX_CHILD_TOKENS, contractBudget, requested, remaining.remainingTokens));
   if (tokens <= 0 && !require('./workerExecutorRegistry').hasNativeMethod(assignment.workerKind, assignment.methodContract?.methodId)) {
     throw Object.assign(new Error('Delegated model-token budget is exhausted.'), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
   }
@@ -53,6 +53,7 @@ function workerPlan(parent, assignment, remaining) {
 
 async function createChild(db, parent, args) {
   const assignment = childAssignment(args);
+  if (args[TRUSTED_RUNTIME]) assignment.modelTokens = args.modelTokens;
   const fleet = require('../agentFleetWorkers');
   const { withTransaction } = require('../../db');
   const workspaceRoot = (await db.get('SELECT path FROM workspaces WHERE id = ?', parent.workspace_id))?.path;
@@ -63,9 +64,10 @@ async function createChild(db, parent, args) {
     workspaceRoot, workspaceProvisioned: Boolean(workspaceRoot),
     executionPolicy: { allowFileEdits: false }, executionBudget: { events: 100 }
   };
+  if (args[TRUSTED_RUNTIME]) Object.assign(mission, inheritedModelRuntime(args[TRUSTED_RUNTIME], args));
   const workers = await withTransaction(db, async () => {
     const bounded = require('./boundedDelegationAuthority');
-    const current = await bounded.parent(db, parent.id);
+    const current = await bounded.parent(db, parent.id, args[TRUSTED_RUNTIME]?.executionRun.id);
     mission.missionId = current.missionId;
     const remaining = await bounded.capacity(db, current);
     const plan = workerPlan({ ...current.agent, metadata: { workerContract: current.contract } }, assignment, remaining);
@@ -74,10 +76,69 @@ async function createChild(db, parent, args) {
       plan, mission
     });
     if (created.length !== 1) throw Object.assign(new Error('Delegation requires exactly one persisted child.'), { code: 'DELEGATION_BINDING_INVALID' });
-    await bounded.bind(db, { parentId: parent.id, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
+    await bounded.bind(db, { parentId: parent.id, parentRunId: current.runId, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
     return created;
   });
+  await prepareCreatedChild(db, { parent, args, worker: workers[0], mission });
   return { child: workers[0], mission };
+}
+
+async function prepareCreatedChild(db, input) {
+  try {
+    await prepareModelWorkspace(db, input);
+    await prepareModelDependency(db, input);
+  } catch (error) {
+    await require('./delegatedChildPreparationFailure').record(db,
+      { parentId: input.parent.id, child: input.worker, error });
+    throw error;
+  }
+}
+
+async function prepareModelDependency(db, input) {
+  const runtime = input.args[TRUSTED_RUNTIME];
+  if (!runtime || !Number.isInteger(input.args.dependsOn) || input.args.dependsOn < 0 || input.args.mode === 'review') return;
+  const dependency = await require('./delegatedDependencyContext').project(db, {
+    parentId: input.parent.id, sourceChildId: input.args.sourceChildId, sourceRunId: input.args.sourceRunId,
+    childId: input.worker.agentId, missionId: runtime.mission.missionId });
+  input.mission.prompt += dependency.prompt;
+  input.mission.allowedEvidenceRefs = [...new Set([...(input.mission.allowedEvidenceRefs || ['mission']), dependency.reference])];
+}
+
+async function prepareModelWorkspace(db, input) {
+  const runtime = input.args[TRUSTED_RUNTIME];
+  if (!runtime || input.args.mode !== 'review') return;
+  input.mission.delegatedReviewSnapshot = await require('./delegatedWorkspaceSnapshot').materialize(db, {
+    parentId: input.parent.id, sourceChildId: input.args.sourceChildId, childId: input.worker.agentId,
+    missionId: runtime.mission.missionId, targetRoot: input.worker.workspaceRoot,
+    allowedWritePaths: runtime.mission.executionPolicy?.allowedWritePaths });
+}
+
+function inheritedModelRuntime(runtime, args) {
+  const mission = runtime.mission;
+  const policy = mission.executionPolicy || {};
+  const code = args.mode === 'code';
+  const review = args.mode === 'review';
+  assertModeLease(args, policy);
+  return { localRuntime: true, localModel: mission.localModel,
+    localContextTokens: mission.localContextTokens,
+    localRoutingPolicy: mission.localRoutingPolicy, modelBudgetScope: mission.modelBudgetScope,
+    readOnlyWorkspaceEvidence: true, localCodeWorker: code || review, delegatedReviewOnly: review,
+    writeLease: code, requiredPatchPaths: code ? policy.allowedWritePaths : undefined,
+    executionPolicy: { ...policy, allowFileEdits: code, explicitWriteLease: code },
+    executionBudget: { events: 100, costUsd: mission.executionBudget.costUsd },
+    timeoutMs: remainingChildTime(runtime) };
+}
+
+function remainingChildTime(runtime) {
+  const remaining = runtime.delegationDeadline ? runtime.delegationDeadline - Date.now() : (runtime.mission.timeoutMs || 60000);
+  if (remaining <= 0) throw Object.assign(new Error('Parent delegation deadline exhausted.'), { code: 'SUBORCHESTRATOR_CHILD_TIMEOUT' });
+  return Math.min(180000, remaining);
+}
+
+function assertModeLease(args, policy) {
+  if (args.mode === 'code' && (args.workerKind !== 'bounded_worker' || policy.allowFileEdits !== true
+    || !policy.allowedWritePaths?.length)) throw Object.assign(new Error('No delegated code write lease.'), { code: 'WORKER_CONTRACT_DENIED' });
+  if (args.mode === 'review' && args.workerKind !== 'verifier_worker') throw Object.assign(new Error('Test-only review requires verifier_worker.'), { code: 'WORKER_CONTRACT_DENIED' });
 }
 
 async function childOutcome(db, childId) {
@@ -127,7 +188,7 @@ function childTimeout(requested) {
 }
 
 async function waitForChild(db, childId, options) {
-  const deadline = Date.now() + childTimeout(options.timeoutMs);
+  const deadline = Date.now() + (options.localRuntime ? Math.min(options.timeoutMs, 180000) : childTimeout(options.timeoutMs));
   while (Date.now() < deadline) {
     if (require('../agentOrchestrationState').cancelledStarts.has(options.parentAgentId)) {
       await require('../agentRuntimeAdapter').stopMission(childId);
@@ -146,7 +207,7 @@ async function superviseChild(context) {
   try {
     await startMission({ ...mission, workspaceRoot: child.workspaceRoot || mission.workspaceRoot,
       workspaceProvisioned: Boolean(child.workspaceRoot), executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, methodContract: child.methodContract || mission.methodContract, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
-    const outcome = await waitForChild(db, child.agentId, { timeoutMs: mission.timeoutMs, parentAgentId });
+    const outcome = await waitForChild(db, child.agentId, { timeoutMs: mission.timeoutMs, parentAgentId, localRuntime: mission.localRuntime });
     if (outcome.status === 'timeout') await require('../agentRuntimeAdapter').stopMission(child.agentId);
     return outcome;
   } catch (error) {
@@ -171,4 +232,12 @@ async function dispatchSubOrchestratorWorker(db, callerAgentId, args) {
   return { configured: true, success: supervision.status === 'completed' && supervision.success === true, status: supervision.status, transport: 'worker_dispatch', parentAgentId: parent.id, childAgentId: child.agentId, supervision };
 }
 
-module.exports = { dispatchSubOrchestratorWorker, loadAuthorizedParent, childAssignment, MAX_CHILDREN, MAX_CHILD_TOKENS, CHILD_TIMEOUT_MS };
+async function dispatchLocalModelChild(db, runtime, args) {
+  await require('../missionEnvelopeAuthority').assertRun(db, {
+    agentId: runtime.mission.agentId, runId: runtime.executionRun.id, mission: runtime.mission
+  });
+  const bounded = { ...args, [TRUSTED_RUNTIME]: runtime };
+  return dispatchSubOrchestratorWorker(db, runtime.mission.agentId, bounded);
+}
+
+module.exports = { dispatchSubOrchestratorWorker, dispatchLocalModelChild, loadAuthorizedParent, childAssignment, MAX_CHILDREN, MAX_CHILD_TOKENS, CHILD_TIMEOUT_MS };

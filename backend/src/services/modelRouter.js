@@ -107,6 +107,8 @@ function buildRouteContext(opts, clock, remainingMs) {
     endpoint: opts.endpoint,
     prompt: opts.prompt,
     maxTokens: opts.maxTokens,
+    contextTokens: opts.contextTokens,
+    requestTokenBudget: opts.requestTokenBudget,
     maxCostUsd: opts.maxCostUsd,
     budgetMaxTokens: opts.budgetMaxTokens,
     budgetReservationId: opts.budgetReservationId,

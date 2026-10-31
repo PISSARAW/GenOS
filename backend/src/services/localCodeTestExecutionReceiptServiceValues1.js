@@ -20,7 +20,7 @@ function recordExecutedBatchValue4(__genosValueScope4) {
   return { schema: __genosValueScope4.SCHEMA, receiptId: `test_${__genosValueScope4.crypto.randomUUID()}`,
     batchId: __genosValueScope4.crypto.randomUUID(), missionId: __genosValueScope4.missionId, agentId: __genosValueScope4.agentId, executionRunId: __genosValueScope4.executionRunId, workspaceRoot: __genosValueScope4.workspaceRoot,
     startedAt: __genosValueScope4.input.startedAt || null, completedAt: __genosValueScope4.input.completedAt || new __genosValueScope4.Date().toISOString(),
-    outcome: __genosValueScope4.outcome, tests: __genosValueScope4.tests, workspaceDigest: (0, __genosValueScope4.workspaceDigest)(__genosValueScope4.input.workspaceFiles),
+    outcome: __genosValueScope4.outcome, tests: __genosValueScope4.tests, workspaceDigest: (0, __genosValueScope4.workspaceDigest)(__genosValueScope4.input.workspaceFiles), ...(__genosValueScope4.input.reviewSnapshot ? { reviewSnapshot: __genosValueScope4.input.reviewSnapshot } : {}),
     changedFileHashes: (__genosValueScope4.input.changedFileHashes || []).map(({ path: file, hash }) => ({ path: file, hash }))
       .sort((left, right) => left.path.localeCompare(right.path)) };
 }

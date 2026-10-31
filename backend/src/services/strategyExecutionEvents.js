@@ -134,11 +134,11 @@ function usageCostUsd(source, usage) {
   return Number(source.costUsd || source.cost_usd || usage.cost_usd || 0);
 }
 
-function metricDelta(payload) {
+function metricDelta(payload, previous) {
   const source = payload || {};
   const usage = eventUsage(source);
   const counts = usageTokenCounts(usage);
-  return {
+  const total = {
     tokens: usageContextTokens(source, usage, counts),
     inputTokens: counts.inputTokens,
     cachedInputTokens: counts.cachedInputTokens,
@@ -146,6 +146,8 @@ function metricDelta(payload) {
     billableTokens: Math.max(0, counts.inputTokens - counts.cachedInputTokens) + counts.outputTokens,
     costUsd: usageCostUsd(source, usage)
   };
+  return previous && source.modelUsageAccounting?.scope === 'execution_run_measured_total'
+    ? require('./workerModelRunUsage').metricDelta(total, previous) : total;
 }
 
 function stepIndex(event, stepCount) {
