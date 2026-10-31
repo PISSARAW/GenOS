@@ -9,7 +9,8 @@ const relations = require('../../../../backend/src/services/crossAgentRelational
 const runtime = require('../../../../backend/src/services/agentRuntimeAdapter');
 const { evaluateMorphogenesis } = require('./morphogenesis-oracle.cjs');
 
-const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph']);
+const EXECUTABLE_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory',
+  'genos-without-relational-physiology']);
 const REGISTERED_ARMS = Object.freeze(['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology']);
 const SCOPE = Object.freeze({ organizationId: 'sw-v205-org', projectId: 'sw-v205-project' });
 const MEMBERS = Object.freeze(['sw-v205-root', 'sw-v205-a', 'sw-v205-b']);
@@ -20,6 +21,7 @@ const TRANSITION_PLAN = Object.freeze([
 const PERMISSIONS_PROTOCOL = Object.freeze({ topologyChange: 'orchestrator-only',
   workersMayChangeTopology: false, collaboration: 'organization-service-authorized-members-only',
   receiptRequired: true, provenanceRequired: true });
+const MODEL_TRANSITIONS = Object.freeze(TRANSITION_PLAN.map((item) => item.organization));
 
 function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -44,7 +46,7 @@ function baseReport(input, startedAt) {
     evidenceRefs: [], violations: [], limitations: ['Arm has no implemented runtime adapter.'] };
 }
 
-async function seedWorld(db) {
+async function seedWorld(db, arm) {
   await db.run("INSERT INTO organizations (id, name) VALUES ('sw-v205-org', 'SocialWorld V2-05')");
   await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('sw-v205-project', 'sw-v205-org', 'SocialWorld V2-05')");
   await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('sw-v205-space', 'SocialWorld V2-05', 'sw-v205', 'sw-v205-org', 'sw-v205-project')");
@@ -53,8 +55,10 @@ async function seedWorld(db) {
     await db.run('INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, id, 'worker', 'idle', 'worker', 'sw-v205-space', MEMBERS[0]]);
   }
-  await relations.createRelation({ db, id: 'sw-v205-friendship', sourceAgentId: MEMBERS[1],
-    targetAgentId: MEMBERS[2], relationType: 'friend', relationClass: 'social', ...SCOPE });
+  if (arm !== 'genos-without-relational-physiology') {
+    await relations.createRelation({ db, id: 'sw-v205-friendship', sourceAgentId: MEMBERS[1],
+      targetAgentId: MEMBERS[2], relationType: 'friend', relationClass: 'social', ...SCOPE });
+  }
 }
 
 async function publishEvidence(db, event) {
@@ -80,11 +84,14 @@ async function collaborationReceipt(db, event) {
 async function checkInvariants(db, details) {
   const state = await organization.getStateForMember(db, MEMBERS[0], MEMBERS[1]);
   const memberIds = state.members.map((member) => member.id).sort();
-  const relation = await relations.getRelation({ db, id: 'sw-v205-friendship' });
+  const relation = details.arm === 'genos-without-relational-physiology'
+    ? null : await relations.getRelation({ db, id: 'sw-v205-friendship' });
   return { transitionId: details.event.eventId, version: details.version,
     identityPreserved: JSON.stringify(memberIds) === JSON.stringify([...MEMBERS].sort()),
-    validRelationsPreserved: relation.relationType === 'friend' && relation.sourceAgentId === MEMBERS[1]
-      && relation.targetAgentId === MEMBERS[2],
+    validRelationsPreserved: details.arm === 'genos-without-relational-physiology'
+      ? relation === null
+      : relation?.relationType === 'friend' && relation.sourceAgentId === MEMBERS[1]
+        && relation.targetAgentId === MEMBERS[2],
     permissionsPreserved: !runtime.workerToolLease('worker').includes('genos_change_organization'),
     provenancePreserved: details.collaboration.valid, collaborationReceipt: details.collaboration.valid,
     journaled: true, collaboration: details.collaboration };
@@ -107,16 +114,17 @@ async function relationSnapshot(db) {
 async function executeFullArm(input) {
   const db = await getDatabase(':memory:');
   try {
-    await seedWorld(db);
+    await seedWorld(db, input.arm);
     const fixedGraphBefore = input.arm === 'static-social-graph' ? await relationSnapshot(db) : null;
     const transitions = [];
-    for (const plan of TRANSITION_PLAN) {
+    const transitionPlan = input.arm === 'llm-with-memory' ? await modelTransitionPlan(input, db) : TRANSITION_PLAN;
+    for (const plan of transitionPlan) {
       const event = { eventId: `env-${input.seed}-${plan.suffix}`, senderAgentId: MEMBERS[plan.senderIndex],
         recipientAgentId: MEMBERS[plan.recipientIndex] };
       const changed = await organization.changeOrganization(db, { orchestratorId: MEMBERS[0],
         organization: plan.organization, reason: `environmental-event:${event.eventId}` });
       const collaboration = await collaborationReceipt(db, event);
-      transitions.push(await checkInvariants(db, { event, version: changed.version, collaboration }));
+      transitions.push(await checkInvariants(db, { event, version: changed.version, collaboration, arm: input.arm }));
     }
     const authorityCheck = await unauthorizedTransitionRejected(db);
     const journal = await db.all('SELECT version FROM agent_organization_transitions WHERE orchestrator_id = ? ORDER BY version', MEMBERS[0]);
@@ -124,11 +132,39 @@ async function executeFullArm(input) {
     const fixedGraphAfter = fixedGraphBefore ? await relationSnapshot(db) : null;
     const staticGraphUnchanged = fixedGraphBefore === null
       || JSON.stringify(fixedGraphBefore) === JSON.stringify(fixedGraphAfter);
+    const relationCount = await db.get('SELECT COUNT(*) AS count FROM agent_relations WHERE organization_id = ? AND project_id = ?',
+      [SCOPE.organizationId, SCOPE.projectId]);
     return { transitions, transitionJournalVersions: journal.map((row) => row.version),
       unauthorizedChangeRejected: authorityCheck, oracle, effectiveTransitions: journal.length,
+      modelTreatment: input.arm === 'llm-with-memory' ? transitionPlan.map((item) => item.organization) : null,
       treatmentEvidence: input.arm === 'static-social-graph' ? { mode: 'static-social-graph',
-        initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged } : null };
+        initialRelationSnapshot: fixedGraphBefore, finalRelationSnapshot: fixedGraphAfter, staticGraphUnchanged }
+        : input.arm === 'genos-without-relational-physiology' ? { mode: 'relational-physiology-disabled',
+          relationCount: relationCount.count, relationalPhysiologyApplied: false } : null };
   } finally { await closeDatabase(); }
+}
+
+async function modelTransitionPlan(input, db) {
+  const socialMemory = await relationSnapshot(db);
+  const plans = TRANSITION_PLAN.map((item) => ({ organization: item.organization, suffix: item.suffix,
+    senderIndex: item.senderIndex, recipientIndex: item.recipientIndex }));
+  const provider = require('../../../../backend/src/services/modelProvider');
+  const response = await provider.generate({ model: input.model,
+    prompt: `Select an ordering for these two allowed social organization transitions. Use the relation memory below. Return JSON only: {"order":["name","name"]}. Each name must appear once. Allowed: ${JSON.stringify(MODEL_TRANSITIONS)}. Relation memory: ${JSON.stringify(socialMemory)}`,
+    responseFormat: 'json_object', temperature: 0, seed: Number.parseInt(hash(input.seed).slice(0, 8), 16) });
+  return resolveModelPlan(response.text, plans);
+}
+
+function resolveModelPlan(text, plans) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (_) { throw new Error('V2-05 LLM arm returned invalid JSON.'); }
+  const order = parsed?.order;
+  if (!Array.isArray(order) || order.length !== MODEL_TRANSITIONS.length
+    || new Set(order).size !== MODEL_TRANSITIONS.length
+    || order.some((item) => !MODEL_TRANSITIONS.includes(item))) {
+    throw new Error('V2-05 LLM arm returned a transition outside the preregistered plan.');
+  }
+  return order.map((organization) => plans.find((item) => item.organization === organization));
 }
 
 async function runScenario(input) {
@@ -136,6 +172,7 @@ async function runScenario(input) {
   const startedAt = new Date().toISOString();
   const timer = Date.now();
   const report = baseReport(input, startedAt);
+  if (input.arm === 'llm-with-memory') report.model = input.model || process.env.GENOS_DEFAULT_MODEL || null;
   const evidence = [];
   if (EXECUTABLE_ARMS.includes(input.arm)) {
     report.observed = await executeFullArm(input);
@@ -149,6 +186,10 @@ async function runScenario(input) {
     report.violations = report.status === 'pass' ? [] : ['Morphogenesis invariants failed.'];
     report.limitations = [input.arm === 'static-social-graph'
       ? 'Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'
+      : input.arm === 'genos-without-relational-physiology'
+        ? 'Relational physiology is disabled by omitting social relation records; organization and collaboration services remain active.'
+        : input.arm === 'llm-with-memory'
+          ? 'The model selects only the order of preregistered transitions from the persisted relation snapshot; the orchestrator retains all authority.'
       : 'Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
   }
   report.durationMs = Date.now() - timer;
@@ -159,4 +200,4 @@ async function runScenario(input) {
   return { report, evidence };
 }
 
-module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS };
+module.exports = { runScenario, REGISTERED_ARMS, EXECUTABLE_ARMS, resolveModelPlan };

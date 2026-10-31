@@ -188,17 +188,22 @@ que si ses références de preuve existent et que l'oracle est recalculable.
 6. Exécuter les contrôles déterministes et tests de contrat avant toute campagne LLM coûteuse.
 
 Les scénarios restent `planned` jusqu'à la présence de runners, d'oracles vérifiables et de
-rapports produits par exécution. Ce document ne revendique aucun résultat V2.
+rapports produits par exécution. Les résultats d'un sous-ensemble ne concluent pas la campagne V2.
 
 ## Outils complémentaires de qualification
 
 - `node validate-report.cjs <rapport.json>` valide les champs obligatoires et refuse un
   rapport `pass` dont l'oracle n'est pas recalculable ou dont les références locales
   n'existent pas.
-- `node run-v2-03.cjs --database <sqlite-path> --report <report.json>` est un pilote de
-  bas niveau sur la mémoire de lignée SQLite avec processus d'écriture, de reprise et
-  contrôle négatif séparés. Il ne remplace pas la sonde V2-03 intégrée au backend décrite
-  plus haut et ne qualifie pas une graine de campagne.
+- `run-v2-03.cjs` sépare l'écriture, la reprise et le contrôle négatif en trois
+  processus. Avec `--receiptBundlePath <bundle.json>` et
+  `--trustFilePath <trust.json>`, il vérifie cinq événements signés par une clé
+  publique épinglée, leurs artefacts source, puis leur liaison aux épisodes et à
+  la relation après redémarrage. Sans ces entrées, le diagnostic reste
+  `inconclusive`. `produce-v2-03-source.cjs` publie de vrais messages
+  d'organisation dans une base source; `sign-v2-03-source.cjs` les relit dans un
+  autre processus et les signe avec une clé privée conservée hors du dépôt et du
+  runner mémoire. Cette source locale teste le logiciel, pas une vérité extérieure.
 - `node test-event-receipt-verifier.cjs`, `node test-social-oracles.cjs` et
   `node test-morphogenesis-oracle.cjs` vérifient les contrats d'oracle isolés. Leur réussite
   ne constitue pas une exécution runtime de V2-01, V2-02, V2-04 ou V2-05.
@@ -220,9 +225,9 @@ le traitement runtime correspondant. Un bras déclaré sans traitement réel pro
 |---|---|---|
 | V2-01 | aucun bras de campagne | Le diagnostic dialogue/mémoire est scripté; reçus de livraison vérifiables, initiative autonome et comparateurs manquent. |
 | V2-02 | aucun bras de campagne | Le diagnostic observe dix checkpoints, pas 1 000 cycles autonomes; les trois comparateurs manquent. |
-| V2-03 | `genos-full` | Les épisodes du pilote sont générés par le runner; il faut des reçus source externes signés et vérifiés. Les deux comparateurs manquent. |
+| V2-03 | `genos-full` | Le bras passe avec un lot signé par une source autorisée et une clé épinglée; sans lot il reste inconclusif. Les deux comparateurs manquent. |
 | V2-04 | aucun bras de campagne | Il faut une clé publique de vérificateur épinglée, une identité autorisée et des reçus signés issus d'une source indépendante. |
-| V2-05 | `genos-full`, `static-social-graph` | Les bras LLM et sans physiologie relationnelle n'ont pas d'adaptateur. Les transitions testées sont déterministes et demandées par le contrôleur. |
+| V2-05 | les quatre bras | Le bras LLM exige un fournisseur configuré. Les transitions restent bornées à un plan préenregistré et ne prouvent pas une génération autonome. |
 | V2-06 | runner autonome R2; dispatcher générique sans bras exécutable | Le runner R2 produit des observations et preuves pour six bras; le dispatcher générique n'accepte pas encore ces captures comme traitement runtime et reste inconclusif. |
 
 Un adaptateur présent peut encore rendre `inconclusive` si ses preuves sont incomplètes. Les sondes
