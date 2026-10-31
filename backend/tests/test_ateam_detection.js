@@ -33,7 +33,7 @@ assert.equal(workerKind.resolveWorkerKind(undefined, 'mathematician'), 'math_wor
 // All detected needs remain visible; unstaffed needs are explicit gaps.
 const rich = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
 assert.equal(rich.detectedDomains.length, rich.totalDetected);
-assert.equal(rich.overflowDomains.length, rich.totalDetected - aTeam.MAX_MEMBERS);
+assert.equal(rich.overflowDomains.length, Math.max(0, rich.totalDetected - aTeam.MAX_MEMBERS));
 assert.equal(rich.capabilityGaps.length, rich.capabilityCoverage.uncovered.length);
 assert.ok(rich.totalDetected >= rich.detectedDomains.length);
 
