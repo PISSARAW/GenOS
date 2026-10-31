@@ -17,9 +17,13 @@ function validateSynthesisReply(text, plan) {
   }
 }
 
-function hasPendingTestRequest(parsed) {
+function hasPendingTestRequest(parsed, policy) {
   if (!Array.isArray(parsed?.tests) || !parsed.tests.length) return false;
-  const hasCommands = parsed.tests.some((t) => typeof t === 'string' && t.trim().length > 0);
+  const { normalizeSandboxCommand } = require('./sandboxCommandPolicy');
+  const { isLegitimateTestCommand } = require('./agents/workerArtifactCodeProof');
+  const allowed = (policy?.allowedCommands || []).map(normalizeSandboxCommand);
+  const hasCommands = parsed.tests.every(command => isLegitimateTestCommand(command)
+    && allowed.includes(normalizeSandboxCommand(command)));
   const claims = Array.isArray(parsed?.claims) ? parsed.claims : [];
   const hasForgedReceipt = claims.some((c) =>
     Array.isArray(c?.evidence) && c.evidence.some((ref) => typeof ref === 'string' && ref.startsWith('genos://code-test/')));
@@ -34,7 +38,7 @@ function validateWorkerReply(text, state) {
   const inspected = inspectWorkerArtifact(kind, text, { methodContract: state.mission.methodContract || null });
   if (inspected.artifact) return;
   const parsed = parseReply(text);
-  if (hasPendingTestRequest(parsed)) {
+  if (hasPendingTestRequest(parsed, state.executionPolicy)) {
     const nonProofIssues = inspected.issues.filter((issue) => issue !== 'dossier.code_fix.unsubstantiated');
     if (!nonProofIssues.length) return;
   }

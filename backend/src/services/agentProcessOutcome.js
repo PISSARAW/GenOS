@@ -274,6 +274,38 @@ async function finalizeExecutionWorkspace(input) {
     worker, 'info');
 }
 
+async function persistCloseOutcome(input, outcome) {
+  await require('./workerCellOutcomeBridge').observe({
+    db: input.db, agentId: input.agentId, dispatchedAgent: input.dispatchedAgent,
+    normalizedMission: input.normalizedMission
+  }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
+  if (!input.bodyActionId) return;
+  await require('./runtimeProcessReceipt').observe({ db: input.db, agentId: input.agentId,
+    runId: input.executionRun.id, actionId: input.bodyActionId,
+    outcome: runtimeObservation(outcome, input.code, input.signal), emit: input.emit });
+}
+
+async function emitCloseOutcome(input, outcome) {
+  const domainDowngradeRequired = input.persistedAgent.status === 'completed' && outcome.status !== 'completed';
+  const shouldEmit = domainDowngradeRequired || shouldEmitCloseOutcome({
+    terminalEventSeen: input.terminalEventSeen, termination: input.termination,
+    operatorStop: input.operatorStop, apoptosisTerminal: input.apoptosisTerminal
+  });
+  if (!shouldEmit) return;
+  await input.updateAgent(input.agentId, outcome.status, outcome.task);
+  input.emitTracked(outcome.eventType, outcome.action, outcome.detail,
+    { ...outcome.payload, sourceActionId: input.bodyActionId || null }, outcome.severity, outcome.status);
+  await input.executionQueue;
+}
+
+async function releaseWorkerSlot(input) {
+  if (input.dispatchedAgent.execution_mode !== 'worker') return;
+  const garage = await input.workerGarage.state(input.db, input.dispatchedAgent.parent_agent_id).catch(() => null);
+  input.emit(input.dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE',
+    `Worker '${input.normalizedMission.name || input.dispatchedAgent.name}' released its active slot.`,
+    buildGaragePayload(garage, input.workerGarage, input.agentId), 'info');
+}
+
 async function finalizeChildClose({
   db, agentId, dispatchedAgent, normalizedMission, child, code, signal, stderrBuffer,
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
@@ -287,34 +319,21 @@ async function finalizeChildClose({
   });
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer,
     { ...missionDomainState, leafExecution: dispatchedAgent.execution_mode === 'worker' || verifiedSynthesis });
-  await require('./workerCellOutcomeBridge').observe({
-    db, agentId, dispatchedAgent, normalizedMission
-  }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
-  if (bodyActionId) await require('./runtimeProcessReceipt').observe({ db, agentId,
-    runId: executionRun.id, actionId: bodyActionId,
-    outcome: runtimeObservation(outcome, code, signal), emit });
+  await persistCloseOutcome({ db, agentId, dispatchedAgent, normalizedMission, bodyActionId,
+    executionRun, code, signal, emit }, outcome);
   await consolidateOffline(db, agentId);
   await idleRecurrence(db, agentId);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
-  const apoptosisTerminal = isApoptosisTerminal(persistedAgent);
-  const domainDowngradeRequired = persistedAgent.status === 'completed' && outcome.status !== 'completed';
-  const shouldEmit = domainDowngradeRequired || shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal });
-  if (shouldEmit) {
-    await updateAgent(agentId, outcome.status, outcome.task);
-    emitTracked(outcome.eventType, outcome.action, outcome.detail,
-      { ...outcome.payload, sourceActionId: bodyActionId || null }, outcome.severity, outcome.status);
-    await executionQueue;
-  }
+  await emitCloseOutcome({ persistedAgent, terminalEventSeen, termination, operatorStop,
+    apoptosisTerminal: isApoptosisTerminal(persistedAgent), updateAgent, emitTracked,
+    agentId, bodyActionId, executionQueue }, outcome);
   await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
   try {
     await require('./runtimeFilesystemReceipt').finish(filesystemReceipt);
     await finalizeExecutionWorkspace({ db, executionRun, outcome, emit, agentId });
   }
   finally { await workspaceLifecycle.scheduleWorkspaceCleanup(agentId); }
-  if (dispatchedAgent.execution_mode === 'worker') {
-    const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
-    emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, buildGaragePayload(garage, workerGarage, agentId), 'info');
-  }
+  await releaseWorkerSlot({ db, agentId, dispatchedAgent, normalizedMission, workerGarage, emit });
 }
 
 module.exports = {

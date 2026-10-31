@@ -5,7 +5,7 @@ const { isAllowedSandboxTestCommand } = require('../sandboxCommandPolicy');
 
 const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
 const CODE_SUCCESS_HINT = /corrig|correct|\bfix(ed|es)?\b|tests?.*?(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)|r[ée]gression.*disparu|r[ée]solu|stabilis|stable|incident.*r[ée]solu|rectifi|d[ée]faut.*[ée]limin|build est vert/i;
-const CODE_SUCCESS_NEGATION = /\b(pas|aucun)\b|sans\s+(?:succ[èe]s|r[ée]sultat|effet|r[ée]solu|correct|fix)|n'a pas|pas de|échou|échec|fail/i;
+const CODE_SUCCESS_NEGATION = /\b(pas|aucun|not|never|cannot)\b|impossible de|sans\s+(?:succ[èe]s|r[ée]sultat|effet|r[ée]solu|correct|fix)|échou|échec|fail/i;
 
 function isLegitimateTestCommand(command) {
   if (typeof command !== 'string') return false;
@@ -15,9 +15,15 @@ function isLegitimateTestCommand(command) {
 }
 
 function statesCodeSuccess(statement) {
-  const text = String(statement || '').toLowerCase();
-  if (!CODE_SUCCESS_HINT.test(text)) return false;
-  return !CODE_SUCCESS_NEGATION.test(text);
+  return String(statement || '').split(/[.!?;,]|\b(?:et|and|mais|but)\b/i).some(affirmativeSuccess);
+}
+
+function affirmativeSuccess(clause) {
+  const hint = clause.match(CODE_SUCCESS_HINT);
+  if (!hint) return false;
+  const prefix = clause.slice(0, hint.index + hint[0].length);
+  if (CODE_SUCCESS_NEGATION.test(prefix)) return false;
+  return !/^\s*(?:(?:the|le|la|les)\s+)?(?:fix|patch|correction|correctif)\b.*(?:fail|échou)/i.test(clause);
 }
 
 function dossierSuccessClaimed(content) {
@@ -31,12 +37,17 @@ function fileHashOf(ref) {
 
 function testIsWitnessed(test, witnessed, allowed) {
   if (!isLegitimateTestCommand(test?.command)) return false;
+  if (!passingTest(test)) return false;
   const ref = `genos://code-test/${values.digest(test)}`;
   if (witnessed) {
-    return witnessed.some((w) => w && w.exitCode === 0
-      && (w.digest === values.digest(test) || (w.command === test.command && w.exitCode === test.exitCode)));
+    return witnessed.some((w) => passingTest(w)
+      && (w.digest || values.digest(w)) === values.digest(test));
   }
   return allowed ? allowed.has(ref) : false;
+}
+
+function passingTest(test) {
+  return Boolean(test && test.exitCode === 0 && !test.signal && !test.timedOut && test.executed !== false);
 }
 
 function authenticTestRefs(content, provenance) {
@@ -52,16 +63,9 @@ function authenticTestRefs(content, provenance) {
 
 function authenticCodeVerification(content, provenance) {
   const binding = content?.codeVerification;
-  if (!binding || typeof binding.artifactContentHash !== 'string' || !binding.artifactContentHash.trim()) {
-    return false;
-  }
-  const hash = binding.artifactContentHash.trim();
-  const verifiedHash = provenance?.codeVerification?.artifactContentHash
-    || provenance?.codeVerificationContract?.expectedContentHash
-    || provenance?.codeVerificationHash;
-  if (verifiedHash && verifiedHash === hash) return true;
-  const written = Object.values(provenance?.writtenFileHashes || provenance?.changedFileHashes || {});
-  return written.includes(hash);
+  if (!/^[a-f0-9]{64}$/.test(binding?.artifactContentHash || '')) return false;
+  return Boolean(provenance?.codeVerification
+    && values.digest(binding) === values.digest(provenance.codeVerification));
 }
 
 function dossierCodeProofPresent(content, provenance) {

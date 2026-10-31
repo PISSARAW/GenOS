@@ -1,8 +1,10 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { normalizeSandboxCommand } = require('./sandboxCommandPolicy');
 
 function recordCompletedCommand(state, event, eventType) {
+  if (eventType === 'CODE_TEST_SUITE_RECEIPT') require('./agentCodeTestWitness').recordSuite(state, event);
   if (eventType !== 'AGENT_STEP' || event.action !== 'command_execution') return;
   const item = event.payload?.item;
   if (require('./agentCodeExecutionEvidenceValues1.js').recordCompletedCommandValue3({ event, item })) return;
@@ -10,22 +12,23 @@ function recordCompletedCommand(state, event, eventType) {
   state.missionDomainState.completedCommands ||= [];
   state.missionDomainState.completedCommands.push({
     eventId: event.id || null, itemId: item.id || null, command: item.command, exitCode: 0,
+    stdout: output.slice(0, 4000),
     outputDigest: crypto.createHash('sha256').update(output).digest('hex')
   });
 }
 
 function attestCodeTestResults(report, state) {
-  if (!Array.isArray(report.tests) || !Array.isArray(state.missionDomainState.completedCommands)) return;
-  const completedCommands = state.missionDomainState.completedCommands;
+  if (!Array.isArray(report.tests)) return { executedTests: [] };
+  const completedCommands = state.missionDomainState.completedCommands || [];
   const verified = [];
   for (const test of report.tests) {
     if (test?.passed !== true) continue;
     const expected = reportedTestCommand(test).toLowerCase();
     if (!expected) continue;
     const execution = [...completedCommands].reverse().find((candidate) =>
-      candidate.exitCode === 0 && candidate.command.toLowerCase().includes(expected));
+      candidate.exitCode === 0 && normalizeSandboxCommand(candidate.command).toLowerCase() === expected);
     if (!execution) continue;
-    const attested = { ...test, command: expected, exitCode: 0, executionReceipt: {
+    const attested = { ...test, command: expected, exitCode: 0, stdout: execution.stdout || '', stderr: '', executionReceipt: {
       eventId: execution.eventId, itemId: execution.itemId, command: execution.command,
       exitCode: execution.exitCode, outputDigest: execution.outputDigest
     } };
@@ -36,6 +39,7 @@ function attestCodeTestResults(report, state) {
   }
   if (verified.length) report.tests = report.tests.map((test) =>
     require('./agentCodeExecutionEvidenceValues1.js').attestCodeTestResultsValue2({ reportedTestCommand, test, verified }));
+  return { executedTests: [...verified, ...require('./agentCodeTestWitness').witnessedTests(report, state)] };
 }
 
 function verifiedTestResults(report, state) {

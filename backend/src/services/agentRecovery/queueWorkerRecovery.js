@@ -7,6 +7,7 @@ const workerRecovery = require('../workerFailureRecoveryService');
 const { applyOrganizationDecision } = require('./organizationDecision');
 const handledFailures = new Map();
 const durableQueue = require('./durableRecoveryQueue');
+const queueingWorkers = new Map();
 
 function requiresContinuousCoordination(mission = {}) {
   const policy = mission.coordinationPolicy || mission.coordination_policy || {};
@@ -49,7 +50,6 @@ function handleRecoveryDecision(report, decision, context) {
     });
   }
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
-    pendingWorkerRecoveries.set(report.workerId, { mission, report, decision });
     return { report, decision, queued: true };
   }
   if (decision.action === 'conclude_no_answer') {
@@ -78,18 +78,15 @@ async function refreshPendingRecovery(pending, mission, event) {
 async function persistQueuedOutcome(outcome, context) {
   const { workerId, mission, report, decision, failureKey } = context;
   if (outcome.queued) {
-    try {
-      await durableQueue.enqueue({ workerId, mission, report, decision, key: failureKey });
-    } catch (err) {
-      handledFailures.delete(failureKey);
-      pendingWorkerRecoveries.delete(workerId);
-      throw err;
-    }
+    await durableQueue.enqueue({ workerId, mission, report, decision, key: failureKey });
+    pendingWorkerRecoveries.set(workerId, { mission, report, decision });
   }
+  if (handledFailures.size >= 1024) handledFailures.delete(handledFailures.keys().next().value);
+  handledFailures.set(failureKey, decision);
   return outcome;
 }
 
-async function queueWorkerRecovery(mission, event) {
+async function queueFailure(mission, event) {
   const workerId = mission.agentId || mission.id;
   const pending = pendingWorkerRecoveries.get(workerId);
   if (pending) {
@@ -104,8 +101,6 @@ async function queueWorkerRecovery(mission, event) {
   if (handledFailures.has(failureKey)) {
     return { report, decision: handledFailures.get(failureKey), queued: false, duplicate: true };
   }
-  if (handledFailures.size >= 1024) handledFailures.delete(handledFailures.keys().next().value);
-  handledFailures.set(failureKey, decision);
   const recoveryHistory = Array.isArray(mission.recoveryHistory) ? mission.recoveryHistory : [];
   const repeatedStrategy = recoveryHistory.some((entry) => entry.category === report.category && entry.action === decision.action);
   if (repeatedStrategy) {
@@ -115,4 +110,20 @@ async function queueWorkerRecovery(mission, event) {
     { workerId, mission, report, decision, failureKey });
 }
 
-module.exports = { queueWorkerRecovery, getRecoveryOrganization };
+function queueWorkerRecovery(mission, event) {
+  const workerId = mission.agentId || mission.id;
+  const previous = queueingWorkers.get(workerId) || Promise.resolve();
+  const queued = previous.catch(() => {}).then(() => queueFailure(mission, event));
+  queueingWorkers.set(workerId, queued);
+  const clear = () => {
+    if (queueingWorkers.get(workerId) === queued) queueingWorkers.delete(workerId);
+  };
+  queued.then(clear, clear);
+  return queued;
+}
+
+async function waitForRecoveryWrites(workerId) {
+  while (queueingWorkers.has(workerId)) await queueingWorkers.get(workerId).catch(() => {});
+}
+
+module.exports = { queueWorkerRecovery, getRecoveryOrganization, waitForRecoveryWrites };

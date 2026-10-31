@@ -25,6 +25,7 @@ try {
     await (0, __genosStageScope1.handleRecoveryDispatchFailure)(__genosStageScope1.db, error, { recovery: __genosStageScope1.recovery, sourceAgentId: __genosStageScope1.sourceAgentId, report: __genosStageScope1.report, decision: __genosStageScope1.decision, recoveryBarrier: __genosStageScope1.recoveryBarrier, workspace: __genosStageScope1.workspace, target: __genosStageScope1.target, orchestratorId: __genosStageScope1.orchestratorId });
     return { value: ( false) };
   } finally {
+    await require('./queueWorkerRecovery').waitForRecoveryWrites(__genosStageScope1.sourceAgentId);
     if (__genosStageScope1.claimHeartbeat) (0, __genosStageScope1.clearInterval)(__genosStageScope1.claimHeartbeat);
     __genosStageScope1.activeWorkerRecoveryDispatches.delete(__genosStageScope1.sourceAgentId);
     // A same-identity recovery can fail while this dispatch is still active.

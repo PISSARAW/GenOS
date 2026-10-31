@@ -25,10 +25,11 @@ function applyDomainStateFromEvent(context) {
     try {
       const report = extractEvidenceReport(event.payload);
       if (report) {
-        attestCodeTestResults(report, state);
+        require('./agentCodeTestWitness').assertNoFailedTests(report);
+        const proofProvenance = attestCodeTestResults(report, state);
         if (report.outcome === 'success') {
           if (workerContract?.evidence?.requiredArtifacts?.length) {
-            validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract });
+            validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract, proofProvenance });
           }
           state.missionDomainState.unverified = false;
           state.missionDomainState.domainVerdict = 'completed';
@@ -49,7 +50,6 @@ function applyDomainStateFromEvent(context) {
     state.missionDomainState.domainVerdict = 'failed';
   }
 }
-
 function checkDossierInfluence(ctx, event, eventType) {
   const { agentId, dispatchedAgent, autonomyPlan } = ctx;
   if (eventType !== 'EVIDENCE_REPORT' || dispatchedAgent.execution_mode !== 'orchestrator' || !autonomyPlan?.synthesisOnly) return false;
@@ -120,13 +120,11 @@ function checkSwarmSentinel(ctx, event, finalEvent) {
   }
   return false;
 }
-
 function resolveInteractionParties(agentId, event) {
   const msgRecipient = event.payload?.recipient || event.payload?.targetAgentId || event.recipient;
   const msgSender = event.payload?.sender || event.sender || (msgRecipient ? agentId : null);
   return { msgSender, msgRecipient };
 }
-
 function eventHasDiff(event) {
   return Boolean(event.payload?.hasDiff || event.payload?.diff || event.hasDiff);
 }
@@ -282,6 +280,8 @@ function resolveWorkerTerminalStatus(eventType, eventStatus, state) {
   return rejectedWorkerCompletion(eventType, state) ? 'failed' : eventStatus;
 }
 function handleDecodedEvent(ctx, event) {
+  ctx.state.missionDomainState.missionId = ctx.normalizedMission?.missionId;
+  ctx.state.missionDomainState.workerId = ctx.agentId;
   event = require('./continuousExecution/runtimeBridge').guard(ctx, { ...event, payload: parseEventPayload(event) });
   const payload = event.payload;
   applyDomainStateFromEvent({

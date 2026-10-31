@@ -2,6 +2,11 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const tests = [
+  'test_worker_audit_defects_regression.js',
+  'test_worker_proof_authority.js',
+  'test_local_worker_completion_process.js',
+  'test_worker_recovery_enqueue_failure.js',
+  'test_worker_recovery_redispatch.js',
   'test_quality_control_flow.js',
   'test_evaluation_graders.js',
   'test_evaluation_worker.js',

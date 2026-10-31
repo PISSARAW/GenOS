@@ -186,6 +186,11 @@ const suites = {
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
   workers: [
+    ['worker audit regressions', 'test_worker_audit_defects_regression.js'],
+    ['worker proof authority', 'test_worker_proof_authority.js'],
+    ['worker completion process', 'test_local_worker_completion_process.js'],
+    ['worker durable enqueue failure', 'test_worker_recovery_enqueue_failure.js'],
+    ['worker recovery redispatch after persistence', 'test_worker_recovery_redispatch.js'],
     ['measured model worker and independent oracle route', 'test_model_oracle_route_e2e.js'],
     ['worker compliance result gate', 'test_worker_compliance_summary.js'],
     ['worker compliance evidence gate', 'test_worker_compliance_evidence.js'],

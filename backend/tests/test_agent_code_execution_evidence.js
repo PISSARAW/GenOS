@@ -6,7 +6,7 @@ const { recordCompletedCommand, attestCodeTestResults, verifiedTestResults } = r
 const state = { missionDomainState: {} };
 const event = { id: 'event-test-1', action: 'command_execution', payload: {
   type: 'item.completed', item: { id: 'item-test-1', type: 'command_execution', status: 'completed',
-    exit_code: 0, command: 'pwsh -Command "npm test"', aggregated_output: 'all tests passed' }
+    exit_code: 0, command: 'npm test', aggregated_output: 'all tests passed' }
 } };
 recordCompletedCommand(state, event, 'AGENT_STEP');
 const report = { outcome: 'success', claims: [{ statement: 'npm test passed.', evidence: ['exec:test-1'] }],

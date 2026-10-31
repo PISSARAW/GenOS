@@ -1,9 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Module = require('node:module');
 
 const values = require('../src/services/trinityProvenanceValues');
 const synthesis = require('../src/services/localRuntimeSynthesis');
@@ -14,16 +11,7 @@ const workerKinds = require('../src/services/agents/workerKindService');
 const { queueWorkerRecovery } = require('../src/services/agentRecovery/queueWorkerRecovery');
 const durableRecoveryQueue = require('../src/services/agentRecovery/durableRecoveryQueue');
 
-function loadLocalRuntime() {
-  const runtimePath = path.resolve(__dirname, '../bin/local-codex-runtime.cjs');
-  const mod = new Module(runtimePath, module);
-  mod.filename = runtimePath;
-  mod.paths = Module._nodeModulePaths(path.dirname(runtimePath));
-  mod._compile(fs.readFileSync(runtimePath, 'utf8') + '\nmodule.exports.auditEmitCompletion=emitCompletion;', runtimePath);
-  return mod.exports;
-}
-
-const runtime = loadLocalRuntime();
+const runtime = require('../bin/local-codex-runtime.cjs');
 
 function baseReply() {
   return {
@@ -39,6 +27,7 @@ function baseState(proofs = []) {
     workspaceRoot: __dirname,
     agentName: 'regression-audit-agent',
     commandProofs: proofs,
+    executionPolicy: { allowedCommands: ['npm test', 'node test-failure.cjs'] },
     eventCount: 0
   };
 }
@@ -51,7 +40,7 @@ function captureEmitCompletion(reply, proofs = []) {
     return true;
   };
   try {
-    runtime.auditEmitCompletion(baseState(proofs), JSON.stringify(reply));
+    runtime.emitCompletion(baseState(proofs), JSON.stringify(reply));
   } finally {
     process.stdout.write = origWrite;
   }
@@ -91,11 +80,12 @@ function testDefect1() {
   );
 
   const honestReport = { fullText: JSON.stringify(forged) };
+  const verifiedHash = 'b'.repeat(64);
+  honestReport.fullText = JSON.stringify({ ...forged, codeVerification: { artifactContentHash: verifiedHash } });
   attachWorkerArtifact(honestReport, {
     mission: {
       workerKind: 'bounded_worker',
-      codeVerificationContract: { expectedContentHash: 'invented' },
-      codeVerification: { artifactContentHash: 'invented' }
+      codeVerification: { artifactContentHash: verifiedHash }
     },
     agentName: 'test-agent'
   });
@@ -223,7 +213,8 @@ async function testDefect6() {
     missionId: 'm-busy-test',
     orchestratorAgentId: 'orchestrator-main',
     attempt: 0,
-    recoveryAttempt: 0
+    recoveryAttempt: 0,
+    communicationRequired: true
   };
   const failureEvent = {
     eventType: 'AGENT_FAILED',
@@ -245,6 +236,7 @@ async function testDefect6() {
     assert.notEqual(secondCall.duplicate, true, 'Second call must NOT return duplicate');
   } finally {
     durableRecoveryQueue.enqueue = origEnqueue;
+    require('../src/services/agentOrchestrationState').pendingWorkerRecoveries.delete(mission.agentId);
   }
 }
 

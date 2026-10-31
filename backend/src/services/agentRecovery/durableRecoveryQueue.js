@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { getDatabase } = require('../../db');
+const { getDatabase, withTransaction } = require('../../db');
 const MAX_RECOVERY_DISPATCH_ATTEMPTS = require('./constants').MAX_RECOVERY_DISPATCH_ATTEMPTS;
 
 function stripCredentials(value) {
@@ -17,16 +17,18 @@ async function enqueue(input) {
   const db = await getDatabase();
   await require('../../db/migrations/migrateWorkerRecoveryQueue').migrateWorkerRecoveryQueue(db);
   const payload = JSON.stringify(stripCredentials({ mission, report, decision }));
-  await db.run(`UPDATE worker_recovery_queue SET status='cancelled', claim_token=NULL, updated_at=CURRENT_TIMESTAMP
-    WHERE worker_id=? AND recovery_key<>? AND status IN ('queued','retry')
-      AND json_extract(payload_json,'$.report.attempt') <= ?`, workerId, key, Number(report.attempt || 0));
-  await db.run(`INSERT OR IGNORE INTO worker_recovery_queue
-    (recovery_key, worker_id, mission_id, payload_json, status, max_attempts)
-    VALUES (?, ?, ?, ?, 'queued', ?)`, key, workerId, mission.missionId || mission.id || workerId,
-  payload, MAX_RECOVERY_DISPATCH_ATTEMPTS);
-  await db.run(`UPDATE worker_recovery_queue SET payload_json=?, status='queued', updated_at=CURRENT_TIMESTAMP
-    WHERE recovery_key=? AND status IN ('queued','retry') AND json_extract(payload_json,'$.report.attempt') < ?`,
-  payload, key, Number(report.attempt || 0));
+  await withTransaction(db, async () => {
+    await db.run(`UPDATE worker_recovery_queue SET status='cancelled', claim_token=NULL, updated_at=CURRENT_TIMESTAMP
+      WHERE worker_id=? AND recovery_key<>? AND status IN ('queued','retry')
+        AND json_extract(payload_json,'$.report.attempt') <= ?`, workerId, key, Number(report.attempt || 0));
+    await db.run(`INSERT OR IGNORE INTO worker_recovery_queue
+      (recovery_key, worker_id, mission_id, payload_json, status, max_attempts)
+      VALUES (?, ?, ?, ?, 'queued', ?)`, key, workerId, mission.missionId || mission.id || workerId,
+    payload, MAX_RECOVERY_DISPATCH_ATTEMPTS);
+    await db.run(`UPDATE worker_recovery_queue SET payload_json=?, status='queued', updated_at=CURRENT_TIMESTAMP
+      WHERE recovery_key=? AND status IN ('queued','retry') AND json_extract(payload_json,'$.report.attempt') < ?`,
+    payload, key, Number(report.attempt || 0));
+  });
 }
 
 async function claim(workerId) {

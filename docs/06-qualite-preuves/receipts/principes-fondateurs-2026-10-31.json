@@ -1,0 +1,61 @@
+{
+  "schema": "genos.foundational-principles-qualification-receipt/v3",
+  "baselineRevision": "2e30d2bada1b64eeadc38a8cf7f3015f7da1129b",
+  "qualificationRevision": "d6ca69c7252d1c1bc883a41dfb47eb9eae62963a",
+  "scope": "Mission verticale bornée couvrant l'autorité, l'état causal, la preuve, les leases, les capsules et la qualification contrefactuelle des phases 1 à 6.",
+  "score": 4,
+  "qualifiedCount": 19,
+  "totalCount": 19,
+  "status": "qualified-bounded-scope",
+  "universalClaim": false,
+  "authorizesPromotion": false,
+  "manifestHash": "f596bf5c56991e9b4da6f859bfe019ed670bcfeb3ff9d47bd31abe0adea25541",
+  "sourceDigest": "d97c07aad169fa181498cd037b1e1416f3b1a76c70f3e1f5a6aba14fd20279a3",
+  "evidence": [
+    {
+      "test": "backend/tests/test_execution_authority_v2.js",
+      "outputDigest": "8c54685da1e343c95bf718b137d436e7164f587d2c1bf8304b69243773a8b5c2"
+    },
+    {
+      "test": "backend/tests/test_mission_authority_envelope.js",
+      "outputDigest": "0c1a0a0e9f9b6ec75078e4363a63796cd07d0b5c47b6e95c14529f60b8f22f82"
+    },
+    {
+      "test": "backend/tests/test_bounded_worker_delegation.js",
+      "outputDigest": "e599579d2c9115ea71cb60ee756b4006fafe180a060117b689565c1d5a72004f"
+    },
+    {
+      "test": "backend/tests/test_versioned_causal_state.js",
+      "outputDigest": "a4d57f75f3ecf7aa2049988f5d771cc4577b61b946f842e87f406e6b294448bd"
+    },
+    {
+      "test": "backend/tests/test_promotion_evidence_dossier.js",
+      "outputDigest": "5f192d40fabbf8e592f3947995179bd4416e82670989d556546ce93827ce9e55"
+    },
+    {
+      "test": "backend/tests/test_mcp_actor_workspace_resolution.js",
+      "outputDigest": "d128764744486806bd48470044b3146b0965bd31b62cfbba9c7832fab858a991"
+    },
+    {
+      "test": "backend/tests/test_trinity_l2_capsules.js",
+      "outputDigest": "7c6ac655cf32e203f7fc09a0bb312daf06df28e65b2ce90589608dd2fd72c283"
+    },
+    {
+      "test": "backend/tests/test_counterfactual_mission_qualification.js",
+      "outputDigest": "83e70c1d40adef381b4ae87597df4c4900af64e12f7d1390b3cf2e08c35bcfb8"
+    },
+    {
+      "test": "backend/tests/test_foundational_principle_contract.js",
+      "outputDigest": "014c082c84d9f0d19f0517912974e3108c9967bfb0d395d506073adff9a00f8e"
+    },
+    {
+      "test": "backend/tests/test_foundational_qualification_lifecycle.js",
+      "outputDigest": "338510c5807a25914c8b1858dcecf72cf008888868fee08a67de97fbca94e5d9"
+    },
+    {
+      "test": "backend/tests/test_foundational_qualification_admission.js",
+      "outputDigest": "a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"
+    }
+  ],
+  "receiptHash": "b297405fc975f6d0519b4cde1b4482fa271fa7368782a2e94651acecd2cbcded"
+}

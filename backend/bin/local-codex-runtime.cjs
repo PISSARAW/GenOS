@@ -108,13 +108,17 @@ async function runMission(state, services) {
       workspaceRoot: state.workspaceRoot, proofs: state.commandProofs
     });
     if (testReceipt) emitEvent(state, testReceipt);
+    const completion = require('../src/services/localRuntimeCompletion');
+    completion.assertTestsPassed(state.commandProofs);
+    const report = completion.buildReport(state, augmentReplyWithProofs(reply, state.commandProofs));
+    completion.assertSuccess(report);
     if (state.resumeCheckpoint?.phase !== 'evaluated') {
       await checkpoint.save(state, 'evaluating', reply);
       await runPostPipeline(services, state, reply);
       await checkpoint.save(state, 'evaluated', reply);
       await captureBarrier.safePoint('evaluated');
     } else await captureBarrier.safePoint('evaluated');
-    emitCompletion(state, reply);
+    emitCompletion(state, reply, report);
     await checkpoint.save(state, 'completed', reply);
     await require('../src/services/subprocessModelBudgetRoute').close(state.modelBudgetRoute);
     await require('../src/services/localRuntimeReconnectLifecycle').close(state);
@@ -193,56 +197,24 @@ async function runPostPipeline(services, state, reply) {
     if (state.mission.runtimeCheckpointEnabled) throw e;
   }
 }
-function resolveModelRef(mission) {
-  return String(mission?.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
-}
-
-function filterPassingProofs(proofs) {
-  return (proofs || []).filter((p) => p && p.executed && p.exitCode === 0);
-}
-
-function hasFailedProofTest(proofs) {
-  return (proofs || []).some((p) => p && p.executed && p.exitCode !== 0);
-}
-
-function emitCompletion(state, reply) {
-  const { buildDossierArtifact, buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
-  const workerKinds = require('../src/services/agents/workerKindService');
-  const modelRef = resolveModelRef(state.mission);
-  const executedTests = filterPassingProofs(state.commandProofs);
-  const hasFailedProof = hasFailedProofTest(state.commandProofs);
-  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName, methodContract: state.mission.methodContract || null, readFileHashes: state.fileHashes, executedTests };
-  const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
-  const dossierText = augmentReplyWithProofs(reply, state.commandProofs);
-  const workerArtifact = state.mission.executionMode === 'worker' ? buildWorkerArtifact(kind, dossierText, provenance) : buildDossierArtifact(dossierText, provenance);
-  if (!workerArtifact) throw new Error(`Local model did not return a valid '${workerKinds.kindDefinition(kind).artifact}' artifact.`);
-  const parsedReply = localSynthesis.parseCompletionReply(dossierText);
-  const outcome = (hasFailedProof || parsedReply?.outcome === 'failed') ? 'failed' : 'success';
-  const report = { outcome, claims: localSynthesis.reportClaims(parsedReply, dossierText, state),
-    workerArtifact, author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' } };
-  attachProofTests(report, state.commandProofs);
-  localSynthesis.attachInfluence(report, parsedReply);
-  require('../src/services/localCompletionEvidence').attachFields(report, parsedReply);
-  emitEvent(state, { eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Local runtime emitted its structured evidence report.', payload: report });
-  if (outcome === 'failed') {
-    emitEvent(state, { eventType: 'AGENT_FAILED', action: 'COMPLETE', detail: 'Local cognitive router failed due to test failures.', status: 'failed', payload: completionEvidencePayload(state, report) });
-  } else {
-    emitEvent(state, { eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Local cognitive router completed with Epigenetic Canalization.', status: 'completed', payload: completionEvidencePayload(state, report) });
-  }
+function emitCompletion(state, reply, preparedReport) {
+  const completion = require('../src/services/localRuntimeCompletion');
+  const report = preparedReport || completion.buildReport(state, augmentReplyWithProofs(reply, state.commandProofs));
+  completion.emit(state, report, (current, event) => {
+    if (event.eventType !== 'EVIDENCE_REPORT') event.payload = completionEvidencePayload(current, report);
+    emitEvent(current, event);
+  });
 }
 function completionEvidencePayload(state, report) {
   const capsule = state.mission?.runtimeCapsule || parseJson(state.mission?.genosCapsuleJson);
   const snapshot = typeof capsule?.snapshotPath === 'string' ? capsule.snapshotPath.trim() : '';
   return { ...(state.observedRoute || {}), evidenceReport: report, ...(snapshot ? { snapshot } : {}) };
 }
-function attachProofTests(report, proofs) {
-  const executed = (proofs || []).filter((proof) => proof && proof.executed);
-  if (executed.length) report.tests = executed.map((proof) => ({ command: proof.command, exitCode: proof.exitCode, stdout: proof.stdout, stderr: proof.stderr }));
-}
 function emitFailure(state, e) {
   const budgetBlocked = /budget|latency/i.test(e.message);
   emitEvent(state, { eventType: budgetBlocked ? 'AGENT_HALTED' : 'AGENT_FAILED', action: budgetBlocked ? 'BUDGET_GUARD' : 'ERROR',
-    detail: e.message, severity: budgetBlocked ? 'warning' : 'error', status: budgetBlocked ? 'blocked' : 'error' });
+    detail: e.message, payload: { error: e.code, proposalTests: e.tests },
+    severity: budgetBlocked ? 'warning' : 'error', status: budgetBlocked ? 'blocked' : 'error' });
 }
 async function buildPromptContext(state, services) {
   await buildStrategyContext(services.strategyExecutionAdapter, state);
@@ -335,7 +307,7 @@ async function runAllowedCommand(workspaceRoot, command, allowedCommands) {
   if (!policy.isAllowedSandboxTestCommand(normalized)) return { command: normalized, executed: false, reason: 'not_allowlisted' };
   try {
     const result = await require('../src/services/sandboxExecutor').runIsolated({ command: normalized, cwd: workspaceRoot, timeoutMs: 60000 });
-    const proof = { command: normalized, executed: true, exitCode: result.exitCode, stdout: String(result.stdout || '').slice(0, 4000), stderr: String(result.stderr || '').slice(0, 4000) };
+    const proof = { command: normalized, executed: true, exitCode: result.timedOut ? -1 : result.exitCode, stdout: String(result.stdout || '').slice(0, 4000), stderr: String(result.stderr || '').slice(0, 4000) };
     proof.digest = values.digest({ command: proof.command, exitCode: proof.exitCode, stdout: proof.stdout, stderr: proof.stderr });
     return proof;
   } catch (error) {
@@ -387,4 +359,4 @@ function emitEvent(state, event) {
   });
   process.stdout.write(encodeEvent(event));
 }
-module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs, completionEvidencePayload };
+module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs, completionEvidencePayload, runMission, emitCompletion };

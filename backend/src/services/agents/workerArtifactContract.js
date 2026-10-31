@@ -5,6 +5,7 @@ const { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction } = require('./w
 const { hasEvidenceReferences, provenanceReferences,
   unresolvedEvidenceReferences } = require('./workerEvidenceReferenceService');
 const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
+const { validationProvenance, retainWitness } = require('./workerArtifactProvenance');
 
 const {
   CODE_EXECUTION_KINDS,
@@ -297,29 +298,6 @@ function validVerdict(verdict) {
   return ['accept', 'reject', 'unresolved'].includes(String(verdict).toLowerCase());
 }
 
-function isWitnessedTest(test) {
-  return Boolean(test && test.exitCode === 0 && (test.executionReceipt || test.passed));
-}
-
-function validationWitnessProvenance(report, worker) {
-  const mission = worker?.workerContract?.mission || {};
-  const executedTests = (report?.tests || []).filter(isWitnessedTest);
-  const tests = executedTests.length ? executedTests : (mission.executedTests || null);
-  return {
-    source: 'runtime-witnessed',
-    methodContract: mission.methodContract || null,
-    codeVerificationContract: mission.codeVerificationContract || null,
-    executedTests: tests,
-    allowedEvidenceRefs: mission.allowedEvidenceRefs || null
-  };
-}
-
-function resolveValidationProvenance(artifact, report, worker) {
-  const witness = validationWitnessProvenance(report, worker);
-  if (artifact?.provenance?.executedTests?.length) return artifact.provenance;
-  return { ...(artifact?.provenance || {}), ...witness };
-}
-
 function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
   if (!required.length) throw Object.assign(new Error('Worker contract declares no required artifacts.'), { code: 'WORKER_CONTRACT_INVALID_NO_ARTIFACTS' });
@@ -327,16 +305,21 @@ function validateWorkerArtifact(dossier, worker) {
   const kind = worker.workerContract?.identity?.workerKind;
   for (const expected of required) {
     const artifact = report.workerArtifact || (expected === 'dossier'
-      ? inspectWorkerArtifact(kind, report, validationWitnessProvenance(report, worker)).artifact : null);
+      ? inspectWorkerArtifact(kind, report, validationProvenance(null, worker)).artifact : null);
     const fields = REQUIRED_FIELDS[expected];
-    const provenance = resolveValidationProvenance(artifact, report, worker);
-    if (validateWorkerArtifactCondition(artifact, expected, fields) || kindArtifactIsInvalid({
-        kind, type: expected, content: artifact.content, contract: worker.workerContract
-      }) || codeDossierUnsubstantiated(kind, artifact?.content, provenance)) {
+    const provenance = validationProvenance(artifact, worker);
+    if (workerArtifactInvalid({ artifact, expected, fields, kind, worker, provenance })) {
       throw artifactError(worker.agentId, expected);
     }
+    retainWitness({ worker, artifact, report, provenance });
   }
   return true;
+}
+
+function workerArtifactInvalid({ artifact, expected, fields, kind, worker, provenance }) {
+  return validateWorkerArtifactCondition(artifact, expected, fields)
+    || kindArtifactIsInvalid({ kind, type: expected, content: artifact.content, contract: worker.workerContract })
+    || codeDossierUnsubstantiated(kind, artifact?.content, provenance);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact, authenticTestRefs, statesCodeSuccess, codeDossierUnsubstantiated };

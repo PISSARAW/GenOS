@@ -314,14 +314,8 @@ async function dispatchRuntime(ctx, input) {
   child.stdin.end(encodedMission);
 }
 
-async function superviseMission(options) {
-  const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
-    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission,
-    verifyInputs: true, executable: options.executable });
-  const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
-    runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
-  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = fallback(normalizedMission.strategyContract, {});
-  const conscienceState = await agentConscience.loadConscienceState(db, agentId);
+async function prepareRuntimeLaunch(options, authority) {
+  const { db, agentId, normalizedMission, dispatchedAgent, executionRun, executable } = options;
   const workspaceRoot = fallback(normalizedMission.workspaceRoot,
     fallback(process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../..')));
   const controlTenant = dispatchedAgent.workspace_id
@@ -349,6 +343,22 @@ async function superviseMission(options) {
     organizationId: fallback(controlTenant?.organization_id, ''), projectId: fallback(controlTenant?.project_id, '') });
   const reconnectProvisioning = require('./runtimeControlReconnectProvisioning');
   const reconnect = reconnectProvisioning.prepare(isLocalRuntime(resolvedExecutable), controlIdentity);
+  return { ...options, workspaceRoot, controlTenant, resolvedExecutable, continuousObserver,
+    spawnCmd, spawnArgs, launcherObservation, bodyActionId, filesystemReceipt, mcpDbPath,
+    mcpActorToken, controlIdentity, reconnectProvisioning, reconnect };
+}
+
+async function superviseMission(options) {
+  const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
+    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission,
+    verifyInputs: true, executable: options.executable });
+  const launch = await prepareRuntimeLaunch(options, authority);
+  const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
+    runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable, workspaceRoot,
+    controlTenant, resolvedExecutable, continuousObserver, spawnCmd, spawnArgs, launcherObservation,
+    bodyActionId, filesystemReceipt, mcpDbPath, mcpActorToken, reconnectProvisioning, reconnect } = launch;
+  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = fallback(normalizedMission.strategyContract, {});
+  const conscienceState = await agentConscience.loadConscienceState(db, agentId);
   const spawnInput = { db, agentId, normalizedMission, executionRun, resolvedExecutable, spawnCmd, spawnArgs,
     workspaceRoot, runtimeEnvironment, silentUpdates, mcpDbPath, mcpActorToken, bodyActionId, filesystemReceipt, reconnect };
   let child;

@@ -1,7 +1,7 @@
 {
   "schema": "genos.foundational-principles-qualification/v3",
   "baselineRevision": "2e30d2bada1b64eeadc38a8cf7f3015f7da1129b",
-  "qualificationRevision": "32b7d66e518f70e38b4467716da63500a1a4755e",
+  "qualificationRevision": "d6ca69c7252d1c1bc883a41dfb47eb9eae62963a",
   "scope": "Mission verticale bornée couvrant l'autorité, l'état causal, la preuve, les leases, les capsules et la qualification contrefactuelle des phases 1 à 6.",
   "ratingScale": {
     "0": "affirmation sans implémentation",
