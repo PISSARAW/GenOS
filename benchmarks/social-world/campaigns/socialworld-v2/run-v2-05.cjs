@@ -167,6 +167,25 @@ function resolveModelPlan(text, plans) {
   return order.map((organization) => plans.find((item) => item.organization === organization));
 }
 
+function resolveArmLimitations(arm) {
+  if (arm === 'static-social-graph') {
+    return ['Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'];
+  }
+  if (arm === 'genos-without-relational-physiology') {
+    return ['Relational physiology is disabled by omitting social relation records; organization and collaboration services remain active.'];
+  }
+  if (arm === 'llm-with-memory') {
+    return ['The model selects only the order of preregistered transitions from the persisted relation snapshot; the orchestrator retains all authority.'];
+  }
+  return ['Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
+}
+
+function resolveReportStatus(arm, observed) {
+  return observed.oracle.status === 'pass'
+    && (arm !== 'static-social-graph' || observed.treatmentEvidence.staticGraphUnchanged)
+    ? 'pass' : 'fail';
+}
+
 async function runScenario(input) {
   if (!REGISTERED_ARMS.includes(input.arm)) throw new Error(`Unknown V2-05 arm: ${input.arm}`);
   const startedAt = new Date().toISOString();
@@ -177,20 +196,12 @@ async function runScenario(input) {
   if (EXECUTABLE_ARMS.includes(input.arm)) {
     report.observed = await executeFullArm(input);
     evidence.push(report.observed);
-    report.status = report.observed.oracle.status === 'pass'
-      && (input.arm !== 'static-social-graph' || report.observed.treatmentEvidence.staticGraphUnchanged)
-      ? 'pass' : 'fail';
+    report.status = resolveReportStatus(input.arm, report.observed);
     report.oracle = { recalculable: true, status: report.status,
       checks: report.observed.oracle.checks, criticalViolations: report.observed.oracle.criticalViolations,
       staticGraphUnchanged: report.observed.treatmentEvidence?.staticGraphUnchanged ?? null };
     report.violations = report.status === 'pass' ? [] : ['Morphogenesis invariants failed.'];
-    report.limitations = [input.arm === 'static-social-graph'
-      ? 'Static comparator uses real organization and communication services while retaining the initial relation graph; no claim is made about autonomous topology generation.'
-      : input.arm === 'genos-without-relational-physiology'
-        ? 'Relational physiology is disabled by omitting social relation records; organization and collaboration services remain active.'
-        : input.arm === 'llm-with-memory'
-          ? 'The model selects only the order of preregistered transitions from the persisted relation snapshot; the orchestrator retains all authority.'
-      : 'Two deterministic controller-requested transitions; environmental event identifiers do not demonstrate autonomous transition generation.'];
+    report.limitations = resolveArmLimitations(input.arm);
   }
   report.durationMs = Date.now() - timer;
   const target = path.resolve(input.outputDirectory, `V2-05-${input.arm}-${input.seed}-attempt-${input.attempt}.evidence.json`);

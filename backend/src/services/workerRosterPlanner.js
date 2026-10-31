@@ -77,7 +77,7 @@ function buildWorkerRoster(roster, task, defaults) {
   if (!roster) return defaults;
   const supplied = assignmentList(roster);
   const typePolicy = roster.typePolicy || { mode: 'auto', kinds: [], quotas: {} };
-  const requested = requestedWorkerCount(roster, typePolicy, supplied, defaults);
+  const requested = requestedWorkerCount({ roster, typePolicy, supplied, defaults });
   assertExplicitAssignments({ roster, supplied, requested });
   const selectedKinds = kindsForPolicy(typePolicy, task, requested);
   if (typePolicy.mode === 'all_registered' && new Set(selectedKinds).size !== Object.keys(KINDS).length) {
@@ -86,7 +86,7 @@ function buildWorkerRoster(roster, task, defaults) {
   return selectedKinds.map((kind, index) => plannedAssignment({ kind, index, task, supplied: supplied[index] }));
 }
 
-function requestedWorkerCount(roster, typePolicy, supplied, defaults) {
+function requestedWorkerCount({ roster, typePolicy, supplied, defaults }) {
   if (roster.requestedWorkers) return roster.requestedWorkers;
   if (typePolicy.mode === 'all_registered') return Object.keys(KINDS).length;
   return typePolicy.kinds.length || supplied.length || defaults.length;

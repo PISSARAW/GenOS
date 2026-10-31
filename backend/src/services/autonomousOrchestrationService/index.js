@@ -56,19 +56,27 @@ function executionStatusOf(realizable, omittedPhases) {
   return omittedPhases.length ? 'blocked' : 'ready';
 }
 
+function resolveAutonomyTask(missionRequest, contract) {
+  return String(missionRequest.mission || missionRequest.task || contract.mission || '');
+}
+
+function resolveSurvivalState(budget, profile) {
+  return evaluateSurvival({
+    tokens: budget.tokens ?? 500000,
+    uncertainty: profile.uncertainty,
+    ...(budget.survivalState || {})
+  });
+}
+
 function buildAutonomyPlan(contract, budget = {}, missionRequest = {}) {
   const profile = contract.problem_profile || {};
-  const task = String(missionRequest.mission || missionRequest.task || contract.mission || '');
+  const task = resolveAutonomyTask(missionRequest, contract);
   const workerRoster = resolveWorkerRosterRequest(missionRequest, task);
   const flags = profileFlags(profile);
   flags.factualReadOnly = contract.evaluation_mode === 'factual_read_only';
   flags.formalReadOnly = contract.evaluation_mode === 'formal_read_only';
   const modes = modeFlags(contract);
-  const survival = evaluateSurvival({
-    tokens: budget.tokens ?? 500000,
-    uncertainty: profile.uncertainty,
-    ...(budget.survivalState || {})
-  });
+  const survival = resolveSurvivalState(budget, profile);
   const portfolio = contract.strategy_portfolio || [];
   const branchCount = computeBranchCount(flags, survival, portfolio);
   const phases = buildPhases(flags, modes, branchCount);

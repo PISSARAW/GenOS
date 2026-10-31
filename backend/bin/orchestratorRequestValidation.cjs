@@ -3,6 +3,7 @@ const ACTIONS = new Set(['orchestrate', 'dispatch_worker', 'dispatch_team', 'dis
   'merge_trinity', 'compare_trinity', 'report_progress', 'execute_primitive', 'change_strategy', 'change_organization',
   'organization_publish', 'organization_inbox', 'organization_state', 'worker_status', 'ontology', 'philosophy',
   'execute_mission_action']);
+
 function validatePayload(request) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) throw new Error('The orchestration request must be a JSON object.');
   const hasIntent = ['action', 'mission', 'task', 'strategy'].some(field => request[field] !== undefined);
@@ -13,15 +14,27 @@ function validatePayload(request) {
     }
   }
 }
-function validateRequest(action, policy) {
-  if (!ACTIONS.has(action)) throw new Error(`Unknown orchestration action '${action}'.`);
-  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw new Error('Orchestration policy must be an object.');
-  if (action === 'orchestrate' || action === 'dispatch_team') {
-    require('../src/services/workerRosterRequestService').resolveWorkerRosterRequest(policy, policy.mission || policy.task || '');
+
+function assertValidPolicyObject(policy) {
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    throw new Error('Orchestration policy must be an object.');
   }
-  if (policy.timeoutMs === undefined) return;
-  if (typeof policy.timeoutMs !== 'number' || !Number.isFinite(policy.timeoutMs) || policy.timeoutMs <= 0) {
+}
+
+function assertValidTimeout(timeoutMs) {
+  if (timeoutMs === undefined) return;
+  if (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error('timeoutMs must be a finite positive number.');
   }
 }
+
+function validateRequest(action, policy) {
+  if (!ACTIONS.has(action)) throw new Error(`Unknown orchestration action '${action}'.`);
+  assertValidPolicyObject(policy);
+  if (action === 'orchestrate' || action === 'dispatch_team') {
+    require('../src/services/workerRosterRequestService').resolveWorkerRosterRequest(policy, policy.mission || policy.task || '');
+  }
+  assertValidTimeout(policy.timeoutMs);
+}
+
 module.exports = { validatePayload, validateRequest };
