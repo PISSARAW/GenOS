@@ -335,8 +335,8 @@ async function finishSatisfiedBarrier(ctx) {
   await attachCounterfactualScores(ctx, dossiers);
   await attachProbeVerdicts(ctx, dossiers);
   await attachReconstructions(ctx, dossiers);
-  await attachTruthGraph(ctx);
-  await enforceReportGate(ctx);
+  await truthGate.attachTruthGraph(ctx);
+  await truthGate.enforceReportGate(ctx);
   attachSemanticReport(ctx, dossiers);
   const integration = await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers });
   if (integration && !integration.canMerge) {

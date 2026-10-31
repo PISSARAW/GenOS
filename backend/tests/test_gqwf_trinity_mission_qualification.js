@@ -48,9 +48,23 @@ function nicheMethod() {
 function adaptiveMethod() {
   return { version: 1, methodId: 'adapt_procedure', parameters: { trials: [
     { strategy: 'controlled_probe', procedure: problem() },
-    { strategy: 'causal_bisection', procedure: problem() },
+    { strategy: 'controlled_probe', procedure: problem() },
     { strategy: 'controlled_probe', procedure: problem() }
   ] } };
+}
+
+function verifyAdaptiveFixture() {
+  const { assertAdaptiveInput } = require('../src/services/agents/workerScopedProcedures');
+  assert.equal(assertAdaptiveInput(adaptiveMethod()), true);
+  const unsupportedStrategy = adaptiveMethod();
+  unsupportedStrategy.parameters.trials[1].strategy = 'causal_bisection';
+  assert.throws(() => assertAdaptiveInput(unsupportedStrategy), { code: 'WORKER_ADAPTATION_INVALID' });
+  const changedProblem = adaptiveMethod();
+  changedProblem.parameters.trials[1].procedure.parameters.machines = 3;
+  assert.throws(() => assertAdaptiveInput(changedProblem), { code: 'WORKER_ADAPTATION_INVALID' });
+  const unsupportedProcedure = adaptiveMethod();
+  unsupportedProcedure.parameters.trials[1].procedure.methodId = 'subset_sum';
+  assert.throws(() => assertAdaptiveInput(unsupportedProcedure), { code: 'WORKER_ADAPTATION_INVALID' });
 }
 
 function claimPlans() {
@@ -223,6 +237,7 @@ async function qualify(root) {
 }
 
 async function main() {
+  verifyAdaptiveFixture();
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'gqwf-trinity-qualification-'));
   try { await qualify(root); }
   finally { await fs.rm(root, { recursive: true, force: true }); }

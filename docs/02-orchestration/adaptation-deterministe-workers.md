@@ -23,3 +23,12 @@ flowchart LR
 Cette procédure démontre seulement une ou plusieurs exécutions déterministes LPT
 bornées. Elle ne démontre ni une recherche de stratégie, ni une bissection
 causale, ni une amélioration adaptative.
+
+## Régression de qualification
+
+`backend/tests/test_gqwf_trinity_mission_qualification.js` construit ses essais
+avec `controlled_probe` et le même problème LPT. Il vérifie aussi que l'admission
+refuse une stratégie non implémentée, une modification du problème entre deux
+essais et une procédure autre que LPT, avec `WORKER_ADAPTATION_INVALID`. Ces
+contrôles couvrent l'admission du worker; ils ne remplacent pas l'oracle indépendant
+ni la clôture de mission exigés par la barrière de preuves.
