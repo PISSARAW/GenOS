@@ -1,5 +1,6 @@
 # 06 — Qualité et preuves
 
+- [campagne-epistemique-quadrants-q1-q5-2026-10-31.md](campagne-epistemique-quadrants-q1-q5-2026-10-31.md) — qualification épistémique des quadrants Q1-Q5, déplacement de l'autorité de preuve de test, benchmark 25/25 et exécution GPU live.
 - [rapport-corrections-campagne-qwen-2026-10-30.md](rapport-corrections-campagne-qwen-2026-10-30.md) — corrections des workers locaux, schéma de preuve, diagnostic partiel et campagne finale distincte.
 - [evaluateur-campagne-qwen.md](evaluateur-campagne-qwen.md) — contrôles externes numériques et formels, provenance des runs et limites des verdicts.
 - [fixture-palindrome-qwen.md](fixture-palindrome-qwen.md) — tests différentiels de ponctuation et périmètre réel des assertions Python.

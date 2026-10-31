@@ -860,10 +860,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0737b](0737-capture-memoire-dialogue-social-borne.md) | Capturer en mémoire les dialogues sociaux résolus | Voir le fichier | -- | -- |
 | [0738](0738-boucle-developpement-social-integree.md) | Boucle de développement social intégrée à l’Ontogenèse | Voir le fichier | -- | -- |
 | [0739](0739-envois-idempotents-apres-reprise-sociale.md) | Dédupliquer durablement les envois sociaux après reprise | Accepté | 2026-10-24 | Communication, persistance, reprise sociale |
-| [0740a](0740-execution-docker-des-verificateurs-ontogenese.md) | Exécuter les vérificateurs G1 Ontogenèse dans Docker | Accepté | 2026-10-24 | Ontogenèse, vérification indépendante, confinement d'exécution |
-| [0740b](0740-native-plan-dispatch-authority.md) | Autorité de dispatch des plans de mission natifs | Accepté | 2026-10-24 | Orchestration, dispatch, morphogenèse, preuves |
-| [0740c](0740-source-signee-memoire-socialworld-v2-03.md) | Source signée et indépendante pour la mémoire SocialWorld V2-03 | Accepté | 2026-10-24 | SocialWorld, mémoire durable, provenance, vérification |
-| [0740d](0740-contrat-cardinalite-et-roster-workers.md) | Contrat de cardinalité et roster des workers | Accepté | 2026-10-24 | Orchestration, workers, roster, budgets |
+| [0740a](0740-contrat-cardinalite-et-roster-workers.md) | Contrat de cardinalité et roster des workers | Accepté | 2026-10-24 | Orchestration, workers, roster, budgets |
+| [0740b](0740-execution-docker-des-verificateurs-ontogenese.md) | Exécuter les vérificateurs G1 Ontogenèse dans Docker | Accepté | 2026-10-24 | Ontogenèse, vérification indépendante, confinement d'exécution |
+| [0740c](0740-native-plan-dispatch-authority.md) | Autorité de dispatch des plans de mission natifs | Accepté | 2026-10-24 | Orchestration, dispatch, morphogenèse, preuves |
+| [0740d](0740-source-signee-memoire-socialworld-v2-03.md) | Source signée et indépendante pour la mémoire SocialWorld V2-03 | Accepté | 2026-10-24 | SocialWorld, mémoire durable, provenance, vérification |
 | [0741](0741-preuves-runtime-socialworld-v2-06.md) | Preuves runtime de métacognition sociale V2-06 | Accepté | 2026-10-24 | Runtime social, mémoire, expérimentation, preuves |
 | [0742](0742-deploiement-api-gci-sur-vps.md) | Déploiement de l'API GCI sur un VPS partagé | Voir le fichier | -- | -- |
 | [0743](0743-export-gci-approbation-strategie.md) | Export GCI de l'approbation de stratégie | Voir le fichier | -- | -- |
@@ -879,11 +879,20 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0753](0753-budget-parent-worker-direct.md) | Budget parent du worker direct | Voir le fichier | -- | -- |
 | [0754](0754-preuve-semantique-cloture-worker.md) | Preuve sémantique pour qualifier un worker | Voir le fichier | -- | -- |
 | [0755](0755-initialisation-worker-direct.md) | Initialisation du worker direct | Voir le fichier | -- | -- |
-| [0757](0757-delegation-modele-locale-bornee.md) | Délégation locale par plan modèle borné | Voir le fichier | -- | -- |
+| [0756](0756-handoff-resident-worker-direct.md) | Handoff résident pour les workers directs | accepté | 2026-10-30 | -- |
+| [0757a](0757-delegation-modele-locale-bornee.md) | Délégation locale par plan modèle borné | Voir le fichier | -- | -- |
+| [0757b](0757-echeance-des-reprises-workers.md) | Échéance commune aux reprises des workers directs | accepté | 2026-10-30 | -- |
 | [0758a](0758-continuite-et-confinement-des-relations-agents.md) | Continuité et confinement des relations entre agents | Accepté | 2026-10-30 | Relations, communication et confinement |
-| [0758b](0758-verification-lean-et-recus-lies.md) | Vérification Lean commune et reçus liés | Accepté | 2026-10-30 | -- |
-| [0758c](0758-relais-dossier-et-admission-runtime.md) | Relais de dossier et admission persistante du destinataire | Voir le fichier | -- | -- |
-| [0759](0759-attendre-finalisation-runtime-avant-fermeture-sqlite.md) | Attendre la finalisation runtime avant fermeture SQLite | Accepté le 30 octobre 2026. | -- | -- |
+| [0758b](0758-relais-dossier-et-admission-runtime.md) | Relais de dossier et admission persistante du destinataire | Voir le fichier | -- | -- |
+| [0758c](0758-verification-lean-et-recus-lies.md) | Vérification Lean commune et reçus liés | Accepté | 2026-10-30 | -- |
+| [0759a](0759-attendre-finalisation-runtime-avant-fermeture-sqlite.md) | Attendre la finalisation runtime avant fermeture SQLite | Accepté le 30 octobre 2026. | -- | -- |
+| [0759b](0759-postconditions-workers-generiques.md) | Postconditions scellées des workers génériques | Voir le fichier | -- | -- |
+| [0760a](0760-identite-de-cloture-trinity.md) | Identité de clôture du sous-graphe Trinity | Voir le fichier | -- | -- |
+| [0760b](0760-schema-local-artefacts-creatifs-cliniques.md) | Schémas locaux des artefacts créatifs et cliniques | Accepté le 30 octobre 2026. | -- | -- |
+| [0761a](0761-decoupage-qualite-et-frontieres-de-preuve.md) | Découpage qualité et frontières de preuve | Voir le fichier | -- | -- |
+| [0761b](0761-mesure-invocations-et-reponse-terminale.md) | Séparer les invocations mesurées de la réponse terminale | Voir le fichier | -- | -- |
+| [0762](0762-contraintes-execution-identite-worker.md) | Contraintes d'exécution observées dans l'identité worker | Voir le fichier | -- | -- |
+| [0763](0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) | Autorité de preuve d'exécution hôte et quadrants épistémiques (Q1-Q5) | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

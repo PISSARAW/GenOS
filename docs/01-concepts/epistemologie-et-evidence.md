@@ -105,6 +105,13 @@ du théorème compilé, mesure du runtime et des imports, reçus immuables et r�
 Une indisponibilité ou une tactique échouée laisse la proposition indéterminée.
 La correspondance entre énoncé humain et formalisation reste une obligation séparée.
 
+### Autorité de preuve des tests et quadrants de falsification
+
+Conformément au principe *« Le producteur n\'est pas un oracle »* (voir [ADR 0763](../adr/0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) et la [campagne Q1-Q5](../06-qualite-preuves/campagne-epistemique-quadrants-q1-q5-2026-10-31.md)), l\'authenticité d\'une preuve de test ne peut être extraite du texte émis par le modèle :
+- **Autorité d\'exécution hôte** : un digest de test (genos://code-test/<digest>) n\'est reconnu que si la commande correspond à une exécution réelle attestée par l\'hôte (provenance.executedTests) avec un code de sortie nul (exitCode: 0).
+- **Élimination des faussaires (Q5)** : tout test forgé dans la réponse du modèle sans exécution hôte est rejeté fail-closed avec dossier.code_fix.unsubstantiated.
+- **Interception des menteurs polis (Q3)** : les claims déclarant un correctif de code sans preuve matérielle sont bloqués à travers un filtre robuste aux variantes lexicales (français et anglais), sans pénaliser les cas d\'échec ou d\'abstention honnêtes (0 faux positif).
+
 ## Dossiers workers et influence
 
 Un dossier contient `workerId`, nom, role, branche assignee et les evenements significatifs. Il conserve les derniers `GENOS_MAX_WORKER_DOSSIER_EVENTS` evenements par worker (32 par defaut, minimum 4). Sont retenus notamment rapports d'evidence, echecs, haltes, apoptose et preuves de non-reponse.
