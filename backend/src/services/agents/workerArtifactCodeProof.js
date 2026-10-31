@@ -1,10 +1,18 @@
 'use strict';
 
 const values = require('../trinityProvenanceValues');
+const { isAllowedSandboxTestCommand } = require('../sandboxCommandPolicy');
 
 const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
 const CODE_SUCCESS_HINT = /corrig|correct|\bfix(ed|es)?\b|tests?.*?(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)|r[ée]gression.*disparu|r[ée]solu|stabilis|stable|incident.*r[ée]solu|rectifi|d[ée]faut.*[ée]limin|build est vert/i;
 const CODE_SUCCESS_NEGATION = /\b(pas|aucun|sans)\b|n'a pas|pas de|échou|échec|fail/i;
+
+function isLegitimateTestCommand(command) {
+  if (typeof command !== 'string') return false;
+  const trimmed = command.trim();
+  if (!trimmed || /^echo(?:\s|$)/i.test(trimmed)) return false;
+  return isAllowedSandboxTestCommand(trimmed);
+}
 
 function statesCodeSuccess(statement) {
   const text = String(statement || '').toLowerCase();
@@ -22,6 +30,7 @@ function fileHashOf(ref) {
 }
 
 function testIsWitnessed(test, witnessed, allowed) {
+  if (!isLegitimateTestCommand(test?.command)) return false;
   const ref = `genos://code-test/${values.digest(test)}`;
   if (witnessed) {
     return witnessed.some((w) => w && w.exitCode === 0
@@ -63,6 +72,7 @@ module.exports = {
   statesCodeSuccess,
   dossierSuccessClaimed,
   fileHashOf,
+  isLegitimateTestCommand,
   testIsWitnessed,
   authenticTestRefs,
   dossierCodeProofPresent,
