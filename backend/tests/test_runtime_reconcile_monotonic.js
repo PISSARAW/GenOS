@@ -61,27 +61,40 @@ async function verifyRecentEventsProtectCrossProcessDrain() {
 }
 
 async function verifyUntrackedWorkersNeedAnInactiveParent() {
-  const updates = [];
+  const writes = [];
   const db = {
     exec: async () => {},
     get: async () => ({ current_budget: 0 }),
     all: async (sql) => {
-      if (/PRAGMA table_info\(agents\)/.test(sql)) return [{ name: 'id' }];
+      if (/PRAGMA table_info\(agents\)/.test(sql)) return [{ name: 'territory_id' }];
       assert.match(sql, /runtime_pid IS NULL/);
       assert.match(sql, /parent\.status IN \('running','blocked'\)/);
-      assert.match(sql, /NULL AS territory_id/);
-      return [{ id: 'stale-worker' }];
+      assert.match(sql, /a\.territory_id/);
+      return [{ id: 'stale-worker', territory_id: 'territory-1' }];
     },
     run: async (sql, id) => {
-      updates.push({ sql, id });
+      writes.push({ sql, id });
       return { changes: 1 };
     }
   };
   assert.equal(await reconcileUntrackedWorkers(db), 1);
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0].id, 'stale-worker');
-  assert.match(updates[0].sql, /INSERT INTO worker_orphanage_grace/);
-  assert.match(updates[0].sql, /status = 'SUSPECT'/);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].id, 'stale-worker');
+  assert.match(writes[0].sql, /INSERT INTO worker_orphanage_grace/);
+  assert.match(writes[0].sql, /status = 'SUSPECT'/);
+  assert.match(writes[0].sql, /ON CONFLICT\(worker_id\) DO UPDATE/);
+
+  let rejectedWrites = 0;
+  const noTerritoryDb = {
+    exec: async () => {},
+    get: async () => ({ cognitive_budget: 0 }),
+    all: async (sql) => /PRAGMA table_info\(agents\)/.test(sql)
+      ? [{ name: 'territory_id' }]
+      : [{ id: 'worker-without-territory', territory_id: null }],
+    run: async () => { rejectedWrites += 1; }
+  };
+  assert.equal(await reconcileUntrackedWorkers(noTerritoryDb), 0);
+  assert.equal(rejectedWrites, 0);
 }
 
 Promise.all([verifyTerminalRowsAreNotRewritten(), verifyOnlyRunningRowsAreScanned(),
