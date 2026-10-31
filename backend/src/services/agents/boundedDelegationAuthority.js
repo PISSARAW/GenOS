@@ -31,6 +31,9 @@ async function parent(db, agentId, runId) {
 }
 
 async function parentForChild(db, input) {
+  const agent = await db.get('SELECT * FROM agents WHERE id = ?', input.parentId);
+  const contract = agent && metadata(agent).workerContract;
+  assertParentContract(agent, contract);
   const scope = await provenance.agentScope(db, input.parentId);
   const event = await ledger.getEvent(db, `gvx-delegation:${input.childId}`, scope);
   const binding = event?.payload.binding;

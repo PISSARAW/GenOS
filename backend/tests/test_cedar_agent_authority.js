@@ -45,7 +45,8 @@ async function verifyRuntimeBoundary() {
     [peer.id, { ...peer, name: 'Peer', status: 'idle' }]
   ]);
   const db = {
-    get: async (sql, id) => String(sql).includes('WITH RECURSIVE') ? null : rows.get(id)
+    get: async (sql, id) => String(sql).includes('WITH RECURSIVE') ? null : rows.get(id),
+    all: async () => []
   };
   assert.equal((await authority.authorizeMission(db, { agentId: worker.id, orchestratorAgentId: parent.id })).id, worker.id);
   assert.equal((await authority.authorizeMission(db, { agentId: parent.id })).id, parent.id);
