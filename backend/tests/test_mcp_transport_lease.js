@@ -12,11 +12,13 @@ const authority = { status: 'authorized', hash: 'authority-hash', envelope: {
   scope: { organizationId: 'org-1', projectId: 'project-1', entityId: 'agent-1' },
   toolLease: ['genos_replay']
 } };
-const leaseInput = permissionBridge.permissionInput({ request: {
-  agentId: 'agent-1', runId: 'run-1', toolName: 'genos_replay', args: { snapshot: 's' }
-}, policy: { decision: 'allow' }, binding: authority });
-assert.deepEqual(leaseInput.lease.tools, ['genos_replay'],
-  'A valid signed mission lease must not be narrowed by another process lease.');
+(async () => {
+  const leaseInput = await permissionBridge.permissionInput({ request: {
+    agentId: 'agent-1', runId: 'run-1', toolName: 'genos_replay', args: { snapshot: 's' }
+  }, policy: { decision: 'allow' }, binding: authority });
+  assert.deepEqual(leaseInput.lease.tools, ['genos_replay'],
+    'A valid signed mission lease must not be narrowed by another process lease.');
+})();
 const authorizedValidation = dispatch.preValidateTool({ registry: { isSupportedTool: () => true },
   toolName: 'genos_replay', args: { snapshot: 's' }, executionKind: 'local',
   authorityLease: ['genos_replay'] });

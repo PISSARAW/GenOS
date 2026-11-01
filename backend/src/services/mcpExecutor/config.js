@@ -46,6 +46,7 @@ function directToolLeaseAllows(toolName, authorityLease) {
   const normalizedTool = normalizeToolName(toolName);
   // An expired process lease revokes every grant, including authority leases.
   if (processLeaseExpired()) return false;
+  if (authorityLease === true) return directToolGloballyEnabled(normalizedTool);
   if (Array.isArray(authorityLease)) {
     const lease = authorityLease.map(normalizeToolName).filter(Boolean);
     return lease.includes(normalizedTool) && directToolGloballyEnabled(normalizedTool);
