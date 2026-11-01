@@ -213,7 +213,7 @@ scripts/diagram_enricher/
 *.orig
 *.rej
 *.bak
-benchmarks/social-world/campaigns/socialworld-v2/reports/
+benchmarks/social-world/campaigns/**/reports/
 
 # ---------------------------------------------------------------------------
 # 12. OS
