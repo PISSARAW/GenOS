@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const REPORT_ROOT = path.join(__dirname, 'reports');
 const ARM_KEYS = ['genos-full', 'static-social-graph', 'llm-with-memory', 'genos-without-relational-physiology', 'genos-social-memory-ablated', 'genos-social-memory-counterfactual'];
-const MAX_TOKENS = 700;
+const MAX_TOKENS = 1500;
 const TOKEN_BUDGET = 1200;
 const MAX_TURNS = 2;
 const ACTIONS = ['propose-collaboration', 'ask-for-update', 'wait-for-reconciliation'];
@@ -88,7 +88,7 @@ async function intervention({ db, context, arm, memories }) {
 }
 async function oneArm({ db, context, arm, index }) {
   const role = roleForArm(arm); const interventionResult = await intervention({ db, context, arm, memories: context.memories });
-  const visible = interventionResult.memories; const providerInput = { model: context.model, temperature: context.config.temperature, seed: Number(context.seed.slice(-2)) * 1000 + index * 10,
+  const visible = interventionResult.memories; const providerInput = { model: context.model, temperature: context.config.temperature, seed: context.seedNumber * 1000 + index * 10,
     agentId: context.pair.subjectAgentId, organizationId: context.scope.organizationId, projectId: context.scope.projectId };
   const sourcePrompt = helpers.sourceModelPrompt({ ...context.pair, memories: promptMemories(visible), absenceReceiptId: interventionResult.receipt?.receiptId || '' });
   const modelInvocation = { invocationId: crypto.randomUUID(), promptHash: sha(JSON.stringify(sourcePrompt)),
@@ -164,13 +164,21 @@ function persistArmArtifacts(c, arm, result) {
 }
 function completeReport(c) {
   const evaluator = require('../../../../backend/src/services/socialMetacognitionCampaignService');
-  const mapped = Object.fromEntries([['baseline', 'genos-full'], ['masked', 'genos-social-memory-ablated'],
-    ['counterfactual', 'genos-social-memory-counterfactual']].map(([key, arm]) => [key, {
+  const mapped = Object.fromEntries(ARM_KEYS.map((arm) => [arm, {
     model: c.report.arms[arm].model.parsedOutput,
     decision: { ...c.report.arms[arm].decision, receiptId: c.report.arms[arm].decision.receipt.receiptId },
-    interventionReceipt: c.report.arms[arm].interventionReceipt || { mode: 'baseline' },
+    interventionReceipt: c.report.arms[arm].interventionReceipt || {
+      interventionId: `${c.seed}-${arm}-baseline`, mode: 'baseline',
+      beforeHash: c.report.arms[arm].decision.contextHash, afterHash: c.report.arms[arm].decision.contextHash
+    },
   }]));
-  const result = evaluator.evaluateSocialMetacognition({ arms: mapped, expectedActions: c.caseData.expectedActions });
+  const expectedActions = {
+    ...c.caseData.expectedActions,
+    'genos-full': c.caseData.expectedActions['genos-full'] || c.caseData.expectedActions.baseline,
+    'genos-social-memory-ablated': c.caseData.expectedActions['genos-social-memory-ablated'] || c.caseData.expectedActions.masked,
+    'genos-social-memory-counterfactual': c.caseData.expectedActions['genos-social-memory-counterfactual'] || c.caseData.expectedActions.counterfactual,
+  };
+  const result = evaluator.evaluateSocialMetacognition({ arms: mapped, expectedActions });
   c.report.status = result.status; c.report.reasonCode = result.status === 'pass' ? null : 'V2_06_ORACLE_NOT_PASSED';
   c.report.oracle = { status: result.status, caseId: c.caseData.caseId, reasons: result.reasons };
   c.report.observed = { armActions: Object.fromEntries(ARM_KEYS.map((arm) => [arm, c.report.arms[arm].decision.action])) };

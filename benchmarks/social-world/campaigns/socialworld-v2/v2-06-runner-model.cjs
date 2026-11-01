@@ -6,7 +6,7 @@ const {execFileSync}=require('node:child_process');
 const REPO_ROOT=path.resolve(__dirname,'../../../..');
 const TOKEN_BUDGET=1200;
 const MAX_TURNS=2;
-const MAX_TOKENS=700;
+const MAX_TOKENS=1500;
 const PROVIDER_TIMEOUT_MS=180000;
 const ACTIONS=['propose-collaboration','ask-for-update','wait-for-reconciliation'];
 function readJson(filename) { return JSON.parse(fs.readFileSync(filename, 'utf8')); }
