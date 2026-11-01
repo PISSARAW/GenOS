@@ -147,8 +147,12 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
   });
   orchestrationState.pendingWorkerRecoveries.set('rec-chain', { mission, report, decision });
   const originalStartMission = adapter.startMission;
+  let signalRedispatch;
+  let redispatchTimer;
+  const redispatched = new Promise((resolve) => { signalRedispatch = resolve; });
   adapter.startMission = async (nextMission) => {
     startedMissions.push(nextMission);
+    if (startedMissions.length === 2) signalRedispatch();
     if (startedMissions.length === 1) {
       queueWorkerRecovery(baseMission('rec-chain', { recoveryAttempt: 1,
         topologyRole: 'resource_steward', workerAssignment: morphology }), {
@@ -161,9 +165,9 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
   };
   try {
     assert.equal(await dispatchWorkerRecovery('rec-chain'), true);
-    for (let index = 0; index < 30 && startedMissions.length < 2; index += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
+    await Promise.race([redispatched, new Promise((_, reject) => {
+      redispatchTimer = setTimeout(() => reject(new Error('Queued recovery did not dispatch after lease release.')), 10000);
+    })]);
     assert.equal(startedMissions.length, 2,
       'a failure queued while the same-identity dispatch is active is drained after its lease is released');
     assert.notEqual(startedMissions[1].agentId, 'rec-chain',
@@ -174,6 +178,7 @@ async function checkQueuedFailureDrainsAfterSameIdentityDispatch(db) {
       'rec-chain-mission', startedMissions[1].agentId))?.mission_id, 'rec-chain-mission',
     'a replacement identity inherits the source worker’s active biological mission binding');
   } finally {
+    clearTimeout(redispatchTimer);
     adapter.startMission = originalStartMission;
   }
 }
