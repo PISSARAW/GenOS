@@ -17,13 +17,13 @@ export function createSamplingBroker(server, tools = []) {
     try {
       const input = JSON.parse(await readBody(req));
       if (req.url === '/tool') {
-        json(res, 200, { result: await dispatchTool(input, toolHandler) });
+        json(res, 200, { result: refusalAsError(await dispatchTool(input, toolHandler)) });
         return;
       }
       const result = await server.createMessage(samplingParams(input, tools));
       json(res, 200, { result });
     } catch (error) {
-      json(res, 502, { error: error.message });
+      json(res, error.code === 'MCP_TOOL_LEASE_DENIED' ? 403 : 502, { error: error.message, code: error.code });
     }
   });
   return new Promise((resolve, reject) => {
@@ -34,6 +34,14 @@ export function createSamplingBroker(server, tools = []) {
       resolve({ url: `${root}/sample`, toolUrl: `${root}/tool`, token, setToolHandler: (handler) => { toolHandler = handler; }, close: () => listener.close() });
     });
   });
+}
+
+// A refused or failed tool call must not travel as an HTTP 200 result:
+// the caller would observe a transport success instead of the refusal.
+function refusalAsError(result) {
+  if (!result || result.isError !== true) return result;
+  const text = Array.isArray(result.content) ? result.content.map((item) => item?.text || '').join('\n') : '';
+  throw Object.assign(new Error(text || 'MCP tool call failed.'), { code: result._meta?.code || 'MCP_TOOL_FAILED' });
 }
 
 function agentContext(input) {

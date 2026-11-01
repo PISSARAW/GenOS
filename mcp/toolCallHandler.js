@@ -191,8 +191,11 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
 async function handleToolRequest(input) {
   const { request, extra, runOrchestrator, runGenosCli, executeStrategyTool } = input;
   const { name, arguments: args = {} } = request.params;
-  if (CATALOG_TOOLS.has(name) && !toolIsLeased(name, CATALOG)) {
-    return { content: [{ type: 'text', text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true };
+  // Fail closed: toolIsLeased rejects any name absent from the canonical
+  // catalogue, so an uncatalogued name cannot bypass the lease check.
+  if (!toolIsLeased(name, CATALOG)) {
+    return { content: [{ type: 'text', text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true,
+      _meta: { code: 'MCP_TOOL_LEASE_DENIED' } };
   }
   const onTelemetry = telemetryHandler(request, extra);
   let actor = null;

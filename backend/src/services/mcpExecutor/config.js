@@ -36,8 +36,16 @@ function normalizeToolName(name) {
   return trimmed.startsWith('genos_') ? trimmed : `genos_${trimmed}`;
 }
 
+function processLeaseExpired() {
+  if (process.env.GENOS_MCP_LEASE_EXPIRES_AT === undefined) return false;
+  const expiresAt = Number(String(process.env.GENOS_MCP_LEASE_EXPIRES_AT).trim());
+  return !Number.isFinite(expiresAt) || Date.now() >= expiresAt;
+}
+
 function directToolLeaseAllows(toolName, authorityLease) {
   const normalizedTool = normalizeToolName(toolName);
+  // An expired process lease revokes every grant, including authority leases.
+  if (processLeaseExpired()) return false;
   if (Array.isArray(authorityLease)) {
     const lease = authorityLease.map(normalizeToolName).filter(Boolean);
     return lease.includes(normalizedTool) && directToolGloballyEnabled(normalizedTool);
@@ -46,10 +54,6 @@ function directToolLeaseAllows(toolName, authorityLease) {
 }
 
 function environmentToolLeaseAllows(normalizedTool) {
-  if (process.env.GENOS_MCP_LEASE_EXPIRES_AT !== undefined) {
-    const expiresAt = Number(String(process.env.GENOS_MCP_LEASE_EXPIRES_AT).trim());
-    if (!Number.isFinite(expiresAt) || Date.now() >= expiresAt) return false;
-  }
   const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map(normalizeToolName).filter(Boolean);
   if (disabled.includes(normalizedTool)) return false;
   const leaseEnv = process.env.GENOS_MCP_LEASE;

@@ -40,6 +40,13 @@ exécution : deux validations ne doivent ni écraser ni supprimer la même
 trajectoire de comptabilité. Les assertions continuent de vérifier les tokens
 réels et le filtrage temporel en passant par la recherche de trajectoire du CLI.
 
+`node backend/tests/test_biological_worker_restart.js` vérifie la reprise avec
+une base temporaire partagée entre processus. Le calcul `subset_sum` doit
+recevoir une attestation sémantique indépendante avant de permettre la clôture.
+Les indicateurs fournis par l'appelant ne suffisent pas. Après réouverture, le
+test vérifie le reçu reconstruit et exige encore l'invariant `checked` du contrat
+persisté : un contexte de reprise plus faible doit rester refusé.
+
 ## Intégration d'une tâche
 
 1. Créer un worktree depuis la révision de base convenue et une branche dédiée.
