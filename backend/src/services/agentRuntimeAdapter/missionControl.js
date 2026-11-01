@@ -23,6 +23,8 @@ async function stopMission(agentId, options = {}) {
   const child = activeProcesses.get(agentId);
   if (child) {
     child.genosStopRequested = true;
+    emit(agentId, 'AGENT_RUNTIME_HALT_REQUESTED', 'OPERATOR', 'Stop requested by operator.',
+      { reason: 'operator_stop', stopRequested: true, stopObserved: false }, 'warning', 'blocked');
     terminateChild(child);
     return true;
   }

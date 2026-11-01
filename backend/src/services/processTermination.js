@@ -166,6 +166,8 @@ function scheduleMeasuredVerification(child, delay = 50) {
 function terminateChild(child, detached = false) {
   const numericPid = normalizePid(child?.pid);
   if (!child || !numericPid || child.exitCode !== null || child.signalCode) return false;
+  child.genosTerminationRequested = true;
+  child.genosTerminationRequestedAt = new Date().toISOString();
   const receipt = measuredReceipt(child);
   if (receipt) {
     receipt.detached = Boolean(detached);

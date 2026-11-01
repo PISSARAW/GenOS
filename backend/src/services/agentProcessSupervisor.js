@@ -102,7 +102,8 @@ function haltRuntimeImpl(ctx, ...args) {
   const [kind, reason, detail, payload = {}] = args;
   if (ctx.state.termination) return false;
   ctx.state.termination = { kind, reason };
-  emit(ctx.agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail, { reason, ...payload }, 'critical', 'blocked');
+  emit(ctx.agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail,
+    { reason, stopRequested: true, stopObserved: false, ...payload }, 'critical', 'blocked');
   terminateChild(ctx.child, isDetachedChild(ctx.child));
   return true;
 }

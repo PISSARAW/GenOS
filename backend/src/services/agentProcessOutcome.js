@@ -152,7 +152,7 @@ function haltedOutcome({ termination, code, signal, stderr }) {
     task: `Runtime halted: ${termination.reason}`,
     detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
     payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason,
-      stderr: String(stderr).trim(), completion }
+      stderr: String(stderr).trim(), completion, stopRequested: true, stopObserved: true }
   };
 }
 
@@ -167,7 +167,7 @@ function completedOutcome({ code, executionStatus, flags }) {
     task: 'Execution completed',
     detail: `Runtime completed with verdict '${completion.verdict}'.`,
     payload: { code, executionStatus, domainVerdict: completion.verdict,
-      artifactFailure: flags.artifactFailure, completion }
+      artifactFailure: flags.artifactFailure, completion, stopRequested: false, stopObserved: true }
   };
 }
 
@@ -180,7 +180,7 @@ function failedExitOutcome({ code, signal, stderr, executionStatus }) {
     task: `Runtime exited with code ${formatExitCode(code)}${signal ? ` (${signal})` : ''}`,
     detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
     payload: { code, signal, stderr: String(stderr).trim(), executionStatus,
-      domainVerdict: completion.verdict, completion }
+      domainVerdict: completion.verdict, completion, stopRequested: false, stopObserved: true }
   };
 }
 

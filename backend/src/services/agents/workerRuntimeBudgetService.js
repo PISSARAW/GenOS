@@ -25,12 +25,13 @@ function startWorkerDeadline(context) {
   if (!Number.isFinite(requestedDuration) || requestedDuration <= 0) return;
   const duration = Math.min(requestedDuration, MAX_WORKER_DEADLINE_MS);
   const startedAt = Date.now();
+  const interval = Math.min(DEADLINE_CHECK_INTERVAL_MS, Math.max(10, duration));
   const timer = setInterval(() => {
     if (Date.now() - startedAt < duration) return;
     clearInterval(timer);
     context.haltRuntime(context, 'worker_deadline', 'worker_execution_deadline_exceeded',
       'Worker runtime stopped after reaching its contract deadline.', { maxTimeMs: duration });
-  }, DEADLINE_CHECK_INTERVAL_MS);
+  }, interval);
   if (typeof timer.unref === 'function') timer.unref();
   context.child.once('close', () => clearInterval(timer));
 }
@@ -51,7 +52,8 @@ function recordCpuSample(context, state, current) {
 }
 
 function runtimeStopped(child) {
-  if (child.killed || child.exitCode !== null || child.signalCode !== null) return true;
+  if (child.killed || Number.isInteger(child.exitCode) || typeof child.signalCode === 'string') return true;
+  if (!Number.isSafeInteger(child.pid)) return false;
   try {
     process.kill(child.pid, 0);
     return false;
