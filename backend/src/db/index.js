@@ -160,6 +160,7 @@ async function configureConnectionPragmas(db, skipBootstrap) {
   // can contend during startup; workers only need a per-connection timeout.
   if (!skipBootstrap) await db.exec('PRAGMA journal_mode = WAL;');
   await db.exec('PRAGMA synchronous = NORMAL;');
+  await db.exec('PRAGMA foreign_keys = ON;');
 }
 
 function installBusyRetry(db) {
@@ -177,6 +178,9 @@ async function closeDatabase() {
     try { await dbInitialization; } catch (_) {}
   }
   if (dbInstance) {
+    try {
+      await dbInstance.exec('PRAGMA wal_checkpoint(PASSIVE);');
+    } catch (_) {}
     await dbInstance.close();
     dbInstance = null;
     currentDbPath = null;
