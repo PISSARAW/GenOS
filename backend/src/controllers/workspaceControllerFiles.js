@@ -31,7 +31,7 @@ function shouldIgnoreFile(name) {
 function walkDirectory({ directory, relative = '', files }) {
   if (!fs.existsSync(directory) || files.length >= 250) return;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (shouldIgnoreFile(entry.name)) continue;
+    if (shouldIgnoreFile(entry.name) || entry.isSymbolicLink()) continue;
     const absolute = path.join(directory, entry.name);
     const filePath = path.join(relative, entry.name);
     if (entry.isDirectory()) walkDirectory({ directory: absolute, relative: filePath, files });

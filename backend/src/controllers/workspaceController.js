@@ -19,9 +19,27 @@ const execFileAsync = promisify(execFile);
 
 const WORKSPACES_ROOT = resolveWorkspacesRoot();
 
+function hasEscapingSymlink(root, relative) {
+  let current = root;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) return true;
+    } catch (e) {
+      if (e.code === 'ENOENT') break;
+      return true;
+    }
+  }
+  return false;
+}
+
 function isPathContained(root, candidate) {
-  const relative = path.relative(path.resolve(root), path.resolve(candidate));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(candidate);
+  const relative = path.relative(resolvedRoot, resolvedCandidate);
+  if (relative === '') return true;
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return false;
+  return !hasEscapingSymlink(resolvedRoot, relative);
 }
 
 const {
@@ -110,8 +128,10 @@ function sanitizeAndTrim(value) {
   return typeof value === 'string' ? sanitizeString(value).trim() : value;
 }
 
+const INVALID_WORKSPACE_NAME = /[:<>"|?*]|[. ]$|^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
+
 function isValidWorkspaceName(name) {
-  return typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) && path.basename(name) === name && name !== '.' && name !== '..';
+  return typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) && !INVALID_WORKSPACE_NAME.test(name) && path.basename(name) === name && name !== '.' && name !== '..';
 }
 
 function isValidLanguage(language) {

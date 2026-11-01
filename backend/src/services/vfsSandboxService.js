@@ -3,7 +3,7 @@
  * Provides pre-flight side-effect simulation (dry-run) and guarded real execution.
  */
 
-const { normalizeRelativePath } = require('./pathSafety');
+const { normalizeRelativePath, resolveWorkspaceRoot } = require('./pathSafety');
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
@@ -291,11 +291,7 @@ function resolveRealWorkspace(workspaceRoot) {
   if (typeof workspaceRoot !== 'string' || !workspaceRoot.trim()) {
     throw new Error('workspaceRoot is required for real sandbox execution.');
   }
-  const root = path.resolve(workspaceRoot);
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    throw new Error(`workspaceRoot is not an existing directory: ${workspaceRoot}`);
-  }
-  return root;
+  return resolveWorkspaceRoot(workspaceRoot, 'workspaceRoot');
 }
 
 function buildDryRunResponse(simulation, workspaceId, command) {

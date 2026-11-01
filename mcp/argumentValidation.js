@@ -7,12 +7,22 @@ const REQUIRED_CLI_FIELDS = {
   genos_v2_fork: ['parent_id']
 };
 
+const PATH_FIELDS = [
+  'agent', 'out', 'output', 'snapshot', 'snapshot_id', 'branch_id', 'parent_id',
+  'history_file', 'input_file', 'manifest', 'graph_file', 'image_path'
+];
+
 function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isUnsafePath(value) {
+  return !nonEmptyString(value) || value.includes('\0') || /^[\\/]/.test(value)
+    || /^[A-Za-z]:/.test(value) || value.startsWith('//');
+}
+
 function validateRelativePath(field, value) {
-  if (!nonEmptyString(value) || value.includes('\0') || /^[\\/]|^[A-Za-z]:[\\/]/.test(value)) {
+  if (isUnsafePath(value)) {
     return `${field} must be a non-empty workspace-relative path.`;
   }
   if (value.split(/[\\/]/).includes('..')) return `${field} must not contain parent path segments.`;
@@ -32,7 +42,7 @@ function validateRequiredFields(toolName, args) {
 }
 
 function validatePathFields(args) {
-  for (const field of ['agent', 'out', 'snapshot', 'snapshot_id', 'branch_id', 'parent_id', 'output']) {
+  for (const field of PATH_FIELDS) {
     if (args[field] !== undefined) {
       const error = validateRelativePath(field, args[field]);
       if (error) return error;

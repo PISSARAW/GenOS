@@ -52,10 +52,14 @@ function isSafeOutputSegment(segment) {
     && SAFE_OUTPUT_SEGMENT.test(segment);
 }
 
+function isUnsafeInputPath(value) {
+  return typeof value !== 'string' || !value.trim() || path.isAbsolute(value) || /^[A-Za-z]:/.test(value);
+}
+
 function validateMcpInputPaths(args = {}) {
-  for (const field of ['graph_file', 'history_file', 'input_file', 'manifest']) {
+  for (const field of ['graph_file', 'history_file', 'input_file', 'manifest', 'image_path']) {
     if (args[field] === undefined) continue;
-    if (typeof args[field] !== 'string' || !args[field].trim() || path.isAbsolute(args[field])) {
+    if (isUnsafeInputPath(args[field])) {
       throw Object.assign(new Error(`${field} must be a relative workspace path.`), { code: 'INVALID_INPUT_PATH' });
     }
     try {

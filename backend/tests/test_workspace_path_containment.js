@@ -12,6 +12,7 @@ dbModule.getDatabase = async () => ({
 
 const controller = require('../src/controllers/workspaceController');
 const { resolveWorkspacesRoot } = require('../src/services/workspaceRegistry');
+const vfsSandboxService = require('../src/services/vfsSandboxService');
 
 let created = null;
 
@@ -25,7 +26,11 @@ function response() {
 }
 
 (async () => {
-  for (const name of ['../escape', '..\\escape', 'a/b', 'a\\b', '..', '.', '/absolute', 'C:\\Windows']) {
+  const rejectedNames = [
+    '../escape', '..\\escape', 'a/b', 'a\\b', '..', '.', '/absolute', 'C:\\Windows',
+    'CON', 'nul', 'aux', 'com1', 'lpt1', 'trailing.'
+  ];
+  for (const name of rejectedNames) {
     const res = response();
     await controller.createWorkspace({ body: { name }, headers: {}, tenant: null, user: {} }, res);
     assert.equal(res.code, 400, `name '${name}' must be rejected`);
@@ -37,6 +42,16 @@ function response() {
   created = res.body.workspace.path;
   const relative = path.relative(path.resolve(resolveWorkspacesRoot()), path.resolve(created));
   assert.equal(relative.startsWith('..'), false);
+
+  const rootPath = process.platform === 'win32' ? 'C:\\' : '/';
+  await assert.rejects(
+    async () => vfsSandboxService.executeSandboxed('ws-test', 'echo 1', {
+      mode: 'real',
+      allowRealExecution: true,
+      workspaceRoot: rootPath
+    }),
+    /filesystem root|directory/i
+  );
 
   console.log('Workspace path containment checks passed.');
 })().catch((error) => {
