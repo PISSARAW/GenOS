@@ -1,5 +1,7 @@
 'use strict';
 
+const { createHash } = require('node:crypto');
+
 /**
  * Epistemic contradiction bus.
  *
@@ -224,16 +226,22 @@ function configureEventStore(db) {
 }
 
 function eventId(event) {
-  return `ep_${eventFingerprint(event).slice(0, 48)}`;
+  const fp = eventFingerprint(event);
+  if (!fp) return `ep_${Date.now()}`;
+  return `ep_${createHash('sha256').update(fp).digest('hex')}`;
 }
 
 function recordEvent(event) {
+  const fp = eventFingerprint(event);
+  if (fp && pendingEvents.some((existing) => eventFingerprint(existing) === fp)) {
+    return event;
+  }
   pendingEvents.push(event);
   if (pendingEvents.length > 500) pendingEvents.shift();
   if (eventStore) {
     eventStore.run(
       'INSERT OR IGNORE INTO epistemic_events (id, event_type, payload_json, emitted_at, fingerprint) VALUES (?, ?, ?, ?, ?)',
-      eventId(event), event.type, JSON.stringify(event.payload), event.emittedAt, eventFingerprint(event)
+      eventId(event), event.type, JSON.stringify(event.payload), event.emittedAt, fp
     ).catch((error) => {
       persistenceFailures.push({ eventId: eventId(event), error: error.message, at: new Date().toISOString() });
       if (persistenceFailures.length > 100) persistenceFailures.shift();
