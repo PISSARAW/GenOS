@@ -1,5 +1,24 @@
 'use strict';
 
+const NOOP_COMMANDS = new Set([
+  'true',
+  ':',
+  'exit 0',
+  'return 0',
+  'node -e ""',
+  'node -e "process.exit(0)"',
+  'node -e process.exit(0)',
+  'python -c ""',
+  'python -c "pass"',
+  'python3 -c ""',
+  'python3 -c "pass"'
+]);
+
+function isNoopCommand(cmd) {
+  if (typeof cmd !== 'string') return true;
+  return NOOP_COMMANDS.has(cmd.trim().toLowerCase());
+}
+
 function canonicalStatement(test) {
   if (!test || typeof test.command !== 'string') return null;
   const command = test.command.trim();
@@ -25,12 +44,16 @@ function validReplicas(test) {
 }
 
 function validateClaimContract(claim) {
-  const expected = canonicalStatement(claim?.test);
+  const test = claim?.test;
+  const expected = canonicalStatement(test);
   if (!expected) return { valid: false, reason: 'A test command and a typed output or exit predicate are required.' };
+  if (isNoopCommand(test.command)) {
+    return { valid: false, reason: 'No-op and tautological test commands are rejected.' };
+  }
   if (claim.statement !== expected) {
     return { valid: false, reason: `The claim must state the checked predicate exactly: ${expected}` };
   }
-  if (!validReplicas(claim.test)) {
+  if (!validReplicas(test)) {
     return { valid: false, reason: 'Verifier replicas must use the same command and predicate.' };
   }
   return { valid: true, statement: expected };

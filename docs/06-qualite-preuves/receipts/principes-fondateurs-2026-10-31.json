@@ -10,7 +10,7 @@
   "universalClaim": false,
   "authorizesPromotion": false,
   "manifestHash": "f596bf5c56991e9b4da6f859bfe019ed670bcfeb3ff9d47bd31abe0adea25541",
-  "sourceDigest": "515ca21b7f72ed16073cf45f81c88e3f0ffba7bbec45d2fd5ed1f33a31f1ebe9",
+  "sourceDigest": "720924a90a0c332ab99404a2d13e1cf05d5d06988e490f6a351d753f58ae0e0b",
   "evidence": [
     {
       "test": "backend/tests/test_execution_authority_v2.js",
@@ -57,5 +57,5 @@
       "outputDigest": "a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"
     }
   ],
-  "receiptHash": "988a344cf3169ac7a59db7e8299c604eaf8acfdf155307222ff074d0262a1538"
+  "receiptHash": "8a479a2bea3c777a0860e4ce7a2f7ffd1259d5eda4213fb02e302a98275a44cd"
 }

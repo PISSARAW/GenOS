@@ -91,6 +91,15 @@ function producerActorId(producer) {
   return `producer-${pick(producer.model, 'worker')}`;
 }
 
+function resolveProducerWorkspace(producer, antigen, fallback) {
+  return pick(
+    producer.executionWorkspace,
+    pick(producer.workspaceRoot,
+      pick(antigen.workspaceRoot,
+        pick(producer.workspaceId, pick(antigen.workspaceId, fallback))))
+  );
+}
+
 function buildProducerDescriptor(antigen) {
   const producer = antigen.producer || {};
   const actorId = producerActorId(producer);
@@ -100,7 +109,7 @@ function buildProducerDescriptor(antigen) {
     version: pick(producer.version, '1.0'),
     strategy: pick(producer.strategy, 'solve'),
     evidenceSource: pick(antigen.id, 'unknown'),
-    workspaceId: pick(pick(producer.workspaceId, antigen.workspaceId), `ws-${actorId}`),
+    workspaceId: resolveProducerWorkspace(producer, antigen, `ws-${actorId}`),
   };
 }
 
