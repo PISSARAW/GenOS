@@ -279,12 +279,13 @@ mod tests {
 
     #[test]
     fn test_cost_accounting_real_tokens() {
+        let agent_id = format!("test-agent-cost-{}", uuid::Uuid::new_v4());
         let test_dir = Path::new(".genos/trajectories");
         let _ = fs::create_dir_all(test_dir);
-        let test_file = test_dir.join("test-agent-cost.json");
+        let test_file = test_dir.join(format!("{agent_id}.json"));
 
         let trajectory_data = json!({
-            "agent_id": "test-agent-cost",
+            "agent_id": agent_id,
             "usage": {
                 "prompt_tokens": 1500,
                 "completion_tokens": 500
@@ -292,7 +293,7 @@ mod tests {
         });
         fs::write(&test_file, serde_json::to_string(&trajectory_data).unwrap()).unwrap();
 
-        let tokens = compute_agent_tokens("test-agent-cost", None);
+        let tokens = compute_agent_tokens(&agent_id, None);
         assert!(tokens.is_ok());
         let (prompt, completion) = tokens.unwrap();
         assert_eq!(prompt, 1500);
@@ -303,15 +304,16 @@ mod tests {
 
     #[test]
     fn test_cost_accounting_timeframe_filtering() {
+        let agent_id = format!("test-agent-timeframe-{}", uuid::Uuid::new_v4());
         let test_dir = Path::new(".genos/trajectories");
         let _ = fs::create_dir_all(test_dir);
-        let test_file = test_dir.join("test-agent-timeframe.json");
+        let test_file = test_dir.join(format!("{agent_id}.json"));
 
         let now = chrono::Utc::now().timestamp();
         let old_ts = now - 7200; // 2 hours ago
 
         let trajectory_data = json!({
-            "agent_id": "test-agent-timeframe",
+            "agent_id": agent_id,
             "turns": [
                 {
                     "step": 1,
@@ -330,11 +332,11 @@ mod tests {
         fs::write(&test_file, serde_json::to_string(&trajectory_data).unwrap()).unwrap();
 
         // 1 hour window: should only include step 2
-        let tokens_1h = compute_agent_tokens("test-agent-timeframe", Some("1h")).unwrap();
+        let tokens_1h = compute_agent_tokens(&agent_id, Some("1h")).unwrap();
         assert_eq!(tokens_1h, (200, 100));
 
         // All window: should include both steps
-        let tokens_all = compute_agent_tokens("test-agent-timeframe", Some("all")).unwrap();
+        let tokens_all = compute_agent_tokens(&agent_id, Some("all")).unwrap();
         assert_eq!(tokens_all, (300, 150));
 
         let _ = fs::remove_file(test_file);

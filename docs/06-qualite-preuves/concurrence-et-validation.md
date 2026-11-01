@@ -34,6 +34,12 @@ Une configuration `GENOS_DB_PATH` de poste ou une base utilisateur ne doit
 jamais servir de fixture implicite. `npm run test:unlocked` est réservé à
 l'appel interne du lanceur et ne doit pas remplacer `npm test`.
 
+Le verrou Node ne couvre pas les commandes Cargo. Les fixtures Rust qui sont
+recherchées dans `.genos/trajectories` utilisent donc un identifiant UUID par
+exécution : deux validations ne doivent ni écraser ni supprimer la même
+trajectoire de comptabilité. Les assertions continuent de vérifier les tokens
+réels et le filtrage temporel en passant par la recherche de trajectoire du CLI.
+
 ## Intégration d'une tâche
 
 1. Créer un worktree depuis la révision de base convenue et une branche dédiée.
