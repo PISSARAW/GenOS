@@ -114,19 +114,41 @@ async function resolveLineage(db, request, binding) {
   return { identity, thread: await authorityThread(db, request, identity) };
 }
 
+function sealedTools(binding, normalized) {
+  return binding?.status === 'authorized' ? binding.envelope.toolLease : [normalized];
+}
+
+function filterAllowedTools(binding, sealed) {
+  if (binding?.status === 'authorized') {
+    return sealed.filter((tool) => tool !== 'genos_replay' && directToolGloballyEnabled(tool));
+  }
+  return sealed.filter((tool) => directToolLeaseAllows(tool));
+}
+
+async function attachReplayIfAllowed(input, tools) {
+  const { db, request, options } = input;
+  const replaySnapshot = request.args?.snapshot || request.args?.snapshot_id;
+  if (!require('./permissionMembraneBridgeValues1.js').executionLeaseValue1(options)) return;
+  if (db && !await require('../agents/workerContractEnforcement').ownsReplaySnapshot({
+    db, agentId: request.agentId, reference: replaySnapshot, suppliedRoot: request.args?.root ?? null
+  })) return;
+  if (!tools.includes('genos_replay')) tools.push('genos_replay');
+}
+
+function leaseIdentity(binding, normalized, allowed) {
+  if (binding?.status === 'authorized') {
+    return `execution-authority:${binding.envelope.runId}:${binding.hash}`;
+  }
+  return `runtime-lease:${membrane.digest({ tool: normalized, allowed })}`;
+}
+
 async function executionLease(db, request, binding) {
   const normalized = require('../toolLeasePolicy').normalizeToolName(request.toolName);
-  const sealed = binding?.status === 'authorized' ? binding.envelope.toolLease : [normalized];
-  const tools = binding?.status === 'authorized'
-    ? sealed.filter((tool) => directToolGloballyEnabled(tool))
-    : sealed.filter((tool) => directToolLeaseAllows(tool));
-  const replaySnapshot = request.args?.snapshot || request.args?.snapshot_id;
-  if (require('./permissionMembraneBridgeValues1.js').executionLeaseValue1({ binding, directToolGloballyEnabled, normalized, scopedWorkerReplayLeaseOpen, sealed })
-    && await require('../agents/workerContractEnforcement').ownsReplaySnapshot({ db: db, agentId: request.agentId, reference: replaySnapshot, suppliedRoot: request.args?.root ?? null })
-    && !tools.includes('genos_replay')) tools.push('genos_replay');
-  const identity = binding?.status === 'authorized'
-    ? `execution-authority:${binding.envelope.runId}:${binding.hash}`
-    : `runtime-lease:${membrane.digest({ tool: normalized, allowed: tools.includes(normalized) })}`;
+  const sealed = sealedTools(binding, normalized);
+  const tools = filterAllowedTools(binding, sealed);
+  const options = { binding, directToolGloballyEnabled, normalized, scopedWorkerReplayLeaseOpen, sealed };
+  await attachReplayIfAllowed({ db, request, options }, tools);
+  const identity = leaseIdentity(binding, normalized, tools.includes(normalized));
   return adapters.leaseContract(identity, tools);
 }
 
