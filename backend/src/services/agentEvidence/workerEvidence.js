@@ -53,22 +53,44 @@ function ensureWorkerParticipant(round, mission, workerId) {
   });
 }
 
+const PAYLOAD_ARTIFACT_KEYS = [
+  'snapshot', 'nativeOracleRef', 'replayReceipt', 'noAnswerProof',
+  'command', 'exitCode', 'evidenceDigest', 'digest', 'attestation', 'environmentHash'
+];
+
 function attachPayloadArtifacts(entry, payload) {
   if (!payload || typeof payload !== 'object') return;
-  if (payload.snapshot) entry.snapshot = payload.snapshot;
-  if (payload.nativeOracleRef) entry.nativeOracleRef = payload.nativeOracleRef;
-  if (payload.replayReceipt) entry.replayReceipt = payload.replayReceipt;
-  if (payload.noAnswerProof) entry.noAnswerProof = payload.noAnswerProof;
+  for (const key of PAYLOAD_ARTIFACT_KEYS) {
+    if (payload[key] !== undefined) entry[key] = payload[key];
+  }
+}
+
+function resolveEntryWorkerId(event, payload, defaultId) {
+  return payload?.workerId || event?.agentId || defaultId;
+}
+
+function resolveEntryRunId(event, payload) {
+  return payload?.executionRunId || event?.executionRunId || null;
+}
+
+function resolveEntryTimestamp(event, payload) {
+  return event?.timestamp || payload?.timestamp || new Date().toISOString();
+}
+
+function resolveEntrySource(event, payload) {
+  return event?.source || payload?.source || 'worker_execution';
 }
 
 function buildWorkerEvidenceEntry(event, report, workerId) {
   const failure = resolveWorkerFailure(event);
   const payload = event.payload;
   const entry = {
-    workerId: payload?.workerId || event.agentId || workerId,
+    workerId: resolveEntryWorkerId(event, payload, workerId),
     eventType: event.eventType,
-    executionRunId: payload?.executionRunId || event.executionRunId || null,
+    executionRunId: resolveEntryRunId(event, payload),
     action: event.action,
+    timestamp: resolveEntryTimestamp(event, payload),
+    source: resolveEntrySource(event, payload),
     detail: String(event.detail || '').slice(0, 500)
   };
   if (reportCarriesEvidence(report)) entry.evidenceReport = report;
@@ -153,7 +175,7 @@ function synthesisEvidence(dossiers) {
     workerId: dossier.workerId,
     role: dossier.role,
     claims: dossier.events.flatMap((event) => (event.evidenceReport || extractEvidenceReport(event.payload))?.claims || [])
-      .map((claim) => ({ statement: claim.statement, evidence: claim.evidence }))
+      .map((claim) => ({ ...claim, statement: claim.statement, evidence: claim.evidence }))
   }));
 }
 

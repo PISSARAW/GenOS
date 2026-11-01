@@ -87,6 +87,7 @@ function validateReceipt(receipt, trustedVerifierDigests = []) {
 function trustedReceiptMetadata(receipt, trustedVerifierDigests) {
   return Array.isArray(trustedVerifierDigests) && Boolean(receipt)
     && trustedVerifierDigests.includes(receipt.verifierDigest)
+    && typeof receipt.evidenceDigest === 'string' && receipt.evidenceDigest.trim().length > 0
     && !Number.isNaN(Date.parse(receipt.checkedAt)) && Boolean(receipt.nonce);
 }
 
