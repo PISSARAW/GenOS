@@ -116,16 +116,17 @@ async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_T
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      const effectiveExitCode = timedOut || code === null ? -1 : code;
       resolve({
         command,
         commandHash: cmdHash,
         executionId, processId: child.pid || null,
-        exitCode: code === null && signal ? -1 : (code || 0),
+        exitCode: effectiveExitCode,
         stdout,
         stderr,
         durationMs: Date.now() - startedAt,
         timedOut,
-        success: code === 0 && !timedOut,
+        success: effectiveExitCode === 0 && !timedOut,
       });
     });
 

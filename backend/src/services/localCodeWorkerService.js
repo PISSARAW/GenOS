@@ -132,10 +132,19 @@ async function runTest(command, root) {
       env: require('./localCodeTestEnvironment').build(testTempRoot),
       stdio: ['ignore', 'pipe', 'pipe']
     });
-    let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);
-    child.stdout.on('data', (chunk) => { stdout = (stdout + chunk).slice(0, 20000); }); child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(0, 20000); });
-    child.on('close', (code, signal) => { clearTimeout(timer); resolve({ command, exitCode: code, signal, stdout, stderr }); });
-    child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
+    let stdout = ''; let stderr = ''; let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; terminateChild(child); }, 120000);
+    child.stdout.on('data', (chunk) => { stdout = (stdout + chunk).slice(0, 20000); });
+    child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(0, 20000); });
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      const exitCode = timedOut || code === null ? -1 : code;
+      resolve({ command, exitCode, signal, stdout, stderr, timedOut });
+    });
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ command, exitCode: -1, stderr: error.message, timedOut: false });
+    });
   });
 }
 async function executeProposal(input) {
