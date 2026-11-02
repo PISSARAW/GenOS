@@ -97,6 +97,8 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
 ## Voir aussi
 
+- [identite-filiation-apprentissage-2026-11-02.md](identite-filiation-apprentissage-2026-11-02.md) — campagne de 600 transformations et cycles par graine, reconnaissance authentifiée et réutilisation bornée de calibration après redémarrage.
+
 - [qualification-consommateurs-p0-2026-10-07.md](qualification-consommateurs-p0-2026-10-07.md) — parcours réels L01–L05/L22, provenance mémoire et limites des promotions.
 - [matrice-consommateurs-l01-l05-l22-2026-10-07.md](matrice-consommateurs-l01-l05-l22-2026-10-07.md) — 115 références du plan, consommateurs, tests et limites opposables.
 
