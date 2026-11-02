@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [competence-cent-experiences-2026-11-02.md](competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle après cent expériences : scores vérifiés, surconfiance et hypothèse non confirmée.
+
 - [observation-mission-agow-2026-11-02.md](observation-mission-agow-2026-11-02.md) — décision antérieure, journal durable et mesures d'un worker correct ou fautif par oracle séparé ; aucune promotion.
 
 - [cooperation-types-workers-2026-11-02.md](cooperation-types-workers-2026-11-02.md) — trois scénarios de complémentarité native daemon/spécialiste/vérificateur/récupération, autorités, passations et coûts mesurés.

@@ -1,5 +1,9 @@
 # Référence expérimentale GenOS
 
+Le [banc cent expériences](competence-100/README.md) compare transfert, abstention
+et calibration avec mémoire GenOS. La campagne Qwen 7B réelle est vérifiée :
+13/120 tâches résolubles réussies et forte surconfiance ; hypothèse non confirmée.
+
 Le [démonstrateur de mission AGOW](agow-mission/README.md) relie une décision
 persistée à l'exécution d'un worker et aux mesures d'un oracle en processus
 distinct. Il distingue la fin du processus de la réussite métier, sans promotion.

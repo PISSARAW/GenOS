@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Compétence après cent expériences](06-qualite-preuves/competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle, 580 réponses vérifiées et résultat négatif conservé : transfert et ignorance reconnue non démontrés.
+
 - [Bénéfice opérationnel adaptatif](06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md) — preuves de mécanismes et expériences nécessaires pour mesurer survie, adaptation et amélioration durable.
 
 - [Vérification Lean, Omega et gestion des preuves](06-qualite-preuves/verification-lean-et-omega.md) — contrats communs, régressions et schémas ; [ADR 0758](adr/0758-verification-lean-et-recus-lies.md).
