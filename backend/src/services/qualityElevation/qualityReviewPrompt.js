@@ -27,7 +27,8 @@ function reviewPrompt(input) {
     + `Évalue exactement ces ${ids.length} critères, chacun une fois : ${ids.join(', ')}. `
     + 'Chaque entrée contient criterionId, verdict (pass/fail/unknown), reason (10 caractères minimum), evidence:[{quote:...}], rating. '
     + 'Toute citation doit être un extrait CONTINU d’au moins 8 caractères intégralement présent dans artifact, sans préfixe inventé, '
-    + 'paraphrase, mots supprimés ou fragments recollés. Utilise plusieurs citations séparées pour plusieurs passages. '
+    + 'paraphrase, mots supprimés ou fragments recollés. Privilégie des citations concises (une phrase ou proposition exacte). '
+    + 'Cite TOUJOURS depuis artifact, JAMAIS depuis le brief mission. Utilise plusieurs citations séparées pour plusieurs passages. '
     + 'Une raison de refus doit localiser le problème et expliquer la relation manquante, pas seulement demander plus de profondeur. '
     + 'Un verdict décisif exige une citation. Si tu ne peux pas l’étayer, utilise unknown. '
     + 'rating vaut null pour les critères durs ou inconnus, et 0 à 4 pour les critères souples connus '
