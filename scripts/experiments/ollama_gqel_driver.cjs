@@ -5,8 +5,9 @@ function requestBody(options, request) {
   const bytes = Buffer.byteLength(request.prompt + SYSTEM + JSON.stringify(request.responseSchema || ''), 'utf8');
   if (bytes + request.maxOutputTokens + 256 > options.contextSize) throw fail('GQEL_CONTEXT_OVERFLOW', 'Conservative context bound exceeded; increase --context or split the task.');
   const structured = /review|comparison|narrative_plan/.test(request.operation);
+  const temperature = structured ? (request.protocolAttempt ? 0.2 : 0) : 0.65;
   const body = { model: options.model, stream: false, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: request.prompt }],
-    options: { num_ctx: options.contextSize, num_predict: request.maxOutputTokens, temperature: structured ? 0 : 0.65 } };
+    options: { num_ctx: options.contextSize, num_predict: request.maxOutputTokens, temperature } };
   if (request.responseSchema) body.format = request.responseSchema;
   else if (structured) body.format = 'json';
   return body;
