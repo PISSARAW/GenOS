@@ -65,6 +65,7 @@ pub mod mission_division;
 pub mod mission_division_recovery;
 pub mod mission_lineage;
 pub mod mission_receipt;
+pub mod mission_protocols;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;

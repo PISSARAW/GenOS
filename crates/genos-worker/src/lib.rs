@@ -1,14 +1,16 @@
 //! `genos-worker` : contrats et primitives de cycle des workers côté Rust.
 //!
-//! Le backend Node.js porte aujourd'hui le runtime worker exécutable et son
-//! dispatch. Ce crate expose des modèles Rust (`WorkerRuntimeContract`, cycle,
-//! dossiers et presets) qui ne sont pas encore raccordés à ce dispatch.
+//! Le profil natif `native::execute` calcule et vérifie `integer_sum`. Son
+//! lancement en processus et ses protocoles sont portés par genos-orchestrator.
+//! Les contrats des autres familles (`WorkerRuntimeContract`, cycle,
+//! dossiers et presets) restent des modèles distincts du dispatch Node.
 //! Ils décrivent des contrats et transitions ; ils ne lancent pas un worker.
 //!
 //! Les vérifications de ce crate restent locales à ses API. Le runtime Node
 //! applique ses propres contrats et barrières de preuve.
 
 pub mod contract;
+pub mod native;
 pub mod cycle;
 pub mod dossier;
 pub mod dreaming;
