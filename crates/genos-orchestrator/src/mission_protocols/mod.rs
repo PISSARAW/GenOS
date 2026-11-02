@@ -16,3 +16,6 @@ pub mod evidence;
 pub mod allostasis;
 pub mod omega;
 mod omega_store;
+pub mod gqwf;
+mod gqwf_store;
+mod gqwf_commit;
