@@ -137,6 +137,13 @@ des empreintes de référence, dont un texte Unicode.
 
 ## Vérification reproductible et limites
 
+Les API de [conversation durable](evidence-conversations.md), de
+[révision](evidence-revisions.md) et de [jury](evidence-jury.md) décrivent les
+adaptateurs de confiance requis. Le
+[scénario entre processus](../06-qualite-preuves/evidence-reprise-processus-2026-11-02.md)
+teste la reprise et les invalidations dans quatre bases et magasins distincts.
+La suite complète se lance avec `npm --prefix backend run test:evidence-protocol`.
+
 Depuis la racine : `node backend/tests/test_evidence_protocol_contract.js`.
 Ce test vérifie les vecteurs, la liaison du payload, l'horloge, les versions,
 les contraintes du sujet et les valeurs JSON ambiguës.
