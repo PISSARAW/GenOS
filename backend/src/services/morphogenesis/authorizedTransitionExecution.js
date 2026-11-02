@@ -152,7 +152,16 @@ async function execute(ctx, transitionId, ops) {
   const loaded = await durableSnapshots.load({ db: ctx.db, id: snapshot.id });
   const preState = collective.deserializeState(loaded.payload.collectiveState);
   const authority = await authorizeOrRestore({ ctx: transitionCtx, snapshot, state, agentId });
-  return runApplying({ ctx: transitionCtx, snapshot, authority, preState }, ops);
+  const input = { ctx: transitionCtx, snapshot, authority, preState };
+  const mission = ctx.missionId && await ctx.db.get('SELECT mission_id FROM missions WHERE mission_id=?', ctx.missionId);
+  if (mission) {
+    try { return await require('../missionProtocols/morphTransition').execute(input, () => runApplying(input, ops)); }
+    catch (error) {
+      if (!error.protocolDecisionCommitted) await restorePrepared({ ctx: transitionCtx, snapshot, state, error });
+      throw error;
+    }
+  }
+  return runApplying(input, ops);
 }
 
 module.exports = { execute };
