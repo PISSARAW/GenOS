@@ -81,7 +81,7 @@ test('untrusted evaluation cannot be added to a session', () => {
 });
 test('positive full runtime path is reachable with metered synthetic adapters', async () => {
   const result = await execute(); assert.equal(result.promoted, true);
-  assert.equal(result.session.controls.length, 1); assert.equal(result.session.budget.calls, 4);
+  assert.equal(result.session.controls.length, 1); assert.equal(result.session.budget.calls, CALIBRATION.length + 2);
   assert.equal(result.demonstratedGain, null); assert.equal(result.improvementEvidence.humanValidated, false);
 });
 test('negative-to-positive repair is compared in both orders', async () => {
@@ -187,9 +187,10 @@ test('workflow executes planning, plan review, scene generation and final review
   const result = await execute({ planScenes: true, generator: async request => { operations.push(request.operation); return reply(request.stage === 'plan' ? JSON.stringify(samplePlan()) : GOOD); } });
   assert.equal(result.promoted, true); assert.deepEqual(operations, ['narrative_plan', 'write:S1']); assert.equal(result.session.plans.length, 1); assert.equal(result.session.sceneDrafts.length, 1);
 });
-test('invalid plans are retried within the cap without drafting scenes', async () => {
-  const ops = [], result = await execute({ planScenes: true, generator: async request => { ops.push(request.operation); return reply('{"premise":"only"}'); } });
+test('invalid plans use local protocol retries without drafting scenes', async () => {
+  const ops = [], result = await execute({ contract: contract({ maxProtocolRepairs: 1 }), planScenes: true, generator: async request => { ops.push(request.operation); return reply('{"premise":"only"}'); } });
   assert.equal(result.promoted, false); assert.deepEqual(ops, ['narrative_plan', 'narrative_plan']);
+  assert.equal(result.totalIterations, 1);
 });
 test('duplicate scene IDs and incompatible durations invalidate plans', () => {
   const plan = samplePlan(); plan.scenes.push({ ...plan.scenes[0] });
@@ -216,9 +217,9 @@ test('unknown soft ratings stay null rather than becoming a score', async () => 
   const result = await execute({ reviewers: [r] }); assert.equal(result.promoted, false); assert.equal(result.bestVersion.score, null);
 });
 test('explicit code profile is not changed by scenario keyword', () => { assert.equal(contract({ domain: 'software_engineering', mission: 'Coder un scénario de test.' }).profile, 'code'); });
-test('semantic plan rejection prevents all scene drafting', async () => {
+test('strict policy still prevents scene drafting after semantic plan rejection', async () => {
   const r = reviewer({ transform: (result, data) => data.phase === 'plan' ? { checks: result.checks.map(item => ({ ...item, verdict: 'fail' })) } : result });
-  const operations = [], result = await execute({ planScenes: true, reviewers: [r], generator: async request => { operations.push(request.operation); return reply(JSON.stringify(samplePlan())); } });
+  const operations = [], result = await execute({ contract: contract({ allowProvisionalDraft: false, maxPlanRepairs: 0 }), planScenes: true, reviewers: [r], generator: async request => { operations.push(request.operation); return reply(JSON.stringify(samplePlan())); } });
   assert.equal(result.promoted, false); assert.deepEqual(operations, ['narrative_plan', 'narrative_plan']); assert.equal(result.session.plans.length, 2);
 });
 test('planning receipt cannot authorize a finished artifact', async () => {

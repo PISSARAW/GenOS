@@ -11,6 +11,7 @@ function createElevationSession(contract) {
   verifyContract(contract);
   return { schema: 'genos.gqel-session/v2', sessionId: crypto.randomUUID(), contract, versions: [], comparisons: [],
     bestVersionIndex: -1, strategyMutations: 0, rounds: 0, calls: [], plans: [], sceneDrafts: [], controls: [], events: [],
+    drafts: [], protocolAttempts: [], planRepairs: [],
     status: 'in_progress', budget: { calls: 0, tokens: 0, usageComplete: true, startedAt: Date.now() } };
 }
 function recordIterationVersion(session, content, evaluation) {
@@ -33,7 +34,6 @@ function decideContinuation(session) {
   if (best?.passed && session.budget.usageComplete) {
     session.status = 'promoted'; return { action: 'stop', reason: 'BOUNDED_CONTRACT_SATISFIED', status: session.status };
   }
-  // A stagnation mutation must NEVER overrun the iteration cap.
   if (session.rounds >= session.contract.maxIterations) {
     session.status = 'needs_review'; return { action: 'stop', reason: 'MAX_ITERATIONS_REACHED', status: session.status };
   }
@@ -94,7 +94,7 @@ async function considerCandidate(context, current) {
   if (incumbent === current) return;
   const comparison = compareVersions(incumbent, current);
   if (comparison.isBetter && context.contract.requireDoubleBlind) comparison.preference = await mirroredComparison({
-    a: incumbent, b: current, contract: context.contract, invoke: context.invoke, reviewer: context.reviewers[0] });
+    a: incumbent, b: current, contract: context.contract, invoke: context.invoke, reviewer: context.reviewers[0], session });
   const preferencePass = !context.contract.requireDoubleBlind || comparison.preference?.improvementSupported === true;
   comparison.selected = comparison.isBetter && preferencePass; session.comparisons.push(comparison);
   if (comparison.selected) session.bestVersionIndex = session.versions.length - 1;
@@ -103,8 +103,16 @@ async function checkpoint(context, event) {
   context.session.events.push({ ...event, at: new Date().toISOString() });
   if (context.input.onCheckpoint) await context.input.onCheckpoint(structuredClone(context.session));
 }
+async function retainDraft(context, candidate) {
+  const record = freeze({ draft: context.session.drafts.length + 1, iteration: context.iteration,
+    content: candidate.content, digest: digest(candidate.content), acceptedForDelivery: false,
+    provisionalPlan: candidate.construction?.planState?.provisional === true });
+  context.session.drafts.push(record);
+  await checkpoint(context, { type: 'DRAFT_PRODUCED', draft: record.draft, digest: record.digest, acceptedForDelivery: false });
+}
 async function runRound(context) {
   const candidate = await produce(context);
+  await retainDraft(context, candidate);
   const scan = evaluateArtifact(context.contract.domain, candidate.content, { mission: context.contract.mission, contract: context.contract });
   await verifyCode(context, candidate.content, scan);
   const evaluation = await assessArtifact({ ...context, content: candidate.content, scan });
@@ -114,11 +122,18 @@ async function runRound(context) {
   await checkpoint(context, { type: 'VERSION_REVIEWED', version: current.version, digest: current.digest });
   return current;
 }
+function counters(session) {
+  return { artifactRounds: session.rounds, planRepairs: session.planRepairs.length,
+    protocolRepairs: session.protocolAttempts.filter(item => item.attempt > 0).length,
+    plansProduced: session.plans.length, scenesWritten: session.sceneDrafts.length,
+    draftsProduced: session.drafts.length, versionsReviewed: session.versions.length };
+}
 function partialResult(session) {
   const best = session.versions[session.bestVersionIndex] || null, initial = session.versions[0];
   const selectedComparison = session.comparisons.findLast(item => item.selected);
   return { schema: 'genos.gqel-result/v2', promoted: session.status === 'promoted', finalStatus: session.status,
-    contract: session.contract, session, bestVersion: best, totalIterations: session.rounds, comparisons: session.comparisons, demonstratedGain: null,
+    contract: session.contract, session, bestVersion: best, lastCandidate: session.drafts.at(-1) || null, progress: counters(session),
+    totalIterations: session.rounds, comparisons: session.comparisons, demonstratedGain: null,
     observedRubricDelta: Number.isFinite(best?.score) && Number.isFinite(initial?.score) ? best.score - initial.score : null,
     isImproved: selectedComparison?.preference?.improvementSupported === true,
     improvementEvidence: { withinRunPreference: selectedComparison?.preference || null, causalUpliftVsModelAlone: false, humanValidated: false },
