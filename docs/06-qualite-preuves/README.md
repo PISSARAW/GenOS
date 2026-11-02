@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [cooperation-types-workers-2026-11-02.md](cooperation-types-workers-2026-11-02.md) — trois scénarios de complémentarité native daemon/spécialiste/vérificateur/récupération, autorités, passations et coûts mesurés.
+
 - [benefice-operationnel-adaptatif-2026-11-02.md](benefice-operationnel-adaptatif-2026-11-02.md) — mécanismes rejoués, bénéfices causaux non établis et protocole comparatif allostasie/morphogenèse/ontogenèse.
 
 - [requalification-principes-fondateurs-2026-10-31.md](requalification-principes-fondateurs-2026-10-31.md) — 19/19 principes dans le périmètre borné, baseline conservée et reçu actualisé après réexécution des preuves.
