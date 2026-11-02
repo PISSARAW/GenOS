@@ -1,0 +1,26 @@
+[
+  {
+    "input": [
+      {
+        "kind": "put",
+        "key": "counter",
+        "value": 1
+      },
+      {
+        "kind": "remove",
+        "key": "note"
+      }
+    ],
+    "canonical": "[{\"key\":\"counter\",\"kind\":\"put\",\"value\":1},{\"key\":\"note\",\"kind\":\"remove\"}]",
+    "digest": "sha256:7ba988938a5a9cc8b6a30697eedf58550bfa050c41980c3f0fbee78a85b3e9b8"
+  },
+  {
+    "input": {
+      "deltaId": "delta-1",
+      "deltaDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "resultDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "canonical": "{\"deltaDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"deltaId\":\"delta-1\",\"resultDigest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+    "digest": "sha256:ed9ee63a9eee4a175ae97942ad199da51c4cb2e855bd58a8c793fee149ba7438"
+  }
+]
