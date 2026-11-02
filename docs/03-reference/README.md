@@ -9,6 +9,7 @@ Contrats et surfaces exposées par GenOS. Ces documents décrivent des interface
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [gqel-boucle-elevation-qualite.md](gqel-boucle-elevation-qualite.md) — boucle d'élévation de qualité des LLM, évaluation sémantique, diagnostic causal, détection de stagnation et anti-régression.
 - [contrat-completion-mission.md](contrat-completion-mission.md) — verdict structurel, gate avec invariants et oracle indépendant, preuves liées au contenu et refus fail-closed.
 - [action-genome.md](action-genome.md) — schéma canonique, catalogue, admission causale, projections de surfaces et limites d'exécution.
 - [snapshots-topologiques.md](snapshots-topologiques.md) — capture, frontières de cohérence et reprise vérifiée des huit topologies par variant.
@@ -25,6 +26,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [runtime-gqwf.md](runtime-gqwf.md) — fabrique Node, politiques de mission, matérialiseurs, schéma durable, protocoles, erreurs et frontières de reconstruction GQWF.
 - [runtime-pensee-endogene.md](runtime-pensee-endogene.md) — services ETT, contrats, tables append-only, erreurs, coûts, expériences et raccord scheduler.
 - [runtime-aeis.md](runtime-aeis.md) — contrats, pipeline de promotion, oracles natifs, reçus, persistance, refus et limites de l'AEIS.
+- [aeis-obligations-de-reparation.md](aeis-obligations-de-reparation.md) — contrat scellé, vérification différentielle et mutants ciblés pour les expressions arithmétiques.
 - [runtime-trinity.md](runtime-trinity.md) — dispatch, scellement, workers, comparaison, promotion, reprise et limites de Trinity.
 - [runtime-a-team.md](runtime-a-team.md) — exécution canonique, preuves, handoffs versionnés, couvertures et reprise A-Team.
 - [runtime-biocenose.md](runtime-biocenose.md) — cycle transactionnel, variantes, preuves, continuation et effets écologiques de Biocénose.

@@ -1,0 +1,50 @@
+[
+  {
+    "scenario": "creative_screenplay",
+    "domain": "creative_writing",
+    "singlePass": {
+      "condition": "A_Single_LLM_Pass",
+      "score": 0,
+      "defectsCount": 8,
+      "promoted": false
+    },
+    "naiveRevision": {
+      "condition": "B_Naive_Self_Correction",
+      "score": 15,
+      "defectsCount": 7,
+      "promoted": false
+    },
+    "gqelElevation": {
+      "condition": "C_GenOS_GQEL_Elevation",
+      "score": 100,
+      "defectsCount": 0,
+      "demonstratedGain": 100,
+      "iterations": 2,
+      "promoted": true
+    }
+  },
+  {
+    "scenario": "software_safe_calc",
+    "domain": "software_engineering",
+    "singlePass": {
+      "condition": "A_Single_LLM_Pass",
+      "score": 75,
+      "defectsCount": 2,
+      "promoted": true
+    },
+    "naiveRevision": {
+      "condition": "B_Naive_Self_Correction",
+      "score": 90,
+      "defectsCount": 1,
+      "promoted": true
+    },
+    "gqelElevation": {
+      "condition": "C_GenOS_GQEL_Elevation",
+      "score": 100,
+      "defectsCount": 0,
+      "demonstratedGain": 25,
+      "iterations": 2,
+      "promoted": true
+    }
+  }
+]

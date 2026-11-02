@@ -6,6 +6,7 @@ const { hasEvidenceReferences, provenanceReferences,
   unresolvedEvidenceReferences } = require('./workerEvidenceReferenceService');
 const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
 const { validationProvenance, retainWitness } = require('./workerArtifactProvenance');
+const { enforceQualityContract } = require('../qualityElevation/workerQualityContractEnforcer');
 
 const {
   CODE_EXECUTION_KINDS,
@@ -312,6 +313,7 @@ function validateWorkerArtifact(dossier, worker) {
       throw artifactError(worker.agentId, expected);
     }
     retainWitness({ worker, artifact, report, provenance });
+    enforceQualityContract(worker, report, artifact);
   }
   return true;
 }

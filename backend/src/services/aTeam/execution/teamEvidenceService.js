@@ -12,7 +12,7 @@ function validateMemberEvidence(member, dossier) {
   if (invalid) return invalid;
   const refs = usableEvidenceReferences(report);
   const missing = missingCriteria(member.acceptanceCriteria || [], report.acceptanceEvaluations, refs);
-  if (missing.length) return rejected('acceptance_criteria_unverified', missing);
+  if (missing.length) return rejected('acceptance_criteria_unverified', missing, createRepairObligation(member, missing));
   return { promoted: true, report, evidenceRefs: refs, reason: null };
 }
 
@@ -56,8 +56,21 @@ function backedEvaluation(verdict, criterion, resultField) {
     && item.evidenceRefs.length > 0 && item.evidenceRefs.every((ref) => available.has(ref)));
 }
 
-function rejected(reason, details = []) {
-  return { promoted: false, report: null, evidenceRefs: [], reason, details };
+function rejected(reason, details = [], repairObligation = null) {
+  const result = { promoted: false, report: null, evidenceRefs: [], reason, details };
+  if (repairObligation) result.repairObligation = repairObligation;
+  return result;
+}
+
+function createRepairObligation(member, missing, reason = 'acceptance_criteria_unverified') {
+  return {
+    memberId: member.memberId || member.workerId,
+    reason,
+    unverifiedCriteria: [...missing],
+    suggestedAction: `Repair output to satisfy criteria: ${missing.join(', ')}`,
+    status: 'pending_repair',
+    createdAt: new Date().toISOString()
+  };
 }
 
 function runtimeCoverage(input) {
@@ -112,4 +125,4 @@ function executionMission(member, successCriteria = []) {
     + '\nEvery evidenceRefs value in acceptanceEvaluations must also appear in claims[].evidence or in the evidenceRefs of a passed test. The validator rejects evaluation references that the report does not independently back.';
 }
 
-module.exports = { validateMemberEvidence, runtimeCoverage, missingCriteria, missingMissionCriteria, executionMission };
+module.exports = { validateMemberEvidence, runtimeCoverage, missingCriteria, missingMissionCriteria, executionMission, createRepairObligation };

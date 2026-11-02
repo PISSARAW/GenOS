@@ -2,6 +2,8 @@
 
 - [Compétence procédurale corrigée](06-qualite-preuves/competence-procedurale-corrigee-2026-11-02.md) — module hybride vérifié, cent expériences LLM et validation bornée sur un corpus réservé neuf ; [ADR 0768](adr/0768-competence-procedurale-verifiee-et-couverture.md).
 
+- [ADR 0770 — GQEL : Boucle d'Élévation de Qualité des LLM](adr/0770-gqel-boucle-elevation-qualite.md) — amplification de qualité, évaluation sémantique, contrat compilé, réparation causale et registre de versions ; [référence technique](03-reference/gqel-boucle-elevation-qualite.md).
+
 - [Compétence après cent expériences](06-qualite-preuves/competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle, 580 réponses vérifiées et résultat négatif conservé : transfert et ignorance reconnue non démontrés.
 
 - [Bénéfice opérationnel adaptatif](06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md) — preuves de mécanismes et expériences nécessaires pour mesurer survie, adaptation et amélioration durable.
@@ -342,6 +344,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [capsules-transport.md](03-reference/capsules-transport.md) — transport chiffré des capsules.
 - [runtime-pensee-endogene.md](03-reference/runtime-pensee-endogene.md) — API de services ETT, politiques, reçus, tables, erreurs, campagne et raccord résident.
 - [runtime-aeis.md](03-reference/runtime-aeis.md) — contrats, oracles natifs, reçus, persistance, refus et observabilité AEIS.
+- [aeis-obligations-de-reparation.md](03-reference/aeis-obligations-de-reparation.md) — obligations scellées, baseline et mutants ciblés pour une preuve de correction bornée (ADR 0765).
 - [runtime-trinity.md](03-reference/runtime-trinity.md) — surfaces, automate, workers, comparaison et promotion Trinity.
 - [runtime-biocenose.md](03-reference/runtime-biocenose.md) — surface MCP, neuf étapes, bail, reprise et effets écologiques Biocénose.
 - [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
@@ -520,6 +523,8 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 Décision Natural Search : [ADR 0323 — reprise atomique](adr/0323-reprise-atomique-natural-search.md).
 
 Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nce-procedures-et-preuves-executables.md).
+
+Composition NCE : [ADR 0372 — répertoire appris et recherche bornée](adr/0372-nce-composition-bornee-du-repertoire.md).
 
 - [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
 - [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.
@@ -838,6 +843,7 @@ technique positif masquerait une absence d'évidence réelle.
 - [runtime-agow.md](03-reference/runtime-agow.md) — contrats exécutables et exploitation AGOW.
 - [Observation des missions AGOW](03-reference/observation-mission-agow.md) — décision antérieure, mesures indépendantes et reprise durable.
 - [Qualification native AGOW](06-qualite-preuves/mission-native-agow-2026-11-02.md) — mission native autorisée, preuves métier indépendantes et mesure liée à la décision initiale.
+- [Réfutations natives AGOW](06-qualite-preuves/refutations-natives-agow-2026-11-02.md) — pertes vérifiées à budgets appariés et couverture incluant les inconnus.
 
 - [campagne-agow-cloture.md](06-qualite-preuves/campagne-agow-cloture.md) — protocole, résultats et limites du banc local AGOW.
 

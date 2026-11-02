@@ -475,7 +475,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0369](0369-racines-gqwf-et-vues-durables.md) | Racines de fichiers GQWF et vues durables | Accepté, portée noyau backend | 2026-10-10 | Workspaces, snapshots, isolation |
 | [0370](0370-checkpoint-logique-local-et-continuite-llm-opaque.md) | Checkpoint logique local et continuité LLM opaque | Accepté, portée limitée | 2026-10-10 | Snapshots, runtime local, modèles |
 | [0371](0371-raccordement-gqwf-aux-capsules-workers.md) | Raccorder les capsules workers aux vues GQWF | Accepté, activation explicite | 2026-10-10 | Workspaces, workers, snapshots |
-| [0372](0372-fondation-garages-hierarchiques-et-plafond-projet.md) | Fondation des garages hiérarchiques et plafond projet | Accepté pour la tranche de sûreté ; hiérarchie non implémentée | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
+| [0372a](0372-fondation-garages-hierarchiques-et-plafond-projet.md) | Fondation des garages hiérarchiques et plafond projet | Accepté pour la tranche de sûreté ; hiérarchie non implémentée | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
+| [0372b](0372-nce-composition-bornee-du-repertoire.md) | NCE : composition bornée du répertoire appris | Accepté | 2026-11-02 | NCE, recherche procédurale, filiation et preuves |
 | [0373](0373-barriere-capture-runtime-local-actif.md) | Capture du runtime local actif et reprise de session Codex | Accepté, portée limitée | 2026-10-10 | Snapshots, supervision des processus |
 | [0374](0374-registre-durable-des-domaines-garage.md) | Registre durable des domaines Garage | Accepté pour la tranche SQLite locale | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
@@ -894,9 +895,27 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0762](0762-contraintes-execution-identite-worker.md) | Contraintes d'exécution observées dans l'identité worker | Voir le fichier | -- | -- |
 | [0763](0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) | Autorité de preuve d'exécution hôte et quadrants épistémiques (Q1-Q5) | Voir le fichier | -- | -- |
 | [0764](0764-cloture-workers-et-temoins-runtime.md) | Clôture des workers et témoins du runtime | Accepté | 2026-10-31 | Workers, preuves, exécution et reprise |
+| [0765](0765-aeis-obligations-de-reparation-scellees.md) | AEIS : obligations de réparation scellées | Accepté | 2026-11-02 | AEIS, oracles natifs, correction de code, promotion |
 | [0766](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
 | [0767](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
 | [0768](0768-competence-procedurale-verifiee-et-couverture.md) | Procédures apprises vérifiées et abstention par couverture | accepté pour un module interne borné au domaine affine. | 2026-11-02 | -- |
+| [0769](0769-refutations-natives-mesurees-par-agow.md) | Mesurer les réfutations natives sans autoriser leur promotion | Accepté pour le domaine borné subset_sum | 2026-11-02 | AGOW, preuves négatives, mesures et budgets |
+| [0770](0770-gqel-boucle-elevation-qualite.md) | GQEL : Boucle d'Élévation de Qualité des LLM | Accepté | 2026-11-02 | Runtime, Amplification de qualité LLM, Évaluation sémantique, Réparation causale |
+| [2026a](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
+| [2026b](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
+| [2026c](2026-11-02-gns-besoins-morphogenetiques.md) | Raccorder GNS aux besoins morphogénétiques | Voir le fichier | -- | -- |
+| [2026d](2026-11-02-gns-ontogenese.md) | Raccorder GNS à l'historique de l'ontogenèse | Voir le fichier | -- | -- |
+| [2026e](2026-11-02-gns-shev.md) | Raccorder les observations opérationnelles GNS à la boucle SHEV | Voir le fichier | -- | -- |
+| [2026f](2026-11-02-protocole-continuity.md) | ADR — Protocole CONTINUITY v1 | Accepté pour le profil expérimental local | 2026-11-02 | Identité, reconnaissance, transfert de responsabilité et autorité |
+| [2026g](2026-11-02-protocole-evidence.md) | ADR — Protocole EVIDENCE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Preuves, réfutation, conversations durables |
+| [2026h](2026-11-02-protocole-gqwf-exchange.md) | ADR — Protocole GQWF Exchange v1 | Accepté pour le profil expérimental local | 2026-11-02 | Mondes contrefactuels, CAS, qualification et promotion |
+| [2026i](2026-11-02-protocole-morph.md) | ADR — Protocole MORPH v1 et conservation des engagements | Accepté pour le profil expérimental local | 2026-11-02 | Morphogenèse, engagements, autorité et reprise |
+| [2026j](2026-11-02-protocole-omega-execution.md) | ADR — Protocole OMEGA Execution v1 | Accepté pour le profil expérimental local | 2026-11-02 | G-CIR Ω, admission, obligations, effets et reprise |
+| [2026k](2026-11-02-protocole-synapse.md) | ADR — Protocole SYNAPSE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Communication compacte, dialectes, état partagé et accusés |
+| [2026l](2026-11-02-raccord-gns-rpe.md) | Raccordement GNS aux relations RPE | Voir le fichier | -- | -- |
+| [2026m](2026-11-02-raccord-gns-topologies.md) | Raccordement GNS aux huit topologies | Voir le fichier | -- | -- |
+| [2026n](2026-11-02-regulation-gns-du-garage.md) | Régulation GNS du Garage : mesure, autorité et effet vérifiable | Voir le fichier | -- | -- |
+| [2026o](2026-11-02-systeme-nerveux-operationnel.md) | ADR — Système nerveux opérationnel GenOS | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
