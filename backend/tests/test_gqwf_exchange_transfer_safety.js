@@ -202,6 +202,48 @@ async function replayVerificationAfterAuthorizationTampering() {
   } finally { fixture.cleanup(setup); }
 }
 
+async function unusedCasShardJunctionsRejected() {
+  const setup = await fixture.setup();
+  try {
+    await setup.receiver.assertSafeCas();
+    const outside = path.join(setup.directory, 'outside-unused-shard');
+    fs.mkdirSync(outside);
+    const buckets = [path.join(setup.targetRoot, '.genos', 'gqwf', 'blobs'),
+      path.join(setup.targetRoot, '.genos', 'gqwf', 'metadata', 'objects')];
+    for (const bucket of buckets) {
+      const unsafe = path.join(bucket, 'ff');
+      fs.symlinkSync(outside, unsafe, process.platform === 'win32' ? 'junction' : 'dir');
+      try {
+        let calls = 0;
+        const guardedNativeWrite = async () => {
+          await setup.receiver.assertSafeCas();
+          calls += 1;
+        };
+        await assert.rejects(guardedNativeWrite(), /shard is linked|parent is linked/);
+        assert.equal(calls, 0);
+        assert.deepEqual(fs.readdirSync(outside), []);
+      } finally { fs.unlinkSync(unsafe); }
+    }
+  } finally { fixture.cleanup(setup); }
+}
+
+async function unexpectedCasShardEntriesRejected() {
+  const setup = await fixture.setup();
+  try {
+    await setup.receiver.assertSafeCas();
+    const bucket = path.join(setup.targetRoot, '.genos', 'gqwf', 'metadata', 'objects');
+    const unexpected = path.join(bucket, 'not-a-shard');
+    fs.mkdirSync(unexpected);
+    await assert.rejects(setup.receiver.assertSafeCas(), /shard is linked, unexpected/);
+    fs.rmdirSync(unexpected);
+    const regularFile = path.join(bucket, 'ff');
+    fs.writeFileSync(regularFile, 'not a directory');
+    await assert.rejects(setup.receiver.assertSafeCas(), /not a directory/);
+    fs.unlinkSync(regularFile);
+    await setup.receiver.assertSafeCas();
+  } finally { fixture.cleanup(setup); }
+}
+
 async function main() {
   await parentJunctionRejected();
   await metadataJunctionRejected();
@@ -212,6 +254,8 @@ async function main() {
   await expirationAfterFinalCasRead();
   await finalTransactionAuthorizationTampering();
   await replayVerificationAfterAuthorizationTampering();
+  await unusedCasShardJunctionsRejected();
+  await unexpectedCasShardEntriesRejected();
   console.log('GQWF Exchange CAS confinement, scoped reads, callback races and native transaction isolation passed.');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

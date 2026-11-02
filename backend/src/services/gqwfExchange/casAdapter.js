@@ -17,8 +17,8 @@ class CasAdapter {
   }
 
   async prepare() {
-    await safety.parents(this.root, ['.genos', 'gqwf', 'blobs']);
-    await safety.parents(this.root, ['.genos', 'gqwf', 'metadata', 'objects']);
+    await safety.shards(this.root, ['.genos', 'gqwf', 'blobs']);
+    await safety.shards(this.root, ['.genos', 'gqwf', 'metadata', 'objects']);
     await safety.parents(this.root, ['.genos', 'gqwf', 'metadata', 'refs', 'catalog']);
   }
 

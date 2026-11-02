@@ -124,6 +124,12 @@ des répertoires sont comparées avant et après l'accès. Une feuille doit êtr
 un fichier régulier privé, sans lien symbolique et avec `nlink === 1` ; les
 liens physiques sont donc refusés. Les mêmes contrôles couvrent le CAS des
 blobs et celui des métadonnées.
+`assertSafeCas` inspecte également tous les shards existants de ces deux
+magasins, même ceux qu'aucun hash du monde courant ne référence. Il refuse les
+jonctions, entrées non répertoires ou noms autres que deux caractères
+hexadécimaux minuscules, avec au plus 256 shards par magasin. Ce contrôle
+couvre les accès natifs du catalogue dont le prochain hash n'est pas encore
+connu au moment de la préparation.
 
 La racine doit rester contrôlée par le service et protégée par les permissions
 du système d'exploitation. Ces vérifications JavaScript ne constituent pas une

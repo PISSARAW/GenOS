@@ -39,6 +39,22 @@ async function privateFile(target, maximum) {
   return stat;
 }
 
+async function shards(root, parts) {
+  const before = await parents(root, parts);
+  const bucket = path.join(root, ...parts);
+  const entries = await fs.readdir(bucket, { withFileTypes: true });
+  if (entries.length > 256) throw new Error('GQWF Exchange CAS exceeds the shard directory bound.');
+  for (const entry of entries) {
+    if (!/^[a-f0-9]{2}$/.test(entry.name) || !entry.isDirectory() || entry.isSymbolicLink()) {
+      throw new Error('GQWF Exchange CAS shard is linked, unexpected or not a directory.');
+    }
+    await directory(path.join(bucket, entry.name));
+  }
+  if (JSON.stringify(before) !== JSON.stringify(await parents(root, parts))) {
+    throw new Error('GQWF Exchange CAS parent changed during shard inspection.');
+  }
+}
+
 function decodeBase64(serialized) {
   if (typeof serialized !== 'string' || serialized.length > Math.ceil(MAX_BLOB_BYTES / 3) * 4) {
     throw new Error('GQWF Exchange transfer exceeds blob byte bound.');
@@ -48,4 +64,4 @@ function decodeBase64(serialized) {
   return bytes;
 }
 
-module.exports = { MAX_BLOB_BYTES, MAX_METADATA_BYTES, samePath, directory, parents, privateFile, decodeBase64 };
+module.exports = { MAX_BLOB_BYTES, MAX_METADATA_BYTES, samePath, directory, parents, privateFile, shards, decodeBase64 };
