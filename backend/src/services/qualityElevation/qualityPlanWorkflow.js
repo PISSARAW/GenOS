@@ -6,11 +6,12 @@ const { planSchema } = require('./qualitySchemas');
 const { validatePlanStructure, durationDefects, pacingGuide } = require('./qualityPlanValidation');
 function planPrompt(context) {
   return 'Construis un plan causal, pas le scénario final. Les règles doivent relier danger, alternatives, choix et conséquences. '
-    + 'Chaque règle dans rules doit être une phrase complète formulant une contrainte dramatique (ex: "La fuite de pathogène se propage si le sas reste ouvert"). '
+    + 'Chaque règle dans rules doit être une phrase complète formulant une contrainte dramatique (ex: "La fuite de pathogène se propage si le sas reste ouvert."). '
     + 'Partager un objectif est autorisé : distingue les personnages par leurs informations, moyens, valeurs ou risques acceptés, '
     + 'sans inventer une opposition contraire au brief. Un résumé structuré est adapté à cette étape. '
     + 'Chaque scène prévoit un changement de situation. Les durées sont des estimations, jamais une preuve. '
     + 'Chaque heading de scène doit obligatoirement être un en-tête débutant par INT. ou EXT. (ex: "INT. MODULE PRINCIPAL - NUIT", "EXT. STATION ORBITALE - ESPACE"). '
+    + 'Chaque champ textuel de scène (goal, obstacle, decision, consequence, stateAfter, timingRationale) doit se terminer par un point. '
     + 'En réparation, conserve les éléments non concernés et corrige les relations signalées et leurs conséquences. '
     + 'Le pacingGuide est un budget de rythme : adapte réellement les actions plutôt que seulement leurs chiffres. '
     + 'Réponds uniquement un JSON selon le schéma fourni : premise, rules, characters, scenes avec identifiants S1, S2, etc.\n'

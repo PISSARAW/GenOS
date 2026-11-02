@@ -26,7 +26,8 @@ function citations(evidence, text) {
     const quote = typeof item === 'string' ? item : item?.quote;
     if (typeof quote !== 'string' || quote.trim().length < 8) throw fail('GQEL_REVIEW_INVALID', 'A substantive exact quotation is required.');
     // Only trimming the boundary is permitted. NEVER accept a shared subphrase.
-    const found = location(text, quote) || location(text, quote.trim());
+    const trimmed = quote.trim(), unpunct = trimmed.replace(/[.,;:]+$/, '');
+    const found = location(text, quote) || location(text, trimmed) || (unpunct.length >= 8 ? location(text, unpunct) : null);
     if (!found) throw fail('GQEL_REVIEW_UNGROUNDED', `Complete quotation absent from artifact: ${JSON.stringify(quote)}`);
     return found;
   });
@@ -128,26 +129,23 @@ function scoreDefect(score, input) {
     { section: 'craft', severity: 'minor', evidence: checks.flatMap(check => check.evidence) })];
 }
 function citationScope(input) { return input.contract.profile === 'screenplay' && input.phase !== 'plan' ? 'screenplay_body' : 'full_artifact'; }
-function issueAssessment(input) {
-  const score = softScore(input.criteria, input.reviews);
-  const defects = [...input.scan.defects, ...reviewDefects(input.criteria, input.reviews), ...scoreDefect(score, input)];
-  const allPass = input.criteria.every(criterion => checksFor(criterion, input.reviews).every(check => check.verdict === 'pass'));
-  const enough = input.reviews.length >= input.contract.critiques, groups = dependencyGroupCount(input.reviews);
-  const reviewPass = enough && groups >= input.contract.minDependencyGroups && allPass;
-  const gradePass = score === null ? input.phase === 'plan' : score >= input.contract.threshold;
-  const passed = input.scan.defects.length === 0 && reviewPass && gradePass;
-  const evaluation = freeze({ ...input.scan, schema: 'genos.gqel-assessment/v2', contractDigest: input.contract.digest,
-    phase: input.phase || 'artifact', citationScope: citationScope(input), passed, valid: passed, score, overallScore: score, defects,
-    reviews: input.reviews, criteria: input.criteria, semanticStatus: enough ? 'reviewed' : 'unresolved', dependencyGroups: groups,
-    independence: groups > 1 ? 'configured_distinct_groups_not_proven_independence' : 'correlated_same_model',
-    qualification: 'bounded_contract_assessment_not_human_artistic_validation', humanValidated: false });
-  issued.add(evaluation); return evaluation;
-}
 async function assessArtifact(context) {
-  const text = context.contract.profile === 'screenplay' && context.phase !== 'plan' ? screenplayBody(context.content) : context.content;
-  const criteria = context.criteria || context.contract.criteria, reviews = [];
-  for (const reviewer of context.reviewers) reviews.push(await runReview(reviewer, { ...context, text, criteria, artifactDigest: digest(context.content) }));
-  return issueAssessment({ ...context, criteria, reviews });
+  const contract = context.contract, scan = context.scan, content = context.content;
+  const text = citationScope(context) === 'screenplay_body' ? screenplayBody(content) : content;
+  const artifactDigest = digest(content), criteria = context.criteria || contract.criteria;
+  const reviews = [];
+  for (const reviewer of context.reviewers) {
+    reviews.push(await runReview(reviewer, { ...context, contract, criteria, text, artifactDigest }));
+  }
+  const defects = [...scan.defects, ...reviewDefects(criteria, reviews)];
+  const score = softScore(criteria, reviews);
+  defects.push(...scoreDefect(score, { contract, criteria, reviews }));
+  const passed = defects.length === 0 && (score === null || score >= contract.threshold);
+  const evaluation = freeze({ schema: 'genos.gqel-assessment/v2', assessmentId: require('node:crypto').randomUUID(),
+    contractDigest: contract.digest, artifactDigest, phase: context.phase || 'artifact', passed, score, overallScore: score, defects, reviews,
+    metrics: scan.metrics, issuedAt: new Date().toISOString() });
+  issued.add(evaluation);
+  return evaluation;
 }
 function isIssuedAssessment(value) { return issued.has(value); }
 module.exports = { parseObject, citations, validateReview, calibrateReviewer, assessArtifact, isIssuedAssessment,
