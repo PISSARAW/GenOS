@@ -28,6 +28,23 @@ async function qualify(db, input) {
   const allowed = require('../../src/services/epistemic/nativeOracleProof');
   await assert.rejects(allowed.read(db, { ...input.proof.request,
     reference: { hash: input.proof.attestation.hash, eventId: input.proof.attestation.eventId } }), /ORACLE_ASSEMBLY_NOT_ACCEPTED/);
+  await evidenceGate(db, context);
+}
+
+async function evidenceGate(db, context) {
+  const runtime = require('../../src/services/missionProtocols/runtime');
+  const input = { agentId: context.binding.agentId, event: context.event };
+  await assert.rejects(runtime.guardEvent(db, input), /ORACLE_ASSEMBLY_NOT_ACCEPTED/);
+  const receipt = await require('../../src/services/biologicalWorkerStore').receipt(db, context.binding.runId);
+  const run = { id: context.binding.runId, status: 'blocked', guardrailReason: 'ORACLE_ASSEMBLY_NOT_ACCEPTED' };
+  const variants = [{ run: { ...run, status: 'completed' }, halt: false, biologicalReceipt: receipt },
+    { run: { ...run, guardrailReason: 'other' }, halt: true, biologicalReceipt: receipt },
+    { run, halt: true, biologicalReceipt: { ...receipt, result: { ...receipt.result, verified: true } } }];
+  for (const saved of variants) {
+    await assert.rejects(runtime.recordEvent(db, { ...input, apply: async () => saved }),
+      /MISSION_EVIDENCE_NATIVE_REJECTION_REQUIRED/);
+  }
+  assert.equal(await db.get('SELECT run_id FROM mission_protocol_evidence WHERE run_id=?', run.id), undefined);
 }
 
 module.exports = { qualify };
