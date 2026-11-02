@@ -22,13 +22,14 @@ function candidateFor(agent) {
     observation: {
       candidateId: `gns:${source.signalId}`, semanticType: 'resource_state',
       artifactRef: `gns:receipt:${source.signalId}`,
-      evidenceRefs: [`gns:signal:${source.signalId}`, `telemetry:${source.sourceEventId}`],
+      evidenceRefs: [`gns:signal:${source.signalId}`, source.sensorSource
+        ? `gns:garage-sample:${source.sensorSource.sampleId}` : `telemetry:${source.sourceEventId}`],
       epistemicOrigin: { origin: 'tool_observed', agency: 'self', realityMode: 'real' },
       confidence: 0, evidenceCoverage: 0, actionable: false, ttlMs: FRESH_MS,
       compactPreview: JSON.stringify({ mode: agent.mode, pressure: agent.pressure,
-        coverage: agent.coverage, evidenceStatus: 'UNVERIFIED' })
+        coverage: agent.coverage, forecast: source.forecast, evidenceStatus: 'UNVERIFIED' })
     } });
-  candidate.measures.urgency = agent.mode === 'ALERT' ? 1 : agent.pressure;
+  candidate.measures.urgency = agent.mode === 'ALERT' ? 1 : Math.max(agent.pressure || 0, source.forecast?.pressure || 0);
   candidate.constraints.viability = 'review';
   return candidate;
 }
@@ -36,10 +37,17 @@ function candidateFor(agent) {
 async function attend(options) {
   const context = await agentContext(options);
   if (context?.status !== 'AVAILABLE') return { candidates: [], status: context?.status || 'UNAVAILABLE' };
-  const agents = context.agents.filter(agent => agent.source
-    && (agent.mode === 'ALERT' || agent.pressure >= 0.8));
+  const agents = context.agents.filter(concern);
   return { candidates: agents.map(candidateFor), status: context.status, scope: context.scope,
     evidenceStatus: 'UNVERIFIED' };
+}
+
+function concern(agent) {
+  if (!agent.source) return false;
+  const threshold = agent.source.regulationPolicy?.highThreshold ?? 0.8;
+  if (agent.mode === 'ALERT' || agent.pressure >= threshold) return true;
+  const prediction = agent.source.forecast;
+  return prediction && prediction.pressure >= prediction.highThreshold;
 }
 
 module.exports = { attend, agentContext };

@@ -44,7 +44,8 @@ function observationOf(context, input) {
   const sources = supportingSources(context);
   const result = sources.length === context.agents.length ? classify(context, input) : unknown();
   const evidenceRefs = sources.flatMap(({ signal }) =>
-    [`gns:receipt:${signal.id}`, `telemetry-event:${signal.eventId}`]).slice(0, 20);
+    [`gns:receipt:${signal.id}`, signal.sensorSource
+      ? `gns:garage-sample:${signal.sensorSource.sampleId}` : `telemetry-event:${signal.eventId}`]).slice(0, 20);
   const at = result.epistemicStatus === 'observed'
     ? Math.max(...sources.map(source => source.signal.observedAt)) : Date.now();
   return { ...result, id: observationId(input),

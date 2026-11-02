@@ -11,13 +11,21 @@ function selection(request) {
   return { limit, agentIds: [...new Set(request.agentIds.map(id => identifier(id, 'agentId')))] };
 }
 
-function sourceFor(agent, history) {
+function sourceFor(agent, history, now) {
   const entry = history.find(({ signal, receipt }) => signal.agentId === agent.agentId
     && signal.observedAt === agent.lastObservedAt && receipt.disposition !== 'HISTORICAL');
   if (!entry) return null;
   if (agent.mode === 'UNKNOWN' && agent.pressure === null && agent.coverage === null) return null;
   return { signalId: entry.signal.id, sourceEventId: entry.signal.eventId,
+    sensorSource: entry.signal.sensorSource || null,
+    regulationPolicy: entry.signal.regulationPolicy || null,
+    forecast: currentForecast(entry.signal.regulationForecast, now),
     observedAt: entry.signal.observedAt, receipt: entry.receipt, evidenceStatus: 'UNVERIFIED' };
+}
+
+function currentForecast(prediction, now) {
+  if (!prediction || now > prediction.observedAt + prediction.horizonMs) return null;
+  return prediction;
 }
 
 async function readAvailable(request) {
@@ -31,7 +39,7 @@ async function readAvailable(request) {
   if (snapshot.agents.length > 128) throw new Error('CONSUMER_AGENT_CAPACITY');
   const selected = options.agentIds && new Set(options.agentIds);
   const agents = snapshot.agents.filter(agent => !selected || selected.has(agent.agentId))
-    .map(agent => ({ ...agent, source: sourceFor(agent, history) }));
+    .map(agent => ({ ...agent, source: sourceFor(agent, history, runtime.clock()) }));
   return { status: 'AVAILABLE', scope, agents, history, evidenceStatus: 'UNVERIFIED' };
 }
 

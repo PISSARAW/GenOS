@@ -3,6 +3,7 @@
 const { observation, digest, scopeKey, scopeOf } = require('./contract');
 const physiology = require('./physiology');
 const { compileGraph, propagation } = require('./propagation');
+const forecasts = require('./regulationForecast');
 
 function effect(signal, action, details) {
   return Object.freeze({ id: digest([signal.id, action, details.target]), signalId: signal.id,
@@ -11,12 +12,19 @@ function effect(signal, action, details) {
 }
 
 function decisions(signal, result, context) {
-  const local = result.actions.map(action => effect(signal, action,
-    { target: signal.agentId, pathway: 'LOCAL_REFLEX', priority: result.urgent ? 100 : 30 }));
+  const predicted = forecasts.predictiveActions(signal, result);
+  const local = [...result.actions, ...predicted].map(action => effect(signal, action,
+    { target: signal.agentId, pathway: predicted.includes(action) ? regulatedPathway(signal) : 'LOCAL_REFLEX',
+      priority: result.urgent ? 100 : 30 }));
   if (!result.urgent) return local;
   const propagated = propagation(context.graph, signal, context.now).map(wave => effect(signal, 'INCREASE_MONITORING',
     { target: wave.nodeId, pathway: 'SYSTEMIC_WAVE', priority: 60, wave }));
   return [...local, ...propagated];
+}
+
+function regulatedPathway(signal) {
+  return signal.regulationPolicy && signal.pressure >= signal.regulationPolicy.highThreshold
+    ? 'REGULATORY_REFLEX' : 'PREDICTIVE_REFLEX';
 }
 
 class NervousRuntime {
@@ -38,6 +46,12 @@ class NervousRuntime {
       const observed = observation(event, { scope, now: this.clock() });
       if (!observed) return { accepted: false, reason: 'UNSUPPORTED_EVENT' };
       const signal = { ...observed, propagationGraph: this.sealGraph(scope, options.graph) };
+      if (options.nativeSampleId) {
+        if (options.nativeSampleId !== observed.eventId) throw new Error('GNS_SAMPLE_ID_MISMATCH');
+        signal.sensorSource = { kind: 'garage-sqlite-v1', sampleId: observed.eventId };
+      }
+      if (options.regulationForecast) signal.regulationForecast = forecasts.validateForecast(options.regulationForecast, observed);
+      if (options.regulationPolicy) signal.regulationPolicy = forecasts.validatePolicy(options.regulationPolicy);
       const inserted = await this.store.append(signal);
       if (inserted) this.stats.accepted += 1;
       else this.stats.duplicates += 1;
@@ -62,7 +76,8 @@ class NervousRuntime {
     const effects = decisions(signal, result, { graph, now });
     const receipt = { schemaVersion: 1, signalId: signal.id, disposition: result.disposition,
       decisionTime: now, effects: effects.map(item => item.id), stateHash: digest(result.state),
-      policyVersion: 'gns-1', graphHash: digest([...graph].map(([id, neighbors]) => [id, [...neighbors].sort()])),
+      policyVersion: signal.regulationForecast || signal.regulationPolicy ? 'gns-2' : 'gns-1',
+      graphHash: digest([...graph].map(([id, neighbors]) => [id, [...neighbors].sort()])),
       evidenceStatus: 'UNVERIFIED', correlation: signal.correlation };
     return { state: result.state, effects, receipt };
   }

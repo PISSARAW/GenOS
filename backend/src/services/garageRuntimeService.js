@@ -139,6 +139,7 @@ async function reconcileLive(input, row) {
 }
 
 async function tick(input) {
+  await require('./nervous/regulationRuntime').tick(input);
   await require('./garageSchedulingService').recoverInterrupted(input);
   await store.expirePersistent(input.db);
   const rows = await input.db.all("SELECT request_id FROM garage_queue WHERE status = 'running' AND phase IN ('ready','awaiting_approval')");

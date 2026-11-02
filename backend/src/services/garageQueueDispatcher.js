@@ -3,7 +3,8 @@
 const fabric = require('./garageFabricService');
 const { withTransaction } = require('../db');
 const requests = require('./garageRequests');
-const transient = new Set(['WORKER_GARAGE_FULL', 'PROJECT_WORKER_CAPACITY_FULL', 'WORKER_NOT_IDLE', 'WORKER_ALREADY_RUNNING']);
+const transient = new Set(['WORKER_GARAGE_FULL', 'PROJECT_WORKER_CAPACITY_FULL', 'WORKER_NOT_IDLE', 'WORKER_ALREADY_RUNNING',
+  'GNS_ADMISSION_INHIBITED', 'GNS_REGULATION_UNAVAILABLE']);
 
 async function authorize(input, request) {
   await requests.scope(input.db, request);

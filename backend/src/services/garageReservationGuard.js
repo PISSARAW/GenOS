@@ -3,6 +3,7 @@
 const { error } = require('./garageRequests');
 
 async function assertReservation(db, request) {
+  await require('./nervous/admissionControl').assertAdmission(db, request);
   if (request.garageRequestId) {
     const claim = await db.get(`SELECT request_id FROM garage_queue WHERE request_id = ?
       AND lease_id = ? AND worker_id = ? AND status = 'claimed' AND phase = 'ready'

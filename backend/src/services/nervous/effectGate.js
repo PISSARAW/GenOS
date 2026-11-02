@@ -36,7 +36,8 @@ function deadline(adapters) {
 async function executeClaimed(store, proposal, adapters) {
   const handler = adapters.handlers[proposal.action];
   try {
-    await boundedCall(signal => handler(proposal, { signal, idempotencyKey: proposal.id }), deadline(adapters));
+    await boundedCall(signal => handler(proposal, { signal, idempotencyKey: proposal.id,
+      authorizationId: adapters.authorizationId, authorizationExpiresAt: adapters.authorization.expiresAt }), deadline(adapters));
     const outcome = { status: 'EXECUTED_UNVERIFIED', authorizationId: adapters.authorizationId };
     await store.finish(proposal.id, outcome);
     return outcome;

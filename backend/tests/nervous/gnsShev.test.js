@@ -82,11 +82,15 @@ test('authorized GNS sensor feeds repair admission and verified longitudinal hea
   assert.equal(initiative.status, 'queued');
   assert.equal((await h.db.get('SELECT current_phase FROM shev_healing_episodes')).current_phase, 'inflammation');
   const harness = fixture.fakeHarness(h.db);
+  let lastTick;
   for (let i = 0; i < 12; i += 1) {
-    await tickOnce(h.db, { projectId: h.scope.projectId, owner: 'gns-test', harness });
+    lastTick = await tickOnce(h.db, { projectId: h.scope.projectId, owner: 'gns-test', harness });
     if ((await h.db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [initiative.task_id])).status === 'done') break;
   }
-  assert.equal((await h.db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [initiative.task_id])).status, 'done');
+  const completedTask = await h.db.get('SELECT status FROM ontogenesis_backlog WHERE id = ?', [initiative.task_id]);
+  const projectState = await h.db.get('SELECT state FROM ontogenesis_projects WHERE id=?', [h.scope.projectId]);
+  const lastExecution = await h.db.get('SELECT phase,result_json FROM ontogenesis_execution ORDER BY rowid DESC LIMIT 1');
+  assert.equal(completedTask.status, 'done', JSON.stringify({ projectState, lastExecution, lastTick }));
   assert.equal((await h.db.get('SELECT count(*) AS n FROM shev_effects')).n, 0);
   h.time.now = Date.now() - 1000;
   for (let i = 0; i < 3; i += 1) {
@@ -128,6 +132,7 @@ test('GNS sensor fails closed for scope mismatch and disabled mode, and stale si
 test('a recent agent cannot extend the oldest source expiry in a collective GNS sensor', async t => {
   const h = await setup(t, { agentIds: ['worker-shev', 'worker-b'] });
   const current = Date.now();
+  t.mock.timers.enable({ apis: ['Date'], now: current });
   h.time.now = current - 29000;
   await signal(h, { id: 'older', kind: 'AGENT_FAILED' });
   h.time.now = current - 1000;
@@ -157,6 +162,7 @@ test('GNS sensor cannot bypass an enrolled endogenous observer signature or sens
 test('a recent completion cannot renew old REST measurements or manufacture a later observation window', async t => {
   const h = await setup(t);
   const current = Date.now();
+  t.mock.timers.enable({ apis: ['Date'], now: current });
   h.time.now = current - 29000;
   for (let i = 0; i < 3; i += 1) {
     await signal(h, { id: `old-rest-${i}`, pressure: 0.1 });

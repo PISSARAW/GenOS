@@ -6,8 +6,11 @@ function requestsFor(agent) {
     sourceEventId: agent.source.sourceEventId, observedAt: agent.source.observedAt,
     evidenceStatus: 'UNVERIFIED', executionAuthorized: false };
   const requests = [];
-  if (agent.mode === 'ALERT') requests.push({ ...base, kind: 'REEVALUATE_TOPOLOGY' });
-  if (agent.pressure >= 0.8) requests.push({ ...base, kind: 'REALLOCATE_WORKERS', pressure: agent.pressure });
+  const prediction = agent.source.forecast;
+  const predicted = prediction && prediction.pressure >= prediction.highThreshold;
+  const threshold = agent.source.regulationPolicy?.highThreshold ?? 0.8;
+  if (agent.mode === 'ALERT' || predicted || agent.pressure >= threshold) requests.push({ ...base, kind: 'REEVALUATE_TOPOLOGY', forecast: prediction });
+  if (agent.pressure >= threshold) requests.push({ ...base, kind: 'REALLOCATE_WORKERS', pressure: agent.pressure });
   return requests;
 }
 
