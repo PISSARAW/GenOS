@@ -1,136 +1,71 @@
 'use strict';
-
-const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const {
-  compileQualityContract,
-  createElevationSession,
-  executeElevationLoop
-} = require('../../backend/src/services/qualityElevation/qualityElevationService');
-const { evaluateContent } = require('../../backend/src/services/qualityElevation/qualityEvaluatorRegistry');
-
-const OLLAMA_HOST = '127.0.0.1';
-const OLLAMA_PORT = 11434;
-const OLLAMA_MODEL = 'llama3.1:8b';
-
-function callOllama(prompt, systemPrompt = '') {
-  return new Promise((resolve, reject) => {
-    const messages = [];
-    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-    messages.push({ role: 'user', content: prompt });
-
-    const body = JSON.stringify({
-      model: OLLAMA_MODEL,
-      messages,
-      stream: false,
-      options: {
-        temperature: 0.7,
-        num_predict: 1500
-      }
-    });
-
-    const req = http.request({
-      hostname: OLLAMA_HOST,
-      port: OLLAMA_PORT,
-      path: '/api/chat',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed.message?.content || '');
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-async function runWritingMission() {
-  console.log('================================================================');
-  console.log('  GENOS QUALITY ELEVATION LOOP (GQEL) — MISSION SCÉNARIO RÉEL  ');
-  console.log(`  Modèle utilisé : Ollama (${OLLAMA_MODEL})                     `);
-  console.log('================================================================\n');
-
-  const missionBrief = `
-Tu es un auteur et dramaturge de fiction.
-Rédige le scénario d'un court-métrage dramatique intitulé "Le Dernier Sas".
-Dans une station orbitale de recherche, le sas de dépressurisation principal est endommagé.
-Deux officiers, Alain et Vera, sont confrontés à une fuite de pathogène et doivent décider
-qui se sacrifie pour fermer manuellement le sas de l'extérieur.
-`.trim();
-
-  const contract = compileQualityContract({
-    domain: 'creative_writing',
-    policy: 'balanced',
-    minQualityScore: 80,
-    mission: missionBrief
-  });
-
-  const session = createElevationSession(contract);
-  console.log(`[GQEL] Contrat compilé : ${contract.contractId}`);
-  console.log(`[GQEL] Politique : ${contract.policy} (Seuil minimal : ${contract.minQualityScore}/100, Max itérations : ${contract.maxIterations})\n`);
-
-  let currentPrompt = contract.mission;
-
-  const generator = async ({ iteration, prompt }) => {
-    console.log(`--- [GQEL] Génération V${iteration} en cours par ${OLLAMA_MODEL}... ---`);
-    const systemPrompt = iteration === 1
-      ? 'Tu es un scénariste. Réponds directement en fournissant le texte créatif en français.'
-      : 'Tu es un scénariste appliquant une révision corrective causale. Réponds en respectant scrupuleusement les consignes de correction en français.';
-
-    const output = await callOllama(prompt, systemPrompt);
-    console.log(`[GQEL] V${iteration} généré (${output.length} caractères).\n`);
-    return output;
-  };
-
-  const elevationResult = await executeElevationLoop({
-    contract,
-    session,
-    generator
-  });
-
-  console.log('================================================================');
-  console.log('               RÉSULTAT DE LA MISSION GQEL                      ');
-  console.log('================================================================');
-  console.log(`Statut final        : ${elevationResult.finalStatus.toUpperCase()}`);
-  console.log(`Promu               : ${elevationResult.promoted}`);
-  console.log(`Total itérations    : ${elevationResult.totalIterations}`);
-  console.log(`Gain qualitatif     : +${elevationResult.demonstratedGain} points`);
-  console.log(`Score V1            : ${elevationResult.session.versions[0]?.score}/100`);
-  console.log(`Score Best (V${elevationResult.bestVersion?.version})    : ${elevationResult.bestVersion?.score}/100\n`);
-
-  for (const v of elevationResult.session.versions) {
-    console.log(`[Version V${v.version}] Score: ${v.score}/100 | Défauts restants: ${v.defects.length}`);
-    for (const d of v.defects) {
-      console.log(`  - [${d.severity.toUpperCase()}] ${d.code} (${d.section}): ${d.message}`);
-    }
+const { compileQualityContract, executeElevationLoop } = require('../../backend/src/services/qualityElevation/qualityElevationService');
+const { digest } = require('../../backend/src/services/qualityElevation/qualityContract');
+const { createOllamaAdapter } = require('./ollama_gqel_driver.cjs');
+const BRIEF = `Rédige le scénario intégral en français du court-métrage dramatique « Le Dernier Sas ».
+Dans une station orbitale de recherche, un sas endommagé et une fuite de pathogène menacent l’équipage.
+Alain et Vera doivent décider qui ferme manuellement le sas depuis l’extérieur.
+Établis pourquoi cette opération est nécessaire, pourquoi les alternatives échouent et pourquoi le retour est impossible.
+Donne à chacun un intérêt propre, une peur qui influence une action et une manière de parler distincte.
+Montre découverte, obstacles, décisions et fermeture : ne les remplace pas par des résumés.
+La tension doit naître des actes. Ni note de qualité, ni autoéloge, ni victoire seulement déclarée.`;
+function argumentsOf(argv) {
+  const allowed = new Set(['model', 'judge-model', 'out', 'iterations', 'minutes', 'min-words', 'scenes', 'context', 'tokens', 'policy', 'brief']), out = {};
+  for (const arg of argv) {
+    const match = /^--([a-z-]+)=(.+)$/.exec(arg);
+    if (!match || !allowed.has(match[1])) throw new Error(`Unknown argument: ${arg}`);
+    out[match[1]] = match[2];
   }
-
-  const outPath = path.join(__dirname, 'scenario_gqel_execution_report.json');
-  fs.writeFileSync(outPath, JSON.stringify(elevationResult, null, 2), 'utf8');
-  console.log(`\nRapport d'exécution complet persisté dans : ${outPath}`);
-
-  return elevationResult;
+  return out;
 }
-
-if (require.main === module) {
-  runWritingMission().catch(err => {
-    console.error('Erreur mission :', err);
-    process.exit(1);
-  });
+function configFrom(args) {
+  return { domain: 'creative_writing', policy: args.policy || 'balanced', mission: args.brief ? fs.readFileSync(args.brief, 'utf8') : BRIEF,
+    maxIterations: Number(args.iterations || 4), targetMinutes: Number(args.minutes || 20), minBodyWords: Number(args['min-words'] || 1200),
+    minSceneCount: Number(args.scenes || 6), maxSceneCount: 12, budgetMaxTokens: Number(args.tokens || 160000), maxCalls: 100,
+    maxPromptChars: 48000, maxOutputTokens: 3500, maxDurationMs: 3600000, callTimeoutMs: 300000 };
 }
-
-module.exports = { runWritingMission };
+function atomicJson(file, value) {
+  const temporary = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(value, null, 2), { encoding: 'utf8', flag: 'wx' }); fs.renameSync(temporary, file);
+}
+function createOutputDirectory(requested) {
+  const directory = path.resolve(requested || path.join('artifacts', `gqel-v2-${Date.now()}`));
+  fs.mkdirSync(path.dirname(directory), { recursive: true }); fs.mkdirSync(directory); return directory;
+}
+function persistVersions(directory, session) {
+  for (const version of session.versions) {
+    const file = path.join(directory, `V${version.version}.md`);
+    if (!fs.existsSync(file)) fs.writeFileSync(file, version.content, { encoding: 'utf8', flag: 'wx' });
+    if (digest(fs.readFileSync(file, 'utf8')) !== version.digest) throw new Error('Persisted artifact hash differs.');
+  }
+}
+function makeReviewers(contract, adapter, model) {
+  return Array.from({ length: contract.critiques }, (_, index) => ({ id: `reader-${index + 1}`, model, dependencyGroup: model,
+    focus: ['causalité et dramaturgie', 'continuité, connaissances et mise en scène', 'lecture contradictoire du brief'][index % 3],
+    // Separate calls and contexts are NOT independent models.
+    review: adapter }));
+}
+async function runWritingMission(argv = process.argv.slice(2)) {
+  const args = argumentsOf(argv), contract = compileQualityContract(configFrom(args)), directory = createOutputDirectory(args.out);
+  const model = args.model || 'llama3.1:8b', judgeModel = args['judge-model'] || model;
+  const common = { contextSize: Number(args.context || 32768), url: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434' };
+  const generator = createOllamaAdapter({ ...common, model }), judge = createOllamaAdapter({ ...common, model: judgeModel });
+  console.log(`GQEL V2 | author=${model} | reviewer=${judgeModel} | output=${directory}`);
+  atomicJson(path.join(directory, 'contract.json'), contract);
+  const result = await executeElevationLoop({ contract, generator, reviewers: makeReviewers(contract, judge, judgeModel),
+    onCheckpoint: session => {
+      persistVersions(directory, session); atomicJson(path.join(directory, `checkpoint-${session.events.length}.json`), session);
+      console.log(`round=${session.rounds} calls=${session.budget.calls} tokens=${session.budget.tokens} status=${session.status}`);
+    } });
+  persistVersions(directory, result.session); atomicJson(path.join(directory, 'report.json'), result);
+  if (result.bestVersion) fs.writeFileSync(path.join(directory, result.promoted ? 'screenplay.md' : 'candidate-not-accepted.md'), result.bestVersion.content, { flag: 'wx' });
+  console.log(`Status=${result.finalStatus}; promoted=${result.promoted}; observed rubric delta=${result.observedRubricDelta ?? 'unknown'}`);
+  console.log('No artistic gain or superiority over the model alone is claimed by this run.');
+  if (result.terminalError) console.error(result.terminalError);
+  return result;
+}
+if (require.main === module) runWritingMission().then(result => { process.exitCode = result.promoted ? 0 : 2; })
+  .catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { runWritingMission, argumentsOf, atomicJson, persistVersions, BRIEF };
