@@ -23,6 +23,7 @@ function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, worl
   let verificationSummary = null;
   return {
     model, ledger, questionGenerator: questionGenerator(ledger, model),
+    isTerminal: () => Boolean(world?.terminal),
     budget: { tokens: 12000, usd: 0.1, seconds: 1800 },
     worker, sandbox: sandbox(worker, observation),
     usageMeter: { snapshot: async () => {
@@ -31,7 +32,8 @@ function createRuntimeAdapter({ model = DEFAULT_MODEL, observation, oracle, worl
     } },
     verify: (proposal, evidenceRefs) => {
       verificationSummary = verifyInChild(oracle,
-        { ...proposal, answerId: answerIdFromEvidence(evidenceRefs), evidenceRefs });
+        { ...proposal, answerId: answerIdFromEvidence(evidenceRefs), evidenceRefs,
+          actionTrace: world?.result()?.trace || [] });
       return verificationSummary;
     },
     verificationSummary: () => verificationSummary,

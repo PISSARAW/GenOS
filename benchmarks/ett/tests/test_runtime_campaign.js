@@ -13,6 +13,8 @@ const { verifyInChild } = require('../evaluation/verifyInChild');
 const { compareRows, compareSystems } = require('../evaluation/replay');
 const { SYSTEM_IDS, createIndependentAdapter } = require('../adapters/independent');
 const { testCampaignBudgetGuard } = require('./test_campaign_budget_guard');
+const { main: testActionResponses } = require('./test_action_response');
+const { main: testWorkerContract } = require('./test_runtime_worker_contract');
 
 function testActionFor(world, answerId, evidence = {}) {
   const next = world.observation.nextAction;
@@ -239,11 +241,13 @@ function testRunnerOptions() {
 function testResumeContracts() {
   const options = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--conditions', 'full,voyager_adapted']);
-  const report = { schema: 'genos.ett-runtime-campaign/v4', model: options.model,
+  const report = { schema: 'genos.ett-runtime-campaign/v5', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,
     measuredTokens: 200000, status: 'partial_global_token_budget_reserve_reached', records: [] };
   assert.doesNotThrow(() => validateResume(report, options));
+  assert.throws(() => validateResume({ ...report, schema: 'genos.ett-runtime-campaign/v4' }, options),
+    /mismatch for schema/);
   assert.equal(report.status, 'partial_campaign_token_budget_reached');
   const extended = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--seeds', '10', '--conditions', 'full,voyager_adapted']);
@@ -375,6 +379,8 @@ async function main() {
   testResumeContracts();
   testReportRenameRetry();
   await testCampaignBudgetGuard();
+  await testActionResponses();
+  await testWorkerContract();
   await testIndependentAdapters();
   process.stdout.write('ETT runtime campaign contracts passed.\n');
 }

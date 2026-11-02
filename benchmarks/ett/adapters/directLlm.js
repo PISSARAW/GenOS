@@ -2,21 +2,14 @@
 
 const { createLedger } = require('./localModel');
 const { verifyInChild } = require('../evaluation/verifyInChild');
+const { actionResponseFormat, actionInstructions, applyModelAction } = require('./actionResponse');
 
 function directPrompt(input) {
   return ['Choose the best candidate using the public evidence revealed so far.',
     `Scenario observation: ${JSON.stringify(input.testCase.observation)}`,
     `Latest environment response: ${JSON.stringify(input.latest)}`,
     `Action ${input.turn}/${input.maxTurns}. Required next action: ${JSON.stringify(input.testCase.world.observation.nextAction)}.`,
-    'Return JSON with an action matching the required type and fields. When nextAction is null, submit_answer with an inspected answerId.'].join('\n');
-}
-
-function applyAction(world, value) {
-  if (typeof value.action?.type === 'string') return world.act(value.action);
-  if (typeof value.answerId === 'string') {
-    return world.act({ type: 'submit_answer', answerId: value.answerId });
-  }
-  return null;
+    actionInstructions(input.testCase.world.observation)].join('\n');
 }
 
 async function runActions(input) {
@@ -27,9 +20,10 @@ async function runActions(input) {
     const generated = await input.ledger.generateJson({ model: input.model,
       prompt: directPrompt({ ...input, latest, turn, maxTurns }),
       seed: `${input.testCase.caseId}:llm_only:${turn}`, maxTokens: 128,
+      responseFormat: actionResponseFormat(input.testCase.world.observation),
       callContext: { stage: 'direct_action', action: turn } });
     value = generated.value;
-    latest = applyAction(input.testCase.world, value);
+    latest = applyModelAction(input.testCase.world, value);
     if (input.testCase.world.terminal) break;
   }
   return { value, worldResult: input.testCase.world.result() };

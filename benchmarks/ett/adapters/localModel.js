@@ -1,6 +1,7 @@
 'use strict';
 
 const modelProvider = require('../../../backend/src/services/modelProvider');
+const { actionResponseFormat, actionInstructions, applyModelAction } = require('./actionResponse');
 
 const DEFAULT_MODEL = 'ollama://qwen2.5-coder:7b';
 
@@ -26,11 +27,13 @@ async function generateResponse(input) {
   const { model = DEFAULT_MODEL, prompt, seed, maxTokens = 128, callContext } = request;
   const started = process.hrtime.bigint();
   const reservation = options.budgetGuard?.beginCall({ prompt, maxTokens,
+    responseFormat: request.responseFormat,
     callContext: { ...(options.callContext || {}), ...(callContext || {}) } });
   let response;
   try {
     response = await (options.generate || modelProvider.generate)({ model, prompt, seed,
-      temperature: 0, stream: false, enforceSchema: false, maxTokens, timeoutMs: 120000 });
+      temperature: 0, stream: false, enforceSchema: false, maxTokens, timeoutMs: 120000,
+      responseFormat: request.responseFormat });
   } catch (error) {
     if (reservation) options.budgetGuard.failCall(reservation, error);
     throw error;
@@ -86,14 +89,6 @@ function solutionPrompt(request, observation) {
     'Use the required action schema from the current environment observation.'].join('\n');
 }
 
-function applyWorkerAction(world, value) {
-  if (typeof value.action?.type === 'string') return world.act(value.action);
-  if (typeof value.answerId === 'string') {
-    return world.act({ type: 'submit_answer', answerId: value.answerId });
-  }
-  return null;
-}
-
 async function runWorkerTurns(input) {
   let value = null;
   let latest = null;
@@ -103,13 +98,14 @@ async function runWorkerTurns(input) {
     const prompt = [solutionPrompt(input.request, current),
       `Action ${turn}/${maxCalls}. Latest environment response: ${JSON.stringify(latest)}`,
       `Required next action: ${JSON.stringify(current.nextAction)}.`,
-      'Return JSON with an action matching the required type and fields. When nextAction is null, submit_answer with an inspected answerId.'].join('\n');
+      actionInstructions(current)].join('\n');
     const result = await input.ledger.generateJson({ model: input.model, prompt,
       seed: `${input.request.executionId}:${turn}`, maxTokens: 128,
+      responseFormat: actionResponseFormat(current),
       callContext: { stage: 'worker_action', action: turn } });
     value = result.value;
     if (!input.world) break;
-    latest = applyWorkerAction(input.world, value);
+    latest = applyModelAction(input.world, value);
     if (input.world.terminal) break;
   }
   return workerProposal({ ...input, value, worldResult: input.world?.result() });
@@ -120,8 +116,7 @@ function workerProposal(input) {
   if (typeof answerId !== 'string') throw new Error('Model omitted answerId.');
   const refs = Array.isArray(input.value.evidenceRefs) ? input.value.evidenceRefs : [];
   return { proposal: { hypothesis: input.request.question.hypothesis,
-    method: input.request.question.method, falsifier: input.request.question.falsifier,
-    actions: input.worldResult?.actions || 0 },
+    method: input.request.question.method, falsifier: input.request.question.falsifier },
   evidenceRefs: [`ett-answer:${answerId}`, ...(input.worldResult?.evidenceRefs || []), ...refs],
   actionTrace: input.worldResult?.trace || [] };
 }

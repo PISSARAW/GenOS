@@ -1,6 +1,7 @@
 'use strict';
 
 const { createLedger } = require('../localModel');
+const { actionResponseFormat, actionInstructions, applyModelAction } = require('../actionResponse');
 
 function caseContext(testCase) {
   return [`Scenario: ${testCase.observation.scenario}`,
@@ -12,21 +13,14 @@ function actionContext(input) {
   if (!input.world) return '';
   return [`Current scenario observation: ${JSON.stringify(input.world.observation)}`,
     `Latest environment response: ${JSON.stringify(input.testCase.lastObservation || null)}`,
-    'Return JSON with an action matching nextAction.type and every requiredFields entry.',
-    'When nextAction is null, submit_answer with answerId of an inspected candidate.',
+    actionInstructions(input.world.observation),
     'Follow the required protocol in order and stay within the action budget.'].join('\n');
 }
 
 function applyAction(input) {
   const { world, testCase, response } = input;
   if (!world) return;
-  if (typeof response?.action?.type === 'string') {
-    const observed = world.act(response.action);
-    if (observed.status === 'observed') testCase.lastObservation = observed;
-  }
-  else if (typeof response?.answerId === 'string') {
-    world.act({ type: 'submit_answer', answerId: response.answerId });
-  }
+  testCase.lastObservation = applyModelAction(world, response);
 }
 
 async function runAdapter(input) {
@@ -41,6 +35,7 @@ async function runAdapter(input) {
     const generated = await input.ledger.generateJson({ model: input.options.model,
       prompt: `${policyPrompt}\n${actionContext(input)}`,
       seed: `${input.testCase.caseId}:${input.options.id}:${round}`, maxTokens: 160,
+      responseFormat: input.world ? actionResponseFormat(input.world.observation) : undefined,
       callContext: { caseId: input.testCase.caseId, condition: input.options.id,
         scenarioId: input.testCase.scenarioId, difficulty: input.testCase.difficulty,
         stage: 'independent_action', action: round } });

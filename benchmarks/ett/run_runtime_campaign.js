@@ -197,7 +197,7 @@ function remainingTasks(tasks, records) {
 }
 
 function validateResumeMetadata(report, options) {
-  const expected = { schema: 'genos.ett-runtime-campaign/v4', model: options.model,
+  const expected = { schema: 'genos.ett-runtime-campaign/v5', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {

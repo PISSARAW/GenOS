@@ -9,7 +9,7 @@ function campaignStatus(reason) {
 }
 
 function createReport(options, expectedRecords) {
-  return { schema: 'genos.ett-runtime-campaign/v4', status: 'running',
+  return { schema: 'genos.ett-runtime-campaign/v5', status: 'running',
     startedAt: new Date().toISOString(), model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     seeds: Array.from({ length: options.seeds }, (_, index) => 1001 + index * 7919),

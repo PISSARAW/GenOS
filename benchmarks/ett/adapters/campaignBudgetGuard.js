@@ -9,8 +9,10 @@ function codedError(code, message) {
 function reserveForCall(input) {
   const prompt = typeof input.prompt === 'string' ? input.prompt : JSON.stringify(input.prompt ?? '');
   const promptBytes = Buffer.byteLength(prompt || '', 'utf8');
+  const formatBytes = input.responseFormat
+    ? Buffer.byteLength(JSON.stringify(input.responseFormat), 'utf8') : 0;
   const maxTokens = Number.isSafeInteger(input.maxTokens) && input.maxTokens > 0 ? input.maxTokens : 128;
-  return promptBytes + INPUT_FRAMING_RESERVE + maxTokens;
+  return promptBytes + formatBytes + INPUT_FRAMING_RESERVE + maxTokens;
 }
 
 function measuredTokens(row) {

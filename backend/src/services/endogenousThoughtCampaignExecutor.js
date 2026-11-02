@@ -19,6 +19,7 @@ const verifier = require('../services/endogenousThoughtVerificationService');
 const verificationContract = require('../services/endogenousThoughtVerificationContractService');
 const learner = require('../services/endogenousThoughtLearningService');
 const loop = require('../services/endogenousThoughtLoopService');
+const continuation = require('../services/endogenousThoughtContinuationService');
 const thoughtStore = require('../services/endogenousThoughtStoreService');
 
 const NOW = Date.now();
@@ -185,7 +186,13 @@ async function learnVerified(ctx) {
 }
 
 async function continueLearnedThought(ctx, learned) {
-  if (!learned) return false;
+  if (!learned || !canContinue(ctx.condition)) return false;
+  if (ctx.modelAdapter?.isTerminal?.()) {
+    await continuation.stopContinuation(ctx.db, { organizationId: 'org-a',
+      projectId: ctx.projectId, episodeId: ctx.episodeId, nowMs: NOW + 6000,
+      policy: { enabled: true, id: 'ett-continuation-v1' }, reason: 'environment-terminal' });
+    return false;
+  }
   return tryContinue(ctx);
 }
 
