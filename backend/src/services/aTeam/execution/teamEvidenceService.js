@@ -20,9 +20,9 @@ function validateMemberEvidence(member, dossier) {
 
 function qualityRejection(member, dossier, report) {
   const gate = require('../../qualityElevation/workerQualityContractEnforcer');
-  if (!gate.qualityContractOf(member)) return null;
   const worker = { ...member, agentId: member.workerId || member.agentId };
   try {
+    if (!gate.qualityContractOf(member)) return null;
     const scoped = require('../../qualityElevation/qualityValidationScope').workerScope(worker, dossier, report);
     gate.enforceQualityContract(scoped, report, report.workerArtifact);
     return null;

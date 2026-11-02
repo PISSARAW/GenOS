@@ -273,6 +273,11 @@
                     "planScenes": {
                       "type": "boolean"
                     },
+                    "finalArtifactMemberId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
+                    },
                     "reviewers": {
                       "type": "array",
                       "maxItems": 10,
@@ -512,6 +517,11 @@
               "planScenes": {
                 "type": "boolean"
               },
+              "finalArtifactMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
+              },
               "reviewers": {
                 "type": "array",
                 "maxItems": 10,
@@ -704,6 +714,11 @@
               },
               "planScenes": {
                 "type": "boolean"
+              },
+              "finalArtifactMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
               },
               "reviewers": {
                 "type": "array",
@@ -2476,6 +2491,11 @@
                     "planScenes": {
                       "type": "boolean"
                     },
+                    "finalArtifactMemberId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
+                    },
                     "reviewers": {
                       "type": "array",
                       "maxItems": 10,
@@ -2626,6 +2646,11 @@
               },
               "planScenes": {
                 "type": "boolean"
+              },
+              "finalArtifactMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
               },
               "reviewers": {
                 "type": "array",
@@ -2801,6 +2826,11 @@
                     "planScenes": {
                       "type": "boolean"
                     },
+                    "finalArtifactMemberId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
+                    },
                     "reviewers": {
                       "type": "array",
                       "maxItems": 10,
@@ -2951,6 +2981,11 @@
               },
               "planScenes": {
                 "type": "boolean"
+              },
+              "finalArtifactMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
               },
               "reviewers": {
                 "type": "array",
@@ -3161,6 +3196,11 @@
                     },
                     "planScenes": {
                       "type": "boolean"
+                    },
+                    "finalArtifactMemberId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Existing final integration member identity; it must consume all producers through verified handoffs."
                     },
                     "reviewers": {
                       "type": "array",

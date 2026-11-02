@@ -13,6 +13,8 @@ async function main() {
   assert.equal(finished.finishReason, 'stop');
   assert.equal(finished.tokenUsageMeasured, true);
   assert.equal(meteredReply(finished, finished.text).usage.outputTokens, 20);
+  const routed = meteredReply({ ...finished, servedModel: 'actual-model:8b', provider: 'ollama', routeAttemptId: 'route-1' }, finished.text);
+  assert.equal(routed.servedModel, 'actual-model:8b'); assert.equal(routed.routeAttemptId, 'route-1');
   const truncated = response({ done: true, done_reason: 'length', prompt_eval_count: 10, eval_count: 20 });
   assert.equal(meteredReply(truncated, truncated.text).finishReason, 'length');
   assert.throws(() => meteredReply(response({ done_reason: 'stop' }), 'Texte'), { code: 'GQEL_USAGE_UNVERIFIED' });

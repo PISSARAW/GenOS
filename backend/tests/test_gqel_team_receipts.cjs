@@ -24,6 +24,11 @@ async function run() {
     const qualityElevationReceipt = await issueQualityReceipt(ctx);
     const report = { ...base, qualityElevationReceipt };
     assert.equal(validateMemberEvidence(member, dossier(ctx, report)).promoted, true);
+    const weaker = require('../src/services/qualityElevation/qualityContract').compileQualityContract({
+      mission: 'A weaker obligation', policy: 'fast', minQualityScore: 0 });
+    const contradictory = validateMemberEvidence({ ...member, workerContract: { qualityElevation: weaker } }, dossier(ctx, report));
+    assert.equal(contradictory.promoted, false);
+    assert.deepEqual(contradictory.details, ['GQEL_CONTRACT_CHANGED']);
     const replay = validateMemberEvidence({ ...member, executionRunId: 'another-run' }, dossier(ctx, report));
     assert.equal(replay.promoted, false);
     assert.deepEqual(replay.details, ['GQEL_RECEIPT_SCOPE_MISMATCH']);

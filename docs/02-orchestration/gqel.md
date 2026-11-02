@@ -1,142 +1,141 @@
-# Intégrer une boucle GQEL
+# Intégrer GQEL dans une mission GenOS
 
-- **Statut** : Partiel ; API Node.js disponible, intégration automatique à toutes les topologies non établie.
-- **Portée** : appel direct et contrôle optionnel des artefacts workers.
-- **Dernière revue** : 2026-11-02
+- **Statut :** raccords natifs Node.js locaux implémentés ; activation explicite.
+- **Portée :** contrats, exécution des workers, reçus durables, coordination A-Team et livrable final.
+- **Dernière revue :** 2026-11-02.
 
-Le [concept](../01-concepts/gqel.md) explique le rôle de GQEL. La
-[référence](../03-reference/gqel-boucle-elevation-qualite.md) décrit les champs et
-les limites exécutables ; le [runbook](../04-exploitation/gqel.md) couvre le diagnostic.
+GQEL produit et révise un artefact sous l'autorité de l'orchestrateur. Son
+acceptation ne remplace jamais la validation des preuves ni la promotion de
+mission. Les expériences V1 par script direct ne prouvent pas l'exécution de
+ces raccords ; voir la [référence V1 archivée](../03-reference/gqel-v1-2026-11-02.md).
 
-## Choisir le point d'intégration
+## Déclarer l'obligation avant le lancement
 
-GQEL s'applique à un livrable. Il ne sélectionne pas une topologie et ne crée
-pas de workers. L'appelant lui fournit un générateur asynchrone, puis remet le
-résultat à ses propres validateurs de preuves.
-
-| Surface | Raccord constaté | Responsabilité restante de l'appelant |
-| --- | --- | --- |
-| API Node.js | `executeElevationLoop({ contract, generator })` | Modèle, ressources, preuves et stockage |
-| Artefact worker | `validateWorkerArtifact` appelle le contrôleur de qualité si configuré | Fournir le contrat et gérer le refus |
-| A-Team | Émission d'une obligation sur critères non vérifiés | Planifier la réparation ; aucun appel automatique à la boucle |
-| Trinity | Expériences et gates propres au runtime Trinity | Adaptateur explicite si une expérience doit utiliser GQEL |
-| Morphogenèse | Construction et transition des organisations | Adaptateur explicite ; GQEL ne modifie pas le graphe |
-
-Le dépôt n'expose pas d'outil MCP, de route REST ou de commande CLI dédiée à
-GQEL dans les surfaces examinées. Les imports Node constituent ici la surface
-opérable, pas une option universelle de `genos_orchestrate`.
-
-## Exemple reproductible sans fournisseur LLM
-
-Depuis la racine du dépôt, exécuter ce JavaScript avec Node.js, par exemple via
-`node` et son entrée standard. Les deux réponses sont fixes : cet exemple
-vérifie la boucle, sans mesurer un gain de modèle.
+`qualityElevation` accepte des options compilées pendant la préparation ou un
+contrat `genos.gqel-contract/v2` déjà compilé. `qualityRuntime` fournit les routes
+explicites du générateur et des lecteurs. Ces données sont propagées dans les
+missions natives et liées à l'enveloppe d'autorité. Un contrat persisté n'est
+pas recompilé ; sa substitution ou sa suppression est refusée.
 
 ```javascript
-const assert = require('node:assert/strict');
-const {
-  compileQualityContract,
-  executeElevationLoop
-} = require('./backend/src/services/qualityElevation/qualityElevationService');
-
-async function main() {
-  const contract = compileQualityContract({
-    mission: 'Produire un module JavaScript qui additionne deux nombres.',
-    domain: 'software_engineering',
-    policy: 'balanced'
-  });
-  const candidates = [
-    'function add(a, b) { return a + b; }',
-    'function add(a, b) { return a + b; }\n'
-      + 'module.exports = { add };\n'
-      + '// Test: add(2, 3) === 5'
-  ];
-  const result = await executeElevationLoop({
-    contract,
-    generator: async ({ iteration }) => candidates[iteration - 1]
-  });
-  assert.equal(result.finalStatus, 'promoted');
-  assert.equal(result.totalIterations, 2);
-  assert.equal(result.demonstratedGain, 25);
-  console.log({
-    status: result.finalStatus,
-    iterations: result.totalIterations,
-    score: result.bestVersion.score,
-    gain: result.demonstratedGain
-  });
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+const { compileQualityContract } = require('./backend/src/services/qualityElevation/qualityContract');
+const qualityElevation = compileQualityContract({
+  mission: 'Écrire le texte final selon le brief et les contributions vérifiées.',
+  domain: 'creative_writing', policy: 'balanced', maxIterations: 3
 });
-```
-
-Résultat attendu : `promoted`, deux itérations, score 100 et gain 25. Le commentaire
-`// Test` suffit à l'heuristique ; il ne constitue pas un test exécuté de `add`.
-
-## Raccorder un générateur réel
-
-Le callback reçoit `{ iteration, prompt, repairPrompt }` ; les deux champs de
-prompt contiennent le même texte. Il retourne une chaîne ou un objet reconnu
-par l'évaluateur. L'autre forme d'appel accepte un driver exposant `generate`
-et les options dans le second argument : `executeElevationLoop(driver, options)`.
-
-L'adaptateur doit choisir et tracer le fournisseur, le modèle et ses paramètres,
-conserver les réponses et mesurer le coût réel. Pour une comparaison à modèle
-constant, il doit maintenir cette identité sur toutes les conditions.
-
-Les erreurs du générateur remontent à l'appelant : GQEL n'ajoute ni retry réseau,
-ni conversion automatique en résultat terminal. Les limites de temps, tokens,
-coût et annulation doivent être imposées par l'adaptateur ou son runtime.
-
-## Configurer le contrôle d'un worker
-
-Le fragment suivant décrit le champ lu par le validateur ; il ne constitue pas
-un contrat worker complet ni la preuve que chaque composeur le propage :
-
-```javascript
-const qualityElevation = {
-  domain: 'software_engineering',
-  minScore: 85,
-  options: {
-    threshold: 85,
-    requiredExports: ['add']
-  }
+const qualityRuntime = {
+  generatorModel: 'ollama://llama3.1:8b',
+  reviewers: [
+    { id: 'reader-1', model: 'ollama://llama3.1:8b', focus: 'Causalité et actions' },
+    { id: 'reader-2', model: 'ollama://llama3.1:8b', focus: 'Continuité et brief' }
+  ]
 };
-// À placer dans worker.workerContract.qualityElevation.
+// Champs de la mission ou de l'affectation explicite du worker concerné.
+const qualityFields = { qualityElevation, qualityRuntime };
 ```
 
-`minScore` est le seuil du contrôleur worker ; `minQualityScore` est le champ du
-compilateur de boucle. `options` est transmis directement à l'évaluateur worker.
-La boucle, elle, ne transmet actuellement que `mission` à son évaluateur.
+Deux lecteurs sur le même modèle restent dépendants. Le contrat peut exiger
+plusieurs groupes de dépendance ; il faut alors fournir des routes satisfaisant
+cette exigence. L'exemple ne démontre aucune indépendance des deux lecteurs.
+Une configuration de routes ou de réparation sans contrat est refusée.
 
-Le contrôle intervient après validation structurelle de l'artefact. Un artefact
-invalide produit `WORKER_QUALITY_ELEVATION_FAILED` ; un score valide mais sous
-`minScore` produit `WORKER_QUALITY_SCORE_DEFICIENT`. Sans champ `qualityElevation`,
-le contrôleur retourne `null`. Il ne relance pas le générateur.
+## Exécuter dans le runtime local
 
-## Composer avec les autres mécanismes
+Le worker local produit son artefact selon son schéma habituel. GQEL examine
+cet artefact exact puis demande des corrections bornées si nécessaire. Chaque
+révision repasse par la génération native et la validation du candidat. Les
+lectures utilisent `modelRouter`, l'identité du run, le budget partagé et
+l'autorité existants. Les contrôles de protocole ne rendent pas une réponse
+sémantiquement incorrecte acceptable.
 
-Dans [Trinity](topologies/trinity.md), une intégration peut utiliser GQEL à
-l'intérieur d'un monde, mais le score ne remplace ni la comparaison scellée ni
-les gates de promotion. Pour attribuer un gain à GQEL, conserver le même traitement
-des mondes témoins et tracer le budget supplémentaire de réparation.
+Pour le code, l'examen porte sur les sources réellement présentes et liées aux
+tests exécutés. Le premier candidat fixe l'ensemble des fichiers examinés ; une
+révision portant sur un autre ensemble est refusée explicitement. Restaurer une
+version applique les patches protégés et réexécute les tests concernés.
 
-La [morphogenèse](topologies/morphogenese.md) agit sur l'organisation. Une
-stagnation GQEL ne déclenche actuellement aucune transition morphologique :
-`mutate_strategy` ajoute une consigne textuelle au prochain prompt. Tout changement
-de topologie reste soumis aux contrats et autorités morphogénétiques existants.
+Appels, tokens mesurés, coût, délai, sortie tronquée, annulation et changement de
+route sont contrôlés. L'échec remonte sous forme de `qualityFeedback`, avec les
+défauts et la cause d'arrêt ; il ne devient pas une réussite de transport.
 
-Dans A-Team, `repairObligation.status = pending_repair` décrit des critères à
-réparer. Il faut une planification explicite pour transformer cette obligation
-en nouvelle exécution, puis revérifier les preuves. Ce résultat n'est pas une
-obligation AEIS scellée ni une preuve que la réparation a été exécutée.
+## Conserver et vérifier les preuves
 
-## Remettre un résultat à la mission
+Les sessions et checkpoints sont persistés en SQLite. Un reçu signé lie
+l'agent, la mission, le run, l'autorité, le contrat et l'artefact livré exact.
+Le contenu typé et, pour le code, le lien entre sources examinées et dossier
+livré sont vérifiés. Une copie d'évaluation arbitraire ne peut pas créer un reçu.
 
-Conserver le contrat, toutes les versions, les évaluations et les comparaisons.
-Vérifier le contenu de `bestVersion` séparément du statut : l'acceptation utilise
-la dernière version, alors que la meilleure est sélectionnée par une autre règle.
-Soumettre ensuite l'artefact exact aux tests et à l'oracle de mission. Le booléen
-local `promoted` ne dispense d'aucun de ces contrôles.
+La validation worker et les handoffs A-Team exigent ce reçu lorsqu'un contrat
+GQEL est configuré. Un nouveau processus peut vérifier une preuve persistée ;
+un ancien reçu ne peut pas être réutilisé pour un autre worker, run, contrat ou
+contenu. Le chargement n'autorise pas une reprise automatique des générations.
+Les gates d'autorité et de promotion restent applicables séparément.
+
+## Coordonner les réparations A-Team
+
+Une obligation `pending_repair` portant sur des critères de qualité peut
+replanifier une tentative native bornée. Le plan doit posséder le contrat
+GQEL, la lease et le budget nécessaires. L'original du contrat est conservé ;
+`qualityRepair` transporte les diagnostics de la tentative sous son autorité.
+
+Le coordinateur conserve les tentatives, constate résolution, stagnation ou
+épuisement et bloque les consommateurs jusqu'à une preuve fraîche. Les handoffs
+sont recalculés. Une panne d'autorité ou d'infrastructure suit son parcours de
+refus ; elle n'est pas assimilée à un simple défaut éditorial.
+Une réparation externe automatique exige une portée budgétaire partagée canonique.
+Un TeamRun manuel ou détaché sans cette portée reçoit
+`GQEL_REPAIR_SHARED_BUDGET_REQUIRED` ; il ne reçoit pas un nouveau budget à chaque tentative.
+
+## Qualifier le livrable collectif
+
+Le contrat du premier niveau de l'orchestrateur concerne le livrable final.
+Les workers ordinaires reçoivent seulement leurs obligations explicitement
+affectées ; un observateur n'hérite pas des exigences de l'auteur.
+
+Pour l'A-Team, le contrat collectif est affecté à un véritable membre
+terminal d'intégration avant son lancement. Ce membre consomme les contributions
+par des handoffs vérifiés, utilise son propre run et son budget et délivre
+l'artefact final. `qualityRuntime.finalArtifactMemberId` peut le sélectionner
+par identité ou alias non ambigu ; sinon un terminal unique est exigé.
+Il doit couvrir transitivement tous les autres producteurs. Aucun worker ni
+budget n'est ajouté implicitement. Plusieurs sorties indépendantes exigent
+une organisation d'intégration explicite, pas une concaténation de rapports.
+
+La clôture vérifie le dernier run du membre, sa complétion native, son autorité
+postérieure à la formation et son reçu exact. `gqel_final_artifacts` conserve
+l'artefact signé et `finalQuality` expose le résultat. L'invariant de qualité
+finale s'ajoute aux exigences d'intégration, d'oracle et de couverture.
+Le parcours local de synthèse de l'orchestrateur applique aussi son contrat
+de premier niveau avant la publication de son résultat.
+Le bootstrap choisit son type d'artefact avant le scellement, puis conserve
+l'exécution des workers et de la barrière avant la synthèse finale native.
+Un exécuteur résolu non local, même choisi par défaut ou par l'environnement,
+est refusé avec `GQEL_EXECUTOR_UNSUPPORTED`. Pour le code final, le parcours
+protégé et ses droits d'édition doivent être explicitement autorisés ; une
+synthèse textuelle ne remplace pas des sources et des tests exécutés.
+
+## Portée et validation
+
+Le raccord d'exécution automatique décrit ici concerne le runtime Node local.
+Chaque harness externe doit disposer d'un adaptateur équivalent et de preuves
+valides ; le contrôle d'artefact seul ne lance pas sa boucle. Les actions directes
+de topologie sans synthèse globale raccordée refusent une obligation globale
+avec `GQEL_FINAL_INTEGRATION_REQUIRED`. Utiliser le parcours natif `orchestrate`
+ou déclarer les contrats des workers concernés. Une obligation globale multiteam
+exige une étape finale équivalente ; les succès des sous-équipes seuls sont refusés.
+Aucune exécution GQEL Rust
+universelle n'est revendiquée.
+
+```bash
+node backend/tests/test_quality_elevation_loop.js
+```
+
+Cette commande couvre contrôleur, contrats natifs, routage et budgets, reçus et
+redémarrage, code, coordination A-Team, artefact final et synthèse native. Les
+réponses modèles des tests sont synthétiques. Elles vérifient les mécanismes,
+pas un gain artistique ou une supériorité sur un modèle seul.
+
+Décisions : [contrats](../adr/0771-gqel-contrats-natifs-de-mission.md),
+[exécution native](../adr/0772-gqel-execution-native-des-workers.md),
+[preuves durables](../adr/2026-11-02-gqel-recus-qualite-durables.md),
+[coordination](../adr/2026-11-02-gqel-coordination-des-reparations.md) et
+[livrable final](../adr/0773-gqel-livrable-final-integre.md).

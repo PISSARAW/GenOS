@@ -91,7 +91,7 @@ async function startMissionInternal(mission) {
     return require('../missionProtocols/runtime').runInProcess(ctx,
       () => require('../agents/deterministicWorkerRuntime').runDeterministicWorker(db, normalizedMission, executionRun));
   }
-  const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
+  const inProcessWorker = require('../qualityElevation/qualityFinalExecution').earlyWorker(ctx);
   require('../habitatEnforcementService').assertSupervisedProcess(ctx, inProcessWorker);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
@@ -133,8 +133,8 @@ async function startMissionInternal(mission) {
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
-  return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable,
-    habitat: ctx.habitat });
+  return require('../qualityElevation/qualityFinalExecution').finish(ctx, () => superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable,
+    habitat: ctx.habitat }));
 }
 
 function executionEntrypoint(ctx) {
@@ -144,7 +144,7 @@ function executionEntrypoint(ctx) {
   if (isInProcessWorker(ctx.dispatchedAgent, ctx.normalizedMission, ctx.executable)) {
     return require.resolve('../agentFleetService');
   }
-  return ctx.executable;
+  return require('../qualityElevation/qualityFinalExecution').executionEntrypoint(ctx, () => ctx.executable);
 }
 
 async function executeCompositeMorphology(ctx, agentId) {

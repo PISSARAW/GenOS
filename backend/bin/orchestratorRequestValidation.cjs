@@ -29,6 +29,7 @@ function assertValidTimeout(timeoutMs) {
 }
 
 function validateRequest(action, policy) {
+  require('../src/services/qualityElevation/qualityFinalRequest').assertSupportedQualityRequest(action, policy);
   if (!ACTIONS.has(action)) throw new Error(`Unknown orchestration action '${action}'.`);
   assertValidPolicyObject(policy);
   if (action === 'orchestrate' || action === 'dispatch_team') {

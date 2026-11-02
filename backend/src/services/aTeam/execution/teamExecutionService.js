@@ -38,6 +38,7 @@ async function executeTeamRun(input) {
 }
 
 async function executeMultiteamRun(input, run) {
+  require('../../qualityElevation/qualityFinalRequest').assertTeamFinalStage(run);
   if (typeof input.executeTeam !== 'function') {
     throw coded('Multiteam completion requires a verified child TeamRun executor.',
       'ATEAM_MTS_EXECUTOR_REQUIRED');
@@ -115,6 +116,7 @@ function assertLease(run, token) {
 
 async function finalizeExecution(input) {
   const { observed } = input;
+  input.finalQuality = await require('../../qualityElevation/qualityFinalArtifactService').qualifyFinalArtifact(input);
   const statistical = await require('../../morphogenesis/capabilities/statisticalPromotionGate')
     .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
   const audit = await require('./teamAuditService').buildTeamAudit(input.db, input.run, observed);
@@ -126,7 +128,7 @@ async function finalizeExecution(input) {
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
     patch: { status, phase: 'INTEGRATION', execution: { ...run.execution,
       coverage: observed.coverage, integration: { accepted, failures: observed.observation,
-        gate: observed.gate, audit, completion, qualityFeedback: observed.qualityFeedback },
+        gate: observed.gate, audit, completion, qualityFeedback: observed.qualityFeedback, finalQuality: input.finalQuality },
       schedulingResults: input.results } } });
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision, patch: { phase: 'DEBRIEF' } });
   const evidenceIds = [...new Set([...observed.verdicts.values()].flatMap((verdict) => verdict.evidenceRefs))];
@@ -137,7 +139,7 @@ async function finalizeExecution(input) {
       handoffAcceptanceRate: observed.graph.edges.length ? acceptedHandoffs(observed.graph) : 1 },
     evidenceIsUsable: async ({ evidenceId }) => valid.has(evidenceId) });
   return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage,
-    results: input.results, audit, completion, completionInput, qualityFeedback: observed.qualityFeedback };
+    results: input.results, audit, completion, completionInput, qualityFeedback: observed.qualityFeedback, finalQuality: input.finalQuality };
 }
 
 function memberClosureRecord(input, member) {
@@ -169,7 +171,8 @@ function teamClosureInput(input) {
   const invariants = [
     { id: 'work_graph_promoted', passed: input.observed.promoted === true },
     { id: 'quality_gate_passed', passed: input.observed.gate.passed === true },
-    { id: 'statistical_gate_allowed', passed: input.statistical.allowed === true }
+    { id: 'statistical_gate_allowed', passed: input.statistical.allowed === true },
+    ...require('../../qualityElevation/qualityFinalArtifactService').finalQualityInvariant(input)
   ];
   return { missionId: input.run.missionId, topology: 'a_team', lifecycleState: 'completed',
     producerId: input.run.missionId, requiredMemberIds: input.plan.members.map((member) => member.workerId),

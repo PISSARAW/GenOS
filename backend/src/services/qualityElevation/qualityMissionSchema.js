@@ -6,6 +6,7 @@ function qualityMissionSchema() {
     qualityRuntime: { type: 'object', additionalProperties: false, properties: {
       generatorModel: { type: 'string', minLength: 1 },
       planScenes: { type: 'boolean' },
+      finalArtifactMemberId: { type: 'string', minLength: 1, description: 'Existing final integration member identity; it must consume all producers through verified handoffs.' },
       reviewers: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false,
         properties: { id: { type: 'string', minLength: 1 }, model: { type: 'string', minLength: 1 },
           dependencyGroup: { type: 'string' }, focus: { type: 'string' } }, required: ['id', 'model'] } }

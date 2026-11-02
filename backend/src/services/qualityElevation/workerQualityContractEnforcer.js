@@ -10,7 +10,20 @@ function extractTargetContent(report, artifact) {
   if (content && typeof content === 'object') return textOf(content) || JSON.stringify(canonical(content));
   return textOf(content) || textOf(report?.output) || textOf(report);
 }
-function qualityContractOf(worker) { return worker?.workerContract?.qualityElevation || worker?.qualityElevation; }
+function qualityContractOf(worker) {
+  const nested = worker?.workerContract?.qualityElevation, declared = worker?.qualityElevation;
+  if (nested && declared && digest(nested) !== digest(declared)) {
+    throw fail('GQEL_CONTRACT_CHANGED', 'Worker and mission quality obligations disagree.');
+  }
+  assertQualityRoutes(worker);
+  return nested || declared;
+}
+function assertQualityRoutes(worker) {
+  const nested = worker?.workerContract?.qualityRuntime, declared = worker?.qualityRuntime;
+  if (nested && declared && digest(nested) !== digest(declared)) {
+    throw fail('GQEL_CONTRACT_CHANGED', 'Worker and mission quality routes disagree.');
+  }
+}
 function assertQualityResult(worker, result) {
   const contract = qualityContractOf(worker), evaluation = result.bestVersion?.evaluation;
   if (contract) verifyContract(contract);

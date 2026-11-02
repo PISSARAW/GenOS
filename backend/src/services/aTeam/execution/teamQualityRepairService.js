@@ -19,6 +19,7 @@ function blockStopped(input, member, record) {
 function matchesCanonical(input, member) {
   const canonical = input.run.members.find((item) => item.workerId === member.workerId);
   if (!canonical) return false;
+  if (canonical.memberId !== member.memberId) return false;
   return digest(policy.qualityContract(member)) === digest(policy.qualityContract(canonical))
     && digest(member.qualityRuntime || {}) === digest(canonical.qualityRuntime || {})
     && digest(member.modelBudgetScope || null) === digest(canonical.modelBudgetScope || null);
@@ -93,8 +94,8 @@ async function dispatchRepair(input, member, details) {
 }
 
 async function considerMember(input, member, dossier) {
-  if (!policy.qualityContract(member)) return;
   if (!matchesCanonical(input, member)) throw Object.assign(new Error('Repair quality contract differs from the canonical member.'), { code: 'GQEL_CONTRACT_CHANGED' });
+  if (!policy.qualityContract(member)) return;
   const identity = policy.artifactIdentity(dossier);
   if (await reconcileAttempt(input, member, identity)) return;
   const previous = input.run.execution.qualityRepairs?.[member.workerId];
@@ -107,12 +108,22 @@ async function considerMember(input, member, dossier) {
 async function considerObligation(input, member, identity) {
   const obligation = policy.qualityObligation(member, input.verdicts.get(member.workerId));
   if (!obligation || input.statuses.get(member.workerId) !== 'completed') return;
+  if (!sharedBudgetAvailable(member)) {
+    await retainFeedback(input, member, { status: 'blocked', category: 'budget', reason: 'GQEL_REPAIR_SHARED_BUDGET_REQUIRED' }); return;
+  }
   const previous = input.run.execution.qualityRepairs?.[member.workerId];
   if (input.expired || (previous?.attempt || 0) >= policy.maximumAttempts(member)) {
     await retainFeedback(input, member, { status: 'exhausted', category: 'budget', reason: 'GQEL_REPAIR_LIMIT' }); return;
   }
   if (typeof input.launch !== 'function') return;
   await dispatchRepair(input, member, { identity, obligation });
+}
+
+function sharedBudgetAvailable(member) {
+  const scope = member.modelBudgetScope;
+  if (!scope || typeof scope.id !== 'string' || !scope.id.trim()) return false;
+  return Number.isFinite(scope.costUsd) && scope.costUsd >= 0
+    && Number.isSafeInteger(scope.tokens) && scope.tokens > 0;
 }
 
 async function coordinateQualityRepairs(input) {

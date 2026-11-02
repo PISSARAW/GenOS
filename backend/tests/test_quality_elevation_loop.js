@@ -16,6 +16,16 @@ function testTeamEvidenceRepairObligation() {
 }
 async function main() {
   await run(); await require('./test_gqel_progress.cjs').run();
-  testTeamEvidenceRepairObligation(); console.log('GQEL V2.1 plus A-Team repair-obligation integration: PASS');
+  testTeamEvidenceRepairObligation(); runNativeSuites();
+  console.log('GQEL V2.1 native contracts, runtime, receipts, coordination and final artifact: PASS');
+}
+
+function runNativeSuites() {
+  const suites = ['test_gqel_native_contracts.cjs', 'test_gqel_native_runtime.cjs', 'test_gqel_native_provider.cjs',
+    'test_gqel_native_code_scope.cjs', 'test_gqel_quality_receipts.cjs', 'test_gqel_code_receipts.cjs',
+    'test_gqel_native_receipts.cjs', 'test_gqel_team_receipts.cjs', 'test_ateam_gqel_coordination.cjs', 'test_gqel_final_artifact.cjs',
+    'test_gqel_final_synthesis.cjs', 'test_gqel_final_execution.cjs'];
+  for (const suite of suites) require('node:child_process').execFileSync(process.execPath,
+    [require('node:path').join(__dirname, suite)], { stdio: 'inherit', timeout: 300000 });
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

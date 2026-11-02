@@ -67,7 +67,8 @@ function buildRunDraft(input) {
   const teamRunId = input.teamRunId || stableId('ateam', `${missionId}:${key}`);
   const graphId = input.workGraphId || graphIdFor(teamRunId);
   const members = bindMembers(input.members, teamRunId);
-  return teamRunStore.teamRunRecord({ ...input, members, missionId, teamRunId, workGraphId: graphId });
+  const qualityInput = require('../qualityElevation/qualityFinalPlan').configureFinalArtifact({ ...input, members });
+  return teamRunStore.teamRunRecord({ ...qualityInput, missionId, teamRunId, workGraphId: graphId });
 }
 
 function bindMembers(members, teamRunId) {
@@ -94,8 +95,8 @@ function formationFingerprint(draft) {
     'requiredArtifacts', 'acceptanceCriteria', 'inputSchema', 'outputSchema', 'executionBudgetTokens', 'ownedResponsibilities',
     'agentId', 'workerId', 'authority', 'toolLease', 'participationMode', 'consults', 'consumes', 'provides',
     'qualityElevation', 'qualityRuntime', 'modelBudgetScope'];
-  const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, member[field]])));
-  const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, variant: draft.execution?.organizationPolicy?.variant || null };
+  const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, field === 'qualityElevation' ? member[field]?.digest : member[field]])));
+  const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, ...(draft.qualityElevation ? { finalArtifactMemberId: draft.finalArtifactMemberId, quality: { contractDigest: draft.qualityElevation.digest, runtime: draft.qualityRuntime } } : {}), variant: draft.execution?.organizationPolicy?.variant || null };
   return createHash('sha256').update(canonicalJson(definition)).digest('hex');
 }
 

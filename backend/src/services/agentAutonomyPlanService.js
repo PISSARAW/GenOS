@@ -266,7 +266,7 @@ async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan })
 function buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan }) {
   const aTeam = autonomyPlan.aTeam;
   return {
-    missionId: agentId,
+    missionId: agentId, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(normalizedMission),
     goal: missionText(normalizedMission),
     successCriteria: normalizedMission.successCriteria || normalizedMission.acceptanceCriteria || [],
     organization: aTeam.organization || autonomyPlan.organization || null,

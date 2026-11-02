@@ -76,6 +76,7 @@ async function initializeMissionContext(mission) {
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   normalizedMission.executionMode = dispatchedAgent.execution_mode;
+  require('../qualityElevation/qualityFinalExecution').prepareNativeFinal({ normalizedMission, dispatchedAgent, executable });
   if (normalizedMission.resumeCheckpointId) {
     await require('../runtimeCheckpointRequest').assertResumeRequest(db, {
       checkpointId: normalizedMission.resumeCheckpointId, agentId,

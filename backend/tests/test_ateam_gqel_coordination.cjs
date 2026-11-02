@@ -1,4 +1,6 @@
 'use strict';
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'gqel-coordination-test-fixture-only';
 
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
@@ -17,17 +19,18 @@ function quality() {
     policy: 'fast', maxStrategyMutations: 1 });
 }
 
-async function begin(consumerQuality = false) {
+async function begin(consumerQuality = false, unscoped = false) {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   await db.exec('CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT); CREATE TABLE telemetry_events (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, event_type TEXT, action TEXT, detail TEXT, payload_json TEXT);');
   const canonical = await runtime.createRun({ db, missionId: 'quality-team', goal: 'Deliver verified scoped output',
     members: [{ subSystem: 'author', role: 'engineer', outputs: ['candidate'], capabilities: ['author'],
       acceptanceCriteria: ['brief_coverage'], qualityElevation: quality(),
       qualityRuntime: { reviewers: [{ id: 'reader', model: 'test-reader' }] },
-      modelBudgetScope: { id: 'team-budget', costUsd: 1, tokens: 10000 } },
+      modelBudgetScope: unscoped ? null : { id: 'team-budget', costUsd: 1, tokens: 10000 } },
     { subSystem: 'consumer', role: 'engineer', outputs: ['delivery'], capabilities: ['consumer'],
       dependsOn: ['author'], inputArtifacts: ['candidate'], ...(consumerQuality ? {
-        acceptanceCriteria: ['brief_coverage'], qualityElevation: quality() } : {}) }], requiredCapabilities: [
+        acceptanceCriteria: ['brief_coverage'], qualityElevation: quality(),
+        modelBudgetScope: { id: 'team-budget', costUsd: 1, tokens: 10000 } } : {}) }], requiredCapabilities: [
       { capability: 'author', weight: 1 }, { capability: 'consumer', weight: 1 }], status: 'READY', phase: 'PREBRIEF' });
   let run = await runtime.transitionRun({ db, teamRunId: canonical.run.teamRunId, revision: canonical.run.revision,
     patch: { status: 'RUNNING', phase: 'EXECUTION' } });
@@ -42,22 +45,46 @@ function report(member, version = 1, accepted = true) {
   const probe = spawnSync(process.execPath, ['-e', `process.stdout.write(String(${version} * 21))`], { encoding: 'utf8' });
   assert.equal(probe.status, 0);
   const evidence = `process:${member.workerId}:${version}`;
-  return { outcome: 'success', output: probe.stdout, artifacts: member.outputs,
+  const value = { outcome: 'success', output: probe.stdout, artifacts: member.outputs,
+    workerArtifact: { type: 'creative_candidate', content: { candidate: probe.stdout,
+      assumptions: ['Synthetic scheduling fixture.'], falsificationTest: 'Compare the candidate to the executed calculation.' } },
     tests: [{ passed: true, evidence: [evidence], exitCode: probe.status }],
     acceptanceEvaluations: [{ criterion: 'brief_coverage', passed: accepted, evidenceRefs: [evidence] }],
     integrationConstraints: ['Consume the accepted candidate version only.'],
     handoffEvaluations: (member.handoffContext || []).map((handoff) => ({
       handoffId: handoff.handoffId, digest: handoff.digest, version: handoff.version, passed: true, evidenceRefs: [evidence] })) };
+  return signedFixtureReport(member, value);
+}
+
+function signedFixtureReport(member, value) {
+  if (!member.qualityElevation) return value;
+  const integrity = require('../src/services/qualityElevation/qualityReceiptIntegrity');
+  const text = require('../src/services/qualityElevation/workerQualityContractEnforcer')
+    .extractTargetContent(value, value.workerArtifact);
+  const artifactDigest = digest(text), contractDigest = member.qualityElevation.digest;
+  const issuedAt = new Date().toISOString();
+  const evaluation = { schema: 'genos.gqel-assessment/v2', phase: 'artifact', passed: true,
+    score: 100, overallScore: 100, contractDigest, artifactDigest, issuedAt, reviews: [], defects: [] };
+  value.qualityElevationReceipt = integrity.sign({ schema: integrity.SCHEMA,
+    receiptId: `synthetic:${member.workerId}:${member.qualityRepair?.attempt || 0}`,
+    agentId: member.workerId, runId: `synthetic-run:${member.workerId}:${member.qualityRepair?.attempt || 0}`,
+    missionId: 'quality-team', authorityHash: '0'.repeat(64),
+    contractDigest, artifactDigest, reviewedArtifactDigest: artifactDigest,
+    deliveryType: value.workerArtifact.type, deliveryContentDigest: digest(value.workerArtifact.content),
+    evaluation, assessmentDigest: digest(evaluation), qualityAccepted: true, authorizesMissionPromotion: false,
+    issuedAt, expiresAt: new Date(Date.now() + 60000).toISOString() });
+  return value;
 }
 
 async function publish(db, member, value) {
   await db.run('INSERT INTO telemetry_events (agent_id, event_type, payload_json) VALUES (?, ?, ?)',
-    member.workerId, 'EVIDENCE_REPORT', JSON.stringify(value));
+    member.workerId, 'EVIDENCE_REPORT', JSON.stringify({ evidenceReport: value,
+      executionRunId: value.qualityElevationReceipt?.runId || `synthetic-run:${member.workerId}` }));
   await db.run('UPDATE agents SET status = ? WHERE id = ?', 'completed', member.workerId);
 }
 
 async function scenario(mode) {
-  const context = await begin(), launches = [];
+  const context = await begin(false, mode === 'unscoped'), launches = [];
   let pending = null, clock = 0;
   const { db, run, plan, token } = context;
   const original = plan.members[0];
@@ -111,7 +138,7 @@ async function success() {
   assert.deepEqual(launches.map((member) => member.subSystem), ['author', 'author', 'consumer']);
   assert.equal(result.qualityFeedback[0].status, 'resolved');
   assert.equal(saved.execution.qualityRepairs[launches[0].workerId].status, 'resolved');
-  assert.equal(graph.edges[0].handoff.artifactPayload, '42');
+  assert.equal(graph.edges[0].handoff.artifactPayload.candidate, '42');
   assert.equal(graph.edges[0].accepted, true);
 }
 
@@ -128,13 +155,31 @@ async function failures() {
   }
 }
 
+async function missingSharedBudget() {
+  const { result, graph, launches } = await scenario('unscoped');
+  assert.equal(launches.length, 1, 'a repair must not allocate a fresh native control budget');
+  assert.equal(result.accepted, false);
+  assert.equal(result.qualityFeedback[0].status, 'blocked');
+  assert.equal(result.qualityFeedback[0].category, 'budget');
+  assert.equal(result.qualityFeedback[0].reason, 'GQEL_REPAIR_SHARED_BUDGET_REQUIRED');
+  assert.equal(graph.edges[0].accepted, false);
+}
+
 async function contractIdentity() {
   const { db, run, plan, token } = await begin();
   try {
     const changed = compileQualityContract({ mission: 'Different obligation', domain: 'generic', policy: 'fast' });
-    plan.members[0].qualityElevation = changed;
-    await assert.rejects(executeTeamRun({ db, teamRunId: run.teamRunId, plan, runnerToken: token,
-      launch: async () => assert.fail('changed contract launched'), options: { timeoutMs: 0 } }), { code: 'GQEL_CONTRACT_CHANGED' });
+    const original = plan.members[0];
+    const removed = { ...original }; delete removed.qualityElevation;
+    const mutations = [{ ...original, qualityElevation: changed }, removed,
+      { ...original, qualityRuntime: { reviewers: [{ id: 'other', model: 'other-model' }] } },
+      { ...original, modelBudgetScope: { ...original.modelBudgetScope, tokens: 1000000 } },
+      { ...original, memberId: 'substituted-member' }];
+    for (const member of mutations) {
+      plan.members[0] = member;
+      await assert.rejects(executeTeamRun({ db, teamRunId: run.teamRunId, plan, runnerToken: token,
+        launch: async () => assert.fail('changed contract launched'), options: { timeoutMs: 0 } }), { code: 'GQEL_CONTRACT_CHANGED' });
+    }
     const launch = scheduler.workerLaunchPayload({ plan, member: run.members[0] });
     assert.equal(launch.qualityElevation.digest, run.members[0].qualityElevation.digest);
     assert.equal(digest(launch.qualityRuntime), digest(run.members[0].qualityRuntime));
@@ -171,18 +216,18 @@ async function freshRepairHandoff() {
     await publish(db, plan.members[0], report(plan.members[0], 1, true));
     await publish(db, plan.members[1], report(plan.members[1], 1, false));
     const old = await observeExecution(input);
-    assert.equal(old.graph.edges[0].handoff.artifactPayload, '21');
+    assert.equal(old.graph.edges[0].handoff.artifactPayload.candidate, '21');
     await publish(db, plan.members[0], report(plan.members[0], 2, true));
     let repaired;
     await observeExecution({ ...input, launch: async member => { repaired = member; return true; } });
     assert.equal(repaired.subSystem, 'consumer');
-    assert.equal(repaired.handoffContext[0].artifactPayload, '42');
+    assert.equal(repaired.handoffContext[0].artifactPayload.candidate, '42');
     assert.equal(repaired.handoffContext[0].version, 2);
   } finally { await db.close(); }
 }
 
 async function main() {
-  nativeFeedback(); await success(); await failures(); await contractIdentity(); await cancellation(); await freshRepairHandoff();
+  nativeFeedback(); await success(); await failures(); await missingSharedBudget(); await contractIdentity(); await cancellation(); await freshRepairHandoff();
   console.log('A-Team GQEL coordination: delayed fresh evidence, unchanged artifact, budgets, authority, cancellation and immutable contracts passed. Model responses are synthetic; subprocess probes execute.');
 }
 

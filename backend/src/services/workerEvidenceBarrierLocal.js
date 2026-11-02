@@ -35,7 +35,7 @@ function resolveNameMeaning(mission, agentName) {
   return 'Spécialiste autonome';
 }
 function resolveWorkerModel(mission) {
-  if (mission.workerContract?.qualityElevation && mission.qualityRuntime?.generatorModel) return require('./qualityElevation/qualityRuntimeModelAdapter').modelUri(mission.qualityRuntime.generatorModel);
+  if (require('./qualityElevation/qualityNativeGeneration').runtimeContract(mission) && mission.qualityRuntime?.generatorModel) return require('./qualityElevation/qualityRuntimeModelAdapter').modelUri(mission.qualityRuntime.generatorModel);
   if (mission.localModel) return mission.localModel;
   if (mission.model) return mission.model;
   return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';

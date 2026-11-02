@@ -63,6 +63,8 @@ function teamRunRecord(input = {}) {
     teamRunId: choose([input.teamRunId], randomUUID()),
     missionId: input.missionId,
     goal: String(choose([input.goal], '')).trim(),
+    ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(input),
+    ...(input.finalArtifactMemberId ? { finalArtifactMemberId: input.finalArtifactMemberId } : {}),
     successCriteria: asList(input.successCriteria),
     workGraphId: choose([input.workGraphId], null),
     organization: choose([input.organization], null),
@@ -77,6 +79,7 @@ function teamRunRecord(input = {}) {
 }
 
 function assertValid(run) {
+  require('../qualityElevation/qualityFinalPlan').assertFinalPlan(run);
   for (const member of run.members || []) require('../qualityElevation/qualityMissionContract').qualityMissionFields(member);
   const validation = validateTeamRun(run);
   if (validation.valid) return;
@@ -107,6 +110,7 @@ async function update(options = {}) {
   if (!current) throw Object.assign(new Error(`Unknown A-Team run '${teamRunId}'.`), { code: 'ATEAM_RUN_UNKNOWN' });
   if (current.revision !== revision) throw revisionConflict(teamRunId);
   const next = { ...current, ...patch, teamRunId, missionId: current.missionId, createdAt: current.createdAt };
+  require('../qualityElevation/qualityFinalPlan').assertFinalPlanUnchanged(current, next);
   delete next.revision;
   assertValid(next);
   const saved = await saveRevision({ db, teamRunId, state: next, revision });

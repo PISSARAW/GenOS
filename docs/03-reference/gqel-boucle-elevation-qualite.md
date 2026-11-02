@@ -116,5 +116,25 @@ La validation repose sur les lecteurs configurés, pas sur un oracle universel d
 La génération réelle n'a pas été exécutée pendant cette livraison.
 
 Le pilote ne prétend pas activer nativement AGOW, GQWF, GVX ou Morphogenèse. Les besoins de routage déjà exposés ne sont pas des invocations.
-Le reçu worker reste en mémoire ; un redémarrage exige une vérification fraîche. Pas de reprise automatique à partir d'un checkpoint désérialisé.
+Le parcours natif conserve désormais des reçus worker signés et des checkpoints en SQLite. Un redémarrage peut vérifier un reçu lié au run et à l’artefact exact ; il ne reprend pas automatiquement une boucle depuis un checkpoint désérialisé.
 Les adaptateurs de confiance doivent respecter les limites et l'annulation ; cette boucle n'est pas un sandbox pour callbacks hostiles.
+
+## Raccords natifs de mission et d'intégration
+
+Le [guide d'intégration](../02-orchestration/gqel.md) décrit les raccords
+Node locaux ajoutés après les essais V1/V2.1 par script direct :
+
+- `qualityElevation` compilé et `qualityRuntime` sont propagés avant le scellement d'autorité.
+- Les productions et révisions natives partagent routage, autorité et budget de mission.
+- Les artefacts configurés exigent des reçus signés, persistés et liés au contenu typé exact.
+- Les obligations A-Team peuvent produire des tentatives bornées avec preuves fraîches et handoffs recalculés.
+- Le contrat collectif est porté par un membre final d'intégration réel, financé et dépendant des contributions ; le registre signé `gqel_final_artifacts` est vérifié avant la clôture.
+- La synthèse native de l'orchestrateur applique son contrat de premier niveau. Les actions directes sans étape globale raccordée refusent cette obligation explicitement.
+
+`qualityRuntime.finalArtifactMemberId` sélectionne un intégrateur existant.
+Sans cette option, un terminal unique couvrant tous les producteurs est requis.
+Ces contrôles ne remplacent ni l'oracle de mission ni ses autres portes de promotion.
+La suite `test_quality_elevation_loop.js`, déjà exécutée par `npm test`, inclut
+les tests natifs, les replays interdits et la qualification du livrable final.
+Les réponses modèles de ces suites sont synthétiques ; aucune amplification
+artistique ou exécution universelle sur les autres harness/Rust n'est revendiquée.

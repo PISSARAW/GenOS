@@ -1,7 +1,12 @@
 'use strict';
 
+function runtimeContract(mission) {
+  if (mission.workerContract?.qualityElevation) return mission.workerContract.qualityElevation;
+  return require('../workerEvidenceBarrierLocal').isOrchestratorMission(mission) ? mission.qualityElevation : null;
+}
+
 function boundGeneration(ctx) {
-  const quality = ctx.mission.workerContract?.qualityElevation;
+  const quality = runtimeContract(ctx.mission);
   if (!quality) return ctx;
   const requested = ctx.maxTokens || quality.maxOutputTokens;
   const maxTokens = Math.min(requested, quality.maxOutputTokens);
@@ -10,7 +15,7 @@ function boundGeneration(ctx) {
 
 async function generate(ctx, invoke) {
   const bounded = boundGeneration(ctx);
-  if (ctx.mission.workerContract?.qualityElevation) return invoke(bounded);
+  if (runtimeContract(ctx.mission)) return invoke(bounded);
   return require('../workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText: ctx.promptText,
     generate: repairedPrompt => invoke({ ...bounded, promptText: repairedPrompt }) });
 }
@@ -28,4 +33,4 @@ function requestFields(ctx, generation) {
     maxTokens: Math.min(generation.maxTokens, ctx.qualityRequest.maxOutputTokens) };
 }
 
-module.exports = { generate, boundGeneration, promptText, requestFields };
+module.exports = { generate, boundGeneration, promptText, requestFields, runtimeContract };

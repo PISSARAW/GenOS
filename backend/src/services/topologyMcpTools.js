@@ -74,6 +74,7 @@ async function composeBiologicalMode(args = {}, caller = {}) {
 }
 
 function assertBiologicalModeRequest(args) {
+  require('./qualityElevation/qualityFinalRequest').assertSupportedQualityRequest('dispatch_biological', args);
   assertExecutionRequest(args);
   assertContinuationRequest(args);
 }

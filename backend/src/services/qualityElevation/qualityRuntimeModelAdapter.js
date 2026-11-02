@@ -15,7 +15,9 @@ function meteredReply(result, content) {
   }
   if (result.schemaViolation) throw fail('GQEL_REVIEW_INVALID', 'Native model response failed its requested schema.');
   if (!result.finishReason) throw fail('GQEL_COMPLETION_UNVERIFIED', 'Native provider completion was not observed.');
-  return { content, usage, model: result.model, finishReason: result.finishReason };
+  return { content, usage, model: result.model, servedModel: result.servedModel || null,
+    provider: result.provider || null, routeAttemptId: result.routeAttemptId || null,
+    finishReason: result.finishReason };
 }
 
 function deadlineOf(mission) {

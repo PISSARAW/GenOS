@@ -24,6 +24,13 @@ explicitement dans le contrat GQEL du membre. Elle réserve une tentative dans
 tentative, l'empreinte du candidat précédent et les critères non vérifiés. Elle
 n'accorde aucune permission supplémentaire et ne modifie pas le contrat initial.
 Les appels modèles restent soumis au routage et au budget partagé de la mission.
+Une relance externe exige un `modelBudgetScope` canonique avec identifiant et
+plafonds finis. À défaut, elle reste bloquée sous
+`GQEL_REPAIR_SHARED_BUDGET_REQUIRED` : le coordinateur ne crée pas un nouveau
+budget de contrôle par tentative et ne contourne pas le refus d'adoption de
+scopes fournis à la CLI directe. La boucle GQEL interne au worker conserve son
+fonctionnement et sa réservation native ; une relance externe depuis une équipe
+CLI sans scope partagé canonique n'est pas prise en charge.
 
 Le nombre de relances externes est borné par `min(maxStrategyMutations, 2)`.
 Chaque boucle interne conserve également ses plafonds propres et consomme le

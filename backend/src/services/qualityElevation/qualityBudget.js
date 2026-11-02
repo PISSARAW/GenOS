@@ -32,6 +32,8 @@ function accountReply(reply, budget, limits) {
 }
 function recordReply(receipt, reply) {
   receipt.usage = reply?.usage || null; receipt.finishReason = reply?.finishReason || null; receipt.model = reply?.model || null;
+  receipt.servedModel = reply?.servedModel || null; receipt.provider = reply?.provider || null;
+  receipt.routeAttemptId = reply?.routeAttemptId || null;
 }
 function assertModel(reply, expectedModel) {
   if (expectedModel && reply?.model !== expectedModel) throw fail('GQEL_MODEL_MISMATCH', 'Observed reviewer model differs from its configured identity.');

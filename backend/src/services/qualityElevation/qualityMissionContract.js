@@ -42,19 +42,33 @@ function normalizeRuntime(value = {}) {
     if (typeof value.planScenes !== 'boolean') throw fail('GQEL_INVALID_CONTRACT', 'planScenes must be boolean.');
     result.planScenes = value.planScenes;
   }
+  Object.assign(result, finalSelector(value));
   return freeze(result);
+}
+
+function finalSelector(value) {
+  if (value.finalArtifactMemberId === undefined) return {};
+  if (typeof value.finalArtifactMemberId !== 'string' || !value.finalArtifactMemberId.trim()) throw fail('GQEL_INVALID_CONTRACT', 'Final artifact member selector is invalid.');
+  return { finalArtifactMemberId: value.finalArtifactMemberId };
 }
 
 function qualityMissionFields(input = {}) {
   const persisted = input.workerContract || {};
   const requested = input.qualityElevation ?? persisted.qualityElevation;
-  if (requested == null) return {};
+  if (requested == null) return noQualityFields(input);
   const fields = { qualityElevation: normalizeContract(requested, input),
     qualityRuntime: normalizeRuntime(input.qualityRuntime ?? persisted.qualityRuntime) };
   const repair = input.qualityRepair ?? persisted.qualityRepair;
   if (repair != null) fields.qualityRepair = freeze(structuredClone(object(repair, 'qualityRepair')));
   assertPersistedQuality(persisted, fields);
   return fields;
+}
+
+function noQualityFields(input) {
+  if (input.qualityRuntime != null || input.qualityRepair != null) {
+    throw fail('GQEL_INVALID_CONTRACT', 'Quality routes or repair diagnostics require an explicit quality obligation.');
+  }
+  return {};
 }
 
 function prepareQualityMission(mission) {
