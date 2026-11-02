@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Bénéfice opérationnel adaptatif](06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md) — preuves de mécanismes et expériences nécessaires pour mesurer survie, adaptation et amélioration durable.
+
 - [Vérification Lean, Omega et gestion des preuves](06-qualite-preuves/verification-lean-et-omega.md) — contrats communs, régressions et schémas ; [ADR 0758](adr/0758-verification-lean-et-recus-lies.md).
 
 - [Workers Qwen — corrections et campagne du 30 octobre 2026](06-qualite-preuves/rapport-corrections-campagne-qwen-2026-10-30.md) — schéma d'exécution, corrections, résultats réels et limites de qualification ; [évaluateur externe](06-qualite-preuves/evaluateur-campagne-qwen.md).

@@ -20,7 +20,28 @@ assert.deepEqual(constrained.survival.pressures, ['starvation', 'overgrowth']);
 assert(constrained.survival.actions.includes('conserve_energy'));
 assert.equal(constrained.survival.constraints.maxWorkerFanout, 2);
 assert.equal(constrained.workers.length, 2);
-assert.equal(constrained.dispatchWorkers.length, 1);
+assert.equal(constrained.dispatchWorkers.length, 0);
+assert.equal(constrained.tokenPolicy.orchestratorReserveTokens, 2400);
+assert.equal(constrained.tokenPolicy.admission.availableWorkerTokens, 0);
+assert.equal(constrained.tokenPolicy.admission.valid, false);
+assert.equal(constrained.dispatchDecision.code, 'TOPOLOGY_BUDGET_INSUFFICIENT');
+assert.equal(constrained.tokenPolicy.admission.minimumAcceptableTotal, 7600);
+
+for (const [tokens, expectedWorkers] of [[6800, 0], [7599, 0], [7600, 2]]) {
+  const plan = buildAutonomyPlan(contract, {
+    tokens, minimumWorkerTokens: 800,
+    survivalState: { energy: 0.2, activeWorkers: 9, carryingCapacity: 4 }
+  });
+  assert.deepEqual(plan.survival.pressures, ['starvation', 'overgrowth']);
+  assert.equal(plan.survival.constraints.maxWorkerFanout, 2);
+  assert.equal(plan.tokenPolicy.orchestratorReserveTokens, 6000);
+  assert.equal(plan.tokenPolicy.admission.atomic, true);
+  assert.equal(plan.tokenPolicy.admission.availableWorkerTokens, tokens - 6000);
+  assert.equal(plan.tokenPolicy.admission.requiredWorkerTokens, 1600);
+  assert.equal(plan.dispatchWorkers.length, expectedWorkers,
+    'security admission must fund the entire team after reserving orchestrator tokens');
+  assert.equal(plan.tokenPolicy.admission.valid, expectedWorkers === 2);
+}
 
 const recomposed = {
   survival: constrained.survival,

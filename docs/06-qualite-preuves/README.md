@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [benefice-operationnel-adaptatif-2026-11-02.md](benefice-operationnel-adaptatif-2026-11-02.md) — mécanismes rejoués, bénéfices causaux non établis et protocole comparatif allostasie/morphogenèse/ontogenèse.
+
 - [requalification-principes-fondateurs-2026-10-31.md](requalification-principes-fondateurs-2026-10-31.md) — 19/19 principes dans le périmètre borné, baseline conservée et reçu actualisé après réexécution des preuves.
 - [campagne-epistemique-quadrants-q1-q5-2026-10-31.md](campagne-epistemique-quadrants-q1-q5-2026-10-31.md) — qualification épistémique des quadrants Q1-Q5, déplacement de l'autorité de preuve de test, benchmark 25/25 et exécution GPU live.
 - [rapport-corrections-campagne-qwen-2026-10-30.md](rapport-corrections-campagne-qwen-2026-10-30.md) — corrections des workers locaux, schéma de preuve, diagnostic partiel et campagne finale distincte.

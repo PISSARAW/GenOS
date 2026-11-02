@@ -1,5 +1,10 @@
 # Référence expérimentale GenOS
 
+Le [protocole de bénéfice opérationnel adaptatif](operational-adaptation/protocol.json)
+définit les comparaisons allostasie, morphogenèse et ontogenèse. Son
+[relevé de qualification](../docs/06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md)
+sépare les mécanismes rejoués des bénéfices causaux encore non mesurés.
+
 Le [banc GQWF local](gqwf-overlays/README.md) mesure séparément la création de
 vues logiques, l'écriture d'overlays et la matérialisation de fichiers. Il ne
 constitue pas une comparaison modèle seul contre GenOS ni une mesure de

@@ -1,0 +1,63 @@
+{
+  "protocolId": "operational-adaptation-v1",
+  "status": "draft-not-preregistered",
+  "experimentalCampaignExecuted": false,
+  "claimScope": "bounded-operational-benefit",
+  "authorizesPromotion": false,
+  "commonControls": {
+    "pairedUnit": "independent mission or longitudinal lineage; seeds nested within unit",
+    "locked": ["source revision", "model digest", "tools", "initial state", "total token and wall-time budgets", "oracle version"],
+    "assignment": "randomized arm order with isolated stores and workspaces",
+    "holdout": "tasks, families and oracle implementations excluded from training and policy selection",
+    "failures": "retain every assigned attempt, timeout, refusal, retry and intervention",
+    "analysis": "paired cluster bootstrap by independent unit; simultaneous 98.333333% intervals for three primary hypotheses",
+    "stopping": "seal corpus, sample size, seeds, thresholds and analysis before first outcome; no optional stopping",
+    "minimumPracticalAbsoluteGain": 0.1,
+    "conclusion": "support only if the interval lower bound exceeds the practical gain and every validity condition holds",
+    "sampleSize": null,
+    "powerAnalysis": "required on disjoint pilot data before preregistration",
+    "missingEvidence": "inconclusive; never zero cost, success or absence of intervention"
+  },
+  "hypotheses": [
+    {
+      "id": "allostasis-survival",
+      "treatment": "measured allostatic control enabled",
+      "control": "same runtime with only allostatic corrections disabled; hard safety and budget gates remain enabled",
+      "additionalControl": "static conservative fanout tuned on training only",
+      "stressors": ["token scarcity", "worker loss", "model unavailability", "memory pressure inside an isolated runner", "nominal load negative control"],
+      "primary": "fraction of missions reaching independently verified useful completion within the shared budget and deadline without invariant violation",
+      "secondary": ["time to unrecoverable operational failure with censoring reported", "useful throughput", "resource reserve", "cost", "recovery time", "suspension duration"],
+      "validity": ["measured intervention precedes violation", "no credit for indefinite suspension or abandoning required work", "gain over ablation and static conservative control", "nominal-load cost and throughput reported"]
+    },
+    {
+      "id": "morphogenesis-environment-change",
+      "treatment": "admitted runtime topology transitions enabled",
+      "control": "same runtime with topology frozen after selection on training only",
+      "additionalControl": "sham or unsuitable transition; include unchanged-environment negative control",
+      "primary": "fraction of missions meeting the new independent acceptance oracle after an external unannounced environment change within the shared total budget",
+      "secondary": ["adaptation delay", "transition cost", "regret", "unnecessary transitions", "pre-change success"],
+      "validity": ["change injected externally after a recorded execution boundary", "future change absent from all prompts and policy inputs before injection", "signed applied transition and worker binding observed", "transition overhead charged to treatment", "success evaluated independently of transition admission"]
+    },
+    {
+      "id": "ontogenesis-durable-improvement",
+      "treatment": "autonomous persistent developmental loop with governed learning enabled",
+      "control": "same autonomous loop and budget with developmental memory and policy frozen",
+      "additionalControl": "developmental state reset between episodes; identical initial backlog and scheduler",
+      "primary": "lineage-level held-out verified success-rate gain versus frozen control, retained in every late evaluation window after restart and withdrawal of learning feedback",
+      "secondary": ["interventions per 100 missions", "human minutes", "cost per accepted mission", "rollback count", "retention on old tasks", "new-family transfer"],
+      "horizon": "at least seven real days AND 100 missions per lineage; accelerated fixtures do not meet this requirement",
+      "validity": ["multiple independent lineages; task episodes are not independent replicates", "oracle hidden and immutable", "restart from durable storage", "fixed late windows declared before execution", "zero human task-specific hints, patches or unplanned restarts after setup", "count emergency operator actions as interventions", "no forgetting beyond a preregistered noninferiority margin", "environment and model held fixed across learning comparisons"]
+    }
+  ],
+  "mechanismProbes": [
+    { "hypothesis": "allostasis-survival", "script": "backend/tests/test_allostatic_mission_planning.js" },
+    { "hypothesis": "allostasis-survival", "script": "backend/tests/test_survival_model.js" },
+    { "hypothesis": "allostasis-survival", "script": "backend/tests/test_agow_collective_viability_benchmark.js" },
+    { "hypothesis": "morphogenesis-environment-change", "script": "backend/tests/test_morphogenesis_adversarial_drift_scenario.js" },
+    { "hypothesis": "morphogenesis-environment-change", "script": "backend/tests/test_morphogenesis_admission_counterfactual.js" },
+    { "hypothesis": "morphogenesis-environment-change", "script": "benchmarks/topology-morphogenesis/test-regime-change.cjs" },
+    { "hypothesis": "ontogenesis-durable-improvement", "script": "backend/tests/test_ontogenesis_loop.js" },
+    { "hypothesis": "ontogenesis-durable-improvement", "script": "backend/tests/test_ontogenesis_crash_recovery.js" },
+    { "hypothesis": "ontogenesis-durable-improvement", "script": "backend/tests/test_ontogenesis_offline_continuity.js" }
+  ]
+}
