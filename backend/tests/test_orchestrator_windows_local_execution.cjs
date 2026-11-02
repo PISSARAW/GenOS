@@ -23,6 +23,7 @@ async function main() {
   };
   let observedMission = null;
   await runWindowsLocalExecution(input, {
+    testHarness: true,
     validScope: scope => scope,
     runLocalWorker: async (_db, mission) => {
       observedMission = mission;
@@ -40,6 +41,7 @@ async function main() {
   const multiInput = { ...input, autonomyPlan: { dispatchWorkers: workerAssignments,
     workerRoster: { exact: true, requestedWorkers: 10 } } };
   await runWindowsLocalExecution(multiInput, {
+    testHarness: true,
     validScope: scope => scope,
     createAutonomousWorkers: async () => workerAssignments.map((assignment, index) => ({
       agentId: `worker-${index + 1}`, role: assignment.role, prompt: `Work ${index + 1}`,

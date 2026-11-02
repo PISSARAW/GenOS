@@ -39,8 +39,8 @@ function resolveRouting(request, localModel) {
 
 function resolveBudget(missionBudget, requestTimeoutMs) {
   const timeoutBudget = Math.max(1000, Number(requestTimeoutMs) - 4000);
-  return { ...missionBudget, tokens: missionBudget.tokens || 8192,
-    costUsd: missionBudget.costUsd || 0, latencyMs: missionBudget.latencyMs || timeoutBudget };
+  return { ...missionBudget, tokens: missionBudget.tokens ?? 8192,
+    costUsd: missionBudget.costUsd ?? 0, latencyMs: missionBudget.latencyMs ?? timeoutBudget };
 }
 
 function resolveWorkerKind(request, identity) {
@@ -79,13 +79,25 @@ function buildLocalMission(input) {
     identityExperimentArm: identity.identityExperimentArm,
     identityExperimentSeed: identity.identityExperimentSeed,
     timeoutMs: requestTimeoutMs, executionBudget: resolveBudget(missionBudget, requestTimeoutMs),
-    executionPolicy: { allowedCommands, allowFileEdits, localCodeWorker },
+    executionPolicy: { ...request.executionPolicy, allowedCommands, allowFileEdits, localCodeWorker },
+    evidencePolicy: request.evidencePolicy,
+    verifierChecks: request.verifierChecks || request.verifier_checks,
+    verificationOptions: request.verificationOptions,
     requiredPatchPaths: request.requiredPatchPaths,
     requiredPatchMarkers: request.requiredPatchMarkers,
     requiredPatchMinimumBytes: request.requiredPatchMinimumBytes };
 }
 
 async function runWindowsLocalRosterExecution(input, dependencies) {
+  const mission = buildLocalMission({ ...input, orchestratorAgentId: input.id });
+  const parent = await require('../src/services/missionProtocols/windows').prepare({ db: input.db, mission,
+    budget: mission.executionBudget, autonomyPlan: input.autonomyPlan, coordinatorOnly: true }, dependencies);
+  await require('../src/services/missionProtocols/windows').execute(parent,
+    () => runWindowsLocalRoster(input, dependencies, parent));
+  return true;
+}
+
+async function runWindowsLocalRoster(input, dependencies, parent) {
   const { db, id, missionId, autonomyPlan, request, requestTimeoutMs, enhancedPrompt } = input;
   const assignments = autonomyPlan.dispatchWorkers || [];
   const exact = autonomyPlan.workerRoster?.exact === true;
@@ -98,7 +110,9 @@ async function runWindowsLocalRosterExecution(input, dependencies) {
   }
   const createWorkers = dependencies.createAutonomousWorkers || require('../src/services/agentFleetService').createAutonomousWorkers;
   const workers = await createWorkers(db, { id, agent_type: 'orchestrator' }, {
-    plan: autonomyPlan, mission: { ...request, missionId, prompt: enhancedPrompt, workspaceRoot: requestedWorkspace(request) }
+    plan: autonomyPlan, mission: { ...request, missionId, prompt: enhancedPrompt, workspaceRoot: requestedWorkspace(request),
+      executionBudget: parent.normalizedMission.executionBudget, modelBudgetScope: parent.normalizedMission.modelBudgetScope,
+      executionPolicy: parent.normalizedMission.executionPolicy }
   });
   if (workers.length !== expected) {
     throw Object.assign(new Error('Windows local worker creation did not match the planned roster.'), {
@@ -106,7 +120,7 @@ async function runWindowsLocalRosterExecution(input, dependencies) {
     });
   }
   const runResults = await Promise.all(workers.map((worker, index) => runWindowsRosterWorker({
-    input, worker, assignment: assignments[index], index, dependencies
+    input: { ...input, parentProtocolContext: parent }, worker, assignment: assignments[index], index, dependencies
   })));
   await runWindowsRosterPostflight({ input, workers, runResults, dependencies });
   if (runResults.some((result) => !result.started || result.unresolved === true)) {
@@ -121,7 +135,7 @@ async function runWindowsLocalRosterExecution(input, dependencies) {
   const audit = await input.gatherTelemetryAndCoverage(db, id);
   await input.finalizeOrchestratedMission({ db, outcome, evaluation, morphology: input.morphology,
     morphologySnapshot: null, nceEnhancements: input.nceEnhancements, audit, deferredAgentTerminalStatus: true });
-  return true;
+  return { started: true, unresolved: false };
 }
 
 async function runWindowsRosterPostflight(context) {
@@ -153,26 +167,13 @@ async function runWindowsRosterWorker(context) {
       identityExperimentScenario: undefined }, allowedCommands, allowFileEdits });
   mission.workerKind = assignment.workerKind;
   mission.role = assignment.role;
-  const sealed = await sealWindowsExecutionRun(db, { agentId: worker.agentId,
-    missionId, workspaceRoot: worker.workspaceRoot, budget, toolLease: mission.toolLease });
-  const executionRunId = sealed?.run ? sealed.run.id : `local-direct-${worker.agentId}`;
-  if (sealed?.executionAuthorityRef) mission.executionAuthorityRef = sealed.executionAuthorityRef;
-  if (!sealed) {
-    await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json) VALUES (?, ?, 'running', '{}')`, executionRunId, worker.agentId);
-  }
-  const scope = dependencies.validScope({ id: `execution-run:${executionRunId}`, costUsd: Number(budget.costUsd || 0), tokens: Number(budget.tokens || 0) });
-  await persistLocalBudgetScope({ db, scope, executionRunId, agentId: worker.agentId });
-  mission.modelBudgetScope = scope;
+  mission.toolLease = worker.toolLease || [];
+  const ctx = await require('../src/services/missionProtocols/windows').prepare({ db, mission,
+    budget: mission.executionBudget, parentScope: input.parentProtocolContext.normalizedMission.modelBudgetScope }, dependencies);
   const startedAt = Date.now();
-  const result = await dependencies.runLocalWorker(db, mission, { id: executionRunId });
+  const result = await require('../src/services/missionProtocols/windows').execute(ctx,
+    () => dependencies.runLocalWorker(db, ctx.normalizedMission, ctx.executionRun));
   return { ...result, elapsedMs: Date.now() - startedAt };
-}
-
-async function persistLocalBudgetScope(context) {
-  const { db, scope, executionRunId, agentId } = context;
-  await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
-    (scope_id, parent_run_id, parent_agent_id, organization_id, project_id, cost_ceiling_usd, token_ceiling)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`, scope.id, executionRunId, agentId, null, null, scope.costUsd, scope.tokens);
 }
 
 function localAgents(id, result) {
@@ -191,14 +192,15 @@ function localAgents(id, result) {
 async function runWindowsLocalExecution(input, dependencies = {}) {
   process.stderr.write('[genos-orchestrate] Windows detected: using in-process local-model execution to avoid worker pipe EPIPE.\n');
   const services = resolveWindowsDependencies(dependencies);
-  if (hasMultipleWorkers(input)) return runWindowsLocalRosterExecution(input, services);
+  if (hasMultipleWorkers(input)) { await runWindowsLocalRosterExecution(input, services); return true; }
   return runSingleWindowsExecution(input, services);
 }
 
 function resolveWindowsDependencies(dependencies) {
   return { runLocalWorker: dependencies.runLocalWorker || require('../src/services/workerEvidenceBarrierLocal').runLocalWorker,
     validScope: dependencies.validScope || require('../src/services/missionModelBudgetScope').validScope,
-    createAutonomousWorkers: dependencies.createAutonomousWorkers, runPostflight: dependencies.runPostflight };
+    createAutonomousWorkers: dependencies.createAutonomousWorkers, runPostflight: dependencies.runPostflight,
+    testHarness: dependencies.testHarness };
 }
 
 function hasMultipleWorkers(input) {
@@ -210,37 +212,20 @@ async function runSingleWindowsExecution(input, services) {
     requestTimeoutMs, allowedCommands, allowFileEdits, morphology,
     nceEnhancements, evaluateMissionContinuity, gatherTelemetryAndCoverage,
     finalizeOrchestratedMission, preflight } = input;
-  const { runLocalWorker, validScope } = services;
+  const { runLocalWorker } = services;
 
   const orchestratorAgentId = id;
-  const budget = { ...missionBudget, tokens: missionBudget.tokens || 8192,
-    costUsd: missionBudget.costUsd || 0,
-    latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
   const localMission = buildLocalMission({ ...input, orchestratorAgentId });
-  const sealed = await sealWindowsExecutionRun(db, { agentId: orchestratorAgentId,
-    missionId, workspaceRoot: requestedWorkspace(request), budget, toolLease: localMission.toolLease });
-  const executionRunId = sealed?.run ? sealed.run.id : ('local-direct-' + id);
-  if (sealed?.executionAuthorityRef) localMission.executionAuthorityRef = sealed.executionAuthorityRef;
-  if (!sealed) {
-    await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json)
-      VALUES (?, ?, 'running', '{}')`, executionRunId, orchestratorAgentId);
-  }
-  const scope = validScope({
-    id: `execution-run:${executionRunId}`,
-    costUsd: Number(budget.costUsd),
-    tokens: Number(budget.tokens)
-  });
-  await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
-    (scope_id, parent_run_id, parent_agent_id, organization_id, project_id,
-     cost_ceiling_usd, token_ceiling) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    scope.id, executionRunId, orchestratorAgentId, null, null,
-    scope.costUsd, scope.tokens);
-  localMission.modelBudgetScope = scope;
+  const ctx = await require('../src/services/missionProtocols/windows').prepare({ db, mission: localMission,
+    budget: localMission.executionBudget, autonomyPlan: input.autonomyPlan }, services);
+  const executionRunId = ctx.executionRun.id;
   const workerStartedAt = Date.now();
-  const localResult = await runLocalWorker(db, localMission, { id: executionRunId });
+  const localResult = await require('../src/services/missionProtocols/windows').execute(ctx,
+    () => runLocalWorker(db, ctx.normalizedMission, ctx.executionRun));
   let postflight = { observedTools: [], receipts: [] };
   try {
-    postflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight({
+    const runPostflight = services.runPostflight || require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight;
+    postflight = await runPostflight({
       db, orchestratorId: id, missionId, task,
       repoRoot: path.resolve(__dirname, '../..'),
       workspaceRoot: requestedWorkspace(request), preflight, localResult,
@@ -259,31 +244,3 @@ async function runSingleWindowsExecution(input, services) {
 }
 
 module.exports = { runWindowsLocalExecution, buildLocalMission, runWindowsLocalRosterExecution };
-
-
-async function sealWindowsExecutionRun(db, input) {
-  if (typeof db?.get !== 'function') return null;
-  const { agentId, missionId, workspaceRoot, budget, toolLease } = input;
-  const contract = await require('../src/services/strategyContractService').getLatestContract(db, agentId);
-  if (!contract) return null;
-  try {
-    const run = await require('../src/services/strategyExecutionService').createExecutionRun(db, {
-      agentId, missionId: missionId || agentId,
-      contractRecord: contract, budget: { ...budget, deterministic: false }
-    });
-    const normalizedMission = {
-      agentId, missionId: missionId || agentId,
-      workspaceRoot, toolLease: toolLease || [], timeoutMs: budget.latencyMs || 300000,
-      evidencePolicy: { independentVerifier: true }
-    };
-    const executionAuthorityRef = await require('../src/services/missionEnvelopeAuthority').seal({
-      db, agentId, executionRun: run,
-      executable: require.resolve('../src/services/agentFleetService'),
-      contractRecord: contract,
-      autonomyPlan: { mode: 'windows_local' },
-      normalizedMission
-    });
-    await db.run("UPDATE strategy_execution_runs SET status = 'running', started_at = ? WHERE id = ? AND status = 'planned'", new Date().toISOString(), run.id);
-    return { run, executionAuthorityRef: executionAuthorityRef || normalizedMission.executionAuthorityRef };
-  } catch (_) { return null; }
-}

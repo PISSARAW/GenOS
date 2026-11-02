@@ -58,7 +58,8 @@ function modelOptions(context) {
     budgetMaxTokens: Math.floor(quote.reservationRequired.tokens),
     maxCostUsd: quote.reservationRequired.usd,
     timeoutMs: Math.floor(quote.reservationRequired.latencyMs),
-    providerContinuity: { mode: 'openai-responses' }, stream: false };
+    ...(/^openai:\/\//i.test(execution.model) ? { providerContinuity: { mode: 'openai-responses' } } : {}),
+    stream: false };
 }
 
 async function executeTool(context) {
@@ -133,6 +134,7 @@ async function activate(input) {
     return { status: 'executor_unavailable', decision, executed: false };
   }
   const quote = decision.alternatives.find((item) => item.id === action.id).quote;
+  await require('./missionProtocols/actions').adopt(db, request);
   return executeReserved({ db, request, decision, action, quote, binding, context,
     contract: decisionInputValue.contract });
 }

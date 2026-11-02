@@ -1,13 +1,19 @@
 'use strict';
 
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'mission-procedure-native-tests';
+process.env.NODE_ENV = 'test';
+
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { openDatabase } = require('./helpers/biologyDatabase');
+const nativeFixture = require('./helpers/missionActionsFixture');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
 const { SCHEMA, STATUSES } = require('../src/services/missionOutcomeContract');
 const compilation = require('../src/services/proceduralCompilationService');
 const procedureRuntime = require('../src/services/missionActionProcedureService');
 const trust = require('../src/services/missionActionRuntimeTrust');
-const provenance = require('../src/services/gvxMissionProvenance');
 const modelRouter = require('../src/services/modelRouter');
 const { handleAction } = require('../bin/orchestratorActions.cjs');
 
@@ -15,37 +21,26 @@ const KEY = 'procedure-runtime-test-key-0123456789abcdef';
 const CONTRACT = { schema: SCHEMA, goal: 'Verify the answer',
   obligations: [{ id: 'answer', statement: 'The answer is correct' }], statuses: [...STATUSES] };
 const CONTEXT = { domain: 'mission', operation: 'answer',
-  organizationId: 'org-1', projectId: 'project-1' };
+  organizationId: 'org', projectId: 'project' };
+let activeContext;
 
 function digest(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 async function fixture() {
-  const db = openDatabase();
-  await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
-    CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT);
-    CREATE TABLE strategy_contracts (id TEXT PRIMARY KEY, contract_json TEXT);
-    CREATE TABLE strategy_execution_runs (id TEXT PRIMARY KEY, agent_id TEXT,
-      contract_id TEXT, status TEXT, budget_json TEXT, metrics_json TEXT);
-    INSERT INTO workspaces VALUES ('workspace-1', 'org-1', 'project-1');
-    INSERT INTO agents VALUES ('agent-1', 'workspace-1');`);
-  await db.run('INSERT INTO strategy_contracts VALUES (?, ?)', 'contract-1',
-    JSON.stringify({ mission_outcome: CONTRACT }));
-  await db.run('INSERT INTO strategy_execution_runs VALUES (?, ?, ?, ?, ?, ?)',
-    'run-1', 'agent-1', 'contract-1', 'planned',
-    JSON.stringify({ tokens: 10, costUsd: 1, latencyMs: 1000 }),
-    JSON.stringify({ tokens: 0, costUsd: 0, latencyMs: 0 }));
-  return db;
+  activeContext = await nativeFixture.create();
+  activeContext.db.actionFixture = activeContext;
+  return activeContext.db;
 }
 
 async function candidate(db, obligationIds = ['answer']) {
   for (let index = 0; index < 3; index++) {
-    await compilation.recordTrace(db, { agentId: 'agent-1', contextHash: 'contract-v1',
+    await compilation.recordTrace(db, { agentId: 'worker', contextHash: 'contract-v1',
       context: CONTEXT, steps: ['read', 'answer'], input: 'question', success: true,
       evidenceRefs: [`evidence:${index}`] });
   }
-  return compilation.compile(db, { agentId: 'agent-1', contextHash: 'contract-v1',
+  return compilation.compile(db, { agentId: 'worker', contextHash: 'contract-v1',
     context: CONTEXT, executorId: 'fixture:answer', obligationIds,
     outcomeContractDigest: digest(CONTRACT) });
 }
@@ -72,14 +67,14 @@ function action(procedure) {
 
 function signed(candidate) {
   const signature = crypto.createHmac('sha256', KEY).update(trust.attestationPayload({
-    runId: 'run-1', missionId: 'mission-1', contract: CONTRACT, action: candidate
+    runId: activeContext.executionRun.id, missionId: 'worker-mission', contract: CONTRACT, action: candidate
   })).digest('hex');
   candidate.calibrationReceipt.signature = `sha256:${signature}`;
   return candidate;
 }
 
 function request(candidate) {
-  return { executionRunId: 'run-1', agentId: 'agent-1', missionId: 'mission-1',
+  return { executionRunId: activeContext.executionRun.id, agentId: 'worker', missionId: 'worker-mission',
     decision: { mode: 'active', actions: [signed(candidate)] } };
 }
 
@@ -89,20 +84,17 @@ async function invoke(db, candidate) {
   process.stdout.write = (chunk) => { output += String(chunk); return true; };
   try {
     assert.equal(await handleAction({ action: 'execute_mission_action', db,
-      request: request(candidate), orchestratorId: 'agent-1' }), true);
+      request: request(candidate), orchestratorId: 'worker' }), true);
     return JSON.parse(output);
   } finally { process.stdout.write = write; }
 }
 
 async function withRuntime(test) {
   const db = await fixture();
-  const oldReadRun = provenance.readRun;
   const oldGenerate = modelRouter.generate;
   const oldFlag = process.env.GENOS_MISSION_ACTION_ACTIVE;
   const oldKey = process.env.GENOS_MISSION_ACTION_ATTESTATION_KEY;
   let modelCalls = 0;
-  provenance.readRun = async () => ({ mission: { id: 'mission-1' },
-    scope: { organizationId: 'org-1', projectId: 'project-1' } });
   modelRouter.generate = async () => { modelCalls++; throw new Error('Model must not run.'); };
   procedureRuntime.registerBinding('fixture:answer', {
     execute: async ({ step, input }) => `${input}:${step}`,
@@ -110,13 +102,12 @@ async function withRuntime(test) {
   process.env.GENOS_MISSION_ACTION_ACTIVE = '1';
   process.env.GENOS_MISSION_ACTION_ATTESTATION_KEY = KEY;
   try { await test(db, () => modelCalls); } finally {
-    provenance.readRun = oldReadRun;
     modelRouter.generate = oldGenerate;
     if (oldFlag === undefined) delete process.env.GENOS_MISSION_ACTION_ACTIVE;
     else process.env.GENOS_MISSION_ACTION_ACTIVE = oldFlag;
     if (oldKey === undefined) delete process.env.GENOS_MISSION_ACTION_ATTESTATION_KEY;
     else process.env.GENOS_MISSION_ACTION_ATTESTATION_KEY = oldKey;
-    await db.close();
+    await db.actionFixture.close();
   }
 }
 
@@ -163,8 +154,8 @@ async function testBindingAndBudget() {
     wrongReceipt.execution.receiptDigest = 'stale-digest';
     const rejected = await invoke(db, wrongReceipt);
     assert.equal(rejected.decision.alternatives[2].reason, 'procedure_receipt_unverified');
-    await db.run('UPDATE strategy_execution_runs SET budget_json = ? WHERE id = ?',
-      JSON.stringify({ tokens: 10, costUsd: 1, latencyMs: 5 }), 'run-1');
+    await db.run('UPDATE strategy_execution_runs SET metrics_json = ? WHERE id = ?',
+      JSON.stringify({ tokens: 0, costUsd: 0, latencyMs: 299995 }), activeContext.executionRun.id);
     const overBudget = await invoke(db, action(promotion));
     assert.equal(overBudget.decision.alternatives[2].reason, 'budget_exceeded');
     assert.equal(modelCalls(), 0);
@@ -183,11 +174,17 @@ async function testUnboundObligation() {
 }
 
 async function main() {
-  await testExecution();
-  await testUnpromotedAndStale();
-  await testBindingAndBudget();
-  await testUnboundObligation();
-  console.log('Mission procedure runtime tests passed.');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mission-procedure-telemetry-'));
+  process.env.GENOS_DB_PATH = path.join(directory, 'telemetry.db');
+  await require('../src/db').getDatabase();
+  try {
+    await testExecution(); await testUnpromotedAndStale(); await testBindingAndBudget(); await testUnboundObligation();
+    console.log('Mission procedure runtime tests passed with genuine sealed authority.');
+  } finally {
+    await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
+    await require('../src/db').closeDatabase();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

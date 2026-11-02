@@ -73,8 +73,8 @@ async function prepare(db, workspace) {
 function signedAction(run, contractValue) {
   const action = { id: 'solve-subset', kind: 'small_model', covers: ['answer'],
     requiredEvidenceRefs: ['proof:model-fixture'],
-    cost: { execution: { tokens: 300, usd: 0.1, latencyMs: 1000 },
-      verification: { tokens: 0, usd: 0, latencyMs: 1000 }, maxRetries: 0 },
+    cost: { execution: { tokens: 300, usd: 0.1, latencyMs: 10000 },
+      verification: { tokens: 0, usd: 0, latencyMs: 10000 }, maxRetries: 0 },
     execution: { prompt: 'Solve subset sum for [3,5,7] target 10 as JSON.',
       model: 'openai://fixture', oracleDomain: 'model_subset_sum' },
     calibrationReceipt: { probabilityVerified: { min: 0.8, max: 0.9 },
