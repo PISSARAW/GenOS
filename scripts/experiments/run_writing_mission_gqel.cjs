@@ -9,21 +9,26 @@ Dans une station orbitale de recherche, un sas endommagé et une fuite de pathog
 Alain et Vera doivent décider qui ferme manuellement le sas depuis l’extérieur.
 Établis pourquoi cette opération est nécessaire, pourquoi les alternatives échouent et pourquoi le retour est impossible.
 Donne à chacun un intérêt propre, une peur qui influence une action et une manière de parler distincte.
+Ils peuvent partager le même objectif ; distingue leurs décisions, informations, méthodes ou risques acceptés.
 Montre découverte, obstacles, décisions et fermeture : ne les remplace pas par des résumés.
 La tension doit naître des actes. Ni note de qualité, ni autoéloge, ni victoire seulement déclarée.`;
 function argumentsOf(argv) {
-  const allowed = new Set(['model', 'judge-model', 'out', 'iterations', 'minutes', 'min-words', 'scenes', 'context', 'tokens', 'policy', 'brief']), out = {};
+  const allowed = new Set(['model', 'judge-model', 'out', 'iterations', 'minutes', 'min-words', 'scenes', 'context', 'tokens', 'policy', 'brief',
+    'protocol-repairs', 'plan-repairs', 'strict-plan']), out = {};
   for (const arg of argv) {
     const match = /^--([a-z-]+)=(.+)$/.exec(arg);
     if (!match || !allowed.has(match[1])) throw new Error(`Unknown argument: ${arg}`);
     out[match[1]] = match[2];
   }
+  if (out['strict-plan'] !== undefined && !['true', 'false'].includes(out['strict-plan'])) throw new Error('--strict-plan must be true or false.');
   return out;
 }
 function configFrom(args) {
   return { domain: 'creative_writing', policy: args.policy || 'balanced', mission: args.brief ? fs.readFileSync(args.brief, 'utf8') : BRIEF,
     maxIterations: Number(args.iterations || 4), targetMinutes: Number(args.minutes || 20), minBodyWords: Number(args['min-words'] || 1200),
     minSceneCount: Number(args.scenes || 6), maxSceneCount: 12, budgetMaxTokens: Number(args.tokens || 160000), maxCalls: 100,
+    maxProtocolRepairs: Number(args['protocol-repairs'] ?? 2), maxPlanRepairs: Number(args['plan-repairs'] ?? 1),
+    allowProvisionalDraft: args['strict-plan'] !== 'true',
     maxPromptChars: 48000, maxOutputTokens: 3500, maxDurationMs: 3600000, callTimeoutMs: 300000 };
 }
 function atomicJson(file, value) {
@@ -31,20 +36,24 @@ function atomicJson(file, value) {
   fs.writeFileSync(temporary, JSON.stringify(value, null, 2), { encoding: 'utf8', flag: 'wx' }); fs.renameSync(temporary, file);
 }
 function createOutputDirectory(requested) {
-  const directory = path.resolve(requested || path.join('artifacts', `gqel-v2-${Date.now()}`));
+  const directory = path.resolve(requested || path.join('artifacts', `gqel-v2-1-${Date.now()}`));
   fs.mkdirSync(path.dirname(directory), { recursive: true }); fs.mkdirSync(directory); return directory;
 }
+function persistText(directory, name, record) {
+  const file = path.join(directory, name);
+  if (!fs.existsSync(file)) fs.writeFileSync(file, record.content, { encoding: 'utf8', flag: 'wx' });
+  if (digest(fs.readFileSync(file, 'utf8')) !== record.digest) throw new Error('Persisted artifact hash differs.');
+}
 function persistVersions(directory, session) {
-  for (const version of session.versions) {
-    const file = path.join(directory, `V${version.version}.md`);
-    if (!fs.existsSync(file)) fs.writeFileSync(file, version.content, { encoding: 'utf8', flag: 'wx' });
-    if (digest(fs.readFileSync(file, 'utf8')) !== version.digest) throw new Error('Persisted artifact hash differs.');
+  for (const version of session.versions) persistText(directory, `V${version.version}.md`, version);
+  for (const draft of session.drafts || []) persistText(directory, `draft-${draft.draft}-unaccepted.md`, draft);
+  for (const [index, scene] of (session.sceneDrafts || []).entries()) {
+    persistText(directory, `scene-draft-${index + 1}-unaccepted.md`, { content: scene.text, digest: scene.digest });
   }
 }
 function makeReviewers(contract, adapter, model) {
   return Array.from({ length: contract.critiques }, (_, index) => ({ id: `reader-${index + 1}`, model, dependencyGroup: model,
     focus: ['causalité et dramaturgie', 'continuité, connaissances et mise en scène', 'lecture contradictoire du brief'][index % 3],
-    // Separate calls and contexts are NOT independent models.
     review: adapter }));
 }
 async function runWritingMission(argv = process.argv.slice(2)) {
@@ -52,16 +61,17 @@ async function runWritingMission(argv = process.argv.slice(2)) {
   const model = args.model || 'llama3.1:8b', judgeModel = args['judge-model'] || model;
   const common = { contextSize: Number(args.context || 32768), url: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434' };
   const generator = createOllamaAdapter({ ...common, model }), judge = createOllamaAdapter({ ...common, model: judgeModel });
-  console.log(`GQEL V2 | author=${model} | reviewer=${judgeModel} | output=${directory}`);
+  console.log(`GQEL V2.1 | author=${model} | reviewer=${judgeModel} | output=${directory}`);
   atomicJson(path.join(directory, 'contract.json'), contract);
   const result = await executeElevationLoop({ contract, generator, reviewers: makeReviewers(contract, judge, judgeModel),
     onCheckpoint: session => {
       persistVersions(directory, session); atomicJson(path.join(directory, `checkpoint-${session.events.length}.json`), session);
-      console.log(`round=${session.rounds} calls=${session.budget.calls} tokens=${session.budget.tokens} status=${session.status}`);
+      console.log(`round=${session.rounds} calls=${session.budget.calls} tokens=${session.budget.tokens} scenes=${session.sceneDrafts.length} status=${session.status}`);
     } });
   persistVersions(directory, result.session); atomicJson(path.join(directory, 'report.json'), result);
-  if (result.bestVersion) fs.writeFileSync(path.join(directory, result.promoted ? 'screenplay.md' : 'candidate-not-accepted.md'), result.bestVersion.content, { flag: 'wx' });
-  console.log(`Status=${result.finalStatus}; promoted=${result.promoted}; observed rubric delta=${result.observedRubricDelta ?? 'unknown'}`);
+  const candidate = result.bestVersion || result.lastCandidate;
+  if (candidate) fs.writeFileSync(path.join(directory, result.promoted ? 'screenplay.md' : 'candidate-not-accepted.md'), candidate.content, { flag: 'wx' });
+  console.log(`Status=${result.finalStatus}; promoted=${result.promoted}; progress=${JSON.stringify(result.progress)}`);
   console.log('No artistic gain or superiority over the model alone is claimed by this run.');
   if (result.terminalError) console.error(result.terminalError);
   return result;

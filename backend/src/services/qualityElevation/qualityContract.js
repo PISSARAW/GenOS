@@ -74,7 +74,9 @@ function limits(input) {
     callTimeoutMs: integer(input.callTimeoutMs, 180000, [1, 3600000]),
     maxOutputTokens: integer(input.maxOutputTokens, 3000, [1, 100000]),
     maxPromptChars: integer(input.maxPromptChars, 42000, [100, 1000000]),
-    maxStrategyMutations: integer(input.maxStrategyMutations, 2, [0, 20])
+    maxStrategyMutations: integer(input.maxStrategyMutations, 2, [0, 20]),
+    maxProtocolRepairs: integer(input.maxProtocolRepairs, 2, [0, 5]),
+    maxPlanRepairs: integer(input.maxPlanRepairs, 1, [0, 5])
   };
 }
 function profileFor(domain, mission) {
@@ -93,14 +95,15 @@ function reviewOptions(input, policy) {
 function narrativeOptions(input) {
   return { targetMinutes: input.targetMinutes == null ? null : number(input.targetMinutes, null, [0.1, 1000]),
     minSceneCount: integer(input.minSceneCount, 1, [1, 50]), maxSceneCount: integer(input.maxSceneCount, 12, [1, 50]),
-    minBodyWords: integer(input.minBodyWords, 0, [0, 100000]) };
+    minBodyWords: integer(input.minBodyWords, 0, [0, 100000]),
+    allowProvisionalDraft: boolean(input.allowProvisionalDraft, true) };
 }
 function compileQualityContract(input = {}) {
   const name = input.policy || 'balanced', policy = POLICIES[name];
   if (!policy) throw fail('GQEL_INVALID_CONTRACT', 'Unknown quality policy.');
   const domain = String(input.domain || inferDomain(input.mission)).toLowerCase().trim();
   const profile = profileFor(domain, input.mission), narrative = narrativeOptions(input);
-  const contract = { schema: 'genos.gqel-contract/v2', domain, profile, mission: String(input.mission || ''), policy: name,
+  const contract = { schema: 'genos.gqel-contract/v2', controllerRevision: '2.1-progress', domain, profile, mission: String(input.mission || ''), policy: name,
     ...reviewOptions(input, policy), ...narrative, ...limits(input),
     criteria: normalizeCriteria(input.criteria || [], criteriaFor(profile, narrative.targetMinutes)) };
   if (contract.minSceneCount > contract.maxSceneCount) throw fail('GQEL_INVALID_CONTRACT', 'Impossible scene bounds.');

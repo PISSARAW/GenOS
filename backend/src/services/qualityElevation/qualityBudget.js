@@ -12,7 +12,7 @@ function reservation(contract, request) {
   const outputLimit = Math.min(request.maxOutputTokens || contract.maxOutputTokens, contract.maxOutputTokens);
   if (!Number.isInteger(outputLimit) || outputLimit < 1) throw fail('GQEL_INVALID_OUTPUT_LIMIT', 'Invalid output cap.');
   // Byte count is a conservative preflight reservation, not measured usage.
-  return { prompt, outputLimit, reserved: Buffer.byteLength(prompt, 'utf8') + outputLimit };
+  return { prompt, outputLimit, reserved: Buffer.byteLength(prompt + JSON.stringify(request.responseSchema || ''), 'utf8') + outputLimit };
 }
 async function timedCall(callback, request, timeoutMs) {
   const controller = new AbortController(); let timer;
@@ -45,7 +45,8 @@ function createInvoker(contract, session) {
     if (budget.tokens + limits.reserved > contract.budgetMaxTokens) throw fail('GQEL_TOKEN_BUDGET', 'Insufficient budget for the next complete call.');
     budget.calls++;
     const before = budget.tokens, started = Date.now();
-    const receipt = { call: budget.calls, operation: request.operation, startedAt: started, status: 'pending' };
+    const receipt = { call: budget.calls, operation: request.operation, stage: request.stage || 'review',
+      protocolAttempt: request.protocolAttempt || 0, startedAt: started, status: 'pending' };
     session.calls.push(receipt);
     try {
       const reply = await timedCall(callback, { ...request, maxOutputTokens: limits.outputLimit },

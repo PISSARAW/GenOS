@@ -14,5 +14,8 @@ function testTeamEvidenceRepairObligation() {
   assert.equal(verdict.promoted, false); assert.equal(verdict.reason, 'acceptance_criteria_unverified');
   assert.ok(verdict.repairObligation); assert.deepEqual(verdict.repairObligation.unverifiedCriteria, ['criterion-B']);
 }
-async function main() { await run(); testTeamEvidenceRepairObligation(); console.log('GQEL V2 plus A-Team repair-obligation integration: PASS'); }
+async function main() {
+  await run(); await require('./test_gqel_progress.cjs').run();
+  testTeamEvidenceRepairObligation(); console.log('GQEL V2.1 plus A-Team repair-obligation integration: PASS');
+}
 main().catch(error => { console.error(error); process.exitCode = 1; });
