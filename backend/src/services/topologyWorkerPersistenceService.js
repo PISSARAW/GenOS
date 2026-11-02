@@ -8,7 +8,7 @@ async function ensureTopologyWorker(db, input) {
     prompt: input.mission,
     orchestratorAgentId: input.parentId,
     methodContract: input.methodContract,
-    workerAssignment: input.workerAssignment,
+    workerAssignment: input.workerAssignment, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(input),
     workerTokenLimit: input.workerTokenLimit,
     communicationRequired: input.communicationRequired === true,
     topologySessionId: input.topologySessionId,

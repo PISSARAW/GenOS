@@ -87,7 +87,7 @@ const TOOL_BASE_SCHEMAS = {
   genos_orchestrate: {
     type: 'object',
     properties: {
-      mission: { type: 'string', description: 'Goal or user request to achieve.' },
+      mission: { type: 'string', description: 'Goal or user request to achieve.' }, ...require('./qualityElevation/qualityMissionSchema').qualityMissionSchema(),
       native_objectives: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object' } },
       worker_assignments: workerAssignmentsSchema(),
       worker_roster: workerRosterSchema(),
@@ -117,7 +117,7 @@ const TOOL_BASE_SCHEMAS = {
   genos_delegate_worker: {
     type: 'object',
     properties: {
-      mission: { type: 'string', description: 'Sub-task for the delegated worker.' },
+      mission: { type: 'string', description: 'Sub-task for the delegated worker.' }, ...require('./qualityElevation/qualityMissionSchema').qualityMissionSchema(),
       role: { type: 'string', description: 'Specialized role of the worker.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the worker within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor inherited by the worker.' },
@@ -239,7 +239,7 @@ const TOOL_BASE_SCHEMAS = {
   genos_trinity_launch: {
     type: 'object',
     properties: {
-      mission: { type: 'string', description: 'Mission to analyze.' },
+      mission: { type: 'string', description: 'Mission to analyze.' }, ...require('./qualityElevation/qualityMissionSchema').qualityMissionSchema(),
       variant_id: { type: 'string', enum: ['controlled', 'heterogeneous', 'adversarial', 'counterfactual', 'factorial', 'pareto', 'jury', 'recursive', 'adaptive', 'temporal', 'oracular', 'exploratory'], description: 'Optional Trinity variant; conceptual variants are rejected, and partial variants report their limits.' },
       experimental_design: { type: 'object', description: 'Composable Trinity policy axes. Omitted axes use the controlled three-world baseline.', properties: trinityDesignSchema() },
       trinity_jury: { type: 'object', description: 'Optional advisory jury configuration. Jury variant requires enabled=true and at least two distinct modelUris.', properties: { enabled: { type: 'boolean' }, modelUris: { type: 'array', items: { type: 'string' } }, maxCostUsd: { type: 'number' } } },
@@ -250,7 +250,7 @@ const TOOL_BASE_SCHEMAS = {
   genos_a_team_preview: {
     type: 'object',
     properties: {
-      project_goal: { type: 'string', description: 'Overarching project goal.' },
+      project_goal: { type: 'string', description: 'Overarching project goal.' }, ...require('./qualityElevation/qualityMissionSchema').qualityMissionSchema(),
       sub_systems: { type: ['array', 'string'], items: { type: 'string' }, description: 'Distinct subsystems (array of strings or comma-separated string).' },
       worker_assignments: workerAssignmentsSchema(),
     },

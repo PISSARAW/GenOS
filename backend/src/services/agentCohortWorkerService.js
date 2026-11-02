@@ -25,7 +25,7 @@ function reuseCohortWorker(existing, context) {
   const { parentId, assignment, tokenBudget, mission } = context;
   assertCohortIdentity(existing, parentId, assignment);
   return { agentId: existing.agentId, name: existing.name, role: existing.role,
-    workerKind: assignment.workerKind, workerContract: assignment.workerContract,
+    workerKind: assignment.workerKind, workerContract: assignment.workerContract, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     workerAssignment: assignment, methodContract: assignment.methodContract || null,
     prompt: existing.current_task || '', toolLease: Array.isArray(assignment.tools) ? assignment.tools : [],
     capabilities: Array.isArray(assignment.capabilities) ? assignment.capabilities : [],

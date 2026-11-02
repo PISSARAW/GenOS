@@ -28,7 +28,7 @@ function missionRuntimeContext(request = {}) {
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'hypotheses',
     'workerBarrierTimeoutMs', 'communicationRequired', 'coordinationPolicy', 'workerTokenLimit', 'localCodeWorker', 'requiredPatchPaths',
     'requiredPatchMarkers', 'requiredPatchMinimumBytes',
-    'requiredTools', 'toolLease', 'userTopologyRequested',
+    'requiredTools', 'toolLease', 'userTopologyRequested', 'qualityElevation', 'qualityRuntime', 'qualityRepair',
     'worker_roster', 'workerRoster', 'worker_count', 'workerCount', 'worker_task_count', 'workerTaskCount',
     'worker_type_policy', 'workerTypePolicy', 'worker_types', 'workerTypes'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)

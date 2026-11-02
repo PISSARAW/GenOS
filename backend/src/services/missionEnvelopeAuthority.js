@@ -156,6 +156,7 @@ async function assertCompletedRunEvidence(db, input) {
 
 async function assertMission(saved, mission) {
   if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
+  require('./qualityElevation/qualityMissionContract').assertQualityAuthority(saved.envelope, mission);
   const root = await realWorkspaceRoot(mission.workspaceRoot);
   if (!workspaceIdentity.sameWorkspaceRoot(root, saved.envelope.workspaceRoot)) throw contextChanged('workspace root changed');
   const actualTools = [...new Set(mission.toolLease || [])];

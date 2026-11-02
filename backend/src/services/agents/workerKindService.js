@@ -296,7 +296,7 @@ function buildWorkerContract(kind, mission = {}) {
     niche: { domain: definition.kind === 'specialist' ? (resolveSpecialtyNiche(mission) || 'declared_niche') : null },
     expressedCapabilities: expressedCapabilitiesFor(definition.kind),
     limits: workerLimits(definition.kind, subOrchestrator),
-    resources: workerResources(definition.kind, mission)
+    resources: workerResources(definition.kind, mission), ...require('../qualityElevation/qualityMissionContract').qualityWorkerFields(mission)
   };
 }
 

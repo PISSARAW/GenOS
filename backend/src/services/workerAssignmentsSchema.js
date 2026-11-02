@@ -7,7 +7,7 @@ function workerAssignmentsSchema() {
     additionalProperties: {
       type: 'object',
       properties: {
-        workerKind: { type: 'string' },
+        workerKind: { type: 'string' }, ...require('./qualityElevation/qualityMissionSchema').qualityMissionSchema(),
         workerRequirements: { type: 'object', properties: {
           requiredCapabilities: { type: 'array', items: { type: 'string' } },
           allowedKinds: { type: 'array', items: { type: 'string' } }

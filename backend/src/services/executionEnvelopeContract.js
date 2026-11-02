@@ -45,7 +45,7 @@ async function build(ctx, input) {
       isolation: workspaceIsolation(input.identity) },
     toolAuthority: { lease: tools, expiresAt },
     budgets: authorityBudgets(mission, input.binding.budget),
-    evidencePolicy: evidencePolicy(mission),
+    evidencePolicy: evidencePolicy(mission), qualityElevation: require('./qualityElevation/qualityMissionContract').qualityAuthority(mission),
     determinism: replay,
     stateVersions: { strategyContract: input.binding.strategyContract.version,
       missionAuthority: input.lease?.generation ?? null,

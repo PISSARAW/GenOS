@@ -34,7 +34,7 @@ function childAssignment(args) {
   const kind = String(args.workerKind || 'bounded_worker').trim().toLowerCase();
   if (!ALLOWED_CHILD_KINDS.has(kind)) throw Object.assign(new Error(`Child worker kind '${kind}' is outside the sub-orchestrator allowlist.`), { code: 'SUBORCHESTRATOR_CHILD_KIND_DENIED' });
   const role = String(args.role || kind).slice(0, 80);
-  return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
+  return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(args), ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
 }
 
 function workerPlan(parent, assignment, remaining) {

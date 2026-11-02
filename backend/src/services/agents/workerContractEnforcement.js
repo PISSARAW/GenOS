@@ -99,6 +99,7 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
   workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
+  require('../qualityElevation/qualityMissionContract').assertPersistedQuality(contract, contract);
   assertTrialMissionBinding(contract.mission);
   assertCanonicalContract(contract, kind);
   assertHostCapabilityBoundary(contract, kind);
@@ -227,6 +228,7 @@ function invalidContract() {
 }
 
 function assertAssignmentMatches(contract, request) {
+  require('../qualityElevation/qualityMissionContract').assertPersistedQuality(contract, request);
   require('../epistemic/workspaceVerificationContract').assertMatches(contract, request);
   const kind = contract?.identity?.workerKind;
   if (require('./workerRuntimeLimitsService').isDeterministicWorkerMission({ workerKind: kind,

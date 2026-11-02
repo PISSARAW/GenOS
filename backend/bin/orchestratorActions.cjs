@@ -227,7 +227,7 @@ async function selectWorker({ db, context }) {
   return reusable;
 }
 async function prepareWorker({ db, context, parent, reusable }) {
-  const { request } = context;
+  const { request } = context; require('../src/services/qualityElevation/qualityMissionContract').prepareQualityMission(request);
   const role = workerRole(request);
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(request.workerKind, role);
   await workerGarage.requireAvailableSlot(db, context.orchestratorId, workerSlotId(context));
@@ -263,7 +263,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   const budget = request.execution_budget || request.executionBudget || {};
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
-    methodContract: request.methodContract, workerAssignment: request.workerAssignment,
+    methodContract: request.methodContract, workerAssignment: request.workerAssignment, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
     workerTokenLimit: request.workerTokenLimit ?? budget.tokens
   });

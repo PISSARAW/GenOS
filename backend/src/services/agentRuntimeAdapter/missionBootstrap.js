@@ -31,6 +31,7 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
       const code = normalizedMission.workerKind === 'sub_orchestrator' ? 'INVALID_SUBORCHESTRATOR_CONTRACT' : 'INVALID_WORKER_CONTRACT';
       throw Object.assign(new Error('Persisted worker contract has a different parent.'), { code });
     }
+    require('../qualityElevation/qualityMissionContract').restoreWorkerQuality(normalizedMission, persistedContract);
     normalizedMission.workerContract = persistedContract;
   } else {
     normalizedMission.workerContract = workerKinds.buildWorkerContract(normalizedMission.workerKind, normalizedMission);
@@ -53,7 +54,7 @@ function persistedWorkerContract(agent) {
 async function initializeMissionContext(mission) {
   const agentId = mission.agentId || mission.id;
   assertMissionNotCancelled(agentId);
-  const normalizedMission = { ...mission, agentId };
+  const normalizedMission = require('../qualityElevation/qualityMissionContract').prepareQualityMission({ ...mission, agentId });
   normalizeRequestedExecutor(normalizedMission);
   assertCallerMcpConfiguration(normalizedMission);
   attachHostExecutionContext(normalizedMission);

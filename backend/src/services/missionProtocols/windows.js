@@ -17,6 +17,7 @@ function harness(input, options) {
 
 async function context(input) {
   const { db, mission } = input;
+  require('../qualityElevation/qualityMissionContract').prepareQualityMission(mission);
   budget.validate(input.budget);
   const agent = await db.get('SELECT * FROM agents WHERE id=?', mission.agentId);
   if (!agent?.workspace_id) throw new Error('WINDOWS_PROTOCOL_AGENT_WORKSPACE_REQUIRED');

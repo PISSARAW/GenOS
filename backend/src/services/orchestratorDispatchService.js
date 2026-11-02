@@ -66,7 +66,7 @@ function buildWorkerMission(input = {}) {
     requiredPatchMinimumBytes: input.requiredPatchMinimumBytes,
     localModel: input.localModel,
     localContextTokens: input.localContextTokens,
-    localRoutingPolicy: input.localRoutingPolicy,
+    localRoutingPolicy: input.localRoutingPolicy, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(input),
     variantIndex: input.variantIndex,
     autonomousOrchestration: false
   };

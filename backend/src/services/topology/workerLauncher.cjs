@@ -39,6 +39,7 @@ function runnerEnvironment() {
 }
 
 async function persistWorkerIdentity({ db, context, member, parent, workerId }) {
+  require('../qualityElevation/qualityMissionContract').prepareQualityMission(member);
   return ensureTopologyWorker(db, {
     workerId,
     parentId: context.orchestratorId,
@@ -49,7 +50,7 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     role: member.role || 'worker',
     workerKind: member.workerKind,
     methodContract: member.methodContract,
-    workerAssignment: member.workerAssignment,
+    workerAssignment: member.workerAssignment, ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(member),
     workerTokenLimit: member.executionBudgetTokens,
     topologySessionId: context.topologySession?.sessionId || null,
     mission: member.mission || context.task

@@ -113,7 +113,7 @@ async function createAssignedWorkers(context) {
   const { db, orchestrator, plan, mission, assignments, parent, workerIds, workers, context: workerContext } = context;
   const usedNames = [];
   for (const [index, assignment] of assignments.entries()) {
-    const typed = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
+    const typed = require('./qualityElevation/qualityMissionContract').prepareQualityMission({ ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) });
     const existing = plan.morphogenesisCohort === true
       ? await cohortWorkerService.existingCohortWorker(db, workerIds[index]) : null;
     const worker = existing
@@ -315,7 +315,7 @@ function fleetWorkerContract(details) {
     regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
     writeLease: workerWriteLease(mission),
     codeVerificationContract: mission.codeVerificationContract,
-    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
+    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens, communicationRequired: mission.communicationRequired === true,
     delegatedTokenLimit: assignment.delegatedTokenLimit,
     ...trialMissionBinding.missionContractFields(mission)
@@ -388,7 +388,7 @@ function workerRuntime(details) {
     requiredPatchPaths: mission.requiredPatchPaths,
     requiredPatchMarkers: mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: mission.requiredPatchMinimumBytes,
-    inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy,
+    inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     localRoutingCriteria: route.criteria, capabilities, toolLease,
     workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider,
     modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };

@@ -257,6 +257,51 @@
                     "version",
                     "methodId"
                   ]
+                },
+                "qualityElevation": {
+                  "type": "object",
+                  "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+                },
+                "qualityRuntime": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "generatorModel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "planScenes": {
+                      "type": "boolean"
+                    },
+                    "reviewers": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dependencyGroup": {
+                            "type": "string"
+                          },
+                          "focus": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "model"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "additionalProperties": false
@@ -451,6 +496,51 @@
           "confidence": {
             "type": "number",
             "minimum": 0
+          },
+          "qualityElevation": {
+            "type": "object",
+            "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+          },
+          "qualityRuntime": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "generatorModel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "planScenes": {
+                "type": "boolean"
+              },
+              "reviewers": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependencyGroup": {
+                      "type": "string"
+                    },
+                    "focus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model"
+                  ]
+                }
+              }
+            }
           }
         },
         "required": [
@@ -599,6 +689,51 @@
           "confidence": {
             "type": "number",
             "minimum": 0
+          },
+          "qualityElevation": {
+            "type": "object",
+            "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+          },
+          "qualityRuntime": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "generatorModel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "planScenes": {
+                "type": "boolean"
+              },
+              "reviewers": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependencyGroup": {
+                      "type": "string"
+                    },
+                    "focus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model"
+                  ]
+                }
+              }
+            }
           }
         },
         "required": [
@@ -2325,6 +2460,51 @@
                     "version",
                     "methodId"
                   ]
+                },
+                "qualityElevation": {
+                  "type": "object",
+                  "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+                },
+                "qualityRuntime": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "generatorModel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "planScenes": {
+                      "type": "boolean"
+                    },
+                    "reviewers": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dependencyGroup": {
+                            "type": "string"
+                          },
+                          "focus": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "model"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "additionalProperties": false
@@ -2431,6 +2611,51 @@
           "confidence": {
             "type": "number",
             "minimum": 0
+          },
+          "qualityElevation": {
+            "type": "object",
+            "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+          },
+          "qualityRuntime": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "generatorModel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "planScenes": {
+                "type": "boolean"
+              },
+              "reviewers": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependencyGroup": {
+                      "type": "string"
+                    },
+                    "focus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model"
+                  ]
+                }
+              }
+            }
           }
         },
         "required": [
@@ -2560,6 +2785,51 @@
                     "version",
                     "methodId"
                   ]
+                },
+                "qualityElevation": {
+                  "type": "object",
+                  "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+                },
+                "qualityRuntime": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "generatorModel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "planScenes": {
+                      "type": "boolean"
+                    },
+                    "reviewers": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dependencyGroup": {
+                            "type": "string"
+                          },
+                          "focus": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "model"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "additionalProperties": false
@@ -2666,6 +2936,51 @@
           "confidence": {
             "type": "number",
             "minimum": 0
+          },
+          "qualityElevation": {
+            "type": "object",
+            "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+          },
+          "qualityRuntime": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "generatorModel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "planScenes": {
+                "type": "boolean"
+              },
+              "reviewers": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependencyGroup": {
+                      "type": "string"
+                    },
+                    "focus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model"
+                  ]
+                }
+              }
+            }
           }
         },
         "required": [
@@ -2831,6 +3146,51 @@
                     "version",
                     "methodId"
                   ]
+                },
+                "qualityElevation": {
+                  "type": "object",
+                  "description": "Explicit GQEL options or compiled V2 contract. On an orchestrator this qualifies the final artifact; per-role worker assignments qualify only their own artifact."
+                },
+                "qualityRuntime": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "generatorModel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "planScenes": {
+                      "type": "boolean"
+                    },
+                    "reviewers": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dependencyGroup": {
+                            "type": "string"
+                          },
+                          "focus": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "model"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "additionalProperties": false

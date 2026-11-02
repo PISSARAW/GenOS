@@ -53,7 +53,7 @@ const ROLE_PREFERENCES = Object.freeze({
   experiment: ['experimental_worker'], causal_analysis: ['forensic_worker'], teach: ['teaching_worker']
 });
 const ASSIGNMENT_FIELDS = Object.freeze(['workerKind', 'workerRequirements', 'methodContract',
-  'specialtyNiche', 'nicheDomain', 'niche', 'domain', 'hostContractId', 'hostCapabilities', 'hostId']);
+  'specialtyNiche', 'nicheDomain', 'niche', 'domain', 'hostContractId', 'hostCapabilities', 'hostId', 'qualityElevation', 'qualityRuntime']);
 const REQUIREMENT_FIELDS = Object.freeze(['requiredCapabilities', 'allowedKinds', 'nicheDomain',
   'hostContractId', 'hostCapabilities', 'hostId']);
 
@@ -158,7 +158,7 @@ function resolveMember(mode, member) {
     throw assignmentError(`No capability requirements are defined for ${mode} role '${member.role}'.`,
       'TOPOLOGY_WORKER_KIND_MISSING');
   }
-  const methodContract = methodContractFor(member);
+  require('./qualityElevation/qualityMissionContract').prepareQualityMission(member); const methodContract = methodContractFor(member);
   const requirements = memberRequirements(member, methodContract);
   let selection;
   try {
@@ -193,7 +193,7 @@ function buildWorkerAssignment({ mode, member, selection, requirements, methodCo
     compatibleKinds: selection.candidates,
     methodContract,
     ...specialistFields(mode, member, selection.kind),
-    ...symbioticFields(member, selection.kind)
+    ...symbioticFields(member, selection.kind), ...require('./qualityElevation/qualityMissionContract').qualityWorkerFields(member)
   };
 }
 

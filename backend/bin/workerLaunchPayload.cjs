@@ -107,7 +107,7 @@ function workerLaunchPayload(args) {
     organization: context.request?.organization,
     coordinationPolicy: selectedCoordinationPolicy(context),
     methodContract: member.methodContract,
-    workerAssignment: member.workerAssignment,
+    workerAssignment: member.workerAssignment, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(member),
     topologySessionId: context.topologySession?.sessionId || null,
     model_tier: member.modelTier,
     capabilities: capabilities || [],

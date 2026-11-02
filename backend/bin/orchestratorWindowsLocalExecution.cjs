@@ -80,7 +80,7 @@ function buildLocalMission(input) {
     identityExperimentSeed: identity.identityExperimentSeed,
     timeoutMs: requestTimeoutMs, executionBudget: resolveBudget(missionBudget, requestTimeoutMs),
     executionPolicy: { ...request.executionPolicy, allowedCommands, allowFileEdits, localCodeWorker },
-    evidencePolicy: request.evidencePolicy,
+    evidencePolicy: request.evidencePolicy, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
     verifierChecks: request.verifierChecks || request.verifier_checks,
     verificationOptions: request.verificationOptions,
     requiredPatchPaths: request.requiredPatchPaths,
@@ -161,7 +161,8 @@ async function runWindowsRosterWorker(context) {
   const budget = { ...worker.executionBudget, latencyMs: worker.executionBudget?.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
   const mission = buildLocalMission({ ...input, id: worker.agentId, missionId, orchestratorAgentId: id,
     enhancedPrompt: worker.prompt || `${input.enhancedPrompt}\n\nAssignment ${index + 1}: ${assignment.hypothesis || assignment.role}`,
-    missionBudget: budget, request: { ...input.request, localModel: worker.localModel || input.request.localModel,
+    missionBudget: budget, request: { ...input.request, qualityElevation: undefined, qualityRuntime: undefined, qualityRepair: undefined,
+      ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(worker), localModel: worker.localModel || input.request.localModel,
       workspaceRoot: worker.workspaceRoot, workerKind: assignment.workerKind, role: assignment.role,
       identityExperimentScenario: undefined }, allowedCommands, allowFileEdits });
   mission.workerKind = assignment.workerKind;
