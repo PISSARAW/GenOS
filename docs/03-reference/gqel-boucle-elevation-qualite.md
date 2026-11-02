@@ -1,234 +1,153 @@
-# Référence : GQEL — GenOS Quality Elevation Loop
+# GQEL V2 — construction, critique localisée et réparation bornée
 
-- **Statut** : Partiel ; boucle et heuristiques Node.js implémentées, garanties de qualité générale et raccords universels non qualifiés.
-- **Portée** : contrats JavaScript, évaluateurs, sessions, décisions et contrôleur worker.
-- **Dernière revue** : 2026-11-02
+**Statut :** contrôleur et parcours narratif implémentés ; génération réelle et
+qualification humaine à exécuter. La [référence V1](gqel-v1-2026-11-02.md) est
+archivée. Les guides V1 décrivent l'ancien contrat ; cette référence décrit V2.
 
-Voir le [concept](../01-concepts/gqel.md), le [guide d'intégration](../02-orchestration/gqel.md),
-le [runbook](../04-exploitation/gqel.md) et les
-[preuves datées](../06-qualite-preuves/qualification-gqel-2026-11-02.md).
+## Architecture
 
-## 1. Modules et surface d'appel
+Contrat figé → contrôles des lecteurs → plan causal → lecture du plan → rédaction
+scène par scène → lectures intégrales → défauts localisés → réparation de l'étape
+responsable → comparaison à la meilleure version → acceptation ou arrêt explicite.
 
-Les chemins ci-dessous sont relatifs à
-[`backend/src/services/qualityElevation/`](../../backend/src/services/qualityElevation/).
+Les scanners synchrones ne rendent plus de score artistique : `score: null`,
+`valid: false`, `structuralPassed` séparé. Des mots-clés, titres ou commentaires
+`// Test:` ne prouvent ni dramaturgie ni tests exécutés. Les motifs suspects sont
+des pistes de contrôle, pas une preuve automatique de défaut sémantique.
 
-| Module | Responsabilité et exports principaux |
-| --- | --- |
-| [qualityElevationService.js](../../backend/src/services/qualityElevation/qualityElevationService.js) | `compileQualityContract`, `createElevationSession`, `recordIterationVersion`, `decideContinuation`, `buildRepairPrompt`, `executeElevationLoop`, `POLICIES` |
-| [qualityEvaluatorRegistry.js](../../backend/src/services/qualityElevation/qualityEvaluatorRegistry.js) | `getEvaluator`, `evaluateArtifact`, alias `evaluateContent`, `inferDomainFromMission` |
-| [creativeWritingEvaluator.js](../../backend/src/services/qualityElevation/creativeWritingEvaluator.js) | Évaluation de marqueurs de scénario |
-| [softwareEngineeringEvaluator.js](../../backend/src/services/qualityElevation/softwareEngineeringEvaluator.js) | Syntaxe JavaScript et heuristiques de code |
-| [qualityComparisonService.js](../../backend/src/services/qualityElevation/qualityComparisonService.js) | Comparaison, défauts résolus/introduits, `evaluateDoubleBlindConsistency` |
-| [qualityStagnationDetector.js](../../backend/src/services/qualityElevation/qualityStagnationDetector.js) | Empreintes et détection de répétition/régression |
-| [workerQualityContractEnforcer.js](../../backend/src/services/qualityElevation/workerQualityContractEnforcer.js) | Extraction du contenu et `enforceQualityContract` |
+## Contrat
 
-[`backend/src/services/qualityElevationService.js`](../../backend/src/services/qualityElevationService.js)
-réexporte le service principal. Aucune API GQEL REST, CLI ou MCP dédiée n'est
-définie dans ces modules.
+`compileQualityContract()` produit un objet V2 gelé et une empreinte du contenu
+normatif. Ajouter un critère ne permet pas d'écraser un critère obligatoire.
+Les nombres, bornes et booléens sont validés. Les contrats V1 doivent être recompilés.
+L'empreinte assure l'intégrité, pas une signature indépendante d'autorité.
 
-## 2. Contrat compilé
+| Politique | Tours | Lectures | Seuil | Comparaison dans les deux ordres |
+|---|---:|---:|---:|---|
+| fast | 2 | 1 | 70 | non |
+| balanced | 3 | 2 | 80 | oui |
+| critical | 5 | 3 | 95 | oui |
 
-`compileQualityContract(input = {})` produit :
+Les notes ordinales 0–4 sont présentées via les ancres 0,25,50,80,100 : inexploitable,
+embryonnaire, à réécrire, solide, très abouti. Ni ces ancres ni les seuils ne sont
+scientifiquement calibrés. Une bonne note ne compense jamais un critère dur échoué
+ou inconnu. Une note inconnue reste `null`.
 
-| Champ | Résolution / valeur par défaut | Utilisation dans la boucle |
-| --- | --- | --- |
-| `contractId`, `createdAt` | Identifiant aléatoire horodaté et date ISO | Métadonnées |
-| `mission` | Chaîne fournie, sinon chaîne vide | Prompt initial, puis base des réparations |
-| `domain` | Fourni, sinon inféré depuis la mission | Sélection d'évaluateur |
-| `policy` | Fourni, sinon `balanced` | Nom conservé ; une politique inconnue utilise les valeurs `balanced` |
-| `maxIterations` | Surcharge ou politique | Testé après conformité et stagnation |
-| `minQualityScore`, `threshold` | Même valeur : `input.minQualityScore ?? input.threshold ?? défaut` | Seuil de décision locale via `threshold` |
-| `critiques` | Surcharge ou politique | Déclaratif ; aucun critique supplémentaire lancé |
-| `requireDoubleBlind` | Surcharge ou politique | Déclaratif ; aucun juge aveugle lancé |
-| `criteria` | Tableau fourni, sinon `[]` | Conservé, sans compilation en contrôles |
-| `budgetMaxTokens` | Valeur fournie ou `100000` | Conservé, sans mesure ni enforcement de consommation |
+Les plafonds incluent tokens, appels, durée totale, timeout par appel, sortie,
+contexte et changements de stratégie. Les mutations ne prolongent pas le nombre
+autorisé de tours. Tous les appels, y compris critiques et comparaisons, sont comptés.
 
-| Politique | `maxIterations` | Seuil | `critiques` déclaré | `requireDoubleBlind` déclaré |
-| --- | --- | --- | --- | --- |
-| `fast` | 2 | 70 | 1 | `false` |
-| `balanced` | 3 | 80 | 2 | `false` |
-| `critical` | 5 | 95 | 3 | `true` |
+`minSceneCount`, `maxSceneCount`, `minBodyWords`, `targetMinutes` sont des contraintes
+de commande. La bibliothèque n'impose pas universellement plusieurs personnages ou
+des dialogues. Le décompte de mots et les minutes prévues ne sont pas un chronométrage.
 
-Les valeurs de politique ne sont pas des plafonds stricts : les surcharges sont
-acceptées et la branche de mutation peut précéder le contrôle du nombre
-d'itérations. Le compilateur ne valide pas exhaustivement types et bornes.
+## Construction narrative
 
-## 3. Évaluateurs et barèmes
+Le plan explicite règles, motivations, connaissances, objectifs, obstacles, décisions,
+conséquences et état après chaque scène. Sa lecture est distincte de celle du scénario
+final : un plan acceptable ne prouve pas que les intentions sont réalisées.
 
-`evaluateArtifact(domain, content, options)` et `evaluateContent` sont la même
-fonction. Le résultat contient `domain`, `score`/`overallScore`, `passed`/`valid`,
-`threshold`, `defects`, `metrics`, `evaluatedAt`. Un défaut possède `code`,
-`severity`, `section` et `message`.
+Le générateur reçoit le plan et les scènes antérieures intégrales. Le contexte n'est
+plus tronqué à 4 000 caractères. Si la limite de contexte est dépassée, la boucle
+s'arrête explicitement, sans supprimer silencieusement le début du texte.
 
-Le registre normalise le nom du domaine. Les alias `fiction`, `scenario`, `script`
-désignent `creative_writing` ; `code` et `programming` désignent
-`software_engineering`. Un nom inconnu utilise l'évaluateur générique.
-L'inférence depuis une mission repose sur des mots-clés et, si fourni dans un
-objet, `workerKind` ; elle ne constitue pas une classification sémantique.
+Une erreur de causalité ou de motivation renvoie au plan ; une erreur de scène invalide
+la scène et les suivantes. Les scènes antérieures non touchées peuvent être conservées.
+Une stagnation provoque, sous quota, une nouvelle planification indépendante.
 
-### Écriture créative
+## Lectures et comparaison
 
-| Rubrique | Points maximaux | Contrôle réel |
-| --- | --- | --- |
-| Prémisse | 15 | Présence de mots-clés de logline/prémisse |
-| Personnages | 25 | Rubrique et deux marqueurs de fiches ; mots « secret » et « objectif » présents dans le texte |
-| Séquencier | 20 | Marqueur de séquencier/scènes clés/actes **ou** au moins trois marqueurs reconnus de scènes ou actes numérotés, y compris en chiffres romains |
-| Dialogues/didascalies | 25 | Marqueur de direction et au moins quatre lignes de dialogue reconnues |
-| Dramaturgie | 15 | Marqueur de note et vocabulaire de conflit/tension |
+Les lecteurs sont des callbacks configurés par le runtime de confiance, pas des
+fonctions ou instructions fournies dans le texte du modèle. Chaque lecture reçoit
+un contexte neuf, la grille et l'artefact, sans les notes antérieures. Pour un scénario,
+le corps des scènes est évalué, pas les notes d'autoéloge placées autour.
 
-L'évaluateur accepte un score au moins égal à `options.threshold || 70`, sans
-défaut `major`. Les défauts mineurs peuvent subsister. Les expressions régulières
-ne prouvent ni profondeur des personnages, ni cohérence causale, ni équilibre
-des dialogues. Les critères de scénario ne sont pas adaptés à tout texte créatif.
+Réponse : `checks`, exactement une entrée par critère, avec `criterionId`, `verdict`
+(`pass|fail|unknown`), `reason`, `evidence:[{quote:...}]`, et `rating` pour les critères
+souples connus. Les citations doivent être réellement présentes. Les positions sont
+relatives à `citationScope`. Une citation exacte ne garantit pas un jugement correct.
+Un avis incomplet ou non étayé ne peut pas autoriser une promotion.
 
-### Ingénierie logicielle
+Deux contrôles initiaux, positif et négatif, détectent l'approbation ou le rejet
+systématiques. Ils ne certifient pas un juge général. Les groupes de dépendance sont
+fusionnés lorsque le modèle ou le groupe déclaré coïncide. Plusieurs rôles sur un
+même LLM restent corrélés ; `minDependencyGroups` peut exiger plusieurs groupes.
 
-| Rubrique | Points maximaux | Contrôle réel |
-| --- | --- | --- |
-| Syntaxe | 30 | Compilation par `new vm.Script(code)`, sans exécution |
-| Sécurité | 25 | Expressions régulières sur certaines concaténations `exec` et certains secrets littéraux |
-| Exports | 20 | Marqueurs d'exports ; `options.requiredExports` permet de chercher des symboles requis |
-| Tests | 25 | Lecture de `options.testResults.failed`, sinon recherche de marqueurs tels que `assert`, `expect`, `describe`, `test(` ou `===` |
+La comparaison A/B puis B/A appelle réellement le juge et exige des citations des
+deux textes. L'option historique `requireDoubleBlind` signifie ici anonymisation des
+étiquettes et inversion d'ordre, pas expérience humaine en double aveugle. Un avis
+instable ne remplace pas la meilleure version. Les régressions sont contrôlées contre
+cette meilleure version, pas contre une tentative intermédiaire déjà dégradée.
 
-Le contenu est une chaîne, ou `content.code`, ou `content.candidate`. Le score
-est borné entre 0 et 100 ; l'acceptation exige `score >= (options.threshold || 75)`
-et aucun défaut `blocker`. Des défauts `major` ou `minor` peuvent donc subsister.
-La syntaxe suit le mode script JavaScript de `vm.Script`, pas un compilateur
-TypeScript ni un chargeur de modules ESM.
+## Adaptateurs et budget
 
-Les tests ne sont **pas exécutés** par cet évaluateur ; les résultats fournis
-ne sont pas authentifiés ici. Un commentaire contenant `===` peut suffire pour
-les points de tests. Les motifs de sécurité ne constituent pas un audit exhaustif.
+```javascript
+const result = await executeElevationLoop({ contract, generator, reviewers });
+// Chaque adaptateur retourne :
+return { content, usage: { inputTokens, outputTokens },
+  finishReason: 'stop', model: 'nom-exact-du-modele' };
+```
 
-### Générique
+Les réponses brutes non mesurées ne sont plus acceptées. Les appels reçoivent `signal`
+et `maxOutputTokens`. Les adaptateurs doivent respecter annulation et limites ; un
+callback malveillant n'est pas un sandbox. La réservation préalable est conservatrice
+en octets ; l'imputation finale utilise l'usage déclaré par le fournisseur. Une erreur
+sans usage fiable impute la réservation et marque la comptabilité incomplète. Une
+surconsommation du fournisseur est détectée après l'appel, pas annulée rétroactivement.
 
-Une chaîne, ou la sérialisation JSON du contenu, de longueur nettoyée au moins
-20 reçoit 80 et `passed: true` ; sinon 20 et le défaut bloquant
-`EMPTY_OR_TRIVIAL_OUTPUT`. Le champ retourné `threshold` vaut
-`options.threshold || 70`, mais n'est pas utilisé pour calculer `passed` générique.
-Avec la boucle `critical`, le score générique de 80 ne satisfait donc pas 95.
+L'adaptateur Ollama vérifie HTTP, réponse complète, modèle observé exact, usage,
+contexte et motif de fin. `length` ne devient pas une réussite.
 
-## 4. Session, versions et comparaison
+Pour le code, le scanner compile sans exécuter. Le callback `verifier`, fourni par
+le runtime, doit lancer les tests protégés dans l'environnement isolé existant et
+renvoyer `{artifactDigest, executed, passed, evidenceRefs}` dans une enveloppe d'usage.
+GQEL ne donne aucune permission shell supplémentaire.
 
-`createElevationSession(contract)` retourne un objet mutable contenant :
-`sessionId`, `contract`, `versions: []`, `comparisons: []`, `bestVersionIndex: 0`,
-`strategyMutations: 0`, `status: in_progress`, `createdAt`.
+## Intégration GenOS et autorité
 
-`recordIterationVersion(session, content, evaluation)` ajoute une version numérotée
-à partir de 1 : contenu, SHA-256 `digest`, score, `passed`, défauts, signature de
-défauts, métriques et date. La signature trie les triplets sévérité/code/section
-en minuscules et conserve les 16 premiers caractères du SHA-256 ; sans défaut,
-elle vaut `clean:0`.
+La façade `backend/src/services/qualityElevationService.js` est conservée.
+Le hook de `workerArtifactContract.js` reste synchrone. L'intégrateur compile le
+contrat V2, l'affecte à `worker.workerContract.qualityElevation`, puis transmet le
+même objet `worker` à `executeElevationLoop`. Une réussite lie un reçu en mémoire au
+worker, au contrat et au hash exact du livrable. Des champs `passed` ou `score` du
+modèle, ou un JSON désérialisé, ne peuvent fabriquer ce reçu. Texte ou contrat modifié
+l'invalident. Après redémarrage, une nouvelle vérification est exigée.
 
-`compareVersions` compare les défauts par couple `code`/`section`, calcule le delta
-de score, les défauts résolus/introduits, `regressionFree` et un verdict :
-`superior`, `superior_with_tradeoffs`, `regressive`, `inferior` ou `tied`.
-La comparaison possède un digest incluant ses données et son horodatage ; ce
-digest n'est pas une signature d'autorité.
+L'obligation A-Team `pending_repair` est conservée ; elle ne relance pas seule un
+worker. Le pilote GQEL exécute la boucle avec ses adaptateurs. Le raccord automatique
+à tous les dispatchs A-Team reste à qualifier. Les champs `integrationNeeds` sont des
+besoins de routage, pas des invocations natives d'AGOW, AEIS, GQWF ou Morphogenèse.
 
-L'index de meilleure version change seulement si le nouveau score dépasse celui
-de la meilleure et si la comparaison avec la **version immédiatement précédente**
-ne trouve aucun défaut introduit. L'égalité conserve l'ancienne version. Ce test
-ne compare pas tous les défauts du candidat à ceux de la meilleure version.
+## Exécution réelle
 
-L'historique n'est ni gelé ni persisté par ces fonctions. Aucun reçu de stockage,
-scellement indépendant ou mécanisme de reprise transactionnelle n'est fourni.
+```bash
+node backend/tests/test_gqel_v2.cjs
+node backend/tests/test_quality_elevation_loop.js
+node scripts/experiments/run_writing_mission_gqel.cjs --model=llama3.1:8b --out=artifacts/gqel-v2-run
+```
 
-## 5. Stagnation et ordre de décision
+Le pilote vise 20 minutes, au moins 6 scènes et 1 200 mots de continuité. Ces bornes
+anti-résumé sont propres à cet essai, pas des mesures de talent ou de durée.
+Options : `--minutes=`, `--scenes=`, `--min-words=`, `--iterations=`, `--tokens=`,
+`--context=`, `--policy=`, `--judge-model=`, `--brief=`, `--out=`.
 
-`detectStagnation` traite les cas dans cet ordre :
+Sans `--judge-model`, auteur et lecteurs utilisent le même modèle, avec corrélation
+explicitée. Plafonds du pilote : 160 000 tokens, 100 appels, 4 tours, une heure totale,
+5 minutes par appel. Ce sont des limites configurées, pas des estimations de durée.
 
-1. Moins de deux versions : continuer.
-2. Digests identiques : `CONTENT_UNMODIFIED`, proposition `mutate_strategy`.
-3. Score inférieur au précédent : `SCORE_REGRESSED`, proposition
-   `restore_best_and_mutate`, avec `stagnated: false`.
-4. Signature non vide répétée au moins deux fois :
-   `DEFECT_SIGNATURE_PERSISTED_N` ; mutation à deux, `abort` à partir de trois.
+Le répertoire doit être nouveau. Il contient contrat, versions immuables, checkpoints
+et rapport. Le livrable accepté est `screenplay.md`, sinon `candidate-not-accepted.md`.
+Sorties processus : 0 accepté, 2 non accepté, 1 erreur de lancement. Les checkpoints
+sont inspectables mais n'autorisent pas une reprise aveugle. Ne pas committer les
+artefacts générés.
 
-Des contenus différents peuvent donc stagner sur les mêmes défauts. Un contenu
-identique est détecté avant la répétition de signature. Le seuil de répétition
-est configurable par `maxIdenticalFailures` ou un argument numérique.
+## Portée des conclusions
 
-`decideContinuation(session, stagnationCheck)` applique ensuite :
+`promoted` signifie contrat borné satisfait par les contrôles configurés.
+`observedRubricDelta` est un delta de grille. `isImproved` exige une préférence stable.
+`demonstratedGain` reste `null`, `causalUpliftVsModelAlone` et `humanValidated` restent
+faux. La vraie qualité et le gain contre le modèle seul exigent une campagne externe.
 
-| Priorité | Condition | Action / statut |
-| --- | --- | --- |
-| 1 | Dernière version `passed` et score au seuil du contrat | `stop`, `promoted`, raison `QUALITY_CRITERIA_SATISFIED` |
-| 2 | Stagnation avec mutation recommandée et moins de deux mutations consommées | `mutate_strategy`, `in_progress`, incrément du compteur |
-| 3 | Autre stagnation | `stop`, `stagnated` |
-| 4 | Nombre de versions au moins égal à `maxIterations` | `stop`, `partially_improved` si le dernier score dépasse V1, sinon `rejected` |
-| 5 | Sinon | `continue_repair`, `in_progress`, raison `DEFECTS_PENDING` |
-
-La mutation est décidée avant le plafond d'itérations ; celui-ci peut être dépassé.
-La recommandation `restore_best_and_mutate` n'est pas exécutée comme restauration
-par cette décision : une régression non stagnante rejoint le contrôle du plafond
-ou la réparation ordinaire.
-
-## 6. Boucle et résultat
-
-`executeElevationLoop(input)` attend `input.generator` ; la forme
-`executeElevationLoop(driver, options)` utilise `driver.generate`. Le contrat et
-la session peuvent être fournis ; sinon ils sont créés. La boucle ne consomme
-pas `initialContent` : sa première version provient du générateur.
-
-À chaque tour, le générateur reçoit `{ iteration, prompt, repairPrompt }`.
-L'évaluateur reçoit seulement `{ mission: contract.mission }` en options : les
-critères, seuils spécialisés et résultats de tests du contrat ne sont pas
-transmis comme options d'évaluation. Le seuil de boucle est contrôlé séparément.
-
-La réparation utilise `buildRepairPrompt` : mission d'origine, score, liste des
-défauts et au plus 4 000 caractères de la dernière version. Une mutation ajoute
-une consigne de changement de perspective ; elle ne change ni modèle ni topologie.
-
-| Champ de résultat | Sens |
-| --- | --- |
-| `promoted` | `session.status === 'promoted'`, acceptation locale de la dernière version |
-| `contract`, `session` | Objets utilisés, avec historique |
-| `finalStatus` | `promoted`, `stagnated`, `partially_improved` ou `rejected` après un arrêt normal |
-| `bestVersion` | Version désignée par `bestVersionIndex`, pas nécessairement la dernière |
-| `demonstratedGain` | Différence de score meilleure/V1, arrondie à deux décimales |
-| `isImproved` | Gain strictement positif |
-| `totalIterations`, `comparisons` | Nombre de versions et comparaisons adjacentes |
-
-L'acceptation porte sur la dernière version, alors que `bestVersion` suit une
-règle distincte. À score égal, une ancienne version peut être conservée malgré
-une meilleure conformité de la dernière. L'appelant doit revérifier le contenu
-qu'il remet à la mission. Les exceptions du générateur ne sont pas converties
-en statut terminal par le service.
-
-`evaluateDoubleBlindConsistency` vérifie la cohérence de deux préférences A/B
-inversées fournies par l'appelant. Cette fonction n'appelle aucun juge et n'est
-pas raccordée à la boucle.
-
-## 7. Contrôle worker et obligation A-Team
-
-[`workerArtifactContract.js`](../../backend/src/services/agents/workerArtifactContract.js)
-appelle `enforceQualityContract` après la validation structurelle d'un artefact.
-Le contrôleur lit `worker.workerContract.qualityElevation` : `domain` (défaut
-`generic`), `options` pour l'évaluateur, et `minScore` pour le seuil additionnel.
-Sans contrat, il retourne `null`.
-
-Le contenu est extrait dans l'ordre : `artifact.content` chaîne, puis son champ
-`candidate`, puis `code`, puis sa sérialisation ; à défaut, rapport chaîne,
-`report.output`, ou chaîne vide.
-
-| Code | Signification |
-| --- | --- |
-| `WORKER_QUALITY_ELEVATION_FAILED` | `evaluation.valid` faux ; exception avec évaluation et défauts |
-| `WORKER_QUALITY_SCORE_DEFICIENT` | Évaluation valide mais score inférieur à `minScore` ; exception avec évaluation |
-
-[`teamEvidenceService.js`](../../backend/src/services/aTeam/execution/teamEvidenceService.js)
-refuse des critères non vérifiés avec `acceptance_criteria_unverified` et une
-obligation `{ memberId, reason, unverifiedCriteria, suggestedAction,
-status: 'pending_repair', createdAt }`. Les références de critères doivent être
-étayées dans le rapport. Ce mécanisme n'exécute pas GQEL et ne constitue pas
-une obligation AEIS scellée.
-
-## 8. Frontières de preuve
-
-Les tests de mécanisme sont dans
-[`test_quality_elevation_loop.js`](../../backend/tests/test_quality_elevation_loop.js).
-Le benchmark GQEL utilise des chaînes prédéfinies : ses scores ne prouvent pas
-un gain avec un LLM réel. Aucun statut local, hash ou champ déclaratif ne remplace
-un oracle indépendant, une preuve d'exécution ou une autorisation de promotion.
+Voir l'[ADR](../adr/2026-11-02-gqel-v2-controle-et-construction.md), la
+[validation](../06-qualite-preuves/gqel-v2-validation-2026-11-02.md) et le
+[benchmark](../../benchmarks/gqel-elevation/README.md).
