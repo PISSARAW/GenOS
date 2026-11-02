@@ -55,14 +55,9 @@ async function resolveRealRoot(root) {
   try { return await fs.promises.realpath(root); } catch (_) { return path.resolve(root); }
 }
 
-function readStats(root) { return fs.promises.stat(root); }
-function isNotDirectory(stat) { return !stat.isDirectory(); }
-
 async function assertWorkspaceDirectories(...roots) {
-  const stats = await Promise.all(roots.map(readStats));
-  if (stats.some(isNotDirectory)) {
-    throw new Error('Winner and target workspaces must be directories.');
-  }
+  const stats = await Promise.all(roots.map((r) => fs.promises.stat(r)));
+  if (stats.some((s) => !s.isDirectory())) throw new Error('Winner and target workspaces must be directories.');
 }
 
 async function readCausalBaseFiles(root) {
@@ -104,10 +99,6 @@ function computeWorkspaceChanges(winnerFiles, targetFiles, baseFiles) {
   return { changes, conflicts, filePaths };
 }
 
-function isCopyChange(change) { return change.type === 'copy'; }
-function isRemoveChange(change) { return change.type === 'remove'; }
-function changeRelativePath(change) { return change.relativePath; }
-
 async function safeDestination(targetRoot, realTarget, relativePath) {
   const destination = path.join(targetRoot, relativePath);
   const realParent = await resolveRealRoot(path.dirname(destination));
@@ -133,8 +124,8 @@ function buildMergeSummary(changes, filePaths) {
   return {
     merged: true,
     status: 'merged',
-    copiedFiles: changes.filter(isCopyChange).map(changeRelativePath),
-    removedFiles: changes.filter(isRemoveChange).map(changeRelativePath),
+    copiedFiles: changes.filter((c) => c.type === 'copy').map((c) => c.relativePath),
+    removedFiles: changes.filter((c) => c.type === 'remove').map((c) => c.relativePath),
     unchangedFiles: filePaths.size - changes.length
   };
 }
@@ -176,41 +167,51 @@ function buildReplayViolation(policy, executionContext) {
   return { policy: 'require_replay', message: 'Contract requires deterministic replay verification before promotion.' };
 }
 
-function isEvidenceEntry(entry) {
-  if (typeof entry === 'string') return entry.trim().length > 0;
-  return Boolean(entry && typeof entry === 'object' && Object.keys(entry).length > 0);
+function hasHolobionteRefutations(holobionteResults) {
+  if (!Array.isArray(holobionteResults)) return false;
+  for (const hr of holobionteResults) {
+    const results = hr?.immune?.verifierResults?.results;
+    if (Array.isArray(results) && results.some((r) => r?.status === 'refuted')) return true;
+  }
+  return false;
 }
 
-function isEvidenceItem(item) {
-  if (!item || typeof item !== 'object') return false;
-  const evidence = item.evidence || item.receipts || item.sourceRefs;
-  if (!Array.isArray(evidence)) return false;
-  return evidence.some(isEvidenceEntry);
+function hasNegativeStatus(items) {
+  return Array.isArray(items) && items.some((item) => item?.status === 'refuted');
 }
 
-function hasEvidence(value) {
-  if (!Array.isArray(value) || value.length === 0) return false;
-  return value.every(isEvidenceItem);
+function hasRefutationList(items) {
+  return Array.isArray(items) && items.length > 0;
 }
 
-function claimHasEvidence(claim) {
-  return Boolean(claim) && Array.isArray(claim.evidence) && claim.evidence.some(isEvidenceEntry);
+function hasContextFlagRefutation(context) {
+  if (context.hasNegativeEvidence || context.negativeEvidence) return true;
+  return context.immune?.rejected === true || context.independentVerifierReceipt?.status === 'refuted';
 }
 
-function reportHasEvidence(claims) {
-  if (!Array.isArray(claims) || claims.length === 0) return false;
-  return claims.every(claimHasEvidence);
+function hasDirectRefutations(context) {
+  if (hasContextFlagRefutation(context)) return true;
+  if (hasRefutationList(context.refutations) || hasRefutationList(context.unresolvedContradictions)) return true;
+  return hasNegativeStatus(context.verifierResults) || hasNegativeStatus(context.independentVerifierReceipts);
 }
 
-function reportClaims(executionContext) {
-  const report = executionContext.report;
-  if (report === null || report === undefined) return undefined;
-  return report.claims;
+function buildHostVetoViolation(executionContext) {
+  if (!executionContext) return null;
+  const aeis = executionContext.aeisEvaluation;
+  if (aeis && (aeis.anyBlocked === true || aeis.allAccepted === false)) {
+    return { policy: 'host_refutation_veto', message: 'Promotion is vetoed because negative evidence or refutations were detected.' };
+  }
+  if (aeis && hasHolobionteRefutations(aeis.holobionteResults)) {
+    return { policy: 'host_refutation_veto', message: 'Promotion is vetoed because holobionte verifier refutations were detected.' };
+  }
+  if (hasDirectRefutations(executionContext)) {
+    return { policy: 'host_refutation_veto', message: 'Promotion is vetoed because negative evidence or refutations were detected.' };
+  }
+  return null;
 }
 
 function isReceiptLoaded(receipt) { return Boolean(receipt && typeof receipt === 'object'); }
 function hasRequiredFields(receipt) { return Boolean(receipt.independent === true && receipt.status === 'verified' && receipt.resultId && receipt.evidenceDigest && receipt.verifierDigest && receipt.signature && receipt.checkedAt && receipt.nonce); }
-
 function hasTrustedDigests(digests) { return Array.isArray(digests) && digests.length > 0; }
 
 function isReplayedNonce(executionContext, nonce) {
@@ -220,33 +221,51 @@ function isReplayedNonce(executionContext, nonce) {
   return Array.isArray(seen) && seen.includes(nonce);
 }
 
-function isIndependentVerification(executionContext, trustedVerifierDigests) {
-  if (!executionContext) return false;
-  const receipt = executionContext.independentVerifierReceipt;
-  if (!isReceiptLoaded(receipt)) return false;
-  if (!hasRequiredFields(receipt)) return false;
+function isValidReceipt(receipt, trustedDigests, executionContext) {
+  if (!isReceiptLoaded(receipt) || !hasRequiredFields(receipt)) return false;
   if (isReplayedNonce(executionContext, receipt.nonce)) return false;
-  if (!hasTrustedDigests(trustedVerifierDigests)) return false;
   if (isNaN(Date.parse(receipt.checkedAt))) return false;
   const { validateReceipt } = require('./epistemicVerifierReceiptService');
-  return validateReceipt(receipt, trustedVerifierDigests);
+  return validateReceipt(receipt, trustedDigests);
+}
+
+function collectValidReceipts(receipts, trustedDigests, executionContext) {
+  if (!Array.isArray(receipts)) return [];
+  const valid = [];
+  const seenVerifiers = new Set();
+  for (const receipt of receipts) {
+    if (!isValidReceipt(receipt, trustedDigests, executionContext)) continue;
+    if (seenVerifiers.has(receipt.verifierDigest)) continue;
+    seenVerifiers.add(receipt.verifierDigest);
+    valid.push(receipt);
+  }
+  return valid;
+}
+
+function isIndependentVerification(executionContext, trustedVerifierDigests) {
+  if (!executionContext || !hasTrustedDigests(trustedVerifierDigests)) return false;
+  const receipts = executionContext.independentVerifierReceipts
+    || (executionContext.independentVerifierReceipt ? [executionContext.independentVerifierReceipt] : []);
+  return collectValidReceipts(receipts, trustedVerifierDigests, executionContext).length > 0;
 }
 
 function replayRefused() { return { policy: 'receipt_replay', message: 'Verifier receipt nonce was already consumed: replay refused.' }; }
 function nonceStorageRefused() { return { policy: 'receipt_nonce_storage', message: 'Verifier receipt nonce could not be durably consumed.' }; }
 
 function buildReplayedNonceViolation(executionContext) {
-  const nonce = executionContext?.independentVerifierReceipt?.nonce;
-  if (!nonce || !isReplayedNonce(executionContext, nonce)) return null;
-  return replayRefused();
+  const receipts = executionContext?.independentVerifierReceipts
+    || (executionContext?.independentVerifierReceipt ? [executionContext.independentVerifierReceipt] : []);
+  for (const r of receipts) {
+    if (r?.nonce && isReplayedNonce(executionContext, r.nonce)) return replayRefused();
+  }
+  return null;
 }
 
 async function ensureNonceTable(db) {
   await db.exec('CREATE TABLE IF NOT EXISTS verifier_receipt_nonces (nonce TEXT PRIMARY KEY, consumed_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
 }
 
-async function claimVerifierNonce(db, executionContext) {
-  const nonce = executionContext?.independentVerifierReceipt?.nonce;
+async function claimSingleNonce(db, nonce, executionContext) {
   if (typeof nonce !== 'string' || !nonce) return null;
   if (isReplayedNonce(executionContext, nonce)) return replayRefused();
   try {
@@ -255,6 +274,16 @@ async function claimVerifierNonce(db, executionContext) {
     if (claimed && claimed.changes === 0) return replayRefused();
     if (!claimed || claimed.changes !== 1) return nonceStorageRefused();
   } catch (_) { return nonceStorageRefused(); }
+  return null;
+}
+
+async function claimVerifierNonce(db, executionContext) {
+  const receipts = executionContext?.independentVerifierReceipts
+    || (executionContext?.independentVerifierReceipt ? [executionContext.independentVerifierReceipt] : []);
+  for (const receipt of receipts) {
+    const violation = await claimSingleNonce(db, receipt?.nonce, executionContext);
+    if (violation) return violation;
+  }
   return null;
 }
 
@@ -267,29 +296,56 @@ function buildVerificationViolation(policy, executionContext) {
   return { policy: 'require_independent_verification', message: 'Contract requires independent verification or verified evidence before promotion.' };
 }
 
-function isNonBlankString(value) { return typeof value === 'string' && value.trim().length > 0; }
+function extractQuorumTarget(policy) {
+  const quorum = Number(policy?.minimum_verifier_quorum || policy?.verifier_quorum || 0);
+  return Number.isFinite(quorum) ? quorum : 0;
+}
+
+function extractCandidateReceipts(context) {
+  if (Array.isArray(context?.independentVerifierReceipts)) return context.independentVerifierReceipts;
+  return context?.independentVerifierReceipt ? [context.independentVerifierReceipt] : [];
+}
+
+function resolveTrustedDigests(policy, context) {
+  if (Array.isArray(policy?.epistemic_verifier_digests)) return policy.epistemic_verifier_digests;
+  return Array.isArray(context?.trustedVerifierDigests) ? context.trustedVerifierDigests : [];
+}
+
+function buildQuorumViolation(policy, executionContext) {
+  const quorum = extractQuorumTarget(policy);
+  if (quorum <= 1) return null;
+  const trustedDigests = resolveTrustedDigests(policy, executionContext);
+  if (!hasTrustedDigests(trustedDigests)) {
+    return { policy: 'verifier_quorum_not_met', message: `Promotion requires trusted verifier digests for quorum ${quorum}.` };
+  }
+  const candidateReceipts = extractCandidateReceipts(executionContext);
+  const valid = collectValidReceipts(candidateReceipts, trustedDigests, executionContext);
+  if (valid.length < quorum) {
+    return {
+      policy: 'verifier_quorum_not_met',
+      message: `Promotion requires a quorum of ${quorum} distinct independent verifiers (got ${valid.length}).`
+    };
+  }
+  return null;
+}
 
 function evaluatePromotionGate(contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
   const violations = [];
-  const replayViolation = buildReplayViolation(policy, executionContext);
-  if (replayViolation) violations.push(replayViolation);
-  const verificationViolation = buildVerificationViolation(policy, executionContext);
-  if (verificationViolation) violations.push(verificationViolation);
-  const approvalViolation = humanApproval.buildApprovalViolation(policy, executionContext);
-  if (approvalViolation) violations.push(approvalViolation);
+  const gateChecks = [
+    buildHostVetoViolation(executionContext),
+    buildQuorumViolation(policy, executionContext),
+    buildReplayViolation(policy, executionContext),
+    buildVerificationViolation(policy, executionContext),
+    humanApproval.buildApprovalViolation(policy, executionContext),
+    require('./philosophicalPromotionGuard').evaluatePromotion(contract, executionContext)
+  ];
+  for (const v of gateChecks) { if (v) violations.push(v); }
   violations.push(...epistemicAssurancePolicy.evaluate(policy, executionContext));
-  const philosophicalGuard = require('./philosophicalPromotionGuard');
-  const philosophicalViolation = philosophicalGuard.evaluatePromotion(contract, executionContext);
-  if (philosophicalViolation) violations.push(philosophicalViolation);
   violations.push(...philosophyPolicy.evaluatePromotionContext(contract, executionContext));
   violations.push(...epistemicDecision.evaluatePromotionContext(contract, executionContext));
   violations.push(...ethicalComparisonPolicy.evaluatePromotionContext(contract, executionContext));
-  return {
-    eligible: violations.length === 0,
-    policy,
-    violations
-  };
+  return { eligible: violations.length === 0, policy, violations };
 }
 
 function shouldAutoMerge(policy, executionContext) {
@@ -297,27 +353,12 @@ function shouldAutoMerge(policy, executionContext) {
 }
 
 async function runAutomaticMerge(executionContext) {
+  const meta = { action: 'auto_merge_workspace', winner: executionContext.winnerWorkspaceRoot, target: executionContext.targetWorkspaceRoot };
   try {
-    const merge = await mergeWorkspaces(
-      executionContext.winnerWorkspaceRoot,
-      executionContext.targetWorkspaceRoot,
-      executionContext.causalBaseWorkspaceRoot
-    );
-    return {
-      action: 'auto_merge_workspace',
-      winner: executionContext.winnerWorkspaceRoot,
-      target: executionContext.targetWorkspaceRoot,
-      ...merge
-    };
+    const merge = await mergeWorkspaces(meta.winner, meta.target, executionContext.causalBaseWorkspaceRoot);
+    return { ...meta, ...merge };
   } catch (error) {
-    return {
-      action: 'auto_merge_workspace',
-      winner: executionContext.winnerWorkspaceRoot,
-      target: executionContext.targetWorkspaceRoot,
-      merged: false,
-      status: 'failed',
-      error: error.message
-    };
+    return { ...meta, merged: false, status: 'failed', error: error.message };
   }
 }
 
@@ -326,16 +367,15 @@ async function applyAutomaticWorkspaceMerge(policy, executionContext) {
   return [await runAutomaticMerge(executionContext)];
 }
 
-function isBlockedMerge(action) { return action.action === 'auto_merge_workspace' && action.merged === false; }
-function isFailedPreservation(action) { return action.action === 'preserve_branch' && action.preserved === false; }
-function selectPostPromotionError(mergeBlocked) { return mergeBlocked ? 'Automatic workspace merge failed or has unresolved conflicts.' : 'One or more rejected branches could not be preserved.'; }
+function selectPostPromotionError(mergeBlocked) {
+  return mergeBlocked ? 'Automatic workspace merge failed or has unresolved conflicts.' : 'One or more rejected branches could not be preserved.';
+}
 
 function buildPostPromotionResult(actionsTaken) {
-  const mergeBlocked = actionsTaken.some(isBlockedMerge);
-  const preservationFailed = actionsTaken.some(isFailedPreservation);
-  const result = { success: !mergeBlocked && !preservationFailed, actionsTaken };
-  if (!mergeBlocked && !preservationFailed) return result;
-  return { ...result, error: selectPostPromotionError(mergeBlocked) };
+  const mergeBlocked = actionsTaken.some((a) => a.action === 'auto_merge_workspace' && a.merged === false);
+  const preservationFailed = actionsTaken.some((a) => a.action === 'preserve_branch' && a.preserved === false);
+  const success = !mergeBlocked && !preservationFailed;
+  return { success, actionsTaken, ...(success ? {} : { error: selectPostPromotionError(mergeBlocked) }) };
 }
 async function applyPostPromotionPolicies(db, contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
@@ -350,10 +390,6 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
 
 module.exports = {
   readWorkspaceFiles, computeWorkspaceChanges, safeDestination, resolveRealRoot, assertMergePreconditions,
-  evaluatePromotionGate,
-  isReplayPassed,
-  applyPostPromotionPolicies,
-  mergeWorkspaces,
-  isReplayedNonce,
-  claimVerifierNonce
+  evaluatePromotionGate, buildHostVetoViolation, buildQuorumViolation,
+  isReplayPassed, applyPostPromotionPolicies, mergeWorkspaces, isReplayedNonce, claimVerifierNonce
 };
