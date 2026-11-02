@@ -13,3 +13,4 @@ pub mod morph;
 pub mod morph_types;
 pub mod synapse;
 pub mod evidence;
+pub mod allostasis;
