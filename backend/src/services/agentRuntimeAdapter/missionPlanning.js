@@ -227,13 +227,18 @@ async function attachAgowWorkspace(options) {
   const result = admission.cycle || null;
   const controlsMission = mode === 'bounded' && frameContains(result?.frame, candidate.candidateId);
   const activation = activationForMode({ mode, controlsMission });
-  ctx.agow = { mode, activation, candidateId: candidate.candidateId, accepted: admission.accepted, frame: result?.frame || null, broadcast: result?.broadcast || null };
+  ctx.agow = { mode, activation, candidateId: candidate.candidateId, accepted: admission.accepted,
+    ...agowCycleObservation(result) };
   if (!controlsMission) ctx.globalWorkspaceShadow = ctx.agow;
   else {
     ctx.globalWorkspace = { authority: 'agow', frameId: result?.frame?.frameId || null, cycle: result?.frame?.cycle || 0, available: Boolean(result?.frame), broadcast: result?.broadcast || null };
     ctx.normalizedMission.globalWorkspace = ctx.globalWorkspace;
   }
   return { controlsMission };
+}
+
+function agowCycleObservation(result) {
+  return { frame: result?.frame || null, broadcast: result?.broadcast || null, modeReceipt: result?.modeReceipt || null };
 }
 
 function activationForMode(mode) {
@@ -335,6 +340,7 @@ async function createMissionExecutionRun(ctx) {
     budget: { ...runtimeBudget, verification: ctx.normalizedMission.executionBudget?.verification },
     contractRecord
   });
+  ctx.agowMissionObservation = await require('../agow/missionObservationRuntimeBridge').start(ctx);
   await require('../missionModelBudgetScope').bindParent(ctx);
   await require('../gqwf/missionExecution').prepareMissionWorkspace(ctx);
   } catch (error) {

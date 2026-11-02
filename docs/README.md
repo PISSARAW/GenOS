@@ -832,6 +832,7 @@ Tout l'édifice est conçu pour éviter le faux « succès », où un transport 
 technique positif masquerait une absence d'évidence réelle.
 
 - [runtime-agow.md](03-reference/runtime-agow.md) — contrats exécutables et exploitation AGOW.
+- [Observation des missions AGOW](03-reference/observation-mission-agow.md) — décision antérieure, mesures indépendantes et reprise durable.
 
 - [campagne-agow-cloture.md](06-qualite-preuves/campagne-agow-cloture.md) — protocole, résultats et limites du banc local AGOW.
 

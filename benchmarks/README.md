@@ -1,5 +1,9 @@
 # Référence expérimentale GenOS
 
+Le [démonstrateur de mission AGOW](agow-mission/README.md) relie une décision
+persistée à l'exécution d'un worker et aux mesures d'un oracle en processus
+distinct. Il distingue la fin du processus de la réussite métier, sans promotion.
+
 Le [protocole de bénéfice opérationnel adaptatif](operational-adaptation/protocol.json)
 définit les comparaisons allostasie, morphogenèse et ontogenèse. Son
 [relevé de qualification](../docs/06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md)

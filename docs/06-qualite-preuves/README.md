@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [observation-mission-agow-2026-11-02.md](observation-mission-agow-2026-11-02.md) — décision antérieure, journal durable et mesures d'un worker correct ou fautif par oracle séparé ; aucune promotion.
+
 - [cooperation-types-workers-2026-11-02.md](cooperation-types-workers-2026-11-02.md) — trois scénarios de complémentarité native daemon/spécialiste/vérificateur/récupération, autorités, passations et coûts mesurés.
 
 - [benefice-operationnel-adaptatif-2026-11-02.md](benefice-operationnel-adaptatif-2026-11-02.md) — mécanismes rejoués, bénéfices causaux non établis et protocole comparatif allostasie/morphogenèse/ontogenèse.

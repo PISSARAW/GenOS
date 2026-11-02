@@ -102,6 +102,18 @@ function observeCognitiveOutcome(options) {
   return require('./agow/cognitiveModeExperienceService').observeOutcome(options);
 }
 
+function startMissionObservation(options) {
+  return require('./agow/missionObservationService').start(options);
+}
+
+function observeMissionOutcome(options) {
+  return require('./agow/missionObservationService').observe(options);
+}
+
+function listMissionObservations(options) {
+  return require('./agow/missionObservationService').list(options);
+}
+
 function query(options) {
   return require('./agow/workspaceQueryService').plan(options);
 }
@@ -114,4 +126,5 @@ function subscribe(options) {
 }
 
 module.exports = { admit, compete, diffuse, consume, causalEffect, getMode, getCurrentFrame,
-  submitCandidate, cycle, query, subscribe, configureRuntime, observeCognitiveOutcome };
+  submitCandidate, cycle, query, subscribe, configureRuntime, observeCognitiveOutcome,
+  startMissionObservation, observeMissionOutcome, listMissionObservations };

@@ -8,6 +8,10 @@
 La [fiche AGOW](../02-orchestration/agow.md) décrit l'architecture. Ce document
 précise les contrats exécutables et les limites de leur validation.
 
+Le [journal des missions](observation-mission-agow.md) relie aussi une décision
+antérieure à l'exécution à ses mesures vérifiées, sans mise à jour automatique
+des politiques ni promotion.
+
 ## 1. Brancher un hôte
 
 La façade est `backend/src/services/globalWorkspaceService.js`.

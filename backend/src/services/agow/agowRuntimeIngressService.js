@@ -163,7 +163,10 @@ async function process(options) {
   const { ctx, event, finalEvent } = options;
   if (workspace.getMode() === 'off') return null;
   if (event.eventType === 'PERCEPTION_OBSERVED') return processPerception(ctx, event);
-  return finalEvent ? outcomeCandidate(ctx, event) : null;
+  if (!finalEvent) return null;
+  const missionObservation = await require('./missionObservationRuntimeBridge').observe(ctx, event);
+  const admission = await outcomeCandidate(ctx, event);
+  return { ...admission, missionObservation };
 }
 
 module.exports = { process, trajectorySteps, recordRuntimeOutcome };

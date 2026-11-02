@@ -13,11 +13,22 @@ function register(input) {
   if (input.counterfactualExecutor != null && typeof input.counterfactualExecutor !== 'function') {
     throw new TypeError('AGOW counterfactual executor must be callable.');
   }
+  validateMissionVerifier(input);
   const bindings = { ...input, modeExecutors: handlers(input, 'modeExecutors'), queryHandlers: handlers(input, 'queryHandlers') };
   let agents = databases.get(input.db);
   if (!agents) { agents = new Map(); databases.set(input.db, agents); }
   agents.set(input.agentId, bindings);
   return () => { if (agents.get(input.agentId) === bindings) agents.delete(input.agentId); };
+}
+
+function validateMissionVerifier(input) {
+  if (input.missionOutcomeVerifier != null && typeof input.missionOutcomeVerifier !== 'function') {
+    throw new TypeError('AGOW mission outcome verifier must be callable.');
+  }
+  const timeout = input.missionOutcomeTimeoutMs ?? 5000;
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 60000) {
+    throw new TypeError('AGOW mission outcome timeout must be between 1 and 60000 ms.');
+  }
 }
 
 function resolve(input) {
