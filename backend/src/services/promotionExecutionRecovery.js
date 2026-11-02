@@ -16,7 +16,7 @@ function assertResult(result) {
 }
 
 async function transactionalPipeline(db, id) {
-  return withTransaction(db, async () => {
+  try { const saved = await withTransaction(db, async () => {
     const row = await journal.read(db, id);
     if (row.phase !== 'reserved') return row;
     const { promotion, evaluation, primitives } = row.payload;
@@ -24,10 +24,18 @@ async function transactionalPipeline(db, id) {
     if (!primitives.every(item => TRANSACTIONAL_PRIMITIVES.has(item))) {
       throw new Error('PROMOTION_NON_TRANSACTIONAL_PRIMITIVE: explicit effect reconciliation required');
     }
+    await require('./missionProtocols/gqwf').commitReserved(db, { runId: id });
     const result = await gate.runPromotionPipeline({ ...promotion, db }, primitives, evaluation);
     assertResult(result);
     return journal.advance(db, row, { phase: 'pipeline_done', result });
   });
+    await require('./missionProtocols/gqwf').reconcileCatalog(db, { runId: id });
+    return saved;
+  } catch (error) {
+    try { await require('./missionProtocols/gqwf').reconcileCatalog(db, { runId: id }); }
+    catch (catalogError) { error.catalogRecoveryRequired = true; error.cause = catalogError; }
+    throw error;
+  }
 }
 
 async function postPromotion(db, id) {
@@ -103,6 +111,7 @@ async function resume(db, row, options) {
   await require('./epistemic/epistemicAuthorityState').assertAuthority(db, row.payload.promotion.agentId);
   if (row.phase === 'completed') return completedRun(db, row.run_id);
   await require('./aeisAssemblyStore').readAssembly(db, row.payload.promotion.aeisAssemblyId);
+  await require('./missionProtocols/gqwf').reconcileCatalog(db, { runId: row.run_id });
   await transactionalPipeline(db, row.run_id);
   const post = await postPromotion(db, row.run_id);
   await externalPostPromotion(db, post);

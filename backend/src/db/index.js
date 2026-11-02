@@ -256,6 +256,7 @@ module.exports = {
   loadToolMembraneSigningSecret,
   closeDatabase,
   withTransaction,
+  isTransactionActive: db => transactionStorage.getStore() === db,
   withWriteRetry,
   installBusyRetry,
   backupDatabaseFile

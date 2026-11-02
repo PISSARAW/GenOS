@@ -277,6 +277,7 @@ async function approveRun(db, id, options) {
     .assertRequired(db, { runId: id, agentId: promotion.agentId, contract: promotion.contract,
       dossierId: settings.promotionDossierId, expectedClaims: promotion.report.claims });
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
+  await promotionGate.assertProtocolPromotion(db, { promotion, gateContext });
   const saved = await journal.reserve(db, { promotion, gateContext, options: settings, primitives });
   return recovery.resume(db, saved, settings);
 }

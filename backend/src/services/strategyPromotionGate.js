@@ -371,3 +371,4 @@ module.exports = {
   applyPostPromotion,
   finalizePromotion,
   isValidApprovalReceipt };
+module.exports.assertProtocolPromotion = (db, input) => require('./missionProtocols/gqwf').assertProtocolPromotion(db, input);

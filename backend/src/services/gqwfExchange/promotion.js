@@ -31,6 +31,7 @@ class CandidatePromotion {
     this.policy = v.frozen(validateQualificationPolicy(options.policy));
     this.clock = options.clock || (() => Date.now());
     this.store = new PromotionStore(this.db);
+    this.deferCatalogCheckpoint = options.deferCatalogCheckpoint === true;
     this.ready = this.store.initialize();
   }
 
@@ -55,6 +56,7 @@ class CandidatePromotion {
     await this.allowed('INITIALIZE_HEAD', value);
     await this.workspace(value.scope);
     return guardedMutation({ db: this.db, workspaceId: this.workspaceId, assertSafeCas: this.assertSafeCas,
+      deferCatalogCheckpoint: this.deferCatalogCheckpoint,
       run: () => withTransaction(this.db, async () => {
         await this.allowed('INITIALIZE_HEAD', value);
         await this.workspace(value.scope);
@@ -191,6 +193,7 @@ class CandidatePromotion {
       candidateHash: expected.candidate.rootHash };
     let verification;
     const result = await guardedMutation({ db: this.db, workspaceId: this.workspaceId, assertSafeCas: this.assertSafeCas,
+      deferCatalogCheckpoint: this.deferCatalogCheckpoint,
       run: () => roots.publishCandidate(this.db, publication, {
       verifier: async () => {
         verification = (await this.check(message, expected)).verification;

@@ -124,6 +124,7 @@ async function prepareEligibleMission(ctx) {
   const descriptor = describe(await session(ctx.db, executionRunId));
   attachMissionWorkspace(ctx, descriptor);
   await rollout.markStatus(ctx.db, { executionRunId, status: 'prepared' });
+  await require('../missionProtocols/gqwf').prepare(ctx);
   return descriptor;
 }
 
@@ -183,7 +184,10 @@ async function finalizeMissionWorkspace(input) {
     return describe(row);
   }
   try {
-    if (input.outcomeStatus === 'completed') row = await ingestSuccessfulRun(input.db, row);
+    if (input.outcomeStatus === 'completed') {
+      row = await ingestSuccessfulRun(input.db, row);
+      await require('../missionProtocols/gqwf').observeCandidate(input.db, input.executionRunId);
+    }
     row = await releaseCompletedRun(input.db, row, input.outcomeStatus);
     await rollout.markStatus(input.db, {
       executionRunId: input.executionRunId,

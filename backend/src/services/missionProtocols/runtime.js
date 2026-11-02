@@ -70,7 +70,10 @@ async function preemptAgent(agentId) {
 
 async function runInProcess(ctx, execute) {
   try { return await execute(); }
-  finally { await finish(ctx.db, ctx.executionRun.id); }
+  finally {
+    try { await require('./gqwf').finishInProcess(ctx.db, { runId: ctx.executionRun.id }); }
+    finally { await finish(ctx.db, ctx.executionRun.id); }
+  }
 }
 
 module.exports = { initialize, beforeExecution, guardEvent, recordEvent, finish, preemptAgent, runInProcess };
