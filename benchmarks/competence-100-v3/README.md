@@ -83,3 +83,17 @@ implémentation recalcule les 580 issues et les bornes. Les deux passent.
 Le [rapport](../../docs/06-qualite-preuves/competence-procedurale-corrigee-2026-11-02.md)
 donne les empreintes et les limites. Les reçus appartiennent à la frontière de
 confiance locale de l'expérimentateur ; aucun laboratoire tiers n'est attesté.
+
+## Auditer une campagne conservée
+
+L'implémentation utilisée pour cette campagne est commise sous
+`01ef2cb4ac6558de2f987bd11a8b4bf6f1fc004d`. Le vérificateur compare les sources
+courantes au manifeste : utiliser cette révision pour le rejeu historique.
+Les artefacts générés restent sur `D:` et ne sont pas inclus dans Git.
+
+La commande `verify.cjs` ne relance pas le LLM. Un code de sortie nul atteste
+la cohérence du rejeu, pas le succès de l'expérience : vérifier aussi
+`conclusion.status`, `conclusion.gates` et `integrity` dans `report.json`.
+Le prototype v2 illustre cette distinction : son archive se vérifie, mais son
+verdict demeure `not_demonstrated`. Pour cette v3, le verdict est
+`bounded_support`, sans compétence générale démontrée ni promotion autorisée.

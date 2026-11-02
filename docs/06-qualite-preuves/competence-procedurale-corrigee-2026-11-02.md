@@ -1,6 +1,7 @@
 # Compétence procédurale corrigée : validation bornée de l'agent hybride
 
 - **Date** : 2026-11-02.
+- **Dernière revue** : 2026-11-02.
 - **Statut** : correction implémentée, campagnes réelles conservées et rejouées.
 - **Verdict v3** : `bounded_support`, tous les critères prévus passent.
 - **Portée** : agent hybride dans un monde affine généré, pas compétence générale.
@@ -90,6 +91,44 @@ un autre corpus réservé, scellé avant observation, avec les mêmes seuils de
 succès. Les scores historiques v1/v2/v3 ne sont pas une comparaison causale
 appariée : plusieurs composants et les mondes ont changé.
 
+### Diagnostic et réponse apportée
+
+| Échec observé | Cause étayée par les traces | Correction et portée de sa vérification |
+| --- | --- | --- |
+| V1 : 13/120 réussites, aucune composition réussie | Le rappel plafonne à douze exemples ; le contexte fourni n'évolue plus après l'épisode 12 | Cent observations persistées, procédures consolidées et contrôle de leur restauration dans un autre processus |
+| V1 : 24 réponses confiantes sur des définitions absentes | La confiance déclarée ne garantit pas la couverture des primitives | Contrôle de couverture avant calcul ; 40/40 lacunes reconnues en v2 et v3 |
+| V1 : erreurs de calcul malgré des exemples disponibles | Le modèle doit inférer puis calculer dans sa réponse textuelle | Interpréteur entier borné ; calcul réservé vérifié par un oracle séparé |
+| V2 : seulement deux procédures admises, 55/120 réussites | Les propositions du modèle ne permettent pas d'admettre les quatre règles | Contre-exemples publics et synthèse affine bornée ; premières admissions v3 issues de la synthèse |
+| V2 : absence d'évolution tardive pour la première procédure | Sans règle admise pour cet opérateur, son support procédural ne progresse pas | Mise à jour du support et de la prévision à chaque observation ; changement mesuré entre les épisodes 88 et 100 en v3 |
+
+Ces corrections expliquent le choix des composants ; elles ne constituent pas
+une ablation mesurant l'effet causal individuel de chaque composant. Le succès
+v3 doit être attribué à l'ensemble hybride évalué. L'abstention initiale reconnaît
+déjà toutes les lacunes : le progrès mesuré porte sur la résolution des tâches
+résolubles, tout en conservant cette reconnaissance de l'ignorance.
+
+## Révisions et procédure d'audit
+
+- `2c44429a61652104547c701bec6052c8da71df9b` : banc initial, campagne négative et diagnostic.
+- `01ef2cb4ac6558de2f987bd11a8b4bf6f1fc004d` : modules corrigés, bancs v2/v3, ADR et résultats réels.
+- [Protocole scellé v3](../../benchmarks/competence-100-v3/protocol.json).
+- [Vérificateur v3](../../benchmarks/competence-100-v3/verify.cjs) et
+  [contre-vérification Python](../../benchmarks/competence-100/diagnostics/python_crosscheck.py).
+
+Les commandes de rejeu ci-dessous ne lancent aucune nouvelle inférence. Elles
+nécessitent les artefacts locaux conservés sur `D:` ; un clone du dépôt seul
+ne contient ni ces données ni les bases SQLite. Pour auditer la campagne
+historique, utiliser la révision corrigée ci-dessus : le vérificateur compare
+les sources courantes aux empreintes scellées. Une évolution ultérieure du code
+peut donc provoquer un refus de vérification sans modifier les anciennes données.
+
+Un code de sortie nul du vérificateur signifie que le rejeu est cohérent avec
+l'archive. Il ne signifie pas que l'hypothèse expérimentale est confirmée :
+le rejeu v2 réussit tout en conservant `not_demonstrated`. Lire séparément
+`conclusion.status`, chaque élément de `conclusion.gates` et les contrôles
+`integrity` dans `report.json`. La v3 observée vaut `bounded_support` et garde
+`generalCompetenceDemonstrated: false` et `authorizesPromotion: false`.
+
 ## Artefacts réels sur D
 
 - V2 : `D:\genos-competence-results\v2\d32fa6db-4fc9-481c-8a9f-4709dacef815`.
@@ -125,6 +164,22 @@ calibration et évolution tardive. Les tests Rust passent et le contrôle qualit
 global avant la campagne finale ne signale aucune nouvelle violation. La suite
 Node globale est refusée par le précontrôle d'espace du checkout sur `C:` ; les
 artefacts de l'étude restent sur `D:`.
+
+Pour répéter les vérifications ciblées depuis la racine du dépôt :
+
+```powershell
+node benchmarks/competence-100-v2/test.cjs
+node benchmarks/competence-100-v3/test.cjs
+python scripts/ci/check_code_quality.py
+python scripts/ci/commit_receipt.py --sha 01ef2cb4ac6558de2f987bd11a8b4bf6f1fc004d --require-receipt
+```
+
+Les journaux historiques sont `v2-validation/tests-before-run.log`,
+`v3-validation/tests.log`, `v2-validation/cargo-test.log`,
+`v2-validation/quality-hybrid.log` et `v3-validation/quality-staged.log`, sous
+la racine locale `D:\genos-competence-results`. Le précontrôle Node consigné
+dans `v2-validation/npm-test.log` mesurait 146 Mio libres sur `C:`, contre
+512 Mio requis : cette suite globale n'est pas comptée comme réussie.
 
 Le module est interne, sans nouvel endpoint REST/MCP et sans changement des baux
 ou des portes de promotion. Le domaine affine est connu à l'avance ; les tâches
