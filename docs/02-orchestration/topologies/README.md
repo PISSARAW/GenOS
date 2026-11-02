@@ -21,6 +21,12 @@ ni une solution gagnante.
 exécutions des workers sous les plafonds de capacité, sans choisir leur topologie
 ni modifier leur contrat de mission.
 
+[GQEL](../../01-concepts/gqel.md) est le protocole transversal d'évaluation et de
+réparation des livrables. Il ne constitue pas une topologie supplémentaire et
+n'est pas automatiquement activé par leur sélection ; voir le
+[guide d'intégration](../gqel.md) et la
+[référence technique](../../03-reference/gqel-boucle-elevation-qualite.md).
+
 La [clôture des missions biologiques](../cloture-missions-biologiques.md) décrit
 la barrière commune, la relecture des reçus, l'oracle natif des sept modes
 génériques et l'adaptateur spécialisé de Syncytium. Elle ne remplace pas les

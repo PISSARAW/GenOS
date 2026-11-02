@@ -9,7 +9,7 @@ Contrats et surfaces exposées par GenOS. Ces documents décrivent des interface
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
-- [gqel-boucle-elevation-qualite.md](gqel-boucle-elevation-qualite.md) — boucle d'élévation de qualité des LLM, évaluation sémantique, diagnostic causal, détection de stagnation et anti-régression.
+- [gqel-boucle-elevation-qualite.md](gqel-boucle-elevation-qualite.md) — contrats, barèmes heuristiques, sessions, ordre des décisions, stagnation, contrôle worker et limites de preuve GQEL.
 - [contrat-completion-mission.md](contrat-completion-mission.md) — verdict structurel, gate avec invariants et oracle indépendant, preuves liées au contenu et refus fail-closed.
 - [action-genome.md](action-genome.md) — schéma canonique, catalogue, admission causale, projections de surfaces et limites d'exécution.
 - [snapshots-topologiques.md](snapshots-topologiques.md) — capture, frontières de cohérence et reprise vérifiée des huit topologies par variant.

@@ -4,6 +4,11 @@
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
 - **Dernière revue** : 2026-10-20
 
+Le [dossier GQEL](../../01-concepts/gqel.md) décrit une responsabilité
+complémentaire : réparer et évaluer les versions d'un livrable. Trinity compare
+des mondes ; utiliser GQEL dans un monde exige un raccord explicite et ne
+remplace pas les gates expérimentales. Voir le [guide d'intégration](../gqel.md).
+
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
 Le [contrat runtime Trinity](../../03-reference/runtime-trinity.md) isole les

@@ -4,6 +4,11 @@
 - **Portée** : construction, composition, séparation, fusion, transformation et destruction dynamique des organisations cognitives
 - **Dernière revue** : 2026-10-15
 
+Le [dossier GQEL](../../01-concepts/gqel.md) décrit la boucle complémentaire de
+qualité des livrables. La morphogenèse agit sur l'organisation ; GQEL évalue et
+guide la révision du contenu. Une mutation de prompt GQEL ne déclenche pas une
+transition morphologique ; voir le [guide d'intégration](../gqel.md).
+
 ---
 
 Le [système nerveux GNS](../../01-concepts/gns.md) fournit au runtime des

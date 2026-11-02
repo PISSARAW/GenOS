@@ -8,6 +8,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 ## Fondations et runtime
 
+- [gqel.md](gqel.md) — élévation contrôlée de la qualité d'un livrable, modèle logique, rôle face à Trinity et à la morphogenèse, architecture et limites ; [intégration](../02-orchestration/gqel.md), [référence](../03-reference/gqel-boucle-elevation-qualite.md), [runbook](../04-exploitation/gqel.md) et [preuves](../06-qualite-preuves/qualification-gqel-2026-11-02.md).
 - [gns.md](gns.md) — système nerveux opérationnel transversal : modèle, physiologie, graphes, six raccordements, régulation signée du Garage et limites des preuves.
 - [inventaire-canonique-actuel.md](inventaire-canonique-actuel.md) — état consolidé des 23 sections, registres courants, maturité et limites de preuve.
 - [biologie-computationnelle.md](biologie-computationnelle.md) — biomimétique GenOS, embryogenèse, HOX, budgets.

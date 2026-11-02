@@ -81,6 +81,19 @@ Le régulateur du Garage peut limiter temporairement les nouvelles admissions so
 
 Voir le [concept GNS](docs/01-concepts/gns.md), le [cycle et les raccordements](docs/02-orchestration/gns-regulation-operationnelle.md), la [référence runtime](docs/03-reference/runtime-gns.md), les [procédures d'exploitation](docs/04-exploitation/regulation-gns-du-garage.md) et les [preuves et limites](docs/06-qualite-preuves/qualification-gns-2026-11-02.md).
 
+### Élévation de qualité des livrables
+
+[GQEL — GenOS Quality Elevation Loop](docs/01-concepts/gqel.md) évalue un livrable,
+guide sa réparation et compare ses versions. Trinity compare les mondes ; la
+Morphogenèse construit les organisations ; GQEL travaille sur la qualité du
+contenu produit. La boucle Node.js et le contrôle optionnel des artefacts workers
+sont implémentés, avec des évaluateurs heuristiques. Le benchmark actuel utilise
+des réponses fixes et ne démontre pas encore un gain avec un LLM réel. Voir
+[l'intégration](docs/02-orchestration/gqel.md), la
+[référence](docs/03-reference/gqel-boucle-elevation-qualite.md), le
+[runbook](docs/04-exploitation/gqel.md) et les
+[preuves](docs/06-qualite-preuves/qualification-gqel-2026-11-02.md).
+
 ### Preuve, mémoire et évolution
 
 - clôture commune des missions fondée sur les reçus des workers, leurs invariants et un oracle indépendant ;
