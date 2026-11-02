@@ -1,7 +1,7 @@
 'use strict';
 
 const { SCHEMA } = require('./schema');
-const { fingerprint, scopeOf } = require('./contract');
+const { fingerprint, scopeOf, identifier } = require('./contract');
 
 class NervousStore {
   constructor(db, options = {}) {
@@ -86,10 +86,34 @@ class NervousStore {
     await this.db.run('UPDATE nervous_signals SET processed=1 WHERE id=?', signal.id);
   }
 
-  states(scope) {
+  states(scope, options) {
     const s = scopeOf(scope);
+    const agents = historyAgents(options?.agentIds);
+    const clause = agents === undefined ? '' : ` AND agent_id IN (${agents.map(() => '?').join(',')})`;
+    const limit = options === undefined ? '' : ' LIMIT ?';
+    const params = [s.organizationId, s.projectId, ...(agents || [])];
+    if (options !== undefined) params.push(stateLimit(options.limit));
+    if (agents?.length === 0) return Promise.resolve([]);
     return this.serial(() => this.db.all(`SELECT agent_id,body FROM nervous_states
-      WHERE organization_id=? AND project_id=? ORDER BY agent_id`, s.organizationId, s.projectId));
+      WHERE organization_id=? AND project_id=?${clause} ORDER BY agent_id${limit}`, ...params));
+  }
+
+  history(scope, options = {}) {
+    const s = scopeOf(scope);
+    const limit = options.limit ?? 100;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new TypeError('Invalid history limit');
+    const agents = historyAgents(options.agentIds);
+    const clause = agents === undefined ? '' : ` AND s.agent_id IN (${agents.map(() => '?').join(',')})`;
+    const params = [s.organizationId, s.projectId, ...(agents || []), limit];
+    if (agents?.length === 0) return Promise.resolve([]);
+    return this.serial(async () => {
+      const rows = await this.db.all(`SELECT s.body AS signal_body,r.body AS receipt_body
+        FROM nervous_signals s JOIN nervous_receipts r ON r.signal_id=s.id
+        AND r.organization_id=s.organization_id AND r.project_id=s.project_id
+        WHERE s.organization_id=? AND s.project_id=?${clause}
+        ORDER BY s.sequence DESC LIMIT ?`, ...params);
+      return rows.map(row => ({ signal: JSON.parse(row.signal_body), receipt: JSON.parse(row.receipt_body) }));
+    });
   }
 
   effects(scope) {
@@ -123,6 +147,17 @@ class NervousStore {
   }
 
   close() { return this.serial(() => this.db.close()); }
+}
+
+function historyAgents(input) {
+  if (input === undefined) return undefined;
+  if (!Array.isArray(input) || input.length > 128) throw new TypeError('Invalid agent selection');
+  return [...new Set(input.map(id => identifier(id, 'agentId')))];
+}
+
+function stateLimit(limit) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 129) throw new TypeError('Invalid state limit');
+  return limit;
 }
 
 module.exports = { NervousStore };

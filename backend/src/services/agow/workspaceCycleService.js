@@ -52,9 +52,12 @@ async function ignite(options) {
 
 async function cycle(options) {
   const now = Number(options.now) || Date.now();
-  const candidates = await poolService.list({ agentId: options.agentId, now, db: options.db });
+  const pooled = await poolService.list({ agentId: options.agentId, now, db: options.db });
+  const nervous = await require('../nervous/agowAdapter').attend(options);
+  const candidates = [...pooled, ...nervous.candidates];
   const previousFrame = await frameStore.current({ agentId: options.agentId, db: options.db });
   const result = await arbitrateCycle(options, candidates, previousFrame);
+  result.nervous = nervous;
   const ignition = await ignite({ candidates: result.selected, agentId: options.agentId, db: options.db, threshold: options.ignitionThreshold, now });
   const firedIds = new Set(ignition.filter((entry) => entry.ignited).map((entry) => entry.candidateId));
   const ignited = result.selected.filter((candidate) => firedIds.has(candidate.candidateId));
