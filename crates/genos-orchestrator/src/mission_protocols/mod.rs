@@ -14,3 +14,5 @@ pub mod morph_types;
 pub mod synapse;
 pub mod evidence;
 pub mod allostasis;
+pub mod omega;
+mod omega_store;
