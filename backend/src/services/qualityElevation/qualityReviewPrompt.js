@@ -7,6 +7,7 @@ function phaseInstruction(phase) {
       + '(exemple : règle de signature, vérification avec ouverture, et sortie permise), la logique causale est satisfaite '
       + 'et tu dois obligatoirement attribuer le verdict pass. Ne prétends pas qu’il manque un lien de conséquence. '
       + 'Refuse une causalité absente ou contradictoire, jamais un plan parce qu’il est synthétique. '
+      + 'Pour character_actions : cite la valeur exacte d’un champ want, fear, knowledge d’un personnage, ou une phrase exacte d’une scène. '
       + 'Toute citation de plan doit être une sous-chaîne CONTINUE copiée mot pour mot (ex: le texte exact d’une seule règle, ou d’une décision). '
       + 'Ne fusionne JAMAIS deux règles ou deux champs distincts avec une virgule ; utilise des citations distinctes. ';
   }
