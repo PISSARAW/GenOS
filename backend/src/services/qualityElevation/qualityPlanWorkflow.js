@@ -12,6 +12,7 @@ function planPrompt(context) {
     + 'Chaque scène prévoit un changement de situation. Les durées sont des estimations, jamais une preuve. '
     + 'Chaque heading de scène doit obligatoirement être un en-tête débutant par INT. ou EXT. (ex: "INT. MODULE PRINCIPAL - NUIT", "EXT. STATION ORBITALE - ESPACE"). '
     + 'Chaque champ textuel de scène (goal, obstacle, decision, consequence, stateAfter, timingRationale) doit se terminer par un point. '
+    + 'Sois concis : premise doit compter 2 à 3 phrases. Chaque champ de scène doit compter 1 à 2 phrases brèves. '
     + 'En réparation, conserve les éléments non concernés et corrige les relations signalées et leurs conséquences. '
     + 'Le pacingGuide est un budget de rythme : adapte réellement les actions plutôt que seulement leurs chiffres. '
     + 'Réponds uniquement un JSON selon le schéma fourni : premise, rules, characters, scenes avec identifiants S1, S2, etc.\n'
