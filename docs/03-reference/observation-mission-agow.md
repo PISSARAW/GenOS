@@ -119,6 +119,12 @@ mêmes plafonds scellés, avec deux processus d'oracle chacun. L'erreur techniqu
 et le cas inconclusif restent dans le dénominateur de couverture. La moyenne des
 seules pertes connues est descriptive et ne mesure pas un gain causal d'AGOW.
 
+Le [banc natif apparié](../../benchmarks/agow-paired-native/README.md) compare
+`shadow` et `bounded` depuis des copies identiques d'une base SQLite par tâche.
+Il recoupe les méthodes et plafonds, revalide les pertes natives et conserve
+les inconnus dans les bornes de différence. Cette qualification locale sur
+fixtures connues prépare une campagne d'efficacité sans en revendiquer les gains.
+
 ### Répertoires de qualification
 
 Pour placer les données et les fichiers temporaires sur un autre volume :
