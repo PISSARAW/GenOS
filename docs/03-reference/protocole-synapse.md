@@ -1,6 +1,6 @@
 # Protocole SYNAPSE v1
 
-- **Statut** : Profil expérimental ; contrat Node et qualification native implémentés
+- **Statut** : Profil expérimental Node ; contrat, codec natif, conversation durable et accusés implémentés
 - **Portée** : Différences JSON bornées et communication compacte entre deux acteurs
 - **Dernière revue** : 2026-11-02
 
@@ -22,6 +22,12 @@ distinctes de la génération de l'état partagé et de l'autorité.
 Les dates futures, expirées ou non représentables sont rejetées. Les validateurs
 acceptent `{ now }`, date ou millisecondes Unix. Les identifiants refusent les
 blancs initiaux ou finaux. Une empreinte cohérente ne prouve pas l'autorité.
+
+L'émetteur doit générer des `messageId` uniques entre missions et conversations.
+Le journal de conversation impose leur unicité globale dans son fichier ;
+les clés d'idempotence sont cloisonnées par portée, mission, conversation,
+émetteur et audience. Réutiliser une clé avec un message différent produit un
+conflit. Un replay renvoie le résultat historique, sans réappliquer le delta.
 
 | Type | Payload strict |
 | --- | --- |
@@ -128,9 +134,18 @@ Les validateurs lèvent `SynapseProtocolError`, avec notamment
 `SYNAPSE_FUTURE`, `SYNAPSE_EXPIRED` ou `SYNAPSE_INTEGRITY`.
 Le codec peut lever `SYNAPSE_DELTA_INVALID` pour un engagement incohérent.
 
-Depuis la racine : `node backend/tests/test_synapse_protocol_contract.js`.
+Depuis la racine : `npm --prefix backend run test:synapse-protocol` lance les
+sept fichiers de tests. Le contrat seul se lance avec
+`node backend/tests/test_synapse_protocol_contract.js`.
 Voir le [codec natif](synapse-contexte.md) et
 l'[ADR](../adr/2026-11-02-protocole-synapse.md).
+Le [démonstrateur entre processus](../06-qualite-preuves/synapse-processus-2026-11-02.md)
+vérifie un dictionnaire divergent chez un seul destinataire, une coupure avant
+livraison de l'accusé et un rebase explicite après changement de base.
+Les [accusés distincts](synapse-accuses.md) conservent les preuves de chaque
+dimension sans autorisation implicite d'action.
+La [conversation durable](synapse-conversations.md) décrit le document réel,
+son CAS, les enveloppes inversées et l'outbox persistée avec le changement.
 
 Le contrat n'ajoute pas automatiquement un endpoint réseau, une extension A2A,
 un interpréteur Rust ou un outil MCP. SYNAPSE/REFLEX, signaux réflexes et droit
