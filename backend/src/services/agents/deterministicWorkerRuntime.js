@@ -13,13 +13,13 @@ const regulatorySupervisor = require('../regulation/regulatorySupervisorService'
 
 async function publish(db, mission, event) {
   const progress = await recordExecutionEvent(db, mission.agentId, event);
+  await require('../agow/nativeMissionOutcomeVerifier').observeProgress(db, { mission, event });
   const failureEvent = ['AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType);
   if (progress?.halt && !failureEvent) {
     const failure = error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
     failure.terminalReceiptPublished = Boolean(progress.biologicalReceipt);
     throw failure;
   }
-  await require('../agow/nativeMissionOutcomeVerifier').observeProgress(db, { mission, event });
   recordWorkerEvidence(mission, event);
   await require('./deterministicWorkerRuntimeStages1.js').publishStage1({ get event() { return event; }, set event(__genosNextStageValue) { event = __genosNextStageValue; }, mission, recordWorkerEvidence, require, undefined });
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {

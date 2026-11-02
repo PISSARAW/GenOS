@@ -5,7 +5,10 @@ const gate = require('../epistemic/nativeOracleGate');
 const proofs = require('../epistemic/nativeOracleProof');
 const { digest } = require('../biologicalIntegrity');
 const observationContract = require('./missionObservationContract');
-const MEASUREMENT_CONTRACT = 'genos.agow.native-subset-outcome/v1';
+const LEGACY_CONTRACT = 'genos.agow.native-subset-outcome/v1';
+const MEASUREMENT_CONTRACT = 'genos.agow.native-subset-outcome/v2';
+
+function supportedContract(value) { return [LEGACY_CONTRACT, MEASUREMENT_CONTRACT].includes(value); }
 
 function supports(mission) {
   if (!require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(mission)) return false;
@@ -16,7 +19,7 @@ function supports(mission) {
 }
 
 function forBinding(input) {
-  if (input.binding.measurementContract !== MEASUREMENT_CONTRACT) return null;
+  if (!supportedContract(input.binding.measurementContract)) return null;
   return (request) => verify({ ...request, db: input.db });
 }
 
@@ -56,7 +59,12 @@ function validateReceipt(input) {
 }
 
 async function verify(input) {
-  if (input.binding.measurementContract !== MEASUREMENT_CONTRACT) throw new Error('agow-native-metric-contract-required');
+  if (!supportedContract(input.binding.measurementContract)) throw new Error('agow-native-metric-contract-required');
+  const run = await input.db.get('SELECT status FROM strategy_execution_runs WHERE id=? AND agent_id=?',
+    input.binding.runId, input.binding.agentId);
+  if (run?.status !== 'completed' && input.binding.measurementContract === MEASUREMENT_CONTRACT) {
+    return require('./nativeRefutedOutcomeVerifier').verify(input);
+  }
   const accepted = await acceptedRun(input.db, input.binding);
   const { terminal, records } = await recordedTerminal(input.db, input);
   if (digest(records.map((record) => record.hash)) !== digest(accepted.receipt.evidence.observations)) {
@@ -99,10 +107,10 @@ async function observeProgress(db, input) {
   const agentId = input.mission.agentId;
   const observations = require('./missionObservationService');
   const record = (await observations.list({ db, agentId })).find((item) => item.binding.runId === runId);
-  if (record?.binding.measurementContract !== MEASUREMENT_CONTRACT) return null;
+  if (!supportedContract(record?.binding.measurementContract)) return null;
   const events = await store.observations(db, runId);
   const canonical = events.find((item) => item.event.id === input.event.id && item.applied);
   return observations.observe({ db, agentId, runId, event: canonical?.event || input.event });
 }
 
-module.exports = { MEASUREMENT_CONTRACT, supports, forBinding, verify, observeProgress };
+module.exports = { LEGACY_CONTRACT, MEASUREMENT_CONTRACT, supports, forBinding, verify, observeProgress };

@@ -99,7 +99,8 @@ async function manifest(directory) {
 }
 
 async function run() {
-  const directory = path.join(ROOT, '.genos-agent-worlds/agow-mission-observation', randomUUID());
+  const outputRoot = process.env.GENOS_AGOW_DEMO_ROOT || path.join(ROOT, '.genos-agent-worlds/agow-mission-observation');
+  const directory = path.join(outputRoot, randomUUID());
   await fs.mkdir(directory, { recursive: true });
   const preregistered = await manifest(directory);
   const db = await initialize(path.join(directory, 'receipts.sqlite'));

@@ -19,6 +19,10 @@ Il ne constitue pas une archive exhaustive de toutes les dépendances transitive
 Le vérificateur refuse un manifeste différent ou des sources épinglées modifiées,
 relit SQLite et réexécute l'oracle dans un nouveau processus.
 
+`GENOS_AGOW_DEMO_ROOT` permet de choisir une autre racine de sortie, par exemple
+sur D:. Utiliser la même valeur pour exécuter et vérifier ; le contrôle de
+confinement résout les chemins réels et reste limité à cette racine.
+
 Les deux workers terminent normalement et déclarent un succès de processus. Le
 second ajoute volontairement 1 au total du premier client. L'oracle mesure la
 fraction des totaux clients incorrects : **0** pour le worker correct, **0,5** pour

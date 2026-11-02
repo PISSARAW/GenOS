@@ -13,7 +13,9 @@ const contract = require('../../backend/src/services/agow/missionObservationCont
 async function verify(directory) {
   const root = path.resolve(__dirname, '../..');
   const archive = await fs.realpath(directory);
-  const relative = path.relative(path.join(root, '.genos-agent-worlds/agow-mission-observation'), archive);
+  const outputRoot = await fs.realpath(process.env.GENOS_AGOW_DEMO_ROOT
+    || path.join(root, '.genos-agent-worlds/agow-mission-observation'));
+  const relative = path.relative(outputRoot, archive);
   assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative), 'Archive must be inside the demo output root.');
   const manifest = JSON.parse(await fs.readFile(path.join(archive, 'manifest.json'), 'utf8'));
   const report = JSON.parse(await fs.readFile(path.join(archive, 'report.json'), 'utf8'));

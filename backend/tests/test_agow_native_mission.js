@@ -65,7 +65,9 @@ async function refusals(db, context) {
 }
 
 async function main() {
-  const directory = path.resolve(__dirname, '../../.genos-agent-worlds/agow-native-mission', randomUUID());
+  const outputRoot = process.env.GENOS_AGOW_QUALIFICATION_ROOT
+    || path.resolve(__dirname, '../../.genos-agent-worlds/agow-native-mission');
+  const directory = path.join(outputRoot, randomUUID());
   const root = path.join(directory, 'workspace');
   await fs.mkdir(root, { recursive: true });
   await fs.writeFile(path.join(root, 'task.txt'), 'Compute subset sum with bounded independent semantic verification.');

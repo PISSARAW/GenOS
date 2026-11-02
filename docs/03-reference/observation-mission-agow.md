@@ -81,8 +81,10 @@ du raccord n'atteste pas, à elle seule, la sémantique des métriques.
 
 ### Oracle métier natif `subset_sum`
 
-Le [raccord natif](../adr/0767-mesures-agow-depuis-oracle-natif.md) ajoute le contrat
-`genos.agow.native-subset-outcome/v1` à la liaison avant exécution. Il est reconnu
+Le [raccord natif initial](../adr/0767-mesures-agow-depuis-oracle-natif.md) définit le
+contrat `genos.agow.native-subset-outcome/v1`. Les nouvelles liaisons utilisent
+`genos.agow.native-subset-outcome/v2` pour mesurer aussi les réfutations attestées.
+Les anciennes liaisons v1 restent lisibles. Ce raccord est reconnu
 pour `subset_sum` avec `procedural_executor`, ainsi que les enveloppes natives
 `scoped_procedure`, `host_procedure` et `niche_procedure` de ce calcul. Un
 vérificateur hôte explicite garde la priorité sur cet adaptateur standard.
@@ -95,18 +97,44 @@ indépendantes via `nativeOracleProof.assertCompletedEvidence`.
 
 La métrique est binaire et bornée aux postconditions du résultat `subset_sum`
 enregistré. Une acceptation revalidée donne perte 0 et progression 1. Les autres
-dimensions restent `null`. L'absence ou le rejet d'une preuve produit un état
-d'attente, jamais une perte synthétique. Le raccord ne change aucun verdict
-natif et ne crédite aucune politique AGOW.
+dimensions restent `null`. Avec v2, deux réfutations sémantiques indépendantes
+revalidées donnent perte 1 et progression 0. Le run reste bloqué et son reçu
+natif non vérifié. Une erreur technique, une signature invalide, une preuve
+absente ou un oracle inconclusif laisse la perte inconnue. Voir
+[ADR 0769](../adr/0769-refutations-natives-mesurees-par-agow.md). Le lecteur positif
+continue de refuser les assemblées réfutées ; aucun crédit AGOW n'est ajouté.
 
 ```powershell
 node backend/tests/test_agow_native_mission.js
+npm --prefix backend run test:agow:refutation
 ```
 
 Cette qualification utilise la vraie délégation, les contrats, les autorités,
 les snapshots et deux processus d'oracle. Son provisionnement est un environnement
 local de test ; elle ne sollicite aucun LLM et ne qualifie pas le superviseur
 de processus. Les autres domaines natifs exigent un adaptateur explicite.
+
+Les bras correct et fautif de la qualification v2 ont les mêmes entrées et les
+mêmes plafonds scellés, avec deux processus d'oracle chacun. L'erreur technique
+et le cas inconclusif restent dans le dénominateur de couverture. La moyenne des
+seules pertes connues est descriptive et ne mesure pas un gain causal d'AGOW.
+
+### Répertoires de qualification
+
+Pour placer les données et les fichiers temporaires sur un autre volume :
+
+```powershell
+New-Item -ItemType Directory -Path D:/GenOS-AGOW/qualifications,D:/GenOS-AGOW/demos,D:/GenOS-AGOW/temp -Force
+$env:GENOS_AGOW_QUALIFICATION_ROOT = 'D:/GenOS-AGOW/qualifications'
+$env:GENOS_AGOW_DEMO_ROOT = 'D:/GenOS-AGOW/demos'
+$env:TEMP = 'D:/GenOS-AGOW/temp'
+$env:TMP = $env:TEMP
+npm --prefix backend run test:agow
+```
+
+Les réserves disque et les contrôles de confinement restent actifs. Le
+vérificateur du démonstrateur ne lit que les archives à l'intérieur de sa racine
+configurée, après résolution des chemins réels.
 
 ## États et reprise
 
