@@ -125,6 +125,14 @@ jamais réactiver implicitement une ancienne incarnation.
 
 ## Validation et limites
 
+La suite complète se lance avec `npm --prefix backend run test:continuity-protocol`.
+Les références décrivent la [reconnaissance durable](continuity-identite.md),
+le [transfert de responsabilité](continuity-transfert.md) et le
+[contrôle d'autorité sur la ressource](continuity-autorite.md).
+Le [démonstrateur à trois processus](../06-qualite-preuves/continuity-migration-processus-2026-11-02.md)
+copie un état scellé, interrompt l'activation et vérifie le refus de l'ancienne
+incarnation après reconnexion.
+
 Depuis la racine : `node backend/tests/test_continuity_protocol_contract.js`.
 Le test couvre les neuf messages, leurs payloads, les identifiants, les dates,
 les empreintes et les vecteurs communs.
