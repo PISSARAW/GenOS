@@ -10,6 +10,7 @@ const { FORBIDDEN } = require('../ontogenesis/integrationService');
 const CONFIG_NORMALIZERS = {
   'web-audit': validateWeb,
   'production-telemetry': validateProductionTelemetry,
+  'gns-operational': config => require('../nervous/shevAdapter').normalizeConfig(config),
   'project-rhythm': config => require('./adapters/projectRhythmAdapter').normalizeRhythmConfig(config)
 };
 
@@ -105,6 +106,9 @@ async function sampleSensor(db, input) {
   const sensor = input.sensor;
   const config = { ...JSON.parse(sensor.config_json), projectId: sensor.project_id,
     dimension: sensor.dimension, sampleRef: input.sampleRef };
+  if (sensor.adapter === 'gns-operational') {
+    return require('../nervous/shevAdapter').inspect(db, config);
+  }
   if (sensor.adapter === 'data-freshness') {
     return require('./adapters/dataFreshnessAdapter').inspectDataFreshness(db, config);
   }
