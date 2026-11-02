@@ -5,6 +5,7 @@ reproduction, et les 8 modes de composition (topologies).
 
 ## Exécution
 
+- [gns-regulation-operationnelle.md](gns-regulation-operationnelle.md) — perception, six raccordements, propositions, autorité, limite du Garage, suivi et reprise GNS.
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [g-cir.md](g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.

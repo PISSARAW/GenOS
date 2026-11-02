@@ -9,6 +9,16 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 ## Index
 
+Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
+[socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),
+[AGOW](2026-11-02-gns-arbitrage-agow.md),
+[morphogenèse](2026-11-02-gns-besoins-morphogenetiques.md),
+[ontogenèse](2026-11-02-gns-ontogenese.md),
+[SHEV](2026-11-02-gns-shev.md),
+[RPE](2026-11-02-raccord-gns-rpe.md),
+[huit topologies](2026-11-02-raccord-gns-topologies.md) et
+[régulation du Garage](2026-11-02-regulation-gns-du-garage.md).
+
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |

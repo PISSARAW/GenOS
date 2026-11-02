@@ -6,6 +6,14 @@
 
 ---
 
+Le [système nerveux GNS](../../01-concepts/gns.md) fournit au runtime des
+observations de pression et des besoins consultatifs de réévaluation ou de
+réallocation. Il ne valide pas une transition morphogénétique : typage,
+contraintes, gouvernance et preuves restent nécessaires. Le
+[cycle GNS](../gns-regulation-operationnelle.md) et sa
+[référence runtime](../../03-reference/runtime-gns.md) décrivent ce raccordement
+(documentation du 2026-11-02).
+
 ## 1. Définition
 
 La **Morphogenèse** GenOS est le système de contrôle qui construit, compose, imbrique, sépare, fusionne, transforme et détruit dynamiquement les organisations cognitives nécessaires à une mission, en utilisant les topologies comme primitives spécialisées.

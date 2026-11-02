@@ -28,6 +28,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [runtime-aeis.md](runtime-aeis.md) — contrats, pipeline de promotion, oracles natifs, reçus, persistance, refus et limites de l'AEIS.
 - [aeis-obligations-de-reparation.md](aeis-obligations-de-reparation.md) — contrat scellé, vérification différentielle et mutants ciblés pour les expressions arithmétiques.
 - [runtime-trinity.md](runtime-trinity.md) — dispatch, scellement, workers, comparaison, promotion, reprise et limites de Trinity.
+- [runtime-gns.md](runtime-gns.md) — signaux, états, graphes, effets, politique signée, épisodes, persistance, bornes et refus du système nerveux opérationnel.
 - [runtime-a-team.md](runtime-a-team.md) — exécution canonique, preuves, handoffs versionnés, couvertures et reprise A-Team.
 - [runtime-biocenose.md](runtime-biocenose.md) — cycle transactionnel, variantes, preuves, continuation et effets écologiques de Biocénose.
 - [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.

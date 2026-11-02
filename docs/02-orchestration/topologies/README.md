@@ -11,6 +11,12 @@ ces organisations ; elle n'est pas un neuvième mode. Son graphe pilote les feui
 dispatch principal et peut être recompilé à la frontière de continuation à partir des
 preuves de la première vague.
 
+[GNS](../../01-concepts/gns.md) est le système nerveux opérationnel transversal :
+il observe les workers et propage des demandes de surveillance sur leurs liens
+persistés. Son [cycle de régulation](../gns-regulation-operationnelle.md) précise
+les raccordements et leurs frontières ; une alerte ne choisit ni une topologie
+ni une solution gagnante.
+
 [Garage Fabric](garage-fabric.md) est également transversal : il ordonne les
 exécutions des workers sous les plafonds de capacité, sans choisir leur topologie
 ni modifier leur contrat de mission.

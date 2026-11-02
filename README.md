@@ -73,6 +73,14 @@ Huit topologies sont câblées, avec des niveaux de maturité différents :
 
 La **Morphogenèse** peut composer ces topologies avec `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE` et `FEDERATE`. La présence d’une topologie ou d’une capacité dans un registre ne prouve toutefois ni son activation dans une installation, ni la réussite d’une mission. Voir [topologies et capacités](docs/02-orchestration/topologies-et-capacites.md).
 
+### GNS — Régulation opérationnelle
+
+Le **système nerveux opérationnel GNS** observe la pression, conserve des états et reçus, et propage des demandes de surveillance dans les graphes RPE et les huit topologies. Ses raccordements alimentent AGOW, la morphogenèse, l'ontogenèse et SHEV. Il est transversal ; il ne constitue pas une topologie supplémentaire.
+
+Le régulateur du Garage peut limiter temporairement les nouvelles admissions sous politique signée, puis suivre récupération, régression ou incertitude. La prévision reste consultative par défaut. Les tests locaux qualifient ces chemins ; le banc synthétique disponible ne démontre pas de gain général de débit ou de réussite métier.
+
+Voir le [concept GNS](docs/01-concepts/gns.md), le [cycle et les raccordements](docs/02-orchestration/gns-regulation-operationnelle.md), la [référence runtime](docs/03-reference/runtime-gns.md), les [procédures d'exploitation](docs/04-exploitation/regulation-gns-du-garage.md) et les [preuves et limites](docs/06-qualite-preuves/qualification-gns-2026-11-02.md).
+
 ### Preuve, mémoire et évolution
 
 - clôture commune des missions fondée sur les reçus des workers, leurs invariants et un oracle indépendant ;
@@ -215,6 +223,7 @@ Un test vert prouve seulement ce que son oracle mesure. Les rapports de qualific
 
 - [Vue d’ensemble de la documentation](docs/README.md)
 - [Runtime agentique](docs/01-concepts/runtime-agentique.md)
+- [GNS — Système nerveux opérationnel](docs/01-concepts/gns.md)
 - [Épistémologie et évidence](docs/01-concepts/epistemologie-et-evidence.md)
 - [Ontogenèse dirigée par responsabilité](docs/01-concepts/ontogenese-dirigee-par-responsabilite.md)
 - [Workspaces contrefactuels et snapshots](docs/02-orchestration/workspaces-contrefactuel.md)

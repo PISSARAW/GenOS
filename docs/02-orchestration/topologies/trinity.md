@@ -17,6 +17,13 @@ L'absence d'un de ces plafonds est refusée avec `TRINITY_BUDGET_REQUIRED` avant
 le lancement des mondes. Le budget lie un scope parent persistant partagé par
 les workers ; il ne représente pas une consommation mesurée.
 
+Le [système nerveux GNS](../../01-concepts/gns.md) observe aussi les workers
+Trinity et leurs liens persistés. Ses alertes peuvent proposer une surveillance
+supplémentaire ; elles ne sélectionnent pas le monde gagnant et ne remplacent
+ni le jury, ni les preuves, ni les budgets ou gates de promotion. Voir le
+[cycle GNS](../gns-regulation-operationnelle.md#trinity-et-morphogenèse) et sa
+[référence runtime](../../03-reference/runtime-gns.md) (raccordement documenté le 2026-11-02).
+
 ## Snapshot d'agent lié à une expérience
 
 La capture optionnelle `topologySnapshot` lie l'agent à son monde, vérifie la

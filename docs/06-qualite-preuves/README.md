@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-gns-2026-11-02.md](qualification-gns-2026-11-02.md) — provenance des raccordements, contrats testés, comparaison synthétique, coût de collecte et limites de qualification GNS.
+
 - [competence-procedurale-corrigee-2026-11-02.md](competence-procedurale-corrigee-2026-11-02.md) — correction de l'apprentissage, du calcul et de l'abstention ; résultat borné de l'agent hybride, prototypes négatifs conservés.
 
 - [experience-mission-scenario-court-metrage-2026-11-02.md](experience-mission-scenario-court-metrage-2026-11-02.md) — mission réelle d'écriture d'un scénario de court métrage sur lecteur D:, modèle local Qwen 7B, contrat creative_candidate et scellement d'autorité GVX.

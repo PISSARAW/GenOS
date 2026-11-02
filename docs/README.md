@@ -1,5 +1,18 @@
 # Documentation GenOS
 
+## Dossier GNS — Système nerveux opérationnel
+
+Composant transversal aux huit topologies, GNS dispose d'un dossier conceptuel,
+de contrats runtime et d'une qualification distincte de ses métaphores biologiques :
+
+- [Concept, modèle et architecture](01-concepts/gns.md).
+- [Cycle de régulation et six raccordements](02-orchestration/gns-regulation-operationnelle.md).
+- [Référence runtime : signaux, états, graphes, autorité et persistance](03-reference/runtime-gns.md).
+- [Exploitation et rattrapage](04-exploitation/systeme-nerveux-operationnel.md), [régulation du Garage](04-exploitation/regulation-gns-du-garage.md).
+- [Qualification au 2 novembre 2026](06-qualite-preuves/qualification-gns-2026-11-02.md).
+
+## Actualités documentaires
+
 - [Compétence procédurale corrigée](06-qualite-preuves/competence-procedurale-corrigee-2026-11-02.md) — module hybride vérifié, cent expériences LLM et validation bornée sur un corpus réservé neuf ; [ADR 0768](adr/0768-competence-procedurale-verifiee-et-couverture.md).
 
 - [ADR 0770 — GQEL : Boucle d'Élévation de Qualité des LLM](adr/0770-gqel-boucle-elevation-qualite.md) — amplification de qualité, évaluation sémantique, contrat compilé, réparation causale et registre de versions ; [référence technique](03-reference/gqel-boucle-elevation-qualite.md).

@@ -8,6 +8,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 ## Fondations et runtime
 
+- [gns.md](gns.md) — système nerveux opérationnel transversal : modèle, physiologie, graphes, six raccordements, régulation signée du Garage et limites des preuves.
 - [inventaire-canonique-actuel.md](inventaire-canonique-actuel.md) — état consolidé des 23 sections, registres courants, maturité et limites de preuve.
 - [biologie-computationnelle.md](biologie-computationnelle.md) — biomimétique GenOS, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
