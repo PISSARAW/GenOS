@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.local/schemas/allostasisProtocol.v1.schema.json",
+  "title": "GenOS ALLOSTASIS v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol","messageId","operationId","missionId","conversationId","type","sender","scope","causalRefs","generations","authority","idempotencyKey","createdAt","expiresAt","payloadDigest","payload","audience"],
+  "properties": {
+    "protocol": {"const":"genos.allostasis/v1"},
+    "messageId": {"$ref":"#/definitions/id"},
+    "operationId": {"$ref":"#/definitions/id"},
+    "missionId": {"$ref":"#/definitions/id"},
+    "conversationId": {"$ref":"#/definitions/id"},
+    "type": {"enum":["REPORT_STATE","FORECAST_NEED","REQUEST_BUDGET","GRANT","REPORT_USAGE","RELEASE","PRESSURE","PREEMPT","REJECT"]},
+    "sender": {"$ref":"#/definitions/actor"},
+    "scope": {"$ref":"#/definitions/scope"},
+    "causalRefs": {"$ref":"#/definitions/refs"},
+    "generations": {"$ref":"#/definitions/generations"},
+    "authority": {"$ref":"#/definitions/authority"},
+    "idempotencyKey": {"$ref":"#/definitions/id"},
+    "createdAt": {"type":"string","format":"date-time"},
+    "expiresAt": {"type":"string","format":"date-time"},
+    "payloadDigest": {"$ref":"#/definitions/digest"},
+    "payload": {"type":"object"},
+    "audience": {"$ref":"#/definitions/actor"}
+  },
+  "allOf": [
+    {"if":{"properties":{"type":{"const":"REPORT_STATE"}}},"then":{"properties":{"payload":{"type":"object","additionalProperties":false,"required":["report"],"properties":{"report":{"$ref":"#/definitions/report"}}}}}},
+    {
+      "if": {"properties":{"type":{"const":"FORECAST_NEED"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["forecast"],"properties":{"forecast":{"$ref":"#/definitions/forecast"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"REQUEST_BUDGET"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId","budgetId","unit","amount","forecastId","forecastDigest"],
+            "properties": {
+              "requestId": {"$ref":"#/definitions/id"},
+              "budgetId": {"$ref":"#/definitions/id"},
+              "unit": {"$ref":"#/definitions/unit"},
+              "amount": {"$ref":"#/definitions/generation"},
+              "forecastId": {"$ref":"#/definitions/id"},
+              "forecastDigest": {"$ref":"#/definitions/digest"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"GRANT"}}},
+      "then": {
+        "properties": {"payload":{"type":"object","additionalProperties":false,"required":["allocation","allocationDigest"],"properties":{"allocation":{"$ref":"#/definitions/allocation"},"allocationDigest":{"$ref":"#/definitions/digest"}}}}
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"REPORT_USAGE"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["allocationId","allocationDigest","operationId","receiptId","cumulativeAmount","status","unit","evidenceRef"],
+            "properties": {
+              "allocationId": {"$ref":"#/definitions/id"},
+              "allocationDigest": {"$ref":"#/definitions/digest"},
+              "operationId": {"$ref":"#/definitions/id"},
+              "receiptId": {"$ref":"#/definitions/id"},
+              "cumulativeAmount": {"type":["integer","null"],"minimum":0,"maximum":9007199254740991},
+              "status": {"enum":["known","unknown"]},
+              "unit": {"$ref":"#/definitions/unit"},
+              "evidenceRef": {"$ref":"#/definitions/id"}
+            },
+            "allOf": [{"if":{"properties":{"status":{"const":"known"}}},"then":{"properties":{"cumulativeAmount":{"$ref":"#/definitions/generation"}}},"else":{"properties":{"cumulativeAmount":{"type":"null"}}}}]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"RELEASE"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["allocationId","allocationDigest","releaseId","reason","evidenceRef"],
+            "properties": {
+              "allocationId": {"$ref":"#/definitions/id"},
+              "allocationDigest": {"$ref":"#/definitions/digest"},
+              "releaseId": {"$ref":"#/definitions/id"},
+              "reason": {"enum":["complete","cancel","preempt"]},
+              "evidenceRef": {"$ref":"#/definitions/id"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"PRESSURE"}}},
+      "then": {
+        "properties": {
+          "payload": {"type":"object","additionalProperties":false,"required":["budgetId","unit","reason"],"properties":{"budgetId":{"$ref":"#/definitions/id"},"unit":{"$ref":"#/definitions/unit"},"reason":{"$ref":"#/definitions/id"}}}
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"PREEMPT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["allocationId","allocationDigest","reason"],
+            "properties": {"allocationId":{"$ref":"#/definitions/id"},"allocationDigest":{"$ref":"#/definitions/digest"},"reason":{"$ref":"#/definitions/id"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"REJECT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId","requestDigest","budgetId","unit","reason"],
+            "properties": {"requestId":{"$ref":"#/definitions/id"},"requestDigest":{"$ref":"#/definitions/digest"},"budgetId":{"$ref":"#/definitions/id"},"unit":{"$ref":"#/definitions/unit"},"reason":{"$ref":"#/definitions/id"}}
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "id": {"type":"string","minLength":1,"maxLength":512,"pattern":"^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])"},
+    "digest": {"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "refs": {"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+    "generation": {"type":"integer","minimum":0,"maximum":9007199254740991},
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain"],
+      "properties": {"agentId":{"$ref":"#/definitions/id"},"incarnationId":{"$ref":"#/definitions/id"},"trustDomain":{"$ref":"#/definitions/id"}}
+    },
+    "scope": {"type":"object","additionalProperties":false,"required":["organizationId","projectId"],"properties":{"organizationId":{"$ref":"#/definitions/id"},"projectId":{"$ref":"#/definitions/id"}}},
+    "generations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["incarnation","organization","workspace"],
+      "properties": {"incarnation":{"$ref":"#/definitions/generation"},"organization":{"$ref":"#/definitions/generation"},"workspace":{"$ref":"#/definitions/generation"}}
+    },
+    "authority": {"type":"object","additionalProperties":false,"required":["authorityId","generation"],"properties":{"authorityId":{"$ref":"#/definitions/id"},"generation":{"$ref":"#/definitions/generation"}}},
+    "unit": {"enum":["tokens","bytes","milliseconds","model_calls","micro_EUR","micro_USD"]},
+    "metricUnit": {"enum":["tokens","bytes","milliseconds","model_calls","micro_EUR","micro_USD","ratio_ppm"]},
+    "level": {"enum":["agent","topology","mission","organization"]},
+    "subject": {"type":"object","additionalProperties":false,"required":["level","subjectId"],"properties":{"level":{"$ref":"#/definitions/level"},"subjectId":{"$ref":"#/definitions/id"}}},
+    "time": {"type":"string","format":"date-time"},
+    "nullableTime": {"type":["string","null"],"format":"date-time"},
+    "uncertainty": {
+      "oneOf": [
+        {"type":"object","additionalProperties":false,"required":["kind"],"properties":{"kind":{"const":"unknown"}}},
+        {"type":"object","additionalProperties":false,"required":["kind","lower","upper"],"properties":{"kind":{"const":"interval"},"lower":{"$ref":"#/definitions/generation"},"upper":{"$ref":"#/definitions/generation"}}}
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId","sourceDigest","evidenceRefs","method"],
+      "properties": {"sourceId":{"$ref":"#/definitions/id"},"sourceDigest":{"$ref":"#/definitions/digest"},"evidenceRefs":{"$ref":"#/definitions/refs"},"method":{"$ref":"#/definitions/id"}}
+    },
+    "quantization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method","scale","rawValue","lower","upper"],
+      "properties": {"method":{"const":"floor/ceil"},"scale":{"const":1000000},"rawValue":{"type":"number","minimum":0,"maximum":1},"lower":{"$ref":"#/definitions/generation"},"upper":{"$ref":"#/definitions/generation"}}
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metricId","unit","value","uncertainty","provenance","quantization"],
+      "properties": {
+        "metricId": {"$ref":"#/definitions/id"},
+        "unit": {"$ref":"#/definitions/metricUnit"},
+        "value": {"type":["integer","null"],"minimum":0,"maximum":9007199254740991},
+        "uncertainty": {"$ref":"#/definitions/uncertainty"},
+        "provenance": {"$ref":"#/definitions/provenance"},
+        "quantization": {"anyOf":[{"$ref":"#/definitions/quantization"},{"type":"null"}]}
+      }
+    },
+    "scopeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status","variables","sampledAt","evidenceRefs"],
+      "properties": {"status":{"enum":["measured","unavailable"]},"variables":{"type":["object","null"]},"sampledAt":{"type":["number","null"]},"evidenceRefs":{"$ref":"#/definitions/refs"}}
+    },
+    "nativeSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service","sourceAgentId","storageScope","level","rawState","scopeState"],
+      "properties": {
+        "service": {"const":"agow.allostaticScopeService/v1"},
+        "sourceAgentId": {"$ref":"#/definitions/id"},
+        "storageScope": {"$ref":"#/definitions/id"},
+        "level": {"$ref":"#/definitions/level"},
+        "rawState": {"type":"object"},
+        "scopeState": {"$ref":"#/definitions/scopeState"}
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reportId","status","scope","missionId","subject","observedAt","validUntil","measurements","nativeSnapshot","reasons"],
+      "properties": {
+        "reportId": {"$ref":"#/definitions/id"},
+        "status": {"enum":["available","unavailable"]},
+        "scope": {"$ref":"#/definitions/scope"},
+        "missionId": {"$ref":"#/definitions/id"},
+        "subject": {"$ref":"#/definitions/subject"},
+        "observedAt": {"$ref":"#/definitions/nullableTime"},
+        "validUntil": {"$ref":"#/definitions/nullableTime"},
+        "measurements": {"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/definitions/measurement"}},
+        "nativeSnapshot": {"$ref":"#/definitions/nativeSnapshot"},
+        "reasons": {"$ref":"#/definitions/refs"}
+      }
+    },
+    "horizon": {"type":"object","additionalProperties":false,"required":["unit","amount"],"properties":{"unit":{"enum":["cycles","milliseconds"]},"amount":{"type":"integer","minimum":1,"maximum":9007199254740991}}},
+    "forecast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["forecastId","reportId","reportDigest","scope","missionId","subject","unit","amount","horizon","producedAt","validUntil","uncertainty","provenance","demandSource","nativeCandidate","nativeAssessment"],
+      "properties": {
+        "forecastId": {"$ref":"#/definitions/id"},
+        "reportId": {"$ref":"#/definitions/id"},
+        "reportDigest": {"$ref":"#/definitions/digest"},
+        "scope": {"$ref":"#/definitions/scope"},
+        "missionId": {"$ref":"#/definitions/id"},
+        "subject": {"$ref":"#/definitions/subject"},
+        "unit": {"$ref":"#/definitions/unit"},
+        "amount": {"$ref":"#/definitions/generation"},
+        "horizon": {"$ref":"#/definitions/horizon"},
+        "producedAt": {"$ref":"#/definitions/time"},
+        "validUntil": {"$ref":"#/definitions/time"},
+        "uncertainty": {"$ref":"#/definitions/uncertainty"},
+        "provenance": {"$ref":"#/definitions/provenance"},
+        "demandSource": {"const":"declared"},
+        "nativeCandidate": {"type":"object"},
+        "nativeAssessment": {"type":"object"}
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocationId","requestId","requestDigest","budgetId","unit","amount","client","regulator","forecastId","forecastDigest","expiresAt"],
+      "properties": {
+        "allocationId": {"$ref":"#/definitions/id"},
+        "requestId": {"$ref":"#/definitions/id"},
+        "requestDigest": {"$ref":"#/definitions/digest"},
+        "budgetId": {"$ref":"#/definitions/id"},
+        "unit": {"$ref":"#/definitions/unit"},
+        "amount": {"$ref":"#/definitions/generation"},
+        "client": {"$ref":"#/definitions/actor"},
+        "regulator": {"$ref":"#/definitions/actor"},
+        "forecastId": {"$ref":"#/definitions/id"},
+        "forecastDigest": {"$ref":"#/definitions/digest"},
+        "expiresAt": {"$ref":"#/definitions/time"}
+      }
+    }
+  }
+}

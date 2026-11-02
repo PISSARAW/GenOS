@@ -1,0 +1,18 @@
+[
+  {
+    "input": {
+      "amount": 1000001,
+      "unit": "micro_USD"
+    },
+    "canonical": "{\"amount\":1000001,\"unit\":\"micro_USD\"}",
+    "digest": "sha256:fe8c9bd485d868afb415dbaea92138198f5e0f4eec0e487d64720696d1b12c96"
+  },
+  {
+    "input": {
+      "status": "unknown",
+      "cumulativeAmount": null
+    },
+    "canonical": "{\"cumulativeAmount\":null,\"status\":\"unknown\"}",
+    "digest": "sha256:8c4b3fcb696f82756340fbf93d69e4a5a7264f686b58e7087ee67bc1b5c279ee"
+  }
+]
