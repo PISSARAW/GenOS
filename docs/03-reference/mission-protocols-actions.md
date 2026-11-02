@@ -27,3 +27,26 @@ Validation : `node backend/tests/test_mission_action_runtime.js` et
 `node backend/tests/test_mission_protocols_actions.js`. La seconde suite utilise
 un fournisseur HTTP local réel, un run scellé natif et les vrais journaux de
 réservation OMEGA/modèle, sans substituer un validateur de provenance.
+
+## Dispatch direct du CLI
+
+Le CLI `dispatch_worker` prépare un véritable run de contrôle du parent dans
+`directWorkerControlRun.cjs`, après attachement de la mission et de sa lease.
+Ce run est créé avec le contrat, le workspace et le budget natifs, puis son
+enveloppe signée mesure le point d'entrée CLI réellement utilisé. Le runtime
+CONTINUITY est initialisé avant l'événement de démarrage du contrôle, puis le
+worker reçoit cette incarnation réelle comme publisher SYNAPSE. Les workers
+modèles conservent aussi leur scope partagé de réservation native.
+Ce profil CLI refuse les scopes modèle fournis, y compris ceux d'une ancienne
+incarnation de la même mission : son allocation est toujours liée au run de
+contrôle qu'il vient réellement de créer. Les API générales de scopes restent
+distinctes ; ce refus ne les remplace pas.
+
+Le démarrage du contrôle n'est pas une réussite du parent. La fermeture déjà
+utilisée par le dispatch marque ce run `cancelled` après réussite du worker,
+avec une raison indiquant qu'aucune décision parent n'est établie ; un échec du
+worker ferme le contrôle en échec. Les preuves indépendantes restent celles du
+worker. Aucun parent fictif ni reçu de complétion ne remplace un run manquant.
+
+Validation : `node backend/tests/test_direct_worker_control_run.cjs` et les
+régressions réelles Syncytium/redémarrage biologique.

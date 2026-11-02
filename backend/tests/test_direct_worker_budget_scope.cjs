@@ -1,52 +1,52 @@
 'use strict';
-const assert = require('node:assert/strict');
-const execution = require('../src/services/strategyExecutionService');
-const scopes = require('../src/services/missionModelBudgetScope');
-const { bindDirectWorkerBudget, closeParentFromWorkers, closeParentBudgetRun } = require('../bin/directWorkerBudgetScope.cjs');
 
-(async () => {
-  const original = execution.createExecutionRun;
-  let persisted;
-  const updates = [];
-  execution.createExecutionRun = async (_db, input) => {
-    assert.equal(input.agentId, 'parent');
-    return { id: 'parent-run' };
-  };
-  const db = {
-    exec: async () => {},
-    get: async sql => sql.includes('FROM workspaces') ? { organization_id: 'org', project_id: 'project' } : persisted,
-    run: async (sql, ...values) => {
-      if (!sql.includes('INSERT OR IGNORE INTO mission_model_budget_scopes')) { updates.push({ sql, values }); return; }
-      persisted = { scope_id: values[0], parent_run_id: values[1], parent_agent_id: values[2],
-        organization_id: values[3], project_id: values[4], cost_ceiling_usd: values[5], token_ceiling: values[6] };
-    }
-  };
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'direct-worker-real-budget-tests';
+const assert = require('node:assert/strict');
+const fixture = require('./helpers/missionProtocolFixture');
+const scopes = require('../src/services/missionModelBudgetScope');
+const budget = require('../bin/directWorkerBudgetScope.cjs');
+
+async function main() {
+  const ctx = await fixture.create();
   try {
-    const mission = { localRuntime: true, workerKind: 'bounded_worker', executionBudget: { costUsd: 1, tokens: 5000 } };
-    const input = { db, context: { orchestratorId: 'parent', missionId: 'mission' }, parent: { workspace_id: 'workspace' }, mission, contractRecord: {} };
-    await bindDirectWorkerBudget(input);
-    assert.equal(mission.modelBudgetScope.id, 'execution-run:parent-run');
-    const route = await scopes.routeBudget({ ...mission, orchestratorAgentId: 'parent' }, db);
-    assert.equal(route.budgetReservationId, mission.modelBudgetScope.id);
-    assert.ok(updates.some(update => update.sql.includes("status = 'running'")));
-    input.context.delegatedWorkerId = 'worker';
-    await closeParentFromWorkers(db, input.context, [{ id: 'worker', latest_run_status: 'running' }]);
-    assert.equal(updates.filter(update => update.sql.includes('completed_at')).length, 0);
-    await closeParentFromWorkers(db, input.context, [{ id: 'worker', latest_run_status: 'completed' }]);
-    assert.equal(updates.at(-1).values[0], 'cancelled');
-    await closeParentBudgetRun(db, input.context, 'failed');
-    assert.equal(updates.at(-1).values[0], 'failed');
-    const smaller = { localRuntime: true, workerKind: 'bounded_worker', executionBudget: { costUsd: 1, tokens: 6000 } };
-    await bindDirectWorkerBudget({ ...input, context: { ...input.context, request: { execution_budget: { costUsd: 1, tokens: 16000 } } }, mission: smaller });
-    assert.equal(smaller.modelBudgetScope.tokens, 16000);
-    await assert.rejects(bindDirectWorkerBudget({ ...input, context: { ...input.context, request: { execution_budget: { costUsd: 1, tokens: 5000 } } }, mission: { ...smaller, modelBudgetScope: null } }), { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
-    await assert.rejects(bindDirectWorkerBudget({ ...input, mission: { ...mission, modelBudgetScope: null, executionBudget: { tokens: 5000 } } }), { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
-    const supplied = { ...mission, modelBudgetScope: { id: 'existing' } };
-    await bindDirectWorkerBudget({ ...input, mission: supplied });
-    assert.equal(supplied.modelBudgetScope.id, 'existing');
-    const native = { localRuntime: true, workerKind: 'math_worker' };
-    await bindDirectWorkerBudget({ ...input, mission: native });
-    assert.equal(native.modelBudgetScope, undefined);
-  } finally { execution.createExecutionRun = original; }
-  console.log('Direct worker budget scope checks passed.');
-})().catch(error => { console.error(error); process.exitCode = 1; });
+    await ctx.db.exec(require('../src/db/schema-model-attempts').TABLES_MODEL_ATTEMPTS);
+    await ctx.db.exec('ALTER TABLE workspaces ADD COLUMN path TEXT');
+    await ctx.db.run('UPDATE workspaces SET path=?', ctx.workspace);
+    const parent = await ctx.db.get(`SELECT a.*,w.path workspace_root FROM agents a
+      JOIN workspaces w ON w.id=a.workspace_id WHERE a.id='parent'`);
+    const mission = { agentId: ctx.agentId, localRuntime: true, workerKind: 'bounded_worker',
+      executionBudget: { costUsd: 1, tokens: 5000, latencyMs: 300000 } };
+    const context = { orchestratorId: parent.id, missionId: 'worker-mission', task: 'Dispatch bounded model work.', request: {} };
+    const input = { db: ctx.db, context, parent, mission, contractRecord: ctx.contractRecord };
+    await budget.bindDirectWorkerBudget(input);
+    const scope = mission.modelBudgetScope;
+    assert.equal(scope.id, `execution-run:${context.directWorkerParentBudgetRunId}`);
+    const route = await scopes.routeBudget({ ...mission, orchestratorAgentId: parent.id }, ctx.db);
+    assert.equal(route.budgetReservationId, scope.id);
+    const binding = await require('../src/services/missionProtocols/context').load(ctx.db, context.directWorkerParentBudgetRunId);
+    assert.deepEqual(binding.mission.modelBudgetScope, scope);
+    const count = (await ctx.db.get('SELECT COUNT(*) count FROM strategy_execution_runs')).count;
+    await assert.rejects(budget.bindDirectWorkerBudget({ ...input,
+      context: { ...context, request: { execution_budget: { costUsd: 0.5, tokens: 1000 } } } }),
+      { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
+    assert.equal((await ctx.db.get('SELECT COUNT(*) count FROM strategy_execution_runs')).count, count);
+    context.delegatedWorkerId = ctx.agentId;
+    await budget.closeParentFromWorkers(ctx.db, context, [{ id: ctx.agentId, latest_run_status: 'running' }]);
+    assert.equal((await ctx.db.get('SELECT status FROM strategy_execution_runs WHERE id=?', context.directWorkerParentBudgetRunId)).status, 'running');
+    await budget.closeParentFromWorkers(ctx.db, context, [{ id: ctx.agentId, latest_run_status: 'completed' }]);
+    assert.equal((await ctx.db.get('SELECT status FROM strategy_execution_runs WHERE id=?', context.directWorkerParentBudgetRunId)).status, 'cancelled');
+    await assert.rejects(budget.bindDirectWorkerBudget({ ...input,
+      context: { ...context, request: { execution_budget: { tokens: 1000, costUsd: 1 } } },
+      mission: { ...mission, modelBudgetScope: null } }), { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
+    await ctx.db.run("INSERT INTO missions(mission_id,objective,status,orchestrator_agent_id) VALUES('another','other','active','parent')");
+    await assert.rejects(budget.bindDirectWorkerBudget({ ...input, context: { ...context, missionId: 'another' } }),
+      { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
+    await ctx.db.run('UPDATE workspaces SET path=?', ctx.root);
+    await assert.rejects(require('../bin/directWorkerControlRun.cjs').prepare({ ...input, budget: ctx.executionRun.budget }),
+      { code: 'DIRECT_WORKER_CONTROL_SCOPE_REQUIRED' });
+    console.log('Direct worker native budget: sealed shared scope, honest control closure, small budget/cross-mission/stale workspace refusals passed.');
+  } finally { await ctx.close(); }
+}
+
+main().catch(error => { console.error(error); process.exitCode = 1; });

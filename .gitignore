@@ -232,3 +232,5 @@ Desktop.ini
 .history/
 # OMEGA-BENCH observed hardware is host-local and must not be committed.
 /benchmarks/omega-bench-2026/configs/hardware.local.json
+*.db.protocols/
+*.sqlite.protocols/

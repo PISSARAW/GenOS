@@ -153,7 +153,7 @@ function resolveLatency(mission) {
   return Number.isFinite(configured) && configured > 0 ? Math.min(configured, 900000) : 30000;
 }
 async function emitLocalStarted(ctx) {
-  const started = emit(ctx.mission.agentId, 'LOCAL_WORKER_STARTED', 'LOCAL_MODEL', 'Started local-model worker.', { model: ctx.localModel, criteria: ctx.criteria }, 'info', 'running');
+  const started = emit(ctx.mission.agentId, 'LOCAL_WORKER_STARTED', 'LOCAL_MODEL', 'Started local-model worker.', { executionRunId: ctx.executionRun.id, model: ctx.localModel, criteria: ctx.criteria }, 'info', 'running');
   await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, started);
   return started;
 }
@@ -230,6 +230,7 @@ async function runGenerationStage(ctx) {
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');
+    event.payload.executionRunId = ctx.executionRun.id;
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
@@ -306,7 +307,7 @@ async function evidenceReportFromModel(ctx) {
 async function runLocalWorker(db, mission, executionRun) {
   try { await require('./missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission }); } catch (_) {}
   await updateAgent(mission.agentId, 'running', mission.prompt);
-  await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
+  await emitLocalStarted({ db: db, mission: mission, executionRun, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
   let identity;
   let identityLeaseHeartbeat;
@@ -328,7 +329,7 @@ async function runLocalWorker(db, mission, executionRun) {
         identityLeaseHeartbeat.assertHealthy();
         return { generation, evidence };
       },
-      onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, ...retry })
+      onRetry: (retry) => workerCodeTestRepairTelemetry.publish({ db, mission, executionRun, ...retry })
     });
     identityLeaseHeartbeat.assertHealthy();
     generation = attempt.generation;

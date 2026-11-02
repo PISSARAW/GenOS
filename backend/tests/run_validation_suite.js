@@ -204,6 +204,7 @@ const suites = {
     ['unsafe code proposal bounded retry', 'test_worker_code_unsafe_proposal_retry.js'],
     ['code worker retry guidance', 'test_worker_code_test_repair_guidance.js'],
     ['reflection campaign root-cause guards', 'test_reflection_campaign_root_causes.js'],
+    ['native compliance parent scope and budget refusals', 'test_worker_compliance_parent.js'],
     ['persisted worker mission promotion and refusal', 'test_worker_compliance_native_missions.js'],
     ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],

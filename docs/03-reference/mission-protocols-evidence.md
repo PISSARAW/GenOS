@@ -30,4 +30,5 @@ liaison native exacte sans réclamer une deuxième fois les nonces de vérificat
 Une décision passée n'autorise aucun nouvel effet et ne remplace pas le garde
 distinct de promotion ou l'approbation humaine.
 
-Validation : `node backend/tests/test_mission_protocols_evidence.js`.
+Validation : `node backend/tests/test_mission_protocols_evidence.js` et
+`node backend/tests/test_mission_protocols_evidence_refusals.js`.

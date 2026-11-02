@@ -52,7 +52,7 @@ async function seedParent(options) {
 async function missionFor(context) {
   const { db, parentId, workspaceId, kind, model, scenario } = context;
   const codeMission = boundedCode.enabled(kind);
-  const modelBudgetScope = codeMission ? await boundedCode.bindModelBudget(context) : null;
+  const modelBudgetScope = codeMission ? context.parentControl.modelBudgetScope : null;
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
   const assignment = { workerKind: kind, role: boundedCode.workerRole(kind), label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
@@ -363,17 +363,17 @@ function failedMissionResult(options) {
 async function createWorkerContext(options) {
   const { db, parentId, workspaceId, rootWorkspace, kind, model, runId } = options;
   await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace });
+  const missionId = `compliance-mission-${runId}-${kind}`;
+  const parentControl = await require('./workerComplianceParent.cjs').prepare({ ...options, missionId });
   const scenario = workerComplianceScenario(kind);
-  const worker = await missionFor({ db, parentId, workspaceId, rootWorkspace, kind, model, scenario });
+  const worker = await missionFor({ db, parentId, workspaceId, rootWorkspace, kind, model, scenario, parentControl });
   dossierCases.prepareWorker(kind, worker, rootWorkspace);
   if (boundedCode.enabled(kind)) boundedCode.prepare(worker.workspaceRoot || rootWorkspace);
   const row = await db.get('SELECT metadata_json FROM agents WHERE id = ?', worker.agentId);
   const metadata = JSON.parse(row.metadata_json);
   if (metadata.workerKind !== kind || metadata.workerContract?.identity?.workerKind !== kind) throw new Error(`Persistent worker contract mismatch for ${kind}.`);
   if (!inside(process.env.GENOS_CAPSULE_ROOT, worker.workspaceRoot || rootWorkspace)) throw new Error(`Worker workspace escaped isolated capsule root: ${worker.workspaceRoot}`);
-  const missionId = `compliance-mission-${runId}-${kind}`;
-  await db.run("INSERT INTO missions (mission_id, objective, status, orchestrator_agent_id) VALUES (?, ?, 'active', ?)", missionId, `Compliance mission for ${kind}`, parentId);
-  await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', missionId, worker.agentId, kind);
+  await require('./workerComplianceParent.cjs').dispatch({ db, parentId, missionId, kind, worker, parentControl });
   return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario, missionId };
 }
 

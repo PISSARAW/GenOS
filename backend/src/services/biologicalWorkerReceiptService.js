@@ -158,8 +158,9 @@ async function recoverPending(db, missionId) {
     WHERE b.mission_id = ? AND o.applied = 0 AND r.status IN ('planned', 'running') ORDER BY o.rowid`, missionId);
   for (const row of pending) {
     const event = store.verifiedJson(row, 'event_json');
-    await record(db, { agentId: row.agent_id, event,
-      apply: () => require('./strategyExecutionProgress').recordExecutionEvent(db, row.agent_id, event) });
+    await require('./missionProtocols/runtime').recordEvent(db, { agentId: row.agent_id, event,
+      apply: () => record(db, { agentId: row.agent_id, event,
+        apply: () => require('./strategyExecutionProgress').recordExecutionEvent(db, row.agent_id, event) }) });
   }
 }
 

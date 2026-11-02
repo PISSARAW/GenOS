@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { digest } = require('../src/services/evidenceProtocol/canonical');
 
 const SOURCE = 'a % b';
 
@@ -48,14 +49,20 @@ function verificationContract() {
 }
 
 async function bindModelBudget(input) {
-  const workspace = await input.db.get('SELECT organization_id,project_id FROM workspaces WHERE id = ?', input.workspaceId);
-  const scope = { id: `worker-compliance:${input.runId}`, costUsd: 0.2, tokens: 5000,
-    organizationId: workspace.organization_id, projectId: workspace.project_id };
-  await input.db.run(`INSERT OR REPLACE INTO mission_model_budget_scopes
-    (scope_id,parent_run_id,parent_agent_id,organization_id,project_id,cost_ceiling_usd,token_ceiling)
-    VALUES (?,?,?,?,?,?,?)`, scope.id, `compliance-parent-run-${input.runId}`, input.parentId,
-  scope.organizationId, scope.projectId, scope.costUsd, scope.tokens);
-  return scope;
+  const ctx = input.parentContext;
+  if (ctx?.db !== input.db || ctx?.agentId !== input.parentId || !ctx?.executionRun?.id
+    || ctx.normalizedMission.missionId !== input.missionId || ctx.dispatchedAgent.workspace_id !== input.workspaceId) {
+    throw new Error('Compliance model budget requires its actual parent control incarnation.');
+  }
+  const scope = await require('../src/services/gvxMissionProvenance').requireAgentScope(input.db, input.parentId);
+  const held = await require('../src/services/gvxMissionProvenance').readRun(input.db, { runId: ctx.executionRun.id, scope });
+  if (held?.mission.id !== input.missionId || digest(held.budget) !== digest(ctx.normalizedExecutionBudget)) {
+    throw new Error('Compliance model budget parent mission or native budget mismatch.');
+  }
+  const parent = await input.db.get('SELECT workspace_id FROM agents WHERE id=?', input.parentId);
+  if (parent?.workspace_id !== input.workspaceId) throw new Error('Compliance model budget parent workspace changed.');
+  await require('../src/services/missionModelBudgetScope').bindParent(ctx);
+  return ctx.normalizedMission.modelBudgetScope;
 }
 
 function validEvidence(content) {

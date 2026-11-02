@@ -37,7 +37,7 @@ async function recordAudit(ctx, input) {
   if (!audit) return;
   const { emit } = require('./agentOrchestrationState');
   const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
-    `Applied identity experiment arm ${audit.arm}.`, { ...audit,
+    `Applied identity experiment arm ${audit.arm}.`, { ...audit, executionRunId: ctx.executionRun?.id,
       identityExperimentScenario: ctx.mission.identityExperimentScenario || null,
       identityExperimentSeed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : null,
       allowedEvidenceRefs: require('./workerEvidenceIdentityPrompt').missionEvidenceRefs(ctx.mission),

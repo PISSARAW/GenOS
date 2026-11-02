@@ -122,7 +122,6 @@ async function runWindowsLocalRoster(input, dependencies, parent) {
   const runResults = await Promise.all(workers.map((worker, index) => runWindowsRosterWorker({
     input: { ...input, parentProtocolContext: parent }, worker, assignment: assignments[index], index, dependencies
   })));
-  await runWindowsRosterPostflight({ input, workers, runResults, dependencies });
   if (runResults.some((result) => !result.started || result.unresolved === true)) {
     throw Object.assign(new Error('At least one Windows local worker did not complete with a resolved result.'), {
       code: 'WINDOWS_LOCAL_WORKER_INCOMPLETE', workerResults: runResults
@@ -172,7 +171,9 @@ async function runWindowsRosterWorker(context) {
     budget: mission.executionBudget, parentScope: input.parentProtocolContext.normalizedMission.modelBudgetScope }, dependencies);
   const startedAt = Date.now();
   const result = await require('../src/services/missionProtocols/windows').execute(ctx,
-    () => dependencies.runLocalWorker(db, ctx.normalizedMission, ctx.executionRun));
+    () => dependencies.runLocalWorker(db, ctx.normalizedMission, ctx.executionRun),
+    localResult => runWindowsRosterPostflight({ input, workers: [worker], dependencies,
+      runResults: [{ ...localResult, elapsedMs: Date.now() - startedAt }] }));
   return { ...result, elapsedMs: Date.now() - startedAt };
 }
 
@@ -220,20 +221,18 @@ async function runSingleWindowsExecution(input, services) {
     budget: localMission.executionBudget, autonomyPlan: input.autonomyPlan }, services);
   const executionRunId = ctx.executionRun.id;
   const workerStartedAt = Date.now();
-  const localResult = await require('../src/services/missionProtocols/windows').execute(ctx,
-    () => runLocalWorker(db, ctx.normalizedMission, ctx.executionRun));
   let postflight = { observedTools: [], receipts: [] };
-  try {
-    const runPostflight = services.runPostflight || require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight;
-    postflight = await runPostflight({
-      db, orchestratorId: id, missionId, task,
-      repoRoot: path.resolve(__dirname, '../..'),
-      workspaceRoot: requestedWorkspace(request), preflight, localResult,
-      workerElapsedMs: Date.now() - workerStartedAt
+  const localResult = await require('../src/services/missionProtocols/windows').execute(ctx,
+    () => runLocalWorker(db, ctx.normalizedMission, ctx.executionRun), async localResult => {
+      try {
+        const runPostflight = services.runPostflight || require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPostflight;
+        postflight = await runPostflight({ db, orchestratorId: id, missionId, task,
+          repoRoot: path.resolve(__dirname, '../..'), workspaceRoot: requestedWorkspace(request), preflight, localResult,
+          workerElapsedMs: Date.now() - workerStartedAt });
+      } catch (error) {
+        require('../src/services/telemetryObserver').emitEvent(require('./orchestratorWindowsLocalExecutionValues1.cjs').runWindowsLocalExecutionValue1({ error, executionRunId, id, missionId, get postflight() { return postflight; } }));
+      }
     });
-  } catch (error) {
-    require('../src/services/telemetryObserver').emitEvent(require('./orchestratorWindowsLocalExecutionValues1.cjs').runWindowsLocalExecutionValue1({ error, executionRunId, id, missionId, get postflight() { return postflight; } }));
-  }
   const agents = localAgents(id, localResult);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });

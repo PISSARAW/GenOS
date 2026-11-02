@@ -18,6 +18,12 @@ async function main() {
     assert.equal(reloaded.directory, binding.directory);
     assert.equal(reloaded.actor.incarnationId, binding.runId);
     await context.assertCurrent(reloaded);
+    await assert.rejects(context.assertCurrent({ ...reloaded, missionId: 'another-mission' }),
+      { code: 'MISSION_PROTOCOL_NATIVE_BINDING_MISMATCH' });
+    await assert.rejects(context.assertCurrent({ ...reloaded, workspaceId: 'another-workspace' }),
+      { code: 'MISSION_PROTOCOL_WORKSPACE_CHANGED' });
+    await assert.rejects(context.assertCurrent({ ...reloaded, actor: { ...reloaded.actor, incarnationId: 'another-run' } }),
+      { code: 'MISSION_PROTOCOL_ACTOR_CHANGED' });
     assert.equal(await context.authorize(binding, { scope: { organizationId: 'foreign', projectId: 'project' } }), false);
     await store.record(binding, { protocol: 'context', point: 'test', result: { status: 'observed' } });
     await assert.rejects(store.record(binding, { protocol: 'context', point: 'test', result: { status: 'invented' } }));

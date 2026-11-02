@@ -17,7 +17,11 @@ async function qualify(db) {
   try { checked = await require('./nativeOracleFailureProbes').subsetDispatch(db); }
   finally { journal.append = original; }
   assert.equal(injected, true);
-  assert.equal(checked.row.guardrail_reason, 'ORACLE_COST_BINDING_MISMATCH');
+  assert.equal(checked.row.status, 'failed');
+  const observations = await require('../../src/services/biologicalWorkerStore').observations(db, checked.row.id);
+  const rejected = observations.filter(item => item.applied && item.event.eventType === 'AGENT_FAILED').at(-1);
+  assert.equal(rejected?.event.payload.failure.code, 'ORACLE_COST_BINDING_MISMATCH',
+    'the EVIDENCE guard must preserve its earlier rejection as a durable native failure');
   const attestation = await journal.read(db, { ...checked.request, kind: 'attestation' });
   assert.equal(attestation.value.costs.complete, undefined);
   const allocation = await journal.read(db, { ...checked.request, kind: 'reservation' });

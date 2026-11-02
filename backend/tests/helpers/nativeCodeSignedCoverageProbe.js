@@ -22,8 +22,11 @@ async function qualify(db, context) {
   finally { store.saveAssembly = original; }
   assert.equal(injected, true);
   assert.equal(checked.result.success, false);
-  assert.equal(checked.row.status, 'blocked');
-  assert.equal(checked.row.guardrail_reason, 'ORACLE_RECEIPT_BINDING_MISMATCH');
+  assert.equal(checked.row.status, 'failed');
+  const observations = await require('../../src/services/biologicalWorkerStore').observations(db, checked.row.id);
+  const rejected = observations.filter(item => item.applied && item.event.eventType === 'AGENT_FAILED').at(-1);
+  assert.equal(rejected?.event.payload.failure.code, 'ORACLE_RECEIPT_BINDING_MISMATCH',
+    'the EVIDENCE guard must durably reject inconsistent signed coverage before completion');
   const attested = await journal.read(db, { ...checked.request, kind: 'attestation' });
   assert.equal(attested.value.accepted, true, 'the deliberately inconsistent authenticated assembly claims success');
   assert.equal(attested.value.costs.processes, 2);

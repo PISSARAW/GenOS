@@ -1,6 +1,5 @@
 'use strict';
 
-const scopes = require('../src/services/missionModelBudgetScope');
 const execution = require('../src/services/strategyExecutionService');
 const limits = require('../src/services/agents/workerRuntimeLimitsService');
 
@@ -40,21 +39,20 @@ async function closeParentFromWorkers(db, context, agents) {
 }
 
 async function bindDirectWorkerBudget({ db, context, parent, mission, contractRecord }) {
-  if (mission.modelBudgetScope || !mission.localRuntime || limits.isDeterministicWorkerMission(mission)) return;
-  const budget = parentBudget(context, mission);
-  const run = await execution.createExecutionRun(db, {
-    agentId: context.orchestratorId, missionId: context.missionId || undefined, budget, contractRecord
-  });
-  context.directWorkerParentBudgetRunId = run.id;
-  const parentMission = { executionBudget: budget };
+  if (mission.modelBudgetScope) {
+    throw Object.assign(new Error('Direct CLI workers require a native allocation bound to their own control run; supplied model scopes are not adopted.'),
+      { code: 'DIRECT_WORKER_BUDGET_REQUIRED' });
+  }
+  const model = !mission.modelBudgetScope && mission.localRuntime && !limits.isDeterministicWorkerMission(mission);
+  const budget = model ? parentBudget(context, mission)
+    : execution.normalizedBudget(context.request?.execution_budget || context.request?.executionBudget || mission.executionBudget);
   try {
-    await scopes.bindParent({ db, agentId: context.orchestratorId,
-      dispatchedAgent: { ...parent, execution_mode: 'orchestrator' }, executionRun: run,
-      normalizedExecutionBudget: budget, normalizedMission: parentMission });
-    if (!parentMission.modelBudgetScope) throw new Error('Direct worker parent budget scope was not persisted.');
-    await db.run("UPDATE strategy_execution_runs SET status = 'running', started_at = ? WHERE id = ? AND status = 'planned'", new Date().toISOString(), run.id);
+    const { ctx } = await require('./directWorkerControlRun.cjs').prepare({ db, context, parent, mission, contractRecord, budget, model });
+    if (!model) return;
+    if (!ctx.normalizedMission.modelBudgetScope) throw new Error('Direct worker parent budget scope was not persisted.');
+    mission.modelBudgetScope = ctx.normalizedMission.modelBudgetScope;
   } catch (error) { await closeParentBudgetRun(db, context, 'failed'); throw error; }
-  mission.modelBudgetScope = parentMission.modelBudgetScope;
 }
+
 
 module.exports = { bindDirectWorkerBudget, childBudget, closeParentBudgetRun, closeParentFromWorkers };

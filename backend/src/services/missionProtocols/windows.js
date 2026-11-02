@@ -60,12 +60,17 @@ async function prepare(input, options = {}) {
     await require('./allostasis').prepare(ctx);
     await require('../missionEnvelopeAuthority').seal(ctx);
     await runtime.initialize(ctx);
+    ctx.coordinatorOnly = input.coordinatorOnly === true;
     return ctx;
   } catch (error) { await failed(ctx, error); throw error; }
 }
 
-async function execute(ctx, run) {
-  if (ctx[HARNESS]) return run();
+async function execute(ctx, run, postflight) {
+  if (ctx[HARNESS]) {
+    const result = await run();
+    if (postflight) await postflight(result);
+    return result;
+  }
   return runtime.runInProcess(ctx, async () => {
     try {
       await runtime.beforeExecution(ctx);
@@ -73,7 +78,9 @@ async function execute(ctx, run) {
         runId: ctx.executionRun.id, mission: ctx.normalizedMission, verifyInputs: true, executable: ctx.authorityExecutable });
       await ctx.db.run("UPDATE strategy_execution_runs SET status='running',started_at=? WHERE id=? AND status='planned'",
         new Date().toISOString(), ctx.executionRun.id);
-      const result = await run();
+      let result = await run();
+      if (postflight) await postflight(result);
+      if (!ctx.coordinatorOnly) result = await require('./windowsCompletion').qualify(ctx, result);
       if (!result?.started || result.unresolved === true) await failed(ctx, new Error('WINDOWS_LOCAL_WORKER_UNRESOLVED'));
       return result;
     } catch (error) { await failed(ctx, error); throw error; }

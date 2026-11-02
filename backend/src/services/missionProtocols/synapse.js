@@ -7,24 +7,7 @@ const { SynapseConversation } = require('../synapseProtocol/conversation');
 const { createContextCodec } = require('../synapseProtocol/contextCodec');
 const { createMessage } = require('../synapseProtocol/contract');
 const config = require('./synapseConfiguration');
-
-async function publisher(binding) {
-  const row = await binding.db.get(`SELECT a.id AS agentId,a.workspace_id AS workspaceId,
-    w.organization_id AS organizationId,w.project_id AS projectId FROM missions m
-    JOIN agents child ON child.id=?
-    JOIN agents a ON a.id=COALESCE(child.parent_agent_id,m.orchestrator_agent_id)
-    JOIN workspaces w ON w.id=a.workspace_id WHERE m.mission_id=?`, binding.agentId, binding.missionId);
-  if (!row || row.agentId === binding.agentId) return null;
-  if (digest([row.organizationId, row.projectId]) !== digest([binding.scope.organizationId, binding.scope.projectId])) {
-    throw new Error('Mission SYNAPSE publisher belongs to another tenant.');
-  }
-  const run = await binding.db.get('SELECT id FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', row.agentId);
-  if (!run) throw new Error('Mission SYNAPSE publisher has no execution incarnation.');
-  const held = await require('../gvxMissionProvenance').readRun(binding.db, { runId: run.id,
-    scope: { ...binding.scope, entityId: row.agentId } });
-  if (held?.mission.id !== binding.missionId) throw new Error('Mission SYNAPSE publisher incarnation belongs to another mission.');
-  return { agentId: row.agentId, incarnationId: run.id, trustDomain: binding.scope.organizationId };
-}
+const { publisher } = require('./synapsePublisher');
 
 function frame(binding, input) {
   const id = digest([binding.runId, input.type]);

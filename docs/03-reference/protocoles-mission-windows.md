@@ -46,6 +46,19 @@ Ses écritures de progression et ses inférences retrouvent ainsi les bindings
 CONTINUITY, EVIDENCE et OMEGA habituels. Un callback déclaré terminé ne constitue
 pas à lui seul une preuve de complétion native.
 
+Le postflight précède la qualification finale, à l'intérieur de la durée de vie
+`runInProcess`. Même après `LOCAL_WORKER_COMPLETED`, ou après une décision MCP
+de postflight, `started:true` reste insuffisant. Le run doit être réellement
+`completed` et posséder le dossier EVIDENCE intact de cette mission et de cet
+agent, encore accepté par la conversation courante. Sans cela, le résultat
+devient `unresolved:true` avec la raison `WINDOWS_NATIVE_COMPLETION_REQUIRED` ;
+l'agrégat reste non vérifié et le roster refuse le succès. La durée de vie de
+l'agent orchestrateur reste déléguée au finaliseur de mission.
+
+Le profil ne transforme pas un événement local différé en preuve de domaine.
+La terminalisation authentique exige le pipeline natif et son oracle de domaine ;
+ce branchement ne fabrique pas un événement `AGENT_COMPLETED` pour l'obtenir.
+
 `runtime.runInProcess` entoure l'appel réel. Sa finalisation GQWF et son
 règlement ALLOSTASIE restent exécutés après un résultat non résolu ou une
 exception. Les erreurs de préparation ou d'autorité se propagent ; les runs

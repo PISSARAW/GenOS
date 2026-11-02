@@ -3,6 +3,7 @@
 process.env.GENOS_DISABLE_DOTENV = '1';
 process.env.GENOS_DB_BACKUP_SKIP = '1';
 process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'p1-delegation-test-only';
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'p1-delegation-oracle-test-only';
 process.env.NODE_ENV = 'test';
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -31,18 +32,20 @@ async function seed(db, workspace, options = {}) {
   await db.run("INSERT INTO mission_agents (mission_id,agent_id,role) VALUES ('delegation-mission','delegation-root','orchestrator'),('delegation-mission','delegation-sub','sub_orchestrator')");
   const contractRecord = await require('../src/services/strategyContractService').saveContract(db, {
     agentId: 'delegation-root', workspaceId: 'delegation-ws', problem: 'Compute a bounded subset sum with native evidence', ...options });
-  await bindParentRun(db, workspace, contractRecord);
+  await bindParentRun(db, { workspace, contractRecord, agentId: 'delegation-root' });
+  await bindParentRun(db, { workspace, contractRecord, agentId: 'delegation-sub' });
   return contractRecord;
 }
 
-async function bindParentRun(db, workspace, contractRecord) {
+async function bindParentRun(db, input) {
+  const { workspace, contractRecord, agentId } = input;
   const run = await require('../src/services/strategyExecutionService').createExecutionRun(db, {
-    agentId: 'delegation-sub', contractRecord, missionId: 'delegation-mission',
+    agentId, contractRecord, missionId: 'delegation-mission',
     budget: { tokens: 10000, deterministic: true, latencyMs: 300000 } });
-  const ctx = { db, agentId: 'delegation-sub', executionRun: run, executable: process.execPath,
-    contractRecord, autonomyPlan: {}, normalizedMission: { agentId: 'delegation-sub',
+  const ctx = { db, agentId, executionRun: run, executable: process.execPath,
+    contractRecord, autonomyPlan: {}, normalizedMission: { agentId,
       missionId: 'delegation-mission', workspaceRoot: workspace,
-      toolLease: ['genos_delegate_worker'], timeoutMs: 300000 } };
+      toolLease: agentId === 'delegation-sub' ? ['genos_delegate_worker'] : [], timeoutMs: 300000 } };
   await require('../src/services/missionEnvelopeAuthority').seal(ctx);
 }
 
@@ -88,8 +91,8 @@ async function nativeDispatch(db) {
   const row = await db.get('SELECT id,status FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', result.childAgentId);
   assert.equal(row.status, 'completed');
   const receipt = await require('../src/services/biologicalWorkerStore').receipt(db, row.id);
-  assert.equal(receipt.result.verified, false);
-  assert.match(receipt.result.reason, /require_independent_verification/);
+  assert.equal(receipt.result.verified, true);
+  assert.equal(receipt.result.reason, null);
   const observation = await db.get('SELECT payload_json FROM telemetry_events WHERE agent_id=? AND event_type=\'EVIDENCE_REPORT\'', result.childAgentId);
   const report = JSON.parse(observation.payload_json).evidenceReport;
   assert.deepEqual(report.workerArtifact.content.result.indices, [0, 2]);
@@ -99,7 +102,7 @@ async function nativeDispatch(db) {
   const saved = await require('../src/services/missionEnvelopeAuthority').read(db, row.id);
   assert.equal(saved.envelope.missionId, 'delegation-mission');
   assert.equal(saved.envelope.limits.tokens, 0);
-  console.log('Delegated native child: real computation completes, while its unverified receipt remains ineligible for promotion.');
+  console.log('Delegated native child: real computation completes with independently verified EVIDENCE acceptance.');
   return { runId: row.id, workerId: result.childAgentId };
 }
 

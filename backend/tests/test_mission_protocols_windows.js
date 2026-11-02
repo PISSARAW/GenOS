@@ -9,8 +9,16 @@ const { runWindowsLocalExecution } = require('../bin/orchestratorWindowsLocalExe
 async function realEntryRegistersBeforeWorker() {
   const { ctx, input } = await fixture.create();
   let observed;
+  let outcome;
+  let postflightObserved = false;
   try {
-    await runWindowsLocalExecution(input, { runPostflight: async () => ({ observedTools: [], receipts: [] }),
+    await ctx.db.run("UPDATE agents SET status='running' WHERE id='parent'");
+    input.evaluateMissionContinuity = async request => { outcome = request.outcome; return {}; };
+    await runWindowsLocalExecution(input, { runPostflight: async () => {
+      postflightObserved = true;
+      assert.equal((await ctx.db.get('SELECT status FROM strategy_execution_runs WHERE id=?', observed.run.id)).status, 'running');
+      return { observedTools: [], receipts: [] };
+    },
       runLocalWorker: async (db, mission, run) => {
         observed = { mission, run };
         const binding = await require('../src/services/missionProtocols/context').load(db, run.id);
@@ -33,12 +41,17 @@ async function realEntryRegistersBeforeWorker() {
           agentId: mission.agentId, event: { eventType: 'AGENT_COMPLETED', timestamp: new Date().toISOString(),
             payload: { executionRunId: run.id } }, apply: async () => { applied = true; } }), /EVIDENCE|verification|oracle|ORACLE/i);
         assert.equal(applied, false);
-        return { started: false, unresolved: true };
+        return { started: true, unresolved: false };
       } });
     assert.ok(observed.mission.executionAuthorityRef);
     const sealed = await require('../src/services/missionEnvelopeAuthority').read(ctx.db, observed.run.id);
     assert.equal(sealed.envelope.evidencePolicy.transportSuccessIsEvidence, false);
     assert.equal((await ctx.db.get('SELECT status FROM strategy_execution_runs WHERE id=?', observed.run.id)).status, 'failed');
+    assert.equal(postflightObserved, true);
+    assert.equal(outcome.success, false, 'started:true without native completion and accepted EVIDENCE cannot become success');
+    assert.equal(outcome.verdict, 'unverified');
+    assert.equal((await ctx.db.get('SELECT status FROM agents WHERE id=?', input.id)).status, 'running',
+      'the orchestrator agent lifetime is not terminalized by deferred worker output');
   } finally { await ctx.close(); }
 }
 

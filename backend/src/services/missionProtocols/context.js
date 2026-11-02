@@ -61,13 +61,27 @@ async function assertCurrent(binding) {
   if (scope.organizationId !== binding.scope.organizationId || scope.projectId !== binding.scope.projectId) {
     throw failure('MISSION_PROTOCOL_TENANT_CHANGED');
   }
+  await assertNativeBinding(binding, scope);
   const mission = await require('../missionIdentityService').get(db, missionId);
   if (mission?.status !== 'active') throw failure('MISSION_PROTOCOL_MISSION_INACTIVE');
   const lease = await require('../missionEnvelopeAuthorityState').lease(db, missionId);
   if (digest(lease) !== digest(binding.lease)) throw failure('MISSION_AUTHORITY_STALE');
   await require('../missionExecutionAuthority').assertAgentCurrent(db, agentId);
   if (binding.preparing) return;
-  await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId });
+  const current = await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId });
+  if (current.envelope.missionId !== missionId || current.envelope.identity.workspaceId !== binding.workspaceId) {
+    throw failure('MISSION_PROTOCOL_SEALED_SCOPE_MISMATCH');
+  }
+}
+
+async function assertNativeBinding(binding, scope) {
+  const native = await require('../gvxMissionProvenance').readRun(binding.db, { runId: binding.runId, scope });
+  if (!native || native.mission.id !== binding.missionId
+    || digest(native.budget) !== digest(binding.executionRun.budget)) throw failure('MISSION_PROTOCOL_NATIVE_BINDING_MISMATCH');
+  const identity = await require('../missionEnvelopeAuthorityState').identity(binding.db, binding.agentId);
+  if (identity.workspaceId !== binding.workspaceId) throw failure('MISSION_PROTOCOL_WORKSPACE_CHANGED');
+  const expected = { agentId: binding.agentId, incarnationId: binding.runId, trustDomain: scope.organizationId };
+  if (digest(binding.actor) !== digest(expected)) throw failure('MISSION_PROTOCOL_ACTOR_CHANGED');
 }
 
 async function authorize(binding, request) {

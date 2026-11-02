@@ -45,6 +45,12 @@ async function assertExplicitRun(db, agentId) {
 }
 
 async function recordEvent(db, input) {
+  const runId = input.event?.payload?.executionRunId;
+  const registered = runId && await context.load(db, runId);
+  if (!registered) {
+    await assertExplicitRun(db, input.agentId);
+    return input.apply();
+  }
   return withTransaction(db, () => require('./nativeEventRecording').record(db, { ...input, guard: guardEvent }));
 }
 

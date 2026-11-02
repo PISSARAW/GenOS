@@ -36,7 +36,7 @@ async function main() {
           assert.equal(allocation.allocation.regulator.agentId, 'parent');
         } finally { allocator.close(); }
         observed.push({ mission, run, binding });
-        return { started: false, unresolved: true };
+        return { started: true, unresolved: false };
       }, runPostflight: async () => ({})
     }), error => error.code === 'WINDOWS_LOCAL_WORKER_INCOMPLETE');
     assert.equal(observed.length, 2);

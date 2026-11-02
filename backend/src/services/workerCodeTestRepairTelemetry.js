@@ -173,6 +173,7 @@ async function publish(context) {
     failureDiagnostics.candidate.candidateDigest);
   const event = emit(context.mission.agentId, 'LOCAL_CODE_TEST_REPAIR', 'TEST_FEEDBACK',
     `Retrying after test failure ${context.failedAttempt}; ${context.remainingMs} ms remain.`, {
+      executionRunId: context.executionRun?.id,
       failedAttempt: context.failedAttempt,
       remainingMs: context.remainingMs,
       failureCode: context.error.code || null,

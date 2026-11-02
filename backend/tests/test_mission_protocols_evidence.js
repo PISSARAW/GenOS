@@ -14,6 +14,7 @@ const { seed } = require('./test_bounded_worker_delegation');
 const { scoped } = require('./helpers/nativeWorkerFixtures');
 const { getDatabase, closeDatabase } = require('../src/db');
 const bridge = require('../src/services/missionProtocols/evidence');
+const Database = require('better-sqlite3');
 
 async function qualify(db) {
   const result = await require('../src/services/agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(db,
@@ -23,6 +24,17 @@ async function qualify(db) {
   assert.equal(run.status, 'completed', JSON.stringify({ run, result, records }));
   const binding = await require('../src/services/missionProtocols/context').load(db, run.id);
   assert.ok(binding, 'real mission lifecycle installed a bound protocol runtime');
+  assert.equal(binding.mission.synapseContext.receiver.agentId, result.childAgentId);
+  const ownership = await require('../src/services/missionProtocols/continuityStore').read(binding);
+  assert.equal(ownership.runId, run.id);
+  const timing = new Database(path.join(binding.directory, 'allostasis.sqlite'), { readonly: true });
+  try {
+    const allocation = JSON.parse(timing.prepare('SELECT body FROM mission_time_runtime').get().body);
+    assert.equal(allocation.finished.result.status, 'usage_recorded');
+    assert.ok(allocation.finished.result.spent > 0);
+    assert.equal(allocation.finished.released.held, 0);
+    assert.ok(allocation.finished.released.protectedReserve > 0);
+  } finally { timing.close(); }
   const row = await db.get('SELECT * FROM mission_protocol_evidence WHERE run_id=?', run.id);
   const dossier = JSON.parse(row.dossier_json);
   assert.equal(digest(dossier), row.dossier_digest);

@@ -28,7 +28,7 @@ async function save(binding) {
 
 async function read(db, runId) {
   const table = await db.get("SELECT name FROM sqlite_master WHERE name='mission_protocol_runs'");
-  if (!table) return null;
+  if (table?.name !== 'mission_protocol_runs') return null;
   const row = await db.get('SELECT * FROM mission_protocol_runs WHERE run_id=?', runId);
   if (row && digest(JSON.parse(row.binding_json)) !== row.binding_digest) throw new Error('Mission protocol binding integrity mismatch.');
   return row;

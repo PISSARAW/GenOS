@@ -25,7 +25,8 @@ async function seed(db, input) {
   contract.promotion.native_verification = { executions: 2, latencyMs: 30000 };
   await require('../../src/services/strategyContractService').saveContract(db,
     { agentId: id, workspaceId: id, contract, createdBy: 'worker-cooperation-qualification' });
-  return { db, id, workspace, stages: [] };
+  const control = await require('./workerCooperationControl.cjs').prepare(db, { ...input, budget });
+  return { db, id, workspace, stages: [], control };
 }
 
 function planFor(context, objective) {
@@ -56,6 +57,9 @@ async function evidenceFor(context, worker) {
   assert.equal(saved.envelope.missionId, context.id);
   assert.equal(saved.envelope.orchestratorId, context.id);
   assert.equal(saved.envelope.limits.tokens, 0);
+  const binding = await require('../../src/services/missionProtocols/context').load(db, run.id);
+  assert.equal(binding.mission.synapseContext.publisher.agentId, context.id);
+  assert.equal(binding.mission.synapseContext.publisher.incarnationId, context.control.run.id);
   const request = { runId: run.id, agentId: worker.agentId, scope: saved.envelope.scope };
   const attestation = await require('../../src/services/epistemic/nativeOracleJournal').read(db,
     { ...request, kind: 'attestation' });
@@ -91,6 +95,8 @@ async function evidenceFor(context, worker) {
 
 async function execute(context, input) {
   assert.ok(context.stages.length < 4, 'The scenario may dispatch at most four workers.');
+  await authority.assertRun(context.db, { agentId: context.id, runId: context.control.run.id,
+    mission: context.control.ctx.normalizedMission });
   const plan = planFor(context, input.objective);
   const assignment = plan.dispatchWorkers[0];
   assert.equal(assignment.workerKind, input.expectedKind);
