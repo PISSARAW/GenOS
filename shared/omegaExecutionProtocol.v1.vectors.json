@@ -1,0 +1,21 @@
+[
+  {
+    "input": {
+      "planId": "plan-1",
+      "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "canonical": "{\"planDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"planId\":\"plan-1\"}",
+    "digest": "sha256:78843aabfe1dc2e533d215982be41b1147fb7057d8ebc453d8a43a126b25a3a1"
+  },
+  {
+    "input": {
+      "operationId": "read",
+      "kind": "READ",
+      "reference": "store/read",
+      "dependsOn": [],
+      "state": "open"
+    },
+    "canonical": "{\"dependsOn\":[],\"kind\":\"READ\",\"operationId\":\"read\",\"reference\":\"store/read\",\"state\":\"open\"}",
+    "digest": "sha256:6ceb8e4dbf23c34ea490fbb232af20350075e095d406c01bb66d2324dcb4dc0a"
+  }
+]

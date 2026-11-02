@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.local/schemas/omegaExecutionProtocol.v1.schema.json",
+  "title": "GenOS OMEGA Execution v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol","messageId","operationId","missionId","conversationId","type","sender","scope","causalRefs","generations","authority","idempotencyKey","createdAt","expiresAt","payloadDigest","payload","audience"],
+  "properties": {
+    "protocol": {"const":"genos.omega.execution/v1"},
+    "messageId": {"$ref":"#/definitions/id"},
+    "operationId": {"$ref":"#/definitions/id"},
+    "missionId": {"$ref":"#/definitions/id"},
+    "conversationId": {"$ref":"#/definitions/id"},
+    "type": {"enum":["DESCRIBE_RUNTIME","SUBMIT_PROGRAM","ACCEPT_PLAN","EXECUTE","REPORT_OBLIGATIONS","RESUME","REQUEST_EFFECT","AUTHORIZE_EFFECT","EFFECT_RECEIPT","RECONCILE_EFFECT","EFFECT_OUTCOME_UNKNOWN"]},
+    "sender": {"$ref":"#/definitions/actor"},
+    "scope": {"$ref":"#/definitions/scope"},
+    "causalRefs": {"$ref":"#/definitions/refs"},
+    "generations": {"$ref":"#/definitions/generations"},
+    "authority": {"$ref":"#/definitions/authority"},
+    "idempotencyKey": {"$ref":"#/definitions/id"},
+    "createdAt": {"type":"string","format":"date-time"},
+    "expiresAt": {"type":"string","format":"date-time"},
+    "payloadDigest": {"$ref":"#/definitions/digest"},
+    "payload": {"type":"object"},
+    "audience": {"$ref":"#/definitions/actor"}
+  },
+  "allOf": [
+    {"if":{"properties":{"type":{"const":"DESCRIBE_RUNTIME"}}},"then":{"properties":{"payload":{"type":"object","additionalProperties":false,"required":["runtimeId"],"properties":{"runtimeId":{"$ref":"#/definitions/id"}}}}}},
+    {
+      "if": {"properties":{"type":{"const":"SUBMIT_PROGRAM"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["submission"],"properties":{"submission":{"$ref":"#/definitions/submission"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"ACCEPT_PLAN"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["planId","planDigest"],"properties":{"planId":{"$ref":"#/definitions/id"},"planDigest":{"$ref":"#/definitions/digest"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"EXECUTE"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["runId","planId","planDigest","baseDigest","environmentDigest"],
+            "properties": {"runId":{"$ref":"#/definitions/id"},"planId":{"$ref":"#/definitions/id"},"planDigest":{"$ref":"#/definitions/digest"},"baseDigest":{"$ref":"#/definitions/digest"},"environmentDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"REPORT_OBLIGATIONS"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["runId","planId","planDigest","baseDigest","environmentDigest"],
+            "properties": {"runId":{"$ref":"#/definitions/id"},"planId":{"$ref":"#/definitions/id"},"planDigest":{"$ref":"#/definitions/digest"},"baseDigest":{"$ref":"#/definitions/digest"},"environmentDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"RESUME"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["runId","planId","planDigest","baseDigest","environmentDigest"],
+            "properties": {"runId":{"$ref":"#/definitions/id"},"planId":{"$ref":"#/definitions/id"},"planDigest":{"$ref":"#/definitions/digest"},"baseDigest":{"$ref":"#/definitions/digest"},"environmentDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {"if":{"properties":{"type":{"const":"REQUEST_EFFECT"}}},"then":{"properties":{"payload":{"type":"object","additionalProperties":false,"required":["effect"],"properties":{"effect":{"$ref":"#/definitions/effect"}}}}}},
+    {
+      "if": {"properties":{"type":{"const":"AUTHORIZE_EFFECT"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["effectKey"],"properties":{"effectKey":{"$ref":"#/definitions/digest"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"EFFECT_RECEIPT"}}},
+      "then": {
+        "properties": {"payload":{"type":"object","additionalProperties":false,"required":["effectKey","receiptDigest"],"properties":{"effectKey":{"$ref":"#/definitions/digest"},"receiptDigest":{"$ref":"#/definitions/digest"}}}}
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"RECONCILE_EFFECT"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["effectKey"],"properties":{"effectKey":{"$ref":"#/definitions/digest"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"EFFECT_OUTCOME_UNKNOWN"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["effectKey","reason"],"properties":{"effectKey":{"$ref":"#/definitions/digest"},"reason":{"$ref":"#/definitions/id"}}}}}
+    }
+  ],
+  "definitions": {
+    "id": {"type":"string","minLength":1,"maxLength":512,"pattern":"^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])"},
+    "digest": {"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "refs": {"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+    "generation": {"type":"integer","minimum":0,"maximum":9007199254740991},
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain"],
+      "properties": {"agentId":{"$ref":"#/definitions/id"},"incarnationId":{"$ref":"#/definitions/id"},"trustDomain":{"$ref":"#/definitions/id"}}
+    },
+    "scope": {"type":"object","additionalProperties":false,"required":["organizationId","projectId"],"properties":{"organizationId":{"$ref":"#/definitions/id"},"projectId":{"$ref":"#/definitions/id"}}},
+    "generations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["incarnation","organization","workspace"],
+      "properties": {"incarnation":{"$ref":"#/definitions/generation"},"organization":{"$ref":"#/definitions/generation"},"workspace":{"$ref":"#/definitions/generation"}}
+    },
+    "authority": {"type":"object","additionalProperties":false,"required":["authorityId","generation"],"properties":{"authorityId":{"$ref":"#/definitions/id"},"generation":{"$ref":"#/definitions/generation"}}},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit","limit","spent","reserved"],
+      "properties": {"unit":{"$ref":"#/definitions/id"},"limit":{"$ref":"#/definitions/generation"},"spent":{"$ref":"#/definitions/generation"},"reserved":{"$ref":"#/definitions/generation"}}
+    },
+    "kind": {"enum":["READ","SELECT","CALL","INFER","CHECK","EMIT"]},
+    "capability": {"type":"object","additionalProperties":false,"required":["kind","references"],"properties":{"kind":{"$ref":"#/definitions/kind"},"references":{"$ref":"#/definitions/refs"}}},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimeId","generation","domains","operations","verifierRefs","effectGuarantees","maxOperations"],
+      "properties": {
+        "runtimeId": {"$ref":"#/definitions/id"},
+        "generation": {"$ref":"#/definitions/generation"},
+        "domains": {"$ref":"#/definitions/refs","minItems":1},
+        "operations": {"type":"array","maxItems":6,"uniqueItems":true,"items":{"$ref":"#/definitions/capability"},"minItems":1},
+        "verifierRefs": {"$ref":"#/definitions/refs"},
+        "effectGuarantees": {"$ref":"#/definitions/refs"},
+        "maxOperations": {"type":"integer","minimum":1,"maximum":64}
+      }
+    },
+    "policy": {"type":"object","additionalProperties":false,"required":["policyId","version"],"properties":{"policyId":{"$ref":"#/definitions/id"},"version":{"$ref":"#/definitions/id"}}},
+    "requirements": {"type":"object","additionalProperties":false,"required":["verifierRefs","effectGuarantees"],"properties":{"verifierRefs":{"$ref":"#/definitions/refs"},"effectGuarantees":{"$ref":"#/definitions/refs"}}},
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId","program","domain","policy","baseDigest","environmentDigest","requirements","budget"],
+      "properties": {
+        "planId": {"$ref":"#/definitions/id"},
+        "program": {"$ref":"#/definitions/program"},
+        "domain": {"$ref":"#/definitions/id"},
+        "policy": {"$ref":"#/definitions/policy"},
+        "baseDigest": {"$ref":"#/definitions/digest"},
+        "environmentDigest": {"$ref":"#/definitions/digest"},
+        "requirements": {"$ref":"#/definitions/requirements"},
+        "budget": {"$ref":"#/definitions/budget"}
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effectKey",
+        "scope",
+        "missionId",
+        "conversationId",
+        "runId",
+        "planId",
+        "planDigest",
+        "programDigest",
+        "capabilitiesDigest",
+        "policyDigest",
+        "runtimeId",
+        "runtimeGeneration",
+        "stepId",
+        "kind",
+        "reference",
+        "baseDigest",
+        "environmentDigest",
+        "generations",
+        "actor",
+        "authority",
+        "resourceId",
+        "action",
+        "cost",
+        "candidate",
+        "candidateDigest",
+        "proofReceipt",
+        "budget",
+        "expiresAt"
+      ],
+      "properties": {
+        "effectKey": {"$ref":"#/definitions/digest"},
+        "scope": {"$ref":"#/definitions/scope"},
+        "missionId": {"$ref":"#/definitions/id"},
+        "conversationId": {"$ref":"#/definitions/id"},
+        "runId": {"$ref":"#/definitions/id"},
+        "planId": {"$ref":"#/definitions/id"},
+        "planDigest": {"$ref":"#/definitions/digest"},
+        "programDigest": {"$ref":"#/definitions/digest"},
+        "capabilitiesDigest": {"$ref":"#/definitions/digest"},
+        "policyDigest": {"$ref":"#/definitions/digest"},
+        "runtimeId": {"$ref":"#/definitions/id"},
+        "runtimeGeneration": {"$ref":"#/definitions/generation"},
+        "stepId": {"$ref":"#/definitions/id"},
+        "kind": {"enum":["CALL","EMIT"]},
+        "reference": {"$ref":"#/definitions/id"},
+        "baseDigest": {"$ref":"#/definitions/digest"},
+        "environmentDigest": {"$ref":"#/definitions/digest"},
+        "generations": {"$ref":"#/definitions/generations"},
+        "actor": {"$ref":"#/definitions/actor"},
+        "authority": {"$ref":"#/definitions/authority"},
+        "resourceId": {"$ref":"#/definitions/id"},
+        "action": {"$ref":"#/definitions/id"},
+        "cost": {"$ref":"#/definitions/generation"},
+        "candidate": {},
+        "candidateDigest": {"$ref":"#/definitions/digest"},
+        "proofReceipt": {"type":["object","null"]},
+        "budget": {"$ref":"#/definitions/budget"},
+        "expiresAt": {"type":"string","format":"date-time"}
+      }
+    },
+    "operationId": {"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":128},
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id","kind","reference","dependsOn","state"],
+      "properties": {
+        "id": {"$ref":"#/definitions/operationId"},
+        "kind": {"$ref":"#/definitions/kind"},
+        "reference": {"$ref":"#/definitions/id"},
+        "dependsOn": {"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/definitions/operationId"}},
+        "state": {"const":"open"}
+      }
+    },
+    "requestREAD": {"type":"object","additionalProperties":false,"required":["objectId"],"properties":{"objectId":{"$ref":"#/definitions/id"}}},
+    "requestSELECT": {"type":"object","additionalProperties":false,"required":["fields"],"properties":{"fields":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/definitions/id"},"minItems":1}}},
+    "requestCHECK": {"type":"object","additionalProperties":false,"required":["predicate"],"properties":{"predicate":{"$ref":"#/definitions/id"}}},
+    "requestINFER": {"type":"object","additionalProperties":false,"required":["instruction"],"properties":{"instruction":{"type":"string","minLength":1,"maxLength":4096}}},
+    "requestCALL": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId","action","cost"],
+      "properties": {"resourceId":{"$ref":"#/definitions/id"},"action":{"$ref":"#/definitions/id"},"cost":{"$ref":"#/definitions/generation"}}
+    },
+    "requestEMIT": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId","action","cost"],
+      "properties": {"resourceId":{"$ref":"#/definitions/id"},"action":{"$ref":"#/definitions/id"},"cost":{"$ref":"#/definitions/generation"}}
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema","version","id","operations","policy","payload"],
+      "properties": {
+        "schema": {"const":"genos.gcir.omega/v1"},
+        "version": {"const":1},
+        "id": {"$ref":"#/definitions/id"},
+        "operations": {"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/definitions/operation"}},
+        "policy": {"type":"object","propertyNames":{"enum":["read","select","call","infer","check","emit"]},"additionalProperties":{"$ref":"#/definitions/refs"}},
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requests"],
+          "properties": {
+            "requests": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 64,
+              "propertyNames": {"$ref":"#/definitions/operationId"},
+              "additionalProperties": {
+                "anyOf": [
+                  {"$ref":"#/definitions/requestREAD"},
+                  {"$ref":"#/definitions/requestSELECT"},
+                  {"$ref":"#/definitions/requestCALL"},
+                  {"$ref":"#/definitions/requestINFER"},
+                  {"$ref":"#/definitions/requestCHECK"},
+                  {"$ref":"#/definitions/requestEMIT"}
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
