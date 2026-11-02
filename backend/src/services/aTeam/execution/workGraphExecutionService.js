@@ -13,6 +13,8 @@ async function observeExecution(input) {
   const statuses = await workerStatuses(input.db, input.plan.members);
   const dossiers = await Promise.all(input.plan.members.map((member) => telemetryDossier(input.db, member.workerId)));
   const verdicts = new Map(input.plan.members.map((member, index) => [member.workerId, validateMemberEvidence(member, dossiers[index])]));
+  const qualityFeedback = await require('./teamQualityRepairService').coordinateQualityRepairs({
+    ...input, graph, statuses, verdicts, dossiers });
   const workers = input.plan.members.map((member) => ({ ...member, agentId: member.workerId }));
   const observation = observeAteamIntegration({ members: workers, workers, dossiers });
   rejectIntegrationViolations(verdicts, observation);
@@ -24,7 +26,7 @@ async function observeExecution(input) {
   enforceMissionCriteria(input.run, verdicts, gate);
   const promoted = saved.status === 'SUCCEEDED';
   const terminal = input.expired || input.plan.members.every((member) => TERMINAL.has(statuses.get(member.workerId)));
-  return { graph: saved, statuses, dossiers, verdicts, coverage, observation, gate, terminal, promoted };
+  return { graph: saved, statuses, dossiers, verdicts, coverage, observation, gate, terminal, promoted, qualityFeedback };
 }
 
 function rejectIntegrationViolations(verdicts, observation) {

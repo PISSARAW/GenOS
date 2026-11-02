@@ -126,7 +126,7 @@ async function finalizeExecution(input) {
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
     patch: { status, phase: 'INTEGRATION', execution: { ...run.execution,
       coverage: observed.coverage, integration: { accepted, failures: observed.observation,
-        gate: observed.gate, audit, completion },
+        gate: observed.gate, audit, completion, qualityFeedback: observed.qualityFeedback },
       schedulingResults: input.results } } });
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision, patch: { phase: 'DEBRIEF' } });
   const evidenceIds = [...new Set([...observed.verdicts.values()].flatMap((verdict) => verdict.evidenceRefs))];
@@ -137,7 +137,7 @@ async function finalizeExecution(input) {
       handoffAcceptanceRate: observed.graph.edges.length ? acceptedHandoffs(observed.graph) : 1 },
     evidenceIsUsable: async ({ evidenceId }) => valid.has(evidenceId) });
   return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage,
-    results: input.results, audit, completion, completionInput };
+    results: input.results, audit, completion, completionInput, qualityFeedback: observed.qualityFeedback };
 }
 
 function memberClosureRecord(input, member) {

@@ -165,14 +165,14 @@ async function biologicalDossierEvents(db, producerId) {
   if (!run) return [];
   const observations = await require('./biologicalWorkerStore').observations(db, run.id);
   return observations.map((item) => item.event)
-    .filter((event) => ['EVIDENCE_REPORT', 'AGENT_COMPLETED'].includes(event.eventType))
+    .filter((event) => ['EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_HALTED', 'AGENT_FAILED', 'LOCAL_WORKER_FAILED'].includes(event.eventType))
     .map(dossierEvent);
 }
 
 async function telemetryDossier(db, producerId) {
   const rows = await db.all(
     `SELECT event_type, action, detail, payload_json FROM telemetry_events
-     WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT', 'AGENT_COMPLETED') ORDER BY id`,
+     WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_HALTED', 'AGENT_FAILED', 'LOCAL_WORKER_FAILED') ORDER BY id`,
     producerId
   );
   const events = rows.map((row) => {

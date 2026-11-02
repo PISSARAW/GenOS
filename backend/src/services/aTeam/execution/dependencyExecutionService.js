@@ -65,9 +65,9 @@ async function runDependencyGraph(input) {
     domains: new Map(input.plan.members.map((member) => [member.subSystem, member.workerId]))
   };
   while (pending.size) {
-    context.statuses = await workerStatuses(input.db, input.plan.members);
     context.expired = now() - startedAt >= timeoutMs;
-    if (options.onTick) await options.onTick();
+    const observed = options.onTick ? await options.onTick() : null;
+    context.statuses = observed?.statuses || await workerStatuses(input.db, input.plan.members);
     let progressed = false;
     for (const member of pending.values()) {
       if (!await processMember(member, context)) continue;

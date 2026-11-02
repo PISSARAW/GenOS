@@ -92,7 +92,8 @@ function formationFingerprint(draft) {
   const { canonicalJson } = require('./variants/variantExecutionHelpers');
   const fields = ['memberId', 'role', 'domain', 'capabilities', 'dependsOn', 'outputs', 'inputArtifacts',
     'requiredArtifacts', 'acceptanceCriteria', 'inputSchema', 'outputSchema', 'executionBudgetTokens', 'ownedResponsibilities',
-    'agentId', 'workerId', 'authority', 'toolLease', 'participationMode', 'consults', 'consumes', 'provides'];
+    'agentId', 'workerId', 'authority', 'toolLease', 'participationMode', 'consults', 'consumes', 'provides',
+    'qualityElevation', 'qualityRuntime', 'modelBudgetScope'];
   const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, member[field]])));
   const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, variant: draft.execution?.organizationPolicy?.variant || null };
   return createHash('sha256').update(canonicalJson(definition)).digest('hex');

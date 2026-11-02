@@ -17,6 +17,8 @@ function memberRecord(source = {}) {
     memberId: choose([source.memberId, source.workerId], randomUUID()),
     agentId: choose([source.agentId, source.workerId], null),
     workerId: choose([source.workerId], null),
+    ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(source),
+    modelBudgetScope: source.modelBudgetScope || null,
     role: choose([source.role], 'specialist'),
     domain: choose([source.domain, source.subSystem, source.label], null),
     label: choose([source.label], null),
@@ -75,6 +77,7 @@ function teamRunRecord(input = {}) {
 }
 
 function assertValid(run) {
+  for (const member of run.members || []) require('../qualityElevation/qualityMissionContract').qualityMissionFields(member);
   const validation = validateTeamRun(run);
   if (validation.valid) return;
   throw Object.assign(new Error(validation.errors.join(' ')), { code: 'ATEAM_RUN_INVALID', errors: validation.errors });
