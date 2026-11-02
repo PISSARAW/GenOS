@@ -1,7 +1,7 @@
 'use strict';
 const { createRequire } = require('node:module');
 const path = require('node:path');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const backend = createRequire(path.join(protocol.sourceRoot, 'backend/package.json'));
 const service = name => backend(`./src/services/${name}`);
 const store = service('identity/storage');
@@ -13,6 +13,11 @@ const memory = service('ontogenesis/memoryService');
 const checkpoints = service('identity/checkpoints');
 const episodes = service('autobiographicalMemory/episodeStore');
 const peers = service('identity/peers');
+const recognition = service('identity/recognitionContext');
+const ruleValidation = service('ontogenesis/learningRuleValidation');
+const learning = service('ontogenesis/validatedRuleMemory');
+const origin = service('identity/originMemory');
+const application = service('ontogenesis/learningApplicationPlan');
 
 async function open(filename) {
   const db = await backend('sqlite').open({ filename, driver: backend('sqlite3').Database });
@@ -31,7 +36,9 @@ async function initialize(db, w) {
       action_json TEXT,outcome_json TEXT,lesson_json TEXT,is_forgotten INTEGER DEFAULT 0,created_at TEXT);
     INSERT INTO workspaces VALUES ('world','identity-llm','controlled');`);
   await store.ready(db);
-  for (const id of w.actors) await register(db, { id, parent: w.parents[id] });
+  await register(db, { id: w.actors[0] });
+  await origin.bind(db, { agentId: w.actors[0], token: w.origin });
+  for (const id of w.actors.slice(1)) await register(db, { id, parent: w.parents[id] });
 }
 
 async function register(db, input) {
@@ -42,6 +49,7 @@ async function register(db, input) {
   const checkpointId = `birth:${input.id}`;
   await checkpoints.seal(db, { agentId: input.parent, checkpointId, contentHash: store.hash(input), coverage: ['identity'] });
   await checkpoints.fork(db, { parentId: input.parent, childId: input.id, checkpointId });
+  await origin.inherit(db, { agentId: input.id, sourceId: input.parent });
 }
 
 async function activate(db, agentId) {
@@ -66,13 +74,13 @@ async function save(db, input) {
 async function state(db, agentId) {
   const rows = await memory.listMemories(db, agentId);
   rows.sort((a, b) => JSON.parse(a.provenance_json).ordinal - JSON.parse(b.provenance_json).ordinal);
-  const lessons = {};
+  const anchor = await origin.read(db, { agentId });
   let self = null;
   for (const row of rows) {
     const value = JSON.parse(row.content);
-    if (row.kind === 'preference') self = value;
-    if (row.kind === 'constraint') lessons[value.op] = value.rule;
+    if (row.kind === 'preference' && anchor && value?.origin === anchor.token) self = { origin: value.origin };
   }
+  const lessons = await learning.list(db, agentId);
   return { self, lessons, hash: store.hash(rows) };
 }
 
@@ -116,4 +124,5 @@ async function execute(db, input, callback) {
 }
 
 module.exports = { open, initialize, activate, transform, save, state, execute,
-  service, store, ledger, incarnations, decisions, graph, encounter, ownEpisode, inherit, latestEpisode };
+  service, store, ledger, incarnations, decisions, graph, encounter, ownEpisode, inherit, latestEpisode,
+  recognition, ruleValidation, learning, origin, application };

@@ -3,7 +3,7 @@ process.env.NODE_ENV = 'test';
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const corpus = require('./corpus.cjs');
 const runtime = require('./runtime.cjs');
 const prompts = require('./prompts.cjs');
@@ -31,7 +31,7 @@ function feedbackFor(continuation) {
   if (!continuation.previous) return null;
   const key = continuation.previous;
   const examples = continuation.examples[key];
-  return { op: key, examples: examples.map(row => ({ input: row.input, output: row.output })),
+  return { phase: 'train', op: key, examples: examples.map(row => ({ input: row.input, output: row.output })),
     family: continuation.previousFamily, taskIds: examples.map(row => row.taskId) };
 }
 
@@ -50,7 +50,7 @@ async function trainingTurn(db, input, context) {
   const identityPrompt = { mode: 'identity', ...identity.prompt,
     posture: ['Check causal evidence.', 'Challenge unsupported claims.', 'Plan before answering.', 'Explain through reusable rules.'][cycle % 4] };
   const identityResult = await runtime.execute(db, { session: context.session, domain: 'identity' }, () => request(input, identityPrompt));
-  const learningPrompt = { mode: 'learn', problem: task, feedback, lessons: state.lessons };
+  const learningPrompt = prompts.taskPrompt('learn', { problem: task, feedback, lessons: state.lessons });
   const result = await runtime.execute(db, { session: context.session, domain: task.family }, () => request(input, learningPrompt));
   const checked = oracle(input, task);
   const score = scoring.answer(result, checked);
@@ -58,9 +58,9 @@ async function trainingTurn(db, input, context) {
     success: score.exact, attribution: 'self', evidenceRef: { taskId: task.id, oracle: checked,
       identityResponseHash: corpus.hash(identityResult.raw || identityResult.error), responseHash: corpus.hash(result.raw || result.error) } });
   await runtime.ownEpisode(db, { id: `episode:${cycle}`, actor, operationId });
-  await prompts.saveResponse(db, { actor, cycle, result, identityResult, feedback, responseHash: corpus.hash(result.raw || result.error) });
+  const { identityAdmission, learningAdmission } = await prompts.saveResponse(db, { actor, cycle, result, identityResult, feedback, responseHash: corpus.hash(result.raw || result.error) });
   inference.log(input.directory, { type: 'train-result', cycle, actor, task, oracle: checked,
-    score, identity: scoring.identity(input.w, identity, identityResult), transformation });
+    score, identity: scoring.identity(input.w, identity, identityResult), transformation, learningAdmission, identityAdmission });
   const op = task.expression.op;
   const examples = context.continuation.examples[op] || [];
   context.continuation.examples[op] = [...examples, { input: task.expression.input, output: checked.expected, taskId: task.id }].slice(-3);
@@ -96,7 +96,9 @@ async function cloneTurn(db, input, context) {
 async function train(db, input, session) {
   const continuationPath = path.join(input.directory, 'continuation.json');
   const continuation = fs.existsSync(continuationPath) ? JSON.parse(fs.readFileSync(continuationPath, 'utf8')) : { previous: null, examples: {} };
-  for (let offset = 0; offset < protocol.chunkSize; offset++) {
+  const count = input.developmentCycles || protocol.chunkSize;
+  if (input.developmentCycles && (input.experimentPhase !== 'development' || count < 1 || count > protocol.chunkSize)) throw Error('DEVELOPMENT_ONLY_LIMIT');
+  for (let offset = 0; offset < count; offset++) {
     const cycle = input.chunk * protocol.chunkSize + offset;
     await trainingTurn(db, input, { cycle, session, continuation });
     if ((cycle + 1) % protocol.descendantProbeEvery === 0) await cloneTurn(db, input, { cycle, session });
@@ -112,7 +114,7 @@ async function evaluate(db, input, session) {
   for (const task of tasks) {
     const order = [...protocol.arms].sort((a, b) => corpus.hash(task.id + a).localeCompare(corpus.hash(task.id + b)));
     for (const arm of order) {
-      const prompt = { mode: 'evaluate', problem: task, lessons: prompts.lessons(before, arm, input.w) };
+      const prompt = prompts.taskPrompt('evaluate', { problem: task, lessons: prompts.lessons(before, arm, input.w) });
       const result = await runtime.execute(db, { session, domain: task.family }, () => request(input, prompt));
       const checked = oracle(input, task);
       inference.log(input.directory, { type: 'eval-result', window: input.window, arm, task,

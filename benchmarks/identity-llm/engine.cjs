@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFileSync } = require('node:child_process');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const ROOT = 'D:/GenOS-runs/identity-llm-engine';
 const EXE = path.join(ROOT, 'cuda-b12047/llama-server.exe');
 const STATE = path.join(ROOT, 'engine.json');
@@ -18,7 +18,7 @@ function processInfo(pid) {
 async function stop() {
   if (!fs.existsSync(STATE)) return;
   const state = JSON.parse(fs.readFileSync(STATE, 'utf8'));
-  const actual = processInfo(state.pid);
+  const actual = await completeProcessInfo(state.pid);
   if (!actual) return;
   if (path.resolve(actual.ExecutablePath).toLowerCase() !== path.resolve(EXE).toLowerCase()
     || !actual.CommandLine.includes('--port 18081') || !actual.CommandLine.includes('--alias genos-identity-r1-qwen3')) {
@@ -30,6 +30,15 @@ async function stop() {
     await pause(200);
   }
   throw Error('ENGINE_FAILED_TO_STOP');
+}
+
+async function completeProcessInfo(pid) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const actual = processInfo(pid);
+    if (!actual || (actual.ExecutablePath && actual.CommandLine)) return actual;
+    await pause(200);
+  }
+  throw Error('ENGINE_PROCESS_METADATA_UNAVAILABLE');
 }
 
 function launch() {

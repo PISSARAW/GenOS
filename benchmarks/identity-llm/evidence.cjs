@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const { hash } = require('./corpus.cjs');
 
 function sources() {
@@ -12,6 +12,8 @@ function sources() {
   const production = fs.readdirSync(identity).filter(name => name.endsWith('.js')).map(name => path.join(identity, name));
   production.push(...['backend/src/db/index.js','backend/src/db/migrations/migrateAgentIdentity.js',
     'backend/src/services/ontogenesis/memoryService.js', 'backend/src/services/autobiographicalMemory/episodeStore.js',
+    'backend/src/services/ontogenesis/learningRuleValidation.js', 'backend/src/services/ontogenesis/validatedRuleMemory.js',
+    'backend/src/services/ontogenesis/learningApplicationPlan.js',
     'backend/package-lock.json'].map(name => path.join(protocol.sourceRoot, name)));
   return [...own, ...production];
 }

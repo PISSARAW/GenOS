@@ -24,10 +24,21 @@ async function peerModels(db, input) {
   const ids = [...new Set(input.peerIds || [])].filter(id => id !== input.agentId).slice(0, 8);
   const models = [];
   for (const peerId of ids) {
-    try { models.push(await require('./peers').model(db, { observerId: input.agentId, peerId })); }
+    try { models.push(await peerWithLineage(db, { agentId: input.agentId, peerId })); }
     catch (error) { models.push({ peerId, claims: [], status: 'unknown', reason: error.code || 'UNAVAILABLE' }); }
   }
   return models;
+}
+
+async function peerWithLineage(db, input) {
+  const peer = await require('./peers').model(db, { observerId: input.agentId, peerId: input.peerId });
+  try {
+    const context = await require('./recognitionContext').describe(db, { agentId: input.agentId, targetId: input.peerId });
+    peer.causalRecognition = { status: 'verified', facts: context.facts, evidenceHash: context.evidenceHash };
+  } catch (error) {
+    peer.causalRecognition = { status: 'unknown', reason: error.code || 'UNAVAILABLE' };
+  }
+  return peer;
 }
 
 module.exports = { describe, peerModels };

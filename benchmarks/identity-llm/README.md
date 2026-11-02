@@ -20,3 +20,16 @@ Il s'agit d'un cas fonctionnel à mémoire externe et poids fixes. Les cycles so
 dépendants, les fenêtres ne sont pas des lignées indépendantes et les bornes
 d'identité servent de référence au protocole. Aucune promotion de production
 n'est autorisée par ce benchmark.
+
+La version corrigée utilise le contexte de reconnaissance causal du runtime et
+des propositions de règles typées du LLM. Seules les règles identifiables qui
+reproduisent les exemples d'entraînement sont activées. Une proposition fausse
+reste auditée ; un contre-exemple révoque une règle active. Voir
+[ADR 0771](../../docs/adr/0771-filiation-verifiee-et-regles-apprises-validees.md).
+
+`baseline-criteria.json` fixe les critères de la référence. `config.cjs` rejette
+tout changement de ces valeurs. Les racines de code vides dans `protocol.json`
+désignent le dépôt courant ; une copie figée sur D: déclare ses racines absolues
+avant le scellement. `node pilot.cjs DOSSIER [CYCLES]` lance uniquement un pilote de
+développement (24 cycles par défaut, de 1 à 50, puis une fenêtre), dont les résultats ne qualifient jamais
+la campagne complète. Chaque campagne confirmatoire utilise une nouvelle graine.

@@ -78,6 +78,25 @@ async function durableChecks(directory, w) {
   } finally { await db.close(); }
 }
 
+async function originChecks(directory, w) {
+  const db = await runtime.open(path.join(directory, 'origin.sqlite'));
+  try {
+    await runtime.initialize(db, w);
+    const actor = w.actors[0];
+    const response = origin => ({ value: { origin }, raw: JSON.stringify({ origin }) });
+    const save = (cycle, origin) => prompts.saveResponse(db, { actor, cycle, identityResult: response(origin),
+      result: { value: { update: null } }, feedback: null, responseHash: 'unit-not-real-llm' });
+    assert.equal((await save(0, 'ffffffffffff')).identityAdmission.accepted, false);
+    assert.equal((await runtime.state(db, actor)).self, null);
+    const retry = await prompts.identityContext(db, { w, actor, target: actor, cycle: 1 });
+    assert.equal(retry.prompt.birthMandate, w.origin);
+    assert.equal((await save(1, w.origin)).identityAdmission.accepted, true);
+    assert.equal((await save(2, 'ffffffffffff')).identityAdmission.accepted, false);
+    assert.deepEqual((await runtime.state(db, actor)).self, { origin: w.origin });
+    assert.equal(scoring.identity(w, retry, response('ffffffffffff')).origin, false);
+  } finally { await db.close(); }
+}
+
 function journalChecks(directory) {
   inference.log(directory, { type: 'unit-check', value: 1 });
   inference.log(directory, { type: 'unit-check', value: 2 });
@@ -97,6 +116,7 @@ async function main() {
   learningChecks(w);
   assert.equal(prompts.validUpdate({ op: 'x', rule: 'rule' }, { op: 'y' }), false);
   await durableChecks(directory, w);
+  await originChecks(directory, w);
   journalChecks(directory);
   console.log('PASS unit tests: corpus, provenance, durable memory, score falsification, journal tampering. No LLM campaign simulated as evidence.');
 }

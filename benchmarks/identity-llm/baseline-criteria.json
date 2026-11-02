@@ -1,0 +1,38 @@
+{
+  "lineages": 1,
+  "cyclesPerLineage": 300,
+  "chunkSize": 50,
+  "descendantProbeEvery": 30,
+  "evaluationWindows": 3,
+  "tasksPerWindow": {
+    "number_new": 8,
+    "number_composition": 8,
+    "text_new": 8,
+    "text_composition": 8,
+    "unknown": 8
+  },
+  "arms": [
+    "learned",
+    "frozen",
+    "permuted"
+  ],
+  "maximumCalls": 1100,
+  "maximumDurationMs": 14400000,
+  "maximumRequestMs": 90000,
+  "maximumInputTokens": 4096,
+  "maximumOutputTokens": 2048,
+  "maximumLessonCharacters": 120,
+  "temperature": 0,
+  "identityMinimumObserved": 0.99,
+  "identityMinimumLowerBound": 0.95,
+  "relationMinimumObserved": 0.95,
+  "lateWindowMinimumObserved": 0.95,
+  "minimumLearningGainLowerBound": 0.1,
+  "minimumUnknownRecognition": 0.9,
+  "maximumBrier": 0.2,
+  "familywiseAlpha": 0.05,
+  "simultaneousComparisons": 6,
+  "reasoningBudget": 256,
+  "modelSha256": "e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
+  "stopping": "fixed corpus and seeds sealed before first campaign response; no retries, threshold tuning, sample exclusion or model substitution"
+}

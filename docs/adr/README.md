@@ -911,6 +911,7 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 | [0768](0768-competence-procedurale-verifiee-et-couverture.md) | Procédures apprises vérifiées et abstention par couverture | accepté pour un module interne borné au domaine affine. | 2026-11-02 | -- |
 | [0769](0769-refutations-natives-mesurees-par-agow.md) | Mesurer les réfutations natives sans autoriser leur promotion | Accepté pour le domaine borné subset_sum | 2026-11-02 | AGOW, preuves négatives, mesures et budgets |
 | [0770](0770-gqel-boucle-elevation-qualite.md) | GQEL : Boucle d'Élévation de Qualité des LLM | Accepté | 2026-11-02 | Runtime, Amplification de qualité LLM, Évaluation sémantique, Réparation causale |
+| [0771](0771-filiation-verifiee-et-regles-apprises-validees.md) | Filiation vérifiée et règles apprises validées | Accepté | 2026-11-02 | Identité causale, ontogenèse, qualification LLM |
 | [2026a](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026b](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
 | [2026c](2026-11-02-gns-besoins-morphogenetiques.md) | Raccorder GNS aux besoins morphogénétiques | Voir le fichier | -- | -- |

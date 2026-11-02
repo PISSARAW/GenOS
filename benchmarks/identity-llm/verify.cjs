@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const corpus = require('./corpus.cjs');
 const evidence = require('./evidence.cjs');
 const oracle = require('./oracle.cjs');
@@ -14,7 +14,7 @@ const { summary } = require('./run.cjs');
 function parsedResponse(response) {
   if (response.error) return;
   let value = null;
-  try { value = JSON.parse(response.raw); } catch (_) { /* Malformed output is not repaired. */ }
+  try { value = JSON.parse(JSON.stringify(JSON.parse(response.raw))); } catch (_) { /* Malformed output is not repaired. */ }
   assert.deepEqual(response.value, value);
   assert.equal(response.model, protocol.modelAlias);
   assert(response.usage.prompt_tokens > 0 && response.usage.prompt_tokens <= protocol.maximumInputTokens);
@@ -29,7 +29,7 @@ function checkedOracle(w, task) {
 function feedback(state) {
   if (!state.previous) return null;
   const examples = state.examples[state.previous];
-  return { op: state.previous, examples: examples.map(row => ({ input: row.input, output: row.output })),
+  return { phase: 'train', op: state.previous, examples: examples.map(row => ({ input: row.input, output: row.output })),
     family: state.previousFamily, taskIds: examples.map(row => row.taskId) };
 }
 
@@ -48,6 +48,32 @@ async function checkIdentity(db, input) {
   assert.deepEqual(prompt.forkEdges, Object.entries(w.parents).map(([child, parent]) => [parent, child]));
   const expected = scoring.identity(w, { actor, target: prompt.target, expectedAuthor, expectedOwnership }, response);
   assert.deepEqual(event.identity, expected);
+  assert.deepEqual(prompt.verifiedRecognition, { self: actor, target: prompt.target,
+    path: corpus.causalPath(w, actor, prompt.target), relation: corpus.relation(w, actor, prompt.target),
+    author: expectedAuthor, ownership: expectedOwnership });
+  await verifyRecognitionEvidence(db, { prompt, w });
+}
+
+function ancestorIds(w, actor) {
+  const result = [actor];
+  while (w.parents[result.at(-1)]) result.push(w.parents[result.at(-1)]);
+  return result;
+}
+
+async function verifyRecognitionEvidence(db, input) {
+  const { prompt, w } = input;
+  const evidence = prompt.recognitionEvidence;
+  assert.equal(evidence.version, 'causal-recognition-v1');
+  assert.equal(evidence.episodeId, prompt.episode?.id || null);
+  const registration = await runtime.store.registration(db, { agentId: prompt.runtimeId });
+  assert.deepEqual(evidence.scope, registration.scope);
+  assert.equal(prompt.recognitionEvidenceHash, runtime.store.hash({ facts: prompt.verifiedRecognition, evidence }));
+  const ids = [...new Set([...ancestorIds(w, prompt.runtimeId), ...ancestorIds(w, prompt.target)])];
+  assert.deepEqual(evidence.anchors.map(anchor => anchor.agentId).sort(), ids.sort());
+  for (const anchor of evidence.anchors) {
+    const row = await db.get('SELECT event_hash FROM agent_identity_events WHERE agent_id=? AND revision=?', anchor.agentId, anchor.revision);
+    assert.equal(row?.event_hash, anchor.headHash);
+  }
 }
 
 function learnReplay(state, input) {
@@ -55,8 +81,12 @@ function learnReplay(state, input) {
   const value = response.value;
   assert.deepEqual(prompt.feedback, feedback(state));
   assert.deepEqual(prompt.lessons, state.lessons);
+  assert.deepEqual(prompt.applicationPlan, runtime.application.describe(state.lessons, task.expression));
   assert.deepEqual(identityPrompt.selfMemory, state.self);
-  if (typeof identityResponse.value?.origin === 'string') state.self = { origin: identityResponse.value.origin };
+  if (identityResponse.value?.origin === input.w.origin) state.self = { origin: identityResponse.value.origin };
+  const prior = state.lessons[prompt.feedback?.op];
+  if (prior && runtime.ruleValidation.validFeedback(prompt.feedback)
+    && !runtime.ruleValidation.matches(prior, prompt.feedback.examples)) delete state.lessons[prompt.feedback.op];
   if (prompts.validUpdate(value?.update, prompt.feedback)) state.lessons[value.update.op] = value.update.rule;
   const op = task.expression.op;
   const examples = state.examples[op] || [];
@@ -76,10 +106,47 @@ async function verifyTraining(db, input, state) {
   const checked = checkedOracle(w, task);
   assert.deepEqual(event.oracle, checked);
   assert.deepEqual(event.score, scoring.answer(committed.response, checked));
-  assert.equal(identityCommitted.prompt.birthMandate, event.cycle === 0 ? w.origin : undefined);
+  assert.equal(identityCommitted.prompt.birthMandate, state.self ? undefined : w.origin);
   await checkIdentity(db, { ...input, prompt: identityCommitted.prompt, response: identityCommitted.response });
   learnReplay(state, { prompt: committed.prompt, response: committed.response, task, checked,
-    identityPrompt: identityCommitted.prompt, identityResponse: identityCommitted.response });
+    identityPrompt: identityCommitted.prompt, identityResponse: identityCommitted.response, w });
+  await verifyOriginAdmission(db, { event, response: identityCommitted.response, w });
+  await verifyLearning(db, { event, committed, w });
+}
+
+async function verifyOriginAdmission(db, input) {
+  const anchor = await db.get('SELECT * FROM agent_identity_events WHERE agent_id=? AND idempotency_key=?',
+    input.event.actor, 'identity:origin-token');
+  assert.equal(JSON.parse(anchor.body_json).payload.token, input.w.origin);
+  const accepted = input.response.value?.origin === input.w.origin;
+  assert.deepEqual(input.event.identityAdmission, { accepted, reason: accepted ? 'ORIGIN_MATCHED' : 'ORIGIN_MISMATCH', anchorHash: anchor.event_hash });
+  const row = await db.get('SELECT * FROM ontogenesis_memory WHERE id=?', `self:${input.event.cycle}`);
+  if (!accepted) { assert.equal(row, undefined); return; }
+  assert.deepEqual(JSON.parse(row.content), { origin: input.response.value.origin });
+  const provenance = JSON.parse(row.provenance_json);
+  assert.equal(provenance.anchorHash, anchor.event_hash);
+  assert.equal(provenance.responseHash, corpus.hash(input.response.raw));
+}
+
+async function verifyLearning(db, input) {
+  const { event, committed, w } = input;
+  const update = committed.response.value?.update || null;
+  const feedback = committed.prompt.feedback;
+  const receipt = runtime.ruleValidation.validate(update, feedback);
+  const expected = receipt.accepted ? { ...receipt, memoryId: `lesson:${event.cycle}` } : receipt;
+  assert.deepEqual(event.learningAdmission, expected);
+  const row = await db.get('SELECT * FROM ontogenesis_memory WHERE id=?', `lesson:${event.cycle}:check`);
+  assert.equal(row.project_id, event.actor);
+  assert.deepEqual(JSON.parse(row.content), { update, feedback, receipt });
+  if (!receipt.accepted) return;
+  const operation = w.operations.find(op => op.name === update.op);
+  const actualRule = operation.family === 'number' ? { kind: 'affine', a: operation.a, b: operation.b }
+    : { kind: 'text', prefix: operation.prefix, suffix: operation.suffix, reverse: operation.reverse, upper: operation.upper };
+  assert.deepEqual(update.rule, actualRule, 'Admitted rule disagrees with independent hidden world');
+  const lesson = await db.get('SELECT * FROM ontogenesis_memory WHERE id=?', expected.memoryId);
+  assert.equal(lesson.project_id, event.actor);
+  assert.deepEqual(runtime.learning.admitted(lesson), update);
+  assert.equal(JSON.parse(lesson.provenance_json).responseHash, corpus.hash(committed.response.raw));
 }
 
 function verifyEvaluation(input, state) {
@@ -87,7 +154,7 @@ function verifyEvaluation(input, state) {
   const tasks = corpus.tasks(w, { window: event.window, counts: protocol.tasksPerWindow });
   const task = tasks.find(row => row.id === event.task.id);
   assert.deepEqual(event.task, task);
-  assert.deepEqual(committed.prompt, { mode: 'evaluate', problem: task, lessons: prompts.lessons(state, event.arm, w) });
+  assert.deepEqual(committed.prompt, prompts.taskPrompt('evaluate', { problem: task, lessons: prompts.lessons(state, event.arm, w) }));
   const checked = checkedOracle(w, task);
   assert.deepEqual(event.oracle, checked);
   assert.deepEqual(event.score, scoring.answer(committed.response, checked));
@@ -96,13 +163,11 @@ function verifyEvaluation(input, state) {
   state.assignments.add(key);
 }
 
-async function verifyLineage(directory, w) {
-  const events = evidence.journal(directory);
+async function replayEvents(db, input) {
+  const { events, w } = input;
   const state = { self: null, lessons: {}, examples: {}, previous: null, cycle: 0, assignments: new Set() };
-  const db = await runtime.open(path.join(directory, 'runtime.sqlite'));
   let committed = [];
-  try {
-    for (const event of events) {
+  for (const event of events) {
       if (event.type === 'response-committed') {
         assert(committed.length < 2, 'Response without outcome');
         parsedResponse(event.response);
@@ -112,9 +177,20 @@ async function verifyLineage(directory, w) {
         await verifyOutcome(db, { event, committed: committed.at(-1), identityCommitted: committed[0], w }, state);
         committed = [];
       }
-    }
-    assert.equal(committed.length, 0);
+  }
+  assert.equal(committed.length, 0);
+  return state;
+}
+
+async function verifyLineage(directory, w) {
+  const events = evidence.journal(directory);
+  const db = await runtime.open(path.join(directory, 'runtime.sqlite'));
+  try {
+    const state = await replayEvents(db, { events, w });
     assert.equal(state.cycle, protocol.cyclesPerLineage);
+    const durable = await runtime.state(db, w.actors[0]);
+    assert.deepEqual(durable.lessons, state.lessons);
+    assert.deepEqual(durable.self, state.self);
     for (const actor of w.actors) assert.equal((await runtime.ledger.verify(db, actor)).valid, true);
     const report = summary(directory);
     assert.deepEqual(report, JSON.parse(fs.readFileSync(path.join(directory, 'summary.json'), 'utf8')));
@@ -126,6 +202,7 @@ async function verifyOutcome(db, input, state) {
   if (input.event.type === 'train-result') return verifyTraining(db, input, state);
   if (input.event.type === 'eval-result') return verifyEvaluation(input, state);
   assert.deepEqual(input.committed.prompt.selfMemory, state.self);
+  assert.equal(input.committed.prompt.birthMandate, state.self ? undefined : input.w.origin);
   assert.equal(input.committed.prompt.runtimeId, input.event.actor);
   assert.equal(input.committed.prompt.target, input.w.actors[0]);
   return checkIdentity(db, { ...input, prompt: input.committed.prompt, response: input.committed.response });
@@ -135,6 +212,7 @@ async function main(directory, manifestHash) {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   assert.equal(corpus.hash(manifest), manifestHash, 'Externally retained manifest hash mismatch');
   assert.deepEqual(manifest.protocol, protocol);
+  assert.equal(manifest.protocolHash, corpus.hash(fs.readFileSync(path.join(__dirname, 'protocol.json'), 'utf8')));
   assert.deepEqual(evidence.sourceHashes(), manifest.provenance.sources);
   assert.equal(await evidence.fileHash(protocol.modelBlob), protocol.modelSha256);
   const results = [];
@@ -152,4 +230,4 @@ async function main(directory, manifestHash) {
 }
 
 if (require.main === module) main(process.argv[2], process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
-module.exports = { main };
+module.exports = { main, replayEvents };

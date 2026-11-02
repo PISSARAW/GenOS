@@ -1,0 +1,13 @@
+{
+  "id": "cold-identity-retention-v2",
+  "actorIndex": 0,
+  "targetIndices": [1, 3, 5],
+  "contextCounters": [303, 307, 311],
+  "modelColdRestartBeforeEveryProbe": true,
+  "learningFeedback": false,
+  "memoryWrites": false,
+  "maximumInferenceCalls": 3,
+  "criterion": "All three raw LLM responses must preserve self and original origin and correctly state path relation author and ownership",
+  "analysis": "Supplementary only and cannot rescue a failed primary hypothesis",
+  "promotionAuthorized": false
+}

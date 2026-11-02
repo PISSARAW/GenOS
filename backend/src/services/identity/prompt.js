@@ -19,9 +19,15 @@ function format(dossier, peers = []) {
 
 function peerLine(peer) {
   const identity = peer.claims.find(claim => claim.source === 'registry' && claim.key === 'identity');
-  if (!identity) return `Pair ${safe(peer.peerId)}: pas de rencontre vérifiée connue.`;
+  if (!identity) return `Pair ${safe(peer.peerId)}: pas de rencontre vérifiée connue.${recognitionLine(peer)}`;
   const observations = peer.claims.filter(claim => claim.source === 'observed').length;
-  return `Pair ${safe(peer.peerId)}: identité rencontrée, rôle ${safe(identity.value.role || 'non connu')}, ${observations} observations locales. Informations valables à ${identity.observedAt}.`;
+  return `Pair ${safe(peer.peerId)}: identité rencontrée, rôle ${safe(identity.value.role || 'non connu')}, ${observations} observations locales. Informations valables à ${identity.observedAt}.${recognitionLine(peer)}`;
+}
+
+function recognitionLine(peer) {
+  if (peer.causalRecognition?.status !== 'verified') return ' Filiation non vérifiée.';
+  const facts = peer.causalRecognition.facts;
+  return ` Filiation vérifiée, cible par rapport à moi: ${safe(facts.relation)}. Chemin causal: ${safe(facts.path.join(' -> '))}.`;
 }
 
 module.exports = { format };

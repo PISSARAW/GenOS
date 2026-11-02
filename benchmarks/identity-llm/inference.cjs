@@ -1,6 +1,6 @@
 'use strict';
 const fs = require('node:fs');
-const protocol = require('./protocol.json');
+const protocol = require('./config.cjs');
 const { hash } = require('./corpus.cjs');
 const contracts = require('./contracts.cjs');
 
