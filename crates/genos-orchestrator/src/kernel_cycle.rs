@@ -320,11 +320,7 @@ impl ControlKernel {
         if input.worker_error_rate > 0.5 {
             contradictions.push(format!("high_error_rate:{}", input.worker_error_rate));
         }
-        for report in &obs.worker_reports {
-            if report.contains("evidence") || report.contains("verified") {
-                verified.push(report.clone());
-            }
-        }
+        self.state.epistemics.hypotheses.extend(obs.worker_reports.iter().cloned());
 
         let update = EpistemicUpdate {
             verified_claims: verified,

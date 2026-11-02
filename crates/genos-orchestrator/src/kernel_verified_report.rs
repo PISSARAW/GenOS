@@ -8,7 +8,7 @@ impl ControlKernel {
         &self,
         verification: &MissionVerification,
     ) -> Result<KernelMissionReport, String> {
-        verification.require_verified()?;
+        verification.require_objective(self.state.mission.objective.as_deref().unwrap_or_default())?;
         let mut report = self.mission_report();
         report.verified = true;
         report.agents_used = verification.worker_ids().to_vec();

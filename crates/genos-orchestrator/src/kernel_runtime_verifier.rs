@@ -31,6 +31,11 @@ impl MissionVerification {
         Err(String::from("independent mission verification is not valid"))
     }
 
+    pub fn require_objective(&self, objective: &str) -> Result<(), String> {
+        self.require_verified()?;
+        require(self.objective == objective, "verified mission objective does not match kernel")
+    }
+
     pub fn worker_ids(&self) -> &[String] { &self.worker_ids }
     pub fn evidence(&self) -> &[String] { &self.evidence }
 }

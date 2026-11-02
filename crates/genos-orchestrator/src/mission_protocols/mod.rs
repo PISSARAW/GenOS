@@ -12,3 +12,4 @@ pub mod continuity_effect;
 pub mod morph;
 pub mod morph_types;
 pub mod synapse;
+pub mod evidence;

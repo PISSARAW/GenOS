@@ -41,6 +41,15 @@ fn rejects_a_tampered_worker_receipt_hash() {
 }
 
 #[test]
+fn rejects_verification_for_another_kernel_objective() {
+    let fixture = mission_fixture();
+    let verification = verify_database(fixture.path(), &target()).unwrap();
+    let error = ControlKernel::new("un autre objectif")
+        .verified_report(&verification).unwrap_err();
+    assert!(error.contains("objective does not match kernel"));
+}
+
+#[test]
 fn rejects_a_worker_receipt_from_another_mission() {
     let fixture = mission_fixture();
     let connection = Connection::open(fixture.path()).unwrap();
