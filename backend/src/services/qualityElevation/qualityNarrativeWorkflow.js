@@ -18,19 +18,25 @@ function validateScenePlan(scenes, contract) {
   if (scenes.length < contract.minSceneCount || scenes.length > contract.maxSceneCount) throw fail('GQEL_PLAN_INVALID', 'Scene count outside explicit contract.');
   if (!scenes.every((scene, index) => scene.id === `S${index + 1}`)) throw fail('GQEL_PLAN_INVALID', 'Consecutive unique scene identifiers required.');
   const minutes = scenes.reduce((sum, scene) => sum + scene.plannedMinutes, 0);
-  if (contract.targetMinutes !== null && Math.abs(minutes - contract.targetMinutes) > contract.targetMinutes * 0.2) throw fail('GQEL_PLAN_INVALID', 'Planned durations do not match the target.');
+  if (contract.targetMinutes !== null && Math.abs(minutes - contract.targetMinutes) > contract.targetMinutes * 0.2) throw fail('GQEL_PLAN_INVALID', `Planned durations (${minutes} min) do not match the target (${contract.targetMinutes} min +/- 20%).`);
 }
 function validatePlan(plan, contract) {
   if (!requiredText(plan.premise) || !Array.isArray(plan.rules) || !plan.rules.every(requiredText)) throw fail('GQEL_PLAN_INVALID', 'Premise and causal rules required.');
   validateCharacters(plan.characters); validateScenePlan(plan.scenes, contract); return plan;
 }
 function planPrompt(context) {
+  const target = context.contract.targetMinutes;
+  const timingHint = target ? ` La somme des plannedMinutes de toutes les scènes doit faire environ ${target} minutes.` : '';
+  const repairObligations = context.repairPlan?.obligations || [];
+  const repairHint = repairObligations.length
+    ? ` Corrige obligatoirement ces défauts identifiés par la critique : ${repairObligations.map(item => item.message).join(' ; ')}. Différencie nettement les motivations et peurs des personnages.`
+    : '';
   return 'Construis un plan causal de scénario, pas le scénario final. Établis les règles qui rendent le danger et les choix nécessaires. '
     + 'Explore les alternatives plausibles puis montre pourquoi elles échouent, sans supprimer les contraintes du brief. '
     + 'Chaque scène doit modifier la situation par une décision observable. Les durées sont des hypothèses de production, jamais une mesure. '
     + 'Réponds en JSON : {premise,rules:[texte],characters:[{name,want,fear,knowledge}],'
     + 'scenes:[{id:"S1",heading:"INT. ... - NUIT",goal,obstacle,decision,consequence,stateAfter,plannedMinutes,timingRationale}]}. '
-    + `Prévois ${context.contract.minSceneCount} à ${context.contract.maxSceneCount} scènes.\n`
+    + `Prévois ${context.contract.minSceneCount} à ${context.contract.maxSceneCount} scènes numérotées consécutivement S1, S2, etc. Répartis environ 3 à 4 minutes par scène pour faire au total ~${context.contract.targetMinutes} minutes.${timingHint}${repairHint}\n`
     + JSON.stringify({ mission: context.contract.mission, targetMinutes: context.contract.targetMinutes,
       repair: context.repairPlan, previousPlan: context.rejectedPlan || context.construction?.plan || null });
 }
@@ -55,7 +61,8 @@ async function preparePlan(context) {
 function scenePrompt(context, scene, previous) {
   return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables et, si pertinent, de dialogues. '
     + 'Ne remplace pas la scène par son résumé, une note critique ou une émotion annoncée. '
-    + 'Aucune prémisse, fiche, note de qualité ni conclusion explicative. Commence par l’en-tête indiqué et termine la scène. '
+    + `Commence directement par l’en-tête ${scene.heading} sans aucun titre introductif, et ne crée aucun autre en-tête de scène dans ta réponse. `
+    + 'Aucune prémisse, fiche, note de qualité ni conclusion explicative. '
     + 'Respecte les connaissances et les conséquences établies dans les scènes déjà écrites. '
     + 'Le plan fournit des intentions : ne transforme pas ses événements futurs en souvenirs déjà vécus.\n'
     + JSON.stringify({ mission: context.contract.mission, plan: context.plan, scene, previousScenes: previous, repair: context.repairPlan,
