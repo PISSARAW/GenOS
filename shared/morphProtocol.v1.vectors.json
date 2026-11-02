@@ -1,0 +1,28 @@
+[
+  {
+    "input": {
+      "transitionId": "transition-1",
+      "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "canonical": "{\"planDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"transitionId\":\"transition-1\"}",
+    "digest": "sha256:937d2ab38035d6110e687be1eaaeb1b0c485889498dd09a2f1aee47f97f829b6"
+  },
+  {
+    "input": {
+      "kind": "obligations",
+      "id": "obligation-1",
+      "from": {
+        "agentId": "agent-a",
+        "incarnationId": "agent-a-1",
+        "trustDomain": "local"
+      },
+      "to": {
+        "agentId": "agent-d",
+        "incarnationId": "agent-d-1",
+        "trustDomain": "local"
+      }
+    },
+    "canonical": "{\"from\":{\"agentId\":\"agent-a\",\"incarnationId\":\"agent-a-1\",\"trustDomain\":\"local\"},\"id\":\"obligation-1\",\"kind\":\"obligations\",\"to\":{\"agentId\":\"agent-d\",\"incarnationId\":\"agent-d-1\",\"trustDomain\":\"local\"}}",
+    "digest": "sha256:dcce56f48ac76ed52d636957fc9ce974b84a4b2b7167497267e89aff05da1eaf"
+  }
+]
