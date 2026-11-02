@@ -61,6 +61,7 @@ async function bootstrapMission(mission) {
     ctx.authorityExecutable = executionEntrypoint(ctx);
     await require('../missionEnvelopeAuthority').seal(ctx);
     await require('../orchestratorBodyAuthority').bind(ctx);
+    await require('../missionProtocols/runtime').initialize(ctx);
     reportOrchestratorStart(ctx);
     return ctx;
   } catch (failure) {
@@ -77,6 +78,7 @@ async function startMissionInternal(mission) {
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
+  await require('../missionProtocols/runtime').beforeExecution(ctx);
   const deterministicWorker = require('../agents/workerRuntimeLimitsService')
     .isDeterministicWorkerMission(normalizedMission);
   require('../habitatEnforcementService').assertSupervisedProcess(ctx, deterministicWorker);

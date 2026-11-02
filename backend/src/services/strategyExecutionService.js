@@ -133,8 +133,9 @@ async function observeCausalOutcome(db, saved, event) {
 
 async function recordExecutionEvent(db, agentId, event) {
   event = await require('./terminalQualityEvidence').attach(db, { agentId, event });
-  const saved = await biologicalWorkers.record(db, { agentId, event,
-    apply: () => progress.recordExecutionEvent(db, agentId, event) });
+  const saved = await require('./missionProtocols/runtime').recordEvent(db, { agentId, event,
+    apply: () => biologicalWorkers.record(db, { agentId, event,
+      apply: () => progress.recordExecutionEvent(db, agentId, event) }) });
   if (!saved) return null;
   const metacognitiveOutcome = await observeMetacognitiveOutcome(db, saved, event);
   if (saved.duplicate) {
