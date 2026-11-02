@@ -1,0 +1,20 @@
+[
+  {
+    "input": {
+      "worldId": "world-1",
+      "worldDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "canonical": "{\"worldDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"worldId\":\"world-1\"}",
+    "digest": "sha256:6ac6b6b4937270c44f14b663da0eae991d91e1a9dceb07b4f0b2420c8182e480"
+  },
+  {
+    "input": {
+      "candidateId": "candidate-1",
+      "candidateDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "canonical": "{\"candidateDigest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidateId\":\"candidate-1\"}",
+    "digest": "sha256:dd3b1194e3b807524c0bc44c776ca914e6d4fc0152fd7644dbfad69b8c259871",
+    "nativeSerialized": "{\"policy\":{\"version\":2,\"projection\":\"workspace-snapshot-v1\",\"paths\":\"portable-nfc\",\"modes\":\"sanitized-v1\"},\"files\":[]}",
+    "nativeRawDigest": "f5e21e5461bd58d5b6bf736486926f8832b859ca0bf7cca5df878b60c2d039e6"
+  }
+]

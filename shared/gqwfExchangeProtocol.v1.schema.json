@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.local/schemas/gqwfExchangeProtocol.v1.schema.json",
+  "title": "GenOS GQWF Exchange v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol","messageId","operationId","missionId","conversationId","type","sender","scope","causalRefs","generations","authority","idempotencyKey","createdAt","expiresAt","payloadDigest","payload","audience"],
+  "properties": {
+    "protocol": {"const":"genos.gqwf.exchange/v1"},
+    "messageId": {"$ref":"#/definitions/id"},
+    "operationId": {"$ref":"#/definitions/id"},
+    "missionId": {"$ref":"#/definitions/id"},
+    "conversationId": {"$ref":"#/definitions/id"},
+    "type": {"enum":["OFFER_WORLD","NEED_OBJECTS","TRANSFER","VERIFY_WORLD","OFFER_CANDIDATE","REQUEST_EVIDENCE","PREPARE_PROMOTION","COMMIT","REJECT","ABORT"]},
+    "sender": {"$ref":"#/definitions/actor"},
+    "scope": {"$ref":"#/definitions/scope"},
+    "causalRefs": {"$ref":"#/definitions/refs"},
+    "generations": {"$ref":"#/definitions/generations"},
+    "authority": {"$ref":"#/definitions/authority"},
+    "idempotencyKey": {"$ref":"#/definitions/id"},
+    "createdAt": {"type":"string","format":"date-time"},
+    "expiresAt": {"type":"string","format":"date-time"},
+    "payloadDigest": {"$ref":"#/definitions/digest"},
+    "payload": {"type":"object"},
+    "audience": {"$ref":"#/definitions/actor"}
+  },
+  "allOf": [
+    {"if":{"properties":{"type":{"const":"OFFER_WORLD"}}},"then":{"properties":{"payload":{"type":"object","additionalProperties":false,"required":["world"],"properties":{"world":{"$ref":"#/definitions/world"}}}}}},
+    {
+      "if": {"properties":{"type":{"const":"NEED_OBJECTS"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["worldId","worldDigest"],"properties":{"worldId":{"$ref":"#/definitions/id"},"worldDigest":{"$ref":"#/definitions/digest"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"TRANSFER"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["worldId","worldDigest","hash","bytesBase64"],
+            "properties": {"worldId":{"$ref":"#/definitions/id"},"worldDigest":{"$ref":"#/definitions/digest"},"hash":{"$ref":"#/definitions/hash"},"bytesBase64":{"type":"string","pattern":"^[A-Za-z0-9+/]*={0,2}$","maxLength":11184812}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"VERIFY_WORLD"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["worldId","worldDigest"],"properties":{"worldId":{"$ref":"#/definitions/id"},"worldDigest":{"$ref":"#/definitions/digest"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"OFFER_CANDIDATE"}}},
+      "then": {"properties":{"payload":{"type":"object","additionalProperties":false,"required":["candidate"],"properties":{"candidate":{"$ref":"#/definitions/candidate"}}}}}
+    },
+    {
+      "if": {"properties":{"type":{"const":"REQUEST_EVIDENCE"}}},
+      "then": {
+        "properties": {"payload":{"type":"object","additionalProperties":false,"required":["candidateId","candidateDigest"],"properties":{"candidateId":{"$ref":"#/definitions/id"},"candidateDigest":{"$ref":"#/definitions/digest"}}}}
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"PREPARE_PROMOTION"}}},
+      "then": {
+        "properties": {"payload":{"type":"object","additionalProperties":false,"required":["candidateId","candidateDigest"],"properties":{"candidateId":{"$ref":"#/definitions/id"},"candidateDigest":{"$ref":"#/definitions/digest"}}}}
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"COMMIT"}}},
+      "then": {
+        "properties": {"payload":{"type":"object","additionalProperties":false,"required":["candidateId","candidateDigest"],"properties":{"candidateId":{"$ref":"#/definitions/id"},"candidateDigest":{"$ref":"#/definitions/digest"}}}}
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"REJECT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["candidateId","candidateDigest","reason"],
+            "properties": {"candidateId":{"$ref":"#/definitions/id"},"candidateDigest":{"$ref":"#/definitions/digest"},"reason":{"$ref":"#/definitions/id"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"ABORT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["candidateId","candidateDigest","reason"],
+            "properties": {"candidateId":{"$ref":"#/definitions/id"},"candidateDigest":{"$ref":"#/definitions/digest"},"reason":{"$ref":"#/definitions/id"}}
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "id": {"type":"string","minLength":1,"maxLength":512,"pattern":"^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])"},
+    "digest": {"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "refs": {"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+    "generation": {"type":"integer","minimum":0,"maximum":9007199254740991},
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain"],
+      "properties": {"agentId":{"$ref":"#/definitions/id"},"incarnationId":{"$ref":"#/definitions/id"},"trustDomain":{"$ref":"#/definitions/id"}}
+    },
+    "scope": {"type":"object","additionalProperties":false,"required":["organizationId","projectId"],"properties":{"organizationId":{"$ref":"#/definitions/id"},"projectId":{"$ref":"#/definitions/id"}}},
+    "generations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["incarnation","organization","workspace"],
+      "properties": {"incarnation":{"$ref":"#/definitions/generation"},"organization":{"$ref":"#/definitions/generation"},"workspace":{"$ref":"#/definitions/generation"}}
+    },
+    "authority": {"type":"object","additionalProperties":false,"required":["authorityId","generation"],"properties":{"authorityId":{"$ref":"#/definitions/id"},"generation":{"$ref":"#/definitions/generation"}}},
+    "hash": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "text": {"type":"string","minLength":1,"maxLength":1000},
+    "origin": {"type":"object","additionalProperties":false,"required":["kind","sourceRef"],"properties":{"kind":{"enum":["observed","isolated","simulated","unexecuted"]},"sourceRef":{"$ref":"#/definitions/id"}}},
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path","hash","size","mode"],
+      "properties": {"path":{"type":"string","minLength":1,"maxLength":4096},"hash":{"$ref":"#/definitions/hash"},"size":{"$ref":"#/definitions/generation"},"mode":{"type":"integer","minimum":0,"maximum":511}}
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy","files"],
+      "properties": {"policy":{"const":{"version":2,"projection":"workspace-snapshot-v1","paths":"portable-nfc","modes":"sanitized-v1"}},"files":{"type":"array","maxItems":100000,"items":{"$ref":"#/definitions/file"}}}
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable","arguments"],
+      "properties": {"executable":{"$ref":"#/definitions/text"},"arguments":{"type":"array","maxItems":256,"items":{"$ref":"#/definitions/text"}}}
+    },
+    "runtime": {"type":"object","additionalProperties":false,"required":["name","version","digest"],"properties":{"name":{"$ref":"#/definitions/text"},"version":{"$ref":"#/definitions/text"},"digest":{"$ref":"#/definitions/hash"}}},
+    "environment": {"type":"object","additionalProperties":false,"required":["name","valueHash"],"properties":{"name":{"$ref":"#/definitions/text"},"valueHash":{"$ref":"#/definitions/hash"}}},
+    "assurance": {"const":{"fileRoot":"content-addressed","externalInputs":"declared-only","sandbox":"not-attested"}},
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol","workspaceId","rootHash","command","runtime","dependencies","environment","assurance"],
+      "properties": {
+        "protocol": {"const":"gqwf-execution-closure-v1"},
+        "workspaceId": {"$ref":"#/definitions/id"},
+        "rootHash": {"$ref":"#/definitions/hash"},
+        "command": {"$ref":"#/definitions/command"},
+        "runtime": {"$ref":"#/definitions/runtime"},
+        "dependencies": {"type":"array","maxItems":2048,"items":{"$ref":"#/definitions/runtime"}},
+        "environment": {"type":"array","maxItems":2048,"items":{"$ref":"#/definitions/environment"}},
+        "assurance": {"$ref":"#/definitions/assurance"}
+      }
+    },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worldId","workspaceId","origin","rootHash","manifest","manifestSerialized","closureHash","closure","closureSerialized"],
+      "properties": {
+        "worldId": {"$ref":"#/definitions/id"},
+        "workspaceId": {"$ref":"#/definitions/id"},
+        "origin": {"$ref":"#/definitions/origin"},
+        "rootHash": {"$ref":"#/definitions/hash"},
+        "manifest": {"$ref":"#/definitions/manifest"},
+        "manifestSerialized": {"type":"string","maxLength":33554432},
+        "closureHash": {"$ref":"#/definitions/hash"},
+        "closure": {"$ref":"#/definitions/closure"},
+        "closureSerialized": {"type":"string","maxLength":8388608}
+      }
+    },
+    "policy": {"type":"object","additionalProperties":false,"required":["policyId","version"],"properties":{"policyId":{"$ref":"#/definitions/id"},"version":{"$ref":"#/definitions/id"}}},
+    "qualificationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyId","version","allowedOrigins","verifierRefs"],
+      "properties": {
+        "policyId": {"$ref":"#/definitions/id"},
+        "version": {"$ref":"#/definitions/id"},
+        "allowedOrigins": {"type":"array","minItems":1,"maxItems":4,"uniqueItems":true,"items":{"enum":["observed","isolated","simulated","unexecuted"]}},
+        "verifierRefs": {"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/definitions/id"},"minItems":1}
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command"],
+      "properties": {"command":{"$ref":"#/definitions/command"},"expectedExitCode":{"type":"integer","minimum":0,"maximum":255},"expectedOutput":{"type":"string","maxLength":1048576}},
+      "anyOf": [{"required":["expectedExitCode"]},{"required":["expectedOutput"]}]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId","worldId","worldDigest","rootHash","closureHash","baseHash","environmentDigest","headName","baseGeneration","predicate","policy","evidenceRefs"],
+      "properties": {
+        "candidateId": {"$ref":"#/definitions/id"},
+        "worldId": {"$ref":"#/definitions/id"},
+        "worldDigest": {"$ref":"#/definitions/digest"},
+        "rootHash": {"$ref":"#/definitions/hash"},
+        "closureHash": {"$ref":"#/definitions/hash"},
+        "baseHash": {"$ref":"#/definitions/hash"},
+        "environmentDigest": {"$ref":"#/definitions/digest"},
+        "headName": {"$ref":"#/definitions/id"},
+        "baseGeneration": {"$ref":"#/definitions/generation"},
+        "predicate": {"$ref":"#/definitions/predicate"},
+        "policy": {"$ref":"#/definitions/policy"},
+        "evidenceRefs": {"$ref":"#/definitions/refs"}
+      }
+    }
+  }
+}
