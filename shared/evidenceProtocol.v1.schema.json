@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.local/schemas/evidenceProtocol.v1.schema.json",
+  "title": "GenOS EVIDENCE v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "messageId", "operationId", "missionId", "conversationId", "type", "sender", "scope", "causalRefs", "generations", "authority", "idempotencyKey", "createdAt", "expiresAt", "payloadDigest", "payload"],
+  "properties": {
+    "protocol": { "const": "genos.evidence/v1" },
+    "messageId": { "$ref": "#/definitions/id" },
+    "operationId": { "$ref": "#/definitions/id" },
+    "missionId": { "$ref": "#/definitions/id" },
+    "conversationId": { "$ref": "#/definitions/id" },
+    "type": { "enum": ["ASSERT", "REQUEST_EVIDENCE", "VERIFY", "ACCEPT_UNDER_POLICY", "CHALLENGE", "COUNTEREXAMPLE", "RETRACT", "INVALIDATE_DEPENDENTS", "ACK_APPLIED"] },
+    "sender": { "$ref": "#/definitions/sender" },
+    "scope": { "$ref": "#/definitions/scope" },
+    "causalRefs": { "$ref": "#/definitions/refs" },
+    "generations": { "$ref": "#/definitions/generations" },
+    "authority": { "$ref": "#/definitions/authority" },
+    "idempotencyKey": { "$ref": "#/definitions/id" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "payloadDigest": { "$ref": "#/definitions/digest" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [{
+    "if": { "properties": { "type": { "const": "ASSERT" } } },
+    "then": { "properties": { "payload": {
+      "type": "object", "required": ["claim"], "additionalProperties": false,
+      "properties": { "claim": { "$ref": "#/definitions/claim" } }
+    } } }
+  }, {
+    "if": { "properties": { "type": { "enum": ["REQUEST_EVIDENCE", "VERIFY", "ACCEPT_UNDER_POLICY", "CHALLENGE", "RETRACT"] } } },
+    "then": { "properties": { "payload": { "$ref": "#/definitions/claimPayload" } } }
+  }, {
+    "if": { "properties": { "type": { "const": "COUNTEREXAMPLE" } } },
+    "then": { "properties": { "payload": { "$ref": "#/definitions/counterexamplePayload" } } }
+  }, {
+    "if": { "properties": { "type": { "enum": ["INVALIDATE_DEPENDENTS", "ACK_APPLIED"] } } },
+    "then": { "properties": { "payload": { "$ref": "#/definitions/revisionPayload" } } }
+  }],
+  "definitions": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "refs": { "type": "array", "maxItems": 1000, "uniqueItems": true, "items": { "$ref": "#/definitions/id" } },
+    "generation": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "claimPayload": {
+      "type": "object", "required": ["claimId"], "additionalProperties": false,
+      "properties": { "claimId": { "$ref": "#/definitions/id" } }
+    },
+    "counterexamplePayload": {
+      "type": "object", "required": ["claimId", "counterexampleResultId", "domainFingerprint"], "additionalProperties": false,
+      "properties": {
+        "claimId": { "$ref": "#/definitions/id" },
+        "counterexampleResultId": { "$ref": "#/definitions/id" },
+        "domainFingerprint": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "revisionPayload": {
+      "type": "object", "required": ["claimId", "revisionMessageId"], "additionalProperties": false,
+      "properties": {
+        "claimId": { "$ref": "#/definitions/id" },
+        "revisionMessageId": { "$ref": "#/definitions/id" }
+      }
+    },
+    "sender": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agentId", "incarnationId", "trustDomain"],
+      "properties": {
+        "agentId": { "$ref": "#/definitions/id" },
+        "incarnationId": { "$ref": "#/definitions/id" },
+        "trustDomain": { "$ref": "#/definitions/id" }
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["organizationId", "projectId"],
+      "properties": {
+        "organizationId": { "$ref": "#/definitions/id" },
+        "projectId": { "$ref": "#/definitions/id" }
+      }
+    },
+    "generations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["incarnation", "organization", "workspace"],
+      "properties": {
+        "incarnation": { "$ref": "#/definitions/generation" },
+        "organization": { "$ref": "#/definitions/generation" },
+        "workspace": { "$ref": "#/definitions/generation" }
+      }
+    },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authorityId", "generation"],
+      "properties": {
+        "authorityId": { "$ref": "#/definitions/id" },
+        "generation": { "$ref": "#/definitions/generation" }
+      }
+    },
+    "subject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactDigest", "baseDigest", "environmentDigest"],
+      "properties": {
+        "artifactDigest": { "$ref": "#/definitions/digest" },
+        "baseDigest": { "$ref": "#/definitions/digest" },
+        "environmentDigest": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "predicate": {
+      "type": "object", "additionalProperties": false, "required": ["command"],
+      "anyOf": [{ "required": ["expectedExitCode"] }, { "required": ["expectedOutput"] }],
+      "properties": {
+        "command": { "$ref": "#/definitions/id" },
+        "expectedExitCode": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "expectedOutput": { "type": "string" }
+      }
+    },
+    "domain": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fingerprint", "description"],
+      "properties": {
+        "fingerprint": { "$ref": "#/definitions/digest" },
+        "description": { "$ref": "#/definitions/id" }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["producerId", "sourceRefs"],
+      "properties": {
+        "producerId": { "$ref": "#/definitions/id" },
+        "sourceRefs": { "$ref": "#/definitions/refs" }
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false, "required": ["policyId", "version"],
+      "properties": {
+        "policyId": { "$ref": "#/definitions/id" },
+        "version": { "$ref": "#/definitions/id" }
+      }
+    },
+    "claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["claimId", "subject", "predicate", "assumptions", "domain", "evidence", "obligations", "provenance", "dependencies", "policy"],
+      "properties": {
+        "claimId": { "$ref": "#/definitions/id" },
+        "subject": { "$ref": "#/definitions/subject" },
+        "predicate": { "$ref": "#/definitions/predicate" },
+        "assumptions": { "$ref": "#/definitions/refs" },
+        "domain": { "$ref": "#/definitions/domain" },
+        "evidence": { "$ref": "#/definitions/refs" },
+        "obligations": { "$ref": "#/definitions/refs" },
+        "provenance": { "$ref": "#/definitions/provenance" },
+        "dependencies": { "$ref": "#/definitions/refs" },
+        "policy": { "$ref": "#/definitions/policy" }
+      }
+    }
+  }
+}

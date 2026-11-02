@@ -1,0 +1,5 @@
+[
+  { "input": {}, "canonical": "{}", "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a" },
+  { "input": { "b": 2, "a": 1 }, "canonical": "{\"a\":1,\"b\":2}", "digest": "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777" },
+  { "input": [1, "\u00e9", null], "canonical": "[1,\"\u00e9\",null]", "digest": "sha256:f4a0e8cba171cb7ba624edd50233cce0c089d8bc5fc3d4bc3c39d10c8ea7c6af" }
+]
