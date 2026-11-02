@@ -1,9 +1,17 @@
 'use strict';
 function phaseInstruction(phase) {
-  if (phase === 'plan') return 'PHASE PLAN : évalue uniquement la cohérence des règles, choix et conséquences prévus. '
-    + 'Un plan est nécessairement un résumé : ne demande ni dialogues rédigés ni gestes détaillés déjà réalisés. '
-    + 'Refuse une causalité absente ou contradictoire, pas le seul fait que les scènes restent à écrire. ';
+  if (phase === 'plan') {
+    return 'PHASE PLAN : évalue uniquement la cohérence des règles, choix et conséquences prévus. '
+      + 'Un plan est nécessairement un résumé : ne demande ni dialogues rédigés ni gestes détaillés déjà réalisés. '
+      + 'Pour causal_chain en phase plan : dès lors que le texte énonce une règle, une action prévue et une conséquence '
+      + '(exemple : règle de signature, vérification avec ouverture, et sortie permise), la logique causale est satisfaite '
+      + 'et tu dois obligatoirement attribuer le verdict pass. Ne prétends pas qu’il manque un lien de conséquence. '
+      + 'Refuse une causalité absente ou contradictoire, jamais un plan parce qu’il est synthétique. ';
+  }
   return 'PHASE ARTEFACT : les intentions du plan ne valent pas réalisation. Vérifie dans les scènes les actes et conséquences décisifs. '
+    + 'Pour enacted en phase artefact : une action simplement déclarée ou résumée abstraitement sans gestes physiques détaillés '
+    + '(ex: "Une confrontation révèle la preuve et libère Inès") est un résumé insuffisant et doit impérativement recevoir le verdict fail. '
+    + 'Le verdict pass exige des actes matériels précis et observables décrits dans la scène. '
     + 'Une émotion déclarée ne prouve pas son effet sur le lecteur. Un résumé du dénouement ne remplace pas sa mise en scène. ';
 }
 function reviewPrompt(input) {
