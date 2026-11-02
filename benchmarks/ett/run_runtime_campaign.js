@@ -123,6 +123,7 @@ async function executePair(context) {
         testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true,
           requireInteraction: true } })
       : await executeGenosRuntime({ condition, caseId: testCase.caseId, input, model,
+        budgetGuard: context.budgetGuard,
         testCase: agentCase, oracle: { ...testCase.oracle, requireInspection: true,
           requireInteraction: true } });
   return { caseId: testCase.caseId, scenarioId: scenario.id, difficulty, seed, condition,
@@ -197,7 +198,7 @@ function remainingTasks(tasks, records) {
 }
 
 function validateResumeMetadata(report, options) {
-  const expected = { schema: 'genos.ett-runtime-campaign/v5', model: options.model,
+  const expected = { schema: 'genos.ett-runtime-campaign/v6', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions,
     split: 'development', holdout: false };
   for (const [key, value] of Object.entries(expected)) {
@@ -381,5 +382,6 @@ if (require.main === module) main().catch((error) => {
 });
 
 module.exports = { parseArguments, scenarioModules, buildTasks, casePayload,
+  executePair,
   taskKey, remainingTasks, validateResume, validateStoredRecords,
   restoreAdapterState, executeTasks, campaignStatus, main };

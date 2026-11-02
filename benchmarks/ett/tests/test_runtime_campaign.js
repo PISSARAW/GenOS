@@ -241,12 +241,14 @@ function testRunnerOptions() {
 function testResumeContracts() {
   const options = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',
     '--conditions', 'full,voyager_adapted']);
-  const report = { schema: 'genos.ett-runtime-campaign/v5', model: options.model,
+  const report = { schema: 'genos.ett-runtime-campaign/v6', model: options.model,
     scenarioSet: options.scenarios, conditions: options.conditions, seeds: [1001],
     tokenBudget: options.tokenBudget, split: 'development', holdout: false,
     measuredTokens: 200000, status: 'partial_global_token_budget_reserve_reached', records: [] };
   assert.doesNotThrow(() => validateResume(report, options));
   assert.throws(() => validateResume({ ...report, schema: 'genos.ett-runtime-campaign/v4' }, options),
+    /mismatch for schema/);
+  assert.throws(() => validateResume({ ...report, schema: 'genos.ett-runtime-campaign/v5' }, options),
     /mismatch for schema/);
   assert.equal(report.status, 'partial_campaign_token_budget_reached');
   const extended = parseArguments(['--resume', 'receipt.json', '--model', 'ollama://test',

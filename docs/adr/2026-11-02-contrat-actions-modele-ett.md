@@ -27,9 +27,18 @@ consomme son budget et produit un rejet inspectable. Les politiques concurrentes
 reçoivent aussi les rejets, pas seulement les observations réussies.
 
 La réservation avant appel inclut les octets du format structuré. Les reçus
-passent à `genos.ett-runtime-campaign/v5` ; une reprise v4 est refusée pour ne
+passent à `genos.ett-runtime-campaign/v6` ; une reprise v4 ou v5 est refusée pour ne
 pas mélanger des essais réalisés sous des contrats d'adaptateur différents.
 Les anciens reçus et leur consommation restent conservés séparément.
+
+L'audit du premier pilote v5 a aussi montré que `executePair` omettait de
+transmettre le garde de budget au bras GenOS. Ses compteurs locaux mesuraient
+les tokens, mais le journal global ne les recevait pas. Le garde est désormais
+transmis aux questions endogènes et aux actions des workers. Le test intégré
+exige l'égalité entre appels fournisseur, événements de journal et tokens du
+résultat ; un budget insuffisant doit interdire tout appel réel. Les essais v5
+ont été arrêtés et ne sont pas repris. Leur absence d'échec technique ne
+constituait pas une validation de leur comptabilité globale.
 
 Le pilote réel a ensuite révélé deux défauts masqués par l'absence d'actions :
 le worker ajoutait `actions` à une proposition dont le contrat interdit les
@@ -50,7 +59,7 @@ leur comportement précédent.
 `test_action_response.js` couvre les 36 couples scénario/niveau avec des actions
 construites sans oracle, les rejets et leur coût, la transmission du schéma au
 fournisseur et le refus avant appel si sa réserve ne tient pas dans le budget.
-`test_runtime_campaign.js` vérifie aussi le refus des reprises v4.
+`test_runtime_campaign.js` vérifie aussi le refus des reprises v4 et v5.
 `test_runtime_worker_contract.js` traverse les vrais services backend avec un
 fournisseur déterministe : contrat de run, reçu signé de vérification et
 contrôles métier sur la trace hôte, y compris pour une réponse réfutée.
