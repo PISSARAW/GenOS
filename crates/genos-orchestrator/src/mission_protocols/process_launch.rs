@@ -12,10 +12,12 @@ pub fn executable_hash(executable: &Path) -> Result<String, String> {
 
 pub fn execute(binding: &Binding, request: Launch<'_>) -> Result<ProcessReceipt, String> {
     validate_launch(binding, &request)?;
-    if super::super::now_ms() >= binding.expires_ms { return Err("MISSION_LEASE_EXPIRED".into()); }
     let started = Instant::now();
     let encoded = serde_json::to_vec(request.job).map_err(|e| e.to_string())?;
     if encoded.len() > 256 * 1024 { return Err("NATIVE_JOB_TOO_LARGE".into()); }
+    let remaining=binding.expires_ms.checked_sub(super::super::now_ms())
+        .filter(|value|*value>0).ok_or("MISSION_LEASE_EXPIRED")?;
+    let request=Launch { executable:request.executable,job:request.job,maximum_ms:request.maximum_ms.min(remaining) };
     let mut child = ChildGuard(command(binding, &request).spawn()
         .map_err(|e| format!("native spawn failed: {e}"))?);
     let observation = observe(&mut child.0, started, (&request, &encoded))?;

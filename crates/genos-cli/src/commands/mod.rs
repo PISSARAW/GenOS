@@ -1,6 +1,8 @@
 pub mod agent;
 pub mod morphogenesis_gate;
 pub mod kernel_runtime;
+pub mod rust_protocol_worker;
+pub mod rust_native_mission;
 pub(crate) mod morphogenesis_authority;
 pub(crate) mod morphogenesis_hysteresis;
 pub(crate) mod morphogenesis_plan_binding;

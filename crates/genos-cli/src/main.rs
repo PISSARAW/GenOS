@@ -55,6 +55,9 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
 }
 
 fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
+    if cmd.executor == "rust" {
+        return commands::rust_native_mission::execute(&cmd);
+    }
     if let Some(mission) = cmd.mission.or(cmd.mission_option) {
         return execute_mission(
             &mission,
@@ -182,6 +185,7 @@ fn real_main() {
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
         Some(Commands::Desktop(cmd)) => desktop::execute(cmd.subcommand),
         Some(Commands::Run(cmd)) => handle_run_cmd(cmd),
+        Some(Commands::RustProtocolWorker) => commands::rust_protocol_worker::execute(),
         Some(Commands::InjectChaos(cmd)) | Some(Commands::Chaos(cmd)) => commands::chaos::handle_inject_chaos(&cmd),
         Some(Commands::LoopDetection(cmd)) => {
             capsule::handle_loop_detection(&cmd)

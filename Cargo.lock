@@ -1775,6 +1775,7 @@ dependencies = [
  "rand 0.10.2",
  "ratatui",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
  "serde_yaml",

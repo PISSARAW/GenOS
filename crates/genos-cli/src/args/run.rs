@@ -30,8 +30,8 @@ pub struct RunCmd {
     /// Bounded mission deadline in milliseconds (1,000 to 180,000).
     #[arg(long, default_value_t = 180_000, value_parser = clap::value_parser!(u64).range(1_000..=180_000))]
     pub timeout_ms: u64,
-    /// Executor required by the independent Rust verifier; local mode lacks worker receipts.
-    #[arg(long, default_value = "codex", value_parser = ["codex"])]
+    /// codex uses the backend; rust executes the bounded native integer_sum profile.
+    #[arg(long, default_value = "codex", value_parser = ["codex", "rust"])]
     pub executor: String,
     /// Execution mode to run. Currently supports: trinity
     #[arg(long, default_value = "trinity")]
@@ -101,6 +101,15 @@ mod tests {
     #[test]
     fn run_rejects_executor_without_durable_worker_receipts() {
         assert!(Cli::try_parse_from(["genos", "run", "task", "--executor", "local"]).is_err());
+    }
+
+    #[test]
+    fn run_accepts_explicit_native_rust_executor() {
+        let parsed = Cli::try_parse_from(["genos", "run", "task", "--executor", "rust"]).unwrap();
+        match parsed.command {
+            Some(Commands::Run(command)) => assert_eq!(command.executor, "rust"),
+            _ => panic!("expected run command"),
+        }
     }
 
 

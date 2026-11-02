@@ -43,6 +43,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    #[command(name = "rust-protocol-worker", hide = true)]
+    RustProtocolWorker,
     /// Read-only Rust morphogenesis planning and governance gate
     MorphogenesisAdjudicate {
         #[arg(value_name = "PAYLOAD")]

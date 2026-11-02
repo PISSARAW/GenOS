@@ -35,5 +35,6 @@ axum = { version = "0.7", features = ["ws"] }
 ed25519-dalek = { version = "2", default-features = false }
 
 [dev-dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
 ed25519-dalek = { version = "2", default-features = false }
 tempfile = "3"

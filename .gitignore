@@ -234,3 +234,4 @@ Desktop.ini
 /benchmarks/omega-bench-2026/configs/hardware.local.json
 *.db.protocols/
 *.sqlite.protocols/
+.genos-native/
