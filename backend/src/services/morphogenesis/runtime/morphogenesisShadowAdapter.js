@@ -13,13 +13,15 @@ function diagnose(input) {
   return {
     selectedTopology: plan.selectedTopology || null,
     candidateCount: Array.isArray(plan.candidateMorphologies) ? plan.candidateMorphologies.length : 0,
-    utility: Number.isFinite(plan.utility) ? plan.utility : null
+    utility: Number.isFinite(plan.utility) ? plan.utility : null,
+    operationalNeeds: plan.nervous?.requests || []
   };
 }
 
 function generateNeeds(input) {
   const plan = input.observation || {};
-  return { plan, diagnosis: input.diagnosis, requiredCapabilities: plan.morphologyPatch?.graph?.nodes?.[0]?.capabilities || [] };
+  return { plan, diagnosis: input.diagnosis, operationalNeeds: input.diagnosis.operationalNeeds,
+    requiredCapabilities: plan.morphologyPatch?.graph?.nodes?.[0]?.capabilities || [] };
 }
 
 function synthesize(input) {
@@ -31,7 +33,9 @@ function synthesize(input) {
     reason: plan.reason || 'shadow morphology preflight',
     transitionCost: Number(plan.expectedCost?.risk) || 0,
     expectedCost: plan.expectedCost || {},
-    counterfactualRequired: false
+    counterfactualRequired: false,
+    operationalNeeds: input.needs.operationalNeeds || [],
+    executionAuthorized: false
   };
 }
 
@@ -76,6 +80,7 @@ function createShadowServices() {
 async function runMorphogenesisShadow(plan, options = {}) {
   return runMorphogenesisRuntime({
     mode: 'shadow',
+    db: options.db, agentId: options.agentId,
     missionId: options.missionId || plan?.morphologyPatch?.graph?.missionId || null,
     morphogenesisPlan: plan
   }, createShadowServices());

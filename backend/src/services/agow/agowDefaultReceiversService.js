@@ -108,9 +108,12 @@ async function morphogenesisReceiver(input) {
   if (!loaded.state?.morphologyPatch) return ignored('no_morphogenesis_plan');
   if (input.phase === 'inspect') return { state: { planId: loaded.state.morphologyPatch.graph?.missionId || input.frame.agentId } };
   const result = await require('../morphogenesis/runtime/morphogenesisShadowAdapter')
-    .runMorphogenesisShadow(loaded.state, { missionId: input.frame.agentId });
+    .runMorphogenesisShadow(loaded.state, {
+      missionId: input.frame.agentId, db: input.db, agentId: input.frame.agentId
+    });
   return { consumed: true, changed: false, effectType: 'morphogenesis_shadow_preflight',
-    artifactRefs: [input.frame.agentId], outcome: { decision: result.decision, committed: result.committed } };
+    artifactRefs: [input.frame.agentId], outcome: { decision: result.decision,
+      committed: result.committed, operationalNeeds: result.proposal?.operationalNeeds || [] } };
 }
 
 async function resolveTerritory(db, agentId) {

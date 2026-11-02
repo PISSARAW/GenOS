@@ -74,7 +74,9 @@ function shadowMorphogenesisEnabled() {
 
 async function attachMorphogenesisShadow(ctx, plan) {
   const { runMorphogenesisShadow } = require('../morphogenesis/runtime/morphogenesisShadowAdapter');
-  const result = await runMorphogenesisShadow(plan, { missionId: ctx.agentId });
+  const result = await runMorphogenesisShadow(plan, {
+    missionId: ctx.agentId, db: ctx.db, agentId: ctx.agentId
+  });
   ctx.morphogenesisV2Shadow = result;
   ctx.autonomyPlan.morphogenesisV2Shadow = {
     decision: result.decision,

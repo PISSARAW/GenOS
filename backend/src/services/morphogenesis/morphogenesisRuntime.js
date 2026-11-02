@@ -188,6 +188,7 @@ async prepareMorphology(strategyContract, options = {}) {
     const services = options.runtimeServices || this._runtimeServices;
     if (services) {
       const result = await require('./runtime/morphogenesisRuntimeV2').runMorphogenesisRuntime({
+        db: this._db, agentId: options.orchestratorId,
         ...options.runtimeContext, morphology, mode: options.mode || 'commit'
       }, services);
       const applied = result.committed === true && result.decision === 'APPLIED';

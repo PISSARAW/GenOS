@@ -18,7 +18,8 @@ function validateServices(services, mode = 'commit') {
 }
 
 async function evaluateProposal(context, services) {
-  const observation = await services.observe(context);
+  const raw = await services.observe(context);
+  const observation = await require('../../nervous/morphogenesisAdapter').enrichObservation(context, raw);
   const diagnosis = await services.diagnose({ context, observation });
   const needs = await services.generateNeeds({ context, observation, diagnosis });
   const proposal = await services.repairOrSynthesize({ context, needs, diagnosis });
