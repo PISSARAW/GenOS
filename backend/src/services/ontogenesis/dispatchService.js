@@ -174,6 +174,9 @@ async function dispatchTask(db, ctx, harness) {
   const operation = await beginDispatchOperation(db, input);
   input = { ...input, id: operation.id };
   await persistDispatch(db, input);
+  await require('../nervous/ontogenesisAdapter').capture(db, {
+    projectId: ctx.project.id, executionId: input.id, phase: 'before'
+  });
   await traceSelection(db, ctx, selection);
   let started;
   try {

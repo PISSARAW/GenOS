@@ -41,13 +41,15 @@ async function gvxContext(db, config, projectId) {
 
 async function compileDevelopmentalContext(db, project) {
   const config = parseConfig(project);
-  const [shev, gvx] = await Promise.all([
+  const [shev, gvx, nervous] = await Promise.all([
     shevContext(db, project.id),
-    gvxContext(db, config, project.id)
+    gvxContext(db, config, project.id),
+    require('../nervous/ontogenesisAdapter').capture(db, { projectId: project.id, phase: 'context' })
   ]);
   return {
     shev,
     gvx,
+    nervous,
     memory: { delegatedToRuntime: true, available: true },
     agow: { delegatedToRuntime: true, available: true },
     failClosed: !gvx.available && gvx.reason === 'scope-explicite-requis'

@@ -162,10 +162,13 @@ async function completeIntegration(db, ctx, input) {
     await db.run("UPDATE ontogenesis_projects SET state = 'PLANNING' WHERE id = ?", [ctx.project.id]);
   });
   await notify(db, { projectId: ctx.project.id, kind: 'result', payload: { sha: input.sha, taskId: input.run.task_id } });
+  const nervousFeedback = await require('../nervous/ontogenesisAdapter').capture(db, {
+    projectId: ctx.project.id, executionId: input.run.id, phase: 'after', outcome: 'integrated'
+  });
   const daemonFeedback = await daemonStewardship.recordIntegration(db, {
     projectId: ctx.project.id, taskId: input.run.task_id, sha: input.sha
   }).catch((error) => ({ recorded: false, reason: error.message }));
-  return { state: 'PLANNING', event: 'integrated', sha: input.sha, daemonFeedback };
+  return { state: 'PLANNING', event: 'integrated', sha: input.sha, daemonFeedback, nervousFeedback };
 }
 
 async function processIntegration(db, ctx) {

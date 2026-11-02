@@ -17,6 +17,9 @@ async function stopExecution(db, ctx, harness) {
   await finalizeExecution(db, { run, phase: 'suspended' });
   await setTaskStatus(db, { taskId: run.task_id, status: 'todo' });
   await db.run("UPDATE ontogenesis_runs SET status = 'failed' WHERE id = ?", [run.id]);
+  await require('../nervous/ontogenesisAdapter').capture(db, {
+    projectId: ctx.project.id, executionId: run.id, phase: 'after', outcome: 'suspended'
+  });
   return true;
 }
 
@@ -95,6 +98,9 @@ async function recordFailedOutcome(db, input) {
   await ledger.recordOutcome(db, { projectId: input.projectId, executionId: input.run.id,
     taskId: input.run.task_id, attempt: task ? task.attempt + 1 : null, outcome: 'failed',
     topology: input.run.topology, treeHash: result.treeHash, proofRefs: result.proofs || [], reason: input.reason });
+  await require('../nervous/ontogenesisAdapter').capture(db, {
+    projectId: input.projectId, executionId: input.run.id, phase: 'after', outcome: 'failed'
+  });
 }
 
 module.exports = { haltForControl, observeExecution, failExecution, stopExecution };
