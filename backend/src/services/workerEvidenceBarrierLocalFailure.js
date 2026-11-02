@@ -8,7 +8,7 @@ const { emit, updateAgent } = require('./agentOrchestrationState');
 const { shouldUpdateAgentTerminalStatus } = require('./workerEvidenceBarrierLocalLifecycle');
 
 function failureState(error) {
-  const blocked = error.code === 'BUDGET_EXHAUSTED' || /budget|timeout/i.test(error.message);
+  const blocked = Boolean(error.qualityFeedback) || error.code === 'BUDGET_EXHAUSTED' || /budget|timeout/i.test(error.message);
   return { blocked, status: blocked ? 'blocked' : 'error',
     eventType: blocked ? 'AGENT_HALTED' : 'AGENT_FAILED',
     action: blocked ? 'BUDGET_GUARD' : 'LOCAL_MODEL' };
@@ -39,7 +39,10 @@ function failurePayload(ctx) {
     provider: ctx.error.modelProvider || ctx.provider,
     workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics, proposalTests: ctx.error.proposal?.tests,
     appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.error.modelUsage || ctx.usage,
-    stageTimings: ctx.stageTimings };
+    stageTimings: ctx.stageTimings, ...(ctx.error.qualityFeedback ? {
+      qualityFeedback: ctx.error.qualityFeedback,
+      evidenceReport: { outcome: 'unresolved', claims: [], tests: [], qualityFeedback: ctx.error.qualityFeedback }
+    } : {}) };
 }
 
 module.exports = { failureState, publish, failurePayload };

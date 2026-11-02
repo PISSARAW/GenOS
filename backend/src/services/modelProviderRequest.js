@@ -189,6 +189,7 @@ async function consumeNdjson(ctx, chunk) {
     const payload = parseNdjsonLine(line);
     if (!payload) continue;
     if (payload.model) ctx.state.servedModel = payload.model;
+    if (payload.done === true) ctx.state.finishReason = require('./modelProviderCompletion').completionReason(payload);
     const delta = firstTruthy(payload.message?.content, payload.response, '');
     if (delta) { ctx.state.text += delta; await ctx.onToken(delta); }
     if (payload.prompt_eval_count != null || payload.eval_count != null) {
@@ -238,7 +239,7 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
   const consume = async (chunk) => { await consumeNdjson(ctx, chunk); };
   await pumpStream(reader, consume, idleTimeoutMs);
   if (ctx.state.buffer.trim()) await consume(new TextEncoder().encode(`${ctx.state.buffer}\n`));
-  return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel };
+  return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel, finishReason: ctx.state.finishReason };
 }
 
 function anthropicContent(payload) { return payload.content; }
@@ -262,6 +263,7 @@ function buildStreamResponse(streamed, context) {
   const usage = streamed.usage || {};
   return {
     text: streamed.text,
+    finishReason: streamed.finishReason || null,
     inputTokens: firstNonNull(usage.input_tokens, usage.prompt_tokens, usage.promptTokenCount,
       estimateTokenCount(promptText(context.options.prompt))),
     outputTokens: firstNonNull(usage.output_tokens, usage.completion_tokens, usage.candidatesTokenCount,
@@ -322,6 +324,7 @@ function buildFinalResponse(info) {
   const usageReceipt = providerUsageReceipt(firstNonNull(info.payload.id, info.payload.responseId), usage);
   return {
     text: info.text,
+    finishReason: require('./modelProviderCompletion').completionReason(info.payload),
     toolCalls: info.toolCalls,
     structured: parseStructuredResponse(info.text, info.responseFormat),
     inputTokens: firstNonNull(usage.input_tokens, usage.prompt_tokens, usage.promptTokenCount, estimateTokenCount(promptText(info.prompt))),

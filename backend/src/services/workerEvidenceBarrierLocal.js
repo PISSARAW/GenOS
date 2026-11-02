@@ -35,6 +35,7 @@ function resolveNameMeaning(mission, agentName) {
   return 'Spécialiste autonome';
 }
 function resolveWorkerModel(mission) {
+  if (mission.workerContract?.qualityElevation && mission.qualityRuntime?.generatorModel) return require('./qualityElevation/qualityRuntimeModelAdapter').modelUri(mission.qualityRuntime.generatorModel);
   if (mission.localModel) return mission.localModel;
   if (mission.model) return mission.model;
   return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
@@ -75,6 +76,7 @@ async function generateWorkerResultOnce(ctx) {
     maxTokens: ctx.maxTokens,
     contextTokens: ctx.mission.localContextTokens,
     requestTokenBudget: resolveRequestTokenBudget(ctx),
+    signal: ctx.signal,
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,
@@ -225,7 +227,8 @@ async function runGenerationStage(ctx) {
   if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
-  const promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
+  let promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
+  promptText = require('./qualityElevation/qualityNativeGeneration').promptText(ctx, promptText);
   throwIfPromptOverBudget(estimatePromptTokens(promptText), budget);
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
@@ -248,8 +251,8 @@ async function runGenerationStage(ctx) {
     promptText: promptText,
     identitySession: ctx.identity.session
   };
-  let result = await require('./workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText,
-    generate: (repairedPrompt) => generateWorkerResult({ ...generationContext, promptText: repairedPrompt }) });
+  Object.assign(generationContext, require('./qualityElevation/qualityNativeGeneration').requestFields(ctx, generationContext));
+  let result = await require('./qualityElevation/qualityNativeGeneration').generate(generationContext, generateWorkerResult);
   result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
   require('./workerEvidenceBarrierLocalStages1.js').runGenerationStageStage2({ codeRepairPlans, codeWorker, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; }, workerCodeTestRepair });
@@ -257,7 +260,7 @@ async function runGenerationStage(ctx) {
     { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
-  return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
+  return { codeWorker, estimate, budget, agentName, nameMeaning, workerModel, result, generationContext };
 }
 
 async function assertEvidenceAuthority(db, mission, executionRun) {
@@ -292,8 +295,9 @@ async function runEvidenceStage(ctx) {
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);
-  return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport,
-    proof: proof, noAnswer: noAnswer, unresolved: false };
+  const evidence = { consumed, proposal, evidenceReport, proof, noAnswer, unresolved: false };
+  return require('./qualityElevation/qualityNativeWorker').elevateEvidence({ ...ctx, evidence,
+    generationContext: ctx.generation?.generationContext, generate: generateWorkerResult });
 }
 async function evidenceReportFromModel(ctx) {
   const startedAt = Date.now();
@@ -323,7 +327,7 @@ async function runLocalWorker(db, mission, executionRun) {
         generation = undefined;
         generation = await runGenerationStage({ db, mission: currentMission, executionRun, stageTimings, identity });
         identityLeaseHeartbeat.assertHealthy();
-        const evidence = await runEvidenceStage({ db, executionRun, result: generation.result, budget: generation.budget,
+        const evidence = await runEvidenceStage({ db, executionRun, generation, identity, result: generation.result, budget: generation.budget,
           codeWorker: generation.codeWorker, mission: currentMission, agentName: generation.agentName,
           nameMeaning: generation.nameMeaning, stageTimings });
         identityLeaseHeartbeat.assertHealthy();
@@ -348,4 +352,4 @@ async function runLocalWorker(db, mission, executionRun) {
     await identityLeaseHeartbeat?.stop();
     await workerIdentity.release(db, identity);
   }
-} module.exports = { runLocalWorker, generateWorkerResult, assertEvidenceAuthority, isOrchestratorMission };
+} module.exports = { runLocalWorker, generateWorkerResult, assertEvidenceAuthority, isOrchestratorMission, runGenerationStage, runEvidenceStage };

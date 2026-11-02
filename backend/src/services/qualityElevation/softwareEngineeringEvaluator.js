@@ -10,9 +10,7 @@ function securityChecks(code, defects) {
 function evaluateSoftwareEngineering(content, options = {}) {
   const code = textOf(content), defects = [];
   if (!code.trim()) defects.push(defect('EMPTY_ARTIFACT', 'Code absent.', { severity: 'blocker' }));
-  // Compile CommonJS/JS without executing it. vm is NOT a security sandbox.
-  try { new vm.Script(code); } catch (error) { defects.push(defect('SYNTAX_ERROR', error.message, { section: 'code', severity: 'blocker' })); }
-  securityChecks(code, defects);
+  for (const source of sourceUnits(code)) inspectSource(source, defects);
   for (const name of options.requiredExports || []) {
     if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new TypeError('Invalid export identifier.');
     const pattern = new RegExp(`(?:exports\\.${name}\\b|module\\.exports\\s*=\\s*\\{[^}]*\\b${name}\\b)`);
@@ -23,5 +21,23 @@ function evaluateSoftwareEngineering(content, options = {}) {
   // Inline '// Test: ...' and caller-provided booleans are not executed tests.
   result.requiredExternalVerification = 'behavior_correct';
   return result;
+}
+function sourceUnits(code) {
+  let bundle;
+  try { bundle = JSON.parse(code); } catch (_) { return [{ path: 'candidate.js', content: code }]; }
+  if (bundle?.schema !== 'genos.quality-code-bundle/v1') return [{ path: 'candidate.js', content: code }];
+  if (!Array.isArray(bundle.files) || !bundle.files.length) return [{ path: 'candidate.js', content: '' }];
+  return bundle.files;
+}
+function inspectSource(source, defects) {
+  if (typeof source.content !== 'string' || !source.content.trim()) {
+    defects.push(defect('EMPTY_ARTIFACT', 'Source absente.', { severity: 'blocker' })); return;
+  }
+  // Native executed verification remains mandatory for every language.
+  if (/\.(?:js|cjs)$/.test(source.path)) {
+    try { new vm.Script(source.content); }
+    catch (error) { defects.push(defect('SYNTAX_ERROR', error.message, { section: source.path, severity: 'blocker' })); }
+  }
+  securityChecks(source.content, defects);
 }
 module.exports = { evaluateSoftwareEngineering };
