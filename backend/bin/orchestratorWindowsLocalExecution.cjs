@@ -43,6 +43,16 @@ function resolveBudget(missionBudget, requestTimeoutMs) {
     costUsd: missionBudget.costUsd || 0, latencyMs: missionBudget.latencyMs || timeoutBudget };
 }
 
+function resolveWorkerKind(request, identity) {
+  if (request.workerKind) return request.workerKind;
+  return identity.identityExperimentWorker ? 'specialist' : 'bounded_worker';
+}
+
+function resolveWorkerRole(request, workerKind) {
+  if (request.role) return request.role;
+  return workerKind === 'creative_worker' ? 'creative_author' : 'implementation';
+}
+
 function buildLocalMission(input) {
   const { id, missionId, enhancedPrompt, request, missionBudget,
     requestTimeoutMs, allowedCommands, allowFileEdits, orchestratorAgentId } = input;
@@ -51,11 +61,12 @@ function buildLocalMission(input) {
   const localModel = /^[a-z][a-z0-9+.-]*:\/\//i.test(requested) ? requested : `ollama://${requested}`;
   const identity = resolveIdentity(request);
   const prompt = String(enhancedPrompt || '').replaceAll('{{AGENT_ID}}', String(id));
-  const workerKind = identity.identityExperimentWorker ? 'specialist' : 'bounded_worker';
+  const workerKind = resolveWorkerKind(request, identity);
   const specialtyNiche = identity.identityExperimentWorker
     ? 'identity continuity and causal self-model analysis' : undefined;
+  const requestTokenBudget = request.requestTokenBudget || request.workerTokenLimit || 8192;
   return { agentId: id, orchestratorAgentId: orchestratorAgentId || null, missionId: missionId || id,
-    prompt, currentTask: prompt, role: 'implementation',
+    prompt, currentTask: prompt, role: resolveWorkerRole(request, workerKind),
     workerKind, specialtyNiche,
     identityExperimentScenario: identity.identityExperimentScenario,
     executionMode: 'worker',
@@ -64,6 +75,7 @@ function buildLocalMission(input) {
     readOnlyWorkspaceEvidence: request.readOnlyWorkspaceEvidence === true,
     writeLease: allowFileEdits, localCodeWorker, allowedEvidenceRefs: identity.allowedEvidenceRefs,
     localModel, localContextTokens: request.localContextTokens, localRoutingPolicy: resolveRouting(request, localModel),
+    requestTokenBudget, workerTokenLimit: requestTokenBudget,
     identityExperimentArm: identity.identityExperimentArm,
     identityExperimentSeed: identity.identityExperimentSeed,
     timeoutMs: requestTimeoutMs, executionBudget: resolveBudget(missionBudget, requestTimeoutMs),
@@ -133,11 +145,7 @@ async function runWindowsRosterPostflight(context) {
 async function runWindowsRosterWorker(context) {
   const { input, worker, assignment, index, dependencies } = context;
   const { db, id, missionId, requestTimeoutMs, allowedCommands, allowFileEdits } = input;
-  const executionRunId = `local-direct-${worker.agentId}`;
   const budget = { ...worker.executionBudget, latencyMs: worker.executionBudget?.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
-  await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json) VALUES (?, ?, 'running', '{}')`, executionRunId, worker.agentId);
-  const scope = dependencies.validScope({ id: `execution-run:${executionRunId}`, costUsd: Number(budget.costUsd || 0), tokens: Number(budget.tokens || 0) });
-  await persistLocalBudgetScope({ db, scope, executionRunId, agentId: worker.agentId });
   const mission = buildLocalMission({ ...input, id: worker.agentId, missionId, orchestratorAgentId: id,
     enhancedPrompt: worker.prompt || `${input.enhancedPrompt}\n\nAssignment ${index + 1}: ${assignment.hypothesis || assignment.role}`,
     missionBudget: budget, request: { ...input.request, localModel: worker.localModel || input.request.localModel,
@@ -145,6 +153,15 @@ async function runWindowsRosterWorker(context) {
       identityExperimentScenario: undefined }, allowedCommands, allowFileEdits });
   mission.workerKind = assignment.workerKind;
   mission.role = assignment.role;
+  const sealed = await sealWindowsExecutionRun(db, { agentId: worker.agentId,
+    missionId, workspaceRoot: worker.workspaceRoot, budget, toolLease: mission.toolLease });
+  const executionRunId = sealed?.run ? sealed.run.id : `local-direct-${worker.agentId}`;
+  if (sealed?.executionAuthorityRef) mission.executionAuthorityRef = sealed.executionAuthorityRef;
+  if (!sealed) {
+    await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json) VALUES (?, ?, 'running', '{}')`, executionRunId, worker.agentId);
+  }
+  const scope = dependencies.validScope({ id: `execution-run:${executionRunId}`, costUsd: Number(budget.costUsd || 0), tokens: Number(budget.tokens || 0) });
+  await persistLocalBudgetScope({ db, scope, executionRunId, agentId: worker.agentId });
   mission.modelBudgetScope = scope;
   const startedAt = Date.now();
   const result = await dependencies.runLocalWorker(db, mission, { id: executionRunId });
@@ -195,19 +212,19 @@ async function runSingleWindowsExecution(input, services) {
     finalizeOrchestratedMission, preflight } = input;
   const { runLocalWorker, validScope } = services;
 
-  // Le fallback est in-process : utiliser l'agent orchestrateur persisté pour que
-  // la récupération et les décisions d'organisation puissent résoudre son identité.
   const orchestratorAgentId = id;
-  const executionRunId = 'local-direct-' + id;
-
-  // Persister la course d'exécution pour que la portée budgétaire puisse y faire référence.
-  await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json)
-    VALUES (?, ?, 'running', '{}')`, executionRunId, orchestratorAgentId);
-
-  // Créer et persister la portée de budget modèle parent depuis le budget déclaré.
   const budget = { ...missionBudget, tokens: missionBudget.tokens || 8192,
     costUsd: missionBudget.costUsd || 0,
     latencyMs: missionBudget.latencyMs || Math.max(1000, Number(requestTimeoutMs) - 4000) };
+  const localMission = buildLocalMission({ ...input, orchestratorAgentId });
+  const sealed = await sealWindowsExecutionRun(db, { agentId: orchestratorAgentId,
+    missionId, workspaceRoot: requestedWorkspace(request), budget, toolLease: localMission.toolLease });
+  const executionRunId = sealed?.run ? sealed.run.id : ('local-direct-' + id);
+  if (sealed?.executionAuthorityRef) localMission.executionAuthorityRef = sealed.executionAuthorityRef;
+  if (!sealed) {
+    await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, status, metrics_json)
+      VALUES (?, ?, 'running', '{}')`, executionRunId, orchestratorAgentId);
+  }
   const scope = validScope({
     id: `execution-run:${executionRunId}`,
     costUsd: Number(budget.costUsd),
@@ -218,8 +235,6 @@ async function runSingleWindowsExecution(input, services) {
      cost_ceiling_usd, token_ceiling) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     scope.id, executionRunId, orchestratorAgentId, null, null,
     scope.costUsd, scope.tokens);
-
-  const localMission = buildLocalMission({ ...input, orchestratorAgentId });
   localMission.modelBudgetScope = scope;
   const workerStartedAt = Date.now();
   const localResult = await runLocalWorker(db, localMission, { id: executionRunId });
@@ -244,3 +259,31 @@ async function runSingleWindowsExecution(input, services) {
 }
 
 module.exports = { runWindowsLocalExecution, buildLocalMission, runWindowsLocalRosterExecution };
+
+
+async function sealWindowsExecutionRun(db, input) {
+  if (typeof db?.get !== 'function') return null;
+  const { agentId, missionId, workspaceRoot, budget, toolLease } = input;
+  const contract = await require('../src/services/strategyContractService').getLatestContract(db, agentId);
+  if (!contract) return null;
+  try {
+    const run = await require('../src/services/strategyExecutionService').createExecutionRun(db, {
+      agentId, missionId: missionId || agentId,
+      contractRecord: contract, budget: { ...budget, deterministic: false }
+    });
+    const normalizedMission = {
+      agentId, missionId: missionId || agentId,
+      workspaceRoot, toolLease: toolLease || [], timeoutMs: budget.latencyMs || 300000,
+      evidencePolicy: { independentVerifier: true }
+    };
+    const executionAuthorityRef = await require('../src/services/missionEnvelopeAuthority').seal({
+      db, agentId, executionRun: run,
+      executable: require.resolve('../src/services/agentFleetService'),
+      contractRecord: contract,
+      autonomyPlan: { mode: 'windows_local' },
+      normalizedMission
+    });
+    await db.run("UPDATE strategy_execution_runs SET status = 'running', started_at = ? WHERE id = ? AND status = 'planned'", new Date().toISOString(), run.id);
+    return { run, executionAuthorityRef: executionAuthorityRef || normalizedMission.executionAuthorityRef };
+  } catch (_) { return null; }
+}

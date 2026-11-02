@@ -1,10 +1,12 @@
 # 06 — Qualité et preuves
 
+- [experience-mission-scenario-court-metrage-2026-11-02.md](experience-mission-scenario-court-metrage-2026-11-02.md) — mission réelle d'écriture d'un scénario de court métrage sur lecteur D:, modèle local Qwen 7B, contrat creative_candidate et scellement d'autorité GVX.
+
 - [mission-native-agow-2026-11-02.md](mission-native-agow-2026-11-02.md) — mission native réelle, deux oracles indépendants et mesure AGOW liée à l'acceptation scellée ; portée subset_sum.
 
-- [competence-cent-experiences-2026-11-02.md](competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle après cent expériences : scores vérifiés, surconfiance et hypothèse non confirmée.
-
 - [observation-mission-agow-2026-11-02.md](observation-mission-agow-2026-11-02.md) — décision antérieure, journal durable et mesures d'un worker correct ou fautif par oracle séparé ; aucune promotion.
+
+- [competence-cent-experiences-2026-11-02.md](competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle après cent expériences : scores vérifiés, surconfiance et hypothèse non confirmée.
 
 - [cooperation-types-workers-2026-11-02.md](cooperation-types-workers-2026-11-02.md) — trois scénarios de complémentarité native daemon/spécialiste/vérificateur/récupération, autorités, passations et coûts mesurés.
 
