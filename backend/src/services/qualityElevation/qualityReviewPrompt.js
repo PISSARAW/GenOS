@@ -8,7 +8,7 @@ function phaseInstruction(phase) {
       + 'et tu dois obligatoirement attribuer le verdict pass. Ne prétends pas qu’il manque un lien de conséquence. '
       + 'Refuse une causalité absente ou contradictoire, jamais un plan parce qu’il est synthétique. '
       + 'Toute citation de plan doit être une sous-chaîne CONTINUE copiée mot pour mot (ex: le texte exact d’une seule règle, ou d’une décision). '
-      + 'Ne fusionne JAMAIS deux règles ou deux champs distincts avec une virgule ; utilise plusieurs citations distinctes. ';
+      + 'Ne fusionne JAMAIS deux règles ou deux champs distincts avec une virgule ; utilise des citations distinctes. ';
   }
   return 'PHASE ARTEFACT : les intentions du plan ne valent pas réalisation. Vérifie dans les scènes les actes et conséquences décisifs. '
     + 'Pour enacted en phase artefact : une action simplement déclarée ou résumée abstraitement sans gestes physiques détaillés '
@@ -26,8 +26,9 @@ function reviewPrompt(input) {
     + 'Distingue erreur étayée, absence, incertitude et choix artistique. Un désaccord esthétique seul ne prouve pas une faute causale. '
     + `Évalue exactement ces ${ids.length} critères, chacun une fois : ${ids.join(', ')}. `
     + 'Chaque entrée contient criterionId, verdict (pass/fail/unknown), reason (10 caractères minimum), evidence:[{quote:...}], rating. '
-    + 'RÈGLE STRICTE SUR LES CITATIONS : chaque objet dans evidence doit citer UNE SEULE phrase ou portion de phrase continue. '
-    + 'Ne combine JAMAIS deux phrases différentes ou deux champs distincts dans une même citation : crée plusieurs objets séparés [{"quote":"..."},{"quote":"..."}]. '
+    + 'RÈGLE STRICTE SUR LES CITATIONS : une seule citation courte et exacte (10 à 60 caractères) suffit par critère. '
+    + 'Chaque objet dans evidence doit citer UNE SEULE phrase continue issue d’un unique endroit du livrable. '
+    + 'Ne combine JAMAIS deux phrases différentes ou deux champs distincts dans une même citation. '
     + 'Toute citation doit être un extrait CONTINU d’au moins 8 caractères intégralement présent dans artifact, sans préfixe inventé, '
     + 'paraphrase, mots supprimés ou fragments recollés. Cite TOUJOURS depuis artifact, JAMAIS depuis mission. '
     + 'Une raison de refus doit localiser le problème et expliquer la relation manquante, pas seulement demander plus de profondeur. '
