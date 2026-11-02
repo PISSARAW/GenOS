@@ -1,0 +1,22 @@
+[
+  {
+    "input": {
+      "agentId": "agent-1",
+      "incarnationId": "incarnation-2",
+      "missionId": "mission-1",
+      "branchId": "branch-1",
+      "trustDomain": "local",
+      "historyDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "canonical": "{\"agentId\":\"agent-1\",\"branchId\":\"branch-1\",\"historyDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"incarnationId\":\"incarnation-2\",\"missionId\":\"mission-1\",\"trustDomain\":\"local\"}",
+    "digest": "sha256:273e8db1d3fadd318dfcbae4675fcf863462ae42b854130d25d39eaadddc353c"
+  },
+  {
+    "input": {
+      "attestationMessageId": "attestation-1",
+      "proofDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "canonical": "{\"attestationMessageId\":\"attestation-1\",\"proofDigest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+    "digest": "sha256:5a28b9c502a04e85981caca5c6c8005d789d3e89fe512edcad317f50b546d544"
+  }
+]

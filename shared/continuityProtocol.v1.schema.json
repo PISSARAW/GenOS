@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genos.local/schemas/continuityProtocol.v1.schema.json",
+  "title": "GenOS CONTINUITY v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "messageId",
+    "operationId",
+    "missionId",
+    "conversationId",
+    "type",
+    "sender",
+    "scope",
+    "causalRefs",
+    "generations",
+    "authority",
+    "idempotencyKey",
+    "createdAt",
+    "expiresAt",
+    "payloadDigest",
+    "payload",
+    "audience"
+  ],
+  "properties": {
+    "protocol": {"const":"genos.continuity/v1"},
+    "messageId": {"$ref":"#/definitions/id"},
+    "operationId": {"$ref":"#/definitions/id"},
+    "missionId": {"$ref":"#/definitions/id"},
+    "conversationId": {"$ref":"#/definitions/id"},
+    "type": {
+      "enum": [
+        "PRESENT",
+        "CHALLENGE",
+        "ATTEST",
+        "CONTINUITY_PROOF",
+        "OFFER_HANDOFF",
+        "SEAL_CHECKPOINT",
+        "ACCEPT_RESPONSIBILITY",
+        "ACTIVATE_SUCCESSOR",
+        "ABORT_HANDOFF"
+      ]
+    },
+    "sender": {"$ref":"#/definitions/sender"},
+    "scope": {"$ref":"#/definitions/scope"},
+    "causalRefs": {"$ref":"#/definitions/refs"},
+    "generations": {"$ref":"#/definitions/generations"},
+    "authority": {"$ref":"#/definitions/authority"},
+    "idempotencyKey": {"$ref":"#/definitions/id"},
+    "createdAt": {"type":"string","format":"date-time"},
+    "expiresAt": {"type":"string","format":"date-time"},
+    "payloadDigest": {"$ref":"#/definitions/digest"},
+    "payload": {"type":"object"},
+    "audience": {"$ref":"#/definitions/actor"}
+  },
+  "allOf": [
+    {
+      "if": {"properties":{"type":{"const":"PRESENT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["identity","predecessor","relation"],
+            "properties": {"identity":{"$ref":"#/definitions/identity"},"predecessor":{"$ref":"#/definitions/identity"},"relation":{"$ref":"#/definitions/relation"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"CHALLENGE"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["presentationMessageId","nonce","challengeExpiresAt"],
+            "properties": {
+              "presentationMessageId": {"$ref":"#/definitions/id"},
+              "nonce": {"$ref":"#/definitions/nonce"},
+              "challengeExpiresAt": {"$ref":"#/definitions/timestamp"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"ATTEST"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["challengeMessageId","nonce","presentationDigest","proof"],
+            "properties": {
+              "challengeMessageId": {"$ref":"#/definitions/id"},
+              "nonce": {"$ref":"#/definitions/nonce"},
+              "presentationDigest": {"$ref":"#/definitions/digest"},
+              "proof": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["proofId","proofDigest"],
+                "properties": {"proofId":{"$ref":"#/definitions/id"},"proofDigest":{"$ref":"#/definitions/digest"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"CONTINUITY_PROOF"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["attestationMessageId","proofDigest"],
+            "properties": {"attestationMessageId":{"$ref":"#/definitions/id"},"proofDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"OFFER_HANDOFF"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transferId","source","successor","bundle","authority"],
+            "properties": {
+              "transferId": {"$ref":"#/definitions/id"},
+              "source": {"$ref":"#/definitions/identity"},
+              "successor": {"$ref":"#/definitions/identity"},
+              "bundle": {"$ref":"#/definitions/bundle"},
+              "authority": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["previousGeneration","newGeneration"],
+                "properties": {"previousGeneration":{"$ref":"#/definitions/generation"},"newGeneration":{"$ref":"#/definitions/generation"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"SEAL_CHECKPOINT"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transferId","bundleDigest"],
+            "properties": {"transferId":{"$ref":"#/definitions/id"},"bundleDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"ACCEPT_RESPONSIBILITY"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transferId","bundleDigest"],
+            "properties": {"transferId":{"$ref":"#/definitions/id"},"bundleDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"ACTIVATE_SUCCESSOR"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transferId","bundleDigest"],
+            "properties": {"transferId":{"$ref":"#/definitions/id"},"bundleDigest":{"$ref":"#/definitions/digest"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties":{"type":{"const":"ABORT_HANDOFF"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transferId","bundleDigest","reason"],
+            "properties": {"transferId":{"$ref":"#/definitions/id"},"bundleDigest":{"$ref":"#/definitions/digest"},"reason":{"$ref":"#/definitions/id"}}
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "id": {"type":"string","minLength":1,"maxLength":512,"pattern":"^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])"},
+    "digest": {"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "refs": {"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+    "generation": {"type":"integer","minimum":0,"maximum":9007199254740991},
+    "sender": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain"],
+      "properties": {"agentId":{"$ref":"#/definitions/id"},"incarnationId":{"$ref":"#/definitions/id"},"trustDomain":{"$ref":"#/definitions/id"}}
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organizationId","projectId"],
+      "properties": {"organizationId":{"$ref":"#/definitions/id"},"projectId":{"$ref":"#/definitions/id"}}
+    },
+    "generations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["incarnation","organization","workspace"],
+      "properties": {
+        "incarnation": {"$ref":"#/definitions/generation"},
+        "organization": {"$ref":"#/definitions/generation"},
+        "workspace": {"$ref":"#/definitions/generation"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorityId","generation"],
+      "properties": {"authorityId":{"$ref":"#/definitions/id"},"generation":{"$ref":"#/definitions/generation"}}
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain"],
+      "properties": {"agentId":{"$ref":"#/definitions/id"},"incarnationId":{"$ref":"#/definitions/id"},"trustDomain":{"$ref":"#/definitions/id"}}
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId","incarnationId","trustDomain","missionId","branchId","historyDigest"],
+      "properties": {
+        "agentId": {"$ref":"#/definitions/id"},
+        "incarnationId": {"$ref":"#/definitions/id"},
+        "trustDomain": {"$ref":"#/definitions/id"},
+        "missionId": {"$ref":"#/definitions/id"},
+        "branchId": {"$ref":"#/definitions/id"},
+        "historyDigest": {"$ref":"#/definitions/digest"}
+      }
+    },
+    "relation": {"enum":["continuation","fork","succession","restore"]},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit","limit","spent","reserved"],
+      "properties": {
+        "unit": {"$ref":"#/definitions/id"},
+        "limit": {"$ref":"#/definitions/generation"},
+        "spent": {"$ref":"#/definitions/generation"},
+        "reserved": {"$ref":"#/definitions/generation"}
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpointId","digest","sourceHistoryDigest"],
+      "properties": {"checkpointId":{"$ref":"#/definitions/id"},"digest":{"$ref":"#/definitions/digest"},"sourceHistoryDigest":{"$ref":"#/definitions/digest"}}
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligationId","owner","evidenceRefs"],
+      "properties": {"obligationId":{"$ref":"#/definitions/id"},"owner":{"$ref":"#/definitions/actor"},"evidenceRefs":{"$ref":"#/definitions/refs"}}
+    },
+    "unknownEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effectId","owner","description","reference"],
+      "properties": {
+        "effectId": {"$ref":"#/definitions/id"},
+        "owner": {"$ref":"#/definitions/actor"},
+        "description": {"$ref":"#/definitions/id"},
+        "reference": {"$ref":"#/definitions/id"}
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpoint","obligations","evidenceRefs","permissions","budget","unknownEffects"],
+      "properties": {
+        "checkpoint": {"$ref":"#/definitions/checkpoint"},
+        "obligations": {"type":"array","maxItems":1000,"items":{"$ref":"#/definitions/obligation"}},
+        "evidenceRefs": {"$ref":"#/definitions/refs"},
+        "permissions": {"$ref":"#/definitions/refs"},
+        "budget": {"$ref":"#/definitions/budget"},
+        "unknownEffects": {"type":"array","maxItems":1000,"items":{"$ref":"#/definitions/unknownEffect"}}
+      }
+    },
+    "nonce": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "timestamp": {"type":"string","format":"date-time"}
+  }
+}
