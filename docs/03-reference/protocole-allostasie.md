@@ -1,6 +1,6 @@
 # Protocole ALLOSTASIE v1
 
-- **Statut** : Profil expérimental ; contrat Node, qualification et registre d'observations implémentés
+- **Statut** : Profil expérimental Node ; qualification, allocations durables et consommation implémentées
 - **Portée** : Besoins déclarés, prévisions et engagements de ressources
 - **Dernière revue** : 2026-11-02
 
@@ -127,7 +127,9 @@ des codes `ALLOSTASIS_*`. Les validateurs distinguent notamment JSON, schéma,
 dates, intégrité, état de rapport et intervalle d'incertitude invalides.
 La qualification de source peut lever `ALLOSTASIS_QUALIFICATION_INVALID`.
 
-Depuis la racine : `node backend/tests/test_allostasis_protocol_contract.js`.
+Depuis la racine : `npm --prefix backend run test:allostasis-protocol` lance les
+neuf fichiers de tests. Le contrat seul se lance avec
+`node backend/tests/test_allostasis_protocol_contract.js`.
 Les [vecteurs communs](../../shared/allostasisProtocol.v1.vectors.json) incluent
 micro-unités et absence explicite de cumul, avec hashes calculés en Python.
 
@@ -137,3 +139,8 @@ exécuteur natif. Le protocole n'ajoute pas automatiquement un endpoint réseau,
 un outil MCP, une extension A2A ou une implémentation Rust. Voir la
 [qualification](allostasie-qualification.md) et
 l'[ADR](../adr/2026-11-02-protocole-allostasie.md).
+Les [allocations durables](allostasie-allocations.md) et la
+[consommation](allostasie-usage.md) décrivent les ponts natifs, la réserve
+protégée et les issues inconnues. Le
+[démonstrateur à quatre processus](../06-qualite-preuves/allostasie-processus-2026-11-02.md)
+vérifie la contention, la perte d'observation, la préemption et la reprise.
