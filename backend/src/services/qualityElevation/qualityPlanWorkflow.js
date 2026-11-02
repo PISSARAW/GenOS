@@ -9,6 +9,7 @@ function planPrompt(context) {
     + 'Partager un objectif est autorisé : distingue les personnages par leurs informations, moyens, valeurs ou risques acceptés, '
     + 'sans inventer une opposition contraire au brief. Un résumé structuré est adapté à cette étape. '
     + 'Chaque scène prévoit un changement de situation. Les durées sont des estimations, jamais une preuve. '
+    + 'Chaque heading de scène doit obligatoirement être un en-tête débutant par INT. ou EXT. (ex: "INT. MODULE PRINCIPAL - NUIT", "EXT. STATION ORBITALE - ESPACE"). '
     + 'En réparation, conserve les éléments non concernés et corrige les relations signalées et leurs conséquences. '
     + 'Le pacingGuide est un budget de rythme : adapte réellement les actions plutôt que seulement leurs chiffres. '
     + 'Réponds uniquement un JSON selon le schéma fourni : premise, rules, characters, scenes avec identifiants S1, S2, etc.\n'

@@ -4,8 +4,15 @@ const { defect, isHeading } = require('./qualityText');
 function requiredText(value) { return typeof value === 'string' && value.trim().length > 0; }
 function validateScene(scene) {
   const required = ['id', 'heading', 'goal', 'obstacle', 'decision', 'consequence', 'stateAfter', 'timingRationale'];
-  return Boolean(scene) && required.every(field => requiredText(scene[field])) && /^S[1-9]\d*$/.test(scene.id)
-    && isHeading(scene.heading) && Number.isFinite(scene.plannedMinutes) && scene.plannedMinutes > 0;
+  if (!scene || typeof scene !== 'object') throw fail('GQEL_PLAN_INVALID', 'Scene object missing.');
+  for (const field of required) {
+    if (!requiredText(scene[field])) throw fail('GQEL_PLAN_INVALID', `Field ${field} missing or empty in scene ${scene.id || 'unknown'}.`);
+  }
+  if (!/^S[1-9]\d*$/.test(scene.id)) throw fail('GQEL_PLAN_INVALID', `Scene identifier must be S1, S2, etc. (received: ${scene.id}).`);
+  if (!isHeading(scene.heading)) throw fail('GQEL_PLAN_INVALID', `Scene heading must start with INT. or EXT. (received: "${scene.heading}").`);
+  if (!Number.isFinite(scene.plannedMinutes) || scene.plannedMinutes <= 0) {
+    throw fail('GQEL_PLAN_INVALID', `plannedMinutes must be a positive number in scene ${scene.id}.`);
+  }
 }
 function validateCharacters(characters) {
   if (!Array.isArray(characters) || !characters.length) throw fail('GQEL_PLAN_INVALID', 'Character state required.');
@@ -13,7 +20,8 @@ function validateCharacters(characters) {
   if (!valid) throw fail('GQEL_PLAN_INVALID', 'Character motivations and knowledge must be explicit.');
 }
 function validateScenePlan(scenes, contract) {
-  if (!Array.isArray(scenes) || !scenes.every(validateScene)) throw fail('GQEL_PLAN_INVALID', 'Incomplete scene obligations.');
+  if (!Array.isArray(scenes)) throw fail('GQEL_PLAN_INVALID', 'Scenes must be an array.');
+  for (const scene of scenes) validateScene(scene);
   if (scenes.length < contract.minSceneCount || scenes.length > contract.maxSceneCount) throw fail('GQEL_PLAN_INVALID', 'Scene count outside explicit contract.');
   if (!scenes.every((scene, index) => scene.id === `S${index + 1}`)) throw fail('GQEL_PLAN_INVALID', 'Consecutive unique scene identifiers required.');
 }
