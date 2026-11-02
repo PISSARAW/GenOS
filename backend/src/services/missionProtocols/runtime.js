@@ -19,13 +19,16 @@ async function guardEvent(db, input) {
   if (!binding) return null;
   if (binding.agentId !== input.agentId) throw context.failure('MISSION_PROTOCOL_EVENT_SCOPE_MISMATCH');
   await context.assertCurrent(binding);
+  await require('./evidence').guardEvent(binding, input.event);
   return binding;
 }
 
 async function recordEvent(db, input) {
   return withTransaction(db, async () => {
-    await guardEvent(db, input);
-    return input.apply();
+    const binding = await guardEvent(db, input);
+    const saved = await input.apply();
+    if (binding && saved) await require('./evidence').observe(binding, { event: input.event, saved });
+    return saved;
   });
 }
 

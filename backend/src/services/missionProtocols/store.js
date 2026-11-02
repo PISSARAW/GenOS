@@ -14,7 +14,8 @@ async function initialize(db) {
 }
 
 async function save(binding) {
-  const { db, ...value } = binding;
+  const { db, ...source } = binding;
+  const value = JSON.parse(JSON.stringify(source));
   await withTransaction(db, async () => {
     await initialize(db);
     const prior = await read(db, binding.runId);
