@@ -134,6 +134,13 @@ Les clés d'idempotence ne doivent pas être réutilisées avec un autre contenu
 
 Depuis la racine : `node backend/tests/test_morph_protocol_contract.js`.
 
+La suite complète se lance avec `npm --prefix backend run test:morph-protocol`.
+Les références de [coordination](morph-coordination.md) et des
+[participants](morph-participants.md) décrivent les callbacks de confiance et la
+reprise. Le [démonstrateur entre processus](../06-qualite-preuves/morph-transition-processus-2026-11-02.md)
+teste huit frontières de redémarrage, une application partielle, les audiences
+figées et la conservation des dépendances de vérification.
+
 Ce contrat n'active pas la morphogenèse P0 existante, ses canaris ou ses
 mutations de production. Il n'ajoute pas automatiquement un transport réseau,
 un endpoint HTTP, un outil MCP, une extension A2A ou une implémentation Rust.
