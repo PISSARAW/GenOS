@@ -70,17 +70,17 @@ function artifactPayload(report) {
 
 function handoffForDossier({ producer, consumer, dossier }) {
   const report = latestReport(dossier);
-  if (!canBuildHandoff(report, producer, consumer)) return null;
+  if (!canBuildHandoff({ report, producer, consumer, dossier })) return null;
   return validateHandoff(createHandoff(report, producer, consumer), consumer);
 }
 
-function canBuildHandoff(report, producer, consumer) {
+function canBuildHandoff({ report, producer, consumer, dossier }) {
   if (!reportIsUsable(report, consumer.inputArtifacts || consumer.requiredArtifacts || [])) return false;
   const payload = artifactPayload(report) ?? report;
   if (producer.outputSchema && validateArtifact(payload, producer.outputSchema).length) return false;
   if (consumer.inputSchema && validateArtifact(payload, consumer.inputSchema).length) return false;
   const evidence = require('./aTeam/execution/teamEvidenceService');
-  return evidence.validateMemberEvidence(producer, { events: [{ evidenceReport: report }] }).promoted;
+  return evidence.validateMemberEvidence(producer, dossier).promoted;
 }
 
 function createHandoff(report, producer, consumer) {

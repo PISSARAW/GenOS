@@ -1,8 +1,8 @@
 'use strict';
 
 const { digest, fail } = require('./qualityContract');
-const { extractTargetContent, bindQualityResult } = require('./workerQualityContractEnforcer');
-const { runWorkerQuality, requireSatisfied } = require('./qualityWorkerRuntime');
+const { extractTargetContent } = require('./workerQualityContractEnforcer');
+const { runWorkerQuality, requireSatisfied, qualityFailure } = require('./qualityWorkerRuntime');
 const { assertActive, meteredReply, modelUri } = require('./qualityRuntimeModelAdapter');
 const code = require('./qualityNativeCode');
 
@@ -40,6 +40,7 @@ function generatorFor(state) {
   return async request => {
     await assertActive(state.ctx, request);
     const next = state.first ? state.initial : await candidateOf(await revise(state.ctx, request));
+    code.assertScope(state.initial, next);
     state.first = false; state.current = next; state.candidates.set(digest(next.text), next);
     const result = next.generation.result;
     const configured = state.ctx.mission.qualityRuntime?.generatorModel || state.ctx.generationContext.workerModel;
@@ -52,7 +53,7 @@ function generatorFor(state) {
 }
 
 async function elevateEvidence(ctx) {
-  const contract = ctx.mission.workerContract?.qualityElevation;
+  const contract = require('./qualityNativeGeneration').runtimeContract(ctx.mission);
   if (!contract || ctx.skipQuality || ctx.evidence.unresolved || ctx.evidence.noAnswer) return ctx.evidence;
   ctx.mission.executionRunId = ctx.executionRun.id;
   const initial = await candidateOf(ctx), usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
@@ -65,7 +66,11 @@ async function elevateEvidence(ctx) {
   if (ctx.codeWorker && selected !== state.current) selected = await restore(ctx, selected);
   const report = selected.evidence.evidenceReport;
   report.qualityFeedback = result.qualityFeedback;
-  if (!ctx.codeWorker) bindQualityResult(ctx.mission, result);
+  try {
+    report.qualityElevationReceipt = await require('./qualityReceiptService').issueQualityReceipt({ db: ctx.db,
+      worker: ctx.mission, result, executionRunId: ctx.executionRun.id,
+      artifact: report.workerArtifact, report, codeEvidence: selected.code });
+  } catch (error) { throw qualityFailure(result, error); }
   ctx.generation.result = { ...selected.generation.result, ...result.nativeUsage };
   selected.evidence.consumed = result.nativeUsage.inputTokens + result.nativeUsage.outputTokens;
   return selected.evidence;

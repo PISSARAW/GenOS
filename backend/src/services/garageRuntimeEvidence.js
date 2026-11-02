@@ -19,7 +19,7 @@ async function receipt(db, row) {
     const payload = JSON.parse(event.payload_json);
     try {
       require('./agents/workerArtifactContract').validateWorkerArtifact({ events: [{ evidenceReport: payload.evidenceReport }] },
-        { ...mission, agentId: row.worker_id, workerContract });
+        { ...mission, agentId: row.worker_id, executionRunId: run.id, workerContract });
       return resultReceipt(run, payload);
     } catch (_) { /* An invalid artifact cannot satisfy the receipt. */ }
   }

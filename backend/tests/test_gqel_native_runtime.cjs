@@ -11,8 +11,10 @@ const authority = require('../src/services/missionEnvelopeAuthority');
 const router = require('../src/services/modelRouter');
 const budget = require('../src/services/missionModelBudgetScope');
 const execution = require('../src/services/strategyExecutionService');
+const receipts = require('../src/services/qualityElevation/qualityReceiptService');
 const originals = { authority: authority.assertRun, generate: router.generate,
-  budget: budget.routeBudget, event: execution.recordExecutionEvent };
+  budget: budget.routeBudget, event: execution.recordExecutionEvent,
+  issue: receipts.issueQualityReceipt, checkpoint: receipts.recordQualityCheckpoint };
 const BAD = 'Un texte incomplet annonce simplement le résultat attendu.';
 const GOOD = 'Un texte corrigé développe précisément les actions et leurs conséquences.';
 const calls = [], events = [];
@@ -91,15 +93,30 @@ async function guards() {
   const plain = context(); delete plain.mission.workerContract.qualityElevation;
   assert.equal(await elevateEvidence(plain), plain.evidence);
 }
+async function persistenceFailure() {
+  const checkpoint = receipts.recordQualityCheckpoint;
+  receipts.recordQualityCheckpoint = async () => { throw Object.assign(new Error('Checkpoint unavailable'), { code: 'GQEL_CHECKPOINT_CONFLICT' }); };
+  try {
+    await assert.rejects(elevateEvidence(context()), error => {
+      assert.equal(error.code, 'GQEL_CHECKPOINT_CONFLICT');
+      assert.equal(error.qualityFeedback.qualitySatisfied, false);
+      assert.equal(error.qualityFeedback.finalStatus, 'needs_review');
+      return true;
+    });
+  } finally { receipts.recordQualityCheckpoint = checkpoint; }
+}
 async function main() {
   authority.assertRun = async () => { authorityChecks++; };
   budget.routeBudget = async mission => ({ budgetReservationId: mission.modelBudgetScope.id,
     budgetMaxTokens: mission.modelBudgetScope.tokens, reservationCostCeilingUsd: mission.modelBudgetScope.costUsd });
   execution.recordExecutionEvent = async (_db, _agent, event) => { events.push(event); return {}; };
+  receipts.issueQualityReceipt = async () => ({ schema: 'unit-test-stub', qualityAccepted: true });
+  receipts.recordQualityCheckpoint = async () => ({});
   router.generate = async ctx => { calls.push(ctx); return modelResult(reviewResponse(ctx), ctx.model); };
-  try { await positive(); await negative(); await guards(); }
+  try { await positive(); await negative(); await guards(); await persistenceFailure(); }
   finally { authority.assertRun = originals.authority; router.generate = originals.generate;
-    budget.routeBudget = originals.budget; execution.recordExecutionEvent = originals.event; }
+    budget.routeBudget = originals.budget; execution.recordExecutionEvent = originals.event;
+    receipts.issueQualityReceipt = originals.issue; receipts.recordQualityCheckpoint = originals.checkpoint; }
   console.log('PASS native GQEL runtime: repair, shared routing, checkpoints, usage, failure feedback and guards (synthetic model responses).');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

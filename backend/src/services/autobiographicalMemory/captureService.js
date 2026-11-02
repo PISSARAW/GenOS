@@ -219,7 +219,7 @@ async function verifiedWorkerEvidence(event, dbOverride) {
     const contract = JSON.parse(row?.metadata_json || '{}').workerContract;
     if (!contract) return false;
     require('../agents/workerArtifactContract').validateWorkerArtifact(
-      { events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract: contract });
+      { events: [{ evidenceReport: report }] }, { agentId: event.agentId, executionRunId: event.payload?.executionRunId, workerContract: contract });
     return true;
   } catch (_) { return false; }
 }

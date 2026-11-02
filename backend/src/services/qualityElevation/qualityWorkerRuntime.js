@@ -12,12 +12,18 @@ function feedback(result) {
 }
 
 async function checkpoint(ctx, session) {
+  await persistSession(ctx, session);
   if (ctx.onCheckpoint) await ctx.onCheckpoint(session);
   const event = { eventType: 'GQEL_CHECKPOINT', action: 'QUALITY_REVIEW',
     detail: 'Native quality execution checkpoint; this is not mission promotion.',
     payload: { executionRunId: ctx.executionRun.id, qualitySession: session } };
   const result = await require('../strategyExecutionService').recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   if (result?.halt) throw fail('WORKER_EXECUTION_HALTED', result.reason);
+}
+
+async function persistSession(ctx, session) {
+  return require('./qualityReceiptService').recordQualityCheckpoint({ db: ctx.db,
+    worker: ctx.mission, executionRunId: ctx.executionRun.id, session });
 }
 
 function contractOf(input) { return input.contract || input.mission.workerContract?.qualityElevation || input.mission.qualityElevation; }
@@ -37,7 +43,15 @@ async function runWorkerQuality(input) {
   const result = await executeElevationLoop({ contract, generator, reviewers,
     planScenes: input.planScenes ?? config.planScenes, initialContent: input.initialContent,
     verifier: input.verifier, onCheckpoint: session => checkpoint(ctx, session) });
+  try { await persistSession(ctx, result.session); }
+  catch (error) { throw qualityFailure(result, error); }
   return { ...result, qualityFeedback: feedback(result), nativeUsage: ctx.usage };
+}
+
+function qualityFailure(result, error) {
+  const terminalError = { code: error.code || 'GQEL_RECEIPT_FAILED', message: error.message };
+  return Object.assign(fail(terminalError.code, terminalError.message), { qualityFeedback: {
+    ...feedback(result), qualitySatisfied: false, finalStatus: 'needs_review', terminalError } });
 }
 
 function requireSatisfied(result) {
@@ -46,4 +60,4 @@ function requireSatisfied(result) {
     'Native quality execution stopped without an accepted artifact.'), { qualityFeedback: result.qualityFeedback });
 }
 
-module.exports = { runWorkerQuality, requireSatisfied, feedback };
+module.exports = { runWorkerQuality, requireSatisfied, feedback, qualityFailure };

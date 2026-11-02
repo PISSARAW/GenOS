@@ -29,7 +29,7 @@ function applyDomainStateFromEvent(context) {
         const proofProvenance = attestCodeTestResults(report, state);
         if (report.outcome === 'success') {
           if (workerContract?.evidence?.requiredArtifacts?.length) {
-            validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract, proofProvenance });
+            validateWorkerArtifact({ events: [{ executionRunId: event.payload?.executionRunId, evidenceReport: report }] }, { agentId: event.agentId, workerContract, proofProvenance });
           }
           state.missionDomainState.unverified = false;
           state.missionDomainState.domainVerdict = 'completed';
@@ -162,7 +162,7 @@ function hasVerifiedSuccessArtifact(event, workerContract) {
   if (report.outcome !== 'success' || !hasDecisionEvidence(event)) return false;
   if (!workerContract?.evidence?.requiredArtifacts?.length) return false;
   try {
-    validateWorkerArtifact({ events: [{ evidenceReport: report }] }, {
+    validateWorkerArtifact({ events: [{ executionRunId: event.payload?.executionRunId, evidenceReport: report }] }, {
       agentId: event.agentId || 'runtime-agent',
       workerContract
     });

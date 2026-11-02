@@ -43,4 +43,13 @@ function restoration(candidate) {
     evidence: 'Restore the exact previously reviewed candidate, then execute the protected tests again.' });
 }
 
-module.exports = { SCHEMA, capture, verify, restoration };
+function assertScope(initial, candidate) {
+  if (!initial.code) return;
+  if (!candidate.code) throw fail('GQEL_CODE_SCOPE_CHANGED', 'Code quality cannot change its artifact type.');
+  const paths = value => value.code.sourceFiles.map(file => file.path).sort();
+  if (digest(paths(initial)) !== digest(paths(candidate))) {
+    throw fail('GQEL_CODE_SCOPE_CHANGED', 'Code revisions must preserve the complete initially reviewed source set.');
+  }
+}
+
+module.exports = { SCHEMA, capture, verify, restoration, assertScope };

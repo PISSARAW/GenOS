@@ -25,7 +25,7 @@ function attachWorkerArtifact(evidenceReport, context) {
   if (!evidenceReport || typeof evidenceReport !== 'object') return;
   const mission = context.mission || {};
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
-  const source = context.codeWorker ? evidenceReport : rawReply(evidenceReport);
+  const source = context.codeWorker ? evidenceReport : originalReply(context, evidenceReport);
   const inspected = inspectWorkerArtifact(kind, source,
     artifactProvenance(mission, context, evidenceReport));
   if (context.codeWorker !== true && requiresDiagnosticMatrix(mission)
@@ -43,6 +43,11 @@ function requiresDiagnosticMatrix(mission) {
 }
 
 function rawReply(report) { return report.fullText || report; }
+
+function originalReply(context, report) {
+  const text = context.result?.text;
+  return typeof text === 'string' && text ? text : rawReply(report);
+}
 
 function trustedCodeEvidenceRefs(report, codeWorker, proposal) {
   if (!codeWorker) return [];

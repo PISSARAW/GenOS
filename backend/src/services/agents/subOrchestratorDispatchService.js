@@ -170,7 +170,7 @@ async function validateChildEvidence(db, agent) {
   const report = require('../agentEvidenceService').extractEvidenceReport(payload);
   try {
     require('./workerArtifactContract').validateWorkerArtifact({ events: [{ evidenceReport: report }] }, {
-      agentId: childId, workerContract: metadata.workerContract
+      agentId: childId, executionRunId: payload.executionRunId, workerContract: metadata.workerContract
     });
   } catch (error) {
     return failedChild(status, error.code || 'INVALID_WORKER_ARTIFACT');

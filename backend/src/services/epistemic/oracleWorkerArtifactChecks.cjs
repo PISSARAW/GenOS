@@ -42,7 +42,7 @@ function validTypedArtifact(value) {
   try {
     require('../agents/workerArtifactContract').validateWorkerArtifact({
       events: [{ evidenceReport: value.report }]
-    }, { agentId: value.workerId, workerContract: value.workerContract });
+    }, { agentId: value.workerId, executionRunId: value.runId, workerContract: value.workerContract });
     return true;
   } catch (_) { return false; }
 }

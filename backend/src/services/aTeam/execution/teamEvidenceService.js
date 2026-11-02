@@ -8,12 +8,25 @@ function validateMemberEvidence(member, dossier) {
   const report = latestReport(dossier);
   const required = member.requiredArtifacts?.length ? member.requiredArtifacts : member.outputs;
   if (!reportIsUsable(report, required || [])) return rejected('evidence_or_artifact_missing');
+  const quality = qualityRejection(member, dossier, report);
+  if (quality) return quality;
   const invalid = invalidReport(member, report);
   if (invalid) return invalid;
   const refs = usableEvidenceReferences(report);
   const missing = missingCriteria(member.acceptanceCriteria || [], report.acceptanceEvaluations, refs);
   if (missing.length) return rejected('acceptance_criteria_unverified', missing, createRepairObligation(member, missing));
   return { promoted: true, report, evidenceRefs: refs, reason: null };
+}
+
+function qualityRejection(member, dossier, report) {
+  const gate = require('../../qualityElevation/workerQualityContractEnforcer');
+  if (!gate.qualityContractOf(member)) return null;
+  const worker = { ...member, agentId: member.workerId || member.agentId };
+  try {
+    const scoped = require('../../qualityElevation/qualityValidationScope').workerScope(worker, dossier, report);
+    gate.enforceQualityContract(scoped, report, report.workerArtifact);
+    return null;
+  } catch (error) { return rejected('quality_elevation_unverified', [error.code || 'GQEL_RECEIPT_INVALID']); }
 }
 
 function invalidReport(member, report) {

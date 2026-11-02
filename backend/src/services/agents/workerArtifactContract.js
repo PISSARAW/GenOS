@@ -313,7 +313,8 @@ function validateWorkerArtifact(dossier, worker) {
       throw artifactError(worker.agentId, expected);
     }
     retainWitness({ worker, artifact, report, provenance });
-    enforceQualityContract(worker, report, artifact);
+    const qualityWorker = require('../qualityElevation/qualityValidationScope').workerScope(worker, dossier, report);
+    enforceQualityContract(qualityWorker, report, artifact);
   }
   return true;
 }
