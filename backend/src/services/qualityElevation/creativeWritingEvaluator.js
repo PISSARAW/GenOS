@@ -1,8 +1,20 @@
 'use strict';
 
+const LOGLINE_PATTERN = /prémisse|logline|prémisse dramatique/i;
+const CHAR_SECTION_PATTERN = /personnages?|fiches? (?:de |des )?personnages?/i;
+const CHAR_COUNT_PATTERN = /(?:-|\*|\d+\.)\s*\*\*?[A-Z][a-z]+/g;
+const CHAR_SECRETS_PATTERN = /secrets?|secret/i;
+const CHAR_OBJECTIVES_PATTERN = /objectifs?|objectif/i;
+const BREAKDOWN_PATTERN = /séquencier|scènes? clés?|actes?/i;
+const SCENE_MATCH_PATTERN = /(?:scène|acte)\s*(?:\d+|[ivx]+)/gi;
+const SCENE_ALT_PATTERN = /\b\d+\.\s*scène/gi;
+const STAGE_DIRECTIONS_PATTERN = /\b(?:EXT\.|INT\.|EXTERIEUR|INTERIEUR|JOUR|NUIT|NIGHT|DAY)\b/i;
+const DIALOGUE_PATTERN = /^[A-Z][a-z]+\s*:\s*.+/gm;
+const DRAMATURGIC_NOTE_PATTERN = /note d['’]analyse|dramaturgie|note dramaturgique|analyse dramatique/i;
+const DRAMATIC_CONFLICT_PATTERN = /conflit|tension|obstacle|climax|confrontation|dénouement/i;
+
 function checkLogline(text, defects) {
-  const hasLogline = /prémisse|logline|prémisse dramatique/i.test(text);
-  if (!hasLogline) {
+  if (!LOGLINE_PATTERN.test(text)) {
     defects.push({
       code: 'MISSING_LOGLINE',
       severity: 'major',
@@ -15,8 +27,8 @@ function checkLogline(text, defects) {
 }
 
 function checkCharacterCount(text, defects) {
-  const hasCharacters = /personnages?|fiches? (?:de )?personnages?/i.test(text);
-  const characterCount = (text.match(/-\s*\*\*?[A-Z][a-z]+/g) || []).length;
+  const hasCharacters = CHAR_SECTION_PATTERN.test(text);
+  const characterCount = (text.match(CHAR_COUNT_PATTERN) || []).length;
   if (!hasCharacters || characterCount < 2) {
     defects.push({
       code: 'INSUFFICIENT_CHARACTERS',
@@ -30,8 +42,8 @@ function checkCharacterCount(text, defects) {
 }
 
 function checkCharacterDepth(text, defects) {
-  const hasSecrets = /secrets?|secret/i.test(text);
-  const hasObjectives = /objectifs?|objectif/i.test(text);
+  const hasSecrets = CHAR_SECRETS_PATTERN.test(text);
+  const hasObjectives = CHAR_OBJECTIVES_PATTERN.test(text);
   if (!hasSecrets || !hasObjectives) {
     defects.push({
       code: 'SHALLOW_CHARACTER_PROFILES',
@@ -48,10 +60,16 @@ function checkCharacters(text, defects) {
   return checkCharacterCount(text, defects) + checkCharacterDepth(text, defects);
 }
 
+function countScenes(text) {
+  const primary = text.match(SCENE_MATCH_PATTERN) || [];
+  const secondary = text.match(SCENE_ALT_PATTERN) || [];
+  return primary.length + secondary.length;
+}
+
 function checkScenesAndBreakdown(text, defects) {
-  const hasBreakdown = /séquencier|scènes? clés?/i.test(text);
-  const sceneMatches = text.match(/scène\s*\d+/gi) || text.match(/\b\d+\.\s*scène/gi) || [];
-  if (!hasBreakdown && sceneMatches.length < 3) {
+  const hasBreakdown = BREAKDOWN_PATTERN.test(text);
+  const sceneCount = countScenes(text);
+  if (!hasBreakdown && sceneCount < 3) {
     defects.push({
       code: 'INCOMPLETE_SCENE_BREAKDOWN',
       severity: 'major',
@@ -64,8 +82,7 @@ function checkScenesAndBreakdown(text, defects) {
 }
 
 function checkStageDirections(text, defects) {
-  const hasDirections = /\b(?:EXT\.|INT\.|EXTERIEUR|INTERIEUR|JOUR|NUIT|NIGHT|DAY)\b/i.test(text);
-  if (!hasDirections) {
+  if (!STAGE_DIRECTIONS_PATTERN.test(text)) {
     defects.push({
       code: 'MISSING_STAGE_DIRECTIONS',
       severity: 'minor',
@@ -78,7 +95,7 @@ function checkStageDirections(text, defects) {
 }
 
 function checkDialogueTurns(text, defects) {
-  const hasDialogues = (text.match(/^[A-Z][a-z]+\s*:\s*.+/gm) || []).length;
+  const hasDialogues = (text.match(DIALOGUE_PATTERN) || []).length;
   if (hasDialogues < 4) {
     defects.push({
       code: 'INSUFFICIENT_DIALOGUE_TURNS',
@@ -96,8 +113,7 @@ function checkDialoguesAndDirections(text, defects) {
 }
 
 function checkDramaturgicNote(text, defects) {
-  const hasNote = /note d['’]analyse|dramaturgie|note dramaturgique/i.test(text);
-  if (!hasNote) {
+  if (!DRAMATURGIC_NOTE_PATTERN.test(text)) {
     defects.push({
       code: 'MISSING_DRAMATURGIC_NOTE',
       severity: 'minor',
@@ -110,8 +126,7 @@ function checkDramaturgicNote(text, defects) {
 }
 
 function checkDramaticConflict(text, defects) {
-  const hasConflict = /conflit|tension|obstacle|climax|confrontation|dénouement/i.test(text);
-  if (!hasConflict) {
+  if (!DRAMATIC_CONFLICT_PATTERN.test(text)) {
     defects.push({
       code: 'WEAK_DRAMATIC_STRUCTURE',
       severity: 'major',

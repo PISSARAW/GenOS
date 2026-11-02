@@ -1,8 +1,12 @@
 # 06 — Qualité et preuves
 
+- [experience-mission-scenario-gqel-2026-11-02.md](experience-mission-scenario-gqel-2026-11-02.md) — expérience réelle d'écriture sous GQEL avec modèle local llama3.1:8b : diagnostic causal, élévation de +55 pts (20 -> 75) et refus fail-closed de promotion sans complétude.
+- [qualification-gqel-2026-11-02.md](qualification-gqel-2026-11-02.md) — tests de mécanisme, deux fixtures à réponses fixes, portée des scores et protocole restant pour mesurer une amplification LLM réelle.
 - [qualification-gns-2026-11-02.md](qualification-gns-2026-11-02.md) — provenance des raccordements, contrats testés, comparaison synthétique, coût de collecte et limites de qualification GNS.
 
 - [competence-procedurale-corrigee-2026-11-02.md](competence-procedurale-corrigee-2026-11-02.md) — correction de l'apprentissage, du calcul et de l'abstention ; résultat borné de l'agent hybride, prototypes négatifs conservés.
+
+- [refutations-natives-agow-2026-11-02.md](refutations-natives-agow-2026-11-02.md) — succès et réfutation mesurés, pannes et oracles inconclusifs conservés comme inconnus, budgets appariés sur D:.
 
 - [experience-mission-scenario-court-metrage-2026-11-02.md](experience-mission-scenario-court-metrage-2026-11-02.md) — mission réelle d'écriture d'un scénario de court métrage sur lecteur D:, modèle local Qwen 7B, contrat creative_candidate et scellement d'autorité GVX.
 
