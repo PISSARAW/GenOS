@@ -1,0 +1,45 @@
+{
+  "schema": "genos.competence-100.protocol/v3",
+  "scope": "hybrid-verified-procedural-agent-on-generated-affine-languages",
+  "trainingExperiences": 100,
+  "heldout": {
+    "new_input": 60,
+    "new_composition": 60,
+    "insufficient_information": 40
+  },
+  "arms": [
+    "initial",
+    "experienced",
+    "reset"
+  ],
+  "maximumCalls": 100,
+  "maximumDurationMs": 1200000,
+  "maximumRequestMs": 30000,
+  "maximumInputTokens": 4096,
+  "maximumOutputTokens": 192,
+  "minimumDistinctObservations": 3,
+  "familywiseAlpha": 0.05,
+  "simultaneousBounds": 6,
+  "minimumPracticalGain": 0.1,
+  "minimumKnownCoverage": 0.5,
+  "minimumUnknownRecognition": 0.8,
+  "maximumUnknownHighConfidenceError": 0.15,
+  "maximumBrier": 0.2,
+  "maximumBrierDegradation": 0.02,
+  "highConfidence": 0.8,
+  "learning": "LLM hypotheses and bounded affine synthesis from signed training observations share the same all-evidence admission and production consolidation gate. No test oracle is available to the learner.",
+  "tools": "All arms have the same bounded affine hypothesis-synthesis tool and interpreter. Coefficients come only from signed training pairs; no held-out oracle or future outcome is available to the agent.",
+  "forecast": "Before arithmetic execution, immutable production forecasts use evidence support with Laplace risk and a union bound; signed separate-process oracle outcomes resolve them.",
+  "analysis": "100 real LLM learning calls, then 480 tool-based evaluations of frozen learned procedures across three states. Same six statistical bounds and thresholds as v1. This tests the hybrid agent, not a causal benefit of the LLM alone.",
+  "stopping": "One fresh sealed corpus; no tuning or retries after observed outcomes.",
+  "authorizesPromotion": false,
+  "limitations": [
+    "Bounded affine-domain agent, not a qualification of the complete autonomous GenOS runtime or general competence.",
+    "LLM weights remain fixed; learning is external verified procedural memory and evidence-driven confidence.",
+    "The interpreter is an explicit additional tool compared with historical v1; v1 and v2 scores are not a matched causal comparison.",
+    "The local oracle and signer share the experimenter's trust boundary; not an independent laboratory.",
+    "The support-based probability is a conservative operational forecast whose calibration is measured, not assumed.",
+    "Bounded synthesis can learn this affine family without a LLM; this experiment does not isolate a causal benefit of the LLM itself."
+  ],
+  "assignedSteps": 580
+}

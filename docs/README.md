@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Compétence procédurale corrigée](06-qualite-preuves/competence-procedurale-corrigee-2026-11-02.md) — module hybride vérifié, cent expériences LLM et validation bornée sur un corpus réservé neuf ; [ADR 0768](adr/0768-competence-procedurale-verifiee-et-couverture.md).
+
 - [Compétence après cent expériences](06-qualite-preuves/competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle, 580 réponses vérifiées et résultat négatif conservé : transfert et ignorance reconnue non démontrés.
 
 - [Bénéfice opérationnel adaptatif](06-qualite-preuves/benefice-operationnel-adaptatif-2026-11-02.md) — preuves de mécanismes et expériences nécessaires pour mesurer survie, adaptation et amélioration durable.

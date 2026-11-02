@@ -1,5 +1,9 @@
 # Référence expérimentale GenOS
 
+Le [banc hybride corrigé](competence-100-v3/README.md) valide, dans le domaine
+affine borné, 120/120 tâches réservées et 40/40 lacunes reconnues après cent
+expériences. Le gain concerne l'agent avec procédures et outils vérifiés.
+
 Le [banc cent expériences](competence-100/README.md) compare transfert, abstention
 et calibration avec mémoire GenOS. La campagne Qwen 7B réelle est vérifiée :
 13/120 tâches résolubles réussies et forte surconfiance ; hypothèse non confirmée.
