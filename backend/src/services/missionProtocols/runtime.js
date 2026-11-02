@@ -13,6 +13,7 @@ async function beforeExecution(ctx) {
   if (!ctx.protocolBinding) return;
   await context.assertCurrent(ctx.protocolBinding);
   await require('./continuity').beforeExecution(ctx.protocolBinding);
+  await require('./synapse').beforeExecution(ctx.protocolBinding);
 }
 
 async function guardEvent(db, input) {

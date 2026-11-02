@@ -55,6 +55,7 @@ async function bootstrapMission(mission) {
     computeRuntimeBudget(ctx);
     incarnateOrchestrator(ctx);
     await createMissionExecutionRun(ctx);
+    await require('../missionProtocols/synapse').prepare(ctx);
     await provisionMissionCapsule(ctx);
     await require('../garageRuntimeService').bindExecution(ctx);
     await require('../trinityQualificationDispatch').recordStarted(ctx);
