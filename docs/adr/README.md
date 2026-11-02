@@ -895,6 +895,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0763](0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) | Autorité de preuve d'exécution hôte et quadrants épistémiques (Q1-Q5) | Voir le fichier | -- | -- |
 | [0764](0764-cloture-workers-et-temoins-runtime.md) | Clôture des workers et témoins du runtime | Accepté | 2026-10-31 | Workers, preuves, exécution et reprise |
 | [0766](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
+| [0767](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

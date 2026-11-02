@@ -24,8 +24,15 @@ async function bindingFor(options) {
   const binding = { schema: 'genos.agow.mission-observation/v1', agentId, missionId, runId,
     candidateId, frameId: frame.frameId, decisionReceiptId: receipt.receiptId,
     chosenMode: receipt.chosenMode, predictedLoss: receipt.predictedLoss,
-    controlAuthority: options.controlAuthority === 'agow' ? 'agow' : 'historical' };
+    controlAuthority: options.controlAuthority === 'agow' ? 'agow' : 'historical',
+    ...measurementFields(options) };
   return { ...binding, bindingHash: digest(binding) };
+}
+
+function measurementFields(options) {
+  if (options.measurementContract == null) return {};
+  if (!contract.identifier(options.measurementContract)) throw new Error('agow-mission-measurement-contract-invalid');
+  return { measurementContract: options.measurementContract };
 }
 
 function validateDecision(input) {
@@ -74,6 +81,9 @@ function validateReplay(binding, options) {
   if (fields.some((key) => binding[key] !== options[key]) || binding.controlAuthority !== authority) {
     throw new Error('agow-mission-binding-conflict');
   }
+  if ((binding.measurementContract ?? null) !== (options.measurementContract ?? null)) {
+    throw new Error('agow-mission-measurement-contract-conflict');
+  }
 }
 
 function matchEvent(prior, identity) {
@@ -108,12 +118,14 @@ async function invokeVerifier(verifier, input, timeoutMs) {
 
 async function verify(options, prior, identity) {
   const bindings = require('./agowRuntimeBindingsService').resolve({ agentId: options.agentId, db: options.db });
-  if (!bindings.missionOutcomeVerifier) return pending(options, identity, 'verifier_unavailable');
+  const verifier = bindings.missionOutcomeVerifier || require('./nativeMissionOutcomeVerifier').forBinding({
+    db: options.db, binding: prior.binding });
+  if (!verifier) return pending(options, identity, 'verifier_unavailable');
   const context = { binding: prior.binding, eventIdentity: identity,
     event: { eventId: identity.eventId, ...contract.eventContent(options.event) } };
   let measured;
   try {
-    const result = await invokeVerifier(bindings.missionOutcomeVerifier, context, bindings.missionOutcomeTimeoutMs ?? 5000);
+    const result = await invokeVerifier(verifier, context, bindings.missionOutcomeTimeoutMs ?? 5000);
     measured = contract.measurement(result, context);
   } catch (error) {
     const reason = error?.message === 'agow-mission-verifier-timeout' ? 'verifier_timeout' : 'verification_failed';

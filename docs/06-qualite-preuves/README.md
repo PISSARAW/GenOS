@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [mission-native-agow-2026-11-02.md](mission-native-agow-2026-11-02.md) — mission native réelle, deux oracles indépendants et mesure AGOW liée à l'acceptation scellée ; portée subset_sum.
+
 - [competence-cent-experiences-2026-11-02.md](competence-cent-experiences-2026-11-02.md) — campagne Qwen 7B réelle après cent expériences : scores vérifiés, surconfiance et hypothèse non confirmée.
 
 - [observation-mission-agow-2026-11-02.md](observation-mission-agow-2026-11-02.md) — décision antérieure, journal durable et mesures d'un worker correct ou fautif par oracle séparé ; aucune promotion.

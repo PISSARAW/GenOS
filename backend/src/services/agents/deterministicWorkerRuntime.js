@@ -19,6 +19,7 @@ async function publish(db, mission, event) {
     failure.terminalReceiptPublished = Boolean(progress.biologicalReceipt);
     throw failure;
   }
+  await require('../agow/nativeMissionOutcomeVerifier').observeProgress(db, { mission, event });
   recordWorkerEvidence(mission, event);
   await require('./deterministicWorkerRuntimeStages1.js').publishStage1({ get event() { return event; }, set event(__genosNextStageValue) { event = __genosNextStageValue; }, mission, recordWorkerEvidence, require, undefined });
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {

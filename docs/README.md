@@ -835,6 +835,7 @@ technique positif masquerait une absence d'évidence réelle.
 
 - [runtime-agow.md](03-reference/runtime-agow.md) — contrats exécutables et exploitation AGOW.
 - [Observation des missions AGOW](03-reference/observation-mission-agow.md) — décision antérieure, mesures indépendantes et reprise durable.
+- [Qualification native AGOW](06-qualite-preuves/mission-native-agow-2026-11-02.md) — mission native autorisée, preuves métier indépendantes et mesure liée à la décision initiale.
 
 - [campagne-agow-cloture.md](06-qualite-preuves/campagne-agow-cloture.md) — protocole, résultats et limites du banc local AGOW.
 

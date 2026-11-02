@@ -1,6 +1,6 @@
 # Observation des missions AGOW
 
-- **Statut** : Implémenté pour le backend Node ; vérificateur métier fourni par l'hôte
+- **Statut** : Implémenté pour le backend Node ; raccord natif subset_sum, autres vérificateurs fournis par l'hôte
 - **Dernière revue** : 2026-11-02
 - **Décision** : [ADR 0766](../adr/0766-observation-mission-agow.md)
 
@@ -17,7 +17,7 @@ Le parcours supervisé Node passe les événements terminaux à
 l'admission du candidat outcome. Il ne prend pas le frame courant comme décision
 d'origine. `AGENT_STEP` avec action `VERIFY` reste intermédiaire.
 
-Les parcours natifs qui ne passent pas par cet ingress doivent appeler
+Les parcours natifs hors du raccord `subset_sum` décrit ci-dessous doivent appeler
 `observeMissionOutcome` explicitement. Le mode AGOW `off` conserve le parcours
 historique ; un journal en attente peut être traité explicitement après reprise.
 
@@ -30,6 +30,10 @@ Les méthodes sont exposées par `globalWorkspaceService` :
 | `startMissionObservation` | `db`, `agentId`, `missionId`, `runId`, `candidateId`, `frameId`, `decisionReceiptId`, `controlAuthority` | Liaison durable, après relecture du frame et du reçu |
 | `observeMissionOutcome` | `db`, `agentId`, `runId`, `event` | Mesures vérifiées ou état d'attente |
 | `listMissionObservations` | `db`, `agentId` | Journal de cet agent |
+
+`startMissionObservation` accepte aussi un identifiant optionnel
+`measurementContract`. Ce contrat est inclus dans le hash de liaison et ne peut
+pas être changé à la reprise. Le raccord standard natif le déclare lui-même.
 
 ```javascript
 const release = workspace.configureRuntime({
@@ -74,6 +78,35 @@ Les six champs sont explicites ; une dimension absente n'est pas remplacée par
 zéro. Les références de preuve doivent être non vides. L'hôte définit les unités,
 l'horizon et les règles de mesure avant une campagne. La validation structurelle
 du raccord n'atteste pas, à elle seule, la sémantique des métriques.
+
+### Oracle métier natif `subset_sum`
+
+Le [raccord natif](../adr/0767-mesures-agow-depuis-oracle-natif.md) ajoute le contrat
+`genos.agow.native-subset-outcome/v1` à la liaison avant exécution. Il est reconnu
+pour `subset_sum` avec `procedural_executor`, ainsi que les enveloppes natives
+`scoped_procedure`, `host_procedure` et `niche_procedure` de ce calcul. Un
+vérificateur hôte explicite garde la priorité sur cet adaptateur standard.
+
+Le runtime déterministe observe son événement terminal après l'application des
+contrôles existants. L'adaptateur relit le run terminé, son identité de mission,
+son reçu biologique, son budget et les observations canoniques appliquées. Il
+recoupe l'acceptation native scellée, ses références et les deux preuves métier
+indépendantes via `nativeOracleProof.assertCompletedEvidence`.
+
+La métrique est binaire et bornée aux postconditions du résultat `subset_sum`
+enregistré. Une acceptation revalidée donne perte 0 et progression 1. Les autres
+dimensions restent `null`. L'absence ou le rejet d'une preuve produit un état
+d'attente, jamais une perte synthétique. Le raccord ne change aucun verdict
+natif et ne crédite aucune politique AGOW.
+
+```powershell
+node backend/tests/test_agow_native_mission.js
+```
+
+Cette qualification utilise la vraie délégation, les contrats, les autorités,
+les snapshots et deux processus d'oracle. Son provisionnement est un environnement
+local de test ; elle ne sollicite aucun LLM et ne qualifie pas le superviseur
+de processus. Les autres domaines natifs exigent un adaptateur explicite.
 
 ## États et reprise
 
