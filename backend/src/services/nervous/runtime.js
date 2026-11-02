@@ -33,10 +33,11 @@ class NervousRuntime {
     this.graphs.set(key, compileGraph(graph, scope));
   }
 
-  async ingest(event, scope) {
+  async ingest(event, scope, options = {}) {
     try {
-      const signal = observation(event, { scope, now: this.clock() });
-      if (!signal) return { accepted: false, reason: 'UNSUPPORTED_EVENT' };
+      const observed = observation(event, { scope, now: this.clock() });
+      if (!observed) return { accepted: false, reason: 'UNSUPPORTED_EVENT' };
+      const signal = { ...observed, propagationGraph: this.sealGraph(scope, options.graph) };
       const inserted = await this.store.append(signal);
       if (inserted) this.stats.accepted += 1;
       else this.stats.duplicates += 1;
@@ -47,10 +48,17 @@ class NervousRuntime {
     } catch (error) { this.stats.rejected += 1; throw error; }
   }
 
+  sealGraph(scope, input) {
+    const graph = input === undefined ? this.graphs.get(scopeKey(scope)) || new Map() : compileGraph(input, scope);
+    return { nodes: [...graph.keys()].map(id => ({ id, scope: scopeOf(scope) })),
+      edges: [...graph].flatMap(([from, neighbors]) => [...neighbors].map(to => ({ from, to }))) };
+  }
+
   reduce(signal, previous) {
     const now = this.clock();
     const result = physiology.advance(previous, signal, now);
-    const graph = this.graphs.get(scopeKey(signal.scope)) || new Map();
+    const graph = signal.propagationGraph ? compileGraph(signal.propagationGraph, signal.scope)
+      : this.graphs.get(scopeKey(signal.scope)) || new Map();
     const effects = decisions(signal, result, { graph, now });
     const receipt = { schemaVersion: 1, signalId: signal.id, disposition: result.disposition,
       decisionTime: now, effects: effects.map(item => item.id), stateHash: digest(result.state),
@@ -71,9 +79,9 @@ class NervousRuntime {
     return count;
   }
 
-  async snapshot(scope) {
+  async snapshot(scope, options) {
     const checked = scopeOf(scope);
-    const rows = await this.store.states(checked);
+    const rows = await this.store.states(checked, options);
     return { scope: checked, agents: rows.map(row => ({ agentId: row.agent_id,
       ...physiology.view(JSON.parse(row.body), this.clock()) })),
     emptyMeans: 'UNKNOWN', evidenceStatus: 'UNVERIFIED' };

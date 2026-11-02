@@ -74,7 +74,9 @@ class RuntimeBridge {
     event.id, scope.organizationId, scope.projectId);
     if (!row) return { status: 'NOT_PERSISTED' };
     const runtime = await this.getRuntime(db);
-    const result = await runtime.ingest(rowEvent(row), scope);
+    const canonical = rowEvent(row);
+    const graph = await require('./rpeAdapter').loadGraph({ db, event: canonical, scope });
+    const result = await runtime.ingest(canonical, scope, { graph: graph || { nodes: [], edges: [] } });
     this.stats.observed += 1;
     return { status: 'OBSERVED', ...result };
   }

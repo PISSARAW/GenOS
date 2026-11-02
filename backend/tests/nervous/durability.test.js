@@ -42,14 +42,17 @@ test('tenant isolation applies to state, receipts, effects and same event identi
 
 test('restart resumes a durable unprocessed signal and preserves deduplication', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-nervous-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  let active;
+  t.after(async () => { await active?.store.close(); fs.rmSync(dir, { recursive: true, force: true }); });
   const filename = path.join(dir, 'nervous.sqlite');
   const first = await harness({ filename });
+  active = first;
   const item = event('restart', { eventType: 'AGENT_FAILED' });
   await first.store.append(observation(item, { scope: SCOPE, now: NOW }));
   await first.store.close();
+  active = null;
   const second = await harness({ filename });
-  t.after(() => second.store.close());
+  active = second;
   assert.equal(await second.runtime.drain(), 1);
   assert.equal((await second.runtime.ingest(item, SCOPE)).duplicate, true);
   assert.equal((await second.store.effects(SCOPE)).length, 2);
@@ -112,11 +115,12 @@ function runWorker(data) {
 
 test('independent connections on concurrent worker threads preserve all decisions', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-nervous-concurrent-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  let active;
+  t.after(async () => { await active?.store.close(); fs.rmSync(dir, { recursive: true, force: true }); });
   const filename = path.join(dir, 'shared.sqlite');
   const initial = await harness({ filename }); await initial.store.close();
   await Promise.all([runWorker({ filename, index: 0 }), runWorker({ filename, index: 1 })]);
-  const h = await harness({ filename }); t.after(() => h.store.close());
+  const h = await harness({ filename }); active = h;
   assert.equal((await h.db.get('SELECT count(*) AS n FROM nervous_receipts')).n, 30);
   assert.equal((await h.db.get('SELECT count(*) AS n FROM nervous_effects')).n, 60);
 });

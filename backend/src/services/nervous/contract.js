@@ -81,7 +81,7 @@ function observation(event, context) {
 }
 
 function fingerprint(signal) {
-  const { receivedAt, ...stable } = signal;
+  const { receivedAt, propagationGraph, ...stable } = signal;
   return digest(stable);
 }
 
