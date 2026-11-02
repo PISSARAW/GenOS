@@ -39,7 +39,13 @@ function nativeContext(context, graph) {
     sessionId: context.sessionId, scope: context.cognitiveScope, domain: graph.domain };
 }
 
-async function executeNativeGraph({ graph, candidates, context, mode, mmu, economy, options }) {
+async function executeNativeGraph(input) {
+  const bound = await require('./missionProtocols/omega').executeNativeGraph(input);
+  if (bound) return bound;
+  return executeUnboundNativeGraph(input);
+}
+
+async function executeUnboundNativeGraph({ graph, candidates, context, mode, mmu, economy, options }) {
   const runtime = createOmegaRuntime();
   const handlers = options.cognitiveNativeHandlers || {};
   registerHandlers(runtime, handlers);

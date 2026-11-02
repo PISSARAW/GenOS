@@ -193,6 +193,8 @@ async function createRequestMmu(options) {
 }
 
 async function executeInferenceThroughOmega({ candidates, context, mode, mmu, economy }) {
+  const bound = await require('./missionProtocols/omega').executeInference({ candidates, context, mode, mmu, economy });
+  if (bound) return bound;
   const runtime = createOmegaRuntime();
   let routeError = null;
   runtime.registerInferer('model/infer', async () => {
