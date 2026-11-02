@@ -14,6 +14,7 @@ async function beforeExecution(ctx) {
   await context.assertCurrent(ctx.protocolBinding);
   await require('./continuity').beforeExecution(ctx.protocolBinding);
   await require('./synapse').beforeExecution(ctx.protocolBinding);
+  return require('./allostasis').beforeExecution(ctx.protocolBinding);
 }
 
 async function guardEvent(db, input) {
@@ -52,4 +53,24 @@ async function recordEvent(db, input) {
   });
 }
 
-module.exports = { initialize, beforeExecution, guardEvent, recordEvent };
+async function finish(db, runId) {
+  if (!runId) return null;
+  const binding = await context.load(db, runId);
+  return binding ? require('./allostasis').finish(binding) : null;
+}
+
+async function preemptAgent(agentId) {
+  const db = await require('../../db').getDatabase();
+  const table = await db.get("SELECT name FROM sqlite_master WHERE name='mission_protocol_runs'");
+  if (!table) return null;
+  const row = await db.get('SELECT run_id FROM mission_protocol_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', agentId);
+  const binding = row && await context.load(db, row.run_id);
+  return binding ? require('./allostasis').preempt(binding) : null;
+}
+
+async function runInProcess(ctx, execute) {
+  try { return await execute(); }
+  finally { await finish(ctx.db, ctx.executionRun.id); }
+}
+
+module.exports = { initialize, beforeExecution, guardEvent, recordEvent, finish, preemptAgent, runInProcess };

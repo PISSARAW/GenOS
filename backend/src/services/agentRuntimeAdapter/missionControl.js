@@ -8,6 +8,8 @@ async function stopMission(agentId, options = {}) {
   pendingWorkerRecoveries.delete(agentId);
   autonomousRounds.delete(agentId);
   cancelledStarts.add(agentId);
+  await require('../missionProtocols/runtime').preemptAgent(agentId)
+    .catch(error => console.error('[MissionProtocols] Budget preemption could not be recorded:', error.message));
 
   let barrierStopped = false;
   const barrier = activeWorkerBarriers.get(agentId);

@@ -314,6 +314,7 @@ async function finalizeChildClose({
 }) {
 
   const operatorStop = resolveOperatorStop(child);
+  await require('./missionProtocols/runtime').finish(db, executionRun?.id);
   const verifiedSynthesis = require('./agentTerminalStatusService').verifiedSynthesis({
     dispatchedAgent, autonomyPlan, state: { verifiedDossierWorkerIds }
   });

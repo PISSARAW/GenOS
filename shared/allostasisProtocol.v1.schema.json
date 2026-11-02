@@ -200,7 +200,7 @@
       "additionalProperties": false,
       "required": ["service","sourceAgentId","storageScope","level","rawState","scopeState"],
       "properties": {
-        "service": {"const":"agow.allostaticScopeService/v1"},
+        "service": {"enum":["agow.allostaticScopeService/v1","mission.sealedBudget/v1"]},
         "sourceAgentId": {"$ref":"#/definitions/id"},
         "storageScope": {"$ref":"#/definitions/id"},
         "level": {"$ref":"#/definitions/level"},
