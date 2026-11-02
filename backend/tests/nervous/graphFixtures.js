@@ -9,7 +9,12 @@ async function setup(t) {
   await prepare(db);
   const bridge = new RuntimeBridge({ enabled: () => process.env.GENOS_NERVOUS_ENABLED === '1',
     openRuntime: async () => h.runtime });
-  t.after(async () => { await bridge.shutdown(); await db.close(); });
+  t.after(async () => {
+    const opened = bridge.runtimes.size > 0;
+    await bridge.shutdown();
+    if (!opened) await h.store.close();
+    await db.close();
+  });
   return { ...h, source: db, bridge, scope: SCOPE };
 }
 

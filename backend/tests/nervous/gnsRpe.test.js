@@ -55,3 +55,23 @@ test('disabled GNS never opens a relation database', async () => {
   try { assert.equal(await loadGraph({ db: null, event: null, scope: null }), null); }
   finally { process.env.GENOS_NERVOUS_ENABLED = '1'; }
 });
+
+test('an absent mission is inferred only from unambiguous persisted membership', async t => {
+  const h = await setup(t);
+  await relation(h.source, { id: 'cross-mission', to: 'worker-c' });
+  const input = { db: h.source, event: event('implicit-mission'), scope: SCOPE };
+  assert.deepEqual((await loadGraph(input)).edges, []);
+  await h.source.run('INSERT INTO mission_agents VALUES(?,?)', 'mission-b', 'worker-a');
+  assert.equal(await loadGraph(input), null);
+});
+
+test('historical failures never generate fresh RPE monitoring proposals', async t => {
+  const h = await setup(t);
+  await relation(h.source, { id: 'historical' });
+  const item = event('old-failure', { eventType: 'AGENT_FAILED' });
+  await saveTelemetry(h.source, item);
+  h.time.now += 31000;
+  const result = await h.bridge.observePersistedEvent(h.source, item);
+  assert.equal(result.receipt.disposition, 'HISTORICAL');
+  assert.deepEqual(await h.store.effects(SCOPE), []);
+});

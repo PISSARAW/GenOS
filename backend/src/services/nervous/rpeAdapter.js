@@ -19,9 +19,17 @@ function validity(from, until) {
   if (until !== null && (!Number.isSafeInteger(until) || until <= from)) throw new Error('INVALID_RELATION_VALIDITY');
 }
 
+async function missionFor(input) {
+  const requested = input.event.payload?.missionId ?? input.event.payload?.mission_id;
+  if (requested !== undefined) return requested;
+  if (!await source.hasTables(input.db, ['mission_agents', 'missions'])) return null;
+  const rows = await input.db.all('SELECT DISTINCT mission_id FROM mission_agents WHERE agent_id=? LIMIT 2', input.event.agentId);
+  return rows.length === 1 ? rows[0].mission_id : null;
+}
+
 async function membersFor(input, scope) {
-  const missionId = input.event.payload?.missionId ?? input.event.payload?.mission_id;
-  if (missionId === undefined) return source.scopedAgents(input.db, scope);
+  const missionId = await missionFor(input);
+  if (missionId === null) return [];
   const ids = await source.missionMembers(input.db, { missionId, agentId: input.event.agentId });
   return ids ? source.scopedAgents(input.db, scope, missionId) : [];
 }

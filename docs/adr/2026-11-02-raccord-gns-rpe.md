@@ -12,7 +12,9 @@ workspaces du même tenant. Seuls les types connus du catalogue RPE, actifs et
 dans leur intervalle de validité, sont retenus. Les arêtes gardent leur direction.
 
 Une mission déclarée doit contenir l'émetteur dans `mission_agents` ; elle borne
-aussi les destinataires. Les données absentes ne créent aucune relation.
+aussi les destinataires. Sans mission explicite, un rattachement unique est
+recherché dans cette même table ; l'absence ou l'ambiguïté interdit la projection.
+Les données absentes ne créent aucune relation.
 La configuration est relue pour chaque événement, donc une révocation n'exige
 pas de redémarrage. Les plafonds GNS restent applicables sans troncature silencieuse.
 

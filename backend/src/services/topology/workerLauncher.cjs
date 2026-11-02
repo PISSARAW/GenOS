@@ -127,6 +127,7 @@ async function launchWorker({ db, context, member, index, parent, suppliedWorker
   await persistWorkerIdentity({ db, context, member, parent, workerId });
   if (context.missionId) {
     await attachAgent(db, { missionId: context.missionId, agentId: workerId, role: member.role || 'worker' });
+    await require('../nervous/topologyAdapter').recordWorker({ db, context, member, workerId });
   }
   const biologicalWorkers = require('../biologicalWorkerStore');
   const previousBinding = await biologicalWorkers.latestBindingForMission(db,
