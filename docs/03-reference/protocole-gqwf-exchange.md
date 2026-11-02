@@ -1,6 +1,6 @@
 # Protocole GQWF Exchange v1
 
-- **Statut** : Profil expérimental ; contrat et qualification Node implémentés
+- **Statut** : Profil expérimental Node ; contrat, transfert et promotion native implémentés
 - **Portée** : Échange de mondes et de candidats avec leurs limites d'applicabilité
 - **Dernière revue** : 2026-11-02
 
@@ -13,6 +13,9 @@ et `validateQualificationPolicy`.
 Le contrôle de forme est distinct de la qualification sémantique : un monde
 ayant les bons champs peut encore porter un manifest, une closure ou une
 empreinte incohérents. Voir la [qualification](gqwf-exchange-qualification.md).
+Les conversations exécutables sont décrites dans le
+[transfert durable](gqwf-exchange-transfert.md) et la
+[promotion native](gqwf-exchange-promotion.md).
 
 ## Enveloppe et messages
 
@@ -28,6 +31,14 @@ expirées ou non représentables sont rejetées. `{ now }` permet d'injecter une
 date ou des millisecondes Unix pour les tests. Une empreinte cohérente ne
 prouve pas l'identité ni l'autorité du demandeur.
 
+L'émetteur doit générer des `messageId` uniques entre conversations et phases.
+Le magasin de transfert impose leur unicité globale dans sa base ; le magasin
+de promotion les cloisonne par portée, mission, conversation, acteur et audience.
+Les clés d'idempotence sont cloisonnées par ce contexte dans les deux magasins.
+Réutiliser une clé avec un message différent produit un conflit, sans appliquer
+une nouvelle transition. Un replay réussi rend son résultat historique ; il ne
+prouve pas que cette ancienne racine est encore la tête courante.
+
 | Type | Payload strict |
 | --- | --- |
 | `OFFER_WORLD` | `world` |
@@ -37,9 +48,10 @@ prouve pas l'identité ni l'autorité du demandeur.
 | `REQUEST_EVIDENCE`, `PREPARE_PROMOTION`, `COMMIT` | `candidateId`, `candidateDigest` |
 | `REJECT`, `ABORT` | `candidateId`, `candidateDigest`, `reason` |
 
-Les deux dernières opérations concernent la conversation de promotion. Les
-messages inconnus ou hors ordre doivent être refusés par la conversation
-concernée, même si leur enveloppe est correctement formée.
+Les deux dernières formes sont réservées à la conversation de promotion.
+Le runtime initial ne journalise pas de transition d'abandon pour `REJECT`
+ou `ABORT` ; il les refuse. Les messages inconnus ou hors ordre sont également
+refusés, même si leur enveloppe est correctement formée.
 
 `TRANSFER` porte des blobs de fichiers, au maximum 8 Mio décodés par message.
 Le base64 doit être canonique ; une variante ambiguë ou une taille supérieure
@@ -122,9 +134,14 @@ Le validateur lève `GqwfExchangeError` avec les codes
 `GQWF_EXCHANGE_TRANSFER_INVALID`. La qualification peut lever
 `GQWF_EXCHANGE_QUALIFICATION_INVALID`.
 
-Depuis la racine : `node backend/tests/test_gqwf_exchange_contract.js`.
+Depuis la racine : `npm --prefix backend run test:gqwf-exchange` lance les sept
+fichiers de la suite. Le contrat seul se teste avec
+`node backend/tests/test_gqwf_exchange_contract.js`.
 Les [vecteurs communs](../../shared/gqwfExchangeProtocol.v1.vectors.json)
 incluent un manifest vide avec son hash natif calculé indépendamment en Python.
+Le [démonstrateur entre processus](../06-qualite-preuves/gqwf-exchange-processus-2026-11-02.md)
+injecte une coupure après écriture d'un blob, puis confronte deux candidats
+préparés sur la même base avant une nouvelle vérification sur la base courante.
 
 Le contrat n'active pas automatiquement une réplication ou une promotion native,
 un endpoint réseau, un outil MCP, une extension A2A ou un interpréteur Rust.
