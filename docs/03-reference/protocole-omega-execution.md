@@ -132,6 +132,13 @@ Depuis la racine : `node backend/tests/test_omega_protocol_contract.js`.
 Le test utilise le vrai codec et rejette les résultats préfabriqués, les
 requêtes mal typées, les opérations présatisfaites et les divergences du contrat.
 
+La suite complète se lance avec `npm --prefix backend run test:omega-protocol`.
+Le [bridge natif](omega-execution-durable.md) et le
+[gate des effets](omega-effets.md) décrivent l'exécution et la réconciliation.
+Le [démonstrateur entre processus](../06-qualite-preuves/omega-execution-processus-2026-11-02.md)
+interrompt l'exécuteur entre effet externe et reçu local, puis vérifie la
+reprise sans duplication ni nouvelle inférence.
+
 Ce profil est plus restrictif que le codec historique. Il ne revendique pas
 l'exécution distante de tout programme décodable, une disponibilité universelle
 des domaines, une extension A2A ou une implémentation Rust de la nouvelle
