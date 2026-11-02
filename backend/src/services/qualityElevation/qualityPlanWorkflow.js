@@ -6,6 +6,7 @@ const { planSchema } = require('./qualitySchemas');
 const { validatePlanStructure, durationDefects, pacingGuide } = require('./qualityPlanValidation');
 function planPrompt(context) {
   return 'Construis un plan causal, pas le scénario final. Les règles doivent relier danger, alternatives, choix et conséquences. '
+    + 'Chaque règle dans rules doit être une phrase complète formulant une contrainte dramatique (ex: "La fuite de pathogène se propage si le sas reste ouvert"). '
     + 'Partager un objectif est autorisé : distingue les personnages par leurs informations, moyens, valeurs ou risques acceptés, '
     + 'sans inventer une opposition contraire au brief. Un résumé structuré est adapté à cette étape. '
     + 'Chaque scène prévoit un changement de situation. Les durées sont des estimations, jamais une preuve. '

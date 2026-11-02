@@ -6,7 +6,9 @@ function phaseInstruction(phase) {
       + 'Pour causal_chain en phase plan : dès lors que le texte énonce une règle, une action prévue et une conséquence '
       + '(exemple : règle de signature, vérification avec ouverture, et sortie permise), la logique causale est satisfaite '
       + 'et tu dois obligatoirement attribuer le verdict pass. Ne prétends pas qu’il manque un lien de conséquence. '
-      + 'Refuse une causalité absente ou contradictoire, jamais un plan parce qu’il est synthétique. ';
+      + 'Refuse une causalité absente ou contradictoire, jamais un plan parce qu’il est synthétique. '
+      + 'Toute citation de plan doit être une sous-chaîne CONTINUE copiée mot pour mot (ex: le texte exact d’une seule règle, ou d’une décision). '
+      + 'Ne fusionne JAMAIS deux règles ou deux champs distincts avec une virgule ; utilise plusieurs citations distinctes. ';
   }
   return 'PHASE ARTEFACT : les intentions du plan ne valent pas réalisation. Vérifie dans les scènes les actes et conséquences décisifs. '
     + 'Pour enacted en phase artefact : une action simplement déclarée ou résumée abstraitement sans gestes physiques détaillés '
