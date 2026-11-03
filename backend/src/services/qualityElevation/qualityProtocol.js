@@ -8,8 +8,11 @@ function correctionRequest(request, failure) {
   const data = JSON.parse(request.prompt.slice(split + 1));
   // The erroneous reply is explicitly untrusted data, never a replacement rubric.
   const repair = { error: failure.error.code, diagnostic: failure.error.message, previousReply: failure.raw };
-  const alert = `CORRECTION OBLIGATOIRE (tentative ${failure.attempt}) : Erreur "${failure.error.message.replace(/[\r\n]+/g, ' ')}". `
-    + 'Remplace impérativement cette citation par une sous-chaîne courte copiée mot à mot depuis artifact sans fusionner plusieurs phrases. ';
+  const isCitation = failure.error.code.includes('UNGROUNDED') || /quotation|citation/i.test(failure.error.message);
+  const guidance = isCitation
+    ? 'Remplace impérativement cette citation par une sous-chaîne courte copiée mot à mot depuis artifact sans fusionner plusieurs phrases. '
+    : 'Vérifie que la liste checks contient exactement un objet par critère demandé, sans aucun doublon ni omission. ';
+  const alert = `CORRECTION OBLIGATOIRE (tentative ${failure.attempt}) : Erreur "${failure.error.message.replace(/[\r\n]+/g, ' ')}". ` + guidance;
   return { ...request, protocolAttempt: failure.attempt,
     prompt: alert + request.prompt.slice(0, split) + ' Corrige UNIQUEMENT le format ou les références de ta réponse ; '
       + 'ne change ni la grille ni les données et ne transforme pas un échec en succès pour passer le validateur. '

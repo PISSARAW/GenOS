@@ -28,7 +28,9 @@ function reviewPrompt(input) {
     + 'Des personnages peuvent poursuivre le même objectif : vérifie leurs décisions, informations, moyens ou risques, '
     + 'sans exiger artificiellement des objectifs opposés. Ne demande pas de dialogues à une œuvre muette. '
     + 'Distingue erreur étayée, absence, incertitude et choix artistique. Un désaccord esthétique seul ne prouve pas une faute causale. '
-    + `Évalue exactement ces ${ids.length} critères, chacun une fois : ${ids.join(', ')}. `
+    + `Évalue exactement ces ${ids.length} critères, chacun UNE SEULE FOIS, sans omission ni doublon : ${ids.join(', ')}. `
+    + `Chaque entrée du tableau "checks" doit obligatoirement avoir pour "criterionId" l'un de ces identifiants exacts : ${ids.map(id => `"${id}"`).join(', ')}. `
+    + 'Chaque identifiant doit apparaître exactement une fois dans tout le tableau. '
     + 'Chaque entrée contient criterionId, verdict (pass/fail/unknown), reason (10 caractères minimum), evidence:[{quote:...}], rating. '
     + 'Dans "reason", rédige ton analyse. Dans evidence:[{"quote":"..."}], le champ "quote" doit être STRICTEMENT un copier-coller brut de 10 à 60 caractères prélevé mot à mot dans "artifact". '
     + 'N\'écris JAMAIS d\'explication, de résumé ou d\'analyse dans "quote" : "quote" contient UNIQUEMENT la citation exacte brute issue de "artifact". '
