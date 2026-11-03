@@ -56,3 +56,32 @@ contraint pas la réponse au résultat attendu. Les seuils,
 budgets, corpus et contrôles restent ceux de la référence. Les poids de Qwen2.5 14B
 sont figés pour toute la nouvelle campagne. Voir
 [ADR 0774](../../docs/adr/0774-application-llm-par-traces-litterales.md).
+
+La campagne Qwen2.5 14B V3 termine 300 transformations et 970 appels avec une
+identité conforme aux seuils, dix sondes de descendants et trois sondes à froid
+correctes. Les huit règles conservées sont correctes, mais le transfert reste à
+24/96, les inconnus reconnus à 25 % et le Brier à 0,71875 : verdict négatif vérifié.
+
+La V4 présente directement le littéral et les opérations, avec les positions des
+caractères de l'entrée originale. Le LLM peut écrire ses calculs dans `reasoning`
+avant `answer` ; ces tokens restent dans le plafond total de 2 048. Le budget natif
+de raisonnement reste à 256. Les propositions de règles gardent leurs portes
+d'identifiabilité et de validation. Les motifs de deux chiffres utilisent `[0-9]`,
+pris en charge par le décodeur, au lieu de l'échappement `\d` qu'il ignorait.
+Le journal conserve aussi la requête complète et son schéma, reconstruits au rejeu.
+Le schéma d'identité, les poids, le corpus, les plafonds et les scores ne changent pas.
+Ce correctif de présentation n'est pas une garantie de capacité du modèle.
+
+La dérivation du feedback et la proposition précèdent le raisonnement sur le
+problème courant : une opération actuelle inconnue n'empêche pas d'apprendre
+l'opérateur du feedback précédent. Les chemins d'identité sont explicitement
+des listes de nœuds, avec un singleton pour soi-même ; schéma et score restent
+inchangés et toute réponse vide incorrecte reste une erreur.
+
+`node diagnose-application.cjs DOSSIER-NOUVEAU SOURCE-REFERENCE-FIGEE` compare
+l'interface actuelle à une référence locale sur 40 tâches appariées et 80 appels.
+Les modèles et critères doivent être identiques. Une nouvelle graine et les
+définitions correctes sont scellées avant les réponses ; l'oracle ne note qu'après
+journalisation de la réponse brute. Ces définitions fournies isolent l'application
+de l'acquisition des règles : ce diagnostic ne constitue **jamais** une preuve
+d'apprentissage. Les réponses et tous les échecs restent conservés.

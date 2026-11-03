@@ -13,7 +13,9 @@ const scoring = require('./scoring.cjs');
 function oracle(input, task) {
   const child = spawnSync(process.execPath, [path.join(__dirname, 'oracle.cjs')], {
     input: JSON.stringify({ worldPath: input.worldPath, task }), encoding: 'utf8', timeout: 5000, windowsHide: true });
-  if (child.error || child.status !== 0) throw Error('ORACLE_FAILED:' + child.stderr);
+  if (child.error || child.status !== 0) throw Error('ORACLE_FAILED:' + JSON.stringify({
+    code: child.error?.code, message: child.error?.message, status: child.status,
+    signal: child.signal, stderr: child.stderr }));
   return JSON.parse(child.stdout);
 }
 

@@ -33,6 +33,11 @@ function identityChecks() {
   assert.equal(scoring.identitySummary(events).passed, false);
   assert.equal(scoring.answer({ value: { answer: null, confidence: 1 } }, { expected: null, solvable: false }).unknownRecognized, false);
   assert.equal(scoring.answer({ value: null }, { expected: 0, solvable: true }).exact, false);
+  const w = corpus.world('identity-path-unit-only');
+  const actor = w.actors[0];
+  const response = { value: { self: actor, origin: w.origin, path: [], relation: 'self', author: null, ownership: 'other' } };
+  assert.equal(scoring.identity(w, { actor, target: actor, expectedAuthor: null, expectedOwnership: 'other' }, response).path, false,
+    'The empty self path stays a raw error even when the prompt explicitly describes node paths');
 }
 
 function learningChecks(w) {

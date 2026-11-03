@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const protocol = require('./config.cjs');
 const { hash } = require('./corpus.cjs');
 const contracts = require('./contracts.cjs');
+const application = require('./application-contract.cjs');
 
 async function ready() {
   const response = await fetch(protocol.endpoint + '/health', { signal: AbortSignal.timeout(5000) });
@@ -28,16 +29,11 @@ async function checkTemplate() {
 
 async function call(prompt) {
   const started = performance.now();
-  const requestMessages = messages(prompt);
+  const requestBody = request(prompt);
   const response = await fetch(protocol.endpoint + '/v1/chat/completions', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     signal: AbortSignal.timeout(protocol.maximumRequestMs),
-    body: JSON.stringify({ model: protocol.modelAlias, stream: false, temperature: protocol.temperature,
-      seed: parseInt(hash(prompt).slice(0, 7), 16), max_tokens: protocol.maximumOutputTokens,
-      response_format: prompt.mode === 'technical-readiness' ? { type: 'json_object' }
-        : { type: 'json_object', schema: contracts.schema(prompt) }, cache_prompt: true,
-      id_slot: ['identity','identity-probe'].includes(prompt.mode) ? 0 : 1,
-      messages: requestMessages })
+    body: JSON.stringify(requestBody)
   });
   if (!response.ok) throw Error(`HTTP_${response.status}: ${(await response.text()).slice(0, 300)}`);
   const body = await response.json();
@@ -48,7 +44,15 @@ async function call(prompt) {
   let value = null;
   try { value = JSON.parse(raw); } catch (_) { /* Invalid outputs remain failures. */ }
   return { raw, value, usage, finishReason: body.choices[0].finish_reason,
-    model: body.model, elapsedMs: Math.round(performance.now() - started), requestMessages };
+    model: body.model, elapsedMs: Math.round(performance.now() - started), requestMessages: requestBody.messages, request: requestBody };
+}
+
+function request(prompt) {
+  return { model: protocol.modelAlias, stream: false, temperature: protocol.temperature,
+    seed: parseInt(hash(prompt).slice(0, 7), 16), max_tokens: protocol.maximumOutputTokens,
+    response_format: prompt.mode === 'technical-readiness' ? { type: 'json_object' }
+      : { type: 'json_object', schema: contracts.schema(prompt) }, cache_prompt: true,
+    id_slot: ['identity','identity-probe'].includes(prompt.mode) ? 0 : 1, messages: messages(prompt) };
 }
 
 function messages(prompt) {
@@ -58,9 +62,7 @@ function messages(prompt) {
 }
 
 function executionMessage(prompt) {
-  const source = prompt.applicationPlan.program;
-  const program = source === null ? 'Program unavailable: required definitions are missing.'
-    : 'Evaluate these assignments in order:\n' + source;
+  const program = application.message(prompt.applicationPlan);
   if (prompt.mode !== 'learn') return program;
   return program + '\n\nFeedback for learning about the previous task, separate from this expression:\n'
     + JSON.stringify(prompt.feedback);
@@ -68,7 +70,7 @@ function executionMessage(prompt) {
 
 async function attempt(prompt) {
   try { return await call(prompt); }
-  catch (error) { return { value: null, error: error.message, usage: null, requestMessages: messages(prompt) }; }
+  catch (error) { return { value: null, error: error.message, usage: null, requestMessages: messages(prompt), request: request(prompt) }; }
 }
 
 function log(directory, event) {
@@ -80,4 +82,4 @@ function log(directory, event) {
   fs.writeFileSync(statePath, JSON.stringify({ index: entry.index, hash: entry.hash }));
 }
 
-module.exports = { ready, call, attempt, log, messages };
+module.exports = { ready, call, attempt, log, messages, request };

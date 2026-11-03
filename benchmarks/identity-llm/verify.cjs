@@ -172,6 +172,7 @@ async function replayEvents(db, input) {
       if (event.type === 'response-committed') {
         assert(committed.length < 2, 'Response without outcome');
         assert.deepEqual(event.response.requestMessages, inference.messages(event.prompt), 'Exact wire messages disagree with reconstructed context');
+        assert.deepEqual(event.response.request, inference.request(event.prompt), 'Exact request or generation contract changed');
         parsedResponse(event.response);
         committed.push(event);
       } else if (['train-result', 'clone-result', 'eval-result'].includes(event.type)) {
