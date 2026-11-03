@@ -41,3 +41,21 @@ pub mod llm_evidence;
 pub mod llm_gqwf;
 #[cfg(feature="native-llm")]
 pub mod llm_engine;
+#[cfg(feature="native-llm")]
+pub mod agentic_spec;
+#[cfg(feature="native-llm")]
+pub mod agentic_source;
+#[cfg(feature="native-llm")]
+pub mod agentic_admission;
+#[cfg(feature="native-llm")]
+pub mod agentic_ledger;
+#[cfg(feature="native-llm")]
+pub mod agentic_context;
+#[cfg(feature="native-llm")]
+pub mod agentic_tools;
+#[cfg(feature="native-llm")]
+pub mod agentic_evidence;
+#[cfg(feature="native-llm")]
+pub mod agentic_exchange;
+#[cfg(feature="native-llm")]
+pub mod agentic_engine;
