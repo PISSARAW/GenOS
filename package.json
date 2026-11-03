@@ -11,7 +11,7 @@
     "test:p1-v3": "node backend/tests/run_p1_v3_suite.cjs",
     "qualify:p1-lean": "node backend/tests/qualify_scientific_lean_live.cjs",
     "qualify:worker-cooperation": "node backend/tests/run_worker_cooperation.cjs",
-    "test:lean": "node backend/tests/test_lean_verification_contract.js && node backend/tests/test_lean_kernel_regressions.cjs",
+    "test:lean": "node backend/tests/test_lean_process_deadline.cjs && node backend/tests/test_lean_verification_contract.js && node backend/tests/test_lean_kernel_regressions.cjs",
     "qualify:p1-stdio": "node backend/tests/qualify_p1_stdio.cjs",
     "test:biology": "node backend/tests/run_biology_suite.cjs",
     "test:garage": "node backend/tests/run_validation_suite.js garage",

@@ -21,6 +21,7 @@ function sourceFor(parameters = {}) {
 }
 
 function executionDetail(execution) {
+  if (execution.timedOut) return `Lean execution deadline exceeded (${execution.reason || 'process_timeout'}).`;
   return execution.stderr || execution.stdout || execution.error?.message || 'execution failed';
 }
 

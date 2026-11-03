@@ -9,12 +9,22 @@ const { measureEnvironment, leanProcessEnvironment } = require('./leanEnvironmen
 const { materializeDependencies, materializedSource } = require('./leanDependencyModules');
 
 function runProcess(executable, args, options = {}) {
+  const { deadlineAt = Infinity, ...processOptions } = options;
+  const remaining = Math.ceil(deadlineAt - Date.now());
+  if (remaining <= 0) return Promise.resolve(deadlineExceeded());
+  processOptions.timeout = Math.min(processOptions.timeout || 90000, remaining);
   return new Promise((resolve) => {
-    execFile(executable, args, options, (error, stdout, stderr) => {
+    execFile(executable, args, processOptions, (error, stdout, stderr) => {
       resolve({ exitCode: error ? (Number.isInteger(error.code) ? error.code : 1) : 0,
-        stdout: String(stdout || ''), stderr: String(stderr || ''), error });
+        stdout: String(stdout || ''), stderr: String(stderr || ''), error,
+        timedOut: Boolean(error?.killed && error.code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') });
     });
   });
+}
+
+function deadlineExceeded() {
+  return { exitCode: 1, status: 'inconclusive', reason: 'lean_deadline_exceeded',
+    stdout: '', stderr: 'Lean execution deadline exceeded.', timedOut: true, axioms: null };
 }
 
 function unavailable(reason, extra = {}) {
@@ -43,11 +53,12 @@ async function inspectSource(request, execution) {
     'IncrementalCheck', target.name], options);
   const audit = inspected.exitCode === 0 ? parseAudit(inspected.stdout, target.name) : null;
   if (!audit) return unavailable('lean_axiom_audit_failed', { stdout: compiled.stdout,
-    stderr: inspected.stderr || inspected.stdout, error: inspected.error });
+    stderr: inspected.stderr || inspected.stdout, error: inspected.error, timedOut: inspected.timedOut });
   const prefix = await runProcess(executable, ['--print-prefix'], options);
-  if (prefix.exitCode !== 0) return unavailable('lean_environment_unavailable');
+  if (prefix.exitCode !== 0) return unavailable('lean_environment_unavailable', prefix);
   const measured = await measureEnvironment(prefix.stdout.trim(), { ...audit,
     modules: audit.modules.filter((entry) => !dependencies.includes(entry.name)) });
+  if (Date.now() >= options.deadlineAt) return deadlineExceeded();
   if (request.environmentDigest && request.environmentDigest !== measured.environmentDigest) {
     return unavailable('lean_environment_mismatch', { ...measured, axioms: audit.axioms });
   }
@@ -55,15 +66,21 @@ async function inspectSource(request, execution) {
     toolchainVersion: request.toolchainVersion, status: 'checked' };
 }
 
+function processOptions(request) {
+  const timeout = request.timeoutMs || 90000;
+  return { windowsHide: true, timeout, deadlineAt: Date.now() + timeout,
+    env: leanProcessEnvironment(), maxBuffer: 4 * 1024 * 1024 };
+}
+
 async function executeLeanCheck(request = {}) {
   const target = sourceTarget(request.source);
   if (!target) return unavailable('lean_target_missing');
   const executable = request.leanExecutable || process.env.GENOS_LEAN_EXECUTABLE || 'lean';
-  const options = { windowsHide: true, timeout: request.timeoutMs || 90000,
-    env: leanProcessEnvironment(), maxBuffer: 4 * 1024 * 1024 };
+  const options = processOptions(request);
   const version = await runProcess(executable, ['--version'], options);
   if (version.exitCode !== 0 || !request.toolchainVersion || version.stdout.trim() !== request.toolchainVersion.trim()) {
-    return unavailable('lean_toolchain_unavailable_or_mismatch', { toolchainVersion: version.stdout.trim(), stderr: version.stderr });
+    return unavailable('lean_toolchain_unavailable_or_mismatch', { ...version, exitCode: 1,
+      toolchainVersion: version.stdout.trim() });
   }
   const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'genos-lean-'));
   const env = leanProcessEnvironment(directory);
@@ -71,10 +88,11 @@ async function executeLeanCheck(request = {}) {
     await fs.promises.writeFile(path.join(directory, 'IncrementalCheck.lean'), request.source, 'utf8');
     return await inspectSource(request, { executable, directory, target, options: { ...options, cwd: directory, env } });
   } catch (error) {
+    if (Date.now() >= options.deadlineAt) return deadlineExceeded();
     return unavailable('lean_audit_unavailable', { stderr: error.message });
   } finally {
     await fs.promises.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }
 
-module.exports = { executeLeanCheck };
+module.exports = { executeLeanCheck, runProcess };

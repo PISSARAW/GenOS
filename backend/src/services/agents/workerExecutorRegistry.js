@@ -67,7 +67,7 @@ async function executeNativeWorker(kind, method, context) {
   const module = require(`./${selected[1]}`);
   if (selected[3] === 'runFormal') {
     const remaining = Math.max(1, context.deadline - Date.now());
-    return module.runFormal(method, { timeoutMs: Math.min(30000, remaining) });
+    return module.runFormal(method, { timeoutMs: Math.min(90000, remaining) });
   }
   return module[selected[3]](method, context);
 }

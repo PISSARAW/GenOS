@@ -33,8 +33,7 @@ fn optional_integer<'de, D: serde::Deserializer<'de>>(value: D) -> Result<Option
 
 pub fn execute(command: &RunCmd) -> Result<(), String> {
     validate_flags(command)?;
-    let mission = command.mission.as_deref().or(command.mission_option.as_deref())
-        .filter(|value| !value.trim().is_empty()).ok_or("RUST_NATIVE_MISSION_REQUIRED")?;
+    let mission = mission_name(command)?;
     let objective = objective(command)?;
     let workspace = workspace(command)?;
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -44,6 +43,11 @@ pub fn execute(command: &RunCmd) -> Result<(), String> {
     })?;
     println!("{}", serde_json::to_string(&report).map_err(|e| e.to_string())?);
     Ok(())
+}
+
+fn mission_name(command: &RunCmd) -> Result<&str, String> {
+    command.mission.as_deref().or(command.mission_option.as_deref())
+        .filter(|value| !value.trim().is_empty()).ok_or_else(|| "RUST_NATIVE_MISSION_REQUIRED".into())
 }
 
 fn validate_flags(command: &RunCmd) -> Result<(), String> {

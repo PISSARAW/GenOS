@@ -218,6 +218,7 @@ const suites = {
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
     ['worker runtime limits', 'test_worker_runtime_limits.js'],
     ['worker process CPU budget enforcement', 'test_worker_cpu_budget.js'],
+    ['Lean shared execution deadline', 'test_lean_process_deadline.cjs'],
     ['procedural and formal execution', 'test_deterministic_worker_runners.js'],
     ['native verifier', 'test_deterministic_worker_verifier.js'],
     ['native red worker', 'test_deterministic_worker_red.js'],
