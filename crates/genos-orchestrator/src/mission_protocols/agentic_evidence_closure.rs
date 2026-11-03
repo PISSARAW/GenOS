@@ -4,6 +4,7 @@ use serde_json::{Value,json};
 
 pub(super) fn collect(connection:&Connection,binding:&Binding)->Result<(Value,String),String> {
     agentic_ledger::assert_publishable_in(connection,binding)?;
+    let waves=super::super::agentic_parallel_journal::closure_in(connection,binding)?;
     let spec=agentic_admission::admitted_in(connection,binding)?;
     let mut agents=Vec::new();
     let mut final_text=String::new();
@@ -17,7 +18,7 @@ pub(super) fn collect(connection:&Connection,binding:&Binding)->Result<(Value,St
     }
     let closure=json!({"schema":"genos.rust-agentic-closure/v1","source":spec.source,"source_hash":spec.source_hash,
         "binding":binding,"agents":agents,"base":agentic_exchange::base_in(connection,binding)?,
-        "origin":"model_generated","external_effects_authorized":false});
+        "origin":"model_generated","external_effects_authorized":false,"waves":waves});
     Ok((closure,final_text))
 }
 
