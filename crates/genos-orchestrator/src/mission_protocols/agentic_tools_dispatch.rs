@@ -20,6 +20,7 @@ pub(super) fn run(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&Tool
     let spec=super::super::agentic_admission::admitted_in(tx,binding)?;
     let agent=spec.agent(&input.0.key.agent_id)?;
     if !agent.tools.iter().any(|kind|kind.as_str()==input.1.name) { return Ok(denied(&input.1.name,"AGENTIC_TOOL_NOT_GRANTED")); }
+    if registration_batch(&spec,input) { return Ok(denied(&input.1.name,"AGENTIC_DELEGATION_BATCH_REGISTRATION_ONLY")); }
     let outcome=match input.1.name.as_str() {
         "read_source"=>read_source(&spec,&input.1.arguments),
         "list_sources"=>list_sources(&spec,&input.1.arguments),
@@ -29,6 +30,12 @@ pub(super) fn run(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&Tool
         _=>denied(&input.1.name,"AGENTIC_TOOL_NOT_INSTALLED"),
     };
     Ok(outcome)
+}
+
+fn registration_batch(spec:&super::super::agentic_spec::AgenticSpec,input:(&ModelRecord,&ToolCall))->bool {
+    let Some(profile)=&spec.config.orchestration else { return false; };
+    input.0.key.agent_id==profile.coordinator && input.1.name!="delegate_task"
+        && input.0.tool_calls.iter().any(|call|call.name=="delegate_task")
 }
 
 fn delegate(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&ToolCall))->Result<Outcome,String> {

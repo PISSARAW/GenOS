@@ -16,7 +16,7 @@ pub fn serial()->std::sync::MutexGuard<'static,()> {
 pub struct Fixture { pub directory:TempDir,pub workspace:PathBuf,executable:PathBuf,provider:Provider }
 struct Provider { address:std::net::SocketAddr,state:Arc<State>,thread:Option<std::thread::JoinHandle<()>> }
 struct State {
-    stop:AtomicBool,calls:AtomicUsize,active:AtomicUsize,peak:AtomicUsize,finished:AtomicUsize,artifact_returns:AtomicBool,
+    stop:AtomicBool,calls:AtomicUsize,active:AtomicUsize,peak:AtomicUsize,finished:AtomicUsize,artifact_returns:AtomicBool,early_write:AtomicBool,
     requests:Mutex<Vec<Value>>,parallel_barrier:bool,missing_usage:bool,
     abort_writer:Mutex<Option<PathBuf>>,
 }
@@ -52,6 +52,7 @@ impl Fixture {
     pub fn peak(&self)->usize { self.provider.state.peak.load(Ordering::SeqCst) }
     pub fn finished(&self)->usize { self.provider.state.finished.load(Ordering::SeqCst) }
     pub fn requests(&self)->Vec<Value> { self.provider.state.requests.lock().unwrap().clone() }
+    pub fn enable_early_write(&self) { self.provider.state.early_write.store(true,Ordering::SeqCst); }
     pub fn enable_artifact_returns(&self) {
         let mut config=self.config();
         config["agents"][0]["tools"]=json!(["read_source","write_artifact"]);
@@ -111,7 +112,7 @@ impl Provider {
         let listener=TcpListener::bind("127.0.0.1:0").unwrap();listener.set_nonblocking(true).unwrap();
         let address=listener.local_addr().unwrap();
         let state=Arc::new(State { stop:AtomicBool::new(false),calls:AtomicUsize::new(0),active:AtomicUsize::new(0),
-            peak:AtomicUsize::new(0),finished:AtomicUsize::new(0),requests:Mutex::new(vec![]),artifact_returns:AtomicBool::new(false),
+            peak:AtomicUsize::new(0),finished:AtomicUsize::new(0),requests:Mutex::new(vec![]),artifact_returns:AtomicBool::new(false),early_write:AtomicBool::new(false),
             parallel_barrier:mode.0,missing_usage:mode.1,abort_writer:Mutex::new(None) });
         let shared=state.clone();let thread=std::thread::spawn(move ||serve_all(listener,&shared));
         Self { address,state,thread:Some(thread) }
@@ -149,7 +150,7 @@ fn serve(mut stream:TcpStream,state:&State) {
     let active=state.active.fetch_add(1,Ordering::SeqCst)+1;state.peak.fetch_max(active,Ordering::SeqCst);
     wait_for_pair(state,index);
     if agent=="writer" && turn==0 { inject_abort(state); }
-    let mut body=if state.artifact_returns.load(Ordering::SeqCst) { artifact_response(&agent,turn) } else { response(&agent,turn) };
+    let mut body=selected_response(state,(&agent,turn));
     if state.missing_usage && agent=="left" { body.as_object_mut().unwrap().remove("prompt_eval_count"); }
     let body=serde_json::to_vec(&body).unwrap();
     let header=format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",body.len());
@@ -175,6 +176,28 @@ fn response(agent:&str,turn:usize)->Value {
     let mut value=json!({"model":"dynamic-http-fixture","message":{"role":"assistant","content":text},
         "done":true,"done_reason":"stop","prompt_eval_count":17,"eval_count":23});
     let calls=tool_calls(agent,turn);
+    if !calls.is_empty() {
+        value["message"]["content"]="".into();value["message"]["tool_calls"]=calls.into();
+    }
+    value
+}
+fn selected_response(state:&State,step:(&str,usize))->Value {
+    if state.early_write.load(Ordering::SeqCst) { return early_write_response(step.0,step.1); }
+    if state.artifact_returns.load(Ordering::SeqCst) { return artifact_response(step.0,step.1); }
+    response(step.0,step.1)
+}
+fn early_write_response(agent:&str,turn:usize)->Value {
+    if agent!="writer" { return response(agent,turn); }
+    let mut value=response(agent,usize::MAX);
+    let calls=match turn {
+        0=> {
+            let mut calls=tool_calls("writer",0);
+            calls.insert(0,json!({"function":{"name":"write_artifact","arguments":{"name":"draft","text":"premature-draft"}}}));
+            calls
+        },
+        3=>tool_calls("writer",2),
+        _=>vec![],
+    };
     if !calls.is_empty() {
         value["message"]["content"]="".into();value["message"]["tool_calls"]=calls.into();
     }

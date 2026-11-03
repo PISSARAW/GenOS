@@ -15,6 +15,10 @@ de contrats runtime et d'une qualification distincte de ses métaphores biologiq
 
 ## Actualités documentaires
 
+- [Orchestration dynamique LLM Rust](03-reference/orchestration-dynamique-llm-rust.md) — délégations natives vers un pool préadmis, retours CAS et contextes historiques ; [qualification du 3 novembre](06-qualite-preuves/orchestration-dynamique-llm-rust-2026-11-03.md) ciblée et contrôles globaux vérifiés, deux essais négatifs conservés et audit externe lié à la livraison.
+
+Le modèle réel est lié au gel natif de trente fichiers Rust ; la validation finale ajoute uniquement deux chemins Node nommés, couverts par une régression distincte. Les essais et leurs empreintes restent séparés.
+
 - [Missions LLM parallèles Rust avec outils](03-reference/missions-llm-paralleles-rust.md) — admission atomique des vagues, quotas globaux et reprise sous les sept protocoles ; [qualification du 3 novembre](06-qualite-preuves/missions-llm-paralleles-rust-2026-11-03.md).
 
 - [Missions LLM multi-agents et outils Rust](03-reference/missions-llm-multi-agents-rust.md) — DAG admis, outils confinés, contextes consommés et effets CAS sous les sept protocoles ; [qualification du 3 novembre](06-qualite-preuves/missions-llm-multi-agents-rust-2026-11-03.md).

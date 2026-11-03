@@ -110,3 +110,47 @@ fn omega_unknown_or_allostasis_exposure_prevents_new_run_activation() {
         assert!(store.current(&next).is_err());
     }
 }
+
+
+#[cfg(not(feature="native-llm"))]
+fn delegation_marker(store:&mut Store,binding:&Binding,run:Option<&str>) {
+    store.transaction(binding,|tx| {
+        tx.execute_batch("CREATE TABLE protocol_agentic_delegations(run_id TEXT NOT NULL,worker_id TEXT NOT NULL)")
+            .map_err(|error|error.to_string())?;
+        if let Some(run)=run {
+            tx.execute("INSERT INTO protocol_agentic_delegations VALUES($1,'negative-input-worker')",[run])
+                .map_err(|error|error.to_string())?;
+        }
+        Ok(())
+    }).unwrap();
+}
+
+#[test]
+#[cfg(not(feature="native-llm"))]
+fn featureless_sdk_refuses_unverifiable_delegation_and_keeps_the_predecessor_current() {
+    let (_directory,mut store,old)=fixture();
+    let checkpoint=store.checkpoint(&old,&json!({"negative_input":"unverifiable delegation marker"})).unwrap();
+    let successor=store.prepare_successor(&old).unwrap();
+    // This synthetic negative row claims no actual model observation or native activation.
+    delegation_marker(&mut store,&old,Some(&old.run_id));
+    let error=store.handoff(&old,&HandoffRequest { successor:successor.clone(),checkpoint }).unwrap_err();
+    assert!(error.contains("delegation verifier unavailable"),"{error}");
+    assert!(store.current(&old).is_ok());assert!(store.current(&successor).is_err());
+    assert_eq!(store.binding(&old.mission_id).unwrap(),old);
+    let count:i64=store.transaction(&old,|tx|tx.query_row("SELECT COUNT(*) FROM rust_protocol_handoffs WHERE predecessor_run=$1",
+        [&old.run_id],|row|row.get(0)).map_err(|error|error.to_string())).unwrap();
+    assert_eq!(count,0);
+}
+
+#[test]
+#[cfg(not(feature="native-llm"))]
+fn featureless_sdk_keeps_empty_and_other_run_delegation_tables_compatible() {
+    for marker in [None,Some("unrelated-run")] {
+        let (_directory,mut store,old)=fixture();
+        delegation_marker(&mut store,&old,marker);
+        let checkpoint=store.checkpoint(&old,&json!({"generic":"no current delegation"})).unwrap();
+        let successor=store.prepare_successor(&old).unwrap();
+        store.handoff(&old,&HandoffRequest { successor:successor.clone(),checkpoint }).unwrap();
+        assert!(store.current(&old).is_err());assert!(store.current(&successor).is_ok());
+    }
+}

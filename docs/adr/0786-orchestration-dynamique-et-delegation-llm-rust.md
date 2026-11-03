@@ -33,6 +33,13 @@ la copie CAS de la tâche et le reçu d'enregistrement de l'outil. Un échec
 annule tous ces effets et leur coût. Le reçu d'enregistrement n'est pas
 remplacé ultérieurement par une prétendue exécution du worker.
 
+Un lot natif du coordinateur qui demande au moins une délégation ne peut
+exécuter que des délégations. Les autres appels de ce même lot produisent un
+reçu de refus, même s'ils précèdent la première délégation dans la réponse.
+Cette barrière évite la création d'un artefact immuable prématuré. Le modèle
+peut demander les autres outils dans un tour ultérieur après les retours.
+Elle ne prétend pas prédire les délégations de futurs tours indépendants.
+
 Après la clôture du tour de délégation, le coordinateur attend les workers
 qu'il a activés. Le runtime exécute leurs tours prêts dans les vagues
 parallèles existantes. Il copie et rehashe leurs complétions et artefacts
@@ -56,7 +63,9 @@ en dépendances entre rôles créerait artificiellement un cycle.
 - **GQWF Exchange** copie les tâches sans inventer une complétion du parent,
   puis copie les véritables résultats des workers avant consommation.
 - **CONTINUITY** conserve les affectations et refuse une succession tant
-  qu'une délégation ou un retour requis reste en attente.
+  qu'une délégation ou un retour requis reste en attente. Un build sans
+  `native-llm` refuse la succession dès qu'une affectation est présente pour
+  le run courant, faute de vérificateur natif disponible.
 - **EVIDENCE** exige la couverture exacte des délégations admises, de leurs
   appels natifs, activations, copies et résultats avant publication finale.
 
@@ -76,7 +85,8 @@ contexte qui l'a demandée. Un contexte de worker dépend de son unique tâche.
 7. Fermeture EVIDENCE, publication et garde CONTINUITY.
 8. Qualification runtime HTTP : choix, adaptation, concurrence et reprise.
 9. Qualification CLI et essai avec un modèle local réel.
-10. Contrôles globaux, documentation et audit de livraison.
+10. Barrière des lots de délégation issue de l'essai réel, garde de succession
+    sans vérificateur natif, régressions, contrôles globaux et audit documenté.
 
 Chaque point reçoit son commit. Les modules sont activés suivant leurs
 dépendances et les validations finales portent sur l'ensemble intégré.

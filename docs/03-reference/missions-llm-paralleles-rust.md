@@ -7,6 +7,19 @@ admises et les sept protocoles. La sélection est explicite :
 `max_parallel_agents` vaut un par défaut ; une valeur supérieure à un active
 les vagues parallèles.
 
+## Extension par délégation dynamique
+
+L’option facultative `orchestration` permet au coordinateur de choisir des
+tâches pendant la mission pour un pool de workers déjà admis.
+Les permissions restent fixes ; les tâches et retours sont copiés et
+consommés sous des frontières historiques de tour.
+
+Cette extension dispose d’une [référence distincte](orchestration-dynamique-llm-rust.md)
+et d’une [qualification datée](../06-qualite-preuves/orchestration-dynamique-llm-rust-2026-11-03.md).
+Sans cette option, le DAG statique décrit ici conserve son comportement.
+Les résultats de la qualification dynamique ne sont pas déduits de ceux
+du profil parallèle statique.
+
 ## Configuration
 
 Le DAG comporte deux à quatre agents. La largeur est comprise entre un et

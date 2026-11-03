@@ -89,7 +89,7 @@ async function recordConscienceTransition(db, agentId, consumedTokens) {
     const conscience = require('./agentConscienceService');
     const state = await conscience.loadCognitiveRegulationState(db, agentId);
     if (!state) return;
-    state.currentBudget = Math.max(0, (state.currentBudget || 10000) - (consumedTokens || 0));
-    await conscience.persistCognitiveRegulationState(db, agentId, state, { reason: 'worker_task_completed' });
+    state.currentBudget = Math.max(0, (state.currentBudget ?? 10000) - (consumedTokens || 0));
+    await conscience.persistCognitiveRegulationState({ db, agentId, state, options: { reason: 'worker_task_completed' } });
   } catch (_) {}
 }

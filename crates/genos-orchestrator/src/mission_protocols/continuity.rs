@@ -130,7 +130,16 @@ fn delegation_settled(tx:&Transaction<'_>,binding:&Binding)->Result<(),String> {
     #[cfg(feature="native-llm")]
     { super::agentic_delegation_exchange::require_settled_in(tx,binding) }
     #[cfg(not(feature="native-llm"))]
-    { let _=(tx,binding);Ok(()) }
+    { unverified_delegations(tx,binding) }
+}
+
+#[cfg(not(feature="native-llm"))]
+fn unverified_delegations(tx:&Transaction<'_>,binding:&Binding)->Result<(),String> {
+    if !table_exists(tx,"protocol_agentic_delegations")? { return Ok(()); }
+    let found:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM protocol_agentic_delegations WHERE run_id=$1)",
+        [&binding.run_id],|row|row.get(0)).map_err(|error|error.to_string())?;
+    if found { return Err("CONTINUITY delegation verifier unavailable; handoff forbidden".into()); }
+    Ok(())
 }
 
 fn agentic_pool_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {

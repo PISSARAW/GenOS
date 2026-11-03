@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [orchestration-dynamique-llm-rust-2026-11-03.md](orchestration-dynamique-llm-rust-2026-11-03.md) — délégations natives, copies et retours CAS, ordre causal des outils et essai causal borné qualifié, deux essais négatifs conservés, contrôles globaux vérifiés et audit externe lié à la livraison.
+
 - [requalification-principes-fondateurs-2026-11-03.md](requalification-principes-fondateurs-2026-11-03.md) — renouvellement du reçu après réexécution des onze preuves, ancrage des sources d'enveloppe et maintien des refus de qualification.
 
 - [experience-mission-scenario-gqel-2026-11-02.md](experience-mission-scenario-gqel-2026-11-02.md) — expérience réelle d'écriture sous GQEL avec modèle local llama3.1:8b : diagnostic causal, élévation de +55 pts (20 -> 75) et refus fail-closed de promotion sans complétude.

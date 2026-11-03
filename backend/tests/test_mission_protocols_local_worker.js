@@ -46,6 +46,7 @@ async function execute(db, input) {
     teamRunId: parent.id, orchestratorAgentId: 'delegation-sub', budget: { tokens: 10000, costUsd: 1 } });
   await db.run(`INSERT INTO provider_configs(id,provider,model,endpoint,capabilities_json,cost_input,cost_output,latency_ms,enabled)
     VALUES(?,?,?,?,?,?,?,?,?)`, 'protocol-local-provider', 'ollama', 'protocol-local-worker', input.service.url, '[]', 0, 0, 1, 1);
+  const before = await db.get('SELECT cognitive_budget, conscience_revision FROM agents WHERE id=?', 'protocol-local-worker');
   const result = await require('../src/services/agentRuntimeAdapter').startMission({
     agentId: 'protocol-local-worker', missionId: 'delegation-mission', orchestratorAgentId: 'delegation-sub',
     workerKind: 'bounded_worker', role: 'bounded_worker', workerContract: contract,
@@ -56,11 +57,23 @@ async function execute(db, input) {
     modelBudgetScope,
     autonomousOrchestration: false, toolLease: [], timeoutMs: 60000,
     executionBudget: { tokens: 10000, costUsd: 1, latencyMs: 60000, events: 100 } });
-  return result;
+  return { result, before };
+}
+
+async function qualifyConscience(db, before) {
+  const transitions = await db.all(`SELECT from_revision, to_revision, from_budget, to_budget
+    FROM conscience_transitions WHERE agent_id=? AND reason=?`, 'protocol-local-worker', 'worker_task_completed');
+  assert.equal(transitions.length, 1, 'real local completion must persist its cognitive regulation transition');
+  const after = await db.get('SELECT cognitive_budget, conscience_revision FROM agents WHERE id=?', 'protocol-local-worker');
+  assert.equal(after.conscience_revision, before.conscience_revision + 1);
+  assert.ok(after.cognitive_budget <= before.cognitive_budget, 'completion must never replenish the cognitive budget');
+  assert.deepEqual(transitions[0], { from_revision: before.conscience_revision,
+    to_revision: after.conscience_revision, from_budget: before.cognitive_budget, to_budget: after.cognitive_budget });
 }
 
 async function qualify(db, input) {
-  const result = await execute(db, input);
+  const { result, before } = await execute(db, input);
+  await qualifyConscience(db, before);
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', 'protocol-local-worker');
   const records = await require('../src/services/biologicalWorkerStore').observations(db, row.id);
   assert.equal(input.service.calls(), 1, JSON.stringify({ result, row, records }));

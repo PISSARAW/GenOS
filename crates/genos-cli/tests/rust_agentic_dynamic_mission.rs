@@ -115,3 +115,22 @@ fn coordinator_can_read_only_a_delegated_artifact_actually_received_before_its_c
     let replay=success(f.command(&mission).output().unwrap());assert_eq!(f.calls(),8);
     for field in ["usage","publication","artifact"] { assert_eq!(report[field],replay[field]); }
 }
+
+#[test]
+fn a_delegation_batch_denies_an_early_write_even_before_registration_then_accepts_a_later_retry() {
+    let _guard=fixture::serial();let f=Fixture::new((true,false));f.enable_early_write();let mission=identity();
+    let report=success(f.command(&mission).output().unwrap());
+    assert_eq!(f.calls(),7);assert_eq!(report["usage"]["spent"]["tool_calls"],6);
+    let db=f.database();
+    let mut query=db.prepare("SELECT receipt_json FROM protocol_agentic_tool_receipts WHERE agent_id='writer' AND json_extract(receipt_json,'$.name')='write_artifact' ORDER BY turn").unwrap();
+    let writes:Vec<Value>=query.query_map([],|row|row.get::<_,String>(0)).unwrap()
+        .map(|row|serde_json::from_str(&row.unwrap()).unwrap()).collect();
+    assert_eq!(writes.len(),2);assert_eq!(writes[0]["call_index"],0);
+    assert_eq!(writes[0]["output"]["status"],"denied");
+    assert_eq!(writes[0]["output"]["error"]["code"],"AGENTIC_DELEGATION_BATCH_REGISTRATION_ONLY");
+    assert_eq!(writes[1]["output"]["status"],"ok");assert_eq!(writes[1]["key"]["turn"],1);
+    let producer:String=db.query_row("SELECT producer_operation FROM protocol_agentic_artifacts WHERE agent_id='writer' AND name='draft'",[],|row|row.get(0)).unwrap();
+    assert_eq!(producer,"tool/writer/1/0");drop(query);drop(db);
+    let replay=success(f.command(&mission).output().unwrap());assert_eq!(f.calls(),7);
+    assert_eq!(report["usage"],replay["usage"]);assert_eq!(report["publication"],replay["publication"]);
+}
