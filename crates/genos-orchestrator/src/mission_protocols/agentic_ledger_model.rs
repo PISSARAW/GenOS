@@ -16,16 +16,26 @@ pub fn prepare_model(store:&mut Store, binding:&Binding, input:&ModelIntent<'_>)
 }
 
 fn prepare_fresh(tx:&Transaction<'_>, binding:&Binding, input:&ModelIntent<'_>) -> Result<ModelAdmission,String> {
-    check_deadline(binding,input.request,input.max_wall_ms)?;
     let spec=super::super::agentic_admission::admitted_in(tx,binding)?;
-    let amount=budget::model_amount(spec.config.max_input_tokens,spec.config.generation.max_output_tokens,input.max_wall_ms)?;
+    let actual=allocated_wall(tx,binding,(input,spec.config.turn_timeout_ms))?;
+    let amount=budget::model_amount(spec.config.max_input_tokens,spec.config.generation.max_output_tokens,actual)?;
     budget::expose(tx,binding,&amount)?;
     let intent=StoredIntent { key:input.key.clone(),binding_hash:digest(binding)?,
         request_hash:api::tool_request_hash(input.request)?,descriptor:api::tool_request_descriptor(input.request),
-        max_wall_ms:input.max_wall_ms,nonce:uuid::Uuid::new_v4().to_string() };
+        max_wall_ms:actual,nonce:uuid::Uuid::new_v4().to_string() };
     insert(tx,binding,&intent)?;
     Ok(ModelAdmission::Fresh(ModelPermit { key:intent.key,binding_hash:intent.binding_hash,
         request_hash:intent.request_hash,nonce:intent.nonce }))
+}
+
+fn allocated_wall(connection:&Connection, binding:&Binding, input:(&ModelIntent<'_>,u64)) -> Result<u64,String> {
+    let (intent,policy_maximum)=input;
+    let context=super::super::agentic_context::applied_in(connection,binding,&intent.key)?;
+    if context.max_wall_ms>intent.max_wall_ms || context.max_wall_ms>policy_maximum {
+        return Err("AGENTIC_CONTEXT_WALL_EXCEEDS_CALLER_OR_POLICY".into());
+    }
+    check_deadline(binding,intent.request,context.max_wall_ms)?;
+    Ok(context.max_wall_ms)
 }
 
 fn insert(tx:&Transaction<'_>, binding:&Binding, intent:&StoredIntent) -> Result<(),String> {

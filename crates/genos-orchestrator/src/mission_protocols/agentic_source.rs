@@ -25,6 +25,7 @@ pub fn selected(path:&str) -> Result<(),String> {
     for part in Path::new(path).components() {
         let Component::Normal(name)=part else { return Err("AGENTIC_SOURCE_TRAVERSAL_REFUSED".into()); };
         let name=name.to_string_lossy().to_ascii_lowercase();
+        if name.ends_with(['.',' ']) { return Err("AGENTIC_AMBIGUOUS_SOURCE_COMPONENT_REFUSED".into()); }
         if name==".git" || name.starts_with(".genos") || name==".env" || name.starts_with(".env.") {
             return Err("AGENTIC_PRIVATE_SOURCE_REFUSED".into());
         }

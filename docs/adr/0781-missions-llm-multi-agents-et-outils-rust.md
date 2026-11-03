@@ -30,6 +30,11 @@ Les résultats d'outils sont corrélés aux appels et réellement inclus dans
 le dialogue suivant ; les sorties des prédécesseurs sont des données adressées,
 jamais des permissions nouvelles.
 
+Le dialogue visible projette les textes et artefacts des dépendances, tandis
+que le contexte appliqué garde leurs paquets de provenance complets. Le
+plafond temporel d'un tour est borné au temps ordinaire et au bail restants
+lors de sa création, puis persisté avec son échéance sans rallonge au rejeu.
+
 Les premiers outils installés sont `read_source`, `list_sources`,
 `write_artifact` et `read_artifact`. Les lectures de sources concernent le
 snapshot des documents explicitement sélectionnés à l'admission. Les artefacts

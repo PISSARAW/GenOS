@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 fn scratch_root() -> std::path::PathBuf {
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(".genos-neuro-glia-cli-{nonce}"))
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(".genos-neuro-glia-cli-{nonce}-{}", Uuid::new_v4()))
 }
 
 struct EventCall<'a> {

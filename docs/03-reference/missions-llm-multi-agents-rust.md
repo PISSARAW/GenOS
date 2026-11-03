@@ -18,8 +18,8 @@ Créer un workspace existant avec `notes.txt` et `agentic.json` :
 ```json
 {
   "schema": "genos.rust-agentic-config/v1",
-  "provider": {"kind":"ollama", "address":"127.0.0.1:11434", "model":"qwen2.5:0.5b", "generation":1},
-  "generation": {"max_output_tokens":256, "temperature_milli":0},
+  "provider": {"kind":"ollama", "address":"127.0.0.1:11434", "model":"qwen2.5:14b", "generation":1},
+  "generation": {"max_output_tokens":192, "temperature_milli":0},
   "agents": [
     {
       "id":"analyst",
@@ -40,9 +40,9 @@ Créer un workspace existant avec `notes.txt` et `agentic.json` :
   ],
   "documents":["notes.txt"],
   "contract":{"min_bytes":16,"max_bytes":8192,"required":["Sources","Limites"],"forbidden":[],"semantic_requirements":[]},
-  "limits":{"tokens":100000,"model_calls":10,"tool_calls":10,"wall_ms":170000},
-  "max_input_tokens":4096,
-  "turn_timeout_ms":30000
+  "limits":{"tokens":100000,"model_calls":12,"tool_calls":12,"wall_ms":170000},
+  "max_input_tokens":8192,
+  "turn_timeout_ms":120000
 }
 ```
 
@@ -51,7 +51,7 @@ configuration n'installe ni ne télécharge de modèle et ne garantit pas que
 celui-ci demandera les outils ou respectera le contrat.
 
 ```powershell
-cargo run -p genos-cli -- run "Rédige une note fidèle au document, avec ses limites." --executor rust --workspace-root D:/work/mission --mission-id 1a7e7870-368c-43f4-9a2e-d7dffcc60bec --agentic-config agentic.json
+cargo run -p genos-cli -- run "Rédige une note fidèle au document, avec ses limites." --executor rust --workspace-root D:/work/mission --mission-id 1a7e7870-368c-43f4-9a2e-d7dffcc60bec --timeout-ms 180000 --agentic-config agentic.json
 ```
 
 `--agentic-config` est incompatible avec `--llm-config` et
@@ -76,6 +76,11 @@ mission, des instructions admises et du catalogue de sources. Les sources
 ne sont pas ajoutées implicitement au texte : `read_source` fournit leurs
 octets admis. Les résultats d'outils antérieurs sont relus et corrélés avant
 de construire la requête HTTP suivante.
+
+Le modèle reçoit les textes et artefacts de ses dépendances sous une forme
+compacte. Les empreintes, reçus et identités de stockage complets restent
+dans le contexte appliqué et participent à sa validation ; leur retrait du
+dialogue visible ne retire aucune vérification de provenance.
 
 La requête effective lie fournisseur, génération, outils et schémas,
 messages, identifiants de corrélation et résultats. Les données reçues d'un
@@ -103,6 +108,10 @@ original et ne refait ni effet ni débit. Une coupe avant commit annule la
 transaction locale entière. Un texte ou un JSON généré dans la prose ne
 constitue pas un appel d'outil.
 
+La liste `tools` accorde des permissions ; elle n'oblige pas le modèle à
+utiliser chaque outil. Le rapport comptabilise les appels effectivement
+observés. Le contrat textuel ne certifie pas le respect de chaque consigne libre.
+
 Les documents et la configuration sont limités à 64 KiB par fichier, le
 bundle à 1 MiB et la sélection à 16 documents. Les métadonnées Git, GenOS et
 les fichiers d'environnement sont exclus. Les traversées, liens et
@@ -118,6 +127,12 @@ d'outils et temps observé. Une réserve protégée de 5 %, arrondie au supérie
 reste indisponible aux effets ordinaires. Les métriques viennent des reçus
 du fournisseur ; `max_input_tokens` est une exposition déclarée, sans
 tokenizer local garantissant une borne avant l'appel.
+
+`turn_timeout_ms` est un plafond par tour. À la création du contexte, la
+fenêtre retenue est le minimum de ce plafond, du temps encore disponible
+dans le quota ordinaire et du bail restant. Cette allocation et son échéance
+sont persistées : une reprise ne les recalcule pas et ne prolonge pas un
+appel. Une fenêtre devenue nulle bloque le nouveau tour.
 
 L'intention et l'exposition modèle précèdent HTTP. Un permis non duplicable
 et un CAS de dispatch empêchent le second envoi. Les réponses connues sont
@@ -136,8 +151,10 @@ KV cache ni poids du fournisseur. L'expiration ne crée aucune autorité.
 
 Le rapport `genos.rust-agentic-mission-result/v1` distingue `completed` et
 `unresolved`, avec agents terminés, candidat final, quotas et protocoles
-journalisés. Après admission, un arrêt laisse les observations et coûts
-durables et produit un rapport non complété ; le CLI retourne un code non nul.
+journalisés. Un arrêt géré sous un binding encore courant produit un rapport
+non complété et un code CLI non nul. Une expiration du binding, une violation
+d'intégrité ou une erreur du journal peut retourner une erreur sans rapport
+JSON ; les observations et coûts déjà persistés ne deviennent pas une complétion.
 
 Deux méthodes Rust installées du même hôte vérifient le contrat textuel.
 EVIDENCE revalide aussi les observations, contextes effectifs, réceptions,
@@ -153,4 +170,5 @@ Les obligations sémantiques sans méthode adéquate restent non résolues.
 
 Voir l'[ADR 0781](../adr/0781-missions-llm-multi-agents-et-outils-rust.md),
 les frontières des [outils](rust-agentique-outils.md),
-de la [preuve](rust-agentique-evidence.md) et de l'[échange](rust-agentique-exchange.md).
+de la [preuve](rust-agentique-evidence.md), de l'[échange](rust-agentique-exchange.md)
+et la [qualification avec modèle local](../06-qualite-preuves/missions-llm-multi-agents-rust-2026-11-03.md).

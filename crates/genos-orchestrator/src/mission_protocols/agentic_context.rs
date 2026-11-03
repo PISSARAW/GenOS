@@ -12,7 +12,7 @@ mod prompt;
 #[derive(Clone,Debug,Deserialize,Serialize,PartialEq,Eq)]
 pub struct AppliedContext {
     pub schema:String, pub binding_hash:String, pub key:StepKey, pub actor_id:String,
-    pub expires_ms:u64, pub input_hash:String, pub hash:String, pub payload:Value,
+    pub expires_ms:u64, pub max_wall_ms:u64, pub input_hash:String, pub hash:String, pub payload:Value,
 }
 
 pub fn prepare(store:&mut Store, binding:&Binding, key:&StepKey) -> Result<ToolInferenceRequest,String> {
@@ -27,11 +27,20 @@ fn install(tx:&rusqlite::Transaction<'_>, binding:&Binding, key:&StepKey) -> Res
     let spec=agentic_admission::admitted_in(tx,binding)?;
     let actor_id=agentic_ledger::require_actor_in(tx,binding,&key.agent_id)?;
     let payload=prompt::payload(tx,(binding,&spec),key)?;
-    let expires_ms=now_ms().checked_add(spec.config.turn_timeout_ms).ok_or("AGENTIC_CONTEXT_DEADLINE_OVERFLOW")?.min(binding.expires_ms);
+    let (max_wall_ms,expires_ms)=wall_window(tx,binding,spec.config.turn_timeout_ms)?;
     let mut context=AppliedContext { schema:"genos.rust-agentic-context/v1".into(),binding_hash:digest(binding)?,
-        key:key.clone(),actor_id,expires_ms,input_hash:digest(&payload)?,hash:String::new(),payload };
+        key:key.clone(),actor_id,expires_ms,max_wall_ms,input_hash:digest(&payload)?,hash:String::new(),payload };
     context.hash=context_hash(&context)?;
     persist(tx,binding,&context)
+}
+
+fn wall_window(connection:&Connection, binding:&Binding, maximum:u64) -> Result<(u64,u64),String> {
+    let now=now_ms();
+    let max_wall_ms=maximum.min(agentic_ledger::remaining_wall_in(connection,binding)?)
+        .min(binding.expires_ms.saturating_sub(now));
+    if max_wall_ms==0 { return Err("AGENTIC_CONTEXT_WALL_WINDOW_UNAVAILABLE".into()); }
+    let expires_ms=now.checked_add(max_wall_ms).ok_or("AGENTIC_CONTEXT_DEADLINE_OVERFLOW")?;
+    Ok((max_wall_ms,expires_ms))
 }
 
 fn persist(tx:&rusqlite::Transaction<'_>, binding:&Binding, context:&AppliedContext) -> Result<(),String> {

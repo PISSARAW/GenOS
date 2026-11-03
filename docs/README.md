@@ -15,6 +15,8 @@ de contrats runtime et d'une qualification distincte de ses métaphores biologiq
 
 ## Actualités documentaires
 
+- [Missions LLM multi-agents et outils Rust](03-reference/missions-llm-multi-agents-rust.md) — DAG admis, outils confinés, contextes consommés et effets CAS sous les sept protocoles ; [qualification du 3 novembre](06-qualite-preuves/missions-llm-multi-agents-rust-2026-11-03.md).
+
 - [Missions LLM natives Rust](03-reference/missions-llm-runtime-rust.md) — génération HTTP explicite sous les sept protocoles, contrat textuel vérifié et reprise sans nouvel appel ; [qualification du 3 novembre](06-qualite-preuves/missions-llm-runtime-rust-2026-11-03.md).
 
 - [Missions natives Rust et sept protocoles](03-reference/protocoles-missions-rust.md) — exécuteur `integer_sum` avec trois processus réels, publication CAS et reprise sans redispatch ; [qualification](06-qualite-preuves/protocoles-runtime-rust-2026-11-02.md).
