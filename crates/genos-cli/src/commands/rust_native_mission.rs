@@ -32,6 +32,7 @@ fn optional_integer<'de, D: serde::Deserializer<'de>>(value: D) -> Result<Option
 }
 
 pub fn execute(command: &RunCmd) -> Result<(), String> {
+    if command.agentic_config.is_some() { return super::rust_agentic_mission::execute(command); }
     if command.llm_config.is_some() { return super::rust_llm_mission::execute(command); }
     execute_integer(command)
 }

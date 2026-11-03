@@ -62,3 +62,4 @@ pub mod guard_flux;
 pub(crate) mod cli_authority;
 pub mod electric_quorum;
 pub mod neuro_glia_stream;
+pub mod rust_agentic_mission;

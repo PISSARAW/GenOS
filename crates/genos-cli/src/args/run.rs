@@ -27,6 +27,9 @@ pub struct RunCmd {
     /// Confined JSON configuration for a native Rust LLM text mission.
     #[arg(long, value_name = "PATH", conflicts_with = "native_objectives")]
     pub llm_config: Option<std::path::PathBuf>,
+    /// Confined configuration for native Rust LLM agents and installed tools.
+    #[arg(long, value_name = "PATH", conflicts_with_all = ["native_objectives", "llm_config"])]
+    pub agentic_config: Option<std::path::PathBuf>,
     /// Opt in to hashing read-only workspace files as worker evidence.
     #[arg(long, default_value_t = false)]
     pub read_only_workspace_evidence: bool,
