@@ -99,7 +99,7 @@ fn add_one(value:&mut u64, amount:u64, overflow:&mut bool) {
 
 fn checked_add(value:u64, amount:u64) -> Result<u64,String> { value.checked_add(amount).ok_or("AGENTIC_BUDGET_OVERFLOW".into()) }
 
-fn exceeds(state:&MissionState) -> bool {
+pub(super) fn exceeds(state:&MissionState) -> bool {
     state.spent.tokens>state.limits.tokens.saturating_sub(state.protected.tokens)
         || state.spent.model_calls>state.limits.model_calls.saturating_sub(state.protected.model_calls)
         || state.spent.tool_calls>state.limits.tool_calls.saturating_sub(state.protected.tool_calls)

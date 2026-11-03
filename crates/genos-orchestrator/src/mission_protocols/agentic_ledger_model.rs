@@ -7,12 +7,15 @@ use serde_json::json;
 use data::error;
 
 pub fn prepare_model(store:&mut Store, binding:&Binding, input:&ModelIntent<'_>) -> Result<ModelAdmission,String> {
-    store.transaction(binding,|tx| {
-        if let Some(status)=data::model_status(tx,binding,&input.key)? { return replay(tx,binding,(input,&status)); }
-        validate_request(tx,binding,(&input.key,input.request))?;
-        super::agents::eligible(tx,binding,&input.key)?;
-        prepare_fresh(tx,binding,input)
-    })
+    store.transaction(binding,|tx|prepare_model_in(tx,binding,input))
+}
+
+pub(crate) fn prepare_model_in(tx:&Transaction<'_>, binding:&Binding, input:&ModelIntent<'_>) -> Result<ModelAdmission,String> {
+    super::super::store::current_checked(tx,binding)?;
+    if let Some(status)=data::model_status(tx,binding,&input.key)? { return replay(tx,binding,(input,&status)); }
+    validate_request(tx,binding,(&input.key,input.request))?;
+    super::agents::eligible(tx,binding,&input.key)?;
+    prepare_fresh(tx,binding,input)
 }
 
 fn prepare_fresh(tx:&Transaction<'_>, binding:&Binding, input:&ModelIntent<'_>) -> Result<ModelAdmission,String> {
@@ -74,6 +77,7 @@ fn claim(tx:&Transaction<'_>, binding:&Binding, input:&ModelDispatch<'_>) -> Res
     claim_row(tx,binding,&stored.key)?;
     Ok(stored)
 }
+
 
 fn claim_row(tx:&Transaction<'_>, binding:&Binding, key:&StepKey) -> Result<(),String> {
     let changed=tx.execute("UPDATE agentic_models SET status='dispatching' WHERE run_id=?1 AND agent_id=?2 AND turn=?3 AND status='intent'",

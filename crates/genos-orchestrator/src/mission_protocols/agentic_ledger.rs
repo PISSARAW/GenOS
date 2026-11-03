@@ -19,9 +19,12 @@ mod agents;
 #[path="agentic_ledger_tools.rs"]
 mod tools;
 
+
 pub use types::{StepKey,Amounts,MissionState,ModelIntent,ModelPermit,ModelAdmission,ModelDispatch,DispatchError,
     ModelRecord,CompletedAgent,AgentCompletion,ToolIntent,ToolAdmission,ToolCost};
 pub use model::{prepare_model,dispatch_model};
+pub(crate) use model::prepare_model_in;
+pub(crate) use types::{DispatchCapacity,ModelIntentScope};
 pub use records::model_record_in;
 pub use agents::{complete_agent,completed_in};
 pub use tools::tool_request_hash;
@@ -48,10 +51,35 @@ pub(crate) fn state_in(connection:&Connection, binding:&Binding) -> Result<Missi
 }
 
 pub(crate) fn remaining_wall_in(connection:&Connection, binding:&Binding) -> Result<u64,String> {
+    Ok(dispatch_capacity_in(connection,binding)?.wall_ms)
+}
+
+pub(crate) fn dispatch_capacity_in(connection:&Connection, binding:&Binding) -> Result<DispatchCapacity,String> {
     let state=state_in(connection,binding)?;
     budget::available(&state,&Amounts::default())?;
-    Ok(state.limits.wall_ms.saturating_sub(state.protected.wall_ms)
-        .saturating_sub(state.spent.wall_ms).saturating_sub(state.held.wall_ms))
+    if budget::exceeds(&state) { return Err("AGENTIC_BUDGET_DEBT".into()); }
+    Ok(DispatchCapacity {
+        wall_ms:state.limits.wall_ms.saturating_sub(state.protected.wall_ms).saturating_sub(state.spent.wall_ms).saturating_sub(state.held.wall_ms),
+        tokens:state.limits.tokens.saturating_sub(state.protected.tokens).saturating_sub(state.spent.tokens).saturating_sub(state.held.tokens),
+        model_calls:state.limits.model_calls.saturating_sub(state.protected.model_calls).saturating_sub(state.spent.model_calls).saturating_sub(state.held.model_calls),
+    })
+}
+
+pub(crate) fn intent_scope_in(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<ModelIntentScope,String> {
+    super::store::current_checked(connection,binding)?;
+    let intent=records::intent(connection,binding,key)?;
+    let status=data::model_status(connection,binding,key)?.ok_or("AGENTIC_MODEL_INTENT_REQUIRED")?;
+    Ok(ModelIntentScope { key:intent.key,binding_hash:intent.binding_hash,request_hash:intent.request_hash,
+        max_wall_ms:intent.max_wall_ms,status })
+}
+
+pub fn known_model(store:&mut Store, binding:&Binding, key:&StepKey) -> Result<Option<ModelRecord>,String> {
+    store.transaction(binding,|tx| {
+        require_actor_in(tx,binding,&key.agent_id)?;
+        let Some(status)=data::model_status(tx,binding,key)? else { return Ok(None); };
+        if status!="observed" { return Err(format!("AGENTIC_MODEL_NOT_SETTLED: {status}")); }
+        model_record_in(tx,binding,key).map(Some)
+    })
 }
 
 pub fn model_record(store:&mut Store, binding:&Binding, key:&StepKey) -> Result<ModelRecord,String> {

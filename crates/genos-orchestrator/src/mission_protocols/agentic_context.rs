@@ -15,19 +15,25 @@ pub struct AppliedContext {
     pub expires_ms:u64, pub max_wall_ms:u64, pub input_hash:String, pub hash:String, pub payload:Value,
 }
 
+pub(crate) struct ContextRequest<'a> { pub key:&'a StepKey, pub max_wall_ms:u64 }
+
 pub fn prepare(store:&mut Store, binding:&Binding, key:&StepKey) -> Result<ToolInferenceRequest,String> {
-    store.transaction(binding,|tx| {
-        ensure(tx)?;
-        if load(tx,binding,key)?.is_none() { install(tx,binding,key)?; }
-        request_in(tx,binding,key)
-    })
+    store.transaction(binding,|tx|prepare_bounded_in(tx,binding,&ContextRequest { key,max_wall_ms:u64::MAX }))
 }
 
-fn install(tx:&rusqlite::Transaction<'_>, binding:&Binding, key:&StepKey) -> Result<(),String> {
+pub(crate) fn prepare_bounded_in(tx:&rusqlite::Transaction<'_>, binding:&Binding, input:&ContextRequest<'_>) -> Result<ToolInferenceRequest,String> {
+    super::store::current_checked(tx,binding)?;
+    ensure(tx)?;
+    if load(tx,binding,input.key)?.is_none() { install(tx,binding,input)?; }
+    request_in(tx,binding,input.key)
+}
+
+fn install(tx:&rusqlite::Transaction<'_>, binding:&Binding, input:&ContextRequest<'_>) -> Result<(),String> {
+    let key=input.key;
     let spec=agentic_admission::admitted_in(tx,binding)?;
     let actor_id=agentic_ledger::require_actor_in(tx,binding,&key.agent_id)?;
     let payload=prompt::payload(tx,(binding,&spec),key)?;
-    let (max_wall_ms,expires_ms)=wall_window(tx,binding,spec.config.turn_timeout_ms)?;
+    let (max_wall_ms,expires_ms)=wall_window(tx,binding,spec.config.turn_timeout_ms.min(input.max_wall_ms))?;
     let mut context=AppliedContext { schema:"genos.rust-agentic-context/v1".into(),binding_hash:digest(binding)?,
         key:key.clone(),actor_id,expires_ms,max_wall_ms,input_hash:digest(&payload)?,hash:String::new(),payload };
     context.hash=context_hash(&context)?;

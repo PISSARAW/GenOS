@@ -14,6 +14,14 @@ impl StepKey {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Amounts { pub tokens:u64, pub model_calls:u64, pub tool_calls:u64, pub wall_ms:u64 }
 
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub(crate) struct DispatchCapacity { pub wall_ms:u64, pub tokens:u64, pub model_calls:u64 }
+
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub(crate) struct ModelIntentScope {
+    pub key:StepKey, pub binding_hash:String, pub request_hash:String, pub max_wall_ms:u64, pub status:String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MissionState {
     pub limits:AgenticLimits, pub protected:Amounts, pub spent:Amounts, pub held:Amounts,
