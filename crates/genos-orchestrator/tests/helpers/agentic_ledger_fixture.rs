@@ -29,10 +29,16 @@ pub fn unprepared() -> Pending {
 }
 
 pub fn with_timing(timing:(u64,u64)) -> Pending {
+    with_config(move |mut config| {
+        config["limits"]["wall_ms"]=timing.0.into();config["turn_timeout_ms"]=timing.1.into();config
+    })
+}
+
+pub fn with_config(change:impl FnOnce(Value)->Value) -> Pending {
     let listener=TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(false).unwrap();
     let directory=TempDir::new().unwrap();
-    write_sources(&directory,&listener,timing);
+    write_sources(&directory,&listener,change);
     let source=agentic_source::read(directory.path(),"agentic.json").unwrap();
     let spec=source.specification(llm_source::MissionIdentity { mission_id:uuid::Uuid::new_v4().to_string(),
         workspace:directory.path().into(),mission:"Produce a documented note with explicit limits".into(),
@@ -53,7 +59,7 @@ fn environment() -> String {
     HASH.get_or_init(||raw_hash(&std::fs::read(std::env::current_exe().unwrap()).unwrap())).clone()
 }
 
-fn write_sources(directory:&TempDir, listener:&TcpListener, timing:(u64,u64)) {
+fn write_sources(directory:&TempDir, listener:&TcpListener, change:impl FnOnce(Value)->Value) {
     std::fs::write(directory.path().join("notes.txt"),"A successful transport is not proof of semantic truth.").unwrap();
     let config=json!({"schema":"genos.rust-agentic-config/v1",
         "provider":{"kind":"ollama","address":listener.local_addr().unwrap(),"model":"fixture-agentic","generation":1},
@@ -63,9 +69,9 @@ fn write_sources(directory:&TempDir, listener:&TcpListener, timing:(u64,u64)) {
             {"id":"author","instruction":"Consume the reader output and write a note","depends_on":["reader"],
                 "tools":["read_artifact","write_artifact"],"artifact_names":["draft"],"max_turns":3}],
         "contract":{"min_bytes":1,"max_bytes":16384,"required":["Sources","Limites"],"forbidden":[],"semantic_requirements":[]},
-        "limits":{"tokens":50000,"model_calls":10,"tool_calls":10,"wall_ms":timing.0},
-        "max_input_tokens":2048,"turn_timeout_ms":timing.1});
-    std::fs::write(directory.path().join("agentic.json"),serde_json::to_vec(&config).unwrap()).unwrap();
+        "limits":{"tokens":50000,"model_calls":10,"tool_calls":10,"wall_ms":120000},
+        "max_input_tokens":2048,"turn_timeout_ms":20000});
+    std::fs::write(directory.path().join("agentic.json"),serde_json::to_vec(&change(config)).unwrap()).unwrap();
 }
 
 impl Pending {
@@ -143,7 +149,7 @@ fn serve(listener:&TcpListener, input:(&[u8],bool,u64), counter:&AtomicUsize) ->
     stream.write_all(input.0).map_err(error)
 }
 
-fn accept(listener:&TcpListener) -> Result<TcpStream,String> {
+pub fn accept(listener:&TcpListener) -> Result<TcpStream,String> {
     listener.set_nonblocking(true).map_err(error)?;
     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(5);
     loop {
@@ -157,7 +163,7 @@ fn accept(listener:&TcpListener) -> Result<TcpStream,String> {
     }
 }
 
-fn read_request(stream:&mut TcpStream) -> Result<(),String> {
+pub fn read_request(stream:&mut TcpStream) -> Result<(),String> {
     let mut bytes=Vec::new();
     loop {
         let mut buffer=[0;4096];

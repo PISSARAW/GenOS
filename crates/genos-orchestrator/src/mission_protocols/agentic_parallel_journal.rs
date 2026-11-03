@@ -93,4 +93,6 @@ fn observed_keys(connection:&Connection,binding:&Binding)->Result<HashSet<String
 }
 
 #[cfg(test)]
+#[path="agentic_parallel_journal_fixture.rs"] mod fixture;
+#[cfg(test)]
 #[path="agentic_parallel_journal_tests.rs"] mod tests;

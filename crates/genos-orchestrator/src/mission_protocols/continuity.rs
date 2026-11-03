@@ -116,7 +116,8 @@ fn settled_effects(tx: &Transaction<'_>, binding: &Binding) -> Result<(), String
 fn agentic_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {
     if table_exists(tx,"agentic_pools")? { agentic_pool_settled(tx,binding)?; }
     for (table,predicate) in [("agentic_models","status IN ('intent','dispatching','unknown')"),
-        ("agentic_tools","status!='completed'")] {
+        ("agentic_tools","status!='completed'"),
+        ("protocol_agentic_parallel_waves","status!='joined'")] {
         if !table_exists(tx,table)? { continue; }
         let query=format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE run_id=?1 AND ({predicate}))");
         let pending:bool=tx.query_row(&query,[&binding.run_id],|row|row.get(0)).map_err(|error|error.to_string())?;

@@ -102,3 +102,6 @@ fn join_all(handles:Vec<std::thread::ScopedJoinHandle<'_,Result<(),String>>>,fai
     }
 }
 
+#[cfg(test)]
+#[path="agentic_parallel_join_tests.rs"]
+mod tests;

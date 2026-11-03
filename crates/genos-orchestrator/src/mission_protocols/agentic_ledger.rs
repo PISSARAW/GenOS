@@ -19,6 +19,9 @@ mod agents;
 #[path="agentic_ledger_tools.rs"]
 mod tools;
 
+#[cfg(test)]
+#[path="agentic_ledger_parallel_tests.rs"]
+mod parallel_tests;
 
 pub use types::{StepKey,Amounts,MissionState,ModelIntent,ModelPermit,ModelAdmission,ModelDispatch,DispatchError,
     ModelRecord,CompletedAgent,AgentCompletion,ToolIntent,ToolAdmission,ToolCost};
