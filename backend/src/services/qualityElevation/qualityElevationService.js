@@ -84,7 +84,8 @@ async function produce(context) {
   }
   if (context.contract.profile === 'screenplay' && context.input.planScenes !== false) return constructScreenplay(context);
   const prior = context.session.versions[context.session.bestVersionIndex];
-  const prompt = prior ? buildRepairPrompt(context.contract.mission, prior, { repairPlan: context.repairPlan }) : context.contract.mission;
+  const prompt = prior || context.repairPlan.obligations.length
+    ? buildRepairPrompt(context.contract.mission, prior, { repairPlan: context.repairPlan }) : context.contract.mission;
   const content = await context.invoke(context.generator, { operation: 'generate', stage: 'draft', iteration: context.iteration, prompt, repairPrompt: prompt });
   if (typeof content !== 'string') throw fail('GQEL_ARTIFACT_INVALID', 'Generator must return deliverable text.');
   return { content, construction: null };
@@ -167,7 +168,14 @@ async function executeElevationLoop(driverOrInput, options = {}) {
   const session = input.session || createElevationSession(contract);
   assertFreshSession(session, contract);
   const context = { input, contract, session, generator: input.generator, construction: null, repairPlan: buildRepairPlan(null), invoke: createInvoker(contract, session) };
-  try { context.reviewers = selectReviewers(input, contract); await initializeReviews(context); await runRounds(context); }
+  try {
+    const repair = require('./qualityRepairObligations').repairPlan(input.repairObligations, contract);
+    if (repair) {
+      context.repairPlan = repair;
+      await checkpoint(context, { type: 'REPAIR_OBLIGATIONS_ACCEPTED', repairPlan: repair });
+    }
+    context.reviewers = selectReviewers(input, contract); await initializeReviews(context); await runRounds(context);
+  }
   catch (error) {
     session.status = 'needs_review'; session.terminalError = { code: error.code || 'GQEL_EXECUTION_FAILED', message: error.message };
     session.events.push({ type: 'STOPPED_WITHOUT_PROMOTION', ...session.terminalError });

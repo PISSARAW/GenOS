@@ -4,6 +4,7 @@ const accessMatrix = require('../capabilityAccessMatrix');
 const capabilityGraph = require('../capabilityGraphService');
 const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
+const publication = require('./conceptPublication');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
 const implementationContracts = require('../implementationContractRouter');
@@ -155,7 +156,8 @@ function resolveConceptReference(reference, topology, context) {
 function resolveConceptReferences(references, topology, capabilities = capabilityCatalog()) {
   const list = Array.isArray(references) ? references : (references ? [references] : []);
   const context = { capabilities, lookup: createLookup(normalize) };
-  return list.map((reference) => resolveConceptReference(reference, topology, context));
+  return list.map((reference) => publication.resolvePublished(reference,
+    value => resolveConceptReference(value, topology, context)));
 }
 
 function coverageReport(capabilities = capabilityCatalog()) {
@@ -278,7 +280,7 @@ function conceptCatalog(capabilities = capabilityCatalog()) {
     id, domain: 'central_chain', state: 'ready', executable: false, source: 'central_chain_runtime',
     access: 'contract', service
   }));
-  return documented.concat(philosophical, graph, workers, lifecycle, interfaces, chain, registered);
+  return documented.concat(philosophical, graph, workers, lifecycle, interfaces, chain, registered).map(publication.publish);
 }
 
 function resolveMission(input = {}) {

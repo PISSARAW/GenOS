@@ -42,7 +42,8 @@ async function runWorkerQuality(input) {
   const generator = input.generator || createAdapter(ctx, config.generatorModel || input.generationContext.workerModel);
   const result = await executeElevationLoop({ contract, generator, reviewers,
     planScenes: input.planScenes ?? config.planScenes, initialContent: input.initialContent,
-    verifier: input.verifier, onCheckpoint: session => checkpoint(ctx, session) });
+    verifier: input.verifier, repairObligations: input.mission.qualityRepair,
+    onCheckpoint: session => checkpoint(ctx, session) });
   try { await persistSession(ctx, result.session); }
   catch (error) { throw qualityFailure(result, error); }
   return { ...result, qualityFeedback: feedback(result), nativeUsage: ctx.usage };
