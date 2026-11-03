@@ -19,32 +19,39 @@ fn effect_key(binding: &Binding, operation: &str) -> Result<String, String> {
 impl Store {
     pub fn begin_effect(&mut self, binding: &Binding, input: (&str, &Value)) -> Result<EffectAdmission, String> {
         ensure_schema(&self.connection)?;
-        let (operation, request) = input;
-        let key = effect_key(binding, operation)?;
-        let request_digest = digest(request)?;
-        self.transaction(binding, |tx| {
-            fence(tx, binding)?;
-            if let Some(result) = prior_effect(tx, (&key, &request_digest))? { return Ok(result); }
-            insert_intent(tx, (binding, &key, &request_digest))?;
-            Store::event(tx, binding, Event { protocol: "CONTINUITY".into(), phase: "EFFECT_INTENT".into(),
-                payload: json!({"operation":operation,"effect_key":key,"request_digest":request_digest}) })?;
-            Ok(EffectAdmission::Start)
-        })
+        self.transaction(binding, |tx| begin_in(tx, binding, input))
     }
 
     pub fn complete_effect(&mut self, binding: &Binding, input: (&str, &Value)) -> Result<(), String> {
         ensure_schema(&self.connection)?;
-        let (operation, result) = input;
-        let key = effect_key(binding, operation)?;
         self.transaction(binding, |tx| {
             fence(tx, binding)?;
-            let changed = finish_intent(tx, (binding, &key, result))?;
-            if changed != 1 { return Err("CONTINUITY effect completion ownership/state conflict".into()); }
-            Store::event(tx, binding, Event { protocol: "CONTINUITY".into(), phase: "EFFECT_COMPLETED".into(),
-                payload: json!({"operation":operation,"effect_key":key,"result_digest":digest(result)?}) })?;
-            Ok(())
+            complete_in(tx, binding, input)
         })
     }
+}
+
+pub(crate) fn begin_in(tx: &Transaction<'_>, binding: &Binding, input: (&str, &Value)) -> Result<EffectAdmission, String> {
+    ensure_schema(tx)?;
+    fence(tx, binding)?;
+    let (operation, request) = input;
+    let key = effect_key(binding, operation)?;
+    let request_digest = digest(request)?;
+    if let Some(result) = prior_effect(tx, (&key, &request_digest))? { return Ok(result); }
+    insert_intent(tx, (binding, &key, &request_digest))?;
+    Store::event(tx, binding, Event { protocol: "CONTINUITY", phase: "EFFECT_INTENT",
+        payload: json!({"operation":operation,"effect_key":key,"request_digest":request_digest}) })?;
+    Ok(EffectAdmission::Start)
+}
+
+pub(crate) fn complete_in(tx: &Transaction<'_>, binding: &Binding, input: (&str, &Value)) -> Result<(), String> {
+    ensure_schema(tx)?;
+    let (operation, result) = input;
+    let key = effect_key(binding, operation)?;
+    let changed = finish_intent(tx, (binding, &key, result))?;
+    if changed != 1 { return Err("CONTINUITY effect completion ownership/state conflict".into()); }
+    Store::event(tx, binding, Event { protocol: "CONTINUITY", phase: "EFFECT_COMPLETED",
+        payload: json!({"operation":operation,"effect_key":key,"result_digest":digest(result)?}) })
 }
 
 fn insert_intent(tx: &Transaction<'_>, input: (&Binding, &str, &str)) -> Result<(), String> {
