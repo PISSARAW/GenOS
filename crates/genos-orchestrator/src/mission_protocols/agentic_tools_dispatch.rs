@@ -24,10 +24,16 @@ pub(super) fn run(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&Tool
         "read_source"=>read_source(&spec,&input.1.arguments),
         "list_sources"=>list_sources(&spec,&input.1.arguments),
         "write_artifact"=>return write(tx,binding,(&input.0.key.agent_id,&input.1.arguments)),
-        "read_artifact"=>return read(tx,binding,(&input.0.key.agent_id,&input.1.arguments)),
+        "read_artifact"=>return read(tx,binding,(&input.0.key,&input.1.arguments)),
+        "delegate_task"=>return delegate(tx,binding,input),
         _=>denied(&input.1.name,"AGENTIC_TOOL_NOT_INSTALLED"),
     };
     Ok(outcome)
+}
+
+fn delegate(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&ToolCall))->Result<Outcome,String> {
+    let output=super::super::agentic_delegation::delegate_in(tx,binding,input)?;
+    Ok(Outcome { output,objects:vec![],artifact:None })
 }
 
 fn read_source(spec:&super::super::agentic_spec::AgenticSpec,args:&Value)->Outcome {
@@ -55,16 +61,23 @@ fn write(tx:&Transaction<'_>,binding:&Binding,input:(&str,&Value))->Result<Outco
     artifacts::create(tx,binding,(input.0,&args.name,&args.text))
 }
 
-fn read(tx:&Transaction<'_>,binding:&Binding,input:(&str,&Value))->Result<Outcome,String> {
+fn read(tx:&Transaction<'_>,binding:&Binding,input:(&super::super::agentic_ledger::StepKey,&Value))->Result<Outcome,String> {
     let Ok(args)=serde_json::from_value::<ReadArtifact>(input.1.clone()) else { return Ok(denied("read_artifact","AGENTIC_TOOL_ARGUMENTS_INVALID")); };
     let spec=super::super::agentic_admission::admitted_in(tx,binding)?;
-    let agent=spec.agent(input.0)?;
+    let agent=spec.agent(&input.0.agent_id)?;
     if !super::super::agentic_spec::valid_name(&args.name) { return Ok(denied("read_artifact","AGENTIC_ARTIFACT_NOT_GRANTED")); }
-    if args.agent_id==input.0 { return read_own(tx,binding,(&args.agent_id,&args.name)); }
-    if !agent.depends_on.contains(&args.agent_id) { return Ok(denied("read_artifact","AGENTIC_ARTIFACT_NOT_GRANTED")); }
-    match super::super::agentic_exchange::received_artifact_in(tx,binding,(input.0,&args.agent_id,&args.name))? {
+    if args.agent_id==input.0.agent_id { return read_own(tx,binding,(&args.agent_id,&args.name)); }
+    if !agent.depends_on.contains(&args.agent_id) { return read_delegated(tx,binding,(input.0,&args)); }
+    match super::super::agentic_exchange::received_artifact_in(tx,binding,(&input.0.agent_id,&args.agent_id,&args.name))? {
         Some(artifact)=>read_output("read_artifact",artifact),
         None=>Ok(denied("read_artifact","AGENTIC_ARTIFACT_NOT_FOUND")),
+    }
+}
+
+fn read_delegated(tx:&Transaction<'_>,binding:&Binding,input:(&super::super::agentic_ledger::StepKey,&ReadArtifact))->Result<Outcome,String> {
+    match super::super::agentic_delegation_exchange::received_artifact_in(tx,binding,(input.0,&input.1.agent_id,&input.1.name))? {
+        Some(artifact)=>read_output("read_artifact",artifact),
+        None=>Ok(denied("read_artifact","AGENTIC_ARTIFACT_NOT_GRANTED")),
     }
 }
 
