@@ -8,6 +8,10 @@ use serde::Serialize;
 use serde_json::json;
 use std::path::PathBuf;
 
+#[path="agentic_parallel.rs"]
+mod parallel;
+pub use parallel::Metrics as ParallelMetrics;
+
 pub struct NativeAgenticRequest { pub spec:AgenticSpec, pub executable:PathBuf, pub database:PathBuf }
 
 #[derive(Serialize)]
@@ -21,9 +25,13 @@ pub struct NativeAgenticReport {
     pub contract_verdicts:Vec<super::llm_contract::ContractVerdict>, pub artifact_contract_verified:bool,
     pub semantic_truth_verified:bool, pub promotable:bool, pub external_effects_authorized:bool,
     pub replayed:bool, pub protocols:Vec<String>, pub error:Option<String>,
+    pub max_parallel_agents:u32, pub parallelism:ParallelMetrics,
 }
 
-struct Session { store:Store, binding:Binding, spec:AgenticSpec, source:agentic_source::SourceBundle, replayed:bool }
+struct Session {
+    store:Store, binding:Binding, spec:AgenticSpec, source:agentic_source::SourceBundle,
+    database:PathBuf, replayed:bool, parallel_metrics:ParallelMetrics,
+}
 
 pub fn run(request:NativeAgenticRequest) -> Result<NativeAgenticReport,String> {
     let mut session=Session::open(request)?;
@@ -45,7 +53,8 @@ impl Session {
         let binding=match previous { Some(binding)=>binding,None=>store.admit_agentic(&request.spec)? };
         if binding.request_hash!=digest(&request.spec)? { return Err("AGENTIC_REQUEST_OR_SOURCE_CHANGED".into()); }
         store.current(&binding)?;
-        Ok(Self { store,binding,spec:request.spec,source,replayed })
+        Ok(Self { store,binding,spec:request.spec,source,database:request.database,replayed,
+            parallel_metrics:ParallelMetrics::default() })
     }
 
     fn execute(&mut self) -> Result<NativeAgenticReport,String> {
@@ -59,6 +68,7 @@ impl Session {
     }
 
     fn graph(&mut self) -> Result<(),String> {
+        if self.spec.config.max_parallel_agents>1 { return parallel::run(self); }
         for agent in self.spec.config.agents.clone() { self.agent(&agent)?; }
         Ok(())
     }
@@ -88,8 +98,7 @@ impl Session {
         for turn in 0..agent.max_turns {
             let key=StepKey { agent_id:agent.id.clone(),turn };
             let record=self.model(&key)?;
-            if !record.usage_known { return Err("AGENTIC_MODEL_USAGE_UNKNOWN: exposure retained and tools blocked".into()); }
-            if self.accept_turn(&record)? { return Ok(()); }
+            if consume_turn(&mut self.store,&self.binding,&record)? { return Ok(()); }
         }
         Err("AGENTIC_TURN_LIMIT_EXHAUSTED_WITHOUT_COMPLETION".into())
     }
@@ -108,21 +117,6 @@ impl Session {
         }
     }
 
-    fn accept_turn(&mut self, record:&ModelRecord) -> Result<bool,String> {
-        match record.finish {
-            Finish::ToolRequested=> { agentic_tools::execute(&mut self.store,&self.binding,&record.key)?; Ok(false) },
-            Finish::Complete=>self.complete_agent(record),
-            _=>Err("AGENTIC_MODEL_TERMINATION_UNRESOLVED".into()),
-        }
-    }
-
-    fn complete_agent(&mut self, record:&ModelRecord) -> Result<bool,String> {
-        agentic_ledger::complete_agent(&mut self.store,&self.binding,&AgentCompletion {
-            agent_id:record.key.agent_id.clone(),last_turn:record.key.turn,text:record.text.clone(),
-            observation_hash:record.observation_hash.clone() })?;
-        Ok(true)
-    }
-
     fn report(&mut self, publication:Option<agentic_exchange::Publication>, reason:Option<String>) -> Result<NativeAgenticReport,String> {
         let agents=self.completed()?;
         let text=self.final_candidate()?;
@@ -134,7 +128,8 @@ impl Session {
             completion_scope:"artifact_contract",binding:self.binding.clone(),agents,artifact:Artifact {
                 hash:raw_hash(text.as_bytes()),origin:if text.is_empty() { "unavailable" } else { "model_generated" },text },
             publication,usage,contract_verdicts:verdicts,artifact_contract_verified:verified,semantic_truth_verified:false,
-            promotable:false,external_effects_authorized:false,replayed:self.replayed,protocols,error:reason })
+            promotable:false,external_effects_authorized:false,replayed:self.replayed,protocols,error:reason,
+            max_parallel_agents:self.spec.config.max_parallel_agents,parallelism:self.parallel_metrics.clone() })
     }
 
     fn completed(&mut self) -> Result<Vec<CompletedAgent>,String> {
@@ -164,6 +159,20 @@ impl Session {
             Store::event(tx,&self.binding,Event { protocol:"RUNTIME",phase:"AGENTIC_STOPPED_WITHOUT_COMPLETION",
                 payload:json!({"reason":reason,"consumption_refunded":false,"unknown_exposure_retained":true}) })
         })
+    }
+}
+
+pub(super) fn consume_turn(store:&mut Store, binding:&Binding, record:&ModelRecord) -> Result<bool,String> {
+    if !record.usage_known { return Err("AGENTIC_MODEL_USAGE_UNKNOWN: exposure retained and tools blocked".into()); }
+    match record.finish {
+        Finish::ToolRequested=> { agentic_tools::execute(store,binding,&record.key)?; Ok(false) },
+        Finish::Complete=> {
+            agentic_ledger::complete_agent(store,binding,&AgentCompletion {
+                agent_id:record.key.agent_id.clone(),last_turn:record.key.turn,text:record.text.clone(),
+                observation_hash:record.observation_hash.clone() })?;
+            Ok(true)
+        },
+        _=>Err("AGENTIC_MODEL_TERMINATION_UNRESOLVED".into()),
     }
 }
 
