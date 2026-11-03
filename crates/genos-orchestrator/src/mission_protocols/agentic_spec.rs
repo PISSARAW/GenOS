@@ -43,6 +43,8 @@ pub struct AgentConfig {
 #[serde(deny_unknown_fields)]
 pub struct AgenticConfig {
     pub schema:String,
+    #[serde(default="sequential_parallelism")]
+    pub max_parallel_agents:u32,
     pub provider:ProviderConfig,
     pub generation:Generation,
     pub agents:Vec<AgentConfig>,
@@ -53,6 +55,8 @@ pub struct AgenticConfig {
     pub max_input_tokens:u64,
     pub turn_timeout_ms:u64,
 }
+
+fn sequential_parallelism() -> u32 { 1 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

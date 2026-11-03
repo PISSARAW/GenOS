@@ -18,11 +18,10 @@ pub(super) fn eligible(connection:&Connection, binding:&Binding, key:&StepKey) -
 
 fn predecessors(connection:&Connection, binding:&Binding, input:(&AgenticSpec,&str)) -> Result<(),String> {
     let (spec,id)=input;
-    for agent in &spec.config.agents {
-        if agent.id==id { return Ok(()); }
-        if completed_in(connection,binding,&agent.id)?.is_none() { return Err("AGENTIC_PREDECESSOR_NOT_COMPLETED".into()); }
+    for dependency in &spec.agent(id)?.depends_on {
+        if completed_in(connection,binding,dependency)?.is_none() { return Err("AGENTIC_PREDECESSOR_NOT_COMPLETED".into()); }
     }
-    Err("AGENTIC_AGENT_NOT_ADMITTED".into())
+    Ok(())
 }
 
 fn previous_turn(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<(),String> {

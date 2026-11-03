@@ -57,9 +57,17 @@ pub(super) fn configuration(config:&AgenticConfig) -> Result<(),String> {
     genos_api::native_inference::validate_provider(&config.provider)?;
     config.generation.validate()?;
     config.contract.validate()?;
+    parallelism(config)?;
     graph(&config.agents)?;
     documents(&config.documents)?;
     budgets(config)
+}
+
+fn parallelism(config:&AgenticConfig) -> Result<(),String> {
+    if !(1..=4).contains(&config.max_parallel_agents) || config.max_parallel_agents as usize>config.agents.len() {
+        return Err("AGENTIC_PARALLELISM_LIMIT_INVALID".into());
+    }
+    Ok(())
 }
 
 fn documents(paths:&[String]) -> Result<(),String> {
