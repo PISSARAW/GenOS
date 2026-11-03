@@ -10,13 +10,13 @@ pub const POLICY: &[u8] = b"genos.rust.agentic/v1:explicit-dag:provider-tool-cal
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all="snake_case")]
-pub enum ToolKind { ReadSource, ListSources, WriteArtifact, ReadArtifact }
+pub enum ToolKind { ReadSource, ListSources, WriteArtifact, ReadArtifact, DelegateTask }
 
 impl ToolKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::ReadSource=>"read_source", Self::ListSources=>"list_sources",
-            Self::WriteArtifact=>"write_artifact", Self::ReadArtifact=>"read_artifact",
+            Self::WriteArtifact=>"write_artifact", Self::ReadArtifact=>"read_artifact", Self::DelegateTask=>"delegate_task",
         }
     }
 }
@@ -41,10 +41,16 @@ pub struct AgentConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct OrchestrationConfig { pub coordinator:String, pub max_delegations:u32 }
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct AgenticConfig {
     pub schema:String,
     #[serde(default="sequential_parallelism")]
     pub max_parallel_agents:u32,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub orchestration:Option<OrchestrationConfig>,
     pub provider:ProviderConfig,
     pub generation:Generation,
     pub agents:Vec<AgentConfig>,

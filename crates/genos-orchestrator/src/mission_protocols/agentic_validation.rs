@@ -58,7 +58,7 @@ pub(super) fn configuration(config:&AgenticConfig) -> Result<(),String> {
     config.generation.validate()?;
     config.contract.validate()?;
     parallelism(config)?;
-    graph(&config.agents)?;
+    topology(config)?;
     documents(&config.documents)?;
     budgets(config)
 }
@@ -66,6 +66,43 @@ pub(super) fn configuration(config:&AgenticConfig) -> Result<(),String> {
 fn parallelism(config:&AgenticConfig) -> Result<(),String> {
     if !(1..=4).contains(&config.max_parallel_agents) || config.max_parallel_agents as usize>config.agents.len() {
         return Err("AGENTIC_PARALLELISM_LIMIT_INVALID".into());
+    }
+    Ok(())
+}
+
+fn topology(config:&AgenticConfig) -> Result<(),String> {
+    if let Some(orchestration)=&config.orchestration { return orchestration_graph(config,orchestration); }
+    if config.agents.iter().any(|agent|agent.tools.contains(&ToolKind::DelegateTask)) {
+        return Err("AGENTIC_DELEGATION_PROFILE_REQUIRED".into());
+    }
+    graph(&config.agents)
+}
+
+fn orchestration_graph(config:&AgenticConfig, mode:&super::OrchestrationConfig) -> Result<(),String> {
+    orchestration_limits(config,mode)?;
+    let mut ids=BTreeSet::new();
+    for agent in &config.agents {
+        agent_valid(agent)?;
+        if !ids.insert(&agent.id) || !agent.depends_on.is_empty() {
+            return Err("AGENTIC_ORCHESTRATION_GRAPH_INVALID".into());
+        }
+        delegation_grant(agent,&mode.coordinator)?;
+    }
+    Ok(())
+}
+
+fn orchestration_limits(config:&AgenticConfig, mode:&super::OrchestrationConfig) -> Result<(),String> {
+    let coordinator=config.agents.last().ok_or("AGENTIC_COORDINATOR_REQUIRED")?;
+    if config.max_parallel_agents<2 || coordinator.id!=mode.coordinator
+        || mode.max_delegations==0 || mode.max_delegations as usize>=config.agents.len() {
+        return Err("AGENTIC_ORCHESTRATION_LIMIT_INVALID".into());
+    }
+    Ok(())
+}
+
+fn delegation_grant(agent:&AgentConfig, coordinator:&str) -> Result<(),String> {
+    if agent.tools.contains(&ToolKind::DelegateTask)!=(agent.id==coordinator) {
+        return Err("AGENTIC_COORDINATOR_DELEGATION_PERMISSION_REQUIRED".into());
     }
     Ok(())
 }
@@ -108,7 +145,7 @@ fn agent_valid(agent:&AgentConfig) -> Result<(),String> {
     if !super::valid_name(&agent.id) || agent.instruction.trim().is_empty() || agent.instruction.len()>8192 {
         return Err("AGENTIC_AGENT_ID_OR_INSTRUCTION_INVALID".into());
     }
-    if !(1..=8).contains(&agent.max_turns) || agent.tools.len()>4 || agent.artifact_names.len()>16 {
+    if !(1..=8).contains(&agent.max_turns) || agent.tools.len()>5 || agent.artifact_names.len()>16 {
         return Err("AGENTIC_AGENT_LIMIT_INVALID".into());
     }
     if agent.tools.iter().collect::<BTreeSet<_>>().len()!=agent.tools.len() {
