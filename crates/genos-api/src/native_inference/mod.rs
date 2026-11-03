@@ -4,12 +4,18 @@ mod observation;
 mod failure;
 mod wire;
 mod transport;
+mod tools;
+mod tool_validation;
+mod tool_schema;
+mod tool_wire;
 
 pub use request::{Credential, Generation, InferenceRequest, Message, ProviderConfig, Role,
     provider_config_hash, request_descriptor, request_hash, validate_provider, validate_request};
 pub use observation::{Finish, ModelObservation, TokenUsage};
 pub use failure::{FailurePhase, InferenceFailure};
 pub use transport::execute;
+pub use tools::{ToolCall, ToolDefinition, ToolMessage, ToolInferenceRequest, ToolObservation,
+    execute_tools, tool_base_messages, tool_request_descriptor, tool_request_hash, validate_tool_request};
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};

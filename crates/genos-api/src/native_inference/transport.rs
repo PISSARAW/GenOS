@@ -9,21 +9,27 @@ use std::time::{Duration, Instant};
 const MAX_RESPONSE: usize = 2 * 1024 * 1024;
 
 pub fn execute(request: &InferenceRequest) -> Result<ModelObservation, InferenceFailure> {
+    let identity = Identity::capture(request).map_err(|error| InferenceFailure::before(request, error))?;
+    execute_bound((request, identity), body(request))
+}
+
+pub(super) fn execute_bound(input: (&InferenceRequest, Identity), body: serde_json::Value) -> Result<ModelObservation, InferenceFailure> {
     let started = Instant::now();
-    execute_inner(request).and_then(|(identity, facts, text, finish, bytes)| {
+    execute_inner(input, body).and_then(|(identity, facts, text, finish, bytes)| {
         ModelObservation::from_response(identity.clone(), (facts, text, finish, bytes), elapsed(started))
             .map_err(|error| InferenceFailure::dispatched(identity, FailurePhase::ObservedHttpFailure, error))
     }).map_err(|error| error.with_elapsed(elapsed(started)))
 }
 
-fn execute_inner(request: &InferenceRequest) -> Result<DispatchResult, InferenceFailure> {
-    request.validate().map_err(|error| InferenceFailure::before(request, error))?;
-    let identity = Identity::capture(request).map_err(|error| InferenceFailure::before(request, error))?;
-    let client = client(request).map_err(|error| InferenceFailure::before(request, error))?;
-    let mut prepared = prepared(&client, request).map_err(|error| InferenceFailure::before(request, error))?;
-    validate_request(request).map_err(|error| InferenceFailure::before(request, error))?;
+fn execute_inner(input: (&InferenceRequest, Identity), body: serde_json::Value) -> Result<DispatchResult, InferenceFailure> {
+    let (request, identity) = input;
+    let before = |error| InferenceFailure::dispatched(identity.clone(), FailurePhase::BeforeDispatch, error);
+    request.validate().map_err(before)?;
+    let client = client(request).map_err(before)?;
+    let mut prepared = prepared((&client, request), body).map_err(before)?;
+    validate_request(request).map_err(before)?;
     *prepared.timeout_mut() = Some(Duration::from_millis(remaining(request)
-        .map_err(|error| InferenceFailure::before(request, error))?));
+        .map_err(before)?));
     dispatch(&client, prepared, (request, identity))
 }
 
@@ -41,8 +47,8 @@ fn remaining(request: &InferenceRequest) -> Result<u64, String> {
         .ok_or_else(|| "NATIVE_LLM_DEADLINE_EXPIRED".into())
 }
 
-fn prepared(client: &Client, request: &InferenceRequest) -> Result<reqwest::blocking::Request, String> {
-    let body = body(request);
+fn prepared(input: (&Client, &InferenceRequest), body: serde_json::Value) -> Result<reqwest::blocking::Request, String> {
+    let (client, request) = input;
     let encoded = serde_json::to_vec(&body).map_err(|error| error.to_string())?;
     if encoded.len() > 262144 { return Err("NATIVE_LLM_REQUEST_TOO_LARGE".into()); }
     let mut builder = client.post(request.provider.url()?).timeout(Duration::from_millis(remaining(request)?))
@@ -52,7 +58,7 @@ fn prepared(client: &Client, request: &InferenceRequest) -> Result<reqwest::bloc
     builder.build().map_err(|_| "NATIVE_LLM_REQUEST_BUILD_FAILED".into())
 }
 
-fn body(request: &InferenceRequest) -> serde_json::Value {
+pub(super) fn body(request: &InferenceRequest) -> serde_json::Value {
     let temperature = f64::from(request.generation.temperature_milli) / 1000.0;
     match &request.provider {
         ProviderConfig::Ollama { model, .. } => serde_json::json!({"model":model,"messages":request.messages,"stream":false,

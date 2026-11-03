@@ -1,9 +1,9 @@
 use super::request::{InferenceRequest, ProviderConfig, Generation, provider_config_hash, request_hash};
 use super::json_hash;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_json::json;
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Finish { Complete, Truncated, Refused, ToolRequested, Incomplete }
 
@@ -68,6 +68,17 @@ pub struct ModelObservation {
 }
 
 impl ModelObservation {
+    pub(super) fn rejected(self, message: String) -> super::InferenceFailure {
+        super::InferenceFailure::dispatched(self.identity, super::FailurePhase::ObservedHttpFailure, message)
+            .with_response(self.response, self.response_body).with_elapsed(self.elapsed_ms)
+    }
+
+    pub(super) fn with_finish(mut self, finish: Finish) -> Result<Self, String> {
+        self.finish = finish;
+        self.receipt_hash.clear();
+        self.receipt_hash = json_hash(&json!({"profile":"genos.native-inference/observation/v1", "observation":self}))?;
+        Ok(self)
+    }
     pub(super) fn from_response(identity: Identity, response: (ResponseFacts, String, Finish, Vec<u8>), elapsed_ms: u64) -> Result<Self, String> {
         if super::bytes_hash(&response.3) != response.0.response_hash { return Err("NATIVE_LLM_RESPONSE_HASH_MISMATCH".into()); }
         let mut observation = Self { identity, response: response.0, text: response.1, finish: response.2,
