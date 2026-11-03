@@ -902,6 +902,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0771b](0771-gqel-contrats-natifs-de-mission.md) | Obligation GQEL dans les contrats natifs de mission | Voir le fichier | -- | -- |
 | [0772](0772-gqel-execution-native-des-workers.md) | Exécution native de GQEL dans les workers | Voir le fichier | -- | -- |
 | [0773](0773-gqel-livrable-final-integre.md) | Qualifier le livrable final intégré avec GQEL | Voir le fichier | -- | -- |
+| [0774](0774-application-llm-par-traces-litterales.md) | Application LLM par expressions symboliques | Accepté | 2026-11-03 | Ontogenèse, application de règles, qualification LLM |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |

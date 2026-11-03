@@ -63,10 +63,14 @@ function validUpdate(update, feedback) {
 }
 
 function taskPrompt(mode, input) {
-  const prompt = { mode, problem: input.problem, lessons: input.lessons,
-    applicationPlan: runtime.application.describe(input.lessons, input.problem.expression) };
+  const applicationPlan = runtime.application.describe(input.lessons, input.problem.expression);
+  const prompt = { mode, problem: input.problem, lessons: selectedLessons(applicationPlan), applicationPlan };
   if (mode === 'learn') prompt.feedback = input.feedback;
   return prompt;
 }
 
-module.exports = { identityContext, lessons, saveResponse, validUpdate, taskPrompt };
+function selectedLessons(plan) {
+  return Object.fromEntries(plan.steps.filter(step => step.rule).map(step => [step.operator, step.rule]));
+}
+
+module.exports = { identityContext, lessons, saveResponse, validUpdate, taskPrompt, selectedLessons };

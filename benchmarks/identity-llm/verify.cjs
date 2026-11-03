@@ -9,6 +9,7 @@ const oracle = require('./oracle.cjs');
 const scoring = require('./scoring.cjs');
 const runtime = require('./runtime.cjs');
 const prompts = require('./prompts.cjs');
+const inference = require('./inference.cjs');
 const { summary } = require('./run.cjs');
 
 function parsedResponse(response) {
@@ -80,7 +81,7 @@ function learnReplay(state, input) {
   const { prompt, response, task, checked, identityPrompt, identityResponse } = input;
   const value = response.value;
   assert.deepEqual(prompt.feedback, feedback(state));
-  assert.deepEqual(prompt.lessons, state.lessons);
+  assert.deepEqual(prompt.lessons, prompts.selectedLessons(runtime.application.describe(state.lessons, task.expression)));
   assert.deepEqual(prompt.applicationPlan, runtime.application.describe(state.lessons, task.expression));
   assert.deepEqual(identityPrompt.selfMemory, state.self);
   if (identityResponse.value?.origin === input.w.origin) state.self = { origin: identityResponse.value.origin };
@@ -170,6 +171,7 @@ async function replayEvents(db, input) {
   for (const event of events) {
       if (event.type === 'response-committed') {
         assert(committed.length < 2, 'Response without outcome');
+        assert.deepEqual(event.response.requestMessages, inference.messages(event.prompt), 'Exact wire messages disagree with reconstructed context');
         parsedResponse(event.response);
         committed.push(event);
       } else if (['train-result', 'clone-result', 'eval-result'].includes(event.type)) {

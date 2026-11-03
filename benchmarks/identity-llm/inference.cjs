@@ -28,6 +28,7 @@ async function checkTemplate() {
 
 async function call(prompt) {
   const started = performance.now();
+  const requestMessages = messages(prompt);
   const response = await fetch(protocol.endpoint + '/v1/chat/completions', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     signal: AbortSignal.timeout(protocol.maximumRequestMs),
@@ -36,8 +37,7 @@ async function call(prompt) {
       response_format: prompt.mode === 'technical-readiness' ? { type: 'json_object' }
         : { type: 'json_object', schema: contracts.schema(prompt) }, cache_prompt: true,
       id_slot: ['identity','identity-probe'].includes(prompt.mode) ? 0 : 1,
-      messages: [{ role: 'system', content: contracts.instruction(prompt) },
-        { role: 'user', content: JSON.stringify(prompt) }] })
+      messages: requestMessages })
   });
   if (!response.ok) throw Error(`HTTP_${response.status}: ${(await response.text()).slice(0, 300)}`);
   const body = await response.json();
@@ -48,12 +48,27 @@ async function call(prompt) {
   let value = null;
   try { value = JSON.parse(raw); } catch (_) { /* Invalid outputs remain failures. */ }
   return { raw, value, usage, finishReason: body.choices[0].finish_reason,
-    model: body.model, elapsedMs: Math.round(performance.now() - started) };
+    model: body.model, elapsedMs: Math.round(performance.now() - started), requestMessages };
+}
+
+function messages(prompt) {
+  const programMode = ['learn','evaluate'].includes(prompt.mode);
+  const content = programMode ? executionMessage(prompt) : JSON.stringify(prompt);
+  return [{ role: 'system', content: contracts.instruction(prompt) }, { role: 'user', content }];
+}
+
+function executionMessage(prompt) {
+  const source = prompt.applicationPlan.program;
+  const program = source === null ? 'Program unavailable: required definitions are missing.'
+    : 'Evaluate these assignments in order:\n' + source;
+  if (prompt.mode !== 'learn') return program;
+  return program + '\n\nFeedback for learning about the previous task, separate from this expression:\n'
+    + JSON.stringify(prompt.feedback);
 }
 
 async function attempt(prompt) {
   try { return await call(prompt); }
-  catch (error) { return { value: null, error: error.message, usage: null }; }
+  catch (error) { return { value: null, error: error.message, usage: null, requestMessages: messages(prompt) }; }
 }
 
 function log(directory, event) {
@@ -65,4 +80,4 @@ function log(directory, event) {
   fs.writeFileSync(statePath, JSON.stringify({ index: entry.index, hash: entry.hash }));
 }
 
-module.exports = { ready, call, attempt, log };
+module.exports = { ready, call, attempt, log, messages };
