@@ -127,4 +127,6 @@ function syncytiumVariants() {
   });
 }
 
-module.exports = { topologyVariants, resolveTopologyVariant };
+function topologyNames() { return Object.keys(TOPOLOGY_LOADERS); }
+
+module.exports = { topologyVariants, resolveTopologyVariant, topologyNames };

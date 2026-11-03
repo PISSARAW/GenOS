@@ -82,7 +82,7 @@ function buildSummary(episodes, lessons) {
 async function recallForSituation(situation = {}, options = {}, dbOverride = null) {
   const { agentId, organizationId, projectId, missionId, kind, goal } = situation;
   const consolidated = options.consolidate === false || !agentId ? []
-    : await lessonService.consolidateLessons({ agentId, organizationId, projectId, limit: 50 }, dbOverride);
+    : await lessonService.consolidateLessons({ agentId, organizationId, projectId, allTenants: false, limit: 50 }, dbOverride);
   const topEpisodes = Math.max(1, Number(options.topEpisodes) || DEFAULT_TOP_EPISODES);
   const topLessons = Math.max(1, Number(options.topLessons) || DEFAULT_TOP_LESSONS);
 
@@ -97,7 +97,7 @@ async function recallForSituation(situation = {}, options = {}, dbOverride = nul
   const lessons = candidateLessons.filter((lesson) => lessonAppliesToConditions(lesson, kind, goal)).slice(0, topLessons);
 
   return {
-    consolidation: { status: options.consolidate === false ? 'disabled' : 'completed',
+    consolidation: { status: options.consolidate === false || !agentId ? 'disabled' : 'completed',
       lessonIds: consolidated.map(lesson => lesson.id), limit: 50 },
     episodes,
     lessons,

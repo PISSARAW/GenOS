@@ -8,18 +8,20 @@ const health = registryHealth();
 assert.equal(health.valid, true, health.errors.join('; '));
 assert.equal(health.conceptCount, CONCEPT_DEFINITIONS.length);
 
-const concept = normalizeConcept(CONCEPT_DEFINITIONS[0]);
+const selfDefinition = CONCEPT_DEFINITIONS.find(item => item.id === 'core.self');
+assert.ok(selfDefinition, 'core.self must remain a published concept');
+const concept = normalizeConcept(selfDefinition);
 assert.equal(concept.apiVersion, 'genos.philosophy/v1');
 assert.equal(concept.kind, 'PhilosophicalConcept');
-assert.equal(concept.family, 'ontology');
-assert.deepEqual(concept.genosDomains, ['ontology']);
+assert.equal(concept.family, 'identity');
+assert.deepEqual(concept.genosDomains, []);
 assert.ok(Array.isArray(concept.relations));
 assert.ok(Array.isArray(concept.adapters));
 assert.equal(concept.family, concept.domain);
 assert.deepEqual(concept.aliases, []);
 assert.equal(concept.evidenceLevel, 'philosophical');
 assert.equal(concept.mapping, null);
-assert.equal(concept.serviceMaturity.level, 'implemented');
+assert.equal(concept.serviceMaturity.level, 'partial');
 assert.equal(concept.serviceMaturity.executable, true);
 
 const enriched = normalizeConcept({
@@ -50,13 +52,13 @@ const qualia = normalizeConcept({
   ...CONCEPT_DEFINITIONS.find((item) => item.id === 'metaphysics.qualia')
 });
 assert.equal(qualia.serviceMaturity.service, 'consciousnessService');
-assert.equal(qualia.serviceMaturity.level, 'implemented');
+assert.equal(qualia.serviceMaturity.level, 'partial');
 assert.equal(qualia.serviceMaturity.executable, true);
 
 for (const id of ['metaphysics.reference-intentionality', 'metaphysics.supervenience', 'metaphysics.emergence', 'metaphysics.mind-body']) {
   const concept = normalizeConcept({ ...CONCEPT_DEFINITIONS.find((item) => item.id === id) });
   assert.equal(concept.status, 'implemented', `${id} should expose its bounded adapter`);
-  assert.equal(concept.serviceMaturity.level, 'implemented', `${id} should have implementation evidence`);
+  assert.equal(concept.serviceMaturity.level, 'partial', `${id} exposes a bounded adapter with limited qualification`);
 }
 
 const invalid = validateRegistry([{ ...CONCEPT_DEFINITIONS[0], id: 'Invalid ID' }]);

@@ -893,7 +893,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0764](0764-cloture-workers-et-temoins-runtime.md) | Clôture des workers et témoins du runtime | Accepté | 2026-10-31 | Workers, preuves, exécution et reprise |
 | [0766a](0766-composition-inventaire-preuves.md) | Composition de l'inventaire et preuves bornées | Voir le fichier | -- | -- |
 | [0766b](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
-| [0767](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
+| [0767a](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
+| [0767b](0767-profils-activation-et-comparaisons-bornees.md) | Profils d’activation et comparaisons bornées | Accepté, portée bornée | 2026-11-03 | Activation, mémoire, parité et ablations |
 | [0768](0768-competence-procedurale-verifiee-et-couverture.md) | Procédures apprises vérifiées et abstention par couverture | accepté pour un module interne borné au domaine affine. | 2026-11-02 | -- |
 | [0769](0769-refutations-natives-mesurees-par-agow.md) | Mesurer les réfutations natives sans autoriser leur promotion | Accepté pour le domaine borné subset_sum | 2026-11-02 | AGOW, preuves négatives, mesures et budgets |
 | [0770](0770-gqel-boucle-elevation-qualite.md) | GQEL : Boucle d'Élévation de Qualité des LLM | Accepté | 2026-11-02 | Runtime, Amplification de qualité LLM, Évaluation sémantique, Réparation causale |
