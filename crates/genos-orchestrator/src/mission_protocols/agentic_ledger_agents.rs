@@ -11,9 +11,17 @@ pub(super) fn eligible(connection:&Connection, binding:&Binding, key:&StepKey) -
     if key.turn>=agent.max_turns { return Err("AGENTIC_TURN_LIMIT_EXCEEDED".into()); }
     if completed_in(connection,binding,&key.agent_id)?.is_some() { return Err("AGENTIC_AGENT_ALREADY_COMPLETED".into()); }
     predecessors(connection,binding,(&spec,&key.agent_id))?;
+    require_delegation(connection,binding,key)?;
     if key.turn!=0 { previous_turn(connection,binding,&StepKey { agent_id:key.agent_id.clone(),turn:key.turn-1 })?; }
     let state=super::budget::required(connection,binding)?;
     super::budget::available(&state,&super::Amounts::default())
+}
+
+fn require_delegation(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<(),String> {
+    if !super::super::agentic_delegation::eligible_in(connection,binding,key)? {
+        return Err("AGENTIC_DELEGATION_NOT_READY".into());
+    }
+    Ok(())
 }
 
 fn predecessors(connection:&Connection, binding:&Binding, input:(&AgenticSpec,&str)) -> Result<(),String> {
@@ -39,6 +47,7 @@ pub fn complete_agent(store:&mut Store, binding:&Binding, input:&AgentCompletion
         let key=StepKey { agent_id:input.agent_id.clone(),turn:input.last_turn };
         let record=records::model_record_in(tx,binding,&key)?;
         validate_terminal(&record,input)?;
+        require_delegation(tx,binding,&key)?;
         let spec=super::super::agentic_admission::admitted_in(tx,binding)?;
         predecessors(tx,binding,(&spec,&input.agent_id))?;
         let completion=make_completion(binding,&record)?;
@@ -102,6 +111,7 @@ fn completion_hash(value:&CompletedAgent) -> Result<String,String> {
 }
 
 pub(super) fn require_all(connection:&Connection, binding:&Binding, spec:&AgenticSpec) -> Result<(),String> {
+    if spec.config.orchestration.is_some() { return super::super::agentic_delegation::require_all_in(connection,binding); }
     for agent in &spec.config.agents {
         if completed_in(connection,binding,&agent.id)?.is_none() { return Err("AGENTIC_ALL_AGENTS_MUST_COMPLETE".into()); }
     }

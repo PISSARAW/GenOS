@@ -1,19 +1,39 @@
 use super::{Session,worker};
 use crate::mission_protocols::{Binding,agentic_context as context,agentic_exchange as exchange,
-    agentic_ledger as ledger,agentic_parallel_journal as journal,agentic_spec::{AgentConfig,AgenticSpec},now_ms};
-use rusqlite::Transaction;
+    agentic_ledger as ledger,agentic_parallel_journal as journal,agentic_delegation as delegation,
+    agentic_delegation_exchange,agentic_spec::{AgentConfig,AgenticSpec},now_ms};
+use rusqlite::{Transaction,Connection};
 
 pub(super) struct PreparedWave { pub handle:journal::WaveHandle, pub jobs:Vec<worker::Job> }
 
 pub(super) fn ready(session:&mut Session) -> Result<Vec<ledger::StepKey>,String> {
     let mut ready=Vec::new();
-    for agent in session.spec.config.agents.clone() {
-        if ledger::agent_record(&mut session.store,&session.binding,&agent.id)?.is_some() { continue; }
-        if !dependencies_complete(session,&agent)? { continue; }
-        if let Some(key)=next_step(session,&agent)? { ready.push(key); }
+    for agent in scheduling_order(&session.spec) {
+        if let Some(key)=ready_agent(session,&agent)? { ready.push(key); }
     }
     if ready.is_empty() && !all_complete(session)? { return Err("AGENTIC_PARALLEL_GRAPH_NOT_READY".into()); }
     Ok(ready)
+}
+
+fn scheduling_order(spec:&AgenticSpec) -> Vec<AgentConfig> {
+    let mut agents=spec.config.agents.clone();
+    if let Some(orchestration)=&spec.config.orchestration {
+        agents.sort_by_key(|agent|agent.id!=orchestration.coordinator);
+    }
+    agents
+}
+
+fn ready_agent(session:&mut Session,agent:&AgentConfig) -> Result<Option<ledger::StepKey>,String> {
+    if dormant(session,&agent.id)? { return Ok(None); }
+    if ledger::agent_record(&mut session.store,&session.binding,&agent.id)?.is_some() { return Ok(None); }
+    if !dependencies_complete(session,agent)? { return Ok(None); }
+    next_step(session,agent)
+}
+
+fn dormant(session:&mut Session,id:&str) -> Result<bool,String> {
+    let Some(orchestration)=&session.spec.config.orchestration else { return Ok(false); };
+    if id==orchestration.coordinator { return Ok(false); }
+    session.store.transaction(&session.binding,|tx|Ok(delegation::assigned_in(tx,&session.binding,id)?.is_none()))
 }
 
 fn dependencies_complete(session:&mut Session,agent:&AgentConfig) -> Result<bool,String> {
@@ -24,6 +44,15 @@ fn dependencies_complete(session:&mut Session,agent:&AgentConfig) -> Result<bool
 }
 
 fn all_complete(session:&mut Session) -> Result<bool,String> {
+    if let Some(orchestration)=&session.spec.config.orchestration {
+        return session.store.transaction(&session.binding,|tx| {
+            if ledger::completed_in(tx,&session.binding,&orchestration.coordinator)?.is_none() { return Ok(false); }
+            for assignment in delegation::all_in(tx,&session.binding)? {
+                if ledger::completed_in(tx,&session.binding,&assignment.worker_id)?.is_none() { return Ok(false); }
+            }
+            Ok(true)
+        });
+    }
     for agent in &session.spec.config.agents {
         if ledger::agent_record(&mut session.store,&session.binding,&agent.id)?.is_none() { return Ok(false); }
     }
@@ -34,11 +63,29 @@ fn next_step(session:&mut Session,agent:&AgentConfig) -> Result<Option<ledger::S
     exchange::receive(&mut session.store,&session.binding,&agent.id)?;
     for turn in 0..agent.max_turns {
         let key=ledger::StepKey { agent_id:agent.id.clone(),turn };
-        let Some(record)=ledger::known_model(&mut session.store,&session.binding,&key)? else { return Ok(Some(key)); };
+        let Some(record)=ledger::known_model(&mut session.store,&session.binding,&key)? else { return fresh_step(session,key); };
         super::recovery_preflight(session)?;
         if super::super::consume_turn(&mut session.store,&session.binding,&record)? { return Ok(None); }
     }
     Err(format!("AGENTIC_TURN_LIMIT_EXHAUSTED_WITHOUT_COMPLETION: {}",agent.id))
+}
+
+fn fresh_step(session:&mut Session,key:ledger::StepKey) -> Result<Option<ledger::StepKey>,String> {
+    let Some(orchestration)=&session.spec.config.orchestration else { return Ok(Some(key)); };
+    session.store.transaction(&session.binding,|tx| {
+        if key.agent_id==orchestration.coordinator {
+            if !children_complete(tx,&session.binding,&key)? { return Ok(None); }
+            agentic_delegation_exchange::receive_returns_in(tx,&session.binding,&key)?;
+        }
+        Ok(delegation::eligible_in(tx,&session.binding,&key)?.then_some(key))
+    })
+}
+
+fn children_complete(connection:&Connection,binding:&Binding,key:&ledger::StepKey) -> Result<bool,String> {
+    for assignment in delegation::before_in(connection,binding,key)? {
+        if ledger::completed_in(connection,binding,&assignment.worker_id)?.is_none() { return Ok(false); }
+    }
+    Ok(true)
 }
 
 pub(super) fn prepare(session:&mut Session,ready:&[ledger::StepKey]) -> Result<PreparedWave,String> {
@@ -51,6 +98,9 @@ pub(super) fn prepare(session:&mut Session,ready:&[ledger::StepKey]) -> Result<P
         let keys=&ready[..count];
         let mut jobs=Vec::new();
         for key in keys {
+            if spec.config.orchestration.as_ref().is_some_and(|value|value.coordinator==key.agent_id) {
+                agentic_delegation_exchange::receive_returns_in(tx,binding,key)?;
+            }
             let mut request=context::prepare_bounded_in(tx,binding,&context::ContextRequest { key,max_wall_ms:wall })?;
             request.base.credential=credential.clone();
             let admission=ledger::prepare_model_in(tx,binding,&ledger::ModelIntent { key:key.clone(),request:&request,max_wall_ms:wall })?;

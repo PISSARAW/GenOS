@@ -39,6 +39,7 @@ pub fn initialize(store:&mut Store, binding:&Binding) -> Result<MissionState,Str
         data::ensure(tx)?;
         let spec=super::agentic_admission::admitted_in(tx,binding)?;
         roster::install(tx,binding,&spec)?;
+        super::agentic_delegation::initialize_in(tx,binding)?;
         super::agentic_evidence::install_in(tx,binding)?;
         budget::initialize(tx,binding,&spec.config.limits)
     })

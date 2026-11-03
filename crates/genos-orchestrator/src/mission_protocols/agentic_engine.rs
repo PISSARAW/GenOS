@@ -11,6 +11,7 @@ use std::path::PathBuf;
 #[path="agentic_parallel.rs"]
 mod parallel;
 pub use parallel::Metrics as ParallelMetrics;
+#[path="agentic_dynamic_report.rs"] mod dynamic_report;
 
 pub struct NativeAgenticRequest { pub spec:AgenticSpec, pub executable:PathBuf, pub database:PathBuf }
 
@@ -26,6 +27,8 @@ pub struct NativeAgenticReport {
     pub semantic_truth_verified:bool, pub promotable:bool, pub external_effects_authorized:bool,
     pub replayed:bool, pub protocols:Vec<String>, pub error:Option<String>,
     pub max_parallel_agents:u32, pub parallelism:ParallelMetrics,
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub orchestration:Option<serde_json::Value>,
 }
 
 struct Session {
@@ -124,12 +127,13 @@ impl Session {
         let usage=agentic_ledger::state(&mut self.store,&self.binding)?;
         let protocols=protocols(&self.store,&self.binding)?;
         let verified=publication.is_some();
+        let orchestration=dynamic_report::collect(&self.store,&self.binding,&self.spec)?;
         Ok(NativeAgenticReport { schema:"genos.rust-agentic-mission-result/v1",status:if verified { "completed" } else { "unresolved" },
             completion_scope:"artifact_contract",binding:self.binding.clone(),agents,artifact:Artifact {
                 hash:raw_hash(text.as_bytes()),origin:if text.is_empty() { "unavailable" } else { "model_generated" },text },
             publication,usage,contract_verdicts:verdicts,artifact_contract_verified:verified,semantic_truth_verified:false,
             promotable:false,external_effects_authorized:false,replayed:self.replayed,protocols,error:reason,
-            max_parallel_agents:self.spec.config.max_parallel_agents,parallelism:self.parallel_metrics.clone() })
+            max_parallel_agents:self.spec.config.max_parallel_agents,parallelism:self.parallel_metrics.clone(),orchestration })
     }
 
     fn completed(&mut self) -> Result<Vec<CompletedAgent>,String> {

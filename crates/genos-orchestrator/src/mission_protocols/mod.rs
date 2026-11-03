@@ -61,3 +61,7 @@ pub mod agentic_exchange;
 pub mod agentic_engine;
 #[cfg(feature="native-llm")]
 pub mod agentic_parallel_journal;
+#[cfg(feature="native-llm")]
+pub mod agentic_delegation;
+#[cfg(feature="native-llm")]
+pub mod agentic_delegation_exchange;
