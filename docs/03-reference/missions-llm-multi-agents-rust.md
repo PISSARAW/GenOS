@@ -65,9 +65,13 @@ requête et binaire.
 Les dépendances doivent désigner des agents précédents. Les doublons,
 cycles et graphes dont le dernier agent ne dépend pas transitivement de tous
 les autres sont refusés. Chaque agent a entre un et huit tours modèle.
-L'ordonnancement est séquentiel dans l'ordre configuré ; les identités et
+Par défaut, l'ordonnancement est séquentiel dans l'ordre configuré ; les identités et
 dialogues sont distincts, sans isolation annoncée par processus. Le
 fournisseur et le modèle configurés sont partagés par ce profil.
+
+La configuration optionnelle `max_parallel_agents` permet désormais des
+[vagues de tours parallèles](missions-llm-paralleles-rust.md), sous les
+mêmes quotas globaux et avec une admission de vague transactionnelle.
 
 Avant le premier tour d'un destinataire, GQWF copie et rehashe les résultats
 et artefacts de ses dépendances dans un namespace CAS reçu. SYNAPSE

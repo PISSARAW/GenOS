@@ -913,6 +913,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0782](0782-livraison-scenario-sous-preuves.md) | Livraison des scénarios sous preuves | Voir le fichier | -- | -- |
 | [0783](0783-expression-genomes-mutants-execution.md) | Expression des génomes mutants pendant l'exécution | Accepté | 2026-11-03 | -- |
 | [0784](0784-alphabet-hachimoji-compatible.md) | Alphabet Hachimoji et compatibilité AgentDNA | Accepté | 2026-11-03 | Génomes, codecs Rust/Node et runtime agentique |
+| [0785](0785-missions-llm-paralleles-et-outils-rust.md) | Missions LLM parallèles et outils dans Rust | Accepté pour des vagues bornées de tours indépendants | 2026-11-03 | Runtime Rust, ordonnancement, concurrence, budgets et preuves |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |

@@ -5,6 +5,10 @@
 **Domaine** : Runtime Rust, agents LLM, outils, effets, contexte et preuves  
 **Lié à** : [Profil textuel natif](0780-portage-missions-llm-runtime-rust.md)
 
+**Extension** : l'[ADR 0785](0785-missions-llm-paralleles-et-outils-rust.md)
+ajoute les vagues parallèles explicites. Le mode séquentiel de cet ADR
+reste la valeur par défaut.
+
 ## Problème
 
 Le profil textuel natif produit une seule réponse. Il refuse les demandes
