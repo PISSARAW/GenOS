@@ -182,7 +182,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0151](0151-modele-de-soi-effecteurs.md) | Modèle de soi et effecteurs | Accepté (portée Node) | 2026-09-27 | Modèle de soi, copie d'efférence |
 | [0152](0152-objectifs-concurrents-allostase.md) | Objectifs concurrents et allostase | Accepté (portée Node) | 2026-09-27 | Objectifs multiples, allostase |
 | [0153](0153-population-morphogenetique-bornee.md) | Population morphogénétique bornée | Accepté (portée Node) | 2026-09-27 | Morphogenèse, variants, provenance |
-| [0154](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
+| [0154a](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
+| [0154b](0154-recu-typé-du-pont-rust-snapshot.md) | importer un snapshot Rust avec preuve Node | Accepté (portée Node + pont CLI Rust ; voir Limites) | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
 | [0155](0155-hypothese-plan-action.md) | Hypothèse promue, plan et action | Accepté (portée Node) | 2026-09-27 | Planification, hypothèses, rollback |
 | [0156](0156-verdict-experimental-planner.md) | Verdict expérimental et planner | Accepté (portée Node) | 2026-09-27 | Expérimentation, verdicts, PID |
 | [0157](0157-apprentissage-inter-missions-consolidation.md) | Apprentissage inter-missions et consolidation | Accepté (portée Node) | 2026-09-27 | Mémoire inter-missions, lignées |
@@ -474,7 +475,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0369](0369-racines-gqwf-et-vues-durables.md) | Racines de fichiers GQWF et vues durables | Accepté, portée noyau backend | 2026-10-10 | Workspaces, snapshots, isolation |
 | [0370](0370-checkpoint-logique-local-et-continuite-llm-opaque.md) | Checkpoint logique local et continuité LLM opaque | Accepté, portée limitée | 2026-10-10 | Snapshots, runtime local, modèles |
 | [0371](0371-raccordement-gqwf-aux-capsules-workers.md) | Raccorder les capsules workers aux vues GQWF | Accepté, activation explicite | 2026-10-10 | Workspaces, workers, snapshots |
-| [0372](0372-fondation-garages-hierarchiques-et-plafond-projet.md) | Fondation des garages hiérarchiques et plafond projet | Accepté pour la tranche de sûreté ; hiérarchie non implémentée | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
+| [0372a](0372-fondation-garages-hierarchiques-et-plafond-projet.md) | Fondation des garages hiérarchiques et plafond projet | Accepté pour la tranche de sûreté ; hiérarchie non implémentée | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
+| [0372b](0372-nce-composition-bornee-du-repertoire.md) | NCE : composition bornée du répertoire appris | Accepté | 2026-11-02 | NCE, recherche procédurale, filiation et preuves |
 | [0373](0373-barriere-capture-runtime-local-actif.md) | Capture du runtime local actif et reprise de session Codex | Accepté, portée limitée | 2026-10-10 | Snapshots, supervision des processus |
 | [0374](0374-registre-durable-des-domaines-garage.md) | Registre durable des domaines Garage | Accepté pour la tranche SQLite locale | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
@@ -520,7 +522,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0400a](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
 | [0400b](0400-oracles-workers-deterministes-structures.md) | Oracles de workers déterministes à sorties structurées | accepté | 2026-10-11 | workers déterministes, preuves indépendantes et promotion |
 | [0400c](0400-promotion-trinity-gqwf-opt-in.md) | Publier une racine GQWF depuis une promotion Trinity vérifiée | Accepté, activation explicite. | 2026-10-11. | Trinity, GQWF, promotion. |
-| [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
+| [0401a](0401-oracle-formel-lean-borné.md) | Oracle formel Lean borné pour le worker formel | accepté | 2026-10-11 | preuve formelle, workers et promotion |
+| [0401b](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
 | [0402a](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
 | [0402b](0402-oracles-workers-recuperation-et-passation.md) | Oracles bornés de récupération et de passation | accepté | 2026-10-11 | workers, récupération et coordination |
 | [0403a](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |
@@ -772,6 +775,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0641b](0641-perception-securite-autonome.md) | Perception autonome de la sécurité et modèle de monde | Accepté pour l'implémentation initiale. | -- | -- |
 | [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
+| [0644](0644-calibration-et-projection-nosologique-traçable.md) | Calibration et projection nosologique traçable | Accepté | 2026-10-18 | -- |
 | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
 | [0646](0646-apprentissage-et-execution-ett-reprenables.md) | Apprentissage qualifié et exécution ETT reprenable | Accepté | 2026-10-19 | pensée endogène, mémoire, reprise, sandbox |
 | [0647](0647-boucle-ett-multicycle-et-questionnement-endogene.md) | Boucle ETT multicycle et questionnement endogène | Accepté | 2026-10-19 | pensée endogène, cycles cognitifs, génération d'hypothèses, SQLite |
@@ -891,6 +895,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0762](0762-contraintes-execution-identite-worker.md) | Contraintes d'exécution observées dans l'identité worker | Voir le fichier | -- | -- |
 | [0763](0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) | Autorité de preuve d'exécution hôte et quadrants épistémiques (Q1-Q5) | Voir le fichier | -- | -- |
 | [0764](0764-cloture-workers-et-temoins-runtime.md) | Clôture des workers et témoins du runtime | Accepté | 2026-10-31 | Workers, preuves, exécution et reprise |
+| [0765](0765-aeis-obligations-de-reparation-scellees.md) | AEIS : obligations de réparation scellées | Accepté | 2026-11-02 | AEIS, oracles natifs, correction de code, promotion |
 | [0766a](0766-composition-inventaire-preuves.md) | Composition de l'inventaire et preuves bornées | Voir le fichier | -- | -- |
 | [0766b](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
 | [0767a](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
@@ -904,6 +909,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0773](0773-gqel-livrable-final-integre.md) | Qualifier le livrable final intégré avec GQEL | Voir le fichier | -- | -- |
 | [0774](0774-application-llm-par-traces-litterales.md) | Application LLM par expressions symboliques | Accepté | 2026-11-03 | Ontogenèse, application de règles, qualification LLM |
 | [0780](0780-portage-missions-llm-runtime-rust.md) | Missions LLM natives sous les sept protocoles | Accepté pour le portage du parcours textuel natif | 2026-11-03 | Runtime Rust, inférence, contrats d'artefacts et preuves |
+| [0781](0781-missions-llm-multi-agents-et-outils-rust.md) | Missions LLM multi-agents et outils natifs Rust | Accepté pour un DAG borné et des outils de sources et d'artefacts privés | 2026-11-03 | Runtime Rust, agents LLM, outils, effets, contexte et preuves |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |

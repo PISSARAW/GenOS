@@ -277,6 +277,15 @@ Une mutation du sujet, du rapport, de l'autorité, de la portée, du coût ou du
 binding invalide l'assurance courante. Une décision historique peut rester
 auditable sans redevenir valide pour une nouvelle promotion.
 
+### Obligations de réparation scellées
+
+Le domaine workspace propose les
+[obligations de réparation scellées](aeis-obligations-de-reparation.md) : une
+baseline, des cas finis nommés et des mutants ciblés établissent la pertinence
+bornée des preuves sur des expressions arithmétiques. Ce contrat sélectionné
+explicitement réutilise le quorum, les reçus et les budgets natifs ; il ne valide
+pas une affirmation libre de correction générale.
+
 ## 9. Persistance et rétention
 
 | Table ou journal | Contenu |

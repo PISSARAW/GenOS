@@ -19,6 +19,7 @@ function checkWorkspace(subject, strategy) {
   if (!STRATEGIES.has(strategy)) return outcome('inconclusive', 'workspace_strategy_unavailable', strategy);
   try {
     require('./workspaceVerificationContract').assertContract(subject.contract);
+    if (subject.contract.kind === 'code_repair_obligations') return require('./repairObligationChecks').checkRepair(subject, strategy);
     const candidate = editable(subject.contract.kind) ? null : values.candidate(subject.report);
     const valid = HANDLERS[subject.contract.kind](subject, strategy, candidate);
     if (!valid) return outcome('refuted', 'workspace_postcondition_false', strategy);

@@ -35,7 +35,7 @@ async function runAblationCampaign(input) {
       const subject = `nce-ablation:${digest([input.campaignId, seed, arm])}`;
       const receipt = await runCausalCycle({ runId: `${input.campaignId}:${seed}:${arm}`,
         agentId: subject, split, artifacts: input.artifacts, features: ARMS[arm],
-        timeoutMs: input.timeoutMs }, input.db);
+        search: input.search, timeoutMs: input.timeoutMs }, input.db);
       outcomes.push({ seed, arm, receipt });
     }
   }

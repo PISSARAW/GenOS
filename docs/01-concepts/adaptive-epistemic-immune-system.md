@@ -9,11 +9,11 @@ tags: [epistemology, immunity, biomimicry, verification, adaptive]
 
 # Adaptive Epistemic Immune System
 
-- **Statut** : Implémenté pour les prédicats de commande exacts ; heuristiques
+- **Statut** : Implémenté pour les prédicats de commande exacts et des domaines natifs bornés ; heuristiques
   d'ordonnancement non calibrées
 - **Portée** : intégrité procédurale, reproduction et promotion de claims
   mécanisables ; pas de vérité générale
-- **Dernière revue** : 2026-10-20
+- **Dernière revue** : 2026-11-02
 
 **Dossier documentaire** : cette fiche expose le concept. Les contrats exacts
 sont dans la [référence du runtime](../03-reference/runtime-aeis.md), les gestes
@@ -581,8 +581,11 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
   bornés ; il ne mesure pas une fiabilité générale. Un claim vérifié peut être
   faux hors de son domaine ; un claim rejeté peut être vrai sans preuve admissible.
 
-- **Portée mécanisable seulement** : la promotion automatique couvre actuellement
-  les prédicats de commande exacts. La santé d'un refactoring, la fidélité d'un
+- **Portée mécanisable seulement** : la promotion automatique couvre les
+  prédicats de commande exacts et les postconditions des domaines natifs déclarés.
+  Les [obligations de réparation scellées](../03-reference/aeis-obligations-de-reparation.md)
+  ajoutent une baseline et des mutants ciblés pour des cas finis d'expressions
+  arithmétiques. La santé générale d'un refactoring, la fidélité d'un
   résumé ou la pertinence d'une architecture exigent un oracle externe, une
   revue humaine ou une politique de domaine spécifique.
 

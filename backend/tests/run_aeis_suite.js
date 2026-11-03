@@ -8,6 +8,8 @@ const EAB_TIMEOUT_MS = 240000;
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= crypto.randomBytes(32).toString('hex');
 
 const cases = [
+  'test_aeis_repair_obligations.js',
+  'test_aeis_repair_obligations_runtime.js',
   'test_aeis_e2e.js',
   'test_aeis_promotion_limits.js',
   'test_aeis_sandbox.js',

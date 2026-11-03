@@ -1,6 +1,6 @@
 # Expériences NCE exécutables
 
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-11-02
 - **Décision** : [ADR 0323](../adr/0323-nce-procedures-et-preuves-executables.md)
 
 ## Portée
@@ -11,8 +11,8 @@ numériques. Il utilise de vrais processus Node, les snapshots POET et SQLite.
 Aucun fournisseur LLM ni remplacement du runtime par une doublure n'est requis
 par `test_nce_native_cycle.js` et `test_nce_executed_ablation.js`.
 
-Les familles disponibles sont `ascending`, `unique-ascending` et
-`absolute-ascending`. Le générateur fournit des entrées déterministes et un
+Les familles disponibles sont `ascending`, `unique-ascending`,
+`absolute-ascending`, `descending` et `unique-descending`. Le générateur fournit des entrées déterministes et un
 vérificateur protégé. Il ne génère pas de tâches ouvertes arbitraires.
 
 ## Lancer un cycle
@@ -56,7 +56,7 @@ déjà persisté. Relancer la même requête avec un chemin de rapport neuf.
 | --- | --- |
 | `root`, `databasePath` | Chemins explicites, résolus depuis le répertoire courant ; créer le parent de la base s'il diffère de `root` |
 | `agentId`, `runId` | Chaînes non vides pour un cycle |
-| `family` | Une des trois familles documentées |
+| `family` | Une des cinq familles documentées |
 | `seed` | Entier sûr pour le générateur du cycle |
 | `count` | 1 à 20 environnements par partition ; défaut 2 |
 | `timeoutMs` | Délai par tentative POET ; défaut 30 000 ms, pas une limite globale du cycle |
@@ -113,9 +113,59 @@ peut pas réactiver un mécanisme interdit par les options issues de la topologi
 | `phenotype` | `phenotype` | Évalue uniquement la procédure initiale et interdit la promotion |
 | `poet` | `envCoev` | Limite la recherche au premier artefact proposé, en plus de la procédure initiale ; conserve les vérifications |
 
-Dans ce chemin, Play désigne une recherche bornée dans un catalogue de programmes.
+Dans ce chemin, Play propose les six programmes du catalogue initial et une
+extension bornée construite depuis le répertoire appris.
 Le parcours historique `runPlaySession` dispose de ses propres snapshots et tests.
 Le cycle accepte au plus 32 artefacts candidats avant déduplication.
+
+### Composition du répertoire appris
+
+Décision : [ADR 0372](../adr/0372-nce-composition-bornee-du-repertoire.md).
+`nceRepertoireSearch` utilise les procédures persistées dont l'empreinte et la
+référence correspondent à un reçu du même agent, mesuré et promu. Une entrée
+orpheline, non promue ou appartenant à un autre agent ne devient pas parent.
+
+L'ordre est déterministe : parents triés par empreinte, réutilisations, paires
+ordonnées de parents distincts, puis mutations par parent. Une composition
+concatène deux programmes. Une mutation ajoute l'une des quatre opérations en
+tête ou en fin, ou supprime une étape. Les programmes de plus de 16 étapes ne
+sont jamais proposés. La déduplication est syntaxique, par empreinte du programme.
+
+Le champ optionnel `search` est accepté par la CLI, `runCausalCycle` et
+`mission.nceExperiment` :
+
+```json
+{ "search": { "maxCandidates": 16, "maxParents": 8 } }
+```
+
+`maxCandidates` borne les candidats supplémentaires distincts (entier de 0 à
+32, défaut 16), `maxParents` les parents vérifiés (entier de 0 à 16, défaut 8).
+Les artefacts fournis et le catalogue initial occupent d'abord les places dans
+la limite globale de 32. Un budget nul désactive cette extension ; `play: false`
+désactive aussi le catalogue. Les autres restrictions de mécanismes et les
+gates de promotion restent applicables. Ces budgets ne sont pas un délai global.
+
+Le reçu `search` porte le contrat `genos.nce.repertoire-search.v1` et le manifeste
+des propositions avec empreinte, provenance et dérivation. Une dérivation contient
+son type, les empreintes et preuves des parents, et l'édition éventuelle. Le
+répertoire et l'artefact transmis conservent la dérivation gagnante. Un manifeste
+de propositions ne signifie pas que chaque proposition a été évaluée : les
+restrictions culture/phénotype/POET déterminent toujours les candidats exécutés,
+visibles dans `after.executionEvidence`.
+
+L'empreinte des nouvelles requêtes inclut les budgets et la version de recherche,
+mais les candidats dépendant de l'état sont construits après le contrôle de
+replay. Le même cycle reste donc rejouable après avoir enrichi le répertoire.
+Les reçus historiques sans champ `search` utilisent leur empreinte historique
+si aucune option `search` n'est explicitement fournie.
+
+Le scénario `test_nce_repertoire_cycle.js` acquiert `unique → sort` et
+`sort → reverse`, puis recherche `unique → sort → sort → reverse` sur la famille
+`unique-descending`, absente des solutions du catalogue initial. Il vérifie les
+contrôles sans Play et sans extension, la promotion sur held-out, la filiation,
+le replay, la transmission à un second agent et la reprise SQLite. Le générateur
+reste limité à des transformations numériques ; ce lot ne fournit pas de
+curriculum adaptatif ni de garantie de non-régression sur toutes les anciennes tâches.
 
 ## Vecteur créatif
 
@@ -176,6 +226,7 @@ conceptuels. `nceAblationTests.js` reste une simulation distincte.
 ```bash
 npm --prefix backend run test:nce
 npm --prefix backend run test:nce:cli
+npm --prefix backend run test:nce:repertoire
 ```
 
 Cette suite couvre les contrats historiques, snapshots Play, budgets nuls,
@@ -204,3 +255,20 @@ Le délai du test d'ablation ne modifie pas le défaut de production de 30 000 m
 Un dépassement de délai reste une observation non mesurée, sans promotion. Ce
 bilan ne certifie ni tous les chemins du dépôt, ni les 25 mécanismes conceptuels,
 ni un avantage scientifique général.
+
+### Validation de la composition — 2026-11-02
+
+| Vérification | Résultat et portée |
+| --- | --- |
+| `npm --prefix backend run test:nce:repertoire` | Passé : composition et mutations bornées, parents prouvés, budgets, replay historique, processus natifs, contrôles négatifs, transmission et réouverture SQLite |
+| `npm --prefix backend run test:nce` | Passé intégralement, avec les douze cas d'ablation historiques et la nouvelle suite de répertoire |
+| `npm --prefix backend run test:nce:cli` | Passé avec migrations et contraintes SQLite |
+| `cargo test --workspace` | Passé intégralement |
+| `python scripts/ci/check_code_quality.py` | Passé : zéro violation sur le dernier contrôle global ; contrôle ciblé sans violation après le durcissement des références de preuve |
+| `npm test` depuis la racine | Non exécuté au-delà du préflight : verrou d'une autre suite lors de la première tentative, puis 490 Mio disponibles pour un minimum requis de 512 Mio |
+
+Une première tentative du scénario de composition a rencontré `SQLITE_FULL`.
+La suite dédiée puis la suite NCE complète ont passé après la fin de cette
+pression disque. Les répertoires de test sont temporaires ; le test vérifie la
+persistance et le rechargement avant de les nettoyer. Ce résultat logiciel ne
+constitue pas une validation statistique générale de la créativité cumulative.
