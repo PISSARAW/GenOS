@@ -10,15 +10,26 @@ pub struct Source {
     _handle: File,
 }
 
+pub struct Blob {
+    pub bytes: Vec<u8>,
+    pub hash: String,
+    _handle: File,
+}
+
 pub fn read(spec: &RunSpec) -> Result<Source, String> {
-    let root = spec.workspace.canonicalize().map_err(|e| e.to_string())?;
-    let path = confined_input(&root, &spec.input_path)?;
+    let blob = read_blob(&spec.workspace, &spec.input_path)?;
+    let input: Vec<i64> = serde_json::from_slice(&blob.bytes).map_err(|e| format!("invalid integer source: {e}"))?;
+    integer::validate(&input)?;
+    Ok(Source { hash: blob.hash, bytes: blob.bytes, input, _handle:blob._handle })
+}
+
+pub fn read_blob(workspace: &Path, relative: &str) -> Result<Blob, String> {
+    let root = workspace.canonicalize().map_err(|e| e.to_string())?;
+    let path = confined_input(&root, relative)?;
     let file = open_source(&path)?;
     let bytes = read_bytes(&file)?;
-    if confined_input(&root, &spec.input_path)? != path { return Err("source path changed".into()); }
-    let input: Vec<i64> = serde_json::from_slice(&bytes).map_err(|e| format!("invalid integer source: {e}"))?;
-    integer::validate(&input)?;
-    Ok(Source { hash: raw_hash(&bytes), bytes, input, _handle:file })
+    if confined_input(&root, relative)? != path { return Err("source path changed".into()); }
+    Ok(Blob { hash: raw_hash(&bytes), bytes, _handle:file })
 }
 
 fn open_source(path: &Path) -> Result<File,String> {
