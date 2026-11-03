@@ -30,6 +30,9 @@ pub(crate) fn prepare_bounded_in(tx:&rusqlite::Transaction<'_>, binding:&Binding
 
 fn install(tx:&rusqlite::Transaction<'_>, binding:&Binding, input:&ContextRequest<'_>) -> Result<(),String> {
     let key=input.key;
+    if !super::agentic_delegation::eligible_in(tx,binding,key)? {
+        return Err("AGENTIC_DYNAMIC_CONTEXT_NOT_READY".into());
+    }
     let spec=agentic_admission::admitted_in(tx,binding)?;
     let actor_id=agentic_ledger::require_actor_in(tx,binding,&key.agent_id)?;
     let payload=prompt::payload(tx,(binding,&spec),key)?;
