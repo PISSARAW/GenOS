@@ -82,6 +82,16 @@ compilation symbolique. Il ne qualifie pas un LLM sans ces services. La correcti
 reste une hypothèse expérimentale jusqu'au résultat complet ; aucune promotion
 de production n'est autorisée par ce changement.
 
+## Profil de modèle du 3 novembre 2026
+
+Après les pilotes 8B négatifs, l'utilisateur choisit explicitement Qwen2.5 14B
+local sur D:. Le profil GGUF Q4_K_M de 14,8 milliards de paramètres est conservé
+dans `model-profile.json` avec son SHA-256. Le SHA historique du modèle R1 reste
+dans la référence. Les 25 autres champs protégés — seuils, corpus, plafonds et
+arrêt — sont comparés sans exception. Le modèle ne change plus après scellement.
+Cette campagne qualifie une nouvelle condition de modèle ; elle n'isole pas à
+elle seule l'effet causal du correctif à poids constants.
+
 ## Alternatives
 
 - Calculer les résultats nativement ou injecter l'oracle dans la grammaire : ne mesurerait plus l'application demandée au LLM.

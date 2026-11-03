@@ -1,8 +1,9 @@
 {
-  "id": "genos-longitudinal-local-r1-v3",
-  "modelAlias": "genos-identity-r1-qwen3",
-  "modelBlob": "D:/ollama/models/blobs/sha256-e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
-  "modelSha256": "e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
+  "id": "genos-longitudinal-local-qwen25-14b-v3",
+  "modelName": "Qwen2.5 14.8B Q4_K_M",
+  "modelAlias": "genos-identity-qwen25-14b",
+  "modelBlob": "D:/ollama/models/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+  "modelSha256": "2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
   "endpoint": "http://127.0.0.1:18081",
   "sourceRoot": "",
   "lineages": 1,

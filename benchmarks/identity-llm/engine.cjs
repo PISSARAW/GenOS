@@ -21,7 +21,7 @@ async function stop() {
   const actual = await completeProcessInfo(state.pid);
   if (!actual) return;
   if (path.resolve(actual.ExecutablePath).toLowerCase() !== path.resolve(EXE).toLowerCase()
-    || !actual.CommandLine.includes('--port 18081') || !actual.CommandLine.includes('--alias genos-identity-r1-qwen3')) {
+    || !actual.CommandLine.includes('--port 18081') || !actual.CommandLine.includes('--alias ' + protocol.modelAlias + ' ')) {
     throw Error('ENGINE_PROCESS_OWNERSHIP_UNVERIFIED');
   }
   process.kill(state.pid);
@@ -43,8 +43,8 @@ async function completeProcessInfo(pid) {
 
 function launch() {
   const label = new Date().toISOString().replace(/[:.]/g, '-');
-  const stdout = path.join(ROOT, `r1-cold-${label}.stdout.log`);
-  const stderr = path.join(ROOT, `r1-cold-${label}.stderr.log`);
+  const stdout = path.join(ROOT, `${protocol.modelAlias}-cold-${label}.stdout.log`);
+  const stderr = path.join(ROOT, `${protocol.modelAlias}-cold-${label}.stderr.log`);
   const outFd = fs.openSync(stdout, 'wx');
   const errFd = fs.openSync(stderr, 'wx');
   const args = ['-m',protocol.modelBlob,'--host','127.0.0.1','--port','18081','-ngl','99',

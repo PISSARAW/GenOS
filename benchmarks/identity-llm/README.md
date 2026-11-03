@@ -28,7 +28,11 @@ reste auditée ; un contre-exemple révoque une règle active. Voir
 [ADR 0771](../../docs/adr/0771-filiation-verifiee-et-regles-apprises-validees.md).
 
 `baseline-criteria.json` fixe les critères de la référence. `config.cjs` rejette
-tout changement de ces valeurs. Les racines de code vides dans `protocol.json`
+tout changement des seuils, plafonds, corpus et règles d'arrêt. Le SHA historique
+reste conservé ; `model-profile.json` fige séparément Qwen2.5 14B, choisi explicitement
+par l'utilisateur le 3 novembre 2026 avant toute réponse confirmatoire. Ce changement
+de modèle modifie une condition expérimentale, sans abaisser les critères.
+Les racines de code vides dans `protocol.json`
 désignent le dépôt courant ; une copie figée sur D: déclare ses racines absolues
 avant le scellement. `node pilot.cjs DOSSIER [CYCLES]` lance uniquement un pilote de
 développement (24 cycles par défaut, de 1 à 50, puis une fenêtre), dont les résultats ne qualifient jamais
@@ -49,5 +53,6 @@ envoyés au serveur sont journalisés et reconstruits au rejeu. Les variables de
 travail scalaires sont produites par le LLM dans le même appel que la réponse.
 Un intermédiaire correct ne remplace jamais une réponse finale fausse. Le schéma ne
 contraint pas la réponse au résultat attendu. Les seuils,
-budgets, corpus, contrôles et poids restent ceux de la référence. Voir
+budgets, corpus et contrôles restent ceux de la référence. Les poids de Qwen2.5 14B
+sont figés pour toute la nouvelle campagne. Voir
 [ADR 0774](../../docs/adr/0774-application-llm-par-traces-litterales.md).

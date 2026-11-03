@@ -54,7 +54,7 @@ h1{font-size:30px}h2{font-size:21px;margin-top:30px}.status{font-weight:700;colo
 table{border-collapse:collapse;width:100%;background:white;margin:14px 0;font-size:14px}th,td{text-align:left;border:1px solid #dbe1e9;padding:9px 12px;overflow-wrap:anywhere}th{background:#eaf0f7}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eaf0f7;padding:14px}a{color:#185aa2}</style><main>
 <h1>GenOS : campagne complète avec LLM local</h1><p class="status">${escape(title)}</p><p>Fin : ${escape(created)}, Europe/Paris.</p>
-<div class="card">DeepSeek-R1-0528-Qwen3 8,2B Q4_K_M, llama.cpp CUDA natif hors ligne sur D:. ${report.trainedCycles} transformations, ${report.calls} inférences principales, ${report.freshProcesses} processus GenOS, ${report.modelServerRestarts} rechargements du modèle avant tests. Durée : ${(summary.totalElapsedMs / 60000).toFixed(1)} minutes.</div>
+<div class="card">${escape(manifest.protocol.modelName)}, llama.cpp CUDA natif hors ligne sur D:. ${report.trainedCycles} transformations, ${report.calls} inférences principales, ${report.freshProcesses} processus GenOS, ${report.modelServerRestarts} rechargements du modèle avant tests. Durée : ${(summary.totalElapsedMs / 60000).toFixed(1)} minutes.</div>
 <h2>Verdict et intégrité</h2>${table(['Contrôle','Résultat'], [
   ['Verdict primaire', summary.status], ['Vérificateur hors ligne : code de sortie', verification.exitCode],
   ['Sondes à froid entièrement correctes', `${cold.results.filter(row => row.passed).length}/${cold.results.length}`],

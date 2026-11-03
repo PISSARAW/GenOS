@@ -1,0 +1,10 @@
+{
+  "id": "qwen25-14b-q4-k-m-local",
+  "displayName": "Qwen2.5 14.8B Q4_K_M",
+  "modelAlias": "genos-identity-qwen25-14b",
+  "modelBlob": "D:/ollama/models/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+  "modelSha256": "2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+  "historicalModelSha256": "e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
+  "selection": "Explicit user instruction on 2026-11-03; local weights changed before source freeze and campaign seed selection",
+  "localOnly": true
+}
