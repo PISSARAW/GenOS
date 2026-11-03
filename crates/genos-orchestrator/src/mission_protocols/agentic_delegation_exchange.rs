@@ -88,3 +88,7 @@ pub(crate) fn received_artifact_in(conn:&Connection,binding:&Binding,input:(&Ste
     if receipt.return_turn>input.0.turn { return Err("AGENTIC_DELEGATION_FUTURE_RETURN".into()); }
     Ok(packet.artifacts.into_iter().find(|artifact|artifact.name==input.2))
 }
+
+#[cfg(test)]
+#[path="agentic_delegation_exchange_tests.rs"]
+mod tests;
