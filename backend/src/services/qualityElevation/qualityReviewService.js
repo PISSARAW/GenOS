@@ -44,7 +44,7 @@ function validateRating(check, criterion) {
 }
 function validateCheck(check, criterion, text) {
   validateVerdict(check);
-  const evidence = citations(check.evidence, text);
+  const evidence = check.verdict === 'unknown' ? [] : citations(check.evidence, text);
   if (check.verdict !== 'unknown' && !evidence.length) throw fail('GQEL_REVIEW_UNGROUNDED', 'Decisive verdict requires a location.');
   return { criterionId: criterion.id, verdict: check.verdict, reason: check.reason, evidence, rating: validateRating(check, criterion) };
 }
@@ -131,7 +131,8 @@ function scoreDefect(score, input) {
 function citationScope(input) { return input.contract.profile === 'screenplay' && input.phase !== 'plan' ? 'screenplay_body' : 'full_artifact'; }
 async function assessArtifact(context) {
   const contract = context.contract, scan = context.scan, content = context.content;
-  const text = citationScope(context) === 'screenplay_body' ? screenplayBody(content) : content;
+  const body = citationScope(context) === 'screenplay_body' ? screenplayBody(content) : content;
+  const text = body && body.trim().length >= 8 ? body : content;
   const artifactDigest = digest(content), criteria = context.criteria || contract.criteria;
   const reviews = [];
   for (const reviewer of context.reviewers) {
