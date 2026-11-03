@@ -2,13 +2,14 @@
 //! (holobionte, syncytium, métapopulation, rhizome, biocénose, biome, essaim),
 //! choisis par le directeur selon l'état du monde.
 //!
-//! Les 19 organisations reproduisent `backend/src/services/dynamicOrganizationService.js`.
+//! Les 20 organisations reproduisent `backend/src/services/dynamicOrganizationService.js`.
 
 use crate::planner::{Goal, WorldState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Topology {
     HubAndSpoke,
+    PeerMesh,
     IsolatedCritics,
     AdversarialTriangle,
     WeightedQuorum,
@@ -45,6 +46,7 @@ pub enum Visibility {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Routing {
     Orchestrator,
+    PeerMesh,
     Broadcast,
     AdversarialPair,
     SharedTrail,
@@ -69,8 +71,15 @@ use Routing::*;
 use Topology::*;
 use Visibility::*;
 
-/// Les 19 organisations de GenOS.
-pub const ORGANIZATIONS: [Organization; 19] = [
+/// Les 20 organisations de GenOS.
+pub const ORGANIZATIONS: [Organization; 20] = [
+    Organization {
+        name: "cross_functional_pod",
+        topology: Topology::PeerMesh,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Routing::PeerMesh,
+    },
     Organization {
         name: "specialist_expert_committee",
         topology: HubAndSpoke,
@@ -206,7 +215,7 @@ pub const ORGANIZATIONS: [Organization; 19] = [
     },
 ];
 
-pub fn catalog() -> &'static [Organization; 19] {
+pub fn catalog() -> &'static [Organization; 20] {
     &ORGANIZATIONS
 }
 

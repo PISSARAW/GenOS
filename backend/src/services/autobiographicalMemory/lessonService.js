@@ -130,7 +130,8 @@ async function verifiedCompletion(db, episode) {
 
 async function consolidateLessons(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const episodes = await episodeStore.getRecentEpisodes({ ...options, allTenants: true, limit: options.limit || 500 }, db);
+  const episodes = await episodeStore.getRecentEpisodes({ allTenants: !options.agentId,
+    ...options, limit: options.limit || 500 }, db);
   const verified = [];
   for (const episode of episodes) verified.push(await verifiedCompletion(db, episode));
   const clusters = groupByCluster(verified);

@@ -4,8 +4,11 @@ use genos_orchestrator::{
 };
 
 #[test]
-fn catalogue_contient_les_19_organisations() {
-    assert_eq!(catalog().len(), 19);
+fn catalogue_contient_les_20_organisations() {
+    assert_eq!(catalog().len(), 20);
+    let pod = by_name("cross_functional_pod").unwrap();
+    assert_eq!(pod.topology, Topology::PeerMesh);
+    assert_eq!(pod.routing, Routing::PeerMesh);
 
     let rb = by_name("red_blue_coevolution").expect("organisation presente");
     assert_eq!(rb.topology, Topology::AdversarialTriangle);
