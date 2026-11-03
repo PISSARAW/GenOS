@@ -22,6 +22,7 @@ pub fn initialize(store:&mut Store,binding:&Binding)->Result<Head,String> {
     store.transaction(binding,|tx| {
         data::ensure(tx)?;
         super::agentic_tools::ensure_in(tx)?;
+        super::agentic_delegation_exchange::initialize_in(tx)?;
         if let Some(base)=data::base(tx,binding)? { return Ok(base); }
         data::save_base(tx,binding,&head)?;
         Ok(head)
@@ -46,7 +47,7 @@ pub fn receive(store:&mut Store,binding:&Binding,receiver:&str)->Result<Vec<Deli
     })
 }
 
-fn receive_one(tx:&Transaction<'_>,binding:&Binding,pair:(&str,&str))->Result<(),String> {
+pub(crate) fn receive_one(tx:&Transaction<'_>,binding:&Binding,pair:(&str,&str))->Result<(),String> {
     if data::delivery(tx,binding,pair)?.is_some() { validate_delivery(tx,binding,pair)?;return Ok(()); }
     let packet=material(tx,binding,pair)?;
     let stores=namespaces(binding,pair)?;
@@ -93,11 +94,12 @@ fn payload(packet:&ReceivedData)->Result<Vec<u8>,String> {
         .map_err(|error|error.to_string())
 }
 
-fn validate_delivery(connection:&Connection,binding:&Binding,pair:(&str,&str))->Result<ReceivedData,String> {
+pub(crate) fn validate_delivery(connection:&Connection,binding:&Binding,pair:(&str,&str))->Result<ReceivedData,String> {
     let expected=material(connection,binding,pair)?;
     let stored=data::delivery(connection,binding,pair)?.ok_or("AGENTIC_DEPENDENCY_NOT_RECEIVED")?;
     if stored!=expected { return Err("AGENTIC_RECEIVED_DESCRIPTOR_CHANGED".into()); }
     physical(connection,binding,&stored)?;
+    delivery_event(connection,binding,&stored)?;
     Ok(stored)
 }
 
@@ -128,4 +130,13 @@ pub(crate) fn received_artifact_in(connection:&Connection,binding:&Binding,input
     let packets=received_in(connection,binding,input.0)?;
     Ok(packets.into_iter().filter(|packet|packet.sender_id==input.1).flat_map(|packet|packet.artifacts)
         .find(|artifact|artifact.agent_id==input.1 && artifact.name==input.2))
+}
+
+fn delivery_event(connection:&Connection,binding:&Binding,packet:&ReceivedData)->Result<(),String> {
+    let payload=serde_json::to_value(packet).map_err(|e|e.to_string())?;
+    let hash=digest(&(binding,"GQWF","AGENT_DATA_RECEIVED",&payload))?;
+    let count:i64=connection.query_row("SELECT COUNT(*) FROM rust_protocol_events WHERE run_id=$1 AND protocol='GQWF'
+        AND phase='AGENT_DATA_RECEIVED' AND digest=$2 AND payload_json=$3",rusqlite::params![binding.run_id,hash,
+        serde_json::to_string(&payload).map_err(|e|e.to_string())?],|r|r.get(0)).map_err(|e|e.to_string())?;
+    if count!=1 { return Err("AGENTIC_DELIVERY_ORIGINAL_EVENT_CHANGED".into()); }Ok(())
 }
