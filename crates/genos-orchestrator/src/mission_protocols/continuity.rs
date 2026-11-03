@@ -110,6 +110,30 @@ fn settled_effects(tx: &Transaction<'_>, binding: &Binding) -> Result<(), String
             .map_err(|e| e.to_string())?;
         if blocked { return Err("CONTINUITY predecessor effect/exposure unresolved; handoff forbidden".into()); }
     }
+    agentic_settled(tx, binding)
+}
+
+fn agentic_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {
+    if table_exists(tx,"agentic_pools")? { agentic_pool_settled(tx,binding)?; }
+    for (table,predicate) in [("agentic_models","status IN ('intent','dispatching','unknown')"),
+        ("agentic_tools","status!='completed'")] {
+        if !table_exists(tx,table)? { continue; }
+        let query=format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE run_id=?1 AND ({predicate}))");
+        let pending:bool=tx.query_row(&query,[&binding.run_id],|row|row.get(0)).map_err(|error|error.to_string())?;
+        if pending { return Err("CONTINUITY agentic operation pending; handoff forbidden".into()); }
+    }
+    Ok(())
+}
+
+fn agentic_pool_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {
+    let pending:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM agentic_pools WHERE mission_id=?1 AND (
+        coalesce(json_extract(value_json,'$.unknown_operations'),1)>0 OR
+        coalesce(json_extract(value_json,'$.held.tokens'),1)>0 OR
+        coalesce(json_extract(value_json,'$.held.model_calls'),1)>0 OR
+        coalesce(json_extract(value_json,'$.held.tool_calls'),1)>0 OR
+        coalesce(json_extract(value_json,'$.held.wall_ms'),1)>0))",
+        [&binding.mission_id],|row|row.get(0)).map_err(|error|error.to_string())?;
+    if pending { return Err("CONTINUITY agentic exposure unresolved; handoff forbidden".into()); }
     Ok(())
 }
 
