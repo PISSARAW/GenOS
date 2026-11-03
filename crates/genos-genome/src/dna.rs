@@ -1,56 +1,65 @@
 use serde::{Deserialize, Serialize};
+pub use crate::nucleotide::{DnaNucleotide, RnaNucleotide};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DnaNucleotide {
-    A,
-    C,
-    G,
-    T,
-}
+fn legacy_width() -> u8 { 2 }
+fn is_legacy(width: &u8) -> bool { *width == 2 }
 
-impl DnaNucleotide {
-    pub fn mutate<R: rand::RngExt + ?Sized>(&self, rng: &mut R) -> Self {
-        match self {
-            Self::A => [Self::C, Self::G, Self::T][rng.random_range(0..3)],
-            Self::C => [Self::A, Self::G, Self::T][rng.random_range(0..3)],
-            Self::G => [Self::A, Self::C, Self::T][rng.random_range(0..3)],
-            Self::T => [Self::A, Self::C, Self::G][rng.random_range(0..3)],
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RnaNucleotide {
-    A,
-    C,
-    G,
-    U,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct DnaStrand {
     sequence: Vec<DnaNucleotide>,
+    #[serde(default = "legacy_width", skip_serializing_if = "is_legacy")]
+    bits_per_base: u8,
+}
+
+impl<'de> Deserialize<'de> for DnaStrand {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Strand {
+            sequence: Vec<DnaNucleotide>,
+            #[serde(default = "legacy_width")]
+            bits_per_base: u8,
+        }
+        let strand = Strand::deserialize(deserializer)?;
+        Self::with_width(strand.sequence, strand.bits_per_base).map_err(serde::de::Error::custom)
+    }
 }
 
 impl DnaStrand {
     pub fn new(sequence: Vec<DnaNucleotide>) -> Self {
-        Self { sequence }
+        let bits_per_base = if sequence.iter().any(|base| base.code() > 3) { 3 } else { 2 };
+        Self { sequence, bits_per_base }
     }
 
     pub fn synthesize(prompt: &str) -> Self {
+        Self::synthesize_with_width(prompt, 3)
+    }
+
+    pub fn synthesize_legacy(prompt: &str) -> Self {
+        Self::synthesize_with_width(prompt, 2)
+    }
+
+    fn synthesize_with_width(prompt: &str, width: u8) -> Self {
         let mut sequence = Vec::new();
-        for byte in prompt.as_bytes() {
-            for shift in [6, 4, 2, 0] {
-                let pair = (byte >> shift) & 0b11;
-                sequence.push(match pair {
-                    0b00 => DnaNucleotide::A,
-                    0b01 => DnaNucleotide::C,
-                    0b10 => DnaNucleotide::G,
-                    _ => DnaNucleotide::T,
-                });
+        let bytes = prompt.as_bytes();
+        for start in (0..bytes.len() * 8).step_by(width as usize) {
+            let mut code = 0;
+            for bit in start..start + width as usize {
+                let value = bytes.get(bit / 8).copied().unwrap_or(0);
+                code = (code << 1) | ((value >> (7 - bit % 8)) & 1);
             }
+            sequence.push(DnaNucleotide::ALL[code as usize]);
         }
-        Self { sequence }
+        Self { sequence, bits_per_base: width }
+    }
+
+    pub fn bits_per_base(&self) -> u8 { self.bits_per_base }
+
+    pub fn with_width(sequence: Vec<DnaNucleotide>, width: u8) -> Result<Self, String> {
+        if ![2, 3].contains(&width) { return Err("DNA width must be 2 or 3".into()); }
+        if sequence.iter().any(|base| base.code() >= (1 << width)) {
+            return Err("DNA base is outside its declared alphabet".into());
+        }
+        Ok(Self { sequence, bits_per_base: width })
     }
 
     pub fn as_slice(&self) -> &[DnaNucleotide] {
@@ -60,31 +69,16 @@ impl DnaStrand {
     pub fn as_str(&self) -> String {
         self.sequence
             .iter()
-            .map(|n| match n {
-                DnaNucleotide::A => 'A',
-                DnaNucleotide::C => 'C',
-                DnaNucleotide::G => 'G',
-                DnaNucleotide::T => 'T',
-            })
+            .map(|n| n.as_char())
             .collect()
     }
 
     pub fn decode_instruction(&self) -> String {
-        let mut bytes = Vec::new();
-        for chunk in self.sequence.chunks(4) {
-            if chunk.len() == 4 {
-                let mut b = 0u8;
-                for (i, &nuc) in chunk.iter().enumerate() {
-                    let bits = match nuc {
-                        DnaNucleotide::A => 0b00,
-                        DnaNucleotide::C => 0b01,
-                        DnaNucleotide::G => 0b10,
-                        DnaNucleotide::T => 0b11,
-                    };
-                    b |= bits << ((3 - i) * 2);
-                }
-                bytes.push(b);
-            }
+        let width = self.bits_per_base as usize;
+        let mut bytes = vec![0u8; self.sequence.len() * width / 8];
+        for bit in 0..bytes.len() * 8 {
+            let code = self.sequence[bit / width].code();
+            bytes[bit / 8] |= ((code >> (width - 1 - bit % width)) & 1) << (7 - bit % 8);
         }
         String::from_utf8_lossy(&bytes).to_string()
     }
@@ -98,11 +92,20 @@ impl DnaStrand {
     }
 
     pub fn replace_sequence(&mut self, sequence: Vec<DnaNucleotide>) {
+        if sequence.iter().any(|base| base.code() > 3) { self.bits_per_base = 3; }
         self.sequence = sequence;
+    }
+
+    pub fn recombined(&self, other: &Self, sequence: Vec<DnaNucleotide>) -> Self {
+        let mut strand = self.clone();
+        strand.bits_per_base = self.bits_per_base.max(other.bits_per_base);
+        strand.replace_sequence(sequence);
+        strand
     }
 
     pub fn mutate_point(&mut self, position: usize, nucleotide: DnaNucleotide) {
         if position < self.sequence.len() {
+            if nucleotide.code() > 3 { self.bits_per_base = 3; }
             self.sequence[position] = nucleotide;
         }
     }
@@ -119,6 +122,7 @@ impl DnaStrand {
                 count += 1;
             }
         }
+        if self.sequence.iter().any(|base| base.code() > 3) { self.bits_per_base = 3; }
         count
     }
 
@@ -142,12 +146,7 @@ impl RnaPolymerase {
         let rna_seq = dna
             .sequence
             .iter()
-            .map(|n| match n {
-                DnaNucleotide::A => RnaNucleotide::U,
-                DnaNucleotide::C => RnaNucleotide::G,
-                DnaNucleotide::G => RnaNucleotide::C,
-                DnaNucleotide::T => RnaNucleotide::A,
-            })
+            .map(|n| RnaNucleotide::from(n.complement()))
             .collect();
         RnaStrand {
             sequence: rna_seq,

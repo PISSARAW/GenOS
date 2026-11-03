@@ -20,6 +20,10 @@ function memberRecord(source = {}) {
     ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(source),
     modelBudgetScope: source.modelBudgetScope || null,
     role: choose([source.role], 'specialist'),
+    workerKind: source.workerKind,
+    workerAssignment: source.workerAssignment,
+    methodContract: source.methodContract,
+    workerArtifactContract: source.workerArtifactContract,
     domain: choose([source.domain, source.subSystem, source.label], null),
     label: choose([source.label], null),
     subSystem: choose([source.subSystem], null),
@@ -64,6 +68,7 @@ function teamRunRecord(input = {}) {
     missionId: input.missionId,
     goal: String(choose([input.goal], '')).trim(),
     ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(input),
+    finalArtifactOutput: input.finalArtifactOutput,
     ...(input.finalArtifactMemberId ? { finalArtifactMemberId: input.finalArtifactMemberId } : {}),
     successCriteria: asList(input.successCriteria),
     workGraphId: choose([input.workGraphId], null),
@@ -80,6 +85,7 @@ function teamRunRecord(input = {}) {
 
 function assertValid(run) {
   require('../qualityElevation/qualityFinalPlan').assertFinalPlan(run);
+  require('../qualityElevation/qualityFinalDelivery').assertContract(run.finalArtifactOutput);
   for (const member of run.members || []) require('../qualityElevation/qualityMissionContract').qualityMissionFields(member);
   const validation = validateTeamRun(run);
   if (validation.valid) return;
@@ -111,6 +117,7 @@ async function update(options = {}) {
   if (current.revision !== revision) throw revisionConflict(teamRunId);
   const next = { ...current, ...patch, teamRunId, missionId: current.missionId, createdAt: current.createdAt };
   require('../qualityElevation/qualityFinalPlan').assertFinalPlanUnchanged(current, next);
+  require('../qualityElevation/qualityFinalDelivery').assertUnchanged(current, next);
   delete next.revision;
   assertValid(next);
   const saved = await saveRevision({ db, teamRunId, state: next, revision });

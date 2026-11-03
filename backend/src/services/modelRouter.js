@@ -127,6 +127,8 @@ function buildRouteContext(opts, clock, remainingMs) {
     sessionId: opts.cognitiveSessionId || opts.agentId || null,
     cognitiveScope: opts.cognitiveScope || null,
     seed: opts.seed,
+    temperature: opts.temperature,
+    topP: opts.topP,
     stream: opts.stream !== false,
     enforceSchema: opts.enforceSchema,
     responseFormat: opts.responseFormat,

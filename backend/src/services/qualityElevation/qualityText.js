@@ -36,6 +36,7 @@ function inspectScreenplay(text, contract = {}) {
   const body = screenplayBody(text), scenes = scenesOf(text), defects = [];
   if (!scenes.length) defects.push(defect('SCREENPLAY_BODY_MISSING', 'Continuité en scènes absente.', { stage: 'plan', severity: 'blocker' }));
   if (scenes.length < (contract.minSceneCount || 1)) defects.push(defect('SCENE_COVERAGE_MISSING', 'Nombre de scènes inférieur au contrat explicite.', { stage: 'plan' }));
+  defects.push(...screenplayLimits(scenes, contract));
   if (wordCount(body) < (contract.minBodyWords || 0)) defects.push(defect('DELIVERABLE_INCOMPLETE', 'Volume de continuité inférieur au minimum explicitement convenu.', { stage: 'scene' }));
   for (const scene of scenes) {
     if (!scene.text) defects.push(defect('EMPTY_SCENE', `Scène vide : ${scene.id}.`, { section: scene.id, stage: 'scene' }));
@@ -44,6 +45,14 @@ function inspectScreenplay(text, contract = {}) {
     .map(match => ({ code: 'SUMMARIZED_ACTION_SUSPECTED', evidence: location(text, match[0]), requiresSemanticReview: true }));
   return { defects, metrics: { bodyWords: wordCount(body), sceneCount: scenes.length,
     claimedDurationVerified: false, suspectedSummaries: cues }, body, scenes };
+}
+function screenplayLimits(scenes, contract) {
+  const defects = [];
+  if (scenes.length > (contract.maxSceneCount || 50)) defects.push(defect('SCENE_LIMIT_EXCEEDED', 'Nombre de scènes supérieur au contrat explicite.', { stage: 'plan' }));
+  if (contract.requireDialogue && !scenes.some(scene => /(?:^|\n)[\p{Lu}][\p{Lu} .’'-]{1,40}(?:[ \t]*\([^\n]+\))?[ \t]*:?[ \t]*\n\s*\S/u.test(scene.text))) {
+    defects.push(defect('DIALOGUE_MISSING', 'Le contrat exige des dialogues mis en scène.', { stage: 'scene' }));
+  }
+  return defects;
 }
 function structuralResult(domain, text, inspected) {
   return { domain, artifactDigest: digest(text), score: null, overallScore: null, passed: false, valid: false,

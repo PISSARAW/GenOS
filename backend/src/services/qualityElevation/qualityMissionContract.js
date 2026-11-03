@@ -24,6 +24,10 @@ function reviewerRoute(value) {
   for (const key of ['dependencyGroup', 'focus']) {
     if (value[key] !== undefined) route[key] = String(value[key]);
   }
+  if (value.reasoningEffort !== undefined) {
+    if (!['none', 'low', 'medium', 'high', 'max'].includes(value.reasoningEffort)) throw fail('GQEL_INVALID_CONTRACT', 'Invalid reviewer reasoning effort.');
+    route.reasoningEffort = value.reasoningEffort;
+  }
   return route;
 }
 

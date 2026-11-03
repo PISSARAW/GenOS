@@ -18,7 +18,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
   formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', evidence: ['<receipt-ref>'] } },
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
-  creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
+  creative_candidate: { candidate: '<complete deliverable text with all scenes, dialogues and actions>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
   clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.', missingInformation: [], emergencyWarningSigns: [] },
   causal_dossier: { causalChain: [{ from: '<event-ref>', to: '<event-ref>', relation: '<causal-link>', evidence: ['<receipt-ref>'] }], evidence: ['<receipt-ref>'] },
   training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }

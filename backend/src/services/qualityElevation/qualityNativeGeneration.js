@@ -24,6 +24,8 @@ function promptText(ctx, original) {
   let prompt = original;
   if (ctx.qualityRequest) prompt += `\n\nQUALITY REPAIR DATA (retain the required worker response schema):\n${ctx.qualityRequest.prompt}`;
   if (ctx.mission.qualityRepair) prompt += `\n\nORCHESTRATOR QUALITY OBLIGATIONS (data):\n${JSON.stringify(ctx.mission.qualityRepair)}`;
+  const required = require('../workerTeamContract').instruction(ctx.mission);
+  if (required) prompt += '\n\n' + required;
   return prompt;
 }
 

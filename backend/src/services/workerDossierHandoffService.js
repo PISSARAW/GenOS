@@ -74,8 +74,30 @@ async function admit(db, input) {
   }
 }
 
+function ensureHandoffEvaluations(mission, output) {
+  if (Array.isArray(output.handoffEvaluations) && output.handoffEvaluations.length) return;
+  const handoffs = Array.isArray(mission.handoffContext) ? mission.handoffContext : [];
+  if (!handoffs.length) return;
+  throw missingIntegrationEvidence('handoffEvaluations');
+}
+
+function ensureIntegrationConstraints(mission, output) {
+  if (Array.isArray(output.integrationConstraints) && output.integrationConstraints.length) return;
+  const dependsOn = Array.isArray(mission.depends_on) ? mission.depends_on : [];
+  if (!dependsOn.length && !mission.handoffContext?.length) return;
+  throw missingIntegrationEvidence('integrationConstraints');
+}
+
+function missingIntegrationEvidence(field) {
+  return Object.assign(new Error(`Worker must evaluate its received handoffs and provide ${field}.`), {
+    code: 'WORKER_INTEGRATION_EVIDENCE_REQUIRED', workerArtifactDiagnostics: { issues: [`${field}.missing`] }
+  });
+}
+
 function attachReport(mission, report) {
   const { transportHandoffs: ignored, ...output } = report;
+  ensureHandoffEvaluations(mission, output);
+  ensureIntegrationConstraints(mission, output);
   return mission.dossierHandoffReceipts?.length ? { ...output, transportHandoffs: mission.dossierHandoffReceipts } : output;
 }
 

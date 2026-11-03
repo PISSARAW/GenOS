@@ -59,7 +59,9 @@ pub fn strand_crossover(
     first_seq.extend_from_slice(&paternal.as_slice()[point..]);
     let mut second_seq = paternal.as_slice()[..point].to_vec();
     second_seq.extend_from_slice(&maternal.as_slice()[point..]);
-    (DnaStrand::new(first_seq), DnaStrand::new(second_seq))
+    let first = maternal.recombined(paternal, first_seq);
+    let second = paternal.recombined(maternal, second_seq);
+    (first, second)
 }
 
 pub fn fertilize(parent_a: &Genome, parent_b: &Genome, rng: &mut (impl rand::Rng + ?Sized)) -> Genome {

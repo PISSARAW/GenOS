@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const SOURCES = Object.freeze([
+  'qualityElevation/qualityNativeVerification.js', 'qualityElevation/qualityReceiptIntegrity.js',
+  'qualityElevation/workerQualityContractEnforcer.js', 'workerTeamContract.js',
+  'qualityElevation/qualityCriterionEvidence.js',
   'epistemic/workspaceMusicCorrection.js',
   "../../bin/caller-mcp-contextValues1.cjs",
   "../../bin/field-campaign-genos-repository-adapterValues1.cjs",

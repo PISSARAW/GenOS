@@ -77,8 +77,19 @@ async function complete(ctx, publishSuccess) {
     usage: { input_tokens: ctx.generation.result.inputTokens,
       output_tokens: ctx.generation.result.outputTokens, cost_usd: ctx.generation.result.costUsd,
       tokens: ctx.evidence.consumed } }, publishSuccess);
+  await recordConscienceTransition(ctx.db, ctx.mission.agentId, ctx.evidence.consumed);
   return { started: true, unresolved: ctx.evidence.unresolved, executionRun: ctx.executionRun,
     local: true, result: ctx.generation.result };
 }
 
 module.exports.complete = complete;
+
+async function recordConscienceTransition(db, agentId, consumedTokens) {
+  try {
+    const conscience = require('./agentConscienceService');
+    const state = await conscience.loadCognitiveRegulationState(db, agentId);
+    if (!state) return;
+    state.currentBudget = Math.max(0, (state.currentBudget || 10000) - (consumedTokens || 0));
+    await conscience.persistCognitiveRegulationState(db, agentId, state, { reason: 'worker_task_completed' });
+  } catch (_) {}
+}

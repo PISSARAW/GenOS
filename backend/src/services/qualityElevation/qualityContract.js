@@ -96,6 +96,7 @@ function narrativeOptions(input) {
   return { targetMinutes: input.targetMinutes == null ? null : number(input.targetMinutes, null, [0.1, 1000]),
     minSceneCount: integer(input.minSceneCount, 1, [1, 50]), maxSceneCount: integer(input.maxSceneCount, 12, [1, 50]),
     minBodyWords: integer(input.minBodyWords, 0, [0, 100000]),
+    requireDialogue: boolean(input.requireDialogue, false),
     allowProvisionalDraft: boolean(input.allowProvisionalDraft, true) };
 }
 function compileQualityContract(input = {}) {

@@ -21,9 +21,8 @@ function uuid() { return crypto.randomUUID(); }
 function safeArray(v) { return Array.isArray(v) ? v : []; }
 
 function intersectLease(dnaTools, baseLease) {
-  if (!Array.isArray(dnaTools) || dnaTools.length === 0) return baseLease;
-  const allowed = new Set(dnaTools.map((t) => String(t)));
-  return baseLease.filter((t) => allowed.has(String(t)));
+  if (!Array.isArray(dnaTools)) return baseLease;
+  return require('../workerGenomeExpression').restrictTools({ tools: dnaTools }, baseLease);
 }
 
 function stripOrchestrate(lease) { return lease.filter((t) => normalizeToolName(t) !== 'genosorchestrate'); }
@@ -216,6 +215,8 @@ function dnaBinding(selection) {
   return {
     genomeRef: selection.genomeRef,
     contentHash: selection.genomeContentHash || null,
+    format: selection.genomeFormat || null,
+    alphabet: selection.genomeAlphabet || null,
     phenotypeHash: selection.phenotypeHash || null,
     selectionReceiptId: selection.selectionId || null,
     morphogenesisDecision: selection.morphogenesisDecision || null
@@ -312,6 +313,17 @@ function emitIncarnation(params) {
   catch (_) {}
 }
 
+function buildIncarnationContract(request) {
+  return workerKinds.buildWorkerContract(request.workerKind, {
+    ...request.mission, orchestratorAgentId: request.parentAgentId,
+    scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId,
+    methodContract: request.methodContract,
+    workerAssignment: request.workerAssignment,
+    workerArtifactContract: request.workerArtifactContract || request.mission?.workerArtifactContract || null,
+    topologySessionId: request.topologySessionId
+  });
+}
+
 async function initClinicalAndScan(db, agentId) {
   await initClinicalState(db, agentId);
   await surveillanceScan(db, agentId, {});
@@ -321,13 +333,7 @@ async function incarnateAgent(opts) {
   if (!opts || !opts.request || !opts.request.role) throw new Error('incarnateAgent requires opts.request.role');
   const request = { ...opts.request };
   request.workerKind = workerKinds.resolveWorkerKind(request.workerKind, request.role);
-  request.workerContract = workerKinds.buildWorkerContract(request.workerKind, {
-    ...request.mission, orchestratorAgentId: request.parentAgentId,
-    scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId,
-    methodContract: request.methodContract,
-    workerAssignment: request.workerAssignment,
-    topologySessionId: request.topologySessionId
-  });
+  request.workerContract = buildIncarnationContract(request);
   const c = opts.ctx || {};
   const db = c.db;
   const parent = safeParent(c, request);
@@ -336,12 +342,13 @@ async function incarnateAgent(opts) {
   const dnaSelection = await buildDna({ db, parent, request });
   let evolution = dnaAuthority(dnaSelection);
   if (!evolution) evolution = await tryEvolveFallback(parent, request, db);
+  const expressionSelection = require('../workerGenomeExpression').selectionFor({ mission: request, dnaSelection, evolution });
   const selfBlock = await buildSelf({ db, agentId, request });
-  const lease = computeLease({ request, dnaSelection, providedLease: request.providedLease });
+  const lease = computeLease({ request, dnaSelection: expressionSelection, providedLease: request.providedLease });
   const identity = generateAgentIdentity({ preferredName: request.phenotype?.preferredName, role: request.role, excludeNames: c.usedNames || [], stableKey: agentId });
   const cognitiveBudget = computeCognitiveBudget(parent, request, c.workerCount);
   const conscience = createConscienceState({ currentBudget: cognitiveBudget, baselineBudget: cognitiveBudget });
-  const prompt = buildPrompt({ identity, conscience, selfBlock, request, lease, dnaSelection });
+  const prompt = buildPrompt({ identity, conscience, selfBlock, request, lease, dnaSelection: expressionSelection });
   const workspaceRoot = await setupWorkspace({ agentId, parent, request });
   const authorityProfile = setupAuthority({ request, agentId, lease });
   const route = await tryRoute({ db, parent, request });
@@ -349,7 +356,7 @@ async function incarnateAgent(opts) {
   try {
     expressionContext = await buildExpressionContext({
       agentId, db, parentOrchestrator: parent,
-      mission: request.mission, assignment: request
+      mission: request.mission, assignment: request, genotype: evolution
     });
   } catch (_) { expressionContext = null; }
   const descriptor = composeDescriptor({ agentId, identity, request, lease, workspaceRoot, authorityProfile, evolution, dnaSelection, route, prompt, conscience, expressionContext });

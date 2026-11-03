@@ -53,11 +53,12 @@ fn mutate_daughter_chromosomes<R: rand::Rng + ?Sized>(daughter: &mut Genome, mut
     let mut paternal = daughter.chromosome_paternal.as_slice().to_vec();
     for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {
         if rng.random_bool(mutation_rate) {
-            *nucleotide = match nucleotide {
+            *nucleotide = match *nucleotide {
                 genos_genome::DnaNucleotide::A => genos_genome::DnaNucleotide::C,
                 genos_genome::DnaNucleotide::C => genos_genome::DnaNucleotide::G,
                 genos_genome::DnaNucleotide::G => genos_genome::DnaNucleotide::T,
                 genos_genome::DnaNucleotide::T => genos_genome::DnaNucleotide::A,
+                base => base.complement(),
             };
         }
     }
@@ -142,7 +143,7 @@ fn build_gamete<R: rand::Rng + ?Sized>(
     gamete.parent_ids = vec![genome.genome_id()];
     gamete.ploidy = "haploid".to_string();
     // Haploid gamete: single chromosome set in maternal, paternal empty
-    gamete.chromosome_maternal.replace_sequence(chrom);
+    gamete.chromosome_maternal = genome.chromosome_maternal.recombined(&genome.chromosome_paternal, chrom);
     gamete.chromosome_paternal = genos_genome::DnaStrand::new(vec![]);
     gamete.bud_scars.clear();
     gamete.endogenous_retroviruses.clear();

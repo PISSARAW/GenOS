@@ -153,4 +153,5 @@ function main() {
       oracleAccepted: result.oracleAccepted, oracle: result.oracle, errorCode: result.errorCode })) }));
 }
 
-main();
+module.exports = { runIsolated, assertPromoted };
+if (require.main === module) main();

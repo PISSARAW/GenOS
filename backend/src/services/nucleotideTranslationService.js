@@ -1,39 +1,18 @@
 ﻿/**
  * GenOS Nucleotide Translation Service
- * 2-bit DNA/RNA nucleotide strand encoding, decoding, and ribosomal peptide translation.
+ * Versioned Hachimoji text encoding with legacy 2-bit DNA decoding.
  */
 
 const { validateCognitiveGenes } = require('./geneticsConstants');
 
-const NUC_MAP = ['A', 'C', 'G', 'T'];
-const NUC_REV = { A: 0, C: 1, G: 2, T: 3 };
+const { encodeText, decodeText, HACHIMOJI_PREFIX } = require('./nucleotideTextCodec');
 
-function encodeStringToNucleotides(str) {
-  const buf = Buffer.from(str, 'utf8');
-  let nucs = '';
-  for (let i = 0; i < buf.length; i++) {
-    const byte = buf[i];
-    for (const shift of [6, 4, 2, 0]) {
-      const pair = (byte >> shift) & 0b11;
-      nucs += NUC_MAP[pair];
-    }
-  }
-  return nucs;
+function encodeStringToNucleotides(str, alphabet = 'hachimoji') {
+  return encodeText(str, alphabet);
 }
 
 function decodeNucleotidesToString(nucs) {
-  const bytes = [];
-  for (let i = 0; i < nucs.length; i += 4) {
-    if (i + 4 <= nucs.length) {
-      let byte = 0;
-      for (let j = 0; j < 4; j++) {
-        const val = NUC_REV[nucs[i + j]] ?? 0;
-        byte |= (val << ((3 - j) * 2));
-      }
-      bytes.push(byte);
-    }
-  }
-  return Buffer.from(bytes).toString('utf8');
+  return decodeText(nucs);
 }
 
 function encodeGenesToNucleotides(genes) {
@@ -50,11 +29,14 @@ function decodeGenesFromNucleotides(nucleotideStr) {
 }
 
 function translateNucleotidesToPeptides(nucleotideStr) {
+  if (nucleotideStr.startsWith(HACHIMOJI_PREFIX)) nucleotideStr = nucleotideStr.slice(HACHIMOJI_PREFIX.length);
   const peptides = [];
   for (let i = 0; i < nucleotideStr.length; i += 3) {
     if (i + 3 <= nucleotideStr.length) {
       const triplet = nucleotideStr.slice(i, i + 3);
-      if (triplet === 'ATG' || triplet === 'AUG') {
+      if (/[PZBS]/.test(triplet)) {
+        peptides.push(`SYNTHETIC_CODON_${triplet}`);
+      } else if (triplet === 'ATG' || triplet === 'AUG') {
         peptides.push('MET_START');
       } else if (['TAA', 'TAG', 'TGA', 'UAA', 'UAG', 'UGA'].includes(triplet)) {
         peptides.push('STOP');

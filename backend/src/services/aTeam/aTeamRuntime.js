@@ -94,10 +94,10 @@ function formationFingerprint(draft) {
   const fields = ['memberId', 'role', 'domain', 'capabilities', 'dependsOn', 'outputs', 'inputArtifacts',
     'requiredArtifacts', 'acceptanceCriteria', 'inputSchema', 'outputSchema', 'executionBudgetTokens', 'ownedResponsibilities',
     'agentId', 'workerId', 'authority', 'toolLease', 'participationMode', 'consults', 'consumes', 'provides',
-    'qualityElevation', 'qualityRuntime', 'modelBudgetScope'];
+    'qualityElevation', 'qualityRuntime', 'modelBudgetScope', 'workerKind', 'methodContract', 'workerArtifactContract'];
   const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, field === 'qualityElevation' ? member[field]?.digest : member[field]])));
   const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, ...(draft.qualityElevation ? { finalArtifactMemberId: draft.finalArtifactMemberId, quality: { contractDigest: draft.qualityElevation.digest, runtime: draft.qualityRuntime } } : {}), variant: draft.execution?.organizationPolicy?.variant || null };
-  return createHash('sha256').update(canonicalJson(definition)).digest('hex');
+  return createHash('sha256').update(canonicalJson({ ...definition, finalArtifactOutput: draft.finalArtifactOutput })).digest('hex');
 }
 
 async function persistNewRun(input, draft) {

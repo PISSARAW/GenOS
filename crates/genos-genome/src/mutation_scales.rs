@@ -152,7 +152,7 @@ impl MultiScaleMutator {
                         new_dna.extend_from_slice(original);
                         new_dna.extend_from_slice(original);
                         new_dna.extend_from_slice(original);
-                        genome.genes.get_mut(locus).unwrap().dna = DnaStrand::new(new_dna);
+                        genome.genes.get_mut(locus).unwrap().dna.replace_sequence(new_dna);
                         results.push(MutationResult {
                             scale: MutationScale::Gene,
                             effect: MutationEffect::Amplification { factor: 3 },
@@ -183,7 +183,7 @@ impl MultiScaleMutator {
                         let original = gene.dna.as_slice();
                         let mut new_dna = original.to_vec();
                         new_dna.reverse();
-                        genome.genes.get_mut(locus).unwrap().dna = DnaStrand::new(new_dna);
+                        genome.genes.get_mut(locus).unwrap().dna.replace_sequence(new_dna);
                         results.push(MutationResult {
                             scale: MutationScale::Gene,
                             effect: MutationEffect::Inversion,

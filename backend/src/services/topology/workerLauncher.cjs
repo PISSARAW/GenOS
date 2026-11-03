@@ -38,8 +38,17 @@ function runnerEnvironment() {
   };
 }
 
+function resolveContractAndHandoffs(member, context) {
+  const req = context.request || {};
+  return {
+    workerArtifactContract: member.workerArtifactContract || req.workerArtifactContract || null,
+    handoffContext: member.handoffContext || req.handoffContext || []
+  };
+}
+
 async function persistWorkerIdentity({ db, context, member, parent, workerId }) {
   require('../qualityElevation/qualityMissionContract').prepareQualityMission(member);
+  const extra = resolveContractAndHandoffs(member, context);
   return ensureTopologyWorker(db, {
     workerId,
     parentId: context.orchestratorId,
@@ -50,6 +59,7 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     role: member.role || 'worker',
     workerKind: member.workerKind,
     methodContract: member.methodContract,
+    ...extra,
     workerAssignment: member.workerAssignment, ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(member),
     workerTokenLimit: member.executionBudgetTokens,
     topologySessionId: context.topologySession?.sessionId || null,

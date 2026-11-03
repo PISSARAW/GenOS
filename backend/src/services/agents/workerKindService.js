@@ -171,7 +171,7 @@ function requiredMethodCapabilities(methodContract) {
   const methodId = normalize(methodContract.methodId);
   const supplied = Array.isArray(methodContract.requiredCapabilities) ? methodContract.requiredCapabilities : [];
   const required = [...new Set([...(METHOD_CAPABILITIES[methodId] || []), ...supplied])];
-  if (methodId !== 'prompt_defined' && !required.length) {
+  if (methodId !== 'prompt_defined' && methodId !== 'verify_worker_artifact' && !required.length) {
     throw Object.assign(new Error(`Method '${methodId}' has no registered worker capability.`), { code: 'WORKER_METHOD_UNSUPPORTED' });
   }
   return required;
@@ -217,6 +217,7 @@ function missionContractFields(mission) {
     ...(mission.gvxTrialContext ? require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext) : {}),
     methodContract: mission.methodContract,
     codeVerificationContract: mission.codeVerificationContract || null,
+    workerArtifactContract: mission.workerArtifactContract || null,
     regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
     communicationRequired: missionRequiresCommunication(mission),

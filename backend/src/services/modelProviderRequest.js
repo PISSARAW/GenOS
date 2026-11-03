@@ -33,7 +33,11 @@ function normalizeMessageContent(content) {
 
 function parseStructuredResponse(text, responseFormat) {
   if (responseFormat !== 'json_object' && !isJsonSchemaFormat(responseFormat)) return null;
-  try { return JSON.parse(text); } catch (_) { throw new Error('Provider returned invalid structured JSON.'); }
+  try { return JSON.parse(text); } catch (_) {
+    const extracted = isJsonSchemaFormat(responseFormat) && require('./agentOutputSchemaService').extractJson(text);
+    if (extracted) return extracted;
+    throw new Error('Provider returned invalid structured JSON.');
+  }
 }
 
 function isJsonSchemaFormat(value) {
@@ -106,7 +110,7 @@ function buildOpenAiBody(params) {
 
 function buildRequestBody(params) {
   require('./modelProviderSampling').samplingFields(params);
-  if (params.temperature !== undefined && ['anthropic', 'gemini'].includes(params.provider)) {
+  if ((params.temperature !== undefined || params.topP !== undefined) && ['anthropic', 'gemini'].includes(params.provider)) {
     throw new Error('Explicit sampling temperature is unsupported for this provider.');
   }
   if (params.provider === 'anthropic') return buildAnthropicBody(params);

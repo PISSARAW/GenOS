@@ -15,7 +15,8 @@ function run() {
   assert.equal(compile.status, 0, compile.stderr);
 
   const model = agentDna.decodeFile(out);
-  assert.equal(model.format, 'AgentDNA/v1');
+  assert.equal(model.format, 'AgentDNA/v2');
+  assert.equal(model.alphabet, 'ACGTPZBS');
   assert.ok(model.meta.name.length > 0);
   assert.ok(Object.keys(model.genes).length > 0);
   assert.equal(model.contentHash.length, 64);

@@ -27,22 +27,12 @@ impl Default for MutationRates {
 
 impl DnaNucleotide {
     pub fn nucleotide_random<R: rand::Rng + ?Sized>(rng: &mut R) -> Self {
-        match rng.random_range(0..4) {
-            0 => DnaNucleotide::A,
-            1 => DnaNucleotide::C,
-            2 => DnaNucleotide::G,
-            _ => DnaNucleotide::T,
-        }
+        Self::ALL[rng.random_range(0..8)]
     }
 
     pub fn try_nucleotide_from_char(c: char) -> Option<Self> {
-        match c.to_ascii_uppercase() {
-            'A' => Some(DnaNucleotide::A),
-            'C' => Some(DnaNucleotide::C),
-            'G' => Some(DnaNucleotide::G),
-            'T' | 'U' => Some(DnaNucleotide::T),
-            _ => None,
-        }
+        let base = if c.eq_ignore_ascii_case(&'U') { 'T' } else { c.to_ascii_uppercase() };
+        Self::ALL.into_iter().find(|n| n.as_char() == base)
     }
 
     pub fn nucleotide_from_char(c: char) -> Option<Self> {

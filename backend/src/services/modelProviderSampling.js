@@ -1,19 +1,29 @@
 'use strict';
 
+function checkTemp(val) {
+  if (val === undefined) return {};
+  const v = Number(val);
+  if (!Number.isFinite(v) || v < 0 || v > 2) throw new Error('Invalid sampling temperature.');
+  return { temperature: v };
+}
+
+function checkTopP(val) {
+  if (val === undefined) return {};
+  const v = Number(val);
+  if (!Number.isFinite(v) || v < 0 || v > 1) throw new Error('Invalid sampling topP.');
+  return { top_p: v };
+}
+
+function checkCtx(params) {
+  if (params.contextTokens === undefined) return {};
+  const v = Number(params.contextTokens);
+  if (!Number.isInteger(v) || v < 256 || v > 131072) throw new Error('Invalid context token limit.');
+  if (!params.nativeOllama) throw new Error('Context token limit requires native Ollama.');
+  return { num_ctx: v };
+}
+
 function samplingFields(params) {
-  const result = {};
-  if (params.temperature !== undefined) {
-    const value = Number(params.temperature);
-    if (!Number.isFinite(value) || value < 0 || value > 2) throw new Error('Invalid sampling temperature.');
-    result.temperature = value;
-  }
-  if (params.contextTokens !== undefined) {
-    const value = Number(params.contextTokens);
-    if (!Number.isInteger(value) || value < 256 || value > 131072) throw new Error('Invalid context token limit.');
-    if (!params.nativeOllama) throw new Error('Context token limit requires native Ollama.');
-    result.num_ctx = value;
-  }
-  return result;
+  return { ...checkTemp(params.temperature), ...checkTopP(params.topP), ...checkCtx(params) };
 }
 
 function nativeOptions(params) {

@@ -13,11 +13,13 @@ function meteredReply(result, content) {
   if (![usage.inputTokens, usage.outputTokens].every(value => Number.isSafeInteger(value) && value >= 0)) {
     throw fail('GQEL_USAGE_UNVERIFIED', 'Native model routing must return measured token usage.');
   }
-  if (result.schemaViolation) throw fail('GQEL_REVIEW_INVALID', 'Native model response failed its requested schema.');
   if (!result.finishReason) throw fail('GQEL_COMPLETION_UNVERIFIED', 'Native provider completion was not observed.');
-  return { content, usage, model: result.model, servedModel: result.servedModel || null,
+  const reply = { content, usage, model: result.model, servedModel: result.servedModel || null,
     provider: result.provider || null, routeAttemptId: result.routeAttemptId || null,
     finishReason: result.finishReason };
+  if (result.schemaViolation) throw Object.assign(fail('GQEL_REVIEW_INVALID',
+    `Native model response failed its requested schema: ${JSON.stringify(result.schemaViolation)}`), { protocolReply: reply });
+  return reply;
 }
 
 function deadlineOf(mission) {
@@ -41,6 +43,7 @@ async function assertActive(ctx, request) {
 function routingContext(ctx, input) {
   const request = input.request, model = modelUri(input.model);
   return { ...ctx.generationContext, db: ctx.db, mission: ctx.mission, executionRun: ctx.executionRun,
+    reasoningEffort: input.reasoningEffort,
     workerModel: model, promptText: request.prompt, signal: request.signal,
     policy: { primary: model, fallback: [], preferLocal: model.startsWith('ollama://') },
     maxTokens: request.maxOutputTokens,
@@ -50,10 +53,10 @@ function routingContext(ctx, input) {
     responseFormatOverride: request.responseSchema ? { name: 'genos_quality_review', schema: request.responseSchema } : undefined };
 }
 
-function createAdapter(ctx, model) {
+function createAdapter(ctx, model, options = {}) {
   return async request => {
     await assertActive(ctx, request);
-    const result = await ctx.generate(routingContext(ctx, { request, model }));
+    const result = await ctx.generate(routingContext(ctx, { request, model, reasoningEffort: options.reasoningEffort }));
     if (result.model !== modelUri(model)) throw fail('GQEL_MODEL_MISMATCH', 'Native routing changed the contracted quality model.');
     ctx.usage.inputTokens += result.inputTokens || 0;
     ctx.usage.outputTokens += result.outputTokens || 0;

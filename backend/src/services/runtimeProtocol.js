@@ -19,6 +19,7 @@ function encodeMission(mission) {
   const coordinationPolicy = mission.coordinationPolicy || mission.coordination_policy;
   const message = Mission.create({
     ...mission,
+    genomeJson: mission.genome ? JSON.stringify(mission.genome) : mission.genomeJson,
     coordinationPolicyJson: coordinationPolicy
       ? JSON.stringify(coordinationPolicy)
       : mission.coordinationPolicyJson,
@@ -61,7 +62,12 @@ function decodeMission(buffer) {
   if (!result.prompt && result.promptCapsule) {
     result.prompt = decodePromptCapsule(result.promptCapsule).prompt;
   }
-  return result;
+  return restoreGenome(result);
+}
+
+function restoreGenome(mission) {
+  if (mission.genomeJson) mission.genome = JSON.parse(mission.genomeJson);
+  return mission;
 }
 
 function decodeMissionInput(buffer) {
@@ -74,7 +80,7 @@ function decodeMissionInput(buffer) {
       if (value.memoryContextJson && !value.memoryContext) {
         value.memoryContext = JSON.parse(value.memoryContextJson);
       }
-      return value;
+      return restoreGenome(value);
     } catch {
       throw binaryError;
     }

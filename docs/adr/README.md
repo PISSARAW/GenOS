@@ -910,6 +910,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0774](0774-application-llm-par-traces-litterales.md) | Application LLM par expressions symboliques | Accepté | 2026-11-03 | Ontogenèse, application de règles, qualification LLM |
 | [0780](0780-portage-missions-llm-runtime-rust.md) | Missions LLM natives sous les sept protocoles | Accepté pour le portage du parcours textuel natif | 2026-11-03 | Runtime Rust, inférence, contrats d'artefacts et preuves |
 | [0781](0781-missions-llm-multi-agents-et-outils-rust.md) | Missions LLM multi-agents et outils natifs Rust | Accepté pour un DAG borné et des outils de sources et d'artefacts privés | 2026-11-03 | Runtime Rust, agents LLM, outils, effets, contexte et preuves |
+| [0782](0782-livraison-scenario-sous-preuves.md) | Livraison des scénarios sous preuves | Voir le fichier | -- | -- |
+| [0783](0783-expression-genomes-mutants-execution.md) | Expression des génomes mutants pendant l'exécution | Accepté | 2026-11-03 | -- |
+| [0784](0784-alphabet-hachimoji-compatible.md) | Alphabet Hachimoji et compatibilité AgentDNA | Accepté | 2026-11-03 | Génomes, codecs Rust/Node et runtime agentique |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
@@ -967,6 +970,9 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
    puis la section ADR de [../README.md](../README.md).
 
 ## Voir aussi
+
+- [0782 — Livraison des scénarios sous preuves](0782-livraison-scenario-sous-preuves.md).
+- [0783 — Expression des génomes mutants pendant l'exécution](0783-expression-genomes-mutants-execution.md).
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.

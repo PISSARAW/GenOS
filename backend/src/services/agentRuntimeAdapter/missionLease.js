@@ -184,6 +184,7 @@ async function applyPolicyMasking(ctx, mission) {
     mission.toolLease = result.lease;
     if (result.masked.length) mission.policyMask = { masked: result.masked, reason: result.reason };
   } catch (_) {}
+  if (mission.genomeExpression) mission.genomeExpression.effectiveTools = [...mission.toolLease];
 }
 
 module.exports = { attachMissionMemoryContext, isInProcessWorker, enforceMissionToolLease, applyFocusProbe };

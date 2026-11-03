@@ -74,6 +74,7 @@ async function generateWorkerResultOnce(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     contextTokens: ctx.mission.localContextTokens,
+    ...require('./workerGenomeExpression').samplingOptions(ctx.mission),
     requestTokenBudget: resolveRequestTokenBudget(ctx),
     signal: ctx.signal,
     maxCostUsd: ctx.maxCost,
@@ -90,7 +91,7 @@ async function generateWorkerResultOnce(ctx) {
         forceFullFileReplacement: ctx.mission.forceFullFileReplacement === true
       })
       : require('./workerEvidenceIdentityPrompt').workerResponseFormat(ctx.mission)),
-    reasoningEffort: ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined,
+    reasoningEffort: requestReasoning(ctx),
 
     policy: ctx.policy,
     prompt: ctx.promptText
@@ -102,6 +103,10 @@ function resolveImmuneReport(ctx) {
     nameMeaning: ctx.nameMeaning,
     role: ctx.role
   });
+}
+function requestReasoning(ctx) {
+  if (ctx.reasoningEffort !== undefined) return ctx.reasoningEffort;
+  return ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined;
 }
 function throwIfImmuneRejected(report, outputText) {
   if (report.ok) return;
@@ -220,7 +225,7 @@ async function runGenerationStage(ctx) {
     orchestratorAgentId: ctx.mission.orchestratorAgentId,
     specialtyNiche: ctx.mission.specialtyNiche,
     methodContract: ctx.mission.methodContract,
-    workerAssignment: ctx.mission.workerAssignment
+    workerAssignment: ctx.mission.workerAssignment, workerArtifactContract: ctx.mission.workerArtifactContract || null
   });
   const workspaceDetails = require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue1({ codeWorker, get ctx() { return ctx; }, require });
   if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
@@ -255,8 +260,6 @@ async function runGenerationStage(ctx) {
   result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
   require('./workerEvidenceBarrierLocalStages1.js').runGenerationStageStage2({ codeRepairPlans, codeWorker, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; }, workerCodeTestRepair });
-  if (result.schemaViolation) throw Object.assign(new Error('Model output did not satisfy the requested worker evidence schema.'),
-    { code: 'WORKER_OUTPUT_SCHEMA_VIOLATION', workerArtifactDiagnostics: result.schemaViolation });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
   return { codeWorker, estimate, budget, agentName, nameMeaning, workerModel, result, generationContext };

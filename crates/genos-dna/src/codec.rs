@@ -11,14 +11,18 @@ use crate::wire::{self, Bytes, UuidBytes, WireGene, WireMeta, WirePhenotype, Wir
 
 pub fn encode(dna: &AgentDna) -> Result<Vec<u8>, String> {
     let sections = build_sections(dna)?;
-    assemble(&sections, compute_flags(dna))
+    assemble(&sections, (compute_flags(dna), format_version(dna)))
 }
 
 pub fn content_hash(dna: &AgentDna) -> Result<String, String> {
     let sections = build_sections(dna)?;
+    Ok(sections_hash(&sections))
+}
+
+fn sections_hash(sections: &[Section]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(canonical_flux(&sections));
-    Ok(hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+    hasher.update(canonical_flux(sections));
+    hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 pub fn encode_signed(dna: &mut AgentDna, secret: &[u8]) -> Result<Vec<u8>, String> {
@@ -28,7 +32,7 @@ pub fn encode_signed(dna: &mut AgentDna, secret: &[u8]) -> Result<Vec<u8>, Strin
     let signature = crate::sign::sign_flux(&signing, &canonical_flux(&sections));
     sections.push(Section::new(SectionTag::Sign, signature));
     sections.sort_by(|left, right| left.tag.cmp(&right.tag));
-    assemble(&sections, compute_flags(dna) | FLAG_SIGNED)
+    assemble(&sections, (compute_flags(dna) | FLAG_SIGNED, format_version(dna)))
 }
 
 pub fn verify_signature(bytes: &[u8]) -> Result<Option<String>, String> {
@@ -88,7 +92,16 @@ pub fn build_sections(dna: &AgentDna) -> Result<Vec<Section>, String> {
     }
     sections.push(Section::new(SectionTag::Prov, pack(&wire::provenance_to_wire(&dna.provenance))?));
     sections.sort_by(|left, right| left.tag.cmp(&right.tag));
-    Ok(sections)
+    Ok(preserve_original(dna, sections))
+}
+
+fn preserve_original(dna: &AgentDna, sections: Vec<Section>) -> Vec<Section> {
+    if let Some(original) = &dna.original_encoding {
+        if sections_hash(&sections) == original.normalized_hash {
+            return original.sections.clone();
+        }
+    }
+    sections
 }
 
 fn genes_to_wire(genes: &BTreeMap<String, genos_genome::Gene>) -> Result<BTreeMap<String, WireGene>, String> {
@@ -192,7 +205,14 @@ fn compute_flags(dna: &AgentDna) -> u16 {
     flags
 }
 
-fn assemble(sections: &[Section], flags: u16) -> Result<Vec<u8>, String> {
+pub fn format_version(dna: &AgentDna) -> u16 {
+    let extended = std::iter::once(&dna.maternal).chain(std::iter::once(&dna.paternal))
+        .chain(dna.extra_chromosomes.iter()).chain(dna.genes.values().map(|gene| &gene.dna))
+        .any(|strand| strand.bits_per_base() == 3);
+    if extended { 2 } else { 1 }
+}
+
+fn assemble(sections: &[Section], metadata: (u16, u16)) -> Result<Vec<u8>, String> {
     let table_len = sections.len() * SECTION_ENTRY_LEN;
     let mut offset = HEADER_LEN + table_len;
     let mut payload = Vec::new();
@@ -208,7 +228,8 @@ fn assemble(sections: &[Section], flags: u16) -> Result<Vec<u8>, String> {
         offset += section.payload.len();
     }
     let header = Header {
-        flags,
+        flags: metadata.0,
+        version: metadata.1,
         section_count: sections.len() as u16,
         total_length: offset as u32,
         payload_crc32: header::crc32(&payload),

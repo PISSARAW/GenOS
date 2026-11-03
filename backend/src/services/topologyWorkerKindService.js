@@ -52,7 +52,7 @@ const ROLE_PREFERENCES = Object.freeze({
   deterministic_procedure: ['procedural_executor'], formal_proof: ['formal_worker'],
   experiment: ['experimental_worker'], causal_analysis: ['forensic_worker'], teach: ['teaching_worker']
 });
-const ASSIGNMENT_FIELDS = Object.freeze(['workerKind', 'workerRequirements', 'methodContract',
+const ASSIGNMENT_FIELDS = Object.freeze(['workerKind', 'workerRequirements', 'methodContract', 'workerArtifactContract',
   'specialtyNiche', 'nicheDomain', 'niche', 'domain', 'hostContractId', 'hostCapabilities', 'hostId', 'qualityElevation', 'qualityRuntime']);
 const REQUIREMENT_FIELDS = Object.freeze(['requiredCapabilities', 'allowedKinds', 'nicheDomain',
   'hostContractId', 'hostCapabilities', 'hostId']);

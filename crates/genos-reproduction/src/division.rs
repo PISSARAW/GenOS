@@ -71,15 +71,7 @@ pub struct MeiosisResult {
 pub struct CellDivision;
 
 pub(crate) fn mutate_nucleotide<R: rand::Rng + ?Sized>(nucleotide: &genos_genome::DnaNucleotide, rng: &mut R) -> genos_genome::DnaNucleotide {
-    use genos_genome::DnaNucleotide::*;
-    let alternatives = match nucleotide {
-        A => [C, G, T],
-        C => [A, G, T],
-        G => [A, C, T],
-        T => [A, C, G],
-    };
-    let idx = rng.random_range(0..3);
-    alternatives[idx].clone()
+    nucleotide.mutate(rng)
 }
 
 impl CellDivision {
@@ -311,12 +303,7 @@ impl CellDivision {
 }
 
 fn nuc_byte(n: &genos_genome::DnaNucleotide) -> u8 {
-    match n {
-        genos_genome::DnaNucleotide::A => b'A',
-        genos_genome::DnaNucleotide::C => b'C',
-        genos_genome::DnaNucleotide::G => b'G',
-        genos_genome::DnaNucleotide::T => b'T',
-    }
+    n.as_char() as u8
 }
 
 fn mutate_child_dna<R: rand::Rng + ?Sized>(child: &mut Genome, mutation_rate: f64, rng: &mut R) {

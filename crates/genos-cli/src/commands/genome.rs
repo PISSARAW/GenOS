@@ -87,7 +87,7 @@ fn handle_compile(input: &str, output: &str, opts: &WriteOptions) -> Result<(), 
     let path = resolve_output_path(output, opts)?;
     std::fs::write(&path, &bytes)
         .map_err(|error| format!("Failed to write '{}': {}", path.display(), error))?;
-    let phenotype = dna.phenotype;
+    let phenotype = dna.phenotype.clone();
     let tools = phenotype.as_ref().map(|value| value.tools.clone()).unwrap_or_default();
     let capabilities = phenotype
         .as_ref()
@@ -96,7 +96,7 @@ fn handle_compile(input: &str, output: &str, opts: &WriteOptions) -> Result<(), 
     println!("{}", json!({
         "success": true,
         "operation": "genome_compile",
-        "format": "AgentDNA/v1",
+        "format": format!("AgentDNA/v{}", codec::format_version(&dna)),
         "input": input,
         "output": path.display().to_string(),
         "bytes": bytes.len(),
@@ -126,7 +126,7 @@ fn handle_validate(file: &str, pubkey: Option<&str>) -> Result<(), String> {
             println!("{}", json!({
                 "success": true,
                 "operation": "genome_validate",
-                "format": "AgentDNA/v1",
+                "format": format!("AgentDNA/v{}", codec::format_version(&dna)),
                 "file": file,
                 "status": "VALID",
                 "signed": signer.is_some(),
@@ -144,7 +144,7 @@ fn handle_validate(file: &str, pubkey: Option<&str>) -> Result<(), String> {
             println!("{}", json!({
                 "success": false,
                 "operation": "genome_validate",
-                "format": "AgentDNA/v1",
+                "format": genos_dna::Header::decode(&bytes).ok().map(|h| format!("AgentDNA/v{}", h.version)),
                 "file": file,
                 "status": "INVALID",
                 "errors": [reason.clone()],
@@ -163,7 +163,12 @@ fn handle_inspect(file: &str) -> Result<(), String> {
     println!("{}", json!({
         "success": true,
         "operation": "genome_inspect",
-        "format": "AgentDNA/v1",
+        "format": format!("AgentDNA/v{}", codec::format_version(&dna)),
+        "alphabet": if codec::format_version(&dna) == 2 { "ACGTPZBS" } else { "ACGT" },
+        "strands": {
+            "maternal": { "sequence": dna.maternal.as_str(), "bits_per_base": dna.maternal.bits_per_base() },
+            "paternal": { "sequence": dna.paternal.as_str(), "bits_per_base": dna.paternal.bits_per_base() },
+        },
         "file": file,
         "content_hash": content_hash,
         "name": dna.meta.name,

@@ -13,7 +13,7 @@ async function load(db, request) {
   const report = observed.event.payload?.evidenceReport;
   assertArtifactInputs(workerContract, methodContract, report);
   const content = { runId: request.runId, workerId: request.agentId,
-    workerKind: binding.genome.role, workerContract, methodContract, report };
+    workerKind: workerContract.identity?.workerKind || binding.genome.role, workerContract, methodContract, report };
   return { domain: 'worker_artifact', runId: request.runId, workerId: request.agentId,
     content, contentHash: values.digest(content), bindingHash: values.digest(binding),
     runBindingHash: runBinding.hash, observationHash: values.digest(observed),

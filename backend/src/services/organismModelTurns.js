@@ -17,6 +17,7 @@ function requestOf(options) {
     sessionId: options.cognitiveSessionId || options.agentId,
     responseFormat: options.responseFormat || null,
     maxTokens: options.maxTokens || null,
+    temperature: options.temperature ?? null, topP: options.topP ?? null,
     providerContinuityMode: options.providerContinuity?.mode || null
   };
 }

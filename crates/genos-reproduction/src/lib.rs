@@ -163,8 +163,8 @@ mod tests {
 
     #[test]
     fn test_hybrid_has_new_genome_identity() {
-        let parent_a = Genome::new("HYBRID_A");
-        let parent_b = Genome::new("HYBRID_B");
+        let parent_a = Genome::new("HYBRID_SHARED_BACKGROUND_A");
+        let parent_b = Genome::new("HYBRID_SHARED_BACKGROUND_B");
         let result = PhylogeneticTree::attempt_hybridization(&parent_a, &parent_b, false);
         let child = match result {
             HybridizationResult::Introgression(genome) | HybridizationResult::SterileHybrid(genome) => genome,

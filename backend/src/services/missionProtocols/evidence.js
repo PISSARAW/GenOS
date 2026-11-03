@@ -12,6 +12,13 @@ function refused(reason) {
     { code: 'MISSION_EVIDENCE_REQUIRED' });
 }
 
+function semanticProofAccepted(result) {
+  const attestation = result?.proof?.attestation?.value;
+  if (attestation?.accepted !== true || !attestation?.domain) return false;
+  try { require('../epistemic/nativeOracleDomains').definition(attestation.domain); return true; }
+  catch { return false; }
+}
+
 async function current(binding) {
   await require('./context').assertCurrent(binding);
 }
@@ -24,7 +31,7 @@ async function verification(binding, event) {
     { proof: historical.proof, request: { runId: binding.runId, agentId: binding.agentId },
       report: event.payload.evidenceReport || event.payload.report });
   if (!require('../terminalQualityEvidence').acceptedProof(result?.proof)) throw refused('independent native oracle required');
-  if (!require('../biologicalWorkerReceiptService').semanticProofAccepted(result)) throw refused('semantic native domain required');
+  if (!semanticProofAccepted(result)) throw refused('semantic native domain required');
   const record = result.proof.attestation.value;
   if (!result.delegated && (record.runId !== binding.runId || record.agentId !== binding.agentId)) throw refused('native owner differs');
   return { ...result, missionReportDigest: digest(event.payload.evidenceReport || event.payload.report) };

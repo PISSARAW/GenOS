@@ -1,15 +1,15 @@
-# GenOS AgentDNA Specification (v1)
+# GenOS AgentDNA Specification (v1 / v2 Hachimoji)
 
 ## Statut et portée
 
-Cette spécification définit le format **héréditaire binaire** `AgentDNA` v1 : la représentation canonique, portable et interopérable d'un génome d'agent GenOS, capable de porter identité, gènes, épigénétique, plasmides, phénotype exprimé et provenance.
+Cette spécification définit les formats **héréditaires binaires** `AgentDNA` v1 et v2 : la représentation canonique, portable et interopérable d'un génome d'agent GenOS, capable de porter identité, gènes, épigénétique, plasmides, phénotype exprimé et provenance. Le format v2 ajoute l'alphabet Hachimoji ; v1 reste lisible sans conversion.
 
 - Format **binaire** de bout en bout. Le JSON n'est **pas** un format de production.
 - Normatif côté Rust par les types de `crates/genos-genome`.
-- Interopérable Node ↔ Rust via MessagePack et un encodage 2 bits explicite.
+- Interopérable Node ↔ Rust via MessagePack et un encodage explicite de deux ou trois bits par base.
 - Lié à l'[ADR 0001](../docs/adr/0001-agent-dna-binary-format.md) (décision) et à [GENOME_SPEC.md](GENOME_SPEC.md) (manifeste portable `AgentGenome`, distinct et non héréditaire).
 
-Statut d'implémentation : spécification terminée et format binaire AgentDNA v1 en production via `genos genome compile` (`crates/genos-dna/src/compile.rs`, `crates/genos-cli/src/commands/genome.rs`, magic `GDNA`, en-tête 32 octets, table de sections, encodage 2-bit, canonicalisation SHA-256, signature Ed25519, leurres, spéciation, graft — couvert par `crates/genos-dna/src/tests.rs`). Les commandes `genome compile/validate/inspect/sign/cross/mutate/clone/decoy/graft/speciate` lisent et écrivent du `.dna` (MessagePack, jamais JSON en sortie). Le JSON legacy reste lisible en compatibilité (détection `≠ GDNA` → lecture `Genome`, § Migration) et certains chemins historiques (`<matrix_root>/chromatin/<agent_id>.json` pour la reproduction/division et l'état chromatine) subsistent le temps de la transition.
+Statut d'implémentation : `genos genome compile` produit désormais des conteneurs v2 Hachimoji ; les lecteurs Rust et Node acceptent aussi v1. Le magic `GDNA`, l'en-tête de 32 octets, la table de sections, la canonicalisation SHA-256 et les signatures Ed25519 sont conservés. Les commandes `genome compile/validate/inspect/sign/cross/mutate/clone/decoy/graft/speciate` lisent et écrivent du `.dna` ; leurs réponses CLI sont en JSON. Certains chemins historiques (`<matrix_root>/chromatin/<agent_id>.json` pour la reproduction/division et l'état chromatine) utilisent encore la sérialisation JSON de `Genome`, dont les anciens brins sans métadonnée d'encodage restent à deux bits.
 
 ## Non-objectifs
 
@@ -21,13 +21,38 @@ Statut d'implémentation : spécification terminée et format binaire AgentDNA v
 ## Concepts normatifs
 
 - **Génome** : identité durable + configuration cognitive/politique.
-- **Séquence (brin)** : suite de nucléotides `A/C/G/T` encodée en 2 bits.
+- **Séquence (brin)** : suite de nucléotides `A/C/G/T` sur deux bits (historique) ou `A/C/G/T/P/Z/B/S` sur trois bits (Hachimoji).
 - **Gène** : locus nommé, brin, état épigénétique, régulation, exons.
 - **Phénotype** : résultat d'expression (rôle, stratégie, outils, capacités, prompt, température).
 - **Provenance** : parents, génération, mutations/croisements appliqués, sélection, source.
 - **Section** : bloc binaire typé et adressable du conteneur.
 
-## Alphabet et encodage 2 bits
+## Alphabet Hachimoji v2 et lecture v1
+
+Les nouveaux brins utilisent `A=000, C=001, G=010, T=011, P=100, Z=101,
+B=110, S=111`. Les paires complémentaires sont A–T, C–G, P–Z et B–S.
+Les bits se suivent du poids fort au poids faible, y compris entre octets.
+Les bits de remplissage du dernier octet sont nuls.
+
+La structure de chaque payload de brin reste `compte_u32_LE || octets`. Le bit 31
+du compte marque l'encodage Hachimoji ; les 31 bits restants donnent le nombre de
+bases. Le même contrat s'applique à `GENE.blen` avec `GENE.seq`. Sans marqueur,
+l'encodage v1 ci-dessous s'applique, même au sein d'un conteneur v2. Le marqueur
+est couvert par le hash et la signature des sections. Les longueurs physiques
+incohérentes et les bits de remplissage non nuls sont refusés.
+
+Un conteneur portant un tel brin utilise la version 2 dans l'en-tête. Les lecteurs
+acceptent 1 et 2, et refusent un brin Hachimoji sous un en-tête v1. Les fichiers
+v1 ne sont pas réécrits automatiquement. Les règles de canonicalisation et de
+signature restent identiques. Voir [ADR 0784](../docs/adr/0784-alphabet-hachimoji-compatible.md).
+
+La synthèse textuelle groupe le flux UTF-8 par trois bits ; le dernier groupe est
+complété par des zéros. Les octets complets sont restitués au décodage.
+Dans le JSON Rust, `bits_per_base: 3` distingue ces brins des anciens objets sans
+champ (deux bits). L'API textuelle Node utilise `H8:<séquence>` pour les nouveaux
+brins, et conserve la lecture à deux bits des anciennes chaînes sans préfixe.
+
+### Encodage historique à deux bits
 
 Mapping (conforme à `DnaStrand::synthesize` / `decode_instruction`) :
 
@@ -49,7 +74,7 @@ Toutes les valeurs scalaires multi-octets du conteneur sont **little-endian**. L
 | Offset | Taille | Champ | Description |
 | --- | --- | --- | --- |
 | 0 | 4 | `magic` | ASCII `GDNA` (`47 44 4E 41`) |
-| 4 | 2 | `format_version` | u16, `1` |
+| 4 | 2 | `format_version` | u16, `1` historique ou `2` Hachimoji |
 | 6 | 2 | `flags` | u16 (voir ci-dessous) |
 | 8 | 2 | `section_count` | u16 |
 | 10 | 2 | `reserved0` | u16, zéro |
@@ -124,7 +149,7 @@ Array MessagePack positionnel, ordre canonique des champs :
 
 ### `CHRM` / `CHRP` / `XCHR`
 
-Chaque brin : `u32 base_count` (LE) suivi des octets packés 2 bits sur `ceil(base_count/4)` octets.
+Chaque brin : `u32 encoded_count` (LE) suivi des octets packés. Le bit 31 choisit trois bits (présent) ou deux bits (absent) ; `base_count = encoded_count & 0x7fffffff`. La taille physique est `ceil(base_count * bits_per_base / 8)` octets.
 
 ### `GENE`
 
@@ -280,7 +305,7 @@ Le statut est stocké dans le 10e champ de `META` et est lisible via `workerGene
 ## Versionnage et compatibilité
 
 - `magic` obligatoire ; absence = fichier invalide.
-- `format_version` est actuellement un entier monolithique : toute valeur différente de `1` est rejetée par les lecteurs Rust et Node. Une tolérance majeur/mineur exigera une évolution explicite de l'en-tête.
+- `format_version` est un entier monolithique : seules les valeurs `1` et `2` sont acceptées par les lecteurs Rust et Node. Un ancien lecteur ne connaissant que v1 refuse v2. Une tolérance majeur/mineur exigera une évolution explicite de l'en-tête.
 - Sections et clés inconnues tolérées en lecture et préservées à la réécriture.
 - `additionalProperties` n'existe pas : toute extension passe par une nouvelle section ou clé MessagePack.
 
@@ -305,7 +330,7 @@ Le statut est stocké dans le 10e champ de `META` et est lisible via `workerGene
 
 - Le format ne garantit pas qu'un génome muté/croisé soit viable : la viabilité est validée par `Genome::validate` et l'évaluation phénotypique.
 - La canonicalisation dépend du respect strict de l'ordre des clés ; un test de conformité croisée Rust↔Node est requis.
-- Le 2 bits ne code que les acides nucléiques ; toute sémantique métier vit dans les sections structurées.
+- L'encodage à deux ou trois bits ne donne pas de sémantique biologique aux codons synthétiques ; les instructions métier restent portées par les loci et les sections structurées.
 - Un leurre ne doit jamais masquer la provenance auditée : l'audit lit toujours `PROV` signée.
 
 ## Références

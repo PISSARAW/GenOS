@@ -53,8 +53,21 @@ function configureFinalArtifact(input) {
   const members = input.members || [], selector = fields.qualityRuntime.finalArtifactMemberId;
   const selected = selector ? findMember(members, selector) : terminalMember(members);
   assertProducerCoverage(members, selected);
+  assertScreenplayProducer(selected, fields);
   return { ...input, ...fields, finalArtifactMemberId: selected.memberId,
-    members: members.map(member => member === selected ? attachFinalQuality(member, fields) : member) };
+    members: members.map(member => member === selected || screenplayAuthor(member, fields)
+      ? attachFinalQuality(member, fields) : member) };
+}
+
+function screenplayAuthor(member, fields) {
+  if (fields.qualityElevation.profile !== 'screenplay') return false;
+  const kind = member.workerKind || require('../agents/workerKindService').resolveWorkerKind(undefined, member.role);
+  return kind === 'creative_worker';
+}
+
+function assertScreenplayProducer(member, fields) {
+  if (fields.qualityElevation.profile !== 'screenplay' || screenplayAuthor(member, fields)) return;
+  throw fail('GQEL_FINAL_PRODUCER_KIND_INVALID', 'A screenplay final producer must deliver a creative candidate; a verification report is not the screenplay.');
 }
 
 function assertFinalPlan(run) {

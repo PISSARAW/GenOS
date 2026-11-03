@@ -38,6 +38,19 @@ function recordReply(receipt, reply) {
 function assertModel(reply, expectedModel) {
   if (expectedModel && reply?.model !== expectedModel) throw fail('GQEL_MODEL_MISMATCH', 'Observed reviewer model differs from its configured identity.');
 }
+function accountFailure(error, scope) {
+  const { receipt, budget, limits, contract, request, before } = scope;
+  if (error.code === 'GQEL_REVIEW_INVALID' && error.protocolReply) {
+    try {
+      recordReply(receipt, error.protocolReply);
+      accountReply(error.protocolReply, budget, { ...limits, contract });
+      assertModel(error.protocolReply, request.expectedModel);
+    } catch (failure) { return failure; }
+    return error;
+  }
+  if (budget.tokens === before) { budget.tokens += limits.reserved; budget.usageComplete = false; }
+  return error;
+}
 function createInvoker(contract, session) {
   return async (callback, request) => {
     if (typeof callback !== 'function') throw fail('GQEL_ADAPTER_MISSING', `Missing adapter for ${request.operation}.`);
@@ -59,8 +72,8 @@ function createInvoker(contract, session) {
       if (Date.now() - budget.startedAt >= contract.maxDurationMs) throw fail('GQEL_TIME_BUDGET', 'Deadline reached.');
       return reply.content;
     } catch (error) {
-      if (budget.tokens === before) { budget.tokens += limits.reserved; budget.usageComplete = false; }
-      receipt.status = 'failed'; receipt.error = error.code || 'GQEL_ADAPTER_FAILED'; throw error;
+      const failure = accountFailure(error, { receipt, budget, limits, contract, request, before });
+      receipt.status = 'failed'; receipt.error = failure.code || 'GQEL_ADAPTER_FAILED'; throw failure;
     } finally { receipt.elapsedMs = Date.now() - started; }
   };
 }

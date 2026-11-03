@@ -12,6 +12,7 @@ pub mod linkage_epistasis;
 pub mod metacognition;
 pub mod mutation_rates;
 pub mod mutation_scales;
+pub mod nucleotide;
 pub mod niches;
 pub mod phase_d;
 pub mod phenotype;
@@ -20,6 +21,9 @@ pub mod replay;
 pub mod reproduction;
 pub mod self_modifying;
 pub mod translation;
+
+#[cfg(test)]
+mod hachimoji_tests;
 
 pub use development::{
     Embryogenesis, EmbryogenesisContext, EmbryogenesisProgram, MorphogenGradient,

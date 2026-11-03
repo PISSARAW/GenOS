@@ -289,6 +289,8 @@ async function workerGenesForAssignment(db, assignment, scope) {
     selectionId,
     genes: workerGenes(selection.model),
     genomeContentHash: selection.model?.contentHash || null,
+    genomeFormat: selection.model?.format || null,
+    genomeAlphabet: selection.model?.alphabet || null,
     phenotypeHash: phenotypeHash(selection.model?.phenotype)
   };
 }

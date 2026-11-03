@@ -24,6 +24,7 @@ function outputExcerpt(report) {
 function attachWorkerArtifact(evidenceReport, context) {
   if (!evidenceReport || typeof evidenceReport !== 'object') return;
   const mission = context.mission || {};
+  require('./workerTeamContract').assertReport(mission, evidenceReport);
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
   const source = context.codeWorker ? evidenceReport : originalReply(context, evidenceReport);
   const inspected = inspectWorkerArtifact(kind, source,

@@ -22,6 +22,9 @@ async function main() {
   assert.throws(() => buildRequestBody({ ...base, temperature: -1 }), /temperature/);
   assert.throws(() => buildRequestBody({ ...base, provider: 'gemini', temperature: 0 }), /unsupported/);
   assert.equal(buildRequestBody({ ...base, temperature: 0 }).temperature, 0);
+  assert.equal(buildRequestBody({ ...base, topP: 0 }).top_p, 0);
+  assert.throws(() => buildRequestBody({ ...base, topP: 1.1 }), /topP/);
+  assert.throws(() => buildRequestBody({ ...base, provider: 'gemini', topP: 0.5 }), /unsupported/);
   assert.equal(buildRequestBody({ ...base, reasoningEffort: 'none' }).reasoning_effort, 'none');
   let received;
   const server = http.createServer((request, response) => {
@@ -38,10 +41,10 @@ async function main() {
   try {
     const result = await require('../src/services/modelProvider').generate({
       model: 'ollama://fixture', endpoint: `http://127.0.0.1:${server.address().port}/api/chat`,
-      prompt: 'question', stream: false, seed: 17, maxTokens: 128, temperature: 0, contextTokens: 4096,
+      prompt: 'question', stream: false, seed: 17, maxTokens: 128, temperature: 0, topP: 0.6, contextTokens: 4096,
     });
     assert.equal(JSON.parse(result.text).ok, true);
-    assert.deepEqual(received.options, { temperature: 0, num_ctx: 4096, num_predict: 128, seed: 17 });
+    assert.deepEqual(received.options, { temperature: 0, top_p: 0.6, num_ctx: 4096, num_predict: 128, seed: 17 });
     assert.equal(result.inputTokens, 10);
     assert.equal(result.outputTokens, 3);
     assert.equal(result.tokenUsageMeasured, true);

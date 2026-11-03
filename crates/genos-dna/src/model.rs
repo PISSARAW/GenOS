@@ -162,6 +162,7 @@ pub struct Provenance {
 
 #[derive(Clone, Debug)]
 pub struct AgentDna {
+    pub(crate) original_encoding: Option<OriginalEncoding>,
     pub meta: Meta,
     pub maternal: DnaStrand,
     pub paternal: DnaStrand,
@@ -178,9 +179,16 @@ pub struct AgentDna {
     pub provenance: Provenance,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct OriginalEncoding {
+    pub sections: Vec<crate::section::Section>,
+    pub normalized_hash: String,
+}
+
 impl AgentDna {
     pub fn from_genome(genome: &Genome, name: &str, provenance: Provenance) -> Self {
         AgentDna {
+            original_encoding: None,
             meta: Meta {
                 name: name.to_string(),
                 generation: genome.generation,

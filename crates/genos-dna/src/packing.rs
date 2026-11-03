@@ -1,48 +1,43 @@
 use genos_genome::{DnaNucleotide, DnaStrand};
 
-fn nucleotide_bits(nucleotide: DnaNucleotide) -> u8 {
-    match nucleotide {
-        DnaNucleotide::A => 0b00,
-        DnaNucleotide::C => 0b01,
-        DnaNucleotide::G => 0b10,
-        DnaNucleotide::T => 0b11,
-    }
-}
-
-fn bits_nucleotide(bits: u8) -> DnaNucleotide {
-    match bits & 0b11 {
-        0b00 => DnaNucleotide::A,
-        0b01 => DnaNucleotide::C,
-        0b10 => DnaNucleotide::G,
-        _ => DnaNucleotide::T,
-    }
-}
+pub const HACHIMOJI_COUNT_FLAG: u32 = 1 << 31;
 
 pub fn pack_strand(strand: &DnaStrand) -> (u32, Vec<u8>) {
-    let sequence = strand.as_slice();
-    let mut packed = vec![0u8; sequence.len().div_ceil(4)];
-    for (index, nucleotide) in sequence.iter().enumerate() {
-        let shift = (3 - (index % 4)) * 2;
-        packed[index / 4] |= nucleotide_bits(*nucleotide) << shift;
+    let width = strand.bits_per_base() as usize;
+    let bit_count = strand.len() * width;
+    let mut packed = vec![0u8; bit_count.div_ceil(8)];
+    for bit in 0..bit_count {
+        let code = strand.as_slice()[bit / width].code();
+        packed[bit / 8] |= ((code >> (width - 1 - bit % width)) & 1) << (7 - bit % 8);
     }
-    (sequence.len() as u32, packed)
+    let flag = if width == 3 { HACHIMOJI_COUNT_FLAG } else { 0 };
+    (strand.len() as u32 | flag, packed)
 }
 
 pub fn unpack_strand(base_count: u32, packed: &[u8]) -> Result<DnaStrand, String> {
-    let count = base_count as usize;
-    if packed.len() < count.div_ceil(4) {
+    let count = (base_count & !HACHIMOJI_COUNT_FLAG) as usize;
+    let width = if base_count & HACHIMOJI_COUNT_FLAG != 0 { 3 } else { 2 };
+    let bit_count = count * width;
+    if packed.len() != bit_count.div_ceil(8) {
         return Err(format!(
-            "packed strand too short: {} bytes for {} bases",
+            "packed strand length invalid: {} bytes for {} bases",
             packed.len(),
             count
         ));
     }
-    let mut sequence = Vec::with_capacity(count);
-    for index in 0..count {
-        let shift = (3 - (index % 4)) * 2;
-        sequence.push(bits_nucleotide(packed[index / 4] >> shift));
+    let padding = (8 - bit_count % 8) % 8;
+    if packed.last().is_some_and(|last| last & ((1 << padding) - 1) != 0) {
+        return Err("packed strand has nonzero padding".into());
     }
-    Ok(DnaStrand::new(sequence))
+    let mut sequence = Vec::with_capacity(count);
+    for start in (0..bit_count).step_by(width) {
+        let mut code = 0;
+        for bit in start..start + width {
+            code = (code << 1) | ((packed[bit / 8] >> (7 - bit % 8)) & 1);
+        }
+        sequence.push(DnaNucleotide::ALL[code as usize]);
+    }
+    DnaStrand::with_width(sequence, width as u8)
 }
 
 pub fn encode_strand(strand: &DnaStrand) -> Vec<u8> {

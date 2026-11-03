@@ -90,8 +90,10 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
   requireRequestedMultiteamExecutor(context);
   requireParentWorkspace(parent);
   const setup = await prepareDispatch({ db, context });
+  setup.finalArtifactOutput = require('./qualityElevation/qualityFinalDelivery').contract(context.request, parent.workspace_root);
   const canonical = await createCanonicalRun(setup);
-  if (shouldReturnExisting(canonical)) return existingRunResponse(context, canonical, setup.team);
+  if (shouldReturnExisting(canonical)) return { ...existingRunResponse(context, canonical, setup.team),
+    delivery: await require('./qualityElevation/qualityFinalDelivery').resume(db, canonical.run) };
   const activeRun = await advanceRunToExecution(db, canonical.run);
   const execution = await aTeamRuntime.claimExecution({ db, teamRunId: activeRun.teamRunId, ownerId: context.orchestratorId });
   if (!execution.claimed) return existingRunResponse(context, { run: execution.run }, setup.team);
@@ -105,6 +107,7 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
 
 async function prepareDispatch({ db, context }) {
   const request = context.request || {};
+  const morphology = require('./aTeam/morphologyPlanning').plan(request);
   const garage = await workerGarage.state(db, context.orchestratorId);
   const projectGoal = firstTruthy([request.project_goal, request.projectGoal, request.goal, request.mission, context.task]);
   const team = aTeamCoordination.composeTeam({
@@ -117,7 +120,12 @@ async function prepareDispatch({ db, context }) {
     available: await reusableCapacity(db, context, garage.available)
   });
   const workerAssignments = workerAssignmentsFor(request);
-  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', inferTeamRoles(team.members), workerAssignments);
+  const applyContracts = (members) => members.map(m => ({
+    ...m,
+    methodContract: m.methodContract || request.methodContract || null,
+    workerArtifactContract: m.workerArtifactContract ?? request.workerArtifactContract ?? null
+  }));
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', applyContracts(inferTeamRoles(team.members)), workerAssignments);
   const policy = prepareDispatchPolicy({
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
@@ -134,7 +142,7 @@ async function prepareDispatch({ db, context }) {
     variant: policy.policy.variant, communicationCadence: policy.policy.communication
   };
   requireReadyTeam(team.readiness);
-  return { db, request, garage, projectGoal, team, context };
+  return { db, request, garage, projectGoal, team, context, morphology };
 }
 
 function requireRequestedMultiteamExecutor(context) {
@@ -191,9 +199,10 @@ function createCanonicalRun(setup) {
     idempotencyKey: request.idempotencyKey || request.requestId || context.requestId || context.orchestratorId,
     missionId: context.orchestratorId,
     goal: projectGoal, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(request),
+    finalArtifactOutput: setup.finalArtifactOutput,
     successCriteria: requestedSuccessCriteria(request) || [],
     organization: team.organization,
-    execution: { runnerLease: null, organizationPolicy: team.executionPolicy },
+    execution: { runnerLease: null, organizationPolicy: team.executionPolicy, morphology: setup.morphology },
     requiredCapabilities: [...new Set(team.members.flatMap((member) => member.capabilities || []))].map((capability) => ({ capability, weight: 1 })),
     status: 'READY',
     phase: 'PREBRIEF',

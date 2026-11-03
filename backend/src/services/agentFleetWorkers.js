@@ -35,9 +35,8 @@ function dnaAuthorityEvolution(selection) {
   };
 }
 function intersectLease(dnaTools, lease) {
-  if (!Array.isArray(dnaTools) || !dnaTools.length) return lease;
-  const allowed = new Set(dnaTools.map((tool) => String(tool)));
-  return lease.filter((tool) => allowed.has(String(tool)));
+  if (!Array.isArray(dnaTools)) return lease;
+  return require('./workerGenomeExpression').restrictTools({ tools: dnaTools }, lease);
 }
 function manifestFallbackCaps(assignment) {
   try {
@@ -241,7 +240,7 @@ async function prepareWorkerAssets(workerContext) {
     workerSelfBlock = workerSelfService.formatWorkerSelfPrompt(workerSelf);
   } catch (_) {}
 
-  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: { ...workerContext, allocationTokens: assignedTokens }, dnaSelection, workerSelfBlock, workerSelf });
+  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: { ...workerContext, allocationTokens: assignedTokens }, dnaSelection: require('./workerGenomeExpression').selectionFor({ mission: assignment, dnaSelection, evolution }), workerSelfBlock, workerSelf });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
@@ -353,7 +352,7 @@ function workerWriteLease(mission) {
 function formatWorker(details) {
   const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, evolution, orchestrator, dnaSelection } = details;
   const capabilities = assignmentCapabilities(assignment);
-  const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
+  const toolLease = effectiveToolLease(assignment, capabilities, require('./workerGenomeExpression').selectionFor({ mission: assignment, dnaSelection, evolution }));
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease,
     capabilities, assignments: assignmentList, mission, assignment, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),

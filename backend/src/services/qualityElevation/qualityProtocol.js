@@ -22,13 +22,21 @@ function record(context, request, result) {
   context.session.protocolAttempts.push({ operation: request.operation, attempt: request.protocolAttempt || 0,
     iteration: context.iteration || 0, ...result });
 }
+async function invokeReply(context, request) {
+  try { return { raw: await context.invoke(context.callback, request) }; }
+  catch (error) {
+    if (error.code !== 'GQEL_REVIEW_INVALID' || !error.protocolReply) throw error;
+    return { raw: error.protocolReply.content, protocolError: error };
+  }
+}
 async function validatedCall(context, request, validator) {
   const maximum = context.contract.maxProtocolRepairs ?? 0;
   let current = { ...request, protocolAttempt: 0 };
   for (let attempt = 0; attempt <= maximum; attempt++) {
     // Timeouts, usage failures and resource caps are not protocol retries.
-    const raw = await context.invoke(context.callback, current);
+    const { raw, protocolError } = await invokeReply(context, current);
     try {
+      if (protocolError) throw protocolError;
       const value = validator(raw);
       record(context, current, { status: 'valid', responseDigest: digest(raw) });
       return value;

@@ -6,15 +6,16 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { randomUUID, createHash } = require('node:crypto');
 
-function environment() {
+function environment(options) {
   return { ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    ...(options.qualityPublicKey ? { GENOS_ORACLE_QUALITY_PUBLIC_KEY: options.qualityPublicKey } : {}),
     NODE_DISABLE_COMPILE_CACHE: '1' };
 }
 
 function execute(input, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [options.entry], {
-      cwd: options.cwd, env: environment(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      cwd: options.cwd, env: environment(options), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
@@ -38,12 +39,14 @@ async function run(subject, options) {
   if (Buffer.byteLength(input) > 131072) { await fs.rm(cwd, { recursive: true, force: true }); throw new Error('ORACLE_INPUT_TOO_LARGE'); }
   const started = Date.now();
   const base = { executionId: randomUUID(), strategy: options.strategy, cwd,
+    ...(options.qualityPublicKey ? { qualityVerificationKey: options.qualityPublicKey } : {}),
     inputDigest: `sha256:${createHash('sha256').update(input).digest('hex')}`,
     executable: process.execPath, implementation: entry, startedAt: new Date(started).toISOString(),
     timeoutMs: Math.min(30000, Math.max(1, Number(options.timeoutMs) || 10000)) };
   try {
     await observe(options, { ...base, phase: 'intent' });
-    const execution = await measuredExecution(input, { cwd, entry, timeoutMs: base.timeoutMs });
+    const execution = await measuredExecution(input, { cwd, entry, timeoutMs: base.timeoutMs,
+      qualityPublicKey: options.qualityPublicKey });
     const result = parseResult(execution);
     const detail = { ...base, processId: execution.processId || null,
       exitCode: execution.code, timedOut: execution.timedOut, durationMs: Date.now() - started,

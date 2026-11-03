@@ -155,6 +155,7 @@ async function assertCompletedRunEvidence(db, input) {
 }
 
 async function assertMission(saved, mission) {
+  require('./workerGenomeExpression').assertAuthority(saved.envelope, mission);
   if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
   require('./qualityElevation/qualityMissionContract').assertQualityAuthority(saved.envelope, mission);
   const root = await realWorkspaceRoot(mission.workspaceRoot);

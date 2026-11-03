@@ -30,6 +30,7 @@ async function inspect(db, context) {
   const { row, model } = await source(db, context);
   const container = require('./agentDna/container').decodeContainer(Buffer.from(row.genome_blob));
   return { genome: { id: row.id, name: model.meta.name, status: row.status, contentHash: model.contentHash,
+    format: model.format, alphabet: model.alphabet,
     generation: model.meta.generation, signed: model.signed, signatureValid: model.signatureValid,
     declaredPhenotype: model.phenotype, provenance: model.provenance },
     sections: [...container.sections].map(([name, bytes]) => ({ name, bytes: bytes.length })),
@@ -48,7 +49,7 @@ function pointParameters(body) {
   if (typeof body.locus !== 'string' || !/^[A-Z0-9_]{1,64}$/.test(body.locus)) throw failure('MUTATION_LOCUS_INVALID', 400);
   if (body.locus.startsWith('LOCUS_INSTINCT_')) throw failure('MUTATION_LOCUS_PROTECTED', 400);
   if (!Number.isSafeInteger(body.position) || body.position < 0) throw failure('MUTATION_POSITION_INVALID', 400);
-  if (!/^[ACGT]$/.test(body.base || '')) throw failure('MUTATION_BASE_INVALID', 400);
+  if (!/^[ACGTPZBS]$/.test(body.base || '')) throw failure('MUTATION_BASE_INVALID', 400);
   if (!/^[a-f0-9]{64}$/.test(body.contentHash || '')) throw failure('GENOME_VERSION_REQUIRED', 400);
   return { locus: body.locus, position: body.position, base: body.base };
 }
@@ -57,10 +58,9 @@ function pointOriginalBase(raw, params) {
   const sections = require('./agentDna/container').decodeContainer(raw).sections;
   const genes = require('msgpackr').unpack(sections.get('GENE'));
   const gene = genes[params.locus];
-  if (!gene || params.position >= gene[2]) throw failure('MUTATION_TARGET_INVALID', 400);
-  const packed = Buffer.from(gene[1]);
-  const byte = packed[Math.floor(params.position / 4)];
-  return 'ACGT'[(byte >> ((3 - (params.position % 4)) * 2)) & 3];
+  const packing = require('./agentDna/packing');
+  if (!gene || params.position >= packing.strandLayout(gene[2]).baseCount) throw failure('MUTATION_TARGET_INVALID', 400);
+  return packing.unpackBases(Buffer.from(gene[1]), gene[2])[params.position];
 }
 
 async function nativeCandidate(input) {

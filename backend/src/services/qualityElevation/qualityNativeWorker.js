@@ -71,6 +71,7 @@ async function elevateEvidence(ctx) {
       worker: ctx.mission, result, executionRunId: ctx.executionRun.id,
       artifact: report.workerArtifact, report, codeEvidence: selected.code });
   } catch (error) { throw qualityFailure(result, error); }
+  require('./qualityCriterionEvidence').attach(ctx.mission, report);
   ctx.generation.result = { ...selected.generation.result, ...result.nativeUsage };
   selected.evidence.consumed = result.nativeUsage.inputTokens + result.nativeUsage.outputTokens;
   return selected.evidence;

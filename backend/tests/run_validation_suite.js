@@ -187,6 +187,7 @@ const suites = {
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
   workers: [
+    ['mutation expression and real provider transport', 'test_worker_genome_execution.cjs'],
     ['worker audit regressions', 'test_worker_audit_defects_regression.js'],
     ['worker proof authority', 'test_worker_proof_authority.js'],
     ['worker completion process', 'test_local_worker_completion_process.js'],

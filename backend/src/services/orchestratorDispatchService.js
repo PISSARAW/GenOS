@@ -30,6 +30,7 @@ function buildWorkerMission(input = {}) {
     orchestratorAgentId: input.orchestratorAgentId,
     modelBudgetScope: defaults.modelBudgetScope,
     prompt: input.prompt,
+    ...require('./workerTeamContract').missionFields(input),
     role: defaults.role,
     workerKind,
     methodContract: defaults.methodContract,
@@ -76,7 +77,8 @@ function buildWorkerMission(input = {}) {
     mission.prompt,
     `Worker kind: ${workerKind}. ${workerKinds.promptRule(workerKind)}`,
     mission.methodContract ? `Method contract: ${JSON.stringify(mission.methodContract)}. Follow it and report unmet preconditions.` : null,
-    workerKinds.evidenceRule(mission.workerContract)
+    workerKinds.evidenceRule(mission.workerContract),
+    require('./workerTeamContract').instruction(mission)
   ].filter(Boolean).join('\n\n');
   return mission;
 }

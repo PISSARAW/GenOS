@@ -116,6 +116,7 @@ function handoffEvaluationSchema(handoffs, refs) {
 function responseOptions(options) {
   if (typeof options !== 'object') return { diagnosis: options === true, missionCriteria: [], handoffs: [] };
   return { diagnosis: options.diagnosis === true,
+    nativeQuality: options.nativeQuality === true,
     missionCriteria: Array.isArray(options.missionCriteria) ? options.missionCriteria : [],
     identityExperimentScenario: ['A', 'B', 'C'].includes(options.identityExperimentScenario)
       ? options.identityExperimentScenario : null,
@@ -144,7 +145,7 @@ function identityExperimentResponseFormat(refs, specialtyNiche) {
 function attachMissionRequirements(target, opts, refs) {
   if (opts.missionCriteria.length) {
     target.properties.acceptanceEvaluations = acceptanceEvaluationSchema(opts.missionCriteria, refs);
-    target.required.push('acceptanceEvaluations');
+    if (!opts.nativeQuality) target.required.push('acceptanceEvaluations');
   }
   if (!opts.handoffs.length) return;
   target.properties.integrationConstraints = { type: 'array', minItems: 1,
@@ -177,6 +178,10 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   }
   attachMissionRequirements({ properties, required }, opts, refs);
   const schema = object(properties, required);
+  if (opts.nativeQuality && artifactType === 'creative_candidate') {
+    delete properties.artifactText;
+    schema.not = { required: ['artifactText'] };
+  }
   const successRequired = artifactType === 'dossier'
     ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];
   schema.allOf = [{

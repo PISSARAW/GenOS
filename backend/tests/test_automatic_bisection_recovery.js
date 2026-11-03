@@ -132,7 +132,7 @@ async function runSuite() {
   }
 
   // Queue recovery
-  const queueResult = agentRecovery.queueWorkerRecovery({
+  const queueResult = await agentRecovery.queueWorkerRecovery({
     agentId: testWorkerId,
     orchestratorAgentId: testOrchId,
     workspaceId: testWsId,

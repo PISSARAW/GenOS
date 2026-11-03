@@ -1,8 +1,8 @@
 # AgentDNA — Génome héréditaire binaire et runtime agentique
 
-- **Statut** : Implémenté — format `AgentDNA` v1 défini dans [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), ops Rust (`crossover`, `division`, `seal`, etc.) et admin CLI disponibles.
+- **Statut** : Implémenté — formats `AgentDNA` v1 et v2 Hachimoji définis dans [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), ops Rust (`crossover`, `division`, `seal`, etc.) et admin CLI disponibles.
 - **Portée** : `crates/genos-genome`, `crates/genos-reproduction`, `crates/genos-dna`, `crates/genos-cli`, specs `spec/AGENT_DNA_SPEC.md` et `spec/GENOME_SPEC.md`.
-- **Dernière revue** : 2026-10-18.
+- **Dernière revue** : 2026-11-03.
 
 ## 1. Définition du domaine
 
@@ -18,7 +18,7 @@ Il se distingue du **manifeste portable `AgentGenome`** ([GENOME_SPEC.md](../../
 
 ## 2. Modèle mathématique ou logique
 
-- **Alphabet** : `A=00, C=01, G=10, T=11`, 4 bases par octet (base 0 dans les bits 7–6).
+- **Alphabet** : nouveaux brins Hachimoji `A=000, C=001, G=010, T=011, P=100, Z=101, B=110, S=111` ; lecture des anciens brins `A=00, C=01, G=10, T=11` conservée. L'encodage est déclaré par brin, jamais inféré uniquement des lettres. Voir [ADR 0784](../adr/0784-alphabet-hachimoji-compatible.md).
 - **Génome** : tuples `(chr_m, chr_p, {locus → Gene}, plasmids, enhancers, extra_chr, bud_scars, hayflick_limit)`, où un `Gene = (dna, is_methylated, expression_volume, chromatin_state, required_activator, bound_repressor, exons)`.
 - **Expression** : `transcription → épissage (exons) → traduction (codons) → repliement`, conditionnée par l'état chromatinien, la méthylation, les activateurs/répresseurs et les microARN. Le phénotype est dérivé des **loci** (`ROLE`, `STRATEGY`, `TOOL_*`, `CAP_*`, `MODEL_TEMP`, `MODEL_TOPP`) et de leur instruction.
 - **Fingerprint canonique** : `content_hash = SHA-256(⨁ tag || len_u32 || payload)` sur les sections triées par octets ASCII, **hors `SIGN`**.
@@ -32,7 +32,7 @@ Il se distingue du **manifeste portable `AgentGenome`** ([GENOME_SPEC.md](../../
 
 | Concept GenOS | Analogie biologique | Réalité en GenOS |
 | --- | --- | --- |
-| `genes` | gènes | loci + brins 2 bits + régulation |
+| `genes` | gènes | loci + brins à deux ou trois bits + régulation |
 | `chromatin_state` | Chromatine ouverte/fermée | gating d'expression logique |
 | `plasmids` | transfert horizontal | trait acquis sans locus fixe |
 | `speciate` | spéciation / radiation | dérive d'un nouveau `genome_id` |
@@ -60,6 +60,8 @@ Les termes biologiques (génome, expression, phénotype, plasmide, apoptose, lig
 ```bash
 # Compiler un manifeste en ADN binaire
 genos genome compile --in agents/fondations/preuve_evidence.agent.json --out preuve.dna
+# Inspecter l'alphabet, les brins et le phénotype (v1 ou v2)
+genos genome inspect --file preuve.dna
 # Croiser deux génomes
 genos genome cross --parent-a a.dna --parent-b b.dna --out child.dna --seed s1
 # Ajouter un concept acquis (gène ou plasmide)
@@ -131,7 +133,7 @@ flowchart TB
 **CLI** : `crates/genos-cli/src/commands/genome.rs`, `genome_ops.rs`, `args/genome.rs`.
 
 **Backend Node**
-- Décodeur : `backend/src/services/agentDna/` (`container.js`, `packing.js`, `decode.js`, `express.js`) — vérifie CRC32, décode 2 bits + MessagePack, vérifie `SIGN`.
+- Décodeur : `backend/src/services/agentDna/` (`container.js`, `packing.js`, `decode.js`, `express.js`) — vérifie CRC32, décode les brins à deux ou trois bits et MessagePack, vérifie `SIGN`.
 - Store : `agentDnaStore.js` (`saveGenome`, `loadGenome`, `importDirectory`, `selectGenome`, `workerGenesForAssignment`).
 - Opérations : `agentDnaOperations.js` (pont CLI `genos genome ...`).
 - Innovation : `agentDnaInnovation.js` (détection, capture, promotion).
@@ -175,13 +177,15 @@ Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `gra
 
 | Aspect | GenOS AgentDNA | Configuration d'agent classique | Bibliothèques d'algorithmes génétiques |
 | --- | --- | --- | --- |
-| Format | binaire (2 bits + MessagePack), pas de JSON | JSON/YAML ad hoc | structures en mémoire |
+| Format | binaire (deux ou trois bits + MessagePack) | JSON/YAML ad hoc | structures en mémoire |
 | Hérédité | chromosomes, loci, chromatine, plasmides | non | génomes opaques |
 | Provenance | parents, croisements, mutations, leurres, signature | rarement | non |
 | Preuve | gate d'évidence avant promotion | absente | fitness seulement |
 | Intégration runtime | sélection au spawn, boucle d'innovation | chargement statique | hors runtime |
 
 ## 10. Limites, garde-fous, non-objectifs
+
+- **Compatibilité Hachimoji** : les nouveaux manifestes compilés utilisent v2 ; les `.dna` v1 et les blobs existants restent lisibles sans réécriture. Les génomes mixtes conservent l'encodage de chaque brin. Les lecteurs anciens doivent être mis à jour avant d'ouvrir du v2. Le runtime résident ne charge un binaire que si celui-ci lui est fourni ; sa référence de manifeste seule n'atteste pas d'une liaison binaire.
 
 - **Ce n'est pas de la biologie** : les termes (chromatine, plasmide, spéciation) organisent des invariants ; ils ne prouvent pas la vérité métier.
 - **Expression textuelle, non sémantique** : le phénotype dérive des loci/instructions, pas d'une compréhension.

@@ -85,6 +85,7 @@ async function initializeMissionContext(mission) {
     });
   }
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);
+  await require('../workerGenomeHydration').hydrate(db, { mission: normalizedMission, agent: dispatchedAgent });
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
   return { mission, agentId, normalizedMission, executable, db, dispatchedAgent };
@@ -281,6 +282,7 @@ async function enableMissionMonitoring(ctx) {
   const { db, agentId } = ctx;
   await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
   emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
+  require('../autobiographicalMemory/captureService').attachAutobiographicalCapture(require('../telemetryObserver'));
 }
 
 module.exports = {

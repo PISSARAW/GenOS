@@ -263,7 +263,8 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   const budget = request.execution_budget || request.executionBudget || {};
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
-    methodContract: request.methodContract, workerAssignment: request.workerAssignment, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
+    methodContract: request.methodContract, workerAssignment: request.workerAssignment,
+    workerArtifactContract: request.workerArtifactContract || null, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
     workerTokenLimit: request.workerTokenLimit ?? budget.tokens
   });
@@ -271,7 +272,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   return contract;
 }
 function buildWorkerMetadata(workerKind, contract, request) {
-  return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
+  return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null, workerArtifactContract: request.workerArtifactContract || null });
 }
 async function updateReusedWorker(db, context, metadata) {
   await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
@@ -315,7 +316,7 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const capabilityManifest = buildCapabilityManifest(capabilityCtx);
   const capabilities = capabilityManifest.owned || [];
   const toolLease = require('../src/services/trinityDispatchPreparation').restrictLease(context.request.missionScope, workerToolLeaseForCapabilities(worker.role, capabilities));
-  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier, variantIndex: context.request.variantIndex, localModel: context.request.localModel, localRoutingPolicy: context.request.localRoutingPolicy, executionBudgetTokens: worker.executionBudget?.tokens }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier, variantIndex: context.request.variantIndex, localModel: context.request.localModel, localRoutingPolicy: context.request.localRoutingPolicy, executionBudgetTokens: worker.executionBudget?.tokens, handoffContext: context.request.handoffContext || [] }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
   const workerMission = require('./directWorkerContext.cjs').attachEnvelope({ agentId: context.id, missionId: context.missionId, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, missionScope: context.request.missionScope, organization: workerLaunch.organization, coordinationPolicy: workerLaunch.coordinationPolicy, communicationRequired: context.request.communicationRequired === true || context.request.communication_required === true, workerTokenLimit: context.request.workerTokenLimit, handoffFromRunIds: context.request.handoffFromRunIds, modelBudgetScope: context.request.modelBudgetScope, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceProvisioned: true, workspaceIsolation: parent.isolation_mode, workspaceId: worker.workspaceId || parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, executor: workerLaunch.executor, localRuntime, localCodeWorker: worker.localCodeWorker === true || context.request.localCodeWorker === true, requiredPatchPaths: context.request.requiredPatchPaths, requiredPatchMarkers: context.request.requiredPatchMarkers, requiredPatchMinimumBytes: context.request.requiredPatchMinimumBytes, localModel: workerLaunch.localModel, localContextTokens: context.request.localContextTokens, localRoutingPolicy: workerLaunch.localRoutingPolicy, variantIndex: workerLaunch.variantIndex }, context.request);
   await require('./directWorkerBudgetScope.cjs').bindDirectWorkerBudget({ db, context, parent, mission: workerMission, contractRecord: strategyContract }); await dispatchWorkerMission(await require('../src/services/directWorkerCellBridge').prepare(db, { context, mission: workerMission }));
 }

@@ -63,6 +63,7 @@ function createRuntime(db, options) {
     db: db || null,
     identityOwner: require('crypto').randomUUID(),
     genomeRef: (options && options.genomeRef) || GENOME_REF,
+    genomeBinding: require('./residentDaemonGenome').bindGenome(options?.genomeDna),
     daemons: new Map(),
     pending: new Map(),
     started: false
@@ -112,6 +113,7 @@ async function withDaemonIdentity(runtime, daemonId, state) {
       mayAct: false, reason: 'INACTIVE_INCARNATION' };
   }
   return { registered: true, daemonId, ...publicState, identityDossier,
+    ...(runtime.genomeBinding ? { genomeBinding: runtime.genomeBinding } : {}),
     identityDecision: identityDossier.decisionConstraints };
 }
 

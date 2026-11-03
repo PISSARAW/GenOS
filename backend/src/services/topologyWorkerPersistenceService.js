@@ -14,7 +14,8 @@ async function ensureTopologyWorker(db, input) {
     topologySessionId: input.topologySessionId,
     nicheDomain: input.nicheDomain,
     hostContractId: input.hostContractId,
-    hostCapabilities: input.hostCapabilities
+    hostCapabilities: input.hostCapabilities,
+    workerArtifactContract: input.workerArtifactContract || null, handoffContext: input.handoffContext || []
   });
   const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, status, runtime_pid, workspace_id, metadata_json FROM agents WHERE id = ?', input.workerId);
   if (existing) return validateExistingWorker({ db, existing, input, workerKind, workerContract });
@@ -58,6 +59,7 @@ async function updateWorkerMetadata({ db, input, workerKind, workerContract, met
     )`, JSON.stringify({
     ...metadata, workerKind, workerContract,
     workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null,
+    workerArtifactContract: input.workerArtifactContract || null, handoffContext: input.handoffContext || [],
     topologySessionId: input.topologySessionId || null
   }), input.workerId);
   if (updated.changes !== 1) throw workerBusyError(input.workerId);
@@ -95,11 +97,16 @@ async function insertTopologyWorker({ db, input, workerKind, workerContract }) {
   input.workerId, input.name || input.role, input.role || 'worker', input.workspaceId || null,
   input.modelTier || 'standard', input.isolationMode || 'Branch', input.parentId,
   `Worker scope: ${input.mission || ''}`,
-  input.mission || '', JSON.stringify({
-    workerKind, workerContract, workerAssignment: input.workerAssignment || null,
-    methodContract: input.methodContract || null, topologySessionId: input.topologySessionId || null
-  }));
+  input.mission || '', buildInsertedMetadata(workerKind, workerContract, input));
   return { workerId: input.workerId, created: true };
+}
+
+function buildInsertedMetadata(workerKind, workerContract, input) {
+  return JSON.stringify({
+    workerKind, workerContract, workerAssignment: input.workerAssignment || null,
+    methodContract: input.methodContract || null, topologySessionId: input.topologySessionId || null,
+    workerArtifactContract: input.workerArtifactContract || null, handoffContext: input.handoffContext || []
+  });
 }
 
 module.exports = { ensureTopologyWorker };

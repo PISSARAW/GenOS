@@ -22,6 +22,7 @@ async function build(ctx, input) {
   const tools = toolLease(mission);
   return values.canonical({
     schema: SCHEMA,
+    ...require('./workerGenomeExpression').authorityBinding(mission),
     runId: input.binding.runId,
     missionId: input.binding.mission.id,
     orchestratorId: input.orchestratorId,

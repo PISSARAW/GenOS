@@ -12,6 +12,7 @@ async function attachDirectWorkerTerritory(db, input) {
 
 function attachEnvelope(mission, request) {
   Object.assign(mission, require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request));
+  Object.assign(mission, require('../src/services/workerTeamContract').missionFields(request));
   mission.readOnlyWorkspaceEvidence = request.readOnlyWorkspaceEvidence === true;
   if (Number.isFinite(request.timeoutMs) && request.timeoutMs > 0) {
     mission.executionDeadlineAt = new Date(Date.now() + request.timeoutMs).toISOString();

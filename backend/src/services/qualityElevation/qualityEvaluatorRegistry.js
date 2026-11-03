@@ -10,7 +10,7 @@ function evaluateGeneric(content) {
 }
 function getEvaluator(domain) {
   domain = String(domain || '').toLowerCase().trim();
-  if (['creative_writing', 'fiction', 'scenario', 'script'].includes(domain)) return evaluateCreativeWriting;
+  if (['creative_writing', 'fiction', 'scenario', 'screenplay', 'script'].includes(domain)) return evaluateCreativeWriting;
   if (['software_engineering', 'code', 'programming'].includes(domain)) return evaluateSoftwareEngineering;
   return evaluateGeneric;
 }

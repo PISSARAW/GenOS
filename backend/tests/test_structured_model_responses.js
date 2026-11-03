@@ -52,7 +52,23 @@ global.fetch = async (_url, options) => {
   } });
   assert.deepEqual(schemaResult.structured, { ok: true });
   assert.equal(schemaResult.schemaViolation.error, 'OUTPUT_SCHEMA_VIOLATION');
-  assert.match(schemaResult.schemaViolation.violations[0], /changedClaims is required/);
+  assert.match(schemaResult.schemaViolation.violations[0], /required.*changedClaims|changedClaims.*required/);
+  global.fetch = async () => ({ ok: true, headers: { get: () => 'application/json' },
+    json: async () => ({ choices: [{ message: { content: '```json\n{"changedClaims":["observed"]}\n```' } }],
+      usage: { input_tokens: 10, output_tokens: 10 } }) });
+  const fenced = await modelProvider.generate({ model: 'openai://structured-test', prompt: 'Return the schema.',
+    stream: false, responseFormat });
+  assert.deepEqual(fenced.structured, { changedClaims: ['observed'] });
+  assert.equal(fenced.schemaViolation, undefined);
+  global.fetch = async () => new Response(JSON.stringify({ message: { content: '```json\n{"ok":true}\n```' },
+    done: true, done_reason: 'stop', prompt_eval_count: 10, eval_count: 10 }) + '\n',
+  { headers: { 'content-type': 'application/x-ndjson' } });
+  const streamed = await modelProvider.generate({ model: 'ollama://schema-fixture', prompt: 'Return the schema.',
+    stream: true, responseFormat });
+  assert.equal(streamed.schemaViolation.error, 'OUTPUT_SCHEMA_VIOLATION');
+  assert.ok(streamed.schemaViolation.violations.some(item => item.includes('changedClaims')));
+  assert.ok(streamed.schemaViolation.violations.every(item => !item.includes('author')),
+    'explicit schemas must never fall back to the unrelated generic agent contract');
   global.fetch = async () => ({
     ok: true,
     headers: { get: () => 'application/json' },

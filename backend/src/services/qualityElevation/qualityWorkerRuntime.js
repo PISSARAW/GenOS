@@ -30,7 +30,8 @@ function contractOf(input) { return input.contract || input.mission.workerContra
 function runtimeOf(input) { return input.runtime || input.mission.qualityRuntime || input.mission.workerContract?.qualityRuntime || {}; }
 function reviewersFor(ctx, config) {
   return (config.reviewers || []).map(reader => ({ ...reader, model: modelUri(reader.model),
-    dependencyGroup: reader.dependencyGroup || modelUri(reader.model), review: createAdapter(ctx, reader.model) }));
+    dependencyGroup: reader.dependencyGroup || modelUri(reader.model),
+    review: createAdapter(ctx, reader.model, { reasoningEffort: reader.reasoningEffort }) }));
 }
 async function runWorkerQuality(input) {
   const contract = contractOf(input);

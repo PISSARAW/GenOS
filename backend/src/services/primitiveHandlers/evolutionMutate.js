@@ -62,7 +62,7 @@ function applyMutationDescriptors(genes, descriptors) {
 
 async function loadMutationParent(db, agentId) {
   if (!agentId) return { error: 'agentId required for mutation.' };
-  const parent = await db.get('SELECT id, name, name_meaning, role, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
+  const parent = await db.get('SELECT id, name, name_meaning, role, current_task, workspace_id, model_tier, execution_mode, parent_agent_id FROM agents WHERE id = ?', agentId);
   if (!parent) return { error: 'Parent agent not found: ' + agentId };
   const lineage = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ? AND workspace_id = ?', agentId, parent.workspace_id);
   if (!lineage || !lineage.metadata) return { parent };
@@ -113,11 +113,12 @@ function pushExploratoryMutation(mutations, parent, context) {
 
 async function persistMutant(db, options) {
   const { parent, mutatedTask, mutantId, mutations, evolved, descriptorResult } = options;
+  const ownerId = parent.execution_mode === 'worker' && parent.parent_agent_id ? parent.parent_agent_id : options.agentId;
   try {
     await withTransaction(db, async () => {
       await db.run(
         "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
-        mutantId, 'Mutant of ' + options.agentId, parent.name_meaning || `Descendant identity of ${parent.name || options.agentId}`, parent.workspace_id, parent.model_tier || 'standard', options.agentId, mutatedTask
+        mutantId, 'Mutant of ' + options.agentId, parent.name_meaning || `Descendant identity of ${parent.name || options.agentId}`, parent.workspace_id, parent.model_tier || 'standard', ownerId, mutatedTask
       );
       const lineageResult = await agentEvolutionService.recordWorkerLineage(
         db,

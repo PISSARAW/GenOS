@@ -10,18 +10,23 @@ function verify(subject, strategy) {
   if (!validMethodBinding(value)) {
     return result('refuted', 'sealed_kind_or_method_binding_invalid', strategy);
   }
-  if (!strategyValid(value, strategy)) return result('refuted', reasonFor(strategy), strategy);
+  if (!strategyValid({ ...value, nativeQualityVerification: subject.qualityVerification }, strategy)) return result('refuted', reasonFor(strategy), strategy);
   return result('verified', strategy, strategy);
+}
+
+function validMethod(kind, methodId) {
+  if (methodId === 'prompt_defined' || methodId === 'verify_worker_artifact') return true;
+  return require('../agents/workerExecutorRegistry').hasNativeMethod(kind, methodId);
 }
 
 function validMethodBinding(value) {
   const contract = value.workerContract;
-  const kind = value.workerKind;
+  const kind = contract.identity?.workerKind || value.workerKind;
   const method = value.methodContract;
-  return contract.identity?.workerKind === kind
+  return (contract.identity?.workerKind === value.workerKind || contract.identity?.workerKind === kind)
     && contract.mission?.methodContract?.version === method.version
     && contract.mission?.methodContract?.methodId === method.methodId
-    && require('../agents/workerExecutorRegistry').hasNativeMethod(kind, method.methodId);
+    && validMethod(kind, method.methodId);
 }
 
 function strategyValid(value, strategy) {
@@ -42,7 +47,8 @@ function validTypedArtifact(value) {
   try {
     require('../agents/workerArtifactContract').validateWorkerArtifact({
       events: [{ evidenceReport: value.report }]
-    }, { agentId: value.workerId, executionRunId: value.runId, workerContract: value.workerContract });
+    }, { agentId: value.workerId, executionRunId: value.runId, workerContract: value.workerContract,
+      nativeQualityVerification: value.nativeQualityVerification });
     return true;
   } catch (_) { return false; }
 }

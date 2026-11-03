@@ -12,8 +12,10 @@ async function runWorkerArtifactOracle(antigen, verifier, context) {
   const request = context.nativeOracleSubject;
   const subject = await subjects.load(context.db, request);
   subjects.assertAntigen(antigen, subject);
-  const executed = await require('./oracleNativeProcess').run(subject, {
+  const quality = await require('../qualityElevation/qualityNativeVerification').prepare(context.db, subject);
+  const executed = await require('./oracleNativeProcess').run({ ...subject, qualityVerification: quality.proof }, {
     kind: 'worker-artifact', strategy,
+    qualityPublicKey: quality.publicKey,
     timeoutMs: require('./oracleProcedureAdapter').executionTimeout(context),
     onExecution: context.onOracleExecution });
   const detail = { ...executed.detail, outcome: executed.result.status, postconditions: executed.result,

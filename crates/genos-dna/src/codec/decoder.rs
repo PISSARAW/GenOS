@@ -6,7 +6,15 @@ pub fn decode(bytes: &[u8]) -> Result<AgentDna, String> {
     if payload_crc != header.payload_crc32 {
         return Err("AgentDNA payload CRC mismatch".to_string());
     }
-    build_model(&sections)
+    let mut dna = build_model(&sections)?;
+    if super::format_version(&dna) > header.version {
+        return Err("Hachimoji strands require AgentDNA v2".into());
+    }
+    dna.original_encoding = Some(crate::model::OriginalEncoding {
+        normalized_hash: super::content_hash(&dna)?,
+        sections: sections.into_iter().filter(|section| section.tag != SectionTag::Sign).collect(),
+    });
+    Ok(dna)
 }
 
 pub(super) fn read_sections(bytes: &[u8], header: &Header) -> Result<(Vec<Section>, u32), String> {
@@ -87,6 +95,7 @@ struct DnaParts {
 fn build_model(sections: &[Section]) -> Result<AgentDna, String> {
     let parts = read_optional(sections)?;
     Ok(AgentDna {
+        original_encoding: None,
         meta: read_meta(sections)?,
         maternal: read_strand(sections, SectionTag::Chrm)?,
         paternal: read_strand(sections, SectionTag::Chrp)?,

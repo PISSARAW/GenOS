@@ -57,7 +57,7 @@ async function loadCoreState(opts) {
   const scope = scopeOf({ parentOrchestrator, assignment });
   const agentRow = await loadAgentRow(db, agentId);
   const cognitiveSelf = await buildCognitiveSelf({ db, agentId, role, mission, assignment });
-  const genotype = await loadGenotype({ db, parentOrchestrator, assignment, scope });
+  const genotype = opts.genotype || await loadGenotype({ db, parentOrchestrator, assignment, scope });
   const epigeneticState = deriveEpigeneticState(genotype);
   const plasmids = derivePlasmids(genotype);
   const phenotype = computePhenotype({ genotype, epigeneticState, assignment });

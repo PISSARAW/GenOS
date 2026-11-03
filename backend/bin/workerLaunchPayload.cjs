@@ -82,6 +82,28 @@ function selectedWorkspaceRoot(context, member, parent) {
   return candidate ? path.resolve(candidate) : candidate;
 }
 
+function selectedHandoffContext(member, context) {
+  if (Array.isArray(member.handoffContext)) return member.handoffContext;
+  if (Array.isArray(context.request?.handoffContext)) return context.request.handoffContext;
+  return [];
+}
+
+function selectedDependencies(member, context) {
+  if (Array.isArray(member.dependsOn)) return member.dependsOn;
+  if (Array.isArray(member.depends_on)) return member.depends_on;
+  return context.request?.depends_on || [];
+}
+
+function selectedMissionCriteria(member, context) {
+  if (Array.isArray(member.missionCriteria)) return member.missionCriteria;
+  const request = context.request;
+  return request?.missionCriteria || request?.success_criteria || request?.successCriteria || [];
+}
+
+function selectedPipelineStage(member, context) {
+  return member.pipelineStage ?? context.request?.pipeline_stage ?? 0;
+}
+
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
@@ -102,13 +124,20 @@ function workerLaunchPayload(args) {
     workerKind,
     variantIndex: member.variantIndex,
     localModel,
+    localContextTokens: context.request?.localContextTokens,
+    readOnlyWorkspaceEvidence: context.request?.readOnlyWorkspaceEvidence === true,
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope,
     organization: context.request?.organization,
     coordinationPolicy: selectedCoordinationPolicy(context),
     methodContract: member.methodContract,
+    workerArtifactContract: member.workerArtifactContract || context.request?.workerArtifactContract || null,
     workerAssignment: member.workerAssignment, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(member),
     topologySessionId: context.topologySession?.sessionId || null,
+    handoffContext: selectedHandoffContext(member, context),
+    depends_on: selectedDependencies(member, context),
+    pipeline_stage: selectedPipelineStage(member, context),
+    missionCriteria: selectedMissionCriteria(member, context),
     model_tier: member.modelTier,
     capabilities: capabilities || [],
     capabilityManifest: capabilityManifest || null,

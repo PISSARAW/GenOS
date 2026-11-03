@@ -25,3 +25,6 @@ mod tests;
 
 #[cfg(test)]
 mod seal_tests;
+
+#[cfg(test)]
+mod hachimoji_tests;

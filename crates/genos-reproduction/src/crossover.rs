@@ -46,10 +46,10 @@ pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_po
 
         let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
         let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
-        child_a.chromosome_maternal.replace_sequence(a_gamete_1);
-        child_a.chromosome_paternal.replace_sequence(b_gamete_1);
-        child_b.chromosome_maternal.replace_sequence(a_gamete_2);
-        child_b.chromosome_paternal.replace_sequence(b_gamete_2);
+        child_a.chromosome_maternal = parent_a.chromosome_maternal.recombined(&parent_a.chromosome_paternal, a_gamete_1);
+        child_a.chromosome_paternal = parent_b.chromosome_maternal.recombined(&parent_b.chromosome_paternal, b_gamete_1);
+        child_b.chromosome_maternal = parent_a.chromosome_maternal.recombined(&parent_a.chromosome_paternal, a_gamete_2);
+        child_b.chromosome_paternal = parent_b.chromosome_maternal.recombined(&parent_b.chromosome_paternal, b_gamete_2);
 
         // Recombinaison réciproque des gènes selon le point de coupure avec reprogrammation épigénétique méiotique
         let mut all_loci: Vec<String> = parent_a.genes.keys().chain(parent_b.genes.keys()).cloned().collect();
@@ -129,8 +129,8 @@ pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, config:
         let gamete_b = Self::recombine_gamete_uniform(parent_b, swap_prob, &mut rng);
 
         // Fécondation : constitution du zygote diploïde (gamète A -> maternel, gamète B -> paternel)
-        child.chromosome_maternal.replace_sequence(gamete_a);
-        child.chromosome_paternal.replace_sequence(gamete_b);
+        child.chromosome_maternal = parent_a.chromosome_maternal.recombined(&parent_a.chromosome_paternal, gamete_a);
+        child.chromosome_paternal = parent_b.chromosome_maternal.recombined(&parent_b.chromosome_paternal, gamete_b);
 
         // Recombinaison mendélienne équilibrée des gènes
         let mut all_loci: std::collections::BTreeSet<String> = parent_a.genes.keys().cloned().collect();

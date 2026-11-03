@@ -21,9 +21,9 @@ Un resultat de croisement ou un fitness predit est une hypothese. Sa promotion d
 
 **Frontière à respecter :** `backend/src/services/geneticsService.js` et les crates Rust sont des chemins de manipulation de modèles génomiques. Les handlers de `backend/src/services/mcpBioTools/handlers/` tels que `pointMutation`, `frameshiftMutation`, `dynamicTripletExpansion`, `chimericMerge`, `aneuploidy`, `polyploidy`, `transposonJump` et `mitochondrialDnaMutation` modifient des registres de simulation ; ils ne réécrivent pas le génome d'un agent actif et ne lancent pas de nouvel agent. Leurs mesures, hashes ou ratios sont locaux au scénario décrit.
 
-### Encodage Nucléotidique 2-bit et Traduction Ribosomale
+### Encodage nucléotidique Hachimoji et traduction ribosomale
 Pour dépasser les limites de verbosité et de fragilité syntaxique du JSON, GenOS intègre la sérialisation directe du génome sous forme de brin d'ADN compact :
-- **Nucléotides 2-bits** : $A=00_2, C=01_2, G=10_2, T=11_2$, permettant de compacter 4 paires de bases par octet (`DnaStrand::synthesize` / `encodeGenesToNucleotides`).
+- **Nouveaux brins à trois bits** : alphabet `A/C/G/T/P/Z/B/S` (`DnaStrand::synthesize` / `encodeGenesToNucleotides`), avec paires complémentaires P–Z et B–S. Les anciens brins à deux bits restent lisibles sans réécriture. L'encodage est explicite par brin ; voir [ADR 0784](../adr/0784-alphabet-hachimoji-compatible.md).
 - **Traduction Ribosomale** : Les gènes actifs sous chromatine ouverte (`Euchromatin`) sont transcrits en ARNm (`RnaPolymerase`), filtrés par contrôle qualité NMD (*Nonsense-Mediated Decay*), puis traduits par le `Ribosome` en codons triplets (`AUG` Start, tokens peptidiques, codons Stop) et repliés via `fold()` en capacités actives sans passage par un parseur JSON.
 
 

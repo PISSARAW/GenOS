@@ -222,6 +222,18 @@ function selectedModelBudgetScope(member, request) {
   return member.modelBudgetScope || request.modelBudgetScope || request.model_budget_scope || null;
 }
 
+function stageMissionFields(member, request) {
+  return {
+    missionCriteria: request.success_criteria || request.successCriteria || [],
+    workerKind: member.workerKind, workerAssignment: member.workerAssignment,
+    methodContract: member.methodContract,
+    workerArtifactContract: member.workerArtifactContract ?? request.workerArtifactContract,
+    localModel: member.localModel || request.localModel,
+    localContextTokens: request.localContextTokens, localRuntime: request.localRuntime,
+    readOnlyWorkspaceEvidence: request.readOnlyWorkspaceEvidence === true
+  };
+}
+
 function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }) {
   const launchCaps = launchCapabilities(member, request);
   const budget = request.execution_budget || request.executionBudget;
@@ -235,6 +247,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     workerId: member.workerId,
     mission: member.mission,
     handoffContext: Array.isArray(member.handoffContext) ? member.handoffContext : [],
+    ...stageMissionFields(member, request),
     coordination_policy: {
       consults: member.consults,
       communication_cadence: member.communicationCadence,

@@ -1,7 +1,7 @@
 const { unpack } = require('msgpackr');
 
 const { decodeContainer, contentHash, verifySignature, verifySignerTrust, uuidFromBuffer } = require('./container');
-const { decodeInstruction, splitStrandPayload } = require('./packing');
+const { decodeInstruction, splitStrandPayload, strandLayout, unpackBases } = require('./packing');
 const { express } = require('./express');
 
 function arrayOr(value) {
@@ -42,7 +42,9 @@ function toMeta(arr) {
 
 function toStrand(payload) {
   const { baseCount, packed } = splitStrandPayload(payload);
-  return { baseCount, instruction: decodeInstruction(packed, baseCount) };
+  const layout = strandLayout(baseCount);
+  return { baseCount: layout.baseCount, bitsPerBase: layout.bitsPerBase,
+    sequence: unpackBases(packed, baseCount), instruction: decodeInstruction(packed, baseCount) };
 }
 
 function toGene(arr) {
@@ -54,7 +56,8 @@ function toGene(arr) {
   return {
     locus: arr[0],
     instruction: decodeInstruction(packed, arr[2]),
-    length: arr[2],
+    length: strandLayout(arr[2]).baseCount,
+    bitsPerBase: strandLayout(arr[2]).bitsPerBase,
     chromatin,
     methylated: Boolean(arr[4]),
     volume: arr[5],
@@ -216,9 +219,10 @@ function decodePhenotype(model) {
 }
 
 function decodeBuffer(buffer) {
-  const { sections } = decodeContainer(buffer);
+  const { header, sections } = decodeContainer(buffer);
   const model = {
-    format: 'AgentDNA/v1',
+    format: `AgentDNA/v${header.version}`,
+    alphabet: header.version === 1 ? 'ACGT' : 'ACGTPZBS',
     contentHash: contentHash(sections),
     meta: toMeta(unpack(sections.get('META'))),
     maternal: toStrand(sections.get('CHRM')),
@@ -235,12 +239,20 @@ function decodeBuffer(buffer) {
     development: toDevelopment(optional(sections, 'DEVO')),
     raw: buffer
   };
+  assertAlphabetVersion(model, header.version);
   decodePhenotype(model);
   const signature = verifySignature(sections);
   model.signed = signature.signed;
   model.signer = signature.signer;
   model.signatureValid = signature.valid;
   return model;
+}
+
+function assertAlphabetVersion(model, version) {
+  const strands = [model.maternal, model.paternal, ...model.extraChromosomes, ...Object.values(model.genes)];
+  if (version === 1 && strands.some((strand) => strand.bitsPerBase === 3)) {
+    throw new Error('Hachimoji strands require AgentDNA v2');
+  }
 }
 
 module.exports = { decodeBuffer };

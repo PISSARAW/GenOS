@@ -9,10 +9,14 @@ pub enum AminoAcidToken {
     MethionineStart,
     Stop,
     Token(u8),
+    Unsupported,
 }
 
 impl Codon {
     pub fn read_universal_dictionary(&self) -> AminoAcidToken {
+        if [&self.0, &self.1, &self.2].iter().any(|base| **base as u8 >= 4) {
+            return AminoAcidToken::Unsupported;
+        }
         match (&self.0, &self.1, &self.2) {
             (RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::G) => {
                 AminoAcidToken::MethionineStart
@@ -56,6 +60,7 @@ impl Codon {
             (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::A)
             | (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::G) => AminoAcidToken::Token(19),
             (RnaNucleotide::G, RnaNucleotide::G, _) => AminoAcidToken::Token(5),
+            _ => AminoAcidToken::Unsupported,
         }
     }
 }
@@ -137,6 +142,7 @@ impl Ribosome {
                         AminoAcidToken::MethionineStart => amino_acids.push(10),
                         AminoAcidToken::Token(val) => amino_acids.push(val),
                         AminoAcidToken::Stop => break,
+                        AminoAcidToken::Unsupported => {},
                     }
                 }
             }

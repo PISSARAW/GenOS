@@ -78,6 +78,7 @@ async function generate(options) {
   }
   const priorId = validatePrior(options.prior, options.model);
   const body = { model: options.modelName, input: options.prompt,
+    ...require('./modelProviderSampling').samplingFields(options),
     store: true, stream: false,
     ...(priorId ? { previous_response_id: priorId } : {}),
     ...(options.maxTokens ? { max_output_tokens: options.maxTokens } : {}),

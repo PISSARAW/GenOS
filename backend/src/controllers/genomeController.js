@@ -21,6 +21,7 @@ function scopeClause(tenant) {
 function summarize(model) {
   return {
     format: model.format,
+    alphabet: model.alphabet,
     contentHash: model.contentHash,
     name: model.meta.name,
     generation: model.meta.generation,

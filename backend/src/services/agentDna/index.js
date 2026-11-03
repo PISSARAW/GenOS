@@ -22,6 +22,8 @@ function workerGenes(model) {
     silenced: phenotype.silenced,
     expressed: phenotype.expressed,
     genomeContentHash: model.contentHash || null,
+    genomeFormat: model.format,
+    genomeAlphabet: model.alphabet,
     dnaStatus: model.meta?.status || 'DRAFT'
   };
 }

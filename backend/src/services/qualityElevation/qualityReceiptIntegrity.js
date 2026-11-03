@@ -41,7 +41,8 @@ function assertExpectedScope(receipt, worker) {
 }
 
 function assertReceipt(receipt, context) {
-  if (!authenticated(receipt) || receipt.schema !== SCHEMA) throw fail('GQEL_RECEIPT_INVALID', 'Quality receipt authentication failed.');
+  const trusted = authenticated(receipt) || require('./qualityNativeVerification').authenticated(receipt, context);
+  if (!trusted || receipt.schema !== SCHEMA) throw fail('GQEL_RECEIPT_INVALID', 'Quality receipt authentication failed.');
   assertExpectedScope(receipt, context.worker);
   const contract = require('./workerQualityContractEnforcer').qualityContractOf(context.worker);
   verifyContract(contract);
