@@ -24,13 +24,16 @@ pub struct RunCmd {
     /// Caller-supplied native worker objectives; each requires a goal, criteria, and versioned method contract.
     #[arg(long, value_name = "JSON")]
     pub native_objectives: Option<String>,
+    /// Confined JSON configuration for a native Rust LLM text mission.
+    #[arg(long, value_name = "PATH", conflicts_with = "native_objectives")]
+    pub llm_config: Option<std::path::PathBuf>,
     /// Opt in to hashing read-only workspace files as worker evidence.
     #[arg(long, default_value_t = false)]
     pub read_only_workspace_evidence: bool,
     /// Bounded mission deadline in milliseconds (1,000 to 180,000).
     #[arg(long, default_value_t = 180_000, value_parser = clap::value_parser!(u64).range(1_000..=180_000))]
     pub timeout_ms: u64,
-    /// codex uses the backend; rust executes the bounded native integer_sum profile.
+    /// codex uses the backend; rust executes an installed native mission profile.
     #[arg(long, default_value = "codex", value_parser = ["codex", "rust"])]
     pub executor: String,
     /// Execution mode to run. Currently supports: trinity

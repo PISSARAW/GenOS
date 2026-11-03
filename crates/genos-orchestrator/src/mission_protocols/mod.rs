@@ -21,3 +21,23 @@ mod gqwf_store;
 mod gqwf_commit;
 pub mod source;
 pub mod engine;
+#[cfg(feature="native-llm")]
+pub mod llm_contract;
+#[cfg(feature="native-llm")]
+pub mod llm_spec;
+#[cfg(feature="native-llm")]
+pub mod llm_source;
+#[cfg(feature="native-llm")]
+pub mod llm_roles;
+#[cfg(feature="native-llm")]
+pub mod llm_synapse;
+#[cfg(feature="native-llm")]
+pub mod llm_allostasis;
+#[cfg(feature="native-llm")]
+pub mod llm_omega;
+#[cfg(feature="native-llm")]
+pub mod llm_evidence;
+#[cfg(feature="native-llm")]
+pub mod llm_gqwf;
+#[cfg(feature="native-llm")]
+pub mod llm_engine;

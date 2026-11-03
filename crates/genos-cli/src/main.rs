@@ -55,7 +55,7 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
 }
 
 fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
-    if cmd.executor == "rust" {
+    if cmd.executor == "rust" || cmd.llm_config.is_some() {
         return commands::rust_native_mission::execute(&cmd);
     }
     if let Some(mission) = cmd.mission.or(cmd.mission_option) {

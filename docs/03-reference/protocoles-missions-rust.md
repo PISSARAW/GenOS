@@ -14,6 +14,11 @@ par regroupement des occurrences. Le critère accepté est exactement
 `integer_sum_verified`. Un `expectedSum` explicite constitue une obligation
 supplémentaire ; son absence n'autorise aucune autre revendication métier.
 
+Le [profil LLM textuel](missions-llm-runtime-rust.md) est sélectionné avec
+`--llm-config`. Il utilise des observations et des contrats distincts : ses
+réponses ne sont pas converties en sommes ni comparées comme trois calculs
+arithmétiques identiques.
+
 Les trois processus exécutent le même binaire installé, dans trois rôles
 distincts avec nonce, PID, audience, environnement et politique liés. Cela
 n'établit pas trois autorités indépendantes ni une vérité générale sur une
