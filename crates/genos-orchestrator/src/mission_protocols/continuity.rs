@@ -123,7 +123,14 @@ fn agentic_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {
         let pending:bool=tx.query_row(&query,[&binding.run_id],|row|row.get(0)).map_err(|error|error.to_string())?;
         if pending { return Err("CONTINUITY agentic operation pending; handoff forbidden".into()); }
     }
-    Ok(())
+    delegation_settled(tx,binding)
+}
+
+fn delegation_settled(tx:&Transaction<'_>,binding:&Binding)->Result<(),String> {
+    #[cfg(feature="native-llm")]
+    { super::agentic_delegation_exchange::require_settled_in(tx,binding) }
+    #[cfg(not(feature="native-llm"))]
+    { let _=(tx,binding);Ok(()) }
 }
 
 fn agentic_pool_settled(tx:&Transaction<'_>, binding:&Binding) -> Result<(),String> {

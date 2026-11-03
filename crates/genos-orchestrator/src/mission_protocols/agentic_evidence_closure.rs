@@ -6,19 +6,17 @@ pub(super) fn collect(connection:&Connection,binding:&Binding)->Result<(Value,St
     agentic_ledger::assert_publishable_in(connection,binding)?;
     let waves=super::super::agentic_parallel_journal::closure_in(connection,binding)?;
     let spec=agentic_admission::admitted_in(connection,binding)?;
-    let mut agents=Vec::new();
-    let mut final_text=String::new();
-    for agent in &spec.config.agents {
-        let completed=agentic_ledger::completed_in(connection,binding,&agent.id)?.ok_or("AGENTIC_COMPLETION_REQUIRED")?;
-        let turns=turns(connection,binding,(&agent.id,completed.last_turn))?;
-        let received=agentic_exchange::received_in(connection,binding,&agent.id)?;
-        let artifacts=artifacts(connection,binding,&agent.id)?;
-        final_text=completed.text.clone();
-        agents.push(json!({"completion":completed,"turns":turns,"received":received,"artifacts":artifacts}));
+    let active=super::super::agentic_delegation_exchange::active_agents_in(connection,binding)?;
+    let dynamic=super::super::agentic_delegation_exchange::closure_in(connection,binding)?;
+    let mut agents=Vec::new();let mut final_text=String::new();
+    for agent in &active {
+        let (proof,text)=agent_in(connection,binding,agent)?;
+        final_text=text;agents.push(proof);
     }
     let closure=json!({"schema":"genos.rust-agentic-closure/v1","source":spec.source,"source_hash":spec.source_hash,
         "binding":binding,"agents":agents,"base":agentic_exchange::base_in(connection,binding)?,
         "origin":"model_generated","external_effects_authorized":false,"waves":waves});
+    let closure=with_dynamic(closure,dynamic);
     Ok((closure,final_text))
 }
 
@@ -48,4 +46,16 @@ fn artifacts(connection:&Connection,binding:&Binding,agent:&str)->Result<Vec<Val
         objects.push(json!({"descriptor":artifact,"text":String::from_utf8(bytes).map_err(|_|"AGENTIC_ARTIFACT_UTF8_INVALID")?}));
     }
     Ok(objects)
+}
+
+fn with_dynamic(mut closure:Value,dynamic:Value)->Value {
+    if !dynamic.is_null() { closure["delegation"]=dynamic; }closure
+}
+fn agent_in(connection:&Connection,binding:&Binding,agent:&str)->Result<(Value,String),String> {
+    let completed=agentic_ledger::completed_in(connection,binding,agent)?.ok_or("AGENTIC_COMPLETION_REQUIRED")?;
+    let turns=turns(connection,binding,(agent,completed.last_turn))?;
+    let received=agentic_exchange::received_in(connection,binding,agent)?;
+    let artifacts=artifacts(connection,binding,agent)?;
+    let text=completed.text.clone();
+    Ok((json!({"completion":completed,"turns":turns,"received":received,"artifacts":artifacts}),text))
 }
