@@ -32,6 +32,10 @@ fn optional_integer<'de, D: serde::Deserializer<'de>>(value: D) -> Result<Option
 }
 
 pub fn execute(command: &RunCmd) -> Result<(), String> {
+    execute_integer(command)
+}
+
+fn execute_integer(command: &RunCmd) -> Result<(), String> {
     validate_flags(command)?;
     let mission = mission_name(command)?;
     let objective = objective(command)?;
