@@ -15,6 +15,8 @@ de contrats runtime et d'une qualification distincte de ses métaphores biologiq
 
 ## Actualités documentaires
 
+- [Missions natives Rust et sept protocoles](03-reference/protocoles-missions-rust.md) — exécuteur `integer_sum` avec trois processus réels, publication CAS et reprise sans redispatch ; [qualification](06-qualite-preuves/protocoles-runtime-rust-2026-11-02.md).
+
 - [Compétence procédurale corrigée](06-qualite-preuves/competence-procedurale-corrigee-2026-11-02.md) — module hybride vérifié, cent expériences LLM et validation bornée sur un corpus réservé neuf ; [ADR 0768](adr/0768-competence-procedurale-verifiee-et-couverture.md).
 
 - [Dossier GQEL](01-concepts/gqel.md) — élévation contrôlée de la qualité des livrables : [intégration](02-orchestration/gqel.md), [référence technique](03-reference/gqel-boucle-elevation-qualite.md), [runbook](04-exploitation/gqel.md), [preuves du 2026-11-02](06-qualite-preuves/qualification-gqel-2026-11-02.md) et [ADR 0770](adr/0770-gqel-boucle-elevation-qualite.md). Boucle heuristique implémentée ; amplification LLM réelle restant à qualifier.

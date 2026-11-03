@@ -9,16 +9,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 ## Index
 
-Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
-[socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),
-[AGOW](2026-11-02-gns-arbitrage-agow.md),
-[morphogenèse](2026-11-02-gns-besoins-morphogenetiques.md),
-[ontogenèse](2026-11-02-gns-ontogenese.md),
-[SHEV](2026-11-02-gns-shev.md),
-[RPE](2026-11-02-raccord-gns-rpe.md),
-[huit topologies](2026-11-02-raccord-gns-topologies.md) et
-[régulation du Garage](2026-11-02-regulation-gns-du-garage.md).
-
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
@@ -192,8 +182,7 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 | [0151](0151-modele-de-soi-effecteurs.md) | Modèle de soi et effecteurs | Accepté (portée Node) | 2026-09-27 | Modèle de soi, copie d'efférence |
 | [0152](0152-objectifs-concurrents-allostase.md) | Objectifs concurrents et allostase | Accepté (portée Node) | 2026-09-27 | Objectifs multiples, allostase |
 | [0153](0153-population-morphogenetique-bornee.md) | Population morphogénétique bornée | Accepté (portée Node) | 2026-09-27 | Morphogenèse, variants, provenance |
-| [0154a](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
-| [0154b](0154-recu-typé-du-pont-rust-snapshot.md) | importer un snapshot Rust avec preuve Node | Accepté (portée Node + pont CLI Rust ; voir Limites) | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
+| [0154](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
 | [0155](0155-hypothese-plan-action.md) | Hypothèse promue, plan et action | Accepté (portée Node) | 2026-09-27 | Planification, hypothèses, rollback |
 | [0156](0156-verdict-experimental-planner.md) | Verdict expérimental et planner | Accepté (portée Node) | 2026-09-27 | Expérimentation, verdicts, PID |
 | [0157](0157-apprentissage-inter-missions-consolidation.md) | Apprentissage inter-missions et consolidation | Accepté (portée Node) | 2026-09-27 | Mémoire inter-missions, lignées |
@@ -531,8 +520,7 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 | [0400a](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
 | [0400b](0400-oracles-workers-deterministes-structures.md) | Oracles de workers déterministes à sorties structurées | accepté | 2026-10-11 | workers déterministes, preuves indépendantes et promotion |
 | [0400c](0400-promotion-trinity-gqwf-opt-in.md) | Publier une racine GQWF depuis une promotion Trinity vérifiée | Accepté, activation explicite. | 2026-10-11. | Trinity, GQWF, promotion. |
-| [0401a](0401-oracle-formel-lean-borné.md) | Oracle formel Lean borné pour le worker formel | accepté | 2026-10-11 | preuve formelle, workers et promotion |
-| [0401b](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
+| [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
 | [0402a](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
 | [0402b](0402-oracles-workers-recuperation-et-passation.md) | Oracles bornés de récupération et de passation | accepté | 2026-10-11 | workers, récupération et coordination |
 | [0403a](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |
@@ -784,7 +772,6 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 | [0641b](0641-perception-securite-autonome.md) | Perception autonome de la sécurité et modèle de monde | Accepté pour l'implémentation initiale. | -- | -- |
 | [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
-| [0644](0644-calibration-et-projection-nosologique-traçable.md) | Calibration et projection nosologique traçable | Accepté | 2026-10-18 | -- |
 | [0645](0645-memoire-locale-durable-et-calibration-explicite.md) | Mémoire locale durable et calibration explicite | Accepté | 2026-10-18 | -- |
 | [0646](0646-apprentissage-et-execution-ett-reprenables.md) | Apprentissage qualifié et exécution ETT reprenable | Accepté | 2026-10-19 | pensée endogène, mémoire, reprise, sandbox |
 | [0647](0647-boucle-ett-multicycle-et-questionnement-endogene.md) | Boucle ETT multicycle et questionnement endogène | Accepté | 2026-10-19 | pensée endogène, cycles cognitifs, génération d'hypothèses, SQLite |
@@ -904,32 +891,49 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 | [0762](0762-contraintes-execution-identite-worker.md) | Contraintes d'exécution observées dans l'identité worker | Voir le fichier | -- | -- |
 | [0763](0763-autorite-preuve-execution-hote-et-quadrants-epistemiques.md) | Autorité de preuve d'exécution hôte et quadrants épistémiques (Q1-Q5) | Voir le fichier | -- | -- |
 | [0764](0764-cloture-workers-et-temoins-runtime.md) | Clôture des workers et témoins du runtime | Accepté | 2026-10-31 | Workers, preuves, exécution et reprise |
-| [0766](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
+| [0766a](0766-composition-inventaire-preuves.md) | Composition de l'inventaire et preuves bornées | Voir le fichier | -- | -- |
+| [0766b](0766-observation-mission-agow.md) | Relier une décision AGOW à une mesure de mission | Accepté pour l'instrumentation locale et le parcours supervisé Node | 2026-11-02 | AGOW, provenance, mesures et persistance |
 | [0767](0767-mesures-agow-depuis-oracle-natif.md) | Mesures AGOW depuis une acceptation native vérifiée | Accepté pour le domaine natif borné subset_sum | 2026-11-02 | AGOW, workers natifs, vérification métier et preuves |
 | [0768](0768-competence-procedurale-verifiee-et-couverture.md) | Procédures apprises vérifiées et abstention par couverture | accepté pour un module interne borné au domaine affine. | 2026-11-02 | -- |
 | [0769](0769-refutations-natives-mesurees-par-agow.md) | Mesurer les réfutations natives sans autoriser leur promotion | Accepté pour le domaine borné subset_sum | 2026-11-02 | AGOW, preuves négatives, mesures et budgets |
 | [0770](0770-gqel-boucle-elevation-qualite.md) | GQEL : Boucle d'Élévation de Qualité des LLM | Accepté | 2026-11-02 | Runtime, Amplification de qualité LLM, Évaluation sémantique, Réparation causale |
-| [0771](0771-filiation-verifiee-et-regles-apprises-validees.md) | Filiation vérifiée et règles apprises validées | Accepté | 2026-11-02 | Identité causale, ontogenèse, qualification LLM |
+| [0771a](0771-filiation-verifiee-et-regles-apprises-validees.md) | Filiation vérifiée et règles apprises validées | Accepté | 2026-11-02 | Identité causale, ontogenèse, qualification LLM |
+| [0771b](0771-gqel-contrats-natifs-de-mission.md) | Obligation GQEL dans les contrats natifs de mission | Voir le fichier | -- | -- |
+| [0772](0772-gqel-execution-native-des-workers.md) | Exécution native de GQEL dans les workers | Voir le fichier | -- | -- |
+| [0773](0773-gqel-livrable-final-integre.md) | Qualifier le livrable final intégré avec GQEL | Voir le fichier | -- | -- |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
 | [2026d](2026-11-02-gns-besoins-morphogenetiques.md) | Raccorder GNS aux besoins morphogénétiques | Voir le fichier | -- | -- |
 | [2026e](2026-11-02-gns-ontogenese.md) | Raccorder GNS à l'historique de l'ontogenèse | Voir le fichier | -- | -- |
 | [2026f](2026-11-02-gns-shev.md) | Raccorder les observations opérationnelles GNS à la boucle SHEV | Voir le fichier | -- | -- |
-| [2026g](2026-11-02-gqel-v2-controle-et-construction.md) | ADR — GQEL V2 : construction hiérarchique et contrôle localisé | Voir le fichier | -- | -- |
-| [2026h](2026-11-02-protocole-allostasie.md) | ADR — Protocole ALLOSTASIE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Mesures allostatiques, prévisions, quotas et consommation |
-| [2026i](2026-11-02-protocole-continuity.md) | ADR — Protocole CONTINUITY v1 | Accepté pour le profil expérimental local | 2026-11-02 | Identité, reconnaissance, transfert de responsabilité et autorité |
-| [2026j](2026-11-02-protocole-evidence.md) | ADR — Protocole EVIDENCE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Preuves, réfutation, conversations durables |
-| [2026k](2026-11-02-protocole-gqwf-exchange.md) | ADR — Protocole GQWF Exchange v1 | Accepté pour le profil expérimental local | 2026-11-02 | Mondes contrefactuels, CAS, qualification et promotion |
-| [2026l](2026-11-02-protocole-morph.md) | ADR — Protocole MORPH v1 et conservation des engagements | Accepté pour le profil expérimental local | 2026-11-02 | Morphogenèse, engagements, autorité et reprise |
-| [2026m](2026-11-02-protocole-omega-execution.md) | ADR — Protocole OMEGA Execution v1 | Accepté pour le profil expérimental local | 2026-11-02 | G-CIR Ω, admission, obligations, effets et reprise |
-| [2026n](2026-11-02-protocole-synapse.md) | ADR — Protocole SYNAPSE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Communication compacte, dialectes, état partagé et accusés |
-| [2026o](2026-11-02-protocoles-runtime-missions.md) | Intégration des protocoles aux missions natives | Voir le fichier | -- | -- |
-| [2026p](2026-11-02-raccord-gns-rpe.md) | Raccordement GNS aux relations RPE | Voir le fichier | -- | -- |
-| [2026q](2026-11-02-raccord-gns-topologies.md) | Raccordement GNS aux huit topologies | Voir le fichier | -- | -- |
-| [2026r](2026-11-02-regulation-gns-du-garage.md) | Régulation GNS du Garage : mesure, autorité et effet vérifiable | Voir le fichier | -- | -- |
-| [2026s](2026-11-02-systeme-nerveux-operationnel.md) | ADR — Système nerveux opérationnel GenOS | Voir le fichier | -- | -- |
+| [2026g](2026-11-02-gqel-coordination-des-reparations.md) | ADR — Coordination native des réparations de qualité GQEL | Voir le fichier | -- | -- |
+| [2026h](2026-11-02-gqel-progression-et-preuves.md) | ADR — GQEL V2.1 : autoriser l'essai, préserver le veto final | Voir le fichier | 2026-11-02. | -- |
+| [2026i](2026-11-02-gqel-recus-qualite-durables.md) | ADR — GQEL : reçus de qualité durables liés à l’exécution | implémenté ; tests locaux à évaluateurs synthétiques | 2026-11-02 | -- |
+| [2026j](2026-11-02-gqel-v2-controle-et-construction.md) | ADR — GQEL V2 : construction hiérarchique et contrôle localisé | Voir le fichier | -- | -- |
+| [2026k](2026-11-02-protocole-allostasie.md) | ADR — Protocole ALLOSTASIE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Mesures allostatiques, prévisions, quotas et consommation |
+| [2026l](2026-11-02-protocole-continuity.md) | ADR — Protocole CONTINUITY v1 | Accepté pour le profil expérimental local | 2026-11-02 | Identité, reconnaissance, transfert de responsabilité et autorité |
+| [2026m](2026-11-02-protocole-evidence.md) | ADR — Protocole EVIDENCE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Preuves, réfutation, conversations durables |
+| [2026n](2026-11-02-protocole-gqwf-exchange.md) | ADR — Protocole GQWF Exchange v1 | Accepté pour le profil expérimental local | 2026-11-02 | Mondes contrefactuels, CAS, qualification et promotion |
+| [2026o](2026-11-02-protocole-morph.md) | ADR — Protocole MORPH v1 et conservation des engagements | Accepté pour le profil expérimental local | 2026-11-02 | Morphogenèse, engagements, autorité et reprise |
+| [2026p](2026-11-02-protocole-omega-execution.md) | ADR — Protocole OMEGA Execution v1 | Accepté pour le profil expérimental local | 2026-11-02 | G-CIR Ω, admission, obligations, effets et reprise |
+| [2026q](2026-11-02-protocole-synapse.md) | ADR — Protocole SYNAPSE v1 | Accepté pour le profil expérimental local | 2026-11-02 | Communication compacte, dialectes, état partagé et accusés |
+| [2026r](2026-11-02-protocoles-runtime-missions.md) | Intégration des protocoles aux missions natives | Voir le fichier | -- | -- |
+| [2026s](2026-11-02-protocoles-runtime-rust.md) | Protocoles spécialisés dans l'exécuteur natif Rust | Accepté pour le profil natif borné integer_sum | 2026-11-02 | Runtime Rust, protocoles, processus et publication CAS |
+| [2026t](2026-11-02-raccord-gns-rpe.md) | Raccordement GNS aux relations RPE | Voir le fichier | -- | -- |
+| [2026u](2026-11-02-raccord-gns-topologies.md) | Raccordement GNS aux huit topologies | Voir le fichier | -- | -- |
+| [2026v](2026-11-02-regulation-gns-du-garage.md) | Régulation GNS du Garage : mesure, autorité et effet vérifiable | Voir le fichier | -- | -- |
+| [2026w](2026-11-02-systeme-nerveux-operationnel.md) | ADR — Système nerveux opérationnel GenOS | Voir le fichier | -- | -- |
 
+Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
+[socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),
+[AGOW](2026-11-02-gns-arbitrage-agow.md),
+[morphogenèse](2026-11-02-gns-besoins-morphogenetiques.md),
+[ontogenèse](2026-11-02-gns-ontogenese.md),
+[SHEV](2026-11-02-gns-shev.md),
+[RPE](2026-11-02-raccord-gns-rpe.md),
+[huit topologies](2026-11-02-raccord-gns-topologies.md) et
+[régulation du Garage](2026-11-02-regulation-gns-du-garage.md).
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration

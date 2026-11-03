@@ -78,3 +78,5 @@ anciennes simulations biologiques ne sont pas présentées comme ce nouvel
 exécuteur métier.
 
 L'[ADR](../adr/2026-11-02-protocoles-runtime-rust.md) décrit les points de livraison.
+La [qualification](../06-qualite-preuves/protocoles-runtime-rust-2026-11-02.md)
+précise les scénarios exécutés et leurs limites.

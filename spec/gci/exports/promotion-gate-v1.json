@@ -2,7 +2,7 @@
   "schema": "genos.gci.capability/v1",
   "capabilityId": "PROMOTION_GATE",
   "version": "1.0.0",
-  "implementationDigest": "sha256:6d2537936093ec313f64d33d6c0716947d250a5a6d5f71c6eee44502e2fa5670",
+  "implementationDigest": "sha256:dc45ae00aa07efc85f48a42654218117958753b09895397520de03d957e4387e",
   "provider": { "id": "genos" },
   "maturity": "integrated",
   "exportModes": ["linked"],

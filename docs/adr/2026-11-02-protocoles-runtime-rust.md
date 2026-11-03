@@ -1,5 +1,12 @@
 # Protocoles spécialisés dans l'exécuteur natif Rust
 
+**Statut** : Accepté pour le profil natif borné integer_sum
+**Date** : 2026-11-02
+**Domaine** : Runtime Rust, protocoles, processus et publication CAS
+**Décideurs** : Mainteneurs GenOS
+**Lié à** : [Référence native](../03-reference/protocoles-missions-rust.md),
+[qualification](../06-qualite-preuves/protocoles-runtime-rust-2026-11-02.md)
+
 ## Constat
 
 Le CLI `run --mission` utilisait un pont Node, suivi d'un vérificateur SQLite
