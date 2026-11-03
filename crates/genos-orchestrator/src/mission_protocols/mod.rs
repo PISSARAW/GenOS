@@ -59,3 +59,5 @@ pub mod agentic_evidence;
 pub mod agentic_exchange;
 #[cfg(feature="native-llm")]
 pub mod agentic_engine;
+#[cfg(feature="native-llm")]
+pub mod agentic_parallel_journal;

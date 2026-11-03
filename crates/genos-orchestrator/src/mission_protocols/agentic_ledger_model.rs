@@ -74,10 +74,18 @@ fn claim(tx:&Transaction<'_>, binding:&Binding, input:&ModelDispatch<'_>) -> Res
     super::agents::eligible(tx,binding,&stored.key)?;
     check_deadline(binding,input.request,stored.max_wall_ms)?;
     api::validate_tool_request(input.request)?;
+    require_wave(tx,binding,&stored.key)?;
     claim_row(tx,binding,&stored.key)?;
     Ok(stored)
 }
 
+fn require_wave(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<(),String> {
+    let spec=super::super::agentic_admission::admitted_in(connection,binding)?;
+    if spec.config.max_parallel_agents>1 {
+        super::super::agentic_parallel_journal::require_dispatch_in(connection,binding,key)?;
+    }
+    Ok(())
+}
 
 fn claim_row(tx:&Transaction<'_>, binding:&Binding, key:&StepKey) -> Result<(),String> {
     let changed=tx.execute("UPDATE agentic_models SET status='dispatching' WHERE run_id=?1 AND agent_id=?2 AND turn=?3 AND status='intent'",
