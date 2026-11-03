@@ -9,6 +9,10 @@ const biology = require('../../src/services/biologicalWorkerReceiptService');
 const original = biology.record;
 
 biology.record = async (db, request) => {
+  if (mode === 'repair-proof' && request.event.eventType === 'AGENT_COMPLETED'
+      && request.event.payload?.nativeOracleRef) {
+    await require('./repairRuntimeProofProbes').qualify(db, request);
+  }
   if (mode === 'crash' && request.event.eventType === 'AGENT_COMPLETED'
       && request.event.payload?.nativeOracleRef) {
     const observed = await require('../../src/db').withTransaction(db, tx =>

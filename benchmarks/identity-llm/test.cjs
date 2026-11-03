@@ -107,6 +107,7 @@ function journalChecks(directory) {
 }
 
 async function main() {
+  require('./test-application-contract.cjs')();
   const parent = 'D:/GenOS-runs/identity-llm/unit-tests';
   fs.mkdirSync(parent, { recursive: true });
   const directory = fs.mkdtempSync(path.join(parent, 'case-'));

@@ -33,3 +33,17 @@ désignent le dépôt courant ; une copie figée sur D: déclare ses racines abs
 avant le scellement. `node pilot.cjs DOSSIER [CYCLES]` lance uniquement un pilote de
 développement (24 cycles par défaut, de 1 à 50, puis une fenêtre), dont les résultats ne qualifient jamais
 la campagne complète. Chaque campagne confirmatoire utilise une nouvelle graine.
+
+La campagne V2 a terminé les mêmes 300 transformations et 970 appels : les
+critères d'identité passent, avec parenté 298/300, descendants 10/10 et sondes à
+froid 3/3. Les huit règles conservées sont correctes, mais leur application brute
+reste à 26/96 contre 0/96 pour chaque contrôle. La preuve complète échoue donc.
+
+La V3 présente l'entrée littérale caractère par caractère dans son ordre initial.
+Elle récupère les seules règles utiles au problème et les compile en une
+expression symbolique non évaluée. Les instructions d'application sont propres
+à la famille ; le LLM évalue l'expression et produit sa réponse brute. Aucun
+produit, caractère inversé, résultat de casse ou réponse n'est calculé dans ce
+plan. Le schéma ne contraint pas la réponse au résultat attendu. Les seuils,
+budgets, corpus, contrôles et poids restent ceux de la référence. Voir
+[ADR 0774](../../docs/adr/0774-application-llm-par-traces-litterales.md).

@@ -80,7 +80,7 @@ function learnReplay(state, input) {
   const { prompt, response, task, checked, identityPrompt, identityResponse } = input;
   const value = response.value;
   assert.deepEqual(prompt.feedback, feedback(state));
-  assert.deepEqual(prompt.lessons, state.lessons);
+  assert.deepEqual(prompt.lessons, prompts.selectedLessons(runtime.application.describe(state.lessons, task.expression)));
   assert.deepEqual(prompt.applicationPlan, runtime.application.describe(state.lessons, task.expression));
   assert.deepEqual(identityPrompt.selfMemory, state.self);
   if (identityResponse.value?.origin === input.w.origin) state.self = { origin: identityResponse.value.origin };

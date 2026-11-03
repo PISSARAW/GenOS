@@ -122,6 +122,7 @@ function assertReceiptOwner(execution, subject) {
       || execution.subject.runBindingHash !== subject.runBindingHash) throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
   if (subject.domain === 'memory_fidelity') assertMemoryReceiptOwner(execution, subject);
   if (subject.domain === 'code_postconditions') require('./oracleCodeReceiptBinding').assert(execution, subject);
+  if (subject.domain === 'workspace_claims') require('./repairObligationReceiptBinding').assert(execution, subject);
 }
 
 function assertMemoryReceiptOwner(execution, subject) {

@@ -24,13 +24,14 @@ function armRows(events) {
 
 function ruleRows(events) {
   let committed;
+  const rules = {};
   for (const row of events) {
     if (row.type === 'response-committed') committed = row;
     if (row.type === 'eval-result' && row.arm === 'learned') {
-      return Object.entries(committed.prompt.lessons).map(([op, rule]) => [op, JSON.stringify(rule)]);
+      Object.assign(rules, committed.prompt.lessons);
     }
   }
-  return [];
+  return Object.entries(rules).map(([op, rule]) => [op, JSON.stringify(rule)]);
 }
 
 function main(campaign) {
@@ -74,7 +75,7 @@ ${table(['Mesure','Valeur'], [['Inconnus', percent(report.learning.unknownRate)]
 ${table(['Opérateur','Dernière règle validée proposée par le LLM'], ruleRows(events))}
 <h2>Portée</h2><p>Un modèle et un monde, avec poids fixes, mémoire externe, filiation assistée par le registre et règles typées validées. Ce cas ne qualifie pas un LLM sans ces services, ni une conscience, une identité psychologique, des mutations arbitraires ou l'orchestrateur autonome complet.</p>
 <p>Les cycles d'identité sont dépendants : Wilson est une référence de seuil, pas une garantie sur une population. Les fenêtres ne sont pas des lignées indépendantes. Les contrastes de transfert sont conditionnels à l'échantillonnage du corpus. Le vérificateur et l'oracle séparé ont été écrits dans le même projet ; il n'y a pas de réplication indépendante ni d'attestation matérielle.</p>
-<p>Les pilotes de développement et la référence négative restent séparés. Aucun critère n'a été abaissé et aucune promotion de production n'est autorisée. Les exemples génériques du contrat enseignent la sémantique des familles, pas les définitions cachées des opérateurs de test.</p>
+<p>Les pilotes de développement et la référence négative restent séparés. Aucun critère n'a été abaissé et aucune promotion de production n'est autorisée. Le plan récupère les règles utiles et émet une expression symbolique non évaluée, avec l'entrée littérale dans son ordre d'origine. Le LLM réalise les opérations ; le compilateur n'exécute aucun calcul ou transformation de résultat. Aucune réponse calculée n'est injectée dans le prompt ou le schéma.</p>
 <h2>Pièces vérifiables</h2><ul>
 <li><a href="manifest.json">Manifeste et empreintes des sources</a></li><li><a href="summary.json">Métriques primaires</a></li>
 <li><a href="lineage-0/events.jsonl">Requêtes et réponses LLM, journal chaîné</a></li><li><a href="verification.json">Rejeu et code de sortie</a></li>

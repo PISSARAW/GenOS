@@ -1,6 +1,7 @@
 pub mod security;
 pub mod server;
 pub mod thalamus;
+pub mod native_inference;
 pub mod types;
 
 pub use security::{RateLimiter, TenantAuth};

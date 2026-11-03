@@ -3,8 +3,9 @@
 const { normalizeRelativePath } = require('../pathSafety');
 const KINDS = new Set(['two_machine_partition', 'observed_statistics', 'literal_logs',
   'paired_means', 'json_field_contract', 'synthetic_data_quality', 'bar_durations',
-  'poem_constraints', 'git_numeric_history', 'python_palindrome', 'csv_report_total', 'publication_dossier']);
-const EDITABLE = new Set(['python_palindrome', 'csv_report_total']);
+  'poem_constraints', 'git_numeric_history', 'python_palindrome', 'csv_report_total', 'publication_dossier',
+  'code_repair_obligations']);
+const EDITABLE = new Set(['python_palindrome', 'csv_report_total', 'code_repair_obligations']);
 
 function invalid() {
   throw Object.assign(new Error('A bounded, source-bound workspace verification contract is required.'), {
@@ -18,8 +19,13 @@ function assertContract(contract) {
   const paths = new Set();
   for (const source of contract.sources) validateSource(source, { contract, paths });
   if (EDITABLE.has(contract.kind) && !paths.has(contract.artifactPath)) invalid();
-  if (JSON.stringify(contract).length > 16384) invalid();
+  assertBoundedKind(contract);
   return contract;
+}
+
+function assertBoundedKind(contract) {
+  if (JSON.stringify(contract).length > 16384) invalid();
+  if (contract.kind === 'code_repair_obligations') require('./repairObligationContract').assertContract(contract);
 }
 
 function validateSource(source, context) {

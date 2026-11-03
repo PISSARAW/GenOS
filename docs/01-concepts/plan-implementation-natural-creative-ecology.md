@@ -3,7 +3,7 @@
 - **Statut** : Lots exécutables livrés pour les familles numériques bornées ; aucune créativité générale revendiquée
 - **Portée** : parcours Play, développement et mesure du phénotype, transfert culturel, POET, puis protocole d'ablation
 - **Fiche de référence** : [Natural Creative Ecology](natural-creative-ecology.md)
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-11-02
 
 ## Livraison logicielle — état revu le 2026-10-06
 
@@ -25,6 +25,18 @@ observations dédiées et les familles de tâches ouvertes restent hors du runti
 ## Objectif
 
 Établir une chaîne vérifiable entre les mécanismes NCE et leurs effets observés sur une tâche, sans confondre transport, exécution réussie, changement d'état et preuve causale. Les tests d'intégration doivent d'abord valider le comportement logiciel. Toute conclusion comparative ou scientifique attendra un protocole contrôlé et des répétitions suffisantes.
+
+### Extension cumulative — lot 1 du 2026-11-02
+
+Le [lot de composition bornée](../adr/0372-nce-composition-bornee-du-repertoire.md)
+réinjecte le répertoire promu dans la recherche native : réutilisation,
+concaténation de deux parents et mutations typées, avec budgets explicites et
+filiation conservée. Il ajoute les familles `descending` et `unique-descending`.
+La vérification dédiée est `npm --prefix backend run test:nce:repertoire` ; les
+[contrats de recherche](../03-reference/experiences-nce.md#composition-du-répertoire-appris)
+précisent les bornes et le replay. Ce lot est distinct des lots historiques 0–5
+ci-dessous. Curriculum adaptatif, culture multigénérationnelle mesurée et
+validation comparative restent à traiter.
 
 ## État de départ historique
 
@@ -150,9 +162,12 @@ Les commandes dédiées sont `npm --prefix backend run test:nce` et
 d'exécution et les limites sont consignés dans le
 [bilan de validation](../03-reference/experiences-nce.md#état-de-validation-de-la-livraison).
 
-La clôture globale exige encore un contrôle qualité du dépôt accepté et une
-exécution complète de `cargo test --workspace` après résolution du manque
-d'espace disque. La validation scientifique exige un protocole préenregistré,
+Lors de la livraison historique, le contrôle qualité global et la suite Rust
+restaient ouverts. Ils ont passé pendant le lot de composition du 2026-11-02,
+ainsi que les suites NCE et CLI. `npm test` à la racine reste non validé lors de
+cette livraison : son préflight a refusé le lancement par manque d'espace disque.
+Voir le [bilan daté](../03-reference/experiences-nce.md#validation-de-la-composition--2026-11-02).
+La validation scientifique exige un protocole préenregistré,
 davantage de tâches et répétitions, des observations dédiées pour O/H et une
 revue indépendante. La livraison logicielle bornée ne vaut pas certification
 « 100 % » de ces objectifs.

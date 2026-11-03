@@ -129,8 +129,7 @@ fn inherit_request(tx: &Transaction<'_>, bindings: (&Binding, &Binding)) -> Resu
     let (prior, successor) = bindings;
     let (payload, expected) = admit_payload(tx, prior)?;
     if digest(&(prior,"RUNTIME","ADMIT",&payload))? != expected { return Err("ADMIT source corrupted".into()); }
-    let spec: RunSpec = serde_json::from_value(payload.clone()).map_err(|e| e.to_string())?;
-    if digest(&spec)? != successor.request_hash { return Err("ADMIT successor request mismatch".into()); }
+    if digest(&payload)? != successor.request_hash { return Err("ADMIT successor request mismatch".into()); }
     Store::event(tx, successor, Event { protocol:"RUNTIME",phase:"ADMIT",payload })
 }
 

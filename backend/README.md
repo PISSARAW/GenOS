@@ -244,11 +244,17 @@ for contracts, recovery semantics and validation limits.
 
 ## Natural Creative Ecology — expériences exécutables
 
-Le backend fournit un cycle natif pour trois familles de transformations numériques :
+Le backend fournit un cycle natif pour cinq familles de transformations numériques :
 recherche de procédures, vérification POET sur snapshots, transfert culturel,
 persistance du phénotype et réutilisation après réouverture SQLite. Le vocabulaire
 de procédures est fermé ; les six bras d'ablation couvrent quatre mécanismes.
 Les dimensions O/H du vecteur créatif restent inconnues sans observations dédiées.
+
+La recherche peut réutiliser et composer les procédures du répertoire promu, puis
+proposer des mutations typées. Les budgets `search.maxCandidates` et
+`search.maxParents` bornent cette extension ; la filiation reste liée aux preuves
+des parents. `npm --prefix backend run test:nce:repertoire` vérifie une composition
+absente du catalogue initial, sa transmission et sa reprise SQLite.
 
 Depuis la racine du dépôt, avec une configuration JSON et un fichier de rapport neuf :
 

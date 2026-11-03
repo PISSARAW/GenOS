@@ -1,5 +1,5 @@
 {
-  "id": "genos-longitudinal-local-r1-v2",
+  "id": "genos-longitudinal-local-r1-v3",
   "modelAlias": "genos-identity-r1-qwen3",
   "modelBlob": "D:/ollama/models/blobs/sha256-e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
   "modelSha256": "e6a7edc1a4d7d9b2de136a221a57336b76316cfe53a252aeba814496c5ae439d",
@@ -40,7 +40,7 @@
   "familywiseAlpha": 0.05,
   "simultaneousComparisons": 6,
   "stopping": "fixed corpus and seeds sealed before first campaign response; no retries, threshold tuning, sample exclusion or model substitution",
-  "learning": "LLM authors typed rules using structured visible arithmetic. Only identifiable candidates matching training examples enter durable knowledge. Rejected proposals retained and contradictory evidence revokes knowledge. Application plans contain only existing rules and raw inputs with no computed outputs. Raw LLM test answers are scored without repair.",
+  "learning": "LLM authors typed rules using structured visible training arithmetic. Only identifiable candidates matching training examples enter durable knowledge. Current task prompts retrieve only the rules named by that task. Application plans add a lossless forward character view of the raw input and an unevaluated symbolic expression compiled from those rules. The compiler emits arithmetic or join reverse upper concat source text and never executes those operations. Compact family specific instructions ask the LLM to evaluate that expression and return its raw answer and confidence. No computed value controls the response schema. No answer repair extra inference or budget increase is allowed. Rejected proposals remain audited and contradictory feedback revokes knowledge.",
   "identity": "Causal registry recognition context verifies sealed ancestors and episode provenance. An immutable birth anchor validates personal origin updates and bad raw answers remain errors. Birth information is supplied until the first valid personal copy. Later prompts use the validated LLM authored self memory.",
   "transformations": "real registry changes of name role revision plus alternate cognitive instructions and memory presentation, fixed model weights",
   "restart": "fresh OS process every 50 training cycles and every feedback-free held-out window; native offline LLM server is killed and reloaded before each heldout window; no conversational history",

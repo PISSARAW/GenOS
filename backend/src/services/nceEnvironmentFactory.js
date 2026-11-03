@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { digest } = require('./nceProcedureProgram');
-const FAMILIES = ['ascending', 'unique-ascending', 'absolute-ascending'];
+const FAMILIES = ['ascending', 'unique-ascending', 'absolute-ascending', 'descending', 'unique-descending'];
 
 const VERIFIER = [
   "'use strict';",
@@ -12,8 +12,9 @@ const VERIFIER = [
   "const task = JSON.parse(fs.readFileSync('task.json', 'utf8'));",
   "let expected = JSON.parse(fs.readFileSync('input.json', 'utf8'));",
   "if (task.family === 'absolute-ascending') expected = expected.map((n) => n < 0 ? -n : n);",
-  "if (task.family === 'unique-ascending') expected = expected.filter((n, i, a) => a.indexOf(n) === i);",
+  "if (task.family.startsWith('unique-')) expected = expected.filter((n, i, a) => a.indexOf(n) === i);",
   "expected.sort((a, b) => a - b);",
+  "if (task.family.endsWith('descending')) expected.reverse();",
   "assert.deepEqual(JSON.parse(fs.readFileSync('solution.json', 'utf8')), expected);",
   "console.log('NCE solution verified');",
 ].join('\n');

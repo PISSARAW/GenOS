@@ -108,6 +108,8 @@ const SOURCES = Object.freeze([
   'epistemic/workspaceOracleValues.js', 'epistemic/workspaceOracleNumerics.js',
   'epistemic/workspaceOracleRecords.js', 'epistemic/workspaceOracleCreative.js',
   'epistemic/workspacePalindromeKernel.js',
+  'epistemic/repairObligationContract.js', 'epistemic/repairObligationChecks.js',
+  'epistemic/repairObligationReceiptBinding.js',
   'verifierTrustRegistry.js', 'epistemic/verifierAdapters.js',
   'epistemic/verifierRuntimeBridge.js', 'epistemic/verifierReceiptBuilder.js',
   'epistemicVerifierReceiptService.js', 'sandboxExecutor.js',

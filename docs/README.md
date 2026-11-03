@@ -987,3 +987,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0751 — Liaison runtime immuable des bras expérimentaux GVX](adr/0751-liaison-runtime-immutable-des-bras-gvx.md) — liaison vérifiable entre protocole, exécution, budgets et transmission GVX.
 - [ADR 0752 — Isoler le runner d’évaluation GVX dans Docker](adr/0752-runner-evaluateur-gvx-isole-docker.md) — isolation des évaluations externes GVX.
 - [ADR 0771 — Filiation vérifiée et règles apprises validées](adr/0771-filiation-verifiee-et-regles-apprises-validees.md) — reconnaissance causale et admission de règles LLM sur exemples d’entraînement, avec critères de qualification inchangés.
+- [ADR 0774 — Application LLM par expressions symboliques](adr/0774-application-llm-par-traces-litterales.md) — récupération ciblée et compilation sans évaluation native, avec réponses brutes et critères inchangés.

@@ -5,6 +5,7 @@ const phenotype = require('./phenotypicDevelopmentService');
 const programs = require('./nceProcedureProgram');
 const creative = require('./creativePhenotypeVectorService');
 const { environmentFingerprint } = require('./poetExecutionEvidence');
+const search = require('./nceRepertoireSearch');
 
 function enabledFeatures(input) {
   return Object.fromEntries(['play', 'culture', 'phenotype', 'poet']
@@ -53,6 +54,7 @@ async function requestDigest(input, context) {
   };
   return programs.digest({ agentId: input.agentId, features: context.features,
     artifacts: context.artifacts, fingerprints, timeoutMs: input.timeoutMs ?? 30000,
+    ...(context.search ? { search: context.search } : {}),
     contracts: [...input.split.training, ...input.split.heldOut].map((environment) => ({
       command: environment.verifierCommand, protectedPaths: environment.protectedPaths,
       artifactPath: environment.artifactPath })) });
@@ -65,15 +67,24 @@ function replayReceipt(state, input, requestHash) {
   return { ...previous, replayed: true };
 }
 
+function searchContract(input, state) {
+  const options = search.searchOptions(input.search);
+  const previous = state.nceReceipts?.find((receipt) => receipt.runId === input.runId);
+  return previous && !previous.search && input.search === undefined ? null : options;
+}
+
 async function runCausalCycle(input, db) {
   if (!db?.run || !db?.get || !input.agentId || !input.runId) throw new Error('NCE requires database, agentId and runId');
   validateRequest(input);
   const features = enabledFeatures(input);
   const context = { features, artifacts: artifactsFor(input, features) };
   const state = await stateFor(input, db);
+  context.search = searchContract(input, state);
   const requestHash = await requestDigest(input, context);
   const replay = replayReceipt(state, input, requestHash);
   if (replay) return replay;
+  if (features.play) context.artifacts.push(...search.searchRepertoire(state,
+    { options: context.search, artifacts: context.artifacts }));
   const receipt = await measureCycle(input, { ...context, state, requestHash });
   receipt.phenotypeBefore = require('./phenotypeVectorService').phenotypeVector(state.currentPhenotype, state);
   if (receipt.promoted) integrateProcedure(state, receipt);
@@ -128,6 +139,7 @@ function sealReceipt(ctx) {
     agentId: input.agentId, requestHash: ctx.ctx.requestHash, features: ctx.ctx.features,
     measured, before, after, delta, procedure: ctx.winner.procedure,
     artifact: ctx.selectedArtifact || null, durationMs: Date.now() - ctx.started,
+    search: search.searchManifest(ctx.ctx.artifacts, ctx.ctx.search),
     novelty: Number(!ctx.ctx.state.nceReceipts?.some((item) =>
       programs.digest(item.procedure) === programs.digest(ctx.winner.procedure))),
     diversity: candidateHashes.length ? new Set(candidateHashes).size / candidateHashes.length : 0,
@@ -144,7 +156,8 @@ function integrateProcedure(state, receipt) {
   const actions = phenotype.developFromEnvironment(state, { requiredCapabilities: [`nce-procedure:${hash}`] });
   state.learnedProcedure = structuredClone(receipt.procedure);
   state.proceduralRepertoire = { ...state.proceduralRepertoire,
-    [hash]: { procedure: structuredClone(receipt.procedure), evidenceRef: receipt.evidenceRef } };
+    [hash]: { procedure: structuredClone(receipt.procedure), evidenceRef: receipt.evidenceRef,
+      derivation: structuredClone(receipt.artifact?.provenance?.derivation || null) } };
   updateTradition(state, receipt);
   state.history.push({ action: 'verified-cultural-transfer', runId: receipt.runId,
     artifactId: receipt.artifact?.id, evidenceRef: receipt.evidenceRef,
@@ -155,10 +168,12 @@ function updateTradition(state, receipt) {
   const source = receipt.artifact;
   if (!source) return;
   const root = source.provenance.rootArtifactId || source.id;
-  const lineage = [...(source.lineage || [source.agentId]), state.agentId];
+  const lineage = [...(source.lineage || [source.agentId])];
+  if (lineage.at(-1) !== state.agentId) lineage.push(state.agentId);
   const adopted = { id: `culture-${programs.digest([source.id, state.agentId, receipt.runId])}`,
     agentId: state.agentId, active: true, content: { procedure: structuredClone(receipt.procedure) },
     lineage, provenance: { createdBy: state.agentId, rootArtifactId: root, transmittedFrom: source.id,
+      ...(source.provenance.derivation ? { derivation: structuredClone(source.provenance.derivation) } : {}),
       evidenceRef: receipt.evidenceRef } };
   state.culturalTraditions = { ...state.culturalTraditions,
     [root]: { rootArtifactId: root, members: [...new Set(lineage)], artifact: adopted } };

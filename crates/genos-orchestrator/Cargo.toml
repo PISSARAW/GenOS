@@ -43,6 +43,7 @@ tempfile = "3"
 [features]
 # Accès à la couche serveur/sécurité de GenOS (tokio + reqwest).
 api = ["dep:genos-api", "dep:reqwest"]
+native-llm = ["api"]
 
 [[example]]
 name = "receipt_bridge"

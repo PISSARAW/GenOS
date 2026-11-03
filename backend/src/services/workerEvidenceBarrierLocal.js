@@ -36,9 +36,8 @@ function resolveNameMeaning(mission, agentName) {
 }
 function resolveWorkerModel(mission) {
   if (require('./qualityElevation/qualityNativeGeneration').runtimeContract(mission) && mission.qualityRuntime?.generatorModel) return require('./qualityElevation/qualityRuntimeModelAdapter').modelUri(mission.qualityRuntime.generatorModel);
-  if (mission.localModel) return mission.localModel;
-  if (mission.model) return mission.model;
-  return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
+  const raw = mission.localModel || mission.model || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
+  return String(raw).includes('://') ? raw : `ollama://${raw}`;
 }
 function isOrchestratorMission(mission) {
   const mode = mission.executionMode ?? mission.execution_mode;

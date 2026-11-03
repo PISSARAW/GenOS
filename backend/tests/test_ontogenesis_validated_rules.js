@@ -40,7 +40,9 @@ function applicationChecks() {
   const rule = good.rule;
   const expression = { op: 'outer', input: { op: 'inner', input: 100 } };
   assert.deepEqual(application.describe({ inner: rule }, expression), {
+    literal: { value: 100, characters: ['1','0','0'] },
     steps: [{ operator: 'inner', rule, input: 100 }, { operator: 'outer', rule: null, input: { step: 0 } }],
+    expression: null,
     unknownOperators: ['outer']
   });
   const recursive = { op: 'inner' }; recursive.input = recursive;

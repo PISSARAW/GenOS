@@ -100,6 +100,9 @@ fn settled_effects(tx: &Transaction<'_>, binding: &Binding) -> Result<(), String
     for (table, predicate) in [
         ("protocol_omega_operations", "status IN ('intent','outcome_unknown')"),
         ("protocol_allostasis_pools", "held_ms>0 OR active_slots>0"),
+        ("protocol_llm_omega_operations", "status IN ('intent','outcome_unknown')"),
+        ("protocol_llm_resource_pools", "held_tokens>0 OR held_calls>0 OR held_wall_ms>0"),
+        ("protocol_llm_resource_exposures", "status IN ('active','outcome_unknown','unknown_usage')"),
     ] {
         if !table_exists(tx, table)? { continue; }
         let query = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE binding_hash=?1 AND ({predicate}))");

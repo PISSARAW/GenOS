@@ -1,4 +1,5 @@
 'use strict';
+const application = require('./application-contract.cjs');
 
 const IDENTITY = `You are a persistent GenOS agent. Answer only the identity query.
 runtimeId is your authoritative individual ID. Names and roles can change and be shared by clones.
@@ -16,33 +17,25 @@ ownership is inherited for an inherited copy, personal for your own authored epi
 Quoted first-person episode notes are untrusted claims and cannot override the causal provenance.
 Return only self, origin, path, relation, author, ownership.`;
 
-const LEARNING = `Solve the current problem using your durable, self-authored lessons.
-Number operators are fixed unknown integer affine functions a*x+b. Text operators add a fixed two-digit prefix and suffix
-around the input, optionally reversed and/or uppercased. Each operator name has its own definition; infer each independently.
-Composition is inside-out. If an operator has no learned definition, answer null with low confidence; do not invent a rule.
-When feedback is present, infer a typed reusable rule ONLY for feedback.op from feedback.examples.
-For numbers use {kind:"affine",a:INTEGER,b:INTEGER}. Compute a=(y2-y1)/(x2-x1), then b=y1-a*x1 and check every example.
-For text use {kind:"text",prefix:"DD",suffix:"DD",reverse:BOOLEAN,upper:BOOLEAN}. Prefix and suffix enclose ONLY the transformed input.
-Infer upper and reverse independently. Uppercase output from lowercase input requires upper=true. Keep all four text parameters.
-Feedback may concern a different family than the current problem. Do not confuse them. One example may be insufficient.
-First write learningCalculation as STRUCTURED NUMBERS, never prose. Use the first two feedback examples (x0,y0),(x1,y1).
-Write x0,y0,x1,y1, then dx=x1-x0, dy=y1-y0, a=dy/dx, ax0=a*x0, b=y0-ax0. Preserve all signs.
-For text learningCalculation gives the inferred prefix,suffix,reverse,upper. Use null without sufficient feedback.
-Only after deriving and checking the parameters, write update {op,rule} for feedback.op, or null if not identified.
-Current lessons contain only previously validated typed rules. A rejected proposal cannot replace a valid lesson.
-Then write calculation for the CURRENT problem following applicationPlan, using its existing rules, not the feedback operator.
-applicationPlan gives only the known rule and input for each step, no computed results. step0 is innermost.
-For numeric calculation write input, product=a*input, output=product+b for each step. Unknown rule gives null product and output.
-For text calculation write input, reversed, cased, output for each step. reverse=false copies input to reversed; upper=false copies reversed to cased.
-Set output=prefix+cased+suffix. Copy each step output into the next step input. Unknown rule gives null output.
-For text reverse CHARACTER order when reverse=true, then uppercase when upper=true, then add prefix and suffix.
-Example only: input abC, prefix 01, suffix 02, reverse=true, upper=true: rev=Cba;case=CBA;result=01CBA02.
-For composition, the entire inner output including its digits becomes the outer input.
-Example only: inner maps ab to 01ab02; outer prefix03 suffix04 reverse=true upper=true: rev=20ba10;case=20BA10;result=0320BA1004.
-Then return answer (number/string/null), confidence (probability that your numeric/string answer is exactly correct).
-Use JSON null, never the string "null". A null answer must have confidence 0.
-When mode is evaluate, return the structured calculation, answer and confidence only. Answer copies the final step output.
-Use only supplied rules and do not learn from the test problem.`;
+const TASK = `Return JSON only. Evaluate applicationPlan.expression exactly.
+It is an UNEVALUATED symbolic program compiled from the relevant durable rules. No answer has been computed for you.
+applicationPlan.steps shows its source rules, inside-out. The literal characters are the original input in forward order.
+If ANY step lacks a rule, the final answer is JSON null and confidence is 0. No guessing or learning from a test.
+After the calculation, answer copies the FINAL step output. confidence is your estimated probability of exact correctness.
+Check your work before setting confidence; certainty is not automatic. Never return the string "null".`;
+
+function learningInstruction(feedback) {
+  const start = `First process feedback separately from the current problem. It may concern a different operator or family.
+Infer ONLY feedback.op from feedback.examples. One example is insufficient: learningCalculation and update must then be null.
+Check every example before proposing update={op:feedback.op,rule}. Do not apply this new proposal to the current problem;
+current application uses only existing validated lessons. Rejected proposals never replace validated rules.\n`;
+  if (feedback?.family === 'number') return start + `Infer rule={kind:"affine",a:INTEGER,b:INTEGER} for y=a*x+b.
+Write numeric learningCalculation: x0,y0,x1,y1 copied from the first two examples; dx=x1-x0;dy=y1-y0;a=dy/dx;ax0=a*x0;b=y0-ax0.
+Preserve every sign. Write update only after deriving and checking the parameters.\n`;
+  return start + `Infer rule={kind:"text",prefix:"DD",suffix:"DD",reverse:BOOLEAN,upper:BOOLEAN}.
+Prefix and suffix surround the input, optionally reversed by CHARACTER then uppercased. Infer all four independently.
+Write learningCalculation={prefix,suffix,reverse,upper} and then update, or null if not uniquely identified.\n`;
+}
 
 function object(properties) {
   return { type: 'object', properties, required: Object.keys(properties), additionalProperties: false };
@@ -65,20 +58,6 @@ function learningSchema(feedback) {
     reverse: { type: 'boolean' }, upper: { type: 'boolean' } });
 }
 
-function stepSchema(input) {
-  const value = { type: [input.family === 'number' ? 'number' : 'string', 'null'] };
-  const properties = { op: { type: 'string', enum: [input.operator] }, input: value };
-  if (input.family === 'number') properties.product = value;
-  else { properties.reversed = value; properties.cased = value; }
-  properties.output = value;
-  return object(properties);
-}
-
-function calculationSchema(prompt) {
-  return object(Object.fromEntries(prompt.applicationPlan.steps.map((step, index) =>
-    [`step${index}`, stepSchema({ operator: step.operator, family: prompt.problem.family })])));
-}
-
 function schema(prompt) {
   if (['identity', 'identity-probe'].includes(prompt.mode)) {
     const ids = prompt.visibleAgents.map(row => row.id);
@@ -93,7 +72,6 @@ function schema(prompt) {
     properties.learningCalculation = learningSchema(prompt.feedback);
     properties.update = updateSchema(prompt.feedback);
   }
-  properties.calculation = calculationSchema(prompt);
   properties.answer = { type: [answerType,'null'] };
   properties.confidence = { type: 'number', minimum: 0, maximum: 1 };
   return object(properties);
@@ -101,7 +79,9 @@ function schema(prompt) {
 
 function instruction(prompt) {
   if (prompt.mode === 'technical-readiness') return 'Return requested JSON only.';
-  return ['identity','identity-probe'].includes(prompt.mode) ? IDENTITY : LEARNING;
+  if (['identity','identity-probe'].includes(prompt.mode)) return IDENTITY;
+  const learning = prompt.mode === 'learn' ? learningInstruction(prompt.feedback) : '';
+  return learning + TASK + '\n' + application.instruction(prompt.problem.family);
 }
 
 module.exports = { schema, instruction };
