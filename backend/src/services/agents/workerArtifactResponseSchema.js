@@ -121,6 +121,7 @@ function responseOptions(options) {
     identityExperimentScenario: ['A', 'B', 'C'].includes(options.identityExperimentScenario)
       ? options.identityExperimentScenario : null,
     specialtyNiche: typeof options.specialtyNiche === 'string' ? options.specialtyNiche : null,
+    requiredEvidence: Array.isArray(options.requiredEvidence) ? options.requiredEvidence : [],
     handoffs: Array.isArray(options.handoffs)
       ? options.handoffs.filter((handoff) => handoff?.handoffId && handoff?.digest) : [] };
 }
@@ -185,6 +186,8 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   }
   const successRequired = artifactType === 'dossier'
     ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];
+  successRequired.push(...(opts.requiredEvidence || []).filter(field => Object.hasOwn(properties, field)
+    && !successRequired.includes(field)));
   schema.allOf = [{
     if: { properties: { outcome: { const: 'success' } }, required: ['outcome'] },
     then: { properties: { claims: { minItems: 1 } }, required: successRequired },

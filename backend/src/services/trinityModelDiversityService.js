@@ -53,7 +53,7 @@ async function enforcePlan(input) {
   }
   trinity.members = require('./trinityWorldDesign').assignFactorialModels(trinity.members, input.normalizedMission.trinityModels || []);
   trinity.members = require('./topologyWorkerKindService').applyTopologyWorkerKinds('trinity', trinity.members,
-    input.normalizedMission.workerAssignments || {});
+    input.normalizedMission.workerAssignments || input.normalizedMission.worker_assignments || {});
   trinity.workerPreflight = workerProfiles.assertPrelaunch(trinity.members, { toolLease: input.normalizedMission.toolLease });
   trinity.members = trinity.members.map((member, index) => ({ ...member, workerProfile: trinity.workerPreflight.profiles[index] }));
 }

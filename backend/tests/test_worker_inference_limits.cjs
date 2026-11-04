@@ -9,6 +9,13 @@ const mission = { localCodeWorker: true, executionBudget: { tokens: 8192, latenc
 async function main() {
   assert.equal(limits.resolve({}), null);
   assert.deepEqual(limits.resolve(mission), { attempts: 1, outputTokens: 1536 });
+  const reasoning = structuredClone(mission);
+  reasoning.executionPolicy.inferenceLimits.reasoningEffort = 'none';
+  assert.equal(limits.policyFields(reasoning).inferenceLimits.reasoningEffort, 'none');
+  assert.throws(() => limits.assertAuthority(limits.authorityBinding(mission), reasoning),
+    {code: 'EXECUTION_AUTHORITY_CONTEXT_CHANGED'});
+  reasoning.executionPolicy.inferenceLimits.reasoningEffort = false;
+  assert.throws(() => limits.resolve(reasoning), {code: 'WORKER_INFERENCE_LIMIT_INVALID'});
   assert.equal(details.outputCap(mission), 1536);
   assert.equal(details.outputCap({ ...mission, workerKind: 'resource_steward' }), 768);
   assert.equal(details.outputCap({ ...mission, identityExperimentScenario: true }), 1024);

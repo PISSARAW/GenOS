@@ -33,33 +33,10 @@ function isCapsuleWorkspace(capsuleRoot, workspaceRoot) {
   return Boolean(relative && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
-async function ensureLocalTenant(db, config) {
-  await db.run('INSERT INTO organizations (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
-    config.organizationId, config.organizationId);
-  await db.run(`INSERT INTO projects (id, organization_id, name, status) VALUES (?, ?, ?, 'active')
-    ON CONFLICT(id) DO NOTHING`, config.projectId, config.organizationId, config.projectId);
-}
-
 async function ensureConfiguredWorkspace(db) {
   const config = localWorkspaceConfig();
   if (!config) return;
-  const { workspaceRoot, name, organizationId, projectId } = config;
-  await ensureLocalTenant(db, config);
-  try {
-    await db.run(
-      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id)
-       VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
-       organization_id = excluded.organization_id, project_id = excluded.project_id`,
-      name, workspaceRoot, 'Workspace mounted through GENOS_WORKSPACE_ROOT.', organizationId, projectId
-    );
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
-      await db.run(`UPDATE workspaces SET path = ? WHERE id = 'ws-local'`, workspaceRoot).catch(() => {});
-    } else {
-      throw err;
-    }
-  }
+  await require('../services/localWorkspaceBootstrap').ensure(db, config);
 }
 
 async function ensureWorkspaceDashboardData(db) {

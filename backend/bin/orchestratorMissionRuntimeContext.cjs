@@ -30,7 +30,8 @@ function missionRuntimeContext(request = {}) {
     'requiredPatchMarkers', 'requiredPatchMinimumBytes',
     'requiredTools', 'toolLease', 'userTopologyRequested', 'qualityElevation', 'qualityRuntime', 'qualityRepair',
     'worker_roster', 'workerRoster', 'worker_count', 'workerCount', 'worker_task_count', 'workerTaskCount',
-    'worker_type_policy', 'workerTypePolicy', 'worker_types', 'workerTypes'];
+    'worker_type_policy', 'workerTypePolicy', 'worker_types', 'workerTypes',
+    'localModel', 'localContextTokens', 'localRoutingPolicy', 'useMemoryContext'];
   return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
     .map((field) => [field, normalized[field]]));
 }

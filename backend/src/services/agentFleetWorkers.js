@@ -380,14 +380,15 @@ function workerRuntime(details) {
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
-    useMemoryContext: morphogenesisUseMemoryContext(assignment),
+    useMemoryContext: mission.useMemoryContext === false ? false : morphogenesisUseMemoryContext(assignment),
     workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
     gqwfWorkerLease: gqwfWorkerWorkspace || null,
     localCodeWorker: mission.localCodeWorker === true,
     requiredPatchPaths: mission.requiredPatchPaths,
     requiredPatchMarkers: mission.requiredPatchMarkers,
     requiredPatchMinimumBytes: mission.requiredPatchMinimumBytes,
-    inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
+    inProcessWorker, localModel: route.selectedModel, localContextTokens: mission.localContextTokens,
+    localRoutingPolicy: route.policy, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     localRoutingCriteria: route.criteria, capabilities, toolLease,
     workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider,
     modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };

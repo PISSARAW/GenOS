@@ -122,7 +122,8 @@ function isInProcessWorker(dispatchedAgent, normalizedMission, executable) {
   return (dispatchedAgent.execution_mode === 'worker' && (
     config.inProcessWorkers() ||
     normalizedMission.inProcessWorker === true
-  )) || (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable)));
+  )) || (dispatchedAgent.execution_mode === 'worker' && normalizedMission.localModel
+    && (normalizedMission.localRuntime === true || isLocalRuntime(executable)));
 }
 
 function requiredOf(contract) {

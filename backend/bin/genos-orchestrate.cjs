@@ -261,11 +261,11 @@ async function runOrchestratedMission(db, episodeRuntime) {
     preflightBridge.buildOrchestratorPreflightInput({ db, orchestratorId: id, missionId, task,
       repoRoot: path.resolve(__dirname, '../..'), request,
       workspaceRoot: process.env.GENOS_WORKSPACE_ROOT,
-      tools: preflightBridge.baselineTools(autonomyPlan) }));
+      tools: preflightBridge.baselineTools(autonomyPlan, request) }));
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
-  if (useLocalRuntime) {
+  if (useLocalRuntime && !require('./orchestratorLocalExecutionPolicy.cjs').requiresWorkerBarrier(request, autonomyPlan)) {
     await require('./orchestratorWindowsLocalExecution.cjs').runWindowsLocalExecution({
       db, id, missionId, task, enhancedPrompt, request, missionBudget,
       requestTimeoutMs, allowedCommands, allowFileEdits, morphology,

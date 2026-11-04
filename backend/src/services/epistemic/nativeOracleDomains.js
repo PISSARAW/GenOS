@@ -22,6 +22,12 @@ function definition(domain = 'subset_sum') {
   throw require('../trinityProvenanceValues').failure('ORACLE_DOMAIN_UNAVAILABLE');
 }
 
+function requiresWorkerArtifact(binding) {
+  const mission = binding?.genome.workerContract?.mission;
+  return ['verify_worker_artifact', 'prompt_defined'].includes(mission?.methodContract?.methodId)
+    || Boolean(mission?.workerArtifactContract);
+}
+
 async function load(db, request) {
   const binding = await require('../biologicalWorkerStore').binding(db, request.runId);
   const method = binding?.genome.workerContract?.mission?.methodContract;
@@ -33,10 +39,8 @@ async function load(db, request) {
     const subject = await require('./oracleExternalCreditSubject').load(db, request);
     return { ...subject, domain: 'external_credit', runId: request.runId, workerId: request.agentId };
   }
-  if (method?.methodId === 'verify_worker_artifact'
-      || binding?.genome.workerContract?.mission?.workerArtifactContract) {
-    const subject = await require('./oracleWorkerArtifactSubject').load(db, request);
-    return { ...subject, domain: 'worker_artifact', runId: request.runId, workerId: request.agentId };
+  if (requiresWorkerArtifact(binding)) {
+    return loadArtifactDomain(db, {binding, request});
   }
   if (['scan_literal', 'monitor_samples', 'synthesize_claims', 'trace_declared_causes', 'measure_lpt',
     'verify_procedure', 'falsify_procedure', 'teach_subset_sum', 'formal_proof',
@@ -53,13 +57,22 @@ async function load(db, request) {
   return { ...subject, domain: 'subset_sum', runId: request.runId, workerId: request.agentId };
 }
 
+async function loadArtifactDomain(db, input) {
+  const method = input.binding.genome.workerContract?.mission?.methodContract;
+  if (method?.evaluator?.domain === 'bounded_function_induction') {
+    return require('./oracleFunctionInductionSubject').load(db, input.request);
+  }
+  const subject = await require('./oracleWorkerArtifactSubject').load(db, input.request);
+  return {...subject, domain: 'worker_artifact', runId: input.request.runId, workerId: input.request.agentId};
+}
+
 function executionOptions(subject, request) {
   if (subject.domain === 'workspace_claims') return { nativeWorkspaceSubject: request };
   if (subject.domain === 'model_subset_sum') return { nativeModelSubject: request };
   if (['literal_observation', 'monitor_window', 'claim_synthesis', 'declared_causality', 'lpt_experiment',
     'procedure_verification', 'procedure_falsification', 'subset_sum_teaching', 'formal_theorem',
     'checkpoint_recovery', 'sourced_handoff', 'child_coordination', 'adaptive_strategy', 'niche_procedure',
-    'host_procedure', 'creative_combination', 'synthetic_case_review'].includes(subject.domain)) {
+    'host_procedure', 'creative_combination', 'synthetic_case_review', 'bounded_function_induction'].includes(subject.domain)) {
     return { nativeObservationSubject: request };
   }
   if (subject.domain === 'memory_fidelity') return { nativeMemoryRuntimeSubject: request };

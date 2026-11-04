@@ -7,8 +7,9 @@ const path = require('node:path');
 const PREFLIGHT_TOOLS = new Set(['genos_snapshot', 'genos_search_failures', 'genos_diagnose', 'genos_record_decision']);
 const BASELINE_TOOLS = new Set(['genos_search_failures', 'genos_diagnose', 'genos_snapshot']);
 
-function baselineTools(plan) {
+function baselineTools(plan, request = {}) {
   const planned = (plan?.phases || []).flatMap(phase => phase.requiredTools || []);
+  if ((request.diagnosticHypotheses || request.hypotheses)?.length) planned.push('genos_diagnose');
   return [...new Set(planned)].filter(tool => BASELINE_TOOLS.has(tool));
 }
 

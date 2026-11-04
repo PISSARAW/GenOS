@@ -60,7 +60,7 @@ async function persistTrinityExperiment(db, input) {
     });
     await trinityExperimentStore.create(tx, {
       id: trinityMissionId,
-      missionId: trinityMissionId,
+      missionId: normalizedMission.missionId || trinityMissionId,
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
       design,
@@ -126,7 +126,8 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
     snapshotRoot: snapshot.root, orchestratorId: agentId,
     budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
   });
-  await bindTrinityWorkers(db, { workers: autonomousWorkers, missionId: trinityMissionId });
+  await bindTrinityWorkers(db, { workers: autonomousWorkers, missionId: trinityMissionId,
+    executionMissionId: normalizedMission.missionId || trinityMissionId });
   emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched every planned isolated Trinity comparison world.', {
     missionId: trinityMissionId,
     worlds: autonomousWorkers.map((worker, index) => ({ workerId: worker.agentId, worldNumber: index + 1, strategy: autonomyPlan.trinity.members[index].role }))
@@ -137,10 +138,10 @@ async function bindTrinityWorkers(db, input) {
   const preparation = require('../trinityDispatchPreparation');
   const identities = require('../missionIdentityService');
   for (const worker of input.workers) {
-    const scope = { missionId: input.missionId, trinityExperimentId: input.missionId };
+    const scope = { missionId: input.executionMissionId, trinityExperimentId: input.missionId };
     worker.workspaceId = await preparation.bindWorker(db, { scope, workerId: worker.agentId, workspaceRoot: worker.workspaceRoot });
     await identities.attachAgent(db, { missionId: input.missionId, agentId: worker.agentId, role: 'trinity_worker' });
-    worker.missionId = input.missionId;
+    worker.missionId = input.executionMissionId;
     worker.missionScope = scope;
     worker.toolLease = preparation.restrictLease(scope, worker.toolLease);
   }

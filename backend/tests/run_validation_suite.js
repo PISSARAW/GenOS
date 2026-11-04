@@ -13,6 +13,7 @@ const suites = {
     ['Garage scoped controls and runtime adoption', 'test_garage_runtime_control.js']
   ],
   smoke: [
+    ['native competence scope, truth and induction contracts', 'run_competence_runtime_suite.cjs'],
     ['verified identity and learned rules', 'run_identity_learning_suite.cjs'],
     ['situational recall ranking', 'test_situational_recall.js'],
     ['situational recall runtime', 'test_situational_recall_runtime.js'],

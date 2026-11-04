@@ -32,6 +32,9 @@ async function load(db, request) {
   if (!runBinding || binding?.workerId !== request.agentId
     || request.scope.entityId !== request.agentId) throw values.failure('ORACLE_RUNTIME_SUBJECT_MISMATCH');
   const method = binding.genome.workerContract?.mission?.methodContract;
+  if (method?.evaluator?.domain === 'bounded_function_induction') {
+    return require('./oracleFunctionInductionSubject').load(db, request);
+  }
   const descriptor = descriptorFor(method, binding.genome.workerContract?.identity?.workerKind);
   const observed = freshObservation(await store.observations(db, request.runId));
   const report = observed.event.payload?.evidenceReport;
@@ -108,6 +111,13 @@ function forDomain(domain) {
 }
 
 const SPECS = Object.freeze({
+  bounded_function_induction: {
+    statement: 'Les programmes proposés et les déclarations d ignorance respectent les observations publiques scellées.',
+    domain: {statement: 'Induction de fonctions dans trois familles bornées à coefficients entiers entre moins trois et trois.',
+      constraints: ['Les observations publiques sont les seules données utilisées par les vérificateurs.',
+        'Les fonctions sont affines, quadratiques ou affines avec une charnière en cinq.',
+        'Les programmes concordent avec les observations et les déclarations reflètent l identifiabilité dans cette classe.',
+        'Les requêtes privées, les fonctions hors classe et la compétence générale ne sont pas certifiées.']}},
   literal_observation: { statement: 'Les correspondances littérales observées correspondent aux sources et termes scellés.',
     domain: { statement: 'Scan littéral déterministe de sources bornées.',
       constraints: ['Le texte et les termes sont ceux du contrat scellé.',

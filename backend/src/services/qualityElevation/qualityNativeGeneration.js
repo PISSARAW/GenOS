@@ -33,7 +33,8 @@ function materializationResult(ctx, result) {
 }
 
 function promptText(ctx, original) {
-  let prompt = original;
+  const induction = require('../functionInduction/prompt').fromMission(ctx.mission);
+  let prompt = induction || original;
   if (ctx.mission.workerKind === 'creative_worker' && runtimeContract(ctx.mission)) {
     prompt += '\n\nNATIVE CREATIVE ENVELOPE: at most four concise, evidence-bearing claims. '
       + 'Do not repeat quality declarations or fill the metadata with self-praise. '

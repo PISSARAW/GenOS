@@ -1,7 +1,7 @@
 'use strict';
 
 function missionId(context) {
-  return context.autonomyPlan?.trinity?.missionId || context.normalizedMission?.missionId || null;
+  return context.normalizedMission?.missionId || context.autonomyPlan?.trinity?.missionId || null;
 }
 
 async function attachTruthGraph(context) {

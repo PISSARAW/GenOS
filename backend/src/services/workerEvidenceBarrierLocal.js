@@ -107,6 +107,8 @@ function resolveImmuneReport(ctx) {
 }
 function requestReasoning(ctx) {
   if (ctx.reasoningEffort !== undefined) return ctx.reasoningEffort;
+  const configured = require('./workerInferenceLimits').resolve(ctx.mission)?.reasoningEffort;
+  if (configured !== undefined) return configured;
   return ctx.codeWorker && /^ollama:\/\//i.test(String(ctx.workerModel || '')) ? 'none' : undefined;
 }
 function throwIfImmuneRejected(report, outputText) {
@@ -235,6 +237,7 @@ async function runGenerationStage(ctx) {
   let promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
   promptText = require('./qualityElevation/qualityNativeGeneration').promptText(ctx, promptText);
   throwIfPromptOverBudget(estimatePromptTokens(promptText), budget);
+  await require('./functionInduction/promptAudit').record(ctx, promptText);
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
       `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');

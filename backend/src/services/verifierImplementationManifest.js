@@ -3,6 +3,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const SOURCES = Object.freeze([
+  'functionInduction/contract.js', 'functionInduction/mathematics.js',
+  'functionInduction/responseSchema.js',
+  'functionInduction/prompt.js', 'functionInduction/promptAudit.js',
+  'epistemic/oracleFunctionInductionChecks.js', 'epistemic/oracleFunctionInductionSubject.js',
+  'epistemic/oracleObservationSubject.js', 'epistemic/oracleObservationChecks.js',
+  'epistemic/oracleObservationAdapter.js', 'epistemic/oracleObservationClaim.js',
+  'epistemic/oracleObservationNativeEntry.cjs',
   'qualityElevation/qualityNativeVerification.js', 'qualityElevation/qualityReceiptIntegrity.js',
   'qualityElevation/workerQualityContractEnforcer.js', 'workerTeamContract.js',
   'qualityElevation/qualityCriterionEvidence.js',

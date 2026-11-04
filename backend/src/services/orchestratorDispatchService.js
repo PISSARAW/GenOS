@@ -42,6 +42,7 @@ function buildWorkerMission(input = {}) {
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
     readOnlyWorkspaceEvidence: input.readOnlyWorkspaceEvidence === true,
+    useMemoryContext: input.useMemoryContext,
     executionDeadlineAt: input.executionDeadlineAt,
     workspaceProvisioned: input.workspaceProvisioned === true,
     workspaceBackend: input.workspaceBackend,
