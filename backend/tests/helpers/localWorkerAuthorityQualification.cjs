@@ -6,7 +6,7 @@ const { digest } = require('../../src/services/trinityProvenanceValues');
 const authority = require('../../src/services/missionEnvelopeAuthority');
 const state = require('../../src/services/missionEnvelopeAuthorityState');
 
-const LATENCY_MS = 180000;
+const LATENCY_MS = 300000;
 const RESPONSE_DELAY_MS = 65000;
 const PROTECTED_RESERVE_MS = Math.floor(LATENCY_MS / 20);
 

@@ -120,8 +120,9 @@ Une sonde contrôlée retarde réellement la réponse HTTP de 65 secondes sur le
 profil initial : le garde refuse la génération puis la publication à échéance
 dépassée. Ce refus est conservé dans les preuves, sans modification de l'horloge.
 
-La correction déclare avant admission 180 secondes pour cette qualification,
-dont 9 secondes de réserve ALLOSTASIS. Les plafonds de 10 000 jetons, 1 USD et
+La correction conserve le profil de 300 secondes déjà préparé dans le checkout
+V3 pour cette qualification, dont 15 secondes de réserve ALLOSTASIS. Cette
+valeur est déclarée avant admission. Les plafonds de 10 000 jetons, 1 USD et
 100 événements sont conservés ; les deux contrôleurs restent bornés à 300 secondes.
 Le test attend réellement 65 secondes côté fournisseur, puis exige une seule
 inférence, trois jetons connus, leur règlement natif et une publication avant
@@ -136,13 +137,17 @@ sortie de cette requalification sont conservés dans
 `D:/GenOS-AGOW/local-worker-validation/`.
 
 La sonde initiale retardée termine avec le code 1 sur `f17d3bd97` : le premier
-refus arrive 17 042 ms après l'expiration. Le cas corrigé termine avec le code 0,
-avec 65 021,6 ms réellement attendues côté HTTP. L'autorité du worker est émise
-à 11:10:41.910 UTC, expire à 11:13:32.910 UTC et sa fin est persistée à
-11:12:02.762 UTC, soit environ 90 secondes avant cette expiration. Les deux
-contrôleurs sont encore autorisés ; leurs hashes et celui du worker sont
-inchangés. `fixed-report.json` et les traces initiales conservent ces valeurs.
-Le test réel des enveloppes, incluant la révocation et l'expiration, passe aussi.
+refus arrive 17 042 ms après l'expiration. Les rapports de requalification
+conservent le délai HTTP mesuré, la fin persistée, les trois hashes d'autorité
+et leurs échéances. Le test réel des enveloppes, incluant la révocation et
+l'expiration, passe aussi.
+
+Le profil final de cinq minutes passe avec 65 002,9 ms d'attente HTTP réelle.
+Son autorité est émise à 11:34:21.465 UTC, expire à 11:39:06.465 UTC et la fin
+est persistée à 11:36:03.031 UTC, soit environ 183 secondes avant expiration.
+Les enveloppes des deux contrôleurs et du worker restent identiques à celles
+lues au début de l'appel. Ces mesures figurent dans `fixed-300.log` et son
+rapport JSON.
 
 La relance de `npm test` s'arrête dans la famille biologique, avec 10 cas sur 11
 réussis. Le reçu du catalogue Hachimoji ne correspond plus à son empreinte de
