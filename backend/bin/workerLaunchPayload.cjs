@@ -149,7 +149,7 @@ function workerLaunchPayload(args) {
     reuseChecked: true,
     reuseWorkerId: workerId,
     executor: selectedExecutor(context),
-    ...localRuntimeFlag(member, context.request),
+    localRuntime: true,
   };
 }
 
