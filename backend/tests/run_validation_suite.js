@@ -221,6 +221,7 @@ const suites = {
     ['delegated synthesis remains bounded by the parent deadline', 'test_delegated_evidence_window.cjs'],
     ['native observation-gated coordinator and exclusive mission authority', 'test_native_cooperation_controller.cjs'],
     ['factory lease and native replay authority coverage', 'test_worker_cooperation_lease.cjs'],
+    ['live cooperation accounting rejects missing native measurements', 'test_worker_cooperation_accounting.cjs'],
     ['recovery lineage follows capsule and preserves declared genes', 'test_recovery_lineage_workspace.cjs'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],

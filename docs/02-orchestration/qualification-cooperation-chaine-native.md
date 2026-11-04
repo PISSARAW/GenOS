@@ -58,6 +58,14 @@ planificateur dispose de 4 096 tokens au total, dont au plus 768 en sortie.
 L'allocation nominale de 64 000 n'est pas un second plafond collectif séparé :
 la réserve de 68 096 est le plafond commun appliqué aux appels et reprises.
 
+Le journal fournisseur ne suffit pas à certifier un comptage complet : les
+reçus de toutes les identités de reprise doivent également avoir leurs
+registres de coût mesurés. `knownModelTokens` conserve le sous-total des
+inférences mesurées ; `unmeasuredWorkerRuns` décrit les lacunes natives.
+Une lacune rend `complete:false` et `modelTokens:null`. Elle ne vaut jamais
+zéro token. Une relecture des reçus peut corriger le comptage d'un essai
+conservé sans réécrire ses réponses ni déclencher une nouvelle inférence.
+
 `qualified` requiert la fin du protocole, la clôture native, la couverture,
 l'arrêt propre et une mesure complète dans le plafond. `genosMissionQualified`
 n'est établi qu'après les portes natives ; `promoted` reste faux. La présence

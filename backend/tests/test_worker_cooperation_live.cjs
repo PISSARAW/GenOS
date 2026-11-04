@@ -144,7 +144,10 @@ async function failurePaths(parent) {
     assert.equal(falsePositive.qualified, false);
     assert.equal(falsePositive.stages.length, 1);
     assert.equal(falsePositive.planningAttempted, undefined);
-    assert.ok(falsePositive.resources.modelTokens >= 140);
+    assert.ok(falsePositive.resources.knownModelTokens >= 140);
+    assert.equal(falsePositive.resources.complete, false);
+    assert.equal(falsePositive.resources.modelTokens, null);
+    assert.ok(falsePositive.resources.unmeasuredWorkerRuns.length > 0);
     const refuted = falsePositive.stages[0].attempts.find(item => item.receipt?.result.reason === 'ORACLE_ASSEMBLY_NOT_ACCEPTED');
     assert.ok(refuted, 'The initial false observation must be rejected by native oracles even if a later retry fails differently.');
     assert.equal(refuted.receipt.oracleExecution.costs.processes, 2);
