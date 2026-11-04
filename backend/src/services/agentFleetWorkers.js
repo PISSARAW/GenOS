@@ -380,7 +380,7 @@ function workerRuntime(details) {
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
-  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
+  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, originalMission: [mission.originalMission, mission.prompt, mission.currentTask].find(Boolean),
     useMemoryContext: mission.useMemoryContext === false ? false : morphogenesisUseMemoryContext(assignment),
     workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
     gqwfWorkerLease: gqwfWorkerWorkspace || null,

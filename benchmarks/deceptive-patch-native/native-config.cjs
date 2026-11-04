@@ -62,7 +62,7 @@ function request(options) {
       evaluability: 'deterministic_tests', requires_reproducibility: true } };
   if (options.arm === 'C') return { ...input,
     worker_roster: { agent_count: 1, types: { mode: 'explicit', kinds: ['adaptive_worker'] } },
-    worker_assignments: {implementation: {workerKind: 'adaptive_worker', workspaceVerificationContract: options.verificationContract,
+    worker_assignments: {implementation: {workerKind: 'adaptive_worker', topologyRole: 'implementation', workspaceVerificationContract: options.verificationContract,
       methodContract: {version: 1, methodId: 'prompt_defined', parameters: {task: 'Repair code using executed public tests'}}}},
     qualityElevation: quality(), qualityRuntime: { generatorModel: model,
       reviewers: [{ id: 'correctness', model, focus: 'Correctness and regression risk' },

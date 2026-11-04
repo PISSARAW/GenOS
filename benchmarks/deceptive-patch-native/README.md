@@ -2,6 +2,8 @@
 
 Cette variante compare une boucle ReAct, le même agent avec CodeProof, puis une mission GenOS native. Elle succède à la campagne par composants sans modifier ses données ni ses conclusions.
 
+Le protocole v2 conserve la trace d'une série native v1 interrompue après 28 essais terminés et une tentative interrompue, avant tout jugement caché. Un test global avait révélé une régression de négation française. La nouvelle série corrige cette polarité et qualifie la transmission de l'objectif canonique et du rôle d'implémentation aux reprises ; les données interrompues ne sont pas présentées comme des résultats complets.
+
 Les trois tâches et les dix seeds produisent 90 essais, dans un ordre équilibré par rotation des bras. Le modèle et son digest sont contrôlés avant chaque génération. Un proxy commun impose les plafonds d'appels, de tokens, de contexte, de sortie et de durée ; il conserve les réponses brutes dans un journal chaîné. Les générations des critiques, réparations et reprises consomment le même budget partagé. Les appels auxiliaires d'embedding sont journalisés séparément. Les paramètres natifs de génération demandés par GenOS sont conservés dans les requêtes brutes ; cette expérience compare les traitements complets.
 
 | Bras | Exécution et sélection |

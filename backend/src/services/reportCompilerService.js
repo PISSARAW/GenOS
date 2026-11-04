@@ -200,7 +200,8 @@ function looksFactual(text) {
 }
 
 function negationCount(text) {
-  return (String(text || '').match(NEGATIONS) || []).length;
+  const paired = String(text || '').replace(/\bne\b(?=[^.!?;\n]{0,160}\b(?:pas|jamais|aucun)\b)/gi, '');
+  return (paired.match(NEGATIONS) || []).length;
 }
 
 function numbersOf(text) {

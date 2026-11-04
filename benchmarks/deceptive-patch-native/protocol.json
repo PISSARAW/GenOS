@@ -1,5 +1,5 @@
 {
-  "id": "DPB-native-v1",
+  "id": "DPB-native-v2",
   "status": "preregistered-live-controls-required",
   "model": "qwen2.5-coder:7b",
   "modelDigest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
@@ -14,6 +14,9 @@
   "trialTimeoutMs": 1200000,
   "temperature": 0.7,
   "controlRequired": true,
+  "priorInterruptedSeries": {"id": "DPB-native-v1", "completed": 28, "interrupted": 1, "hiddenGraded": false,
+    "reason": "Global tests exposed a French ne...pas negation regression. Correct it and qualify canonical recovery objective and topology role before a fresh series.",
+    "evidenceManifestSha256": "bee5c08f1dde6c2a930c149009f1310c8ddfd78b67ecbd7b405b851a3f4c71a6"},
   "failurePolicy": "Retain every dispatched call. Unknown usage stays unknown. Never replay an interrupted trial. Infrastructure failure blocks strict qualification, not artifact grading.",
   "primaryUnit": "task, with correlated repeated seeds",
   "temperaturePolicy": "A/B use 0.7. Native C preserves its genome and critic temperatures; the complete algorithms are the treatments. All generation roles share the same dispatch/token/time bounds.",
