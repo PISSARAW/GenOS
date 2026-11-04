@@ -13,8 +13,10 @@ pub(super) fn assignment(connection:&Connection, binding:&Binding, value:&Assign
 fn scope(connection:&Connection, binding:&Binding, value:&Assignment) -> Result<(),String> {
     let spec=agentic_admission::admitted_in(connection,binding)?;
     let profile=spec.config.orchestration.as_ref().ok_or("AGENTIC_DELEGATION_PROFILE_REQUIRED")?;
-    if value.binding_hash!=digest(binding)? || value.parent.agent_id!=profile.coordinator || value.worker_id==profile.coordinator
+    if value.binding_hash!=digest(binding)? || !profile.permits(&value.parent.agent_id,&value.worker_id)
         || spec.agent(&value.worker_id).is_err() { return Err("AGENTIC_DELEGATION_SCOPE_CHANGED".into()); }
+    super::require_parent_active_in(connection,binding,&value.parent.agent_id)?;
+    if !super::return_turn_available(&spec,&value.parent)? { return Err("AGENTIC_DELEGATION_RETURN_TURN_REQUIRED".into()); }
     hashes(value)
 }
 

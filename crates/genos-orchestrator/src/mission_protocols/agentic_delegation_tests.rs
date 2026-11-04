@@ -164,3 +164,6 @@ fn an_assignment_cannot_be_transplanted_and_future_rows_do_not_rewrite_old_conte
     assert_eq!(genos_api::native_inference::tool_request_hash(&replay).unwrap(),original);
     assert_eq!(f.requests.load(Ordering::SeqCst),1);
 }
+
+#[path="agentic_hierarchy_runtime_tests.rs"]
+mod hierarchy;

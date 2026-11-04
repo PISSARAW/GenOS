@@ -36,7 +36,7 @@ pub(crate) fn delegate_in(tx:&Transaction<'_>, binding:&Binding, source:(&ModelR
     }
     let index=model.tool_calls.iter().position(|call|call==source.1).ok_or("AGENTIC_DELEGATION_NATIVE_CALL_CHANGED")?;
     let Some(profile)=mode(tx,binding)? else { return Ok(denied("AGENTIC_DELEGATION_PROFILE_REQUIRED")); };
-    if model.key.agent_id!=profile.coordinator || source.1.name!="delegate_task" {
+    if !profile.can_delegate(&model.key.agent_id) || source.1.name!="delegate_task" {
         return Ok(denied("AGENTIC_DELEGATION_COORDINATOR_REQUIRED"));
     }
     let args:Arguments=match serde_json::from_value(source.1.arguments.clone()) {
@@ -62,7 +62,8 @@ fn declare(tx:&Transaction<'_>, binding:&Binding, input:(&ModelRecord,u32,Argume
 fn admission(connection:&Connection, binding:&Binding, input:(&Arguments,&StepKey)) -> Result<Option<&'static str>,String> {
     let (args,parent)=input;let spec=agentic_admission::admitted_in(connection,binding)?;
     let profile=spec.config.orchestration.as_ref().ok_or("AGENTIC_DELEGATION_PROFILE_REQUIRED")?;
-    if let Some(reason)=argument_limit(&spec,args) { return Ok(Some(reason)); }
+    if let Some(reason)=parent_policy(&spec,args,parent)? { return Ok(Some(reason)); }
+    require_parent_active_in(connection,binding,&parent.agent_id)?;
     if data::assigned(connection,binding,&args.agent_id)?.is_some() { return Ok(Some("AGENTIC_DELEGATION_WORKER_ALREADY_ASSIGNED")); }
     if all_in(connection,binding)?.len()>=profile.max_delegations as usize { return Ok(Some("AGENTIC_DELEGATION_LIMIT_EXHAUSTED")); }
     if agentic_ledger::completed_in(connection,binding,&parent.agent_id)?.is_some() {
@@ -102,12 +103,11 @@ pub(crate) fn all_in(connection:&Connection, binding:&Binding) -> Result<Vec<Ass
 
 pub(crate) fn before_in(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<Vec<Assignment>,String> {
     super::store::current_checked(connection,binding)?;
-    let Some(profile)=mode(connection,binding)? else { return Ok(vec![]); };
-    if key.agent_id!=profile.coordinator { return Ok(assigned_in(connection,binding,&key.agent_id)?.into_iter().collect()); }
-    selected(connection,binding,Some(key.turn))
+    if mode(connection,binding)?.is_none() { return Ok(vec![]); }
+    selected(connection,binding,Some(key))
 }
 
-fn selected(connection:&Connection, binding:&Binding, before:Option<u32>) -> Result<Vec<Assignment>,String> {
+fn selected(connection:&Connection, binding:&Binding, before:Option<&StepKey>) -> Result<Vec<Assignment>,String> {
     // Filter the causal prefix before validating receipts: future tool effects do not rewrite old contexts.
     let values=data::selected(connection,binding,before)?;
     for value in &values { checks::assignment(connection,binding,value)?; }
@@ -118,7 +118,7 @@ fn selected(connection:&Connection, binding:&Binding, before:Option<u32>) -> Res
 pub(crate) fn eligible_in(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<bool,String> {
     super::store::current_checked(connection,binding)?;
     let Some(profile)=mode(connection,binding)? else { return Ok(true); };
-    if key.agent_id!=profile.coordinator { return Ok(assigned_in(connection,binding,&key.agent_id)?.is_some()); }
+    if key.agent_id!=profile.coordinator && assigned_in(connection,binding,&key.agent_id)?.is_none() { return Ok(false); }
     for assignment in before_in(connection,binding,key)? {
         if agentic_ledger::completed_in(connection,binding,&assignment.worker_id)?.is_none() { return Ok(false); }
     }
@@ -146,4 +146,26 @@ fn denied(reason:&str) -> Value { json!({"status":"denied","tool":"delegate_task
 
 fn hash(value:&Assignment) -> Result<String,String> {
     let mut unsigned=value.clone();unsigned.assignment_hash.clear();digest(&("genos.agentic.delegation/v1",unsigned))
+}
+
+pub(crate) fn require_parent_active_in(connection:&Connection, binding:&Binding, parent:&str) -> Result<(),String> {
+    let profile=mode(connection,binding)?.ok_or("AGENTIC_DELEGATION_PROFILE_REQUIRED")?;
+    if parent==profile.coordinator { return Ok(()); }
+    profile.depth(parent)?;
+    if assigned_in(connection,binding,parent)?.is_none() { return Err("AGENTIC_DELEGATION_PARENT_NOT_ACTIVE".into()); }
+    Ok(())
+}
+
+fn return_turn_available(spec:&super::agentic_spec::AgenticSpec, parent:&StepKey) -> Result<bool,String> {
+    if spec.config.orchestration.as_ref().is_none_or(|mode|mode.hierarchy.is_none()) { return Ok(true); }
+    let max_turns=spec.agent(&parent.agent_id)?.max_turns;
+    Ok(parent.turn.checked_add(1).is_some_and(|turn|turn<max_turns))
+}
+
+fn parent_policy(spec:&super::agentic_spec::AgenticSpec, args:&Arguments, parent:&StepKey) -> Result<Option<&'static str>,String> {
+    if let Some(reason)=argument_limit(spec,args) { return Ok(Some(reason)); }
+    let profile=spec.config.orchestration.as_ref().ok_or("AGENTIC_DELEGATION_PROFILE_REQUIRED")?;
+    if !profile.permits(&parent.agent_id,&args.agent_id) { return Ok(Some("AGENTIC_DELEGATION_PARENT_NOT_PERMITTED")); }
+    if !return_turn_available(spec,parent)? { return Ok(Some("AGENTIC_DELEGATION_RETURN_TURN_REQUIRED")); }
+    Ok(None)
 }
