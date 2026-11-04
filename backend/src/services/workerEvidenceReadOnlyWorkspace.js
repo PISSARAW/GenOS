@@ -15,7 +15,7 @@ function buildReadOnlyWorkspaceContext(mission) {
   const context = require('../../bin/localRuntimeWorkspaceContext.cjs')
     .buildWorkspaceContext(mission.workspaceRoot);
   bindWorkspaceEvidence(mission, context);
-  return context.text;
+  return context.text + require('./agents/daemonObservationInput').context(mission);
 }
 
 module.exports = { bindWorkspaceEvidence, buildReadOnlyWorkspaceContext };

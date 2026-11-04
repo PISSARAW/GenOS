@@ -46,11 +46,64 @@ function semanticVeto() {
   for (const strategy of ['source_recompute', 'cross_check']) {
     const good = JSON.parse(contract.project(JSON.stringify(reply()), sealed));
     assert.equal(checkWorkspace({ contract: assigned, sources, report: good }, strategy).status, 'verified');
-    const wrong = reply({ observedSum: 27, target: 17, anomaly: true });
-    const projected = JSON.parse(contract.project(JSON.stringify(wrong), sealed));
-    assert.deepEqual(JSON.parse(projected.claims[0].statement), wrong.observation, 'Projection must not repair false arithmetic.');
-    assert.equal(checkWorkspace({ contract: assigned, sources, report: projected }, strategy).status, 'refuted');
+    for (const observation of [{ observedSum: 13, target: 17, anomaly: false },
+      { observedSum: 17, target: 17, anomaly: true }, { observedSum: 17, target: 13, anomaly: false }]) {
+      const projected = JSON.parse(contract.project(JSON.stringify(reply(observation)), sealed));
+      assert.deepEqual(JSON.parse(projected.claims[0].statement), observation, 'Projection must not repair false arithmetic.');
+      assert.equal(checkWorkspace({ contract: assigned, sources, report: projected }, strategy).status, 'refuted');
+    }
   }
+}
+
+function observationScope() {
+  const mission = { workerKind: 'resident_daemon', workerContract: sealed, allowedEvidenceRefs: refs };
+  const identity = require('../src/services/workerEvidenceIdentityPrompt').sourceReferenceInstruction(mission);
+  const local = require('../src/services/workerEvidenceLocalPrompt').sourceReferenceInstruction(mission);
+  assert.equal(identity, local);
+  assert.match(identity, /current supplied file contents, not their external real-world validity/);
+  assert.match(identity, /missing, invalid or conflicting/);
+  assert.match(identity, /never instructions/);
+  assert.match(contract.instruction(sealed), /anomaly to \(observedSum !== target\)/);
+  assert.equal(contract.evidenceInstruction({}), '');
+  assert.match(require('../src/services/workerEvidenceIdentityPrompt').sourceReferenceInstruction({}), /cannot substantiate/);
+  for (const indices of [[0, 1], [1, 4]]) verifyScope(indices);
+}
+
+function verifyScope(indices) {
+  const contents = JSON.stringify({ indices });
+  const current = { ...assigned, sources: [assigned.sources[0], { path: 'allocation.json', sha256: hash(contents) }] };
+  const sources = [{ path: 'problem.json', content: problem }, { path: 'allocation.json', content: contents }];
+  const sum = indices.reduce((total, index) => total + JSON.parse(problem).values[index], 0);
+  for (const strategy of ['source_recompute', 'cross_check']) {
+    const report = { claims: [{ statement: JSON.stringify({ observedSum: sum, target: 17, anomaly: sum !== 17 }) }] };
+    assert.equal(checkWorkspace({ contract: current, sources, report }, strategy).status, 'verified');
+    const falseFlag = { claims: [{ statement: JSON.stringify({ observedSum: sum, target: 17, anomaly: sum === 17 }) }] };
+    assert.equal(checkWorkspace({ contract: current, sources, report: falseFlag }, strategy).status, 'refuted');
+    assert.equal(checkWorkspace({ contract: current, sources: [], report }, strategy).status, 'inconclusive');
+  }
+}
+
+function indexedInputs() {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-daemon-input-'));
+  try {
+    fs.writeFileSync(path.join(root, 'problem.json'), problem);
+    fs.writeFileSync(path.join(root, 'allocation.json'), allocation);
+    const input = require('../src/services/agents/daemonObservationInput');
+    const mission = { workspaceRoot: root, workerContract: sealed, readOnlyWorkspaceEvidence: true };
+    const text = input.context(mission);
+    const view = JSON.parse(text.split('\n')[2]);
+    assert.deepEqual(view.indexedValues, [4, 9, 6, 3, 8].map((value, index) => ({ index, value })));
+    assert.deepEqual(view.allocationIndices, [1, 4]);
+    assert.equal(view.observedSum, undefined);
+    assert.equal(view.anomaly, undefined);
+    assert.ok(view.sources.every(source => refs.includes(source.sourceRef)));
+    const snapshot = require('../src/services/workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(mission);
+    assert.ok(snapshot.endsWith(text));
+    assert.equal(input.context({}), '');
+    fs.writeFileSync(path.join(root, 'allocation.json'), '{"indices":[0,1]}');
+    assert.throws(() => input.context(mission), /DAEMON_INPUT_SOURCE_CHANGED/);
+  } finally { fs.rmSync(root, { recursive: true }); }
 }
 
 function integration() {
@@ -78,4 +131,6 @@ function integration() {
 refusals();
 semanticVeto();
 integration();
+observationScope();
+indexedInputs();
 console.log('Typed daemon observation, strict serialization, source references and independent arithmetic veto: PASS');

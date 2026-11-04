@@ -29,6 +29,9 @@ function workerInstructionBlock(context, assignment) {
 }
 
 function sourceReferenceInstruction(mission) {
+  if (require('./agents/daemonObservationContract').responseFormat(mission.workerContract)) {
+    return require('./workerEvidenceIdentityPrompt').sourceReferenceInstruction(mission);
+  }
   const refs = [...new Set(['mission', ...(mission.allowedEvidenceRefs || mission.evidenceRefs || [])]
     .filter((item) => typeof item === 'string' && item.trim()))];
   if (require('./morphogenesisRolePrompt').morphogenesisCompactWorkerRole(mission)) {

@@ -16,6 +16,8 @@ function workerResponseFormat(mission) {
 }
 function sourceReferenceInstruction(mission) {
   const refs = missionEvidenceRefs(mission);
+  const observation = require('./agents/daemonObservationContract').evidenceInstruction(mission.workerContract);
+  if (observation) return `Use only these exact evidence references: ${JSON.stringify(refs)}. ${observation}`;
   const sourceDescriptions = [];
   if (refs.includes('worker_self')) sourceDescriptions.push('"worker_self" is the canonical WorkerSelf block shown in this prompt');
   if (refs.includes('identity_sheet')) sourceDescriptions.push('"identity_sheet" is the minimal identity sheet shown in this prompt');
