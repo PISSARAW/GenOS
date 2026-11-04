@@ -27,6 +27,18 @@ rattachée à sa provenance. L'arrêt final annule uniquement les travaux encore
 pendants et conserve les échecs dans les mesures. Il ne transforme jamais une
 annulation en réussite.
 
+Les forks lient leur lignée au workspace final de leur capsule avant le
+démarrage. Le génome hérité et les références au worker source et au parent
+restent conservés ; les arcs de lignée ne traversent pas les workspaces.
+Le rapport détaille les reçus de chaque tentative, même lorsqu'une reprise
+échoue pour une autre raison que la première observation refusée.
+
+Les options `--success-only`, `--negative-only` et `--fork-only` du test
+`backend/tests/test_worker_cooperation_live.cjs` permettent de cibler les
+parcours contrôlés. Ces transports HTTP de test ne sont pas de vrais LLM.
+`GENOS_COOPERATION_KEEP_TEST_ARTIFACTS=1` conserve leur répertoire temporaire
+pour auditer un refus. Les secrets de ce répertoire restent hors Git.
+
 Le bail fourni au modèle est distingué de l'autorité scellée du runtime.
 `executionEnvelopeContract.toolLease` ajoute officiellement `genos_replay`
 aux workers pour le rejeu natif après résultat. Le contrôle de couverture

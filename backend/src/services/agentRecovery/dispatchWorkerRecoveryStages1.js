@@ -18,6 +18,8 @@ try {
     }
     const recoveryMission = (0, __genosStageScope1.require)('./recoveryDeadline').limit((0, __genosStageScope1.buildRecoveryMission)({ mission: __genosStageScope1.mission, sourceAgentId: __genosStageScope1.sourceAgentId, target: __genosStageScope1.target, workspace: __genosStageScope1.workspace, bisectionResult, report: __genosStageScope1.report, orchestratorId: __genosStageScope1.orchestratorId, decision: __genosStageScope1.decision, nextVariant }));
     await (0, __genosStageScope1.startMission)(recoveryMission);
+    await require('./recoveryContinuity').adopt(__genosStageScope1.db, { mission: recoveryMission,
+      sourceAgentId: __genosStageScope1.sourceAgentId });
     __genosStageScope1.missionDispatched = true;
     await __genosStageScope1.durableQueue.finish(__genosStageScope1.recovery.durableItem, 'dispatched');
     return { value: ( true) };

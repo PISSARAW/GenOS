@@ -1,6 +1,7 @@
 'use strict';
 
 async function bindRecoveryMission(db, source, target) {
+  await inheritWorkerContract(db, source, target);
   const missionId = target.mission.missionId;
   if (typeof missionId === 'string' && missionId.trim()) {
     await require('../missionIdentityService').attachAgent(db, {
@@ -14,6 +15,22 @@ async function bindRecoveryMission(db, source, target) {
   target.targetId, target.role, source.id);
 }
 
+async function inheritWorkerContract(db, source, target) {
+  const row = await db.get('SELECT metadata_json FROM agents WHERE id=?', source.id);
+  const metadata = JSON.parse(row?.metadata_json || '{}');
+  const contract = metadata.workerContract;
+  if (!contract) return;
+  if (contract.identity?.parentId !== target.orchestratorId) {
+    throw Object.assign(new Error('Recovery contract belongs to another parent.'), { code: 'RECOVERY_CONTRACT_PARENT_MISMATCH' });
+  }
+  require('../agents/workerContractEnforcement').assertRuntimeContract(contract, contract.identity.workerKind);
+  const changed = await db.run(`UPDATE agents SET metadata_json=json_set(COALESCE(metadata_json,'{}'),
+    '$.workerKind',?,'$.workerContract',json(?)) WHERE id=? AND parent_agent_id=?`,
+  contract.identity.workerKind, JSON.stringify(contract), target.targetId, target.orchestratorId);
+  if (changed.changes !== 1) throw Object.assign(new Error('Recovery target changed before contract binding.'), {
+    code: 'RECOVERY_CONTRACT_TARGET_MISMATCH' });
+}
+
 function resolveRecoveryRole(input) {
   const assignment = input.mission.workerAssignment || {};
   const topologyRole = assignment.topologyRole || input.mission.topologyRole;
@@ -21,4 +38,4 @@ function resolveRecoveryRole(input) {
   return input.decision.role || input.source.role || input.mission.role || 'recovery_specialist';
 }
 
-module.exports = { bindRecoveryMission, resolveRecoveryRole };
+module.exports = { bindRecoveryMission, inheritWorkerContract, resolveRecoveryRole };

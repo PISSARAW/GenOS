@@ -1,6 +1,6 @@
 /**
  * Recovery dispatch: provisions a recovery agent (identity, workspace, lineage) and starts
- * its mission. Lineage persistence is atomic with the agent row.
+ * its mission. Runtime lineage is bound to the final capsule before startup.
  */
 const workerRecovery = require('../workerFailureRecoveryService');
 const workerGarage = require('../workerGarageService');
@@ -13,7 +13,6 @@ const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadSe
 const { cleanupWorkspace, forgetWorkspace } = require('../agentWorkspaceLifecycleService');
 const { createRecoveryWorkspace } = require('./recoveryWorkspace');
 const { createOrchestratorId } = require('../orchestratorIdFactory');
-const recoveryLineage = require('./recoveryLineage');
 const { getDatabase, withTransaction } = require('../../db');
 const { MAX_RECOVERY_DISPATCH_ATTEMPTS } = require('./constants');
 const durableQueue = require('./durableRecoveryQueue');
@@ -153,7 +152,6 @@ async function persistRecoveryAgent(db, source, target) {
   await withTransaction(db, async () => {
     await insertRecoveryAgent(db, source, target);
     await require('./recoveryMissionBinding').bindRecoveryMission(db, source, target);
-    if (source.workspace_id) await recoveryLineage.recordRecoveryLineage(db, source, target);
   });
 }
 

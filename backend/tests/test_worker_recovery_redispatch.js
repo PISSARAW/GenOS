@@ -197,12 +197,12 @@ async function checkReplacementRedispatch(db) {
   assert.equal(dispatched.resumeCheckpointId, 'ckpt-1', 'the replacement resumes the checkpoint');
   assert.equal((await db.get("SELECT status FROM agents WHERE id = 'rec-w2'")).status, 'error', 'the dead source is left untouched');
   assert.equal((await db.get('SELECT workspace_id FROM lineage_nodes WHERE id = ?', dispatched.agentId)).workspace_id,
-    'rec-ws', 'the replacement lineage stays in the orchestrator garage domain');
+    dispatched.workspaceId, 'the replacement lineage follows its final capsule workspace');
   const recoveryEdge = await db.get('SELECT source_node_id, workspace_id, edge_type FROM lineage_edges WHERE target_node_id = ? AND edge_type = \'recovery\'', dispatched.agentId);
-  assert.deepEqual(recoveryEdge, { source_node_id: 'rec-orch', workspace_id: 'rec-ws', edge_type: 'recovery' },
-    'runtime lineage remains inside the orchestrator workspace');
+  assert.equal(recoveryEdge, undefined, 'a separate capsule must not create a cross-workspace edge');
   const lineageMetadata = JSON.parse((await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', dispatched.agentId)).metadata);
   assert.equal(lineageMetadata.parents.recoverySource, 'rec-w2', 'the failed worker is retained as recovery provenance');
+  assert.equal(lineageMetadata.parents.orchestrator, 'rec-orch');
   assert.equal(dispatched.workspaceId, `rec-recovery-ws-${dispatched.agentId}`,
     'the recovery mission is bound to the delegated capsule workspace');
   assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatched.agentId)).workspace_id,
@@ -243,9 +243,10 @@ async function checkRecoveryLineageUsesWorkspaceParent(db) {
   assert.equal(recoveredAgent.workspace_id, dispatched.workspaceId,
     'the replacement keeps its isolated capsule after passing the parent garage workspace check');
   const edge = await db.get('SELECT workspace_id, source_node_id, target_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?', dispatched.agentId);
-  assert.deepEqual(edge, { workspace_id: 'rec-ws-other', source_node_id: 'rec-orch-other',
-    target_node_id: dispatched.agentId, edge_type: 'recovery' },
-  'recovery lineage remains in the orchestrator workspace across a cross-workspace source failure');
+  assert.equal(edge, undefined, 'cross-workspace parentage remains provenance, not a lineage edge');
+  const lineage = await db.get('SELECT workspace_id,metadata FROM lineage_nodes WHERE id=?', dispatched.agentId);
+  assert.equal(lineage.workspace_id, dispatched.workspaceId);
+  assert.equal(JSON.parse(lineage.metadata).parents.orchestrator, 'rec-orch-other');
   assert.equal(await db.get(`SELECT 1 FROM lineage_edges WHERE source_node_id = 'rec-w-cross'
     AND target_node_id = ? AND edge_type = 'recovery_transition'`, dispatched.agentId), undefined,
   'cross-workspace failures remain provenance metadata, not a cross-workspace lineage edge');

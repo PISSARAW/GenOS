@@ -1,6 +1,8 @@
 'use strict';
 
 const path = require('path');
+const { withTransaction } = require('../../db');
+const { recordRecoveryLineage } = require('./recoveryLineage');
 const { createIsolatedWorkspace, cleanupWorkspace, forgetWorkspace, trackWorkspace } = require('../agentWorkspaceLifecycleService');
 
 function firstTruthy(...values) {
@@ -28,8 +30,10 @@ async function provisionRecoveryWorkspace(sourceRoot, capsuleName, capsuleRoot) 
 
 async function createRecoveryWorkspace({ db, source, mission, target } = {}) {
   if (target.sameIdentity || (mission.missionScope?.trinityExperimentId && source.workspace_root)) {
-    return { workspaceRoot: firstTruthy(source.workspace_root, mission.workspaceRoot),
+    const workspace = { workspaceRoot: firstTruthy(source.workspace_root, mission.workspaceRoot),
       workspaceId: source.workspace_id || mission.workspaceId || null, reused: true };
+    if (!target.sameIdentity) await recordRecoveryLineage(db, source, { ...target, workspaceId: workspace.workspaceId });
+    return workspace;
   }
   const sourceRoot = firstTruthy(source.workspace_root, mission.workspaceRoot,
     process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
@@ -46,11 +50,7 @@ async function createRecoveryWorkspace({ db, source, mission, target } = {}) {
 async function bindRecoveryWorkspace({ db, target, source, workspace } = {}) {
   try {
     await trackWorkspace(target.targetId, workspace.workspaceRoot);
-    workspace.workspaceId = await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {
-      workerId: target.targetId, parentId: target.orchestratorId,
-      parentWorkspaceId: target.workspaceId || source.parent_workspace_id,
-      workspaceRoot: workspace.workspaceRoot
-    });
+    workspace.workspaceId = await bindCapsuleLineage(db, { target, source, workspace });
     workspace.created = true;
     return workspace;
   } catch (error) {
@@ -58,6 +58,18 @@ async function bindRecoveryWorkspace({ db, target, source, workspace } = {}) {
     await bestEffort(forgetWorkspace(target.targetId));
     throw error;
   }
+}
+
+async function bindCapsuleLineage(db, input) {
+  const { target, source, workspace } = input;
+  return withTransaction(db, async () => {
+    const workspaceId = await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {
+      workerId: target.targetId, parentId: target.orchestratorId,
+      parentWorkspaceId: target.workspaceId || source.parent_workspace_id,
+      workspaceRoot: workspace.workspaceRoot });
+    await recordRecoveryLineage(db, source, { ...target, workspaceId });
+    return workspaceId;
+  });
 }
 
 module.exports = { createRecoveryWorkspace };

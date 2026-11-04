@@ -26,6 +26,7 @@ async function settle(context, stage) {
     ids.add(event.workerId);
     stage.recoveryTransitions.push(event);
   }
+  stage.recoveryWorkerIds = [...ids];
   const store = require('../../src/services/biologicalWorkerStore');
   for (const id of [...ids].reverse()) {
     const row = await context.db.get(`SELECT r.id,w.path FROM strategy_execution_runs r JOIN agents a ON a.id=r.agent_id

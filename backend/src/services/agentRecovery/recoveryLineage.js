@@ -14,16 +14,18 @@ async function ensureLineageNode(db, source, nodeId) {
 
 async function recordRecoveryLineage(db, source, target) {
   const workspaceId = target.workspaceId || source.workspace_id;
+  const parent = await db.get('SELECT workspace_id FROM agents WHERE id=?', target.orchestratorId);
+  const inherited = target.mission?.genome || await require('../workerGenomeHydration').persistedGenes(db,
+    { id: source.id, workspace_id: source.workspace_id });
   const lineage = await agentEvolution.recordWorkerLineage(db, {
     agentId: target.targetId,
     name: target.name,
     role: target.role,
     workspaceId
   }, {
-    // Keep runtime lineage inside the garage domain; retain the failed worker
-    // as provenance without creating a cross-workspace edge.
-    parentId: target.orchestratorId,
-    parents: { recoverySource: target.sourceAgentId },
+    ...(parent?.workspace_id === workspaceId ? { parentId: target.orchestratorId } : {}),
+    ...(inherited ? { genes: require('../workerGenomeExpression').express(inherited) } : {}),
+    parents: { recoverySource: target.sourceAgentId, orchestrator: target.orchestratorId },
     edgeType: 'recovery'
   });
   if (!lineage?.success) {

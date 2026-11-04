@@ -139,7 +139,7 @@ function toValidatedScore(value) {
 
 function buildLineageMetadata(options) {
   return JSON.stringify({
-    genes: options.genes || {},
+    ...(Object.hasOwn(options, 'genes') ? { genes: options.genes } : {}),
     parents: options.parents || {},
     mutations: options.mutations || [],
     reproduction: options.reproduction || null,

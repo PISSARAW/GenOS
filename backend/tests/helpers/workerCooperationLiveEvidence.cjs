@@ -28,15 +28,17 @@ function preflight(task) {
 }
 
 async function stageEvidence(db, stage) {
-  const runs = await db.all('SELECT id,status,metrics_json FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid', stage.workerId);
-  if (!runs.length) throw new Error('Worker produced no execution run.');
-  const run = runs.at(-1);
+  const ids = stage.recoveryWorkerIds || [stage.workerId];
+  const runs = await db.all(`SELECT id,agent_id,status,metrics_json FROM strategy_execution_runs
+    WHERE agent_id IN (${ids.map(() => '?').join(',')}) ORDER BY rowid`, ...ids);
+  const run = runs.filter(item => item.agent_id === stage.workerId).at(-1);
+  if (!run) throw new Error('Worker produced no execution run.');
   stage.runId = run.id;
   const authority = await require('../../src/services/missionEnvelopeAuthority').read(db, run.id);
   stage.runtimeAuthority = authority && { hash: authority.hash, toolLease: authority.envelope.toolLease,
     expiresAt: authority.envelope.expiresAt };
   stage.status = run.status;
-  stage.attempts = runs.map(item => ({ runId: item.id, status: item.status, metrics: JSON.parse(item.metrics_json) }));
+  stage.attempts = await attemptEvidence(db, runs);
   const store = require('../../src/services/biologicalWorkerStore');
   stage.receipt = await store.receipt(db, run.id);
   const observations = await store.observations(db, run.id);
@@ -45,6 +47,13 @@ async function stageEvidence(db, stage) {
     throw new Error(`${stage.kind}: ${stage.receipt?.result.reason || run.status}`);
   }
   return stage;
+}
+
+async function attemptEvidence(db, runs) {
+  const attempts = [];
+  for (const run of runs) attempts.push({ runId: run.id, workerId: run.agent_id, status: run.status,
+    metrics: JSON.parse(run.metrics_json), receipt: await require('../../src/services/biologicalWorkerStore').receipt(db, run.id) });
+  return attempts;
 }
 
 function claim(stage) { return JSON.parse(stage.report.claims[0].statement); }

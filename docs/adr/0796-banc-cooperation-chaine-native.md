@@ -42,6 +42,23 @@ quiescence native, y compris les reprises et remplacements. Il ne réarme pas
 l'échéance lors d'une reprise. Les dates ISO et Unix numériques sont traitées
 comme le même instant ; une valeur invalide reste expirée.
 
+Le premier lancement réel a aussi révélé que le fork créait sa lignée dans
+le workspace parent avant de lier sa capsule. La lignée est désormais créée
+avec la liaison finale, avant le démarrage. Les relations vers le parent et
+la source restent dans la provenance ; aucun arc ne traverse les workspaces.
+Le génome hérité est conservé. Une absence de génome n'est plus convertie en
+`genes:{}` ; un génome explicitement invalide reste refusé par l'hydratation.
+Le rapport conserve les reçus de toutes les tentatives et identités de reprise.
+Le contrat du worker source, notamment son contrat de vérification, est repris
+dans les métadonnées de la nouvelle identité. Les admissions ADN et cliniques
+restent propres à cette identité : leurs signatures ne sont pas copiées.
+Un remplacement terminé est ensuite enregistré dans le registre natif de
+régénération, après contrôle du reçu biologique, de l'oracle, du contrat
+identique, du tenant et de l'appartenance à la mission. L'homéostasie peut
+alors considérer la fonction restaurée ; les échecs précédents restent
+conservés et comptabilisés. Un simple démarrage ou succès HTTP ne retire
+jamais un worker échoué de l'évaluation.
+
 La consommation d'une preuve de workspace déjà terminée vérifie l'autorité à
 la date de sa fin scellée. Elle ne demande pas un nouveau droit d'exécuter au
 worker lorsque le parent rassemble les résultats plus tard. Les empreintes,
