@@ -13,6 +13,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | --- | --- | --- | --- | --- |
 | [0796](0796-banc-cooperation-chaine-native.md) | Banc de coopération par la chaîne native | Accepté | 2026-11-04 | observation préalable, génomes, récupération et clôture |
 | [0795b](0795-observation-daemon-structuree.md) | Observation typée du daemon d’allocation | Accepté | 2026-11-04 | format fournisseur, sérialisation et preuves natives |
+| [2026x](2026-11-04-ett-inspection-artefact-de-mission.md) | ADR — Relier une inspection ETT complète à une mission native | Voir le fichier | -- | -- |
+| [2026y](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
+| [2026z](2026-11-04-incarnation-adn-clinique-workers-topologiques.md) | ADN et clinique avant l'exécution des workers topologiques | Voir le fichier | -- | -- |
+| [2026{](2026-11-04-mission-mecanismes-integres.md) | Préparation et qualification des mécanismes d'une mission native | Voir le fichier | -- | -- |
+| [2026|](2026-11-04-phases-mutation-primitives.md) | ADR — Phases de mutation et primitives exécutables | Voir le fichier | -- | -- |
+| [2026}](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
+| [0795](0795-admission-des-ecritures-du-journal-rust.md) | Admission locale bornée des écritures du journal Rust | Accepté | 2026-11-04 | Runtime Rust, SQLite et autorité |
 | [0793](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
 | [0794](0794-application-regles-typees-et-controle-positif.md) | Application de règles typées et contrôle positif préalable | Accepté pour un banc expérimental isolé | 2026-11-04 | Apprentissage, validation et exécution bornée |
 | [0795a](0795-benchmark-deceptive-patch-composants.md) | Benchmark Deceptive-Patch par ablation de composants | Accepté pour préparation du pilote | 2026-11-04 | benchmarks, provenance, GQWF |

@@ -18,12 +18,10 @@ fn effect_key(binding: &Binding, operation: &str) -> Result<String, String> {
 
 impl Store {
     pub fn begin_effect(&mut self, binding: &Binding, input: (&str, &Value)) -> Result<EffectAdmission, String> {
-        ensure_schema(&self.connection)?;
         self.transaction(binding, |tx| begin_in(tx, binding, input))
     }
 
     pub fn complete_effect(&mut self, binding: &Binding, input: (&str, &Value)) -> Result<(), String> {
-        ensure_schema(&self.connection)?;
         self.transaction(binding, |tx| {
             fence(tx, binding)?;
             complete_in(tx, binding, input)

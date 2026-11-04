@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 #[test]
 fn two_intermediate_parents_delegate_parallel_leaves_and_receive_only_their_own_children() {
     let f=Fixture::new(Mode::Tree);
-    assert_eq!(f.spec.timeout_ms,600000);assert_eq!(f.spec.config.turn_timeout_ms,20000);
+    assert_eq!(f.spec.timeout_ms,600000);assert_eq!(f.spec.config.turn_timeout_ms,fixture::TURN_TIMEOUT_MS);
     let started=genos_orchestrator::mission_protocols::now_ms();
     let report=agentic_engine::run(f.request()).unwrap();
     assert!(report.binding.expires_ms>started+180000);
@@ -88,6 +88,7 @@ fn corrupt_leaf_return_received_by_intermediate_parent_refuses_root_publication_
     assert_eq!(reason,"AGENTIC_EXCHANGE_OBJECT_CORRUPT");assert_eq!(f.provider.calls(),14);
 }
 
+#[track_caller]
 fn assert_complete(report:&agentic_engine::NativeAgenticReport) {
     assert_eq!(report.status,"completed","{:?}",report.error);assert!(report.publication.is_some());
     assert!(report.artifact_contract_verified);assert_eq!(report.artifact.text,fixture::FINAL);

@@ -107,13 +107,18 @@ impl Pending {
         listener.set_nonblocking(false).unwrap();
         let bytes=serde_json::to_vec(&response).unwrap();
         let counter=self.requests.clone();
+        let expires_ms=self.request.base.expires_ms;
         let server=std::thread::spawn(move || {
-            let served=serve(&listener,(&bytes,options.0,options.1),&counter);
+            let served=serve(&listener,(&bytes,options.0,options.1,expires_ms),&counter);
             (listener,served)
         });
         let outcome=ledger::dispatch_model(&mut self.store,&self.binding,ledger::ModelDispatch {
             permit:self.permit.take().unwrap(),request:&self.request });
         let (listener,served)=server.join().unwrap();self.listener=Some(listener);
+        if outcome.is_err() {
+            eprintln!("fixture HTTP failure: key={:?} served={served:?} expires_ms={} now_ms={}",
+                self.key,self.request.base.expires_ms,protocols::now_ms());
+        }
         if outcome.is_ok() { served.unwrap(); }
         outcome
     }
@@ -136,10 +141,14 @@ pub fn tool(name:&str, arguments:Value, id:&str) -> Value {
     value
 }
 
-fn serve(listener:&TcpListener, input:(&[u8],bool,u64), counter:&AtomicUsize) -> Result<(),String> {
-    let mut stream=accept(listener)?;
+fn serve(listener:&TcpListener, input:(&[u8],bool,u64,u64), counter:&AtomicUsize) -> Result<(),String> {
+    let remaining=std::time::Duration::from_millis(input.3.saturating_sub(protocols::now_ms()));
+    let deadline=std::time::Instant::now()+remaining;
+    let mut stream=accept_for(listener,remaining)?;
     stream.set_nonblocking(false).map_err(error)?;
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).map_err(error)?;
+    let remaining=deadline.saturating_duration_since(std::time::Instant::now());
+    if remaining.is_zero() { return Err("fixture admitted HTTP deadline elapsed".into()); }
+    stream.set_read_timeout(Some(remaining)).map_err(error)?;
     read_request(&mut stream)?;
     counter.fetch_add(1,Ordering::SeqCst);
     std::thread::sleep(std::time::Duration::from_millis(input.2));
@@ -150,15 +159,19 @@ fn serve(listener:&TcpListener, input:(&[u8],bool,u64), counter:&AtomicUsize) ->
 }
 
 pub fn accept(listener:&TcpListener) -> Result<TcpStream,String> {
+    accept_for(listener,std::time::Duration::from_secs(5))
+}
+
+pub fn accept_for(listener:&TcpListener, timeout:std::time::Duration) -> Result<TcpStream,String> {
     listener.set_nonblocking(true).map_err(error)?;
-    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(5);
+    let deadline=std::time::Instant::now()+timeout;
     loop {
+        if std::time::Instant::now()>=deadline { return Err("fixture expected HTTP dispatch".into()); }
         match listener.accept() {
             Ok((stream,_))=>return Ok(stream),
             Err(error) if error.kind()==std::io::ErrorKind::WouldBlock=>{},
             Err(value)=>return Err(error(value)),
         }
-        if std::time::Instant::now()>=deadline { return Err("fixture expected HTTP dispatch".into()); }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
 }

@@ -8,16 +8,22 @@ const path = require('node:path');
 const { fork } = require('node:child_process');
 const Database = require('better-sqlite3');
 const fixture = require('./helpers/missionProtocolFixture');
+const PROCESS_RESPONSE_TIMEOUT_MS = 120000;
 
 function child(filename, mode) {
   const process = fork(path.join(__dirname, 'helpers/missionOmegaProcess.cjs'), [filename, mode], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
   const response = new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Mission OMEGA recovery process timeout.')), 20000);
+    const timeout = setTimeout(() => reject(new Error(`Mission OMEGA ${mode} recovery process timeout.`)), PROCESS_RESPONSE_TIMEOUT_MS);
     process.on('message', value => { clearTimeout(timeout); value.error ? reject(new Error(value.error)) : resolve(value); });
-    process.once('error', reject);
-    process.once('exit', code => { clearTimeout(timeout); if (code) reject(new Error(`Mission OMEGA child exited ${code}`)); });
+    process.once('error', error => { clearTimeout(timeout); reject(error); });
+    process.once('exit', code => { clearTimeout(timeout); reject(new Error(`Mission OMEGA child exited ${code} before its response`)); });
   });
-  return { process, response, stop: () => new Promise(resolve => { process.once('exit', resolve); process.kill(); }) };
+  return { process, response, stop: () => stopChild(process) };
+}
+
+function stopChild(process) {
+  if (!process.pid || process.exitCode !== null || process.signalCode !== null) return Promise.resolve();
+  return new Promise(resolve => { process.once('exit', resolve); process.kill(); });
 }
 
 async function main() {

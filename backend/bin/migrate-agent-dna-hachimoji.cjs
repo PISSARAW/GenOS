@@ -49,7 +49,7 @@ function loadPlan(directory) {
 
 function runEvidence(directory, filename) {
   const result = spawnSync(process.execPath, [path.join(catalog.root, 'backend/tests', filename)], {
-    cwd: catalog.root, encoding: 'utf8', timeout: 180000, windowsHide: true,
+    cwd: catalog.root, encoding: 'utf8', timeout: catalog.proofTimeoutMs(filename), windowsHide: true,
     env: { ...process.env, GENOS_HACHIMOJI_CATALOG_DIR: path.join(directory, 'candidates'),
       GENOS_HACHIMOJI_RECEIPT: path.join(directory, 'plan.json') }
   });

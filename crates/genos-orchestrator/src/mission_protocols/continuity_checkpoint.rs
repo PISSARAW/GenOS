@@ -38,15 +38,14 @@ fn checkpoint_id(binding: &str, snapshot: &str) -> Result<String, String> {
 
 impl Store {
     pub fn checkpoint(&mut self, binding: &Binding, value: &Value) -> Result<CheckpointRef, String> {
-        ensure_schema(&self.connection)?;
         let reference = reference_for(binding, value)?;
         self.transaction(binding, |tx| save_checkpoint(tx, (binding, &reference, value)))?;
         Ok(reference)
     }
 
     pub fn restore_checkpoint(&mut self, binding: &Binding, checkpoint: &CheckpointRef) -> Result<Value, String> {
-        ensure_schema(&self.connection)?;
         self.transaction(binding, |tx| {
+            ensure_schema(tx)?;
             fence(tx, binding)?;
             authorize_restore(tx, (binding, checkpoint))?;
             let value = load_checkpoint(tx, checkpoint)?;
@@ -66,6 +65,7 @@ fn reference_for(binding: &Binding, value: &Value) -> Result<CheckpointRef, Stri
 
 fn save_checkpoint(tx: &Transaction<'_>, input: (&Binding, &CheckpointRef, &Value)) -> Result<(), String> {
     let (binding, reference, value) = input;
+    ensure_schema(tx)?;
     fence(tx, binding)?;
     let inserted = insert_checkpoint(tx, (reference, value))?;
     load_checkpoint(tx, reference)?;

@@ -8,7 +8,7 @@ async function workerSchema(db) {
     ALTER TABLE missions ADD COLUMN created_at TEXT;
     ALTER TABLE missions ADD COLUMN updated_at TEXT;
     CREATE TABLE agents (id TEXT PRIMARY KEY, execution_mode TEXT, parent_agent_id TEXT,
-    organization_id TEXT, project_id TEXT, metadata_json TEXT, role TEXT, dna_json TEXT, workspace_id TEXT);
+    organization_id TEXT, project_id TEXT, metadata_json TEXT DEFAULT '{}', role TEXT, dna_json TEXT, workspace_id TEXT);
     CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
     INSERT INTO workspaces VALUES ('worker-workspace', 'org', 'project');
     CREATE TABLE mission_agents (mission_id TEXT, agent_id TEXT);
