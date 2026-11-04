@@ -133,6 +133,10 @@ async function bindOwner(db, input) {
     return { available: false, reason: 'MISSION_EPISODE_OWNER_RUN_UNAVAILABLE' };
   }
   const episode = input.runtime.episode;
+  const run = await db.get('SELECT agent_id, status FROM strategy_execution_runs WHERE id=?', input.launch.executionRun.id);
+  if (run?.agent_id === input.orchestratorId && ['completed', 'failed', 'blocked', 'cancelled'].includes(run.status)) {
+    return {available: false, reason: 'MISSION_EPISODE_OWNER_RUN_ALREADY_TERMINAL', status: run.status};
+  }
   return require('./missionEpisodeRecoveryService').bindOwner(db, {
     episodeId: episode.episodeId, missionId: episode.missionId,
     organizationId: episode.organizationId, projectId: episode.projectId,

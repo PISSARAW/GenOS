@@ -1,6 +1,7 @@
 'use strict';
 
 function requiresWorkerBarrier(request, plan) {
+  if (request.qualityElevation) return true;
   const topologies = ['topologyId', 'topology_id', 'topology', 'proposedTopology', 'proposed_topology',
     'morphologyTopology', 'morphology_topology', 'trinityMode', 'trinity_mode'];
   if (topologies.some(field => Boolean(request[field]))) return true;

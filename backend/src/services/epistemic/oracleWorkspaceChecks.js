@@ -5,6 +5,9 @@ const numerics = require('./workspaceOracleNumerics');
 const records = require('./workspaceOracleRecords');
 const creative = require('./workspaceOracleCreative');
 const STRATEGIES = new Set(['source_recompute', 'cross_check']);
+const SPECIALIZED = {code_repair_obligations: require('./repairObligationChecks').checkRepair,
+  javascript_repair_cases: require('./javascriptRepairChecks').checkRepair,
+  commonjs_public_tests: require('./commonjsTestChecks').check};
 const HANDLERS = { two_machine_partition: numerics.partition, observed_statistics: numerics.statistics,
   literal_logs: records.logs, paired_means: numerics.pairedMeans, json_field_contract: records.jsonContract,
   synthetic_data_quality: records.dataQuality, bar_durations: creative.music, poem_constraints: creative.poem,
@@ -20,8 +23,7 @@ function checkWorkspace(subject, strategy) {
   if (!STRATEGIES.has(strategy)) return outcome('inconclusive', 'workspace_strategy_unavailable', strategy);
   try {
     require('./workspaceVerificationContract').assertContract(subject.contract);
-    if (subject.contract.kind === 'code_repair_obligations') return require('./repairObligationChecks').checkRepair(subject, strategy);
-    if (subject.contract.kind === 'javascript_repair_cases') return require('./javascriptRepairChecks').checkRepair(subject, strategy);
+    if (SPECIALIZED[subject.contract.kind]) return SPECIALIZED[subject.contract.kind](subject, strategy);
     const candidate = editable(subject.contract.kind) ? null : values.candidate(subject.report);
     const valid = HANDLERS[subject.contract.kind](subject, strategy, candidate);
     if (!valid) return outcome('refuted', 'workspace_postcondition_false', strategy);

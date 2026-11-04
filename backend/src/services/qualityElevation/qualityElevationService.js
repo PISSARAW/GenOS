@@ -76,7 +76,9 @@ async function verifyCode(context, content, scan) {
   const backed = result?.artifactDigest === digest(content) && result.executed === true && Array.isArray(result.evidenceRefs) && result.evidenceRefs.length > 0;
   if (!backed || result.passed !== true) scan.defects.push({ code: 'EXECUTION_NOT_VERIFIED', severity: 'blocker',
     stage: 'draft', section: 'tests', message: 'Les tests exécutés ne valident pas cet artefact.', evidence: [] });
-  scan.externalVerification = result; return scan;
+  scan.externalVerification = result;
+  scan.metrics.testsExecuted = backed && result.passed === true;
+  return scan;
 }
 async function produce(context) {
   if (context.iteration === 1 && typeof context.input.initialContent === 'string' && context.input.initialContent.trim()) {

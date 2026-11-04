@@ -50,6 +50,7 @@ async function build(ctx, input) {
     toolAuthority: { lease: tools, expiresAt },
     budgets: authorityBudgets(mission, input.binding.budget),
     evidencePolicy: evidencePolicy(mission), qualityElevation: require('./qualityElevation/qualityMissionContract').qualityAuthority(mission),
+    ...await require('./epistemic/finalCodeContract').fields(mission, input.workspaceRoot),
     determinism: replay,
     stateVersions: { strategyContract: input.binding.strategyContract.version,
       missionAuthority: input.lease?.generation ?? null,

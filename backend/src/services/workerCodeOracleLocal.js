@@ -12,6 +12,7 @@ async function prepare(input) {
     { executionRunId: executionRun.id, evidenceReport }, 'info', 'running');
   const progress = await execution.recordExecutionEvent(db, mission.agentId, observation);
   if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED' });
+  await require('./epistemic/finalCodeOracleSubject').observe(db, input);
   return require('./epistemic/nativeOracleCoordinator').prepare(db, {
     agentId: mission.agentId, runId: executionRun.id
   });

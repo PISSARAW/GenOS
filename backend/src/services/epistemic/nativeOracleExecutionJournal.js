@@ -54,8 +54,11 @@ async function costs(db, { allocation }) {
 function summarize(observations, unresolved, limits) {
   const observedProcesses = observations.filter(item => Number.isSafeInteger(item.processId) && item.processId > 0).length;
   const observedRuntimeMs = observations.reduce((total, item) => total + item.durationMs, 0);
+  const nestedProcesses = observations.reduce((total, item) => total + (item.nestedProcesses || 0), 0);
   return { processes: unresolved ? null : observedProcesses, runtimeMs: unresolved ? null : observedRuntimeMs,
-    observedProcesses, observedRuntimeMs, unresolvedExecutions: unresolved, complete: unresolved === 0,
+    observedProcesses, observedRuntimeMs, nestedProcesses,
+    totalObservedProcesses: observedProcesses + nestedProcesses,
+    unresolvedExecutions: unresolved, complete: unresolved === 0,
     reservedExecutions: limits.executions, accountingSchema: 'genos.native-oracle-execution/v1',
     modelTokens: 0, providerUsd: 0, localComputeUsd: null };
 }

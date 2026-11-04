@@ -3,9 +3,16 @@ const text = minimum => ({ type: 'string', minLength: minimum });
 const object = properties => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 function reviewSchema(criteria, artifact) {
   return object({ checks: { type: 'array', minItems: criteria.length, maxItems: criteria.length,
-    items: object({ criterionId: { type: 'string', enum: criteria.map(item => item.id) },
-      verdict: { type: 'string', enum: ['pass', 'fail', 'unknown'] }, reason: text(10),
-      evidence: { type: 'array', items: require('./qualityQuoteCandidates').quotedSchema(artifact) }, rating: { type: ['integer', 'null'], minimum: 0, maximum: 4 } }) } });
+    items: {oneOf: criteria.flatMap(criterion => reviewVariants(criterion, artifact))} } });
+}
+function reviewVariants(criterion, artifact) {
+  const shared = {criterionId: {type: 'string', const: criterion.id}, reason: text(10),
+    evidence: {type: 'array', items: require('./qualityQuoteCandidates').quotedSchema(artifact)}};
+  const known = object({...shared, verdict: {type: 'string', enum: ['pass', 'fail']},
+    evidence: {...shared.evidence, minItems: 1}, rating: criterion.kind === 'soft'
+      ? {type: 'integer', minimum: 0, maximum: 4} : {type: 'null'}});
+  const unknown = object({...shared, verdict: {type: 'string', const: 'unknown'}, rating: {type: 'null'}});
+  return [known, unknown];
 }
 function planSchema(contract) {
   const scene = object({ id: text(2), heading: text(6), goal: text(1), obstacle: text(1), decision: text(1),

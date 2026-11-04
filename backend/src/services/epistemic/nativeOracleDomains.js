@@ -30,6 +30,7 @@ function requiresWorkerArtifact(binding) {
 
 async function load(db, request) {
   const binding = await require('../biologicalWorkerStore').binding(db, request.runId);
+  if (!binding) return require('./finalCodeOracleSubject').load(db, request);
   const method = binding?.genome.workerContract?.mission?.methodContract;
   if (binding?.genome.workerContract?.assignment?.workspaceVerificationContract) {
     return require('./oracleWorkspaceSubject').load(db, request);

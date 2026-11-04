@@ -68,9 +68,17 @@ async function enforcePersistedWorkerTool(db, agentId, toolCall) {
 
 async function ownsReplaySnapshot({ db, agentId, reference, suppliedRoot = null } = {}) {
   if (typeof reference !== 'string' || !reference.trim()) return false;
-  const owner = await db.get('SELECT a.execution_mode, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
-  if (require('./workerContractEnforcementValues1.js').ownsReplaySnapshotValue2({ owner })) return false;
-  const root = path.resolve(owner.path);
+  const owner = await db.get('SELECT a.execution_mode, a.workspace_id, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
+  if (!owner?.path || !['worker', 'orchestrator'].includes(owner.execution_mode)) return false;
+  const registered = owner.execution_mode === 'worker' ? [path.resolve(owner.path)] : [];
+  const roots = [...registered, ...await require('./workerReplayRoots').activeRoots({db, owner, agentId})];
+  for (const root of roots) {
+    if (await ownsSnapshotInRoot({root, suppliedRoot, reference})) return true;
+  }
+  return false;
+}
+
+async function ownsSnapshotInRoot({root, suppliedRoot, reference}) {
   if (require('./workerContractEnforcementValues1.js').ownsReplaySnapshotValue3({ path, root, suppliedRoot })) return false;
   let directory;
   try { directory = resolveContainedPathNoSymlinkSync(root, '.genos/evidence-snapshots', 'worker replay snapshot directory'); }

@@ -51,7 +51,11 @@ async function reserve(db, request) {
 
 async function observationReport(db, runId) {
   const records = await require('../biologicalWorkerStore').observations(db, runId);
-  return records.filter(item => item.applied && item.event.eventType === 'EVIDENCE_REPORT').at(-1)?.event.payload.evidenceReport;
+  const report = records.filter(item => item.applied && item.event.eventType === 'EVIDENCE_REPORT').at(-1)?.event.payload.evidenceReport;
+  if (report) return report;
+  const saved = await authority.read(db, runId);
+  if (!saved?.envelope.workspaceVerificationContract) return undefined;
+  return (await read(db, {runId, scope: saved.envelope.scope, kind: 'final-code-observation'}))?.value.report;
 }
 
 module.exports = { id, read, append, reserve, observationReport };

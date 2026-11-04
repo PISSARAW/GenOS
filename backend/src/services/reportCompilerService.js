@@ -191,7 +191,7 @@ function compileReport(graph) {
 
 const HEDGE_WORDS = ['maybe', 'possibly', 'might', 'could', 'uncertain', 'unknown', 'perhaps', 'suggests', 'appears', 'peut-etre', 'incertain'];
 
-const NEGATIONS = ['not', 'no', 'never', 'fails', 'failed', 'without', 'ne ', 'pas ', 'jamais', 'sans ', 'aucun'];
+const NEGATIONS = /\b(?:not|no|never|fails|failed|without|ne|pas|jamais|sans|aucun)\b/gi;
 
 function looksFactual(text) {
   const lower = String(text || '').toLowerCase();
@@ -200,8 +200,7 @@ function looksFactual(text) {
 }
 
 function negationCount(text) {
-  const lower = ` ${String(text || '').toLowerCase()} `;
-  return NEGATIONS.reduce((total, negation) => total + (lower.split(negation).length - 1), 0);
+  return (String(text || '').match(NEGATIONS) || []).length;
 }
 
 function numbersOf(text) {

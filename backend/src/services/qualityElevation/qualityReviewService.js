@@ -71,6 +71,7 @@ function reviewerMetadata(reviewer) {
 }
 function controlCriteria(sample) {
   const descriptions = {
+    code_contract: require('./qualityCodeCalibration').DESCRIPTION,
     enacted: 'La sortie est montrée par des actions concrètes, pas seulement annoncée.',
     character_actions: 'Les informations, moyens ou risques conduisent à des décisions distinctes ; partager un objectif est autorisé.',
     causal_chain: 'Les règles et conséquences prévues forment une chaîne cohérente ; un plan peut résumer ses scènes.'
@@ -85,20 +86,24 @@ async function reviewedChecks(reviewer, context, input) {
 }
 async function calibrateReviewer(reviewer, context) {
   const metadata = reviewerMetadata(reviewer), receipts = [];
-  for (const sample of CALIBRATION) {
+  const code = context.contract.profile === 'code';
+  const samples = code ? require('./qualityCodeCalibration').CALIBRATION : CALIBRATION;
+  for (const sample of samples) {
     const criteria = controlCriteria(sample);
     const checks = await reviewedChecks(reviewer, context, { operation: 'reviewer_control', criteria, text: sample.text,
-      data: { mission: 'Contrôle borné du lecteur.', phase: sample.phase, criteria, artifact: sample.text } });
+      data: { mission: sample.mission || 'Contrôle borné du lecteur.', profile: context.contract.profile,
+        phase: sample.phase, criteria, artifact: sample.text } });
     receipts.push({ id: sample.id, artifactDigest: digest(sample.text), checks, passed: checks[0].verdict === sample.expected });
   }
-  return freeze({ ...metadata, controlVersion: 'gqel-control-v2.1', passed: receipts.every(item => item.passed), receipts,
+  return freeze({ ...metadata, controlVersion: code ? 'gqel-code-control-v1' : 'gqel-control-v2.1', passed: receipts.every(item => item.passed), receipts,
     scope: 'four_smoke_controls_not_general_calibration' });
 }
 async function runReview(reviewer, context) {
   const metadata = reviewerMetadata(reviewer);
   const checks = await reviewedChecks(reviewer, context, { operation: context.reviewOperation || `review:${metadata.id}`, criteria: context.criteria, text: context.text,
-    data: { mission: context.contract.mission, phase: context.phase || 'artifact', focus: metadata.focus,
+    data: { mission: context.contract.mission, profile: context.contract.profile, phase: context.phase || 'artifact', focus: metadata.focus,
       targetMinutes: context.contract.targetMinutes, criteria: context.criteria, artifact: context.text,
+      executionVerification: context.scan?.externalVerification || null,
       screenplaySections: context.sectionRequirements } });
   return freeze({ ...metadata, artifactDigest: context.artifactDigest, contractDigest: context.contract.digest,
     checks, method: 'fresh_context_grounded_review', issuedAt: new Date().toISOString() });

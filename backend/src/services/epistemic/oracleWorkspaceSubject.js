@@ -23,6 +23,11 @@ function observationAge(observed, authority) {
 async function load(db, request) {
   const run = await provenance.readRun(db, { runId: request.runId, scope: request.scope });
   const binding = await store.binding(db, request.runId);
+  if (!binding) return require('./finalCodeOracleSubject').load(db, request);
+  return loadWorkerSubject(db, {request, run, binding});
+}
+
+async function loadWorkerSubject(db, {request, run, binding}) {
   if (!run || binding?.workerId !== request.agentId || request.scope.entityId !== request.agentId) denied('ORACLE_RUNTIME_SUBJECT_MISMATCH');
   const contract = binding.genome.workerContract?.assignment?.workspaceVerificationContract;
   require('./workspaceVerificationContract').assertContract(contract);
@@ -77,4 +82,4 @@ function assertAntigen(antigen, subject) {
       || values.digest(formal.validityDomain) !== values.digest({ ...DOMAIN, constraints: [...DOMAIN.constraints].sort() })) denied('ORACLE_SEMANTIC_SUBJECT_MISMATCH');
 }
 
-module.exports = { load, assertAntigen, STATEMENT, DOMAIN };
+module.exports = { load, buildSubject, assertAntigen, STATEMENT, DOMAIN };

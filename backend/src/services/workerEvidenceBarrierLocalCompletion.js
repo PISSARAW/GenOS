@@ -14,6 +14,7 @@ async function emitLocalCompleted(ctx, publishSuccess) {
     }, 'info', deferred ? 'running' : 'completed');
   const eventType = deferred ? 'LOCAL_WORKER_COMPLETED' : ctx.eventType;
   const completed = require('./workerEvidenceBarrierLocalCompletionValues1.js').emitLocalCompletedValue1({ ctx, deferred, emit, eventType, terminalStatus });
+  await require('./workerEvidencePreterminalReplay').attach({db: ctx.db, mission: ctx.mission, event: completed});
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
   if (ctx.unresolved) {
     await require('./agentRecoveryService').queueWorkerRecovery(ctx.mission, completed);
@@ -51,6 +52,7 @@ function terminalMetadata(evidence, codeWorker) {
 }
 
 async function complete(ctx, publishSuccess) {
+  ctx.evidence.evidenceReport = require('./workerReportSerialization').serialized(ctx.evidence.evidenceReport);
   const nativeOracleRef = ctx.evidence.unresolved ? null
     : await require('./workerCodeOracleLocal').prepare({ db: ctx.db, mission: ctx.mission,
       executionRun: ctx.executionRun, evidenceReport: ctx.evidence.evidenceReport });

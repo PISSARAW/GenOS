@@ -14,7 +14,8 @@ async function context(db, input) {
   const proof = await proofs.read(db, { ...request, scope, reference });
   await proofs.assertCurrent(db, { proof, request, report: input.event.payload.evidenceReport || input.event.payload.report });
   await assertNoncesUnused(db, proof.saved.evaluation.assembly.verifications);
-  return { proof, gateContext: proofs.context(proof) };
+  return { proof, gateContext: {...proofs.context(proof),
+    ...await require('./workerReplayGateContext').context(db, proof)} };
 }
 
 async function assertNoncesUnused(db, receipts) {
@@ -36,6 +37,7 @@ async function accept(db, input) {
     if (violation) throw values.failure(violation.policy);
   }
   const attested = proof.attestation.value;
+  await require('./finalCodeOracleSubject').terminal(db, input.event);
   return journal.append(db, { kind: 'acceptance', scope: attested.scope,
     record: { schema: 'genos.native-oracle-acceptance/v1', runId: attested.runId, agentId: attested.agentId,
       scope: attested.scope, status: input.status, attestationHash: proof.attestation.hash,
@@ -53,7 +55,8 @@ async function historical(db, input) {
   const proof = await proofs.read(db, { ...input, reference, scope: header, historical: true });
   assertAcceptance(accepted, proof);
   if (accepted.value.eventHash !== digest(input.event)) throw values.failure('ORACLE_DECISION_BINDING_MISMATCH');
-  return { proof, acceptance: accepted, gateContext: proofs.context(proof) };
+  return { proof, acceptance: accepted, gateContext: {...proofs.context(proof),
+    ...await require('./workerReplayGateContext').context(db, proof)} };
 }
 
 async function forPromotion(db, input) {

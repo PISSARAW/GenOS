@@ -226,7 +226,7 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
     done: false, finishReason: null }, onToken };
   const consume = async (chunk) => { await consumeSse(ctx, chunk); };
   await pumpStream(reader, consume, idleTimeoutMs);
-  if (ctx.state.buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${ctx.state.buffer}\n`));
+  if (ctx.state.buffer.startsWith('data:')) await flushStreamTail(ctx, consume);
   if (!ctx.state.done || (ctx.state.finishReason && ctx.state.finishReason !== 'stop')) {
     throw Object.assign(new Error('Model provider stream ended without a valid terminal marker.'), {
       code: 'MODEL_PROVIDER_INCOMPLETE_STREAM', finishReason: ctx.state.finishReason
@@ -242,8 +242,14 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
   const ctx = { decoder: new TextDecoder(), state: { buffer: '', text: '', usage: {}, servedModel: null }, onToken };
   const consume = async (chunk) => { await consumeNdjson(ctx, chunk); };
   await pumpStream(reader, consume, idleTimeoutMs);
-  if (ctx.state.buffer.trim()) await consume(new TextEncoder().encode(`${ctx.state.buffer}\n`));
+  if (ctx.state.buffer.trim()) await flushStreamTail(ctx, consume);
   return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel, finishReason: ctx.state.finishReason };
+}
+
+async function flushStreamTail(ctx, consume) {
+  const tail = ctx.state.buffer;
+  ctx.state.buffer = '';
+  await consume(new TextEncoder().encode(`${tail}\n`));
 }
 
 function anthropicContent(payload) { return payload.content; }

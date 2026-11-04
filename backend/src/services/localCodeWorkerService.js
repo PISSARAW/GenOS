@@ -248,7 +248,7 @@ function markerPatterns(markers) {
   }));
 }
 
-module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
+module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, runTest, allowedTest,
   restorePatchState, proposalResponseFormat, assertRequiredPatchContract, assertAllowedPatchPaths, resolveTestTempRoot };
 
 function assertProposalSchema(proposal, options = {}) {

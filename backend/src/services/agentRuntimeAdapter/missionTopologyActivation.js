@@ -30,12 +30,23 @@ function topologyExplicitlyRequested(mission = {}) {
 }
 
 function shouldUseNativeMissionPlan(mission = {}) {
-  return hasNativeObjectives(mission) && !topologyExplicitlyRequested(mission);
+  return !topologyExplicitlyRequested(mission)
+    && (hasNativeObjectives(mission) || hasExplicitWorkerRoster(mission));
+}
+
+function hasExplicitWorkerRoster(mission) {
+  const roster = require('../workerRosterRequestService').resolveWorkerRosterRequest(mission,
+    mission.prompt || mission.mission || '');
+  return roster?.exact === true && roster.typePolicy?.mode === 'explicit';
 }
 
 function nativeMissionPlanOwnsDispatch(mission, autonomyPlan) {
   return mission?.nativeMissionPlanOwnsDispatch === true
-    && Boolean(autonomyPlan?.nativeMissionPlan);
+    && Boolean(autonomyPlan?.nativeMissionPlan || explicitRosterPlan(autonomyPlan));
+}
+
+function explicitRosterPlan(plan) {
+  return plan?.workerRoster?.exact === true && plan.workerRoster.typePolicy?.mode === 'explicit';
 }
 
 function seedMorphogenesisSelection(ctx, dependencies = {}) {

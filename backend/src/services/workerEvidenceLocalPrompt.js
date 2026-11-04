@@ -23,7 +23,8 @@ function workerInstructionBlock(context, assignment) {
   const reviewInstruction = assignment.delegatedReviewOnly === true
     ? `Return only JSON with format "genos.test-only/v1", patches [], tests selected from ${JSON.stringify(context.allowedCommands || [])}, and evidence explaining the review. Execute no edits; tests must inspect the supplied snapshot.` : null;
   return [context.workerInstruction, context.codeWorker
-    ? (reviewInstruction || codeProposalInstruction(context.allowedCommands, context.forceFullFileReplacement)) : context.evidenceRule]
+    ? (reviewInstruction || codeProposalInstruction(context.allowedCommands, context.forceFullFileReplacement,
+      assignment.allowedPatchPaths || context.requiredPatchPaths)) : context.evidenceRule]
     .filter(Boolean).join('\n');
 }
 
@@ -47,14 +48,15 @@ function requiredPatchInstruction(paths, markers, minimumBytes) {
   return `The patch proposal MUST include each required path exactly once: ${JSON.stringify(paths)}.${markerText}${sizeText}`;
 }
 
-function codeProposalInstruction(allowedCommands = [], forceFullFileReplacement = false) {
+function codeProposalInstruction(allowedCommands = [], forceFullFileReplacement = false, allowedPaths = []) {
   const commands = [...new Set(allowedCommands.filter((command) => typeof command === 'string' && command.trim()))];
-  const tests = commands.length ? [commands[0]] : ['npm test'];
   const testRule = commands.length
-    ? `The tests array MUST contain exactly one command from this exact allowlist: ${JSON.stringify(commands)}. Do not substitute another command.`
+    ? `The tests array MUST contain one or two commands from this exact allowlist: ${JSON.stringify(commands)}. Do not substitute another command.`
     : 'Use one allow-listed test command.';
-  if (forceFullFileReplacement) return `The previous exact edit anchor was ambiguous. Return exactly one JSON object using format "genos.file-replacement/v1" and complete current file content for every patch. Do not use file-edits or find/replace anchors. Re-read the current trusted workspace snapshot and preserve all behavior that already passes. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
-  return `Return exactly one JSON object. Prefer the minimal exact-edit form when possible: ${JSON.stringify({ format: 'genos.file-edits/v1', patches: [{ path: 'src/file.ext', edits: [{ find: 'exact existing text occurring once', replace: 'replacement' }] }], tests, evidence: 'reason for the change' })}. Each find anchor must occur once; use 1-8 edits per file. You may use ${JSON.stringify({ format: 'genos.file-replacement/v1', patches: [{ path: 'src/file.ext', content: 'complete file content' }], tests, evidence: 'reason for the change' })} when an exact edit is unsuitable. Use 1-12 patches. ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
+  const paths = allowedPaths.length ? ` Allowed patch paths: ${JSON.stringify(allowedPaths)}.`
+    : ' Select patch paths only from the trusted workspace snapshot.';
+  if (forceFullFileReplacement) return `The previous exact edit anchor was ambiguous. Return exactly one JSON object using format "genos.file-replacement/v1" and complete current file content for every patch. Do not use file-edits or find/replace anchors. Re-read the current trusted workspace snapshot and preserve all behavior that already passes.${paths} ${testRule} Do not add keys or prose. Never claim a test passed unless the worker executes it.`;
+  return `Return exactly one JSON object matching the supplied response schema. Use format "genos.file-edits/v1" for minimal exact edits: each patch has path and edits, each edit has find and replace, and each find anchor must occur once in the current file. Use 1-8 edits per file. Alternatively use format "genos.file-replacement/v1": each patch has path and the complete resulting content. Use 1-12 patches. Include tests and evidence explaining the change.${paths} ${testRule} Do not add keys, example filenames or prose. Never claim a test passed unless the worker executes it.`;
 }
 
 function isCodeWorkerMission(mission) {

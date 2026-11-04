@@ -21,7 +21,7 @@ async function capture(ctx) {
   const files = [];
   for (const entry of entries) files.push(await sourceFile(ctx.mission.workspaceRoot, entry));
   files.sort((left, right) => left.path.localeCompare(right.path));
-  return { text: JSON.stringify({ schema: SCHEMA, files }), sourceFiles: files,
+  return { text: JSON.stringify({ schema: SCHEMA, files }, null, 2), sourceFiles: files,
     testExecutionReceipt: ctx.evidence.proposal.testExecutionReceipt };
 }
 

@@ -8,9 +8,14 @@ function normalizeActionResult(result) {
 
 function outputObject(result) {
   if (result.data && typeof result.data === 'object') return result.data;
+  if (Array.isArray(result.output)) return contentObject(result.output);
   if (result.output && typeof result.output === 'object') return result.output;
   if (typeof result.output !== 'string') return result;
   try { return JSON.parse(result.output); } catch (_) { return null; }
+}
+function contentObject(content) {
+  if (content.length !== 1 || content[0]?.type !== 'text') return null;
+  try {return JSON.parse(content[0].text);} catch (_) {return null;}
 }
 
 function snapshotProof(args) {
@@ -29,6 +34,7 @@ function verifiedResult(context, args, input) {
     genos_snapshot: () => snapshotProof(args),
     genos_replay: () => output?.success === true && output.replay_status === 'VERIFIED' && output.execution_replayed === true,
     genos_record_experience: () => Boolean(output?.episodeId),
+    genos_record_decision: () => output?.persisted === true && typeof output.decisionId === 'string',
     genos_execute_primitive: () => output?.success === true,
     genos_parasitic_pressure: () => output?.success === true
   };

@@ -27,7 +27,8 @@ async function unfinishedView(db, { request, allocation }) {
 
 async function acceptedView(db, input) {
   const observations = await require('../biologicalWorkerStore').observations(db, input.runId);
-  const terminal = observations.filter(item => item.event.eventType === 'AGENT_COMPLETED').at(-1);
+  const terminal = observations.filter(item => item.event.eventType === 'AGENT_COMPLETED').at(-1)
+    || await rootTerminal(db, input);
   const accepted = terminal && await gate.historical(db, { ...input, event: terminal.event });
   if (!accepted) return { status: 'attested', costs: input.attestation.value.costs, promotionAllowed: false };
   let current = { satisfied: true, reason: null };
@@ -39,6 +40,12 @@ async function acceptedView(db, input) {
       hash: accepted.acceptance.hash }, attestation: { eventId: input.attestation.eventId, hash: input.attestation.hash },
     costs: input.attestation.value.costs, limits: input.allocation.value.limits,
     validUntil: input.attestation.value.validUntil, current, promotionAllowed: false };
+}
+async function rootTerminal(db, input) {
+  const saved = await require('../missionEnvelopeAuthority').read(db, input.runId);
+  if (!saved?.envelope.workspaceVerificationContract) return null;
+  const completed = await journal.read(db, {...input, scope: saved.envelope.scope, kind: 'final-code-completion'});
+  return completed?.value.event ? {event: completed.value.event} : null;
 }
 
 module.exports = { inspect };

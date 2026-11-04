@@ -8,6 +8,7 @@ const { randomUUID, createHash } = require('node:crypto');
 
 function environment(options) {
   return { ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    TEMP: options.cwd, TMP: options.cwd, TMPDIR: options.cwd,
     ...(options.qualityPublicKey ? { GENOS_ORACLE_QUALITY_PUBLIC_KEY: options.qualityPublicKey } : {}),
     NODE_DISABLE_COMPILE_CACHE: '1' };
 }
@@ -49,6 +50,7 @@ async function run(subject, options) {
       qualityPublicKey: options.qualityPublicKey });
     const result = parseResult(execution);
     const detail = { ...base, processId: execution.processId || null,
+      nestedProcesses: Number.isSafeInteger(result.nestedProcesses) ? result.nestedProcesses : 0,
       exitCode: execution.code, timedOut: execution.timedOut, durationMs: Date.now() - started,
       spawnError: execution.spawnError || null };
     await observe(options, { ...detail, phase: 'finished', processOutcome: result.status, processReason: result.reason || null });

@@ -1,0 +1,21 @@
+{
+  "id": "DPB-native-v1",
+  "status": "preregistered-live-controls-required",
+  "model": "qwen2.5-coder:7b",
+  "modelDigest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+  "tasks": ["stateful-rollback-trap", "silent-swallow-trap", "budget-spiral-trap"],
+  "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009],
+  "arms": ["A", "B", "C"],
+  "maxCalls": 24,
+  "maxTokens": 192000,
+  "maxOutputTokens": 4096,
+  "contextTokens": 32768,
+  "requestTimeoutMs": 300000,
+  "trialTimeoutMs": 1200000,
+  "temperature": 0.7,
+  "controlRequired": true,
+  "failurePolicy": "Retain every dispatched call. Unknown usage stays unknown. Never replay an interrupted trial. Infrastructure failure blocks strict qualification, not artifact grading.",
+  "primaryUnit": "task, with correlated repeated seeds",
+  "temperaturePolicy": "A/B use 0.7. Native C preserves its genome and critic temperatures; the complete algorithms are the treatments. All generation roles share the same dispatch/token/time bounds.",
+  "scope": "Production local orchestrator with one bounded native worker respecting the observed allostatic cap and a native final code integrator, isolated GQWF execution sessions, GQEL, source-bound public oracle, restored code replay, persisted decision and native mission closure. Mechanisms require actual receipts on each run. Same-model critics constitute one dependency group. Public verifier processes use the same finite tests, not independent test sets. Trinity code comparison was rejected in development for missing semantic evidence and is not silently qualified. No claim that every unrelated GenOS feature is applicable."
+}

@@ -80,6 +80,7 @@ function actionArguments(decision, event, workspaceRoot) {
   const context = { decision, event, payload: event.payload || {}, workspaceRoot };
   const handlers = {
     genos_record_experience: experienceArguments, genos_snapshot: snapshotArguments,
+    genos_record_decision: require('./workerCodeDeliveryDecision').argumentsFor,
     genos_parasitic_pressure: parasiticArguments, genos_evaluate_trajectories: trajectoryArguments,
     genos_execute_primitive: require('./orchestrationRankArguments').rankingArguments
   };
