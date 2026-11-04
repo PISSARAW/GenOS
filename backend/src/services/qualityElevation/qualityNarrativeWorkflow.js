@@ -4,11 +4,18 @@ const { scenesOf, cleanLine } = require('./qualityText');
 const { validatedCall } = require('./qualityProtocol');
 const { preparePlan, planPrompt } = require('./qualityPlanWorkflow');
 const { validatePlan, pacingGuide } = require('./qualityPlanValidation');
+function dialogueInstruction(contract) {
+  if (!contract.requireDialogue) return 'Les dialogues sont facultatifs selon les besoins de la scène. ';
+  return 'Le livrable doit comporter des répliques au format scénario : écris le NOM DU PERSONNAGE '
+    + 'en MAJUSCULES sur une ligne dédiée, puis sa réplique sur la ligne suivante. '
+    + 'Exemple de format, sans imposer ce contenu : ' + JSON.stringify('PERSONNAGE\nUne réplique.') + '. ';
+}
 function scenePrompt(context, scene, previous) {
   const guide = pacingGuide(context.plan, context.contract);
   const allocation = guide.allocations.find(item => item.id === scene.id) || null;
   const targetWords = Math.ceil(context.contract.minBodyWords / context.plan.scenes.length);
-  return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables et, si pertinent, de dialogues. '
+  return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables. '
+    + dialogueInstruction(context.contract)
     + 'Ne remplace pas la scène par son résumé, une note critique ou une émotion annoncée. '
     + `Commence directement par l’en-tête ${scene.heading}, sans autre en-tête de scène ni titre introductif. `
     + 'Respecte les connaissances et conséquences des scènes précédentes. Les événements futurs du plan ne sont pas déjà vécus. '

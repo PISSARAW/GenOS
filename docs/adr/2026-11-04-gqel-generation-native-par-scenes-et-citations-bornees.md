@@ -102,6 +102,17 @@ Les suites GQEL historiques restent applicables. Une qualification sur modèle
 réel, avec reçus natifs et scénario livré, demeure nécessaire avant de revendiquer
 un résultat rédactionnel ou une intégration complète.
 
+## Format explicite des répliques
+
+La tentative réelle 8 a matérialisé exactement un brouillon de sept scènes et
+2 587 mots, refusé pour `DIALOGUE_MISSING` : les paroles étaient intégrées à la
+prose. L'instruction des scènes exprime désormais le format déjà exigé lorsque
+`requireDialogue` est actif : nom en majuscules sur une ligne dédiée, réplique
+sur la suivante. Son exemple générique est encodé en JSON pour conserver la
+frontière entre les instructions et les données du prompt natif. Le test natif
+vérifie cette consigne avec le gate de dialogue actif. Aucune réplique n'est
+convertie automatiquement et le contrôle structurel reste identique.
+
 ## Alternatives
 
 - Accepter le titre ou inventer ses évaluations : rejeté, car aucun scénario n'est livré.

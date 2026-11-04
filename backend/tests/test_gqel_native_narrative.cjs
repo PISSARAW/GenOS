@@ -8,7 +8,8 @@ const generation = require('../src/services/qualityElevation/qualityNativeGenera
 const authority = require('../src/services/missionEnvelopeAuthority');
 const receipt = require('../src/services/qualityElevation/qualityReceiptService');
 const execution = require('../src/services/strategyExecutionService');
-const { samplePlan, GOOD } = require('./helpers/gqelProgressFixture.cjs');
+const { samplePlan, GOOD: SILENT_SCENE } = require('./helpers/gqelProgressFixture.cjs');
+const GOOD = SILENT_SCENE + '\nINÈS\nVoici la signature que vous devez vérifier.';
 const TITLE = 'Le passage des archives — scénario';
 const MODEL = 'ollama://synthetic-author:8b';
 const MISSION_CONTEXT = 'GENOS VERIFIED MISSION CONTEXT native-marker\nMesure vérifiée : MIN_WORDS.\nHandoff réel de fixture : producer-id, digest-123, contribution reçue.';
@@ -35,6 +36,9 @@ function answer(ctx) {
   const data = JSON.parse(ctx.promptText.slice(ctx.promptText.indexOf('\n') + 1));
   if (ctx.responseFormatOverride.schema.properties.sceneText) {
     assert.equal(data.nativeMissionContext, ctx.mission.prompt);
+    assert.match(ctx.promptText.slice(0, ctx.promptText.indexOf('\n')), /MAJUSCULES sur une ligne dédiée/);
+    assert.ok(ctx.promptText.includes(JSON.stringify('PERSONNAGE\nUne réplique.')),
+      'The actual native scene request must explain the format enforced by the dialogue gate.');
     return JSON.stringify({ sceneText: GOOD });
   }
   if (ctx.responseFormatOverride.schema.properties.premise) {
@@ -49,7 +53,7 @@ function answer(ctx) {
 }
 function context(changed = false) {
   const contract = compileQualityContract({ domain: 'screenplay', mission: 'Écrire un scénario complet en une scène.',
-    policy: 'fast', requireCalibration: false, requireDoubleBlind: true, minBodyWords: 20,
+    policy: 'fast', requireCalibration: false, requireDoubleBlind: true, minBodyWords: 20, requireDialogue: true,
     maxIterations: 2, maxProtocolRepairs: 1, budgetMaxTokens: 90000, maxOutputTokens: 2000 });
   const mission = { agentId: 'synthetic-native-writer', missionId: 'synthetic-native-mission',
     prompt: MISSION_CONTEXT,
@@ -92,6 +96,17 @@ async function substitution() {
   await assert.rejects(native.elevateEvidence(context(true)), error => {
     assert.equal(error.code, 'GQEL_MATERIALIZATION_CHANGED');
     assert.equal(error.qualityFeedback.qualitySatisfied, false);
+    return true;
+  });
+}
+async function proseDialogue() {
+  const ctx = context(), original = ctx.generate;
+  ctx.generate = async input => input.responseFormatOverride.schema.properties.sceneText
+    ? result(JSON.stringify({ sceneText: SILENT_SCENE + '\nInès dit : "Voici la signature."' }))
+    : original(input);
+  await assert.rejects(native.elevateEvidence(ctx), error => {
+    assert.equal(error.code, 'WORKER_QUALITY_ELEVATION_FAILED');
+    assert.ok(error.qualityFeedback.defects.some(defect => defect.code === 'DIALOGUE_MISSING'));
     return true;
   });
 }
@@ -153,7 +168,7 @@ async function main() {
   receipt.issueQualityReceipt = async () => ({ schema: 'explicit-unit-test-stub' });
   receipt.recordQualityCheckpoint = async () => ({});
   execution.recordExecutionEvent = async () => ({});
-  try { await positive(); await substitution(); await materializationRepair(); await contextOverflow(); await materializationGuards(); budget(); }
+  try { await positive(); await substitution(); await proseDialogue(); await materializationRepair(); await contextOverflow(); await materializationGuards(); budget(); }
   finally { [authority.assertRun, receipt.issueQualityReceipt, receipt.recordQualityCheckpoint, execution.recordExecutionEvent] = previous; }
   console.log('PASS native narrative: structural repair, metered plan/scenes/envelope, unchanged candidate and comparison (synthetic model replies).');
 }
