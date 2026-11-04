@@ -34,7 +34,7 @@ pub(super) fn run(tx:&Transaction<'_>,binding:&Binding,input:(&ModelRecord,&Tool
 
 fn registration_batch(spec:&super::super::agentic_spec::AgenticSpec,input:(&ModelRecord,&ToolCall))->bool {
     let Some(profile)=&spec.config.orchestration else { return false; };
-    input.0.key.agent_id==profile.coordinator && input.1.name!="delegate_task"
+    profile.can_delegate(&input.0.key.agent_id) && input.1.name!="delegate_task"
         && input.0.tool_calls.iter().any(|call|call.name=="delegate_task")
 }
 
