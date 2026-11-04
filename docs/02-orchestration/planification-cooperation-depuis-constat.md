@@ -99,3 +99,8 @@ Ce protocole mesure une réponse conditionnelle fondée sur des preuves, pas une
 capacité générale de planification. Les [deux refus réels précédents](../06-qualite-preuves/cooperation-llm-plan-refuse-2026-11-04.md)
 restent des résultats négatifs. Une nouvelle exécution réelle doit être analysée
 séparément, sans confondre les sorties HTTP prédéfinies et les générations LLM.
+
+La [relance réelle du 2026-11-04](../06-qualite-preuves/cooperation-llm-constat-daemon-2026-11-04.md)
+est refusée avant le planificateur dans les deux cas : les dossiers du daemon
+ne satisfont pas le contrat d'observation. Les tests ciblés passent ; la
+coopération complète avec ce vrai modèle reste à qualifier.

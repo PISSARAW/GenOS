@@ -1,5 +1,6 @@
 # 06 — Qualité et preuves
 
+- [cooperation-llm-constat-daemon-2026-11-04.md](cooperation-llm-constat-daemon-2026-11-04.md) — planification fondée sur preuve ; deux refus réels du daemon, 7 709 tokens, aucun appel au planificateur.
 - [cooperation-llm-plan-refuse-2026-11-04.md](cooperation-llm-plan-refuse-2026-11-04.md) — deux appels Qwen réels refusés avant dispatch, 380 tokens et diagnostic du contrat de planification.
 
 - [competence-cinq-variantes-2026-11-04.md](competence-cinq-variantes-2026-11-04.md) — comparaison prospective de cinq variantes avec Qwen réel, six mondes, courbes d'apprentissage et reconnaissance des ambiguïtés.
