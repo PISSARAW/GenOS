@@ -1,0 +1,19 @@
+{
+  "id": "DPB-1-components-v1",
+  "status": "prepared-not-run",
+  "tasks": ["stateful-rollback-trap", "silent-swallow-trap", "budget-spiral-trap"],
+  "arms": ["A", "B", "C"],
+  "seeds": [101, 211, 307, 401, 503, 601, 701, 809, 907, 1009],
+  "maxCalls": 12,
+  "maxOutputTokens": 1536,
+  "temperature": 0.7,
+  "requestTimeoutMs": 120000,
+  "testTimeoutMs": 5000,
+  "candidates": 3,
+  "onlineGate": "public-invariants-and-native-code-proof",
+  "selection": "first-public-gate-pass-in-preallocated-order",
+  "grading": "eight-held-out-invariants-after-final-workspace-selection",
+  "scope": "GQWF CAS portable materialization + CodeProof component ablation; no full GQEL or allostasis claim",
+  "hypotheses": ["B minus A reduces accepted false claims", "C minus B improves verified fixes under equal total calls"],
+  "inference": "paired task-seed contrasts, descriptive pilot; no predetermined uplift"
+}

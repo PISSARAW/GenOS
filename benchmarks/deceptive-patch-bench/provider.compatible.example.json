@@ -1,0 +1,7 @@
+{
+  "kind": "chat-completions",
+  "endpoint": "https://PROVIDER.example/v1",
+  "model": "EXACT_MODEL_ID",
+  "version": "IMMUTABLE_VERSION_FROM_PROVIDER",
+  "keyEnv": "DPB_PROVIDER_API_KEY"
+}

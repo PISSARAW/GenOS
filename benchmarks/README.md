@@ -1,5 +1,10 @@
 # Référence expérimentale GenOS
 
+Le [banc Deceptive-Patch DPB-1](deceptive-patch-bench/README.md) prépare trois
+bugs trompeurs, trois bras et 90 essais par modèle avec oracles réservés,
+budgets communs et audit des preuves. La campagne modèle reste à exécuter ;
+le périmètre est l'ablation GQWF/CodeProof, pas l'orchestrateur complet.
+
 Le [banc avec contrôle positif](competence-five-arms-v2/README.md) valide
 l'application de seize règles connues avant de comparer les cinq variantes
 sur des mondes nouveaux, avec programmes LLM typés et interpréteur commun.

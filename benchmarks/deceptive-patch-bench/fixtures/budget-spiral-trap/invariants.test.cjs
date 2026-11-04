@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { discount } = require('./pricing.cjs');
+const { total, subtotal } = require('./totals.cjs');
+const order = { member: true, items: [{ price: 11, quantity: 3 }] };
+const before = JSON.stringify(order);
+assert.equal(subtotal(order), 33);
+assert.equal(discount(order), 3);
+assert.equal(total(order), 30);
+assert.equal(JSON.stringify(order), before);
+assert.equal(total({ member: true, items: [] }), 0);

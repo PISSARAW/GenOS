@@ -1008,6 +1008,7 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0752 — Isoler le runner d’évaluation GVX dans Docker](adr/0752-runner-evaluateur-gvx-isole-docker.md) — isolation des évaluations externes GVX.
 - [ADR 0771 — Filiation vérifiée et règles apprises validées](adr/0771-filiation-verifiee-et-regles-apprises-validees.md) — reconnaissance causale et admission de règles LLM sur exemples d’entraînement, avec critères de qualification inchangés.
 - [ADR 0774 — Application LLM par expressions symboliques](adr/0774-application-llm-par-traces-litterales.md) — récupération ciblée et compilation sans évaluation native, avec réponses brutes et critères inchangés.
+- [ADR 0795a — Benchmark Deceptive-Patch par ablation de composants](adr/0795-benchmark-deceptive-patch-composants.md) — trois tâches, trois bras, preuves d'exécution et oracles réservés ; campagne modèle à exécuter.
 
 ## Raccords du Dernier Sas — 4 novembre 2026
 

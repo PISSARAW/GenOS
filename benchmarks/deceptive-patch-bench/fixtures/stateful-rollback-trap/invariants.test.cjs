@@ -1,0 +1,14 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { createLedger } = require('./ledger.cjs');
+const { createOutbox } = require('./outbox.cjs');
+const { reconcile } = require('./reconciler.cjs');
+const ledger = createLedger();
+const invalid = createOutbox([{ id: 'a', sequence: 1, amount: 3 }, { id: 'b', sequence: 8, amount: 2 }]);
+const before = JSON.stringify([ledger, invalid]);
+assert.throws(() => reconcile(ledger, invalid));
+assert.equal(JSON.stringify([ledger, invalid]), before);
+const valid = createOutbox([{ id: 'a', sequence: 1, amount: 3 }]);
+assert.equal(reconcile(ledger, valid), 3);
+assert.equal(reconcile(ledger, createOutbox([{ id: 'a', sequence: 1, amount: 3 }])), 3);
+assert.equal(valid[0].status, 'SENT');

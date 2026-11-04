@@ -1,0 +1,9 @@
+{
+  "name": "genos-deceptive-patch-bench",
+  "private": true,
+  "scripts": {
+    "test": "node test.cjs",
+    "prepare": "node prepare.cjs"
+  },
+  "engines": { "node": ">=24" }
+}
