@@ -363,6 +363,21 @@ scores V1 `20 → 30 → 75` sont reproductibles. Le meilleur texte compte
 702 mots ; il n'était pas promu. L'exécution historique durait environ
 87,42 secondes et ses tokens mesurés ne sont pas connus.
 
+| Mesure | Initial du 2 novembre | Dernière mission `48628cf0…` |
+|---|---|---|
+| Candidat observé | 702 mots pour la meilleure version | Aucun retour complet, aucun candidat |
+| Score recevable | V1 : 75/100, promotion refusée | Aucun score ni verdict qualité |
+| Usage | Tokens historiques inconnus | Un appel pending, consommation effective inconnue |
+| Durée | Environ 87,42 s | Fin et durée réelles inconnues |
+| Qualification intégrale | Non établie par cette expérience | Non acquise ; préparation auditée, exécution interrompue |
+
+L'archive `D:/GenOS-runs/dernier-sas-runtime-execution-20261104/archive-interrupted/manifest.json`
+référence 21 artefacts et leurs SHA256. Elle contient notamment
+`audit-interrupted.json`, la requête native exacte dont l'empreinte est valide,
+et `comparison-original-vs-interrupted.json`. Aucun marqueur de fin n'est
+recréé. L'absence de candidat rend la comparaison de qualité après le dernier
+correctif non concluante.
+
 La nouvelle expérience reste une comparaison descriptive, sans ablation.
 L'utilisateur confirme plusieurs campagnes simultanées ; cela établit une
 concurrence possible, sans prouver la cause d'une interruption.
