@@ -106,3 +106,51 @@ test ; l'installation système n'est pas remplacée.
 
 Les campagnes emploient des bases et workspaces isolés. Les autres travaux en
 cours dans le checkout ne font pas partie des commits de ce chantier.
+
+## Requalification du worker local — 4 novembre 2026
+
+La qualification locale utilisait un budget total de 60 secondes pour préparer
+les protocoles, router une inférence et publier les preuves. ALLOSTASIS en
+protégeait 3 secondes, laissant une autorité de 57 secondes. Une mesure sur D:
+consomme déjà près de 40 secondes après le scellement, dont 23,7 secondes de
+routage pour une réponse HTTP quasi instantanée. La suite globale précédente
+avait rencontré une expiration ; son délai initial exact n'avait pas été mesuré.
+
+Une sonde contrôlée retarde réellement la réponse HTTP de 65 secondes sur le
+profil initial : le garde refuse la génération puis la publication à échéance
+dépassée. Ce refus est conservé dans les preuves, sans modification de l'horloge.
+
+La correction conserve le profil de 300 secondes déjà préparé dans le checkout
+V3 pour cette qualification, dont 15 secondes de réserve ALLOSTASIS. Cette
+valeur est déclarée avant admission. Les plafonds de 10 000 jetons, 1 USD et
+100 événements sont conservés ; les deux contrôleurs restent bornés à 300 secondes.
+Le test attend réellement 65 secondes côté fournisseur, puis exige une seule
+inférence, trois jetons connus, leur règlement natif et une publication avant
+l'expiration initiale. Les trois enveloppes observées au début de la requête
+doivent conserver leur hash et rester valides à la fin. Le vrai garde doit
+toujours refuser chacune à sa date d'expiration exacte.
+
+Les résultats métier restent non vérifiés : aucune réussite indépendante ni
+promotion n'est déduite de cette inférence. Les gardes de production et les
+enveloppes scellées ne sont pas assouplis ou renouvelés. Les traces et codes de
+sortie de cette requalification sont conservés dans
+`D:/GenOS-AGOW/local-worker-validation/`.
+
+La sonde initiale retardée termine avec le code 1 sur `f17d3bd97` : le premier
+refus arrive 17 042 ms après l'expiration. Les rapports de requalification
+conservent le délai HTTP mesuré, la fin persistée, les trois hashes d'autorité
+et leurs échéances. Le test réel des enveloppes, incluant la révocation et
+l'expiration, passe aussi.
+
+Le profil final de cinq minutes passe avec 65 002,9 ms d'attente HTTP réelle.
+Son autorité est émise à 11:34:21.465 UTC, expire à 11:39:06.465 UTC et la fin
+est persistée à 11:36:03.031 UTC, soit environ 183 secondes avant expiration.
+Les enveloppes des deux contrôleurs et du worker restent identiques à celles
+lues au début de l'appel. Ces mesures figurent dans `fixed-300.log` et son
+rapport JSON.
+
+La relance de `npm test` s'arrête dans la famille biologique, avec 10 cas sur 11
+réussis. Le reçu du catalogue Hachimoji ne correspond plus à son empreinte de
+sources. `catalog-baseline.json` vérifie le même désaccord sur les sources de
+la révision de départ, indépendamment des trois fichiers de cette correction.
+Ce reçu n'est pas réécrit par ce chantier.
