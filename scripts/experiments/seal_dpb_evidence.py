@@ -18,9 +18,9 @@ def sources(directory):
     ignored = {'evidence-manifest.json', 'evidence-manifest.sha256'}
     result = {}
     for filename in sorted(directory.rglob('*')):
-        if filename.is_symlink():
+        if filename.is_symlink() or getattr(filename, 'is_junction', lambda: False)():
             raise ValueError('Evidence symlinks are forbidden: ' + str(filename))
-        if filename.is_file() and filename.name not in ignored:
+        if filename.is_file() and filename.relative_to(directory).as_posix() not in ignored:
             result[filename.relative_to(directory).as_posix()] = {'bytes': filename.stat().st_size,
                                                                'sha256': sha256(filename)}
     return result

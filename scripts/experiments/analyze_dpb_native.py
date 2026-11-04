@@ -64,6 +64,28 @@ def replay_evidence(journal):
                 and all(item.get('exitCode') == 0 for item in tests))
 
 
+def native_budgets(directory, records):
+    result = []
+    for row in records.get('mission_protocol_runs', []):
+        binding = json.loads(row['binding_json'])
+        filename = Path(binding['directory']).resolve() / 'allostasis.sqlite'
+        if not filename.is_relative_to(directory.resolve()):
+            raise ValueError('Native budget path escaped trial')
+        if filename.exists():
+            result.extend(read_budget_pools(filename, row['run_id']))
+    return result
+
+
+def read_budget_pools(filename, run_id):
+    db = sqlite3.connect(filename.as_uri() + '?mode=ro', uri=True)
+    try:
+        pools = [json.loads(row[0]) for row in db.execute('SELECT body FROM allostasis_pools')]
+    finally:
+        db.close()
+    return [{'runId': run_id, 'consumed': pool['consumed'], 'held': pool['held'],
+             'protectedReserve': pool['protectedReserve']} for pool in pools]
+
+
 def native_details(directory):
     records = optional(directory / 'native-records.json')
     qualification = optional(directory / 'native-qualification.json')
@@ -87,6 +109,7 @@ def native_details(directory):
             'nativeAccepted': qualification.get('accepted') is True,
             'observedTools': result.get('coverage', {}).get('protocol', {}).get('observedTools', []),
             'protocolReceipts': dict(counts), 'rootVerdict': qualification.get('verdict'),
+            'allostasisPools': native_budgets(directory, records),
             'nativeCalledAttempts': sum(row['provider_called'] for row in records.get('model_attempt_ledger', []))}
 
 
@@ -121,12 +144,13 @@ def costs(rows, arm):
 
 def terminal_reply(raw):
     try:
-        return json.loads(raw)
+        value = json.loads(raw)
     except ValueError:
         try:
-            return json.loads(raw.strip().splitlines()[-1])
+            value = json.loads(raw.strip().splitlines()[-1])
         except (ValueError, IndexError):
             return {}
+    return value if isinstance(value, dict) else {}
 
 
 def generation_details(directory, objective):
@@ -145,7 +169,7 @@ def generation_details(directory, objective):
 def generation_summary(requests, replies, events):
     return {'temperatures': dict(Counter(str(request.get('options', {}).get('temperature')) for request in requests)),
             'finishReasons': dict(Counter(str(reply.get('done_reason')) for reply in replies)),
-            'modelDigests': sorted({event['digest'] for event in events if event['type'] == 'model-pin'}),
+            'modelDigests': sorted({event['digest'] for event in events if event['type'] == 'model-pin'}, key=str),
             'auxiliaryCalls': sum(event['type'] == 'auxiliary' for event in events)}
 
 
