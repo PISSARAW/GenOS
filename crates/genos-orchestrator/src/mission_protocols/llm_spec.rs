@@ -64,9 +64,11 @@ impl Store {
     pub fn admit_llm(&mut self, spec: &LlmRunSpec) -> Result<Binding, String> {
         spec.validate()?;
         let binding = binding_for(spec)?;
+        let _guard = self.current_writer(&binding)?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(error)?;
         reject_existing(&tx, &spec.mission_id)?;
         persist_admission(&tx,&binding,spec)?;
+        super::store::current_checked(&tx,&binding)?;
         tx.commit().map_err(error)?;
         Ok(binding)
     }

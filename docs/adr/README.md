@@ -11,12 +11,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0795b](0795-observation-daemon-structuree.md) | Observation typée du daemon d’allocation | Accepté | 2026-11-04 | format fournisseur, sérialisation et preuves natives |
-| [0793](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
-| [0794](0794-application-regles-typees-et-controle-positif.md) | Application de règles typées et contrôle positif préalable | Accepté pour un banc expérimental isolé | 2026-11-04 | Apprentissage, validation et exécution bornée |
-| [0795a](0795-benchmark-deceptive-patch-composants.md) | Benchmark Deceptive-Patch par ablation de composants | Accepté pour préparation du pilote | 2026-11-04 | benchmarks, provenance, GQWF |
-| [0792](0792-experience-competence-cinq-variantes.md) | Expérience de compétence à cinq variantes | Accepté pour un banc expérimental isolé | 2026-11-04 | Expérimentation, mémoire et métacognition |
-| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -926,6 +920,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0788](0788-migration-catalogue-hachimoji-sous-preuves.md) | Migration du catalogue Hachimoji sous preuves | Accepté | 2026-11-04 | AgentDNA, catalogue, daemon résident, qualification |
 | [0789](0789-morphogenese-live-des-equipes-a-team.md) | Remplacement gouverné pendant une mission A-Team | Accepté pour le remplacement créatif en attente | 2026-11-04 | A-Team, morphogenèse native, scheduler, budgets et preuves |
 | [0790](0790-morphogenese-automatique-guidee-par-observations.md) | Morphogenèse automatique guidée par les observations | Accepté pour quatre familles de workers et un remplacement en attente | 2026-11-04 | A-Team, sélection dynamique, ressources, protocoles et preuves |
+| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
+| [0792a](0792-admission-des-ecritures-du-journal-rust.md) | Admission locale des écritures du journal Rust | Accepté | 2026-11-04 | runtime Rust, concurrence et journal de mission |
+| [0792b](0792-experience-competence-cinq-variantes.md) | Expérience de compétence à cinq variantes | Accepté pour un banc expérimental isolé | 2026-11-04 | Expérimentation, mémoire et métacognition |
+| [0793a](0793-fermeture-des-flux-du-bootstrap-capsule.md) | Fermeture des flux du bootstrap de capsule | Accepté | 2026-11-04 | processus Node, capsules et récupération |
+| [0793b](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
+| [0794](0794-application-regles-typees-et-controle-positif.md) | Application de règles typées et contrôle positif préalable | Accepté pour un banc expérimental isolé | 2026-11-04 | Apprentissage, validation et exécution bornée |
+| [0795a](0795-benchmark-deceptive-patch-composants.md) | Benchmark Deceptive-Patch par ablation de composants | Accepté pour préparation du pilote | 2026-11-04 | benchmarks, provenance, GQWF |
+| [0795b](0795-observation-daemon-structuree.md) | Observation typée du daemon d’allocation | Accepté | 2026-11-04 | format fournisseur, sérialisation et preuves natives |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
@@ -949,6 +951,19 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [2026u](2026-11-02-raccord-gns-topologies.md) | Raccordement GNS aux huit topologies | Voir le fichier | -- | -- |
 | [2026v](2026-11-02-regulation-gns-du-garage.md) | Régulation GNS du Garage : mesure, autorité et effet vérifiable | Voir le fichier | -- | -- |
 | [2026w](2026-11-02-systeme-nerveux-operationnel.md) | ADR — Système nerveux opérationnel GenOS | Voir le fichier | -- | -- |
+| [2026x](2026-11-04-deadline-http-modele-sous-autorite.md) | Délai HTTP du modèle aligné sur le délai autorisé | Implémenté — tests de transport ; qualification rédactionnelle séparée. | -- | -- |
+| [2026y](2026-11-04-ett-inspection-artefact-de-mission.md) | ADR — Relier une inspection ETT complète à une mission native | Voir le fichier | -- | -- |
+| [2026z](2026-11-04-gqel-bornes-et-reparations-des-scenes.md) | Bornes et réparations des scènes sous le contrat GQEL | Implémenté et testé ; qualité rédactionnelle à qualifier sur modèle réel. | -- | -- |
+| [2026{](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
+| [2026|](2026-11-04-incarnation-adn-clinique-workers-topologiques.md) | ADN et clinique avant l'exécution des workers topologiques | Voir le fichier | -- | -- |
+| [2026}](2026-11-04-mission-mecanismes-integres.md) | Préparation et qualification des mécanismes d'une mission native | Voir le fichier | -- | -- |
+| [2026~](2026-11-04-oracle-javascript-borne-et-graphe-mission.md) | Oracle JavaScript borné et sources du graphe de mission | Voir le fichier | -- | -- |
+| [2026](2026-11-04-ordre-contexte-natif-et-donnees-de-scene.md) | Contexte natif complet avant les données exactes de génération | Implémenté pour la sérialisation ; bénéfice rédactionnel à mesurer. | -- | -- |
+| [2026](2026-11-04-phases-mutation-primitives.md) | ADR — Phases de mutation et primitives exécutables | Voir le fichier | -- | -- |
+| [2026](2026-11-04-refus-repetition-scenes-natives.md) | Refus des boucles et copies de corps dans les scènes natives | Implémenté — diagnostic structurel et tests ; raccord au workflow dans le point de génération bornée. | -- | -- |
+| [2026](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md) | Renouvellement de la lease A-Team pendant les appels attendus | Implémenté — service et tests de lease ; aucune qualité artistique certifiée. | -- | -- |
+| [2026](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
+| [2026](2026-11-04-sections-redigees-et-revues-du-scenario.md) | Sections rédigées et revues du scénario | Voir le fichier | -- | -- |
 
 Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 [socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),

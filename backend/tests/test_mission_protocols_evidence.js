@@ -42,6 +42,8 @@ async function qualify(db) {
   assert.equal(dossier.claim.provenance.producerId, result.childAgentId);
   const observations = await require('../src/services/biologicalWorkerStore').observations(db, run.id);
   const terminal = observations.find(item => item.event.eventType === 'AGENT_COMPLETED').event;
+  const scope = terminal.payload.evidenceReport.workerArtifact.content.scopeCompletion.scopeRef;
+  assert.match(scope, /fix-tests-pass/);
   assert.equal(await bridge.guardEvent(binding, terminal), terminal);
   const changed = structuredClone(terminal);
   changed.payload.evidenceReport.workerArtifact.content.result.sum++;
@@ -55,7 +57,7 @@ async function qualify(db) {
 }
 
 async function main() {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mission-evidence-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mission-evidence-fix-tests-pass-'));
   const workspace = path.join(directory, 'workspace');
   await fs.mkdir(workspace);
   await fs.writeFile(path.join(workspace, 'task.txt'), 'Real bounded native task');

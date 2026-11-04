@@ -104,8 +104,9 @@ async function provisionNative(ctx, paths, executable) {
     ], { root: paths.root });
     return await buildProvisionResult(JSON.parse(output), paths);
   } catch (error) {
+    if (error.cleanupPending) throw error;
     await fs.rm(securePaths.assertPath(paths.root), { recursive: true, force: true }).catch(() => {});
-    if (ctx.correlation && ctx.fallbackSynthetic !== true) throw error;
+    if (!permitsBootstrapFallback(ctx, error)) throw error;
     ctx.bootstrapMode = 'synthetic';
     ctx.fallbackReason = error.message;
     return provisionSyntheticRaw(ctx);
@@ -170,3 +171,8 @@ function recoverPartial(context = {}) {
 }
 
 module.exports = { provision, provisionSynthetic, recoverPartial };
+
+function permitsBootstrapFallback(context, error) {
+  if (error.code === 'CAPSULE_BOOTSTRAP_IO_ERROR') return context.fallbackSynthetic === true;
+  return !context.correlation || context.fallbackSynthetic === true;
+}
