@@ -46,8 +46,15 @@ des rapports. Elles ne sont jamais des clés de signature de génome.
 node benchmarks/local-code-temperature/native/prepare.cjs
 node benchmarks/local-code-temperature/native/campaign.cjs <archive>
 node benchmarks/local-code-temperature/native/verify.cjs <archive>
+node benchmarks/local-code-temperature/native/audit-receipts.cjs <archive>
 ```
 
 Une commande de vérification réussie confirme le rejeu et la cohérence de
 l'archive. Elle ne modifie pas le verdict natif et ne qualifie ni ne promeut
 un génome. Les refus et les prétests exclus sont conservés séparément.
+
+L'audit supplémentaire ouvre les bases en `READONLY`, vérifie la chaîne MAC
+de l'autorité, la liaison ADN authentifiée, les observations immuables, le
+tour de modèle persistant et l'absence de promotion. Une tentative interrompue
+reste `INCOMPLETE_NATIVE_EXECUTION` et rend cet audit global `INCOMPLETE`.
+Il ne remplace pas un reçu natif absent ou négatif.
