@@ -54,6 +54,9 @@ async function probes(root) {
   const writeProbe = evaluate.execute(directory, "require('node:fs').writeFileSync('outside-probe','bad');");
   assert.notEqual(writeProbe.exitCode, 0, 'child has no filesystem write authority');
   assert.notEqual(evaluate.execute(directory, 'process.exit(0);').exitCode, 0, 'early successful exit is not a completed test');
+  assert.notEqual(evaluate.execute(directory, 'setImmediate(()=>process.exit(0));').exitCode, 0, 'scheduled early exit is rejected');
+  assert.equal(evaluate.execute(directory, "require('node:test')('async pass',async()=>{require('node:assert/strict').equal(1,1);});").exitCode, 0);
+  assert.notEqual(evaluate.execute(directory, "require('node:test')('async fail',async()=>{require('node:assert/strict').equal(1,2);});").exitCode, 0);
   const base = await worlds.snapshot(directory, path.join(root, 'snapshot'));
   const isolated = path.join(root, 'isolated');
   await worlds.fork(base, isolated);

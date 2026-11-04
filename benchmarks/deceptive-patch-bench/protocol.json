@@ -1,5 +1,5 @@
 {
-  "id": "DPB-1-components-v1",
+  "id": "DPB-1-components-v2",
   "status": "prepared-not-run",
   "tasks": ["stateful-rollback-trap", "silent-swallow-trap", "budget-spiral-trap"],
   "arms": ["A", "B", "C"],

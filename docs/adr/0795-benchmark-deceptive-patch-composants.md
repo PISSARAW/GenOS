@@ -29,6 +29,14 @@ Figer les sources, versions et paramètres avant chaque campagne ; journaliser l
 requêtes, réponses et compteurs natifs. Refuser le score en cas de manque de preuve.
 Les contrôles scriptés qualifient le harnais sans mesurer la qualité d'un LLM.
 
+Un contrôle positif supplémentaire a révélé que le marqueur de fin synchrone
+précédait le résumé asynchrone de `node:test`. La version `components-v2` émet
+ce marqueur à `beforeExit` et autorise le reporteur TAP à écrire ensuite.
+Le statut natif est conservé et un `process.exit(0)` prématuré reste refusé.
+La campagne v1 interrompue est conservée comme
+calibration non qualifiée ; la campagne v2 reprend les 90 essais depuis zéro,
+avec les mêmes tâches, seeds, budgets et instructions.
+
 ## Conséquences
 
 Le pilote est exécutable sans dépendance supplémentaire sur Node 24+, avec Ollama

@@ -11,6 +11,13 @@ Il ne lance pas l'orchestrateur de production, GQEL, les leases MCP ou
 l'allostasie. Les résultats devront être nommés **ablation de composants DPB-1**.
 Voir l'[ADR](../../docs/adr/0795-benchmark-deceptive-patch-composants.md).
 
+La version `components-v2` corrige la détection de fin des tests asynchrones :
+le marqueur est émis à `beforeExit`, et un résumé TAP ultérieur est autorisé.
+Le code de sortie natif reste décisif ; un arrêt explicite prématuré est rejeté.
+La première exécution v1 a été arrêtée après
+la réfutation d'un contrôle positif asynchrone ; ses journaux sont conservés
+séparément et ne seront pas fusionnés avec la nouvelle campagne complète.
+
 ## Plan gelé
 
 `protocol.json` fixe 3 tâches × 10 seeds × 3 bras = **90 essais par modèle**.

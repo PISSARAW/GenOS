@@ -16,12 +16,12 @@ function environment() {
 function execute(workspace, script) {
   const started = Date.now();
   const sentinel = `DPB_COMPLETED_${randomUUID()}`;
-  const input = `${script}\n;process.stdout.write(${JSON.stringify('\n' + sentinel + '\n')});\n`;
+  const input = `${script}\n;process.once('beforeExit',()=>process.stdout.write(${JSON.stringify('\n' + sentinel + '\n')}));\n`;
   const result = spawnSync(process.execPath, ['--permission', `--allow-fs-read=${workspace}`, '-'], {
     cwd: workspace, input, env: environment(), encoding: 'utf8', timeout: protocol.testTimeoutMs,
     maxBuffer: 256 * 1024, windowsHide: true
   });
-  const completed = Boolean(result.stdout?.endsWith('\n' + sentinel + '\n'));
+  const completed = Boolean(result.stdout?.includes('\n' + sentinel + '\n'));
   return { executed: true, exitCode: completed ? result.status : 1, processExitCode: result.status, completed,
     signal: result.signal, timedOut: result.error?.code === 'ETIMEDOUT', error: result.error?.code || null,
     stdout: (result.stdout || '').replace('\n' + sentinel + '\n', ''), stderr: result.stderr || '', elapsedMs: Date.now() - started };
