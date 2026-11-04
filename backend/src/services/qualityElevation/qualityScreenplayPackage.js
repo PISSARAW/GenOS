@@ -4,7 +4,8 @@ const { parseObject } = require('./qualityReviewService');
 const { validatedCall } = require('./qualityProtocol');
 const LIMITS = Object.freeze({ title: 120, logline: 600, profile: 600, objective: 400, secret: 400, dramaturgicNote: 1600 });
 function object(properties) { return { type: 'object', properties, required: Object.keys(properties), additionalProperties: false }; }
-function paragraphSchema(maxLength) { return { type: 'string', minLength: 1, maxLength, pattern: '^[^\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]+$' }; }
+function paragraphSchema(maxLength) { return { type: 'string', minLength: 1, maxLength,
+  pattern: `^[^\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]{1,${maxLength}}$` }; }
 function sectionsSchema(names) {
   const character = object({ name: { type: 'string', enum: names }, profile: paragraphSchema(LIMITS.profile),
     objective: paragraphSchema(LIMITS.objective), secret: paragraphSchema(LIMITS.secret) });

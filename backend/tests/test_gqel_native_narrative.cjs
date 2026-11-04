@@ -8,8 +8,10 @@ const generation = require('../src/services/qualityElevation/qualityNativeGenera
 const authority = require('../src/services/missionEnvelopeAuthority');
 const receipt = require('../src/services/qualityElevation/qualityReceiptService');
 const execution = require('../src/services/strategyExecutionService');
-const { samplePlan, GOOD: SILENT_SCENE } = require('./helpers/gqelProgressFixture.cjs');
-const GOOD = SILENT_SCENE + '\nINÈS\nVoici la signature que vous devez vérifier.';
+const { samplePlan } = require('./helpers/gqelProgressFixture.cjs');
+const SILENT_LINES = ['Inès glisse la copie sous la vitre.', 'Le gardien compare la signature au registre,',
+  'déverrouille la porte et recule.', 'Inès franchit le seuil.'];
+const GOOD = ['INT. ARCHIVES - NUIT', ...SILENT_LINES, 'INÈS', 'Voici la signature que vous devez vérifier.'].join('\n');
 const TITLE = 'Le passage des archives — scénario';
 const MODEL = 'ollama://synthetic-author:8b';
 const MISSION_CONTEXT = 'GENOS VERIFIED MISSION CONTEXT native-marker\nMesure vérifiée : MIN_WORDS.\nHandoff réel de fixture : producer-id, digest-123, contribution reçue.';
@@ -34,12 +36,14 @@ function checks(data) {
 }
 function answer(ctx) {
   const data = JSON.parse(ctx.promptText.slice(ctx.promptText.indexOf('\n') + 1));
-  if (ctx.responseFormatOverride.schema.properties.sceneText) {
+  if (ctx.responseFormatOverride.schema.properties.lines) {
     assert.equal(data.nativeMissionContext, ctx.mission.prompt);
     assert.match(ctx.promptText.slice(0, ctx.promptText.indexOf('\n')), /MAJUSCULES sur une ligne dédiée/);
     assert.ok(ctx.promptText.includes(JSON.stringify('PERSONNAGE\nUne réplique.')),
       'The actual native scene request must explain the format enforced by the dialogue gate.');
-    return JSON.stringify({ sceneText: GOOD });
+    const value = { lines: GOOD.split('\n').slice(1) };
+    assert.equal(new Ajv({ strict: false }).compile(ctx.responseFormatOverride.schema)(value), true);
+    return JSON.stringify(value);
   }
   if (ctx.responseFormatOverride.schema.properties.premise) {
     assert.equal(data.nativeMissionContext, ctx.mission.prompt);
@@ -80,7 +84,7 @@ async function positive() {
   assert.equal(selected.evidenceReport.workerArtifact.content.candidate, GOOD);
   assert.equal(selected.evidenceReport.qualityFeedback.qualitySatisfied, true);
   assert.equal(ctx.calls.filter(c => c.responseFormatOverride.schema.properties.premise).length, 1);
-  assert.equal(ctx.calls.filter(c => c.responseFormatOverride.schema.properties.sceneText).length, 1);
+  assert.equal(ctx.calls.filter(c => c.responseFormatOverride.schema.properties.lines).length, 1);
   assert.equal(ctx.calls.filter(c => c.responseFormatOverride.schema.properties.preferred).length, 2);
   const usage = selected.evidenceReport.qualityFeedback.budget;
   assert.equal(usage.calls, ctx.calls.length + 2, 'Initial native call and materialization remain counted.');
@@ -101,8 +105,8 @@ async function substitution() {
 }
 async function proseDialogue() {
   const ctx = context(), original = ctx.generate;
-  ctx.generate = async input => input.responseFormatOverride.schema.properties.sceneText
-    ? result(JSON.stringify({ sceneText: SILENT_SCENE + '\nInès dit : "Voici la signature."' }))
+  ctx.generate = async input => input.responseFormatOverride.schema.properties.lines
+    ? result(JSON.stringify({ lines: [...SILENT_LINES, 'Inès dit : "Voici la signature."'] }))
     : original(input);
   await assert.rejects(native.elevateEvidence(ctx), error => {
     assert.equal(error.code, 'WORKER_QUALITY_ELEVATION_FAILED');

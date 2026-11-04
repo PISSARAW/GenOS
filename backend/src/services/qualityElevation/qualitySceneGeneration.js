@@ -2,6 +2,7 @@
 const { digest, fail, freeze } = require('./qualityContract');
 const { validUsage } = require('./qualityBudget');
 const { sceneBudget, sceneSchema } = require('./qualitySceneBudget');
+const { sceneReply } = require('./qualitySceneLines');
 const COMPLETE_ERRORS = new Set(['GQEL_SCENE_INVALID', 'GQEL_SCENE_REPETITIVE', 'GQEL_REVIEW_INVALID']);
 const TRUNCATED = new Set(['length', 'max_tokens', 'num_predict']);
 
@@ -42,6 +43,7 @@ function repairPrompt(prompt, failure) {
   if (split < 0) throw fail('GQEL_PROTOCOL_PROMPT_INVALID', 'Scene prompts must separate instructions and JSON data.');
   const data = JSON.parse(prompt.slice(split + 1));
   const guidance = 'NOUVELLE TENTATIVE BORNÉE : écris cette scène entière, concise et jouable. '
+    + 'Retourne seulement {"lines":[...]} : lignes du corps sans en-tête, sans saut de ligne interne, dans les limites fournies. '
     + 'Matérialise sa décision et sa conséquence par des actions observables et vise son état final prévu. '
     + 'Chaque échange doit apporter une information, un choix ou un changement ; conclus avant de répéter le même refus. '
     + 'Respecte les scènes précédentes et les obligations du plan provisoire. Aucun fragment rejeté ne vaut validation. ';
@@ -75,7 +77,7 @@ async function recordAttempt(context, observation, result) {
 }
 function boundedValidator(input, budget) {
   return raw => {
-    const text = input.validate(raw);
+    const text = input.validate(sceneReply(raw, { scene: input.scene, budget }));
     if (Array.from(text).length > budget.maxCharacters) throw fail('GQEL_SCENE_INVALID', 'Scene exceeds its explicit character budget.');
     return text;
   };

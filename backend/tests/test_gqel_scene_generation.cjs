@@ -7,6 +7,8 @@ const { parseObject } = require('../src/services/qualityElevation/qualityReviewS
 const { assertSceneNovelty } = require('../src/services/qualityElevation/qualitySceneRepetition');
 const { sceneBudget } = require('../src/services/qualityElevation/qualitySceneBudget');
 const { generateScene } = require('../src/services/qualityElevation/qualitySceneGeneration');
+const { sceneSchema } = require('../src/services/qualityElevation/qualitySceneBudget');
+const { sceneReply } = require('../src/services/qualityElevation/qualitySceneLines');
 const authority = require('../src/services/missionEnvelopeAuthority');
 const { samplePlan, GOOD, reviewer } = require('./helpers/gqelProgressFixture.cjs');
 const MODEL = 'ollama://scene-fixture';
@@ -51,7 +53,7 @@ async function measuredRepair() {
   assert.equal(requests.length, 2);
   assert.deepEqual(requests.map(request => request.sceneAttempt), [0, 1]);
   assert.ok(requests.every(request => request.maxOutputTokens === 1536));
-  assert.ok(requests.every(request => request.responseSchema.properties.sceneText.maxLength === 4096));
+  assert.ok(requests.every(request => request.responseSchema.properties.lines.items.maxLength <= 2000));
   assert.ok(!requests[1].prompt.includes('TRUNCATED_REPLY_MUST_NOT_BE_PROMPTED'));
   const repair = JSON.parse(requests[1].prompt.slice(requests[1].prompt.indexOf('\n') + 1)).sceneAttemptRepair;
   assert.equal(repair.responseDigest, digest(bad));
@@ -136,11 +138,12 @@ async function nativeMeasuredRepair() {
   const usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
   let checks = 0, providers = 0;
   authority.assertRun = async () => { checks++; };
+  const lines = ['Une copie glisse sous la vitre.', 'Le gardien déverrouille la porte.'];
   ctx.generator = createAdapter({ db: {}, contract: ctx.contract, usage, executionRun: { id: 'synthetic-native-run' },
     mission: { agentId: 'synthetic-author', executionDeadlineAt: Date.now() + 60000 }, generationContext: { latencyMs: 10000 },
     generate: async request => nativeResult(request, ++providers === 1 ? {} : {
-      finishReason: 'stop', outputTokens: 11, schemaViolation: null, routeAttemptId: 'native-attempt-2' }) }, MODEL);
-  try { assert.equal(await generateScene(ctx, input(ctx)), GOOD); }
+      text: JSON.stringify({ lines }), finishReason: 'stop', outputTokens: 11, schemaViolation: null, routeAttemptId: 'native-attempt-2' }) }, MODEL);
+  try { assert.equal(await generateScene(ctx, input(ctx)), ctx.plan.scenes[0].heading + '\n' + lines.join('\n')); }
   finally { authority.assertRun = original; }
   assert.equal(providers, 2);
   assert.equal(checks, 2);
@@ -170,9 +173,58 @@ async function noOuterMultiplication() {
   assert.equal(sceneCalls, 2, 'Exhausted local scene repairs cannot restart through outer artifact rounds.');
   assert.equal(result.session.sceneAttempts.length, 2);
 }
+async function finiteLines() {
+  const lines = ['  Inès pose la copie sans masquer la signature.  ', 'INÈS', 'Regardez le dernier trait, près du sceau. 🙂',
+    'Le dossier porte "preuve" et le code C:\\archive.'];
+  const ctx = context(async request => {
+    const schema = request.responseSchema.properties.lines;
+    assert.ok(schema.maxItems <= 2000 && schema.items.maxLength <= 2000);
+    assert.equal(request.responseSchema.properties.sceneText, undefined);
+    return reply(JSON.stringify({ lines }));
+  });
+  const expected = ctx.plan.scenes[0].heading + '\n' + lines.join('\n');
+  assert.equal(await generateScene(ctx, input(ctx)), expected);
+  assert.equal(ctx.session.budget.tokens, 18);
+  assert.equal(ctx.session.sceneAttempts[0].responseDigest, digest(JSON.stringify({ lines })));
+  const validate = new (require('ajv'))({ strict: false }).compile(sceneSchema(sceneBudget(ctx.contract, ctx.plan)));
+  assert.equal(validate({ lines }), true);
+  assert.equal(validate({ lines: ['x'.repeat(2001)] }), false);
+  assert.equal(validate({ sceneText: expected }), false, 'Native generation uses only the finite lines schema.');
+}
+async function lineGuards() {
+  const ctx = context(async () => reply('unused')), budget = sceneBudget(ctx.contract, ctx.plan);
+  const lineCap = budget.maxLineCharacters, scene = ctx.plan.scenes[0];
+  const render = value => sceneReply(value, { scene, budget });
+  assert.deepEqual(JSON.parse(render({ lines: ['🙂'.repeat(lineCap)] })), { sceneText: scene.heading + '\n' + '🙂'.repeat(lineCap) });
+  for (const lines of [[], Array(budget.maxLines + 1).fill('Une ligne.'), [42], ['   '], ['x'.repeat(lineCap + 1)],
+    ['🙂'.repeat(lineCap + 1)], ['Action\nEXT. DEHORS - JOUR'], ['Action\rUne suite'], ['Action\u2028Une suite'],
+    ['INT. AUTRE MODULE - JOUR'], ['## Note dramaturgique']]) {
+    assert.throws(() => render({ lines }), { code: 'GQEL_SCENE_INVALID' });
+  }
+  assert.throws(() => render({ lines: ['Action.'], invented: true }), { code: 'GQEL_SCENE_INVALID' });
+  assert.equal(render(complete()), complete(), 'Legacy complete sceneText drivers remain supported.');
+  assert.equal(render(GOOD), GOOD, 'Legacy plain complete scenes remain supported.');
+}
+async function lineRepairAndExhaustion() {
+  const requests = [], ctx = context(async request => {
+    requests.push(request);
+    return reply(JSON.stringify({ lines: requests.length === 1 ? ['Action\nEXT. AUTRE - JOUR'] : ['La copie glisse sous la vitre.'] }));
+  });
+  await generateScene(ctx, input(ctx));
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].prompt, /Retourne seulement \{"lines"/);
+  assert.equal(ctx.session.budget.tokens, 36);
+  assert.equal(ctx.session.sceneAttempts[0].code, 'GQEL_SCENE_INVALID');
+  const truncated = context(async request => reply('{"lines":["incomplete', { finishReason: 'length',
+    usage: { inputTokens: 7, outputTokens: request.maxOutputTokens } }), { maxProtocolRepairs: 1 });
+  await assert.rejects(generateScene(truncated, input(truncated)), { code: 'GQEL_TRUNCATED_OUTPUT' });
+  assert.equal(truncated.session.calls.length, 2);
+  assert.ok(truncated.session.sceneAttempts.every(record => record.acceptedForDelivery === false));
+}
 async function main() {
   limits(); await measuredRepair(); await repetitiveRepair(); await exhausted(); await noUnsafeRetry(); await globalCaps();
   await unicodeBound(); await noOuterMultiplication(); await nativeMeasuredRepair();
+  await finiteLines(); await lineGuards(); await lineRepairAndExhaustion();
   for (const kind of ['cancel', 'authority', 'deadline', 'usage', 'completion']) await nativeRefusal(kind);
   console.log('Scene generation: bounded schema/output, fresh measured repairs, cumulative accounting and native authority/cancel/deadline refusals PASS (synthetic model replies).');
 }

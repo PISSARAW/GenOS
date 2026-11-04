@@ -87,6 +87,30 @@ test('schema and validator enforce single paragraphs, strict fields and exact na
     assert.throws(() => validateSections(bad, NAMES), { code: 'GQEL_SCREENPLAY_SECTIONS_INVALID' });
   }
 });
+test('paragraph grammar carries its finite bound even when pattern takes priority', () => {
+  const schema = sectionsSchema(NAMES), valid = new Ajv({ strict: false }).compile(schema);
+  for (const field of ['title', 'logline', 'dramaturgicNote']) {
+    const rule = schema.properties[field], value = structuredClone(SECTIONS);
+    assert.ok(rule.maxLength <= 2000);
+    assert.ok(rule.pattern.endsWith(`{1,${rule.maxLength}}$`));
+    value[field] = '🙂'.repeat(rule.maxLength);
+    assert.equal(valid(value), true);
+    value[field] += '🙂';
+    assert.equal(valid(value), false);
+    assert.throws(() => validateSections(value, NAMES), { code: 'GQEL_SCREENPLAY_SECTIONS_INVALID' });
+  }
+});
+test('quoted and escaped paragraphs require complete JSON rather than a salvaged prefix', async () => {
+  const value = structuredClone(SECTIONS);
+  value.logline = 'Le dossier "copie" porte le chemin C:\\archive.';
+  let calls = 0;
+  const ctx = context(async () => reply(++calls === 1 ? '{"title":"Une citation "non échappée"' : JSON.stringify(value)));
+  const completed = await completeScreenplay(ctx, produced());
+  assert.equal(calls, 2);
+  assert.equal(ctx.session.protocolAttempts[0].code, 'GQEL_REVIEW_INVALID');
+  assert.ok(completed.content.includes(value.logline));
+  assert.equal(ctx.session.budget.tokens, 60);
+});
 test('one malformed reply is repaired through the canonical measured invoker', async () => {
   const requests = [], ctx = context(async request => {
     requests.push(request);

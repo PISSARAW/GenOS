@@ -13,14 +13,18 @@ function sceneBudget(contract, plan, scene) {
   const count = plan?.scenes?.length;
   if (!Number.isInteger(count) || count < 1) throw fail('GQEL_PLAN_INVALID', 'A scene budget requires a non-empty validated plan.');
   const targetWords = wordTarget(contract, plan, scene);
-  return { targetWords,
-    maxOutputTokens: Math.min(contract.maxOutputTokens, Math.max(1536, targetWords * 6 + 256)),
-    maxCharacters: Math.max(4096, targetWords * 24) };
+  const maxOutputTokens = Math.min(contract.maxOutputTokens, Math.max(1536, targetWords * 6 + 256));
+  const maxCharacters = Math.max(4096, targetWords * 24);
+  const maxLines = Math.max(12, Math.min(64, Math.ceil(targetWords / 10) + 10));
+  const bodyCharacters = Math.min(maxCharacters, Math.max(960, targetWords * 12), maxOutputTokens * 2);
+  return { targetWords, maxOutputTokens, maxCharacters, maxLines,
+    maxLineCharacters: Math.max(1, Math.min(2000, Math.floor(bodyCharacters / maxLines))) };
 }
 
 function sceneSchema(budget) {
-  return { type: 'object', properties: { sceneText: { type: 'string', minLength: 20, maxLength: budget.maxCharacters } },
-    required: ['sceneText'], additionalProperties: false };
+  return { type: 'object', properties: { lines: { type: 'array', minItems: 1, maxItems: budget.maxLines,
+    items: { type: 'string', minLength: 1, maxLength: budget.maxLineCharacters } } },
+    required: ['lines'], additionalProperties: false };
 }
 
 module.exports = { sceneBudget, sceneSchema };

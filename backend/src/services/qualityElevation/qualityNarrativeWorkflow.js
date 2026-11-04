@@ -19,7 +19,9 @@ function scenePrompt(context, scene, previous) {
   return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables. '
     + dialogueInstruction(context.contract)
     + 'Ne remplace pas la scène par son résumé, une note critique ou une émotion annoncée. '
-    + `Commence directement par l’en-tête ${scene.heading}, sans autre en-tête de scène ni titre introductif. `
+    + `L’en-tête ${scene.heading} sera conservé depuis le plan. Retourne uniquement {"lines":[...]} selon le schéma fourni. `
+    + 'Chaque élément est UNE ligne du corps jouée, sans en-tête, titre, saut de ligne interne ou ligne vide. '
+    + 'Sépare le nom en majuscules et sa réplique dans deux éléments successifs. Respecte maxLines et maxLineCharacters du budget. '
     + 'Respecte les connaissances et conséquences des scènes précédentes. Les événements futurs du plan ne sont pas déjà vécus. '
     + 'Matérialise la décision et sa conséquence prévues par des actions observables ; vise un état de sortie concret cohérent avec stateAfter. '
     + 'Chaque échange doit faire avancer la scène. Termine après sa conséquence, avant de recommencer la même négociation. '
@@ -37,7 +39,7 @@ function canPreserve(context, scene) {
 }
 function sceneText(raw, scene) {
   const content = unpackScene(raw);
-  const text = typeof content === 'string' ? content.trim() : '', parsed = scenesOf(text);
+  const text = typeof content === 'string' ? content : '', parsed = scenesOf(text);
   if (parsed.length !== 1 || !parsed[0].text) throw fail('GQEL_SCENE_INVALID', `Exactly one non-empty scene expected for ${scene.id}.`);
   if (cleanLine(parsed[0].heading).toUpperCase() !== cleanLine(scene.heading).toUpperCase()) {
     throw fail('GQEL_SCENE_INVALID', `Expected heading ${scene.heading}.`);
