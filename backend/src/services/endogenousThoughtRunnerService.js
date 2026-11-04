@@ -41,7 +41,7 @@ function normalizeInput(input) {
     projectId: required(input?.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_RUN_POLICY_REQUIRED'),
-    authorization: input.authorization, nowMs,
+    authorization: input.authorization, nowMs, useWallClock: input.useWallClock === true,
     ...executionInputs(input) };
 }
 function parseReceipt(row, contract, code) {
@@ -379,6 +379,7 @@ async function runQueuedThought(db, rawInput) {
     const executed = await execution.executeReservation(db, { ...context,
       defaultResult: { proposal: proposalPayload(context), evidenceRefs: [] },
       boundaries: runContract.BOUNDARIES });
+    require('./endogenousThoughtClock').executionFinished(context);
     let result;
     try { result = solverResult(context, executed.result, executed.usage); }
     catch (error) {

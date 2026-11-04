@@ -70,16 +70,16 @@ function normalizeInput(input) {
     projectId: required(input.projectId, 'ENDOGENOUS_PROJECT_REQUIRED'),
     episodeId: required(input.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     maxCycles, authorize: input.authorize, verify: input.verify,
-    questionGenerator: input.questionGenerator, worker: input.worker,
+    questionGenerator: input.questionGenerator, worker: input.worker, memoryIndexMode: input.memoryIndexMode,
     sandbox: input.sandbox, usageMeter: input.usageMeter,
     grantedBy: input.grantedBy || 'ett-autonomous-loop',
-    baseTime: Number(input.nowMs ?? Date.now()), policies: policies(input),
+    baseTime: Number(input.nowMs ?? Date.now()), useWallClock: input.useWallClock === true,
+    policies: policies(input),
     cumulativeUsage: initialCumulativeUsage(input?.cumulativeUsage) };
 }
 
 function timestamp(context) {
-  context.tick += 1;
-  return context.input.baseTime + context.tick;
+  return require('./endogenousThoughtClock').step(context);
 }
 
 async function authorize(context, stage, material) {

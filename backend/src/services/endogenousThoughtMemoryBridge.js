@@ -95,7 +95,10 @@ function beliefDocument(context) {
 
 async function storeMemory(db, document, fields) {
   const vectorMemory = require('./vectorMemoryService');
-  return vectorMemory.storeMemory(fields.agentId, canonicalJson(document), null, {
+  const content = canonicalJson(document);
+  const embedding = fields.memoryIndexMode === 'local-lexical'
+    ? require('./memoryScoring').textToVector(content) : null;
+  return vectorMemory.storeMemory(fields.agentId, content, embedding, {
     db, category: fields.category,
     tags: ['ett', String(document.verdict || 'unknown'), fields.isDurable ? 'durable' : 'non-durable'],
     organizationId: fields.organizationId, projectId: fields.projectId,
@@ -112,7 +115,8 @@ function resolveFields(payload, input, verdict) {
   const episodeId = pick(payload, input, 'episodeId') || null;
   const category = beliefCategory(verdict);
   const isDurable = durable(verdict);
-  return { agentId, projectId, organizationId, questionRef, episodeId, category, isDurable };
+  return { agentId, projectId, organizationId, questionRef, episodeId, category, isDurable,
+    memoryIndexMode: input.memoryIndexMode };
 }
 
 async function recordVerifiedBelief(db, input) {

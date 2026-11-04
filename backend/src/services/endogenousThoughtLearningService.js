@@ -39,7 +39,7 @@ function normalizeInput(input) {
     episodeId: required(input?.episodeId, 'ENDOGENOUS_EPISODE_REQUIRED'),
     policyId: required(input?.policy?.id, 'ENDOGENOUS_LEARNING_POLICY_REQUIRED'),
     condition: input?.policy?.condition || 'full',
-    authorization: input.authorization, nowMs };
+    authorization: input.authorization, nowMs, memoryIndexMode: input.memoryIndexMode };
 }
 
 function parseReceipt(row, contract, code) {
@@ -262,6 +262,7 @@ async function recordMemory(db, context) {
   try {
     return await memoryBridge.recordVerifiedBelief(db, { ...context.payload,
       organizationId: context.input.organizationId, policyId: context.input.policyId,
+      memoryIndexMode: context.input.memoryIndexMode,
       question: context.question.payload, verification: context.verification.receipt.payload });
   } catch (error) {
     return { memoryId: null, memoryRef: null, durable: false,
