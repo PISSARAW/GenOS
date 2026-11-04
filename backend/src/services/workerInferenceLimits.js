@@ -16,9 +16,13 @@ function authorityBinding(mission) {
   const limits = resolve(mission);
   return limits ? { workerInferenceLimitsHash: digest(limits) } : {};
 }
+function policyFields(mission) {
+  const limits = resolve(mission);
+  return limits ? { inferenceLimits: limits } : {};
+}
 function assertAuthority(envelope, mission) {
   if (envelope.workerInferenceLimitsHash !== authorityBinding(mission).workerInferenceLimitsHash) {
     throw failure('EXECUTION_AUTHORITY_CONTEXT_CHANGED');
   }
 }
-module.exports = { resolve, authorityBinding, assertAuthority };
+module.exports = { resolve, policyFields, authorityBinding, assertAuthority };

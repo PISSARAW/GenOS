@@ -13,6 +13,11 @@ async function main() {
   assert.equal(details.outputCap({ ...mission, workerKind: 'resource_steward' }), 768);
   assert.equal(details.outputCap({ ...mission, identityExperimentScenario: true }), 1024);
   assert.equal(stages.runGenerationStageValue2({ ctx: { mission } }), 1536);
+  const context = { normalizedMission: structuredClone(mission),
+    dispatchedAgent: { execution_mode: 'worker' } };
+  require('../src/services/agentRuntimeAdapter/missionPlanning').applyExecutionPolicy(context);
+  assert.deepEqual(limits.resolve(context.normalizedMission), limits.resolve(mission));
+  assert.equal(details.outputCap(context.normalizedMission), 1536);
   const envelope = limits.authorityBinding(mission);
   limits.assertAuthority(envelope, mission);
   const changed = structuredClone(mission);
@@ -25,7 +30,8 @@ async function main() {
   }
   let calls = 0;
   const failure = Object.assign(new Error('Real test failed'), { code: 'WORKER_TESTS_FAILED', usage: { tokens: 10 } });
-  await assert.rejects(repair.run({ mission, runAttempt: async () => { calls++; throw failure; } }), error => error === failure);
+  await assert.rejects(repair.run({ mission: context.normalizedMission,
+    runAttempt: async () => { calls++; throw failure; } }), error => error === failure);
   assert.equal(calls, 1, 'A failed test is retained without a second generation or artificial success');
   console.log('Inference ceilings: output cap, one failed attempt, invalid limits and sealed-context tampering: PASS');
 }

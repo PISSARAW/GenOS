@@ -2,6 +2,7 @@
 
 function applyExecutionPolicyValue1(__genosValueScope1) {
   return {
+    ...require('../workerInferenceLimits').policyFields(__genosValueScope1.normalizedMission),
     allowedCommands: __genosValueScope1.Array.isArray(__genosValueScope1.normalizedMission.executionPolicy?.allowedCommands)
       ? [...new __genosValueScope1.Set(__genosValueScope1.normalizedMission.executionPolicy.allowedCommands.map((value) => (0, __genosValueScope1.String)(value).trim()).filter(__genosValueScope1.Boolean))]
       : [],
