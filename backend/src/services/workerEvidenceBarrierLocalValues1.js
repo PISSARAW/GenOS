@@ -8,8 +8,7 @@ function runGenerationStageValue1(__genosValueScope1) {
 }
 
 function runGenerationStageValue2(__genosValueScope2) {
-  return __genosValueScope2.ctx.mission.workerKind === 'resource_steward' ? 768
-      : (__genosValueScope2.ctx.mission.identityExperimentScenario ? 1024 : __genosValueScope2.undefined);
+  return require('./workerLocalStageDetails').outputCap(__genosValueScope2.ctx.mission);
 }
 
 function runGenerationStageValue3(__genosValueScope3) {

@@ -304,6 +304,8 @@ function repairPrompt(context) {
 }
 
 function canRetry(context) {
+  const limits = require('./workerInferenceLimits').resolve(context.mission);
+  if (limits && context.attempt >= limits.attempts) return false;
   if (!isCodeWorker(context.mission)
     || !['WORKER_TESTS_FAILED', 'WORKER_OUTPUT_SCHEMA_VIOLATION'].includes(context.error.code)) return false;
   if (context.error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
@@ -313,6 +315,7 @@ function canRetry(context) {
 }
 
 async function run(context) {
+  require('./workerInferenceLimits').resolve(context.mission);
   const initialMission = isCodeWorker(context.mission)
     ? { ...context.mission, preserveFailedCodeCandidate: true } : context.mission;
   const state = { startedAt: Date.now(), mission: initialMission,

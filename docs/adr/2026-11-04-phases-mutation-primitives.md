@@ -34,6 +34,14 @@ vérifie ces deux cas et un refus avec capacité absente.
 Les résultats du premier pilote de température restent un banc réduit. Ils
 ne sont pas requalifiés rétroactivement en exécution autonome complète.
 
+Pour reproduire son budget sur le chemin natif, une mission peut déclarer
+`executionPolicy.inferenceLimits: {attempts: 1, outputTokens: 1536}`. Ces
+limites sont validées, inscrites par empreinte dans l'enveloppe d'autorité,
+et contrôlées avant l'acceptation des preuves. Les retirer ou les modifier
+après scellement invalide le contexte. Une tentative échouée reste un échec.
+Les plafonds spécialisés plus bas restent prioritaires et les budgets
+totaux ne sont pas augmentés. Sans cette option, le comportement est inchangé.
+
 ## Alternatives
 
 - Désactiver l'orchestration autonome ou ignorer les phases omises : rejeté,

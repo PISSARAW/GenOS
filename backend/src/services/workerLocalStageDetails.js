@@ -28,8 +28,10 @@ function workerInstruction(mission, kind) {
 }
 
 function outputCap(mission) {
-  if (mission.workerKind === 'resource_steward') return 768;
-  return mission.identityExperimentScenario ? 1024 : undefined;
+  const limits = require('./workerInferenceLimits').resolve(mission);
+  const cap = mission.workerKind === 'resource_steward' ? 768
+    : mission.identityExperimentScenario ? 1024 : undefined;
+  return limits ? Math.min(cap ?? limits.outputTokens, limits.outputTokens) : cap;
 }
 
 async function recordAudit(ctx, input) {
