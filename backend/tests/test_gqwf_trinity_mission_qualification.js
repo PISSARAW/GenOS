@@ -22,6 +22,7 @@ const missions = require('../src/services/agentRuntimeAdapter/missionWorkers');
 const evidenceBarrier = require('../src/services/workerEvidenceBarrier');
 const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const telemetry = require('../src/services/telemetryObserver');
+const { assertPublishers } = require('./helpers/trinityMissionPublisherProbe.cjs');
 
 const workerAssignments = {
   basic_implementation: { workerKind: 'experimental_worker', methodContract: experimentMethod() },
@@ -148,6 +149,7 @@ async function runMission(db, source, missionId) {
   for (const worker of workers) fsSync.realpathSync(worker.workspaceRoot);
   await evidenceBarrier.runEvidenceBarrier({ db, agentId: row.id, normalizedMission: input,
     autonomyPlan: ctx.autonomyPlan, contractRecord, autonomousWorkers: workers, strict: true });
+  await assertPublishers(db, { ctx, workers });
   assert.equal(ctx.autonomyPlan.missionClosure?.success, true,
     JSON.stringify(ctx.autonomyPlan.missionClosure || null));
   assert.equal(ctx.autonomyPlan.missionClosure?.closureChecks?.independentOracle, true);
@@ -234,6 +236,7 @@ async function qualify(root) {
     const replay = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE mission_id = ?', mission.experimentId);
     assert.equal(replay.status, 'escalated');
     assert.equal(JSON.parse(replay.decision_json).outcome, 'ESCALATE_EXPERIMENT');
+    await assertPublishers(db, mission);
   } finally {
     await telemetry.flush(10000);
     await require('../src/services/garageRuntimeService').stop(db);
@@ -257,7 +260,7 @@ async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'gqwf-trinity-qualification-'));
   try { await qualify(root); }
   finally { await fs.rm(root, { recursive: true, force: true }); }
-  console.log('GQWF Trinity three-worker run, independent claim checks, fail-closed comparison and restart: PASS');
+  console.log('GQWF Trinity three-worker run, native SYNAPSE parent lineage, independent claim checks, fail-closed comparison and restart: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

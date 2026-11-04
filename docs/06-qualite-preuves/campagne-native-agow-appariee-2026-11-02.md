@@ -119,11 +119,27 @@ complète et les 13 suites de protocoles passent. Le manifeste de campagne épin
 désormais 33 sources, dont ce raccord. Les validations et artefacts de fusion sont
 conservés dans `D:/GenOS-AGOW/validation/merge-*.log` et leurs fichiers de résultat.
 
-La suite Node globale a été exécutée et échoue sur
+Lors de cette intégration, la suite Node globale échouait sur
 `test_gqwf_trinity_mission_qualification.js` avec
 `MISSION_TRUTH_GRAPH_UNAVAILABLE`. Le même test échoue sur V3
 `32297e075d1850c929a89d4ec79ecb803202a874` avant intégration AGOW.
 Les détails de démarrage montrent un refus SYNAPSE de l’incarnation du
-publisher. Cette panne préexistante reste ouverte ; aucun garde-fou de
-vérité ou d’autorité n’est assoupli pour la masquer. La reproduction est
+publisher. Aucun garde-fou de vérité ou d’autorité n’a été assoupli pour
+la masquer. La reproduction historique est
 conservée dans `D:/GenOS-AGOW/validation/v3-baseline-trinity-result.json`.
+
+### Requalification Trinity du 4 novembre 2026
+
+Le correctif `e33f6c364b280a732c3e599d772f95bb33767ca1`, déjà intégré à V3,
+reconnaît le lien natif entre la mission racine du parent et son expérience
+Trinity enfant. Il vérifie l'incarnation GVX, l'expérience persistée, les mondes,
+l'orchestrateur et les appartenances aux missions ; un nom de mission semblable
+ne suffit pas. La qualification initiale sur V3 `9398e117d` passe sur D:.
+
+Le test d'intégration vérifie maintenant les trois liaisons natives réellement
+persistées, le publisher effectivement transmis par SYNAPSE et son incarnation
+exacte, puis répète ces contrôles après fermeture et réouverture de SQLite.
+La preuve d'un enfant reste refusée sous l'identité de la mission racine et
+la comparaison reste escaladée sans promotion faute des dimensions requises.
+Les journaux de requalification sont conservés dans
+`D:/GenOS-AGOW/trinity-validation/`.
