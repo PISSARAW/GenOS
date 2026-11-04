@@ -39,7 +39,7 @@ function environment(options) {
     GENOS_GVX_LEDGER_HMAC_SECRET: crypto.randomBytes(32).toString('hex'),
     GENOS_EPISTEMIC_RECEIPT_SECRET: crypto.randomBytes(32).toString('hex'),
     GENOS_EPISTEMIC_RECEIPT_KEY_ID: 'competence-v3',
-    GENOS_MCP_LEASE: LEASE.join(','), GENOS_MCP_TOOL_TIMEOUT_MS: '900000', GENOS_IN_PROCESS_WORKERS: '1',
+    GENOS_MCP_LEASE: LEASE.join(','), GENOS_MCP_TOOL_TIMEOUT_MS: '1800000', GENOS_IN_PROCESS_WORKERS: '1',
     GENOS_ALLOW_LOCAL_CODE_WORKERS: '0', GENOS_LOCAL_MODEL: protocol.model,
     GENOS_OLLAMA_ENDPOINT: protocol.endpoint + '/api/chat',
     GENOS_DEFAULT_MODEL: 'ollama://' + protocol.model, TEMP: 'D:/gv3/tmp', TMP: 'D:/gv3/tmp'};
@@ -74,7 +74,7 @@ export async function mission(session, input) {
   fs.mkdirSync(directory);
   const method = {version: 1, methodId: 'prompt_defined', requiredEvidence: ['functionPrograms'],
     evaluator: {domain: 'bounded_function_induction', version: 1},
-    parameters: {task: 'function-program-candidate', context: input.context}};
+    parameters: {task: 'function-program-candidate', outputEncoding: protocol.programEncoding, context: input.context}};
   const request = {mission: input.prompt, orchestratorId: session.identity.orchestratorId,
     workspaceRoot: session.workspace, workspaceId: session.identity.workspace.id,
     executor: 'local', provider: 'ollama', modelId: protocol.model, localModel: 'ollama://' + protocol.model,
@@ -90,13 +90,13 @@ export async function mission(session, input) {
     workerBarrierTimeoutMs: protocol.perMissionBudget.latencyMs - 10000,
     readOnlyWorkspaceEvidence: true, allow_file_edits: false, allowed_commands: [],
     useMemoryContext: input.useMemoryContext,
-    executionPolicy: {inferenceLimits: {attempts: 1, outputTokens: 8192, reasoningEffort: 'none'}}, executionBudget: protocol.perMissionBudget,
+    executionPolicy: {inferenceLimits: {attempts: 1, outputTokens: protocol.outputTokens}}, executionBudget: protocol.perMissionBudget,
     worker_roster: {agent_count: 3, types: {mode: 'auto'}},
     worker_assignments: Object.fromEntries(require('../../backend/src/services/trinityService')
       .analyzeMission(input.prompt).members.map(member => [member.role, {methodContract: method}]))};
   fs.writeFileSync(directory + '/request.json', JSON.stringify(request, null, 2));
   const result = await session.client.callTool({name: 'genos_orchestrate', arguments: request}, undefined,
-    {timeout: 900000, maxTotalTimeout: 900000});
+    {timeout: 1800000, maxTotalTimeout: 1800000});
   fs.writeFileSync(directory + '/mcp-result.json', JSON.stringify(result, null, 2));
   await script('collect.cjs', {config: session.config, env: session.env, runtimeRoot: session.runtimeRoot, log: directory + '/collect.log'});
   fs.copyFileSync(session.directory + '/latest-receipts.json', directory + '/receipts.json');

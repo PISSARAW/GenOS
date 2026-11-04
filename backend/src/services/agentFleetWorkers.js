@@ -316,6 +316,7 @@ function fleetWorkerContract(details) {
     codeVerificationContract: mission.codeVerificationContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens, communicationRequired: mission.communicationRequired === true,
+    ...require('./agents/workerResourcePolicy').timeAllocation(mission),
     delegatedTokenLimit: assignment.delegatedTokenLimit,
     ...trialMissionBinding.missionContractFields(mission)
   });

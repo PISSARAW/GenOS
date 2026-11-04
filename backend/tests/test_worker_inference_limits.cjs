@@ -12,6 +12,10 @@ async function main() {
   const reasoning = structuredClone(mission);
   reasoning.executionPolicy.inferenceLimits.reasoningEffort = 'none';
   assert.equal(limits.policyFields(reasoning).inferenceLimits.reasoningEffort, 'none');
+  reasoning.executionPolicy.inferenceLimits.outputTokens = 32768;
+  assert.equal(details.outputCap(reasoning), 32768);
+  assert.throws(() => limits.resolve({executionPolicy: {inferenceLimits: {attempts: 1, outputTokens: 32769}}}),
+    {code: 'WORKER_INFERENCE_LIMIT_INVALID'});
   assert.throws(() => limits.assertAuthority(limits.authorityBinding(mission), reasoning),
     {code: 'EXECUTION_AUTHORITY_CONTEXT_CHANGED'});
   reasoning.executionPolicy.inferenceLimits.reasoningEffort = false;

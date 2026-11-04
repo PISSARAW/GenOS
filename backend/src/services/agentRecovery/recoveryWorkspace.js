@@ -29,13 +29,14 @@ async function provisionRecoveryWorkspace(sourceRoot, capsuleName, capsuleRoot) 
 }
 
 async function createRecoveryWorkspace({ db, source, mission, target } = {}) {
-  if (target.sameIdentity || (mission.missionScope?.trinityExperimentId && source.workspace_root)) {
+  if (target.sameIdentity) {
     const workspace = { workspaceRoot: firstTruthy(source.workspace_root, mission.workspaceRoot),
       workspaceId: source.workspace_id || mission.workspaceId || null, reused: true };
-    if (!target.sameIdentity) await recordRecoveryLineage(db, source, { ...target, workspaceId: workspace.workspaceId });
     return workspace;
   }
-  const sourceRoot = firstTruthy(source.workspace_root, mission.workspaceRoot,
+  const sourceRoot = mission.missionScope?.trinityExperimentId
+    ? await require('./recoveryTrinityWorkspace').sourceRoot(db, {source, target})
+    : firstTruthy(source.workspace_root, mission.workspaceRoot,
     process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
   const capsuleName = `${target.targetId}_${target.decision.action}_${target.report.attempt + 1}`;
   try {
@@ -63,7 +64,9 @@ async function bindRecoveryWorkspace({ db, target, source, workspace } = {}) {
 async function bindCapsuleLineage(db, input) {
   const { target, source, workspace } = input;
   return withTransaction(db, async () => {
-    const workspaceId = await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {
+    const workspaceId = target.mission.missionScope?.trinityExperimentId
+      ? await require('./recoveryTrinityWorkspace').bind(db, input)
+      : await require('../workerWorkspaceBindingService').bindWorkerWorkspace(db, {
       workerId: target.targetId, parentId: target.orchestratorId,
       parentWorkspaceId: target.workspaceId || source.parent_workspace_id,
       workspaceRoot: workspace.workspaceRoot });

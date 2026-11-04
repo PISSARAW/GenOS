@@ -24,7 +24,7 @@ assert.equal(validate(value), false, 'A success claim without the requested cand
 value.artifactText = '<ARTIFACT: candidate>{"rules":[]}</ARTIFACT>';
 assert.equal(validate(value), true);
 const method = {version: 1, methodId: 'prompt_defined', requiredEvidence: ['functionPrograms'],
-  evaluator: {domain: 'bounded_function_induction', version: 1}, parameters: {context: {
+  evaluator: {domain: 'bounded_function_induction', version: 1}, parameters: {outputEncoding: 'operator-keyed/v1', context: {
     observations: [], requested: [{op: 'op_11111111', epoch: 0}]}}};
 const structured = prompt.workerResponseFormat({workerKind: 'bounded_worker', methodContract: method}).schema;
 assert.ok(structured.required.includes('scopeCompletion'), 'The induction grammar does not rely on conditional role fields.');
@@ -39,9 +39,12 @@ assert.equal(generation.promptText({mission: {}}, 'Ordinary mission'), 'Ordinary
 const validateStructured = new Ajv({strict: false, validateFormats: false}).compile(structured);
 const candidate = {...value}; delete candidate.artifactText;
 assert.equal(validateStructured(candidate), false, 'The typed payload is required at the schema root.');
-candidate.functionPrograms = {rules: [{op: 'op_11111111', epoch: 0, kind: 'unknown',
-  a: 0, b: 0, c: 0, confidence: 0, reason: 'missing'}]};
+candidate.functionPrograms = {rules: {'op_11111111:0': {op: 'op_11111111', epoch: 0, kind: 'unknown',
+  a: 0, b: 0, c: 0, confidence: 0, reason: 'missing'}}};
 assert.equal(validateStructured(candidate), true);
-delete candidate.functionPrograms.rules[0].reason;
+candidate.functionPrograms.rules['op_11111111:0'].op = 'op_22222222';
+assert.equal(validateStructured(candidate), false, 'The rule identity must match its required operator key.');
+candidate.functionPrograms.rules['op_11111111:0'].op = 'op_11111111';
+delete candidate.functionPrograms.rules['op_11111111:0'].reason;
 assert.equal(validateStructured(candidate), false, 'Incomplete declarations cannot satisfy the guided schema.');
 console.log('Sealed method evidence is required by the guided output schema without weakening kind contracts: PASS');

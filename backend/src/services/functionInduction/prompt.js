@@ -18,7 +18,14 @@ function fromMission(mission) {
   return 'GenOS bounded numerical worker. Identity: ' + JSON.stringify({agentId: mission.agentId,
     missionId: mission.missionId, role: mission.role, workerKind: mission.workerKind})
     + '\nReturn only the requested JSON object. Claim "Candidate programs were proposed" with evidence ["mission"]. '
-    + 'Use uncertainties []. ' + kindFields(mission) + '\n' + instruction(context);
+    + 'Use uncertainties []. ' + kindFields(mission) + '\n' + instruction(context) + encodingInstruction(method);
+}
+
+function encodingInstruction(method) {
+  if (method.parameters.outputEncoding !== 'operator-keyed/v1') return '';
+  return '\nOUTPUT ENCODING: functionPrograms.rules is a JSON object, with exactly one property per requested pair: '
+    + JSON.stringify(method.parameters.context.requested.map(require('./contract').key))
+    + '. Each value contains that same op and epoch, kind, a, b, c, confidence and reason. Do not use an array.';
 }
 
 function kindFields(mission) {
@@ -30,7 +37,8 @@ function kindFields(mission) {
     adaptive_worker: 'Use strategyTrace to describe your actual arithmetic strategy decision, with evidence ["mission"]. '
       + 'The sealed strategy portfolio IDs are ' + JSON.stringify(strategies) + '.',
     verifier_worker: 'Use workerArtifact verification_report. Describe your own public arithmetic in testedClaim, '
-      + 'verificationMethod, verdict and reproductionSteps. Cite only mission. Native verification results are not available yet.'
+      + 'verificationMethod, verdict and reproductionSteps. Cite only mission. Native verification results are not available yet. '
+      + 'Use at most three concise reproductionSteps: formulas and one worked example suffice; do not repeat a derivation for each operator.'
   };
   return hints[mission.workerKind] || '';
 }

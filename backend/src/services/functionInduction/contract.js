@@ -34,8 +34,16 @@ function declarationsValid(rules, requested) {
 function parse(report) {
   if (report?.fullTextTruncated) throw Error('FUNCTION_INDUCTION_TRUNCATED_OUTPUT');
   const raw = JSON.parse(report?.fullText || '{}');
-  if (!Array.isArray(raw.functionPrograms?.rules)) throw Error('FUNCTION_INDUCTION_ARTIFACT_REQUIRED');
-  return raw.functionPrograms.rules;
+  return ruleList(raw.functionPrograms?.rules);
 }
 
-module.exports = {DOMAIN, identity, key, rowValid, contextValid, declarationValid, declarationsValid, parse};
+function ruleList(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') throw Error('FUNCTION_INDUCTION_ARTIFACT_REQUIRED');
+  return Object.entries(value).map(([name, rule]) => {
+    if (!identity(rule) || name !== key(rule)) throw Error('FUNCTION_INDUCTION_OPERATOR_KEY_MISMATCH');
+    return rule;
+  });
+}
+
+module.exports = {DOMAIN, identity, key, rowValid, contextValid, declarationValid, declarationsValid, parse, ruleList};

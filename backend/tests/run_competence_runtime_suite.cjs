@@ -5,6 +5,10 @@ const path = require('node:path');
 
 const files = [
   'test_worker_inference_limits.cjs',
+  'test_induction_runtime_budget.cjs',
+  'test_fleet_worker_duration.cjs',
+  'test_trinity_recovery_scope.cjs',
+  'test_worker_completion_promotion_boundary.cjs',
   'test_local_workspace_bootstrap.cjs',
   'test_truth_graph_mission_identity.cjs',
   'test_local_orchestrator_model_forwarding.cjs',

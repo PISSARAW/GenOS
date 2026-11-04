@@ -31,9 +31,11 @@ function subject() {
 }
 
 function rebind(value) {
+  const rules = value.method.parameters.outputEncoding === 'operator-keyed/v1'
+    ? Object.fromEntries(value.result.rules.map(rule => [`${rule.op}:${rule.epoch}`, rule])) : value.result.rules;
   const raw = {outcome: 'success', claims: [{statement: 'Candidate programs proposed', evidence: ['mission']}],
     scopeCompletion: {scopeRef: 'mission', completedRefs: ['mission']}, uncertainties: [],
-    functionPrograms: {rules: value.result.rules}};
+    functionPrograms: {rules}};
   value.result.source.report = {...raw, fullText: JSON.stringify(raw), fullTextTruncated: false,
     workerArtifact: artifacts.buildWorkerArtifact('bounded_worker', JSON.stringify(raw),
       {methodContract: value.method, allowedEvidenceRefs: ['mission'], source: 'unit-fixture'})};
@@ -55,8 +57,14 @@ async function main() {
   const forged = structuredClone(good); forged.result.rules[0].a++;
   for (const strategy of checks.STRATEGIES) assert.equal(checks.check(forged, strategy).status, 'refuted');
   const processes = [];
+  const keyed = structuredClone(good);
+  keyed.method.parameters.outputEncoding = 'operator-keyed/v1';
+  rebind(keyed);
+  for (const strategy of checks.STRATEGIES) assert.equal(checks.check(keyed, strategy).status, 'verified');
+  assert.throws(() => require('../src/services/functionInduction/contract')
+    .ruleList({'op_11111111:1': good.result.rules[0]}), /OPERATOR_KEY_MISMATCH/);
   for (const strategy of checks.STRATEGIES) {
-    const executed = await require('../src/services/epistemic/oracleNativeProcess').run(good,
+    const executed = await require('../src/services/epistemic/oracleNativeProcess').run(keyed,
       {kind: 'observation', strategy, timeoutMs: 10000});
     assert.equal(executed.result.status, 'verified');
     assert.notEqual(executed.detail.processId, process.pid);

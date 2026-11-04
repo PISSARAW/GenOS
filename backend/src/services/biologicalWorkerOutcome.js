@@ -14,7 +14,7 @@ function result(input) {
   const failure = failureReason(terminal);
   return { status: run.status, completed: run.status === 'completed', verified,
     gate: 'strategy_execution_gate',
-    reason: run.guardrailReason || failure || guardrail || null,
+    reason: run.guardrailReason || failure || (verified ? null : guardrail) || null,
     failureReason: failure, promotionReason: guardrail || null,
     terminalEvent: snapshot.terminalEvent };
 }

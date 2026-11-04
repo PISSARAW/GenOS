@@ -21,6 +21,20 @@ python benchmarks/competence-full-runtime/seal.py D:/gv3/runtime-neuf D:/genos-c
 Le scellement lie les sources, les binaires et l'exécutable Node. Il refuse de resceller une copie déjà scellée.
 Les données, secrets éphémères, bases et workspaces restent sur D: et ne doivent jamais être commités.
 
+Le serveur dédié doit être préparé avant le contrôle, avec le modèle déjà installé sur D: :
+
+```powershell
+./benchmarks/competence-full-runtime/serve.ps1 -OllamaExecutable D:/ollama/ollama.exe -ModelsDirectory D:/ollama/models -AuditDirectory D:/gv3/serveur-neuf
+```
+
+Le lanceur refuse un port occupé et enregistre l'exécutable, son hash et la vraie commande du runner.
+Qwen3.5 ne permet qu'un créneau avec le serveur local qualifié ; les trois workers GenOS partagent
+ce créneau sans être assimilés à trois inférences matériellement parallèles.
+Le protocole fixe un plafond de 32 768 tokens de sortie et un contexte de 49 152 tokens, avec une mission bornée
+à 28 minutes. Le plafond ne réserve pas ces tokens : les budgets propres aux rôles restent prioritaires.
+Le minimum demandé par worker est 20 000 tokens et la sortie effective est réduite du coût estimé du prompt.
+Ces limites sont fixées avant la mesure et restent soumises au budget commun signé.
+
 ```powershell
 node D:/gv3/runtime-neuf/benchmarks/competence-full-runtime/control.mjs D:/gv3/controle-neuf
 node D:/gv3/runtime-neuf/benchmarks/competence-full-runtime/run.mjs D:/gv3/controle-neuf EMPREINTE_DU_MANIFESTE
@@ -30,7 +44,7 @@ Le second programme refuse un contrôle échoué ou associé à un autre modèle
 Le contrôle crée six fonctions privées, deux par famille, sans communiquer leurs coefficients.
 Il réserve dix évaluations numériques et deux cas d'ignorance. Les trois workers doivent être acceptés
 par les oracles natifs, la mission doit réussir, le graphe doit être mesuré, les douze résultats doivent
-être corrects et les trois modèles doivent distinguer eux-mêmes ambiguïté et absence d'observations.
+être corrects et les trois workers doivent distinguer eux-mêmes ambiguïté et absence d'observations.
 Le modèle et son empreinte sont fixés dans `protocol.json` après les sondes de développement,
 avant la génération des mondes primaires. Les refus des modèles antérieurs sont conservés séparément.
 
@@ -73,6 +87,9 @@ et l'identifiabilité dans la classe finie déclarée. Le sujet conserve le cont
 sa provenance et les usages réels du fournisseur. Un simple oracle `worker_artifact` ne suffirait pas.
 La sortie `functionPrograms` est un objet JSON obligatoire ; les déclarations d'ignorance
 utilisent `kind: unknown`, des coefficients sentinelles nuls et une confiance nulle.
+Le format `operator-keyed/v1` impose une entrée par couple opérateur/époque, avec une clé
+et une identité concordantes. Il empêche qu'un doublon remplace silencieusement un opérateur demandé.
+L'oracle conserve la lecture des anciens tableaux lorsque le contrat ne sélectionne pas ce format.
 Le prompt fournit les familles et les formules de différences finies : l'expérience mesure
 l'induction de nouveaux coefficients, pas la découverte de cet algorithme.
 Il admet les propositions du LLM et ne les remplace pas par un solveur général.

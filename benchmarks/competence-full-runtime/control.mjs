@@ -81,6 +81,13 @@ function recognizesUnknown(data, candidates) {
       && ['a', 'b', 'c'].every(key => rule[key] === 0))));
 }
 
+export function accountedUsage(attempts) {
+  const called = attempts.filter(row => row.provider_called === 1);
+  return called.length > 0 && attempts.every(row => row.status !== 'started')
+    && called.every(row => Number.isInteger(row.input_tokens) && Number.isInteger(row.output_tokens)
+      && row.status === 'completed' && row.token_usage_source === 'provider');
+}
+
 async function main() {
   const destination = process.argv[2];
   if (!destination) throw Error('Provide a fresh short D control directory');
@@ -109,8 +116,7 @@ async function main() {
     const integrity = {twelveCorrect: rows.every(row => row.correct), nativeReceipts: execution.receipts.success,
       nativeUnknownRecognition: recognizesUnknown(data, candidates),
       successfulMission: parsed?.success === true, actualLlm: called.length >= 3,
-      accountedUsage: called.length > 0 && called.every(row => Number.isInteger(row.input_tokens)
-        && Number.isInteger(row.output_tokens) && row.status === 'completed' && row.token_usage_source === 'provider'),
+      accountedUsage: accountedUsage(attempts),
       pinnedModel: called.length > 0 && called.every(row => row.model === 'ollama://' + protocol.model),
       sourceManifestHash: runtimeManifest.sourcesHash};
     const result = {manifestHash, integrity, passed: Object.entries(integrity)

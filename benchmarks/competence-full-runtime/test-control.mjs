@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {cases, score, candidateRules} from './control.mjs';
+import {cases, score, candidateRules, accountedUsage} from './control.mjs';
 import './run.mjs';
 
 const require = createRequire(import.meta.url);
 const programs = require('./programs.cjs');
 const data = cases();
+const measured = {provider_called: 1, status: 'completed', input_tokens: 5, output_tokens: 6,
+  token_usage_source: 'provider'};
+assert.equal(accountedUsage([measured]), true);
+assert.equal(accountedUsage([]), false);
+assert.equal(accountedUsage([measured, {provider_called: 0, status: 'started'}]), false);
+assert.equal(accountedUsage([{...measured, output_tokens: null}]), false);
 const rendering = require('./prompt.cjs');
 const displayedRows = rendering.publicSamples(data.context).split('\n').flatMap(line =>
   JSON.parse(line.split('samples [x,y]: ')[1]));

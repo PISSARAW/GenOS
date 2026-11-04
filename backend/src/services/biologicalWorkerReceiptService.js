@@ -38,7 +38,7 @@ function buildReceipt(input) {
     lineage: { parentWorkerId: binding.parentWorkerId }, costs: evidence.costs(observations, run),
     accounting: evidence.accounting(observations, run),
     result: require('./biologicalWorkerOutcome').result({ run, snapshot, guardrail, terminal: input.terminal,
-      verified: run.status === 'completed' && successfulTerminal(snapshot) && !guardrail
+      verified: run.status === 'completed' && successfulTerminal(snapshot) && !run.guardrailReason
         && evidence.hasResultEvidence(snapshot) && semanticProofAccepted(verification) }),
     evidence: snapshot, completedAt: run.completedAt || null };
   receipt.budgetAssessment = evidence.budgetAssessment(receipt, binding);

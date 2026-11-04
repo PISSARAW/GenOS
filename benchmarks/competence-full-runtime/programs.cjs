@@ -25,7 +25,9 @@ function parse(report) {
   if (report.fullTextTruncated) throw Error('TRUNCATED_CANDIDATE_ARTIFACT');
   const content = report.workerArtifact?.content;
   const parsed = JSON.parse(report.fullText || '{}');
-  if (Array.isArray(parsed.functionPrograms?.rules)) return parsed.functionPrograms.rules;
+  if (parsed.functionPrograms?.rules !== undefined) {
+    return require('../../backend/src/services/functionInduction/contract').ruleList(parsed.functionPrograms.rules);
+  }
   const raw = content?.artifactText || parsed.artifactText;
   const match = String(raw || '').match(/^<ARTIFACT: function-programs>([\s\S]*)<\/ARTIFACT>$/);
   if (!match) throw Error('FUNCTION_PROGRAM_ARTIFACT_REQUIRED');

@@ -39,8 +39,11 @@ function usageSummary(attempts) {
   return {actualProviderCalls: called.length, knownUsageCalls: known.length,
     inputTokens: known.reduce((sum, row) => sum + row.input_tokens, 0),
     outputTokens: known.reduce((sum, row) => sum + row.output_tokens, 0),
-    allUsageMeasured: called.every(row => row.token_usage_source === 'provider'),
-    allCallsPinned: called.every(row => row.model === 'ollama://' + protocol.model),
+    unresolvedAttempts: [...attempts.values()].filter(row => row.status === 'started').map(row => row.id),
+    allUsageMeasured: called.length > 0 && known.length === called.length
+      && [...attempts.values()].every(row => row.status !== 'started')
+      && called.every(row => row.status === 'completed' && row.token_usage_source === 'provider'),
+    allCallsPinned: called.length > 0 && called.every(row => row.model === 'ollama://' + protocol.model),
     localComputeUsd: null};
 }
 
@@ -162,7 +165,7 @@ async function main() {
         runtimeHash: source.runtimeHash,
         modelUnchanged: (await describe()).digest === model.digest},
       conclusion: {primaryContrastsSupported: session.rows.every(row => row.runtimePassed)
-        && measured.contrasts.every(row => row.supported),
+        && usageSummary(session.attempts).allUsageMeasured && measured.contrasts.every(row => row.supported),
         generalCompetenceDemonstrated: false, authorizesPromotion: false}};
     write(directory, 'measurements.json', session.rows); write(directory, 'report.json', result);
     session.append({type: 'report', reportHash: corpus.hash(result)});

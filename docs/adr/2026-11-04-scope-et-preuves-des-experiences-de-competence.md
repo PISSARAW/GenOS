@@ -53,6 +53,36 @@ Un graphe absent reste un motif de refus : corriger son sélecteur ne justifie p
 
 ## Validation et portée
 
+Le contrôle réel c27 a révélé deux incohérences supplémentaires. La création par fleet omettait
+la durée explicite de la mission lors du scellement du contrat du worker : la durée par défaut
+de neuf minutes restait appliquée malgré une enveloppe parent plus longue. La durée validée
+par `workerResourcePolicy.timeAllocation` est maintenant transmise au contrat persisté.
+Les plafonds de tokens et la limite maximale de durée restent appliqués.
+
+Le reçu biologique réappliquait ensuite la porte de promotion à une complétion de worker
+déjà acceptée. Le prédicat de complétion du runtime distingue pourtant explicitement ces étapes.
+Le reçu certifie désormais la complétion si le run est terminé sans blocage et porte une vraie
+preuve sémantique native. `promotionReason` conserve le refus de promotion ; les fonctions
+de promotion et leurs exigences de replay ou d'approbation ne sont pas modifiées.
+Les anciens reçus scellés restent immuables : un contrôle frais doit qualifier cette correction.
+Un test exécute deux processus d'oracle réels, vérifie la complétion, puis confirme que la
+promotion sans replay et les déclarations sans attestation restent refusées.
+
+Le format sélectionné `operator-keyed/v1` exige une propriété par couple opérateur/époque.
+Le schéma lie la clé aux valeurs constantes d'identité et refuse les propriétés supplémentaires.
+Il empêche les doublons qui occupaient une place tout en omettant un opérateur demandé dans c27.
+Les coefficients restent proposés par le LLM et vérifiés par l'oracle ; aucune réponse n'est calculée
+par ce changement de format. Les contrats historiques sans cet encodage conservent leurs tableaux.
+
+La récupération Trinity avec une nouvelle identité ne réutilise plus la capsule privée de l'ancien worker.
+Elle vérifie d'abord sa délégation scellée, copie le snapshot de l'expérience, puis transfère l'identité
+active du même monde et lie le nouveau workspace privé dans une transaction. Le hash, le parent et le
+tenant sont contrôlés par la procédure native existante. Un échec annule le transfert du monde.
+L'ancienne identité et sa capsule restent disponibles comme provenance ; la lignée conserve le worker
+source. Le nombre de mondes et leur stratégie ne changent pas. Une récupération avec la même identité
+conserve sa capsule. Le test couvre le nouveau scope de démarrage, le refus d'un parent étranger,
+le rejet d'un snapshot altéré et le rollback du transfert.
+
 Les tests ciblés couvrent deux racines concurrentes, le refus d'un tenant étranger,
 une vraie liaison GVX run/mission face à un alias étranger et le maintien de la barrière pour un orchestrateur local.
 Le contrôle d'induction doit ensuite dériver des programmes à partir d'observations publiques,
