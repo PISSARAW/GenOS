@@ -32,7 +32,7 @@ function runScoped(method, context) {
   const output = { procedureReceipt: result.receipt, result: result.output,
     scopeCompletion: { scopeRef, completedRefs: [result.receipt.id] } };
   return resultReport(method, output, { type: 'dossier',
-    statement: `Scoped procedure '${result.methodId}' completed in '${scopeRef}'.`, sourceRefs: [result.receipt.id] });
+    statement: `Scoped procedure '${result.methodId}' completed within the assigned scope.`, sourceRefs: [result.receipt.id] });
 }
 
 function assertNicheInput(method) {

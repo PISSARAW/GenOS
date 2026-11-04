@@ -60,6 +60,16 @@ def number_of(name):
     return name[:4]
 
 
+def collision_suffix(rank):
+    """Suffixe alphabetique pour un rang zero-based : a, ..., z, aa, ab, ..."""
+    value = rank + 1
+    letters = []
+    while value:
+        value, digit = divmod(value - 1, 26)
+        letters.append(chr(ord("a") + digit))
+    return "".join(reversed(letters))
+
+
 def expected_labels(names):
     """Calcule le label d'index attendu pour chaque fichier."""
     labels = {}
@@ -72,7 +82,7 @@ def expected_labels(names):
             labels[members[0]] = number
         else:
             for rank, member in enumerate(members):
-                labels[member] = number + chr(ord("a") + rank)
+                labels[member] = number + collision_suffix(rank)
     return labels
 
 
