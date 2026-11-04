@@ -70,3 +70,7 @@ Web ou une évolution génétique lorsque la mission n'en a pas besoin.
 Voir [ADR 0796](../adr/0796-banc-cooperation-chaine-native.md). Les résultats du
 vrai modèle sont consignés séparément, avec commit source et empreintes des
 artefacts ; les fixtures HTTP ne constituent pas une qualification LLM.
+
+Les [résultats du 4 novembre 2026](resultats-qualification-cooperation-native-2026-11-04.md)
+distinguent les fixtures natives, les refus Qwen réellement mesurés et la
+relance complète en attente de disponibilité du fournisseur.
