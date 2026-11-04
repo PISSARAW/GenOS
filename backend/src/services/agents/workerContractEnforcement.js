@@ -147,6 +147,7 @@ function assertCanonicalContract(contract, kind) {
     writeLease: contract.mission?.writeLease === true,
     workerTokenLimit: contract.resources?.maxTokens,
     executionBudget: { tokens: contract.mission?.qualityTokenAllocation },
+    timeoutMs: contract.mission?.timeoutMs,
     ...require('../qualityElevation/qualityMissionContract').qualityWorkerFields(contract),
     delegatedTokenLimit: contract.resources?.maxDelegatedTokens,
     workerAssignment: contract.assignment

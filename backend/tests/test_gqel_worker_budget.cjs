@@ -42,20 +42,45 @@ const cliContract = require('../bin/orchestratorActions.cjs').buildWorkerContrac
   context: { task: 'Write.', orchestratorId: 'root' }, request: {
     execution_budget: { tokens: 100000, latencyMs: 3600000 }, qualityElevation: allocated.qualityElevation } });
 assert.equal(cliContract.resources.maxTokens, 100000);
-assert.equal(cliContract.resources.maxTimeMs, 1800000);
+assert.equal(cliContract.resources.maxTimeMs, 3600000);
+assert.equal(cliContract.mission.timeoutMs, 3600000);
 assert.doesNotThrow(() => enforcement.assertRuntimeContract(cliContract, 'creative_worker'));
+const twoHours = 7200000;
+const extended = buildWorkerMission({ workerKind: 'creative_worker', prompt: 'Write and review.', timeoutMs: twoHours,
+  executionBudget: { tokens: 600000, latencyMs: twoHours }, qualityElevation: {
+    domain: 'screenplay', budgetMaxTokens: 500000, maxDurationMs: 3600000 } });
+assert.equal(extended.workerContract.resources.maxTokens, 160000, 'The policy token cap is preserved.');
+assert.equal(extended.workerContract.resources.maxTimeMs, twoHours);
+assert.equal(extended.workerContract.mission.timeoutMs, twoHours);
+assert.doesNotThrow(() => enforcement.assertRuntimeContract(extended.workerContract, 'creative_worker'));
+const nativeBudget = applyWorkerRuntimeLimits(extended, { tokens: 600000, latencyMs: twoHours });
+assert.equal(nativeBudget.tokens, 160000);
+assert.equal(nativeBudget.latencyMs, twoHours);
+assert.equal(extended.timeoutMs, twoHours);
+for (const timeoutMs of [0, -1, Infinity, twoHours * 13, 100.5]) {
+  assert.throws(() => buildWorkerMission({ workerKind: 'creative_worker', prompt: 'Write.', timeoutMs }),
+    { code: 'INVALID_WORKER_TIME_ALLOCATION' });
+}
 
 async function persistedAllocation() {
   let metadata;
   const db = { get: async () => null, run: async (...args) => { metadata = JSON.parse(args.at(-1)); } };
   await require('../src/services/topology/workerLauncher.cjs').persistWorkerIdentity({ db,
-    context: { orchestratorId: 'root', request: { execution_budget: { tokens: 300000, latencyMs: 3600000 } } },
+    context: { orchestratorId: 'root', request: { timeoutMs: 3600000, execution_budget: { tokens: 300000, latencyMs: 3600000 } } },
     member: { role: 'literary_author', mission: 'Write.', executionBudgetTokens: 100000,
       qualityElevation: allocated.qualityElevation }, parent: { workspace_id: 'workspace' }, workerId: 'author' });
   assert.equal(metadata.workerContract.resources.maxTokens, 100000);
-  assert.equal(metadata.workerContract.resources.maxTimeMs, 1800000);
+  assert.equal(metadata.workerContract.resources.maxTimeMs, 3600000);
+  assert.equal(metadata.workerContract.mission.timeoutMs, 3600000);
   assert.doesNotThrow(() => enforcement.assertRuntimeContract(metadata.workerContract, 'creative_worker'));
   assert.equal(metadata.workerContract.qualityElevation.digest, allocated.qualityElevation.digest);
+  const contract = metadata.workerContract;
+  const inflated = structuredClone(contract);
+  inflated.resources.maxTimeMs++;
+  assert.throws(() => enforcement.assertRuntimeContract(inflated, 'creative_worker'), { code: 'INVALID_WORKER_CONTRACT' });
+  const strippedTime = structuredClone(contract);
+  delete strippedTime.mission.timeoutMs;
+  assert.throws(() => enforcement.assertRuntimeContract(strippedTime, 'creative_worker'), { code: 'INVALID_WORKER_CONTRACT' });
   console.log('Native creative quality budgets retain allocation through CLI and persisted topology identity, respect all caps, and still refuse cumulative overruns: PASS');
 }
 persistedAllocation().catch(error => { console.error(error); process.exitCode = 1; });

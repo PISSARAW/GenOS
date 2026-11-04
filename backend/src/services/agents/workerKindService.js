@@ -215,6 +215,7 @@ function missionContractFields(mission) {
   return {
     ...missionScopeFields(mission), ...assignmentContractFields(mission),
     ...require('./workerResourcePolicy').qualityAllocation(mission),
+    ...require('./workerResourcePolicy').timeAllocation(mission),
     ...(mission.gvxTrialContext ? require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext) : {}),
     methodContract: mission.methodContract,
     codeVerificationContract: mission.codeVerificationContract || null,

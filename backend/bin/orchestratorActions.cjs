@@ -266,7 +266,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
     methodContract: request.methodContract, workerAssignment: request.workerAssignment,
     workerArtifactContract: request.workerArtifactContract || null, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
-    workerTokenLimit: request.workerTokenLimit ?? budget.tokens, executionBudget: { tokens: budget.tokens }
+    workerTokenLimit: request.workerTokenLimit ?? budget.tokens, executionBudget: budget, timeoutMs: request.timeoutMs
   });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract, request.delegationLimit ?? 5);
   return contract;

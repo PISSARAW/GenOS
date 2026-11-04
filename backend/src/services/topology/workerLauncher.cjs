@@ -62,7 +62,7 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     ...extra,
     workerAssignment: member.workerAssignment, ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(member),
     workerTokenLimit: selectedBudget(member, context.request)?.tokens,
-    executionBudget: selectedBudget(member, context.request),
+    executionBudget: selectedBudget(member, context.request), timeoutMs: context.request?.timeoutMs,
     topologySessionId: context.topologySession?.sessionId || null,
     mission: member.mission || context.task
   });

@@ -26,6 +26,17 @@ function qualityAllocation(mission) {
   return quality && Number.isSafeInteger(allocated) && allocated > 0 ? { qualityTokenAllocation: allocated } : {};
 }
 
+function timeAllocation(mission) {
+  const requested = mission.timeoutMs ?? mission.executionBudget?.latencyMs;
+  if (requested === undefined) return {};
+  const duration = Number(requested);
+  if (!Number.isSafeInteger(duration) || duration <= 0 || duration > 24 * 60 * 60 * 1000) {
+    throw Object.assign(new Error('Worker time allocation must be positive and bounded by twenty-four hours.'), {
+      code: 'INVALID_WORKER_TIME_ALLOCATION' });
+  }
+  return { timeoutMs: duration };
+}
+
 function tokenCeiling(policy, mission, native) {
   if (native) return 0;
   const requested = Number(mission.workerTokenLimit);
@@ -59,4 +70,4 @@ function workerResources(kind, mission = {}) {
     executionMode: native ? 'deterministic' : 'model' };
 }
 
-module.exports = { workerResources, qualityAllocation };
+module.exports = { workerResources, qualityAllocation, timeAllocation };
