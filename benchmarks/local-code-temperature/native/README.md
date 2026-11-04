@@ -47,6 +47,7 @@ node benchmarks/local-code-temperature/native/prepare.cjs
 node benchmarks/local-code-temperature/native/campaign.cjs <archive>
 node benchmarks/local-code-temperature/native/verify.cjs <archive>
 node benchmarks/local-code-temperature/native/audit-receipts.cjs <archive>
+node benchmarks/local-code-temperature/native/audit-results.cjs <archive>
 ```
 
 Une commande de vérification réussie confirme le rejeu et la cohérence de
@@ -58,3 +59,36 @@ de l'autorité, la liaison ADN authentifiée, les observations immuables, le
 tour de modèle persistant et l'absence de promotion. Une tentative interrompue
 reste `INCOMPLETE_NATIVE_EXECUTION` et rend cet audit global `INCOMPLETE`.
 Il ne remplace pas un reçu natif absent ou négatif.
+
+## Résultat du 2026-11-04
+
+Les 18 tentatives ont tenu dans la borne globale de 25 minutes : fenêtre
+observée de 21 min 49 s. Une génération réelle par tentative, aucune relance.
+
+| Mesure | Température 0,45 | Température 0,2 |
+| --- | ---: | ---: |
+| Réparations passant les 12 assertions dans le budget | 1/9 | 3/9 |
+| Assertions réussies, refus et données manquantes comptés zéro | 48/108 | 69/108 |
+| Tokens fournisseur | 14626 | 14614 |
+| Génération médiane, secondes | 3,116 | 3,087 |
+| Durée totale médiane, secondes | 78,676 | 64,822 |
+| Tentatives dans le budget | 8/9 | 8/9 |
+| Reçus natifs acceptés | 0/9 | 0/9 |
+
+Le coût financier reste inconnu. Le domaine de preuve des réparations
+JavaScript n'est pas disponible (`ORACLE_DOMAIN_UNAVAILABLE`) ; les tests
+externes ne remplacent pas cette preuve. Aucun génome n'a été promu.
+
+Le vérificateur strict conserve son échec sur un résultat absent après timeout.
+L'audit natif est `INCOMPLETE` (16 autorités et liaisons ADN authentifiées,
+2 interruptions). L'audit des résultats est `COHERENT_WITH_TIMEOUTS`, avec
+neuf paires de paramètres vérifiées. Les prompts ne diffèrent que par deux
+identifiants natifs ; la neutralisation de ces identifiants sert uniquement à
+l'analyse, sans changer les requêtes réelles. Le corpus répété et la charge
+du poste ne permettent pas de conclure à une supériorité générale.
+
+L'index local `archive/native-1793791715877/evidence-index.json` référence
+686 fichiers ; SHA-256 :
+`63f76c4b51c229e379d35047709533493611acbd1845bbb6265db6926ba2b419`.
+Le bilan détaillé et les limitations sont dans `conclusion.md` de l'archive.
+Les artefacts générés et les bases restent sur D:, hors Git.
