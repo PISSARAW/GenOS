@@ -14,10 +14,12 @@ const os = require('node:os');
 const Database = require('better-sqlite3');
 const { seed, addChild } = require('./test_bounded_worker_delegation');
 const { getDatabase, closeDatabase } = require('../src/db');
+const authorityQualification = require('./helpers/localWorkerAuthorityQualification.cjs');
 
 async function endpoint(workspace) {
   let calls = 0;
   const requests = [];
+  const observations = [];
   const server = http.createServer((request, response) => {
     let body = '';
     request.on('data', bytes => { body += bytes; });
@@ -27,12 +29,14 @@ async function endpoint(workspace) {
       requests.push(JSON.parse(body)); calls += 1;
       const report = { outcome: 'unresolved', claims: [],
         uncertainties: ['The supplied mission contains no independently verified business result.'] };
-      response.end(JSON.stringify({ id: `local-worker-response:${calls}`,
-        choices: [{ message: { content: JSON.stringify(report) } }], usage: { prompt_tokens: 2, completion_tokens: 1 } }));
+      try {
+        authorityQualification.respond(response, { observations, body: JSON.stringify({ id: `local-worker-response:${calls}`,
+          choices: [{ message: { content: JSON.stringify(report) } }], usage: { prompt_tokens: 2, completion_tokens: 1 } }) });
+      } catch (error) { response.statusCode = 500; response.end(JSON.stringify({ error: error.message })); }
     });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return { url: `http://127.0.0.1:${server.address().port}/v1/chat/completions`, calls: () => calls, requests,
+  return { url: `http://127.0.0.1:${server.address().port}/v1/chat/completions`, calls: () => calls, requests, observations,
     close: () => new Promise(resolve => server.close(resolve)) };
 }
 
@@ -55,8 +59,8 @@ async function execute(db, input) {
     executor: 'local', localRuntime: true, inProcessWorker: true,
     localModel: 'ollama://protocol-local-worker', localRoutingPolicy: { primary: 'ollama://protocol-local-worker', preferLocal: true },
     modelBudgetScope,
-    autonomousOrchestration: false, toolLease: [], timeoutMs: 60000,
-    executionBudget: { tokens: 10000, costUsd: 1, latencyMs: 60000, events: 100 } });
+    autonomousOrchestration: false, toolLease: [], timeoutMs: authorityQualification.LATENCY_MS,
+    executionBudget: authorityQualification.budget() });
   return { result, before };
 }
 
@@ -107,10 +111,12 @@ async function qualify(db, input) {
   const timing = new Database(path.join(binding.directory, 'allostasis.sqlite'));
   try {
     const pool = JSON.parse(timing.prepare('SELECT body FROM allostasis_pools').get().body);
-    assert.ok(pool.consumed > 0); assert.equal(pool.held, 0); assert.equal(pool.protectedReserve, 3000);
+    assert.ok(pool.consumed > 0); assert.equal(pool.held, 0);
+    assert.equal(pool.protectedReserve, authorityQualification.PROTECTED_RESERVE_MS);
   } finally { timing.close(); }
   const evidenceTable = await db.get("SELECT name FROM sqlite_master WHERE name='mission_protocol_evidence'");
   if (evidenceTable) assert.equal(await db.get('SELECT run_id FROM mission_protocol_evidence WHERE run_id=?', row.id), undefined);
+  await authorityQualification.qualify(db, { run: row, observations: input.service.observations });
   console.log('Mission Node runLocalWorker: one real HTTP inference, native token settlement and protocol state; business completion refused without independent proof passed.');
 }
 
