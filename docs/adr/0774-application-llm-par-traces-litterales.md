@@ -179,6 +179,38 @@ Les essais rejetés sont conservés. La campagne confirmatoire utilise une nouve
 graine après commit et gel des sources ; son résultat peut rester négatif. Cette
 révision ne prétend pas corriger par le code une limite intrinsèque du modèle.
 
+## Cycle de vie de l'oracle sous contention locale
+
+La deuxième tentative V4 s'arrête après 45 cycles complets et 93 réponses brutes,
+avant toute évaluation réservée. Le sous-processus d'oracle dépasse ses cinq
+secondes avec `ETIMEDOUT`, même si son statut final vaut zéro. Le démarrage de
+Node après chaque réponse multiplie cette exposition. Huit sondes séparées
+réussissent ensuite entre 466 et 1 499 ms, serveur Qwen arrêté ; elles ne prouvent
+pas que la contention GPU est la cause unique du timeout. Le dossier incomplet
+reste conservé, sans reprise ni qualification. L'utilisateur demande de laisser
+les autres modèles locaux actifs.
+
+Chaque worker démarre désormais un processus d'oracle séparé avant ses appels
+LLM. Le démarrage est borné à cinq secondes. Ce processus reçoit uniquement un
+signal de disponibilité avant la première réponse ; aucune tâche ni aucun monde
+ne lui est envoyé à ce stade. Chaque tâche lui est transmise seulement après
+la journalisation de la réponse brute. Chaque aller-retour reste borné à cinq
+secondes, y compris la transmission et la réception ; une réponse reçue après
+l'échéance est rejetée même si le timer du parent a été retardé. Les identifiants
+de requête et de tâche empêchent de mélanger les réponses. Une mort, un timeout,
+une réponse inattendue ou une concurrence invalide définitivement le client,
+sans redémarrage ni nouvelle tentative. Le processus est arrêté à la fermeture
+du worker et quitte aussi si son parent disparaît.
+
+Le fichier de calcul `oracle.cjs`, le corpus, les scores, les seuils, les 970
+appels, les neuf workers comptés, les poids et les plafonds LLM restent identiques.
+Le plafond global de quatre heures inclut le démarrage des oracles. Ce changement
+de cycle de vie réduit le nombre de créations de processus ; il ne déplace pas
+l'oracle avant la réponse, ne fournit aucun résultat au modèle et ne remplace
+aucune réponse. La vérification hors ligne reste indépendante du transport.
+Une nouvelle campagne complète commence dans un dossier distinct après commit
+et gel. Aucun préfixe incomplet ni aucune graine évaluée n'est réutilisé.
+
 ## Alternatives conservées dans l'historique
 
 - Calculer les résultats nativement ou injecter l'oracle dans la grammaire : ne mesurerait plus l'application demandée au LLM.

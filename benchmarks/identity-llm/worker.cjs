@@ -2,22 +2,13 @@
 process.env.NODE_ENV = 'test';
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const oracleClient = require('./oracle-client.cjs');
 const protocol = require('./config.cjs');
 const corpus = require('./corpus.cjs');
 const runtime = require('./runtime.cjs');
 const prompts = require('./prompts.cjs');
 const inference = require('./inference.cjs');
 const scoring = require('./scoring.cjs');
-
-function oracle(input, task) {
-  const child = spawnSync(process.execPath, [path.join(__dirname, 'oracle.cjs')], {
-    input: JSON.stringify({ worldPath: input.worldPath, task }), encoding: 'utf8', timeout: 5000, windowsHide: true });
-  if (child.error || child.status !== 0) throw Error('ORACLE_FAILED:' + JSON.stringify({
-    code: child.error?.code, message: child.error?.message, status: child.status,
-    signal: child.signal, stderr: child.stderr }));
-  return JSON.parse(child.stdout);
-}
 
 async function request(input, prompt) {
   if (Date.now() > input.deadline || input.calls >= input.callLimit) throw Error('CAMPAIGN_BUDGET_EXHAUSTED');
@@ -54,7 +45,7 @@ async function trainingTurn(db, input, context) {
   const identityResult = await runtime.execute(db, { session: context.session, domain: 'identity' }, () => request(input, identityPrompt));
   const learningPrompt = prompts.taskPrompt('learn', { problem: task, feedback, lessons: state.lessons });
   const result = await runtime.execute(db, { session: context.session, domain: task.family }, () => request(input, learningPrompt));
-  const checked = oracle(input, task);
+  const checked = await context.oracle.answer({ worldPath: input.worldPath, task });
   const score = scoring.answer(result, checked);
   await runtime.decisions.finish(db, { session: context.session, operationId: `worker:${operationId}`,
     success: score.exact, attribution: 'self', evidenceRef: { taskId: task.id, oracle: checked,
@@ -102,7 +93,7 @@ async function train(db, input, session) {
   if (input.developmentCycles && (input.experimentPhase !== 'development' || count < 1 || count > protocol.chunkSize)) throw Error('DEVELOPMENT_ONLY_LIMIT');
   for (let offset = 0; offset < count; offset++) {
     const cycle = input.chunk * protocol.chunkSize + offset;
-    await trainingTurn(db, input, { cycle, session, continuation });
+    await trainingTurn(db, input, { cycle, session, continuation, oracle: input.oracle });
     if ((cycle + 1) % protocol.descendantProbeEvery === 0) await cloneTurn(db, input, { cycle, session });
     if ((cycle + 1) % 5 === 0) console.log(`lineage=${input.lineage} cycle=${cycle + 1}/${protocol.cyclesPerLineage}`);
   }
@@ -118,7 +109,7 @@ async function evaluate(db, input, session) {
     for (const arm of order) {
       const prompt = prompts.taskPrompt('evaluate', { problem: task, lessons: prompts.lessons(before, arm, input.w) });
       const result = await runtime.execute(db, { session, domain: task.family }, () => request(input, prompt));
-      const checked = oracle(input, task);
+      const checked = await input.oracle.answer({ worldPath: input.worldPath, task });
       inference.log(input.directory, { type: 'eval-result', window: input.window, arm, task,
         oracle: checked, score: scoring.answer(result, checked) });
     }
@@ -136,6 +127,7 @@ async function main(input) {
   const db = await runtime.open(path.join(input.directory, 'runtime.sqlite'));
   let session;
   try {
+    input.oracle = await oracleClient.create();
     if (input.initialize) await runtime.initialize(db, input.w);
     session = await runtime.activate(db, input.w.actors[0]);
     if (input.mode === 'train') await train(db, input, session);
@@ -147,8 +139,11 @@ async function main(input) {
       chunk: input.chunk, window: input.window, calls: input.calls, incarnation: session.incarnationId });
     fs.writeFileSync(input.reportPath, JSON.stringify({ status: 'completed', calls: input.calls, pid: process.pid }));
   } finally {
-    if (session) await runtime.incarnations.release(db, session);
-    await db.close();
+    try { if (input.oracle) await input.oracle.close(); }
+    finally {
+      try { if (session) await runtime.incarnations.release(db, session); }
+      finally { await db.close(); }
+    }
   }
 }
 

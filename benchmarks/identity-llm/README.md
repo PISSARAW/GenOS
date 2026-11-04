@@ -85,3 +85,10 @@ définitions correctes sont scellées avant les réponses ; l'oracle ne note qu'
 journalisation de la réponse brute. Ces définitions fournies isolent l'application
 de l'acquisition des règles : ce diagnostic ne constitue **jamais** une preuve
 d'apprentissage. Les réponses et tous les échecs restent conservés.
+
+L'oracle garde un processus séparé par worker, disponible avant les appels LLM.
+Il reçoit chaque tâche uniquement après journalisation de la réponse brute. Le
+démarrage et chaque requête restent bornés à cinq secondes ; aucun timeout,
+processus mort ou résultat mal corrélé n'est repris. Son calcul, le score et le
+plafond global de quatre heures ne changent pas. `test-oracle-client.cjs` vérifie
+le transport réel, ses erreurs et son absence de nouvelle tentative.
