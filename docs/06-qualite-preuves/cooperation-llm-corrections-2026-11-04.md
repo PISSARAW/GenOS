@@ -1,5 +1,9 @@
 # Coopération LLM : diagnostic et corrections du pilote
 
+Cette fiche conserve les corrections initiales et leurs résultats contrôlés.
+Le [contrat v3 fondé sur le constat](../02-orchestration/planification-cooperation-depuis-constat.md)
+remplace la planification préalable après les [deux refus réels du plan](cooperation-llm-plan-refuse-2026-11-04.md).
+
 - **Statut** : corrections implémentées ; requalification avec un vrai LLM à réaliser.
 - **Date** : 2026-11-04.
 - **Portée** : allocation bornée, runtime Node, oracles sémantiques natifs,
@@ -133,7 +137,9 @@ Le pilote conserve la base, les snapshots, les capsules, le checkpoint et
 locales d'inspection : ne pas le publier ni le committer. Le budget partagé des
 workers est de 64 000 tokens, 1 USD déclaré et 12 minutes ; chaque lancement a
 un budget de 16 000 tokens et 3 minutes. Le plan est borné à 512 tokens de sortie
-et 1 024 tokens mesurés au total. La facturation fournisseur ne mesure pas le
+et 1 024 tokens mesurés au total dans la version v2 décrite ici. La version v3
+dispose de 768 tokens de sortie et 4 096 au total pour inclure le constat.
+La facturation fournisseur ne mesure pas le
 coût matériel d'un modèle local.
 
 Le succès exige tous les reçus sémantiques, un vérificateur distinct, la capsule

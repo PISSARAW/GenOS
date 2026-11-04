@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [cooperation-llm-plan-refuse-2026-11-04.md](cooperation-llm-plan-refuse-2026-11-04.md) — deux appels Qwen réels refusés avant dispatch, 380 tokens et diagnostic du contrat de planification.
+
 - [competence-cinq-variantes-2026-11-04.md](competence-cinq-variantes-2026-11-04.md) — comparaison prospective de cinq variantes avec Qwen réel, six mondes, courbes d'apprentissage et reconnaissance des ambiguïtés.
 
 - [missions-llm-hierarchiques-rust-2026-11-04.md](missions-llm-hierarchiques-rust-2026-11-04.md) — arborescence bornée, délégation récursive, retours CAS adressés et preuves de reprise.

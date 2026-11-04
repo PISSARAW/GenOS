@@ -10,11 +10,27 @@ const { spawn } = require('node:child_process');
 const ORDER = ['resident_daemon', 'specialist', 'verifier_worker', 'recovery_worker'];
 let calls = 0;
 let abstain = false;
+let mode = 'success';
+const requestKinds = [];
+
+function plannedResponse(prompt) {
+  const input = JSON.parse(prompt.split('PLANNER_INPUT_JSON\n')[1]);
+  assert.ok(input.finding.receiptId && input.finding.oracleHash);
+  assert.ok(input.finding.sourceRefs.length >= 2);
+  const repair = input.finding.observation.anomaly;
+  const steps = ORDER.slice(1).map((kind, i) => ({ kind,
+    dependsOn: [i ? ORDER[i] : 'finding'], goal: `Apply ${kind} to the supplied allocation.` }));
+  if (mode === 'invalidPlan') [steps[0], steps[1]] = [steps[1], steps[0]];
+  return { findingRunId: input.finding.runId, decision: repair ? 'repair' : 'stop', steps: repair ? steps : [] };
+}
 
 function reply(prompt) {
-  if (prompt.includes('Propose a bounded JSON response plan')) {
-    return { steps: ORDER.map((kind, i) => ({ kind, dependsOn: i ? [ORDER[i - 1]] : [] })) };
+  if (prompt.includes('PLANNER_INPUT_JSON\n')) {
+    requestKinds.push('planning');
+    assert.equal(requestKinds.at(-2), 'observation', 'Planner must run after daemon observation.');
+    return plannedResponse(prompt);
   }
+  requestKinds.push(prompt.match(/Stage: (\w+)\./)?.[1] || 'unknown');
   if (abstain) return { outcome: 'unresolved', claims: [], uncertainties: ['Controlled abstention.'] };
   const refs = [...new Set(prompt.match(/sha256:[a-f0-9]{64}/g))];
   const base = { outcome: 'success', uncertainties: [] };
@@ -27,7 +43,8 @@ function reply(prompt) {
     claims: [{ statement: '{"indices":[1,4],"sum":17}', evidence: refs }],
     specialtyAssessment: { niche: 'resource_allocation', inScope: true, evidence: refs } };
   assert.ok(prompt.includes('Stage: observation.'));
-  return { ...base, claims: [{ statement: '{"observedSum":13,"target":17,"anomaly":true}', evidence: refs }],
+  const observed = mode === 'healthy' ? { observedSum: 17, target: 17, anomaly: false } : { observedSum: 13, target: 17, anomaly: true };
+  return { ...base, claims: [{ statement: JSON.stringify(observed), evidence: refs }],
     territoryReport: { territoryId: 'allocation', observedAt: new Date().toISOString(), sourceRefs: refs } };
 }
 
@@ -50,7 +67,8 @@ function serverForFixture() {
 async function runCase(parent, name) {
   const config = path.join(parent, `${name}.json`);
   const directory = path.join(parent, name);
-  await fs.writeFile(config, JSON.stringify({ root: directory, model: 'ollama://qwen2.5-coder:7b' }));
+  await fs.writeFile(config, JSON.stringify({ root: directory, model: 'ollama://qwen2.5-coder:7b',
+    scenario: name === 'healthy' ? 'healthy' : 'incorrect' }));
   const result = await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.resolve(__dirname, '../bin/qualify-worker-cooperation-live.cjs'), config],
       { env: { ...process.env }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -84,12 +102,29 @@ async function main() {
     assert.ok(Date.parse(report.controllerAuthority.checkedAt) < Date.parse(report.controllerAuthority.expiresAt));
     assert.equal(report.resources.modelTokens, 560);
     assert.equal(calls, 4);
+    assert.deepEqual(requestKinds, ['observation', 'planning', 'candidate', 'verification']);
+    assert.equal(report.finding.runId, report.stages[0].runId);
+    assert.equal(report.acceptedPlan.findingRunId, report.finding.runId);
+    mode = 'healthy';
+    const healthy = await runCase(parent, 'healthy');
+    assert.equal(healthy.qualified, true, JSON.stringify(healthy.error));
+    assert.equal(healthy.responseDecision, 'stop');
+    assert.equal(healthy.stages.length, 1);
+    assert.equal(healthy.resources.modelTokens, 280);
+    mode = 'invalidPlan';
+    const refused = await runCase(parent, 'invalidPlan');
+    assert.equal(refused.qualified, false);
+    assert.equal(refused.stages.length, 1);
+    assert.equal(refused.resources.modelTokens, 280);
+    assert.match(refused.error.message, /Future|prerequisite/);
     assert.equal(report.recovery.sourceUnchanged, true);
     assert.equal(report.promoted, false);
     abstain = true;
     const failed = await runCase(parent, 'abstention');
     assert.equal(failed.qualified, false);
     assert.equal(failed.stages.length, 1, JSON.stringify(failed.error));
+    assert.equal(failed.planningAttempted, undefined);
+    assert.equal(failed.resources.planningTokens, 0);
     assert.match(failed.error.message, /insufficient|substantiate|unresolved/i);
     assert.equal(failed.shutdown.stopped, true);
     assert.ok(failed.resources.attempts.every(run => run.status !== 'running'));

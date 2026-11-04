@@ -6,18 +6,24 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const sharedBudget = { tokens: 64000, costUsd: 1, latencyMs: 720000, events: 400 };
 
-async function prepare(options) {
+function optionsEndpoint(options) {
   if (!path.isAbsolute(options.root || '') || !/^ollama:\/\/.+/.test(options.model || '')) {
     throw new Error('An absolute new output directory and explicit ollama:// model are required.');
   }
   const endpoint = process.env.GENOS_OLLAMA_ENDPOINT || 'http://127.0.0.1:11434/api/chat';
   if (!/\/api\/chat\/?$/.test(new URL(endpoint).pathname)) throw new Error('Bounded Ollama context requires a native /api/chat endpoint.');
+  if (options.scenario && !['incorrect', 'healthy'].includes(options.scenario)) throw new Error('Unknown allocation scenario.');
+  return endpoint;
+}
+
+async function prepare(options) {
+  const endpoint = optionsEndpoint(options);
   const root = path.resolve(options.root);
   await fs.mkdir(root);
   const workspace = path.join(root, 'workspace');
   await fs.mkdir(workspace);
   await fs.writeFile(path.join(workspace, 'problem.json'), JSON.stringify({ values: [4, 9, 6, 3, 8], target: 17 }));
-  await fs.writeFile(path.join(workspace, 'allocation.json'), JSON.stringify({ indices: [0, 1] }));
+  await fs.writeFile(path.join(workspace, 'allocation.json'), JSON.stringify({ indices: options.scenario === 'healthy' ? [1, 4] : [0, 1] }));
   const credentials = { GENOS_ADMIN_PASSWORD: crypto.randomBytes(24).toString('hex'),
     GENOS_EPISTEMIC_RECEIPT_SECRET: crypto.randomBytes(32).toString('hex'),
     GENOS_GVX_LEDGER_HMAC_SECRET: crypto.randomBytes(32).toString('hex') };
@@ -34,17 +40,19 @@ async function qualify(options) {
   const locations = await prepare(options);
   const database = require('../src/db');
   const db = await database.getDatabase();
-  const report = { schema: 'genos.worker-cooperation-live/v2', startedAt: new Date().toISOString(),
+  const plannerLimits = require('../tests/helpers/workerCooperationPlannerContract.cjs').LIMITS;
+  const report = { schema: 'genos.worker-cooperation-live/v3', startedAt: new Date().toISOString(),
     model: options.model, stages: [], protocolCompleted: false, qualified: false, promoted: false,
     genosMissionQualified: false,
     scope: 'bounded_model_plan_and_model_workers_with_native_semantic_oracles_and_native_capsule_recovery',
-    limits: { workerBudget: sharedBudget, plannerMaxOutputTokens: 512, modelTokens: 65024 },
+    limits: { workerBudget: sharedBudget, plannerMaxOutputTokens: plannerLimits.outputTokens,
+      plannerMaxTotalTokens: plannerLimits.totalTokens, modelTokens: sharedBudget.tokens + plannerLimits.totalTokens },
     limitations: ['Controlled local incident and constrained role plan; no general autonomous decomposition claim.',
       'Qualification is the bounded protocol driver verdict; native root mission completion is not asserted.',
       'Recovery restores an isolated capsule; source promotion is not authorized.',
       'Tokens include all child runs and planning; provider USD costs do not measure local electricity or hardware.'] };
   const context = { ...locations, id: `live-cooperation-${crypto.randomUUID()}`, model: options.model,
-    db, report, planningTokens: null,
+    db, report, planningTokens: 0,
     save: () => fs.writeFile(path.join(locations.root, 'report.json'), JSON.stringify(report, null, 2)) };
   try {
     const seeded = await require('../tests/helpers/workerCooperationRuntime.cjs').seed(db,

@@ -11,6 +11,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
+| [0793](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
 | [0792](0792-experience-competence-cinq-variantes.md) | Expérience de compétence à cinq variantes | Accepté pour un banc expérimental isolé | 2026-11-04 | Expérimentation, mémoire et métacognition |
 | [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
