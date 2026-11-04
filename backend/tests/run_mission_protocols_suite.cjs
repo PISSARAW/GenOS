@@ -6,6 +6,7 @@ const { spawnSync } = require('node:child_process');
 const tests = [
   'test_mission_protocols_context.js',
   'test_mission_protocols_runtime_boundaries.js',
+  'test_mission_protocol_cleanup_failure.cjs',
   'test_mission_protocols_evidence.js',
   'test_mission_protocols_evidence_refusals.js',
   'test_mission_protocols_continuity.js',
