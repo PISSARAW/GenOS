@@ -106,7 +106,7 @@ async function completionDecision(db, input) {
   const agent = await db.get('SELECT execution_mode FROM agents WHERE id = ?', input.row.agent_id);
   const workerRun = !completionPromotionApplies(agent?.execution_mode);
   const checked = await nativeCompletionGate(db, { ...input, workerRun });
-  const reason = checked.reason || (workerRun ? null : await selfModelCompletionBlock(db,
+  const reason = checked.reason || (checked.completionOnly ? null : await selfModelCompletionBlock(db,
     input.row.agent_id, { ...input.event.payload, ...(checked.verification?.gateContext || {}) }));
   return { verification: checked.verification, reason };
 }
@@ -123,10 +123,17 @@ function missionClosureReason(outcome) {
 async function nativeCompletionGate(db, input) {
   try {
     const verification = await require('./epistemic/nativeOracleGate').context(db, input);
-    const reason = input.workerRun ? null : promotionGate.completionGuardrail(input.contract,
+    const completionOnly = input.workerRun || readOnlyDelegatedCompletion(input.contract, verification);
+    const reason = completionOnly ? null : promotionGate.completionGuardrail(input.contract,
       input.event.payload, { agentId: input.row.agent_id, gateContext: verification?.gateContext });
-    return { verification, reason };
+    return { verification, reason, completionOnly };
   } catch (failure) { return { verification: null, reason: failure.code || failure.message }; }
+}
+
+function readOnlyDelegatedCompletion(contract, verification) {
+  return ['factual_read_only', 'formal_read_only'].includes(contract.evaluation_mode)
+    && verification?.delegated === true
+    && require('./biologicalWorkerReceiptService').semanticProofAccepted(verification);
 }
 
 function applyPhaseGate(outcome, steps, event) {

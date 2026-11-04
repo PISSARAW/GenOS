@@ -45,6 +45,8 @@ Le contrôle crée six fonctions privées, deux par famille, sans communiquer le
 Il réserve dix évaluations numériques et deux cas d'ignorance. Les trois workers doivent être acceptés
 par les oracles natifs, la mission doit réussir, le graphe doit être mesuré, les douze résultats doivent
 être corrects et les trois workers doivent distinguer eux-mêmes ambiguïté et absence d'observations.
+Les débuts et fins d'inférence observés doivent correspondre aux tentatives fournisseur du ledger.
+Un ledger limité aux workers ne suffit pas si une évaluation auxiliaire a appelé un autre modèle.
 Le modèle et son empreinte sont fixés dans `protocol.json` après les sondes de développement,
 avant la génération des mondes primaires. Les refus des modèles antérieurs sont conservés séparément.
 
@@ -94,6 +96,11 @@ Le prompt fournit les familles et les formules de différences finies : l'expér
 l'induction de nouveaux coefficients, pas la découverte de cet algorithme.
 Il admet les propositions du LLM et ne les remplace pas par un solveur général.
 L'oracle privé séparé ne sert qu'aux mesures réservées.
+
+La synthèse canonique en lecture seule est évaluée à partir des vraies références natives
+des workers, sous l'autorité du run courant. Le benchmark générique ImpossibleBench ne participe
+pas à cette évaluation. L'attestation d'influence transmise au superviseur ne remplace pas la
+porte EVIDENCE, le graphe ni les critères de succès final ; les promotions restent distinctes.
 
 Les déclarations brutes d'ignorance sont conservées séparément des abstentions imposées par les gardes.
 Elles sont conservées aussi lorsqu'un oracle refuse le programme. Un refus natif est un résultat de mesure ;

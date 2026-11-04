@@ -8,8 +8,15 @@ async function record(db, input) {
   try { binding = await input.guard(db, input); }
   catch (failure) { return rejected(db, { input, failure }); }
   const saved = await input.apply();
-  if (binding && saved) await require('./evidence').observe(binding, { event: input.event, saved });
+  if (binding && saved && !completionBlocked(saved, binding)) {
+    await require('./evidence').observe(binding, { event: input.event, saved });
+  }
   return saved;
+}
+
+function completionBlocked(saved, binding) {
+  return saved.halt === true && saved.run?.id === binding.runId
+    && saved.run.status === 'blocked' && Boolean(saved.run.guardrailReason);
 }
 
 async function rejected(db, request) {

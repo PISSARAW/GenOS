@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {cases, score, candidateRules, accountedUsage} from './control.mjs';
+import {cases, score, candidateRules, accountedUsage, accountedInferenceEvents} from './control.mjs';
 import './run.mjs';
 
 const require = createRequire(import.meta.url);
@@ -12,6 +12,12 @@ assert.equal(accountedUsage([measured]), true);
 assert.equal(accountedUsage([]), false);
 assert.equal(accountedUsage([measured, {provider_called: 0, status: 'started'}]), false);
 assert.equal(accountedUsage([{...measured, output_tokens: null}]), false);
+const inferenceEvents = [{event_type: 'INFERENCE_STARTED'}, {event_type: 'INFERENCE_COMPLETED'}];
+assert.equal(accountedInferenceEvents({attempts: [measured], events: inferenceEvents}), true);
+assert.equal(accountedInferenceEvents({attempts: [measured], events: [...inferenceEvents, ...inferenceEvents]}), false,
+  'An auxiliary provider invocation cannot disappear merely because it omitted the mission ledger.');
+assert.equal(accountedInferenceEvents({attempts: [measured], events: [...inferenceEvents,
+  {event_type: 'INFERENCE_STARTED'}, {event_type: 'INFERENCE_FAILED'}]}), false);
 const rendering = require('./prompt.cjs');
 const displayedRows = rendering.publicSamples(data.context).split('\n').flatMap(line =>
   JSON.parse(line.split('samples [x,y]: ')[1]));

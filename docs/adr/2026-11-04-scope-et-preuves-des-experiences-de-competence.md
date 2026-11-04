@@ -83,6 +83,35 @@ source. Le nombre de mondes et leur stratégie ne changent pas. Une récupérati
 conserve sa capsule. Le test couvre le nouveau scope de démarrage, le refus d'un parent étranger,
 le rejet d'un snapshot altéré et le rollback du transfert.
 
+Dans c29, les trois workers sont vérifiés, mais la clôture du parent en lecture seule réapplique
+la promotion puis EVIDENCE refuse son état bloqué ; la transaction rétablit un run fantôme `running`.
+Un parent dont le contrat scellé sélectionne `factual_read_only` ou `formal_read_only` peut désormais
+terminer sur une preuve déléguée native sémantique effectivement validée. Les preuves de transport
+seules et les drapeaux de l'appelant ne suffisent pas. Les obligations de résultat de mission restent
+évaluées. La promotion conserve ses portes et le parent ordinaire reste bloqué sans replay.
+Lorsqu'une complétion déjà contrôlée aboutit à un run bloqué, le protocole conserve ce refus et
+n'émet aucun dossier positif EVIDENCE ; il ne rétablit plus artificiellement le run actif.
+Le test exécute deux vérificateurs réels, vérifie le dossier du parent en lecture seule, le refus
+persisté du parent ordinaire et le rejet d'un succès sans attestation.
+
+Le post-traitement local lançait aussi ImpossibleBench avec `agentId: studio`, un modèle
+automatique et sans base transmise au routeur. Deux appels Qwen 7B ne figuraient donc pas
+dans le ledger du contrôle c29. Pour une synthèse canonique en lecture seule, l'évaluation
+porte maintenant sur ses vraies références natives déléguées, sous l'autorité du run courant.
+Elle n'invoque pas ce benchmark générique, ni les primitives de promotion de branche,
+et n'écrit pas prématurément une mémoire de succès de mission. Les rapports non canoniques
+conservent leur voie historique ; cette correction ne qualifie pas toutes leurs évaluations.
+Le contrôle et la campagne comparent en plus les débuts et fins d'inférence observés
+à leurs tentatives fournisseur enregistrées. Tout écart interdit la qualification positive.
+
+L'évaluation native canonique transmet aussi la liste effectivement validée des workers via
+`DOSSIER_INFLUENCE_VERIFIED`, comme le fait déjà l'autre runtime supervisé. Sans cet événement,
+le superviseur retenait un statut non vérifié malgré un run parent et un dossier EVIDENCE acceptés.
+Le poller distingue enfin les états d'agents des états de mondes Trinity : `compared`, `candidate`
+et `promoted` sont des états quiescents d'un monde. Les processus ou tâches encore actifs continuent
+à bloquer l'attente. Cette correction permet d'évaluer le résultat final ; elle ne rend pas
+un résultat refusé, une couverture insuffisante ou une porte d'homéostasie fermée acceptables.
+
 Les tests ciblés couvrent deux racines concurrentes, le refus d'un tenant étranger,
 une vraie liaison GVX run/mission face à un alias étranger et le maintien de la barrière pour un orchestrateur local.
 Le contrôle d'induction doit ensuite dériver des programmes à partir d'observations publiques,

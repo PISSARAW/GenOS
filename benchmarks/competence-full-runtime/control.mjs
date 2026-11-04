@@ -88,6 +88,14 @@ export function accountedUsage(attempts) {
       && row.status === 'completed' && row.token_usage_source === 'provider');
 }
 
+export function accountedInferenceEvents(receipts) {
+  const completed = receipts.events.filter(row => row.event_type === 'INFERENCE_COMPLETED').length;
+  const measured = receipts.attempts.filter(row => row.provider_called === 1 && row.status === 'completed').length;
+  const started = receipts.events.filter(row => row.event_type === 'INFERENCE_STARTED').length;
+  const called = receipts.attempts.filter(row => row.provider_called === 1).length;
+  return completed === measured && started === called;
+}
+
 async function main() {
   const destination = process.argv[2];
   if (!destination) throw Error('Provide a fresh short D control directory');
@@ -117,6 +125,7 @@ async function main() {
       nativeUnknownRecognition: recognizesUnknown(data, candidates),
       successfulMission: parsed?.success === true, actualLlm: called.length >= 3,
       accountedUsage: accountedUsage(attempts),
+      accountedInferenceEvents: accountedInferenceEvents(execution.receipts),
       pinnedModel: called.length > 0 && called.every(row => row.model === 'ollama://' + protocol.model),
       sourceManifestHash: runtimeManifest.sourcesHash};
     const result = {manifestHash, integrity, passed: Object.entries(integrity)

@@ -120,10 +120,21 @@ def audit_control(directory):
         audit_declarations(worker, data['context'])
     receipts = read(directory / 'induction', 'receipts.json')
     native_receipts(receipts)
+    assert inference_coverage(receipts)['accounted']
     usage = audit_usage(receipts['attempts'], manifest['model']['name'])
     assert len(result['candidates']['declarations']) == 3 and result['passed'] is True
     return {'verified': True, 'control': str(directory), 'manifestHash': digest(manifest),
             'privateOutcomes': len(result['rows']), 'nativeWorkers': 3, 'modelUsage': usage}
+
+
+def inference_coverage(receipts):
+    started = sum(row['event_type'] == 'INFERENCE_STARTED' for row in receipts['events'])
+    completed = sum(row['event_type'] == 'INFERENCE_COMPLETED' for row in receipts['events'])
+    called = [row for row in receipts['attempts'] if row['provider_called'] == 1]
+    measured = sum(row['status'] == 'completed' for row in called)
+    return {'observedStarted': started, 'observedCompleted': completed,
+            'journaledProviderCalls': len(called), 'journaledCompletedProviderCalls': measured,
+            'accounted': started == len(called) and completed == measured}
 
 
 def describe_declaration(rule, context):
@@ -218,6 +229,7 @@ def diagnose_control(directory):
             'manifestHash': digest(manifest), 'correctOutcomes': sum(row['correct'] for row in result['rows']),
             'outcomes': len(result['rows']), 'graphStatus': receipts['graph']['status'],
             'modelUsage': usage, 'workers': workers, 'proposalHistory': describe_history(receipts, data['context']),
+            'inferenceCoverage': inference_coverage(receipts),
             'note': 'Public arithmetic and private scores checked separately; this diagnosis does not certify a positive control.'}
 
 
@@ -236,10 +248,18 @@ def audit_journal(directory):
 def audit_checkpoint(directory, event):
     receipts = read(Path(event['receipts']), 'receipts.json')
     native_receipts(receipts)
+    assert inference_coverage(receipts)['accounted']
     for worker in event['candidates']['declarations']:
         audit_declarations(worker, event['context'])
     assert event['runtimePassed'] is True
     return receipts
+
+
+def audit_study_binding(manifest, report):
+    control = audit_control(Path(manifest['control']['directory']))
+    assert control['manifestHash'] == manifest['control']['manifestHash']
+    assert manifest['sourceManifest']['runtimeHash'] == manifest['control']['runtimeHash']
+    assert manifest['control']['runtimeHash'] == report['integrity']['runtimeHash']
 
 
 def audit_study(directory):
@@ -247,6 +267,7 @@ def audit_study(directory):
     rows = read(directory, 'measurements.json')
     report = read(directory, 'report.json')
     events = audit_journal(directory)
+    audit_study_binding(manifest, report)
     assert digest(manifest) == report['manifestHash']
     assert len(rows) == manifest['primaryAssignment'] == 1800
     unique = LEGACY.verify_oracles(rows, events, manifest['worlds'])
@@ -269,12 +290,63 @@ def audit_study(directory):
             'limitation': 'Separate implementation by the same experimenter, not an independent laboratory.'}
 
 
+def checkpoint_diagnosis(event):
+    receipts = read(Path(event['receipts']), 'receipts.json')
+    return {'world': event['world'], 'arm': event['arm'], 'checkpoint': event['checkpoint'],
+            'runtimePassed': event['runtimePassed'], 'graphStatus': receipts['graph']['status'],
+            'inferenceCoverage': inference_coverage(receipts),
+            'proposalHistory': describe_history(receipts, event['context']),
+            'attempts': receipts['attempts']}
+
+
+def assert_usage_totals(usage, measured):
+    assert usage['recordedProviderCalls'] == measured['actualProviderCalls']
+    assert usage['knownInputTokens'] == measured['inputTokens']
+    assert usage['knownOutputTokens'] == measured['outputTokens']
+    assert usage['allUsageMeasured'] == measured['allUsageMeasured']
+
+
+def checkpoint_rows(checkpoints):
+    return [row for event in checkpoints for row in event['rows']]
+
+
+def diagnostic_attempts(native):
+    return {row['id']: row for event in native for row in event.pop('attempts')}
+
+
+def diagnose_study(directory):
+    manifest, report = read(directory, 'manifest.json'), read(directory, 'report.json')
+    rows, events = read(directory, 'measurements.json'), audit_journal(directory)
+    audit_study_binding(manifest, report)
+    assert digest(manifest) == report['manifestHash']
+    assert len(rows) == manifest['primaryAssignment'] == 1800
+    checkpoints = [row for row in events if row['type'] == 'checkpoint']
+    assert checkpoint_rows(checkpoints) == rows
+    unique = LEGACY.verify_oracles(rows, events, manifest['worlds'])
+    LEGACY.verify_scores(rows, report)
+    native = [checkpoint_diagnosis(event) for event in checkpoints if event['receipts']]
+    assert len(native) == 120
+    attempts = diagnostic_attempts(native)
+    usage = usage_diagnostics(list(attempts.values()))
+    assert_usage_totals(usage, report['modelUsage'])
+    failures = [row for row in native if not row['runtimePassed']]
+    assert report['integrity']['allNativeMissionsPassed'] == (len(failures) == 0)
+    assert report['integrity']['allInferenceEventsAccounted'] == all(row['inferenceCoverage']['accounted'] for row in native)
+    if failures:
+        assert report['conclusion']['primaryContrastsSupported'] is False
+    return {'verifiedAnalysis': True, 'assignmentComplete': True, 'predictions': len(rows),
+            'uniqueOracles': unique, 'nativeMissions': len(native), 'nativeFailures': failures,
+            'modelUsage': usage, 'conclusion': report['conclusion'],
+            'note': 'Scores and public arithmetic checked separately; native refusals and unknown usage are retained, not certified as success.'}
+
+
 def main():
     directory = Path(sys.argv[2])
-    modes = {'control': audit_control, 'study': audit_study, 'diagnose-control': diagnose_control}
+    modes = {'control': audit_control, 'study': audit_study, 'diagnose-control': diagnose_control,
+             'diagnose-study': diagnose_study}
     result = modes[sys.argv[1]](directory)
     result['auditorImplementationHash'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-    name = 'python-diagnosis.json' if sys.argv[1] == 'diagnose-control' else 'python-crosscheck.json'
+    name = 'python-diagnosis.json' if sys.argv[1].startswith('diagnose-') else 'python-crosscheck.json'
     (directory / name).write_text(json.dumps(result, indent=2), encoding='utf-8')
     print(json.dumps(result, indent=2))
 

@@ -4,6 +4,7 @@ const TERMINAL_STATUSES = new Set([
   'blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'
 ]);
 const TERMINAL_RUN_STATUSES = new Set(['completed', 'awaiting_approval', 'failed', 'blocked', 'cancelled']);
+const TERMINAL_WORLD_STATUSES = new Set([...TERMINAL_STATUSES, 'compared', 'candidate', 'promoted']);
 
 function agentTerminal(agent) {
   if (TERMINAL_STATUSES.has(agent.status)) return true;
@@ -21,7 +22,7 @@ function agentsQuiescent(agents) {
 
 function missionExecutionTerminal(agents, worlds, orchestratorId) {
   if (!agentsQuiescent(agents, orchestratorId)) return false;
-  return worlds.length === 0 || worlds.every((world) => TERMINAL_STATUSES.has(world.status));
+  return worlds.length === 0 || worlds.every((world) => TERMINAL_WORLD_STATUSES.has(world.status));
 }
 
 function resolveFinalMissionStatus(outcome, completionGate, evidence) {

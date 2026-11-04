@@ -186,6 +186,13 @@ function validateGeneration(reply, fallback, state) {
   if (state.eventCount + 1 > budgetLimit(state.executionBudget, 'events')) throw new Error(`Local runtime exceeded event budget (${state.eventCount + 1} > ${budgetLimit(state.executionBudget, 'events')}).`);
 }
 async function runPostPipeline(services, state, reply) {
+  const canonical = await require('../src/services/localRuntimeCanonicalEvaluation').evaluate(state, reply);
+  if (canonical) {
+    emitEvent(state, {eventType: 'DOSSIER_INFLUENCE_VERIFIED', action: 'NATIVE_EVALUATION',
+      detail: 'Read-only canonical claims were checked against their current delegated native evidence.',
+      payload: canonical});
+    return;
+  }
   try {
     const turn = (step, action, detail) => ({ step, action, classification: 'Breakthrough', success: true, detail: String(detail).slice(0, 200) });
     await services.strategyExecutionAdapter.executePipelineWithFeedback(['evaluate', 'stdp_update', 'cherry_pick_golden_path'], {

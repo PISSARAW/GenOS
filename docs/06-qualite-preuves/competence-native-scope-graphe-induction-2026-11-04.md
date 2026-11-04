@@ -2,11 +2,13 @@
 
 État de qualification au 4 novembre 2026. Les corrections de code et une preuve de progression
 après cent observations sont deux résultats distincts. Le commit d'implémentation est
-`02d3a377353850d550aead5e889f30f1b7b79bf3` ; les essais de qualification sont conservés sur D:.
+`02d3a377353850d550aead5e889f30f1b7b79bf3`, complété par `52ec7ce8be876e59b468f1da2264e65698d47d3b` ;
+les essais de qualification sont conservés sur D:.
 
 **La nouvelle campagne à cinq variantes n'est pas encore autorisée par son contrôle positif.**
-Le contrôle `c27` échoue globalement, mais contient une induction mathématique native réussie
-par un worker. Le contrôle frais `c28` qualifie les correctifs de durée, de reçu et de format.
+Le contrôle `c29` retrouve les douze résultats privés et vérifie les trois workers, mais sa
+clôture échoue et son ledger omet des inférences auxiliaires. Le contrôle frais `c33` qualifie
+les corrections de clôture et la comptabilité renforcée sur un runtime scellé correspondant.
 Aucun score historique v1/v2 n'a été changé et aucune progression nouvelle n'est présumée.
 
 ## Ce qui a été corrigé
@@ -66,7 +68,12 @@ coefficients dans une classe connue, pas de découvrir cet algorithme.
 | `c25` | Raisonnement réactivé, plafond de 8 192 atteint ; usage partiellement inconnu après délai. | Ni réponse complète certifiée ni comptabilité complète. |
 | `c26` | Aucun appel LLM : minimum de 100 000 tokens incompatible avec les plafonds des rôles. | Refus d'admission correct ; configuration expérimentale corrigée. |
 | `c27` | Un worker retrouve les six fonctions et les deux cas d'ignorance ; son oracle accepte. Le contrôle reste à 2/12. | Le reçu réappliquait la porte de promotion ; un autre worker expirait à neuf minutes et un troisième dupliquait un opérateur. |
-| `c28` | Contrôle frais avec correction de durée, reçu de complétion distinct de promotion et format indexé par opérateur. | Résultat à intégrer ; aucun ancien reçu n'est modifié. |
+| `c28` | 12/12 résultats privés, mais un appel expire au bout de quinze minutes avec usage inconnu ; toutes les déclarations requises ne sont pas disponibles. | Contrôle refusé, malgré les bons programmes des deux premiers workers. |
+| `c29` | 12/12 résultats privés, trois workers et six étiquettes d'ignorance vérifiés ; clôture parent refusée. | Échec natif de clôture, plus inférences auxiliaires absentes du ledger. |
+| `c30` | Le run parent termine après séparation de la complétion et de la promotion. | Le superviseur reste non vérifié et le poller attend des mondes déjà comparés ; la comptabilité auxiliaire reste insuffisante. |
+| `c31` | Deux workers acceptés et une proposition refusée par l'oracle, puis reprise. | Essai interrompu après export des reçus : implémentation de clôture remplacée et file d'inférence partagée avec c32. |
+| `c32` | Contrôle sur `r33` démarré pendant la fin de c31. | Essai volontairement interrompu avec reçus et motif conservés pour sérialiser les qualifications sur l'unique créneau. |
+| `c33` | Même runtime `r33`, après constat d'un serveur libre. | Qualification en cours ; aucun résultat favorable n'est présumé. |
 
 Le serveur local utilisé ne prend pas en charge les requêtes parallèles pour l'architecture
 Qwen3.5. Le lanceur a refusé une configuration déclarant trois créneaux ; la configuration
@@ -92,7 +99,7 @@ fournisseur. Le coût physique local n'est pas chiffré. Dans leurs dernières d
 chacun des trois workers retrouve **1 fonction sur 6** et **1 étiquette d'ignorance sur 2**.
 Les calculs Python séparés reproduisent ces échecs sur les exemples publics.
 
-Le score final est **2/12**, obtenu uniquement par les gardes d'abstention : aucun programme
+Le score final de c24 est **2/12**, obtenu uniquement par les gardes d'abstention : aucun programme
 natif refusé n'est admis comme réponse. Ce score ne constitue donc pas une induction réussie.
 Les événements `AGENT_COMPLETED` présents dans les traces ne remplacent pas les reçus
 sémantiques : les dernières exécutions des trois workers sont bloquées et leurs oracles refusent.
@@ -127,6 +134,38 @@ Les quatre appels enregistrés de c27 comprennent trois usages mesurés : 2 896 
 d'entrée et 30 163 de sortie. Le quatrième usage reste inconnu après délai. Cette somme
 est partielle. Le graphe est mesuré, mais le contrôle n'est ni positif ni complètement
 comptabilisé ; la présence d'un bon worker ne suffit pas à le qualifier.
+
+## Clôture et comptabilité révélées par c29 à c31
+
+L'audit Python de c29 confirme **12/12** résultats privés, six fonctions et deux étiquettes
+d'ignorance correctement déclarées par chacun des trois workers. Les trois appels d'induction
+journalisés consomment **3 241 tokens d'entrée et 28 977 de sortie**. Le parent conserve
+pourtant un run actif après le refus EVIDENCE : la porte de promotion a été réappliquée à
+la clôture d'un rapport en lecture seule, puis la transaction de ce refus a été annulée.
+
+Le correctif autorise uniquement la complétion d'un rapport en lecture seule fondé sur
+des preuves natives déléguées sémantiques et actuelles. Un parent ordinaire reste bloqué
+sans replay ; les drapeaux de l'appelant restent insuffisants. Les refus déjà contrôlés
+sont persistés sans produire de dossier positif EVIDENCE.
+
+Le même audit observe **6 débuts et 5 fins d'inférence**, contre seulement **3 appels**
+dans le ledger. Le post-traitement générique ImpossibleBench a notamment utilisé
+`ollama://qwen2.5-coder:7b` sous l'identité `studio`. Deux générations auxiliaires ont
+terminé et une tentative supplémentaire a échoué sans comptabilité de mission complète.
+Le champ historique `accountedUsage: true` de c29 ne couvrait donc que son ledger partiel.
+Il ne prouve pas l'exhaustivité des usages et n'est pas réécrit rétroactivement.
+
+La synthèse canonique est maintenant évaluée sur ses références natives réelles,
+sous l'autorité exacte du parent. Cette voie n'exécute plus le benchmark générique ni
+ses primitives de promotion, et n'écrit pas prématurément une mémoire de succès.
+Le contrôle renforcé rapproche les débuts et fins d'inférence observés avec les tentatives
+fournisseur. Les lanceurs primaires des qualifications devenues insuffisantes ont été
+arrêtés avant création d'une campagne primaire.
+
+Enfin, le runtime local transmet l'attestation d'influence réellement validée au
+superviseur. Le poller considère un monde Trinity `compared`, `candidate` ou `promoted`
+comme quiescent, tout en attendant encore les processus et tâches actifs. La quiescence
+ne remplace aucun critère de succès final. Les tests couvrent ces deux sens de la frontière.
 
 ## Couverture effective de GenOS dans c24
 
@@ -174,14 +213,18 @@ Vérifications exécutées :
 - Suite ciblée `node backend/tests/run_competence_runtime_suite.cjs` : réussie, incluant
   l'admission des trois vrais types de workers et le refus d'un minimum dépassant leurs plafonds.
 - `cargo test --workspace` : **réussi**, sortie complète dans `cargo-test-final.log`, code 0.
-- Contrôle qualité global : réussi dans `quality-diagnosis.log` avant les derniers ajouts ;
+- Contrôle qualité global : réussi après les correctifs dans `quality-trinity-closure.log` ;
   le contrôle des 55 fichiers source du premier commit a aussi réussi sans dette nouvelle.
 - `npm test` : une exécution a atteint les tests puis échoué sur
   `ORCHESTRATOR_NOT_FOUND` et une suppression SQLite `EBUSY` dans les protocoles locaux.
-  Une autre a été refusée par la garde d'espace lorsque C: était plein. La dernière relance
-  après déplacement du cache Cargo sur D: reste à intégrer. Aucun succès global Node n'est
-  revendiqué avant sa terminaison.
+  Le même test a aussi observé une tentative de récupération supplémentaire ou une identité
+  de run différente pendant son nettoyage. Ces échecs sont reproduits sur les runtimes
+  figés avant et après les correctifs récents. Le checkout partagé a ensuite reçu une
+  correction distincte de cette fixture. La dernière relance a été refusée par le verrou
+  d'une autre suite globale active ; aucune réussite globale Node n'est revendiquée.
 - Audit indépendant de c24 : `python scripts/experiments/crosscheck_native_competence.py diagnose-control D:/gv3/c24`, code 0.
+- Audit indépendant de c29 avec contrôle des appels auxiliaires : même programme,
+  mode `diagnose-control D:/gv3/c29`, code 0 ; qualification positive refusée.
 
 Le mot « indépendant » désigne ici une implémentation Python séparée écrite par le même
 expérimentateur, pas une reproduction par un autre laboratoire.
@@ -198,4 +241,8 @@ Les artefacts générés, bases et secrets éphémères ne sont pas commités.
   `500f6b061ba9b8528ad41567a3c31f769c787a760349c4c0a983aa9a2d9abcf1`, runtime
   `2a87034a6fa3071cf13366306d1eb263e1bc6fb5e8b89e8b9f41cd991c11f985`.
 - Manifeste c27 : `b5d8839485b5273b92d44e950321bc23bd5a514ce74570559476bd048eccb84e`.
+- Runtime de c32/c33 : `D:/gv3/r33`, sources
+  `ca513a7863a31e836ec282d51b26684fda6a0c8007c6964d1a0ef5e14ddbc86a`, runtime
+  `eb27232723115e1d96dd39fd3a10224e2be2b977305eedc3c1cfd7482dadd35a`.
+- Manifeste c32 : `b59a796b0a89de2f7007cba9465d6aa3ac22a07d0e6edad624db9c4f077c9331`.
 - Configuration réelle du serveur : `D:/genos-competence-results/full-runtime-v3-20261104/llm32-serial/server-ready.json`.

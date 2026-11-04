@@ -4,7 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {open, mission} from './session.mjs';
-import {candidateRules, describe} from './control.mjs';
+import {candidateRules, describe, accountedInferenceEvents} from './control.mjs';
 
 const require = createRequire(import.meta.url);
 const corpus = require('../competence-five-arms/corpus.cjs');
@@ -87,6 +87,7 @@ async function executeCheckpoint(session, input) {
   const queries = corpus.queries(input.world, input.checkpoint);
   const before = corpus.hash(session.history);
   const {execution, candidates, runtimePassed} = await induce(session, input, context);
+  if (execution) session.inferenceAccounting.push(accountedInferenceEvents(execution.receipts));
   for (const row of execution?.receipts.attempts || []) session.attempts.set(row.id, row);
   const output = responses({arm: input.arm, queries, history: session.history, context, candidates, runtimePassed});
   const labels = evidence.oracle({world: input.world, queries, history: session.history});
@@ -149,7 +150,7 @@ async function main() {
     causalLimit: 'new model and execution protocol differ from v2; historical scores are descriptive only'};
   write(directory, 'manifest.json', manifest);
   const session = {directory, db: await training.connect(directory + '/training.sqlite'),
-    rows: [], history: [], attempts: new Map(), started: Date.now(), append: evidence.journal(directory)};
+    rows: [], history: [], attempts: new Map(), inferenceAccounting: [], started: Date.now(), append: evidence.journal(directory)};
   const manifestHash = corpus.hash(manifest);
   session.append({type: 'manifest', manifestHash});
   console.log(JSON.stringify({directory, manifestHash}));
@@ -161,10 +162,12 @@ async function main() {
       elapsedMs: Date.now() - session.started, ...measured, modelUsage: usageSummary(session.attempts),
       nativeIgnorance: nativeMetrics.summarize(session.rows),
       integrity: {assignmentComplete: session.rows.length === manifest.primaryAssignment,
+        allInferenceEventsAccounted: session.inferenceAccounting.every(Boolean),
         allNativeMissionsPassed: session.rows.every(row => row.runtimePassed), runtimeSourceHash: source.sourcesHash,
         runtimeHash: source.runtimeHash,
         modelUnchanged: (await describe()).digest === model.digest},
       conclusion: {primaryContrastsSupported: session.rows.every(row => row.runtimePassed)
+        && session.inferenceAccounting.every(Boolean)
         && usageSummary(session.attempts).allUsageMeasured && measured.contrasts.every(row => row.supported),
         generalCompetenceDemonstrated: false, authorizesPromotion: false}};
     write(directory, 'measurements.json', session.rows); write(directory, 'report.json', result);
