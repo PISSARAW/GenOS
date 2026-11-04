@@ -993,3 +993,13 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 - [0324-biologie-execution-et-autorite-durable.md](0324-biologie-execution-et-autorite-durable.md) — reçus des workers et autorité durable d’homéostasie.
 
 - [0344 — Refactorings de qualité et frontières de contrôle](0344-refactorings-qualite-et-frontieres-de-controle.md).
+
+## Raccords natifs du Dernier Sas — 4 novembre 2026
+
+- [ADN et admission clinique des workers](2026-11-04-incarnation-adn-clinique-workers-topologiques.md).
+- [Boucle ETT native sur artefact de mission](2026-11-04-ett-inspection-artefact-de-mission.md).
+- [Handoffs natifs et physiologie relationnelle](2026-11-04-rpe-handoffs-natifs-a-team.md).
+- [Génération native par scènes et preuves GQEL](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md).
+- [Qualification collective des mécanismes intégrés](2026-11-04-mission-mecanismes-integres.md).
+- [Lease A-Team pendant les appels attendus](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md).
+- [Délai HTTP sous autorité](2026-11-04-deadline-http-modele-sous-autorite.md).

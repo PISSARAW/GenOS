@@ -150,3 +150,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [../README.md](../README.md) — hub général.
 
 - [validation-biologie-computationnelle.md](validation-biologie-computationnelle.md) — reçus, autorité durable, reprise et résultats des contrôles du 2026-10-06.
+
+## Relance du Dernier Sas du 4 novembre 2026
+
+- [Raccords natifs, exécutions et comparaison](relance-dernier-sas-raccords-integres-2026-11-04.md).

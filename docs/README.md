@@ -1008,3 +1008,14 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0752 — Isoler le runner d’évaluation GVX dans Docker](adr/0752-runner-evaluateur-gvx-isole-docker.md) — isolation des évaluations externes GVX.
 - [ADR 0771 — Filiation vérifiée et règles apprises validées](adr/0771-filiation-verifiee-et-regles-apprises-validees.md) — reconnaissance causale et admission de règles LLM sur exemples d’entraînement, avec critères de qualification inchangés.
 - [ADR 0774 — Application LLM par expressions symboliques](adr/0774-application-llm-par-traces-litterales.md) — récupération ciblée et compilation sans évaluation native, avec réponses brutes et critères inchangés.
+
+## Raccords du Dernier Sas — 4 novembre 2026
+
+- [Rapport des corrections et de la relance](06-qualite-preuves/relance-dernier-sas-raccords-integres-2026-11-04.md).
+- [ADN et admission clinique des workers](adr/2026-11-04-incarnation-adn-clinique-workers-topologiques.md).
+- [Boucle ETT native sur artefact de mission](adr/2026-11-04-ett-inspection-artefact-de-mission.md).
+- [Handoffs natifs et physiologie relationnelle](adr/2026-11-04-rpe-handoffs-natifs-a-team.md).
+- [Génération native par scènes et preuves GQEL](adr/2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md).
+- [Qualification collective des mécanismes intégrés](adr/2026-11-04-mission-mecanismes-integres.md).
+- [Lease A-Team pendant les appels attendus](adr/2026-11-04-renouvellement-lease-ateam-appels-bloquants.md).
+- [Délai HTTP sous autorité](adr/2026-11-04-deadline-http-modele-sous-autorite.md).
