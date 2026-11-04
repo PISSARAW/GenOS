@@ -81,4 +81,4 @@ artefacts ; les fixtures HTTP ne constituent pas une qualification LLM.
 
 Les [résultats du 4 novembre 2026](resultats-qualification-cooperation-native-2026-11-04.md)
 distinguent les fixtures natives, les refus Qwen réellement mesurés et la
-relance complète en attente de disponibilité du fournisseur.
+relance réelle achevée, avec son verdict et ses limites de mesure.

@@ -4,8 +4,10 @@
 
 Le banc utilise le bootstrap et les portes de preuve natifs. Les fixtures HTTP
 contrôlées démontrent le câblage, y compris un remplacement après deux échecs.
-Elles ne démontrent pas les capacités d’un modèle réel. Le verdict LLM doit être
-lu séparément ci-dessous ; aucune promotion de source n’est autorisée.
+Elles ne démontrent pas les capacités d’un modèle réel. Après relance réelle,
+les deux cas Qwen restent **non qualifiés** : aucun constat du daemon n’a
+franchi la porte native. Le fork est désormais exécuté avec un vrai appel
+modèle, mais sa réponse reste inexploitable. Aucune promotion n’a eu lieu.
 
 ## Corrections livrées
 
@@ -24,6 +26,12 @@ lu séparément ci-dessous ; aucune promotion de source n’est autorisée.
   démarrage du processus. La présence d’un rapport terminal ne suffisait pas
   à prouver sa sortie effective. Le correctif minimal déjà présent dans le
   workspace a été intégré isolément.
+
+- `c6b93471b` : le rapport de coûts confronte aussi les reçus natifs. Un
+  sous-total fournisseur ne vaut plus un comptage complet lorsque le dernier
+  remplacement n’a pas de mesure. Ce correctif de projection est testé puis
+  appliqué en relecture seule aux essais conservés, sans modifier leurs
+  réponses ni déclencher une nouvelle inférence.
 
 Architecture : [ADR 0796](../adr/0796-banc-cooperation-chaine-native.md).
 Mode opératoire : [qualification native](qualification-cooperation-chaine-native.md).
@@ -53,8 +61,10 @@ fichiers de préparation ne remplace pas le commit de leur archive.
 Le binaire Rust immuable `rust/genos-final.exe` a été construit depuis
 `56b2ec37859dbfcc731fce6519dda42ec66a2837`. SHA-256 :
 `bebb8ee56d2ac640033dc86da33d7de87cdac2dc71f20f7432a18af1b84914d4`.
-Les sources Rust et leurs fichiers de dépendances sont identiques dans les
-commits suivants de cette qualification ; l’équivalence est enregistrée.
+Les sources Rust et leurs fichiers de dépendances sont identiques entre
+`56b2ec378`, `b303a9dee` et `169a767fe` ; l’équivalence est enregistrée.
+Le correctif de comptage ne modifie pas Rust et ne qualifie pas les apports
+concurrents ultérieurs de la branche v3.
 
 ## Première campagne réelle : deux refus justifiés, récupération cassée
 
@@ -96,30 +106,99 @@ Le rapport indique zéro run actif et zéro reprise pendante après arrêt.
 Un obstacle externe est identifié : un garde de réservation d’une autre
 campagne arrête tout autre serveur Ollama. Il journalise notamment l’arrêt
 du nouveau serveur dédié, PID 26760, pendant la tentative de redémarrage.
-Ce relevé ne prouve pas directement la cause de l’arrêt du premier PID 37548. Il n’a pas été désactivé sans arbitrage. Les processus encore ouverts
+Ce relevé ne prouve pas directement la cause de l’arrêt du premier PID 37548.
+Le garde n’a pas été désactivé. Les processus encore ouverts
 de cet essai ont été arrêtés après conservation du rapport et de leur filiation.
 
 ## Campagne finale réelle
 
-La source complète corrigée `169a767fe6cc9aacb6b179803972b8ad256f67ed` est
-préparée dans `real-after-fork-verified`. Sa qualification réelle reste **en
-attente de ressource** : aucun nouveau résultat Qwen n’est revendiqué.
-L’utilisateur a choisi explicitement d’attendre la libération de la réservation
-existante. La reprise doit utiliser les scripts préparés et le même binaire
-immuable, puis ajouter ici ses réponses, ses coûts et son verdict effectifs.
-Le correctif complet n’est donc pas encore qualifié avec le vrai LLM.
+Source des inférences : `169a767fe6cc9aacb6b179803972b8ad256f67ed`, dans
+`real-after-fork-verified`, avec `git diff` vide avant et après exécution.
+Le garde signale sa fin à 18:47:21 UTC ; sa fin et l’absence de son serveur
+sont constatées à la reprise. Le serveur dédié est vérifié par PID, exécutable,
+date de création, propriétaire du port et empreinte du modèle.
+
+| Cas | Fenêtre UTC | Durée | Appels Qwen mesurés | Tokens mesurés | Verdict |
+| --- | --- | ---: | ---: | ---: | --- |
+| Incident `[0,1]` | 19:11:05–19:12:39 | 94,300 s | 3 | 13 237 | refusé |
+| État sain `[1,4]` | 19:12:45–19:13:53 | 68,633 s | 3 | 13 205 | refusé |
+
+Dans les deux cas, la première réponse annonce `observedSum:13`, `target:17`,
+`anomaly:false`. Pour l’incident, le booléen est faux ; pour l’état sain, la
+somme est fausse. Les oracles opposent leur veto. La mutation puis le fork
+répondent `unresolved`, en réclamant une preuve de validité ou de pertinence
+des valeurs pourtant données comme faits de mission. Le modèle ne fournit
+donc pas une observation exploitable dans ce contexte et avec ce génome.
+
+### Ce que la reprise prouve
+
+La mutation et le fork sont réellement dispatchés ; le fork atteint cette
+fois le fournisseur et sa réponse est conservée. Les anciennes erreurs de
+lignée et `controlIdentity is not defined` ne sont plus observées. Il n’y a
+aucune substitution `verified` avec Qwen : le fork ne réussit pas sa tâche.
+Le dernier remplacement passe par le runtime local supervisé, puis se bloque
+après ses tentatives de génération sans mesure native utilisable. Le détail
+de l’erreur du routeur est masqué par le diagnostic de repli ; il n’est pas
+possible d’en attribuer une cause plus précise avec ces seules traces.
+
+Les deux rapports restent `qualified:false`, `genosMissionQualified:false`,
+`promoted:false`. Les bases sont relues : zéro run actif et zéro reprise
+pendante. Planificateur métier, spécialiste, vérificateur métier, restauration
+et clôture du parent ne sont pas atteints. Le banc s’arrête donc sans
+transformer le refus du modèle en réussite.
+
+### Contexte réellement transmis
+
+Les six corps POST capturés contiennent `[4,9,6,3,8]`, la cible `17` et les
+indices courants : `[0,1]` pour l’incident, `[1,4]` pour l’état sain. Le schéma
+n’impose ni somme, ni cible, ni booléen d’anomalie. Les six appels utilisent
+`temperature:0.45`, `top_p:0.9` et `num_ctx:16384`. Les journaux du serveur
+indiquent `truncated=0`. Six captures, six appels mesurés au journal fournisseur
+et six POST `/api/chat` au serveur dédié concordent.
+
+Ce constat exclut la disparition de ces faits pendant le transport et une
+réponse imposée par la grammaire. Il ne prouve pas que le modèle les interprète
+correctement. Les mémoires historiques hors sujet et le refus de faire
+confiance aux faits de mission sont des pistes pour une expérience cognitive
+séparée ; leur causalité n’est pas isolée ici. Corriger la réponse à la place
+du modèle ou supprimer le veto ne constituerait pas une qualification.
+
+### Mesure native manquante et correction du rapport
+
+Le reçu du dernier remplacement de chaque cas déclare
+`worker_llm_tokens` et `worker_provider_billing` indisponibles ; sa porte de
+budget reste insatisfaite. Le rapport source169 indiquait pourtant
+`resources.complete:true`, car il ne consultait que les lignes fournisseur.
+Ce défaut de comptage est corrigé par `c6b93471b`. La relecture avec contrôle
+des empreintes des reçus stockés donne `complete:false`, `modelTokens:null`, conserve
+`knownModelTokens` et expose `unmeasuredWorkerRuns`. Le total de 26 442 tokens
+est donc un **sous-total mesuré**, pas une certification du coût complet.
+
+Les rapports bruts source169 restent inchangés. Le fichier séparé
+`resource-reconciliation.json` applique le nouveau calcul aux douze cas
+conservés, en SQLite en lecture seule avec contrôle des empreintes des reçus.
+Les quatre cas contrôlés qualifiés conservent leurs coûts et leur verdict ;
+les lacunes des cas refusés deviennent explicites. Ce correctif concerne le
+rapport après essai ; aucune nouvelle campagne LLM n’a été lancée pour refaire
+ces observations déjà conservées.
+
+Le serveur dédié et ses descendants connus sont absents au contrôle final,
+et aucun listener ne subsiste sur 11477. Ils étaient déjà absents avant la
+tentative de nettoyage ; aucune commande d’arrêt n’a été émise. La cause
+précise de cette fin de processus n’est pas établie. Les réponses et les
+rapports des deux cas avaient déjà été écrits.
 
 ## Couverture et séparation des autorités
 
-| Chaîne | Fixtures contrôlées du dernier commit | Première campagne Qwen |
-| --- | --- | --- |
-| Bootstrap, corps, identité, ADN, clinique, baux, OMEGA | exercés | exercés pour le parent et le daemon |
-| Constat et oracles natifs | observation acceptée et fausse observation refusée | observation refusée |
-| Planificateur après constat | exécuté, dépendances contrôlées, plan invalide refusé | non atteint |
-| Spécialiste et vérificateur distinct | exécutés et vérifiés | non atteints |
-| Restauration déterministe | checkpoint restauré en capsule, source inchangée | non atteinte |
-| Reprise même identité et fork | réussissent ; substitution native vérifiée pour le fork | mutation tentée ; ancien défaut de lignée au fork |
-| Dossier parent et homéostasie | clôture native obtenue | non atteints |
+| Chaîne | Fixtures contrôlées source169 | Première campagne Qwen | Dernière campagne Qwen |
+| --- | --- | --- | --- |
+| Bootstrap, corps, identité, ADN, clinique, baux, OMEGA | exercés | exercés pour le parent et le daemon | exercés pour le parent et le daemon |
+| Constat et oracles natifs | observation acceptée et fausse observation refusée | observation refusée | observation refusée |
+| Planificateur après constat | exécuté, dépendances contrôlées, plan invalide refusé | non atteint | non atteint |
+| Spécialiste et vérificateur distinct | exécutés et vérifiés | non atteints | non atteints |
+| Restauration déterministe | checkpoint restauré en capsule, source inchangée | non atteinte | non atteinte |
+| Reprise même identité et fork | réussissent ; substitution native vérifiée pour le fork | mutation tentée ; ancien défaut de lignée au fork | mutation et fork exécutés ; remplacement bloqué sans mesure |
+| Dossier parent et homéostasie | clôture native obtenue | non atteints | non atteints |
 
 Les sept bases contrôlées sont aussi relues en SQLite : zéro run actif et zéro
 reprise pendante pour chacun des cas. Dans `recoverFork`, le registre natif
@@ -179,17 +258,28 @@ Sur `169a767fe` :
 
 Ces tokens de fixture ne sont pas des tokens de vrai modèle et ne sont pas
 ajoutés au coût empirique Qwen. Aucun de ces cas n’a de run actif ou de reprise
-pendante à la lecture finale.
+pendante à la lecture finale. Après `c6b93471b`, le test de régression du
+comptage passe ; la relecture des douze cas stockés passe aussi et préserve
+les quatre qualifications contrôlées. Les cinq fichiers source du correctif
+passent le contrôle qualité ciblé sans violation. Les suites complètes déjà
+exécutées ne sont pas relancées pour cette projection pure des reçus.
 
 La réserve commune appliquée est de 68 096 tokens, 1 USD fournisseur et
 720 000 ms ; chaque worker est borné à 16 000 tokens et 180 000 ms. Les
 reprises héritent de l’échéance absolue. L’allocation nominale de 64 000 tokens
 workers n’est pas un second plafond collectif appliqué séparément. Les coûts
 proviennent du journal fournisseur, parent et enfants inclus, échecs compris.
-La première campagne consomme 17 741 tokens réels. L’essai d’infrastructure suivant ajoute zéro token ; la campagne finale
-attendue n’a encore consommé aucun token.
-Le coût fournisseur local de 0 USD ne couvre ni matériel ni électricité.
-Ces quelques observations ne démontrent pas encore une efficacité générale.
+Les journaux attestent 17 741 tokens sur les quatre premières inférences,
+puis 26 442 sur les six dernières : **44 183 tokens fournisseur mesurés** au
+total. L’essai d’infrastructure n’a aucun appel fournisseur enregistré.
+Ses quatre reçus incomplets et les deux remplacements finaux incomplets
+interdisent de certifier une consommation globale complète. Il faut donc
+conserver le sous-total mesuré et les lacunes, jamais remplacer celles-ci
+par zéro. Les valeurs mesurées restent sous les plafonds des missions ; le
+respect d’un coût global complet ne peut pas être affirmé.
+Le coût fournisseur local déclaré de 0 USD ne couvre ni matériel ni
+électricité ; les registres de facturation natifs manquants restent signalés.
+Ces observations ne démontrent pas une efficacité générale du système.
 
 ## Preuves conservées
 
@@ -198,9 +288,12 @@ le binaire, les rapports, audits, journaux et résultats des checks. Il exclut
 les répertoires privés et les traces HTTP brutes. Les rapports contrôlés sont
 dans `tmp/genos-cooperation-live-test-JvdPlE`, avec un `audit.json` relisant les
 bases. Les rapports réels et audits sont dans `real-final` ; le refus
-d’infrastructure est conservé dans `real-after-fork`. La reprise préparée est
-décrite dans `qualification-resume.json`. Un manifeste final séparé devra être
-produit après la qualification en attente.
+d’infrastructure est conservé dans `real-after-fork`. Les derniers essais,
+leurs corps HTTP privés et leur résumé public sont dans
+`real-after-fork-verified`. Les 175 versions initiales sont également copiées
+et revérifiées dans `sealed-avant-relance`. Le manifeste final séparé
+`manifest-public.json` inclut les nouveaux audits et le rapprochement des
+coûts, sans remplacer le manifeste initial.
 
 Le workflow de développement GenOS a conservé les mémoires d’échec, deux
 snapshots, les diagnostics, décisions et expériences. Snapshot initial :
@@ -208,3 +301,9 @@ snapshots, les diagnostics, décisions et expériences. Snapshot initial :
 `snap-62c9cbe18ca44ae99f49320dec026b9b`. Une expérience négative supplémentaire
 `e6138e14-20b6-4500-86d9-0b3a14d07b3d` conserve le défaut de supervision et
 le conflit d’infrastructure. Leur persistance ne certifie pas le résultat.
+
+Après les essais, le MCP de développement a renvoyé `Transport closed` aux
+nouvelles tentatives de diagnostic et de snapshot. Aucun nouvel identifiant
+de checkpoint n’est revendiqué. Le diagnostic local et la relecture
+exécutable sont conservés ; cette indisponibilité du connecteur est distincte
+des exécutions natives isolées effectivement auditées sur D:.
