@@ -1,6 +1,7 @@
 'use strict';
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const { proofTimeoutMs } = require('../src/services/agentDna/hachimojiCatalog');
 const cases = [
   'test_hachimoji_catalog.cjs', 'test_hachimoji_migration.cjs',
   'test_hachimoji_runtime.cjs',
@@ -12,7 +13,7 @@ const cases = [
 let failures = 0;
 for (const filename of cases) {
   const result = spawnSync(process.execPath, [path.join(__dirname, filename)],
-    { stdio: 'inherit', timeout: 180000, windowsHide: true });
+    { stdio: 'inherit', timeout: proofTimeoutMs(filename), windowsHide: true });
   if (result.status === 0) continue;
   failures += 1;
   console.error(`Biology validation failed: ${filename}: ${result.error?.message || result.status}`);

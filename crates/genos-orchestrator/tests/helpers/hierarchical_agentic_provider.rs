@@ -60,8 +60,9 @@ fn server(listener:TcpListener,state:&Arc<State>) -> Result<(),String> {
 
 fn serve(mut stream:TcpStream,state:&State) -> Result<(),String> {
     stream.set_nonblocking(false).map_err(error)?;
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).map_err(error)?;
-    stream.set_write_timeout(Some(std::time::Duration::from_secs(5))).map_err(error)?;
+    let window=std::time::Duration::from_millis(super::TURN_TIMEOUT_MS);
+    stream.set_read_timeout(Some(window)).map_err(error)?;
+    stream.set_write_timeout(Some(window)).map_err(error)?;
     let request=read_request(&mut stream)?;
     let agent=super::agent_id(&request);
     state.requests.lock().unwrap().push(request);
@@ -83,7 +84,7 @@ fn wait_for_peer(state:&State,step:(&str,usize)) -> Result<(),String> {
     if step.1!=0 || step.0=="root" { return Ok(()); }
     let gate=if step.0.starts_with("mid_") { &state.mid } else { &state.leaf };
     let mut locked=gate.0.lock().unwrap();locked.arrivals+=1;gate.1.notify_all();
-    let result=gate.1.wait_timeout_while(locked,std::time::Duration::from_secs(15),|value|value.arrivals<2).unwrap();
+    let result=gate.1.wait_timeout_while(locked,std::time::Duration::from_millis(super::TURN_TIMEOUT_MS),|value|value.arrivals<2).unwrap();
     locked=result.0;
     if locked.arrivals<2 { return Err("two sibling HTTP arrivals required before either first response".into()); }
     if locked.responses==0 { locked.before_first=locked.arrivals; }

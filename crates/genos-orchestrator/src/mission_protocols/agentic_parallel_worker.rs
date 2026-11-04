@@ -19,7 +19,7 @@ pub(super) fn database(expected:&Path,workspace:&Path) -> Result<PathBuf,String>
 pub(super) fn dispatch(environment:&Environment<'_>,job:Job) -> Result<(),String> {
     environment.source.unchanged(environment.workspace)?;
     let database=database(environment.database,environment.workspace)?;
-    let mut store=Store::open(&database)?;
+    let mut store=Store::open_for_binding(&database,environment.binding)?;
     let record=ledger::dispatch_model(&mut store,environment.binding,ledger::ModelDispatch {
         permit:job.permit,request:&job.request }).map_err(|error|error.to_string())?;
     super::super::consume_turn(&mut store,environment.binding,&record)?;

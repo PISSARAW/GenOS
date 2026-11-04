@@ -24,6 +24,7 @@ const tests = [
   'test_mission_protocols_actions.js',
   'test_direct_worker_budget_scope.cjs',
   'test_direct_worker_control_run.cjs',
+  'test_worker_clinical_booking.cjs',
   'test_mission_protocols_windows.js',
   'test_mission_protocols_windows_roster.js',
   'test_mission_protocols_allostasis.js',

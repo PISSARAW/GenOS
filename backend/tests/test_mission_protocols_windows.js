@@ -45,6 +45,15 @@ async function realEntryRegistersBeforeWorker() {
       } });
     assert.ok(observed.mission.executionAuthorityRef);
     const sealed = await require('../src/services/missionEnvelopeAuthority').read(ctx.db, observed.run.id);
+    const clinical = await require('../src/services/workerClinicalAdmission').verifyRun(ctx.db, {
+      runId: observed.run.id, agentId: input.id, missionId: input.missionId,
+      scope: { organizationId: 'org', projectId: 'project' } });
+    assert.equal(sealed.envelope.clinicalAdmissionHash, clinical.hash);
+    await assert.rejects(require('../src/services/workerClinicalAdmission').verifyRun(ctx.db, {
+      runId: observed.run.id, agentId: input.id, missionId: input.missionId,
+      scope: { organizationId: 'org', projectId: 'project' },
+      at: new Date(Date.parse(clinical.record.validUntil) + 1).toISOString() }),
+    { code: 'WORKER_CLINICAL_ADMISSION_EXPIRED' });
     assert.equal(sealed.envelope.evidencePolicy.transportSuccessIsEvidence, false);
     assert.equal((await ctx.db.get('SELECT status FROM strategy_execution_runs WHERE id=?', observed.run.id)).status, 'failed');
     assert.equal(postflightObserved, true);

@@ -4,10 +4,10 @@
   "scope": "encoding-equivalence",
   "authorizesPromotion": false,
   "cognitiveImprovementDemonstrated": false,
-  "sourceFingerprint": "26ea1bc4939d1dff7f7d7cb22f218c848bb252ecc73fdd876b14c1f758dc562a",
-  "previousReceiptHash": "733de84c79cceaf21e39389f49b66db8d0269f2e7a4be85cf83e600c5e1e227e",
+  "sourceFingerprint": "656bd107ecc857c24447fbcd2e006c9fd79398b615e2a69036c74463a97d20f4",
+  "previousReceiptHash": "91fce57a9be82425a886a002cd076d8460c2a0bf61b0ec317bc7e29ae51c15a9",
   "status": "qualified-encoding-equivalence",
-  "qualifiedAt": "2026-11-04T07:54:08.466Z",
+  "qualifiedAt": "2026-11-04T13:46:36.018Z",
   "evidence": [
     {
       "program": "backend/tests/test_hachimoji_catalog.cjs",
@@ -27,7 +27,7 @@
     {
       "program": "backend/tests/test_worker_genome_execution.cjs",
       "exitCode": 0,
-      "outputDigest": "6cb7c5f0e99af235061cf0fb356b4c0bb3580cbc732ab3f0664a38703ac06fa6"
+      "outputDigest": "1665786bf917e411986e56dcd7249a5eecbd6a8f44ffa8cf89e504660142a869"
     },
     {
       "program": "backend/tests/test_genome_policy.js",
@@ -40,7 +40,7 @@
       "outputDigest": "ae039f01369fad9e522b9369189167e9a1af11065bfdcf6ade5c4455033a1729"
     }
   ],
-  "receiptHash": "91fce57a9be82425a886a002cd076d8460c2a0bf61b0ec317bc7e29ae51c15a9",
+  "receiptHash": "8368560e52cbd4482a87e2fcc90d5fd0dbc6a7432d6f3e696c8efb567303ebbb",
   "entries": [
     {"source":"agents/dna/benchmarks/epistemic_abstention_bench.dna","target":"agents/dna/benchmarks/epistemic_abstention_bench.dna","kind":"transcode","sourceSha256":"196bfa9e18fa793957cb979e6c0371e4ec549ed4d95fe9642d109d3bdfc16f80","targetSha256":"b568e70967e94afe9cdcea33cff27783499f0f656c883d0e9ead83f7d4f3330a","sourceContentHash":"e60d8b61179ed668b80f211cc0203b48ac8dca3b167290553a5ef5ef8b8d10c3","targetContentHash":"12a80fb6df18d79fe8a8cf1beb6d3e8e43cf0d0ee95498483d74eafc93e6ee5b","semanticHash":"68e9f10245b0ed1fab2c15e9e2eb14c33f260c4f44f6dcdf04896ed951bac4a1","name":"EpistemicAbstentionBench","role":"sentinel"},
     {"source":"agents/dna/benchmarks/locomo_memory_bench.dna","target":"agents/dna/benchmarks/locomo_memory_bench.dna","kind":"transcode","sourceSha256":"8a12204cee86494337f665bd0bc3bd32266f333b43c42a1fa968436af4843019","targetSha256":"7208cb095d3e5084bcca2456085082e81c99ca08cf736a68ec2e4d2cf0373920","sourceContentHash":"059ce1005f4265a10dc55171fc10cc3820b43e6e91c14a74e596a7d8d24d24c9","targetContentHash":"9004487ab7f6d1fcb3937fdcb443dd7885bf99e8baabaef696a0c48f3df461e3","semanticHash":"f7bf6b556cf04685c3845a169a7be07ac88d8042aceebeba7350b81dd3504671","name":"LocomoMemoryBench","role":"historian"},

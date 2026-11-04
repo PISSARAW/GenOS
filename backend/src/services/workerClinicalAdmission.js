@@ -38,7 +38,9 @@ async function subject(db, input) {
 }
 async function persist(db, input) {
   const encoded = JSON.stringify({ ...metadata(input.agent), clinicalAdmission: input.record });
-  const result = await db.run(`UPDATE agents SET metadata_json=? WHERE id=? AND metadata_json=? AND status!='running'`,
+  const result = await db.run(`UPDATE agents SET metadata_json=? WHERE id=? AND metadata_json=?
+    AND (status!='running' OR execution_mode='orchestrator' OR NOT EXISTS (
+      SELECT 1 FROM strategy_execution_runs r WHERE r.agent_id=agents.id AND r.status IN ('planned','running')))`,
     encoded, input.agent.id, input.agent.metadata_json);
   if (result.changes !== 1) throw failure('WORKER_CLINICAL_ADMISSION_CONFLICT');
   input.agent.metadata_json = encoded;

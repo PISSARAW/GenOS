@@ -13,7 +13,7 @@ async function create() {
   await fs.writeFile(path.join(workspace, 'input.txt'), 'mission input');
   const db = openDatabase(path.join(root, 'control.sqlite'));
   await fixture.workerSchema(db);
-  await db.exec(`ALTER TABLE agents ADD COLUMN status TEXT;
+  await db.exec(`ALTER TABLE agents ADD COLUMN status TEXT DEFAULT 'idle';
     ALTER TABLE agents ADD COLUMN isolation_mode TEXT;
     ALTER TABLE mission_agents ADD COLUMN role TEXT;
     CREATE TABLE aeis_agent_dissonance (agent_id TEXT PRIMARY KEY, authority_level INTEGER);`);

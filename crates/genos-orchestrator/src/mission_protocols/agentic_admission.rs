@@ -5,11 +5,11 @@ impl Store {
     pub fn admit_agentic(&mut self, spec:&AgenticSpec) -> Result<Binding,String> {
         spec.validate()?;
         let binding=binding_for(spec)?;
+        let _guard=self.current_writer(&binding)?;
         let tx=self.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(error)?;
-        let exists:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM rust_protocol_current WHERE mission_id=?1)",
-            [&spec.mission_id],|row|row.get(0)).map_err(error)?;
-        if exists { return Err("MISSION_ALREADY_ADMITTED: resume or explicit handoff required".into()); }
+        reject_existing(&tx,&spec.mission_id)?;
         persist(&tx,&binding,spec)?;
+        super::store::current_checked(&tx,&binding)?;
         tx.commit().map_err(error)?;
         Ok(binding)
     }
@@ -72,3 +72,10 @@ fn validate_identity(spec:&AgenticSpec, binding:&Binding) -> Result<(),String> {
 }
 
 fn error(error:impl std::fmt::Display) -> String { error.to_string() }
+
+fn reject_existing(connection:&Connection, mission:&str) -> Result<(),String> {
+    let exists:bool=connection.query_row("SELECT EXISTS(SELECT 1 FROM rust_protocol_current WHERE mission_id=?1)",
+        [mission],|row|row.get(0)).map_err(error)?;
+    if exists { return Err("MISSION_ALREADY_ADMITTED: resume or explicit handoff required".into()); }
+    Ok(())
+}

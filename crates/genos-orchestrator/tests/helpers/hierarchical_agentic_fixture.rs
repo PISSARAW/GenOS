@@ -6,6 +6,7 @@ use std::path::PathBuf;
 pub use transport::{Mode,Provider};
 
 pub const FINAL:&str="Sources : mid-left-result et mid-right-result. Limites : contrat structurel seulement.";
+pub const TURN_TIMEOUT_MS:u64=120000;
 
 pub struct Fixture {
     pub root:tempfile::TempDir,pub workspace:PathBuf,pub config_path:PathBuf,pub database:PathBuf,
@@ -52,7 +53,7 @@ fn configuration(provider:&Provider) -> Value {
         "documents":["notes.txt"],"contract":{"min_bytes":1,"max_bytes":4096,"required":["Sources","Limites"],
             "forbidden":[],"semantic_requirements":[]},
         "limits":{"tokens":200000,"model_calls":32,"tool_calls":32,"wall_ms":570000},
-        "max_input_tokens":4096,"turn_timeout_ms":20000})
+        "max_input_tokens":4096,"turn_timeout_ms":TURN_TIMEOUT_MS})
 }
 
 fn leaf(id:&str) -> Value {

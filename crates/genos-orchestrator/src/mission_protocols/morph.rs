@@ -60,14 +60,11 @@ fn expected_source(tx: &Transaction<'_>, input: (&Binding, &RosterPlan)) -> Resu
 
 impl Store {
     pub fn roster(&mut self, binding: &Binding) -> Result<Roster, String> {
-        ensure_schema(&self.connection)?;
-        self.transaction(binding, |tx| committed(tx, binding))
+        self.transaction(binding, |tx| { ensure_schema(tx)?; committed(tx, binding) })
     }
 
     pub fn ensure_roster(&mut self, binding: &Binding) -> Result<Roster, String> {
-        ensure_schema(&self.connection)?;
-        self.current(binding)?;
-        let source = read_roster(&self.connection, binding)?;
+        let source = self.transaction(binding, |tx| { ensure_schema(tx)?; read_roster(tx, binding) })?;
         if let Some(roster) = &source {
             if roster.run_id == binding.run_id { return self.roster(binding); }
         }
@@ -80,13 +77,11 @@ impl Store {
     }
 
     pub fn prepare_roster(&mut self, binding: &Binding, plan: &RosterPlan) -> Result<MorphReceipt, String> {
-        ensure_schema(&self.connection)?;
         plan.validate(binding)?;
         self.transaction(binding, |tx| prepare_transaction(tx, (binding, plan)))
     }
 
     pub fn commit_roster(&mut self, binding: &Binding, plan: &RosterPlan) -> Result<MorphReceipt, String> {
-        ensure_schema(&self.connection)?;
         plan.validate(binding)?;
         self.transaction(binding, |tx| commit_transaction(tx, (binding, plan)))
     }
@@ -94,6 +89,7 @@ impl Store {
 
 fn prepare_transaction(tx: &Transaction<'_>, input: (&Binding, &RosterPlan)) -> Result<MorphReceipt, String> {
     let (binding, plan) = input;
+    ensure_schema(tx)?;
     if let Some(receipt) = existing(tx, input)? { return Ok(receipt); }
     let source = expected_source(tx, input)?;
     let receipt = make_receipt(binding, (plan, &source), "prepared")?;
@@ -119,6 +115,7 @@ fn prepared_row(binding: &Binding, input: (&RosterPlan, &Option<Roster>), receip
 
 fn commit_transaction(tx: &Transaction<'_>, input: (&Binding, &RosterPlan)) -> Result<MorphReceipt, String> {
     let (binding, plan) = input;
+    ensure_schema(tx)?;
     let prior = existing(tx, input)?.ok_or("MORPH transition not prepared")?;
     if prior.status == "committed" { return Ok(prior); }
     let source = unchanged_source(tx, input, &prior)?;

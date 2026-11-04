@@ -11,6 +11,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
+| [2026x](2026-11-04-ett-inspection-artefact-de-mission.md) | ADR — Relier une inspection ETT complète à une mission native | Voir le fichier | -- | -- |
+| [2026y](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
+| [2026z](2026-11-04-incarnation-adn-clinique-workers-topologiques.md) | ADN et clinique avant l'exécution des workers topologiques | Voir le fichier | -- | -- |
+| [2026{](2026-11-04-mission-mecanismes-integres.md) | Préparation et qualification des mécanismes d'une mission native | Voir le fichier | -- | -- |
+| [2026|](2026-11-04-phases-mutation-primitives.md) | ADR — Phases de mutation et primitives exécutables | Voir le fichier | -- | -- |
+| [2026}](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
+| [0795](0795-admission-des-ecritures-du-journal-rust.md) | Admission locale bornée des écritures du journal Rust | Accepté | 2026-11-04 | Runtime Rust, SQLite et autorité |
 | [0793](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
 | [0792](0792-experience-competence-cinq-variantes.md) | Expérience de compétence à cinq variantes | Accepté pour un banc expérimental isolé | 2026-11-04 | Expérimentation, mémoire et métacognition |
 | [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |

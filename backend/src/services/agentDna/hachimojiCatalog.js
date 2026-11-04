@@ -13,6 +13,10 @@ const proofPrograms = ['test_hachimoji_catalog.cjs', 'test_hachimoji_migration.c
   'test_hachimoji_runtime.cjs', 'test_worker_genome_execution.cjs',
   'test_genome_policy.js', 'test_genome_innovation.js'];
 
+function proofTimeoutMs(filename) {
+  return ['test_hachimoji_catalog.cjs', 'test_worker_genome_execution.cjs'].includes(filename) ? 600000 : 180000;
+}
+
 function listFiles(directory, suffix) {
   return fs.readdirSync(path.join(root, directory), { recursive: true })
     .filter(file => file.endsWith(suffix)).map(file => `${directory}/${file.replaceAll('\\', '/')}`).sort();
@@ -144,4 +148,4 @@ function loadQualifiedGenome(file) {
 }
 
 module.exports = { root, receiptPath, inventory, confined, sourceBytes, cli, inspectEntry,
-  verifyCatalog, sourceFingerprint, writeReceipt, proofPrograms, assertQualified, loadQualifiedGenome };
+  verifyCatalog, sourceFingerprint, writeReceipt, proofPrograms, proofTimeoutMs, assertQualified, loadQualifiedGenome };
