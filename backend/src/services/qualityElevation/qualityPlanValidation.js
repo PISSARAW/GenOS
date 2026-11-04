@@ -1,6 +1,7 @@
 'use strict';
-const { fail } = require('./qualityContract');
+const { digest, fail } = require('./qualityContract');
 const { defect, isHeading } = require('./qualityText');
+const CAUSAL_FIELDS = ['decision', 'consequence', 'stateAfter'];
 function requiredText(value) { return typeof value === 'string' && value.trim().length > 0; }
 function validateScene(scene) {
   const required = ['id', 'heading', 'goal', 'obstacle', 'decision', 'consequence', 'stateAfter', 'timingRationale'];
@@ -29,7 +30,37 @@ function validatePlanStructure(plan, contract) {
   if (!requiredText(plan.premise) || !Array.isArray(plan.rules) || !plan.rules.length || !plan.rules.every(requiredText)) {
     throw fail('GQEL_PLAN_INVALID', 'Premise and non-empty causal rules required.');
   }
-  validateCharacters(plan.characters); validateScenePlan(plan.scenes, contract); return plan;
+  validateCharacters(plan.characters); validateScenePlan(plan.scenes, contract);
+  assertCausalProgression(plan);
+  return plan;
+}
+function causalTuple(scene) {
+  return CAUSAL_FIELDS.map(field => scene[field].normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim());
+}
+function causalGroups(scenes) {
+  const groups = new Map();
+  for (const scene of scenes) {
+    const key = JSON.stringify(causalTuple(scene));
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(scene);
+  }
+  return [...groups.values()];
+}
+function causalEvidence(scene) {
+  return CAUSAL_FIELDS.map(field => ({ sceneId: scene.id, field,
+    quote: [...scene[field]].slice(0, 240).join(''), fieldDigest: digest(scene[field]) }));
+}
+function assertCausalProgression(plan) {
+  const group = causalGroups(plan.scenes).find(items => items.length >= 3 && items.length > plan.scenes.length / 2);
+  if (!group) return;
+  const sceneIds = group.map(scene => scene.id);
+  const message = `Les scènes ${sceneIds.join(', ')} copient les mêmes décision, conséquence et état final `
+    + `(${group.length}/${plan.scenes.length}). Répare le plan par des transitions causales distinctes, sans modifier le brief.`;
+  const diagnostic = { code: 'PLAN_CAUSAL_REPETITION', severity: 'major', stage: 'plan', section: 'causal_progression', message,
+    metrics: { copies: group.length, totalScenes: plan.scenes.length, fraction: group.length / plan.scenes.length },
+    provenance: { canonicalPlanDigest: digest(plan), tupleDigest: digest(causalTuple(group[0])), sceneIds },
+    evidence: causalEvidence(group[0]) };
+  throw Object.assign(fail('GQEL_PLAN_INVALID', message), { defects: [diagnostic] });
 }
 function pacingGuide(plan, contract) {
   const total = plan.scenes.reduce((sum, scene) => sum + scene.plannedMinutes, 0);
