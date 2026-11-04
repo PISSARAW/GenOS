@@ -4,7 +4,7 @@ function missionEvidenceRefs(mission) {
   const supplied = mission.allowedEvidenceRefs || mission.evidenceRefs || [];
   return [...new Set(['mission', ...supplied].filter((item) => typeof item === 'string' && item.trim()))];
 }
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { nativeQuality: Boolean(mission.workerContract?.qualityElevation), diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [], identityExperimentScenario: mission.identityExperimentScenario, specialtyNiche: mission.specialtyNiche }); }
+function workerResponseFormat(mission) { return require('./agents/daemonObservationContract').responseFormat(mission.workerContract) || require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, missionEvidenceRefs(mission), { nativeQuality: Boolean(mission.workerContract?.qualityElevation), diagnosis: /artifact=diagnostic_matrix/i.test(mission.prompt || ''), missionCriteria: mission.missionCriteria || [], handoffs: mission.handoffContext || [], identityExperimentScenario: mission.identityExperimentScenario, specialtyNiche: mission.specialtyNiche }); }
 function sourceReferenceInstruction(mission) {
   const refs = missionEvidenceRefs(mission);
   const sourceDescriptions = [];

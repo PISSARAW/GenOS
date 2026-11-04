@@ -305,7 +305,7 @@ async function runEvidenceStage(ctx) {
 async function evidenceReportFromModel(ctx) {
   const startedAt = Date.now();
   try {
-    const immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName,
+    const immuneReport = resolveImmuneReport({ text: require('./agents/daemonObservationContract').project(ctx.result.text, ctx.mission.workerContract), agentName: ctx.agentName,
       nameMeaning: ctx.nameMeaning, role: ctx.mission.role });
     throwIfImmuneRejected(immuneReport, ctx.result.text);
     return require('./workerDossierHandoffService').attachReport(ctx.mission, immuneReport.report);

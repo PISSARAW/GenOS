@@ -5,6 +5,8 @@ reproduction, et les 8 modes de composition (topologies).
 
 ## Exécution
 
+- [contrat-sortie-daemon-allocation.md](contrat-sortie-daemon-allocation.md) — observation typée du daemon, sérialisation stricte et veto des oracles natifs.
+
 - [planification-cooperation-depuis-constat.md](planification-cooperation-depuis-constat.md) — constat sémantique préalable, contrat de plan typé, arrêt sain, dépendances et budgets du pilote LLM.
 
 - [maillage-adaptatif-communication.md](maillage-adaptatif-communication.md) — sélection déterministe par mission, audiences protégées, observation et activation du maillage.

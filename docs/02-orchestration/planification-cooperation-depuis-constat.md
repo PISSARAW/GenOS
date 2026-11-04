@@ -21,6 +21,10 @@ les références de source, le catalogue des rôles et leurs prérequis. Elle es
 conservée dans le rapport. Le daemon n'est pas une étape à réinventer : il a déjà
 produit la preuve d'entrée.
 
+Le [contrat de sortie du daemon d'allocation](contrat-sortie-daemon-allocation.md)
+utilise une observation typée, sérialisée sans modification de ses valeurs avant
+le contrôle par les oracles. Un format valide ne dispense pas de leur vérification.
+
 ## Contrat de réponse
 
 ```json

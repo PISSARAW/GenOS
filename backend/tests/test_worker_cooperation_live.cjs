@@ -31,7 +31,8 @@ function reply(prompt) {
     return plannedResponse(prompt);
   }
   requestKinds.push(prompt.match(/Stage: (\w+)\./)?.[1] || 'unknown');
-  if (abstain) return { outcome: 'unresolved', claims: [], uncertainties: ['Controlled abstention.'] };
+  if (abstain) return { schema: 'genos.daemon-allocation-observation/v1',
+    outcome: 'unresolved', observation: null, uncertainties: ['Controlled abstention.'] };
   const refs = [...new Set(prompt.match(/sha256:[a-f0-9]{64}/g))];
   const base = { outcome: 'success', uncertainties: [] };
   if (prompt.includes('Stage: verification.')) return { ...base,
@@ -43,9 +44,10 @@ function reply(prompt) {
     claims: [{ statement: '{"indices":[1,4],"sum":17}', evidence: refs }],
     specialtyAssessment: { niche: 'resource_allocation', inScope: true, evidence: refs } };
   assert.ok(prompt.includes('Stage: observation.'));
-  const observed = mode === 'healthy' ? { observedSum: 17, target: 17, anomaly: false } : { observedSum: 13, target: 17, anomaly: true };
-  return { ...base, claims: [{ statement: JSON.stringify(observed), evidence: refs }],
-    territoryReport: { territoryId: 'allocation', observedAt: new Date().toISOString(), sourceRefs: refs } };
+  const observed = mode === 'healthy' ? { observedSum: 17, target: 17, anomaly: false }
+    : { observedSum: mode === 'falsePositive' ? 27 : 13, target: 17, anomaly: true };
+  return { ...base, schema: 'genos.daemon-allocation-observation/v1', observation: observed, evidence: refs,
+    territoryReport: { territoryId: 'allocation.json', observedAt: new Date().toISOString(), sourceRefs: refs } };
 }
 
 function serverForFixture() {
@@ -56,7 +58,13 @@ function serverForFixture() {
       response.setHeader('content-type', 'application/json');
       if (request.url === '/api/tags') return response.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:7b' }] }));
       calls++;
-      const prompt = JSON.parse(body).messages.map(item => item.content).join('\n');
+      const payload = JSON.parse(body);
+      const prompt = payload.messages.map(item => item.content).join('\n');
+      if (!prompt.includes('PLANNER_INPUT_JSON\n') && prompt.includes('Stage: observation.')) {
+        assert.equal(payload.format.oneOf[0].properties.schema.const, 'genos.daemon-allocation-observation/v1');
+        assert.equal(payload.format.oneOf[0].properties.observation.properties.anomaly.const, undefined);
+        assert.ok(!prompt.includes('first and only claim statement'));
+      }
       response.end(JSON.stringify({ model: 'qwen2.5-coder:7b',
         message: { role: 'assistant', content: JSON.stringify(reply(prompt)) },
         done: true, prompt_eval_count: 100, eval_count: 40 }) + '\n');
@@ -68,7 +76,7 @@ async function runCase(parent, name) {
   const config = path.join(parent, `${name}.json`);
   const directory = path.join(parent, name);
   await fs.writeFile(config, JSON.stringify({ root: directory, model: 'ollama://qwen2.5-coder:7b',
-    scenario: name === 'healthy' ? 'healthy' : 'incorrect' }));
+    scenario: ['healthy', 'falsePositive'].includes(name) ? 'healthy' : 'incorrect' }));
   const result = await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.resolve(__dirname, '../bin/qualify-worker-cooperation-live.cjs'), config],
       { env: { ...process.env }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -105,12 +113,22 @@ async function main() {
     assert.deepEqual(requestKinds, ['observation', 'planning', 'candidate', 'verification']);
     assert.equal(report.finding.runId, report.stages[0].runId);
     assert.equal(report.acceptedPlan.findingRunId, report.finding.runId);
+    assert.deepEqual(JSON.parse(report.stages[0].report.claims[0].statement),
+      JSON.parse(report.stages[0].report.fullText).observation);
     mode = 'healthy';
     const healthy = await runCase(parent, 'healthy');
     assert.equal(healthy.qualified, true, JSON.stringify(healthy.error));
     assert.equal(healthy.responseDecision, 'stop');
     assert.equal(healthy.stages.length, 1);
     assert.equal(healthy.resources.modelTokens, 280);
+    mode = 'falsePositive';
+    const falsePositive = await runCase(parent, 'falsePositive');
+    assert.equal(falsePositive.qualified, false);
+    assert.equal(falsePositive.stages.length, 1);
+    assert.equal(falsePositive.planningAttempted, undefined);
+    assert.equal(falsePositive.resources.modelTokens, 140);
+    assert.match(falsePositive.error.message, /ORACLE_ASSEMBLY_NOT_ACCEPTED/);
+    assert.equal(falsePositive.stages[0].receipt.oracleExecution.costs.processes, 2);
     mode = 'invalidPlan';
     const refused = await runCase(parent, 'invalidPlan');
     assert.equal(refused.qualified, false);

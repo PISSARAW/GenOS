@@ -215,6 +215,7 @@ const suites = {
     ['cooperation failure causes, arithmetic and all-attempt accounting', 'test_worker_cooperation_regressions.cjs'],
     ['live cooperation pilot with controlled transport and native oracles', 'test_worker_cooperation_live.cjs'],
     ['daemon-evidence planner contract and typed dependency refusals', 'test_worker_cooperation_planner.cjs'],
+    ['typed daemon observation and unchanged arithmetic veto', 'test_daemon_observation_contract.cjs'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
     ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],

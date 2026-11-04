@@ -47,7 +47,8 @@ function rawReply(report) { return report.fullText || report; }
 
 function originalReply(context, report) {
   const text = context.result?.text;
-  return typeof text === 'string' && text ? text : rawReply(report);
+  return require('./agents/daemonObservationContract').project(
+    typeof text === 'string' && text ? text : rawReply(report), context.mission?.workerContract);
 }
 
 function trustedCodeEvidenceRefs(report, codeWorker, proposal) {

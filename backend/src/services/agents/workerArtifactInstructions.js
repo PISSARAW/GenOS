@@ -28,6 +28,8 @@ function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
   const kind = contract.identity?.workerKind;
+  const observation = require('./daemonObservationContract').instruction(contract);
+  if (observation) return observation;
   const custom = customInstruction(kind, contract);
   if (custom) return custom;
   const rhizome = rhizomeArtifactInstruction(contract, required);

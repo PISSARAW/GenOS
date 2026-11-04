@@ -12,15 +12,17 @@ async function task(context, mode) {
   const refs = contract.sources.map(item => `sha256:${item.sha256}`);
   const problem = JSON.parse(await fs.readFile(path.join(context.workspace, 'problem.json'), 'utf8'));
   const allocation = JSON.parse(await fs.readFile(path.join(context.workspace, 'allocation.json'), 'utf8'));
+  const output = mode === 'observation' ? 'Follow the typed daemon observation response contract.'
+    : 'Return one JSON-encoded object as the first and only claim statement, plus the required fields for your worker type.';
   return { verificationContract: contract,
     inputRefs: refs,
-    prompt: `Stage: ${mode}. Read-only problem=${JSON.stringify(problem)}, allocation=${JSON.stringify(allocation)}. Indices are zero-based. Compute directly from these supplied facts; no tool execution is needed or claimed. Cite these file references: ${JSON.stringify(refs)}. Return one JSON-encoded object as the first and only claim statement, plus the required fields for your worker type. Do not invent execution, tests or solver receipts.` };
+    prompt: `Stage: ${mode}. Read-only problem=${JSON.stringify(problem)}, allocation=${JSON.stringify(allocation)}. Indices are zero-based. Compute directly from these supplied facts; no tool execution is needed or claimed. Cite these file references: ${JSON.stringify(refs)}. ${output} Do not invent execution, tests or solver receipts.` };
 }
 
 async function observe(context) {
   const assignment = await task(context, 'observation');
   const stage = await dispatch(context, { ...assignment, kind: 'resident_daemon',
-    prompt: `${assignment.prompt} Report {observedSum:number,target:number,anomaly:boolean}. Supply territoryReport with territoryId allocation, observedAt ${new Date().toISOString()} and sourceRefs containing the file references.` });
+    prompt: `${assignment.prompt} Supply observation {observedSum:integer,target:integer,anomaly:boolean}. Sum only the values selected by allocation.indices. Supply territoryReport with territoryId allocation.json, observedAt ${new Date().toISOString()} and sourceRefs containing the file references.` });
   return stage;
 }
 
