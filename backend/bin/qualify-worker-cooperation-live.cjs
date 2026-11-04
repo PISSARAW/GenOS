@@ -6,6 +6,11 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const sharedBudget = { tokens: 64000, costUsd: 1, latencyMs: 720000, events: 400 };
 
+function qualified(report) {
+  return report.protocolCompleted && report.genosMissionQualified && report.coverage.satisfied && report.shutdown.stopped
+    && report.resources.modelTokens !== null && report.resources.modelTokens <= report.limits.modelTokens;
+}
+
 function optionsEndpoint(options) {
   if (!path.isAbsolute(options.root || '') || !/^ollama:\/\/.+/.test(options.model || '')) {
     throw new Error('An absolute new output directory and explicit ollama:// model are required.');
@@ -33,6 +38,7 @@ async function prepare(options) {
     GENOS_DB_PATH: path.join(root, 'live.sqlite'), GENOS_STUDIO_ROOT: path.join(root, 'studio'),
     GENOS_CAPSULE_ROOT: path.join(root, 'capsules'), GENOS_SNAPSHOT_ROOT: path.join(root, 'snapshots'),
     GENOS_WORKSPACES_ROOT: root, GENOS_DISABLE_WORKSPACE_GC: '1', GENOS_OLLAMA_ENDPOINT: endpoint, ...credentials });
+  await require('../tests/helpers/workerCooperationNativeMission.cjs').prepareCatalog(root);
   return { root, workspace };
 }
 
@@ -41,45 +47,44 @@ async function qualify(options) {
   const database = require('../src/db');
   const db = await database.getDatabase();
   const plannerLimits = require('../tests/helpers/workerCooperationPlannerContract.cjs').LIMITS;
-  const report = { schema: 'genos.worker-cooperation-live/v3', startedAt: new Date().toISOString(),
+  const report = { schema: 'genos.worker-cooperation-live/v4', startedAt: new Date().toISOString(),
     model: options.model, stages: [], protocolCompleted: false, qualified: false, promoted: false,
     genosMissionQualified: false,
     scope: 'bounded_model_plan_and_model_workers_with_native_semantic_oracles_and_native_capsule_recovery',
     limits: { workerBudget: sharedBudget, plannerMaxOutputTokens: plannerLimits.outputTokens,
       plannerMaxTotalTokens: plannerLimits.totalTokens, modelTokens: sharedBudget.tokens + plannerLimits.totalTokens },
     limitations: ['Controlled local incident and constrained role plan; no general autonomous decomposition claim.',
-      'Qualification is the bounded protocol driver verdict; native root mission completion is not asserted.',
+      'Qualification requires native root completion and observed coverage; no general autonomous decomposition claim.',
       'Recovery restores an isolated capsule; source promotion is not authorized.',
       'Tokens include all child runs and planning; provider USD costs do not measure local electricity or hardware.'] };
   const context = { ...locations, id: `live-cooperation-${crypto.randomUUID()}`, model: options.model,
     db, report, planningTokens: 0,
     save: () => fs.writeFile(path.join(locations.root, 'report.json'), JSON.stringify(report, null, 2)) };
   try {
-    const seeded = await require('../tests/helpers/workerCooperationRuntime.cjs').seed(db,
-      { id: context.id, workspace: context.workspace, budget: sharedBudget });
-    context.control = seeded.control;
-    context.control.ctx.normalizedMission.executionBudget = sharedBudget;
-    await require('../src/services/missionModelBudgetScope').bindParent(context.control.ctx);
-    report.rootAgentId = context.id;
-    report.parentRunId = context.control.run.id;
-    await require('../tests/helpers/workerCooperationLiveProtocol.cjs').execute(context);
-    const authority = await require('../src/services/missionEnvelopeAuthority').assertRun(db, {
-      agentId: context.id, runId: context.control.run.id, mission: context.control.ctx.normalizedMission });
-    report.controllerAuthority = { hash: authority.hash, checkedAt: new Date().toISOString(),
-      expiresAt: authority.envelope.expiresAt };
+    const native = require('../tests/helpers/workerCooperationNativeMission.cjs');
+    await native.prepare(context, { ...sharedBudget, tokens: report.limits.modelTokens });
+    await require('../src/services/nativeMissionController').run(context.control.ctx, async () => {
+      await require('../tests/helpers/workerCooperationLiveProtocol.cjs').execute(context);
+      const authority = await require('../src/services/missionEnvelopeAuthority').assertRun(db, {
+        agentId: context.id, runId: context.control.run.id, mission: context.control.ctx.normalizedMission });
+      report.controllerAuthority = { hash: authority.hash, checkedAt: new Date().toISOString(),
+        expiresAt: authority.envelope.expiresAt };
+      report.nativeCompletion = await native.complete(context);
+      report.genosMissionQualified = report.nativeCompletion.missionStatus === 'completed';
+    });
     report.protocolCompleted = true;
   } catch (error) { report.error = { message: error.message, code: error.code || null,
-    omegaExecution: error.omegaExecution || null }; }
+    omegaExecution: error.omegaExecution || null, stack: error.stack }; }
   finally {
     try {
       report.shutdown = await require('../tests/helpers/workerCooperationShutdown.cjs').stop(db, context.id);
       report.resources = await require('../tests/helpers/workerCooperationLiveEvidence.cjs').accounting(db, context);
+      report.coverage = await require('../tests/helpers/workerCooperationCoverage.cjs').inspect(context);
       report.failureEvents = await db.all(`SELECT event_type,detail,payload_json FROM telemetry_events
         WHERE agent_id IN (SELECT id FROM agents WHERE parent_agent_id=? OR id=?)
           AND event_type IN ('AGENT_FAILED','LOCAL_WORKER_FAILED','WORKER_RECOVERY_DISPATCH_FAILED') ORDER BY rowid`,
       context.id, context.id);
-      report.qualified = report.protocolCompleted && report.shutdown.stopped
-        && report.resources.modelTokens !== null && report.resources.modelTokens <= report.limits.modelTokens;
+      report.qualified = qualified(report);
       await database.closeDatabase();
     } catch (error) {
       report.qualified = false;

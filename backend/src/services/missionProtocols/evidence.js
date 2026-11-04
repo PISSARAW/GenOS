@@ -68,8 +68,7 @@ async function advance(runtime, input) {
     if (status === null ? held !== null : held?.status !== status) continue;
     await runtime.apply(values.message(binding, { type, claimId: claim.claimId,
       payload: type === 'ASSERT' ? { claim } : { claimId: claim.claimId }, cause: held?.lastMessageId,
-      createdAt: proof.proof.attestation.value.completedAt,
-      expiresAt: proof.proof.attestation.value.validUntil }));
+      ...values.messageTimes(binding, proof) }));
   }
   if (!runtime.canPromote(values.request(binding, claim))) throw refused('claim is not accepted under current bindings');
 }

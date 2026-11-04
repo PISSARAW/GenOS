@@ -9,6 +9,7 @@ async function dispatch(context, task) {
   await require('../../src/services/missionEnvelopeAuthority').assertRun(context.db, {
     agentId: context.id, runId: context.control.run.id, mission: context.control.ctx.normalizedMission });
   const assignment = { role: task.kind, workerKind: task.kind, label: task.kind, hypothesis: task.prompt,
+    genomeRef: require('./workerCooperationNativeMission.cjs').genomeRef(task.kind),
     capabilities: [], specialtyNiche: 'resource_allocation', workspaceVerificationContract: task.verificationContract,
     methodContract: task.methodContract, recoveryLease: task.recoveryLease };
   const mission = { missionId: context.id, prompt: task.prompt, workspaceRoot: context.workspace,
@@ -21,6 +22,10 @@ async function dispatch(context, task) {
       tokenPolicy: { total: 20000, workerShare: 0.8, orchestratorReserve: 0.2,
         rounds: { initial: { perWorkerTokens: budget.tokens } } }, dispatchWorkers: [assignment] } });
   const worker = workers[0];
+  require('./workerCooperationRecovery.cjs').track(context, worker.agentId);
+  const lineage = await require('../../src/services/agentEvolutionService').recordWorkerLineage(context.db,
+    { agentId: worker.agentId, workspaceId: worker.workspaceId, role: worker.role }, { genes: worker.genome });
+  assert.equal(lineage.success, true, lineage.error);
   await require('../../src/services/missionIdentityService').attachAgent(context.db,
     { missionId: context.id, agentId: worker.agentId, role: task.kind });
   const stored = await context.db.get('SELECT metadata_json,parent_agent_id FROM agents WHERE id=?', worker.agentId);
@@ -28,15 +33,17 @@ async function dispatch(context, task) {
   const contract = JSON.parse(stored.metadata_json).workerContract;
   assert.deepEqual(contract.assignment.workspaceVerificationContract || null, task.verificationContract || null);
   const stage = { kind: task.kind, workerId: worker.agentId, workspaceRoot: worker.workspaceRoot,
+    factoryToolLease: worker.toolLease,
     inputRefs: task.inputRefs || [], authority: contract.authority, verificationContract: task.verificationContract };
   context.report.stages.push(stage);
   await context.save();
   try {
-    await require('../../src/services/agentRuntimeAdapter').startMission({ ...mission,
+    await require('../../src/services/agentRuntimeAdapter').startMission({ ...worker, ...mission,
       agentId: worker.agentId, orchestratorAgentId: context.id, workerKind: task.kind, role: task.kind,
       workerContract: contract, workerAssignment: assignment, specialtyNiche: 'resource_allocation',
       methodContract: task.methodContract, recoveryLease: task.recoveryLease, autonomousOrchestration: false,
       workspaceId: worker.workspaceId, workspaceRoot: worker.workspaceRoot, prompt: worker.prompt });
+    await require('./workerCooperationRecovery.cjs').settle(context, stage);
     return await evidence.stageEvidence(context.db, stage);
   } finally { await context.save(); }
 }

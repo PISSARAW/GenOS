@@ -12,7 +12,7 @@ const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
-const { consultLocalModels } = require('./agentModelRoutingService');
+const { applyLocalModelReview } = require('./agentAutonomyModelReview');
 const { applyMissionCapabilityContract } = require('./missionCapabilityContractService');
 const selfModel = require('./selfModelService');
 const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
@@ -282,23 +282,6 @@ function applyWorkGraphStages(members, graph) {
     const memberId = member.memberId || member.agentId || member.workerId || member.domain || member.subSystem || member.label || member.role;
     member.pipelineStage = graph.memberStages[memberId] || 0;
   }
-}
-
-async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan }) {
-  const provider = String(normalizedMission.provider || '').toLowerCase();
-  if (normalizedMission.executor === 'caller_mcp' || provider.includes('codex') || provider.includes('mcp')) {
-    autonomyPlan.localModelReview = { consulted: false, reason: 'Cognition is owned by the MCP caller.' };
-    return;
-  }
-  const modelTenant = normalizedMission.workspaceId
-    ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
-    : null;
-  autonomyPlan.localModelReview = await consultLocalModels({ db, agentId, mission: normalizedMission, plan: autonomyPlan, tenant: modelTenant || {} });
-  const consulted = autonomyPlan.localModelReview.consulted;
-  const message = consulted
-    ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.`
-    : 'No local model review was available; continuing with the frontier orchestrator.';
-  emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', message, autonomyPlan.localModelReview, consulted ? 'info' : 'warning');
 }
 
 async function applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission }) {

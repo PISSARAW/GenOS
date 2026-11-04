@@ -32,4 +32,10 @@ function request(binding, value) {
     generations: binding.generations };
 }
 
-module.exports = { claim, message, request };
+function messageTimes(binding, verification) {
+  if (verification.delegated) return { createdAt: new Date().toISOString(), expiresAt: binding.expiresAt };
+  const attestation = verification.proof.attestation.value;
+  return { createdAt: attestation.completedAt, expiresAt: attestation.validUntil };
+}
+
+module.exports = { claim, message, request, messageTimes };

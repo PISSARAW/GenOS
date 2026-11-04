@@ -138,6 +138,7 @@ async function startMissionInternal(mission) {
 }
 
 function executionEntrypoint(ctx) {
+  if (ctx.normalizedMission.executionController === 'native-coordinator') return require.resolve('../nativeMissionController');
   if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(ctx.normalizedMission)) {
     return require.resolve('../agents/deterministicWorkerRuntime');
   }
@@ -283,4 +284,4 @@ async function recordMissionStartFailure(agentId, failure) {
   }, 'error');
 }
 
-module.exports = { startMissionInternal, startMission, missionStartFailureDetail, attachExecutionRunId, recordMissionStartFailure, finalizeMissionStart, handlePostShutdown, observeIdlePostShutdown, resetPostShutdownObservation, postShutdownBackoffDelayMs, MAX_IDLE_POST_SHUTDOWN_CHECKS, postShutdownObservations };
+module.exports = { bootstrapMission, startMissionInternal, startMission, missionStartFailureDetail, attachExecutionRunId, recordMissionStartFailure, finalizeMissionStart, handlePostShutdown, observeIdlePostShutdown, resetPostShutdownObservation, postShutdownBackoffDelayMs, MAX_IDLE_POST_SHUTDOWN_CHECKS, postShutdownObservations };

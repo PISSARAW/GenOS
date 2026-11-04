@@ -1,8 +1,9 @@
 'use strict';
 
 function remaining(mission, now = Date.now()) {
-  if (!mission.executionDeadlineAt) return null;
-  const deadline = Date.parse(mission.executionDeadlineAt);
+  const value = mission.executionDeadlineAt;
+  if (value === undefined || value === null) return null;
+  const deadline = typeof value === 'number' ? value : Date.parse(value);
   return Number.isFinite(deadline) ? Math.max(0, deadline - now) : 0;
 }
 

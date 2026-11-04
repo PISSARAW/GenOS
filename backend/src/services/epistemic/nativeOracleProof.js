@@ -79,7 +79,7 @@ async function assertCompletedEvidence(db, input) {
       || completion < Date.parse(attestation.completedAt)) throw values.failure('ORACLE_COMPLETION_TIME_INVALID');
   await require('../aeisAssemblyStore').readAssembly(db, attestation.assemblyId, { historical: true });
   if (authority.hash !== attestation.authorityHash) throw values.failure('ORACLE_AUTHORITY_CHANGED');
-  const subject = await subjects.load(db, { ...request, scope: attestation.scope });
+  const subject = await subjects.load(db, { ...request, scope: attestation.scope, completedEvidence: true });
   if (values.digest(subject) !== attestation.subjectHash || values.digest(report) !== attestation.reportHash) {
     throw values.failure('ORACLE_COMPLETION_RESULT_CHANGED');
   }

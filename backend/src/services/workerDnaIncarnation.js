@@ -91,7 +91,9 @@ async function persist(db, input) {
   const metadata = { ...metadataOf(input.row), dnaIncarnation: input.record };
   const encoded = JSON.stringify(metadata);
   const updated = await db.run(`UPDATE agents SET metadata_json=? WHERE id=?
-    AND metadata_json=? AND status!='running'`, encoded, input.row.id, input.row.metadata_json);
+    AND metadata_json=? AND (status!='running' OR NOT EXISTS (
+      SELECT 1 FROM strategy_execution_runs r WHERE r.agent_id=agents.id AND r.status IN ('planned','running')))`,
+  encoded, input.row.id, input.row.metadata_json);
   if (updated.changes !== 1) throw failure('WORKER_DNA_BINDING_CONFLICT');
   input.row.metadata_json = encoded;
 }

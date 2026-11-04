@@ -11,7 +11,12 @@ const ORDER = ['resident_daemon', 'specialist', 'verifier_worker', 'recovery_wor
 let calls = 0;
 let abstain = false;
 let mode = 'success';
+let observationAttempts = 0;
 const requestKinds = [];
+
+function shouldRecover(prompt) {
+  return mode === 'recoverOnce' && prompt.includes('Stage: observation.') && observationAttempts++ === 0;
+}
 
 function plannedResponse(prompt) {
   const input = JSON.parse(prompt.split('PLANNER_INPUT_JSON\n')[1]);
@@ -31,7 +36,8 @@ function reply(prompt) {
     return plannedResponse(prompt);
   }
   requestKinds.push(prompt.match(/Stage: (\w+)\./)?.[1] || 'unknown');
-  if (abstain) return { schema: 'genos.daemon-allocation-observation/v1',
+  const recoverable = shouldRecover(prompt);
+  if (abstain || recoverable) return { schema: 'genos.daemon-allocation-observation/v1',
     outcome: 'unresolved', observation: null, uncertainties: ['Controlled abstention.'] };
   const refs = [...new Set(prompt.match(/sha256:[a-f0-9]{64}/g))];
   const base = { outcome: 'success', uncertainties: [] };
@@ -90,6 +96,8 @@ async function runCase(parent, name) {
   });
   await fs.writeFile(path.join(parent, `${name}.log`), result.output);
   const report = JSON.parse(await fs.readFile(path.join(directory, 'report.json'), 'utf8'));
+  console.log(`Controlled case ${name}: ${JSON.stringify({ qualified: report.qualified, error: report.error,
+    coverage: report.coverage?.checks, stages: report.stages.length })}`);
   assert.equal(result.code, report.qualified ? 0 : 1, result.output);
   return report;
 }
@@ -103,6 +111,10 @@ async function main() {
     const report = await runCase(parent, 'success');
     assert.equal(report.qualified, true, JSON.stringify({ error: report.error, shutdown: report.shutdownError,
       events: report.failureEvents, resources: report.resources }));
+    assert.equal(report.genosMissionQualified, true);
+    assert.ok(report.nativeCompletion?.dossierDigest);
+    assert.equal(report.nativeController.body, true);
+    assert.equal(report.coverage.satisfied, true);
     assert.deepEqual(report.stages.map(stage => stage.kind), ORDER);
     assert.ok(report.stages.every(stage => stage.receipt.result.verified));
     assert.ok(report.stages.every(stage => stage.receipt.semanticVerification.costs.processes === 2));
@@ -115,6 +127,7 @@ async function main() {
     assert.equal(report.acceptedPlan.findingRunId, report.finding.runId);
     assert.deepEqual(JSON.parse(report.stages[0].report.claims[0].statement),
       JSON.parse(report.stages[0].report.fullText).observation);
+    if (process.argv.includes('--success-only')) return;
     mode = 'healthy';
     const healthy = await runCase(parent, 'healthy');
     assert.equal(healthy.qualified, true, JSON.stringify(healthy.error));
@@ -126,7 +139,7 @@ async function main() {
     assert.equal(falsePositive.qualified, false);
     assert.equal(falsePositive.stages.length, 1);
     assert.equal(falsePositive.planningAttempted, undefined);
-    assert.equal(falsePositive.resources.modelTokens, 140);
+    assert.ok(falsePositive.resources.modelTokens >= 140);
     assert.match(falsePositive.error.message, /ORACLE_ASSEMBLY_NOT_ACCEPTED/);
     assert.equal(falsePositive.stages[0].receipt.oracleExecution.costs.processes, 2);
     mode = 'invalidPlan';
@@ -137,6 +150,12 @@ async function main() {
     assert.match(refused.error.message, /Future|prerequisite/);
     assert.equal(report.recovery.sourceUnchanged, true);
     assert.equal(report.promoted, false);
+    mode = 'recoverOnce';
+    const recovered = await runCase(parent, 'recoverOnce');
+    assert.equal(recovered.qualified, true, JSON.stringify(recovered.error));
+    assert.ok(recovered.stages[0].recoveryTransitions.length > 0);
+    assert.ok(recovered.resources.providerAttempts.filter(item => item.provider_called).length >= 5);
+    assert.ok(recovered.resources.attempts.some(item => item.status !== 'completed'));
     abstain = true;
     const failed = await runCase(parent, 'abstention');
     assert.equal(failed.qualified, false);

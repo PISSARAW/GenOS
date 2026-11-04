@@ -16,6 +16,10 @@ async function planMission(ctx) {
   ctx.morphogenesisNosology = await missionNosology.loadMissionNosology(ctx);
   missionNosology.assertPlanningAllowed(ctx.morphogenesisNosology);
   ctx.morphogenesisGenomeContext = await missionGenomes.loadMissionGenomeContext(ctx);
+  if (normalizedMission.executionController === 'native-coordinator') {
+    ctx.autonomyPlan = await require('../nativeMissionController').plan(ctx);
+    return;
+  }
   topologyActivation.seedMorphogenesisSelection(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   if (topologyActivation.nativeMissionPlanOwnsDispatch(normalizedMission, ctx.autonomyPlan)) return;

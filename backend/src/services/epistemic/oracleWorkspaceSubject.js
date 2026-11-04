@@ -15,6 +15,11 @@ const DOMAIN = { statement: 'Bounded source and artifact postconditions; no aest
 function hash(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 function denied(code) { throw values.failure(code); }
 
+function observationAge(observed, authority) {
+  const checkedAt = authority ? Date.parse(authority.completedAt) : Date.now();
+  return checkedAt - Date.parse(observed?.event.timestamp);
+}
+
 async function load(db, request) {
   const run = await provenance.readRun(db, { runId: request.runId, scope: request.scope });
   const binding = await store.binding(db, request.runId);
@@ -23,14 +28,16 @@ async function load(db, request) {
   require('./workspaceVerificationContract').assertContract(contract);
   const observations = await store.observations(db, request.runId);
   const observed = observations.filter(o => o.applied && o.event.eventType === 'EVIDENCE_REPORT').at(-1);
-  const age = Date.now() - Date.parse(observed?.event.timestamp);
+  const authority = request.completedEvidence === true
+    ? await require('../missionEnvelopeAuthority').assertCompletedRunEvidence(db, request) : null;
+  const age = observationAge(observed, authority);
   if (!observed || !Number.isFinite(age) || age < -60000 || age > 600000) denied('ORACLE_SOURCE_STALE');
-  return buildSubject(db, { request, run, binding, contract, observed });
+  return buildSubject(db, { request, run, binding, contract, observed, authority });
 }
 
 async function buildSubject(db, input) {
   const { request, run, binding, contract, observed } = input;
-  const authority = await require('../missionEnvelopeAuthority').assertRun(db, request);
+  const authority = input.authority || await require('../missionEnvelopeAuthority').assertRun(db, request);
   if (authority.status !== 'authorized') denied('ORACLE_AUTHORITY_REQUIRED');
   const workspaceRoot = authority.envelope.workspaceRoot;
   const sources = contract.sources.map(source => readSource(workspaceRoot, source));
