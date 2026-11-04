@@ -100,9 +100,10 @@ async function run() {
     verifyMutation(directory, worker);
     verifyDowngrade(worker.model);
     assert.throws(() => resident.createRuntime(null, { genomeDna: worker.model.raw }), /role mismatch/);
-    const legacy = dna.decodeFile(path.join(root, 'agents/dna/fondations/preuve_evidence.dna'));
+    const legacyPath = path.join(__dirname, 'fixtures/agent-dna-v1/preuve_evidence.dna');
+    const legacy = dna.decodeFile(legacyPath);
     assert.equal(legacy.format, 'AgentDNA/v1');
-    assert.equal(cli(['inspect', '--file', path.join(root, 'agents/dna/fondations/preuve_evidence.dna')]).content_hash, legacy.contentHash);
+    assert.equal(cli(['inspect', '--file', legacyPath]).content_hash, legacy.contentHash);
     assert.equal(legacy.phenotype.role, worker.model.phenotype.role);
     assert.deepEqual(legacy.phenotype.tools, worker.model.phenotype.tools);
   } finally {

@@ -185,7 +185,8 @@ Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `gra
 
 ## 10. Limites, garde-fous, non-objectifs
 
-- **Compatibilité Hachimoji** : les nouveaux manifestes compilés utilisent v2 ; les `.dna` v1 et les blobs existants restent lisibles sans réécriture. Les génomes mixtes conservent l'encodage de chaque brin. Les lecteurs anciens doivent être mis à jour avant d'ouvrir du v2. Le runtime résident ne charge un binaire que si celui-ci lui est fourni ; sa référence de manifeste seule n'atteste pas d'une liaison binaire.
+- **Compatibilité Hachimoji** : les nouveaux manifestes compilés utilisent v2 ; les `.dna` v1 et les blobs existants restent lisibles sans réécriture automatique. Les génomes mixtes conservent l'encodage de chaque brin. Les lecteurs anciens doivent être mis à jour avant d'ouvrir du v2.
+- **Catalogue migré** : les 227 binaires historiques ont été transcodés et les sept manifestes manquants compilés, soit 234 fichiers Hachimoji. Le daemon résident charge désormais son binaire qualifié par défaut et expose sa liaison. Les références personnalisées de manifestes restent distinctes d'une liaison binaire. Voir le [rapport de migration](../06-qualite-preuves/migration-catalogue-hachimoji-2026-11-04.md) et l'[ADR 0788](../adr/0788-migration-catalogue-hachimoji-sous-preuves.md).
 
 - **Ce n'est pas de la biologie** : les termes (chromatine, plasmide, spéciation) organisent des invariants ; ils ne prouvent pas la vérité métier.
 - **Expression textuelle, non sémantique** : le phénotype dérive des loci/instructions, pas d'une compréhension.

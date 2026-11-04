@@ -8,6 +8,17 @@ pub struct GenomeCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum GenomeSubcommands {
+    /// Transcode legacy instructions to Hachimoji without changing their meaning
+    MigrateHachimoji {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
     /// Compile a portable AgentGenome manifest into a binary AgentDNA genome
     Compile {
         #[arg(long, alias = "in")]

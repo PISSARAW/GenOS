@@ -43,7 +43,7 @@ const TRANSITIONS = {
   REPORTING: { done: 'DORMANT', signal: 'FOCUSED', reset: 'BOOTSTRAPPING' }
 };
 
-const GENOME_REF = 'agents/daemons/resident_daemon.agent.json';
+const GENOME_REF = require('./residentDaemonGenome').GENOME_REF;
 
 function transitionActivity(current, event) {
   const next = (TRANSITIONS[current] || {})[event] || null;
@@ -63,7 +63,7 @@ function createRuntime(db, options) {
     db: db || null,
     identityOwner: require('crypto').randomUUID(),
     genomeRef: (options && options.genomeRef) || GENOME_REF,
-    genomeBinding: require('./residentDaemonGenome').bindGenome(options?.genomeDna),
+    genomeBinding: require('./residentDaemonGenome').runtimeGenome(options),
     daemons: new Map(),
     pending: new Map(),
     started: false

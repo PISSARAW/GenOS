@@ -29,6 +29,15 @@ Statut d'implémentation : `genos genome compile` produit désormais des contene
 
 ## Alphabet Hachimoji v2 et lecture v1
 
+Le catalogue livré contient 234 génomes v2 après migration explicite des 227
+binaires historiques et compilation des sept manifestes manquants. La commande
+`genome migrate-hachimoji --input ancien.dna --output nouveau.dna` produit une
+nouvelle identité avec parent et lignée, en préservant les instructions et le
+phénotype exprimé. Elle refuse les sources signées/scellées nécessitant un
+signataire, les instructions non réversibles et les exons à remapper. Le reçu
+`shared/agentDnaHachimojiQualification.json` qualifie l'équivalence d'encodage ;
+il n'autorise aucune promotion de mission. Voir l'[ADR 0788](../docs/adr/0788-migration-catalogue-hachimoji-sous-preuves.md).
+
 Les nouveaux brins utilisent `A=000, C=001, G=010, T=011, P=100, Z=101,
 B=110, S=111`. Les paires complémentaires sont A–T, C–G, P–Z et B–S.
 Les bits se suivent du poids fort au poids faible, y compris entre octets.

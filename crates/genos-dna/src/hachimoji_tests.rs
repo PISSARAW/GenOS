@@ -19,7 +19,7 @@ fn three_bit_packing_handles_cross_byte_boundaries_and_padding() {
 
 #[test]
 fn legacy_file_keeps_its_canonical_hash_and_signature_contract() {
-    let bytes = include_bytes!("../../../agents/dna/fondations/preuve_evidence.dna");
+    let bytes = include_bytes!("../../../backend/tests/fixtures/agent-dna-v1/preuve_evidence.dna");
     let mut dna = validate::validate_bytes(bytes).unwrap();
     assert_eq!(codec::format_version(&dna), 1);
     assert_eq!(dna.genes["ROLE"].dna.decode_instruction(), "historian");

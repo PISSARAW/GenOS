@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [migration-catalogue-hachimoji-2026-11-04.md](migration-catalogue-hachimoji-2026-11-04.md) — migration des 227 binaires historiques, compilation des sept manifestes manquants et qualification d'encodage sous preuves.
+
 - [orchestration-dynamique-llm-rust-2026-11-03.md](orchestration-dynamique-llm-rust-2026-11-03.md) — délégations natives, copies et retours CAS, ordre causal des outils et essai causal borné qualifié, deux essais négatifs conservés, contrôles globaux vérifiés et audit externe lié à la livraison.
 
 - [requalification-principes-fondateurs-2026-11-03.md](requalification-principes-fondateurs-2026-11-03.md) — renouvellement du reçu après réexécution des onze preuves, ancrage des sources d'enveloppe et maintien des refus de qualification.

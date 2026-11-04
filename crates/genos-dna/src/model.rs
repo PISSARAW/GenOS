@@ -40,7 +40,7 @@ pub struct Meta {
     pub status: DnaStatus,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Phenotype {
     pub role: String,
     pub strategy: String,

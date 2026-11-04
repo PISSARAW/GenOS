@@ -8,6 +8,9 @@ use crate::commands::output_guard::{resolve_output_path, WriteOptions};
 
 pub fn execute(cmd: GenomeSubcommands) -> Result<(), String> {
     match cmd {
+        GenomeSubcommands::MigrateHachimoji { input, output, force, parents } => {
+            crate::commands::genome_migration::execute(&input, &output, &WriteOptions { force, parents })
+        }
         GenomeSubcommands::Compile { input, output, force, parents } => {
             let opts = WriteOptions { force, parents };
             handle_compile(&input, &output, &opts)

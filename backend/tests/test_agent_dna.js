@@ -11,7 +11,8 @@ const SECURITY_FILE = path.resolve(__dirname, '../../agents/dna/securite/circuit
 
 async function testDecode() {
   const model = agentDna.decodeFile(DNA_FILE);
-  assert.equal(model.format, 'AgentDNA/v1');
+  assert.equal(model.format, 'AgentDNA/v2');
+  assert.equal(model.alphabet, 'ACGTPZBS');
   assert.equal(model.contentHash.length, 64);
   assert.equal(model.meta.name, 'EvidenceLedger');
   assert.ok(model.genes.ROLE);

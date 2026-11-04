@@ -56,7 +56,9 @@ async function run() {
   assert.equal(mutated.contentHash.length, 64);
   const stored = await store.loadGenome(db, mutated.genomeRef);
   assert.ok(stored);
-  assert.equal(stored.provenance.mutations.length, 1);
+  const parent = await store.loadGenome(db, 'EvidenceLedger');
+  assert.equal(stored.provenance.mutations.length, parent.provenance.mutations.length + 1);
+  assert.deepEqual(stored.provenance.mutations.slice(0, -1), parent.provenance.mutations);
 
   await assert.rejects(
     operations.runOperation(db, { operation: 'unknown', params: { genomeId: 'EvidenceLedger' }, scope: {} }),

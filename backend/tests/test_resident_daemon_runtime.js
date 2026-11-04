@@ -56,6 +56,8 @@ async function main() {
   });
   const rt = runtime.createRuntime(db, {});
   assert.equal(rt.genomeRef, runtime.GENOME_REF);
+  assert.equal(rt.genomeBinding.format, 'AgentDNA/v2');
+  assert.equal(rt.genomeBinding.alphabet, 'ACGTPZBS');
   const reg = await runtime.registerDaemon(rt, { daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend' });
   assert.equal(reg.registered, true);
   assert.equal(reg.activity, 'BOOTSTRAPPING');

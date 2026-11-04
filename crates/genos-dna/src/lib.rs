@@ -11,6 +11,7 @@ pub mod validate;
 pub mod operations;
 pub mod point_mutation;
 pub mod sign;
+pub mod migration;
 
 pub use header::{Header, HEADER_LEN, SECTION_ENTRY_LEN, FORMAT_VERSION, MAGIC};
 pub use section::{Section, SectionTag};
@@ -28,3 +29,6 @@ mod seal_tests;
 
 #[cfg(test)]
 mod hachimoji_tests;
+
+#[cfg(test)]
+mod migration_tests;

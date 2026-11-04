@@ -33,6 +33,7 @@ pub mod platform_ops;
 pub mod experiments;
 pub mod fossil_attestation;
 pub mod genome;
+pub mod genome_migration;
 pub mod genome_ops;
 pub mod replay;
 pub mod replay_chain;
