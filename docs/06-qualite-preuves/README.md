@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [missions-llm-hierarchiques-rust-2026-11-04.md](missions-llm-hierarchiques-rust-2026-11-04.md) — arborescence bornée, délégation récursive, retours CAS adressés et preuves de reprise.
+
 - [orchestration-dynamique-llm-rust-2026-11-03.md](orchestration-dynamique-llm-rust-2026-11-03.md) — délégations natives, copies et retours CAS, ordre causal des outils et essai causal borné qualifié, deux essais négatifs conservés, contrôles globaux vérifiés et audit externe lié à la livraison.
 
 - [requalification-principes-fondateurs-2026-11-03.md](requalification-principes-fondateurs-2026-11-03.md) — renouvellement du reçu après réexécution des onze preuves, ancrage des sources d'enveloppe et maintien des refus de qualification.
