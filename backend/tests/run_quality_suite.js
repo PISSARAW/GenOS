@@ -2,6 +2,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const tests = [
+  'test_autonomy_mutation_phases.cjs',
   'test_screenplay_mission_contract.cjs',
   'test_gqel_final_delivery.cjs',
   'test_gqel_native_schema_repair.cjs',
