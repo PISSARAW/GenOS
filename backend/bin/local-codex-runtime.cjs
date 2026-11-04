@@ -186,10 +186,10 @@ function validateGeneration(reply, fallback, state) {
   if (state.eventCount + 1 > budgetLimit(state.executionBudget, 'events')) throw new Error(`Local runtime exceeded event budget (${state.eventCount + 1} > ${budgetLimit(state.executionBudget, 'events')}).`);
 }
 async function runPostPipeline(services, state, reply) {
-  const canonical = await require('../src/services/localRuntimeCanonicalEvaluation').evaluate(state, reply);
+  const canonical = require('../src/services/localRuntimeCanonicalEvaluation').prepare(state, reply);
   if (canonical) {
-    emitEvent(state, {eventType: 'DOSSIER_INFLUENCE_VERIFIED', action: 'NATIVE_EVALUATION',
-      detail: 'Read-only canonical claims were checked against their current delegated native evidence.',
+    emitEvent(state, {eventType: 'DOSSIER_INFLUENCE_VERIFIED', action: 'VERIFY_SYNTHESIS_STRUCTURE',
+      detail: 'Canonical dossier influence was structurally checked; native acceptance remains enforced by the trusted parent.',
       payload: canonical});
     return;
   }
@@ -366,4 +366,4 @@ function emitEvent(state, event) {
   });
   process.stdout.write(encodeEvent(event));
 }
-module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs, completionEvidencePayload, runMission, emitCompletion };
+module.exports = { ...require('./localRuntimeWorkspaceContext.cjs'), applyWorkerArtifacts, requestedTestCommands, collectCommandProofs, augmentReplyWithProofs, completionEvidencePayload, runMission, emitCompletion, runPostPipeline };

@@ -2,13 +2,14 @@
 
 État de qualification au 4 novembre 2026. Les corrections de code et une preuve de progression
 après cent observations sont deux résultats distincts. Le commit d'implémentation est
-`02d3a377353850d550aead5e889f30f1b7b79bf3`, complété par `52ec7ce8be876e59b468f1da2264e65698d47d3b` ;
-les essais de qualification sont conservés sur D:.
+`02d3a377353850d550aead5e889f30f1b7b79bf3`, complété par `52ec7ce8be876e59b468f1da2264e65698d47d3b`
+et `f506942183dc402ce0462188936ccf75403830ad` ; les essais de qualification sont conservés sur D:.
 
 **La nouvelle campagne à cinq variantes n'est pas encore autorisée par son contrôle positif.**
 Le contrôle `c29` retrouve les douze résultats privés et vérifie les trois workers, mais sa
-clôture échoue et son ledger omet des inférences auxiliaires. Le contrôle frais `c33` qualifie
-les corrections de clôture et la comptabilité renforcée sur un runtime scellé correspondant.
+clôture échoue et son ledger omet des inférences auxiliaires. Le contrôle `c33` compte tous
+ses appels et vérifie ses trois workers, mais révèle une vérification placée dans le mauvais
+processus. Le contrôle frais `c34` qualifie la correction sur un nouveau runtime scellé.
 Aucun score historique v1/v2 n'a été changé et aucune progression nouvelle n'est présumée.
 
 ## Ce qui a été corrigé
@@ -73,7 +74,8 @@ coefficients dans une classe connue, pas de découvrir cet algorithme.
 | `c30` | Le run parent termine après séparation de la complétion et de la promotion. | Le superviseur reste non vérifié et le poller attend des mondes déjà comparés ; la comptabilité auxiliaire reste insuffisante. |
 | `c31` | Deux workers acceptés et une proposition refusée par l'oracle, puis reprise. | Essai interrompu après export des reçus : implémentation de clôture remplacée et file d'inférence partagée avec c32. |
 | `c32` | Contrôle sur `r33` démarré pendant la fin de c31. | Essai volontairement interrompu avec reçus et motif conservés pour sérialiser les qualifications sur l'unique créneau. |
-| `c33` | Même runtime `r33`, après constat d'un serveur libre. | Qualification en cours ; aucun résultat favorable n'est présumé. |
+| `c33` | 12/12, trois workers vérifiés, trois appels comptabilisés ; clôture refusée car la clé AEIS est absente du sous-processus. | Mauvais placement de la vérification dans le correctif, sans contournement de la porte. |
+| `c34` | Runtime frais `r34`, vérification structurelle dans le sous-processus et cryptographique dans le parent. | Qualification en cours ; aucun résultat favorable n'est présumé. |
 
 Le serveur local utilisé ne prend pas en charge les requêtes parallèles pour l'architecture
 Qwen3.5. Le lanceur a refusé une configuration déclarant trois créneaux ; la configuration
@@ -167,6 +169,22 @@ superviseur. Le poller considère un monde Trinity `compared`, `candidate` ou `p
 comme quiescent, tout en attendant encore les processus et tâches actifs. La quiescence
 ne remplace aucun critère de succès final. Les tests couvrent ces deux sens de la frontière.
 
+## Frontière de confiance révélée par c33
+
+L'audit Python retrouve les douze résultats privés corrects et les trois workers acceptés.
+Les trois appels réels au modèle épinglé consomment **3 305 tokens d'entrée et 31 575 de
+sortie**. Le nombre d'événements d'inférence correspond cette fois au ledger. La mission
+reste cependant refusée : le sous-processus de synthèse n'a pas la clé AEIS et ne doit pas
+la recevoir. Le premier correctif y avait déplacé une vérification cryptographique native.
+
+La préparation du rapport dans ce sous-processus vérifie maintenant uniquement sa structure
+et son égalité au rapport déterministe issu du plan public. Le parent de confiance vérifie
+toujours les références sémantiques natives, leurs liaisons et leur autorité courante avant
+EVIDENCE. La vérification structurelle ne certifie donc pas seule la réussite. Un test lance
+le vrai sous-processus avec l'environnement filtré : aucune clé n'est transmise, aucune base
+privilégiée n'est ouverte, aucun benchmark auxiliaire ni mémoire de succès n'est invoqué.
+Le parent refuse aussi une référence appartenant à un autre worker.
+
 ## Couverture effective de GenOS dans c24
 
 | Mécanisme | Preuve ou limite observée |
@@ -220,8 +238,14 @@ Vérifications exécutées :
   Le même test a aussi observé une tentative de récupération supplémentaire ou une identité
   de run différente pendant son nettoyage. Ces échecs sont reproduits sur les runtimes
   figés avant et après les correctifs récents. Le checkout partagé a ensuite reçu une
-  correction distincte de cette fixture. La dernière relance a été refusée par le verrou
-  d'une autre suite globale active ; aucune réussite globale Node n'est revendiquée.
+  correction distincte de cette fixture. La dernière relance a franchi ces tests, puis échoué
+  sur l'assertion de contexte préflight : le résultat contient le champ supplémentaire
+  `userTopologyRequested: false`. La fixture est modifiée simultanément dans le checkout
+  partagé ; cette exécution globale reste un échec, sans revendication de réussite Node.
+- Frontière parent/sous-processus et suite ciblée du runtime `r34` : réussies.
+- Contrôle qualité après cette correction : 9 229 fichiers, zéro violation nouvelle.
+- Nouvelle exécution `cargo test --workspace` : code 0, `cargo-test-final-closure.log`.
+- Diagnostic indépendant de c33 : mode `diagnose-control`, code 0 ; contrôle positif refusé.
 - Audit indépendant de c24 : `python scripts/experiments/crosscheck_native_competence.py diagnose-control D:/gv3/c24`, code 0.
 - Audit indépendant de c29 avec contrôle des appels auxiliaires : même programme,
   mode `diagnose-control D:/gv3/c29`, code 0 ; qualification positive refusée.
@@ -245,4 +269,8 @@ Les artefacts générés, bases et secrets éphémères ne sont pas commités.
   `ca513a7863a31e836ec282d51b26684fda6a0c8007c6964d1a0ef5e14ddbc86a`, runtime
   `eb27232723115e1d96dd39fd3a10224e2be2b977305eedc3c1cfd7482dadd35a`.
 - Manifeste c32 : `b59a796b0a89de2f7007cba9465d6aa3ac22a07d0e6edad624db9c4f077c9331`.
+- Manifeste c33 : `44ab9b804bfb573da447781ad966455940144aec6a620866a8e00a72ecc5cb98`.
+- Runtime de c34 : `D:/gv3/r34`, sources
+  `88832ac952581ea2c081de4888b0c313176d0d70510efc8424bd7b476406a9a7`, runtime
+  `949f3b36125a610ffa131a7b9fd57569fc9361a695f0c510d38b7c793a1c4332`.
 - Configuration réelle du serveur : `D:/genos-competence-results/full-runtime-v3-20261104/llm32-serial/server-ready.json`.

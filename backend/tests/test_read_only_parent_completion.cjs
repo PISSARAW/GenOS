@@ -53,12 +53,7 @@ async function completeParent(ctx, report) {
 }
 
 async function qualifyReadOnly(ctx, report) {
-  const evaluation = require('../src/services/localRuntimeCanonicalEvaluation');
-  const canonical = JSON.stringify({...report, schema: 'genos.canonical-final-report/v1'});
-  const state = {mission: {executionRunId: ctx.executionRun.id, agentId: 'parent', missionId: 'worker-mission'}};
-  const checked = await evaluation.evaluate(state, canonical, ctx.db);
-  assert.equal(checked.status, 'verified_claims');
-  assert.equal(checked.verification, 'delegated_native_semantic_oracles');
+  const checked = await require('./helpers/canonicalRuntimeQualification.cjs').qualify(ctx, report);
   assert.deepEqual(checked.workerIds, ['worker']);
   const terminal = require('../src/services/agentTerminalStatusService').evaluateTerminalStatus({
     dispatchedAgent: {execution_mode: 'orchestrator'},
@@ -67,12 +62,6 @@ async function qualifyReadOnly(ctx, report) {
       missionDomainState: {unverified: false, hasDomainFailure: false}}},
   {eventType: 'AGENT_COMPLETED', status: 'completed'}, 'completed');
   assert.equal(terminal.verdict, 'succeeded');
-  await ctx.db.exec('CREATE TABLE IF NOT EXISTS mission_model_budget_scopes(scope_id TEXT PRIMARY KEY,parent_run_id TEXT,parent_agent_id TEXT)');
-  await ctx.db.run('INSERT INTO mission_model_budget_scopes VALUES (?,?,?)', 'parent-scope', ctx.executionRun.id, 'parent');
-  assert.equal((await evaluation.evaluate({mission: {agentId: 'parent', missionId: 'worker-mission',
-    modelBudgetScopeJson: JSON.stringify({id: 'parent-scope'})}}, canonical, ctx.db)).status, 'verified_claims');
-  await assert.rejects(evaluation.evaluate({...state, mission: {...state.mission, missionId: 'foreign'}},
-    canonical, ctx.db), {code: 'CANONICAL_NATIVE_EVIDENCE_REQUIRED'});
   const {event, saved} = await completeParent(ctx, report);
   assert.equal(saved.run.status, 'completed');
   assert.equal(saved.halt, false);
@@ -103,6 +92,14 @@ async function rejectFlags(db, input) {
   assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', ctx.executionRun.id)).status, 'planned');
 }
 
+async function rejectForeignRefs(db, input) {
+  const ctx = await parentContext(db, {...input, mode: 'factual_read_only', label: 'foreign-proof'});
+  const report = structuredClone(input.report);
+  report.delegatedOracleRefs[0].agentId = 'foreign-worker';
+  await assert.rejects(completeParent(ctx, report), {code: 'DELEGATED_ORACLE_PARENT_MISMATCH'});
+  assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', ctx.executionRun.id)).status, 'planned');
+}
+
 async function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-parent-completion-'));
   const workspace = path.join(root, 'workspace'); fs.mkdirSync(workspace);
@@ -116,6 +113,7 @@ async function main() {
     const child = await verifiedChild(db, filename, record);
     await qualifyReadOnly(ctx, child.report);
     await qualifyOrdinary(db, {workspace, report: child.report});
+    await rejectForeignRefs(db, {workspace, report: child.report});
     await rejectFlags(db, {workspace});
   } finally {
     telemetry.persistAsync = previous;

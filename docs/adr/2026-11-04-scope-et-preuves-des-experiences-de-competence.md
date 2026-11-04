@@ -112,6 +112,16 @@ et `promoted` sont des états quiescents d'un monde. Les processus ou tâches en
 à bloquer l'attente. Cette correction permet d'évaluer le résultat final ; elle ne rend pas
 un résultat refusé, une couverture insuffisante ou une porte d'homéostasie fermée acceptables.
 
+Le contrôle c33 a ensuite révélé une erreur de placement de cette évaluation : le sous-processus
+ne possède volontairement pas la clé AEIS du parent. La vérification cryptographique reste donc
+dans le parent de confiance, lors du protocole EVIDENCE et de la décision de complétion.
+L'enfant prépare seulement la structure canonique exacte de ses dossiers et l'attestation
+d'influence ; il ne déclare pas d'acceptation sémantique. Aucune clé supplémentaire ne lui est
+transmise. Un vrai sous-processus de test utilise le filtrage d'environnement de production,
+émet le marqueur structurel sans ouvrir la base de vérification, puis le parent valide les
+vraies preuves natives. Un rapport modifié, des références étrangères et de simples drapeaux
+de succès restent refusés.
+
 Les tests ciblés couvrent deux racines concurrentes, le refus d'un tenant étranger,
 une vraie liaison GVX run/mission face à un alias étranger et le maintien de la barrière pour un orchestrateur local.
 Le contrôle d'induction doit ensuite dériver des programmes à partir d'observations publiques,

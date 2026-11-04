@@ -97,8 +97,9 @@ l'induction de nouveaux coefficients, pas la découverte de cet algorithme.
 Il admet les propositions du LLM et ne les remplace pas par un solveur général.
 L'oracle privé séparé ne sert qu'aux mesures réservées.
 
-La synthèse canonique en lecture seule est évaluée à partir des vraies références natives
-des workers, sous l'autorité du run courant. Le benchmark générique ImpossibleBench ne participe
+La synthèse canonique en lecture seule est évaluée par le parent de confiance à partir des vraies
+références natives des workers, sous l'autorité du run courant. L'enfant vérifie seulement la
+structure des dossiers ; il ne reçoit pas la clé AEIS. Le benchmark générique ImpossibleBench ne participe
 pas à cette évaluation. L'attestation d'influence transmise au superviseur ne remplace pas la
 porte EVIDENCE, le graphe ni les critères de succès final ; les promotions restent distinctes.
 
