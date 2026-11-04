@@ -132,6 +132,7 @@ async function finalizeExecution(input) {
   input.liveMorphogenesis = await require('../adaptation/liveMorphogenesisReceipt').forClosure(input.db, input.run);
   input.relational = await require('../relational/handoffQualification').qualify(input.db, input);
   input.finalQuality = await require('../../qualityElevation/qualityFinalArtifactService').qualifyFinalArtifact(input);
+  input.mechanisms = await require('../../missionMechanismsService').qualify(input.db, input.run);
   const statistical = await require('../../morphogenesis/capabilities/statisticalPromotionGate')
     .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
   const audit = await require('./teamAuditService').buildTeamAudit(input.db, input.run, observed);
@@ -143,7 +144,8 @@ async function finalizeExecution(input) {
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
     patch: { status, phase: 'INTEGRATION', execution: { ...run.execution,
       coverage: observed.coverage, integration: { accepted, failures: observed.observation,
-        gate: observed.gate, audit, completion, relational: input.relational, qualityFeedback: observed.qualityFeedback, finalQuality: input.finalQuality },
+        gate: observed.gate, audit, completion, relational: input.relational, mechanisms: input.mechanisms,
+        qualityFeedback: observed.qualityFeedback, finalQuality: input.finalQuality },
       schedulingResults: input.results } } });
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision, patch: { phase: 'DEBRIEF' } });
   const evidenceIds = [...new Set([...observed.verdicts.values()].flatMap((verdict) => verdict.evidenceRefs))];
@@ -193,6 +195,7 @@ function teamClosureInput(input) {
     { id: 'statistical_gate_allowed', passed: input.statistical.allowed === true },
     { id: 'live_morphogenesis_verified', passed: input.liveMorphogenesis?.passed !== false },
     { id: 'relational_handoffs_verified', passed: input.relational?.passed !== false },
+    { id: 'mission_mechanisms_verified', passed: input.mechanisms?.passed !== false },
     ...require('../../qualityElevation/qualityFinalArtifactService').finalQualityInvariant(input)
   ];
   return { missionId: input.run.missionId, topology: 'a_team', lifecycleState: 'completed',

@@ -7,7 +7,8 @@ const { launchWorker } = require('./workerLauncher.cjs');
 
 async function handleTeam(db, context) {
   const parent = await ensureParent({ db, context });
-  context.nceEnrichments = await buildNCEEnrichments(context, 'team');
+  const mechanisms = await require('../missionMechanismsService').prepare(db, { context, parent });
+  context.nceEnrichments = mechanisms?.nce || await buildNCEEnrichments(context, 'team');
   const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
   process.stdout.write(JSON.stringify(result));
 }

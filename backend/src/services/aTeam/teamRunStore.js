@@ -69,6 +69,7 @@ function teamRunRecord(input = {}) {
     goal: String(choose([input.goal], '')).trim(),
     ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(input),
     finalArtifactOutput: input.finalArtifactOutput,
+    ...require('../missionMechanismsService').canonicalFields(input),
     ...(input.relationalPolicy ? { relationalPolicy: require('./relational/teamRelationalPolicy').normalize(input.relationalPolicy) } : {}),
     ...(input.adaptiveMorphogenesis ? { adaptiveMorphogenesis: input.adaptiveMorphogenesis } : {}),
     ...(input.finalArtifactMemberId ? { finalArtifactMemberId: input.finalArtifactMemberId } : {}),
@@ -86,6 +87,7 @@ function teamRunRecord(input = {}) {
 }
 
 function assertValid(run) {
+  require('../missionMechanismsService').canonicalFields(run);
   require('./relational/teamRelationalPolicy').normalize(run.relationalPolicy);
   if (run.adaptiveMorphogenesis) require('./adaptation/liveMorphogenesisPolicy').assertPolicy(run.adaptiveMorphogenesis, run.members);
   require('../qualityElevation/qualityFinalPlan').assertFinalPlan(run);
@@ -121,6 +123,7 @@ async function update(options = {}) {
   if (current.revision !== revision) throw revisionConflict(teamRunId);
   const next = { ...current, ...patch, teamRunId, missionId: current.missionId, createdAt: current.createdAt };
   require('./relational/teamRelationalPolicy').assertUnchanged(current, next);
+  require('../missionMechanismsService').assertUnchanged(current, next);
   require('../qualityElevation/qualityFinalPlan').assertFinalPlanUnchanged(current, next);
   require('../qualityElevation/qualityFinalDelivery').assertUnchanged(current, next);
   require('./adaptation/liveMorphogenesisPolicy').assertUnchanged(current, next);

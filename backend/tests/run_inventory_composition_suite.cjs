@@ -6,6 +6,9 @@ const tests = ['test_inventory_p0.cjs', 'test_inventory_p1.cjs', 'test_inventory
   'test_autobiographical_memory.js', 'test_autobiographical_orchestrator_recall.js',
   'test_organization_catalog_parity.cjs', 'test_philosophical_concept_registry.js',
   'test_gqel_native_contracts.cjs', 'test_gqel_v2.cjs', 'test_gqel_progress.cjs',
+  'test_topology_worker_incarnation.cjs', 'test_endogenous_thought_mission.cjs',
+  'test_ateam_relational_handoffs.cjs', 'test_gqel_grounded_quotes.cjs',
+  'test_gqel_native_narrative.cjs', 'test_mission_mechanisms.cjs',
   'test_morphogenesis_p3_qualification.js', 'test_morphogenesis_transition_compensation.js',
   'test_morphogenesis_resource_transition_receipt.js', 'test_morphogenesis_communication_transition_receipt.js'];
 

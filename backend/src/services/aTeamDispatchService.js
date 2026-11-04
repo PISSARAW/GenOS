@@ -203,6 +203,7 @@ function createCanonicalRun(setup) {
     adaptiveMorphogenesis: setup.adaptiveMorphogenesis,
     finalArtifactOutput: setup.finalArtifactOutput,
     relationalPolicy: require('./aTeam/relational/teamRelationalPolicy').normalize(request.relationalPolicy),
+    ...require('./missionMechanismsService').canonicalFields(request),
     successCriteria: requestedSuccessCriteria(request) || [],
     organization: team.organization,
     execution: { runnerLease: null, organizationPolicy: team.executionPolicy, morphology: setup.morphology,
