@@ -265,8 +265,9 @@ async function performRequest(options, controller) {
   const outputLimit = Number.isFinite(Number(options.maxTokens)) && Number(options.maxTokens) > 0 ? Math.floor(Number(options.maxTokens)) : null;
   const body = buildRequestBody({ provider: configuration.provider, modelName: configuration.modelName, prompt: options.prompt, outputLimit, seed: options.seed, stream: options.stream, nativeOllama, temperature: options.temperature, topP: options.topP, contextTokens: options.contextTokens, responseFormat: options.responseFormat, reasoningEffort: options.reasoningEffort, computerUse: options.computerUse, displayWidth: options.displayWidth, displayHeight: options.displayHeight });
   const headers = buildHeaders(configuration.provider, apiKey, options.computerUse);
-  const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
-  return consumeResponse({ options, configuration, nativeOllama }, response);
+  return require('./modelProviderTransport').request({ endpoint, timeoutMs: options.timeoutMs,
+    request: { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal } },
+  response => consumeResponse({ options, configuration, nativeOllama }, response));
 }
 
 async function generateDirect(options) {
