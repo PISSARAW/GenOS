@@ -922,6 +922,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0790](0790-morphogenese-automatique-guidee-par-observations.md) | Morphogenèse automatique guidée par les observations | Accepté pour quatre familles de workers et un remplacement en attente | 2026-11-04 | A-Team, sélection dynamique, ressources, protocoles et preuves |
 | [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0792](0792-admission-des-ecritures-du-journal-rust.md) | Admission locale des écritures du journal Rust | Accepté | 2026-11-04 | runtime Rust, concurrence et journal de mission |
+| [0793](0793-fermeture-des-flux-du-bootstrap-capsule.md) | Fermeture des flux du bootstrap de capsule | Accepté | 2026-11-04 | processus Node, capsules et récupération |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
