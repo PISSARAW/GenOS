@@ -8,11 +8,11 @@ const policy = require('./liveMorphogenesisPolicy');
 const preparation = require('./liveMorphogenesisPreparation');
 
 function nextMembers(run, target, source) {
-  const config = run.adaptiveMorphogenesis.replacement;
+  const config = policy.effective(run).replacement;
   return run.members.map(member => member.memberId !== target.memberId ? member : {
     ...member, workerId: policy.candidateId(run), agentId: policy.candidateId(run), role: config.role,
     mission: `${member.mission}\n\nADAPTIVE REPLACEMENT CONTEXT (observed data):\n`
-      + `${config.missionAppend}\nSource quality defects: ${JSON.stringify(source.defects)}\n`
+      + `${config.missionAppend}\nSource observations: ${JSON.stringify({ defects: source.defects, signals: source.signals || [] })}\n`
       + `Source receipt: ${source.receiptId}. Preserve the original task and all quality obligations.`
   });
 }
@@ -36,7 +36,8 @@ function projectedGraph(run, before, members) {
 
 async function build(input) {
   const { run, graph, source } = input;
-  const target = findMember(run.members, run.adaptiveMorphogenesis.targetMember);
+  const selected = policy.effective(run);
+  const target = findMember(run.members, selected.targetMember);
   const next = nextMembers(run, target, source);
   const projection = projectedGraph(run, graph, next);
   const old = await preparation.assertPending(input.db, run, target.workerId);
@@ -48,10 +49,11 @@ async function build(input) {
   }
   const binding = { schema: 'genos.a-team-pending-replacement/v1', teamRunId: run.teamRunId,
     runtimeMissionId: run.execution.runtimeMissionId, runnerLeaseDigest: evidence.digest(input.runnerToken),
-    policyDigest: evidence.digest(run.adaptiveMorphogenesis), memberId: target.memberId,
+    policyDigest: evidence.digest(run.adaptiveMorphogenesis), selectionDigest: evidence.digest(selected), memberId: target.memberId,
+    ...(require('./liveMorphogenesisAutomaticPolicy').enabled(run.adaptiveMorphogenesis) ? { selection: selected } : {}),
     source, beforeMembersHash: evidence.rosterHash(run.members), afterMembersHash: evidence.rosterHash(next),
     priorWorkerId: old.id, candidateWorkerId: candidate.id, priorRole: old.role,
-    reserveRole: candidate.role, nextRole: run.adaptiveMorphogenesis.replacement.role,
+    reserveRole: candidate.role, nextRole: selected.replacement.role,
     runRevision: run.revision, graphRevision: graph.revision,
     beforeGraphHash: evidence.graphShape(graph), afterGraphHash: evidence.graphShape(projection.graph),
     budgets: await budgets(input.db, run), taskRecords: taskRecords(graph),
@@ -60,7 +62,7 @@ async function build(input) {
     organizationId: controller.organization_id, projectId: controller.project_id } };
   const plan = { id: `ateam-live-${evidence.digest([run.teamRunId, source.receiptId]).slice(7, 39)}`,
     missionId: run.execution.runtimeMissionId, targetTopology: 'a_team',
-    targetOrganization: run.organization, reason: 'observed_quality_repair_pending_replacement',
+    targetOrganization: run.organization, reason: 'observed_source_signal_pending_replacement',
     expectedGain: 0.5, expectedRisk: 0.05,
     collectiveStorageKey: `mission:${run.execution.runtimeMissionId}`, aTeamPendingReplacement: binding,
     actions: [{ type: 'rebind', agentId: old.id, targetRole: candidate.role, targetParent: controller.id },

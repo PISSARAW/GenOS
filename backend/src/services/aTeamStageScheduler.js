@@ -243,6 +243,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
   return {
     action: 'dispatch_worker',
     background: false,
+    ...require('./missionProtocols/launchPolicy').workspaceProtocolFields(request),
     orchestratorId: plan.orchestratorId,
     workerId: member.workerId,
     mission: member.mission,

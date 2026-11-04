@@ -6,20 +6,24 @@ const evidence = require('./liveMorphogenesisEvidence');
 const planner = require('./liveMorphogenesisPlan');
 const projection = require('./liveMorphogenesisProjection');
 const receipts = require('./liveMorphogenesisReceipt');
-const { fail } = require('./liveMorphogenesisPolicy');
+const { fail, effective } = require('./liveMorphogenesisPolicy');
 
 async function maybeReplace(input) {
   const { run } = input;
   if (!run.adaptiveMorphogenesis) return null;
   require('../execution/teamExecutionService').assertLease(run, input.runnerToken);
   const live = run.execution.liveMorphogenesis;
+  if (['WATCHING', 'SELECTED'].includes(live?.status)) {
+    const selected = await require('./liveMorphogenesisSelection').select(input);
+    return selected ? maybeReplace({ ...input, run: selected }) : null;
+  }
   if (live?.status === 'COMMITTED') { await receipts.verify(input.db, run); return null; }
   if (live?.status === 'PENDING_FINALIZE') return recover(input, live);
   if (live?.status !== 'RESERVED') throw fail('ATEAM_LIVE_MORPH_NOT_PREPARED', 'The dormant candidate was not durably prepared.');
-  const member = findMember(run.members, run.adaptiveMorphogenesis.afterMember);
+  const member = findMember(run.members, effective(run).afterMember);
   if (!input.observed.verdicts.get(member.workerId)?.promoted) return null;
   const source = await evidence.sourceQuality(input.db, run, member);
-  if (!source?.defects.length) return null;
+  if (!evidence.triggered(source)) return null;
   const prepared = await planner.build({ ...input, source, graph: input.observed.graph });
   return transition(input, prepared);
 }

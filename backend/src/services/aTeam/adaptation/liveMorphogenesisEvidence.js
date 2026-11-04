@@ -32,14 +32,35 @@ async function sourceQuality(db, run, member) {
   if (!found) return null;
   assertSourceIdentity({ run, member, found });
   await assertSourceReport(db, member, found.receipt);
+  return observedQuality(run, found);
+}
+
+function observedQuality(run, found) {
   const receipt = found.receipt;
-  const codes = new Set(run.adaptiveMorphogenesis.defectCodes || ['DELIVERABLE_INCOMPLETE']);
+  const automatic = require('./liveMorphogenesisAutomaticPolicy').enabled(run.adaptiveMorphogenesis);
+  const configured = run.adaptiveMorphogenesis.defectCodes || (automatic ? null : ['DELIVERABLE_INCOMPLETE']);
+  const codes = configured && new Set(configured);
   const failures = found.session.versions.filter(version => !version.passed)
-    .flatMap(version => version.defects || []).filter(defect => codes.has(defect.code));
-  return { runId: execution.id, receiptId: receipt.receiptId, receiptDigest: digest(receipt),
+    .flatMap(version => version.defects || []).filter(defect => !codes || codes.has(defect.code));
+  return { runId: receipt.runId, receiptId: receipt.receiptId, receiptDigest: digest(receipt),
     sessionDigest: receipt.sessionDigest, artifactDigest: receipt.artifactDigest,
+    ...(automatic ? { signals: budgetSignal(run, found.session) } : {}),
     defects: failures.map(defect => ({ code: defect.code, message: defect.message || '' })) };
 }
+
+function budgetSignal(run, session) {
+  const threshold = run.adaptiveMorphogenesis.budgetPressureRatio;
+  if (threshold === undefined) return [];
+  const measuredTokens = session.budget.tokens, limit = session.contract.budgetMaxTokens;
+  if (session.budget.usageComplete !== true || !Number.isSafeInteger(measuredTokens) || measuredTokens <= 0
+    || !Number.isSafeInteger(limit) || limit <= 0 || measuredTokens > limit) {
+    throw fail('ATEAM_AUTO_MORPH_USAGE_UNVERIFIED', 'Resource signals need complete authenticated quality usage within budget.');
+  }
+  const ratio = measuredTokens / limit;
+  return ratio >= threshold ? [{ code: 'GQEL_BUDGET_PRESSURE', measuredTokens, limit, ratio, threshold }] : [];
+}
+
+function triggered(source) { return Boolean(source?.defects.length || source?.signals?.length); }
 
 async function assertSourceReport(db, member, receipt) {
   const dossier = await require('../../aTeamHandoffEvidenceService').telemetryDossier(db, member.workerId);
@@ -68,4 +89,4 @@ function graphShape(graph) {
   return digest({ nodes, edges });
 }
 
-module.exports = { sign, authentic, sourceQuality, rosterHash, graphShape, digest };
+module.exports = { sign, authentic, sourceQuality, rosterHash, graphShape, digest, triggered };

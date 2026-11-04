@@ -9,6 +9,7 @@ const tests = [
   'test_gqel_criterion_evidence.cjs',
   'test_gqel_worker_budget.cjs',
   'test_ateam_live_morphogenesis.cjs',
+  'test_ateam_automatic_morphogenesis.cjs',
   'test_worker_audit_defects_regression.js',
   'test_worker_proof_authority.js',
   'test_local_worker_completion_process.js',

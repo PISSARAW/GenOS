@@ -55,8 +55,13 @@ function configureFinalArtifact(input) {
   assertProducerCoverage(members, selected);
   assertScreenplayProducer(selected, fields);
   return { ...input, ...fields, finalArtifactMemberId: selected.memberId,
-    members: members.map(member => member === selected || screenplayAuthor(member, fields)
+    members: members.map(member => member === selected || screenplayAuthor(member, fields) || automaticProducer(member, input)
       ? attachFinalQuality(member, fields) : member) };
+}
+
+function automaticProducer(member, input) {
+  const policy = require('../aTeam/adaptation/liveMorphogenesisAutomaticPolicy');
+  return policy.enabled(input.adaptiveMorphogenesis) && policy.supported(member);
 }
 
 function screenplayAuthor(member, fields) {

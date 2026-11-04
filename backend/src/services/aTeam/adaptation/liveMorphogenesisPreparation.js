@@ -1,18 +1,24 @@
 'use strict';
 
-const { candidateId, fail } = require('./liveMorphogenesisPolicy');
+const { candidateId, fail, effective } = require('./liveMorphogenesisPolicy');
 const { findMember } = require('../../qualityElevation/qualityFinalPlan');
 const store = require('../teamRunStore');
 
 async function prepare(input) {
   if (!input.run.adaptiveMorphogenesis) return input.run;
   const current = await store.load(input.db, input.run.teamRunId);
-  if (current.execution.liveMorphogenesis) return current;
-  const target = findMember(current.members, current.adaptiveMorphogenesis.targetMember);
+  const live = current.execution.liveMorphogenesis;
+  if (live && live.status !== 'SELECTED') return current;
+  if (!live && require('./liveMorphogenesisAutomaticPolicy').enabled(current.adaptiveMorphogenesis)) {
+    return store.update({ db: input.db, teamRunId: current.teamRunId, revision: current.revision,
+      patch: { execution: { ...current.execution, liveMorphogenesis: { status: 'WATCHING' } } } });
+  }
+  const target = findMember(current.members, effective(current).targetMember);
   const workerId = candidateId(current);
   await require('../../topologyWorkerPersistenceService').ensureTopologyWorker(input.db, {
     workerId, parentId: current.missionId, workspaceId: input.parent.workspace_id,
-    isolationMode: input.parent.isolation_mode, role: 'creative_worker', workerKind: target.workerKind,
+    isolationMode: input.parent.isolation_mode, role: target.workerKind, workerKind: target.workerKind,
+    nicheDomain: target.workerAssignment?.specialtyNiche || target.domain || target.subSystem,
     name: 'Candidat de remplacement A-Team', mission: target.mission,
     workerTokenLimit: target.executionBudgetTokens,
     executionBudget: { tokens: target.executionBudgetTokens },
@@ -21,9 +27,9 @@ async function prepare(input) {
     qualityRuntime: target.qualityRuntime
   });
   await require('../../missionIdentityService').attachAgent(input.db, {
-    missionId: current.execution.runtimeMissionId, agentId: workerId, role: 'standby_creative_worker' });
+    missionId: current.execution.runtimeMissionId, agentId: workerId, role: `standby_${target.workerKind}` });
   return store.update({ db: input.db, teamRunId: current.teamRunId, revision: current.revision,
-    patch: { execution: { ...current.execution, liveMorphogenesis: { status: 'RESERVED',
+    patch: { execution: { ...current.execution, liveMorphogenesis: { ...live, status: 'RESERVED',
       candidateWorkerId: workerId, priorWorkerId: target.workerId, memberId: target.memberId } } } });
 }
 

@@ -126,6 +126,7 @@ function workerLaunchPayload(args) {
     localModel,
     localContextTokens: context.request?.localContextTokens,
     readOnlyWorkspaceEvidence: context.request?.readOnlyWorkspaceEvidence === true,
+    ...require('../src/services/missionProtocols/launchPolicy').workspaceProtocolFields(context.request),
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope,
     organization: context.request?.organization,

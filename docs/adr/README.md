@@ -11,6 +11,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
+| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -918,6 +919,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0787](0787-maillage-adaptatif-de-communication.md) | Maillage adaptatif de communication par mission | Accepté pour le contrôle Node des cycles et checkpoints | 2026-11-04 | Communication, connaissance partagée, missions et transport de signaux |
 | [0788](0788-migration-catalogue-hachimoji-sous-preuves.md) | Migration du catalogue Hachimoji sous preuves | Accepté | 2026-11-04 | AgentDNA, catalogue, daemon résident, qualification |
 | [0789](0789-morphogenese-live-des-equipes-a-team.md) | Remplacement gouverné pendant une mission A-Team | Accepté pour le remplacement créatif en attente | 2026-11-04 | A-Team, morphogenèse native, scheduler, budgets et preuves |
+| [0790](0790-morphogenese-automatique-guidee-par-observations.md) | Morphogenèse automatique guidée par les observations | Accepté pour quatre familles de workers et un remplacement en attente | 2026-11-04 | A-Team, sélection dynamique, ressources, protocoles et preuves |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |

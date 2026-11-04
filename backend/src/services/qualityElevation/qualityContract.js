@@ -80,6 +80,7 @@ function limits(input) {
   };
 }
 function profileFor(domain, mission) {
+  if (domain === 'generic') return 'prose';
   if (/software|programming|^code$/.test(domain)) return 'code';
   if (/scenario|screenplay|script/.test(domain)) return 'screenplay';
   return /scénario|scenario|screenplay|court.métrage/i.test(mission || '') ? 'screenplay' : 'prose';

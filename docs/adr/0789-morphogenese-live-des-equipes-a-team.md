@@ -105,6 +105,10 @@ sans remplacement. Aucun défaut ni changement d'équipe n'est fabriqué.
 
 ## Alternatives
 
+L'[ADR 0790](0790-morphogenese-automatique-guidee-par-observations.md) étend ce
+parcours avec une politique V2 de sélection automatique sur quatre familles.
+Les règles V1 et leur qualification historique restent distinctes.
+
 Modifier une liste en mémoire ne suffirait pas à changer la mission exécutée.
 Autoriser une réparation externe malgré une lease active créerait deux runners.
 Changer un worker déjà démarré invaliderait son autorité scellée. Présenter un

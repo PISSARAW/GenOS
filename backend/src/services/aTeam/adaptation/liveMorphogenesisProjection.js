@@ -3,7 +3,7 @@
 const runStore = require('../teamRunStore');
 const graphStore = require('../workGraph/workGraphStore');
 const evidence = require('./liveMorphogenesisEvidence');
-const { fail, candidateId } = require('./liveMorphogenesisPolicy');
+const { fail, candidateId, effective } = require('./liveMorphogenesisPolicy');
 const preparation = require('./liveMorphogenesisPreparation');
 const planner = require('./liveMorphogenesisPlan');
 const { findMember } = require('../../qualityElevation/qualityFinalPlan');
@@ -25,7 +25,8 @@ async function assertSource(input) {
 async function assertBinding(scope) {
   const { input, change, run, graph } = scope;
   const target = run.members.find(member => member.memberId === change.memberId);
-  const sourceMember = findMember(run.members, run.adaptiveMorphogenesis.afterMember);
+  const selected = effective(run);
+  const sourceMember = findMember(run.members, selected.afterMember);
   const source = await evidence.sourceQuality(input.ctx.db, run, sourceMember);
   if (!source) throw fail('ATEAM_LIVE_MORPH_SOURCE_INVALID', 'Source quality evidence is unavailable.');
   const expected = planner.nextMembers(run, target, source);
@@ -33,19 +34,19 @@ async function assertBinding(scope) {
   const actual = [run.revision, graph.revision, evidence.rosterHash(run.members), evidence.graphShape(graph),
     evidence.digest(run.adaptiveMorphogenesis), candidateId(run), evidence.digest(source),
     evidence.rosterHash(expected), evidence.graphShape(projected.graph), evidence.digest(await planner.budgets(input.ctx.db, run)),
-    planner.taskRecords(graph), projected.affectedNodeIds, projected.invalidatedHandoffDigests];
+    planner.taskRecords(graph), projected.affectedNodeIds, projected.invalidatedHandoffDigests, evidence.digest(selected)];
   const planned = [change.runRevision, change.graphRevision, change.beforeMembersHash,
     change.beforeGraphHash, change.policyDigest, change.candidateWorkerId, evidence.digest(change.source),
     change.afterMembersHash, change.afterGraphHash, evidence.digest(change.budgets),
-    change.taskRecords, change.affectedNodeIds, change.invalidatedHandoffDigests];
-  if (evidence.digest(actual) !== evidence.digest(planned) || !source?.defects.length
+    change.taskRecords, change.affectedNodeIds, change.invalidatedHandoffDigests, change.selectionDigest];
+  if (evidence.digest(actual) !== evidence.digest(planned) || !evidence.triggered(source)
     || target?.workerId !== change.priorWorkerId || change.priorWorkerId === change.candidateWorkerId) {
     throw fail('ATEAM_LIVE_MORPH_SOURCE_CHANGED', 'Roster, graph, funding, source evidence or policy changed before commit.');
   }
   const old = await preparation.assertPending(input.ctx.db, run, change.priorWorkerId);
   const next = await preparation.assertPending(input.ctx.db, run, change.candidateWorkerId);
   const actions = [{ type: 'rebind', agentId: old.id, targetRole: next.role, targetParent: run.missionId },
-    { type: 'rebind', agentId: next.id, targetRole: run.adaptiveMorphogenesis.replacement.role, targetParent: run.missionId }];
+    { type: 'rebind', agentId: next.id, targetRole: selected.replacement.role, targetParent: run.missionId }];
   if (old.role !== change.priorRole || next.role !== change.reserveRole
     || evidence.digest(actions) !== evidence.digest(input.ctx.plan.actions)) {
     throw fail('ATEAM_LIVE_MORPH_ACTION_CHANGED', 'The exact two pending role changes are required.');

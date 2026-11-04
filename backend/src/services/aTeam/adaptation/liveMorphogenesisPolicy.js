@@ -14,7 +14,9 @@ const schema = { type: 'object', additionalProperties: false,
         missionAppend: { type: 'string', minLength: 1, maxLength: 6000 }
       } }
   } };
-const validate = new (require('ajv'))({ allErrors: true, strict: false }).compile(schema);
+const automatic = require('./liveMorphogenesisAutomaticPolicy');
+const validate = new (require('ajv'))({ allErrors: true, strict: false })
+  .compile({ oneOf: [schema, automatic.schema] });
 
 function configure(request, members) {
   const value = request.adaptiveMorphogenesis;
@@ -29,12 +31,14 @@ function configure(request, members) {
 
 function assertPolicy(value, members) {
   if (!validate(value)) throw fail('ATEAM_LIVE_MORPH_POLICY_INVALID', JSON.stringify(validate.errors));
+  if (automatic.enabled(value)) return automatic.assertEligible(members);
   assertMembers(value, members);
 }
 
 function bind(value, members) {
   if (!value) return value;
   assertPolicy(value, members);
+  if (automatic.enabled(value)) return structuredClone(value);
   return { ...value, afterMember: findMember(members, value.afterMember).memberId,
     targetMember: findMember(members, value.targetMember).memberId };
 }
@@ -63,9 +67,10 @@ function assertUnchanged(current, next) {
 }
 
 function candidateId(run) {
-  const target = findMember(run.members, run.adaptiveMorphogenesis.targetMember);
+  const target = findMember(run.members, automatic.effective(run).targetMember);
   return require('../aTeamRuntime').stableId('worker', `${run.teamRunId}:live-morph:${target.memberId}`);
 }
 
 function fail(code, message) { return Object.assign(new Error(message), { code }); }
-module.exports = { configure, assertUnchanged, assertMembers, assertPolicy, bind, candidateId, fail };
+module.exports = { configure, assertUnchanged, assertMembers, assertPolicy, bind, candidateId, fail,
+  effective: automatic.effective };
