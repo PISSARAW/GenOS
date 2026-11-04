@@ -35,7 +35,7 @@ function parseStructuredResponse(text, responseFormat) {
   if (responseFormat !== 'json_object' && !isJsonSchemaFormat(responseFormat)) return null;
   try { return JSON.parse(text); } catch (_) {
     const extracted = isJsonSchemaFormat(responseFormat) && require('./agentOutputSchemaService').extractJson(text);
-    if (extracted) return extracted;
+    if (isJsonSchemaFormat(responseFormat)) return extracted || null;
     throw new Error('Provider returned invalid structured JSON.');
   }
 }

@@ -219,10 +219,10 @@ async function consumeJsonResponse(context, response) {
   for (const token of tokenize(text)) await context.options.onToken(token);
   const result = buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
   if (context.options.enforceSchema === false) return result;
+  if (context.options.responseFormat?.schema) {
+    return enforceStructuredOutput(result, text, context.options.responseFormat);
+  }
   if (result.structured) {
-    if (context.options.responseFormat?.schema) {
-      return validateResponseSchema(result, context.options.responseFormat);
-    }
     Object.assign(result, validateStructuredCandidate(result.structured));
     return result;
   }

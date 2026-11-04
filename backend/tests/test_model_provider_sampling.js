@@ -33,7 +33,8 @@ async function main() {
     request.on('end', () => {
       received = JSON.parse(Buffer.concat(chunks));
       response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ model: 'fixture', message: { content: '{"ok":true}' },
+      const content = received.messages[0].content === 'malformed' ? '{"sceneText":' : '{"ok":true}';
+      response.end(JSON.stringify({ model: 'fixture', message: { content },
         done: true, done_reason: 'stop', prompt_eval_count: 10, eval_count: 3 }));
     });
   });
@@ -51,6 +52,17 @@ async function main() {
     assert.equal(received.stream, false);
     assert.equal(result.finishReason, 'stop');
     assert.equal(result.usageReceipt, undefined);
+    const invalid = await require('../src/services/modelProvider').generate({
+      model: 'ollama://fixture', endpoint: `http://127.0.0.1:${server.address().port}/api/chat`,
+      prompt: 'malformed', stream: false, maxTokens: 128,
+      responseFormat: { name: 'scene', schema: { type: 'object', properties: { sceneText: { type: 'string' } }, required: ['sceneText'] } }
+    });
+    assert.equal(invalid.text, '{"sceneText":');
+    assert.equal(invalid.tokenUsageMeasured, true);
+    assert.equal(invalid.inputTokens, 10);
+    assert.equal(invalid.outputTokens, 3);
+    assert.equal(invalid.finishReason, 'stop');
+    assert.equal(invalid.schemaViolation.error, 'OUTPUT_SCHEMA_VIOLATION');
     console.log('Sampling controls reach native Ollama; unsupported controls fail explicitly.');
   } finally {
     await new Promise(resolve => server.close(resolve));

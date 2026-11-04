@@ -23,6 +23,13 @@ les nombres estimés du registre ne deviennent jamais une preuve d'usage.
 Cette décision suit une relance où le premier flux de scène s'est achevé sans
 métadonnées terminales. Elle ne reconstruit ni scène ni reçu après ce refus.
 
+Lorsque l'enveloppe HTTP JSON est complète mais que son texte ne respecte pas
+le schéma demandé, le fournisseur conserve les compteurs et la fin réellement
+observés avec `schemaViolation`. Il n'accepte pas ce contenu. Une erreur du JSON
+intérieur ne doit pas effacer la métrologie du transport extérieur. Les schémas
+personnalisés sont contrôlés explicitement, y compris lorsque leur parsing
+échoue, sans réparation générique d'une autre famille de réponses.
+
 Une structure refusée produit une évaluation runtime non acceptée, sans score
 sémantique ni revue. Ses défauts alimentent la réparation bornée suivante. Cette
 absence de revue ne crée aucune preuve positive et ne permet aucune promotion.
