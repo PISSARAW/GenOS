@@ -379,7 +379,7 @@ async function decideCommunication(input) {
     return logAndDecide(input, silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total }));
   }
   return logAndDecide(input, finalizeDecision({
-    intent, input, selection, informed, capability, utility, gain, cost, novelty, groups: audience.groups
+    intent, input, selection, informed, capability, utility, gain, cost, novelty, grounding, groups: audience.groups
   }));
 }
 

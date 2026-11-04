@@ -18,7 +18,7 @@ async function evaluateMissionCompletion(input) {
   const missionId = String(input.missionId || '').trim();
   try {
     const receipt = await require('./communicationCheckpointService').evaluateCheckpoint({
-      db: input.db, agentId, checkpoint: 'MISSION_COMPLETED',
+      db: input.db, agentId, missionId: missionId || null, checkpoint: 'MISSION_COMPLETED',
       communication: input.communication,
       evidence: { domain: 'mission', semanticRefs: missionId ? [`mission:${missionId}:completed`] : [] }
     });

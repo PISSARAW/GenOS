@@ -97,7 +97,9 @@ function suggestedScopeOf(count) {
 async function selectAudience(input) {
   const candidates = await rankCandidates(input);
   const refs = input.semanticRefs || [];
-  const enriched = await attachUnknownRefs({ db: input.db, senderId: input.senderId, candidates, refs });
+  const enriched = await attachUnknownRefs({
+    db: input.db, senderId: input.senderId, domain: input.domain, candidates, refs
+  });
   const informed = enriched.filter((candidate) => candidate.unknownRefs.length > 0 || input.requiresAction);
   const ids = informed.map((candidate) => candidate.agentId);
   const roles = await rolesOf(input.db, ids);

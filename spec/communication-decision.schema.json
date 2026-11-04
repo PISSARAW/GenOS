@@ -8,7 +8,18 @@
   "properties": {
     "action": {
       "type": "string",
-      "enum": ["SILENCE", "SELF", "ENVIRONMENT", "STIGMERGY", "SIGNAL", "STRUCTURED", "DIALECT", "MICRO_UTTERANCE", "DIALOGUE", "HUMAN"],
+      "enum": [
+        "SILENCE",
+        "SELF",
+        "ENVIRONMENT",
+        "STIGMERGY",
+        "SIGNAL",
+        "STRUCTURED",
+        "DIALECT",
+        "MICRO_UTTERANCE",
+        "DIALOGUE",
+        "HUMAN"
+      ],
       "description": "L'action de communication choisie."
     },
     "scope": {
@@ -18,7 +29,7 @@
     },
     "recipients": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"},
       "description": "IDs des récepteurs ciblés."
     },
     "encoding": {
@@ -33,33 +44,156 @@
     },
     "ttlMs": {
       "type": "integer",
-      "minimum": 1,
-      "description": "Time-to-live en millisecondes."
+      "minimum": 0,
+      "description": "Durée de validité en millisecondes ; zéro uniquement pour SILENCE."
     },
     "reasonCodes": {
       "type": "array",
       "items": {
         "type": "string",
-        "enum": [
-          "RECIPIENT_EXPERT",
-          "INDEPENDENCE_REQUIRED",
-          "COMMON_GROUND_HIGH",
-          "COMMON_GROUND_MEDIUM",
-          "COMMON_GROUND_LOW",
-          "EPISTEMIC_INDEPENDENCE",
-          "NOVELTY_HIGH",
-          "NOVELTY_MEDIUM",
-          "NOVELTY_LOW",
-          "TOKEN_SAVINGS",
-          "BROADCAST_FANOUT",
-          "COGNITIVE_WAKE",
-          "DISCLOSURE_RISK",
-          "UNKNOWN_DIALECT_VERSION"
-        ],
-        "description": "Codes de raison justifiant la décision."
+        "description": "Codes de raison justifiant la décision.",
+        "anyOf": [
+          {
+            "enum": [
+              "RECIPIENT_EXPERT",
+              "INDEPENDENCE_REQUIRED",
+              "COMMON_GROUND_HIGH",
+              "COMMON_GROUND_MEDIUM",
+              "COMMON_GROUND_LOW",
+              "EPISTEMIC_INDEPENDENCE",
+              "NOVELTY_HIGH",
+              "NOVELTY_MEDIUM",
+              "NOVELTY_LOW",
+              "TOKEN_SAVINGS",
+              "BROADCAST_FANOUT",
+              "COGNITIVE_WAKE",
+              "DISCLOSURE_RISK",
+              "UNKNOWN_DIALECT_VERSION",
+              "BROADCAST_SCOPE_UNAVAILABLE",
+              "NO_GLOBAL_RECIPIENTS",
+              "TOPOLOGY_VARIANT_MISMATCH",
+              "TOPOLOGY_COMMUNICATION_DENIED",
+              "TOPOLOGY_CHANNEL_DENIED",
+              "TOPOLOGY_SCOPE_DENIED",
+              "CHANNEL_NOT_ALLOWED",
+              "COMMUNICATION_COST_UNAVAILABLE",
+              "COMMUNICATION_BUDGET_EXHAUSTED"
+            ]
+          },
+          {"pattern": "^MESH_[A-Z0-9_]+$"}
+        ]
       },
       "description": "Liste non exhaustive de codes de raison."
+    },
+    "meta": {
+      "type": "object",
+      "properties": {"adaptiveMesh": {"$ref": "#/$defs/adaptiveMesh"}},
+      "additionalProperties": true,
+      "description": "Diagnostic du moteur ; le maillage porte un audit structurel versionné."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {"properties": {"action": {"const": "SILENCE"}}},
+      "then": {"properties": {"ttlMs": {"const": 0}}},
+      "else": {"properties": {"ttlMs": {"minimum": 1, "type": "integer"}}}
+    }
+  ],
+  "$defs": {
+    "adaptiveMesh": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "mode",
+        "maxFanout",
+        "status",
+        "adaptation",
+        "learning",
+        "proposedRecipients",
+        "semanticRefs",
+        "excluded",
+        "originalRecipientCount",
+        "selectedRecipientCount",
+        "reasonCodes",
+        "edges",
+        "costStatus",
+        "tokenSavingsVerified"
+      ],
+      "properties": {
+        "schemaVersion": {"const": "genos.adaptive-communication-mesh/v1"},
+        "mode": {"enum": ["off", "shadow", "active"]},
+        "maxFanout": {"type": "integer", "minimum": 1, "maximum": 8},
+        "status": {"enum": ["skipped", "proposed", "applied", "blocked"]},
+        "adaptation": {"const": "context_adaptive"},
+        "learning": {"const": "none"},
+        "proposedRecipients": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "pattern": "\\S"}},
+        "semanticRefs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "pattern": "\\S"}},
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["agentId", "reason"],
+            "properties": {
+              "agentId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "reason": {"type": "string", "pattern": "^MESH_[A-Z0-9_]+$"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "originalRecipientCount": {"type": "integer", "minimum": 0},
+        "selectedRecipientCount": {"type": "integer", "minimum": 0, "maximum": 100},
+        "reasonCodes": {"type": "array", "items": {"type": "string", "pattern": "^MESH_[A-Z0-9_]+$"}},
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "expertiseScore", "unknownRefs"],
+            "properties": {
+              "from": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "to": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "expertiseScore": {"type": "number", "minimum": 0, "maximum": 1},
+              "unknownRefs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "pattern": "\\S"}}
+            },
+            "additionalProperties": false
+          }
+        },
+        "costStatus": {"const": "conservative_policy_estimate"},
+        "tokenSavingsVerified": {"const": false},
+        "missionId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "scope": {
+          "type": "object",
+          "required": ["organizationId", "projectId"],
+          "properties": {
+            "organizationId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+            "projectId": {"type": "string", "minLength": 1, "pattern": "\\S"}
+          },
+          "additionalProperties": false
+        },
+        "orchestratorId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "organization": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "organizationVersion": {"type": "integer", "minimum": 0},
+        "protected": {"type": "boolean"},
+        "intentFingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "planFingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["proposed", "applied"]}}},
+          "then": {
+            "required": ["missionId", "scope", "orchestratorId", "organization", "organizationVersion", "protected"]
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "proposed"}}},
+          "then": {"properties": {"mode": {"const": "shadow"}}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "applied"}}},
+          "then": {"properties": {"mode": {"const": "active"}}}
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
 }

@@ -4,21 +4,45 @@
   "title": "CommunicationIntent",
   "description": "Exprime le besoin, pas le message. Le but est borné et structurel.",
   "type": "object",
-  "required": ["senderAgentId", "purpose", "semanticRefs", "requiresAction", "urgency", "risk", "domain", "independenceRequired"],
+  "required": [
+    "senderAgentId",
+    "purpose",
+    "semanticRefs",
+    "requiresAction",
+    "urgency",
+    "risk",
+    "domain",
+    "independenceRequired"
+  ],
   "properties": {
-    "senderAgentId": { "type": "string", "minLength": 1 },
+    "senderAgentId": {"type": "string", "minLength": 1, "pattern": "\\S"},
     "purpose": {
       "type": "string",
-      "enum": ["inform", "request", "delegate", "clarify", "challenge", "verify", "warn", "negotiate", "commit", "recruit", "coordinate", "handoff", "teach", "escalate"],
+      "enum": [
+        "inform",
+        "request",
+        "delegate",
+        "clarify",
+        "challenge",
+        "verify",
+        "warn",
+        "negotiate",
+        "commit",
+        "recruit",
+        "coordinate",
+        "handoff",
+        "teach",
+        "escalate"
+      ],
       "description": "Le but structurel de la communication."
     },
     "semanticRefs": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^sha256:" },
-      "description": "Références canoniques (hashs, ontology IDs, contrat IDs) visés."
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"},
+      "description": "Références canoniques non vides : empreintes sha256, IDs mission:, proof:, ontology ou contrats. Une référence ne prouve pas la visibilité de son contenu."
     },
-    "requiresAction": { "type": "boolean", "description": "Cette intent nécessite une action du récepteur." },
-    "urgency": { "type": "number", "minimum": 0, "maximum": 1, "description": "Urgence de 0 (bas) à 1 (critique)." },
+    "requiresAction": {"type": "boolean", "description": "Cette intent nécessite une action du récepteur."},
+    "urgency": {"type": "number", "minimum": 0, "maximum": 1, "description": "Urgence de 0 (bas) à 1 (critique)."},
     "risk": {
       "type": "string",
       "enum": ["low", "medium", "high", "critical"],
@@ -26,21 +50,61 @@
     },
     "domain": {
       "type": "string",
-      "description": "Domaine de compétence requis (ex: security.auth, database.routing)."
+      "description": "Domaine de compétence requis (ex: security.auth, database.routing).",
+      "minLength": 1,
+      "pattern": "\\S"
     },
     "requestedAudience": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Agents ciblés explicitement (null = laissé au Policy Engine)."
+      "type": ["array", "null"],
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"},
+      "description": "Agents ciblés explicitement (null = laissé au Policy Engine).",
+      "maxItems": 50
     },
-    "expiresAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "Échéance ISO de cet intent."
-    },
+    "expiresAt": {"type": ["string", "null"], "format": "date-time", "description": "Échéance ISO de cet intent."},
     "independenceRequired": {
       "type": "boolean",
       "description": "Vrai si l'indépendance épistémique du récepteur est requise (vérificateur indépendant, pas parent/enfant)."
+    },
+    "missionId": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Mission canonique nécessaire au maillage actif ; null reste admis pour les chemins historiques."
+    },
+    "checkpoint": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Événement du checkpoint, notamment MISSION_COMPLETED, CONTRADICTION_FOUND ou RETRACTION."
+    },
+    "artifactRefs": {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "\\S"}},
+    "payload": {
+      "description": "Contenu JSON opaque éventuel, conservé sans inférer sa connaissance depuis les seules références."
+    },
+    "scope": {
+      "type": ["object", "null"],
+      "properties": {
+        "organizationId": {"type": ["string", "null"], "minLength": 1, "pattern": "\\S"},
+        "projectId": {"type": ["string", "null"], "minLength": 1, "pattern": "\\S"},
+        "orchestratorId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "organizationVersion": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "independenceThreshold": {"type": "number", "minimum": 0, "maximum": 1},
+    "invalidation": {"type": "boolean"},
+    "retraction": {"type": "boolean"},
+    "communicationMesh": {
+      "type": "object",
+      "required": ["schemaVersion", "missionId", "orchestratorId", "organization", "organizationVersion"],
+      "properties": {
+        "schemaVersion": {"const": "genos.adaptive-communication-mesh/v1"},
+        "missionId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "orchestratorId": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "organization": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "organizationVersion": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
