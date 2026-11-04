@@ -11,6 +11,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
+| [0794](0794-application-regles-typees-et-controle-positif.md) | Application de règles typées et contrôle positif préalable | Accepté pour un banc expérimental isolé | 2026-11-04 | Apprentissage, validation et exécution bornée |
 | [0795](0795-observation-daemon-structuree.md) | Observation typée du daemon d’allocation | Accepté | 2026-11-04 | format fournisseur, sérialisation et preuves natives |
 | [0793](0793-plan-cooperation-fonde-sur-constat.md) | Plan de coopération fondé sur un constat vérifié | Accepté | 2026-11-04 | orchestration, preuves et qualification LLM |
 | [0792](0792-experience-competence-cinq-variantes.md) | Expérience de compétence à cinq variantes | Accepté pour un banc expérimental isolé | 2026-11-04 | Expérimentation, mémoire et métacognition |

@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [competence-cinq-variantes-controle-positif-2026-11-04.md](competence-cinq-variantes-controle-positif-2026-11-04.md) — règles typées, contrôle positif validé avant lancement et comparaison prospective de cinq variantes.
+
 - [cooperation-llm-constat-daemon-2026-11-04.md](cooperation-llm-constat-daemon-2026-11-04.md) — planification fondée sur preuve ; deux refus réels du daemon, 7 709 tokens, aucun appel au planificateur.
 - [cooperation-llm-plan-refuse-2026-11-04.md](cooperation-llm-plan-refuse-2026-11-04.md) — deux appels Qwen réels refusés avant dispatch, 380 tokens et diagnostic du contrat de planification.
 

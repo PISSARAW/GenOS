@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Application des règles et contrôle positif](06-qualite-preuves/competence-cinq-variantes-controle-positif-2026-11-04.md) — correction du pipeline, validation indépendante 16/16 puis nouvelle comparaison à cinq variantes avec Qwen réel.
+
 - [Compétence : expérience à cinq variantes](06-qualite-preuves/competence-cinq-variantes-2026-11-04.md) — six mondes, LLM réel, rappel, synthèse, ambiguïtés et règle changeante ; protocole et résultats bornés.
 
 - [Expérience scénario réel sous GQEL](06-qualite-preuves/experience-mission-scenario-gqel-2026-11-02.md) — mission réelle d'écriture avec llama3.1:8b, élévation causale mesurée (+55 pts) et refus fail-closed.

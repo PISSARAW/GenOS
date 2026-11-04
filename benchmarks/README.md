@@ -1,5 +1,9 @@
 # Référence expérimentale GenOS
 
+Le [banc avec contrôle positif](competence-five-arms-v2/README.md) valide
+l'application de seize règles connues avant de comparer les cinq variantes
+sur des mondes nouveaux, avec programmes LLM typés et interpréteur commun.
+
 Le [banc à cinq variantes](competence-five-arms/README.md) compare un LLM sans
 mémoire, l'historique brut, le rappel GenOS, la synthèse seule et l'hybride dans
 six mondes, avec ambiguïtés et changement de règle ; voir le
