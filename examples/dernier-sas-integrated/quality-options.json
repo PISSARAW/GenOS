@@ -1,0 +1,23 @@
+{
+  "domain": "screenplay",
+  "policy": "balanced",
+  "targetMinutes": 20,
+  "maxIterations": 3,
+  "minQualityScore": 80,
+  "critiques": 2,
+  "requireDoubleBlind": true,
+  "minDependencyGroups": 1,
+  "requireCalibration": true,
+  "minBodyWords": 1200,
+  "minSceneCount": 5,
+  "maxSceneCount": 7,
+  "requireDialogue": true,
+  "budgetMaxTokens": 500000,
+  "maxCalls": 80,
+  "maxDurationMs": 3600000,
+  "callTimeoutMs": 600000,
+  "maxOutputTokens": 16000,
+  "maxPromptChars": 200000,
+  "maxProtocolRepairs": 2,
+  "maxPlanRepairs": 1
+}
