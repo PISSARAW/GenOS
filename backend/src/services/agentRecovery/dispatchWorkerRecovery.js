@@ -289,7 +289,12 @@ async function loadDurableRecovery(sourceAgentId, recovery) {
   return recovery || null;
 }
 
-async function dispatchWorkerRecovery(sourceAgentId) {
+function dispatchWorkerRecovery(sourceAgentId) {
+  if (require('../agentOrchestrationState').cancelledStarts.has(sourceAgentId)) return Promise.resolve(false);
+  return require('./recoveryDispatchLifecycle').track(sourceAgentId, () => executeRecoveryDispatch(sourceAgentId));
+}
+
+async function executeRecoveryDispatch(sourceAgentId) {
   const { startMission } = require('../agentRuntimeAdapter');
   if (activeWorkerRecoveryDispatches.has(sourceAgentId)) return false;
   const recovery = await loadDurableRecovery(sourceAgentId, pendingWorkerRecoveries.get(sourceAgentId));

@@ -21,7 +21,7 @@ async function finalize(db, runId) {
   const guardrail = terminal ? require('./strategyPromotionGate').completionGuardrail(
     binding.genome.strategyContract, terminal.event.payload, { agentId: binding.workerId, gateContext: verification?.gateContext }) : 'Missing terminal observation';
   const oracleExecution = await require('./epistemic/nativeOracleCostReceipt').forRun(db, binding);
-  const receipt = buildReceipt({ binding, run, observations, snapshot, guardrail, verification });
+  const receipt = buildReceipt({ binding, run, observations, snapshot, terminal, guardrail, verification });
   if (oracleExecution) {
     receipt.oracleExecution = oracleExecution;
     receipt.budgetAssessment.satisfied &&= oracleExecution.budgetAssessment.satisfied;
@@ -37,10 +37,9 @@ function buildReceipt(input) {
     genomeHash: binding.genomeHash, bindingHash: digest(binding),
     lineage: { parentWorkerId: binding.parentWorkerId }, costs: evidence.costs(observations, run),
     accounting: evidence.accounting(observations, run),
-    result: { status: run.status, completed: run.status === 'completed',
+    result: require('./biologicalWorkerOutcome').result({ run, snapshot, guardrail, terminal: input.terminal,
       verified: run.status === 'completed' && successfulTerminal(snapshot) && !guardrail
-        && evidence.hasResultEvidence(snapshot) && semanticProofAccepted(verification),
-      gate: 'strategy_execution_gate', reason: run.guardrailReason || guardrail || null },
+        && evidence.hasResultEvidence(snapshot) && semanticProofAccepted(verification) }),
     evidence: snapshot, completedAt: run.completedAt || null };
   receipt.budgetAssessment = evidence.budgetAssessment(receipt, binding);
   if (verification) {

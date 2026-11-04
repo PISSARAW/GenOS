@@ -25,7 +25,7 @@ async function seed(db, input) {
   contract.promotion.native_verification = { executions: 2, latencyMs: 30000 };
   await require('../../src/services/strategyContractService').saveContract(db,
     { agentId: id, workspaceId: id, contract, createdBy: 'worker-cooperation-qualification' });
-  const control = await require('./workerCooperationControl.cjs').prepare(db, { ...input, budget });
+  const control = await require('./workerCooperationControl.cjs').prepare(db, { ...input, budget: input.budget || { ...budget, latencyMs: budget.latencyMs * 4 } });
   return { db, id, workspace, stages: [], control };
 }
 

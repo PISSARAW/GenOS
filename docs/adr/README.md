@@ -11,6 +11,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
+| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |

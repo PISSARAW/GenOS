@@ -15,7 +15,7 @@ function buildAnalysisPrompt(context) {
   if (orchestrator) return `${intro}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${prompt}`;
   const workerLabel = identityExperimentArm === 'llm_only' ? 'a bounded language-model worker' : 'a bounded GenOS local worker';
   const workspaceBlock = workspaceContext
-    ? `\nRead-only workspace evidence snapshot (cite only listed sha256 references; no file edits are authorized):\n${workspaceContext}` : '';
+    ? `\nRead-only workspace evidence snapshot (cite the listed sha256 references for file contents; mission refers to supplied mission facts. No file edits are authorized):\n${workspaceContext}` : '';
   return `${intro}\nYou are ${workerLabel} (${agentName}). Analyse this assigned branch. Branch mission:\n${prompt}${workspaceBlock}`;
 }
 

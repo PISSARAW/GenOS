@@ -9,7 +9,8 @@ const HANDLERS = { two_machine_partition: numerics.partition, observed_statistic
   literal_logs: records.logs, paired_means: numerics.pairedMeans, json_field_contract: records.jsonContract,
   synthetic_data_quality: records.dataQuality, bar_durations: creative.music, poem_constraints: creative.poem,
   git_numeric_history: records.numericHistory, python_palindrome: require('./workspacePalindromeKernel').verify,
-  csv_report_total: records.reportTotal, publication_dossier: dossier };
+  csv_report_total: records.reportTotal, publication_dossier: dossier,
+  resource_allocation: require('./workspaceAllocationChecks').check };
 
 function outcome(status, reason, strategy) {
   return { schema: 'genos.workspace-postconditions/v1', status, reason, strategy };

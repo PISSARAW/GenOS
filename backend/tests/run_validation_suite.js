@@ -212,6 +212,8 @@ const suites = {
     ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js'],
     ['native 20-kind execution and evidence', 'test_worker_native_matrix.js'],
     ['daemon specialist verifier recovery cooperation', 'test_worker_cooperation.js'],
+    ['cooperation failure causes, arithmetic and all-attempt accounting', 'test_worker_cooperation_regressions.cjs'],
+    ['live cooperation pilot with controlled transport and native oracles', 'test_worker_cooperation_live.cjs'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
     ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],

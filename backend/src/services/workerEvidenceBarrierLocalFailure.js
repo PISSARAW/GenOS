@@ -34,8 +34,16 @@ async function publish(ctx) {
     error: ctx.error.message };
 }
 
+function runtimeFailure(error) {
+  const output = error.omegaExecution;
+  if (!output) return undefined;
+  return { protocol: 'OMEGA', status: output.status, operation: output.runtimeResult?.operation,
+    reason: output.runtimeResult?.reason, detail: output.runtimeResult?.error };
+}
+
 function failurePayload(ctx) {
   return { executionRunId: ctx.executionRun.id, model: ctx.error.model || ctx.model || ctx.mission.localModel,
+    failureCode: ctx.error.code || null, runtimeFailure: runtimeFailure(ctx.error),
     provider: ctx.error.modelProvider || ctx.provider,
     workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics, proposalTests: ctx.error.proposal?.tests,
     appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.error.modelUsage || ctx.usage,

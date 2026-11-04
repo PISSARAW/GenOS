@@ -2,6 +2,8 @@
 
 - [missions-llm-hierarchiques-rust-2026-11-04.md](missions-llm-hierarchiques-rust-2026-11-04.md) — arborescence bornée, délégation récursive, retours CAS adressés et preuves de reprise.
 
+- [cooperation-llm-corrections-2026-11-04.md](cooperation-llm-corrections-2026-11-04.md) — diagnostic de l'abstention réelle, contrat sémantique, arrêt des reprises et coûts cumulés ; nouveau pilote LLM borné.
+
 - [migration-catalogue-hachimoji-2026-11-04.md](migration-catalogue-hachimoji-2026-11-04.md) — migration des 227 binaires historiques, compilation des sept manifestes manquants et qualification d'encodage sous preuves.
 
 - [orchestration-dynamique-llm-rust-2026-11-03.md](orchestration-dynamique-llm-rust-2026-11-03.md) — délégations natives, copies et retours CAS, ordre causal des outils et essai causal borné qualifié, deux essais négatifs conservés, contrôles globaux vérifiés et audit externe lié à la livraison.

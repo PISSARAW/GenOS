@@ -1,5 +1,8 @@
 # Complémentarité des types de workers : qualification locale
 
+La tentative LLM distincte et les corrections du pilote sont décrites dans
+[la fiche du 4 novembre](cooperation-llm-corrections-2026-11-04.md).
+
 - **Statut** : intégration native contrôlée, pas qualification d'autonomie générale.
 - **Portée** : runtime Node, sélection native des types, dispatch réel, SQLite,
   enveloppes d'autorité et oracles indépendants. Aucun dispatch simulé.

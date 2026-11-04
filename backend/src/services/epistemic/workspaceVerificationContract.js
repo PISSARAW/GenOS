@@ -4,7 +4,7 @@ const { normalizeRelativePath } = require('../pathSafety');
 const KINDS = new Set(['two_machine_partition', 'observed_statistics', 'literal_logs',
   'paired_means', 'json_field_contract', 'synthetic_data_quality', 'bar_durations',
   'poem_constraints', 'git_numeric_history', 'python_palindrome', 'csv_report_total', 'publication_dossier',
-  'code_repair_obligations']);
+  'code_repair_obligations', 'resource_allocation']);
 const EDITABLE = new Set(['python_palindrome', 'csv_report_total', 'code_repair_obligations']);
 
 function invalid() {
@@ -26,6 +26,7 @@ function assertContract(contract) {
 function assertBoundedKind(contract) {
   if (JSON.stringify(contract).length > 16384) invalid();
   if (contract.kind === 'code_repair_obligations') require('./repairObligationContract').assertContract(contract);
+  if (contract.kind === 'resource_allocation') require('./workspaceAllocationChecks').assertContract(contract);
 }
 
 function validateSource(source, context) {
