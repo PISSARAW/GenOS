@@ -87,13 +87,14 @@ async function refusalCases(db) {
 
 async function biologicalCapture(db, contract) {
   const input = await inputFor(db, 'topology-replacement');
+  input.mission.timeoutMs = 180000;
   await incarnation.prepare(db, input);
   await require('../src/services/workerGenomeHydration').hydrate(db, input);
   await require('../src/services/missionIdentityService').attachAgent(db, {
     missionId: 'delegation-mission', agentId: input.agent.id, role: 'literary_author' });
   const run = await require('../src/services/strategyExecutionService').createExecutionRun(db, {
     agentId: input.agent.id, missionId: 'delegation-mission', contractRecord: contract,
-    budget: { tokens: 10000, costUsd: 1, latencyMs: 10000 } });
+    budget: { tokens: 10000, costUsd: 1, latencyMs: 300000 } });
   const binding = await require('../src/services/biologicalWorkerStore').binding(db, run.id);
   assert.equal(binding.genome.dna.genomeRef, 'topology-dna');
   assert.equal(binding.genome.dna.contentHash, input.mission.dnaIncarnation.contentHash);
@@ -102,10 +103,27 @@ async function biologicalCapture(db, contract) {
   await clinicalBinding(db, { input, run });
 }
 
+async function reservedIncarnation(db, contract) {
+  const input = await inputFor(db, 'topology-reserved');
+  await db.run("UPDATE agents SET status='running' WHERE id=?", input.agent.id);
+  await incarnation.prepare(db, input);
+  const admitted = await db.get('SELECT * FROM agents WHERE id=?', input.agent.id);
+  assert.equal(incarnation.verifiedBinding(admitted, scope).genomeRef, 'topology-dna',
+    'a garage reservation without an active run must admit the real DNA');
+  await require('../src/services/missionIdentityService').attachAgent(db, {
+    missionId: input.mission.missionId, agentId: input.agent.id, role: input.mission.role });
+  await require('../src/services/strategyExecutionService').createExecutionRun(db, {
+    agentId: input.agent.id, missionId: input.mission.missionId, contractRecord: contract,
+    budget: { tokens: 10000, costUsd: 1, latencyMs: 300000 } });
+  await assert.rejects(incarnation.prepare(db, input), { code: 'WORKER_CLINICAL_ADMISSION_CONFLICT' });
+  assert.equal((await db.get('SELECT metadata_json FROM agents WHERE id=?', input.agent.id)).metadata_json,
+    admitted.metadata_json, 'an active incarnation must retain its admitted metadata');
+}
+
 async function clinicalBinding(db, context) {
   const { input, run } = context;
   input.mission.workspaceRoot = root;
-  input.mission.timeoutMs = 10000;
+  input.mission.timeoutMs = 300000;
   input.mission.workerContract = JSON.parse(input.agent.metadata_json).workerContract;
   input.mission.toolLease = require('../src/services/toolLeasePolicy').derivePolicyLease({
     executionMode: 'worker', role: input.mission.role, capabilities: [] });
@@ -120,6 +138,16 @@ async function clinicalBinding(db, context) {
   const saved = await clinical.verifyRun(db, expected);
   const sealed = await authority.assertRun(db, { ...expected, mission: input.mission });
   assert.equal(sealed.envelope.clinicalAdmissionHash, saved.hash);
+  assert.equal(sealed.envelope.expiresAt, saved.record.validUntil,
+    'Execution authority must not outlive the clinical admission.');
+  const preparedMission = structuredClone(input.mission);
+  const executionContext = { normalizedMission: preparedMission, dispatchedAgent: input.agent, executionRun: run };
+  await require('../src/services/missionProtocols/allostasis').prepare(executionContext);
+  await deadlineGuardrails(executionContext);
+  assert.ok(preparedMission.executionDeadlineAt <= Date.parse(saved.record.validUntil));
+  assert.ok(preparedMission.timeoutMs <= 180000);
+  await assert.rejects(clinical.verifyRun(db, { ...expected,
+    at: new Date(Date.parse(saved.record.validUntil) + 1).toISOString() }), { code: 'WORKER_CLINICAL_ADMISSION_EXPIRED' });
   await assert.rejects(authority.assertRun(db, { ...expected, mission: { ...input.mission,
     clinicalAdmission: { ...saved.record, stateDigest: 'substitution' } } }), { code: 'WORKER_CLINICAL_ADMISSION_INVALID' });
   await db.run('UPDATE immune_events SET event_json=? WHERE id=?', '{}', saved.record.scan.id);
@@ -137,6 +165,24 @@ async function clinicalBinding(db, context) {
     'Historical verification does not turn a revoked admission into current authority');
 }
 
+async function deadlineGuardrails(context) {
+  const prepare = require('../src/services/missionProtocols/allostasis').prepare;
+  const future = Date.now() + 30000;
+  for (const value of [future, new Date(future).toISOString()]) {
+    const normalizedMission = { ...context.normalizedMission, executionDeadlineAt: value, timeoutMs: 300000 };
+    await prepare({ ...context, normalizedMission });
+    assert.equal(normalizedMission.executionDeadlineAt, future);
+    assert.ok(normalizedMission.timeoutMs <= 30000);
+    assert.equal(require('../src/services/agents/workerNativeLifecycle').executionContext({}, normalizedMission).deadline, future);
+  }
+  for (const [value, code] of [[0, 'WORKER_DEADLINE_EXCEEDED'],
+    ['2000-01-01T00:00:00.000Z', 'WORKER_DEADLINE_EXCEEDED'],
+    ['', 'WORKER_DEADLINE_INVALID'], ['invalid', 'WORKER_DEADLINE_INVALID']]) {
+    const normalizedMission = { ...context.normalizedMission, executionDeadlineAt: value };
+    await assert.rejects(prepare({ ...context, normalizedMission }), { code });
+  }
+}
+
 async function main() {
   const db = await database.getDatabase();
   try {
@@ -145,6 +191,7 @@ async function main() {
     await store.saveGenome(db, model, { id: 'topology-dna', ...scope });
     process.env.GENOS_AGENT_DNA = '1';
     await threeMembers(db);
+    await reservedIncarnation(db, contract);
     await biologicalCapture(db, contract);
     await refusalCases(db);
     console.log('Topology DNA incarnation, expression, clinical gate and biological capture: PASS');

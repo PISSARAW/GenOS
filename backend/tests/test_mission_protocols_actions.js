@@ -50,7 +50,8 @@ async function providerPath(service) {
     assert.equal(await context.load(ctx.db, ctx.executionRun.id), null);
     const candidate = f.action();
     candidate.id = 'signed-model-action'; candidate.kind = 'small_model';
-    candidate.cost.execution = { tokens: 20, usd: 0.2, latencyMs: 10000 };
+    candidate.cost.execution = { tokens: 20, usd: 0.2, latencyMs: 120000 };
+    candidate.calibrationReceipt.validUntil = new Date(Date.now() + 300000).toISOString();
     candidate.execution = { prompt: 'Return a candidate answer without declaring verification.', model: 'ollama://signed-action' };
     const request = f.request(ctx, 'active', f.signed(ctx, candidate));
     const result = await runtime.run({ db: ctx.db, request, config: { active: true, key: f.KEY } });

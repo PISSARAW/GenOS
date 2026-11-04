@@ -442,6 +442,8 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 
 ### 8. Qualité, preuves et positionnement
 
+- [Expiration d’autorité et qualification native](06-qualite-preuves/correction-expiration-autorite-cooperation-2026-11-04.md) — budgets avant admission, échéances cliniques et absolues, correctifs et preuves d’exécution.
+
 - [Qualification du rappel mémoire situationnel au 2026-10-23](06-qualite-preuves/qualification-rappel-memoire-situationnel-2026-10-23.md) — tests du classement et du runtime, exclusions de portée, références historiques et limites de qualification.
 - [experience-morphogenese-qwen-site-2026-10-20.md](06-qualite-preuves/experience-morphogenese-qwen-site-2026-10-20.md) — trois mondes Trinity exécutés par Qwen, absence de matérialisation HTML diagnostiquée et promotion correctement refusée.
 - [qualification-gqwf-2026-10-20.md](06-qualite-preuves/qualification-gqwf-2026-10-20.md) — 18 suites réussies hors sandbox restrictive, fermeture déclarative qualifiée, capacités COW non exercées sur Windows et qualification Trinity encore refusée.

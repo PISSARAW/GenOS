@@ -84,7 +84,28 @@ async function authorityFailuresCannotDowngrade() {
 async function main() {
   await realEntryRegistersBeforeWorker();
   await authorityFailuresCannotDowngrade();
+  await clinicalRefusalsCannotDowngrade();
   console.log('Windows real mission entry seals complete native context, executes OMEGA, blocks evidence bypass and refuses authority fallback: PASS');
+}
+
+async function clinicalRefusalsCannotDowngrade() {
+  const { ctx, input } = await fixture.create();
+  let calls = 0;
+  const services = { runLocalWorker: async () => { calls += 1; }, runPostflight: async () => ({}) };
+  try {
+    await ctx.db.run("UPDATE agents SET execution_mode='worker',status='running' WHERE id=?", input.id);
+    await require('../src/services/missionIdentityService').attachAgent(ctx.db, {
+      missionId: input.missionId, agentId: input.id, role: 'bounded_worker' });
+    const contractRecord = await require('../src/services/strategyContractService').getLatestContract(ctx.db, input.id);
+    await require('../src/services/strategyExecutionService').createExecutionRun(ctx.db, {
+      agentId: input.id, missionId: input.missionId, contractRecord, budget: input.missionBudget });
+    await assert.rejects(runWindowsLocalExecution(input, services), { code: 'WORKER_CLINICAL_ADMISSION_CONFLICT' });
+    await ctx.db.run("UPDATE agents SET execution_mode='orchestrator' WHERE id=?", input.id);
+    await ctx.db.run('UPDATE clinical_states SET pathogen_burden=1,immune_titer=0 WHERE agent_id=?', input.id);
+    await assert.rejects(runWindowsLocalExecution(input, services), { code: 'AGENT_QUARANTINED' });
+    assert.equal(calls, 0, 'clinical refusal must precede any worker callback');
+    assert.equal((await ctx.db.get('SELECT cell_cycle_state FROM clinical_states WHERE agent_id=?', input.id)).cell_cycle_state, 'arrested');
+  } finally { await ctx.close(); }
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

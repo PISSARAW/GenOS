@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [Expiration d’autorité et qualification native](correction-expiration-autorite-cooperation-2026-11-04.md) — budgets avant admission, échéances cliniques et absolues, correctifs et preuves d’exécution.
+
 - [autopsie-competence-et-couverture-genos-2026-11-04.md](autopsie-competence-et-couverture-genos-2026-11-04.md) — causes de l'échec, couverture primaire limitée, reprise d'analyse par le runtime et clôture refusée par le graphe de vérité.
 
 - [competence-cinq-variantes-controle-positif-2026-11-04.md](competence-cinq-variantes-controle-positif-2026-11-04.md) — règles typées, contrôle positif validé avant lancement et comparaison prospective de cinq variantes.

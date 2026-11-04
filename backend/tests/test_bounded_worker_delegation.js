@@ -84,7 +84,7 @@ async function bindings(db) {
 
 async function nativeDispatch(db) {
   const result = await require('../src/services/agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(db,
-    'delegation-sub', { mission: 'Compute the scoped subset sum', workerKind: 'bounded_worker', methodContract: scoped, timeoutMs: 20000 });
+    'delegation-sub', { mission: 'Compute the scoped subset sum', workerKind: 'bounded_worker', methodContract: scoped, timeoutMs: 120000 });
   assert.equal(result.success, true, JSON.stringify(result));
   assert.equal(result.supervision.success, true);
   assert.equal(result.supervision.evidenceReport.outcome, 'success');
@@ -102,6 +102,8 @@ async function nativeDispatch(db) {
   const saved = await require('../src/services/missionEnvelopeAuthority').read(db, row.id);
   assert.equal(saved.envelope.missionId, 'delegation-mission');
   assert.equal(saved.envelope.limits.tokens, 0);
+  assert.equal(saved.envelope.limits.latencyMs, 60000,
+    'A public delegation request above sixty seconds must retain the hard child timeout ceiling.');
   console.log('Delegated native child: real computation completes with independently verified EVIDENCE acceptance.');
   return { runId: row.id, workerId: result.childAgentId };
 }

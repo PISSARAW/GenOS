@@ -59,8 +59,8 @@ async function execute(db, input) {
     executor: 'local', localRuntime: true, inProcessWorker: true,
     localModel: 'ollama://protocol-local-worker', localRoutingPolicy: { primary: 'ollama://protocol-local-worker', preferLocal: true },
     modelBudgetScope,
-    autonomousOrchestration: false, toolLease: [], timeoutMs: authorityQualification.LATENCY_MS,
-    executionBudget: authorityQualification.budget() });
+    autonomousOrchestration: false, toolLease: [], timeoutMs: 300000,
+    executionBudget: { tokens: 10000, costUsd: 1, latencyMs: 300000, events: 100 } });
   return { result, before };
 }
 
@@ -112,7 +112,7 @@ async function qualify(db, input) {
   try {
     const pool = JSON.parse(timing.prepare('SELECT body FROM allostasis_pools').get().body);
     assert.ok(pool.consumed > 0); assert.equal(pool.held, 0);
-    assert.equal(pool.protectedReserve, authorityQualification.PROTECTED_RESERVE_MS);
+    assert.equal(pool.protectedReserve, 15000);
   } finally { timing.close(); }
   const evidenceTable = await db.get("SELECT name FROM sqlite_master WHERE name='mission_protocol_evidence'");
   if (evidenceTable) assert.equal(await db.get('SELECT run_id FROM mission_protocol_evidence WHERE run_id=?', row.id), undefined);

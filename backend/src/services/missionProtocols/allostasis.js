@@ -13,7 +13,24 @@ async function prepare(ctx) {
   const ordinary = capacity - Math.floor(capacity / 20);
   const mission = ctx.normalizedMission;
   mission.timeoutMs = Math.min(mission.timeoutMs || ordinary, ordinary);
-  mission.executionDeadlineAt = Math.min(Number(mission.executionDeadlineAt) || Infinity, Date.now() + mission.timeoutMs);
+  const now = Date.now();
+  mission.executionDeadlineAt = Math.min(declaredDeadline(mission.executionDeadlineAt), now + mission.timeoutMs);
+  mission.timeoutMs = Math.min(mission.timeoutMs, mission.executionDeadlineAt - now);
+  if (mission.clinicalAdmission) {
+    const clinical = Date.parse(mission.clinicalAdmission.validUntil);
+    if (!Number.isFinite(clinical) || clinical <= Date.now()) throw context.failure('WORKER_CLINICAL_ADMISSION_EXPIRED');
+    mission.executionDeadlineAt = Math.min(mission.executionDeadlineAt, clinical);
+    mission.timeoutMs = Math.min(mission.timeoutMs, clinical - Date.now());
+    if (mission.timeoutMs <= 0) throw context.failure('WORKER_CLINICAL_ADMISSION_EXPIRED');
+  }
+}
+
+function declaredDeadline(value) {
+  if (value == null) return Infinity;
+  const deadline = typeof value === 'number' ? value : Date.parse(value);
+  if (!Number.isFinite(deadline)) throw context.failure('WORKER_DEADLINE_INVALID');
+  if (deadline <= Date.now()) throw context.failure('WORKER_DEADLINE_EXCEEDED');
+  return deadline;
 }
 
 async function admitAndExpose(binding) {

@@ -9,6 +9,7 @@ const storage = require('../../src/services/gqwf/storage');
 const { digest } = require('../../src/services/evidenceProtocol/canonical');
 const fixture = require('./gqwfExchangeProcessFixtures.cjs');
 const same = (left, right) => digest(left) === digest(right);
+const { verifierMs } = require('./gqwfExchangeProcessBudgets.cjs');
 
 async function file(exchange, manifest, name) {
   const item = manifest.files.find(entry => entry.path === name);
@@ -39,7 +40,7 @@ async function probe(content) {
     await fs.writeFile(path.join(directory, 'base.json'), content.base);
     await fs.writeFile(path.join(directory, 'candidate.json'), content.candidate);
     const result = spawnSync(process.execPath, ['verify-candidate.cjs', 'base.json', 'candidate.json'],
-      { cwd: directory, encoding: 'utf8', timeout: 10000, windowsHide: true });
+      { cwd: directory, encoding: 'utf8', timeout: verifierMs, windowsHide: true });
     if (result.error) throw result.error;
     if (result.status !== 0 || result.stdout !== 'counter increased') throw new Error('GQWF demo independent candidate predicate failed.');
     return { exitCode: result.status, output: result.stdout };

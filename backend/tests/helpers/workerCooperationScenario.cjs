@@ -109,7 +109,8 @@ async function runScenario(db, input) {
   await fs.mkdir(workspace);
   const initial = JSON.stringify({ indices: input.healthy ? [0, 2] : [0, 1] });
   await fs.writeFile(path.join(workspace, 'allocation.json'), initial);
-  const context = await runtime.seed(db, { id: `cooperation-${input.name}`, workspace });
+  const maxStages = input.healthy ? 1 : input.corrupt ? 4 : 3;
+  const context = await runtime.seed(db, { id: `cooperation-${input.name}`, workspace, maxStages });
   const observation = await monitor(context);
   let responsePlan = [];
   let finalError = errorIn(JSON.parse(initial));
@@ -140,7 +141,8 @@ async function runScenario(db, input) {
   const sourceFinalError = errorIn(JSON.parse(await fs.readFile(path.join(workspace, 'allocation.json'), 'utf8')));
   return { name: input.name, responsePlan, initialState: JSON.parse(initial), finalState,
     initialError: errorIn(JSON.parse(initial)), finalError, sourceFinalError,
-    stages: context.stages, promoted: false, recoveryScope: 'isolated_worker_capsule' };
+    stages: context.stages, controller: await runtime.controlEvidence(context),
+    promoted: false, recoveryScope: 'isolated_worker_capsule' };
 }
 
 module.exports = { runScenario };

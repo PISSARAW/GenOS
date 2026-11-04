@@ -13,9 +13,12 @@ function leanProcessEnvironment(directory) {
   return buildIsolatedEnv(extra);
 }
 
-async function hashFile(filename) {
+async function hashFile(filename, options = {}) {
+  const remaining = options.deadlineAt == null ? Infinity : Math.ceil(options.deadlineAt - Date.now());
+  if (remaining <= 0 || Number.isNaN(remaining)) throw new Error('Lean environment measurement deadline exceeded.');
+  const signal = Number.isFinite(remaining) ? AbortSignal.timeout(remaining) : undefined;
   const hash = createHash('sha256');
-  for await (const chunk of fs.createReadStream(filename)) hash.update(chunk);
+  for await (const chunk of fs.createReadStream(filename, { signal })) hash.update(chunk);
   return `sha256:${hash.digest('hex')}`;
 }
 
@@ -43,13 +46,18 @@ async function moduleFiles(modules) {
   return result;
 }
 
-async function measureEnvironment(prefix, audit) {
+async function measureEnvironment(prefix, audit, options = {}) {
   const filenames = [...await runtimeFiles(prefix), ...await moduleFiles(audit.modules)];
   const entries = [];
-  for (const filename of [...new Set(filenames)].sort()) {
-    entries.push({ file: path.relative(prefix, filename).replaceAll('\\', '/'), digest: await hashFile(filename) });
+  const ordered = [...new Set(filenames)].sort();
+  for (let offset = 0; offset < ordered.length; offset += 4) {
+    const measured = await Promise.allSettled(ordered.slice(offset, offset + 4).map(async filename => ({
+      file: path.relative(prefix, filename).replaceAll('\\', '/'), digest: await hashFile(filename, options) })));
+    const failed = measured.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
+    entries.push(...measured.map(result => result.value));
   }
-  entries.push({ file: 'genos/leanInspector.lean', digest: await hashFile(path.join(__dirname, 'leanInspector.lean')) });
+  entries.push({ file: 'genos/leanInspector.lean', digest: await hashFile(path.join(__dirname, 'leanInspector.lean'), options) });
   const environmentDigest = `sha256:${createHash('sha256').update(JSON.stringify(entries)).digest('hex')}`;
   return { environmentDigest, environmentManifest: entries };
 }

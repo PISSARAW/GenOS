@@ -35,6 +35,7 @@ async function workerBudget() {
 
 async function main() {
   await processBudget(); await workerBudget();
+  await require('./helpers/leanEnvironmentDeadline.cjs').verify();
   console.log('Lean shared deadline, stopped dispatch, honest timeout and native worker budget: PASS');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

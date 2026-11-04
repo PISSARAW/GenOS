@@ -6,7 +6,8 @@ const path = require('node:path');
 const { applyNativeMissionPlan, assertNativePlanDigest } = require('../../src/services/nativeMissionPlanService');
 const authority = require('../../src/services/missionEnvelopeAuthority');
 
-const budget = { tokens: 12000, events: 100, latencyMs: 60000 };
+const budgets = require('./workerCooperationBudgets.cjs');
+const budget = budgets.worker;
 
 async function seed(db, input) {
   const { id, workspace } = input;
@@ -25,7 +26,8 @@ async function seed(db, input) {
   contract.promotion.native_verification = { executions: 2, latencyMs: 30000 };
   await require('../../src/services/strategyContractService').saveContract(db,
     { agentId: id, workspaceId: id, contract, createdBy: 'worker-cooperation-qualification' });
-  const control = await require('./workerCooperationControl.cjs').prepare(db, { ...input, budget: input.budget || { ...budget, latencyMs: budget.latencyMs * 4 } });
+  const control = await require('./workerCooperationControl.cjs').prepare(db,
+    { ...input, budget: input.budget || budgets.controller(input.maxStages) });
   return { db, id, workspace, stages: [], control };
 }
 
@@ -40,7 +42,7 @@ function planFor(context, objective) {
 async function waitForRun(db, workerId) {
   const deadline = Date.now() + budget.latencyMs;
   while (Date.now() < deadline) {
-    const row = await db.get('SELECT id,status FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', workerId);
+    const row = await db.get('SELECT id,status,completed_at FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', workerId);
     if (row && ['completed', 'blocked', 'failed', 'error', 'unverified', 'quarantined'].includes(row.status)) {
       assert.equal(row.status, 'completed', JSON.stringify(row));
       return row;
@@ -54,6 +56,12 @@ async function evidenceFor(context, worker) {
   const { db } = context;
   const run = await waitForRun(db, worker.agentId);
   const saved = await authority.read(db, run.id);
+  const completedAt = Date.parse(run.completed_at);
+  assert.ok(completedAt < Date.parse(saved.envelope.expiresAt), 'Completion must precede sealed authority expiry.');
+  const clinical = await require('../../src/services/workerClinicalAdmission').verifyRun(db, {
+    runId: run.id, agentId: worker.agentId, missionId: context.id,
+    scope: { organizationId: saved.envelope.scope.organizationId, projectId: saved.envelope.scope.projectId } });
+  assert.ok(Date.parse(saved.envelope.expiresAt) <= Date.parse(clinical.record.validUntil));
   assert.equal(saved.envelope.missionId, context.id);
   assert.equal(saved.envelope.orchestratorId, context.id);
   assert.equal(saved.envelope.limits.tokens, 0);
@@ -89,6 +97,9 @@ async function evidenceFor(context, worker) {
   return { runId: run.id, workerId: worker.agentId, kind: worker.workerKind,
     missionId: saved.envelope.missionId, scope: saved.envelope.scope,
     workspaceRoot: worker.workspaceRoot, authorityHash: saved.hash, oracleHash: attestation.hash,
+    timing: { issuedAt: saved.envelope.issuedAt, expiresAt: saved.envelope.expiresAt,
+      completedAt: new Date(completedAt).toISOString(), budgetMs: saved.envelope.limits.latencyMs,
+      clinicalValidUntil: clinical.record.validUntil },
     oracleDomain: attestation.value.domain, oracleCosts: attestation.value.costs, processIds,
     tokens: costs.reduce((total, item) => total + item.quantity, 0), report };
 }
@@ -128,4 +139,13 @@ async function execute(context, input) {
   return { ...evidence, contract };
 }
 
-module.exports = { seed, execute, planFor };
+async function controlEvidence(context) {
+  const current = await authority.assertRun(context.db, { agentId: context.id,
+    runId: context.control.run.id, mission: context.control.ctx.normalizedMission });
+  assert.equal(current.hash, context.control.ctx.normalizedMission.executionAuthorityRef.hash);
+  return { runId: context.control.run.id, authorityHash: current.hash,
+    issuedAt: current.envelope.issuedAt, expiresAt: current.envelope.expiresAt,
+    checkedAt: new Date().toISOString(), budgetMs: current.envelope.limits.latencyMs };
+}
+
+module.exports = { seed, execute, planFor, controlEvidence };

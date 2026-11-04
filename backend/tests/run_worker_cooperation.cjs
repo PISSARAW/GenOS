@@ -38,7 +38,7 @@ async function qualify() {
         oracleProcesses: stages.reduce((sum, item) => sum + item.oracleCosts.processes, 0),
         elapsedMs: Math.round(performance.now() - started), driverCpuMicros: process.cpuUsage(cpu),
         driverMaxRssKiB: process.resourceUsage().maxRSS },
-      limits: { workers: 8, modelTokens: 0, oracleProcesses: 16, elapsedMs: 180000 },
+      limits: require('./helpers/workerCooperationBudgets.cjs').limits,
       limitations: ['Explicit scenario decomposition; no autonomous language-model planner.',
         'Measured local fixture incident; no production daemon qualification.',
         'Recovery applies to an isolated capsule; source promotion is not authorized.',

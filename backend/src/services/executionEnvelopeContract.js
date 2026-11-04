@@ -17,7 +17,7 @@ async function build(ctx, input) {
     measureExecutable(runtimeExecutable(ctx), input.workspaceRoot)
   ]);
   const issuedAt = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + input.duration).toISOString();
+  const expiresAt = expiration(mission, input.duration);
   const replay = determinism(mission, input.binding, snapshotHash);
   const tools = toolLease(mission);
   return values.canonical({
@@ -57,6 +57,14 @@ async function build(ctx, input) {
     integrity: { nonce: crypto.randomBytes(32).toString('hex'), digest: 'sha256',
       signature: 'gvx-ledger-hmac-sha256' }
   });
+}
+
+function expiration(mission, duration) {
+  const requested = Date.now() + duration;
+  if (!mission.clinicalAdmission) return new Date(requested).toISOString();
+  const clinical = Date.parse(mission.clinicalAdmission.validUntil);
+  if (!Number.isFinite(clinical)) throw values.failure('EXECUTION_AUTHORITY_DEADLINE_INVALID');
+  return new Date(Math.min(requested, clinical)).toISOString();
 }
 
 function runtimeExecutable(ctx) {

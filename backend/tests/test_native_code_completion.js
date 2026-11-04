@@ -9,15 +9,9 @@ const os = require('node:os');
 const values = require('../src/services/trinityProvenanceValues');
 const journal = require('../src/services/epistemic/nativeOracleJournal');
 const { getDatabase, closeDatabase } = require('../src/db');
-
-async function dispatch(db, method) {
-  const result = await require('../src/services/agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(db,
-    'delegation-sub', { mission: 'Verify the recorded code against the bounded contract', workerKind: 'verifier_worker',
-      methodContract: method, timeoutMs: 60000 });
-  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', result.childAgentId);
-  const authority = row && await require('../src/services/missionEnvelopeAuthority').read(db, row.id);
-  return { result, row, authority, request: row && { runId: row.id, agentId: row.agent_id, scope: authority.envelope.scope } };
-}
+const PHASE_TIMEOUT_MS = 60000;
+const { dispatch, WORKER_TIMEOUT_MS } = require('./helpers/nativeCodeWorkerDispatch.cjs');
+const PROBE_TIMEOUT_MS = WORKER_TIMEOUT_MS + 3 * PHASE_TIMEOUT_MS;
 
 async function fixture(probe) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-p1-code-oracle-'));
@@ -44,7 +38,13 @@ async function fixture(probe) {
 
 async function positive(db, { method }) {
   const checked = await dispatch(db, method);
+  assert.equal(checked.result.supervision.error, undefined, JSON.stringify(checked.result));
   assert.equal(checked.row.status, 'awaiting_approval', JSON.stringify(checked));
+  assert.equal(checked.authority.envelope.limits.latencyMs, WORKER_TIMEOUT_MS);
+  const clinical = await require('../src/services/workerClinicalAdmission').verifyRun(db,
+    { ...checked.request, missionId: checked.authority.envelope.missionId, scope: {
+      organizationId: checked.request.scope.organizationId, projectId: checked.request.scope.projectId } });
+  assert.ok(Date.parse(checked.authority.envelope.expiresAt) <= Date.parse(clinical.record.validUntil));
   const attested = await journal.read(db, { ...checked.request, kind: 'attestation' });
   assert.equal(attested.value.domain, 'code_postconditions');
   assert.equal(attested.value.accepted, true);
@@ -67,6 +67,11 @@ async function positive(db, { method }) {
     { runId: checked.row.id, scope: checked.request.scope });
   assert.equal(view.nativeVerification.current.satisfied, true);
   await require('./helpers/nativeCodeProofProbes').qualify(db, checked);
+  assert.equal((await require('../src/services/missionEnvelopeAuthority').read(db, checked.row.id)).hash,
+    checked.authority.hash, 'The native code probe must retain its original sealed authority.');
+  console.log(JSON.stringify({ qualification: 'native-code-authority', runId: checked.row.id,
+    authorityHash: checked.authority.hash, workerBudgetMs: checked.authority.envelope.limits.latencyMs,
+    expiresAt: checked.authority.envelope.expiresAt, clinicalValidUntil: clinical.record.validUntil }));
   console.log('Native code: actual artifact, 264 postconditions in two fresh processes, own budget, nonces and real approval passed.');
 }
 
@@ -79,9 +84,15 @@ async function main() {
     signedCoverage: require('./helpers/nativeCodeSignedCoverageProbe').qualify };
   if (process.argv[2]) return fixture(cases[process.argv[2]]);
   for (const name of Object.keys(cases)) {
+    const started = Date.now();
     const child = require('node:child_process').spawnSync(process.execPath, [__filename, name],
-      { stdio: 'inherit', timeout: 60000, windowsHide: true });
+      { stdio: 'inherit', timeout: PROBE_TIMEOUT_MS, windowsHide: true });
+    assert.ifError(child.error);
+    assert.equal(child.signal, null, `Native code oracle probe ${name} terminated by signal`);
     assert.equal(child.status, 0, `Native code oracle probe ${name} failed`);
+    console.log(JSON.stringify({ qualification: 'native-code-probe', name,
+      elapsedMs: Date.now() - started, workerBudgetMs: WORKER_TIMEOUT_MS,
+      processTimeoutMs: PROBE_TIMEOUT_MS }));
   }
 }
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

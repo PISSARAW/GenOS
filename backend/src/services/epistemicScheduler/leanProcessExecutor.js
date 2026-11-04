@@ -57,7 +57,7 @@ async function inspectSource(request, execution) {
   const prefix = await runProcess(executable, ['--print-prefix'], options);
   if (prefix.exitCode !== 0) return unavailable('lean_environment_unavailable', prefix);
   const measured = await measureEnvironment(prefix.stdout.trim(), { ...audit,
-    modules: audit.modules.filter((entry) => !dependencies.includes(entry.name)) });
+    modules: audit.modules.filter((entry) => !dependencies.includes(entry.name)) }, { deadlineAt: options.deadlineAt });
   if (Date.now() >= options.deadlineAt) return deadlineExceeded();
   if (request.environmentDigest && request.environmentDigest !== measured.environmentDigest) {
     return unavailable('lean_environment_mismatch', { ...measured, axioms: audit.axioms });

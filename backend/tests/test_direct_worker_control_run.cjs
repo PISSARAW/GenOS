@@ -24,7 +24,10 @@ async function main() {
     assert.equal(sealed.envelope.identity.agentId, parent.agent_id);
     assert.equal(sealed.envelope.identity.workspaceId, 'proof-ws');
     assert.deepEqual(sealed.envelope.limits, JSON.parse(parent.budget_json));
-    const child = await value.db.get('SELECT run_id FROM biological_worker_bindings ORDER BY rowid DESC LIMIT 1');
+    const child = await value.db.get('SELECT run_id,agent_id FROM biological_worker_bindings ORDER BY rowid DESC LIMIT 1');
+    const claim = await value.db.get('SELECT * FROM garage_queue WHERE worker_id=? ORDER BY rowid DESC LIMIT 1', child.agent_id);
+    assert.ok(claim?.lease_id, 'The runtime must reserve an actual durable garage claim after admission.');
+    assert.equal(JSON.parse(claim.result_json).runId, child.run_id);
     const receipt = await require('../src/services/biologicalWorkerStore').receipt(value.db, child.run_id);
     assert.equal(receipt.semanticVerification.accepted, true);
     const count = (await value.db.get('SELECT COUNT(*) count FROM strategy_execution_runs')).count;

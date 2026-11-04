@@ -67,6 +67,14 @@ async function main() {
   const expired = { ...mission, workerContract: { ...mission.workerContract, resources: { ...mission.workerContract.resources, maxTimeMs: 0 } } };
   assert.equal((await runDeterministicWorker(legacyDatabase, expired, run)).code, 'WORKER_DEADLINE_EXCEEDED');
   assert.equal(events.some((item) => item.eventType === 'DETERMINISTIC_WORKER_STARTED'), false);
+  reset();
+  const absoluteExpired = { ...mission, timeoutMs: 300000, executionDeadlineAt: Date.now() - 1 };
+  assert.equal((await runDeterministicWorker(legacyDatabase, absoluteExpired, run)).code, 'WORKER_DEADLINE_EXCEEDED');
+  assert.equal(events.some((item) => item.eventType === 'DETERMINISTIC_WORKER_STARTED'), false);
+  const native = require('../src/services/agents/workerNativeLifecycle');
+  const future = Date.now() + 30000;
+  assert.equal(native.executionContext(legacyDatabase, { ...mission, executionDeadlineAt: future }).deadline, future);
+  assert.throws(() => native.executionContext(legacyDatabase, { ...mission, executionDeadlineAt: 'invalid' }), { code: 'WORKER_DEADLINE_INVALID' });
   assert.deepEqual(await require('../src/services/workerPreparationDetails').resolveRoute({ db: {}, parent: {}, assignment: { workerKind: mission.workerKind, methodContract: scoped }, mission: {} }), {});
   reset();
   const altered = { ...mission, methodContract: method('scoped_procedure', { procedure: {
