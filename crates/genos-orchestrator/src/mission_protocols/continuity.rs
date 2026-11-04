@@ -70,9 +70,9 @@ fn registered_successor(tx: &Transaction<'_>, binding: &Binding) -> Result<(), S
 impl Store {
     pub fn handoff(&mut self, old: &Binding, request: &HandoffRequest) -> Result<HandoffReceipt, String> {
         validate_successor(old, &request.successor)?;
-        ensure_schema(&self.connection)?;
         if self.current(old).is_err() {
             return self.transaction(&request.successor, |tx| {
+                ensure_schema(tx)?;
                 replay_handoff(tx, (old, request))?.ok_or("CONTINUITY predecessor no longer current".into())
             });
         }
@@ -85,6 +85,7 @@ fn handoff_transaction(
     input: (&Binding, &HandoffRequest),
 ) -> Result<HandoffReceipt, String> {
     let (old, request) = input;
+    ensure_schema(tx)?;
     fence(tx, old)?;
     registered_successor(tx, &request.successor)?;
     validate_checkpoint(tx, (old, request))?;

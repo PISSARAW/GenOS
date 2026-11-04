@@ -11,7 +11,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -921,6 +920,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0788](0788-migration-catalogue-hachimoji-sous-preuves.md) | Migration du catalogue Hachimoji sous preuves | Accepté | 2026-11-04 | AgentDNA, catalogue, daemon résident, qualification |
 | [0789](0789-morphogenese-live-des-equipes-a-team.md) | Remplacement gouverné pendant une mission A-Team | Accepté pour le remplacement créatif en attente | 2026-11-04 | A-Team, morphogenèse native, scheduler, budgets et preuves |
 | [0790](0790-morphogenese-automatique-guidee-par-observations.md) | Morphogenèse automatique guidée par les observations | Accepté pour quatre familles de workers et un remplacement en attente | 2026-11-04 | A-Team, sélection dynamique, ressources, protocoles et preuves |
+| [0791](0791-cooperation-llm-verification-et-arret.md) | Coopération LLM : vérification sémantique, causes et arrêt | Accepté | 2026-11-04 | workers, preuves et qualification |
+| [0792](0792-admission-des-ecritures-du-journal-rust.md) | Admission locale des écritures du journal Rust | Accepté | 2026-11-04 | runtime Rust, concurrence et journal de mission |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
@@ -944,6 +945,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [2026u](2026-11-02-raccord-gns-topologies.md) | Raccordement GNS aux huit topologies | Voir le fichier | -- | -- |
 | [2026v](2026-11-02-regulation-gns-du-garage.md) | Régulation GNS du Garage : mesure, autorité et effet vérifiable | Voir le fichier | -- | -- |
 | [2026w](2026-11-02-systeme-nerveux-operationnel.md) | ADR — Système nerveux opérationnel GenOS | Voir le fichier | -- | -- |
+| [2026x](2026-11-04-ett-inspection-artefact-de-mission.md) | ADR — Relier une inspection ETT complète à une mission native | Voir le fichier | -- | -- |
+| [2026y](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
 
 Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 [socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),

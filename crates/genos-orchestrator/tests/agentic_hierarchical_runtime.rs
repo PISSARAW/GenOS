@@ -88,6 +88,7 @@ fn corrupt_leaf_return_received_by_intermediate_parent_refuses_root_publication_
     assert_eq!(reason,"AGENTIC_EXCHANGE_OBJECT_CORRUPT");assert_eq!(f.provider.calls(),14);
 }
 
+#[track_caller]
 fn assert_complete(report:&agentic_engine::NativeAgenticReport) {
     assert_eq!(report.status,"completed","{:?}",report.error);assert!(report.publication.is_some());
     assert!(report.artifact_contract_verified);assert_eq!(report.artifact.text,fixture::FINAL);

@@ -1,11 +1,14 @@
-use super::{Binding, ContextCommitment, Event, RunSpec, schema};
+use super::{Binding, ContextCommitment, Event, RunSpec, schema, write_gate};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub struct Store { pub(crate) connection: Connection }
+pub struct Store {
+    pub(crate) connection: Connection,
+    pub(crate) writer: std::sync::Arc<write_gate::Gate>,
+}
 
 pub fn raw_hash(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 
@@ -25,16 +28,27 @@ pub fn context_digest(binding: &Binding, data: &ContextCommitment) -> Result<Str
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self, String> {
+        Self::open_bounded(path, Duration::from_secs(5))
+    }
+
+    pub(crate) fn open_for_binding(path: &Path, binding: &Binding) -> Result<Self, String> {
+        Self::open_bounded(path, remaining(binding)?)
+    }
+
+    fn open_bounded(path: &Path, timeout: Duration) -> Result<Self, String> {
+        let writer = write_gate::shared(path)?;
+        let _guard = writer.acquire(timeout)?;
         let connection = Connection::open(path).map_err(|e| e.to_string())?;
         connection.busy_timeout(Duration::from_secs(5)).map_err(|e| e.to_string())?;
         connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;")
             .map_err(|e| e.to_string())?;
         connection.execute_batch(schema::SQL).map_err(|e| e.to_string())?;
-        Ok(Self { connection })
+        Ok(Self { connection, writer })
     }
 
     pub fn admit(&mut self, spec: &RunSpec) -> Result<Binding, String> {
         validate_spec(spec)?;
+        let _guard = self.writer.acquire(Duration::from_millis(spec.timeout_ms))?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         let binding = admit_initial(&tx, spec)?;
@@ -59,6 +73,7 @@ impl Store {
 
     pub fn transaction<T>(&mut self, binding: &Binding,
         operation: impl FnOnce(&Transaction<'_>) -> Result<T, String>) -> Result<T, String> {
+        let _guard = self.current_writer(binding)?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         current_checked(&tx, binding)?;
@@ -79,6 +94,8 @@ impl Store {
 
     pub(crate) fn observation_transaction<T>(&mut self, binding: &Binding,
         operation: impl FnOnce(&Transaction<'_>) -> Result<T, String>) -> Result<T, String> {
+        let wait = binding.expires_ms.saturating_sub(now_ms()).clamp(5000, 600000);
+        let _guard = self.writer.acquire(Duration::from_millis(wait))?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         historical_checked(&tx, binding)?;
@@ -89,6 +106,7 @@ impl Store {
 
     pub(crate) fn succession_transaction<T>(&mut self, bindings: (&Binding, &Binding),
         operation: impl FnOnce(&Transaction<'_>) -> Result<T, String>) -> Result<T, String> {
+        let _guard = self.current_writer(bindings.0)?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         current_checked(&tx, bindings.0)?;
@@ -96,6 +114,15 @@ impl Store {
         current_checked(&tx, bindings.1)?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(result)
+    }
+
+    pub(crate) fn current_writer(&self, binding: &Binding) -> Result<write_gate::Guard, String> {
+        match self.writer.acquire(remaining(binding)?) {
+            Err(error) if error == "WRITE_GATE_TIMEOUT" && now_ms() >= binding.expires_ms => {
+                Err("MISSION_LEASE_EXPIRED".into())
+            }
+            result => result,
+        }
     }
 
     pub fn binding(&self, mission_id: &str) -> Result<Binding, String> {
@@ -186,4 +213,10 @@ fn historical_checked(connection: &Connection, binding: &Binding) -> Result<(), 
     let expected = serde_json::to_string(binding).map_err(|e| e.to_string())?;
     if stored.as_deref() != Some(&expected) { return Err("MISSION_HISTORICAL_BINDING_FORGED".into()); }
     Ok(())
+}
+
+pub(crate) fn remaining(binding: &Binding) -> Result<Duration, String> {
+    let wait = binding.expires_ms.saturating_sub(now_ms()).min(600000);
+    if wait == 0 { return Err("MISSION_LEASE_EXPIRED".into()); }
+    Ok(Duration::from_millis(wait))
 }

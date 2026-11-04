@@ -65,3 +65,8 @@ pub mod agentic_parallel_journal;
 pub mod agentic_delegation;
 #[cfg(feature="native-llm")]
 pub mod agentic_delegation_exchange;
+
+#[cfg(test)]
+mod store_contention_tests;
+
+mod write_gate;
