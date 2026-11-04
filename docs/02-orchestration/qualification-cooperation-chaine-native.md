@@ -30,6 +30,12 @@ annulation en réussite.
 Les forks lient leur lignée au workspace final de leur capsule avant le
 démarrage. Le génome hérité et les références au worker source et au parent
 restent conservés ; les arcs de lignée ne traversent pas les workspaces.
+Le superviseur transmet aussi à la supervision l’identité de contrôle préparée
+pour le processus enfant. Sans cette liaison, une reprise peut démarrer un
+processus puis échouer avec une référence JavaScript absente, laissant un
+processus sans supervision malgré un rapport terminal. Les parcours négatifs
+contrôlent également la sortie du processus, au-delà de `shutdown.stopped`.
+
 Le rapport détaille les reçus de chaque tentative, même lorsqu'une reprise
 échoue pour une autre raison que la première observation refusée.
 

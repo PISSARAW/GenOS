@@ -357,7 +357,7 @@ async function superviseMission(options) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan,
     runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable, workspaceRoot,
     controlTenant, resolvedExecutable, continuousObserver, spawnCmd, spawnArgs, launcherObservation,
-    bodyActionId, filesystemReceipt, mcpDbPath, mcpActorToken, reconnectProvisioning, reconnect } = launch;
+    bodyActionId, filesystemReceipt, mcpDbPath, mcpActorToken, controlIdentity, reconnectProvisioning, reconnect } = launch;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = fallback(normalizedMission.strategyContract, {});
   const conscienceState = await agentConscience.loadConscienceState(db, agentId);
   const spawnInput = { db, agentId, normalizedMission, executionRun, resolvedExecutable, spawnCmd, spawnArgs,
