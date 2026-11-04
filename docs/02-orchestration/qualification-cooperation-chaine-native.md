@@ -82,3 +82,10 @@ artefacts ; les fixtures HTTP ne constituent pas une qualification LLM.
 Les [résultats du 4 novembre 2026](resultats-qualification-cooperation-native-2026-11-04.md)
 distinguent les fixtures natives, les refus Qwen réellement mesurés et la
 relance réelle achevée, avec son verdict et ses limites de mesure.
+
+Le [diagnostic du 5 novembre](diagnostic-daemon-qwen-2026-11-05.md) compare
+les instructions du daemon sur les mêmes entrées, ajoute une vue indexée
+liée aux sources scellées et consigne une nouvelle qualification bornée.
+Le constat de l'incident et son plan franchissent les portes natives ; le
+spécialiste et le daemon du cas sain s'abstiennent encore. Cette amélioration
+partielle ne constitue pas une qualification de toute la chaîne avec Qwen.
