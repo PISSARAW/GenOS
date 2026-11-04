@@ -59,14 +59,31 @@ function selectedModel(member, request) {
 }
 
 function localRuntimeFlag(member, request) {
-  return member.engine === 'local' || Boolean(request?.localModel) ? { localRuntime: true } : {};
+  return member.engine === 'local' || Boolean(member.localModel || request?.localModel)
+    || request?.localRuntime === true || request?.executor === 'local'
+    ? { localRuntime: true } : {};
 }
 
 function selectedBudget(member, request) {
-  const budget = request?.execution_budget || request?.executionBudget;
-  return Number.isFinite(member.executionBudgetTokens)
-    ? { ...(budget || {}), tokens: member.executionBudgetTokens }
-    : budget;
+  const parent = request?.execution_budget || request?.executionBudget;
+  if (!parent && !member.executionBudget) return undefined;
+  const budget = { ...parent, ...member.executionBudget };
+  if (member.executionBudgetTokens !== undefined) budget.tokens = member.executionBudgetTokens;
+  for (const key of ['tokens', 'costUsd', 'latencyMs', 'events', 'cpuMs']) {
+    validateBudgetEntry(key, budget, parent);
+  }
+  return budget;
+}
+
+function validateBudgetEntry(key, budget, parent) {
+  if (budget[key] === undefined) return;
+  const value = budget[key];
+  const integer = ['tokens', 'latencyMs', 'events', 'cpuMs'].includes(key);
+  const invalid = !Number.isFinite(value) || value < 0 || integer && !Number.isSafeInteger(value);
+  if (invalid || parent?.[key] !== undefined && value > parent[key]) {
+    throw Object.assign(new Error(`Worker budget '${key}' is invalid or exceeds its parent.`),
+      { code: 'WORKER_BUDGET_INVALID' });
+  }
 }
 
 function selectedRoutingPolicy(member, localModel) {
@@ -128,7 +145,7 @@ function workerLaunchPayload(args) {
     readOnlyWorkspaceEvidence: context.request?.readOnlyWorkspaceEvidence === true,
     ...require('../src/services/missionProtocols/launchPolicy').workspaceProtocolFields(context.request),
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
-    missionScope: member.missionScope,
+    missionScope: member.missionScope || context.request?.missionScope,
     organization: context.request?.organization,
     coordinationPolicy: selectedCoordinationPolicy(context),
     methodContract: member.methodContract,
@@ -149,7 +166,7 @@ function workerLaunchPayload(args) {
     reuseChecked: true,
     reuseWorkerId: workerId,
     executor: selectedExecutor(context),
-    localRuntime: true,
+    ...localRuntimeFlag(member, context.request),
   };
 }
 

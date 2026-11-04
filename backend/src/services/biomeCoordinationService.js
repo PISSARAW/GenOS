@@ -63,7 +63,7 @@ function createSession(context) {
   const environmentModel = environmentModelService.createEnvironmentModel({
     environmentId: persistenceKey || `${sessionId}:environment`, mission: goal, scope, environment: options.environment
   });
-  const members = createMembers(goal, variant, sessionId);
+  const members = createMembers(goal, variant, { sessionId, options });
   const { populations, niches } = createInitialEcology();
   return {
     sessionId,
@@ -90,8 +90,9 @@ function createSession(context) {
   };
 }
 
-function createMembers(goal, variant, sessionId) {
-  return biologicalModeService.compose('biome', goal).map((member) => ({ ...member, variant: variant.variant,
+function createMembers(goal, variant, context) {
+  const { sessionId, options } = context;
+  return biologicalModeService.compose('biome', goal, options).map((member) => ({ ...member, variant: variant.variant,
     mission: `${member.mission}\n\nBIOME VARIANT ${variant.variant}: ${variant.focus}`,
     runtimeContext: { biomeId: sessionId, sessionId, plane: member.role } }));
 }

@@ -15,7 +15,7 @@ const members = [
 async function main() {
   assert.deepEqual(selectMembers(members, 3), members.slice(1));
   assert.throws(() => selectMembers(members, 2), { code: 'WORKER_GARAGE_FULL' });
-  assert.deepEqual(selectMembers(members, 2, 2), members.slice(1, 3));
+  assert.deepEqual(selectMembers(members, 2, 2), members.slice(1));
   assert.deepEqual(selectMembers([members[0]], 0), []);
   assert.equal(orchestratorManager.ensureParent, parentEnsurer.ensureParent);
   await assertRequestedWorkspaceBinding();

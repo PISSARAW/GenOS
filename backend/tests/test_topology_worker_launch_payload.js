@@ -103,3 +103,34 @@ const inheritedWorkspaceWorker = workerLaunchPayload({
 assert.equal(inheritedWorkspaceWorker.workspace_root, process.cwd());
 
 console.log('Topology worker launch payload: PASS');
+
+const budget = { tokens: 6000, costUsd: 1, latencyMs: 60000, events: 30 };
+const missionScope = { available: true, episodeId: 'episode-1', rootThreadId: 'thread-1' };
+for (const field of ['executionBudget', 'execution_budget']) {
+  const launch = workerLaunchPayload({ context: { request: { [field]: budget, missionScope } },
+    member: { executionBudget: { tokens: 1500, costUsd: 0.25 }, role: 'analyst' },
+    workerId: 'budget-worker', parent: {} });
+  assert.deepEqual(launch.execution_budget, { ...budget, tokens: 1500, costUsd: 0.25 });
+  assert.deepEqual(launch.missionScope, missionScope);
+  assert.equal(launch.localRuntime, undefined);
+}
+const { childBudget } = require('../bin/directWorkerBudgetScope.cjs');
+assert.deepEqual(childBudget({ executionBudget: budget, workerTokenLimit: 1500 }), { ...budget, tokens: 1500 });
+assert.throws(() => childBudget({ executionBudget: budget, workerTokenLimit: 7000 }), { code: 'WORKER_BUDGET_INVALID' });
+assert.throws(() => childBudget({ executionBudget: { ...budget, tokens: NaN } }), { code: 'WORKER_BUDGET_INVALID' });
+const codeProof = require('../src/services/agents/workerArtifactCodeProof');
+for (const statement of ['L’équation de Babel-Gödel est résolue avec succès.',
+  'Le résultat mathématique est correct : N = 10805.', 'The calculated equilibrium is stable.']) {
+  assert.equal(codeProof.statesCodeSuccess(statement), false, statement);
+}
+for (const statement of ['Le bug est résolu.', 'Le service est stable.', 'Correctif appliqué.', 'Tests pass.']) {
+  assert.equal(codeProof.statesCodeSuccess(statement), true, statement);
+}
+const windowsBudget = require('../src/services/missionProtocols/windowsBudget');
+assert.deepEqual(windowsBudget.validate(budget), budget);
+for (const invalid of [{ ...budget, tokens: -1 }, { ...budget, costUsd: NaN }, { ...budget, latencyMs: 0 }, {}]) {
+  assert.throws(() => windowsBudget.validate(invalid), /WINDOWS_PROTOCOL_BUDGET_INVALID/);
+}
+const { allocate } = require('../src/services/topology/biomeDispatchBudget.cjs');
+assert.throws(() => allocate({ members: [{}, {}, {}, {}] }, { executionBudget: { ...budget, tokens: 3 } }),
+  { code: 'BIOME_DISPATCH_BUDGET_INSUFFICIENT' });

@@ -6,11 +6,9 @@ const budgets = require('../missionModelBudgetScope');
 const provenance = require('../gvxMissionProvenance');
 
 function validate(input) {
-  const tokens = Number.isSafeInteger(input.tokens) && input.tokens >= 0 ? input.tokens : 0;
-  const costUsd = Number.isFinite(input.costUsd) && input.costUsd >= 0 ? input.costUsd : 0;
-  const latencyMs = Number.isSafeInteger(input.latencyMs) && input.latencyMs > 0 ? input.latencyMs : 60000;
-  if (tokens < 0 || costUsd < 0 || latencyMs <= 0) throw new Error('WINDOWS_PROTOCOL_BUDGET_INVALID');
-  return { ...input, tokens, costUsd, latencyMs };
+  if (!Number.isSafeInteger(input.tokens) || input.tokens < 0 || !Number.isFinite(input.costUsd) || input.costUsd < 0
+    || !Number.isSafeInteger(input.latencyMs) || input.latencyMs <= 0) throw new Error('WINDOWS_PROTOCOL_BUDGET_INVALID');
+  return { ...input };
 }
 
 const descriptor = row => ({ id: row.scope_id, tokens: row.token_ceiling, costUsd: row.cost_ceiling_usd,

@@ -17,9 +17,9 @@ function parentBudget(context, mission) {
 }
 
 function childBudget(request) {
-  const budget = { ...(request.execution_budget || request.executionBudget || {}) };
-  if (Number.isSafeInteger(request.workerTokenLimit)) budget.tokens = request.workerTokenLimit;
-  return budget;
+  return require('./workerLaunchPayload.cjs').selectedBudget({
+    executionBudgetTokens: request.workerTokenLimit
+  }, request) || {};
 }
 
 async function closeParentBudgetRun(db, context, outcome) {

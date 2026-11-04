@@ -21,7 +21,9 @@ async function prepareBiologicalContext(db, context) {
   const mission = handleBiologicalMission(context);
   await persistBiologicalMissionTick({ db, context, parent, mission });
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
-  const composition = await composeBiologicalMode({ db, context, mode, mission });
+  const composed = await composeBiologicalMode({ db, context, mode, mission });
+  const composition = mode === 'biome'
+    ? require('./biomeDispatchBudget.cjs').allocate(composed, context.request) : composed;
   if (composition.sessionId) {
     context.topologySession = { sessionId: composition.sessionId, revision: composition.revision || 0 };
   }

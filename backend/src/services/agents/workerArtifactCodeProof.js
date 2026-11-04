@@ -6,6 +6,8 @@ const { isAllowedSandboxTestCommand } = require('../sandboxCommandPolicy');
 const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
 const CODE_SUCCESS_HINT = /corrig|correct|\bfix(ed|es)?\b|tests?.*?(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)|r[ée]gression.*disparu|r[ée]solu|stabilis|stable|incident.*r[ée]solu|rectifi|d[ée]faut.*[ée]limin|build est vert/i;
 const CODE_SUCCESS_NEGATION = /\b(pas|aucun|not|never|cannot)\b|impossible de|sans\s+(?:succ[èe]s|r[ée]sultat|effet|r[ée]solu|correct|fix)|échou|échec|fail/i;
+const CODE_CONTEXT = /\b(?:code|bug|bogue|logiciel|software|patch|hotfix|correctif|r[ée]gression|tests?|build|api|module|composant|component|service|incident|anomalie|d[ée]faut|fonctionnalit[ée]|dysfonctionnement)\b/i;
+const EXPLICIT_CODE_SUCCESS = /\b(?:fix(?:ed|es)?|hotfix|correctif)\b|tests?.*?(?:pass|r[ée]ussi|vert|ok\b)|build est vert/i;
 
 function isLegitimateTestCommand(command) {
   if (typeof command !== 'string') return false;
@@ -21,6 +23,7 @@ function statesCodeSuccess(statement) {
 function affirmativeSuccess(clause) {
   const hint = clause.match(CODE_SUCCESS_HINT);
   if (!hint) return false;
+  if (!CODE_CONTEXT.test(clause) && !EXPLICIT_CODE_SUCCESS.test(clause)) return false;
   const prefix = clause.slice(0, hint.index + hint[0].length);
   if (CODE_SUCCESS_NEGATION.test(prefix)) return false;
   return !/^\s*(?:(?:the|le|la|les)\s+)?(?:fix|patch|correction|correctif)\b.*(?:fail|échou)/i.test(clause);

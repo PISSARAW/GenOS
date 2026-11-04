@@ -53,10 +53,10 @@ function readRoundsPool(rounds, key) {
 
 function normalizeMissionBudget(raw = {}) {
   const executionBudget = raw.executionBudget || raw;
-  const tokens = parsePositiveNumber(coalesce(executionBudget.tokens, raw.tokens), 100000);
-  const costUsd = parsePositiveNumber(coalesce(executionBudget.costUsd, raw.costUsd), 1.0);
-  const latencyMs = parsePositiveNumber(coalesce(executionBudget.latencyMs, raw.latencyMs), 60000);
-  const events = parsePositiveNumber(coalesce(executionBudget.events, raw.events), 100);
+  const tokens = parsePositiveNumber(coalesce(executionBudget.tokens, raw.tokens), 100000, 'tokens');
+  const costUsd = parsePositiveNumber(coalesce(executionBudget.costUsd, raw.costUsd), 1.0, 'costUsd');
+  const latencyMs = parsePositiveNumber(coalesce(executionBudget.latencyMs, raw.latencyMs), 60000, 'latencyMs');
+  const events = parsePositiveNumber(coalesce(executionBudget.events, raw.events), 100, 'events');
   const shares = resolveShares({
     workerShare: coalesce(executionBudget.workerShare, raw.workerShare),
     reserve: coalesce(executionBudget.orchestratorReserve, raw.orchestratorReserve),

@@ -126,3 +126,18 @@ test('autonomous fan-out binds distinct child threads and exposes dispatch recei
     assert.ok(workers.every((worker) => worker.episodeId === state.root.episodeId));
   } finally { await state.db.close(); }
 });
+
+test('unscoped dispatch reuses the tenant episode and persists an activatable cell', async () => {
+  const state = await fixture();
+  try {
+    const input = { ...dispatchInput(state), missionScope: undefined };
+    const first = await cells.ensureDispatched(state.db, input);
+    const second = await cells.ensureDispatched(state.db, input);
+    assert.equal(first.episodeId, state.root.episodeId);
+    assert.equal(first.threadId, second.threadId);
+    assert.equal(first.thread.organizationId, 'org-a');
+    assert.equal((await cells.activate(state.db, activationInput(state, first))).thread.status, 'active');
+    await assert.rejects(cells.ensureDispatched(state.db, { ...input, missionId: 'missing-mission' }),
+      { code: 'MISSION_EPISODE_MISSION_NOT_FOUND' });
+  } finally { await state.db.close(); }
+});

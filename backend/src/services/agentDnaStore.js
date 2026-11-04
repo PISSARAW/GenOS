@@ -11,7 +11,7 @@ const ROLE_STOPWORDS = new Set([
   'review', 'verify', 'implement', 'audit', 'specialist', 'branch'
 ]);
 
-let importAttempted = false;
+const importedDatabases = new WeakSet();
 
 function walkDnaFiles(directory, out) {
   const entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -189,14 +189,14 @@ async function listGenomePortfolio(db, scope) {
 }
 
 async function ensureImported(db) {
-  if (importAttempted) return;
-  importAttempted = true;
-  if (!dnaEnabled()) return;
+  if (!dnaEnabled() || importedDatabases.has(db)) return;
   try {
     const row = await db.get('SELECT COUNT(*) AS count FROM agent_genomes');
-    if (row && Number(row.count) > 0) return;
+    if (row && Number(row.count) > 0) { importedDatabases.add(db); return; }
     const directory = process.env.GENOS_AGENT_DNA_DIR || path.resolve(__dirname, '../../../agents/dna');
-    if (fs.existsSync(directory)) await importDirectory(db, directory, {});
+    if (!fs.existsSync(directory)) return;
+    const result = await importDirectory(db, directory, {});
+    if (result.imported > 0 && result.failed === 0) importedDatabases.add(db);
   } catch (_) {
     // Best effort: genome auto-import must never block a mission.
   }

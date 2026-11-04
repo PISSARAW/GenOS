@@ -263,7 +263,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   const budget = request.execution_budget || request.executionBudget || {};
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
-    methodContract: request.methodContract, workerAssignment: request.workerAssignment,
+    methodContract: request.methodContract, workerAssignment: request.workerAssignment, topologySessionId: request.topologySessionId,
     workerArtifactContract: request.workerArtifactContract || null, ...require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request),
     coordinationPolicy: request.coordinationPolicy || request.coordination_policy, communicationRequired: request.communicationRequired === true || request.communication_required === true,
     workerTokenLimit: request.workerTokenLimit ?? budget.tokens, executionBudget: budget, timeoutMs: request.timeoutMs
@@ -272,7 +272,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   return contract;
 }
 function buildWorkerMetadata(workerKind, contract, request) {
-  return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null, workerArtifactContract: request.workerArtifactContract || null });
+  return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null, workerArtifactContract: request.workerArtifactContract || null, topologySessionId: request.topologySessionId || null });
 }
 async function updateReusedWorker(db, context, metadata) {
   await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);

@@ -2,7 +2,7 @@
 
 **Date** : 2026-11-04  
 **Mission** : Équation Polyglotte de Babel-Gödel, $N = (A \times B) + C^D - E$  
-**Résultat mathématique** : $N = 10\,805$ (trouvé et confirmé par le worker Ollama via GenOS)  
+**Résultat mathématique annoncé** : $N = 10\,805$ (réponse du worker Ollama ; cette déclaration ne constitue pas un reçu d’oracle indépendant)
 **Statut GenOS** : ÉCHEC (statut `error`, mission incomplete, aucun génome persistant)
 
 ---
@@ -88,4 +88,26 @@ Aucun génome n'a été écrit dans `agent_genomes`. Le pipeline d'ontogenèse/i
 
 ## 6. Conclusion
 
-Le résultat mathématique $N = 10\,805$ est **vérifié** par GenOS (Ollama). La mission GenOS d'orchestration avec morphogenèse n'est **pas encore validée** : les 4 workers ne s'exécutent pas, aucune preuve n'est validée, aucun génome n'est persistant. Les 4 corrections commitées débloquent l'infrastructure de base ; les 5 points de la section 4 restent à résoudre pour une validation complète.
+Le résultat mathématique annoncé est $N = 10\,805$. Une réponse positive d’Ollama ne suffit pas à qualifier ce résultat de **vérifié par GenOS**. Le constat historique est un échec de clôture ; un `runtime_pid` nul ne permet pas, à lui seul, de conclure qu’aucun worker ne s’est exécuté.
+
+## 7. Rectification du câblage (2026-11-05)
+
+L’appliqueur inconditionnel a été remplacé par le raccordement des reçus
+natifs vérifiés au runtime écologique et à l’oracle signé existant. Les
+vagues conservent désormais tous les membres, le dispatch conserve le lien
+de session et de cellule, et les allocations explicites des membres sont
+transmises sans dépasser le parent. La détection de correctifs distingue les
+affirmations mathématiques des revendications de modification logicielle.
+
+L’import des `.dna` peut reprendre après une première tentative sans ADN ou
+avec un catalogue vide et fonctionne pour plusieurs bases dans le même
+processus. Il nécessite `GENOS_AGENT_DNA=1`. Une mission réussie ne garantit
+donc pas automatiquement une nouvelle entrée dans `agent_genomes`.
+
+La qualification automatique utilise quatre workers natifs avec des contrats
+exécutables explicites. Elle ne vaut pas relance de la mission historique
+Babel-Gödel avec `llama3.1:8b`. Pour celle-ci, fournir les contrats des scouts
+et specialists et un sujet sémantique que les oracles indépendants savent
+vérifier ; une phrase « N = 10805 obtenu avec succès » ne suffit pas.
+
+Voir [la décision de clôture Biome](../adr/2026-11-05-cloture-biome-depuis-runs-verifies.md).

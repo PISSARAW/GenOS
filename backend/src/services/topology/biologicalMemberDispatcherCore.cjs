@@ -10,7 +10,7 @@ function selectMembers(members, available, waveSize) {
   if (available < required) {
     throw Object.assign(new Error(`Biological dispatch requires ${required} free worker slots, but only ${available} available`), { code: 'WORKER_GARAGE_FULL' });
   }
-  return workers.slice(0, required);
+  return workers;
 }
 
 async function dispatchBiologicalMembersCore({ db, context, mode, parent, selected, waves }) {

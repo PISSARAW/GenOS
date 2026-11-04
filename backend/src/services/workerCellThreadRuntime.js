@@ -107,20 +107,14 @@ async function ensureDispatched(db, input) {
     throw coded('Worker cell dispatch requires mission, orchestrator and worker identities.',
       'WORKER_CELL_DISPATCH_INVALID');
   }
-  const correlation = requestedCorrelation(input);
+  let correlation = requestedCorrelation(input);
   if (!correlation) {
-    const episodeId = `episode-${crypto.randomBytes(8).toString('hex')}`;
-    const parentThreadId = `thread-${crypto.randomBytes(8).toString('hex')}`;
-    const workerThreadId = `thread-${crypto.randomBytes(8).toString('hex')}`;
-    try {
-      await db.run(`INSERT OR IGNORE INTO cell_threads (thread_id, episode_id, mission_id, organization_id, project_id, parent_thread_id, worker_id, cell_kind, status, created_at, updated_at)
-        VALUES (?, ?, ?, 'org-local', 'project-local', null, ?, 'orchestrator', 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        parentThreadId, episodeId, input.missionId, input.orchestratorId);
-      await db.run(`INSERT OR IGNORE INTO cell_threads (thread_id, episode_id, mission_id, organization_id, project_id, parent_thread_id, worker_id, cell_kind, status, created_at, updated_at)
-        VALUES (?, ?, ?, 'org-local', 'project-local', ?, ?, 'worker', 'embryonic', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        workerThreadId, episodeId, input.missionId, parentThreadId, input.workerId);
-    } catch (_) {}
-    return { available: true, episodeId, rootThreadId: parentThreadId, threadId: workerThreadId, thread: null };
+    const runtime = await require('./missionEpisodeRuntime').ensure(db, {
+      missionId: input.missionId, orchestratorId: input.orchestratorId,
+      action: 'dispatch_worker', request: {}
+    });
+    if (!runtime.available) return runtime;
+    correlation = { episodeId: runtime.episodeId, parentThreadId: runtime.rootThreadId };
   }
   await migrateMissionEpisodes(db);
   const state = { ...input, ...correlation };
