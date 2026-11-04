@@ -60,6 +60,7 @@ async function usage(db, scopeId) {
 }
 
 async function admit(db, input) {
+  await require('./aTeam/relational/workerHandoffAdmission').admit(db, input);
   const mission = input.mission;
   mission.dossierHandoffReceipts = [];
   const sources = mission.handoffFromRunIds || [];

@@ -100,6 +100,7 @@ function formationFingerprint(draft) {
   const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, field === 'qualityElevation' ? member[field]?.digest : member[field]])));
   const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, ...(draft.qualityElevation ? { finalArtifactMemberId: draft.finalArtifactMemberId, quality: { contractDigest: draft.qualityElevation.digest, runtime: draft.qualityRuntime } } : {}), variant: draft.execution?.organizationPolicy?.variant || null };
   return createHash('sha256').update(canonicalJson({ ...definition, finalArtifactOutput: draft.finalArtifactOutput,
+    ...(draft.relationalPolicy ? { relationalPolicy: draft.relationalPolicy } : {}),
     ...(draft.adaptiveMorphogenesis ? { adaptiveMorphogenesis: draft.adaptiveMorphogenesis,
       runtimeMissionId: draft.execution?.runtimeMissionId } : {}) })).digest('hex');
 }

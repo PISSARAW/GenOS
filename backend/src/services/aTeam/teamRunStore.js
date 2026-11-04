@@ -69,6 +69,7 @@ function teamRunRecord(input = {}) {
     goal: String(choose([input.goal], '')).trim(),
     ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(input),
     finalArtifactOutput: input.finalArtifactOutput,
+    ...(input.relationalPolicy ? { relationalPolicy: require('./relational/teamRelationalPolicy').normalize(input.relationalPolicy) } : {}),
     ...(input.adaptiveMorphogenesis ? { adaptiveMorphogenesis: input.adaptiveMorphogenesis } : {}),
     ...(input.finalArtifactMemberId ? { finalArtifactMemberId: input.finalArtifactMemberId } : {}),
     successCriteria: asList(input.successCriteria),
@@ -85,6 +86,7 @@ function teamRunRecord(input = {}) {
 }
 
 function assertValid(run) {
+  require('./relational/teamRelationalPolicy').normalize(run.relationalPolicy);
   if (run.adaptiveMorphogenesis) require('./adaptation/liveMorphogenesisPolicy').assertPolicy(run.adaptiveMorphogenesis, run.members);
   require('../qualityElevation/qualityFinalPlan').assertFinalPlan(run);
   require('../qualityElevation/qualityFinalDelivery').assertContract(run.finalArtifactOutput);
@@ -118,6 +120,7 @@ async function update(options = {}) {
   if (!current) throw Object.assign(new Error(`Unknown A-Team run '${teamRunId}'.`), { code: 'ATEAM_RUN_UNKNOWN' });
   if (current.revision !== revision) throw revisionConflict(teamRunId);
   const next = { ...current, ...patch, teamRunId, missionId: current.missionId, createdAt: current.createdAt };
+  require('./relational/teamRelationalPolicy').assertUnchanged(current, next);
   require('../qualityElevation/qualityFinalPlan').assertFinalPlanUnchanged(current, next);
   require('../qualityElevation/qualityFinalDelivery').assertUnchanged(current, next);
   require('./adaptation/liveMorphogenesisPolicy').assertUnchanged(current, next);
