@@ -17,11 +17,18 @@ async function persistedGenes(db, agent) {
   }
 }
 
+function admittedGenes(mission, stored) {
+  if (mission.dnaIncarnation && stored
+    && require('./biologicalIntegrity').digest(stored) !== require('./biologicalIntegrity').digest(mission.genome)) {
+    throw Object.assign(new Error('Lineage expression conflicts with the admitted DNA genome.'), { code: 'WORKER_GENOME_CONFLICT' });
+  }
+  return mission.dnaIncarnation ? mission.genome : stored || mission.genome;
+}
+
 async function hydrate(db, input) {
   const { mission, agent } = input;
   if (agent.execution_mode !== 'worker' || !expression.usesCognitiveGenome(mission)) return;
-  const stored = await persistedGenes(db, agent);
-  const genes = stored || mission.genome;
+  const genes = admittedGenes(mission, await persistedGenes(db, agent));
   if (!genes) return;
   if (!Array.isArray(mission.toolLease)) {
     mission.toolLease = require('./toolLeasePolicy').derivePolicyLease({ executionMode: 'worker',

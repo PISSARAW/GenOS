@@ -23,6 +23,8 @@ async function build(ctx, input) {
   return values.canonical({
     schema: SCHEMA,
     ...require('./workerGenomeExpression').authorityBinding(mission),
+    ...await require('./workerClinicalAdmission').bindRun(ctx.db,
+      { runId: input.binding.runId, agentId: ctx.agentId, mission }),
     runId: input.binding.runId,
     missionId: input.binding.mission.id,
     orchestratorId: input.orchestratorId,

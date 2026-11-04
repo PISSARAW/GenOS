@@ -58,7 +58,7 @@ function apply(mission, genes) {
   const block = promptBlock(phenotype);
   const prompt = String(mission.prompt || mission.currentTask || '');
   mission.prompt = prompt.includes(block) ? prompt : `${prompt}\n\n${block}`;
-  mission.genome = phenotype;
+  mission.genome = mission.dnaIncarnation ? { ...phenotype, dnaIncarnation: mission.dnaIncarnation } : phenotype;
   mission.toolLease = restrictTools(phenotype, mission.toolLease);
   mission.genomeExpression = { contentHash: contentFingerprint(phenotype), phenotype,
     sampling: 'requested', effectiveTools: [...mission.toolLease] };
@@ -67,11 +67,14 @@ function apply(mission, genes) {
 
 function authorityBinding(mission) {
   if (!mission.genome || !usesCognitiveGenome(mission)) return {};
-  return { genomeExpressionHash: contentFingerprint(express(mission.genome)) };
+  return { genomeExpressionHash: contentFingerprint(express(mission.genome)),
+    ...(mission.dnaIncarnation ? { dnaIncarnationHash: contentFingerprint(mission.dnaIncarnation) } : {}) };
 }
 
 function assertAuthority(envelope, mission) {
-  if (envelope.genomeExpressionHash === authorityBinding(mission).genomeExpressionHash) return;
+  const binding = authorityBinding(mission);
+  if (envelope.genomeExpressionHash === binding.genomeExpressionHash
+    && envelope.dnaIncarnationHash === binding.dnaIncarnationHash) return;
   throw Object.assign(new Error('Expressed worker genome changed after execution sealing.'),
     { code: 'EXECUTION_AUTHORITY_CONTEXT_CHANGED' });
 }

@@ -29,6 +29,8 @@ async function context(input) {
   mission.workspaceRoot = roots[0];
   const contract = await require('../strategyContractService').getLatestContract(db, mission.agentId);
   if (!contract) throw new Error('WINDOWS_PROTOCOL_CONTRACT_REQUIRED');
+  await require('../workerDnaIncarnation').prepare(db, { mission, agent });
+  await require('../workerGenomeHydration').hydrate(db, { mission, agent });
   const run = await require('../strategyExecutionService').createExecutionRun(db, { agentId: mission.agentId,
     missionId: mission.missionId, contractRecord: contract, budget: { ...input.budget, deterministic: false } });
   mission.workspaceId = agent.workspace_id;

@@ -11,7 +11,7 @@ async function prepareClinicalState(db, agentId) {
   return (await getClinicalState(db, agentId)) || initClinicalState(db, agentId);
 }
 
-async function assertMissionDispatchAllowed(db, agentId) {
+async function inspectMissionDispatchAllowed(db, agentId) {
   if (!db || !agentId) throw gateError('Clinical surveillance requires a database and agent ID.', 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
   try {
     await prepareClinicalState(db, agentId);
@@ -20,11 +20,17 @@ async function assertMissionDispatchAllowed(db, agentId) {
     if (response.responses.some((item) => item.quarantine?.ok)) {
       throw gateError('Mission dispatch denied: agent quarantined.', 'AGENT_QUARANTINED');
     }
-    return { checked: true, quarantined: false, detectionCount: response.responses.length };
+    return { checked: true, quarantined: false, detectionCount: response.responses.length,
+      scanRef: response.scanRef, state: response.state };
   } catch (error) {
     if (error.code) throw error;
     throw gateError('Immune surveillance failed; mission dispatch denied.', 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
   }
 }
 
-module.exports = { assertMissionDispatchAllowed };
+async function assertMissionDispatchAllowed(db, agentId) {
+  const result = await inspectMissionDispatchAllowed(db, agentId);
+  return { checked: result.checked, quarantined: result.quarantined, detectionCount: result.detectionCount };
+}
+
+module.exports = { assertMissionDispatchAllowed, inspectMissionDispatchAllowed };

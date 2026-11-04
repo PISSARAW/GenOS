@@ -125,14 +125,14 @@ async function surveillanceScan(db, agentId, context = {}) {
     d => (d.pathologyType === 'cognitive_metastasis' || d.pathologyType === 'quarantine_breach') && d.confidence > 0.6
   );
 
-  await recordImmuneEvent(db, agentId, {
+  const scanEvent = await recordImmuneEvent(db, agentId, {
     clinicalStateId: state.id,
     eventType: detections.length > 0 ? 'anomaly_detected' : 'surveillance_scan',
     eventData: { detectionCount: detections.length, quarantine, wellness: state.wellnessScore },
     severity: quarantine ? 'warning' : 'info',
   });
 
-  return { state, detections, quarantine };
+  return { state, detections, quarantine, scanRef: scanEvent.id };
 }
 
 function gatherVitalEvidence(state) {
@@ -256,7 +256,7 @@ async function immuneResponse(db, agentId, context = {}) {
     responses.push({ detection, diagnosis, quarantine: quarantineResult });
   }
 
-  return { state: scan.state, responses, quarantine: scan.quarantine };
+  return { state: scan.state, responses, quarantine: scan.quarantine, scanRef: scan.scanRef };
 }
 
 module.exports = {

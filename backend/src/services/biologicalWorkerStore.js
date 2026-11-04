@@ -39,12 +39,15 @@ function buildBinding(input) {
   const metadata = JSON.parse(input.agent.metadata_json || '{}');
   const genome = { schema: 'genos.worker-genome/v1', role: input.agent.role,
     objective: input.mission.objective, strategyContract: input.contractRecord.contract,
-    workerContract: metadata.workerContract || null, dna: input.agent.dna_json || null };
+    workerContract: metadata.workerContract || null,
+    dna: require('./workerDnaIncarnation').verifiedBinding(input.agent,
+      { organizationId: input.agent.organization_id, projectId: input.agent.project_id }) };
   const genomeHash = digest(genome);
   return { schema: 'genos.worker-biological-binding/v1', runtime: 'node-worker', runId: input.id,
     missionId: input.mission.mission_id, workerId: input.agent.id,
     cellId: identity(['genos.node-cell/v1', input.mission.mission_id, input.agent.id]),
     genomeId: identity(['genos.worker-genome/v1', genomeHash]), genomeHash, genome,
+    clinicalAdmission: require('./workerClinicalAdmission').fromAgent(input.agent, input.mission.mission_id),
     contractId: input.contractRecord.id, contractVersion: input.contractRecord.version,
     budget: input.budget, parentWorkerId: input.agent.parent_agent_id || null,
     tenant: { organizationId: input.agent.organization_id || null, projectId: input.agent.project_id || null } };

@@ -50,7 +50,7 @@ async function selectAssignment(ctx) {
   const { db, parent, request, assignment } = ctx;
   try {
     const selected = await store.workerGenesForAssignment(db,
-      { ...assignment, agentId: parent?.id }, scopeOf(parent, request));
+      { ...assignment, agentId: request.agentId || parent?.id }, scopeOf(parent, request));
     if (!selected && explicitGenomeRequested(request)) throw rejectedBinding(request);
     return selected;
   } catch (error) {

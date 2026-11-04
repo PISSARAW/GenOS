@@ -85,6 +85,7 @@ async function initializeMissionContext(mission) {
     });
   }
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);
+  await require('../workerDnaIncarnation').prepare(db, { mission: normalizedMission, agent: dispatchedAgent });
   await require('../workerGenomeHydration').hydrate(db, { mission: normalizedMission, agent: dispatchedAgent });
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;

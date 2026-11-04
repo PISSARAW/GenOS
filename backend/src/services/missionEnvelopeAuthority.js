@@ -116,6 +116,7 @@ async function assertRun(db, input) {
   const binding = await provenance.readRun(db, { runId: input.runId, scope: saved.envelope.scope });
   if (binding?.hash !== saved.envelope.bindingHash) throw values.failure('EXECUTION_AUTHORITY_BINDING_CHANGED');
   await state.assertCurrent(db, saved.envelope);
+  await require('./workerClinicalAdmission').assertRun(db, { ...input, envelope: saved.envelope });
   if (input.mission) await assertMission(saved, input.mission);
   if (input.verifyInputs) await assertInputs(saved, input);
   return { status: 'authorized', hash: saved.hash, envelope: saved.envelope };

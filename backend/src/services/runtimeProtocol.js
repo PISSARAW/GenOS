@@ -67,6 +67,7 @@ function decodeMission(buffer) {
 
 function restoreGenome(mission) {
   if (mission.genomeJson) mission.genome = JSON.parse(mission.genomeJson);
+  if (mission.genome?.dnaIncarnation) mission.dnaIncarnation = mission.genome.dnaIncarnation;
   return mission;
 }
 
