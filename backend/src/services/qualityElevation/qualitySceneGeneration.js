@@ -109,7 +109,8 @@ async function generateScene(context, input) {
         diagnostic: error.message, repairEligible: mayRetry, defects: error.defects || [] });
       if (!mayRetry) throw terminalSceneFailure(error, record);
       prompt = repairPrompt(input.prompt, { code: error.code, attempt: attempt + 1, call: record.call,
-        responseDigest: record.responseDigest || null, finishReason: record.finishReason });
+        responseDigest: record.responseDigest || null, finishReason: record.finishReason,
+        ...(record.finishReason === 'stop' ? { diagnostic: error.message } : {}) });
     }
   }
   throw fail('GQEL_PROTOCOL_EXHAUSTED', 'Scene attempt budget exhausted.');

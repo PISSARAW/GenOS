@@ -57,6 +57,7 @@ async function measuredRepair() {
   assert.ok(!requests[1].prompt.includes('TRUNCATED_REPLY_MUST_NOT_BE_PROMPTED'));
   const repair = JSON.parse(requests[1].prompt.slice(requests[1].prompt.indexOf('\n') + 1)).sceneAttemptRepair;
   assert.equal(repair.responseDigest, digest(bad));
+  assert.equal(Object.hasOwn(repair, 'diagnostic'), false, 'A truncated fragment is not reintroduced as repair feedback.');
   assert.equal(ctx.session.budget.tokens, 7 + 1536 + 7 + 11);
   assert.equal(ctx.session.budget.usageComplete, true);
   assert.equal(ctx.session.sceneAttempts[0].untrustedResponse, bad);
@@ -215,6 +216,11 @@ async function lineRepairAndExhaustion() {
   assert.match(requests[1].prompt, /Retourne seulement \{"lines"/);
   assert.equal(ctx.session.budget.tokens, 36);
   assert.equal(ctx.session.sceneAttempts[0].code, 'GQEL_SCENE_INVALID');
+  const feedback = JSON.parse(requests[1].prompt.slice(requests[1].prompt.indexOf('\n') + 1)).sceneAttemptRepair;
+  assert.equal(feedback.diagnostic, ctx.session.sceneAttempts[0].diagnostic);
+  assert.match(feedback.diagnostic, /cannot inject a newline or another heading/);
+  assert.equal(ctx.session.calls[0].finishReason, 'stop');
+  assert.equal(requests[1].prompt.includes('Action\\nEXT. AUTRE - JOUR'), false, 'Repair feedback contains the runtime diagnostic, not the rejected authored text.');
   const truncated = context(async request => reply('{"lines":["incomplete', { finishReason: 'length',
     usage: { inputTokens: 7, outputTokens: request.maxOutputTokens } }), { maxProtocolRepairs: 1 });
   await assert.rejects(generateScene(truncated, input(truncated)), { code: 'GQEL_TRUNCATED_OUTPUT' });

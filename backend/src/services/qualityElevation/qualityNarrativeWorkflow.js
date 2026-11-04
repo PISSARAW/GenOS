@@ -10,17 +10,20 @@ function dialogueInstruction(contract) {
   if (!contract.requireDialogue) return 'Les dialogues sont facultatifs selon les besoins de la scène. ';
   return 'Le livrable doit comporter des répliques au format scénario : écris le NOM DU PERSONNAGE '
     + 'en MAJUSCULES sur une ligne dédiée, puis sa réplique sur la ligne suivante. '
-    + 'Exemple de format, sans imposer ce contenu : ' + JSON.stringify('PERSONNAGE\nUne réplique.') + '. ';
+    + 'Dans le JSON, ce sont deux éléments courts distincts, chacun sans saut de ligne interne. '
+    + 'Exemple de format, sans imposer ce contenu : ' + JSON.stringify({ lines: ['PERSONNAGE', 'Une réplique.'] }) + '. ';
 }
 function scenePrompt(context, scene, previous) {
   const guide = pacingGuide(context.plan, context.contract);
   const allocation = guide.allocations.find(item => item.id === scene.id) || null;
   const budget = sceneBudget(context.contract, context.plan, scene);
   return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables. '
+    + `Vise environ ${budget.targetWords} mots utiles pour cette scène, en restant dans le budget de lignes ; conclus l’action sans remplissage. `
     + dialogueInstruction(context.contract)
     + 'Ne remplace pas la scène par son résumé, une note critique ou une émotion annoncée. '
     + `L’en-tête ${scene.heading} sera conservé depuis le plan. Retourne uniquement {"lines":[...]} selon le schéma fourni. `
     + 'Chaque élément est UNE ligne du corps jouée, sans en-tête, titre, saut de ligne interne ou ligne vide. '
+    + 'Si une réplique ou une action dépasse la limite de ligne, continue dans un nouvel élément à la fin d’un mot ou d’une phrase. '
     + 'Sépare le nom en majuscules et sa réplique dans deux éléments successifs. Respecte maxLines et maxLineCharacters du budget. '
     + 'Respecte les connaissances et conséquences des scènes précédentes. Les événements futurs du plan ne sont pas déjà vécus. '
     + 'Matérialise la décision et sa conséquence prévues par des actions observables ; vise un état de sortie concret cohérent avec stateAfter. '

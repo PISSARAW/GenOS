@@ -39,8 +39,13 @@ function answer(ctx) {
   if (ctx.responseFormatOverride.schema.properties.lines) {
     assert.equal(data.nativeMissionContext, ctx.mission.prompt);
     assert.match(ctx.promptText.slice(0, ctx.promptText.indexOf('\n')), /MAJUSCULES sur une ligne dédiée/);
-    assert.ok(ctx.promptText.includes(JSON.stringify('PERSONNAGE\nUne réplique.')),
-      'The actual native scene request must explain the format enforced by the dialogue gate.');
+    const instructions = ctx.promptText.slice(0, ctx.promptText.indexOf('\n'));
+    const example = { lines: ['PERSONNAGE', 'Une réplique.'] };
+    assert.ok(instructions.includes(JSON.stringify(example)), 'The native example must use the actual lines array contract.');
+    assert.equal(instructions.includes(JSON.stringify('PERSONNAGE\nUne réplique.')), false);
+    assert.equal(new Ajv({ strict: false }).compile(ctx.responseFormatOverride.schema)(example), true);
+    assert.match(instructions, new RegExp(`Vise environ ${data.sceneGenerationBudget.targetWords} mots utiles`));
+    assert.match(instructions, /à la fin d’un mot ou d’une phrase/);
     const value = { lines: GOOD.split('\n').slice(1) };
     assert.equal(new Ajv({ strict: false }).compile(ctx.responseFormatOverride.schema)(value), true);
     return JSON.stringify(value);
