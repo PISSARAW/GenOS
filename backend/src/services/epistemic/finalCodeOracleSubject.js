@@ -7,7 +7,8 @@ async function load(db, request) {
   const saved = request.completedEvidence === true ? await authority.assertCompletedRunEvidence(db, request)
     : await authority.assertRun(db, request);
   const contract = saved.envelope.workspaceVerificationContract;
-  if (!contract || saved.envelope.orchestratorId !== request.agentId) throw Error('FINAL_CODE_AUTHORITY_REQUIRED');
+  if (!contract) return null;
+  if (saved.envelope.orchestratorId !== request.agentId) throw Error('FINAL_CODE_AUTHORITY_REQUIRED');
   const run = await provenance.readRun(db, {runId: request.runId, scope: request.scope});
   const observed = await journal.read(db, {...request, kind: 'final-code-observation'});
   if (!run || !observed || observed.value.authorityHash !== saved.hash) throw Error('FINAL_CODE_OBSERVATION_REQUIRED');
