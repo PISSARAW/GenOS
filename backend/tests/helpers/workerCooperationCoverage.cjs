@@ -44,8 +44,10 @@ function coverageChecks(context, genomes) {
 function nonemptyEvery(items, predicate) { return items.length > 0 && items.every(predicate); }
 
 function leaseBound(stage) {
-  return Array.isArray(stage.factoryToolLease) && Array.isArray(stage.runtimeAuthority?.toolLease)
-    && stage.runtimeAuthority.toolLease.every(tool => stage.factoryToolLease.includes(tool));
+  if (!Array.isArray(stage.factoryToolLease) || !Array.isArray(stage.runtimeAuthority?.toolLease)) return false;
+  const expected = require('../../src/services/executionEnvelopeContract').toolLease({
+    toolLease: stage.factoryToolLease, workerContract: { identity: { workerKind: stage.kind } } });
+  return stage.runtimeAuthority.toolLease.every(tool => expected.includes(tool));
 }
 
-module.exports = { inspect };
+module.exports = { inspect, leaseBound };

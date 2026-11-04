@@ -27,6 +27,12 @@ rattachée à sa provenance. L'arrêt final annule uniquement les travaux encore
 pendants et conserve les échecs dans les mesures. Il ne transforme jamais une
 annulation en réussite.
 
+Le bail fourni au modèle est distingué de l'autorité scellée du runtime.
+`executionEnvelopeContract.toolLease` ajoute officiellement `genos_replay`
+aux workers pour le rejeu natif après résultat. Le contrôle de couverture
+applique cette même politique et refuse tout autre élargissement ; ce rejeu
+ne doit pas être attribué à un appel d'outil du LLM.
+
 La réserve parent commune est de 68 096 tokens et 1 USD fournisseur, pour
 720 000 ms ; l'allocation nominale des workers est de 64 000 tokens au total.
 Chaque worker reçoit au plus 16 000 tokens, 0,25 USD et 180 000 ms. Le

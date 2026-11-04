@@ -220,6 +220,7 @@ const suites = {
     ['completed workspace evidence keeps temporal and revocation guards', 'test_workspace_completed_evidence.cjs'],
     ['delegated synthesis remains bounded by the parent deadline', 'test_delegated_evidence_window.cjs'],
     ['native observation-gated coordinator and exclusive mission authority', 'test_native_cooperation_controller.cjs'],
+    ['factory lease and native replay authority coverage', 'test_worker_cooperation_lease.cjs'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
     ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],
