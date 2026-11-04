@@ -25,16 +25,23 @@ function canPreserve(context, scene) {
     && !context.repairPlan.invalidated.includes(scene.id) && context.construction?.scenes?.some(item => item.id === scene.id);
 }
 function sceneText(raw, scene) {
-  const text = typeof raw === 'string' ? raw.trim() : '', parsed = scenesOf(text);
+  const content = unpackScene(raw);
+  const text = typeof content === 'string' ? content.trim() : '', parsed = scenesOf(text);
   if (parsed.length !== 1 || !parsed[0].text) throw fail('GQEL_SCENE_INVALID', `Exactly one non-empty scene expected for ${scene.id}.`);
   if (cleanLine(parsed[0].heading).toUpperCase() !== cleanLine(scene.heading).toUpperCase()) {
     throw fail('GQEL_SCENE_INVALID', `Expected heading ${scene.heading}.`);
   }
   return text;
 }
+function unpackScene(raw) {
+  if (typeof raw !== 'string' || !raw.trim().startsWith('{')) return raw;
+  return require('./qualityReviewService').parseObject(raw).sceneText;
+}
 async function writeScene(context, scene, scenes) {
   return validatedCall({ ...context, callback: context.generator }, { operation: `write:${scene.id}`, stage: 'scene',
-    iteration: context.iteration, prompt: scenePrompt(context, scene, scenes) }, raw => sceneText(raw, scene));
+    iteration: context.iteration, prompt: scenePrompt(context, scene, scenes),
+    responseSchema: { type: 'object', properties: { sceneText: { type: 'string', minLength: 20 } },
+      required: ['sceneText'], additionalProperties: false } }, raw => sceneText(raw, scene));
 }
 async function constructScreenplay(context) {
   const planState = await preparePlan(context), plan = planState.plan, scenes = [];

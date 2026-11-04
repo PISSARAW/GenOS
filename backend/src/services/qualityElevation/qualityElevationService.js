@@ -82,13 +82,17 @@ async function produce(context) {
   if (context.iteration === 1 && typeof context.input.initialContent === 'string' && context.input.initialContent.trim()) {
     return { content: context.input.initialContent, construction: null };
   }
-  if (context.contract.profile === 'screenplay' && context.input.planScenes !== false) return constructScreenplay(context);
+  if (constructsNarrative(context)) return constructScreenplay(context);
   const prior = context.session.versions[context.session.bestVersionIndex];
   const prompt = prior || context.repairPlan.obligations.length
     ? buildRepairPrompt(context.contract.mission, prior, { repairPlan: context.repairPlan }) : context.contract.mission;
   const content = await context.invoke(context.generator, { operation: 'generate', stage: 'draft', iteration: context.iteration, prompt, repairPrompt: prompt });
   if (typeof content !== 'string') throw fail('GQEL_ARTIFACT_INVALID', 'Generator must return deliverable text.');
   return { content, construction: null };
+}
+function constructsNarrative(context) {
+  return context.contract.profile === 'screenplay' && context.input.planScenes !== false
+    && !(context.iteration === 1 && context.input.initialNativeArtifact);
 }
 async function considerCandidate(context, current) {
   const session = context.session, incumbent = session.versions[session.bestVersionIndex];
@@ -112,7 +116,8 @@ async function retainDraft(context, candidate) {
   await checkpoint(context, { type: 'DRAFT_PRODUCED', draft: record.draft, digest: record.digest, acceptedForDelivery: false });
 }
 async function runRound(context) {
-  const candidate = await produce(context);
+  const produced = await produce(context);
+  const candidate = await require('./qualityNativeMaterialization').materialize(context, produced);
   await retainDraft(context, candidate);
   const scan = evaluateArtifact(context.contract.domain, candidate.content, { mission: context.contract.mission, contract: context.contract });
   await verifyCode(context, candidate.content, scan);
@@ -167,7 +172,7 @@ async function executeElevationLoop(driverOrInput, options = {}) {
   verifyContract(contract);
   const session = input.session || createElevationSession(contract);
   assertFreshSession(session, contract);
-  const context = { input, contract, session, generator: input.generator, construction: null, repairPlan: buildRepairPlan(null), invoke: createInvoker(contract, session) };
+  const context = { input, contract, session, generator: input.generator, construction: null, repairPlan: buildRepairPlan(null), invoke: createInvoker(contract, session, input.prepareRequest) };
   try {
     const repair = require('./qualityRepairObligations').repairPlan(input.repairObligations, contract);
     if (repair) {

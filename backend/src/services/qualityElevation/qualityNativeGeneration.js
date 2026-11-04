@@ -10,7 +10,8 @@ function boundGeneration(ctx) {
   if (!quality) return ctx;
   const requested = ctx.maxTokens || quality.maxOutputTokens;
   const maxTokens = Math.min(requested, quality.maxOutputTokens);
-  return { ...ctx, maxTokens, requestTokenBudget: Buffer.byteLength(ctx.promptText, 'utf8') + maxTokens };
+  const schema = ctx.responseFormatOverride?.schema ? JSON.stringify(ctx.responseFormatOverride.schema) : '';
+  return { ...ctx, maxTokens, requestTokenBudget: Buffer.byteLength(ctx.promptText + schema, 'utf8') + maxTokens };
 }
 
 async function generate(ctx, invoke) {
@@ -32,7 +33,10 @@ function promptText(ctx, original) {
 function requestFields(ctx, generation) {
   if (!ctx.qualityRequest) return {};
   return { signal: ctx.qualityRequest.signal,
-    maxTokens: Math.min(generation.maxTokens, ctx.qualityRequest.maxOutputTokens) };
+    maxTokens: Math.min(generation.maxTokens, ctx.qualityRequest.maxOutputTokens),
+    ...(ctx.qualityRequest.operation === 'native_artifact_materialization'
+      ? { responseFormatOverride: require('./qualityNativeMaterialization').responseFormat(ctx.mission, ctx.qualityRequest.artifactContent) }
+      : {}) };
 }
 
 module.exports = { generate, boundGeneration, promptText, requestFields, runtimeContract };

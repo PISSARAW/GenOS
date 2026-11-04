@@ -41,15 +41,18 @@ function generatorFor(state) {
     await assertActive(state.ctx, request);
     const next = state.first ? state.initial : await candidateOf(await revise(state.ctx, request));
     code.assertScope(state.initial, next);
-    state.first = false; state.current = next; state.candidates.set(digest(next.text), next);
-    const result = next.generation.result;
-    const configured = state.ctx.mission.qualityRuntime?.generatorModel || state.ctx.generationContext.workerModel;
-    if (modelUri(result.model) !== modelUri(configured)) throw fail('GQEL_MODEL_MISMATCH', 'Author route differs from its quality contract.');
-    state.usage.inputTokens += result.inputTokens;
-    state.usage.outputTokens += result.outputTokens;
-    state.usage.costUsd += result.costUsd || 0;
-    return meteredReply(result, next.text);
+    return recordCandidate(state, next);
   };
+}
+function recordCandidate(state, next) {
+  state.first = false; state.current = next; state.candidates.set(digest(next.text), next);
+  const result = next.generation.result;
+  const configured = state.ctx.mission.qualityRuntime?.generatorModel || state.ctx.generationContext.workerModel;
+  if (modelUri(result.model) !== modelUri(configured)) throw fail('GQEL_MODEL_MISMATCH', 'Author route differs from its quality contract.');
+  state.usage.inputTokens += result.inputTokens;
+  state.usage.outputTokens += result.outputTokens;
+  state.usage.costUsd += result.costUsd || 0;
+  return meteredReply(result, next.text);
 }
 
 async function elevateEvidence(ctx) {
@@ -57,9 +60,10 @@ async function elevateEvidence(ctx) {
   if (!contract || ctx.skipQuality || ctx.evidence.unresolved || ctx.evidence.noAnswer) return ctx.evidence;
   ctx.mission.executionRunId = ctx.executionRun.id;
   const initial = await candidateOf(ctx), usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
-  const state = { ctx, initial, current: initial, first: true, candidates: new Map(), usage };
-  const result = await runWorkerQuality({ ...ctx, contract, usage, planScenes: false,
-    generator: generatorFor(state), verifier: ctx.codeWorker ? request => code.verify(state.current, request) : undefined });
+  const state = { ctx, contract, initial, current: initial, first: true, candidates: new Map(), usage };
+  const narrative = require('./qualityNativeNarrative').options(state, generatorFor(state), { candidateOf, revise, recordCandidate });
+  const result = await runWorkerQuality({ ...ctx, contract, usage, ...narrative,
+    verifier: ctx.codeWorker ? request => code.verify(state.current, request) : undefined });
   requireSatisfied(result);
   let selected = state.candidates.get(result.bestVersion.digest);
   if (!selected) throw fail('GQEL_ARTIFACT_INVALID', 'Selected quality artifact has no native candidate.');

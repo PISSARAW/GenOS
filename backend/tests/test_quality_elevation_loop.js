@@ -22,6 +22,7 @@ async function main() {
 
 function runNativeSuites() {
   const suites = ['test_gqel_native_contracts.cjs', 'test_gqel_native_runtime.cjs', 'test_gqel_native_provider.cjs',
+    'test_gqel_grounded_quotes.cjs', 'test_gqel_native_narrative.cjs',
     'test_gqel_native_code_scope.cjs', 'test_gqel_quality_receipts.cjs', 'test_gqel_code_receipts.cjs',
     'test_gqel_native_receipts.cjs', 'test_gqel_team_receipts.cjs', 'test_ateam_gqel_coordination.cjs', 'test_gqel_final_artifact.cjs',
     'test_gqel_final_synthesis.cjs', 'test_gqel_final_execution.cjs'];

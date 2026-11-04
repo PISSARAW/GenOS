@@ -51,8 +51,9 @@ function accountFailure(error, scope) {
   if (budget.tokens === before) { budget.tokens += limits.reserved; budget.usageComplete = false; }
   return error;
 }
-function createInvoker(contract, session) {
+function createInvoker(contract, session, prepareRequest) {
   return async (callback, request) => {
+    if (prepareRequest) request = prepareRequest(request);
     if (typeof callback !== 'function') throw fail('GQEL_ADAPTER_MISSING', `Missing adapter for ${request.operation}.`);
     const budget = session.budget;
     assertAvailable(contract, budget);

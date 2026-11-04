@@ -43,6 +43,8 @@ async function runWorkerQuality(input) {
   const generator = input.generator || createAdapter(ctx, config.generatorModel || input.generationContext.workerModel);
   const result = await executeElevationLoop({ contract, generator, reviewers,
     planScenes: input.planScenes ?? config.planScenes, initialContent: input.initialContent,
+    initialNativeArtifact: input.initialNativeArtifact, materializer: input.materializer,
+    prepareRequest: input.prepareRequest,
     verifier: input.verifier, repairObligations: input.mission.qualityRepair,
     onCheckpoint: session => checkpoint(ctx, session) });
   try { await persistSession(ctx, result.session); }

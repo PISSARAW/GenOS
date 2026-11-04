@@ -79,7 +79,7 @@ function controlCriteria(sample) {
 }
 async function reviewedChecks(reviewer, context, input) {
   const request = { operation: input.operation, expectedModel: reviewer.model,
-    responseSchema: reviewSchema(input.criteria), prompt: reviewPrompt(input.data) };
+    responseSchema: reviewSchema(input.criteria, input.text), prompt: reviewPrompt(input.data) };
   return validatedCall({ ...context, callback: reviewer.review }, request,
     response => validateReview(response, input.criteria, input.text));
 }
@@ -131,9 +131,11 @@ function scoreDefect(score, input) {
 function citationScope(input) { return input.contract.profile === 'screenplay' && input.phase !== 'plan' ? 'screenplay_body' : 'full_artifact'; }
 async function assessArtifact(context) {
   const contract = context.contract, scan = context.scan, content = context.content;
+  const artifactDigest = digest(content);
+  if (scan.defects.length) return structuralAssessment({ context, artifactDigest, contract, scan });
   const body = citationScope(context) === 'screenplay_body' ? screenplayBody(content) : content;
   const text = body && body.trim().length >= 8 ? body : content;
-  const artifactDigest = digest(content), criteria = context.criteria || contract.criteria;
+  const criteria = context.criteria || contract.criteria;
   const reviews = [];
   for (const reviewer of context.reviewers) {
     reviews.push(await runReview(reviewer, { ...context, contract, criteria, text, artifactDigest }));
@@ -149,5 +151,14 @@ async function assessArtifact(context) {
   return evaluation;
 }
 function isIssuedAssessment(value) { return issued.has(value); }
+function structuralAssessment(input) {
+  const { context, artifactDigest, contract, scan } = input;
+  const evaluation = freeze({ schema: 'genos.gqel-assessment/v2', assessmentId: require('node:crypto').randomUUID(),
+    contractDigest: contract.digest, artifactDigest, phase: context.phase || 'artifact', passed: false,
+    score: null, overallScore: null, defects: scan.defects, reviews: [], metrics: scan.metrics,
+    semanticStatus: 'not_evaluated_structural_repair_required', issuedAt: new Date().toISOString() });
+  issued.add(evaluation);
+  return evaluation;
+}
 module.exports = { parseObject, citations, validateReview, calibrateReviewer, assessArtifact, isIssuedAssessment,
   reviewerMetadata, dependencyGroupCount, CALIBRATION, reviewPrompt };
