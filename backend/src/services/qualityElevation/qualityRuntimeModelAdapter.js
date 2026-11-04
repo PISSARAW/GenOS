@@ -47,6 +47,7 @@ function routingContext(ctx, input) {
     workerModel: model, promptText: request.prompt, signal: request.signal,
     policy: { primary: model, fallback: [], preferLocal: model.startsWith('ollama://') },
     maxTokens: request.maxOutputTokens,
+    stream: false,
     requestTokenBudget: Buffer.byteLength(request.prompt + JSON.stringify(request.responseSchema || ''), 'utf8')
       + request.maxOutputTokens,
     latencyMs: Math.min(ctx.contract.callTimeoutMs, ctx.generationContext.latencyMs),

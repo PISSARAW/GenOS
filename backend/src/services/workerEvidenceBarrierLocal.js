@@ -77,6 +77,7 @@ async function generateWorkerResultOnce(ctx) {
     ...require('./workerGenomeExpression').samplingOptions(ctx.mission),
     requestTokenBudget: resolveRequestTokenBudget(ctx),
     signal: ctx.signal,
+    stream: ctx.stream,
     maxCostUsd: ctx.maxCost,
     seed: Number.isInteger(ctx.mission.identityExperimentSeed) ? ctx.mission.identityExperimentSeed : undefined,
     ...sharedBudget,

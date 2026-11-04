@@ -34,7 +34,7 @@ async function main() {
       received = JSON.parse(Buffer.concat(chunks));
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({ model: 'fixture', message: { content: '{"ok":true}' },
-        done: true, prompt_eval_count: 10, eval_count: 3 }));
+        done: true, done_reason: 'stop', prompt_eval_count: 10, eval_count: 3 }));
     });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -48,6 +48,8 @@ async function main() {
     assert.equal(result.inputTokens, 10);
     assert.equal(result.outputTokens, 3);
     assert.equal(result.tokenUsageMeasured, true);
+    assert.equal(received.stream, false);
+    assert.equal(result.finishReason, 'stop');
     assert.equal(result.usageReceipt, undefined);
     console.log('Sampling controls reach native Ollama; unsupported controls fail explicitly.');
   } finally {

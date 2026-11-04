@@ -16,6 +16,13 @@ la construction par scènes disponible dans le contrôleur GQEL.
 
 ## Décision
 
+Les appels structurés de revue, plan et scènes demandent une réponse JSON
+complète (`stream: false`). Le générateur natif transmet cette option au routeur.
+Une réponse partielle sans compte fournisseur ni fin observée reste refusée ;
+les nombres estimés du registre ne deviennent jamais une preuve d'usage.
+Cette décision suit une relance où le premier flux de scène s'est achevé sans
+métadonnées terminales. Elle ne reconstruit ni scène ni reçu après ce refus.
+
 Une structure refusée produit une évaluation runtime non acceptée, sans score
 sémantique ni revue. Ses défauts alimentent la réparation bornée suivante. Cette
 absence de revue ne crée aucune preuve positive et ne permet aucune promotion.

@@ -71,6 +71,7 @@ function context(changed = false) {
 }
 async function positive() {
   const ctx = context();
+  assert.equal(generation.boundGeneration({ mission: ctx.mission, promptText: 'Native envelope', maxTokens: 100 }).stream, false);
   const selected = await native.elevateEvidence(ctx);
   assert.equal(selected.evidenceReport.workerArtifact.content.candidate, GOOD);
   assert.equal(selected.evidenceReport.qualityFeedback.qualitySatisfied, true);
@@ -82,6 +83,10 @@ async function positive() {
   assert.equal(usage.tokens, usage.calls * 30);
   assert.equal(selected.consumed, usage.tokens);
   assert.ok(ctx.calls.every(c => c.mission === ctx.mission && c.executionRun.id === 'synthetic-native-run'));
+  assert.ok(ctx.calls.every(c => c.stream === false), 'Structured quality calls require one complete JSON response.');
+  const { meteredReply } = require('../src/services/qualityElevation/qualityRuntimeModelAdapter');
+  assert.throws(() => meteredReply({ ...result(GOOD), tokenUsageMeasured: false }, GOOD), { code: 'GQEL_USAGE_UNVERIFIED' });
+  assert.throws(() => meteredReply({ ...result(GOOD), finishReason: null }, GOOD), { code: 'GQEL_COMPLETION_UNVERIFIED' });
 }
 async function substitution() {
   await assert.rejects(native.elevateEvidence(context(true)), error => {

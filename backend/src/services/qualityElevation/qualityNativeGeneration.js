@@ -11,7 +11,7 @@ function boundGeneration(ctx) {
   const requested = ctx.maxTokens || quality.maxOutputTokens;
   const maxTokens = Math.min(requested, quality.maxOutputTokens);
   const schema = ctx.responseFormatOverride?.schema ? JSON.stringify(ctx.responseFormatOverride.schema) : '';
-  return { ...ctx, maxTokens, requestTokenBudget: Buffer.byteLength(ctx.promptText + schema, 'utf8') + maxTokens };
+  return { ...ctx, stream: false, maxTokens, requestTokenBudget: Buffer.byteLength(ctx.promptText + schema, 'utf8') + maxTokens };
 }
 
 async function generate(ctx, invoke) {
