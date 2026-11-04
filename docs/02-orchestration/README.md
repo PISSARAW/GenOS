@@ -5,6 +5,7 @@ reproduction, et les 8 modes de composition (topologies).
 
 ## Exécution
 
+- [maillage-adaptatif-communication.md](maillage-adaptatif-communication.md) — sélection déterministe par mission, audiences protégées, observation et activation du maillage.
 - [gns-regulation-operationnelle.md](gns-regulation-operationnelle.md) — perception, six raccordements, propositions, autorité, limite du Garage, suivi et reprise GNS.
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [g-cir.md](g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.

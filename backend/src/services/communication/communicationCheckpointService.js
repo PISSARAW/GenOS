@@ -13,6 +13,7 @@ const { decideCommunication, getMode } = require('./communicationPolicyEngine');
 const { buildManifest, decisionChannel, enforceManifestChannel, enforceManifestBudget } = require('./communicationManifestService');
 const decisionContextService = require('./communicationDecisionContext');
 const { executeLiveCycle } = require('./liveCycleExecution');
+const { applyAdaptiveMesh } = require('./adaptiveCommunicationMesh');
 const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
 
 const CHECKPOINTS = Object.freeze([
@@ -89,6 +90,20 @@ function urgencyOf(ctx, evidence) {
   return URGENCY_MAP[ctx.checkpoint] || 0.5;
 }
 
+function requestedAudienceOf(evidence) {
+  if (!Array.isArray(evidence.requestedAudience)) return null;
+  return [...new Set(evidence.requestedAudience.filter((id) => typeof id === 'string' && id.trim()))].slice(0, 50);
+}
+
+function artifactRefsOf(evidence) {
+  return evidence.artifactId ? [evidence.artifactId] : [];
+}
+
+function summaryPayloadOf(evidence) {
+  if (typeof evidence.publicSummary !== 'string' || !evidence.publicSummary.trim()) return null;
+  return { publicSummary: evidence.publicSummary.trim() };
+}
+
 function buildIntent(ctx) {
   const evidence = ctx.evidence || {};
   const purpose = ['inform', 'request', 'coordinate'].includes(evidence.purpose)
@@ -101,10 +116,12 @@ function buildIntent(ctx) {
     domain: evidence.domain || 'general',
     requiresAction: ACTION_MAP[ctx.checkpoint] || false,
     semanticRefs: evidence.semanticRefs || [],
+    artifactRefs: artifactRefsOf(evidence),
+    payload: summaryPayloadOf(evidence),
+    missionId: ctx.missionId ?? null,
+    checkpoint: ctx.checkpoint,
     scope: scopeOf(ctx.scope),
-    requestedAudience: Array.isArray(evidence.requestedAudience)
-      ? [...new Set(evidence.requestedAudience.filter((id) => typeof id === 'string' && id.trim()))].slice(0, 50)
-      : null,
+    requestedAudience: requestedAudienceOf(evidence),
     independenceRequired: false
   };
 }
@@ -245,8 +262,7 @@ function buildSignalData(ctx, decision) {
 }
 
 async function executeCheckpointSignal(decision, ctx) {
-  const intent = { ...buildIntent(ctx), payload: buildSignalData(ctx, decision),
-    artifactRefs: ctx.evidence?.artifactId ? [ctx.evidence.artifactId] : [] };
+  const intent = { ...buildIntent(ctx), payload: buildSignalData(ctx, decision) };
   const topic = decision.scope === 'GLOBAL_BROADCAST' ? 'global' : 'checkpoint';
   const routed = { ...decision, meta: { ...decision.meta,
     receptorTopic: decision.meta?.receptorTopic || topic } };
@@ -269,7 +285,9 @@ async function evaluateCheckpoint(ctx) {
     relationships: ctx.relationships, scope: ctx.scope
   };
   const input = buildPolicyInput(ctx, intent, manifest);
-  const proposed = await decideCommunication(input);
+  const rawDecision = await decideCommunication(input);
+  const proposed = await applyAdaptiveMesh({ db: ctx.db, intent,
+    decision: rawDecision, options: ctx.communication?.mesh });
   const auditedContext = decisionContextService.buildDecisionContext({ ...contextInput,
     relationships: proposed.meta?.relationshipRouting || contextInput.relationships });
   const contextValidation = decisionContextService.validateDecisionContext(auditedContext);

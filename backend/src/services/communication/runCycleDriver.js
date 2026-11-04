@@ -12,6 +12,7 @@ const { decideCommunication, logShadowDecision } = require('./communicationPolic
 const { assessAgency } = require('./agencyDriver');
 const { recordDecision } = require('./communicationMetricsService');
 const { executeLiveCycle } = require('./liveCycleExecution');
+const { applyAdaptiveMesh } = require('./adaptiveCommunicationMesh');
 
 async function resolveDb(inputDb) {
   if (inputDb) return inputDb;
@@ -150,7 +151,9 @@ async function runCycle(params) {
   const resolvedDb = await resolveDb(db);
   const input = buildInput(intent, resolvedDb, opts);
 
-  const decision = await decideCommunication(input);
+  const proposed = await decideCommunication(input);
+  const decision = await applyAdaptiveMesh({ db: resolvedDb, intent,
+    decision: proposed, options: { ...opts.mesh, trigger: opts.trigger ?? opts.mesh?.trigger } });
   recordDecision(decision);
 
   const shadowReceipt = await tryLogShadow(input);

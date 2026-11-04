@@ -6,6 +6,7 @@ const { getMode } = require('./communicationPolicyEngine');
 const { measureCycleUsage } = require('./communicationCycleUsage');
 const { comparisonKey, compareCycles } = require('./communicationCycleComparison');
 const { signalIdForKey } = require('./communicationIdempotency');
+const { validateMeshDelivery } = require('./adaptiveCommunicationMesh');
 
 const LEVELS = Object.freeze(['none', 'transport_ack', 'semantic_ack', 'action_ack',
   'verified_ack', 'human_confirmation']);
@@ -18,9 +19,11 @@ function modalityOf(action) {
   return 'structured';
 }
 
-function payloadOf(intent) {
-  return { semanticRefs: intent.semanticRefs || [], artifactRefs: intent.artifactRefs || [],
+function payloadOf(intent, decision) {
+  const payload = { semanticRefs: intent.semanticRefs || [], artifactRefs: intent.artifactRefs || [],
     content: intent.payload === undefined ? null : intent.payload };
+  if (appliedMeshOf(decision)) payload.communicationMesh = intent.communicationMesh;
+  return payload;
 }
 
 function envelopeOf(input) {
@@ -123,16 +126,64 @@ function messageIdFor(opts) {
     : `sig_${crypto.randomUUID()}`;
 }
 
+function appliedMeshOf(decision) {
+  const mesh = decision.meta?.adaptiveMesh;
+  return mesh?.mode === 'active' && mesh.status === 'applied' ? mesh : null;
+}
+
+function deliveryScopeOf(mesh) {
+  const scope = { organizationId: mesh.scope.organizationId, projectId: mesh.scope.projectId,
+    orchestratorId: mesh.orchestratorId };
+  if (mesh.organizationVersion > 0) scope.organizationVersion = mesh.organizationVersion;
+  return scope;
+}
+
+function meshProvenanceOf(mesh) {
+  return { schemaVersion: mesh.schemaVersion, missionId: mesh.missionId,
+    orchestratorId: mesh.orchestratorId, organization: mesh.organization,
+    organizationVersion: mesh.organizationVersion };
+}
+
+function deliveryIntentOf(intent, decision) {
+  const mesh = appliedMeshOf(decision);
+  if (!mesh) return intent;
+  if (!Array.isArray(mesh.semanticRefs)) {
+    throw new Error('Applied mesh decision requires semanticRefs.');
+  }
+  return { ...intent, semanticRefs: [...mesh.semanticRefs], scope: deliveryScopeOf(mesh),
+    communicationMesh: meshProvenanceOf(mesh) };
+}
+
+async function deliveryPreflight(input) {
+  try {
+    const native = input.opts?.transport === undefined;
+    const db = native && appliedMeshOf(input.decision) ? await require('../../db').getDatabase() : input.db;
+    return { db, ...await validateMeshDelivery({ db, intent: input.intent, decision: input.decision }) };
+  } catch (_) {
+    return { valid: false, reason: 'MESH_CONTEXT_UNAVAILABLE' };
+  }
+}
+
+async function prepareDelivery(input) {
+  const { decision } = input;
+  if (getMode() === 'shadow') return { idle: idleOutcome(decision, 'SHADOW_MODE') };
+  if (decision.action === 'SILENCE') return { idle: idleOutcome(decision, 'SILENCE_DECISION') };
+  const preflight = await deliveryPreflight(input);
+  if (!preflight.valid) return { idle: idleOutcome(decision, preflight.reason) };
+  return { db: preflight.db };
+}
+
 async function executeLiveCycle(input) {
-  const { decision, intent, opts = {} } = input;
-  if (getMode() === 'shadow') return idleOutcome(decision, 'SHADOW_MODE');
-  if (decision.action === 'SILENCE') return idleOutcome(decision, 'SILENCE_DECISION');
+  const { decision, opts = {} } = input;
+  const prepared = await prepareDelivery(input);
+  if (prepared.idle) return prepared.idle;
+  const intent = deliveryIntentOf(input.intent, decision);
   const cycleId = opts.cycleId || `comm_cycle_${crypto.randomUUID()}`;
   const messageId = messageIdFor(opts);
-  const payload = payloadOf(intent);
+  const payload = payloadOf(intent, decision);
   const envelope = envelopeOf({ decision, intent, payload, messageId });
   const transport = transportOf(decision, opts.transport);
-  const result = await transport.deliver({ db: input.db, decision, intent, cycleId, envelope,
+  const result = await transport.deliver({ db: prepared.db, decision, intent, cycleId, envelope,
     payload, idempotencyKey: opts.idempotencyKey || null });
   validateTransportResult(result, messageId);
   const signalId = result.signalId || null;

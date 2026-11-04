@@ -70,6 +70,7 @@
     "test:ontogenesis": "node tests/run_ontogenesis_suite.js",
     "test:biological-bridge": "node tests/test_biological_receipt_bridge.js && node tests/test_survival_dormancy.js && node tests/test_mission_continuity.js && node tests/test_mission_wake_registry.js",
     "test:signal-plane": "node tests/run_validation_suite.js signalPlane",
+    "test:communication-mesh": "node tests/test_audience_knowledge_domain.js && node tests/test_adaptive_communication_mesh.js && node tests/test_communication_mesh_runtime.js && node tests/test_communication_mesh_contract.js",
     "test:validation": "node tests/run_validation_suite.js all",
     "test:properties": "node tests/test_property_invariants.js",
     "test:interop": "node tests/test_cognitive_omega_interop.js && node tests/test_cognitive_omega_cross_runtime_matrix.js",
