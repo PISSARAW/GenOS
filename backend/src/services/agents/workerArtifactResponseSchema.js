@@ -181,6 +181,7 @@ function workerArtifactResponseFormat(kind, allowedEvidenceRefs = [], options = 
   if (opts.nativeQuality && artifactType === 'creative_candidate') {
     delete properties.artifactText;
     schema.not = { required: ['artifactText'] };
+    require('./workerCreativeResponseBounds').apply(schema, opts);
   }
   const successRequired = artifactType === 'dossier'
     ? Object.keys(dossierProperties(resolved, refs, opts.diagnosis)) : ['workerArtifact'];

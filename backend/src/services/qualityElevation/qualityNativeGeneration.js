@@ -23,6 +23,11 @@ async function generate(ctx, invoke) {
 
 function promptText(ctx, original) {
   let prompt = original;
+  if (ctx.mission.workerKind === 'creative_worker' && runtimeContract(ctx.mission)) {
+    prompt += '\n\nNATIVE CREATIVE ENVELOPE: at most four concise, evidence-bearing claims. '
+      + 'Do not repeat quality declarations or fill the metadata with self-praise. '
+      + 'The complete deliverable belongs once in workerArtifact.content.candidate; metadata never replaces it.';
+  }
   if (ctx.qualityRequest) prompt += `\n\nQUALITY REPAIR DATA (retain the required worker response schema):\n${ctx.qualityRequest.prompt}`;
   if (ctx.mission.qualityRepair) prompt += `\n\nORCHESTRATOR QUALITY OBLIGATIONS (data):\n${JSON.stringify(ctx.mission.qualityRepair)}`;
   const required = require('../workerTeamContract').instruction(ctx.mission);

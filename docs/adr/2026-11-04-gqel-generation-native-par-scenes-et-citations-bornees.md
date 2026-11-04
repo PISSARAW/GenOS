@@ -30,6 +30,14 @@ intérieur ne doit pas effacer la métrologie du transport extérieur. Les sché
 personnalisés sont contrôlés explicitement, y compris lorsque leur parsing
 échoue, sans réparation générique d'une autre famille de réponses.
 
+Les réponses créatives natives GQEL bornent les métadonnées : quatre affirmations
+concises au maximum, listes de contexte et références finies, nombre d'évaluations
+lié au contrat réel. La relance a montré une sortie de 7 000 tokens passée à
+répéter des affirmations de réussite avant d'atteindre le candidat. Cette borne
+ne remplace aucun contrôle qualité et ne limite pas la longueur du candidat.
+Un résultat non résolu et les ACK négatifs restent autorisés ; les sources,
+identités, digests et évaluations exigés ne sont pas supprimés.
+
 Une structure refusée produit une évaluation runtime non acceptée, sans score
 sémantique ni revue. Ses défauts alimentent la réparation bornée suivante. Cette
 absence de revue ne crée aucune preuve positive et ne permet aucune promotion.
