@@ -1021,3 +1021,15 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 - [Qualification collective des mécanismes intégrés](2026-11-04-mission-mecanismes-integres.md).
 - [Lease A-Team pendant les appels attendus](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md).
 - [Délai HTTP sous autorité](2026-11-04-deadline-http-modele-sous-autorite.md).
+
+## Génération du Dernier Sas — 4 novembre 2026
+
+- [Refus des répétitions natives](2026-11-04-refus-repetition-scenes-natives.md).
+- [Bornes et réparations mesurées des scènes](2026-11-04-gqel-bornes-et-reparations-des-scenes.md).
+- [Ordre du contexte natif](2026-11-04-ordre-contexte-natif-et-donnees-de-scene.md).
+- [Sections rédigées et revues du scénario](2026-11-04-sections-redigees-et-revues-du-scenario.md).
+- [Durée du worker transmise avant scellement](2026-11-04-transmission-duree-worker-avant-scellement.md).
+- [Préserver la cause pendant les clôtures](2026-11-04-preservation-erreur-execution-cloture-protocoles.md).
+- [Plans causaux copiés dominants](2026-11-04-refus-plans-causaux-copies-dominants.md).
+- [Lignes bornées et grammaire native](2026-11-04-lignes-natives-bornees-et-grammaire-scene.md).
+- [Consignes et diagnostics des lignes](2026-11-04-consignes-et-diagnostics-des-lignes-de-scene.md).

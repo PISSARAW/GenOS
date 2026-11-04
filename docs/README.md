@@ -1022,3 +1022,7 @@ lié (blocage systémique), correctifs proposés.
 - [Qualification collective des mécanismes intégrés](adr/2026-11-04-mission-mecanismes-integres.md).
 - [Lease A-Team pendant les appels attendus](adr/2026-11-04-renouvellement-lease-ateam-appels-bloquants.md).
 - [Délai HTTP sous autorité](adr/2026-11-04-deadline-http-modele-sous-autorite.md).
+
+## Génération bornée du Dernier Sas — 4 novembre 2026
+
+- [Corrections, relance native et limites de comparaison](06-qualite-preuves/dernier-sas-generation-bornee-2026-11-04.md).

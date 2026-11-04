@@ -156,3 +156,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 ## Relance du Dernier Sas du 4 novembre 2026
 
 - [Raccords natifs, exécutions et comparaison](relance-dernier-sas-raccords-integres-2026-11-04.md).
+
+## Génération bornée du Dernier Sas
+
+- [Répétitions, troncature et relance native du 4 novembre](dernier-sas-generation-bornee-2026-11-04.md).
