@@ -21,6 +21,7 @@ const { emit } = require('./agentOrchestrationState');
 const topologyWorkerKinds = require('./topologyWorkerKindService');
 const { alignTeamOrganization } = require('./aTeam/variantOrganizationAlignment');
 const dynamicOrganization = require('./dynamicOrganizationService');
+const { withRunnerLease } = require('./aTeam/execution/runnerLeaseService');
 
 function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
@@ -234,7 +235,8 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
   const stageZero = stageZeroMembers(activeRun, plan, existingWorkerIds);
-  const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
+  const accepted = await withRunnerLease({ db: setup.db, teamRunId: activeRun.teamRunId, runnerToken },
+    () => Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId }))));
   if (context.request.background === false) {
     const terminal = await executeForegroundTeam({ setup, activeRun, runnerToken, context, parent, launchWorker, plan, existingWorkerIds });
     await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });

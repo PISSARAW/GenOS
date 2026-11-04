@@ -8,6 +8,7 @@ const { runDependencyGraph } = require('./dependencyExecutionService');
 const handoffs = require('../../aTeamHandoffEvidenceService');
 const { closeMission } = require('../../missionClosureService');
 const { digest } = require('../../evidenceContractService');
+const { assertLease, requireLease, withRunnerLease } = require('./runnerLeaseService');
 
 async function executeTeamRun(input) {
   const run = await runStore.load(input.db, input.teamRunId);
@@ -26,8 +27,8 @@ async function executeTeamRun(input) {
     if (!ownedNodes.length || ownedNodes.some((node) => node.status !== 'READY')) return false;
     const receipts = await require('../relational/handoffAdmissionService').admitHandoffs({
       ...input, member, handoffs: receiptsForMember(snapshot.graph, ownedNodes) });
-    return input.launch({ ...member, handoffContext: receipts,
-      mission: handoffs.missionWithHandoffs(member.mission, receipts) });
+    return withRunnerLease(input, () => input.launch({ ...member, handoffContext: receipts,
+      mission: handoffs.missionWithHandoffs(member.mission, receipts) }));
   };
   const results = await runDependencyGraph({ db: input.db, plan, launch,
     options: { ...input.options, timeoutMs: Math.max(0, deadline - now()), onBlocked: input.onBlocked, onTick: refresh } });
@@ -107,24 +108,6 @@ async function observeWithLease(input, state) {
   if (input.options?.onTick) await input.options.onTick();
   const run = await requireLease(input);
   return observeExecution({ ...input, plan: state.plan, run, expired: state.now() >= state.deadline });
-}
-
-async function requireLease(input) {
-  const run = await runStore.load(input.db, input.teamRunId);
-  assertLease(run, input.runnerToken);
-  if (Date.parse(run.execution.runnerLease.expiresAt) - Date.now() < 120000) {
-    return runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
-      patch: { execution: { ...run.execution, runnerLease: { ...run.execution.runnerLease, expiresAt: new Date(Date.now() + 20 * 60 * 1000).toISOString() } } } });
-  }
-  return run;
-}
-
-function assertLease(run, token) {
-  const lease = run?.execution?.runnerLease;
-  const expiresAt = Date.parse(lease?.expiresAt);
-  if (!token || lease?.token !== token || !Number.isFinite(expiresAt) || expiresAt <= Date.now() || run.status !== 'RUNNING') {
-    throw coded('A-Team runner lease is absent, expired or superseded.', 'ATEAM_RUN_LEASE_LOST');
-  }
 }
 
 async function finalizeExecution(input) {

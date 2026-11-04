@@ -17,11 +17,12 @@ async function run() {
   ];
   const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution, changeOrganization: dynamicOrganization.changeOrganization };
   const originalLoad = store.load;
-  store.load = async () => createCount ? runtimeSnapshotRun() : null;
+  store.load = async () => createCount ? { ...runtimeSnapshotRun(), status: 'RUNNING', execution: { runnerLease } } : null;
   let capacity;
   let assignedRoles;
   let createCount = 0;
   let claimCount = 0;
+  let runnerLease = null;
   let launches = 0;
   let allocatedTokens = 0;
   let activatedOrganization = null;
@@ -44,7 +45,10 @@ async function run() {
     claimCount += 1;
     const run = runtimeSnapshotRun();
     run.status = 'RUNNING';
-    return claimCount === 2 ? { claimed: false, run } : { claimed: true, token: `lease-${claimCount}`, run };
+    if (claimCount === 2) return { claimed: false, run };
+    runnerLease = { token: `lease-${claimCount}`, expiresAt: new Date(Date.now() + 1200000).toISOString() };
+    run.execution = { runnerLease };
+    return { claimed: true, token: runnerLease.token, run };
   };
   runtime.releaseExecution = async () => true;
   dynamicOrganization.changeOrganization = async (_db, input) => {
