@@ -95,3 +95,8 @@ Le schéma garantit une forme et des références admissibles, pas l'exactitude
 du calcul. Ce contrat ne concerne pas les autres observations métier ou les
 daemons déterministes dotés d'un autre contrat. L'activation du format vient de
 l'assignation scellée ; une simple mention dans le prompt ne l'active pas.
+
+La [relance réelle du 2026-11-04](../06-qualite-preuves/cooperation-llm-sortie-daemon-2026-11-04.md)
+produit deux réponses de forme valide, mais aucun constat admissible : une
+abstention hors du périmètre et une somme fausse refusée par les oracles. Les
+tests contrôlés passent ; la coopération complète avec ce LLM reste non qualifiée.
