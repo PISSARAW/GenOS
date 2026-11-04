@@ -10,6 +10,8 @@ const tests = ['test_inventory_p0.cjs', 'test_inventory_p1.cjs', 'test_inventory
   'test_ateam_relational_handoffs.cjs', 'test_gqel_grounded_quotes.cjs',
   'test_gqel_native_narrative.cjs', 'test_mission_mechanisms.cjs',
   'test_gqel_creative_metadata_bounds.cjs',
+  'test_gqel_scene_repetition.cjs', 'test_gqel_scene_generation.cjs',
+  'test_gqel_native_context_order.cjs', 'test_gqel_screenplay_package.cjs',
   'test_ateam_runner_lease.cjs',
   'test_model_provider_deadline.cjs',
   'test_morphogenesis_p3_qualification.js', 'test_morphogenesis_transition_compensation.js',
