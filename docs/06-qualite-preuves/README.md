@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [autopsie-competence-et-couverture-genos-2026-11-04.md](autopsie-competence-et-couverture-genos-2026-11-04.md) — causes de l'échec, couverture primaire limitée, reprise d'analyse par le runtime et clôture refusée par le graphe de vérité.
+
 - [competence-cinq-variantes-controle-positif-2026-11-04.md](competence-cinq-variantes-controle-positif-2026-11-04.md) — règles typées, contrôle positif validé avant lancement et comparaison prospective de cinq variantes.
 
 - [cooperation-llm-sortie-daemon-2026-11-04.md](cooperation-llm-sortie-daemon-2026-11-04.md) — sortie typée réelle, abstention hors périmètre et somme fausse, 7 516 tokens, refus maintenu.

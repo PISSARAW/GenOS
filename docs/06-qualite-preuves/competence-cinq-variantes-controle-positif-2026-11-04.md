@@ -322,6 +322,11 @@ python scripts/experiments/crosscheck_typed_competence.py D:\genos-competence-re
 
 ## Vérifications et limites
 
+L'[autopsie de couverture GenOS](autopsie-competence-et-couverture-genos-2026-11-04.md)
+distingue les services réellement utilisés des mécanismes autonomes absents,
+quantifie la répétition des corrections et conserve les essais d'orchestration
+ultérieurs. Ces essais ne changent pas les scores de cette campagne.
+
 Les vingt tests ciblés passent. Ils couvrent aussi la correction du cas `3x+3`
 à l'entrée 159, le rejet d'un mauvais coefficient, la composition, la liaison
 d'époque et l'absence de réponse réservée dans le témoin de correction.
