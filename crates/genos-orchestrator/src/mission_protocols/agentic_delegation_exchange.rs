@@ -3,6 +3,7 @@
 #[path="agentic_delegation_exchange_tasks.rs"] mod tasks;
 #[path="agentic_delegation_exchange_returns.rs"] mod returns;
 #[path="agentic_delegation_exchange_closure.rs"] mod closure;
+#[path="agentic_delegation_exchange_hierarchy.rs"] mod hierarchy;
 use super::{Binding,agentic_delegation::Assignment,agentic_ledger::StepKey};
 use rusqlite::{Connection,Transaction};
 use serde::{Deserialize,Serialize};
@@ -31,7 +32,7 @@ pub(crate) fn require_task_in(conn:&Connection,binding:&Binding,a:&Assignment)->
 pub(crate) fn receive_returns_in(tx:&Transaction<'_>,binding:&Binding,key:&StepKey)->Result<(),String> {
     let spec=super::agentic_admission::admitted_in(tx,binding)?;
     let Some(profile)=spec.config.orchestration else { return Ok(()); };
-    if key.agent_id!=profile.coordinator { return Ok(()); }
+    if profile.hierarchy.is_none() && key.agent_id!=profile.coordinator { return Ok(()); }
     let assignments=super::agentic_delegation::before_in(tx,binding,key)?;
     for a in &assignments { returns::completed(tx,binding,a)?; }
     for a in &assignments { returns::deliver(tx,binding,a)?; }
@@ -42,6 +43,7 @@ pub(crate) fn view_in(conn:&Connection,binding:&Binding,key:&StepKey)->Result<Va
     super::store::current_checked(conn,binding)?;
     let spec=super::agentic_admission::admitted_in(conn,binding)?;
     let Some(profile)=spec.config.orchestration else { return Ok(Value::Null); };
+    if profile.hierarchy.is_some() { return hierarchy::view(conn,binding,key); }
     if key.agent_id!=profile.coordinator { return worker_view(conn,binding,key); }
     let assignments=super::agentic_delegation::before_in(conn,binding,key)?;
     let mut results=Vec::new();let mut proofs=Vec::new();
@@ -92,3 +94,7 @@ pub(crate) fn received_artifact_in(conn:&Connection,binding:&Binding,input:(&Ste
 #[cfg(test)]
 #[path="agentic_delegation_exchange_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path="agentic_delegation_exchange_hierarchy_tests.rs"]
+mod hierarchy_tests;
