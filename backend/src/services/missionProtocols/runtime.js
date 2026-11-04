@@ -70,10 +70,34 @@ async function preemptAgent(agentId) {
 }
 
 async function runInProcess(ctx, execute) {
+  let executionFailed = false;
   try { return await execute(); }
+  catch (error) { executionFailed = true; throw error; }
   finally {
-    try { await require('./gqwf').finishInProcess(ctx.db, { runId: ctx.executionRun.id }); }
-    finally { await finish(ctx.db, ctx.executionRun.id); }
+    const failures = await finalizeInProcess(ctx);
+    reportCleanupFailures(ctx, executionFailed ? failures : failures.slice(1));
+    if (!executionFailed && failures.length) throw failures[0].error;
+  }
+}
+
+async function finalizeInProcess(ctx) {
+  const failures = [];
+  try { await require('./gqwf').finishInProcess(ctx.db, { runId: ctx.executionRun.id }); }
+  catch (error) { failures.push({ protocol: 'GQWF', error }); }
+  try { await finish(ctx.db, ctx.executionRun.id); }
+  catch (error) { failures.push({ protocol: 'ALLOSTASIS', error }); }
+  return failures;
+}
+
+function reportCleanupFailures(ctx, failures) {
+  for (const failure of failures) {
+    try {
+      console.error('[MissionProtocols] Secondary cleanup refusal; original failure preserved.', {
+        runId: ctx.executionRun.id, protocol: failure.protocol,
+        code: failure.error?.code || 'MISSION_PROTOCOL_CLEANUP_FAILED',
+        detail: String(failure.error?.message || failure.error).slice(0, 1000)
+      });
+    } catch (_) { /* Logging must not replace the execution or protocol failure. */ }
   }
 }
 
