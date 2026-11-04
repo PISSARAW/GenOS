@@ -25,11 +25,22 @@ function options(state, generator, adapters) {
   return { planScenes: true, initialNativeArtifact: true,
     prepareRequest: request => withNativeContext(state, request),
     generator: request => request.operation === 'generate' ? generator(request) : native(request),
-    materializer: async request => {
-      await assertActive(state.ctx, request);
-      const next = await adapters.candidateOf(await adapters.revise(state.ctx, request));
-      return adapters.recordCandidate(state, next);
-    } };
+    materializer: request => materializeNative(state, { request, adapters }) };
+}
+
+async function materializeNative(state, input) {
+  await assertActive(state.ctx, input.request);
+  try {
+    const next = await input.adapters.candidateOf(await input.adapters.revise(state.ctx, input.request));
+    return input.adapters.recordCandidate(state, next);
+  } catch (error) {
+    if (error.nativeUsage) {
+      state.usage.inputTokens += error.nativeUsage.inputTokens;
+      state.usage.outputTokens += error.nativeUsage.outputTokens;
+      state.usage.costUsd += error.nativeUsage.costUsd;
+    }
+    throw error;
+  }
 }
 
 module.exports = { options };

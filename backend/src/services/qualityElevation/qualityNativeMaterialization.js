@@ -24,10 +24,8 @@ async function materialize(context, candidate) {
 function responseFormat(mission, content) {
   if (typeof content !== 'string' || !content.trim()) throw fail('GQEL_ARTIFACT_INVALID', 'Complete authored content required.');
   const format = structuredClone(require('../workerEvidenceIdentityPrompt').workerResponseFormat(mission));
-  format.schema.allOf ||= [];
-  format.schema.allOf.push({ properties: { workerArtifact: { properties: {
-    content: { properties: { candidate: { const: content } }, required: ['candidate'] }
-  }, required: ['content'] } }, required: ['workerArtifact'] });
+  format.schema.properties.workerArtifact.properties.content.properties.candidate.const = content;
+  format.schema.required = [...new Set([...format.schema.required, 'workerArtifact'])];
   return format;
 }
 

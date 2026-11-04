@@ -95,6 +95,24 @@ async function substitution() {
     return true;
   });
 }
+async function materializationRepair() {
+  const ctx = context(), original = ctx.revise;
+  let attempts = 0;
+  ctx.revise = async request => {
+    if (attempts++ > 0) return original(request);
+    return generation.generate({ mission: ctx.mission, qualityRequest: request,
+      promptText: request.prompt, maxTokens: 100 }, async () => ({ ...result('invalid envelope'),
+      schemaViolation: { violations: ['candidate differs from the authored constant'] } }));
+  };
+  const selected = await native.elevateEvidence(ctx);
+  assert.equal(attempts, 2);
+  assert.equal(selected.evidenceReport.workerArtifact.content.candidate, GOOD);
+  const usage = selected.evidenceReport.qualityFeedback.budget;
+  assert.equal(usage.usageComplete, true);
+  assert.equal(usage.calls, ctx.calls.length + 3);
+  assert.equal(usage.tokens, usage.calls * 30);
+  assert.equal(selected.consumed, usage.tokens, 'Rejected materialization usage is included once.');
+}
 async function contextOverflow() {
   const ctx = context();
   ctx.mission.prompt = MISSION_CONTEXT + 'x'.repeat(ctx.contract.maxPromptChars);
@@ -127,6 +145,7 @@ function budget() {
   const fields = generation.requestFields({ mission: ctx.mission, qualityRequest: request }, { maxTokens: 3000 });
   const bounded = generation.boundGeneration({ ...fields, mission: ctx.mission, promptText: 'package' });
   assert.ok(bounded.requestTokenBudget > GOOD.length + 2000, 'The exact candidate schema must be reserved.');
+  assert.equal(fields.responseFormatOverride.schema.properties.workerArtifact.properties.content.properties.candidate.const, GOOD);
 }
 async function main() {
   const previous = [authority.assertRun, receipt.issueQualityReceipt, receipt.recordQualityCheckpoint, execution.recordExecutionEvent];
@@ -134,7 +153,7 @@ async function main() {
   receipt.issueQualityReceipt = async () => ({ schema: 'explicit-unit-test-stub' });
   receipt.recordQualityCheckpoint = async () => ({});
   execution.recordExecutionEvent = async () => ({});
-  try { await positive(); await substitution(); await contextOverflow(); await materializationGuards(); budget(); }
+  try { await positive(); await substitution(); await materializationRepair(); await contextOverflow(); await materializationGuards(); budget(); }
   finally { [authority.assertRun, receipt.issueQualityReceipt, receipt.recordQualityCheckpoint, execution.recordExecutionEvent] = previous; }
   console.log('PASS native narrative: structural repair, metered plan/scenes/envelope, unchanged candidate and comparison (synthetic model replies).');
 }

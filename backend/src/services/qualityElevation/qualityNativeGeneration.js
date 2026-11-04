@@ -16,9 +16,20 @@ function boundGeneration(ctx) {
 
 async function generate(ctx, invoke) {
   const bounded = boundGeneration(ctx);
-  if (runtimeContract(ctx.mission)) return invoke(bounded);
+  if (runtimeContract(ctx.mission)) return materializationResult(ctx, await invoke(bounded));
   return require('../workerEvidenceSchemaRepair').generateWithSchemaRepair({ promptText: ctx.promptText,
     generate: repairedPrompt => invoke({ ...bounded, promptText: repairedPrompt }) });
+}
+
+function materializationResult(ctx, result) {
+  if (ctx.qualityRequest?.operation !== 'native_artifact_materialization' || !result.schemaViolation) return result;
+  try { require('./qualityRuntimeModelAdapter').meteredReply(result, result.text); }
+  catch (error) {
+    if (error.protocolReply) error.nativeUsage = { inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens, costUsd: result.costUsd || 0 };
+    throw error;
+  }
+  return result;
 }
 
 function promptText(ctx, original) {

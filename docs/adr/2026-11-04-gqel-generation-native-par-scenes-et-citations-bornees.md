@@ -38,6 +38,14 @@ ne remplace aucun contrôle qualité et ne limite pas la longueur du candidat.
 Un résultat non résolu et les ACK négatifs restent autorisés ; les sources,
 identités, digests et évaluations exigés ne sont pas supprimés.
 
+La constante du candidat est placée directement dans sa propriété JSON Schema,
+afin que le décodage contraint du fournisseur puisse la prendre en compte.
+L'égalité exacte reste vérifiée au retour. Une violation de schéma mesurée lors
+de la matérialisation rejoint les réparations protocolaires déjà bornées par
+le contrat ; ses tokens sont comptés une fois, dans les deux registres d'usage.
+Une troncature, une métrologie non vérifiée ou une autorité périmée ne deviennent
+pas une réparation de format autorisée.
+
 Une structure refusée produit une évaluation runtime non acceptée, sans score
 sémantique ni revue. Ses défauts alimentent la réparation bornée suivante. Cette
 absence de revue ne crée aucune preuve positive et ne permet aucune promotion.
