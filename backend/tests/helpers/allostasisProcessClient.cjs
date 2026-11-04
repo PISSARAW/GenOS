@@ -8,6 +8,16 @@ function stopChild(child) {
   return new Promise(resolve => { child.once('exit', resolve); child.kill(); });
 }
 
+function deliver(child, message, fail) {
+  const send = () => {
+    try {child.send(message, error => {if (error) fail(error);});}
+    catch (error) {fail(error);}
+  };
+  // Real transit avoids one-millisecond cross-process clock quantization; timestamps stay untouched.
+  if (message.value?.protocol === 'genos.allostasis/v1') setTimeout(send, 20);
+  else send();
+}
+
 async function startNode(options) {
   const child = fork(path.join(__dirname, 'allostasisProcessNode.cjs'),
     [options.role, options.directory, options.providerDirectory], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
@@ -41,7 +51,7 @@ async function startNode(options) {
   return { pid: child.pid,
     request(action, value, principal = 'supervisor') {
       if (exited) return Promise.reject(Object.assign(new Error('ALLOSTASIE process offline.'), { code: 'SOURCE_UNAVAILABLE' }));
-      const id = ++sequence; return request(id, () => child.send({ id, action, value, principal }));
+      const id = ++sequence; return request(id, () => deliver(child, { id, action, value, principal }, fail));
     }, stop() { return stopChild(child); },
   };
 }

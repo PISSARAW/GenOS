@@ -37,7 +37,7 @@ const suppliedDiagnosis = prepareToolArguments({ task: 'Maintain site', hypothes
 assert.deepEqual(suppliedDiagnosis.args.hypotheses, request.diagnosticHypotheses);
 assert.equal(missionRuntimeContext({ communication_required: true }).communicationRequired, true);
 assert.deepEqual(missionRuntimeContext(request), {
-  successCriteria: request.successCriteria, hypotheses: request.hypotheses
+  successCriteria: request.successCriteria, hypotheses: request.hypotheses, userTopologyRequested: false
 });
 const workerRuntimeContext = require('../bin/orchestratorMissionHelpers.cjs').missionRuntimeContext({
   communicationRequired: true, coordinationPolicy: { communicationCadence: 'continuous_sync' },
