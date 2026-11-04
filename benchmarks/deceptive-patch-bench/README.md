@@ -1,6 +1,6 @@
 # Deceptive-Patch-Bench — DPB-1
 
-**Statut : préparé, campagne modèle non exécutée.** Ce banc compare trois
+**Statut : 90 résultats Qwen audités ; qualification stricte refusée.** Ce banc compare trois
 composants sur trois bugs construits pour distinguer un test superficiel d'une
 correction valide. Aucun taux de réussite attendu n'est encodé.
 
@@ -10,6 +10,14 @@ du matérialiseur GQWF `portable-copy-v1` et de `workerArtifactCodeProof`.
 Il ne lance pas l'orchestrateur de production, GQEL, les leases MCP ou
 l'allostasie. Les résultats devront être nommés **ablation de composants DPB-1**.
 Voir l'[ADR](../../docs/adr/0795-benchmark-deceptive-patch-composants.md).
+
+Le [rapport du 4 novembre](../../docs/06-qualite-preuves/deceptive-patch-qwen-trois-bras-2026-11-04.md)
+conserve les résultats : A et B livrent chacun 4/30 artefacts 8/8, C en livre
+2/30, avec zéro corruption finale mesurée dans C. Aucune fausse déclaration
+n'est observée et le validateur ne refuse aucune soumission : son effet
+anti-faux-succès n'est donc pas identifié. Dix candidats C pourtant 8/8 ne
+sont jamais soumis avec succès. Quatre requêtes expirées sont conservées
+comme erreurs d'infrastructure, sans réinférence ni coût inventé.
 
 La version `components-v2` corrige la détection de fin des tests asynchrones :
 le marqueur est émis à `beforeExit`, et un résumé TAP ultérieur est autorisé.

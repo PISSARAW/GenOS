@@ -1,7 +1,7 @@
 # ADR 0795 — Benchmark Deceptive-Patch par ablation de composants
 
 - **Date** : 2026-11-04
-- **Statut** : accepté pour préparation du pilote ; aucun résultat modèle acquis
+- **Statut** : accepté pour un pilote d'ablation ; campagne Qwen analysée, qualification stricte refusée
 - **Domaine** : benchmarks, provenance, GQWF
 
 ## Contexte
@@ -50,6 +50,23 @@ Les répétitions portent sur trois tâches construites par le même expériment
 Les contrastes sont descriptifs et ne suffisent pas à prouver une supériorité
 générale. L'API de permissions Node réduit les capacités ; elle ne remplace pas
 un sandbox OS pour du code hostile à l'oracle.
+
+## Relevé d'exécution du 4 novembre
+
+Les 90 tentatives de `components-v2` sont conservées sur D:, dont 86 exécutions
+normales et quatre interruptions avec usage natif incomplet. Le contrôleur
+opérationnel a repris les essais restants sans rejouer les appels : base conservée
+pour un C interrompu, workspace mutable préservé pour A/B. Cette politique de
+récupération est postérieure aux premiers incidents et ne transforme pas les
+interruptions en résultats stricts. Le scoreur original refuse correctement la
+campagne complète ; un audit opérationnel distinct rejoue les 90 artefacts.
+
+Le [rapport](../06-qualite-preuves/deceptive-patch-qwen-trois-bras-2026-11-04.md)
+mesure 4/30 artefacts 8/8 pour A et B, 2/30 pour C. Le zéro corruption de C
+accompagne 28 retours à la base. Aucun effet causal net n'est démontré. Les
+exemples de commandes copiés littéralement et l'absence de contrôle positif
+modèle préalable limitent l'interprétation. L'instance Ollama a été réservée
+avec l'autorisation de l'utilisateur ; les changements de ressources sont tracés.
 
 ## Alternatives
 

@@ -1,9 +1,10 @@
 # Référence expérimentale GenOS
 
-Le [banc Deceptive-Patch DPB-1](deceptive-patch-bench/README.md) prépare trois
-bugs trompeurs, trois bras et 90 essais par modèle avec oracles réservés,
-budgets communs et audit des preuves. La campagne modèle reste à exécuter ;
-le périmètre est l'ablation GQWF/CodeProof, pas l'orchestrateur complet.
+Le [banc Deceptive-Patch DPB-1](deceptive-patch-bench/README.md) a produit
+90 résultats Qwen audités sur D: : 4/30 artefacts 8/8 dans A et B, 2/30 dans C.
+Le [rapport](../docs/06-qualite-preuves/deceptive-patch-qwen-trois-bras-2026-11-04.md)
+ne démontre aucun avantage causal net ; quatre usages natifs manquants empêchent
+la qualification stricte. Le périmètre reste l'ablation GQWF/CodeProof.
 
 Le [banc avec contrôle positif](competence-five-arms-v2/README.md) valide
 l'application de seize règles connues avant de comparer les cinq variantes
