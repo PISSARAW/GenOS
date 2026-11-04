@@ -214,6 +214,7 @@ function assignmentContractFields(mission) {
 function missionContractFields(mission) {
   return {
     ...missionScopeFields(mission), ...assignmentContractFields(mission),
+    ...require('./workerResourcePolicy').qualityAllocation(mission),
     ...(mission.gvxTrialContext ? require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext) : {}),
     methodContract: mission.methodContract,
     codeVerificationContract: mission.codeVerificationContract || null,
@@ -273,6 +274,7 @@ function workerLimits(kind, subOrchestrator) {
   const maxIterations = Object.hasOwn(policy, 'maxIterations') ? policy.maxIterations : 10;
   const limits = { ...policy };
   delete limits.maxTokens;
+  delete limits.maxQualityTokens;
   delete limits.maxTimeMs;
   delete limits.maxCpuMs;
   delete limits.executionMode;

@@ -34,6 +34,7 @@ async function main() {
     assert.equal(await fs.readFile(result.path, 'utf8'), text);
     assert.equal(result.sha256, digest(text));
     assert.deepEqual(await delivery.deliver(input), result);
+    await debriefRevision(input, result);
     await fs.writeFile(result.path, 'Existing user work.');
     await assert.rejects(delivery.deliver(input), { code: 'GQEL_DELIVERY_CONFLICT' });
     assert.equal(await fs.readFile(result.path, 'utf8'), 'Existing user work.');
@@ -50,5 +51,28 @@ async function main() {
     assert.deepEqual((await fs.readdir(root)).filter(name => name.endsWith('.tmp')), []);
     console.log('Verified final delivery, byte binding, idempotency, confinement and no-overwrite: PASS');
   } finally { await db.close(); await fs.rm(root, { recursive: true, force: true }); }
+}
+
+async function debriefRevision(input, receipt) {
+  const store = require('../src/services/aTeam/teamRunStore');
+  const original = { load: store.load, update: store.update };
+  let attempts = 0, saved;
+  store.load = async () => ({ ...input.run, revision: 8 + attempts,
+    execution: { debrief: { objectiveMet: true }, integration: {
+      completion: input.completion, finalQuality: input.finalQuality } } });
+  store.update = async options => {
+    attempts++;
+    if (attempts === 1) throw Object.assign(new Error('Concurrent debrief'), { code: 'ATEAM_RUN_CONFLICT' });
+    saved = options; return options.patch;
+  };
+  try {
+    await delivery.record(input.db, input.run.teamRunId, receipt);
+    assert.equal(saved.revision, 9);
+    assert.deepEqual(saved.patch.execution.debrief, { objectiveMet: true });
+    assert.deepEqual(saved.patch.execution.delivery, receipt);
+    await assert.rejects(delivery.record(input.db, input.run.teamRunId, { ...receipt, sha256: 'forged' }),
+      { code: 'GQEL_DELIVERY_UNVERIFIED' });
+    assert.equal(attempts, 2);
+  } finally { Object.assign(store, original); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

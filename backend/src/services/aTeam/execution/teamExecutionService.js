@@ -140,8 +140,8 @@ async function finalizeExecution(input) {
     evidenceIsUsable: async ({ evidenceId }) => valid.has(evidenceId) });
   const delivery = accepted ? await require('../../qualityElevation/qualityFinalDelivery')
     .deliver({ db: input.db, run, completion, finalQuality: input.finalQuality }) : { required: Boolean(run.finalArtifactOutput), delivered: false };
-  if (delivery.required && accepted) await runStore.update({ db: input.db, teamRunId: run.teamRunId,
-    revision: run.revision, patch: { execution: { ...run.execution, delivery } } });
+  if (delivery.required && accepted) await require('../../qualityElevation/qualityFinalDelivery')
+    .record(input.db, run.teamRunId, delivery);
   return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage,
     results: input.results, audit, completion, completionInput, delivery, qualityFeedback: observed.qualityFeedback, finalQuality: input.finalQuality };
 }

@@ -31,6 +31,25 @@ optionnel du lecteur est conservé dans les routes scellées.
 Les champs de handoff, de dépendances, de critères et d'artefact traversent le
 dispatch direct, l'adaptateur et le runner différé. Le runtime vérifie aussi
 localement le schéma effectif du rapport des workers concernés avant clôture.
+Le schéma créatif natif interdit la duplication dans `artifactText` : le texte
+canonique est `workerArtifact.content.candidate`. Hypothèses, test de réfutation
+proposé et provenance restent obligatoires. Les critères d'acceptation sont
+dérivés uniquement des contrôles indépendants authentifiés portant exactement
+leur identifiant ; ceux qui ne sont pas couverts restent indéterminés. Les
+acquittements de transmission ne sont jamais complétés automatiquement.
+
+Un producteur créatif avec GQEL et allocation explicite peut consommer un budget
+de qualité supérieur au plafond ordinaire de 40 000 jetons. Son plafond reste
+le minimum de l'allocation, du contrat GQEL et de la politique de qualité
+(160 000 jetons au maximum). Le budget doit traverser la création de l'identité
+persistée, le dispatch CLI et le lancement différé avant scellement. Les
+missions ordinaires et les autres types conservent leurs plafonds. Les jetons
+réellement consommés, y compris les lecteurs et réparations, restent comptés
+par le même garde cumulatif et par le budget du parent.
+L'allocation déclarée figure dans `mission.qualityTokenAllocation` et participe
+à la reconstruction du plafond canonique. L'effacer ou augmenter les ressources
+au-delà de cette allocation est refusé. Le budget de temps global du parent
+n'augmente pas les plafonds de temps ou de CPU du worker lors de l'incarnation.
 
 `finalArtifactOutput: {"path":"LE_DERNIER_SAS.md"}` est un mandat explicite
 d'export dans le workspace déjà lié à l'orchestrateur. Sa destination entre
@@ -40,6 +59,11 @@ La publication utilise un fichier temporaire et un lien exclusif, refuse les
 symlinks, traversées et fichiers existants différents, puis relit et hache les
 octets. Une reprise identique est idempotente. Une erreur d'export échoue
 explicitement : elle ne devient pas une promesse de livraison.
+
+Le reçu de livraison est enregistré à partir de la dernière révision persistée
+du run, après le débrief. Un conflit concurrent autorise au plus trois essais,
+avec nouvelle lecture et vérification de l'artefact accepté et de la destination
+à chaque essai. Le débrief et les autres champs d'exécution sont conservés.
 
 Une demande `morphogenesis: true` sur le dispatch A-Team exécute le planificateur
 existant, valide son plan et conserve son reçu dans le run. Sa portée déclarée

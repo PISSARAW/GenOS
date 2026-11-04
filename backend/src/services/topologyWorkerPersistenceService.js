@@ -10,6 +10,7 @@ async function ensureTopologyWorker(db, input) {
     methodContract: input.methodContract,
     workerAssignment: input.workerAssignment, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(input),
     workerTokenLimit: input.workerTokenLimit,
+    executionBudget: { tokens: input.executionBudget?.tokens },
     communicationRequired: input.communicationRequired === true,
     topologySessionId: input.topologySessionId,
     nicheDomain: input.nicheDomain,

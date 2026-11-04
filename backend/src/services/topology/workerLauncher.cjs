@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
-const { workerLaunchPayload } = require('../../../bin/workerLaunchPayload.cjs');
+const { workerLaunchPayload, selectedBudget } = require('../../../bin/workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService.js');
 const { ensureTopologyWorker } = require('../topologyWorkerPersistenceService.js');
 const { attachAgent } = require('../missionIdentityService.js');
@@ -61,7 +61,8 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     methodContract: member.methodContract,
     ...extra,
     workerAssignment: member.workerAssignment, ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(member),
-    workerTokenLimit: member.executionBudgetTokens,
+    workerTokenLimit: selectedBudget(member, context.request)?.tokens,
+    executionBudget: selectedBudget(member, context.request),
     topologySessionId: context.topologySession?.sessionId || null,
     mission: member.mission || context.task
   });

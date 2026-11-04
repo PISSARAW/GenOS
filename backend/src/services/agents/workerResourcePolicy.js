@@ -12,12 +12,27 @@ function requiresCommunication(mission) {
     || String(cadence || '').toLowerCase() === 'continuous_sync';
 }
 
+function qualityMaximum(policy, mission, ordinary) {
+  const quality = mission.qualityElevation ?? mission.workerContract?.qualityElevation;
+  const allocated = Number(mission.executionBudget?.tokens ?? mission.execution_budget?.tokens);
+  if (!quality || !policy.maxQualityTokens || !Number.isSafeInteger(allocated) || allocated <= 0) return ordinary;
+  const maximum = Math.min(policy.maxQualityTokens, allocated, Number(quality.budgetMaxTokens));
+  return Number.isSafeInteger(maximum) && maximum > 0 ? maximum : ordinary;
+}
+
+function qualityAllocation(mission) {
+  const quality = mission.qualityElevation ?? mission.workerContract?.qualityElevation;
+  const allocated = Number(mission.executionBudget?.tokens ?? mission.execution_budget?.tokens);
+  return quality && Number.isSafeInteger(allocated) && allocated > 0 ? { qualityTokenAllocation: allocated } : {};
+}
+
 function tokenCeiling(policy, mission, native) {
   if (native) return 0;
   const requested = Number(mission.workerTokenLimit);
   const baseMaximum = policy.maxTokens ?? DEFAULT_WORKER_TOKEN_LIMIT;
-  const policyMaximum = requiresCommunication(mission)
+  const ordinaryMaximum = requiresCommunication(mission)
     ? Math.max(baseMaximum, COMMUNICATING_WORKER_TOKEN_LIMIT) : baseMaximum;
+  const policyMaximum = qualityMaximum(policy, mission, ordinaryMaximum);
   const maximum = Number.isFinite(requested) && requested > 0
     ? policyMaximum : Math.min(policyMaximum, DEFAULT_WORKER_TOKEN_LIMIT);
   return Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), maximum) : maximum;
@@ -44,4 +59,4 @@ function workerResources(kind, mission = {}) {
     executionMode: native ? 'deterministic' : 'model' };
 }
 
-module.exports = { workerResources };
+module.exports = { workerResources, qualityAllocation };

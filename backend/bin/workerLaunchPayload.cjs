@@ -152,4 +152,4 @@ function workerLaunchPayload(args) {
   };
 }
 
-module.exports = { workerLaunchPayload };
+module.exports = { workerLaunchPayload, selectedBudget };

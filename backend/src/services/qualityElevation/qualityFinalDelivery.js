@@ -74,9 +74,31 @@ async function resume(db, run) {
   if (run.status !== 'COMPLETED' || !run.finalArtifactOutput) return null;
   const integration = run.execution.integration;
   const receipt = await deliver({ db, run, completion: integration.completion, finalQuality: integration.finalQuality });
-  await require('../aTeam/teamRunStore').update({ db, teamRunId: run.teamRunId,
-    revision: run.revision, patch: { execution: { ...run.execution, delivery: receipt } } });
+  await record(db, run.teamRunId, receipt);
   return receipt;
 }
 
-module.exports = { assertContract, assertUnchanged, contract, deliver, resume };
+async function record(db, teamRunId, receipt) {
+  const store = require('../aTeam/teamRunStore');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const run = await store.load(db, teamRunId);
+    const integration = run?.execution?.integration;
+    const text = await verifiedText({ db, run: run || {},
+      completion: integration?.completion, finalQuality: integration?.finalQuality });
+    assertDeliveredReceipt(run, receipt, text);
+    try { return await store.update({ db, teamRunId, revision: run.revision,
+      patch: { execution: { ...run.execution, delivery: receipt } } }); }
+    catch (error) { if (error.code !== 'ATEAM_RUN_CONFLICT' || attempt === 2) throw error; }
+  }
+}
+
+function assertDeliveredReceipt(run, receipt, text) {
+  const destination = run.finalArtifactOutput;
+  if (receipt.teamRunId !== run.teamRunId || receipt.sha256 !== digest(text)
+    || receipt.path !== path.resolve(destination.workspaceRoot, destination.path)
+    || receipt.qualityReceiptId !== run.execution.integration.finalQuality.artifact.qualityReceiptId) {
+    throw fail('GQEL_DELIVERY_UNVERIFIED', 'Delivery receipt does not identify the accepted destination and artifact.');
+  }
+}
+
+module.exports = { assertContract, assertUnchanged, contract, deliver, resume, record };

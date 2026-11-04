@@ -6,6 +6,39 @@
   payloads, services de dispatch et évaluateurs. Les tests synthétiques sont
   distingués de la mission réelle.
 
+## Résultat livré le 4 novembre
+
+La mission `ateam_e7bc26a41280d55703ffd09fdc63d3bd` a terminé avec
+`completion.success: true`. L'auteur et le dramaturge sont des workers natifs
+terminés, avec couverture vérifiée 2/2 et transmission acceptée. Les lectures
+indépendantes GQEL ont validé les onze critères du contrat, dont les trois
+contrôles supplémentaires de continuité. Le lecteur GLM a passé ses contrôles
+de calibration ; les producteurs utilisent Gemma dans des exécutions distinctes.
+
+Le fichier `D:\scenario-court-metrage\LE_DERNIER_SAS.md` contient six scènes,
+1 855 mots utiles selon GQEL, 1 937 unités séparées par des espaces dans le
+fichier complet, et un score de 80/100. Sa taille relue est de 12 122 octets.
+Le SHA-256 relu correspond à l'artefact final signé :
+`a3eac5680aa945e41c971d1a056c3cb7df1ff2f0fb400383ddde8a18bf97a6f3`.
+Le reçu de qualité source est
+`gqel-46f9f7e54cb4a94f03e1e27d91450ac5ab7b68ace83044c0fdcfab721adb92c6`.
+
+L'auteur a consommé 59 851 jetons mesurés sur 100 000 autorisés, après refus
+d'un premier texte de 1 285 mots puis acceptation de 1 782 mots utiles. Le
+dramaturge a consommé 36 194 jetons sur 100 000 ; sa version finale a été
+acceptée dès la première lecture. Les deux oracles natifs sont acceptés avec
+deux sous-processus chacun. Les deux replays `basic` ont recalculé et vérifié
+la genèse et la trace de mémoire chaînée du snapshot, sans nouvelle inférence.
+Ce replay ne constitue pas une nouvelle mesure de la qualité dramaturgique.
+
+Une reprise réelle a authentifié de nouveau le reçu signé et la ligne durable,
+refait la livraison idempotente puis relu le même SHA-256. Les preuves et
+trajectoires sont conservées dans
+`D:\GenOS-runs\screenplay-repair-20261103\validation-finale.json`, avec le
+run canonique dans `team-state-final.json` et le reçu authentifié dans
+`verified-final-delivery.json`. La durée de vingt minutes reste une cible de
+jeu évaluée à la lecture ; aucune durée filmée ou répétée n'est prétendue mesurée.
+
 ## Constats vérifiés avant correction
 
 Le run `ateam_4bac0a63b517962115cc7caa37d336ab` est `BLOCKED`. Son auteur
@@ -63,15 +96,23 @@ ainsi que l'écrasement d'un fichier différent. Son reçu contient le chemin,
 le SHA-256 relu, la taille, le run collectif et le reçu GQEL source. Une reprise
 du run terminé peut retenter la livraison sans régénérer ni remplacer le texte.
 
-## Vérification en cours
+## Vérification
 
 Les tests ciblés vérifient propagation native, refus d'un titre ou résumé,
 absence de dialogues, métadonnées préservées, identités de handoff inventées,
 publication liée aux octets, idempotence et refus d'écrasement.
 Les suites GQEL existantes testent aussi les revues fabriquées, citations
 absentes, budgets, annulation et rejeu. Leurs réponses modèles sont synthétiques.
-Les résultats des contrôles complets et de la relance réelle seront ajoutés
-après observation ; aucun succès de mission n'est encore revendiqué ici.
+Les 25 tests de la suite qualité ont réussi, ainsi que les tests ciblés des
+contrats natifs, des vingt types de workers, de leur incarnation et des plafonds
+canoniques. Le contrôle complet de qualité a vérifié 8 824 fichiers avec zéro
+violation nouvelle. `cargo test --workspace` a terminé avec le code 0 le
+4 novembre, après reconstruction du binaire courant : 1 194 tests Rust réussis,
+zéro échec. `npm test` a également terminé avec le code 0, jusqu'aux quatorze
+suites de composition d'inventaire. `git diff --check` a terminé avec le code 0.
+Les journaux complets sont conservés dans le dossier externe de qualification :
+`code-quality-final.log`, `quality-suite-final.log`, `cargo-test-final-nov4.log`
+et `npm-test-qualified.log`.
 
 ## Incidents observés pendant la qualification réelle
 
@@ -114,3 +155,88 @@ autre clé. Il vérifie aussi que le sandbox n'hérite pas du secret parent.
 Ce refus a été conservé ; le brouillon GQEL n'a pas été publié comme scénario
 collectif validé. La cinquième relance utilise des autorisations et lectures
 fraîches avec ce raccord d'oracle, sans réutiliser l'attestation refusée.
+
+## Qualification complémentaire et reprise du 4 novembre
+
+| Essai | Observation réelle | Traitement |
+| --- | --- | --- |
+| v5 — `ateam_7998abf3708cbafb70363a79e5bfdec1` | Révision de 1 121 vers 1 720 mots ; continuité des équipements refusée, puis réponse de forme invalide. | Brouillon conservé sans publication ; schéma complet rappelé aussi après les instructions de réparation. |
+| v6 — `ateam_8d9176fc984b20f75aced4c8c5b28d0a` | Erreur de syntaxe dans un fichier modifié simultanément. | Syntaxe corrigée ; retrait du remplissage automatique des acquittements positifs. Une transmission absente reste refusée. |
+| v7 — `ateam_8439995a37c079162d70f4ea017c15c9` | Auteur terminé : 1 894 mots, GQEL et oracle natif acceptés. Critique arrêté avant inférence pour dépassement de la fenêtre de contexte. | Fenêtre configurée à 65 536 jetons, dans les limites du fournisseur ; budgets collectifs conservés. |
+| v8 — `ateam_9596cbc539a94b56e16355faf95f14e1` | Auteur terminé : 2 010 mots. Critique terminé. Dramaturge refusé : métadonnées créatives manquantes et duplication du scénario. | Une seule représentation canonique du texte : le schéma créatif natif interdit `artifactText` et exige toujours hypothèses, test proposé et provenance. |
+
+Les critères d'acceptation des producteurs créatifs sont désormais dérivés des
+contrôles indépendants authentifiés et cités du reçu GQEL, pour les identifiants
+exactement couverts. Un critère absent reste `null`, même si le modèle l'avait
+auto-déclaré satisfait. Le rapport conserve cette déclaration originale pour
+audit. Les évaluations des handoffs restent produites par le consommateur ;
+aucun acquittement positif ni contrainte générique n'est inventé.
+
+L'auteur v7 a aussi produit huit reçus OMEGA, un dossier EVIDENCE durable et une
+attestation native acceptée avec deux sous-processus. Ces observations attestent
+le parcours exécuté ; elles ne constituent pas l'activation de tous les concepts
+du catalogue. Le plan de morphogenèse conservé est une proposition pour une
+topologie simple, sans preuve d'une restructuration adaptative exécutée.
+
+La reprise du 4 novembre a rencontré un disque C: plein, provoquant des erreurs
+SQLite. Les artefacts non suivis de l'ancienne campagne du 17 octobre ont été
+déplacés vers `D:\GenOS-storage\archived-runs`, avec conservation de leur chemin
+par jonction. Les nouveaux temporaires de qualification sont placés sur D:.
+Une première exécution de `npm test` a également révélé un `GENOS_BIN` pointant
+sur une ancienne installation dépourvue de la commande `genome` ; la vérification
+doit utiliser le binaire reconstruit depuis le dépôt.
+
+Les 24 tests de la suite qualité ont réussi après cette reprise, dont les tests
+du pont d'oracle isolé, des critères signés et de la publication liée aux octets.
+La relance v9 est enregistrée sous `ateam_88ac3363f835fcfb5a0485a40993a7af`.
+Sa clôture et la livraison restent à constater avant toute revendication finale.
+
+L'essai v9 a finalement produit un scénario GQEL accepté de 2 136 mots,
+après correction d'un défaut de rythme. Sa clôture native a correctement refusé
+67 083 jetons mesurés contre un plafond de worker à 40 000, malgré une allocation
+d'équipe à 100 000. Le plafond de qualité créative est maintenant explicite et
+borné ; l'allocation traverse aussi l'incarnation persistée et le dispatch CLI.
+Les tests refusent toujours un dépassement cumulatif de l'allocation.
+
+L'essai v10 (`ateam_e98e850f690ea9fd262e8ceeacec7dc2`) a atteint la clôture
+collective `success: true` avec trois membres terminés et une couverture vérifiée
+de 3/3. Son scénario a été exporté, puis l'enregistrement du reçu a rencontré un
+conflit de révision : le débrief avait avancé l'état. La correction relit le run,
+revérifie l'artefact signé et conserve les champs du débrief lors d'une reprise
+bornée. La reprise réelle a enregistré le reçu et vérifié le SHA-256
+`a7663d2c8381e815f2220ae18a641fb4e8589c907d10fb06616e3692931b4b72`.
+
+La relecture humaine du texte v10 a cependant identifié une contradiction de
+chronologie et une frontière de contamination insuffisamment établie, malgré
+la revue automatique favorable. Cela démontre la limite du lecteur unique et
+du contrat initial : une signature authentifie une évaluation bornée, pas une
+vérité esthétique ou physique universelle. Le texte signé v10 est archivé dans
+le dossier externe de qualification. Une note de relecture factuelle et trois
+critères durs supplémentaires imposent à la relance v11 une nouvelle rédaction
+et de nouvelles revues : chronologie, frontière propre/sale et continuité des
+équipements. Aucun reçu v10 ne vaut validation de la nouvelle version.
+
+Les essais v11 et v12 ont été arrêtés avant toute inférence par la vérification
+canonique du contrat. Le premier révélait l'absence de l'allocation de qualité
+dans la reconstruction du contrat ; le second révélait que le temps global du
+parent avait été transmis comme plafond du worker. L'allocation de jetons est
+maintenant gelée dans `mission.qualityTokenAllocation`, contrôlée à l'admission,
+et la propagation des jetons conserve les plafonds locaux de temps/CPU. Les
+tests passent aussi pour une allocation d'équipe d'une heure et un worker
+limité à trente minutes ; une augmentation forgée ou une allocation effacée
+est refusée. L'essai v13 a effectivement démarré son auteur avec un budget
+natif de 100 000 jetons et 1 800 000 ms.
+
+L'auteur v13 a été refusé à 1 270 mots, puis accepté à 1 766 mots utiles.
+Le critique intermédiaire a pourtant déclaré le texte trop court sans comptage
+chiffré et a produit un verdict `reject`, refusé par sa clôture native. Le
+handoff contient bien les 11 115 caractères du candidat révisé : aucun résumé
+ni ancien candidat n'a remplacé la version sélectionnée. Ce refus n'est pas
+converti en succès. La formation v14 conserve deux producteurs créatifs natifs,
+auteur puis dramaturge, chacun soumis aux lecteurs indépendants et aux boucles
+de réparation GQEL. Cette configuration emploie une critique consommable par
+le cycle créatif plutôt qu'un certificat générique d'acceptation intermédiaire.
+Le seuil de complétude est renforcé à 1 600 mots utiles ; tous les critères
+durs de continuité et la validation finale restent obligatoires. Le brouillon
+ancien est archivé pour éviter la recopie de ses défauts ; la rédaction repart
+du brief et de la note de relecture.
