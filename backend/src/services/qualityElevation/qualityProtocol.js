@@ -1,7 +1,7 @@
 'use strict';
 const { digest, fail } = require('./qualityContract');
 const RETRYABLE = new Set(['GQEL_REVIEW_INVALID', 'GQEL_REVIEW_INCOMPLETE', 'GQEL_REVIEW_UNGROUNDED',
-  'GQEL_PLAN_INVALID', 'GQEL_SCENE_INVALID', 'GQEL_MATERIALIZATION_CHANGED']);
+  'GQEL_PLAN_INVALID', 'GQEL_SCENE_INVALID', 'GQEL_SCREENPLAY_SECTIONS_INVALID', 'GQEL_MATERIALIZATION_CHANGED']);
 function correctionRequest(request, failure) {
   const split = request.prompt.indexOf('\n');
   if (split < 0) throw fail('GQEL_PROTOCOL_PROMPT_INVALID', 'Protocol prompts must separate instructions and JSON data.');
@@ -21,6 +21,7 @@ function correctionRequest(request, failure) {
 }
 function correctionGuidance(request) {
   if (request.operation === 'native_artifact_materialization') return 'Conserve le candidat entier caractère pour caractère dans son enveloppe native. ';
+  if (request.operation === 'write:screenplay_sections') return 'Retourne le JSON complet titre, logline, personnages aux noms exacts et note dramaturgique, sans scène ni saut de ligne dans les champs. ';
   if (request.operation.startsWith('write:')) return 'Retourne exactement une scène jouée avec son en-tête demandé dans sceneText. ';
   return 'Vérifie que la liste checks contient exactement un objet par critère demandé, sans aucun doublon ni omission. ';
 }

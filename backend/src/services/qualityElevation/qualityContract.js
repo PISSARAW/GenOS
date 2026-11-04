@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('node:crypto');
+const { screenplayOptions, sectionsCriterion, verifySections } = require('./qualityScreenplaySectionsContract');
 const POLICIES = Object.freeze({
   fast: { maxIterations: 2, minQualityScore: 70, critiques: 1, requireDoubleBlind: false },
   balanced: { maxIterations: 3, minQualityScore: 80, critiques: 2, requireDoubleBlind: true },
@@ -105,15 +106,20 @@ function compileQualityContract(input = {}) {
   if (!policy) throw fail('GQEL_INVALID_CONTRACT', 'Unknown quality policy.');
   const domain = String(input.domain || inferDomain(input.mission)).toLowerCase().trim();
   const profile = profileFor(domain, input.mission), narrative = narrativeOptions(input);
+  const sections = screenplayOptions(input.screenplaySections, profile);
+  const defaults = criteriaFor(profile, narrative.targetMinutes);
+  if (sections) defaults.push(sectionsCriterion());
   const contract = { schema: 'genos.gqel-contract/v2', controllerRevision: '2.1-progress', domain, profile, mission: String(input.mission || ''), policy: name,
     ...reviewOptions(input, policy), ...narrative, ...limits(input),
-    criteria: normalizeCriteria(input.criteria || [], criteriaFor(profile, narrative.targetMinutes)) };
+    ...(sections ? { screenplaySections: sections } : {}),
+    criteria: normalizeCriteria(input.criteria || [], defaults) };
   if (contract.minSceneCount > contract.maxSceneCount) throw fail('GQEL_INVALID_CONTRACT', 'Impossible scene bounds.');
   return freeze({ ...contract, contractId: `gqel-${crypto.randomUUID()}`, digest: digest(contract), createdAt: new Date().toISOString() });
 }
 function verifyContract(contract) {
   const { digest: expected, contractId, createdAt, ...body } = contract;
   if (contract.schema !== 'genos.gqel-contract/v2' || expected !== digest(body)) throw fail('GQEL_CONTRACT_CHANGED', 'Compile a V2 contract before execution.');
+  verifySections(contract);
   return contract;
 }
 module.exports = { POLICIES, compileQualityContract, verifyContract, inferDomain, digest, freeze, fail };

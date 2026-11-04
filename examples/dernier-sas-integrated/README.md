@@ -16,6 +16,12 @@ Le plafond de 16 000 tokens couvre l'enveloppe complète du livrable. Les appels
 d'écriture d'une seule scène doivent employer les limites calculées par le
 workflow narratif ; ce plafond global n'est pas une cible par scène.
 
+L'option scellée `screenplaySections.characterNames` demande explicitement les
+profils d'Alain et de Vera. Le générateur rédige aussi le titre, la logline et la
+note dramaturgique avant la matérialisation du livrable. Le critère dur
+`screenplay_sections_complete` vérifie leur substance et leur cohérence sur le
+texte intégral ; les critères dramatiques continuent de citer les seules scènes.
+
 Le lancement intégré doit également exiger les mécanismes de mission, les ADN
 signés, les admissions cliniques, le handoff RPE et une transition MORPH réelle.
 Ce preset ne les remplace pas. Les artefacts et les clés éphémères restent hors

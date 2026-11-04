@@ -2,6 +2,7 @@
   "domain": "screenplay",
   "policy": "balanced",
   "targetMinutes": 20,
+  "screenplaySections": { "characterNames": ["Alain", "Vera"] },
   "maxIterations": 3,
   "minQualityScore": 80,
   "critiques": 2,

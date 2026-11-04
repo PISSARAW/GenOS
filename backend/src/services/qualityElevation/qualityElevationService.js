@@ -117,7 +117,8 @@ async function retainDraft(context, candidate) {
 }
 async function runRound(context) {
   const produced = await produce(context);
-  const candidate = await require('./qualityNativeMaterialization').materialize(context, produced);
+  const packaged = await require('./qualityScreenplayPackage').completeScreenplay(context, produced);
+  const candidate = await require('./qualityNativeMaterialization').materialize(context, packaged);
   await retainDraft(context, candidate);
   const scan = evaluateArtifact(context.contract.domain, candidate.content, { mission: context.contract.mission, contract: context.contract });
   await verifyCode(context, candidate.content, scan);

@@ -96,9 +96,10 @@ async function calibrateReviewer(reviewer, context) {
 }
 async function runReview(reviewer, context) {
   const metadata = reviewerMetadata(reviewer);
-  const checks = await reviewedChecks(reviewer, context, { operation: `review:${metadata.id}`, criteria: context.criteria, text: context.text,
+  const checks = await reviewedChecks(reviewer, context, { operation: context.reviewOperation || `review:${metadata.id}`, criteria: context.criteria, text: context.text,
     data: { mission: context.contract.mission, phase: context.phase || 'artifact', focus: metadata.focus,
-      targetMinutes: context.contract.targetMinutes, criteria: context.criteria, artifact: context.text } });
+      targetMinutes: context.contract.targetMinutes, criteria: context.criteria, artifact: context.text,
+      screenplaySections: context.sectionRequirements } });
   return freeze({ ...metadata, artifactDigest: context.artifactDigest, contractDigest: context.contract.digest,
     checks, method: 'fresh_context_grounded_review', issuedAt: new Date().toISOString() });
 }
@@ -129,6 +130,20 @@ function scoreDefect(score, input) {
     { section: 'craft', severity: 'minor', evidence: checks.flatMap(check => check.evidence) })];
 }
 function citationScope(input) { return input.contract.profile === 'screenplay' && input.phase !== 'plan' ? 'screenplay_body' : 'full_artifact'; }
+async function reviewForScopes(reviewer, context) {
+  const sections = context.contract.screenplaySections && context.phase !== 'plan'
+    ? context.criteria.filter(item => item.id === 'screenplay_sections_complete') : [];
+  if (!sections.length) return runReview(reviewer, context);
+  const standard = context.criteria.filter(item => item.id !== 'screenplay_sections_complete');
+  const bodyReview = await runReview(reviewer, { ...context, criteria: standard });
+  const sectionReview = await runReview(reviewer, { ...context, criteria: sections, text: context.content,
+    sectionRequirements: context.contract.screenplaySections, reviewOperation: `review:${reviewer.id}:screenplay_sections` });
+  return freeze({ ...bodyReview, checks: [...bodyReview.checks, ...sectionReview.checks],
+    method: 'fresh_context_grounded_scoped_review', citationScopes: [
+      { scope: 'screenplay_body', criterionIds: standard.map(item => item.id), textDigest: digest(context.text) },
+      { scope: 'full_artifact', criterionIds: sections.map(item => item.id), textDigest: digest(context.content) }
+    ] });
+}
 async function assessArtifact(context) {
   const contract = context.contract, scan = context.scan, content = context.content;
   const artifactDigest = digest(content);
@@ -138,7 +153,7 @@ async function assessArtifact(context) {
   const criteria = context.criteria || contract.criteria;
   const reviews = [];
   for (const reviewer of context.reviewers) {
-    reviews.push(await runReview(reviewer, { ...context, contract, criteria, text, artifactDigest }));
+    reviews.push(await reviewForScopes(reviewer, { ...context, contract, criteria, text, artifactDigest }));
   }
   const defects = [...scan.defects, ...reviewDefects(criteria, reviews)];
   const score = softScore(criteria, reviews);
