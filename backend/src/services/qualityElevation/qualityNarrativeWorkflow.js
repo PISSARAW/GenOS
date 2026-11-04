@@ -1,7 +1,9 @@
 'use strict';
 const { digest, fail } = require('./qualityContract');
 const { scenesOf, cleanLine } = require('./qualityText');
-const { validatedCall } = require('./qualityProtocol');
+const { generateScene } = require('./qualitySceneGeneration');
+const { sceneBudget } = require('./qualitySceneBudget');
+const { assertSceneNovelty } = require('./qualitySceneRepetition');
 const { preparePlan, planPrompt } = require('./qualityPlanWorkflow');
 const { validatePlan, pacingGuide } = require('./qualityPlanValidation');
 function dialogueInstruction(contract) {
@@ -13,18 +15,20 @@ function dialogueInstruction(contract) {
 function scenePrompt(context, scene, previous) {
   const guide = pacingGuide(context.plan, context.contract);
   const allocation = guide.allocations.find(item => item.id === scene.id) || null;
-  const targetWords = Math.ceil(context.contract.minBodyWords / context.plan.scenes.length);
+  const budget = sceneBudget(context.contract, context.plan, scene);
   return 'Écris intégralement UNE scène de scénario en français, sous forme d’actions observables. '
     + dialogueInstruction(context.contract)
     + 'Ne remplace pas la scène par son résumé, une note critique ou une émotion annoncée. '
     + `Commence directement par l’en-tête ${scene.heading}, sans autre en-tête de scène ni titre introductif. `
     + 'Respecte les connaissances et conséquences des scènes précédentes. Les événements futurs du plan ne sont pas déjà vécus. '
+    + 'Matérialise la décision et sa conséquence prévues par des actions observables ; vise un état de sortie concret cohérent avec stateAfter. '
+    + 'Chaque échange doit faire avancer la scène. Termine après sa conséquence, avant de recommencer la même négociation. '
     + 'Un plan provisoire contient des problèmes à résoudre : teste une solution concrète dans cette scène ; ce brouillon ne vaut pas validation. '
     + 'Le budget de rythme appelle des actions, obstacles, silences et décisions écrits, pas une durée affirmée. '
     + 'Le volume demandé concerne du contenu dramatique utile ; pas de remplissage ni de répétitions pour atteindre un compteur.\n'
     + JSON.stringify({ mission: context.contract.mission, plan: context.plan, scene, previousScenes: previous, repair: context.repairPlan,
       provisionalPlan: context.planState.provisional, unresolvedPlanObligations: context.planState.unresolved,
-      pacingAllocation: allocation, indicativeWordsForThisScene: targetWords,
+      pacingAllocation: allocation, indicativeWordsForThisScene: budget.targetWords, sceneGenerationBudget: budget,
       priorScene: context.construction?.scenes?.find(item => item.id === scene.id)?.text || null });
 }
 function canPreserve(context, scene) {
@@ -45,10 +49,8 @@ function unpackScene(raw) {
   return require('./qualityReviewService').parseObject(raw).sceneText;
 }
 async function writeScene(context, scene, scenes) {
-  return validatedCall({ ...context, callback: context.generator }, { operation: `write:${scene.id}`, stage: 'scene',
-    iteration: context.iteration, prompt: scenePrompt(context, scene, scenes),
-    responseSchema: { type: 'object', properties: { sceneText: { type: 'string', minLength: 20 } },
-      required: ['sceneText'], additionalProperties: false } }, raw => sceneText(raw, scene));
+  return generateScene(context, { scene, prompt: scenePrompt(context, scene, scenes),
+    validate: raw => assertSceneNovelty(sceneText(raw, scene), { sceneId: scene.id, previousScenes: scenes }) });
 }
 async function constructScreenplay(context) {
   const planState = await preparePlan(context), plan = planState.plan, scenes = [];
