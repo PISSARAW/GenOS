@@ -15,6 +15,8 @@ de contrats runtime et d'une qualification distincte de ses métaphores biologiq
 
 ## Actualités documentaires
 
+- [Orchestration hiérarchique LLM Rust](03-reference/orchestration-hierarchique-llm-rust.md) — arbre préadmis, délégation récursive et retours directs sous les sept protocoles ; [qualification du 4 novembre](06-qualite-preuves/missions-llm-hierarchiques-rust-2026-11-04.md).
+
 - [Orchestration dynamique LLM Rust](03-reference/orchestration-dynamique-llm-rust.md) — délégations natives vers un pool préadmis, retours CAS et contextes historiques ; [qualification du 3 novembre](06-qualite-preuves/orchestration-dynamique-llm-rust-2026-11-03.md) ciblée et contrôles globaux vérifiés, deux essais négatifs conservés et audit externe lié à la livraison.
 
 Le modèle réel est lié au gel natif de trente fichiers Rust ; la validation finale ajoute uniquement deux chemins Node nommés, couverts par une régression distincte. Les essais et leurs empreintes restent séparés.

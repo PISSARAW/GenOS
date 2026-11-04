@@ -34,11 +34,11 @@ pub(super) fn assigned(connection:&Connection, binding:&Binding, worker:&str) ->
     row.map(decode).transpose()
 }
 
-pub(super) fn selected(connection:&Connection, binding:&Binding, before:Option<u32>) -> Result<Vec<Assignment>,String> {
+pub(super) fn selected(connection:&Connection, binding:&Binding, before:Option<&super::StepKey>) -> Result<Vec<Assignment>,String> {
     let mut statement=connection.prepare("SELECT worker_id,parent_agent,parent_turn,call_index,value_json,value_hash
-        FROM protocol_agentic_delegations WHERE run_id=?1 AND (?2 IS NULL OR json_extract(value_json,'$.parent.turn')<?2)
+        FROM protocol_agentic_delegations WHERE run_id=?1 AND (?2 IS NULL OR (parent_agent=?2 AND parent_turn<?3))
         ORDER BY parent_turn,call_index,worker_id").map_err(error)?;
-    let rows=statement.query_map(params![binding.run_id,before],read_row).map_err(error)?;
+    let rows=statement.query_map(params![binding.run_id,before.map(|key|&key.agent_id),before.map(|key|key.turn)],read_row).map_err(error)?;
     rows.map(|row|decode(row.map_err(error)?)).collect()
 }
 
@@ -61,10 +61,10 @@ pub(super) fn require_event(connection:&Connection, binding:&Binding, assignment
     Ok(())
 }
 
-pub(super) fn coverage(connection:&Connection, binding:&Binding, input:(&[Assignment],Option<u32>)) -> Result<(),String> {
+pub(super) fn coverage(connection:&Connection, binding:&Binding, input:(&[Assignment],Option<&super::StepKey>)) -> Result<(),String> {
     let count:u64=connection.query_row("SELECT count(*) FROM rust_protocol_events WHERE run_id=?1 AND protocol='MORPH'
-        AND phase='AGENTIC_WORKER_ASSIGNED' AND (?2 IS NULL OR json_extract(payload_json,'$.parent.turn')<?2)",
-        params![binding.run_id,input.1],|row|row.get(0)).map_err(error)?;
+        AND phase='AGENTIC_WORKER_ASSIGNED' AND (?2 IS NULL OR (json_extract(payload_json,'$.parent.agent_id')=?2 AND json_extract(payload_json,'$.parent.turn')<?3))",
+        params![binding.run_id,input.1.map(|key|&key.agent_id),input.1.map(|key|key.turn)],|row|row.get(0)).map_err(error)?;
     if count!=input.0.len() as u64 { return Err("AGENTIC_DELEGATION_EVENT_COVERAGE_CHANGED".into()); }
     Ok(())
 }

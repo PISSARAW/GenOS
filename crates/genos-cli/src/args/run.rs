@@ -33,8 +33,8 @@ pub struct RunCmd {
     /// Opt in to hashing read-only workspace files as worker evidence.
     #[arg(long, default_value_t = false)]
     pub read_only_workspace_evidence: bool,
-    /// Bounded mission deadline in milliseconds (1,000 to 180,000).
-    #[arg(long, default_value_t = 180_000, value_parser = clap::value_parser!(u64).range(1_000..=180_000))]
+    /// Mission deadline; values above 180,000 require a native hierarchical profile (maximum 600,000).
+    #[arg(long, default_value_t = 180_000, value_parser = clap::value_parser!(u64).range(1_000..=600_000))]
     pub timeout_ms: u64,
     /// codex uses the backend; rust executes an installed native mission profile.
     #[arg(long, default_value = "codex", value_parser = ["codex", "rust"])]
@@ -61,6 +61,15 @@ pub struct RunCmd {
     /// Run scripted simulation demo rather than connecting live
     #[arg(long, default_value_t = false)]
     pub simulation: bool,
+}
+
+impl RunCmd {
+    pub fn native_route(&self) -> Result<bool,String> {
+        if self.timeout_ms>180_000 && (self.executor!="rust" || self.agentic_config.is_none()) {
+            return Err("RUST_HIERARCHICAL_TIMEOUT_REQUIRES_AGENTIC_EXECUTOR".into());
+        }
+        Ok(self.executor=="rust" || self.llm_config.is_some() || self.agentic_config.is_some())
+    }
 }
 
 #[cfg(test)]
@@ -101,7 +110,30 @@ mod tests {
     #[test]
     fn run_rejects_timeout_values_outside_the_bounded_range() {
         assert!(Cli::try_parse_from(["genos", "run", "task", "--timeout-ms", "0"]).is_err());
-        assert!(Cli::try_parse_from(["genos", "run", "task", "--timeout-ms", "180001"]).is_err());
+        assert!(Cli::try_parse_from(["genos", "run", "task", "--timeout-ms", "600001"]).is_err());
+    }
+
+    #[test]
+    fn extended_timeout_is_never_forwarded_to_a_legacy_route() {
+        for options in [vec![],vec!["--executor","rust"],vec!["--agentic-config","agentic.json"],
+            vec!["--executor","rust","--llm-config","llm.json"]] {
+            let mut values=vec!["genos","run","task","--timeout-ms","600000"];values.extend(options);
+            let parsed=Cli::try_parse_from(values).unwrap();
+            match parsed.command {
+                Some(Commands::Run(command))=>assert!(command.native_route().is_err()),
+                _=>panic!("expected run command"),
+            }
+        }
+    }
+
+    #[test]
+    fn extended_timeout_envelope_routes_only_explicit_native_agentic_requests() {
+        let parsed=Cli::try_parse_from(["genos","run","task","--timeout-ms","600000",
+            "--executor","rust","--agentic-config","agentic.json"]).unwrap();
+        match parsed.command {
+            Some(Commands::Run(command))=>assert!(command.native_route().unwrap()),
+            _=>panic!("expected run command"),
+        }
     }
 
     #[test]

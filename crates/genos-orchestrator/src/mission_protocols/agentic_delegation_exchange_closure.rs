@@ -32,7 +32,8 @@ pub(super) fn collect(conn:&Connection,b:&Binding)->Result<Value,String> {
         let (receipt,packet)=returns::require(conn,b,a)?;
         proofs.push(json!({"assignment":a,"task_delivery":tasks::require(conn,b,a)?,"return":receipt,"packet":packet}));
     }
-    Ok(json!({"schema":"genos.agentic.delegation-closure/v1","assignments":proofs,"unused_slots":unused}))
+    let value=json!({"schema":"genos.agentic.delegation-closure/v1","assignments":proofs,"unused_slots":unused});
+    Ok(super::hierarchy::closure(value,profile))
 }
 fn keys(conn:&Connection,b:&Binding)->Result<Vec<agentic_ledger::StepKey>,String> {
     let mut stmt=data::sql(conn.prepare("SELECT agent_id,turn FROM agentic_models WHERE run_id=$1 AND status='observed' ORDER BY agent_id,turn"))?;

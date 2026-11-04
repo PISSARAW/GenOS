@@ -1,5 +1,11 @@
 # Orchestration dynamique des missions LLM dans Rust
 
+> **Portée de cette page : profil dynamique plat, sans `orchestration.hierarchy`.**
+> L'extension récursive avec arbre préadmis est décrite dans
+> [Orchestration hiérarchique LLM Rust](orchestration-hierarchique-llm-rust.md).
+> Les limites de quatre agents et d'absence de récursion ci-dessous restent
+> celles du profil plat ; les preuves historiques de ce profil sont conservées.
+
 Le profil `genos run --executor rust --agentic-config ...` accepte une
 orchestration décidée pendant le dialogue du coordinateur. Un appel natif
 `delegate_task` choisit un worker préadmis et lui affecte une tâche. Le

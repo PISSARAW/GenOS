@@ -41,7 +41,22 @@ pub struct AgentConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct OrchestrationConfig { pub coordinator:String, pub max_delegations:u32 }
+pub struct OrchestrationConfig {
+    pub coordinator:String, pub max_delegations:u32,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub hierarchy:Option<HierarchyConfig>,
+}
+
+#[derive(Clone,Debug,Deserialize,Serialize,PartialEq,Eq)]
+#[serde(deny_unknown_fields)]
+pub struct HierarchyConfig {
+    pub parents:std::collections::BTreeMap<String,String>,
+    pub max_depth:u32,
+    pub max_children:u32,
+}
+
+#[path="agentic_hierarchy.rs"]
+mod hierarchy;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -90,6 +105,17 @@ impl AgenticSpec {
 
 impl AgenticConfig {
     pub fn validate(&self) -> Result<(),String> { validation::configuration(self) }
+
+    pub fn max_mission_ms(&self) -> u64 {
+        if self.orchestration.as_ref().is_some_and(|mode|mode.hierarchy.is_some()) { 600000 } else { 180000 }
+    }
+
+    pub fn validate_mission_timeout(&self, timeout_ms:u64) -> Result<(),String> {
+        if !(1000..=self.max_mission_ms()).contains(&timeout_ms) || self.limits.wall_ms>timeout_ms {
+            return Err("AGENTIC_DEADLINE_INVALID".into());
+        }
+        Ok(())
+    }
 }
 
 pub fn valid_name(name:&str) -> bool {

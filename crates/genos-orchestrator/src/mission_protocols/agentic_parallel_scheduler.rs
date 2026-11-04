@@ -8,19 +8,19 @@ pub(super) struct PreparedWave { pub handle:journal::WaveHandle, pub jobs:Vec<wo
 
 pub(super) fn ready(session:&mut Session) -> Result<Vec<ledger::StepKey>,String> {
     let mut ready=Vec::new();
-    for agent in scheduling_order(&session.spec) {
+    for agent in scheduling_order(&session.spec)? {
         if let Some(key)=ready_agent(session,&agent)? { ready.push(key); }
     }
     if ready.is_empty() && !all_complete(session)? { return Err("AGENTIC_PARALLEL_GRAPH_NOT_READY".into()); }
     Ok(ready)
 }
 
-fn scheduling_order(spec:&AgenticSpec) -> Vec<AgentConfig> {
-    let mut agents=spec.config.agents.clone();
-    if let Some(orchestration)=&spec.config.orchestration {
-        agents.sort_by_key(|agent|agent.id!=orchestration.coordinator);
-    }
-    agents
+fn scheduling_order(spec:&AgenticSpec) -> Result<Vec<AgentConfig>,String> {
+    let Some(orchestration)=&spec.config.orchestration else { return Ok(spec.config.agents.clone()); };
+    let mut agents=spec.config.agents.iter().map(|agent|Ok((orchestration.depth(&agent.id)?,agent.clone())))
+        .collect::<Result<Vec<_>,String>>()?;
+    agents.sort_by_key(|(depth,_)|*depth);
+    Ok(agents.into_iter().map(|(_,agent)|agent).collect())
 }
 
 fn ready_agent(session:&mut Session,agent:&AgentConfig) -> Result<Option<ledger::StepKey>,String> {
@@ -71,12 +71,10 @@ fn next_step(session:&mut Session,agent:&AgentConfig) -> Result<Option<ledger::S
 }
 
 fn fresh_step(session:&mut Session,key:ledger::StepKey) -> Result<Option<ledger::StepKey>,String> {
-    let Some(orchestration)=&session.spec.config.orchestration else { return Ok(Some(key)); };
+    if session.spec.config.orchestration.is_none() { return Ok(Some(key)); }
     session.store.transaction(&session.binding,|tx| {
-        if key.agent_id==orchestration.coordinator {
-            if !children_complete(tx,&session.binding,&key)? { return Ok(None); }
-            agentic_delegation_exchange::receive_returns_in(tx,&session.binding,&key)?;
-        }
+        if !children_complete(tx,&session.binding,&key)? { return Ok(None); }
+        agentic_delegation_exchange::receive_returns_in(tx,&session.binding,&key)?;
         Ok(delegation::eligible_in(tx,&session.binding,&key)?.then_some(key))
     })
 }
@@ -98,7 +96,7 @@ pub(super) fn prepare(session:&mut Session,ready:&[ledger::StepKey]) -> Result<P
         let keys=&ready[..count];
         let mut jobs=Vec::new();
         for key in keys {
-            if spec.config.orchestration.as_ref().is_some_and(|value|value.coordinator==key.agent_id) {
+            if spec.config.orchestration.is_some() {
                 agentic_delegation_exchange::receive_returns_in(tx,binding,key)?;
             }
             let mut request=context::prepare_bounded_in(tx,binding,&context::ContextRequest { key,max_wall_ms:wall })?;

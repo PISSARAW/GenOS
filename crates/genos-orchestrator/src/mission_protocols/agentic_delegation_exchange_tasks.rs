@@ -21,11 +21,17 @@ fn validate_origin(conn:&Connection,b:&Binding,a:&Assignment)->Result<(),String>
     spec.agent(&a.worker_id)?;
     let mut unsigned=a.clone();unsigned.assignment_hash.clear();
     let hashes=(digest(b)?,raw_hash(a.task.as_bytes()),digest(&("genos.agentic.delegation/v1",unsigned))?);
-    if (a.binding_hash.clone(),a.task_hash.clone(),a.assignment_hash.clone())!=hashes ||
-        a.parent.agent_id!=profile.coordinator || a.worker_id==profile.coordinator {
+    if (a.binding_hash.clone(),a.task_hash.clone(),a.assignment_hash.clone())!=hashes {
         return Err("AGENTIC_TASK_ASSIGNMENT_CHANGED".into());
     }
+    parent_scope(conn,b,(a,profile))?;
     origin_call(conn,b,a)
+}
+fn parent_scope(conn:&Connection,b:&Binding,input:(&Assignment,&super::super::agentic_spec::OrchestrationConfig))->Result<(),String> {
+    let (a,profile)=input;
+    if !profile.permits(&a.parent.agent_id,&a.worker_id) { return Err("AGENTIC_TASK_PARENT_NOT_PERMITTED".into()); }
+    if profile.hierarchy.is_some() { super::super::agentic_delegation::require_parent_active_in(conn,b,&a.parent.agent_id)?; }
+    Ok(())
 }
 fn origin_call(conn:&Connection,b:&Binding,a:&Assignment)->Result<(),String> {
     let model=agentic_ledger::model_record_in(conn,b,&a.parent)?;

@@ -7,9 +7,7 @@ pub(super) fn specification(spec:&AgenticSpec) -> Result<(),String> {
     if spec.schema!=super::SCHEMA || spec.mission.trim().is_empty() || spec.mission.len()>16384 {
         return Err("AGENTIC_MISSION_INVALID".into());
     }
-    if !(1000..=180000).contains(&spec.timeout_ms) || spec.config.limits.wall_ms>spec.timeout_ms {
-        return Err("AGENTIC_DEADLINE_INVALID".into());
-    }
+    spec.config.validate_mission_timeout(spec.timeout_ms)?;
     configuration(&spec.config)?;
     sources(spec)
 }
@@ -51,7 +49,7 @@ fn validate_source_hash(spec:&AgenticSpec) -> Result<(),String> {
 fn hash(value:&str) -> bool { value.len()==64 && value.bytes().all(|byte|byte.is_ascii_hexdigit()) }
 
 pub(super) fn configuration(config:&AgenticConfig) -> Result<(),String> {
-    if config.schema!=super::CONFIG_SCHEMA || !(2..=4).contains(&config.agents.len()) || config.documents.len()>16 {
+    if config.schema!=super::CONFIG_SCHEMA || !(2..=agent_limit(config)).contains(&config.agents.len()) || config.documents.len()>16 {
         return Err("AGENTIC_CONFIG_SCHEMA_OR_SIZE_INVALID".into());
     }
     genos_api::native_inference::validate_provider(&config.provider)?;
@@ -80,13 +78,14 @@ fn topology(config:&AgenticConfig) -> Result<(),String> {
 
 fn orchestration_graph(config:&AgenticConfig, mode:&super::OrchestrationConfig) -> Result<(),String> {
     orchestration_limits(config,mode)?;
+    super::hierarchy::validate(config,mode)?;
     let mut ids=BTreeSet::new();
     for agent in &config.agents {
         agent_valid(agent)?;
         if !ids.insert(&agent.id) || !agent.depends_on.is_empty() {
             return Err("AGENTIC_ORCHESTRATION_GRAPH_INVALID".into());
         }
-        delegation_grant(agent,&mode.coordinator)?;
+        delegation_grant(agent,mode)?;
     }
     Ok(())
 }
@@ -100,8 +99,8 @@ fn orchestration_limits(config:&AgenticConfig, mode:&super::OrchestrationConfig)
     Ok(())
 }
 
-fn delegation_grant(agent:&AgentConfig, coordinator:&str) -> Result<(),String> {
-    if agent.tools.contains(&ToolKind::DelegateTask)!=(agent.id==coordinator) {
+fn delegation_grant(agent:&AgentConfig, mode:&super::OrchestrationConfig) -> Result<(),String> {
+    if agent.tools.contains(&ToolKind::DelegateTask)!=mode.can_delegate(&agent.id) {
         return Err("AGENTIC_COORDINATOR_DELEGATION_PERMISSION_REQUIRED".into());
     }
     Ok(())
@@ -167,10 +166,10 @@ fn artifact_grants(agent:&AgentConfig) -> Result<(),String> {
 
 fn budgets(config:&AgenticConfig) -> Result<(),String> {
     let limits=&config.limits;
-    if limits.tokens>1_000_000_000 || limits.model_calls>64 || limits.tool_calls>256 || limits.wall_ms>180000 {
+    if limits.tokens>1_000_000_000 || limits.model_calls>64 || limits.tool_calls>256 || limits.wall_ms>config.max_mission_ms() {
         return Err("AGENTIC_BUDGET_TOO_LARGE".into());
     }
-    if !(1..=1_000_000).contains(&config.max_input_tokens) || config.turn_timeout_ms<1000 {
+    if !(1..=1_000_000).contains(&config.max_input_tokens) || config.turn_timeout_ms<1000 || config.turn_timeout_ms>180000 {
         return Err("AGENTIC_REQUEST_LIMIT_INVALID".into());
     }
     sufficient(config)
@@ -191,3 +190,7 @@ fn sufficient(config:&AgenticConfig) -> Result<(),String> {
 
 fn ordinary(value:u64) -> u64 { value.saturating_sub(value.div_ceil(20)) }
 fn error(error:impl std::fmt::Display) -> String { error.to_string() }
+
+fn agent_limit(config:&AgenticConfig) -> usize {
+    if config.orchestration.as_ref().is_some_and(|mode|mode.hierarchy.is_some()) { 8 } else { 4 }
+}
