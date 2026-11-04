@@ -4,6 +4,9 @@ const path = require('node:path');
 const tests = [
   'test_autonomy_mutation_phases.cjs',
   'test_worker_inference_limits.cjs',
+  'test_javascript_repair_oracle.cjs',
+  'test_javascript_repair_native.cjs',
+  'test_mission_truth_sources.cjs',
   'test_screenplay_mission_contract.cjs',
   'test_gqel_final_delivery.cjs',
   'test_gqel_native_schema_repair.cjs',

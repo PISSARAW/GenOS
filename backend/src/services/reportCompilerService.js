@@ -15,8 +15,6 @@
 
 const { AdaptiveStateService } = require('./adaptiveStateService');
 
-const EVENT_LIMIT = 200;
-
 function parsePayload(event) {
   try {
     const payload = typeof event.payload_json === 'string' ? JSON.parse(event.payload_json) : event.payload_json || {};
@@ -51,7 +49,7 @@ function addActionNodes(actionRows, nodes) {
       if (typeof payload.tool !== 'string' || !payload.tool) continue;
       const id = `tool_${row.id}`;
       toolNodeOf[payload.tool] = toolNodeOf[payload.tool] || [];
-      toolNodeOf[payload.tool].push(id);
+      if (payload.result?.success === true) toolNodeOf[payload.tool].push(id);
       nodes.push({ id, kind: 'tool_execution', tool: payload.tool, success: payload.result?.success === true, at: row.created_at });
   }
   return toolNodeOf;
@@ -87,6 +85,8 @@ function addClaimNodes(reportRows, graph, toolNodeOf) {
           proposition: String(claim.statement || '').slice(0, 200),
           outcome: report.outcome || 'unknown',
           reportEventId: row.id,
+          executionRunId: parsePayload(row).executionRunId || null,
+          reportHash: require('./biologicalIntegrity').digest(report),
           sources: sources.flatMap((tool) => toolNodeOf[tool]),
           evidence: claimEvidence(claim).length,
           evidenceTexts: claimEvidence(claim).map(String).slice(0, 3).map((text) => text.slice(0, 200))
@@ -113,18 +113,9 @@ function claimSearchText(claim) {
 
 async function truthGraphData(db, agentId, settings) {
   const since = sqliteUtc(Number(settings.sinceMs || (Date.now() - 24 * 3600 * 1000)));
-  const mission = typeof settings.missionId === 'string' && settings.missionId ? settings.missionId : null;
-  const missionClause = mission ? ` AND json_extract(payload_json, '$.executionRunId') = ?` : '';
-  const missionParams = mission ? [mission] : [];
-  const actionRows = await db.all(
-    `SELECT id, event_type, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type IN ('ORCHESTRATION_ACTION_EXECUTED', 'ORCHESTRATION_ACTION_FAILED') AND created_at >= ?${missionClause} ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
-    agentId, since, ...missionParams
-  );
-  const reportRows = await db.all(
-    `SELECT id, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' AND created_at >= ?${missionClause} ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
-    agentId, since, ...missionParams
-  );
-  return { actionRows, reportRows };
+  const rows = await require('./missionTruthSources').events(db, agentId, { ...settings, since });
+  return { actionRows: rows.filter(row => row.event_type !== 'EVIDENCE_REPORT'),
+    reportRows: rows.filter(row => row.event_type === 'EVIDENCE_REPORT') };
 }
 
 async function buildTruthGraph(db, agentId, options) {
@@ -134,9 +125,12 @@ async function buildTruthGraph(db, agentId, options) {
     const nodes = [];
     const edges = [];
     const toolNodeOf = addActionNodes(actionRows, nodes);
-    addObservationNodes(await scopeList(db, agentId, { scope: 'world_model', key: 'transitions' }), nodes);
-    addLedgerNodes(await scopeList(db, agentId, { scope: 'causal_ledger', key: 'edges' }), nodes, edges);
+    if (!options?.missionId) {
+      addObservationNodes(await scopeList(db, agentId, { scope: 'world_model', key: 'transitions' }), nodes);
+      addLedgerNodes(await scopeList(db, agentId, { scope: 'causal_ledger', key: 'edges' }), nodes, edges);
+    }
     addClaimNodes(reportRows, { nodes, edges }, toolNodeOf);
+    await require('./missionTruthSources').appendReceipts(db, { agentId, missionId: options?.missionId }, { nodes, edges });
     return { nodes, edges, status: nodes.length ? 'measured' : 'insufficient_data' };
   } catch (_) {
     return { nodes: [], edges: [], status: 'unavailable' };

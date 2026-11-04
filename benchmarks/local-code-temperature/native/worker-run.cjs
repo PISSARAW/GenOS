@@ -40,17 +40,17 @@ async function collect(input) {
   const promotion = await ctx.db.get("SELECT count(*) AS count FROM agent_genome_innovations WHERE status='promoted'");
   result.genomePromotions = promotion.count;
 }
-async function main() {
+async function main(options = {}) {
   const input = c.read(process.argv[2]);
   const { directory, task, run, genomeFile } = input;
-  c.setup(directory);
+  (options.setup || c.setup)(directory);
   const result = { ...run, promotionAllowed: false, usage: null, fullWorkerRuntime: true };
   const traces = instrument(directory);
   let ctx;
   const started = performance.now();
   try {
     const genome = c.service('agentDna').decodeFile(genomeFile);
-    ctx = await require('./provision.cjs').provision({ directory, task, run, genome });
+    ctx = await (options.provision || require('./provision.cjs').provision)({ directory, task, run, genome });
     c.write(c.path.join(directory, 'prepared-mission.json'), ctx.mission);
     c.write(c.path.join(directory, 'autonomy-plan.json'), ctx.plan);
     result.runtime = await c.service('agentRuntimeAdapter').startMission(ctx.mission);
@@ -59,6 +59,7 @@ async function main() {
   result.providerCalls = traces.length;
   if (ctx) {
     await collect({ ctx, result, directory });
+    if (options.audit) await options.audit({ ctx, result, directory });
     const candidate = c.path.join(ctx.workspace, 'module.js');
     result.oracle = execution.executeOracle(candidate, task.id);
     c.write(c.path.join(directory, 'oracle.json'), result.oracle);
@@ -68,4 +69,5 @@ async function main() {
   console.log(JSON.stringify({ runId: run.runId, failure: result.failure, providerCalls: traces.length,
     agent: result.agent, endToEndMs: result.endToEndMs }));
 }
-main().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });
+if (require.main === module) main().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });
+module.exports = { main };

@@ -1,9 +1,13 @@
 'use strict';
 
+function missionId(context) {
+  return context.autonomyPlan?.trinity?.missionId || context.normalizedMission?.missionId || null;
+}
+
 async function attachTruthGraph(context) {
   const compiler = require('./reportCompilerService');
   const graph = await compiler.buildTruthGraph(context.db, context.agentId,
-    { missionId: context.autonomyPlan?.trinity?.missionId || null });
+    { missionId: missionId(context) });
   if (graph?.status !== 'measured') {
     throw Object.assign(new Error('Mission truth graph is unavailable or unmeasured.'), {
       code: 'MISSION_TRUTH_GRAPH_UNAVAILABLE'
@@ -37,4 +41,4 @@ async function enforceReportGate(context) {
   });
 }
 
-module.exports = { attachTruthGraph, enforceReportGate };
+module.exports = { missionId, attachTruthGraph, enforceReportGate };
