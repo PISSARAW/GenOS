@@ -11,7 +11,8 @@ const { migrateMorphogenesisTransitionSnapshots } = require('../../db/migrations
 const AGENT_FIELDS = [
   'id', 'workspace_id', 'status', 'current_task', 'runtime_pid', 'runtime_started_at',
   'runtime_executable', 'cognitive_budget', 'cognitive_baseline_budget',
-  'cognitive_max_dissonance', 'dissonance_level', 'eureka_count', 'is_apoptotic'
+  'cognitive_max_dissonance', 'dissonance_level', 'eureka_count', 'is_apoptotic',
+  'role', 'parent_agent_id', 'metadata_json'
 ];
 
 function digest(value) {
@@ -124,6 +125,7 @@ async function capture(input) {
   const workspaces = await captureWorkspaces({ ...input, tenant }, agents);
   const payload = {
     schemaVersion: 1, capturedAt: new Date().toISOString(), transitionId: input.transitionId,
+    collectiveStorageKey: require('./collectiveStorage').key(input),
     tenant, agentIds: agents.map((agent) => agent.id), processes: { quiescent: true,
       runtimeCheckpoints: checkpoints },
     agents, workspaces, leases: { refs, identities },
@@ -177,11 +179,12 @@ async function markCommitted(input) {
 }
 
 async function persistCollective(input) {
+  const storageKey = require('./collectiveStorage').key(input);
   await input.db.exec(`CREATE TABLE IF NOT EXISTS collective_state (
     key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await input.db.run(`INSERT INTO collective_state(key,value,updated_at) VALUES
-    ('collective_state_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET
-    value=excluded.value,updated_at=CURRENT_TIMESTAMP`, collective.serializeState(input.state));
+    (?, ?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET
+    value=excluded.value,updated_at=CURRENT_TIMESTAMP`, storageKey, collective.serializeState(input.state));
 }
 
 async function replaceRows(db, table, rows) {
@@ -205,6 +208,9 @@ async function restoreDatabase(input, payload) {
       agent.status, agent.current_task, agent.cognitive_budget, agent.cognitive_baseline_budget,
       agent.cognitive_max_dissonance, agent.dissonance_level, agent.eureka_count,
       agent.is_apoptotic, agent.id);
+      if (Object.hasOwn(agent, 'role')) await input.db.run(
+        'UPDATE agents SET role=?, parent_agent_id=?, metadata_json=? WHERE id=?',
+        agent.role, agent.parent_agent_id, agent.metadata_json, agent.id);
     }
     const ids = payload.agentIds;
     if (ids.length) {
@@ -216,9 +222,8 @@ async function restoreDatabase(input, payload) {
     await replaceRows(input.db, 'agent_runtime_state', payload.processes.runtimeCheckpoints);
     await replaceRows(input.db, 'agent_git_refs', payload.leases.refs);
     await replaceRows(input.db, 'agent_identity_heads', payload.leases.identities);
-    await input.db.run(`INSERT INTO collective_state(key,value,updated_at) VALUES
-      ('collective_state_v1',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET
-      value=excluded.value,updated_at=CURRENT_TIMESTAMP`, payload.collectiveState);
+    await persistCollective({ db: input.db, state: collective.deserializeState(payload.collectiveState),
+      storageKey: payload.collectiveStorageKey, missionId: payload.tenant.missionId });
   });
 }
 

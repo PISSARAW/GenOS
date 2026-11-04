@@ -68,6 +68,8 @@ function buildRunDraft(input) {
   const graphId = input.workGraphId || graphIdFor(teamRunId);
   const members = bindMembers(input.members, teamRunId);
   const qualityInput = require('../qualityElevation/qualityFinalPlan').configureFinalArtifact({ ...input, members });
+  if (input.adaptiveMorphogenesis) qualityInput.adaptiveMorphogenesis = require('./adaptation/liveMorphogenesisPolicy')
+    .bind(input.adaptiveMorphogenesis, members);
   return teamRunStore.teamRunRecord({ ...qualityInput, missionId, teamRunId, workGraphId: graphId });
 }
 
@@ -97,7 +99,9 @@ function formationFingerprint(draft) {
     'qualityElevation', 'qualityRuntime', 'modelBudgetScope', 'workerKind', 'methodContract', 'workerArtifactContract'];
   const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, field === 'qualityElevation' ? member[field]?.digest : member[field]])));
   const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, ...(draft.qualityElevation ? { finalArtifactMemberId: draft.finalArtifactMemberId, quality: { contractDigest: draft.qualityElevation.digest, runtime: draft.qualityRuntime } } : {}), variant: draft.execution?.organizationPolicy?.variant || null };
-  return createHash('sha256').update(canonicalJson({ ...definition, finalArtifactOutput: draft.finalArtifactOutput })).digest('hex');
+  return createHash('sha256').update(canonicalJson({ ...definition, finalArtifactOutput: draft.finalArtifactOutput,
+    ...(draft.adaptiveMorphogenesis ? { adaptiveMorphogenesis: draft.adaptiveMorphogenesis,
+      runtimeMissionId: draft.execution?.runtimeMissionId } : {}) })).digest('hex');
 }
 
 async function persistNewRun(input, draft) {

@@ -916,6 +916,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0785](0785-missions-llm-paralleles-et-outils-rust.md) | Missions LLM parallèles et outils dans Rust | Accepté pour des vagues bornées de tours indépendants | 2026-11-03 | Runtime Rust, ordonnancement, concurrence, budgets et preuves |
 | [0786](0786-orchestration-dynamique-et-delegation-llm-rust.md) | Orchestration dynamique et délégation LLM dans Rust | Accepté pour un pool borné de workers préadmis | 2026-11-03 | Runtime Rust, délégation native, ordonnanceur, budgets et preuves |
 | [0787](0787-maillage-adaptatif-de-communication.md) | Maillage adaptatif de communication par mission | Accepté pour le contrôle Node des cycles et checkpoints | 2026-11-04 | Communication, connaissance partagée, missions et transport de signaux |
+| [0789](0789-morphogenese-live-des-equipes-a-team.md) | Remplacement gouverné pendant une mission A-Team | Accepté pour le remplacement créatif en attente | 2026-11-04 | A-Team, morphogenèse native, scheduler, budgets et preuves |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |
@@ -975,6 +976,7 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 ## Voir aussi
 
 - [0782 — Livraison des scénarios sous preuves](0782-livraison-scenario-sous-preuves.md).
+- [0789 — Remplacement gouverné pendant une mission A-Team](0789-morphogenese-live-des-equipes-a-team.md).
 - [0783 — Expression des génomes mutants pendant l'exécution](0783-expression-genomes-mutants-execution.md).
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.

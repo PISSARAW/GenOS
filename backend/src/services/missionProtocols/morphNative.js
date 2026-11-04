@@ -42,11 +42,13 @@ async function source(input) {
   }
   if (!ids.includes(input.ctx.agentId)) throw new Error('MISSION_MORPH_NATIVE_CONTROLLER_MISSING');
   if (!same(comparable(raw(input.ctx.collectiveState)), comparable(raw(input.preState)))) throw new Error('MISSION_MORPH_NATIVE_SOURCE_CHANGED');
-  const table = await input.ctx.db.get("SELECT name FROM sqlite_master WHERE name='collective_state'");
-  const persisted = table && await input.ctx.db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
+  const storage = require('../morphogenesis/collectiveStorage');
+  const persisted = await storage.read(input.ctx.db, storage.key(input.ctx));
   if (persisted && !same(comparable(JSON.parse(persisted.value)), comparable(raw(input.preState)))) {
     throw new Error('MISSION_MORPH_NATIVE_SOURCE_CAS_REJECTED');
   }
+  if (input.ctx.plan.aTeamPendingReplacement) await require('../aTeam/adaptation/liveMorphogenesisProjection')
+    .assertSource(input);
   return true;
 }
 
@@ -67,10 +69,13 @@ function target(input) {
 async function applied(input) {
   const stored = await admitted(input);
   if (stored.row.status !== 'committed') throw new Error('MISSION_MORPH_NATIVE_COMMIT_MISSING');
-  const row = await input.ctx.db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
+  const storage = require('../morphogenesis/collectiveStorage');
+  const row = await storage.read(input.ctx.db, storage.key(input.ctx));
   const expected = comparable(target(input));
   if (!row || !same(comparable(JSON.parse(row.value)), expected)
     || !same(comparable(raw(input.ctx.collectiveState)), expected)) throw new Error('MISSION_MORPH_NATIVE_POSTSTATE_MISMATCH');
+  if (input.ctx.plan.aTeamPendingReplacement) await require('../aTeam/adaptation/liveMorphogenesisProjection')
+    .assertApplied(input);
   return true;
 }
 

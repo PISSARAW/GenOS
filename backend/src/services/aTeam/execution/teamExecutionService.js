@@ -18,9 +18,10 @@ async function executeTeamRun(input) {
   }
   const plan = { ...input.plan, members: input.plan.members };
   const { now, sleep, deadline } = await timingFor(input, run);
-  const refresh = () => observeWithLease(input, { plan, now, deadline });
+  const state = { plan, now, deadline };
+  const refresh = () => observeAdaptive(input, state);
   const launch = async (member) => {
-    const snapshot = await refresh();
+    const snapshot = await observeWithLease(input, state);
     const ownedNodes = snapshot.graph.nodes.filter((node) => node.memberId === member.memberId);
     if (!ownedNodes.length || ownedNodes.some((node) => node.status !== 'READY')) return false;
     const receipts = receiptsForMember(snapshot.graph, ownedNodes);
@@ -34,7 +35,18 @@ async function executeTeamRun(input) {
     observed = await refresh();
     if (!observed.terminal) await sleep(input.options?.pollMs ?? 500);
   } while (!observed.terminal);
-  return finalizeExecution({ ...input, run, plan, observed, results });
+  return finalizeExecution({ ...input, run: await requireLease(input), plan, observed, results });
+}
+
+async function observeAdaptive(input, state) {
+  const observed = await observeWithLease(input, state);
+  const current = await requireLease(input);
+  if (!current.adaptiveMorphogenesis) return observed;
+  const changed = await require('../adaptation/liveMorphogenesisService').maybeReplace({
+    ...input, run: current, observed });
+  if (!changed) return observed;
+  state.plan.members = changed.members.map((member, index) => ({ ...member, index }));
+  return observeWithLease(input, state);
 }
 
 async function executeMultiteamRun(input, run) {
@@ -116,6 +128,7 @@ function assertLease(run, token) {
 
 async function finalizeExecution(input) {
   const { observed } = input;
+  input.liveMorphogenesis = await require('../adaptation/liveMorphogenesisReceipt').forClosure(input.db, input.run);
   input.finalQuality = await require('../../qualityElevation/qualityFinalArtifactService').qualifyFinalArtifact(input);
   const statistical = await require('../../morphogenesis/capabilities/statisticalPromotionGate')
     .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
@@ -176,6 +189,7 @@ function teamClosureInput(input) {
     { id: 'work_graph_promoted', passed: input.observed.promoted === true },
     { id: 'quality_gate_passed', passed: input.observed.gate.passed === true },
     { id: 'statistical_gate_allowed', passed: input.statistical.allowed === true },
+    { id: 'live_morphogenesis_verified', passed: input.liveMorphogenesis?.passed !== false },
     ...require('../../qualityElevation/qualityFinalArtifactService').finalQualityInvariant(input)
   ];
   return { missionId: input.run.missionId, topology: 'a_team', lifecycleState: 'completed',

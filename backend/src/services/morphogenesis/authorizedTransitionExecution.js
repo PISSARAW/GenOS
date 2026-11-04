@@ -1,12 +1,12 @@
 'use strict';
 
-const { withTransaction } = require('../../db');
+const { atomicCommit } = require('./transitionCommitTransaction');
 const collective = require('../collectiveStateService');
 const durableSnapshots = require('./morphogenesisTransitionSnapshotService');
 const productionAuthority = require('./morphogenesisProductionAuthority');
 
 async function persistCommit(input) {
-  return withTransaction(input.ctx.db, async () => {
+  return atomicCommit(input.ctx.db, async () => {
     const commit = await input.ctx.persistCommit(input.receipt);
     if (!commit?.id) throw new Error('Versioned transition commit did not return an immutable identifier.');
     await require('./morphogenesisHysteresisStore').commit({ db: input.ctx.db,
@@ -16,7 +16,8 @@ async function persistCommit(input) {
       transitionId: input.ctx.transitionId,
       transition: input.receipt.rustAuthority.hysteresisTransition });
     await durableSnapshots.persistCollective({ db: input.ctx.db,
-      state: input.ctx.collectiveState });
+      state: input.ctx.collectiveState, missionId: input.ctx.missionId,
+      storageKey: require('./collectiveStorage').key(input.ctx) });
     await durableSnapshots.appendAction({ db: input.ctx.db,
       transitionId: input.ctx.transitionId,
       receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'COMMIT',

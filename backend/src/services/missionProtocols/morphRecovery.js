@@ -33,7 +33,9 @@ async function resume(options) {
     if (!row || digest(JSON.parse(row.body)) !== row.digest) throw new Error('MISSION_MORPH_RECOVERY_BINDING_MISSING');
     binding = JSON.parse(row.body);
   } finally { db.close(); }
-  const state = await options.db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
+  const storage = require('../morphogenesis/collectiveStorage');
+  const state = await storage.read(options.db, storage.key({ missionId: stored.row.mission_id,
+    storageKey: stored.payload.collectiveStorageKey }));
   if (!state) throw new Error('MISSION_MORPH_RECOVERY_STATE_MISSING');
   Object.assign(input, { snapshot: binding.snapshot, authority: binding.authority,
     preState: collective.deserializeState(stored.payload.collectiveState) });

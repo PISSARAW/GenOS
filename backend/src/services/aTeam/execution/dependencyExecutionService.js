@@ -61,22 +61,33 @@ async function runDependencyGraph(input) {
   const skip = new Set(options.skipWorkerIds);
   const pending = new Map(input.plan.members.filter((member) => !skip.has(member.workerId)).map((member) => [member.workerId, member]));
   const context = {
-    options, launch: input.launch, blocked: new Set(), results: [],
+    options, launch: input.launch, blocked: new Set(), results: [], launched: new Set(skip),
     domains: new Map(input.plan.members.map((member) => [member.subSystem, member.workerId]))
   };
   while (pending.size) {
     context.expired = now() - startedAt >= timeoutMs;
     const observed = options.onTick ? await options.onTick() : null;
+    reconcilePending(input.plan, pending, context);
     context.statuses = observed?.statuses || await workerStatuses(input.db, input.plan.members);
     let progressed = false;
     for (const member of pending.values()) {
       if (!await processMember(member, context)) continue;
       pending.delete(member.workerId);
+      context.launched.add(member.workerId);
       progressed = true;
     }
     if (pending.size && !progressed) await sleep(options.pollMs ?? 500);
   }
   return context.results;
+}
+
+function reconcilePending(plan, pending, context) {
+  const members = new Map(plan.members.map(member => [member.workerId, member]));
+  for (const id of pending.keys()) if (!members.has(id)) pending.delete(id);
+  for (const [id, member] of members) {
+    if (!context.launched.has(id)) pending.set(id, member);
+  }
+  context.domains = new Map(plan.members.map(member => [member.subSystem, member.workerId]));
 }
 
 function executionOptions(options = {}) {

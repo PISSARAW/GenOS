@@ -142,7 +142,8 @@ async function prepareDispatch({ db, context }) {
     variant: policy.policy.variant, communicationCadence: policy.policy.communication
   };
   requireReadyTeam(team.readiness);
-  return { db, request, garage, projectGoal, team, context, morphology };
+  const adaptiveMorphogenesis = require('./aTeam/adaptation/liveMorphogenesisPolicy').configure(request, team.members);
+  return { db, request, garage, projectGoal, team, context, morphology, adaptiveMorphogenesis };
 }
 
 function requireRequestedMultiteamExecutor(context) {
@@ -199,10 +200,12 @@ function createCanonicalRun(setup) {
     idempotencyKey: request.idempotencyKey || request.requestId || context.requestId || context.orchestratorId,
     missionId: context.orchestratorId,
     goal: projectGoal, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(request),
+    adaptiveMorphogenesis: setup.adaptiveMorphogenesis,
     finalArtifactOutput: setup.finalArtifactOutput,
     successCriteria: requestedSuccessCriteria(request) || [],
     organization: team.organization,
-    execution: { runnerLease: null, organizationPolicy: team.executionPolicy, morphology: setup.morphology },
+    execution: { runnerLease: null, organizationPolicy: team.executionPolicy, morphology: setup.morphology,
+      ...(setup.adaptiveMorphogenesis ? { runtimeMissionId: context.missionId } : {}) },
     requiredCapabilities: [...new Set(team.members.flatMap((member) => member.capabilities || []))].map((capability) => ({ capability, weight: 1 })),
     status: 'READY',
     phase: 'PREBRIEF',
@@ -224,6 +227,7 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
     changedBy: context.orchestratorId
   });
   await persistPlannedWorkers({ db: setup.db, context, parent, members: plan.members });
+  await require('./aTeam/adaptation/liveMorphogenesisPreparation').prepare({ db: setup.db, run: activeRun, context, parent });
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.

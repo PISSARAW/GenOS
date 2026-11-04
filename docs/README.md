@@ -20,6 +20,7 @@ de contrats runtime et d'une qualification distincte de ses métaphores biologiq
 Le modèle réel est lié au gel natif de trente fichiers Rust ; la validation finale ajoute uniquement deux chemins Node nommés, couverts par une régression distincte. Les essais et leurs empreintes restent séparés.
 
 - [Maillage adaptatif de communication](02-orchestration/maillage-adaptatif-communication.md) — routage sélectif par mission dans les cycles et checkpoints Node, observation par défaut ; [ADR 0787](adr/0787-maillage-adaptatif-de-communication.md).
+- [Morphogenèse pendant Le Dernier Sas](06-qualite-preuves/morphogenese-live-dernier-sas-2026-11-04.md) — remplacement natif d'un membre en attente, reprise du scheduler et scénario livré ; [ADR 0789](adr/0789-morphogenese-live-des-equipes-a-team.md).
 
 - [Missions LLM parallèles Rust avec outils](03-reference/missions-llm-paralleles-rust.md) — admission atomique des vagues, quotas globaux et reprise sous les sept protocoles ; [qualification du 3 novembre](06-qualite-preuves/missions-llm-paralleles-rust-2026-11-03.md).
 
