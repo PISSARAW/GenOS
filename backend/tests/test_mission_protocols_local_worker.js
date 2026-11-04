@@ -60,6 +60,8 @@ async function execute(db, input) {
     localModel: 'ollama://protocol-local-worker', localRoutingPolicy: { primary: 'ollama://protocol-local-worker', preferLocal: true },
     modelBudgetScope,
     autonomousOrchestration: false, toolLease: [], timeoutMs: 300000,
+    // This fixture exercises one terminal attempt; recovery dispatch has dedicated suites.
+    recoveryAttempt: 1, recoveryMaxAttempts: 1,
     executionBudget: { tokens: 10000, costUsd: 1, latencyMs: 300000, events: 100 } });
   return { result, before };
 }
@@ -117,7 +119,7 @@ async function qualify(db, input) {
   const evidenceTable = await db.get("SELECT name FROM sqlite_master WHERE name='mission_protocol_evidence'");
   if (evidenceTable) assert.equal(await db.get('SELECT run_id FROM mission_protocol_evidence WHERE run_id=?', row.id), undefined);
   await authorityQualification.qualify(db, { run: row, observations: input.service.observations });
-  console.log('Mission Node runLocalWorker: one real HTTP inference, native token settlement and protocol state; business completion refused without independent proof passed.');
+  console.log('Mission Node runLocalWorker terminal attempt: one real HTTP inference, native token settlement and protocol state; business completion refused without independent proof passed.');
 }
 
 async function main() {
@@ -134,12 +136,20 @@ async function main() {
   const db = await getDatabase(process.env.GENOS_DB_PATH);
   try { await qualify(db, { workspace, service }); }
   finally {
+    await stopFixtureMissions(db);
     await service.close();
     await require('../src/services/garageRuntimeService').stop(db);
     await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
     await closeDatabase();
     await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
+}
+
+async function stopFixtureMissions(db) {
+  const ids = (await db.all('SELECT id FROM agents')).map(row => row.id);
+  for (const id of ids) await require('../src/services/agentRuntimeAdapter').stopMission(id);
+  for (const id of ids) await require('../src/services/agentRecovery/queueWorkerRecovery').waitForRecoveryWrites(id);
+  await require('../src/services/agentRecovery/recoveryDispatchLifecycle').wait(ids);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

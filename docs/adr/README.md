@@ -1033,3 +1033,5 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 - [Plans causaux copiés dominants](2026-11-04-refus-plans-causaux-copies-dominants.md).
 - [Lignes bornées et grammaire native](2026-11-04-lignes-natives-bornees-et-grammaire-scene.md).
 - [Consignes et diagnostics des lignes](2026-11-04-consignes-et-diagnostics-des-lignes-de-scene.md).
+
+- [Chaîne native de code et protocole DPB](2026-11-04-dpb-chaine-native-code.md).
