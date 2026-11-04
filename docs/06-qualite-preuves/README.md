@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [competence-cinq-variantes-2026-11-04.md](competence-cinq-variantes-2026-11-04.md) — comparaison prospective de cinq variantes avec Qwen réel, six mondes, courbes d'apprentissage et reconnaissance des ambiguïtés.
+
 - [missions-llm-hierarchiques-rust-2026-11-04.md](missions-llm-hierarchiques-rust-2026-11-04.md) — arborescence bornée, délégation récursive, retours CAS adressés et preuves de reprise.
 
 - [cooperation-llm-corrections-2026-11-04.md](cooperation-llm-corrections-2026-11-04.md) — diagnostic de l'abstention réelle, contrat sémantique, arrêt des reprises et coûts cumulés ; nouveau pilote LLM borné.

@@ -1,5 +1,10 @@
 # Référence expérimentale GenOS
 
+Le [banc à cinq variantes](competence-five-arms/README.md) compare un LLM sans
+mémoire, l'historique brut, le rappel GenOS, la synthèse seule et l'hybride dans
+six mondes, avec ambiguïtés et changement de règle ; voir le
+[rapport du 4 novembre](../docs/06-qualite-preuves/competence-cinq-variantes-2026-11-04.md).
+
 Le [banc hybride corrigé](competence-100-v3/README.md) valide, dans le domaine
 affine borné, 120/120 tâches réservées et 40/40 lacunes reconnues après cent
 expériences. Le gain concerne l'agent avec procédures et outils vérifiés.
