@@ -954,16 +954,16 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [2026x](2026-11-04-deadline-http-modele-sous-autorite.md) | Délai HTTP du modèle aligné sur le délai autorisé | Implémenté — tests de transport ; qualification rédactionnelle séparée. | -- | -- |
 | [2026y](2026-11-04-ett-inspection-artefact-de-mission.md) | ADR — Relier une inspection ETT complète à une mission native | Voir le fichier | -- | -- |
 | [2026z](2026-11-04-gqel-bornes-et-reparations-des-scenes.md) | Bornes et réparations des scènes sous le contrat GQEL | Implémenté et testé ; qualité rédactionnelle à qualifier sur modèle réel. | -- | -- |
-| [2026{](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
-| [2026|](2026-11-04-incarnation-adn-clinique-workers-topologiques.md) | ADN et clinique avant l'exécution des workers topologiques | Voir le fichier | -- | -- |
-| [2026}](2026-11-04-mission-mecanismes-integres.md) | Préparation et qualification des mécanismes d'une mission native | Voir le fichier | -- | -- |
-| [2026~](2026-11-04-oracle-javascript-borne-et-graphe-mission.md) | Oracle JavaScript borné et sources du graphe de mission | Voir le fichier | -- | -- |
-| [2026](2026-11-04-ordre-contexte-natif-et-donnees-de-scene.md) | Contexte natif complet avant les données exactes de génération | Implémenté pour la sérialisation ; bénéfice rédactionnel à mesurer. | -- | -- |
-| [2026](2026-11-04-phases-mutation-primitives.md) | ADR — Phases de mutation et primitives exécutables | Voir le fichier | -- | -- |
-| [2026](2026-11-04-refus-repetition-scenes-natives.md) | Refus des boucles et copies de corps dans les scènes natives | Implémenté — diagnostic structurel et tests ; raccord au workflow dans le point de génération bornée. | -- | -- |
-| [2026](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md) | Renouvellement de la lease A-Team pendant les appels attendus | Implémenté — service et tests de lease ; aucune qualité artistique certifiée. | -- | -- |
-| [2026](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
-| [2026](2026-11-04-sections-redigees-et-revues-du-scenario.md) | Sections rédigées et revues du scénario | Voir le fichier | -- | -- |
+| [2026aa](2026-11-04-gqel-generation-native-par-scenes-et-citations-bornees.md) | ADR — Génération créative native par scènes et citations bornées | Voir le fichier | -- | -- |
+| [2026ab](2026-11-04-incarnation-adn-clinique-workers-topologiques.md) | ADN et clinique avant l'exécution des workers topologiques | Voir le fichier | -- | -- |
+| [2026ac](2026-11-04-mission-mecanismes-integres.md) | Préparation et qualification des mécanismes d'une mission native | Voir le fichier | -- | -- |
+| [2026ad](2026-11-04-oracle-javascript-borne-et-graphe-mission.md) | Oracle JavaScript borné et sources du graphe de mission | Voir le fichier | -- | -- |
+| [2026ae](2026-11-04-ordre-contexte-natif-et-donnees-de-scene.md) | Contexte natif complet avant les données exactes de génération | Implémenté pour la sérialisation ; bénéfice rédactionnel à mesurer. | -- | -- |
+| [2026af](2026-11-04-phases-mutation-primitives.md) | ADR — Phases de mutation et primitives exécutables | Voir le fichier | -- | -- |
+| [2026ag](2026-11-04-refus-repetition-scenes-natives.md) | Refus des boucles et copies de corps dans les scènes natives | Implémenté — diagnostic structurel et tests ; raccord au workflow dans le point de génération bornée. | -- | -- |
+| [2026ah](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md) | Renouvellement de la lease A-Team pendant les appels attendus | Implémenté — service et tests de lease ; aucune qualité artistique certifiée. | -- | -- |
+| [2026ai](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
+| [2026aj](2026-11-04-sections-redigees-et-revues-du-scenario.md) | Sections rédigées et revues du scénario | Voir le fichier | -- | -- |
 
 Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 [socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),
