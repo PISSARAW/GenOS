@@ -27,6 +27,7 @@ function verifyRuntime() {
   const seal = io.json(path.join(runtime, 'runtime-seal.json'));
   if (seal.status !== 'sealed' || seal.node !== process.version) throw Error('RUNTIME_NOT_SEALED');
   const manifest = io.json(path.join(runtime, 'runtime-source-manifest.json'));
+  require('./source-version.cjs').assertVersion({root: runtime, revision: manifest.revision});
   if (io.hash(JSON.stringify(manifest)) !== seal.sourceManifestHash) throw Error('RUNTIME_MANIFEST_CHANGED');
   for (const [name, expected] of Object.entries(manifest.sources)) {
     if (io.hash(fs.readFileSync(path.join(runtime, name))) !== expected) throw Error('RUNTIME_SOURCE_CHANGED:' + name);
