@@ -10,7 +10,7 @@
   "universalClaim": false,
   "authorizesPromotion": false,
   "manifestHash": "7c2ca3e22fdb7b0de88b00842818d4fce7edd1a8af74ab9deeec9f0a31416634",
-  "sourceDigest": "30b68b737d9a0e34bd968d60fefaa978547c272c9088a37e3938865fcccfa0cb",
+  "sourceDigest": "e00cc4fd7205f8873a3f18e05880f100b96e8ef844edef9a461c9b10a2c49863",
   "evidence": [
     {
       "test": "backend/tests/test_execution_authority_v2.js",
@@ -22,7 +22,7 @@
     },
     {
       "test": "backend/tests/test_bounded_worker_delegation.js",
-      "outputDigest": "6da593f4f30567b9a65791d2f81f81d0cd1a3c99b6adc968f3b294202402cb8e"
+      "outputDigest": "fe9e60660c89f91eb6fccbabaa38aa385aef4ae75827fd98107a5fdc6ec6ebeb"
     },
     {
       "test": "backend/tests/test_versioned_causal_state.js",
@@ -57,5 +57,5 @@
       "outputDigest": "a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"
     }
   ],
-  "receiptHash": "db71341c39059cb20351914396ba2ef3b520fc8c15940fba929a0e06543d5cae"
+  "receiptHash": "15ee3ec75dfcf312f0ee5e478ea4d096045f3524ae99da2589f01c97fab4a9e0"
 }
