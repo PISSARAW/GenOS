@@ -6,6 +6,7 @@ const dossierChecks = require('./oracleObservationDossierChecks');
 const coordinationChecks = require('./oracleCoordinationChecks');
 const structuredChecks = require('./oracleStructuredWorkerChecks');
 const functionChecks = require('./oracleFunctionInductionChecks');
+const equationChecks = require('./oracleProductPowerChecks');
 
 const VERSION = 'genos.native-observation-postconditions/v1';
 const SCOUT = new Set(['scout_index', 'scout_character_scan']);
@@ -21,8 +22,9 @@ const HANDOFF = dossierChecks.HANDOFF;
 const STRATEGIES = new Set([...SCOUT, ...MONITOR, ...SYNTHESIS, ...FORENSIC, ...EXPERIMENT,
   ...PROCEDURE_VERIFY, ...PROCEDURE_RED, ...TEACHING, ...RECOVERY, ...HANDOFF,
   ...coordinationChecks.STRATEGIES, ...formalChecks.STRATEGIES, ...structuredChecks.STRATEGIES,
-  ...functionChecks.STRATEGIES]);
+  ...functionChecks.STRATEGIES, ...equationChecks.STRATEGIES]);
 const DOMAIN_CHECKS = Object.freeze({
+  product_power_difference: { strategies: equationChecks.STRATEGIES, run: equationChecks.check },
   bounded_function_induction: {strategies: functionChecks.STRATEGIES, run: functionChecks.check},
   literal_observation: { strategies: SCOUT, run: checkScout },
   monitor_window: { strategies: MONITOR, run: checkMonitor },
@@ -54,6 +56,7 @@ function checkObservation(subject, strategy) {
 function forDomain(domain) {
   const strategies = ({ literal_observation: SCOUT, monitor_window: MONITOR, claim_synthesis: SYNTHESIS,
     bounded_function_induction: functionChecks.STRATEGIES,
+    product_power_difference: equationChecks.STRATEGIES,
     declared_causality: FORENSIC, lpt_experiment: EXPERIMENT, procedure_verification: PROCEDURE_VERIFY,
     procedure_falsification: PROCEDURE_RED, subset_sum_teaching: TEACHING,
     checkpoint_recovery: RECOVERY, sourced_handoff: HANDOFF,

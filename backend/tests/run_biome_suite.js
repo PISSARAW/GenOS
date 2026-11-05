@@ -4,7 +4,8 @@ const { readdirSync } = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
-const files = readdirSync(__dirname).filter(name => /^test_biome_.*\.js$/.test(name)).sort();
+const files = readdirSync(__dirname).filter(name => /^test_biome_.*\.js$/.test(name)).sort()
+  .concat(['test_product_power_difference_oracle.cjs', 'test_agent_dna_import_recovery.cjs', 'test_observation_archive_time.cjs']);
 for (const file of files) {
   const result = spawnSync(process.execPath, [path.join(__dirname, file)], {
     stdio: 'inherit', timeout: 120000, env: { ...process.env, GENOS_ADMIN_PASSWORD: 'biome-suite-only', GENOS_SECRET_KEY: 'biome-suite-ephemeral-secret-only' }

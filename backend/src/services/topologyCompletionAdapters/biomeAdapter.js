@@ -258,7 +258,11 @@ async function finalize(context = {}) {
           sessionId: dossier.stateSeal?.sessionId });
       }
     }
-    return context.closeMission(closureInput(dossier));
+    const result = await context.closeMission(closureInput(dossier));
+    if (result.success && context.input?.context?.persistLifecycle === true) {
+      await require('./biomeLifecycle').settle(db, { context: context.input.context, dossier, result });
+    }
+    return result;
   });
 }
 

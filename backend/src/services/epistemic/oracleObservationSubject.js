@@ -32,11 +32,11 @@ async function load(db, request) {
   if (!runBinding || binding?.workerId !== request.agentId
     || request.scope.entityId !== request.agentId) throw values.failure('ORACLE_RUNTIME_SUBJECT_MISMATCH');
   const method = binding.genome.workerContract?.mission?.methodContract;
-  if (method?.evaluator?.domain === 'bounded_function_induction') {
-    return require('./oracleFunctionInductionSubject').load(db, request);
-  }
+  const evaluator = evaluatorSubject(method);
+  if (evaluator) return evaluator.load(db, request);
   const descriptor = descriptorFor(method, binding.genome.workerContract?.identity?.workerKind);
-  const observed = freshObservation(await store.observations(db, request.runId));
+  const observed = freshObservation(await store.observations(db, request.runId),
+    await require('./oracleObservationTime').referenceTime(db, request));
   const report = observed.event.payload?.evidenceReport;
   const artifact = report?.workerArtifact;
   if (artifact?.type !== descriptor.artifact || !artifact.content) {
@@ -52,6 +52,12 @@ async function load(db, request) {
     observedAt: observed.event.timestamp, runBindingHash: runBinding.hash,
     bindingHash: values.digest(binding),
     validUntil: new Date(Date.parse(observed.event.timestamp) + MAX_AGE_MS).toISOString() };
+}
+
+function evaluatorSubject(method) {
+  if (method?.evaluator?.domain === 'product_power_difference') return require('./oracleProductPowerSubject');
+  if (method?.evaluator?.domain === 'bounded_function_induction') return require('./oracleFunctionInductionSubject');
+  return null;
 }
 
 function structuredContract(contract) {
@@ -81,9 +87,9 @@ function descriptorFor(method, workerKind) {
   return descriptor;
 }
 
-function freshObservation(records) {
+function freshObservation(records, at) {
   const observed = records.filter(item => item.applied && item.event.eventType === 'EVIDENCE_REPORT').at(-1);
-  const age = Date.now() - Date.parse(observed?.event.timestamp);
+  const age = at - Date.parse(observed?.event.timestamp);
   if (!observed || !Number.isFinite(age) || age < -60000 || age > MAX_AGE_MS) {
     throw values.failure('ORACLE_SOURCE_STALE');
   }
@@ -111,6 +117,13 @@ function forDomain(domain) {
 }
 
 const SPECS = Object.freeze({
+  product_power_difference: {
+    statement: 'Le candidat du modèle satisfait N=(A×B)+C^D−E pour les prémisses scellées.',
+    domain: { statement: 'Arithmétique entière bornée avec deux recalculs indépendants.',
+      constraints: ['Les prémisses proviennent du contrat de mission scellé.',
+        'La vérité externe des prémisses et des interprétations culturelles n’est pas évaluée.',
+        'Le candidat provient d’une tentative modèle réellement mesurée.'] }
+  },
   bounded_function_induction: {
     statement: 'Les programmes proposés et les déclarations d ignorance respectent les observations publiques scellées.',
     domain: {statement: 'Induction de fonctions dans trois familles bornées à coefficients entiers entre moins trois et trois.',

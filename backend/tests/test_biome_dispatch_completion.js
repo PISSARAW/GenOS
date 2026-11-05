@@ -31,6 +31,11 @@ async function main() {
     const mode = output.result?.biologicalMode;
     assert.ok(mode, JSON.stringify(output));
     assert.equal(mode.completionContract.verdict, 'succeeded');
+    assert.equal((await value.db.get('SELECT status FROM missions WHERE mission_id=?', output.missionId)).status, 'completed');
+    assert.equal(mode.lifecycle.status, 'completed');
+    const cells = await value.db.all('SELECT status FROM cell_threads WHERE mission_id=?', output.missionId);
+    assert.ok(cells.length >= 5);
+    assert.ok(cells.every(cell => cell.status === 'completed_execution'));
     assert.equal(mode.runtimeProgression.applied, true);
     assert.equal(mode.members.length, 4);
     for (const member of mode.members) {
@@ -45,6 +50,18 @@ async function main() {
     assert.equal(snapshot.status, 'completed');
     assert.equal(snapshot.ecologicalState.runtime.goalVerification.verified, true);
     assert.equal(snapshot.populations.flatMap(p => p.individuals).length, 4);
+    for (const member of mode.members) await value.db.run("UPDATE agents SET status='idle' WHERE id=?", member.workerId);
+    const recalled = structuredClone(mode.members);
+    const context = { missionId: output.missionId };
+    await require('../src/services/biologicalWorkerCompletionService').collectCompletedWorkerStatuses({
+      db: value.db, context, accepted: recalled });
+    assert.ok(recalled.every(member => member.status === 'completed'), 'Garage reuse must not erase verified run completion.');
+    assert.equal(context.dispatchFailures, undefined);
+    const foreign = [{ ...mode.members[0], executionRunId: 'foreign-run' }];
+    await require('../src/services/biologicalWorkerCompletionService').collectCompletedWorkerStatuses({
+      db: value.db, context, accepted: foreign });
+    assert.notEqual(foreign[0].status, 'completed');
+    assert.ok(context.dispatchFailures.length > 0);
     const blocked = await applier.apply({ db: value.db, context: { missionId: output.missionId },
       topology: { sessionId: mode.sessionId }, composition: { members: mode.members },
       accepted: mode.members.map(member => ({ ...member, executionRunId: 'foreign-run' })) });

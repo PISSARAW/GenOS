@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const path = require('path');
 try {
-  process.loadEnvFile(path.resolve(__dirname, '../../.env'));
+  if (process.env.GENOS_DISABLE_DOTENV !== '1') process.loadEnvFile(path.resolve(__dirname, '../../.env'));
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
 }

@@ -8,6 +8,8 @@ const SOURCES = Object.freeze([
   'functionInduction/prompt.js', 'functionInduction/promptAudit.js',
   'epistemic/oracleFunctionInductionChecks.js', 'epistemic/oracleFunctionInductionSubject.js',
   'epistemic/oracleObservationSubject.js', 'epistemic/oracleObservationChecks.js',
+  'epistemic/oracleObservationTime.js', 'productPowerDifference/contract.js',
+  'epistemic/oracleProductPowerSubject.js', 'epistemic/oracleProductPowerChecks.js',
   'epistemic/oracleObservationAdapter.js', 'epistemic/oracleObservationClaim.js',
   'epistemic/oracleObservationNativeEntry.cjs',
   'qualityElevation/qualityNativeVerification.js', 'qualityElevation/qualityReceiptIntegrity.js',

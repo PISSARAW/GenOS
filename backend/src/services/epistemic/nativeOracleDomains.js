@@ -60,6 +60,9 @@ async function load(db, request) {
 
 async function loadArtifactDomain(db, input) {
   const method = input.binding.genome.workerContract?.mission?.methodContract;
+  if (method?.evaluator?.domain === 'product_power_difference') {
+    return require('./oracleProductPowerSubject').load(db, input.request);
+  }
   if (method?.evaluator?.domain === 'bounded_function_induction') {
     return require('./oracleFunctionInductionSubject').load(db, input.request);
   }
@@ -73,7 +76,7 @@ function executionOptions(subject, request) {
   if (['literal_observation', 'monitor_window', 'claim_synthesis', 'declared_causality', 'lpt_experiment',
     'procedure_verification', 'procedure_falsification', 'subset_sum_teaching', 'formal_theorem',
     'checkpoint_recovery', 'sourced_handoff', 'child_coordination', 'adaptive_strategy', 'niche_procedure',
-    'host_procedure', 'creative_combination', 'synthetic_case_review', 'bounded_function_induction'].includes(subject.domain)) {
+    'host_procedure', 'creative_combination', 'synthetic_case_review', 'bounded_function_induction', 'product_power_difference'].includes(subject.domain)) {
     return { nativeObservationSubject: request };
   }
   if (subject.domain === 'memory_fidelity') return { nativeMemoryRuntimeSubject: request };

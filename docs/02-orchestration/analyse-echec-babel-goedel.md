@@ -111,3 +111,54 @@ et specialists et un sujet sémantique que les oracles indépendants savent
 vérifier ; une phrase « N = 10805 obtenu avec succès » ne suffit pas.
 
 Voir [la décision de clôture Biome](../adr/2026-11-05-cloture-biome-depuis-runs-verifies.md).
+
+## 8. Requalification réelle sur D: (2026-11-05)
+
+La mission `mission_babel_qualified_b2e9f089-379e-49f5-a02b-c8ccaa1a44ba`
+est désormais **validée et persistée comme `completed`** dans la base active
+`D:\GenOS\data\operational\genos.db`, avec le workspace
+`D:\genos-babel-goedel`. Son contrat de clôture retourne `succeeded`, sans
+raison de refus, et ses quatre contrôles de clôture sont vrais.
+
+| Contrôle | Preuve observée |
+|---|---|
+| Réponse arithmétique | Les deux spécialistes `ollama://llama3.1:8b` ont produit `N = 10805` |
+| Appels réels | Tentatives fournisseur terminées, 6 112 tokens mesurés au total |
+| Oracle des spécialistes | Deux processus indépendants par spécialiste ; stratégies BigInt et additions répétées |
+| Oracle collectif | Reçu signé indépendant couvrant les quatre références de workers |
+| Session écologique | `biome-3fd9d40e-ce5c-4156-80b0-e2325fd30d3e`, révision 2, `goal_achieved` |
+| Cycle de vie | Mission et épisode `completed` ; cinq cellules `completed_execution` |
+| Homéostasie | Transition autorisée et revalidée contre l’époque des preuves d’exécution |
+| ADN cognitif | `GENOS_AGENT_DNA=1` dans la configuration locale ; 232 génomes persistés |
+| Héritage effectif | Sélections signées `WorkspaceSnapshotter` et `CapsuleLifecycle`, hashes et sources `.dna` revalidés |
+
+Les tentatives de requalification ont exposé le retour des agents modèle à
+`idle` par le garage et l’absence de transition persistante après la clôture
+écologique. Une tentative sous forte charge a été refusée sur expiration du
+budget d’oracle de 30 secondes. La relance finale conserve ces bornes et
+utilise l’identité de l’implémentation finale du vérificateur. Sa vérification
+relit les reçus archivés sans réautoriser une mission déjà terminée.
+
+Le reçu d’oracle collectif est
+`sha256:014ad4b8ff65dcb5bb6a7426a254459af13dab90e300289497e59457aad5cf91`.
+L’épisode clôturé est `episode_9908dedf3d93ad95597c742b4712b276`.
+Le rapport a été vérifié le 5 novembre 2026 à 00:26:39 UTC.
+
+L’ADN provient du catalogue `.dna` importé puis sélectionné pour les workers.
+Les bindings biologiques de chaque run sont également persistés. Cela ne
+constitue pas une synthèse de nouveaux génomes cognitifs à partir du succès.
+La preuve arithmétique porte sur les axiomes fournis dans l’énoncé historique.
+
+Le rapport machine et les enveloppes restent des artefacts locaux, non
+versionnés, sous `.genos-agent-worlds/babel-live/<mission-id>/`. La relecture
+sans nouvel appel de modèle utilise :
+
+```powershell
+node examples/babel-goedel/qualify.cjs --verify-run mission_babel_qualified_b2e9f089-379e-49f5-a02b-c8ccaa1a44ba
+```
+
+Une nouvelle exécution bornée utilise :
+
+```powershell
+node examples/babel-goedel/qualify.cjs D:\genos-babel-goedel
+```

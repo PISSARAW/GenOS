@@ -53,6 +53,9 @@ async function finalizeBiologicalOutput({ db, context, mode, mission, members, a
   });
   await biologicalMissionCompletion.complete({ db, missionId: context.missionId, mode,
     sessionId: topology.sessionId, output: out.biologicalMode,
+    persistLifecycle: mode === 'biome', missionScope: context.request.missionScope,
+    orchestratorId: context.orchestratorId, missionObjective: mission,
+    completionContract: context.request.completionContract,
     validation: semanticValidation, expectedCount: members.length });
   return out;
 }

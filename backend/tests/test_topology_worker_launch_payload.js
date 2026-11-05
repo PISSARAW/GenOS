@@ -105,6 +105,8 @@ assert.equal(inheritedWorkspaceWorker.workspace_root, process.cwd());
 console.log('Topology worker launch payload: PASS');
 
 const budget = { tokens: 6000, costUsd: 1, latencyMs: 60000, events: 30 };
+assert.deepEqual(require('../bin/workerLaunchPayload.cjs').selectedBudget({ executionBudgetTokens: 20000 }, {}),
+  { tokens: 20000 }, 'A token-only allocation must survive without a parent budget.');
 const missionScope = { available: true, episodeId: 'episode-1', rootThreadId: 'thread-1' };
 for (const field of ['executionBudget', 'execution_budget']) {
   const launch = workerLaunchPayload({ context: { request: { [field]: budget, missionScope } },
