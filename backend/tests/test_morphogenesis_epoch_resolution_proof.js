@@ -14,7 +14,8 @@ const recovery = require('../src/services/morphogenesis/morphogenesisEpochRecove
 const epochStore = require('../src/services/morphogenesis/morphogenesisEpochStore');
 
 const MISSION_ID = 'resolution-proof-mission';
-const CHECKS = [{ program: process.execPath, args: ['-e', 'process.exit(0)'] }];
+const HOST_TRUST_MODE = 'operator_trusted_host';
+const CHECKS = [{ program: process.execPath, args: ['-e', 'process.exit(0)'], trustMode: HOST_TRUST_MODE }];
 let checkpointIndex = 0;
 
 async function main() {
