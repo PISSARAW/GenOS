@@ -23,11 +23,16 @@ function checks(data, options = {}) {
     reason: 'Fixture de contrôle logiciel : décision synthétique et non avis artistique.',
     evidence: [{ quote: data.artifact.slice(0, Math.min(70, data.artifact.length)) }] })) };
 }
+function calibrationVerdict(data) {
+  const samples = [...CALIBRATION,
+    ...require('../src/services/qualityElevation/qualityCodeCalibration').CALIBRATION];
+  return samples.find(sample => sample.text === data.artifact)?.expected || 'unknown';
+}
 function reviewer(options = {}) {
   return { id: options.id || 'critic-1', model: options.model || 'mock:only', dependencyGroup: options.group || 'mock:only',
     review: async request => {
       const data = payload(request);
-      if (request.operation === 'reviewer_control') return reply(checks(data, { verdict: data.artifact === CALIBRATION[0].text ? 'fail' : 'pass' }));
+      if (request.operation === 'reviewer_control') return reply(checks(data, { verdict: calibrationVerdict(data) }));
       if (request.operation === 'order_balanced_comparison') return reply({ preferred: data.B.includes('glisse') ? 'B' : 'A',
         reason: 'La fixture concrète est préférée à la fixture résumée.', evidence: { A: { quote: data.A.slice(0, 50) }, B: { quote: data.B.slice(0, 50) } } });
       const result = checks(data, { verdict: data.artifact.includes('Une confrontation') ? 'fail' : 'pass' });
@@ -174,7 +179,11 @@ test('persisted sessions cannot replay trust without re-verification', async () 
 });
 test('claimed successful code tests need an external verifier', async () => {
   const result = await execute({ contract: contract({ domain: 'software_engineering', mission: 'Implement calc' }), generator: async () => reply('module.exports = {}; // Tests all pass') });
-  assert.equal(result.promoted, false); assert.ok(result.bestVersion.defects.some(item => item.code === 'EXECUTION_PROOF_MISSING'));
+  assert.equal(result.promoted, false);
+  assert.equal(result.session.controls[0].controlVersion, 'gqel-code-control-v1');
+  assert.equal(result.session.controls[0].passed, true);
+  assert.ok(result.bestVersion, JSON.stringify(result.terminalError));
+  assert.ok(result.bestVersion.defects.some(item => item.code === 'EXECUTION_PROOF_MISSING'));
 });
 function samplePlan() {
   return { premise: 'Inès doit sortir avec une preuve.', rules: ['La porte reste verrouillée sans validation du registre.'],
