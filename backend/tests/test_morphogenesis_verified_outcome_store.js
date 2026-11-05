@@ -29,7 +29,9 @@ function outcome(index, candidateId = 'variant:trinity:pareto') {
     morphologyTopology: 'trinity', morphologyVariant: 'pareto' }]]) };
   const adaptation = { receipt: {}, admission: { status: 'admitted',
     selectionBasis: 'calibrated_policy_proposal', recipe: {
-      id: candidateId, topology: 'trinity', variant: 'pareto' } },
+      id: candidateId, topology: 'trinity', variant: 'pareto' },
+    actualPlan: { workerAssignments: [{ workerId, workerKind: 'scout_cell',
+      topology: 'trinity', variant: 'pareto', tokenBudget: 100 }] } },
   plan: { morphologyPatch: { graph: { graphId: `graph-${index}`, version: 1 } } } };
   const transitionReceipt = transitions.sealTransitionReceipt({ state,
     survivors: [{ agentId: workerId }], continuation: { perWorkerTokens: 100 }, adaptation });
