@@ -2,6 +2,7 @@
 
 const { createAdapter, assertActive } = require('./qualityRuntimeModelAdapter');
 const { fail } = require('./qualityContract');
+const { compactReview } = require('./qualityReviewPresentation');
 
 function enabled(state) {
   return state.contract.profile === 'screenplay' && runtime(state).planScenes === true;
@@ -20,11 +21,11 @@ function withNativeContext(state, request) {
 }
 
 function options(state, generator, adapters) {
-  if (!enabled(state)) return { generator, planScenes: false };
+  if (!enabled(state)) return { generator, planScenes: false, prepareRequest: compactReview };
   const native = createAdapter({ ...state.ctx, contract: state.contract, usage: state.usage },
     runtime(state).generatorModel || state.ctx.generationContext.workerModel);
   return { planScenes: true, initialNativeArtifact: true,
-    prepareRequest: request => withNativeContext(state, request),
+    prepareRequest: request => compactReview(withNativeContext(state, request)),
     generator: request => request.operation === 'generate' ? generator(request) : native(request),
     materializer: request => materializeNative(state, { request, adapters }) };
 }

@@ -8,7 +8,10 @@ function textOf(value) {
 }
 function cleanLine(value) { return value.replace(/^\s*#{1,6}\s*/, '').replace(/\*\*/g, '').trim(); }
 function isHeading(line) { return /^(?:\d+[.\s]+)?(?:INT\.?|EXT\.?|INT\.?\/EXT\.?)\s*[-.\s]/i.test(cleanLine(line)); }
-function isEnd(line) { return /^#{1,6}\s*(?:conclusion|note|analyse|fiches?|synopsis|prémisse)/i.test(line); }
+function isEnd(line) {
+  return /^#{1,6}\s*(?:conclusion|note|analyse|fiches?|synopsis|prémisse)/i.test(line)
+    || /^(?:note dramaturgique|note d.intention|fiches? personnages|synopsis|prémisse)\s*:?\s*$/i.test(cleanLine(line));
+}
 function screenplayBody(text) {
   const lines = text.split(/\r?\n/), start = lines.findIndex(isHeading);
   if (start < 0) return '';

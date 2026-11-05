@@ -23,7 +23,7 @@ function parseObject(value) {
 function citations(evidence, text) {
   if (!Array.isArray(evidence)) throw fail('GQEL_REVIEW_INVALID', 'Evidence list missing.');
   return evidence.map(item => {
-    const quote = typeof item === 'string' ? item : item?.quote;
+    const quote = sourceQuote(item, text);
     if (typeof quote !== 'string' || quote.trim().length < 8) throw fail('GQEL_REVIEW_INVALID', 'A substantive exact quotation is required.');
     // Only trimming the boundary is permitted. NEVER accept a shared subphrase.
     const trimmed = quote.trim(), unpunct = trimmed.replace(/[.,;:]+$/, '');
@@ -31,6 +31,14 @@ function citations(evidence, text) {
     if (!found) throw fail('GQEL_REVIEW_UNGROUNDED', `Complete quotation absent from artifact: ${JSON.stringify(quote)}`);
     return found;
   });
+}
+function sourceQuote(item, text) {
+  if (typeof item === 'string') return item;
+  if (!Object.hasOwn(item || {}, 'quoteId')) return item?.quote;
+  if (!Number.isSafeInteger(item.quoteId) || item.quote !== undefined) throw fail('GQEL_REVIEW_INVALID', 'One unambiguous quotation index is required.');
+  const quote = require('./qualityQuoteCandidates').quoteCandidates(text)[item.quoteId];
+  if (!quote) throw fail('GQEL_REVIEW_UNGROUNDED', 'Quotation index absent from artifact choices.');
+  return quote;
 }
 function validateVerdict(check) {
   if (!check || !['pass', 'fail', 'unknown'].includes(check.verdict)) throw fail('GQEL_REVIEW_INVALID', 'Criterion verdict missing.');
@@ -79,8 +87,10 @@ function controlCriteria(sample) {
   return [{ id: sample.criterion, kind: 'hard', description: descriptions[sample.criterion] }];
 }
 async function reviewedChecks(reviewer, context, input) {
+  const indexedQuotes = input.data.profile !== 'code';
   const request = { operation: input.operation, expectedModel: reviewer.model,
-    responseSchema: reviewSchema(input.criteria, input.text), prompt: reviewPrompt(input.data) };
+    responseSchema: reviewSchema(input.criteria, input.text, { indexedQuotes }),
+    prompt: reviewPrompt({ ...input.data, quoteSelection: indexedQuotes ? 'index' : undefined }) };
   return validatedCall({ ...context, callback: reviewer.review }, request,
     response => validateReview(response, input.criteria, input.text));
 }
@@ -137,9 +147,10 @@ function scoreDefect(score, input) {
 function citationScope(input) { return input.contract.profile === 'screenplay' && input.phase !== 'plan' ? 'screenplay_body' : 'full_artifact'; }
 async function reviewForScopes(reviewer, context) {
   const sections = context.contract.screenplaySections && context.phase !== 'plan'
-    ? context.criteria.filter(item => item.id === 'screenplay_sections_complete') : [];
+    ? context.criteria.filter(item => ['brief_coverage', 'screenplay_sections_complete'].includes(item.id)) : [];
   if (!sections.length) return runReview(reviewer, context);
-  const standard = context.criteria.filter(item => item.id !== 'screenplay_sections_complete');
+  const fullScopeIds = new Set(sections.map(item => item.id));
+  const standard = context.criteria.filter(item => !fullScopeIds.has(item.id));
   const bodyReview = await runReview(reviewer, { ...context, criteria: standard });
   const sectionReview = await runReview(reviewer, { ...context, criteria: sections, text: context.content,
     sectionRequirements: context.contract.screenplaySections, reviewOperation: `review:${reviewer.id}:screenplay_sections` });

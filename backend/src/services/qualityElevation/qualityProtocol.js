@@ -9,9 +9,9 @@ function correctionRequest(request, failure) {
   // The erroneous reply is explicitly untrusted data, never a replacement rubric.
   const repair = { error: failure.error.code, diagnostic: failure.error.message, previousReply: failure.raw,
     ...diagnosticFields(failure.error) };
-  const isCitation = failure.error.code.includes('UNGROUNDED') || /quotation|citation/i.test(failure.error.message);
+  const isCitation = failure.error.code.includes('UNGROUNDED') || /quotation|citation|\/quote(?:Id)?\b/i.test(failure.error.message);
   const guidance = isCitation
-    ? 'Remplace impérativement cette citation par une sous-chaîne courte copiée mot à mot depuis artifact sans fusionner plusieurs phrases. '
+    ? 'Utilise de préférence quoteId, index entier de quoteCandidates à partir de zéro, dans un objet sans quote. Sinon recopie une valeur ENTIÈRE et EXACTE de l’enum quote, sans la tronquer ni fusionner plusieurs éléments. '
     : correctionGuidance(request);
   const alert = `CORRECTION OBLIGATOIRE (tentative ${failure.attempt}) : Erreur "${failure.error.message.replace(/[\r\n]+/g, ' ')}". ` + guidance;
   return { ...request, protocolAttempt: failure.attempt,

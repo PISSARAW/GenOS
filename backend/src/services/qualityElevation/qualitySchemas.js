@@ -1,13 +1,17 @@
 'use strict';
 const text = minimum => ({ type: 'string', minLength: minimum });
 const object = properties => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
-function reviewSchema(criteria, artifact) {
-  return object({ checks: { type: 'array', minItems: criteria.length, maxItems: criteria.length,
-    items: {oneOf: criteria.flatMap(criterion => reviewVariants(criterion, artifact))} } });
+function reviewSchema(criteria, artifact, options = {}) {
+  const quote = require('./qualityQuoteCandidates').quotedSchema(artifact);
+  const count = quote.properties.quote.enum?.length || 0;
+  const index = object({ quoteId: { type: 'integer', minimum: 0, maximum: count - 1 } });
+  return { ...object({ checks: { type: 'array', minItems: criteria.length, maxItems: criteria.length,
+    items: {oneOf: criteria.flatMap(criterion => reviewVariants(criterion))} } }),
+    $defs: { sourceQuote: options.indexedQuotes ? index : count ? { oneOf: [quote, index] } : quote } };
 }
-function reviewVariants(criterion, artifact) {
+function reviewVariants(criterion) {
   const shared = {criterionId: {type: 'string', const: criterion.id}, reason: text(10),
-    evidence: {type: 'array', items: require('./qualityQuoteCandidates').quotedSchema(artifact)}};
+    evidence: {type: 'array', items: {$ref: '#/$defs/sourceQuote'}}};
   const known = object({...shared, verdict: {type: 'string', enum: ['pass', 'fail']},
     evidence: {...shared.evidence, minItems: 1}, rating: criterion.kind === 'soft'
       ? {type: 'integer', minimum: 0, maximum: 4} : {type: 'null'}});

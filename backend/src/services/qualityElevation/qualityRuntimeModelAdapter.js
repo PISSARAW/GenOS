@@ -18,8 +18,13 @@ function meteredReply(result, content) {
     provider: result.provider || null, routeAttemptId: result.routeAttemptId || null,
     finishReason: result.finishReason };
   if (result.schemaViolation) throw Object.assign(fail('GQEL_REVIEW_INVALID',
-    `Native model response failed its requested schema: ${JSON.stringify(result.schemaViolation)}`), { protocolReply: reply });
+    `Native model response failed its requested schema: ${JSON.stringify(schemaDiagnostic(result.schemaViolation))}`), { protocolReply: reply });
   return reply;
+}
+
+function schemaDiagnostic(violation) {
+  return { ...violation, ...(Array.isArray(violation.violations)
+    ? { violations: [...new Set(violation.violations)] } : {}) };
 }
 
 function deadlineOf(mission) {
