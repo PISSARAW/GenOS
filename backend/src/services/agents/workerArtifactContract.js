@@ -347,19 +347,35 @@ function validateWorkerArtifactCondition(artifact, expected, fields) {
       || !hasProvenance(artifact);
 }
 
+const KIND_CONTENT_FIELDS = {
+  recovery_worker: 'recoveryReceipt',
+  liaison_worker: 'handoff',
+  resident_daemon: 'territoryReport',
+  adaptive_worker: 'strategyTrace',
+  specialist: 'specialtyAssessment',
+  symbiotic_worker: 'hostContribution',
+  sub_orchestrator: 'childSummaries',
+};
+
+function kindContent(parsed, kind) {
+  const content = {};
+  const field = KIND_CONTENT_FIELDS[kind];
+  if (field && parsed[field] !== undefined) {
+    content[field] = parsed[field];
+  }
+  if (kind === 'bounded_worker') {
+    Object.assign(content, boundedWorkerContent(parsed));
+  }
+  return content;
+}
+
 function inspectDossierContent(parsed, kind) {
   return {
     claims: parsed.claims,
     ...(Array.isArray(parsed.tests) ? { tests: parsed.tests } : {}),
+    ...(parsed.boundaryEvidence ? { boundaryEvidence: parsed.boundaryEvidence } : {}),
     ...diagnosticMatrixContent(parsed),
-    ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
-    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
-    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
-    ...(kind === 'bounded_worker' ? boundedWorkerContent(parsed) : {}),
-    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
-    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
-    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
-    ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
+    ...kindContent(parsed, kind),
   };
 }
 
