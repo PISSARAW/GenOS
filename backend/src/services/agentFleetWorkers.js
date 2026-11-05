@@ -314,6 +314,7 @@ function fleetWorkerContract(details) {
     regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
     writeLease: workerWriteLease(mission),
     codeVerificationContract: mission.codeVerificationContract,
+    boundaryTestContract: mission.boundaryTestContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment, ...require('./qualityElevation/qualityMissionContract').qualityMissionFields(assignment),
     workerTokenLimit: assignedTokens ?? mission.executionBudget?.tokens, communicationRequired: mission.communicationRequired === true,
     ...require('./agents/workerResourcePolicy').timeAllocation(mission),
@@ -394,7 +395,6 @@ function workerRuntime(details) {
     workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider,
     modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
-
 module.exports = { assignedWorkerId: cohortWorkerService.assignedWorkerId, createAutonomousWorkers, splitBudget,
   buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget,
   buildWorkerPrompt, includePersistedWorkers, workerIdentity, workerRuntime, validateAssignments };
