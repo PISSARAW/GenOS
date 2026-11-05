@@ -7,17 +7,23 @@ function build(input) {
   return buildCodeReport(input);
 }
 
-function buildCodeReport(input) {
-  const { mission, proposal } = input;
+function isIncompleteProposal(proposal) {
   const files = proposal?.changedFileHashes;
   const tests = proposal?.tests;
-  if (proposal?.testStatus !== 'passed' || !Array.isArray(files) || files.length === 0
+  return proposal?.testStatus !== 'passed' || !Array.isArray(files) || files.length === 0
     || !Array.isArray(tests) || tests.length === 0
-    || !tests.every(require('./workerCodeEvidenceReferences').testPassed)) {
+    || !tests.every(require('./workerCodeEvidenceReferences').testPassed);
+}
+
+function buildCodeReport(input) {
+  const { mission, proposal } = input;
+  if (isIncompleteProposal(proposal)) {
     throw Object.assign(new Error('A code worker needs changed files and passing executed tests.'), {
       code: 'WORKER_CODE_EVIDENCE_INCOMPLETE'
     });
   }
+  const files = proposal.changedFileHashes;
+  const tests = proposal.tests;
   const fileRefs = files.map((file) => `genos://code-file/${values.digest(file)}`);
   const testRefs = tests.map((test) => `genos://code-test/${values.digest(test)}`);
   const receiptRef = proposal.testExecutionReceipt?.receiptHash
@@ -27,11 +33,21 @@ function buildCodeReport(input) {
   const commands = tests.map((test) => test.command).join(', ');
   const claim = { statement: `Changed ${names}; executed ${commands} and every test command exited successfully.`, evidence };
   const codeVerification = verificationBinding(mission, files);
+  const boundary = boundaryFields(mission, proposal);
   const kindEvidence = kindSpecificEvidence(mission, evidence);
-  return { outcome: 'success', claims: [claim], ...(codeVerification ? { codeVerification } : {}),
+  return { outcome: 'success', claims: [claim, ...boundary.claims], ...(codeVerification ? { codeVerification } : {}),
+    ...boundary.fields,
     scopeCompletion: { scopeRef: scopeReference(mission),
       completedRefs: fileRefs }, ...kindEvidence,
     tests: require('./workerCodeEvidenceReferences').tests(proposal) };
+}
+
+function boundaryFields(mission, proposal) {
+  const proof = require('./codeBoundaryEvidence').admit(mission, proposal);
+  if (!proof) return { claims: [], fields: {} };
+  return { fields: { boundaryEvidence: proof }, claims: [{ statement:
+    'The generated boundary checks pass the candidate and refute the original by an assertion while visible checks pass both. This is a finite regression witness.',
+  evidence: require('./codeBoundaryEvidence').references(proposal) }] };
 }
 
 function scopeReference(mission) {
