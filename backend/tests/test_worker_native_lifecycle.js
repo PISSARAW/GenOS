@@ -4,6 +4,10 @@ process.env.GENOS_DB_PATH = ':memory:';
 process.env.GENOS_ADMIN_PASSWORD = 'native-lifecycle-test-only-password';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-native-lifecycle-'));
 const { method, scoped, missionFor } = require('./helpers/nativeWorkerFixtures');
 const state = require('../src/services/agentOrchestrationState');
 const strategy = require('../src/services/strategyExecutionService');
@@ -41,10 +45,10 @@ function reset() {
 }
 
 async function main() {
-  const mission = missionFor('bounded_worker', scoped, process.cwd());
+  const mission = missionFor('bounded_worker', scoped, workspace);
   const run = { id: 'native-run' };
   const passed = await runDeterministicWorker(legacyDatabase, mission, run);
-  assert.equal(passed.started, true);
+  assert.equal(passed.started, true, JSON.stringify(passed));
   assert.deepEqual(statuses, ['running', 'completed']);
   assert.deepEqual(events.map((item) => item.eventType), ['DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED']);
   assert.equal(events[2].payload.usage.tokens, 0);
@@ -85,4 +89,12 @@ async function main() {
   console.log('Native lifecycle: evidence persistence, guard halt, cancellation, immutable input and zero usage PASS');
 }
 
-main().catch((failure) => { console.error(failure); process.exitCode = 1; });
+function cleanup() {
+  if (path.dirname(workspace) !== path.resolve(os.tmpdir())
+      || !path.basename(workspace).startsWith('genos-native-lifecycle-')) {
+    throw new Error('Refusing cleanup outside the isolated lifecycle fixture.');
+  }
+  fs.rmSync(workspace, { recursive: true, force: true });
+}
+
+main().catch((failure) => { console.error(failure); process.exitCode = 1; }).finally(cleanup);
