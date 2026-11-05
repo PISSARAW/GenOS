@@ -307,11 +307,16 @@ function canRetry(context) {
   const limits = require('./workerInferenceLimits').resolve(context.mission);
   if (limits && context.attempt >= limits.attempts) return false;
   if (!isCodeWorker(context.mission)
-    || !['WORKER_TESTS_FAILED', 'WORKER_OUTPUT_SCHEMA_VIOLATION'].includes(context.error.code)) return false;
+    || !repairableFailure(context.error)) return false;
   if (context.error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
     && context.schemaAttempts >= MAX_SCHEMA_RETRIES) return false;
   if (context.attempt > MAX_TEST_RETRIES) return false;
   return latencyBudget(context.mission) - (Date.now() - context.startedAt) > 1000;
+}
+
+function repairableFailure(error) {
+  return ['WORKER_TESTS_FAILED', 'WORKER_OUTPUT_SCHEMA_VIOLATION'].includes(error.code)
+    || require('./codeBoundaryExecution').repairable(error.code);
 }
 
 async function run(context) {

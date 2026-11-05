@@ -148,6 +148,7 @@ function workerLaunchPayload(args) {
     workerId,
     mission,
     missionObjective: selectedMissionObjective(context),
+    boundaryTestContract: selectedBoundaryContract(member, context),
     role: member.role,
     workerKind,
     variantIndex: member.variantIndex,
@@ -186,6 +187,10 @@ function selectedMissionObjective(context) {
   const request = context.request || {};
   return [request.missionObjective, request.project_goal, request.projectGoal, context.task]
     .find(value => typeof value === 'string' && value.trim());
+}
+
+function selectedBoundaryContract(member, context) {
+  return member.boundaryTestContract || context.request?.boundaryTestContract || null;
 }
 
 module.exports = { workerLaunchPayload, selectedBudget };

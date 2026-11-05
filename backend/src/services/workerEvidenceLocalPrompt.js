@@ -22,7 +22,7 @@ function buildAnalysisPrompt(context) {
 function workerInstructionBlock(context, assignment) {
   const reviewInstruction = assignment.delegatedReviewOnly === true
     ? `Return only JSON with format "genos.test-only/v1", patches [], tests selected from ${JSON.stringify(context.allowedCommands || [])}, and evidence explaining the review. Execute no edits; tests must inspect the supplied snapshot.` : null;
-  return [context.workerInstruction, context.codeWorker
+  return [context.workerInstruction, require('./codeBoundaryContract').instruction(assignment), context.codeWorker
     ? (reviewInstruction || codeProposalInstruction(context.allowedCommands, context.forceFullFileReplacement,
       assignment.allowedPatchPaths || context.requiredPatchPaths)) : context.evidenceRule]
     .filter(Boolean).join('\n');

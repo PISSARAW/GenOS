@@ -10,6 +10,7 @@ try {
       await (0, __genosStageScope1.assertNoSymlinkPath)(__genosStageScope1.workspaceRoot, destination);
       await __genosStageScope1.fs.writeFile(destination, patch.content, 'utf8');
     }
+    await __genosStageScope1.observeCandidate();
     __genosStageScope1.tests = [];
     for (const command of __genosStageScope1.proposal.tests) __genosStageScope1.tests.push(await (0, __genosStageScope1.runTest)(command, __genosStageScope1.workspaceRoot));
   } catch (error) {

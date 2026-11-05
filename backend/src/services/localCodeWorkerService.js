@@ -151,7 +151,8 @@ async function executeProposal(input) {
   if (input.mission?.delegatedReviewOnly === true) return require('./localCodeReview').execute({
     workspaceRoot: input.workspaceRoot, text: input.text, allowedCommands: input.allowedCommands,
     db: input.db, mission: input.mission, executionRun: input.executionRun, runTest, allowedTest });
-  return executeCodeProposal(input);
+  try { return await executeCodeProposal(input); }
+  catch (error) { throw require('./codeBoundaryExecution').withUsage(error, input.usage); }
 }
 async function executeCodeProposal({ workspaceRoot, text, usage, allowedCommands, requiredPatchPaths,
   allowedPatchPaths, requiredPatchMarkers, requiredPatchMinimumBytes, db, mission, executionRun }) {
@@ -167,8 +168,11 @@ async function executeCodeProposal({ workspaceRoot, text, usage, allowedCommands
   const beforeFiles = await snapshotStore.collectFiles(workspaceRoot);
   const before = new Map(beforeFiles.map((file) => [file.path, file.hash]));
   const patchState = await capturePatchState(workspaceRoot, proposal.patches);
+  const boundary = await require('./codeBoundaryExecution').capture({ workspaceRoot, mission, db,
+    executionRun, proposal, allowedCommands });
   let tests;
-  await require('./localCodeWorkerServiceStages1.js').executeProposalStage1({ Error, assertNoSymlinkPath, fs, normalizeRelativePath, patchState, get path() { return path; }, set path(__genosNextStageValue) { path = __genosNextStageValue; }, proposal, restorePatchState, runTest, get tests() { return tests; }, set tests(__genosNextStageValue) { tests = __genosNextStageValue; }, workspaceRoot });
+  const observeCandidate = () => require('./codeCandidateObservation').capture({ boundary, workspaceRoot, db, mission, executionRun });
+  await require('./localCodeWorkerServiceStages1.js').executeProposalStage1({ Error, assertNoSymlinkPath, fs, normalizeRelativePath, patchState, observeCandidate, get path() { return path; }, set path(__genosNextStageValue) { path = __genosNextStageValue; }, proposal, restorePatchState, runTest, get tests() { return tests; }, set tests(__genosNextStageValue) { tests = __genosNextStageValue; }, workspaceRoot });
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
     .map(({ path: filePath, hash }) => ({ path: filePath, hash }));
@@ -183,11 +187,16 @@ async function executeCodeProposal({ workspaceRoot, text, usage, allowedCommands
   if (tests.some((test) => test.exitCode !== 0)) {
     const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
     if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
+    if (boundary) throw Object.assign(new Error('Candidate boundary contract tests failed.'), {
+      code: 'Q7_BOUNDARY_PATCH_FAILED', proposal: { tests,
+        failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })) } });
     return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: !retainFailedCandidate, testStatus: 'failed' };
   }
+  const boundaryEvidence = await require('./codeBoundaryExecution').verify(boundary, {
+    mission, db, executionRun, tests, afterFiles: after, testExecutionReceipt });
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
     changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests,
-    testExecutionReceipt, merged: false, testStatus: 'passed' };
+    testExecutionReceipt, ...(boundaryEvidence ? { boundaryEvidence } : {}), merged: false, testStatus: 'passed' };
 }
 function responseOptions(options) {
   return Array.isArray(options) ? { allowedCommands: options, requiredPatchPaths: [],

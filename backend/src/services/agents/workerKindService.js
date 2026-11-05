@@ -219,6 +219,7 @@ function missionContractFields(mission) {
     ...(mission.gvxTrialContext ? require('../gvxTrialRuntimeProfile').missionFields(mission.gvxTrialContext) : {}),
     methodContract: mission.methodContract,
     codeVerificationContract: mission.codeVerificationContract || null,
+    boundaryTestContract: require('../codeBoundaryContract').read(mission),
     workerArtifactContract: mission.workerArtifactContract || null,
     regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,

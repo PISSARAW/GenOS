@@ -15,6 +15,8 @@ function workspace(mission, codeWorker) {
   const context = require('../../bin/local-codex-runtime.cjs').buildWorkspaceContext(mission.workspaceRoot, {
     allowedCommands: mission.allowedCommands || mission.executionPolicy?.allowedCommands || [] });
   mission.allowedPatchPaths = context.patchCandidatePaths.filter(candidate => require('./localCodeWorkerService').safePath(candidate));
+  const boundary = require('./codeBoundaryContract').read(mission);
+  if (boundary) mission.allowedPatchPaths = [...new Set([...mission.allowedPatchPaths, boundary.generatedTestPath])];
   return context.text;
 }
 

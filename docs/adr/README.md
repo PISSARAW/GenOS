@@ -1039,3 +1039,4 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 - [Contrats des workers et refus A-Team typés](2026-11-05-conserver-contrats-workers-et-refus-types.md).
 - [Identités des missions de comparaison Trinity](2026-11-05-identites-mission-trinity.md).
 - [Oracle arithmétique et clôture persistante Biome](2026-11-05-oracle-arithmetique-et-perimetre-trinity.md).
+- [Frontières comportementales générées et reçues par l'hôte](2026-11-05-frontieres-comportementales-generees-et-recues-hote.md).

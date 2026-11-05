@@ -27,7 +27,7 @@ function missionRuntimeContext(request = {}) {
     'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
     'problemProfile', 'sensoryContext', 'requiresEvidenceBeforePromotion', 'successCriteria', 'hypotheses',
     'workerBarrierTimeoutMs', 'communicationRequired', 'coordinationPolicy', 'workerTokenLimit', 'localCodeWorker', 'requiredPatchPaths',
-    'requiredPatchMarkers', 'requiredPatchMinimumBytes',
+    'requiredPatchMarkers', 'requiredPatchMinimumBytes', 'boundaryTestContract',
     'requiredTools', 'toolLease', 'userTopologyRequested', 'qualityElevation', 'qualityRuntime', 'qualityRepair',
     'worker_roster', 'workerRoster', 'worker_count', 'workerCount', 'worker_task_count', 'workerTaskCount',
     'worker_type_policy', 'workerTypePolicy', 'worker_types', 'workerTypes',

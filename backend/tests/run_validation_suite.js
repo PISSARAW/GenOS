@@ -202,6 +202,8 @@ const suites = {
     ['worker qualification inventory', 'test_worker_qualification_inventory.js'],
     ['bounded code worker evidence', 'test_worker_code_evidence.js'],
     ['code mission evaluations preserve evidence and acceptance gates', 'test_worker_code_mission_evaluation.cjs'],
+    ['honest finite generated boundary evidence', 'test_honest_worker_boundary_contract.cjs'],
+    ['sealed generated boundary contract and confinement', 'test_code_boundary_contract_security.cjs'],
     ['explicit code worker launch preserves bounded repair', 'test_worker_launch_code_repair.cjs'],
     ['A-Team typed terminal refusal remains an MCP failure', 'test_ateam_typed_terminal_failure.cjs'],
     ['A-Team typed terminal refusal survives real MCP stdio', 'test_ateam_typed_terminal_mcp.cjs'],

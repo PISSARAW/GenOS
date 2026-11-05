@@ -12,7 +12,7 @@ function references(proposal = {}) {
   const receipt = proposal.testExecutionReceipt?.receiptHash;
   const batch = typeof receipt === 'string' && /^[a-f0-9]{64}$/.test(receipt)
     ? [`genos://code-test-execution/${receipt}`] : [];
-  return [...files, ...tests, ...batch];
+  return [...files, ...tests, ...batch, ...require('./codeBoundaryEvidence').references(proposal)];
 }
 
 function tests(proposal) {

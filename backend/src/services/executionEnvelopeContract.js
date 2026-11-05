@@ -24,6 +24,7 @@ async function build(ctx, input) {
     schema: SCHEMA,
     ...require('./workerGenomeExpression').authorityBinding(mission),
     ...require('./workerInferenceLimits').authorityBinding(mission),
+    ...require('./codeBoundaryContract').authorityBinding(mission),
     ...await require('./workerClinicalAdmission').bindRun(ctx.db,
       { runId: input.binding.runId, agentId: ctx.agentId, mission }),
     runId: input.binding.runId,

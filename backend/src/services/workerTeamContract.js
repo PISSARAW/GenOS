@@ -8,6 +8,7 @@ function missionFields(input = {}) {
     depends_on: structuredClone(input.depends_on || input.dependsOn || []),
     pipeline_stage: input.pipeline_stage ?? input.pipelineStage ?? 0,
     workerArtifactContract: input.workerArtifactContract || null,
+    boundaryTestContract: input.boundaryTestContract || null,
     allowedEvidenceRefs: references(input, handoffs)
   };
 }

@@ -92,7 +92,7 @@ async function complete(ctx, input) {
     + 'Evaluate whether the actual code and executed tests support consuming the delivered artifact.\n'
     + JSON.stringify({ mission: ctx.mission.missionObjective || ctx.mission.prompt, criteria: ctx.mission.missionCriteria || [],
       handoffs: ctx.mission.handoffContext || [], handoffCodeWitnesses: report.handoffCodeWitnesses, files,
-      hostReport: { claims: report.claims, tests: report.tests }, evidenceRefs });
+      hostReport: { claims: report.claims, tests: report.tests, boundaryEvidence: report.boundaryEvidence }, evidenceRefs });
   const remaining = ctx.budget - budget.consumedTokensOf(ctx.result);
   const context = { ...ctx.generation.generationContext, codeWorker: false, promptText,
     responseFormatOverride, requestTokenBudget: remaining, latencyMs: remainingMs(ctx),
