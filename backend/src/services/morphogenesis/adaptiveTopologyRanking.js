@@ -272,8 +272,6 @@ function markPareto(items) {
 function noAlternativeDecision(items) {
   if (items.some(item => item.eligible && !item.isNoChange)) return { decision: 'ABSTAIN', selectedId: null,
     reason: 'No candidate with sufficiently known, implemented or stable maturity is eligible to propose.' };
-  if (items.some(item => !item.isNoChange)) return { decision: 'ABSTAIN', selectedId: null,
-    reason: 'Candidates exist but none is eligible to propose; missing verified evidence to decide.' };
   return { decision: 'NO_CHANGE', selectedId: 'NO_CHANGE', reason: 'No eligible recipe improves on the baseline.' };
 }
 

@@ -45,7 +45,7 @@ function main() {
     >= program.topologyPortfolio.generation.registeredVariantCount);
   assert.equal(program.topologyPortfolio.ranking.executionAuthorized, false);
   assert.ok(program.topologyPortfolio.ranking.candidates.some(item => item.id === 'NO_CHANGE'));
-  assert.equal(program.topologyPortfolio.ranking.decision.decision, 'ABSTAIN');
+  assert.equal(program.topologyPortfolio.ranking.decision.decision, 'NO_CHANGE');
 
   const fallback = compileMissionStrategy({ ...base,
     availableCapabilities: ['observe', 'causal_analysis', 'deterministic_procedure', 'verify'],
