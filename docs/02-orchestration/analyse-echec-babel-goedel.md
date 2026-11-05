@@ -1,9 +1,16 @@
 # Analyse d'échec — Mission Orchestration Babel-Gödel (D:)
 
+> **État actuel : validation réussie le 5 novembre 2026.** La mission
+> `mission_babel_qualified_b2e9f089-379e-49f5-a02b-c8ccaa1a44ba` est
+> `completed`, avec oracle indépendant accepté, quatre runs terminés,
+> budgets persistés et 232 génomes importés. Voir les sections 8 et 9.
+> Les sections 1 à 6 décrivent l’échec initial du 4 novembre et ses pistes
+> de diagnostic ; elles ne constituent pas le statut de la relance.
+
 **Date** : 2026-11-04  
 **Mission** : Équation Polyglotte de Babel-Gödel, $N = (A \times B) + C^D - E$  
 **Résultat mathématique annoncé** : $N = 10\,805$ (réponse du worker Ollama ; cette déclaration ne constitue pas un reçu d’oracle indépendant)
-**Statut GenOS** : ÉCHEC (statut `error`, mission incomplete, aucun génome persistant)
+**Statut GenOS initial, le 4 novembre** : ÉCHEC (statut `error`, mission incomplete, aucun génome persistant à cette date)
 
 ---
 
@@ -27,21 +34,21 @@ Le worker Ollama a confirmé dans son artefact :
 
 ---
 
-## 2. Ce qui a échoué dans la mission GenOS
+## 2. Échec initial du 4 novembre 2026 — historique
 
-| Élément | État | Cause |
+| Élément | État initial | Diagnostic initial ou rectification |
 |---------|------|-------|
 | 4 workers biome créés | ✅ | Topologie `biome` composée correctement |
-| `runtime_pid` des workers | ❌ `null` pour tous | Aucun processus OS lancé pour les workers biome |
+| `runtime_pid` des workers | `null` pour tous | Ce champ ne démontre pas une absence d’exécution : les runtimes locaux peuvent s’exécuter dans le processus hôte |
 | Budget `executionBudget` | ❌ `undefined` dans le contexte enfant | Non propagé du payload vers `childBudget`/`parentBudget` |
-| Preuves validées | ❌ Aucune | Workers bloqués avant exécution |
-| Génomes persistants (`agent_genomes`) | ❌ Vide | Pipeline d'ontogenèse non atteint |
+| Preuves validées | ❌ Aucune preuve de clôture acceptée | Barrière de preuve non franchie ; cela ne prouve pas une absence d’appel modèle |
+| Génomes persistants (`agent_genomes`) | ❌ Vide à cette date | L’activation et l’import ADN sont nécessaires ; un succès ne garantit pas la création automatique de génomes |
 | Statut final orchestrateur | ❌ `error` | `biome dispatch did not complete every required worker with valid evidence` |
 | Morphogenèse | ❌ Non complétée | Barrière de complétion biome non franchie |
 
 ---
 
-## 3. Corrections apportées (commitées)
+## 3. Premières corrections rapportées — historique, rectifié en section 7
 
 ### 3.1 `backend/src/services/topology/topologyResultAppliers/biome.cjs` (NOUVEAU)
 L'appliqueur de topologie `biome` manquait complètement. `topologyResultApplier.cjs` cherchait `./topologyResultAppliers/biome.cjs` et ne le trouvait pas → `TOPOLOGY_RESULT_APPLIER_UNAVAILABLE`. Créé avec une fonction `apply` retournant `applied: true`.
@@ -57,13 +64,18 @@ Le validateur Windows exigeait `latencyMs > 0` strictement. Ajout de valeurs par
 
 ---
 
-## 4. Ce qui reste à améliorer pour tout valider
+## 4. Pistes du diagnostic initial — résolues ou rectifiées en sections 7 à 9
 
 ### 4.1 Propagation du budget `executionBudget` (BLOQUANT)
 Le payload contient `executionBudget: {tokens: 5000, costUsd: 1.0, latencyMs: 60000}`, mais les logs des workers montrent `[BudgetCoherence] Budget undefined is missing or invalid (undefined)`. Le budget n'est pas transmis du contexte orchestrateur vers le contexte worker dans le chemin biome. Il faut vérifier que `selectedBudget(member, context.request)` dans `workerLaunchPayload.cjs` reçoit bien `context.request.executionBudget`.
 
 ### 4.2 Lancement effectif des workers biome (BLOQUANT)
-Les workers ont `runtime_pid: null` et `latest_run_status: failed`. Le chemin biome utilise `workerCellThreadRuntime` (threads cellulaires) plutôt que `spawnTopologyWorker` (processus OS séparés). Il faut s'assurer qu'un runtime exécute effectivement le worker et lui assigne un `runtime_pid`.
+Le diagnostic initial relevait `runtime_pid: null` et `latest_run_status: failed`.
+Le runtime local peut utiliser `missionProtocols/runtime.runInProcess` pour
+exécuter le worker déterministe ou le worker Ollama : un PID distinct par
+worker n’est donc pas requis. Le critère utile est un run terminé, avec budget,
+preuve et acceptation d’oracle persistés. Les quatre runs de la relance sont
+`completed` alors que leurs champs `runtime_pid` restent `null`.
 
 ### 4.3 Format d'artefact attendu
 Le worker Ollama a produit un artefact avec `outcome: "success"` et `claims`, mais le validateur GenOS attendait un `dossier` avec `code_fix` substantié (code `INVALID_WORKER_ARTIFACT`, problème `dossier.code_fix.unsubstantiated`). Il faut aligner le format de sortie du worker sur le contrat attendu par le biome (artefact `dossier` pour les specialists, `scout_observation` pour les scouts).
@@ -72,21 +84,24 @@ Le worker Ollama a produit un artefact avec `outcome: "success"` et `claims`, ma
 Même avec des workers fonctionnels, la completion nécessite : `requiredMemberIds` tous complétés, `evidenceRefs` non vide, `independent_oracle` présent, `completion_invariants` satisfaits. Il faut implémenter ou activer l'oracle indépendant et les invariants de complétion.
 
 ### 4.4 Persistance des génomes (ADN)
-Aucun génome n'a été écrit dans `agent_genomes`. Le pipeline d'ontogenèse/innovation (`agentDnaStore.js`) ne s'exécute que si un worker complète avec preuves valides. Une fois 4.1–4.3 résolus, les génomes devraient être créés automatiquement.
+Le constat initial était une table `agent_genomes` vide. L’explication par une
+ontogenèse non atteinte et la promesse de création automatique étaient des
+déductions incorrectes. La relance active `GENOS_AGENT_DNA=1`, importe le
+catalogue `.dna` et lie les sélections signées aux workers ; voir la section 8.
 
 ---
 
-## 5. Plan d'action pour validation complète
+## 5. Plan initial de requalification — exécuté et rectifié en sections 7 à 9
 
 1. Corriger la propagation du `executionBudget` dans `workerLaunchPayload.cjs` / `directWorkerBudgetScope.cjs`.
-2. S'assurer que `runtime_pid` est assigné aux workers biome (vérifier `directWorkerCellBridge.js` / `workerCellThreadRuntime.js`).
+2. Confirmer l’exécution des workers par les runs et reçus persistés ; un `runtime_pid` non nul n’est pas un critère de preuve pour un runtime local dans le processus hôte.
 3. Aligner le format d'artefact worker sur le contrat biome attendu (`dossier` / `scout_observation`).
 4. Implémenter/activer l'oracle indépendant et les invariants de complétion biome.
 5. Relancer la mission avec `mode: "biome"`, `strategy: "biome"`, `executionBudget` complet, `workspace_root: "D:\genos-babel-goedel"`, `workspaceScopeId: "ws-babel-goedel"`.
 
 ---
 
-## 6. Conclusion
+## 6. Conclusion du constat initial
 
 Le résultat mathématique annoncé est $N = 10\,805$. Une réponse positive d’Ollama ne suffit pas à qualifier ce résultat de **vérifié par GenOS**. Le constat historique est un échec de clôture ; un `runtime_pid` nul ne permet pas, à lui seul, de conclure qu’aucun worker ne s’est exécuté.
 
