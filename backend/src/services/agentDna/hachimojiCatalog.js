@@ -14,7 +14,7 @@ const proofPrograms = ['test_hachimoji_catalog.cjs', 'test_hachimoji_migration.c
   'test_genome_policy.js', 'test_genome_innovation.js'];
 
 function proofTimeoutMs(filename) {
-  return ['test_hachimoji_catalog.cjs', 'test_worker_genome_execution.cjs'].includes(filename) ? 600000 : 180000;
+  return filename === 'test_hachimoji_catalog.cjs' ? 600000 : 180000;
 }
 
 function listFiles(directory, suffix) {
