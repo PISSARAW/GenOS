@@ -1,6 +1,10 @@
 # 06 — Qualité et preuves
 
+- [Le Dernier Sas — reprise du 5 novembre](dernier-sas-reprise-sept-protocoles-2026-11-05.md) — correctifs des relectures, refus conservés et qualification de la nouvelle mission.
+
 - [Expiration d’autorité et qualification native](correction-expiration-autorite-cooperation-2026-11-04.md) — budgets avant admission, échéances cliniques et absolues, correctifs et preuves d’exécution.
+
+- [requalification-principes-fondateurs-2026-11-04.md](requalification-principes-fondateurs-2026-11-04.md) — onze preuves réexécutées, sources locales liées par empreinte et reçu historique conservé.
 
 - [autopsie-competence-et-couverture-genos-2026-11-04.md](autopsie-competence-et-couverture-genos-2026-11-04.md) — causes de l'échec, couverture primaire limitée, reprise d'analyse par le runtime et clôture refusée par le graphe de vérité.
 
@@ -10,9 +14,9 @@
 - [cooperation-llm-constat-daemon-2026-11-04.md](cooperation-llm-constat-daemon-2026-11-04.md) — planification fondée sur preuve ; deux refus réels du daemon, 7 709 tokens, aucun appel au planificateur.
 - [cooperation-llm-plan-refuse-2026-11-04.md](cooperation-llm-plan-refuse-2026-11-04.md) — deux appels Qwen réels refusés avant dispatch, 380 tokens et diagnostic du contrat de planification.
 
-- [competence-cinq-variantes-2026-11-04.md](competence-cinq-variantes-2026-11-04.md) — comparaison prospective de cinq variantes avec Qwen réel, six mondes, courbes d'apprentissage et reconnaissance des ambiguïtés.
-
 - [missions-llm-hierarchiques-rust-2026-11-04.md](missions-llm-hierarchiques-rust-2026-11-04.md) — arborescence bornée, délégation récursive, retours CAS adressés et preuves de reprise.
+
+- [competence-cinq-variantes-2026-11-04.md](competence-cinq-variantes-2026-11-04.md) — comparaison prospective de cinq variantes avec Qwen réel, six mondes, courbes d'apprentissage et reconnaissance des ambiguïtés.
 
 - [cooperation-llm-corrections-2026-11-04.md](cooperation-llm-corrections-2026-11-04.md) — diagnostic de l'abstention réelle, contrat sémantique, arrêt des reprises et coûts cumulés ; nouveau pilote LLM borné.
 

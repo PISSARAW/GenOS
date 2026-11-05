@@ -1,5 +1,7 @@
 # Décisions d'architecture (ADR)
 
+- [Citations indexées dans les relectures GQEL](2026-11-05-citations-indexees-relectures-gqel.md) — index bornés, citations exactes et compatibilité des formats.
+
 - [0758 — Vérification Lean commune et reçus liés](0758-verification-lean-et-recus-lies.md).
 
 Un **ADR** (*Architecture Decision Record*) capture une décision structurante : son

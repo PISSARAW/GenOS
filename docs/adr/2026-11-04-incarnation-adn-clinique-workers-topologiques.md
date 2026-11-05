@@ -55,6 +55,21 @@ postérieures au scan. Une remise en activité ne réhabilite pas l'ancien reçu
 La lecture historique vérifie l'état à la date du scellement sans effectuer
 un nouveau scan ni autoriser une nouvelle exécution.
 
+Le contrôleur du parcours Windows conserve sa durée de vie `running` pendant
+l'exécution locale. Il peut recevoir le résultat d'un nouveau scan clinique
+par comparaison atomique de ses métadonnées lorsque son mode persistant est
+`orchestrator`. Cette exception ne change pas son incarnation ADN et ne
+s'applique pas à un worker déjà actif, qui reste refusé. Les contrôles de
+quarantaine, de signature, de mission et de tenant restent obligatoires.
+
+La réservation d'une place du garage utilise déjà le statut `running` avant
+la création du run. L'admission clinique et l'incarnation ADN distinguent donc
+cette réservation d'une incarnation active par la présence d'un run `planned`
+ou `running`. Une réservation sans run peut être admise ; une incarnation
+worker active conserve le refus de réécriture. Les écritures restent protégées
+par comparaison de la version des métadonnées et tous les contrôles de portée,
+de signature, de source et de quarantaine restent requis.
+
 ## Conséquences
 
 L'activation ADN est explicite et exige un répertoire réellement adapté aux

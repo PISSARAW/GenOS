@@ -1,5 +1,9 @@
 # Documentation GenOS
 
+- [Le Dernier Sas — reprise du 5 novembre](06-qualite-preuves/dernier-sas-reprise-sept-protocoles-2026-11-05.md) — diagnostic, correctifs GQEL et preuves d’exécution.
+
+- [ADR : citations indexées GQEL](adr/2026-11-05-citations-indexees-relectures-gqel.md) — sélection bornée et résolution exacte dans la source.
+
 - [Retour d’expérience Babel-Gödel sur D:](02-orchestration/analyse-echec-babel-goedel.md) — de l’échec initial à la clôture vérifiée : cinq relances, oracle indépendant, budgets, génomes persistants et limites de la qualification.
 
 - [Application des règles et contrôle positif](06-qualite-preuves/competence-cinq-variantes-controle-positif-2026-11-04.md) — correction du pipeline, validation indépendante 16/16 puis nouvelle comparaison à cinq variantes avec Qwen réel.
