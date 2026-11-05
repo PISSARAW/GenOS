@@ -39,7 +39,9 @@ function verifiedGenomeOutcome() {
       phenotypeHash: 'candidate-phenotype', status: 'candidate' } }]]) };
   const adaptation = { receipt: {}, admission: { status: 'admitted',
     selectionBasis: 'isolated_genome_evaluation', recipe: {
-      id: 'variant:trinity:pareto', topology: 'trinity', variant: 'pareto' } },
+      id: 'variant:trinity:pareto', topology: 'trinity', variant: 'pareto' },
+    actualPlan: { workerAssignments: [{ workerId, workerKind: 'scout_cell',
+      topology: 'trinity', variant: 'pareto', tokenBudget: 100 }] } },
   plan: { morphologyPatch: { graph: { graphId: 'genome-evaluation-graph', version: 1 } } } };
   const transitionReceipt = transitions.sealTransitionReceipt({ state,
     survivors: [{ agentId: workerId }], continuation: { perWorkerTokens: 100 }, adaptation });
