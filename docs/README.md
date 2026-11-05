@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Retour d’expérience Babel-Gödel sur D:](02-orchestration/analyse-echec-babel-goedel.md) — de l’échec initial à la clôture vérifiée : cinq relances, oracle indépendant, budgets, génomes persistants et limites de la qualification.
+
 - [Application des règles et contrôle positif](06-qualite-preuves/competence-cinq-variantes-controle-positif-2026-11-04.md) — correction du pipeline, validation indépendante 16/16 puis nouvelle comparaison à cinq variantes avec Qwen réel.
 
 - [Compétence : expérience à cinq variantes](06-qualite-preuves/competence-cinq-variantes-2026-11-04.md) — six mondes, LLM réel, rappel, synthèse, ambiguïtés et règle changeante ; protocole et résultats bornés.

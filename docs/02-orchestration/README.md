@@ -5,6 +5,8 @@ reproduction, et les 8 modes de composition (topologies).
 
 ## Exécution
 
+- [Retour d’expérience Babel-Gödel](analyse-echec-babel-goedel.md) — cinq relances, budgets, oracle arithmétique indépendant, ADN importé, clôture persistante, preuves et reproduction.
+
 - [qualification-cooperation-chaine-native.md](qualification-cooperation-chaine-native.md) — bootstrap, génomes, plan routé, reprises et clôture native du banc LLM.
 
 - [contrat-sortie-daemon-allocation.md](contrat-sortie-daemon-allocation.md) — observation typée du daemon, sérialisation stricte et veto des oracles natifs.
