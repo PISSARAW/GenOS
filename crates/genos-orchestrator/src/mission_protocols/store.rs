@@ -76,6 +76,8 @@ impl Store {
         let _guard = self.current_writer(binding)?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
+        #[cfg(feature="native-llm")]
+        let _proof_scope=super::agentic_validation_cache::enter(&tx);
         current_checked(&tx, binding)?;
         let result = operation(&tx)?;
         current_checked(&tx, binding)?;
@@ -98,6 +100,8 @@ impl Store {
         let _guard = self.writer.acquire(Duration::from_millis(wait))?;
         let tx = self.connection.transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
+        #[cfg(feature="native-llm")]
+        let _proof_scope=super::agentic_validation_cache::enter(&tx);
         historical_checked(&tx, binding)?;
         let result = operation(&tx)?;
         tx.commit().map_err(|e| e.to_string())?;

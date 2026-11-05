@@ -50,6 +50,8 @@ pub mod agentic_admission;
 #[cfg(feature="native-llm")]
 pub mod agentic_ledger;
 #[cfg(feature="native-llm")]
+mod agentic_validation_cache;
+#[cfg(feature="native-llm")]
 pub mod agentic_context;
 #[cfg(feature="native-llm")]
 pub mod agentic_tools;

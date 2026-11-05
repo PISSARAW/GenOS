@@ -55,11 +55,13 @@ fn outcome_material(binding:&Binding, record:&ModelRecord) -> Result<(String,Str
 
 pub fn model_record_in(connection:&Connection, binding:&Binding, key:&StepKey) -> Result<ModelRecord,String> {
     super::super::store::current_checked(connection,binding)?;
+    if let Some(record)=super::super::agentic_validation_cache::get(connection,binding,key) { return Ok(record); }
     let record=data::model_record(connection,binding,key)?;
     if record.key!=*key { return Err("AGENTIC_MODEL_STEP_IDENTITY_CHANGED".into()); }
     validate_record(connection,binding,&record)?;
     validate_native(&record)?;
     validate_event(connection,binding,&record)?;
+    super::super::agentic_validation_cache::verified(connection,binding,&record);
     Ok(record)
 }
 
