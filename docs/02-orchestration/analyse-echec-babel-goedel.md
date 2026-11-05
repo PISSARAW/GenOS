@@ -162,3 +162,35 @@ Une nouvelle exécution bornée utilise :
 ```powershell
 node examples/babel-goedel/qualify.cjs D:\genos-babel-goedel
 ```
+
+## 9. Contrôles de régression de la requalification
+
+La relecture du 5 novembre à 01:24:16 UTC confirme à nouveau le verdict,
+l’oracle, les 232 génomes et les cinq cellules clôturées, près d’une heure
+après l’exécution. Elle utilise la base active et les reçus archivés.
+
+| Contrôle | Résultat |
+|---|---|
+| Qualité du code | 9 260 fichiers vérifiés, aucune violation |
+| `cargo test --workspace` | 1 248 tests passés, aucun échec |
+| `npm test` complet | Terminé avec code zéro le 5 novembre 2026 |
+| Suite Biome | 31 programmes passés |
+| Fin du profil workers | 22 programmes passés, dont les oracles Lean réels |
+| Inventaire et composition | 28 suites passées |
+| GQEL V2 | 50 tests passés ; réponses de modèle synthétiques dans cette suite |
+
+Les contrôles généraux ont révélé deux défauts de fixture. Le test de cycle
+de vie natif réutilisait un snapshot immuable sous le même chemin du dépôt :
+il utilise désormais un workspace temporaire propre et passe deux fois de
+suite. Le faux relecteur GQEL ne reconnaissait que les calibrations narratives ;
+il reconnaît aussi celles du code et atteint maintenant le refus attendu
+`EXECUTION_PROOF_MISSING`. Les règles de preuve du runtime restent actives.
+
+Le reçu des principes fondateurs était également périmé. Sa
+[requalification par onze programmes et 44 sources stables](../06-qualite-preuves/requalification-babel-goedel-2026-11-05.md)
+est conservée avec le périmètre exact du checkout, dont une modification MCP
+locale préexistante. Ce reçu maintient `authorizesPromotion: false`.
+
+Les journaux complets et les rapports machine sont conservés localement
+dans `.genos-agent-worlds/` ; les bases, secrets et artefacts bruts ne sont
+pas ajoutés au dépôt.
