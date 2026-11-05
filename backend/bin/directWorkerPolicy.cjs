@@ -19,6 +19,7 @@ function workerPolicy(request = {}) {
   const policy = request.executionPolicy || {};
   const edits = firstPresent(request.allow_file_edits, request.allowFileEdits, policy.allowFileEdits);
   return { allowedCommands: commands(request, policy),
+    ...require('../src/services/workerInferenceLimits').policyFields(request),
     allowFileEdits: edits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : edits === true,
     ...writePaths(request, policy),
     silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')),

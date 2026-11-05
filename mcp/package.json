@@ -26,6 +26,7 @@
     "strategyBridge.js",
     "samplingBroker.js",
     "processTermination.cjs",
+    "processFailure.js",
     "toolDefinitions.json",
     "test_sampling_broker.mjs"
   ],

@@ -298,7 +298,8 @@ async function executeForegroundTeam(input) {
 
 function terminalFailure(terminal) {
   return Object.assign(new Error(`A-Team terminal failure: ${terminal.status}.`), {
-    code: 'A_TEAM_TERMINAL_FAILURE', teamRunId: terminal.teamRunId, terminal
+    code: 'A_TEAM_TERMINAL_FAILURE', teamRunId: terminal.teamRunId, terminal, exitCode: 2,
+    stdoutEnvelope: require('./aTeam/dispatchFailureEnvelope').build(terminal)
   });
 }
 

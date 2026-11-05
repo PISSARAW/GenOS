@@ -64,7 +64,11 @@ function remainingMs(ctx) {
 }
 
 function parse(result, responseFormat) {
-  const value = JSON.parse(result.text);
+  let value;
+  try { value = JSON.parse(result.text); } catch (_) {
+    throw Object.assign(failure('WORKER_OUTPUT_SCHEMA_VIOLATION'), {
+      workerArtifactDiagnostics: { violations: ['code mission evaluation must be valid JSON'] } });
+  }
   const validate = new (require('ajv'))({ allErrors: true, strict: false }).compile(responseFormat.schema);
   if (result.schemaViolation || !validate(value)) throw Object.assign(failure('WORKER_OUTPUT_SCHEMA_VIOLATION'), {
     workerArtifactDiagnostics: { violations: validate.errors || ['code mission evaluation schema'] } });

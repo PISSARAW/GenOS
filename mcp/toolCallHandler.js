@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { beginActorCall, finishActorCall, bodyMetadata } from './actorReceipt.mjs';
+import { failureText } from './processFailure.js';
 
 const require = createRequire(import.meta.url);
 const REPO_ROOT = resolveRepoRoot();
@@ -207,7 +208,7 @@ async function handleToolRequest(input) {
     return { content: [{ type: 'text', text }],
       _meta: { 'genos.body': bodyMetadata(actor) } };
   } catch (error) {
-    return { content: [{ type: 'text', text: error.message }], isError: true,
+    return { content: [{ type: 'text', text: failureText(error) }], isError: true,
       _meta: { 'genos.body': bodyMetadata(actor) } };
   }
 }

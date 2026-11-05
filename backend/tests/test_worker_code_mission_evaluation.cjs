@@ -100,11 +100,24 @@ async function authorityFailures(root) {
   } }), { code: 'WORKER_CODE_EVALUATION_SOURCE_CHANGED' });
 }
 
+async function malformedEvaluations(root) {
+  for (const text of ['{', 'null', '[]', '{"unexpected":true}']) {
+    const input = await fixture(root);
+    await assert.rejects(evaluation.complete(input.ctx, { ...input, generate: async () => ({
+      text, schemaViolation: text === '{', inputTokens: 10, outputTokens: 1
+    }) }), error => error.code === 'WORKER_OUTPUT_SCHEMA_VIOLATION'
+      && Boolean(error.workerArtifactDiagnostics.violations.length));
+    assert.equal(input.ctx.result.inputTokens, 110);
+    assert.equal(input.ctx.result.outputTokens, 51);
+  }
+}
+
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'code-mission-eval-'));
   try {
     await positive(await fixture(root)); await negative(await fixture(root));
     await authorityFailures(root);
+    await malformedEvaluations(root);
     const input = await fixture(root);
     await fs.writeFile(path.join(root, 'module.cjs'), 'changed');
     await assert.rejects(evaluation.complete(input.ctx, { ...input,

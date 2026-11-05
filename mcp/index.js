@@ -19,6 +19,7 @@ import { loadStrategyBridge } from "./strategyBridge.js";
 import { createSamplingBroker } from "./samplingBroker.js";
 import { createHostExecutionContext } from "./hostExecutionContext.mjs";
 import { bridgePayloadTransport } from "./orchestratorPayloadTransport.js";
+import { processFailure } from "./processFailure.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -163,7 +164,7 @@ function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(
       if (state.remainder) state.output = appendBounded(state.output, state.remainder);
       state.callbackChain.then(() => {
         if (code === 0) resolve(state.output);
-        else reject(new Error(`Process exited with code ${code}: ${err || state.output}`));
+        else reject(processFailure({ code, stderr: err, stdout: state.output }));
       }).catch((error) => reject(error));
     });
     child.on("error", (error) => {

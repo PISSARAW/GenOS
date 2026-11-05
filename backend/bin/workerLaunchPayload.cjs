@@ -121,6 +121,16 @@ function selectedPipelineStage(member, context) {
   return member.pipelineStage ?? context.request?.pipeline_stage ?? 0;
 }
 
+function selectedCodeWorker(member, request = {}) {
+  return [member.localCodeWorker, request.localCodeWorker, request.executionPolicy?.localCodeWorker].includes(true);
+}
+
+function selectedWorkerPolicy(request = {}) {
+  const fields = require('../src/services/missionProtocols/launchPolicy').workspaceProtocolFields(request);
+  return { ...fields, executionPolicy: { ...fields.executionPolicy,
+    ...require('../src/services/workerInferenceLimits').policyFields(request) } };
+}
+
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
@@ -142,9 +152,10 @@ function workerLaunchPayload(args) {
     workerKind,
     variantIndex: member.variantIndex,
     localModel,
+    localCodeWorker: selectedCodeWorker(member, context.request),
     localContextTokens: context.request?.localContextTokens,
     readOnlyWorkspaceEvidence: context.request?.readOnlyWorkspaceEvidence === true,
-    ...require('../src/services/missionProtocols/launchPolicy').workspaceProtocolFields(context.request),
+    ...selectedWorkerPolicy(context.request),
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope || context.request?.missionScope,
     organization: context.request?.organization,
