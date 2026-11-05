@@ -44,6 +44,7 @@ function runtimeFailure(error) {
 function failurePayload(ctx) {
   return { executionRunId: ctx.executionRun.id, model: ctx.error.model || ctx.model || ctx.mission.localModel,
     failureCode: ctx.error.code || null, runtimeFailure: runtimeFailure(ctx.error),
+    boundaryFailureDiagnostics: require('./codeBoundaryFailureDiagnostics').project(ctx.error.boundaryFailureDiagnostics),
     provider: ctx.error.modelProvider || ctx.provider,
     workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics, proposalTests: ctx.error.proposal?.tests,
     appliedFiles: ctx.error.proposal?.proposal?.appliedFiles, usage: ctx.error.modelUsage || ctx.usage,

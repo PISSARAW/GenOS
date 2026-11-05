@@ -187,8 +187,8 @@ async function executeCodeProposal({ workspaceRoot, text, usage, allowedCommands
   if (tests.some((test) => test.exitCode !== 0)) {
     const retainFailedCandidate = mission?.preserveFailedCodeCandidate === true;
     if (!retainFailedCandidate) await restorePatchState(workspaceRoot, patchState);
-    if (boundary) throw Object.assign(new Error('Candidate boundary contract tests failed.'), {
-      code: 'Q7_BOUNDARY_PATCH_FAILED', proposal: { tests,
+    if (boundary) throw require('./codeBoundaryFailureDiagnostics').candidateFailure(boundary, {
+      tests, testExecutionReceipt, proposal: { tests,
         failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })) } });
     return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, failedPatchContents: proposal.patches.map(({ path, content }) => ({ path, content })), changedFiles: [], tests, testExecutionReceipt, merged: false, rolledBack: !retainFailedCandidate, testStatus: 'failed' };
   }

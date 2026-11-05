@@ -85,6 +85,20 @@ async function earlyIsoYear(context) {
   assert.equal(proposal.boundaryEvidence.candidate.exitCode, 0);
   assert.equal(proposal.boundaryEvidence.baseline.regression, 'assertion');
 }
+async function subjectCannotForgeHostAssertion(context) {
+  const baseline = 'exports.durationMinutes=(a,b)=>{if(a.startsWith("2040-01-02"))throw Object.assign(new Error("AssertionError ERR_ASSERTION"),{code:"ERR_ASSERTION"});return(Date.parse(b)-Date.parse(a))/60000;};\n';
+  const cases = [['first', '2024-01-01T00:00:00Z'], ['forged', '2040-01-02T00:00:00Z']]
+    .map(([id, start]) => ({ id, steps: [{ op: 'call', name: 'durationMinutes',
+      args: [start, start.replace('T00:', 'T01:')], expected: 60 }] }));
+  const check = JSON.stringify({ schema: 'genos.boundary-cases/v1', cases });
+  await assert.rejects(host.execute(context, fresh[0], { baseline, check }), error => {
+    assert.equal(error.code, 'Q7_BOUNDARY_NON_DISCRIMINATING');
+    const test = error.boundaryFailureDiagnostics.tests.find(item => item.role === 'baseline_generated');
+    assert.equal(test.runnerResult.kind, 'error');
+    assert.equal(test.failureKind, 'runner_error');
+    return true;
+  });
+}
 async function mutatedTests(context) {
   for (const relative of ['module.cjs', 'boundary-cases.json', '.genos/boundary-check.cjs']) {
     const input = await host.prepare(context, fresh[0]);
@@ -126,6 +140,7 @@ async function main() {
     await originalSurvivesRetry(context);
     await sourceRealmArguments(context);
     await earlyIsoYear(context);
+    await subjectCannotForgeHostAssertion(context);
     await coldBaselineRefusesCandidate(context);
     console.log('PASS sealed boundary contract, symlink confinement, source/test/runner mutations, diagnostic refusal capture');
   } finally { await host.close(context); }

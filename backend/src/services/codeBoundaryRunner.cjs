@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const deepEqual = assert.deepStrictEqual;
 const notSame = assert.notStrictEqual;
+const hostAssertionErrors = new WeakSet();
 const SAFE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const FORBIDDEN = new Set(['constructor', 'prototype', '__proto__', 'toString', 'valueOf', 'require', 'eval', 'Function']);
 
@@ -148,13 +149,17 @@ function validateCase(item, ids) {
 function expectation(result, step, context) {
   if (!hasExpectation(step)) return;
   context.stats.assertions += 1;
-  deepEqual(result, step.expectedUndefined ? undefined : step.expected, context.label);
+  hostAssertion(() => deepEqual(result, step.expectedUndefined ? undefined : step.expected, context.label));
+}
+function hostAssertion(check) {
+  try { check(); }
+  catch (error) { hostAssertionErrors.add(error); throw error; }
 }
 function postconditions(input) {
   for (const check of input.checks) {
     input.stats.assertions += 1;
-    if (check === 'preserveArguments') deepEqual(input.args, input.before, input.label);
-    if (check === 'newResult') notSame(input.sameArgument, true, input.label);
+    if (check === 'preserveArguments') hostAssertion(() => deepEqual(input.args, input.before, input.label));
+    if (check === 'newResult') hostAssertion(() => notSame(input.sameArgument, true, input.label));
   }
 }
 function runStep(step, context) {
@@ -204,7 +209,7 @@ function main() {
     }
     emit({ ...stats, status: 'passed' });
   } catch (error) {
-    emit({ ...stats, status: 'failed', kind: error.code === 'ERR_ASSERTION' ? 'assertion' : 'error' });
+    emit({ ...stats, status: 'failed', kind: hostAssertionErrors.has(error) ? 'assertion' : 'error' });
     process.stderr.write(`${error.stack || error.message}\n`); process.exitCode = 1;
   }
 }

@@ -7,14 +7,19 @@ const snapshots = require('./workspaceSnapshotStore');
 const receipts = require('./localCodeTestExecutionReceiptService');
 const evidence = require('./codeBoundaryEvidence');
 const runner = require('./codeBoundaryRunnerHost');
+const diagnostics = require('./codeBoundaryFailureDiagnostics');
 const { testPassed } = require('./workerCodeEvidenceReferences');
 const originals = new WeakMap();
 
 async function bytes(root, relative) {
   try { return await fs.readFile(safety.resolveContainedPathNoSymlinkSync(root, relative, 'boundary test')); }
-  catch (_) { evidence.fail('SOURCE_CHANGED'); }
+  catch (cause) { throw Object.assign(values.failure('Q7_BOUNDARY_SOURCE_CHANGED'), { cause }); }
 }
 async function capture(input) {
+  try { return await captureContract(input); }
+  catch (error) { throw diagnostics.attach(error); }
+}
+async function captureContract(input) {
   const contract = require('./codeBoundaryContract').read(input.mission);
   if (!contract) return null;
   if (!input.db?.get || !input.executionRun?.id) evidence.fail('RECEIPT_CONTEXT_REQUIRED');
@@ -30,16 +35,19 @@ async function capture(input) {
 }
 function validateCases(generated, contract) {
   try { require('./codeBoundaryRunner.cjs').validate(JSON.parse(generated.content), contract.api); }
-  catch (error) { evidence.fail(error.code === 'Q7_BOUNDARY_DOMAIN_INVALID' ? 'DOMAIN_INVALID' : 'FORMAT_INVALID'); }
+  catch (error) { throw diagnostics.proposalFailure(error.code === 'Q7_BOUNDARY_DOMAIN_INVALID'
+    ? 'Q7_BOUNDARY_DOMAIN_INVALID' : 'Q7_BOUNDARY_FORMAT_INVALID'); }
 }
 function generatedPatch(input, contract) {
   const paths = [...contract.sourcePaths, contract.generatedTestPath];
   if (input.proposal.patches.some(patch => !paths.includes(patch.path))) evidence.fail('CONTRACT_INVALID');
   const allowed = input.allowedCommands || [];
-  if (![contract.command, contract.visibleCommand].every(command => allowed.includes(command)
-    && input.proposal.tests.includes(command))) evidence.fail('TEST_MISSING');
+  if (![contract.command, contract.visibleCommand].every(command => allowed.includes(command))) evidence.fail('TEST_MISSING');
+  if (![contract.command, contract.visibleCommand].every(command => input.proposal.tests.includes(command))) {
+    throw diagnostics.proposalFailure('Q7_BOUNDARY_TEST_MISSING');
+  }
   const generated = input.proposal.patches.find(patch => patch.path === contract.generatedTestPath);
-  if (!generated?.content?.trim()) evidence.fail('TEST_MISSING');
+  if (!generated?.content?.trim()) throw diagnostics.proposalFailure('Q7_BOUNDARY_TEST_MISSING');
   return generated;
 }
 async function visibleFiles(input, contract, generated) {
@@ -47,7 +55,7 @@ async function visibleFiles(input, contract, generated) {
   for (const relative of contract.visibleTestPaths) {
     const content = await bytes(input.workspaceRoot, relative);
     result.push({ path: relative, hash: values.hashBytes(content) });
-    if (content.toString('utf8').trim() === generated.content.trim()) evidence.fail('TEST_COPIED');
+    if (content.toString('utf8').trim() === generated.content.trim()) throw diagnostics.proposalFailure('Q7_BOUNDARY_TEST_COPIED');
   }
   return result;
 }
@@ -137,11 +145,17 @@ async function record(input, root, tests) {
 }
 async function verify(state, input) {
   if (!state) return null;
+  state.failureContext = diagnostics.context(state, input);
+  try { return await verifyContract(state, input); }
+  catch (error) { throw diagnostics.attach(error, state.failureContext); }
+}
+async function verifyContract(state, input) {
   await assertFiles(state);
   const generated = input.tests.find(test => test.command === state.contract.command);
   const visible = input.tests.find(test => test.command === state.contract.visibleCommand);
   if (!generated || !visible || !testPassed(generated) || !testPassed(visible) || !executed(generated, 'passed')
     || !input.testExecutionReceipt) evidence.fail('PATCH_FAILED');
+  diagnostics.stage(state, 'baseline_prepare');
   const root = await baseline(state, input.afterFiles);
   state.baselineRunner = await runner.install({ workspaceRoot: root, contract: state.contract });
   await assertOwnedWorld(state, root);
@@ -156,12 +170,20 @@ async function compare(state, input) {
   const runTest = require('./localCodeWorkerService').runTest;
   await assertOwnedWorld(state, input.baselineRoot);
   const before = receipts.workspaceDigest(await snapshots.collectFiles(input.baselineRoot));
+  diagnostics.stage(state, 'baseline_visible');
   const baselineVisible = await runTest(state.contract.visibleCommand, input.baselineRoot);
+  diagnostics.observed(state, 'baseline_visible', baselineVisible);
   if (!testPassed(baselineVisible)) evidence.fail('BASELINE_VISIBLE_FAILED');
+  diagnostics.stage(state, 'baseline_generated');
   const baselineTest = await runTest(state.contract.command, input.baselineRoot);
+  diagnostics.observed(state, 'baseline_generated', baselineTest);
   await assertRunner(input.baselineRoot, state.baselineRunner.files);
   if (!assertionFailure(baselineTest)) evidence.fail('NON_DISCRIMINATING');
+  diagnostics.stage(state, 'baseline_receipt');
+  state.failureContext.required.push('baseline');
   const baselineReceipt = await record(input, input.baselineRoot, [baselineVisible, baselineTest]);
+  state.failureContext.receiptPresence.baseline = Boolean(baselineReceipt);
+  diagnostics.stage(state, 'proof_verification');
   const after = receipts.workspaceDigest(await snapshots.collectFiles(input.baselineRoot));
   if (before !== after) evidence.fail('SOURCE_CHANGED');
   await assertOwnedWorld(state, input.baselineRoot);

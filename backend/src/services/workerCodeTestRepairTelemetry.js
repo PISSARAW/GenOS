@@ -177,6 +177,7 @@ async function publish(context) {
       failedAttempt: context.failedAttempt,
       remainingMs: context.remainingMs,
       failureCode: context.error.code || null,
+      boundaryFailureDiagnostics: require('./codeBoundaryFailureDiagnostics').project(context.error.boundaryFailureDiagnostics),
       failureMessage: String(context.error.message || '').slice(0, 1000),
       failureDiagnostics,
       candidateDigest: failureDiagnostics.candidate.candidateDigest,

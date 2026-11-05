@@ -10,7 +10,7 @@ async function ownedFile(root, relative, content) {
   try { await fs.writeFile(filename, content, { flag: 'wx' }); }
   catch (error) {
     if (error.code !== 'EEXIST' || values.hashBytes(await fs.readFile(filename)) !== values.hashBytes(content)) {
-      throw values.failure('Q7_BOUNDARY_WORLD_INVALID');
+      throw Object.assign(values.failure('Q7_BOUNDARY_WORLD_INVALID'), { cause: error });
     }
   }
   safety.resolveContainedPathNoSymlinkSync(root, relative, 'boundary runner');
@@ -18,7 +18,7 @@ async function ownedFile(root, relative, content) {
 }
 async function install(input) {
   try { return await installFiles(input); }
-  catch (_) { throw values.failure('Q7_BOUNDARY_WORLD_INVALID'); }
+  catch (cause) { throw Object.assign(values.failure('Q7_BOUNDARY_WORLD_INVALID'), { cause }); }
 }
 async function installFiles(input) {
   const runner = await fs.readFile(path.join(__dirname, 'codeBoundaryRunner.cjs'));
