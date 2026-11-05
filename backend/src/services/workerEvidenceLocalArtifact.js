@@ -24,6 +24,7 @@ function outputExcerpt(report) {
 function attachWorkerArtifact(evidenceReport, context) {
   if (!evidenceReport || typeof evidenceReport !== 'object') return;
   const mission = context.mission || {};
+  assertBoundaryArtifact(evidenceReport, context);
   const provenance = artifactProvenance(mission, context, evidenceReport);
   require('./workerTeamContract').assertReport({ ...mission,
     allowedEvidenceRefs: provenance.allowedEvidenceRefs }, evidenceReport);
@@ -38,6 +39,16 @@ function attachWorkerArtifact(evidenceReport, context) {
   evidenceReport.workerArtifact = inspected.artifact;
   if (!inspected.artifact) throw invalidArtifactError(kind, inspected.issues, evidenceReport);
   evidenceReport.claims = inspected.artifact.content.claims || evidenceReport.claims;
+}
+
+function assertBoundaryArtifact(report, context) {
+  if (!require('./codeBoundaryContract').read(context.mission)) return;
+  const fail = () => Object.assign(new Error('Boundary witness requires its actual host code execution.'), { code: 'Q7_BOUNDARY_WITNESS_UNTRUSTED' });
+  if (!context.codeWorker) throw fail();
+  const proof = require('./codeBoundaryEvidence').admit(context.mission, context.proposal);
+  const digest = require('./trinityProvenanceValues').digest;
+  if (digest(report.boundaryEvidence) !== digest(proof)) throw fail();
+  if (context.executionRun && proof.scope.executionRunId !== context.executionRun.id) throw fail();
 }
 
 function requiresDiagnosticMatrix(mission) {
