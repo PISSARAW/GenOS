@@ -1,6 +1,7 @@
 """Sceller les artefacts DPB termines sans publier leurs donnees privees."""
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +15,19 @@ def sha256(filename):
     return value.hexdigest()
 
 
+def accessible_directory(directory):
+    if os.name != 'nt':
+        return directory
+    value = str(directory.resolve())
+    if value.startswith('\\\\?\\'):
+        return Path(value)
+    if value.startswith('\\\\'):
+        return Path('\\\\?\\UNC\\' + value[2:])
+    return Path('\\\\?\\' + value)
+
+
 def sources(directory):
+    directory = accessible_directory(directory)
     ignored = {'evidence-manifest.json', 'evidence-manifest.sha256'}
     result = {}
     for filename in sorted(directory.rglob('*')):
