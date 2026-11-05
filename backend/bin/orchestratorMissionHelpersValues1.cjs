@@ -10,8 +10,7 @@ function measuredModelUsageValue1(__genosValueScope1) {
 }
 
 function hasUserTopologyRequestValue2(__genosValueScope2) {
-  return __genosValueScope2.request.morphology?.topology || __genosValueScope2.request.morphologyExpression || __genosValueScope2.request.morphology_expression
-      || __genosValueScope2.request.morphologyPlan?.selectedTopology || __genosValueScope2.request.missionCapabilityPlan?.topology
+  return __genosValueScope2.request.morphology?.topology || __genosValueScope2.request.morphologyPlan?.selectedTopology || __genosValueScope2.request.missionCapabilityPlan?.topology
       || __genosValueScope2.request.mission_capability_plan?.topology || __genosValueScope2.request.topologyContract?.mode
       || __genosValueScope2.request.topologyContract?.topology;
 }
