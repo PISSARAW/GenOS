@@ -172,10 +172,12 @@ test('full loop authors sections before exact materialization and reviews two bo
       reviewScopes.push({ section, operation: request.operation });
       if (section) {
         assert.deepEqual(data.screenplaySections.characterNames, NAMES);
-        assert.equal(data.criteria.length, 1);
+        assert.equal(data.criteria.length, 2);
+        assert.ok(data.criteria.some(item => item.id === 'brief_coverage'), 'Brief coverage needs the complete artifact, including requested paratext.');
         assert.ok(data.artifact.includes(SECTIONS.logline));
-        value.checks[0].evidence = [{ quote: SECTIONS.logline }];
+        value.checks.find(item => item.criterionId === 'screenplay_sections_complete').evidence = [{ quote: SECTIONS.logline }];
       } else {
+        assert.equal(data.criteria.some(item => item.id === 'brief_coverage'), false);
         assert.equal(data.artifact.includes(SECTIONS.logline), false);
         assert.equal(data.artifact.includes(SECTIONS.dramaturgicNote), false);
       }
@@ -197,7 +199,7 @@ test('section review refusal blocks promotion and paratext cannot justify craft'
   const ctx = context(async () => reply(SECTIONS)), completed = await completeScreenplay(ctx, produced());
   const base = { ...ctx, content: completed.content, scan: { defects: [], metrics: {} } };
   const rejected = await assessArtifact({ ...base, reviewers: [syntheticReviewer((value, data) => {
-    if (data.criteria[0].id === 'screenplay_sections_complete') value.checks[0].verdict = 'unknown';
+    if (data.criteria.some(item => item.id === 'screenplay_sections_complete')) value.checks.find(item => item.criterionId === 'screenplay_sections_complete').verdict = 'unknown';
     return value;
   })] });
   assert.equal(rejected.passed, false);
@@ -206,6 +208,16 @@ test('section review refusal blocks promotion and paratext cannot justify craft'
     if (data.criteria.some(item => item.id === 'craft')) value.checks.find(item => item.criterionId === 'craft').evidence = [{ quote: SECTIONS.logline }];
     return value;
   })] }), { code: 'GQEL_REVIEW_UNGROUNDED' });
+});
+test('plain and bold dramaturgic notes cannot inflate played word count', () => {
+  const { inspectScreenplay, wordCount } = require('../src/services/qualityElevation/qualityText');
+  for (const heading of ['NOTE DRAMATURGIQUE', '**NOTE DRAMATURGIQUE**', '# Note dramaturgique']) {
+    const content = GOOD + '\n' + heading + '\n' + 'Une intention ne remplace pas une scène jouée. '.repeat(200);
+    assert.equal(screenplayBody(content), GOOD);
+    const scan = inspectScreenplay(content, { minBodyWords: 500 });
+    assert.equal(scan.metrics.bodyWords, wordCount(GOOD));
+    assert.ok(scan.defects.some(item => item.code === 'DELIVERABLE_INCOMPLETE'));
+  }
 });
 (async () => {
   for (const item of tests) { await item.run(); console.log(`PASS ${item.name}`); }

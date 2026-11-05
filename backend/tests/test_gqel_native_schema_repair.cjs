@@ -33,6 +33,18 @@ async function main() {
   assert.equal(session.protocolAttempts[0].code, 'GQEL_REVIEW_INVALID');
   assert.equal(session.calls[0].status, 'failed');
   assert.equal(session.calls[0].usage.outputTokens, 10);
+  assert.throws(() => meteredReply({ model: 'reader', tokenUsageMeasured: true, inputTokens: 20, outputTokens: 10,
+    finishReason: 'stop', schemaViolation: { violations: Array(100).fill('/checks/0/evidence/0/quote must be equal to one of the allowed values') } }, '{}'), error => {
+    assert.equal(error.code, 'GQEL_REVIEW_INVALID');
+    assert.equal(error.protocolReply.usage.outputTokens, 10);
+    assert.equal(error.message.match(/allowed values/g).length, 1, 'Repeated oneOf branch errors must not multiply the repair prompt.');
+    const repaired = require('../src/services/qualityElevation/qualityProtocol').correctionRequest(
+      { operation: 'review:test', prompt: 'Review only this data.\n{"artifact":"actual text","quoteCandidates":["actual text"]}' },
+      { error, raw: '{}', attempt: 1 });
+    assert.ok(repaired.prompt.includes('ENTIÈRE et EXACTE'));
+    assert.deepEqual(JSON.parse(repaired.prompt.slice(repaired.prompt.indexOf('\n') + 1)).quoteCandidates, ['actual text']);
+    return true;
+  });
   const exhausted = { calls: [], budget: { calls: 0, tokens: 0, usageComplete: true, startedAt: Date.now() } };
   await assert.rejects(validatedCall({ contract, session: exhausted, invoke: createInvoker(contract, exhausted),
     callback: async () => meteredReply({ model: 'reader', tokenUsageMeasured: true, inputTokens: 20, outputTokens: 10,
