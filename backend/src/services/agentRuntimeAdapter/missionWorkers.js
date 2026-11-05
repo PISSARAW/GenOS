@@ -60,7 +60,7 @@ async function persistTrinityExperiment(db, input) {
     });
     await trinityExperimentStore.create(tx, {
       id: trinityMissionId,
-      missionId: normalizedMission.missionId || trinityMissionId,
+      missionId: trinityMissionId,
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
       design,
@@ -126,25 +126,12 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
     snapshotRoot: snapshot.root, orchestratorId: agentId,
     budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
   });
-  await bindTrinityWorkers(db, { workers: autonomousWorkers, missionId: trinityMissionId,
-    executionMissionId: normalizedMission.missionId || trinityMissionId });
+  await require('../trinityWorkerCellBridge').bindWorkers(db, { workers: autonomousWorkers, missionId: trinityMissionId,
+    orchestratorId: agentId });
   emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched every planned isolated Trinity comparison world.', {
     missionId: trinityMissionId,
     worlds: autonomousWorkers.map((worker, index) => ({ workerId: worker.agentId, worldNumber: index + 1, strategy: autonomyPlan.trinity.members[index].role }))
   }, 'info');
-}
-
-async function bindTrinityWorkers(db, input) {
-  const preparation = require('../trinityDispatchPreparation');
-  const identities = require('../missionIdentityService');
-  for (const worker of input.workers) {
-    const scope = { missionId: input.executionMissionId, trinityExperimentId: input.missionId };
-    worker.workspaceId = await preparation.bindWorker(db, { scope, workerId: worker.agentId, workspaceRoot: worker.workspaceRoot });
-    await identities.attachAgent(db, { missionId: input.missionId, agentId: worker.agentId, role: 'trinity_worker' });
-    worker.missionId = input.executionMissionId;
-    worker.missionScope = scope;
-    worker.toolLease = preparation.restrictLease(scope, worker.toolLease);
-  }
 }
 
 function emitWorkerCreations(agentId, autonomousWorkers) {
@@ -263,7 +250,7 @@ async function dispatchSelectedWorkers(ctx, assignments) {
     });
     assertWorkerDispatchMatches(assignments, autonomousWorkers);
     const cells = require('../autonomousWorkerCellBridge');
-    await cells.bind(ctx, autonomousWorkers);
+    if (!ctx.autonomyPlan.trinity?.activated) await cells.bind(ctx, autonomousWorkers);
     await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId),
       cellThreads: cells.receipts(autonomousWorkers) });
   } catch (error) {

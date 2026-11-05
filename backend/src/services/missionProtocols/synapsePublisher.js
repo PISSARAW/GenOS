@@ -39,4 +39,4 @@ async function publisher(binding) {
   return { agentId: row.agentId, incarnationId: run.id, trustDomain: binding.scope.organizationId };
 }
 
-module.exports = { publisher };
+module.exports = { publisher, nativeTrinityChild };

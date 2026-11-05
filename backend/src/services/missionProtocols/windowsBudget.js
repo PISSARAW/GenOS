@@ -22,6 +22,9 @@ async function parentScope(ctx, requested) {
     const scope = await provenance.requireAgentScope(ctx.db, row.parent_agent_id);
     const native = await provenance.readRun(ctx.db, { runId: row.parent_run_id, scope });
     if (native?.mission.id === ctx.normalizedMission.missionId) return row;
+    if (native && await require('./synapsePublisher').nativeTrinityChild({ db: ctx.db,
+      agentId: ctx.agentId, missionId: ctx.normalizedMission.missionId }, {
+      agentId: row.parent_agent_id, runId: row.parent_run_id, missionId: native.mission.id })) return row;
   }
   throw new Error('WINDOWS_PROTOCOL_PARENT_BUDGET_REQUIRED');
 }
