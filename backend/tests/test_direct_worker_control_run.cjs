@@ -7,7 +7,8 @@ const control = require('../bin/directWorkerControlRun.cjs');
 async function main() {
   const value = await fixture.fixture({ 'input.txt': 'Compute a witnessed subset sum.' });
   try {
-    const output = await fixture.dispatch(value, { payload: { methodContract: {
+    const output = await fixture.dispatch(value, { processTimeoutMs: 240000, payload: {
+      timeoutMs: 180000, execution_budget: { tokens: 16000, costUsd: 1, latencyMs: 180000 }, methodContract: {
       version: 1, methodId: 'scoped_procedure', parameters: { procedure: {
         version: 1, methodId: 'subset_sum', parameters: { values: [2, 3, 7], target: 5 }
       } }

@@ -10,6 +10,7 @@ const tests = [
   'test_screenplay_mission_contract.cjs',
   'test_gqel_final_delivery.cjs',
   'test_gqel_native_schema_repair.cjs',
+  'test_gqel_review_presentation.cjs',
   'test_gqel_isolated_oracle.cjs',
   'test_gqel_criterion_evidence.cjs',
   'test_gqel_worker_budget.cjs',

@@ -79,7 +79,7 @@ async function pendingRun(db, filename, contractRecord) {
 
 async function afterRestart(filename, previous, run) {
   const reopened = probe('recover', filename, run.id);
-  assert.equal(reopened.receipt.result.verified, true);
+  assert.equal(reopened.receipt.result.verified, true, JSON.stringify(reopened.receipt));
   assert.equal(reopened.receipt.cellId, previous.receipt.cellId);
   assert.equal(reopened.receipt.genomeHash, previous.receipt.genomeHash);
   assert.equal(reopened.receipt.runId, run.id);

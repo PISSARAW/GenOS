@@ -150,12 +150,29 @@ async function runMission(db, source, missionId) {
   await evidenceBarrier.runEvidenceBarrier({ db, agentId: row.id, normalizedMission: input,
     autonomyPlan: ctx.autonomyPlan, contractRecord, autonomousWorkers: workers, strict: true });
   await assertPublishers(db, { ctx, workers });
+  await assertTruthScope(db, { ctx, workers });
   assert.equal(ctx.autonomyPlan.missionClosure?.success, true,
     JSON.stringify(ctx.autonomyPlan.missionClosure || null));
   assert.equal(ctx.autonomyPlan.missionClosure?.closureChecks?.independentOracle, true);
   assert.equal(ctx.autonomyPlan.missionClosure.missionId, ctx.autonomyPlan.trinity.missionId,
     'the comparison closure must retain the mission identity sealed into its worker proofs');
   return { ctx, workers, experimentId: ctx.autonomyPlan.trinity.missionId };
+}
+
+async function assertTruthScope(db, input) {
+  const { ctx, workers } = input;
+  const compiled = ctx.autonomyPlan.missionTruthGraph;
+  for (const worker of workers) {
+    const run = await db.get('SELECT id FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', worker.agentId);
+    const claim = compiled.claims.find(value => value.id === `receipt_claim_${run.id}`);
+    assert.equal(claim?.confidence, 'supported', 'the closed comparison must compile its actual child receipts');
+    assert.deepEqual(claim.sources, [`receipt_${run.id}`]);
+  }
+  const root = await require('../src/services/reportCompilerService').buildTruthGraph(db, ctx.agentId,
+    { missionId: ctx.normalizedMission.missionId });
+  assert.notEqual(root.status, 'unavailable');
+  assert.equal(root.nodes.filter(node => node.kind === 'execution_receipt').length, 0,
+    'the child receipts must not be relabeled as evidence of the root mission');
 }
 
 async function assertEscalatedComparison(db, result) {

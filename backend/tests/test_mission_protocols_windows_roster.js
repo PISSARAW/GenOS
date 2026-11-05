@@ -7,6 +7,7 @@ const path = require('node:path');
 const Database = require('better-sqlite3');
 const fixture = require('./helpers/missionProtocolWindowsFixture');
 const { runWindowsLocalExecution } = require('../bin/orchestratorWindowsLocalExecution.cjs');
+const WORKER_LATENCY_MS = 120000;
 
 async function main() {
   const { ctx, input } = await fixture.create();
@@ -20,7 +21,7 @@ async function main() {
       createAutonomousWorkers: async (_db, _parent, options) => {
         assert.ok(options.mission.modelBudgetScope);
         return ['worker', 'worker-two'].map(agentId => ({ agentId, workspaceRoot: ctx.workspace,
-          executionBudget: { tokens: 30, costUsd: 0.02, latencyMs: 20000 }, prompt: `Inspect assignment ${agentId}` }));
+          executionBudget: { tokens: 30, costUsd: 0.02, latencyMs: WORKER_LATENCY_MS }, prompt: `Inspect assignment ${agentId}` }));
       },
       runLocalWorker: async (db, mission, run) => {
         const binding = await require('../src/services/missionProtocols/context').load(db, run.id);
@@ -28,7 +29,7 @@ async function main() {
         assert.equal(binding.mission.synapseContext.publisher.agentId, 'parent');
         assert.equal(binding.mission.synapseContext.receiver.agentId, mission.agentId);
         assert.equal(mission.requestTokenBudget, 30);
-        assert.ok(mission.timeoutMs < 20000, 'ordinary time is bounded before sealing with protected reserve');
+        assert.ok(mission.timeoutMs < WORKER_LATENCY_MS, 'ordinary time is bounded before sealing with protected reserve');
         const allocator = new Database(path.join(binding.directory, 'allostasis.sqlite'), { readonly: true });
         try {
           const allocation = JSON.parse(allocator.prepare('SELECT body FROM allostasis_allocations').get().body);

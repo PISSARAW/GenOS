@@ -102,7 +102,10 @@ fn continuity_refuses_pending_delegates_despite_known_http_joined_waves_and_zero
 #[test]
 fn coordinator_can_read_only_a_delegated_artifact_actually_received_before_its_current_turn() {
     let _guard=fixture::serial();let f=Fixture::new((true,false));f.enable_artifact_returns();
-    let mission=identity();let report=success(f.command(&mission).output().unwrap());
+    let mission=identity();let initial_started=std::time::Instant::now();
+    let initial=f.command(&mission).output().unwrap();
+    eprintln!("dynamic artifact initial: {:?}, elapsed {:?}",initial.status,initial_started.elapsed());
+    let report=success(initial);
     assert_eq!(f.calls(),8);assert_eq!(report["usage"]["spent"]["model_calls"],8);
     assert_eq!(report["usage"]["spent"]["tool_calls"],8);
     let db=f.database();
@@ -112,7 +115,9 @@ fn coordinator_can_read_only_a_delegated_artifact_actually_received_before_its_c
     assert_eq!(reads.len(),2);assert_eq!(reads[0]["output"]["status"],"denied");
     assert_eq!(reads[1]["output"]["status"],"ok");assert_eq!(reads[1]["output"]["data"]["text"],"left-private-note");
     assert_eq!(reads[1]["objects"].as_array().unwrap().len(),1);drop(query);drop(db);
-    let replay=success(f.command(&mission).output().unwrap());assert_eq!(f.calls(),8);
+    let replay_started=std::time::Instant::now();let replay_output=f.command(&mission).output().unwrap();
+    eprintln!("dynamic artifact replay: {:?}, elapsed {:?}",replay_output.status,replay_started.elapsed());
+    let replay=success(replay_output);assert_eq!(f.calls(),8);
     for field in ["usage","publication","artifact"] { assert_eq!(report[field],replay[field]); }
 }
 

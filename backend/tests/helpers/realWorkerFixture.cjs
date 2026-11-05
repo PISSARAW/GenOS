@@ -45,19 +45,19 @@ async function dispatch(value, options = {}) {
   const file = path.join(value.root, 'request.json');
   const receipt = path.join(value.root, 'interruption.json');
   await fs.writeFile(file, JSON.stringify(payload));
-  const child = await execute([options.mode || 'complete', file, receipt]);
+  const child = await execute([options.mode || 'complete', file, receipt], options.processTimeoutMs);
   await fs.writeFile(path.join(value.root, 'child.log'), child.stdout + '\n' + child.stderr);
   const interruption = options.mode === 'crash' ? await fs.readFile(receipt, 'utf8').catch(() => null) : null;
   return { ...child, interruption: interruption ? JSON.parse(interruption) : null };
 }
 
-function execute(args) {
+function execute(args, timeoutMs = 90000) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(__dirname, 'realWorkerProbe.cjs'), ...args],
       { env: { ...process.env, GENOS_DB_BOOTSTRAP_SKIP: '1' }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
-    const timer = setTimeout(() => child.kill('SIGKILL'), 90000);
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
     child.stdout.on('data', chunk => { stdout += chunk; });
     child.stderr.on('data', chunk => { stderr += chunk; });
     child.on('error', reject);
