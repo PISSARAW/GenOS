@@ -1,5 +1,6 @@
 const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrchestrationService');
 const aTeamDispatchBudget = require('./aTeamDispatchBudgetService');
+const { resolveWorkerShare, resolveOrchestratorReserve } = aTeamDispatchBudget;
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const trinityVariants = require('./trinityVariantService');
@@ -21,29 +22,6 @@ const cognitivePhenotype = require('./cognitivePhenotypeService');
 const { prepareTeamLifecycle } = require('./aTeam/lifecycle/teamLifecycleService');
 const { organizationForMission } = require('./missionOrganizationResolver');
 const { deferNativePlanDispatch } = require('./agentAutonomyNativePlanDispatch');
-function clampShare(value) {
-  return Math.max(0, Math.min(1, value));
-}
-function resolveWorkerShare(missionBudget) {
-  if (Number.isFinite(Number(missionBudget.workerShare))) {
-    return clampShare(Number(missionBudget.workerShare));
-  }
-  const policy = missionBudget.tokenPolicy;
-  if (policy && Number.isFinite(Number(policy.workerShare))) {
-    return clampShare(Number(policy.workerShare));
-  }
-  return 0.6;
-}
-function resolveOrchestratorReserve(missionBudget, workerShare) {
-  if (Number.isFinite(Number(missionBudget.orchestratorReserve))) {
-    return clampShare(Number(missionBudget.orchestratorReserve));
-  }
-  const policy = missionBudget.tokenPolicy;
-  if (policy && Number.isFinite(Number(policy.orchestratorReserve))) {
-    return clampShare(Number(policy.orchestratorReserve));
-  }
-  return 1 - workerShare;
-}
 function resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare) {
   const policy = autonomyPlan.tokenPolicy;
   if (policy && Number.isFinite(Number(policy.workerShare)) && policy.workerShare > 0) {

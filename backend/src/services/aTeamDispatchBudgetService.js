@@ -83,4 +83,31 @@ function applyWorkerBudget(tokenPolicy, workers) {
   return tokenPolicy;
 }
 
-module.exports = { affordableWorkerCount, buildRoundAllocation, applyWorkerBudget };
+function clampShare(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function resolveWorkerShare(missionBudget) {
+  if (Number.isFinite(Number(missionBudget.workerShare))) {
+    return clampShare(Number(missionBudget.workerShare));
+  }
+  const policy = missionBudget.tokenPolicy;
+  if (policy && Number.isFinite(Number(policy.workerShare))) {
+    return clampShare(Number(policy.workerShare));
+  }
+  return 0.6;
+}
+
+function resolveOrchestratorReserve(missionBudget, workerShare) {
+  if (Number.isFinite(Number(missionBudget.orchestratorReserve))) {
+    return clampShare(Number(missionBudget.orchestratorReserve));
+  }
+  const policy = missionBudget.tokenPolicy;
+  if (policy && Number.isFinite(Number(policy.orchestratorReserve))) {
+    return clampShare(Number(policy.orchestratorReserve));
+  }
+  return 1 - workerShare;
+}
+
+module.exports = { affordableWorkerCount, buildRoundAllocation, applyWorkerBudget,
+  resolveWorkerShare, resolveOrchestratorReserve };
