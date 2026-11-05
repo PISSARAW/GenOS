@@ -11,6 +11,7 @@ async function attachDirectWorkerTerritory(db, input) {
 }
 
 function attachEnvelope(mission, request) {
+  if (typeof request.missionObjective === 'string') mission.missionObjective = request.missionObjective;
   mission.topologySessionId = request.topologySessionId || null;
   Object.assign(mission, require('../src/services/qualityElevation/qualityMissionContract').qualityMissionFields(request));
   Object.assign(mission, require('../src/services/workerTeamContract').missionFields(request));

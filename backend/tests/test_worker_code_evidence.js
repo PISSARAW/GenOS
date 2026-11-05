@@ -17,6 +17,10 @@ assert.equal(report.outcome, 'success');
 assert.equal(report.scopeCompletion.scopeRef, 'scope://bounded-code');
 assert.equal(report.scopeCompletion.completedRefs.length, 1);
 assert.equal(report.claims[0].evidence.length, 2);
+const longScope = fixture();
+longScope.mission.workerContract.mission.scope = 'Complete assigned scope. '.repeat(100);
+assert.equal(build(longScope).scopeCompletion.scopeRef, 'genos://code-scope/'
+  + require('../src/services/trinityProvenanceValues').digest(longScope.mission.workerContract.mission.scope));
 const inspected = inspectWorkerArtifact('bounded_worker', report, {
   source: 'worker-inprocess-local', model: 'ollama://qwen2.5-coder:32b', workspaceRoot: 'C:/worker/scope'
 });

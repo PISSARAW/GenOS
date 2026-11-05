@@ -26,3 +26,14 @@ const preflight = require('../bin/orchestratorMcpPreflight.cjs');
 assert.deepEqual(preflight.baselineTools({phases: []}), []);
 assert.deepEqual(preflight.baselineTools({phases: []}, {hypotheses: [{statement: 'Falsifiable'}]}), ['genos_diagnose']);
 console.log('Pinned model and inference limits survive the CLI; local orchestrators still execute the worker barrier: PASS');
+const objective = 'Repair the original increment contract.';
+const launched = require('../bin/workerLaunchPayload.cjs').workerLaunchPayload({
+  context: { task: objective, request: { project_goal: objective } },
+  member: { role: 'implementation', workerKind: 'bounded_worker', mission: 'Enriched worker instructions.' },
+  workerId: 'objective-worker', parent: { workspace_root: process.cwd() } });
+assert.equal(launched.missionObjective, objective);
+assert.equal(require('../bin/directWorkerContext.cjs').attachEnvelope({}, launched).missionObjective, objective);
+assert.equal(require('../src/services/orchestratorDispatchService').buildWorkerMission({
+  agentId: 'objective-worker', orchestratorAgentId: 'objective-owner', workerKind: 'bounded_worker',
+  prompt: 'Enriched worker instructions.', missionObjective: objective, workspaceRoot: process.cwd()
+}).missionObjective, objective);

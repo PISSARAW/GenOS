@@ -201,6 +201,7 @@ const suites = {
     ['worker compliance manifest', 'test_worker_compliance_manifest.js'],
     ['worker qualification inventory', 'test_worker_qualification_inventory.js'],
     ['bounded code worker evidence', 'test_worker_code_evidence.js'],
+    ['code mission evaluations preserve evidence and acceptance gates', 'test_worker_code_mission_evaluation.cjs'],
     ['bounded code worker qualification language', 'test_bounded_code_worker_qualification.js'],
     ['local code worker proposal schema and safety', 'test_local_code_worker.js'],
     ['unsafe code proposal bounded retry', 'test_worker_code_unsafe_proposal_retry.js'],

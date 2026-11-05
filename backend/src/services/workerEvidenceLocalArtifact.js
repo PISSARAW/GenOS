@@ -24,11 +24,12 @@ function outputExcerpt(report) {
 function attachWorkerArtifact(evidenceReport, context) {
   if (!evidenceReport || typeof evidenceReport !== 'object') return;
   const mission = context.mission || {};
-  require('./workerTeamContract').assertReport(mission, evidenceReport);
+  const provenance = artifactProvenance(mission, context, evidenceReport);
+  require('./workerTeamContract').assertReport({ ...mission,
+    allowedEvidenceRefs: provenance.allowedEvidenceRefs }, evidenceReport);
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
   const source = context.codeWorker ? evidenceReport : originalReply(context, evidenceReport);
-  const inspected = inspectWorkerArtifact(kind, source,
-    artifactProvenance(mission, context, evidenceReport));
+  const inspected = inspectWorkerArtifact(kind, source, provenance);
   if (context.codeWorker !== true && requiresDiagnosticMatrix(mission)
     && !diagnosticMatrixIsValid(inspected.artifact?.content)) {
     inspected.issues.push('diagnosticMatrix.invalid');
@@ -53,15 +54,7 @@ function originalReply(context, report) {
 
 function trustedCodeEvidenceRefs(report, codeWorker, proposal) {
   if (!codeWorker) return [];
-  const claims = Array.isArray(report?.claims) ? report.claims : [];
-  const refs = claims.flatMap((claim) => claim.evidence || [])
-    .concat(report?.scopeCompletion?.completedRefs || []);
-  const trusted = refs.filter((ref) => /^genos:\/\/code-(?:file|test)\/[a-f0-9]{64}$/.test(String(ref)));
-  const receiptHash = proposal?.testExecutionReceipt?.receiptHash;
-  if (typeof receiptHash === 'string' && /^[a-f0-9]{64}$/.test(receiptHash)) {
-    trusted.push(`genos://code-test-execution/${receiptHash}`);
-  }
-  return trusted;
+  return require('./workerCodeEvidenceReferences').references(proposal);
 }
 
 function extractExecutedTests(context, mission) {

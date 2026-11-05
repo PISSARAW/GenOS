@@ -19,15 +19,16 @@ assert.equal(report.workerArtifact.type, 'dossier');
 assert.equal(report.workerArtifact.content.claims[0].statement, 'The contract covers the API response.');
 assert.equal(report.claims[0].statement, report.workerArtifact.content.claims[0].statement);
 
-const codeReport = require('../src/services/workerCodeEvidenceReport').build({
+const codeInput = {
   mission: { workspaceRoot: 'workspace' },
   proposal: { testStatus: 'passed', changedFileHashes: [{ path: 'index.html', hash: 'a'.repeat(64) }],
     tests: [{ command: 'npm test', exitCode: 0, signal: null, stdout: 'pass', stderr: '' }],
     testExecutionReceipt: { receiptHash: 'b'.repeat(64) } }
-});
+};
+const codeReport = require('../src/services/workerCodeEvidenceReport').build(codeInput);
 attachWorkerArtifact(codeReport, {
   codeWorker: true,
-  proposal: { testExecutionReceipt: { receiptHash: 'b'.repeat(64) } },
+  proposal: codeInput.proposal,
   mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace' },
   agentName: 'code-worker'
 });
@@ -37,7 +38,7 @@ assert(codeReport.workerArtifact.provenance.allowedEvidenceRefs.includes(
   `genos://code-test-execution/${'b'.repeat(64)}`));
 assert.doesNotThrow(() => attachWorkerArtifact(codeReport, {
   codeWorker: true,
-  proposal: { testExecutionReceipt: { receiptHash: 'b'.repeat(64) } },
+  proposal: codeInput.proposal,
   mission: { workerKind: 'bounded_worker', workspaceRoot: 'workspace',
     prompt: 'Mission artifact=diagnostic_matrix' },
   agentName: 'code-worker'

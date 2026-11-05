@@ -66,7 +66,7 @@ function localRuntimeFlag(member, request) {
 
 function selectedBudget(member, request) {
   const parent = request?.execution_budget || request?.executionBudget;
-  if (!parent && !member.executionBudget) return undefined;
+  if (!parent && !member.executionBudget && member.executionBudgetTokens === undefined) return undefined;
   const budget = { ...parent, ...member.executionBudget };
   if (member.executionBudgetTokens !== undefined) budget.tokens = member.executionBudgetTokens;
   for (const key of ['tokens', 'costUsd', 'latencyMs', 'events', 'cpuMs']) {
@@ -137,6 +137,7 @@ function workerLaunchPayload(args) {
     missionId: context.missionId || null,
     workerId,
     mission,
+    missionObjective: selectedMissionObjective(context),
     role: member.role,
     workerKind,
     variantIndex: member.variantIndex,
@@ -168,6 +169,12 @@ function workerLaunchPayload(args) {
     executor: selectedExecutor(context),
     ...localRuntimeFlag(member, context.request),
   };
+}
+
+function selectedMissionObjective(context) {
+  const request = context.request || {};
+  return [request.missionObjective, request.project_goal, request.projectGoal, context.task]
+    .find(value => typeof value === 'string' && value.trim());
 }
 
 module.exports = { workerLaunchPayload, selectedBudget };

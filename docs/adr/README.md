@@ -1035,3 +1035,4 @@ Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 - [Consignes et diagnostics des lignes](2026-11-04-consignes-et-diagnostics-des-lignes-de-scene.md).
 
 - [Chaîne native de code et protocole DPB](2026-11-04-dpb-chaine-native-code.md).
+- [Évaluations de mission après les preuves de code](2026-11-05-evaluations-mission-apres-preuves-code.md).

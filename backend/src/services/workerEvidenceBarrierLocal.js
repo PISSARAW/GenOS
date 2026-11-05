@@ -124,7 +124,7 @@ function attachProposalTests(evidenceReport, proposal) {
   if (!proposal) return;
   if (!proposal.tests) return;
   if (proposal.tests.length === 0) return;
-  evidenceReport.tests = proposal.tests;
+  evidenceReport.tests = require('./workerCodeEvidenceReferences').tests(proposal);
 }
 function resolveNoAnswerProof(evidenceReport) {
   const recovery = require('./workerFailureRecoveryService');
@@ -277,7 +277,7 @@ async function assertEvidenceAuthority(db, mission, executionRun) {
   });
 }
 async function runEvidenceStage(ctx) {
-  const consumed = consumedTokensOf(ctx.result);
+  let consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
   await assertEvidenceAuthority(ctx.db, ctx.mission, ctx.executionRun);
   const proposal = await stageDetails.proposal(ctx);
@@ -287,6 +287,11 @@ async function runEvidenceStage(ctx) {
     ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
     : await evidenceReportFromModel(ctx);
   attachProposalTests(evidenceReport, proposal);
+  if (ctx.codeWorker) {
+    evidenceReport = await require('./workerCodeMissionEvaluation').complete(ctx,
+      { report: evidenceReport, proposal, generate: generateWorkerResult });
+    consumed = consumedTokensOf(ctx.result);
+  }
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
   if (!ctx.codeWorker) evidenceReport = require('./morphogenesis/biomeAllocationRecovery')
     .applyExhaustedRecovery(evidenceReport, ctx.mission, ctx.result.text);

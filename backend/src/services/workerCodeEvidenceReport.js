@@ -12,7 +12,8 @@ function buildCodeReport(input) {
   const files = proposal?.changedFileHashes;
   const tests = proposal?.tests;
   if (proposal?.testStatus !== 'passed' || !Array.isArray(files) || files.length === 0
-    || !Array.isArray(tests) || tests.length === 0 || tests.some((test) => test.exitCode !== 0)) {
+    || !Array.isArray(tests) || tests.length === 0
+    || !tests.every(require('./workerCodeEvidenceReferences').testPassed)) {
     throw Object.assign(new Error('A code worker needs changed files and passing executed tests.'), {
       code: 'WORKER_CODE_EVIDENCE_INCOMPLETE'
     });
@@ -28,8 +29,15 @@ function buildCodeReport(input) {
   const codeVerification = verificationBinding(mission, files);
   const kindEvidence = kindSpecificEvidence(mission, evidence);
   return { outcome: 'success', claims: [claim], ...(codeVerification ? { codeVerification } : {}),
-    scopeCompletion: { scopeRef: mission.workerContract?.mission?.scope || mission.workspaceRoot,
-      completedRefs: fileRefs }, ...kindEvidence, tests };
+    scopeCompletion: { scopeRef: scopeReference(mission),
+      completedRefs: fileRefs }, ...kindEvidence,
+    tests: require('./workerCodeEvidenceReferences').tests(proposal) };
+}
+
+function scopeReference(mission) {
+  const scope = mission.workerContract?.mission?.scope || mission.workspaceRoot;
+  return typeof scope === 'string' && scope.length > 512
+    ? `genos://code-scope/${values.digest(scope)}` : scope;
 }
 
 function kindSpecificEvidence(mission, evidence) {
