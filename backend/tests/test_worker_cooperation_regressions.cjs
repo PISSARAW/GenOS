@@ -95,9 +95,15 @@ async function accounting(db) {
     VALUES('first','worker','failed',?),('second','worker','failed',?),('fork','recovered','failed',?)`,
   JSON.stringify({ tokens: 3516 }), JSON.stringify({ tokens: 4494 }), JSON.stringify({ tokens: 7 }));
   const result = await live.accounting(db, { id: 'parent', planningTokens: 201 });
-  // The failed receipt created above also consumed three measured tokens.
-  assert.equal(result.modelTokens, 8211 + 7 + 3);
+  // Run counters retain all failed attempts; absent native receipts leave cost unknown.
+  assert.equal(result.workerTokens, 3516 + 4494 + 7 + 3);
   assert.equal(result.attempts.length, 4);
+  assert.equal(result.complete, false);
+  assert.equal(result.modelTokens, null);
+  assert.equal(result.knownModelTokens, 0);
+  for (const runId of ['first', 'second', 'fork']) {
+    assert.ok(result.unmeasuredWorkerRuns.some(run => run.runId === runId));
+  }
   assert.equal((await live.accounting(db, { id: 'parent', planningTokens: null })).modelTokens, null);
   await db.run(`INSERT INTO model_attempt_ledger(id,agent_id,provider_called,token_usage_source)
     VALUES('unknown-usage','worker',1,'unknown')`);
