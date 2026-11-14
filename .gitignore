@@ -149,6 +149,8 @@ data/
 snapshots/
 test-repo/
 benchmarks/**/results/
+/*snapshot*.json
+!/arch_snapshot.json
 rhizome_graph.json
 probe.json
 cli-coverage-results.json
@@ -164,6 +166,7 @@ yarn-debug.log*
 # ---------------------------------------------------------------------------
 # 9. Scratch de session (travail exploratoire, pas du projet)
 # ---------------------------------------------------------------------------
+/test.json
 commit_msg.txt
 commit_receipt.txt
 mission.json
@@ -196,8 +199,19 @@ backend/scripts/genos-autoscan.cjs
 # 10. Logs
 # ---------------------------------------------------------------------------
 *.log
+*.exit
 logs/
 backend/logs/
+
+# Exceptions figees et documentees : annexes de preuve deja referencees par
+# les comptes rendus de campagne. Les nouveaux runs restent ignores ailleurs.
+!benchmarks/biological-reproduction/campaigns/2026-10-22/logs/
+!benchmarks/biological-reproduction/campaigns/2026-10-22/logs/**
+!benchmarks/cognitive-key-ablation/results/
+benchmarks/cognitive-key-ablation/results/*
+!benchmarks/cognitive-key-ablation/results/*preflight*.log
+!benchmarks/cognitive-key-ablation/results/evidence-runtime-llm-20261022/
+!benchmarks/cognitive-key-ablation/results/evidence-runtime-llm-20261022/**
 
 # ---------------------------------------------------------------------------
 # 11. Temporaires & sauvegardes d'editeurs

@@ -2,6 +2,25 @@
 
 Protocoles et résultats de comparaison des topologies GenOS.
 
+## Conservation des preuves brutes
+
+Les sorties de benchmark sont générées et restent ignorées par défaut. Deux jeux
+historiques sont néanmoins versionnés comme annexes de preuve, car leurs comptes
+rendus les citent directement :
+
+- `benchmarks/biological-reproduction/campaigns/2026-10-22/logs/`, référencé par
+  le `README.md` et le `results.json` de cette campagne ;
+- les journaux `*preflight*.log` et le dossier
+  `evidence-runtime-llm-20261022/` sous
+  `benchmarks/cognitive-key-ablation/results/`, référencés par les comptes rendus
+  d'échec et de run LLM réel associés.
+
+Ces exceptions sont figées dans `.gitignore`. Elles ne constituent pas une règle
+générale autorisant les journaux ou codes de sortie de nouveaux runs. À la racine,
+`arch_snapshot.json` reste versionné comme fixture documentaire référencée par
+`docs/README.md`; les snapshots de session et requêtes de test ponctuelles doivent
+être écrits dans les emplacements ignorés.
+
 - [FP-AMB sur les services mémoire GenOS — campagne du 26 octobre 2026](fp-amb-genos-2026-10-26.md) — exécution complète du benchmark officiel, configuration, scores, catégories, preuves, limites et reproduction.
 
 - [Comparaison locale entre un agent Codex et un worker GenOS](comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, preuves, coûts observés, verdict `unresolved` et gate de promotion.

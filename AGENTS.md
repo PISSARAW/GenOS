@@ -33,6 +33,10 @@ cp .env.example .env
 ```
 
 Fill `.env` with local values. **Never commit `.env`, secrets, `*.db` or generated artifacts.**
+The only generated-artifact exceptions are frozen evidence annexes that are directly
+referenced by a committed campaign report or manifest. The current exceptions are
+documented in `docs/06-benchmarks/README.md` and scoped explicitly in `.gitignore`;
+do not extend them to new runs implicitly.
 
 ## Definition of done — run before finishing
 
