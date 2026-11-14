@@ -195,9 +195,34 @@ function subject(source) {
   };
 }
 function emit(result) { process.stdout.write(`GENOS_BOUNDARY_RESULT:${JSON.stringify(result)}\n`); }
+function isolatedOptions(memoryMb, stackKb) {
+  const permissions = ['--permission', '--experimental-permission'];
+  const required = [`--allow-fs-read=${process.cwd()}`,
+    `--max-old-space-size=${memoryMb}`, `--stack-size=${stackKb}`];
+  return permissions.some(arg => process.execArgv.includes(arg))
+    && required.every(arg => process.execArgv.includes(arg))
+    && !process.execArgv.some(arg => arg.startsWith('--allow-fs-write='));
+}
+function isolatedProcess(hostPid) {
+  return Number.isSafeInteger(hostPid) && hostPid > 0
+    && hostPid !== process.pid && process.ppid === hostPid;
+}
+function isolation() {
+  const memoryMb = Number(process.env.GENOS_BOUNDARY_MEMORY_MB);
+  const stackKb = Number(process.env.GENOS_BOUNDARY_STACK_KB);
+  const hostPid = Number(process.env.GENOS_BOUNDARY_HOST_PID);
+  if (process.env.GENOS_BOUNDARY_ISOLATED !== '1'
+    || !isolatedOptions(memoryMb, stackKb) || !isolatedProcess(hostPid)) {
+    throw Object.assign(new Error('Boundary runner process isolation is missing.'),
+      { code: 'Q7_BOUNDARY_ISOLATION_INVALID' });
+  }
+  return { processId: process.pid, hostProcessId: hostPid, filesystem: 'workspace-read-only',
+    childProcesses: 'denied', workerThreads: 'denied', memoryMb, stackKb };
+}
 function main() {
   const stats = { schema: 'genos.boundary-run-result/v1', calls: 0, assertions: 0, cases: 0 };
   try {
+    stats.isolation = isolation();
     const root = process.cwd(), contract = JSON.parse(fs.readFileSync(path.join(root, '.genos/boundary-contract.json'), 'utf8'));
     const suite = validate(JSON.parse(fs.readFileSync(path.join(root, contract.generatedTestPath), 'utf8')), contract.api);
     const invoke = subject(fs.readFileSync(path.resolve(root, contract.sourcePaths[0]), 'utf8'));

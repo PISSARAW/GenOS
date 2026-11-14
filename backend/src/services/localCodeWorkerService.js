@@ -122,8 +122,10 @@ async function restorePatchState(workspaceRoot, state) {
   }
 }
 async function runTest(command, root) {
-  const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   const testTempRoot = await resolveTestTempRoot();
+  const boundary = require('./codeBoundaryProcessIsolation').run(command, root, testTempRoot);
+  if (boundary) return boundary;
+  const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   return new Promise((resolve) => {
     const child = spawn(program, args, {
       cwd: root,

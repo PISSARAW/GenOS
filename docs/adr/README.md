@@ -968,6 +968,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [2026ah](2026-11-04-renouvellement-lease-ateam-appels-bloquants.md) | Renouvellement de la lease A-Team pendant les appels attendus | Implémenté — service et tests de lease ; aucune qualité artistique certifiée. | -- | -- |
 | [2026ai](2026-11-04-rpe-handoffs-natifs-a-team.md) | ADR — RPE sur les handoffs natifs A-Team | Voir le fichier | -- | -- |
 | [2026aj](2026-11-04-sections-redigees-et-revues-du-scenario.md) | Sections rédigées et revues du scénario | Voir le fichier | -- | -- |
+| [2026ba](2026-11-14-isolation-processus-runner-frontieres.md) | Isolation du processus des frontières comportementales | Accepté | 2026-11-14 | sécurité, exécution locale, preuves de code |
 
 Le dossier [GNS](../01-concepts/gns.md) s'appuie sur les décisions existantes :
 [socle opérationnel](2026-11-02-systeme-nerveux-operationnel.md),
