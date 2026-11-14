@@ -1,6 +1,7 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
+const { evaluateRestrictedExpression } = require('./restrictedExpressionEvaluator');
 
 function confidenceOf(output) {
   if (typeof output === 'boolean') return output ? 1 : 0;
@@ -81,11 +82,7 @@ class GateExecutor extends BaseExecutor {
 
   evalExpression(data, expr) {
     if (!expr || !data) return false;
-    try {
-      return new Function('data', `return ${expr}`)(data);
-    } catch {
-      return false;
-    }
+    return evaluateRestrictedExpression(data, expr);
   }
 }
 
