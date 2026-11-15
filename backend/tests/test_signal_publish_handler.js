@@ -16,13 +16,21 @@ async function run() {
     assert.equal(suppressed.status, 'signal_suppressed');
     assert.equal(suppressed.suppressedBy, 'rate_limit');
 
-    transport.publishSignal = async () => ({ signalId: 'published-1',
-      signalType: 'ligand', published: true });
+    let publishedInput;
+    transport.publishSignal = async (input) => {
+      publishedInput = input;
+      return { signalId: 'published-1', signalType: 'ligand', published: true,
+        llmRequired: true, escalationQueued: true };
+    };
     delete require.cache[handlerPath];
-    const published = await require(handlerPath).handleSignalPublish({ signal_type: 'ligand' });
+    const published = await require(handlerPath).handleSignalPublish({ signal_type: 'ligand',
+      allow_cognitive_escalation: true });
     assert.equal(published.success, true);
     assert.equal(published.published, true);
     assert.equal(published.status, 'signal_published');
+    assert.equal(published.llmRequired, true);
+    assert.equal(published.escalationQueued, true);
+    assert.equal(publishedInput.allowCognitiveEscalation, true);
     console.log('Signal publish MCP result integrity passed.');
   } finally {
     transport.publishSignal = original;

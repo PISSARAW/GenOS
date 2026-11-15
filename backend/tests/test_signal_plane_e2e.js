@@ -121,7 +121,7 @@ async function testLlmEscalationPath() {
   const result = await transport.publishSignal({
     signalType: 'ligand',
     signalData: { semanticType: 'UNKNOWN_UNMATCHED', concentration: 0.9 },
-    topic: 'test-llm', senderAgentId: 'orch-1',
+    topic: 'test-llm', senderAgentId: 'orch-1', allowCognitiveEscalation: true,
   });
 
   assert.strictEqual(result.llmRequired, true, 'llmRequired=true when no receptor matches');
@@ -292,7 +292,8 @@ async function testFailedReceptorDoesNotDeliverToWorkers() {
     actionData: { agentId: 'missing-agent', status: 'running' } });
   const result = await transport.publishSignal({ signalId: 'sig-action-failure',
     signalType: 'ligand', signalData: { semanticType: 'ACTION_FAILURE', concentration: 0.9 },
-    topic: 'failed-receptor', senderAgentId: 'orch-1', recipientAgentIds: ['worker-1'] });
+    topic: 'failed-receptor', senderAgentId: 'orch-1', recipientAgentIds: ['worker-1'],
+    allowCognitiveEscalation: true });
   const deliveries = await testDb.all('SELECT subscriber_agent_id FROM signal_deliveries WHERE signal_id = ?', result.signalId);
   assert.strictEqual(result.llmRequired, true, 'Failed receptor escalates to cognition');
   assert.deepStrictEqual(deliveries, [], 'Failed receptor does not create worker deliveries');

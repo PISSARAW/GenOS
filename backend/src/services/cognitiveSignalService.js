@@ -3,13 +3,14 @@
 const modelRouter = require('./modelRouter');
 const residualCompiler = require('./cognitiveResidualCompiler');
 const receipts = require('./cognitiveInferenceReceiptService');
+const usageService = require('./signalCognitiveUsageService');
 
-function answerOf(result, compiled) {
+function answerOf(result, compiled, usage) {
   return { agentId: compiled.contract.recipient, signalId: compiled.contract.source,
     text: String(result.text || ''), provider: result.provider || null,
     model: result.model || null, route: result.route || null,
     candidate: residualCompiler.parseCandidate(result.text), contract: compiled.contract,
-    admission: compiled.admission, omissions: compiled.omissions,
+    admission: compiled.admission, omissions: compiled.omissions, usage,
     visibility: { ...compiled.visibility, model: result.model || null } };
 }
 
@@ -23,12 +24,15 @@ function reusedAnswer(reservation) {
 }
 
 async function runInference(input) {
-  const { db, agentId, compiled, reservation } = input;
+  const { db, agentId, compiled, reservation, scope, signal } = input;
   try {
     const result = await modelRouter.generate({ db, agentId, prompt: compiled.prompt,
       cognitiveDomain: 'signal', cognitiveObjects: { signal: compiled.contract, context: compiled.visibility },
+      cognitiveScope: scope, organizationId: scope?.organizationId,
+      projectId: scope?.projectId, routeActionId: usageService.actionId(signal.signalId),
       priority: 'interactive' });
-    const answer = answerOf(result, compiled);
+    const usage = await usageService.measure(db, signal.signalId, agentId);
+    const answer = answerOf(result, compiled, usage);
     await receipts.complete(db, reservation.invocationId, answer);
     return answer;
   } catch (error) {
@@ -50,7 +54,7 @@ async function handleSignal(input) {
   }
   const reservation = await receipts.reserve(db, compiled);
   if (!reservation.owned) return reusedAnswer(reservation);
-  return runInference({ db, agentId, compiled, reservation });
+  return runInference({ db, agentId, compiled, reservation, scope: input.scope, signal });
 }
 
 module.exports = { handleSignal };

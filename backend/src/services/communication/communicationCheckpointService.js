@@ -15,6 +15,7 @@ const decisionContextService = require('./communicationDecisionContext');
 const { executeLiveCycle } = require('./liveCycleExecution');
 const { applyAdaptiveMesh } = require('./adaptiveCommunicationMesh');
 const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
+const stigmergyDecision = require('./stigmergyDecisionService');
 
 const CHECKPOINTS = Object.freeze([
   'NEW_EVIDENCE',
@@ -183,9 +184,11 @@ function buildReceipt(ctx, decision, decisionContext) {
 
 function outcomeOf(executed) {
   const grounding = executed && executed.grounding ? executed.grounding : null;
+  const acknowledgements = executed?.deliveryAcknowledgements || [];
   return {
     executionConfirmed: Boolean(executed && (executed.executed || executed.published)),
-    deliveryConfirmed: Boolean(executed && executed.published),
+    publicationConfirmed: Boolean(executed && executed.published),
+    deliveryConfirmed: acknowledgements.length > 0,
     grounding
   };
 }
@@ -285,7 +288,8 @@ async function evaluateCheckpoint(ctx) {
     relationships: ctx.relationships, scope: ctx.scope
   };
   const input = buildPolicyInput(ctx, intent, manifest);
-  const rawDecision = await decideCommunication(input);
+  const rawDecision = await stigmergyDecision.priorDecision(ctx)
+    || await decideCommunication(input);
   const proposed = await applyAdaptiveMesh({ db: ctx.db, intent,
     decision: rawDecision, options: ctx.communication?.mesh });
   const auditedContext = decisionContextService.buildDecisionContext({ ...contextInput,

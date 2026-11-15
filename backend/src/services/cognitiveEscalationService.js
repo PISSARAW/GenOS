@@ -17,6 +17,8 @@ const { getDatabase } = require('../db');
 const ESCALATION_METRICS = {
   total: 0,
   totalCost: 0,
+  measuredCostCount: 0,
+  unmeasuredCostCount: 0,
   byOutcome: {},
   startedAt: Date.now(),
 };
@@ -209,7 +211,12 @@ function buildMinimalContext(signal) {
  */
 function recordEscalationOutcome(signalId, outcome, cost) {
   ESCALATION_METRICS.total++;
-  ESCALATION_METRICS.totalCost += Number(cost) || 0;
+  if (Number.isFinite(cost) && cost >= 0) {
+    ESCALATION_METRICS.totalCost += cost;
+    ESCALATION_METRICS.measuredCostCount++;
+  } else {
+    ESCALATION_METRICS.unmeasuredCostCount++;
+  }
   ESCALATION_METRICS.byOutcome[outcome] = (ESCALATION_METRICS.byOutcome[outcome] || 0) + 1;
   ESCALATION_METRICS.lastSignalId = signalId;
   ESCALATION_METRICS.lastOutcome = outcome;
@@ -225,6 +232,8 @@ function getEscalationMetrics() {
   return {
     total: ESCALATION_METRICS.total,
     totalCost: Number(ESCALATION_METRICS.totalCost.toFixed(4)),
+    measuredCostCount: ESCALATION_METRICS.measuredCostCount,
+    unmeasuredCostCount: ESCALATION_METRICS.unmeasuredCostCount,
     byOutcome: { ...ESCALATION_METRICS.byOutcome },
     ratePerMin: Number((ESCALATION_METRICS.total / elapsedMin).toFixed(3)),
     lastSignalId: ESCALATION_METRICS.lastSignalId || null,

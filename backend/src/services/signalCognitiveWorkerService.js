@@ -22,20 +22,23 @@ async function processCognitiveJob(signalId) {
     if (!target) throw new Error('No scoped cognitive target is available.');
     await assertScopedTarget(db, signal.scope, target);
     const context = escalation.buildMinimalContext(signal);
-    const result = await cognition.handleSignal({ db, agentId: target, signal, context });
+    const result = await cognition.handleSignal({ db, agentId: target, signal, context,
+      scope: signal.scope });
     if (!result.text.trim()) throw new Error('Cognitive provider returned an empty response.');
     const completed = await jobs.completeCognitiveJob(db, {
       signalId, owner, targetAgentId: target, result
     });
     if (completed) {
       metrics.recordOutcome('llm_success');
-      escalation.recordEscalationOutcome(signalId, 'generated', 1);
+      const measuredCost = result.usage?.costCoverage === 'complete'
+        ? result.usage.costUsd : null;
+      escalation.recordEscalationOutcome(signalId, 'generated', measuredCost);
     }
     return completed;
   } catch (error) {
     await jobs.failCognitiveJob(db, { signalId, owner, attempts, error: error.message });
     metrics.recordOutcome('llm_failed');
-    escalation.recordEscalationOutcome(signalId, 'failed', 1);
+    escalation.recordEscalationOutcome(signalId, 'failed', null);
     console.warn(`[SignalPlaneSubscriber] Cognitive job ${signalId} failed: ${error.message}`);
     return false;
   }

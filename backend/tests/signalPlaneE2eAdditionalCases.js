@@ -13,8 +13,10 @@ function createAdditionalSignalPlaneCases(context) {
       signalType: 'ligand', signalData: { semanticType: 'SCOPED_READ' },
       senderAgentId: 'orch-1'
     });
-    assert.equal((await transport.readSignalsForAgent('worker-outside')).length, 0);
-    assert.ok((await transport.readSignalsForAgent('worker-1')).some(s => s.signalId === broadcast.signalId));
+    assert.equal((await transport.readSignalsForAgent('worker-outside', null,
+      { limit: 100, includePending: true })).length, 0);
+    assert.ok((await transport.readSignalsForAgent('worker-1', null,
+      { limit: 100, includePending: true })).some(s => s.signalId === broadcast.signalId));
     receptor.registerReceptor({
       id: 'receptor-pending-read', targetLigand: 'PENDING_READ',
       threshold: 0.5, action: 'update_agent',
@@ -82,7 +84,7 @@ function createAdditionalSignalPlaneCases(context) {
       actionData: { agentId: 'worker-remote', status: 'completed' } });
     const result = await transport.publishSignal({ signalType: 'ligand',
       signalData: { semanticType: 'FOREIGN_UPDATE', concentration: 1 },
-      topic: 'foreign-update', senderAgentId: 'orch-1' });
+      topic: 'foreign-update', senderAgentId: 'orch-1', allowCognitiveEscalation: true });
     const target = await testDb.get('SELECT status FROM agents WHERE id = ?', ['worker-remote']);
     assert.equal(result.published, true);
     assert.equal(result.llmRequired, true);
@@ -96,8 +98,9 @@ function createAdditionalSignalPlaneCases(context) {
       signalData: { semanticType: 'PRIVATE_TARGET', concentration: 0.9 },
       senderAgentId: 'orch-1', recipientAgentIds: ['worker-1'] });
     assert.equal(result.published, true);
-    const target = await transport.readSignalsForAgent('worker-1');
-    const peer = await transport.readSignalsForAgent('worker-2');
+    const selection = { limit: 100, includePending: true };
+    const target = await transport.readSignalsForAgent('worker-1', null, selection);
+    const peer = await transport.readSignalsForAgent('worker-2', null, selection);
     assert.ok(target.some((signal) => signal.signalId === result.signalId));
     assert.ok(!peer.some((signal) => signal.signalId === result.signalId));
     console.log('[PASS] testReadRespectsTargetedAudience');
@@ -119,7 +122,7 @@ function createAdditionalSignalPlaneCases(context) {
     try {
       const result = await transport.publishSignal({ signalType: 'ligand',
         signalData: { semanticType: 'BROKEN_RECEPTOR', concentration: 0.9 },
-        topic: 'broken-receptor', senderAgentId: 'orch-1' });
+        topic: 'broken-receptor', senderAgentId: 'orch-1', allowCognitiveEscalation: true });
       assert.equal(result.published, true);
       assert.equal(result.llmRequired, true);
     } finally {

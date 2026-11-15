@@ -16,6 +16,7 @@ const cognitiveWorker = require('./signalCognitiveWorkerService');
 const signalDelivery = require('./signalDeliveryService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const signalMetrics = require('./signalMetricsService');
+const plasticity = require('./synapticPlasticityService');
 const scientificPropagation = require('./scientificPropagation');
 
 const registeredWakeHandlers = new Map();
@@ -59,22 +60,24 @@ function unregisterWakeHandler(agentId) {
  * Start the production subscriber.
  * Listens on the EventBus and dispatches to registered wake handlers.
  */
-function recordWorkerSuccess(signal) {
+function recordWorkerSuccess(signal, recipientId) {
   signalMetrics.recordSignalWithAction(signal.signalId);
   signalMetrics.recordDeliveryUseful();
   signalMetrics.recordOutcome('state_changed');
+  plasticity.recordSignalOutcome({ senderId: signal.senderAgentId,
+    receiverId: recipientId, outcome: 'action_taken', signalType: signal.signalType });
 }
 
 function recordWorkerIgnored() {
   signalMetrics.recordOutcome('ignored');
 }
 
-function handleWorkerResult(signal, result) {
+function handleWorkerResult(signal, result, recipientId) {
   if (result?.acted !== true) {
     recordWorkerIgnored();
     return;
   }
-  recordWorkerSuccess(signal);
+  recordWorkerSuccess(signal, recipientId);
 }
 
 function handleWorkerSignal(signal) {
@@ -117,7 +120,7 @@ async function dispatchPendingDelivery(input) {
     }
     const result = await handler(workerSignalFromRow(signal, recipientId));
     const completed = await signalDelivery.completeClaimedDelivery(db, { ...claimInput, now: Date.now() });
-    if (completed) handleWorkerResult(signal, result);
+    if (completed) handleWorkerResult(signal, result, recipientId);
     return completed;
   } catch (error) {
     await releaseClaim({ db, claimInput, error: error.message, terminal: false });

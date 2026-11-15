@@ -295,6 +295,7 @@ const suites = {
     ['truthful receptor outcomes', 'test_signal_truthful_outcomes.js'],
     ['adaptive handler registries', 'test_adaptive_state_live_persistence.js'],
     ['worker wake rearm', 'test_signal_wake_rearm.js'],
+    ['worker communication end to end', 'test_worker_communication_end_to_end.js'],
     ['signal metrics', 'test_signal_metrics.js'],
     ['agent output schema', 'test_agent_output_schema.js'],
     ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js'],

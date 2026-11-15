@@ -2,6 +2,8 @@
  * Pipeline integration test — persist → coalesce → receptor → plasticity
  */
 
+process.env.GENOS_DB_PATH = ':memory:';
+
 const assert = require('assert');
 const receptor = require('../src/services/signalReceptorService');
 const plasticity = require('../src/services/synapticPlasticityService');
@@ -133,9 +135,11 @@ async function testFullPipelineNoReceptorMatch() {
 }
 
 async function run() {
-  testFullPipelineReceptorTriggers();
+  await testFullPipelineReceptorTriggers();
   testPipelineCoalescedSignal();
-  testFullPipelineNoReceptorMatch();
+  await testFullPipelineNoReceptorMatch();
+  await plasticity.flushPendingWrites();
+  await require('../src/db').closeDatabase();
   console.log('\nAll pipeline integration tests passed.');
 }
 

@@ -1,7 +1,7 @@
 # ADR 003x — Communication Ecology Invariants
 
 - **Statut** : Accepté
-- **Date** : 2026-09-27 (proposé le 2026-09-23, accepté le 2026-09-27)
+- **Date** : 2026-09-27 (amendé le 2026-11-15)
 - **Domaine** : Communication, cognition, distribution
 - **Lié à** : [ADR 0030](0030-immunite-epistemique-et-composition.md), [ADR 0031](0031-scheduler-epistemique-mathematique.md), implémentation `backend/src/services/communication/` (enveloppe, dialecte, Common Ground, Transactive Memory, Policy Engine), `backend/src/services/signalDeliveryService.js`, `signalReceptorService.js`, `signalRepressorService.js`, `selectiveSignalService.js`, tests `backend/tests/test_signal_plane_e2e.js`, `test_communication_learning.js`, `test_communication_metrics.js`
 
@@ -35,11 +35,37 @@ Les 12 invariants suivants sont désormais non négociables :
 
 11. **Les économies de tokens doivent être mesurées sur les usages réels du modèle, pas estimées par `chars / 4`.** Les compteurs réels fournisse/runtime remplacent toute estimation heuristique.
 
-12. **L'ancien Signal Plane doit continuer à passer tous ses tests sans modification comportementale.** L'ADR est rétrocompatible ; `dynamicOrganizationService.publish()` conserve son garde `ZERO_TEXT_REQUIRED`.
+12. **L'escalade cognitive est explicitement autorisée.** Un signal sans récepteur
+    déterministe reste une livraison structurée. Il ne devient une requête LLM que si
+    l'émetteur pose `allow_cognitive_escalation=true` et si le gate de valeur de
+    l'information l'accepte. `dynamicOrganizationService.publish()` conserve son garde
+    `ZERO_TEXT_REQUIRED`.
+
+L'amendement du 15 novembre 2026 précise la fermeture de la boucle :
+
+- un worker idle conserve son abonnement durable et consomme une livraison dans un
+  ledger d'observations sans reconstruire une mission textuelle ;
+- une phéromone persistée est adressée aux workers de son scope et sa consommation
+  renforce la route observée ;
+- une trace de checkpoint équivalente et encore valide produit `SILENCE`, ce qui évite
+  la répétition du même delta ;
+- une inférence explicitement admise porte `action_id=signal:<id>` dans le ledger des
+  tentatives modèle. Les tokens et coûts ne sont complets que lorsque les reçus
+  fournisseur le sont ; une couverture absente ou partielle reste déclarée ainsi.
 
 ## Conséquences
 
 - Tous les nouveaux services (Common Ground, Transactive Memory, Policy Engine) doivent respecter ces invariants.
-- Le mode shadow est obligatoire durant la période d'activation : les décisions passées sont journalisées sans modifier le comportement en cours d'exécution.
+- Le mode shadow reste disponible pour observer une politique avant activation.
 - Tout échec à respecter un invariant provoque un rejet de la décision et journalisation `epistemic_violation`.
-- Preuve rejouée le 2026-09-27 : services et tests constatés (`test_signal_plane_e2e.js`, `test_communication_learning.js`, `test_communication_metrics.js`) ; exécution bloquée dans cet environnement (binding natif `sqlite3` invalide, `ERR_DLOPEN_FAILED`), à rejouer sur environnement sain — aucune défaillance de code constatée. L'invariant 12 (Signal Plane inchangé, `ZERO_TEXT_REQUIRED`) conditionne l'acceptation : toute régression des tests Signal Plane la révoque.
+- L'ancien réveil automatique sur tout signal non reconnu est supprimé : il produisait
+  des prompts sans mandat et rendait le coût du cycle natif trompeur.
+
+## Alternatives
+
+- Conserver l'escalade implicite sur absence de récepteur : rejeté, car l'absence de
+  règle déterministe n'est pas une autorisation de dépenser des tokens.
+- Injecter chaque phéromone brute dans le prochain prompt : rejeté, car cela transforme
+  une trace environnementale en contexte textuel répétitif et favorise la contamination.
+- Compter la publication comme une livraison : rejeté, car la persistance du paquet ne
+  prouve ni sa consommation ni son grounding.

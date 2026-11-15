@@ -4563,6 +4563,10 @@
         "properties": {
           "signal_type": {
             "type": "string"
+          },
+          "allow_cognitive_escalation": {
+            "type": "boolean",
+            "description": "Autorise explicitement le gate cognitif si aucun récepteur déterministe n'agit. Faux par défaut."
           }
         }
       },

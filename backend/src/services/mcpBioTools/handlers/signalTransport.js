@@ -16,7 +16,8 @@ const { executeCollectiveSignalMode } = require('../../collectiveSignalModeServi
 // ── genos_signal_publish ─────────────────────────────────────────────────────
 
 async function handleSignalPublish(args, run) {
-  const { signal_type, signal_data, topic, ttl_ms, signal_id, orchestrator_id } = args || {};
+  const { signal_type, signal_data, topic, ttl_ms, signal_id, orchestrator_id,
+    allow_cognitive_escalation } = args || {};
   if (signal_type === undefined || signal_type === null || String(signal_type).trim() === '') {
     return { configured: true, success: false, status: 'invalid_args', error: 'signal_type: is required.', transport: 'zero_text' };
   }
@@ -27,6 +28,7 @@ async function handleSignalPublish(args, run) {
     senderAgentId: orchestrator_id || null,
     ttlMs: ttl_ms != null ? Number(ttl_ms) : undefined,
     signalId: signal_id || undefined,
+    allowCognitiveEscalation: allow_cognitive_escalation === true,
   });
   return publishResult(result);
 }
@@ -43,6 +45,8 @@ function publishResult(result) {
     suppressedBy: result.suppressedBy || null,
     suppressionReason: result.suppressionReason || null,
     routing: result.routing || null,
+    llmRequired: result.llmRequired === true,
+    escalationQueued: result.escalationQueued === true,
     transport: 'zero_text',
   };
 }

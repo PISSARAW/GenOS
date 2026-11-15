@@ -31,6 +31,7 @@ const SIGNAL_TYPES = Object.freeze({
   CHECKPOINT_STIGMERGY: 'checkpoint_stigmergy',
 });
 const { createEnvelope, verifyEnvelopePayload } = require('../communication/communicationEnvelopeService');
+const { recordPendingDeliveries } = require('../signalDeliveryHelpers');
 
 function isSupportedType(type) {
   return Object.values(SIGNAL_TYPES).includes(type);
@@ -85,10 +86,10 @@ async function depositPheromone(signal, opts = {}) {
     throw new Error(`Unsupported pheromone type: ${signal && signal.type}`);
   }
   const bus = opts.bus || require('../biomimeticSignalingBus');
-  const preparedSignal = preparePheromone(signal);
-  const blob = packPheromone(bus, preparedSignal);
   const db = await optionalDb(opts.db, opts.localOnly === true);
   if (!db) {
+    const preparedSignal = preparePheromone(signal);
+    const blob = packPheromone(bus, preparedSignal);
     return {
       localOnly: true,
       signalId: preparedSignal.signalId,
@@ -98,18 +99,39 @@ async function depositPheromone(signal, opts = {}) {
       depositedAt: new Date().toISOString(),
     };
   }
-  const signalId = await persistPheromone(db, blob, preparedSignal);
+  const recipientAgentIds = await scopedRecipients(db, signal);
+  const preparedSignal = preparePheromone(signal, recipientAgentIds);
+  const blob = packPheromone(bus, preparedSignal);
+  const signalId = await require('../../db').withTransaction(db, async (tx) => {
+    const persisted = await persistPheromone(tx, blob, preparedSignal);
+    await recordPendingDeliveries(tx, persisted, recipientAgentIds);
+    return persisted;
+  });
   return {
     localOnly: false,
     signalId,
     signalType: bus.SIGNAL_TYPES.PHEROMONE,
     signalBlob: blob,
     content: '',
+    recipientAgentIds,
     depositedAt: new Date().toISOString(),
   };
 }
 
-function preparePheromone(signal) {
+async function scopedRecipients(db, signal) {
+  const scope = scopeOf(signal.scope);
+  if (!scope?.organizationId || !scope?.projectId) return [];
+  const rows = await db.all(`SELECT a.id FROM agents a
+    JOIN workspaces w ON w.id = a.workspace_id
+    WHERE w.organization_id = ? AND w.project_id = ?
+      AND a.execution_mode = 'worker' AND a.id != ?
+      AND a.status NOT IN ('completed','terminated','apoptosis','error','failed','unverified','quarantined')
+    ORDER BY a.id LIMIT 100`, scope.organizationId, scope.projectId,
+  signal.senderAgentId || '');
+  return rows.map((row) => row.id);
+}
+
+function preparePheromone(signal, recipientAgentIds = []) {
   const crypto = require('node:crypto');
   const signalId = signal.signalId || `pher_${crypto.randomUUID()}`;
   const payload = {
@@ -118,7 +140,7 @@ function preparePheromone(signal) {
   };
   const communicationEnvelope = createEnvelope({
     messageId: signalId, kind: 'signal', senderAgentId: signal.senderAgentId,
-    recipientAgentIds: [], channel: signal.channel || 'stigmergy', modality: 'pheromone',
+    recipientAgentIds, channel: signal.channel || 'stigmergy', modality: 'pheromone',
     semanticRefs: signal.semanticRefs || [], artifactRefs: signal.artifactRefs || [],
     scope: scopeOf(signal.scope), groundingRequired: signal.groundingRequired || 'none',
     ttlMs: signal.ttlMs, payload

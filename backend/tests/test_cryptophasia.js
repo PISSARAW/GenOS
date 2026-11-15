@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { randomUUID } = require('node:crypto');
 process.env.GENOS_MCP_LEASE = 'genos_biomimicry_cryptophasia';
+process.env.GENOS_DB_PATH = ':memory:';
 const { executeBioTool } = require('../src/services/mcpBioTools');
 
 async function runTest() {
@@ -51,7 +52,8 @@ async function runTest() {
   console.log('🎉 ALL CRYPTOPHASIA TESTS PASSED!');
 }
 
-runTest().catch(err => {
+runTest().then(() => require('../src/db').closeDatabase()).catch(async err => {
+  await require('../src/db').closeDatabase().catch(() => {});
   console.error('❌ FAIL:', err);
   process.exit(1);
 });

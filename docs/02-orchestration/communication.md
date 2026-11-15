@@ -1,8 +1,8 @@
 # Types de communication : Écologie communicationnelle GenOS
 
-- **Statut** : Partiel (enveloppe versionnée et Signal Plane branchés ; `MISSION_COMPLETED` évalué après le gate de fin de mission ; autres checkpoints sans raccord de production ; seuls SIGNAL et STIGMERGY ont un adaptateur checkpoint ; mesure réelle des tokens non reliée automatiquement aux cycles)
+- **Statut** : Partiel (enveloppe versionnée et Signal Plane branchés ; consommation déterministe des signaux et traces de checkpoint ; escalade cognitive explicitement autorisée et mesurée ; autres checkpoints que `MISSION_COMPLETED` encore sans raccord de production général)
 - **Portée** : les 7 types de communication inter-agents, leurs déclencheurs, leurs garanties et leur gouvernance (coût, métriques, shadow, apprentissage)
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-11-15
 
 ---
 
@@ -62,7 +62,7 @@ où `baseRate = signalPlane.voi.pDeltaDecision` sinon `0.5` (`:142-159`, heurist
 
 `requireGrounding` (`:62`) et `groundingFor` (`:96-101`) sont **dupliqués avec divergence** sur `low` (`transport_ack` vs `none`) — écart connu, sans impact sur les niveaux critiques. Pour un risque critique, une décision pré-scopée ou une diffusion ne peut abaisser `human_confirmation` à `verified_ack` ; si le canal humain n'est pas raccordé, l'exécution échoue fermé au lieu de publier comme si la confirmation avait eu lieu.
 
-### 2.3 Coût (implémenté comme projection, pas mesure réelle)
+### 2.3 Coût (projection, plus mesure réelle sur l'escalade cognitive)
 
 `estimateCost` (`communicationCostService.js:54-73`, heuristique à coefficients surchargeables `:38-40`) :
 
@@ -70,7 +70,7 @@ $$\text{total} = \text{tokens} + \text{wake} + \text{fanout} + \text{grounding} 
 
 `tokenCost = (in × 0.06 + out × 0.18) / 1000`, `wake = wakes × 0.4`, `fanout = n × 0.02`, grounding `none:0 … human_confirmation:2.0` (`:29-36`), `contamination = 0.2 × risk`, `disclosure = 0.1 × risk`. Table `ENCODING_TOKENS` hardcodée (`:19-27`) : `semantic-fingerprint:10/0/0`, `symbol-dialect:8/0/0`, `micro-utterance:30/25/1 wake`, `dialogue-turn:200/150/1 wake`.
 
-**Mesure réelle conditionnelle, transport simulé** : `modelProviderRequest.js` produit un reçu `genos.communication-usage/v1` uniquement quand la réponse du fournisseur contient un identifiant et les deux compteurs de tokens entiers. `runCycle` accepte ce reçu (`runCycleDriver.js`) : `tokensUsed` est alors la somme mesurée et `tokensProjected = 0`; sans reçu, `tokensUsed = 0` et seule une projection est enregistrée (`ceil(cost × 500)`, ou 200 par défaut). Aucun appelant ne relie encore automatiquement la réponse modèle au même cycle de communication ; le driver ne déclenche pas lui-même d'appel modèle et l'issue destinataire reste stochastique. La référence naïve (`estimateNaiveBroadcast`) reste une estimation, pas une mesure comparative.
+**Mesure réelle conditionnelle** : `modelProviderRequest.js` produit un reçu `genos.communication-usage/v1` uniquement quand la réponse du fournisseur contient un identifiant et les deux compteurs de tokens entiers. Pour une escalade cognitive de signal, `cognitiveSignalService` fixe `action_id = signal:<signalId>` puis `signalCognitiveUsageService` relit le ledger des tentatives : tokens et coût ne sont déclarés complets que si le fournisseur les a effectivement rapportés. Sinon les champs restent `null`/incomplets, jamais transformés en faux zéro. `runCycle` conserve en parallèle son harness simulé et ses projections. La référence naïve (`estimateNaiveBroadcast`) reste une estimation, pas une mesure comparative.
 
 ---
 
@@ -79,7 +79,7 @@ $$\text{total} = \text{tokens} + \text{wake} + \text{fanout} + \text{grounding} 
 | Analogie | Ce qu'elle organise | Limite réelle (ne pas sur-vendre) |
 |----------|--------------------|------------------------------------|
 | Ligands / récepteurs paracrines | routage déterministe sans LLM | simple comparaison `ligand === target && concentration ≥ threshold` (`biomimeticSignalingBus.js:48-59`, `cascade.rs:48-58`) |
-| Phéromones / stigmergie | coordination par traces + évaporation | `deposit/evaporate/dominant_trail` in-memory Rust (`stigmergy.rs:92-186`) ; pont inter-process persistant mais pull-only, pas de push cross-process |
+| Phéromones / stigmergie | coordination par traces + évaporation | `deposit/evaporate/dominant_trail` in-memory Rust (`stigmergy.rs:92-186`) ; pont inter-process persistant, livraisons pull et réutilisation des traces de checkpoint, pas de push cross-process |
 | Potentiel de membrane / Kuramoto | consensus de phase | simple score `order ≥ 0.70` + `sum V ≥ 300 mV` (`biomimeticSignalingBus.js:61-95`), pas de synchronisation temps réel |
 | Plasmides | transfert horizontal de capacité | blob opaque `packBioPolymer/unpackBioPolymer`, pas de transfert de code vérifié |
 | Tenseurs latents | signal riche | contrat seul (`signalingTransportService.js:67-80`), contenu non interprété |
@@ -393,9 +393,9 @@ Cinq couches, du substrat vers la cognition :
 
 ### 7.1 Détail par type
 
-**Type 1 — Signal zero-texte (implémenté).** `SIGNAL_TYPES = {ligand, voltage, pheromone, plasmid, tensor, text}` (`biomimeticSignalingBus.js:15-22`) ; `text` rejeté à deux niveaux (`signalingTransportService.js:34-43`, `dynamicOrganizationService.js:234-247` avec `ZERO_TEXT_REQUIRED`, `INVALID_SIGNAL_TYPE`, `SIGNAL_DATA_REQUIRED`). Pipeline : valid → coalesce → persist → route → bus → plasticité (`signalingTransportService.js:183`). Récepteurs déterministes (`signalReceptorService.matchAndDispatch` → `{triggered, dispatched, llmRequired}`).
+**Type 1 — Signal zero-texte (implémenté).** `SIGNAL_TYPES = {ligand, voltage, pheromone, plasmid, tensor, text}` (`biomimeticSignalingBus.js:15-22`) ; `text` rejeté à deux niveaux (`signalingTransportService.js`, `dynamicOrganizationService.js` avec `ZERO_TEXT_REQUIRED`, `INVALID_SIGNAL_TYPE`, `SIGNAL_DATA_REQUIRED`). Pipeline : valid → coalesce → persist → route → bus → consommation/ACK → plasticité. Un récepteur exécute son action déterministe ; sans récepteur utile, le signal reste une livraison durable consommée par `workerSignalConsumptionService`, sans prompt. La cognition n'est mise en file que si l'appelant fournit `allowCognitiveEscalation:true` et si le dispatch la demande encore après le gate de valeur de l'information.
 
-**Type 2 — Stigmergie (implémentée, deux vocabulaires).** Rust in-memory (`deposit, deposit_repellent, evaporate, dominant_trail`, `stigmergy.rs:92-214`) ; Node épistémique volatil `PHEROMONE_TYPES = [CLAIM_CONTRADICTION, EVIDENCE_FAILURE, ASSUMPTION_UNEXPLORED, VERIFIER_SUCCESS, VERIFIER_FAILURE, DOMAIN_GAP]` (`epistemicStigmergyService.js:14-89`, `broadcast` = deposit + handlers sync) ; pont persistant `SIGNAL_TYPES = {epistemic_contradiction, …, epistemic_high_risk}` (`stigmergyInterProcessBridge.js:23-136`, `INSERT OR REPLACE INTO signal_blobs`). Sans DB le pont retourne `{localOnly:true}` et ne traverse pas les processus (`:85-92`).
+**Type 2 — Stigmergie (implémentée, deux vocabulaires).** Rust in-memory (`deposit, deposit_repellent, evaporate, dominant_trail`, `stigmergy.rs:92-214`) ; Node épistémique volatil `PHEROMONE_TYPES = [CLAIM_CONTRADICTION, EVIDENCE_FAILURE, ASSUMPTION_UNEXPLORED, VERIFIER_SUCCESS, VERIFIER_FAILURE, DOMAIN_GAP]` (`epistemicStigmergyService.js`) ; pont persistant `SIGNAL_TYPES = {epistemic_contradiction, …, checkpoint_stigmergy}` (`stigmergyInterProcessBridge.js`). Le dépôt atomique crée le blob et les livraisons des workers actifs du même scope ; le subscriber les consomme et les acquitte sans LLM. Une trace de checkpoint encore valide portant les mêmes références sémantiques/artefacts produit `SILENCE/STIGMERGY_TRACE_REUSED`. Sans DB le pont retourne `{localOnly:true}` et ne revendique pas de partage interprocessus.
 
 **Type 3 — Messages d'organisation (implémenté).** Table créée lazy (`ensureTables :67-122`), `kind ∈ {evidence, question, answer, challenge, proposal, vote, trace, budget, critical, success, handoff}` (`:41-44`), `recipient_agent_id NULL` ou `'broadcast'` = diffusion, `channel` décidé par `routeMessage` (`orchestrator_handoff, stigmergic_trail, capability_mesh, ranked_handoff, adversarial_pair`, fallback nom de topologie, `local_buffer` si `network_silence`). `publish` (`:266-307`) applique dans l'ordre : `assertMember` (`UNKNOWN_AGENT`, `ORGANIZATION_ACCESS_DENIED`), whitelist `kind`, garde zero-texte, `ADVERSARIAL_RECIPIENT_REQUIRED` (`:249-255`), autorité de routage (`organizationRouting.js:64-71`), puis auto-transition signal→topologie (`ligand+cascade → hierarchical_merge`, `voltage+kuramoto ≥ 0.7 → quorum_with_abstention`, gradient phéromone → `slime_mould_network/network_silence`). `inbox` (`:351-365`) : scope `organization_id/project_id` + `organization_version` courante + `delivery = 'delivered'`, hors auto-messages, `limit 1..50`, anonymisation `blind_adversarial_review → anonymous_worker` (`:309-320`). Le routage signal accepte une audience explicite d'agents du tenant du sender ; la diffusion globale résout les workers actifs dans la même organisation et le même projet, plafonnés à 100. Outils MCP : `genos_change_organization`, `genos_organization_state`, `genos_worker_publish` (`kind + signal_type` requis), `genos_worker_inbox` (`shared/toolDefinitions.json:346-435`).
 
@@ -419,14 +419,14 @@ changeOrganization (autorité orchestrateur, idempotent, flush buffer sauf netwo
   → inbox (membre, scope, version courante, delivered, pagination, anonymat adversarial)
 ```
 
-Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` singleton par process (`signalEventBus.js:65-66` ; la doc du Signal Plane admet que les workers d'autres processus ne reçoivent pas le push, `signal-plane-zero-text.md:213-215`). Compensation par pull (`readSignalsForAgent`, `signal_deliveries {pending, delivered, seen, acked}`). **Aucun ordre causal/FIFO** : lectures `ORDER BY created_at DESC` (`signalingTransportService.js:249`, `stigmergyInterProcessBridge.js:116`). Persistance SQLite WAL + TTL (`DEFAULT_SIGNAL_TTL_MS = 30 000`, purge + grâce ACK 7 j, `:280-289`). **Coalescing destructif avant persistance** : signal supprimé sans trace, `{published:false, coalesced:true}` (`:200-210`). `persistSignalRow` ne fait jamais échouer `publish` (`catch + console.warn`, `:49-65`).
+Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` singleton par process ; compensation interprocessus par pull (`readSignalsForAgent`, `signal_deliveries {pending, delivered, seen, acked}`). Le handler de réveil reste armé après la libération d'un slot, consomme le signal, persiste une observation déterministe, ACK puis renforce la route utile. **Aucun ordre causal/FIFO** : lectures `ORDER BY created_at DESC`. Persistance SQLite WAL + TTL (`DEFAULT_SIGNAL_TTL_MS = 30 000`, purge + grâce ACK 7 j). **Coalescing destructif avant persistance** : signal supprimé sans trace, `{published:false, coalesced:true}`. La publication et la livraison restent deux faits distincts : `published` ne vaut pas `deliveryConfirmed`, qui exige un acquittement réel.
 
 ### 8.2 Décider, journaliser shadow, apprendre
 
 - **Policy** : `decideCommunication` (voir §2.1) ; mode par défaut `active` (`communicationPolicyEngine.js`), sauf `GENOS_COMMUNICATION_MODE` défini à une valeur autre que `active`. `logAndDecide` journalise la décision en shadow sans publier.
 - **Shadow** : table `communication_shadow_log(intent_json, decision_json, current_behavior_json, utility, gain, cost)` + `shadowReceipt{reduction = 1 − cost/naive}` (`communicationShadowLogService.js:13-66`). `evaluateCheckpoint` vérifie le mode avant tout effet : en shadow, il retourne un reçu `SHADOW_MODE` sans exécuter le signal.
 - **Apprentissage** : `learnFromOutcome` (`communicationLearningService.js:122-134`) — `mapOutcome` (`dialectError→error`, `actionTaken ∧ interpretationCorrect→action_taken`, `recipientKnew→no_effect`, sinon `ignored`, `:32-37`), journal `communication_outcomes` (`:19-30, 39-49`), puis `learnExpertise → recordOutcome` (skip si `recipientKnew`), `learnCommonGround → recordGrounding confidence 0.6`, `learnDialect → recordUsage/observePhrase`, `learnRelation → familiarity ± 0.05`, `learnChannel → plasticité + signalMetrics`. Les seuils et coefficients de coût ne sont pas auto-ajustés (partiel).
-- **Checkpoints** : 8 points (`CHECKPOINTS :16-25`), `buildIntent/buildPolicyInput` (`ttlMs:60 s, maxCandidates:10`), exécution : `SILENCE` ne publie pas ; `STIGMERGY` écrit durablement dans SQLite (`signal_blobs`) ; `SIGNAL` appelle `publishSignal` avec audience vérifiée. Les décisions et reçus d'évaluation sont conservés uniquement en mémoire, capés à 100 par agent ; les politiques activées par agent sont aussi en mémoire et reviennent au défaut après redémarrage (`communicationCheckpointService.js`). Les autres canaux non raccordés restent sans exécution.
+- **Checkpoints** : 8 points, `buildIntent/buildPolicyInput` (`ttlMs:60 s, maxCandidates:10`), exécution : `SILENCE` ne publie pas ; `STIGMERGY` écrit durablement le blob et ses livraisons ; `SIGNAL` appelle `publishSignal` avec audience vérifiée. Avant une nouvelle décision, `stigmergyDecisionService` peut consommer une trace équivalente et choisir le silence. Les décisions et reçus d'évaluation sont conservés uniquement en mémoire, capés à 100 par agent ; les politiques activées par agent sont aussi en mémoire et reviennent au défaut après redémarrage. Les autres canaux non raccordés restent sans exécution.
 - **Drivers** : `assessAgency` (`autonomous = expertise ≥ 0.7 ∧ wasteRate < 0.3`, `agencyDriver.js:61-82`, seuils en dur) ; `recommendActions` (`wasteRate > 0.5 → SILENCE`, `actionRate > 0.6 → SIGNAL`, sinon `STIGMERGY`, + `HUMAN` si `urgency > 0.7`, fenêtre 1 h, `:88-127`, non branché au policy engine — partiel) ; `runCycle` (`decide → recordDecision → tryLogShadow → simulateExecution → assessAgency`) reste un harness simulé : `recipientKnew` est stochastique, le reçu marque `simulated: true`, et aucune issue simulée n'alimente l'apprentissage ni les métriques d'efficacité. L’appelant peut fournir un reçu d’usage fournisseur pour la simulation; cela ne transforme pas le driver en exécution réelle du message ou du modèle.
 
 ---
@@ -441,7 +441,7 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 | Mémoire partagée | historique brut | aucune | ledger paire-à-paire + annuaire d'expertise + grounding |
 | Jargon | prompts ad hoc | schémas d'outils | dialectes compilés `sha256:` fail-closed |
 | Négociation | fils illimités | hors scope | dialogue ≤ 8 tours + artefact ou `UNRESOLVED` |
-| Coût | non mesuré | facturé côté provider | projeté par encodage (mesure réelle = non-objectif actuel) |
+| Coût | non mesuré | facturé côté provider | projeté par encodage ; mesuré sur les escalades cognitives quand le provider publie l'usage |
 
 ---
 
@@ -462,7 +462,7 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 
 ### 10.3 Non-objectifs
 
-- Pas de mesure réelle de tokens (`chars/4` déjà banni, compteur réel non branché — invariant 11 non tenu).
+- Pas d'estimation déguisée en mesure : si le provider ne publie pas les tokens ou le coût d'une escalade cognitive, l'usage reste explicitement incomplet. Les transports zero-texte restent à zéro par construction et n'ouvrent aucun prompt.
 - Le policy engine checkpoint est actif par défaut (`GENOS_COMMUNICATION_MODE=shadow`
   permet une simulation sans publication). Les dépôts STIGMERGY de checkpoint
   exigent une écriture SQLite persistée ; sans base, le reçu signale
@@ -473,7 +473,7 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 - La fin de mission autorisée appelle `MISSION_COMPLETED` depuis l'orchestrateur.
   Une fin bloquée n'émet pas ce checkpoint. Un échec de politique ou de télémétrie
   ne change pas le verdict du gate ; la télémétrie reste best effort (ADR 0300).
-- La persistance garantit la lecture interprocessus des dépôts STIGMERGY via la base partagée, pas un push instantané aux workers : le consommateur doit relire les signaux. Sans base, le checkpoint retourne `PERSISTENCE_REQUIRED` et ne revendique aucun partage.
+- La persistance garantit la lecture interprocessus des dépôts STIGMERGY via la base partagée, pas un push instantané aux workers : le subscriber relit les livraisons, persiste l'observation puis les acquitte. Sans base, le checkpoint retourne `PERSISTENCE_REQUIRED` et ne revendique aucun partage.
 - Pas de bouclage `recommendActions → policy engine`.
 - Pas de preuve qu'un `transport_ack` vaut décision valide (la beard épistémique reste entière : seul `verified_ack/human_confirmation` + gate de preuve autorise une promotion).
 

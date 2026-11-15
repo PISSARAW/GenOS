@@ -10,8 +10,7 @@ const signalMetrics = require('./signalMetricsService');
 const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
 const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries, routedAgentIds } = require('./signalDeliveryHelpers');
-const cognitiveJobs = require('./signalCognitiveJobsService');
-const cognitiveEscalation = require('./cognitiveEscalationService');
+const cognitiveDispatch = require('./signalCognitiveEscalationDispatch');
 const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const { dispatchReceptorsIfNeeded } = require('./signalReceptorDispatchService');
@@ -169,22 +168,16 @@ async function routeAndDispatch(signal, routing, idempotency) {
       publishSignal,
       scope: routing.scope,
     });
-  await persistRoutedSignal(signal, dispatchResult.llmRequired ? [] : recipientAgentIds, idempotency);
+  const cognitiveRequired = dispatchResult.llmRequired && signal.allowCognitiveEscalation;
+  await persistRoutedSignal(signal, cognitiveRequired ? [] : recipientAgentIds, idempotency);
   pushLocalLog(signal.id, signal.formatted);
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
   updatePlasticityForRecipients(signal, dispatchResult, routing);
-  // F2: aucun récepteur matché => escalation LLM seule, pas d'envoi workers.
-  if (dispatchResult.llmRequired) {
-    const cognitiveSignal = {
-      ...signal, signalId: signal.id, signalType: signal.formatted.signalType,
-      recipientAgentIds: [], llmRequired: true, payloadRef: signal.id,
-      scope: routing.scope
-    };
-    const escalationQueued = Boolean(routing.scope) && cognitiveEscalation.shouldEscalate(cognitiveSignal);
-    if (escalationQueued) await cognitiveJobs.enqueueCognitiveJob(await getDatabase(), cognitiveSignal);
-    emitToBus(cognitiveSignal);
-    return { signalId: signal.id, published: true, coalesced: false, coalescedCount: 1, signalType: signal.formatted.signalType, routing, llmRequired: true, escalationQueued };
+  const cognitive = await cognitiveDispatch.prepare(signal, routing, dispatchResult);
+  if (cognitive) {
+    emitToBus(cognitive.signal);
+    return cognitive.result;
   }
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
@@ -253,7 +246,12 @@ async function buildSignalFromParams(params) {
   });
   const transportData = Object.assign({}, payloadData, { communicationEnvelope: envelope });
   const formatted = formatSignalForTransport({ signalType: normalizedType, signalData: transportData, contentFallback });
-  return { accepted: true, id, formatted, normalizedType, signalData: transportData, topic: String(topic || '').trim(), senderAgentId, ttlMs, deliveryOnly: params.deliveryOnly === true, depth: Math.max(0, Number(depth || 0)), expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
+  return { accepted: true, id, formatted, normalizedType, signalData: transportData,
+    topic: String(topic || '').trim(), senderAgentId, ttlMs,
+    deliveryOnly: params.deliveryOnly === true,
+    allowCognitiveEscalation: params.allowCognitiveEscalation === true,
+    depth: Math.max(0, Number(depth || 0)),
+    expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
 }
 
 function buildSignalEnvelope(input) {
