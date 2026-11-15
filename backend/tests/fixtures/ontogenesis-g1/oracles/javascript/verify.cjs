@@ -50,7 +50,7 @@ function main() {
     }
     case 'api-reference': {
       const readme = fs.readFileSync(path.join(workspaceRoot, 'README.md'), 'utf8').toLowerCase();
-      require('./verifyStages1.cjs').mainStage1({ assert, readme });
+      require('./verifyWorkflow.cjs').main({ assert, readme });
       break;
     }
     case 'boundary-examples': {

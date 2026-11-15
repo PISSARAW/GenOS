@@ -47,13 +47,13 @@ async function pull(req) {
   const agentId = req.body?.targetAgentId || req.body?.agentId;
   const refName = req.body?.refName || 'main';
   const remoteName = req.body?.remoteName || 'default';
-  { const __genosStageResult1 = require('./remoteRoutesStages1.cjs').pullStage1({ agentId, req }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = require('./remoteRoutesWorkflow.cjs').pullStep1({ agentId, req }); if (workflowResult1) return workflowResult1.value; }
   const tracked = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
     agentId, trackingName(remoteName, refName));
   const objectId = req.body?.objectId || tracked?.object_id;
-  { const __genosStageResult2 = require('./remoteRoutesStages1.cjs').pullStage2({ objectId, tracked }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const workflowResult2 = require('./remoteRoutesWorkflow.cjs').pullStep2({ objectId, tracked }); if (workflowResult2) return workflowResult2.value; }
   const object = await getObject(db, req, objectId);
-  if (require('./remoteRoutesValues1.cjs').pullValue1({ agentId, object, verifySource })) {
+  if (require('./remoteRoutesRules.cjs').pull({ agentId, object, verifySource })) {
     return { success: false, error: 'Tracked remote tip failed scoped verification.' };
   }
   const local = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, refName);

@@ -18,7 +18,7 @@ function validateTask(ctx) {
   seen.add(task?.id);
   for (const [metric, result] of Object.entries(task?.metrics || {})) {
     if (!METRICS.includes(metric) || !RESULTS.has(result?.result)) issues.push(`invalid_metric:${metric}`);
-    if (require('./scoreValues1.cjs').validateTaskValue1({ result })) {
+    if (require('./scoreRules.cjs').validateTask({ result })) {
       issues.push(`missing_evidence:${task.id}:${metric}`);
     }
   }

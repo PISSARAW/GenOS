@@ -37,7 +37,7 @@ async function exportHistory({ db, req, agentId, refName }) {
     if (visited.has(id)) return;
     if (visited.size >= 256) throw new Error('Remote history exceeds 256 objects.');
     const row = await getCommit(db, id);
-    if (require('./remoteSyncValues1.cjs').exportHistoryValue4({ agent, agentId, row })) {
+    if (require('./remoteSyncRules.cjs').exportHistory({ agent, agentId, row })) {
       throw new Error('Remote history crosses its agent or workspace scope.');
     }
     active.add(id);
@@ -46,7 +46,7 @@ async function exportHistory({ db, req, agentId, refName }) {
     visited.add(id);
     const state = JSON.parse(row.state_json);
     const metadata = JSON.parse(row.metadata_json || '{}');
-    require('./remoteSyncStages1.cjs').exportHistoryStage2({ Error, commitHash, metadata, row, state, treeHash, verifySource });
+    require('./remoteSyncWorkflow.cjs').exportHistory({ Error, commitHash, metadata, row, state, treeHash, verifySource });
     ordered.push({ object: wire(row), state });
   }
   await visit(ref.object_id);
@@ -71,7 +71,7 @@ async function divergence(db, localId, trackedId) {
 
 async function importHistory(db, req, packageData) {
   const { agentId, refName, headObjectId, history } = packageData || {};
-  if (require('./remoteSyncValues1.cjs').importHistoryValue1({ Array, agentId, headObjectId, history, packageData, refName })) {
+  if (require('./remoteSyncRules.cjs').importHistoryRule1({ Array, agentId, headObjectId, history, packageData, refName })) {
     throw new Error('A complete bounded AgentGit history package is required.');
   }
   if (Buffer.byteLength(JSON.stringify(packageData)) > 20_000_000 ||
@@ -87,12 +87,12 @@ async function importHistory(db, req, packageData) {
     const prior = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, trackingRef);
     for (const entry of history) await importEntry({ db, req, entry, agent });
     const fastForward = await isAncestor(db, prior?.object_id, headObjectId);
-    const leaseMatches = require('./remoteSyncValues1.cjs').importHistoryValue5({ prior, req });
+    const leaseMatches = require('./remoteSyncRules.cjs').importHistoryRule5({ prior, req });
     const observedRewind = req.body?.importMode === 'fetch';
-    if (require('./remoteSyncValues1.cjs').importHistoryValue2({ fastForward, leaseMatches, observedRewind })) throw new Error('Remote tracking ref diverged; fetch and merge first.');
+    if (require('./remoteSyncRules.cjs').importHistoryRule2({ fastForward, leaseMatches, observedRewind })) throw new Error('Remote tracking ref diverged; fetch and merge first.');
     await updateRef({ db, req, agentId, refName: trackingRef, objectId: headObjectId,
       options: { action: 'remote-import', inTransaction: true } });
-    return require('./remoteSyncValues1.cjs').importHistoryValue6({ fastForward, headObjectId, history, leaseMatches, observedRewind, trackingRef });
+    return require('./remoteSyncRules.cjs').importHistoryRule6({ fastForward, headObjectId, history, leaseMatches, observedRewind, trackingRef });
   });
 }
 
@@ -108,10 +108,10 @@ async function importEntry(ctx) {
   const verification = await verifyRemoteObject(object, state, { db, tenantId: req.tenant?.organizationId || null });
   if (!verification.valid) throw new Error(verification.error);
   const existing = await db.get('SELECT state_hash, commit_hash FROM agent_git_objects WHERE id = ?', object.id);
-  if (require('./remoteSyncValues1.cjs').importEntryValue3({ existing, object })) {
+  if (require('./remoteSyncRules.cjs').importEntry({ existing, object })) {
     throw new Error('Existing remote object ID has different content.');
   }
-  await require('./remoteSyncStages1.cjs').importEntryStage1({ Error, db, object });
+  await require('./remoteSyncWorkflow.cjs').importHistoryEntry({ Error, db, object });
   if (!existing) await persistRemoteObject(db, { req, incoming: object, state });
 }
 

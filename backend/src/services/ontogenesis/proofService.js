@@ -73,7 +73,7 @@ function checkSpec(check) {
   if (!check.args.every((arg) => typeof arg === 'string')) throw new Error('verification-arguments-invalides');
   const verifierReason = verifierCheckReason(check);
   if (verifierReason) throw new Error(verifierReason);
-  if (require('./proofServiceValues1.js').checkSpecValue1({ check, undefined })) {
+  if (require('./proofServiceRules.js').checkSpec({ check, undefined })) {
     throw new Error('verification-sandbox-invalide');
   }
   if (!isDockerCheck(check)) hostVerificationEvidence(check);

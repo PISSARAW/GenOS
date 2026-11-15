@@ -73,7 +73,7 @@ function capabilityRequestFields(mission, plan, selection) {
 function contextRequestFields(mission) {
   const plan = mission.plan;
   const morphology = plan?.morphology || mission.morphology || {};
-  return require('./runtimeHarnessValues1.js').contextRequestFieldsValue1({ mission, morphology, plan, undefined });
+  return require('./runtimeHarnessRules.js').contextRequestFields({ mission, morphology, plan, undefined });
 }
 
 function workerAssignmentsFor(roles) {

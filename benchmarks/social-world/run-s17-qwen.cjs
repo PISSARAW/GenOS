@@ -96,7 +96,7 @@ async function main() {
     observed = { recipients: result.delivered.envelope.recipientAgentIds,
       acknowledgements: outcome.deliveryAcknowledgements.map((ack) => ack.recipientAgentId),
       semanticRefs: result.delivered.envelope.semanticRefs };
-    enginePass = require('./run-s17-qwenValues1.cjs').mainValue1({ EXPECTED, JSON, Set, get decision() { return decision; }, get observed() { return observed; }, get outcome() { return outcome; } });
+    enginePass = require('./run-s17-qwenRules.cjs').main({ EXPECTED, JSON, Set, get decision() { return decision; }, get observed() { return observed; }, get outcome() { return outcome; } });
     warmup = await warmModel(seed);
     const { response, answer } = await askQwen(observed, seed);
     const qwenPass = JSON.stringify(answer) === JSON.stringify(observed);

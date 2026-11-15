@@ -109,7 +109,7 @@ function executeState(input) {
 }
 
 async function execute(input = {}, handlers, runtimeState = {}) {
-    { const __genosStageResult2 = require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage2({ Array, handlersService, input }); if (__genosStageResult2) return __genosStageResult2.value; }
+    { const workflowResult2 = require('./cognitiveOmegaRuntimeServiceWorkflow.js').execute({ Array, handlersService, input }); if (workflowResult2) return workflowResult2.value; }
     const operations = input.operations.map((operation) => (executeResult2(operation)));
     if (operations.some((operation) => !KINDS.has(operation.kind))) return handlersService.blocked('operation_kind_invalid');
     const plan = registry.plan({ version: registry.VERSION, operation: 'OMEGA',
@@ -119,8 +119,8 @@ async function execute(input = {}, handlers, runtimeState = {}) {
     const state = executeState(input);
     const results = [];
     const journalDb = runtimeState.journal;
-    { const __genosStageResult1 = await require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage1({ executionJournal, handlersService, input, journalDb, journalRequest }); if (__genosStageResult1) return __genosStageResult1.value; }
-    { const __genosStageResult5 = await require('./cognitiveOmegaRuntimeServiceStages1.js').executeStage5({ applyJournalResult, byId, dependenciesExecuted, executionJournal, handlers, input, journalDb, journalResult, plan, registerOperationVerifier, require, results, runtimeState, get state() { return state; }, set state(__genosNextStageValue) { state = __genosNextStageValue; } }); if (__genosStageResult5) return __genosStageResult5.value; }
+    { const workflowResult1 = await require('./cognitiveOmegaRuntimeServiceWorkflow.js').beginJournaledRun({ executionJournal, handlersService, input, journalDb, journalRequest }); if (workflowResult1) return workflowResult1.value; }
+    { const workflowResult5 = await require('./cognitiveOmegaRuntimeServiceWorkflow.js').executeObligations({ applyJournalResult, byId, dependenciesExecuted, executionJournal, handlers, input, journalDb, journalResult, plan, registerOperationVerifier, require, results, runtimeState, get state() { return state; }, set state(nextValue) { state = nextValue; } }); if (workflowResult5) return workflowResult5.value; }
     const digest = crypto.createHash('sha256').update(JSON.stringify(results)).digest('hex');
     return executeResult({ results, state, digest, input });
   }

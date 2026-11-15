@@ -42,7 +42,7 @@ function createSelection(rendering) {
   function rankHistorical(memories, query) {
     const kinds = ['experiences', 'pitfalls', 'goldenPaths', 'episodes'];
     const keyed = Object.fromEntries(kinds.map((kind) => [kind,
-      require('./agentMemoryPromptBudgetValues1.js').createSelectionValue1({ Number, kind, memories })]));
+      require('./agentMemoryPromptBudgetRules.js').createSelection({ Number, kind, memories })]));
     const compiled = compileContext({
       relevantFacts: keyed.pitfalls,
       relevantEpisodes: keyed.episodes,

@@ -17,7 +17,7 @@ function normalizeUnresolvedResponse(result, responseFormat, mission) {
   if (!response || typeof response !== 'object') {
     try { response = JSON.parse(result.text || ''); } catch { return null; }
   }
-  if (require('./biomeAllocationRecoveryValues1.js').normalizeUnresolvedResponseValue1({ Array, get response() { return response; } })) return null;
+  if (require('./biomeAllocationRecoveryRules.js').normalizeUnresolvedResponse({ Array, get response() { return response; } })) return null;
 
   const normalized = { ...response,
     uncertainties: ['The worker returned unresolved without specifying the missing evidence or reason.'] };
@@ -31,7 +31,7 @@ function normalizeGenerationResult(result, mission) {
   if (!result?.schemaViolation || !isBiomeSteward(mission)) return result;
   const supplied = Array.isArray(mission.allowedEvidenceRefs) ? mission.allowedEvidenceRefs
     : (Array.isArray(mission.evidenceRefs) ? mission.evidenceRefs : []);
-  const format = require('./biomeAllocationRecoveryValues1.js').normalizeGenerationResultValue3({ Set, mission, require, supplied });
+  const format = require('./biomeAllocationRecoveryRules.js').normalizeGenerationResult({ Set, mission, require, supplied });
   return normalizeUnresolvedResponse(result, format, mission) || result;
 }
 
@@ -39,7 +39,7 @@ function recoverExhaustedAllocation(report, mission, modelOutput = '') {
   if (!isBiomeSteward(mission)) return null;
   const maxAttempts = Number(mission.recoveryMaxAttempts);
   const attempt = Number(mission.recoveryAttempt);
-  if (require('./biomeAllocationRecoveryValues1.js').recoverExhaustedAllocationValue2({ Number, attempt, maxAttempts })) return null;
+  if (require('./biomeAllocationRecoveryRules.js').recoverExhaustedAllocation({ Number, attempt, maxAttempts })) return null;
   if (report?.specialtyAssessment?.inScope === false) return null;
 
   const source = String(mission.prompt || mission.currentTask || '');

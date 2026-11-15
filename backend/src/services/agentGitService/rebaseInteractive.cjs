@@ -21,15 +21,15 @@ async function loadPlan(db, req, ids) {
   const base = await getObject(db, req, parentId);
   const ontoId = req.body?.ontoObjectId || parentId;
   const onto = await getObject(db, req, ontoId);
-  if (require('./rebaseInteractiveValues1.cjs').loadPlanValue1({ base, ids, onto, ontoId })) throw new Error('Rebase base or onto commit is unavailable.');
-  await require('./rebaseInteractiveStages1.cjs').loadPlanStage1({ Error, commits, db, getCommit, ids, get parentId() { return parentId; }, set parentId(__genosNextStageValue) { parentId = __genosNextStageValue; } });
+  if (require('./rebaseInteractiveRules.cjs').loadPlanRule1({ base, ids, onto, ontoId })) throw new Error('Rebase base or onto commit is unavailable.');
+  await require('./rebaseInteractiveWorkflow.cjs').loadInteractivePlan({ Error, commits, db, getCommit, ids, get parentId() { return parentId; }, set parentId(nextValue) { parentId = nextValue; } });
   const scope = [base, onto, ...commits];
   if (scope.some((item) => item.agent_id !== commits[0].agent_id || item.workspace_id !== commits[0].workspace_id)) {
     throw new Error('Interactive rebase cannot cross an agent or workspace.');
   }
   const issues = scope.flatMap(verifySource);
   if (issues.length) throw new Error(`Commit verification failed: ${JSON.stringify(issues)}`);
-  const refName = require('./rebaseInteractiveValues1.cjs').loadPlanValue2({ commits, req });
+  const refName = require('./rebaseInteractiveRules.cjs').loadPlanRule2({ commits, req });
   const ref = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
     commits[0].agent_id, refName);
   if (ref?.object_id !== ids.at(-1)) throw new Error('Target ref does not point to the series head.');

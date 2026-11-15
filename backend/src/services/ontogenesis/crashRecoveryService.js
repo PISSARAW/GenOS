@@ -75,7 +75,7 @@ async function recoverDispatch(db, input) {
     return 'reset_prepared';
   }
   if (!execution) return escalate(db, input, 'execution-absente-apres-effet');
-  { const __genosStageResult1 = await require('./crashRecoveryServiceStages1.js').recoverDispatchStage1({ advance, db, execution, input, journal, recordReceipt }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = await require('./crashRecoveryServiceWorkflow.js').recoverDispatch({ advance, db, execution, input, journal, recordReceipt }); if (workflowResult1) return workflowResult1.value; }
   const observed = await input.harness.observe(execution);
   if (observed.alive && observed.observable === false) {
     return escalate(db, input, 'observation-runtime-ambigue');

@@ -121,7 +121,7 @@ function validateWorkers(input) {
   if (kindDenial) return kindDenial;
   const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
     requiredCapabilities: candidate.requiredCapabilities || [] }];
-  return require('./morphogenesisStrategyAdmissionValues1.js').validateWorkersValue2({ Boolean, assignments, candidate, requirements, workerCapabilityDenial });
+  return require('./morphogenesisStrategyAdmissionRules.js').validateWorkers({ Boolean, assignments, candidate, requirements, workerCapabilityDenial });
 }
 
 function validateBudget(plan, budget) {
@@ -145,7 +145,7 @@ function validateLease(candidate, plan, lease) {
   }
   const allowed = new Set(ceiling.map(String));
   const requested = Array.isArray(plan?.requestedTools) ? plan.requestedTools : [];
-  const selectedMutation = require('./morphogenesisStrategyAdmissionValues1.js').validateLeaseValue1({ candidate, plan });
+  const selectedMutation = require('./morphogenesisStrategyAdmissionRules.js').validateLease({ candidate, plan });
   if (!requested.includes(operation) && !selectedMutation) {
     return deny('morphogenesis_operation_not_requested', { operation });
   }

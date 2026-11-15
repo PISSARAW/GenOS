@@ -7,7 +7,7 @@ const { runProbe, configuredProbe } = require('./replayProbeRunner.cjs');
 
 async function bisectReplay(req) {
   const { goodObjectId, badObjectId, probeName, fixtures } = req.body || {};
-  if (require('./bisectReplayValues1.cjs').bisectReplayValue3({ badObjectId, goodObjectId, probeName })) {
+  if (require('./bisectReplayRules.cjs').bisectReplayRule3({ badObjectId, goodObjectId, probeName })) {
     return { success: false, error: 'goodObjectId, badObjectId and probeName are required.' };
   }
   configuredProbe(probeName);
@@ -17,11 +17,11 @@ async function bisectReplay(req) {
     LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`;
   const [good, bad] = await Promise.all([db.get(query, goodObjectId, ...scope.params),
     db.get(query, badObjectId, ...scope.params)]);
-  if (require('./bisectReplayValues1.cjs').bisectReplayValue1({ bad, good })) {
+  if (require('./bisectReplayRules.cjs').bisectReplayRule1({ bad, good })) {
     return { success: false, error: 'Both checkpoints must belong to the same scoped agent.' };
   }
   const path = await buildCausalPath(db, goodObjectId, badObjectId);
-  if (require('./bisectReplayValues1.cjs').bisectReplayValue2({ goodObjectId, path })) {
+  if (require('./bisectReplayRules.cjs').bisectReplayRule2({ goodObjectId, path })) {
     return { success: false, error: 'A causal path of 2 to 64 checkpoints is required.' };
   }
   if (path.some((item) => item.agent_id !== good.agent_id || item.workspace_id !== good.workspace_id)) {
@@ -38,7 +38,7 @@ async function bisectReplay(req) {
   }
   const baseline = probes.find((probe) => probe.objectId === goodObjectId);
   const terminal = probes.find((probe) => probe.objectId === badObjectId);
-  { const __genosStageResult1 = require('./bisectReplayStages1.cjs').bisectReplayStage1({ baseline, probes, terminal }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = require('./bisectReplayWorkflow.cjs').bisectReplay({ baseline, probes, terminal }); if (workflowResult1) return workflowResult1.value; }
   const firstFailure = probes.findIndex((probe) => probe.pass === false);
   return { success: true, operation: 'bisect-replay', executionMode: 'trusted_probe_process',
     runtimeReplayed: false, checkpointTestExecuted: true, probeName, goodObjectId, badObjectId, probes,

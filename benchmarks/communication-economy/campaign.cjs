@@ -24,7 +24,7 @@ function assertMatched(trials) {
     }
     const reference = group[0];
     for (const trial of group.slice(1)) {
-      if (require('./campaignValues1.cjs').assertMatchedValue1({ JSON, reference, taskIds, trial })) {
+      if (require('./campaignRules.cjs').assertMatched({ JSON, reference, taskIds, trial })) {
         throw new Error(`Model, provider, or task set differs in ${key}.`);
       }
     }

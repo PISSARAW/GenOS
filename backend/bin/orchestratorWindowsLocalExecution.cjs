@@ -231,7 +231,7 @@ async function runSingleWindowsExecution(input, services) {
           repoRoot: path.resolve(__dirname, '../..'), workspaceRoot: requestedWorkspace(request), preflight, localResult,
           workerElapsedMs: Date.now() - workerStartedAt });
       } catch (error) {
-        require('../src/services/telemetryObserver').emitEvent(require('./orchestratorWindowsLocalExecutionValues1.cjs').runWindowsLocalExecutionValue1({ error, executionRunId, id, missionId, get postflight() { return postflight; } }));
+        require('../src/services/telemetryObserver').emitEvent(require('./orchestratorWindowsLocalExecutionRules.cjs').runWindowsLocalExecution({ error, executionRunId, id, missionId, get postflight() { return postflight; } }));
       }
     });
   const agents = localAgents(id, localResult);

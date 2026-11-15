@@ -24,7 +24,7 @@ function makeSnapshot(base, input) {
   const runId = String(input.runId || '');
   const reportHash = evidenceDigest(input.evidenceReport);
   const snapshotId = `snap-${digest(`${workerId}|${runId}|${reportHash}`).slice(0, 32)}`;
-  const snapshot = require('./workerEvidenceReplaySnapshotValues1.js').makeSnapshotValue2({ Date, digest, input, snapshotId, source, workerId });
+  const snapshot = require('./workerEvidenceReplaySnapshotRules.js').makeSnapshot({ Date, digest, input, snapshotId, source, workerId });
   const genesisHash = genesis(snapshot);
   snapshot.state.genesis_hash = genesisHash;
   const previous = snapshot.state.working_memory.at(-1)?.step_hash || genesisHash;
@@ -59,7 +59,7 @@ async function createReplaySnapshot(input) {
     if (error.code !== 'EEXIST' && error.code !== 'EPERM') throw error;
     const existing = JSON.parse(await fs.readFile(output, 'utf8'));
     const last = existing.state?.working_memory?.at(-1);
-    if (require('./workerEvidenceReplaySnapshotValues1.js').createReplaySnapshotValue1({ existing, input, last, reportHash, get snapshot() { return snapshot; } })) throw error;
+    if (require('./workerEvidenceReplaySnapshotRules.js').createReplaySnapshot({ existing, input, last, reportHash, get snapshot() { return snapshot; } })) throw error;
   }
   return { snapshotPath: output, reportHash };
 }

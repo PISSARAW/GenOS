@@ -7,7 +7,7 @@ function recordCompletedCommand(state, event, eventType) {
   if (eventType === 'CODE_TEST_SUITE_RECEIPT') require('./agentCodeTestWitness').recordSuite(state, event);
   if (eventType !== 'AGENT_STEP' || event.action !== 'command_execution') return;
   const item = event.payload?.item;
-  if (require('./agentCodeExecutionEvidenceValues1.js').recordCompletedCommandValue3({ event, item })) return;
+  if (require('./agentCodeExecutionEvidenceRules.js').recordCompletedCommand({ event, item })) return;
   const output = String(item.aggregated_output || '');
   state.missionDomainState.completedCommands ||= [];
   state.missionDomainState.completedCommands.push({
@@ -34,11 +34,11 @@ function attestCodeTestResults(report, state) {
     } };
     const digest = require('./trinityProvenanceValues').digest(attested);
     const receiptRef = `genos://code-test/${digest}`;
-    require('./agentCodeExecutionEvidenceStages1.js').attestCodeTestResultsStage1({ Array, String, expected, receiptRef, get report() { return report; }, set report(__genosNextStageValue) { report = __genosNextStageValue; }, require, test });
+    require('./agentCodeExecutionEvidenceWorkflow.js').attestCodeTestResults({ Array, String, expected, receiptRef, get report() { return report; }, set report(__genosNextStageValue) { report = __genosNextStageValue; }, require, test });
     verified.push(attested);
   }
   if (verified.length) report.tests = report.tests.map((test) =>
-    require('./agentCodeExecutionEvidenceValues1.js').attestCodeTestResultsValue2({ reportedTestCommand, test, verified }));
+    require('./agentCodeExecutionEvidenceRules.js').selectAttestedTest({ reportedTestCommand, test, verified }));
   return { executedTests: [...verified, ...require('./agentCodeTestWitness').witnessedTests(report, state)] };
 }
 
@@ -69,7 +69,7 @@ async function persistVerifiedTestReceipt(ctx, event) {
 function reportedTestCommand(test) {
   if (typeof test?.command === 'string' && test.command.trim()) return test.command.trim();
   const name = String(test?.name || '').trim();
-  return require('./agentCodeExecutionEvidenceValues1.js').reportedTestCommandValue4({ name });
+  return require('./agentCodeExecutionEvidenceRules.js').reportedTestCommand({ name });
 }
 
 module.exports = { recordCompletedCommand, attestCodeTestResults, verifiedTestResults, persistVerifiedTestReceipt };

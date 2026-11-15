@@ -7,14 +7,14 @@ function labelQuantityInput(content) {
   for (const scope of scopes) {
     const repaired = repairQuantityScope(scope[0]);
     if (!repaired) continue;
-    const named = require('./workerCodeQuantityInputRepairValues1.js').labelQuantityInputValue1({ repaired, setAccessibleName });
+    const named = require('./workerCodeQuantityInputRepairRules.js').labelQuantityInputRule1({ repaired, setAccessibleName });
     const repairedScope = removeQuantityLabelAriaName(named);
     const at = scope.index;
     return source.slice(0, at) + repairedScope + source.slice(at + scope[0].length);
   }
   const field = '<label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" step="1" required aria-label="Quantity">';
   if (forms.length) return source.replace(/<\/form\s*>/i, `${field}</form>`);
-  const button = require('./workerCodeQuantityInputRepairValues1.js').labelQuantityInputValue2({ source });
+  const button = require('./workerCodeQuantityInputRepairRules.js').labelQuantityInputRule2({ source });
   if (button) return source.slice(0, button.index) + field + source.slice(button.index);
   return /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${field}</body>`) : `${source}${field}`;
 }

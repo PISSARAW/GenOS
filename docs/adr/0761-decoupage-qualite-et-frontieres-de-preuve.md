@@ -45,3 +45,21 @@ flowchart LR
   D --> G[Inconclusif ou réfuté]
   G --> H[Clôture refusée]
 ```
+
+## Révision du 14 novembre 2026
+
+Les modules numérotés `Values1` et `Stages1` issus de l'extraction initiale sont
+abandonnés. Leur nom ne décrivait ni le contrat ni la responsabilité portée et
+les objets `__genos*Scope` exposaient le mécanisme de transformation dans le code
+métier.
+
+Les expressions de décision sont désormais regroupées dans des modules `Rules`,
+les séquences avec effets dans des modules `Workflow`, et les décisions de
+réparation dans un module `Decisions`. Les dépendances sont transmises par un
+contexte nommé. Les fonctions à responsabilité unique portent directement le nom
+de cette responsabilité ; les étapes qui forment une même validation restent
+réunies dans son workflow.
+
+Cette révision ne modifie aucun seuil : 400 lignes par fichier, trois paramètres
+par fonction et une complexité cyclomatique maximale de 10 restent les limites
+exécutables du contrôle qualité.

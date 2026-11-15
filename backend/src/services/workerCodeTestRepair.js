@@ -123,7 +123,7 @@ function labelIncreaseButton(content, label) {
   const dynamicContent = labelDynamicIncreaseButton(content, label);
   if (dynamicContent !== content) return dynamicContent;
   const buttons = [...content.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi)];
-  const dynamic = buttons.find((button) => require('./workerCodeTestRepairValues1.js').labelIncreaseButtonValue2({ button }));
+  const dynamic = buttons.find((button) => require('./workerCodeTestRepairDecisions.js').labelIncreaseButtonRule2({ button }));
   if (dynamic) {
     for (const button of buttons) {
       if (button === dynamic || !/(?:\bincrease\b|\bincrement\b|\+|▲|↑)/i.test(button[0])) continue;
@@ -135,12 +135,12 @@ function labelIncreaseButton(content, label) {
     }
   }
   const currentButtons = [...content.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi)];
-  const target = require('./workerCodeTestRepairValues1.js').labelIncreaseButtonValue4({ currentButtons, require });
+  const target = require('./workerCodeTestRepairDecisions.js').labelIncreaseButtonRule4({ currentButtons, require });
   if (!target) return content;
   const opening = target[0].match(/^<button\b[^>]*>/i)?.[0];
   if (!opening) return content;
   const itemField = target[0].match(/\$\{\s*item\.([A-Za-z_$][\w$]*)\s*\}/i)?.[1];
-  const dynamicLabel = require('./workerCodeTestRepairValues1.js').labelIncreaseButtonValue5({ itemField, label, target });
+  const dynamicLabel = require('./workerCodeTestRepairDecisions.js').labelIncreaseButtonRule5({ itemField, label, target });
   const nextButton = replaceAccessibleName(opening, dynamicLabel) + target[0].slice(opening.length);
   return content.slice(0, target.index) + nextButton + content.slice(target.index + target[0].length);
 }
@@ -248,7 +248,7 @@ function ensureLocalStorageMutations(content) {
   const scripts = [...content.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)];
   for (const script of scripts) {
     let code = script[1];
-    const state = require('./workerCodeTestRepairValues1.js').ensureLocalStorageMutationsValue6({ get code() { return code; } });
+    const state = require('./workerCodeTestRepairDecisions.js').ensureLocalStorageMutations({ get code() { return code; } });
     if (!state) continue;
     const stateName = state[1];
     const escapedName = stateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -286,7 +286,7 @@ function failureFeedback(error, mission = {}) {
   const focusedCode = patchDiagnostics.flatMap((patch) => patch.logic || []).join('\n');
   const codeContext = focusedCode ? `Functions related to the failing assertions:\n${focusedCode}` : ''; const numericHint = require('./workerCodeTestRepairNumericFeedback').build(error);
   const diagnostics = error.workerArtifactDiagnostics;
-  const schemaFeedback = require('./workerCodeTestRepairValues1.js').failureFeedbackValue7({ Array, Boolean, diagnostics, error });
+  const schemaFeedback = require('./workerCodeTestRepairDecisions.js').failureFeedback({ Array, Boolean, diagnostics, error });
   const schemaHint = require('./workerCodeTestRepairSchemaFeedback').build(error, mission);
   const locatorHint = locatorRepairHint(error);
   return [locatorHint, schemaHint, schemaFeedback, numericHint, result, codeContext, candidate].filter(Boolean)
@@ -375,6 +375,6 @@ function nextMission(input) {
   const nextPlan = repairPlan(error);
   const alreadyPlanned = nextPlan && previousPlans.some((item) => item.kind === nextPlan.kind && item.label === nextPlan.label);
   const codeRepairPlans = nextPlan && !alreadyPlanned ? [...previousPlans, nextPlan] : previousPlans;
-  return require('./workerCodeTestRepairValues1.js').nextMissionValue1({ String, get attempt() { return attempt; }, base, codeRepairPlans, current, error, remainingMs, get remainingTokens() { return remainingTokens; }, repairPrompt });
+  return require('./workerCodeTestRepairDecisions.js').nextMission({ String, get attempt() { return attempt; }, base, codeRepairPlans, current, error, remainingMs, get remainingTokens() { return remainingTokens; }, repairPrompt });
 } module.exports = { run, failureFeedback, repairPrompt, latencyBudget, tokenBudget, consumedTokens, locatorRepairHint,
   repairPlan, applyRepairPlan, failureSignature, candidateDigest, appliedPlanIds, MAX_IDENTICAL_FAILURES };

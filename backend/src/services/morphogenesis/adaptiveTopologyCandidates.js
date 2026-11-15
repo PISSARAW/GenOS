@@ -142,7 +142,7 @@ function workerKindsForCandidate(topologyId, variantEntry, mission) {
   if (typeof mission !== 'string' || !mission.trim()) return null;
   try {
     let members;
-    require('./adaptiveTopologyCandidatesStages1.js').workerKindsForCandidateStage1({ Error, Object, get members() { return members; }, set members(__genosNextStageValue) { members = __genosNextStageValue; }, mission, require, topologyId, variantEntry });
+    require('./adaptiveTopologyCandidatesWorkflow.js').workerKindsForCandidate({ Error, Object, get members() { return members; }, set members(__genosNextStageValue) { members = __genosNextStageValue; }, mission, require, topologyId, variantEntry });
     if (topologyId === 'syncytium' && variantEntry.variantId !== 'default') {
       const specialist = require('../syncytiumVariantWorkerService').VARIANT_WORKERS[variantEntry.variantId];
       if (specialist) members = [...members, { role: specialist.role, mission }];

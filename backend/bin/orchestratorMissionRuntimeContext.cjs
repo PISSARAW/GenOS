@@ -5,7 +5,7 @@ function hasUserTopologyRequest(request) {
     'morphologyTopology', 'morphology_topology', 'trinityMode', 'trinity_mode',
     'trinityVariantId', 'trinity_variant_id', 'trinityVariant', 'variant_id'];
   return topologyFields.some((field) => request[field] !== undefined && request[field] !== null && request[field] !== '')
-    || Boolean(require('./orchestratorMissionHelpersValues1.cjs').hasUserTopologyRequestValue2({ request }));
+    || Boolean(require('./orchestratorMissionHelpersRules.cjs').hasUserTopologyRequest({ request }));
 }
 
 const pickFirst = (obj, keys) => keys.map((k) => obj[k]).find((v) => v !== undefined);

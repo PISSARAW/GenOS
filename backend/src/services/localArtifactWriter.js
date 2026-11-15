@@ -95,7 +95,7 @@ function writeArtifacts(reply, state) {
   }
   const written = [];
   const rejected = [];
-  require('./localArtifactWriterStages1.js').writeArtifactsStage1({ artifacts, crypto, fs, path, rejected, state, validateArtifactEntry, writeArtifact, written });
+  require('./localArtifactWriterWorkflow.js').writeArtifacts({ artifacts, crypto, fs, path, rejected, state, validateArtifactEntry, writeArtifact, written });
   return { written, rejected };
 }
 

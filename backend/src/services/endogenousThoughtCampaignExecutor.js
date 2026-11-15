@@ -201,7 +201,7 @@ async function runChain(ctx) {
   const observationId = await setup(ctx);
   const assessment = assessmentFor(scenarioClass);
 
-  const detection = await detector.detectAndQuestion(db, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue1({ NOW, agentId, assessment, condition, get ctx() { return ctx; }, minimumScore, observationId, projectId }));
+  const detection = await detector.detectAndQuestion(db, require('./endogenousThoughtCampaignExecutorRules.js').runChainRule1({ NOW, agentId, assessment, condition, get ctx() { return ctx; }, minimumScore, observationId, projectId }));
 
   if (!detection?.episode) return rejectedDetectionOutcome(ctx, detection);
 
@@ -256,9 +256,9 @@ async function runChain(ctx) {
     projectId, episodeId });
   const failed = Boolean(ctx.continuationError);
 
-  if (ctx.modelAdapter) return modelOutcome(ctx, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue2({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, v }));
+  if (ctx.modelAdapter) return modelOutcome(ctx, require('./endogenousThoughtCampaignExecutorRules.js').runChainRule2({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, v }));
 
-  return syntheticOutcome(ctx, require('./endogenousThoughtCampaignExecutorValues1.js').runChainValue4({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, usefulDevelopmentResult, v }));
+  return syntheticOutcome(ctx, require('./endogenousThoughtCampaignExecutorRules.js').runChainRule4({ continued, get ctx() { return ctx; }, failed, finalEpisode, learned, usefulDevelopmentResult, v }));
 }
 
 function modelOutcome(ctx, values) {
@@ -277,7 +277,7 @@ function modelOutcome(ctx, values) {
     submittedAnswerId: ctx.independentVerification?.submittedAnswerId || null,
     oracleVerdict: ctx.independentVerification?.verdict || null,
     oracleDigest: ctx.independentVerification?.oracleDigest || null,
-    ettTrace: require('./endogenousThoughtCampaignExecutorValues1.js').modelOutcomeValue5({ get ctx() { return ctx; } }) };
+    ettTrace: require('./endogenousThoughtCampaignExecutorRules.js').modelOutcome({ get ctx() { return ctx; } }) };
 }
 
 async function execute(input) {
@@ -292,7 +292,7 @@ async function execute(input) {
   let db;
   try {
     db = await fixture.memoryDb(filename);
-    const ctx = require('./endogenousThoughtCampaignExecutorValues1.js').executeValue6({ JSON, agentId, caseId, caseInput, condition, get db() { return db; }, keys, modelAdapter, projectId, scenarioClass });
+    const ctx = require('./endogenousThoughtCampaignExecutorRules.js').executeRule6({ JSON, agentId, caseId, caseInput, condition, get db() { return db; }, keys, modelAdapter, projectId, scenarioClass });
     const result = await runChain(ctx);
     return result;
   } catch (error) {
@@ -304,7 +304,7 @@ async function execute(input) {
     return syntheticOutcome({ condition, caseId, caseInput }, {
       success: false,
       error: String(error.message).slice(0, 200),
-      failure: require('./endogenousThoughtCampaignExecutorValues1.js').executeValue3({ String, error })
+      failure: require('./endogenousThoughtCampaignExecutorRules.js').executeRule3({ String, error })
     });
   } finally {
     try { if (db) await db.close(); } catch (_) {}

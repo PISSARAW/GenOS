@@ -264,7 +264,7 @@ async function genosFull(task, state) {
     toolLease: ['genos_change_organization', 'genos_replay'], requiredTools: ['genos_change_organization'], allowed_commands: [], allow_file_edits: true,
     workspaceRoot: state.workspace }, topology);
   if (policy) payload.morphogenesisPolicy = policy;
-  const env = require('./comparisonAdaptersValues1.cjs').genosFullValue1({ ensureAttemptWorkspace, process, require, get state() { return state; } });
+  const env = require('./comparisonAdaptersRules.cjs').genosFullRule1({ ensureAttemptWorkspace, process, require, get state() { return state; } });
   const started = performance.now();
   const execution = await executeGenos({ payload, env, repo, state });
   const result = execution.receipt;
@@ -274,7 +274,7 @@ async function genosFull(task, state) {
     throw error;
   }
   const usage = result.token_usage;
-  const evidenceUsage = require('./comparisonAdaptersValues1.cjs').genosFullValue3({ JSON, NaN, Number, get result() { return result; } })
+  const evidenceUsage = require('./comparisonAdaptersRules.cjs').genosFullRule3({ JSON, NaN, Number, get result() { return result; } })
     .find(Number.isFinite);
   const tokens = Number(usage.totalTokens) > 0 ? Number(usage.totalTokens) : evidenceUsage;
   if (!Number.isFinite(tokens)) {
@@ -357,7 +357,7 @@ function measuredMetrics(condition, state, result) {
   return {
     tokenUsage: { total: Number.isFinite(totalTokens) ? totalTokens : null,
       prompt: state.promptTokens, completion: state.completionTokens, measured: Number.isFinite(totalTokens) },
-    servedModel: require('./comparisonAdaptersValues1.cjs').measuredMetricsValue2({ get result() { return result; }, get state() { return state; } }),
+    servedModel: require('./comparisonAdaptersRules.cjs').measuredMetrics({ get result() { return result; }, get state() { return state; } }),
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     transitionEvidence: evidenceOf(result),

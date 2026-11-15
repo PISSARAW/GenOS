@@ -71,7 +71,7 @@ async function rotate(db, dbPath) {
   const activeDb = await require('../src/db').getDatabase(dbPath);
   let transactionOpen = false;
   let committed = false;
-  { const __genosStageResult2 = await require('./rotate-gvx-ledger-keyStages1.cjs').rotateStage2({ Error, activeDb, assertChains, backupPath, chainCount, get committed() { return committed; }, set committed(__genosNextStageValue) { committed = __genosNextStageValue; }, fs, integrity, ledgerRows, pendingPath, get process() { return process; }, set process(__genosNextStageValue) { process = __genosNextStageValue; }, require, get rows() { return rows; }, set rows(__genosNextStageValue) { rows = __genosNextStageValue; }, secret, secretPath, get transactionOpen() { return transactionOpen; }, set transactionOpen(__genosNextStageValue) { transactionOpen = __genosNextStageValue; } }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const workflowResult2 = await require('./rotate-gvx-ledger-keyWorkflow.cjs').rotateLedgerKey({ Error, activeDb, assertChains, backupPath, chainCount, get committed() { return committed; }, set committed(nextValue) { committed = nextValue; }, fs, integrity, ledgerRows, pendingPath, get process() { return process; }, set process(nextValue) { process = nextValue; }, require, get rows() { return rows; }, set rows(nextValue) { rows = nextValue; }, secret, secretPath, get transactionOpen() { return transactionOpen; }, set transactionOpen(nextValue) { transactionOpen = nextValue; } }); if (workflowResult2) return workflowResult2.value; }
 }
 
 async function main(argv = process.argv.slice(2)) {

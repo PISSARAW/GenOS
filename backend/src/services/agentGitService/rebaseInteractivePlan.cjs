@@ -12,7 +12,7 @@ function validateActions(ids, actions) {
     || !Array.isArray(actions) || actions.length !== ids.length) {
     throw new Error('A unique ordered series of 1 to 64 commits and one action per commit is required.');
   }
-  require('./rebaseInteractivePlanValues1.cjs').validateActionsValue1({ ACTIONS, Error, actions });
+  require('./rebaseInteractivePlanRules.cjs').validateActions({ ACTIONS, Error, actions });
 }
 
 function validateEditedState(original, edited) {
@@ -59,7 +59,7 @@ function planReplay({ ontoState, commits, actions, parentState } = {}) {
     if (action.action !== 'drop') {
       if (action.action === 'edit') validateEditedState(original, action.state);
       current = applyCheckedPatch(current, previous, action.action === 'edit' ? action.state : original);
-      const message = require('./rebaseInteractivePlanValues1.cjs').planReplayValue2({ JSON, action, commit });
+      const message = require('./rebaseInteractivePlanRules.cjs').planReplay({ JSON, action, commit });
       if (['squash', 'fixup'].includes(action.action)) {
         if (!pending) throw new Error('Squash or fixup requires a preceding kept commit.');
         pending.state = structuredClone(current);

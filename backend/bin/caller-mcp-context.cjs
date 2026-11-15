@@ -17,7 +17,7 @@ function createContext(mission, emit) {
     toolLease: JSON.parse(mission.toolLeaseJson || '[]'), executionBudget: JSON.parse(mission.executionBudgetJson || '{}'),
     observedTools: new Set(), recordedTurns: [], code: 0, eventCount: 0, estimatedTokens: 0,
     exactTokens: 0, observedCostUsd: 0, conscienceState: conscience.createConscienceState(), emit };
-  state.prompt = prompts.buildAgentRuntimePrompt(require('./caller-mcp-contextValues1.cjs').createContextValue1({ JSON, agentName, autonomyPlan, isWorker, memoryBlock, mission, prompts, get state() { return state; }, strategyContract, workerMcpPreflight }));
+  state.prompt = prompts.buildAgentRuntimePrompt(require('./caller-mcp-contextRules.cjs').createContext({ JSON, agentName, autonomyPlan, isWorker, memoryBlock, mission, prompts, get state() { return state; }, strategyContract, workerMcpPreflight }));
   return state;
 }
 

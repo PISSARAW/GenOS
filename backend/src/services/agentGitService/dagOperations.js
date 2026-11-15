@@ -78,8 +78,8 @@ async function replaceState(req, { targetAgentId, state, sections }, options = {
   const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions', 'relations', 'epistemicClaims']);
   const inTransaction = options.inTransaction === true;
 
-  await require('./dagOperationsStages1.js').replaceStateStage3({ db, inTransaction });
-  await require('./dagOperationsStages1.js').replaceStateStage5({ ctx, db, inTransaction, replaceAgentState, replaceDecisionState, replaceMemoryState, replacePermissionState, replacePlasmidState, replaceRunState, req, require, selected, get state() { return state; }, set state(__genosNextStageValue) { state = __genosNextStageValue; }, targetAgentId });
+  await require('./dagOperationsWorkflow.js').beginStandaloneTransaction({ db, inTransaction });
+  await require('./dagOperationsWorkflow.js').replaceSelectedState({ ctx, db, inTransaction, replaceAgentState, replaceDecisionState, replaceMemoryState, replacePermissionState, replacePlasmidState, replaceRunState, req, require, selected, get state() { return state; }, set state(nextValue) { state = nextValue; }, targetAgentId });
   return { targetAgentId, sections: [...selected] };
 }
 

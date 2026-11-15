@@ -79,7 +79,7 @@ async function main() {
   c.write(c.path.join(archive, 'oracle-sanity.json'), sanity());
   const models = genomes(archive);
   const sourceFiles = ['workerGenomeExpression.js', 'localCodeWorkerService.js',
-    'localCodeWorkerServiceStages1.js', 'localCodeWorkerServiceValues1.js', 'localCodeTestScope.js',
+    'localCodeWorkerServiceWorkflow.js', 'localCodeWorkerServiceRules.js', 'localCodeTestScope.js',
     'sandboxCommandPolicy.js', 'localCodeTestEnvironment.js'];
   const manifest = {
     schema: 'genos.local-code-temperature-pilot/v1', createdAt: new Date().toISOString(),

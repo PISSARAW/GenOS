@@ -15,7 +15,7 @@ async function main() {
   const manifest = { schema: 'genos.native-temperature-benchmark/v1', createdAt: new Date().toISOString(), archive,
     sourceCommit: '01333f81c', sourceArchiveSha256: c.fileHash(c.path.join(c.ROOT, 'runtime/source-limits.tar')),
     sourceOverlay: { commit: 'eb7b89601', sha256: c.fileHash(c.path.join(c.ROOT, 'runtime/inference-transport.tar')),
-      paths: ['backend/src/services/workerInferenceLimits.js', 'backend/src/services/agentRuntimeAdapter/missionPlanningValues1.js'] },
+      paths: ['backend/src/services/workerInferenceLimits.js', 'backend/src/services/agentRuntimeAdapter/missionPlanningRules.js'] },
     nativeBinarySha256: c.fileHash(c.path.join(c.ROOT, 'runtime/genos.exe')),
     originalManifestHash: original.manifestHash, cases: original.cases, runs: original.runs, genomes,
     budget: original.budget, attemptsPerRun: 1, campaignWallLimitMs: 1500000, promotionAllowed: false,

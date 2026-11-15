@@ -32,7 +32,7 @@ Manifeste : `662ba43f07176b9866bc1b4b018660199a210e40e4f535099b760c04c3308a85`.
 
 Sources figées : archive complète du commit `01333f81c`, plus la couche de
 transport `eb7b89601` contenant `workerInferenceLimits.js` et
-`agentRuntimeAdapter/missionPlanningValues1.js`. Le manifeste conserve les
+`agentRuntimeAdapter/missionPlanningRules.js`. Le manifeste conserve les
 empreintes des deux archives, du CLI et des scripts. Les scripts exacts de la
 mesure restent dans le laboratoire ; cette copie versionnée adapte seulement
 la résolution de la racine, configurable par `GENOS_NATIVE_TEMPERATURE_LAB`.

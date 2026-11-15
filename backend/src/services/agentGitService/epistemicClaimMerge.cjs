@@ -61,13 +61,13 @@ function mergeClaims(ctx) {
     const b = right.get(id);
     const aChanged = !same(base.get(id), a);
     const bChanged = !same(base.get(id), b);
-    if (require('./epistemicClaimMergeValues1.cjs').mergeClaimsValue2({ a, aChanged, b, bChanged, compatible, same })) {
+    if (require('./epistemicClaimMergeRules.cjs').mergeClaimsRule2({ a, aChanged, b, bChanged, compatible, same })) {
       contradictions.push({ id, reason: 'divergent_claim', left: a || null, right: b || null,
         leftObjectId: ctx.leftObjectId, rightObjectId: ctx.rightObjectId, status: 'unresolved' });
       continue;
     }
-    const selected = require('./epistemicClaimMergeValues1.cjs').mergeClaimsValue1({ a, aChanged, b, bChanged, calibrate, combineEvidence, same });
-    if (require('./epistemicClaimMergeValues1.cjs').mergeClaimsValue4({ a, b, selected })) conflicts.push({ section: 'epistemicClaims', id, reason: 'invalid_typed_evidence' });
+    const selected = require('./epistemicClaimMergeRules.cjs').mergeClaimsRule1({ a, aChanged, b, bChanged, calibrate, combineEvidence, same });
+    if (require('./epistemicClaimMergeRules.cjs').mergeClaimsRule4({ a, b, selected })) conflicts.push({ section: 'epistemicClaims', id, reason: 'invalid_typed_evidence' });
     else if (selected) claims.push(selected);
   }
   markSubjectContradictions(claims, contradictions);
@@ -99,12 +99,12 @@ async function replaceClaims(ctx) {
     throw new Error('Epistemic claim evidence or producer is invalid.');
   }
   for (const row of claims) {
-    if (require('./epistemicClaimMergeValues1.cjs').replaceClaimsValue3({ req, get row() { return row; } })) {
+    if (require('./epistemicClaimMergeRules.cjs').replaceClaims({ req, get row() { return row; } })) {
       throw new Error('Epistemic claim scope mismatch.');
     }
   }
   await db.run("UPDATE epistemic_claims SET status = 'superseded' WHERE producer_agent_id = ?", targetAgentId);
-  await require('./epistemicClaimMergeStages1.cjs').replaceClaimsStage1({ Error, claims, db, targetAgentId, upsertClaim });
+  await require('./epistemicClaimMergeWorkflow.cjs').replaceEpistemicClaims({ Error, claims, db, targetAgentId, upsertClaim });
   for (const contradiction of state.epistemicContradictions || []) {
     await recordContradiction({ db: db, req: req, contradiction: contradiction, agentId: targetAgentId });
   }

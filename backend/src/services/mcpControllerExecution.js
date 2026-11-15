@@ -64,7 +64,7 @@ async function resolveMissionActorAuthorization({ req, db, toolName, args }) {
       agentId: capability.agent_id, runId: capability.run_id
     });
     const scope = req.tenant || null;
-    if (require('./mcpControllerExecutionValues1.js').resolveMissionActorAuthorizationValue1({ bound, scope })) {
+    if (require('./mcpControllerExecutionRules.js').resolveMissionActorAuthorization({ bound, scope })) {
       throw Object.assign(new Error('MCP actor lease does not match the authenticated tenant.'),
         { code: 'MCP_ACTOR_TENANT_MISMATCH' });
     }

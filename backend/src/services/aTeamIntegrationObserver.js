@@ -131,7 +131,7 @@ function isAcceptedHandoffInput(input) {
   const targetId = member.memberId;
   if (!targetId) return false;
   const evaluations = Array.isArray(report?.handoffEvaluations) ? report.handoffEvaluations : [];
-  return require('./aTeamIntegrationObserverValues1.js').isAcceptedHandoffInputValue2({ Array, Number, String, artifact, artifactKey, byWorker, evaluations, latestReport, membersById, ownerIds, require, targetId });
+  return require('./aTeamIntegrationObserverRules.js').isAcceptedHandoffInputRule2({ Array, Number, String, artifact, artifactKey, byWorker, evaluations, latestReport, membersById, ownerIds, require, targetId });
 }
 
 function processWorker({ worker, index, memberList, byWorker, teamDomains, failures, integrationFailures }) {

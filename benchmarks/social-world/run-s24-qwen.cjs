@@ -74,7 +74,7 @@ async function main() {
     const observed = { successCount: final.successes, failureCount: final.failures,
       trust: final.trust, decreasedAfterFailure: final.trust < beforeFailure };
     const stored = await relations.getRelation({ db, id: 's24-collaboration' });
-    const enginePass = require('./run-s24-qwenValues1.cjs').mainValue1({ DOMAIN, JSON, expected, observed, stored, get unverifiedRejected() { return unverifiedRejected; } });
+    const enginePass = require('./run-s24-qwenRules.cjs').main({ DOMAIN, JSON, expected, observed, stored, get unverifiedRejected() { return unverifiedRejected; } });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Read the GenOS trust trajectory for one domain after two verified successes and three verified failures. Copy the final evidence counts, trust and direction of change. An unverified evaluation was rejected.',
         `Trajectory: ${JSON.stringify(trajectory.map((entry) => ({ successes: entry.successes, failures: entry.failures, trust: entry.trust })))}`,

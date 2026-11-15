@@ -41,7 +41,7 @@ async function main(rawInput) {
   mission.workerContract = parseJson(mission.workerContractJson);
   observationInbox.bind(mission.agentId);
   intraEpochInbox.bind(mission.agentId);
-  const prompt = require('./local-codex-runtimeValues1.cjs').mainValue1({ get mission() { return mission; } });
+  const prompt = require('./local-codex-runtimeRules.cjs').main({ get mission() { return mission; } });
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
   const built = buildWorkspaceContext(workspaceRoot, {
     allowedCommands: mission.allowedCommands || mission.executionPolicy?.allowedCommands || []

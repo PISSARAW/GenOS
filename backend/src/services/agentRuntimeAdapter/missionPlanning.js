@@ -265,7 +265,7 @@ function applyExecutionPolicy(ctx) {
     task,
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
   );
-  normalizedMission.executionPolicy = require('./missionPlanningValues1.js').applyExecutionPolicyValue1({ Array, Boolean, Number, Set, String, get normalizedMission() { return normalizedMission; }, requestedWorkers, get silentUpdates() { return silentUpdates; } });
+  normalizedMission.executionPolicy = require('./missionPlanningRules.js').applyExecutionPolicy({ Array, Boolean, Number, Set, String, get normalizedMission() { return normalizedMission; }, requestedWorkers, get silentUpdates() { return silentUpdates; } });
   applyRegulatedPosture(normalizedMission, arbitration);
   applyValencePosture(ctx);
   normalizedMission.userReporting = userProgress.reportingPolicy(task, silentUpdates);

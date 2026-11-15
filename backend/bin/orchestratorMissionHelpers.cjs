@@ -322,7 +322,7 @@ function measuredModelUsage(runs, attempts = [], usageRows = []) {
   const executionRuns = runs.map((run) => {
     const rows = attempts.filter((attempt) => attempt.run_id === run.id);
     const unboundUsage = rows.length === 0 && usageRunIds.has(run.id);
-    const incomplete = require('./orchestratorMissionHelpersValues1.cjs').measuredModelUsageValue1({ Number, rows, unboundUsage });
+    const incomplete = require('./orchestratorMissionHelpersRules.cjs').measuredModelUsage({ Number, rows, unboundUsage });
     const providerRows = rows.filter((row) => Number(row.provider_called) === 1);
     return { runId: run.id, agentId: run.agent_id, status: run.status,
       providerAttempts: providerRows.length,

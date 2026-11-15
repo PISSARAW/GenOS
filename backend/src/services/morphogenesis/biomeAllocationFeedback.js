@@ -19,10 +19,10 @@ function allocationWitness(source) {
   const text = String(source || '');
   const items = [...text.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], weight: Number(match[2]) }));
-  const groups = Number(require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue3({ text }));
+  const groups = Number(require('./biomeAllocationFeedbackRules.js').allocationWitnessRule3({ text }));
   const capacityMatch = text.match(ALLOCATION_PATTERN_1);
-  const capacity = Number(require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue2({ capacityMatch, text }));
-  if (require('./biomeAllocationFeedbackValues1.js').allocationWitnessValue1({ Number, Set, capacity, groups, items })) return null;
+  const capacity = Number(require('./biomeAllocationFeedbackRules.js').allocationWitnessRule2({ capacityMatch, text }));
+  if (require('./biomeAllocationFeedbackRules.js').allocationWitnessRule1({ Number, Set, capacity, groups, items })) return null;
   if (items.reduce((sum, item) => sum + item.weight, 0) > groups * capacity) return null;
 
   const ordered = items.slice().sort((left, right) => right.weight - left.weight || left.id.localeCompare(right.id));
@@ -34,7 +34,7 @@ function allocationWitness(source) {
     if (remaining < bins.filter((bin) => bin.length === 0).length) return false;
     const item = ordered[index];
     const visitedTotals = new Set();
-    { const __genosStageResult1 = require('./biomeAllocationFeedbackStages1.js').allocationWitnessStage1({ bins, capacity, groups, index, item, place, get totals() { return totals; }, set totals(__genosNextStageValue) { totals = __genosNextStageValue; }, visitedTotals }); if (__genosStageResult1) return __genosStageResult1.value; }
+    { const workflowResult1 = require('./biomeAllocationFeedbackWorkflow.js').allocationWitness({ bins, capacity, groups, index, item, place, get totals() { return totals; }, set totals(__genosNextStageValue) { totals = __genosNextStageValue; }, visitedTotals }); if (workflowResult1) return workflowResult1.value; }
     return false;
   }
   return place(0) ? { bins: bins.map((bin) => bin.slice()) } : null;

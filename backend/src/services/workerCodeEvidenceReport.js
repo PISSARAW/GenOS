@@ -59,7 +59,7 @@ function scopeReference(mission) {
 function kindSpecificEvidence(mission, evidence) {
   const kind = mission.workerContract?.identity?.workerKind || mission.workerKind;
   if (kind === 'specialist') {
-    const niche = require('./workerCodeEvidenceReportValues1.js').kindSpecificEvidenceValue1({ mission });
+    const niche = require('./workerCodeEvidenceReportRules.js').kindSpecificEvidence({ mission });
     if (typeof niche !== 'string' || !niche.trim()) {
       throw Object.assign(new Error('A specialist code worker needs its declared niche.'), {
         code: 'WORKER_CODE_EVIDENCE_INCOMPLETE'

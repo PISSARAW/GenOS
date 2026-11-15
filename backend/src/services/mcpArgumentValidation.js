@@ -200,10 +200,10 @@ function validateScopedReplayArguments(args = {}) {
   const allowed = new Set(['root', 'snapshot', 'snapshot_id', 'scenarios', 'injected_keys', 'dag_step', 'patterns_detected']);
   for (const field of Object.keys(args)) if (!allowed.has(field)) return invalid(field, 'is not supported for worker-scoped replay.');
   if (args.snapshot === undefined && args.snapshot_id === undefined) return invalid('snapshot', 'snapshot or snapshot_id is required.');
-  { const __genosStageResult14 = require('./mcpArgumentValidationStages1.js').validateScopedReplayArgumentsStage14({ MAX_STRING_LENGTH, args, invalid, require, undefined }); if (__genosStageResult14) return __genosStageResult14.value; }
+  { const workflowResult14 = require('./mcpArgumentValidationWorkflow.js').validateScopedReplayArguments({ MAX_STRING_LENGTH, args, invalid, require, undefined }); if (workflowResult14) return workflowResult14.value; }
   if (args.root !== undefined && !require('node:path').isAbsolute(args.root)) return invalid('root', 'must be an absolute worker workspace path.');
   for (const field of ['scenarios', 'injected_keys', 'dag_step', 'patterns_detected']) {
-    if (require('./mcpArgumentValidationValues1.js').validateScopedReplayArgumentsValue18({ Array, args, field, undefined })) {
+    if (require('./mcpArgumentValidationRules.js').hasInvalidReplayPathList({ Array, args, field, undefined })) {
       return invalid(field, 'must contain safe replay strings.');
     }
   }
@@ -255,7 +255,7 @@ function validateToolEnums(toolName, args) {
 }
 
 function validateToolArguments(toolName, args = {}) {
-  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue6({ Array, args })) return invalid('args', 'must be an object.');
+  if (require('./mcpArgumentValidationRules.js').hasInvalidArgumentObject({ Array, args })) return invalid('args', 'must be an object.');
   const publicSchemaError = validatePublicSchema(toolName, args);
   if (publicSchemaError) return publicSchemaError;
   // Validation générique: si le handler déclare required[], chaque champ doit
@@ -268,47 +268,47 @@ function validateToolArguments(toolName, args = {}) {
 }
 function validateRequiredFields(toolName, args) {
   const required = bioRequiredArgs(toolName);
-  const statusInspection = require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue10({ args, undefined });
-  { const __genosStageResult6 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage6({ String, args, invalid, require, required, statusInspection, undefined }); if (__genosStageResult6) return __genosStageResult6.value; }
+  const statusInspection = require('./mcpArgumentValidationRules.js').isStatusInspection({ args, undefined });
+  { const workflowResult6 = require('./mcpArgumentValidationWorkflow.js').validateRequiredAlternatives({ String, args, invalid, require, required, statusInspection, undefined }); if (workflowResult6) return workflowResult6.value; }
   const declaredRequired = REQUIRED_STRINGS[toolName] || [];
-  { const __genosStageResult9 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage9({ args, declaredRequired, validateString }); if (__genosStageResult9) return __genosStageResult9.value; }
+  { const workflowResult9 = require('./mcpArgumentValidationWorkflow.js').validateDeclaredRequiredStrings({ args, declaredRequired, validateString }); if (workflowResult9) return workflowResult9.value; }
 
-  { const __genosStageResult4 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage4({ Object, Set, String, args, invalid, toolName, undefined }); if (__genosStageResult4) return __genosStageResult4.value; }
-  { const __genosStageResult13 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage13({ Object, args, invalid, toolName }); if (__genosStageResult13) return __genosStageResult13.value; }
+  { const workflowResult4 = require('./mcpArgumentValidationWorkflow.js').validateStdpAliases({ Object, Set, String, args, invalid, toolName, undefined }); if (workflowResult4) return workflowResult4.value; }
+  { const workflowResult13 = require('./mcpArgumentValidationWorkflow.js').validateCellDivisionAliases({ Object, args, invalid, toolName }); if (workflowResult13) return workflowResult13.value; }
 
   return null;
 }
 
 function validateStructuredFields(toolName, args) {
   // sub_systems accepte un tableau (schéma MCP) ou une string CSV (rétrocompatibilité)
-  { const __genosStageResult3 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage3({ Array, args, invalid, require, toolName, undefined }); if (__genosStageResult3) return __genosStageResult3.value; }
+  { const workflowResult3 = require('./mcpArgumentValidationWorkflow.js').validatePreviewSubsystems({ Array, args, invalid, require, toolName, undefined }); if (workflowResult3) return workflowResult3.value; }
   // signal_data accepte un object (schéma MCP) ou une string non vide (rétrocompatibilité)
-  { const __genosStageResult1 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage1({ Array, args, invalid, require, toolName, undefined }); if (__genosStageResult1) return __genosStageResult1.value; }
-  { const __genosStageResult11 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage11({ ORGANIZATION_MESSAGE_KINDS, args, invalid, toolName }); if (__genosStageResult11) return __genosStageResult11.value; }
-  { const __genosStageResult8 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage8({ Array, Number, args, invalid, require, toolName, undefined }); if (__genosStageResult8) return __genosStageResult8.value; }
+  { const workflowResult1 = require('./mcpArgumentValidationWorkflow.js').validateWorkerSignalData({ Array, args, invalid, require, toolName, undefined }); if (workflowResult1) return workflowResult1.value; }
+  { const workflowResult11 = require('./mcpArgumentValidationWorkflow.js').validateWorkerMessageKind({ ORGANIZATION_MESSAGE_KINDS, args, invalid, toolName }); if (workflowResult11) return workflowResult11.value; }
+  { const workflowResult8 = require('./mcpArgumentValidationWorkflow.js').validateInboxAcknowledgements({ Array, Number, args, invalid, require, toolName, undefined }); if (workflowResult8) return workflowResult8.value; }
 
   return null;
 }
 
 function validateRemainingFields(toolName, args) {
-  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue12({ args, toolName, undefined })) {
+  if (require('./mcpArgumentValidationRules.js').hasMissingReplaySnapshot({ args, toolName, undefined })) {
     return invalid('snapshot', 'snapshot or snapshot_id is required (at least one).');
   }
-  { const __genosStageResult7 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage7({ args, toolName, undefined, validateReplaySnapshotPath }); if (__genosStageResult7) return __genosStageResult7.value; }
-  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue3({ Array, args, toolName })) {
+  { const workflowResult7 = require('./mcpArgumentValidationWorkflow.js').validateReplayPaths({ args, toolName, undefined, validateReplaySnapshotPath }); if (workflowResult7) return workflowResult7.value; }
+  if (require('./mcpArgumentValidationRules.js').hasMissingPrimitiveSelector({ Array, args, toolName })) {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
   }
-  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue2({ Array, args, toolName, undefined })) {
+  if (require('./mcpArgumentValidationRules.js').hasInvalidPrimitiveArguments({ Array, args, toolName, undefined })) {
     return invalid('args', 'args must be an object.');
   }
-  if (require('./mcpArgumentValidationValues1.js').validateToolArgumentsValue14({ Array, args, toolName })) {
+  if (require('./mcpArgumentValidationRules.js').hasInvalidStrategyPipeline({ Array, args, toolName })) {
     return invalid('primitives', 'primitives or pipeline must be an array.');
   }
-  { const __genosStageResult12 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage12({ args, invalid, toolName }); if (__genosStageResult12) return __genosStageResult12.value; }
-  { const __genosStageResult10 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage10({ args, invalid, toolName }); if (__genosStageResult10) return __genosStageResult10.value; }
-  { const __genosStageResult5 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage5({ args, invalid, toolName, validateString }); if (__genosStageResult5) return __genosStageResult5.value; }
+  { const workflowResult12 = require('./mcpArgumentValidationWorkflow.js').validateProceduralRegistryScope({ args, invalid, toolName }); if (workflowResult12) return workflowResult12.value; }
+  { const workflowResult10 = require('./mcpArgumentValidationWorkflow.js').validateProceduralRunnerId({ args, invalid, toolName }); if (workflowResult10) return workflowResult10.value; }
+  { const workflowResult5 = require('./mcpArgumentValidationWorkflow.js').validateRagAction({ args, invalid, toolName, validateString }); if (workflowResult5) return workflowResult5.value; }
 
-  { const __genosStageResult2 = require('./mcpArgumentValidationStages1.js').validateToolArgumentsStage2({ ARRAY_FIELDS, Array, FREEFORM_FIELDS, MAX_ONE_FIELDS, NON_NEGATIVE_FIELDS, Number, Object, args, invalid, require, toolName, undefined }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const workflowResult2 = require('./mcpArgumentValidationWorkflow.js').validateFieldShapesAndBounds({ ARRAY_FIELDS, Array, FREEFORM_FIELDS, MAX_ONE_FIELDS, NON_NEGATIVE_FIELDS, Number, Object, args, invalid, require, toolName, undefined }); if (workflowResult2) return workflowResult2.value; }
 
   return validateToolEnums(toolName, args);
 }

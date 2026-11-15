@@ -296,7 +296,7 @@ async function executeRecoveryDispatch(sourceAgentId) {
   const { startMission } = require('../agentRuntimeAdapter');
   if (activeWorkerRecoveryDispatches.has(sourceAgentId)) return false;
   const recovery = await loadDurableRecovery(sourceAgentId, pendingWorkerRecoveries.get(sourceAgentId));
-  require('./dispatchWorkerRecoveryStages1.js').dispatchWorkerRecoveryStage2({ pendingWorkerRecoveries, recovery, sourceAgentId });
+  require('./dispatchWorkerRecoveryWorkflow.js').dispatchWorkerRecovery({ pendingWorkerRecoveries, recovery, sourceAgentId });
   if (!recovery) return false;
   activeWorkerRecoveryDispatches.add(sourceAgentId);
   pendingWorkerRecoveries.delete(sourceAgentId);
@@ -329,11 +329,11 @@ async function executeRecoveryDispatch(sourceAgentId) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
-  const claimHeartbeat = require('./dispatchWorkerRecoveryValues1.js').dispatchWorkerRecoveryValue1({ durableQueue, recovery, setInterval });
+  const claimHeartbeat = require('./dispatchWorkerRecoveryRules.js').dispatchWorkerRecovery({ durableQueue, recovery, setInterval });
   if (claimHeartbeat) claimHeartbeat.unref();
   let workspace = { workspaceRoot: null, capsuleName: null };
   let target = null;
-  { const __genosStageResult1 = await require('./dispatchWorkerRecoveryStages1.js').dispatchWorkerRecoveryStage1({ activeWorkerBarriers, activeWorkerRecoveryDispatches, addWorkerToBarrier, buildRecoveryMission, cancelRecoveryDispatch, claimHeartbeat, clearInterval, createRecoveryWorkspace, get db() { return db; }, set db(__genosNextStageValue) { db = __genosNextStageValue; }, decision, dispatchWorkerRecovery, durableQueue, emitRecoveryDispatch, handleRecoveryDispatchFailure, isCancelled, mission, get missionDispatched() { return missionDispatched; }, set missionDispatched(__genosNextStageValue) { missionDispatched = __genosNextStageValue; }, orchestratorId, pendingWorkerRecoveries, persistRecoveryAgent, recovery, recoveryBarrier, get report() { return report; }, set report(__genosNextStageValue) { report = __genosNextStageValue; }, require, resolveRecoveryTarget, runAutomaticBisection, setTimeout, get source() { return source; }, set source(__genosNextStageValue) { source = __genosNextStageValue; }, sourceAgentId, startMission, get target() { return target; }, set target(__genosNextStageValue) { target = __genosNextStageValue; }, workerGarage, get workspace() { return workspace; }, set workspace(__genosNextStageValue) { workspace = __genosNextStageValue; } }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = await require('./dispatchWorkerRecoveryWorkflow.js').prepareRecoveryDispatch({ activeWorkerBarriers, activeWorkerRecoveryDispatches, addWorkerToBarrier, buildRecoveryMission, cancelRecoveryDispatch, claimHeartbeat, clearInterval, createRecoveryWorkspace, get db() { return db; }, set db(nextValue) { db = nextValue; }, decision, dispatchWorkerRecovery, durableQueue, emitRecoveryDispatch, handleRecoveryDispatchFailure, isCancelled, mission, get missionDispatched() { return missionDispatched; }, set missionDispatched(nextValue) { missionDispatched = nextValue; }, orchestratorId, pendingWorkerRecoveries, persistRecoveryAgent, recovery, recoveryBarrier, get report() { return report; }, set report(nextValue) { report = nextValue; }, require, resolveRecoveryTarget, runAutomaticBisection, setTimeout, get source() { return source; }, set source(nextValue) { source = nextValue; }, sourceAgentId, startMission, get target() { return target; }, set target(nextValue) { target = nextValue; }, workerGarage, get workspace() { return workspace; }, set workspace(nextValue) { workspace = nextValue; } }); if (workflowResult1) return workflowResult1.value; }
 }
 
 async function resumeDurableWorkerRecoveries(db, dispatch = dispatchWorkerRecovery) {

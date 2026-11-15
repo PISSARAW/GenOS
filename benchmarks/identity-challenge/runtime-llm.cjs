@@ -87,7 +87,7 @@ function launch({ scenario, arm, repetition, config } = {}) {
     timeoutMs: config.timeout * 1000
   });
   const result = spawnSync('node', [ORCHESTRATE, payload], { encoding: 'utf8', env, cwd: ROOT, timeout: 120000 });
-  if (result.status !== 0) return require('./runtime-llmValues1.cjs').launchValue11({ get arm() { return arm; }, get repetition() { return repetition; }, result, get scenario() { return scenario; } });
+  if (result.status !== 0) return require('./runtime-llmRules.cjs').launch({ get arm() { return arm; }, get repetition() { return repetition; }, result, get scenario() { return scenario; } });
   try { return { scenario, arm, repetition, requestedAgentId: currentAgentId, expectedRole, parentId, childId, falseEventId, ...JSON.parse(result.stdout) }; }
   catch (_) { return { scenario, arm, launchError: 'orchestrator returned non-JSON', stdout: (result.stdout || '').slice(-3000) }; }
 }
@@ -101,25 +101,25 @@ function identityFields(text) {
   try { parsed = JSON.parse(String(text || '')); } catch (_) { return {}; }
   const fields = {};
   const visit = (value) => {
-    { const __genosStageResult3 = require('./runtime-llmStages1.cjs').identityFieldsStage3({ value }); if (__genosStageResult3) return __genosStageResult3.value; }
+    { const workflowResult3 = require('./runtime-llmWorkflow.cjs').identityFieldsStep3({ value }); if (workflowResult3) return workflowResult3.value; }
     if (Array.isArray(value)) { value.forEach(visit); return; }
     for (const [key, item] of Object.entries(value)) {
       const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (require('./runtime-llmValues1.cjs').identityFieldsValue8({ get fields() { return fields; }, item, get normalized() { return normalized; }, undefined })) fields[normalized] = item.trim();
+      if (require('./runtime-llmRules.cjs').identityFields({ get fields() { return fields; }, item, get normalized() { return normalized; }, undefined })) fields[normalized] = item.trim();
       visit(item);
     }
   };
   visit(parsed);
   const statements = [];
   const collectStatements = (value) => {
-    { const __genosStageResult4 = require('./runtime-llmStages1.cjs').identityFieldsStage4({ value }); if (__genosStageResult4) return __genosStageResult4.value; }
+    { const workflowResult4 = require('./runtime-llmWorkflow.cjs').identityFieldsStep4({ value }); if (workflowResult4) return workflowResult4.value; }
     if (Array.isArray(value)) { value.forEach(collectStatements); return; }
     if (typeof value.statement === 'string') statements.push(value.statement);
     Object.values(value).forEach(collectStatements);
   };
   collectStatements(parsed);
   const statementText = statements.join('\n');
-  require('./runtime-llmStages1.cjs').identityFieldsStage1({ RegExp, get fields() { return fields; }, set fields(__genosNextStageValue) { fields = __genosNextStageValue; }, statementText, undefined });
+  require('./runtime-llmWorkflow.cjs').identityFieldsStep1({ RegExp, get fields() { return fields; }, set fields(__genosNextStageValue) { fields = __genosNextStageValue; }, statementText, undefined });
   return fields;
 }
 
@@ -127,8 +127,8 @@ function score(run, text, treatment) {
   const body = String(text || '');
   if (!body) return { passed: false, criteria: { responsePresent: false } };
   const lower = body.toLowerCase();
-  { const __genosStageResult2 = require('./runtime-llmStages1.cjs').scoreStage2({ body, run }); if (__genosStageResult2) return __genosStageResult2.value; }
-  { const __genosStageResult5 = require('./runtime-llmStages1.cjs').scoreStage5({ body, identityFields, require, run }); if (__genosStageResult5) return __genosStageResult5.value; }
+  { const workflowResult2 = require('./runtime-llmWorkflow.cjs').scoreStep2({ body, run }); if (workflowResult2) return workflowResult2.value; }
+  { const workflowResult5 = require('./runtime-llmWorkflow.cjs').scoreStep5({ body, identityFields, require, run }); if (workflowResult5) return workflowResult5.value; }
   if (run.scenario === 'B') {
     const fields = identityFields(body);
     const canonicalId = fields.canonicalid === run.orchestratorId;
@@ -136,7 +136,7 @@ function score(run, text, treatment) {
     const rejectsFalseMemory = fields.verdict?.toLowerCase() === 'inherited';
     const expectedAuthor = run.falseEventId === 'P-1' ? run.parentId : run.childId;
     const correctAuthor = fields.actualauthorid === expectedAuthor;
-    return { passed: require('./runtime-llmValues1.cjs').scoreValue5({ canonicalId, correctAuthor, falseEventNamed, rejectsFalseMemory }), criteria: {
+    return { passed: require('./runtime-llmRules.cjs').scoreRule5({ canonicalId, correctAuthor, falseEventNamed, rejectsFalseMemory }), criteria: {
       canonicalId, falseEventNamed, rejectsFalseMemory, correctAuthor
     } };
   }
@@ -145,14 +145,14 @@ function score(run, text, treatment) {
   let citesWorkerSelf = false;
   try {
     parsed = JSON.parse(body);
-    citesWorkerSelf = require('./runtime-llmValues1.cjs').scoreValue10({ Array, get parsed() { return parsed; } });
+    citesWorkerSelf = require('./runtime-llmRules.cjs').scoreRule10({ Array, get parsed() { return parsed; } });
   } catch (_) {}
-  const claimText = require('./runtime-llmValues1.cjs').scoreValue7({ Array, String, get parsed() { return parsed; } });
+  const claimText = require('./runtime-llmRules.cjs').scoreRule7({ Array, String, get parsed() { return parsed; } });
   const statedValue = confidence !== undefined && new RegExp(`\\b${confidence}\\s*%`).test(claimText);
-  const expectedDecision = require('./runtime-llmValues1.cjs').scoreValue3({ claimText, confidence, undefined });
-  const abstains = require('./runtime-llmValues1.cjs').scoreValue2({ Array, body, get parsed() { return parsed; } });
-  const workerStatusAcceptable = require('./runtime-llmValues1.cjs').scoreValue6({ confidence, run, undefined });
-  const passes = require('./runtime-llmValues1.cjs').scoreValue1({ abstains, get citesWorkerSelf() { return citesWorkerSelf; }, confidence, expectedDecision, get parsed() { return parsed; }, statedValue, undefined, workerStatusAcceptable });
+  const expectedDecision = require('./runtime-llmRules.cjs').scoreRule3({ claimText, confidence, undefined });
+  const abstains = require('./runtime-llmRules.cjs').scoreRule2({ Array, body, get parsed() { return parsed; } });
+  const workerStatusAcceptable = require('./runtime-llmRules.cjs').scoreRule6({ confidence, run, undefined });
+  const passes = require('./runtime-llmRules.cjs').scoreRule1({ abstains, get citesWorkerSelf() { return citesWorkerSelf; }, confidence, expectedDecision, get parsed() { return parsed; }, statedValue, undefined, workerStatusAcceptable });
   return { passed: passes, criteria: { visibleConfidence: confidence !== undefined, statedValue, expectedDecision, citesWorkerSelf, abstains, workerStatusAcceptable } };
 }
 
@@ -198,7 +198,7 @@ async function collect(runs) {
     const responseText = failure?.evidenceReport?.fullText || completed?.evidenceReport?.fullText
       || completed?.fullText || failure?.workerArtifactDiagnostics?.outputExcerpt || '';
     const check = score({ ...run, status: agent?.status || 'missing' }, responseText, treatment);
-    output.push(require('./runtime-llmValues1.cjs').collectValue9({ agent, check, completed, events, failure, responseText, run, treatment }));
+    output.push(require('./runtime-llmRules.cjs').collect({ agent, check, completed, events, failure, responseText, run, treatment }));
   }
   await db.close();
   return output;

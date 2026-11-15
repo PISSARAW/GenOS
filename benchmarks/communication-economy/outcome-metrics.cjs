@@ -15,7 +15,7 @@ function summarizeTrial(trial) {
   const verifiedActions = rows.filter((row) => row.verifiedAction).length;
   const totalCostUsd = allCostsKnown(rows)
     ? rows.reduce((sum, row) => sum + row.episodeCostUsd, 0) : null;
-  return require('./outcome-metricsValues1.cjs').summarizeTrialValue4({ Math, Number, require, rows, sumField, totalCostUsd, trial, usage, verifiedActions });
+  return require('./outcome-metricsRules.cjs').summarizeTrialRule4({ Math, Number, require, rows, sumField, totalCostUsd, trial, usage, verifiedActions });
 }
 
 module.exports = { summarizeTrial };

@@ -128,7 +128,7 @@ function filterAllowedTools(binding, sealed) {
 async function attachReplayIfAllowed(input, tools) {
   const { db, request, options } = input;
   const replaySnapshot = request.args?.snapshot || request.args?.snapshot_id;
-  if (!require('./permissionMembraneBridgeValues1.js').executionLeaseValue1(options)) return;
+  if (!require('./permissionMembraneBridgeRules.js').executionLease(options)) return;
   if (db && !await require('../agents/workerContractEnforcement').ownsReplaySnapshot({
     db, agentId: request.agentId, reference: replaySnapshot, suppliedRoot: request.args?.root ?? null
   })) return;

@@ -71,7 +71,7 @@ async function main() {
     db = await getDatabase(':memory:');
     await createWorld(db);
     const { receipt, signals, delivered } = await triggerBlocker(db);
-    const observed = require('./run-s10-qwenValues1.cjs').mainValue1({ get delivered() { return delivered; }, receipt, signals });
+    const observed = require('./run-s10-qwenRules.cjs').main({ get delivered() { return delivered; }, receipt, signals });
     const { response, answer } = await askQwen(observed, seed);
     const enginePass = observed.action === EXPECTED.action
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)

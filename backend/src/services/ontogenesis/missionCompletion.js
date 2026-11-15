@@ -53,11 +53,11 @@ function identityReceiptSucceeded(receipt) {
 
 function validPassingReport(report, { requireDossier = false } = {}) {
   if (!report || report.outcome !== 'success' || !Array.isArray(report.claims) || report.claims.length === 0) return false;
-  if (require('./missionCompletionValues1.js').validPassingReportValue4({ Array, Number, report })) return false;
+  if (require('./missionCompletionRules.js').validPassingReportRule4({ Array, Number, report })) return false;
   if (!requireDossier) return true;
   const artifact = report.workerArtifact;
   const provenance = artifact?.provenance;
-  return require('./missionCompletionValues1.js').validPassingReportValue1({ Array, artifact, provenance, report }) && report.scopeCompletion.completedRefs.length > 0;
+  return require('./missionCompletionRules.js').validPassingReportRule1({ Array, artifact, provenance, report }) && report.scopeCompletion.completedRefs.length > 0;
 }
 
 async function workerCompletionEvidence(db, agent) {
@@ -134,7 +134,7 @@ async function completionGate(db, input) {
   if (!Array.isArray(agents) || agents.length === 0) return { allowed: false, reason: 'agents-non-verifies' };
   const root = agents.find((agent) => agent.id === request.id);
   const participants = root ? agents.filter((agent) => agent.id !== request.id) : agents;
-  const rootVerified = require('./missionCompletionValues1.js').completionGateValue2({ root });
+  const rootVerified = require('./missionCompletionRules.js').completionGateRule2({ root });
   const participantsVerified = participants.every((agent) => agent?.status === 'completed'
     || agent?.missionCompletionEvidenceVerified === true);
   if (!rootVerified || !participantsVerified) return { allowed: false, reason: 'agents-non-verifies' };
@@ -145,7 +145,7 @@ async function completionGate(db, input) {
     checks: request.verifierChecks
   });
   context.context.flags.verifierReceiptPresent = verifierReceiptPresent;
-  require('./missionCompletionStages1.js').completionGateStage1({ Boolean, agents, get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, digest, participantsVerified, request, require, rootVerified, verifierReceipt, get verifierReceiptPresent() { return verifierReceiptPresent; }, set verifierReceiptPresent(__genosNextStageValue) { verifierReceiptPresent = __genosNextStageValue; } });
+  require('./missionCompletionWorkflow.js').completionGate({ Boolean, agents, get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, digest, participantsVerified, request, require, rootVerified, verifierReceipt, get verifierReceiptPresent() { return verifierReceiptPresent; }, set verifierReceiptPresent(__genosNextStageValue) { verifierReceiptPresent = __genosNextStageValue; } });
   const evidenceGate = verifyEvidenceContract(request, context);
   if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {

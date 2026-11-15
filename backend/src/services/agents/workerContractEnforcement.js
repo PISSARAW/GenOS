@@ -39,7 +39,7 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const kind = contract?.identity?.workerKind;
   const action = toolAction(toolName, args);
   if (!kind || !Object.hasOwn(workerKinds.KINDS, kind)) throw contractError(kind || 'unknown', action);
-  if (require('./workerContractEnforcementValues1.js').assertWorkerToolAllowedValue5({ String, args, contract, toolName })) {
+  if (require('./workerContractEnforcementRules.js').assertWorkerToolAllowed({ String, args, contract, toolName })) {
     throw contractError(kind, action);
   }
   if (action === 'topology_read') return true;
@@ -49,11 +49,11 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
 }
 
 async function enforcePersistedWorkerTool(db, agentId, toolCall) {
-  const normalizedCall = require('./workerContractEnforcementValues1.js').enforcePersistedWorkerToolValue4({ toolCall });
+  const normalizedCall = require('./workerContractEnforcementRules.js').enforcePersistedWorkerTool({ toolCall });
   const { toolName, args = {} } = normalizedCall;
   const agent = await db.get('SELECT execution_mode, metadata_json, role, parent_agent_id FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
-  await require('./workerContractEnforcementStages1.js').enforcePersistedWorkerToolStage2({ Error, Object, String, agentId, args, db, ownsReplaySnapshot, toolName });
+  await require('./workerContractEnforcementWorkflow.js').enforceReplaySnapshotOwnership({ Error, Object, String, agentId, args, db, ownsReplaySnapshot, toolName });
   const metadata = persistedMetadata(agent, toolName);
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
   const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -79,13 +79,13 @@ async function ownsReplaySnapshot({ db, agentId, reference, suppliedRoot = null 
 }
 
 async function ownsSnapshotInRoot({root, suppliedRoot, reference}) {
-  if (require('./workerContractEnforcementValues1.js').ownsReplaySnapshotValue3({ path, root, suppliedRoot })) return false;
+  if (require('./workerContractEnforcementRules.js').ownsReplaySnapshotRule3({ path, root, suppliedRoot })) return false;
   let directory;
   try { directory = resolveContainedPathNoSymlinkSync(root, '.genos/evidence-snapshots', 'worker replay snapshot directory'); }
   catch (_) { return false; }
   let entries;
   try { entries = await fs.readdir(directory, { withFileTypes: true }); } catch (_) { return false; }
-  { const __genosStageResult1 = await require('./workerContractEnforcementStages1.js').ownsReplaySnapshotStage1({ JSON, get entries() { return entries; }, set entries(__genosNextStageValue) { entries = __genosNextStageValue; }, fs, path, reference, require, resolveContainedPathNoSymlinkSync, root }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = await require('./workerContractEnforcementWorkflow.js').findOwnedReplaySnapshot({ JSON, get entries() { return entries; }, set entries(nextValue) { entries = nextValue; }, fs, path, reference, require, resolveContainedPathNoSymlinkSync, root }); if (workflowResult1) return workflowResult1.value; }
   return false;
 }
 

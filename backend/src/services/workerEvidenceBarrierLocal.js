@@ -230,17 +230,17 @@ async function runGenerationStage(ctx) {
     methodContract: ctx.mission.methodContract,
     workerAssignment: ctx.mission.workerAssignment, workerArtifactContract: ctx.mission.workerArtifactContract || null
   });
-  const workspaceDetails = require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue1({ codeWorker, get ctx() { return ctx; }, require });
+  const workspaceDetails = require('./workerEvidenceBarrierLocalRules.js').runGenerationStageRule1({ codeWorker, get ctx() { return ctx; }, require });
   if (codeWorker) ctx.mission.allowedPatchPaths = workspaceDetails.patchCandidatePaths
     .filter((candidate) => localCodeWorker.safePath(candidate));
   const workspaceContext = codeWorker ? workspaceDetails.text : require('./workerEvidenceReadOnlyWorkspace').buildReadOnlyWorkspaceContext(ctx.mission);
-  let promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
+  let promptText = localEvidencePrompt.buildAnalysisPrompt(require('./workerEvidenceBarrierLocalRules.js').runGenerationStageRule4({ Boolean, JSON, agentName, codeWorker, get conscienceBlock() { return conscienceBlock; }, get ctx() { return ctx; }, experimentArm, isOrchestratorMission, kind, require, get selfIntro() { return selfIntro; }, workerContract, workerKinds, workspaceContext, get wsBlock() { return wsBlock; } }));
   promptText = require('./qualityElevation/qualityNativeGeneration').promptText(ctx, promptText);
   throwIfPromptOverBudget(estimatePromptTokens(promptText), budget);
   await require('./functionInduction/promptAudit').record(ctx, promptText);
   if (identityExperimentAudit) {
     const event = emit(ctx.mission.agentId, 'IDENTITY_EXPERIMENT_PROMPT', 'PROMPT_TREATMENT',
-      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');
+      `Applied identity experiment arm ${identityExperimentAudit.arm}.`, require('./workerEvidenceBarrierLocalRules.js').runGenerationStageRule3({ Number, get ctx() { return ctx; }, get identityExperimentAudit() { return identityExperimentAudit; }, promptText, require }), 'info', 'running');
     event.payload.executionRunId = ctx.executionRun.id;
     await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, event);
   }
@@ -251,7 +251,7 @@ async function runGenerationStage(ctx) {
     executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
-    maxTokens: resolveMaxOutputTokens(budget, promptText, require('./workerEvidenceBarrierLocalValues1.js').runGenerationStageValue2({ get ctx() { return ctx; }, undefined })),
+    maxTokens: resolveMaxOutputTokens(budget, promptText, require('./workerEvidenceBarrierLocalRules.js').runGenerationStageRule2({ get ctx() { return ctx; }, undefined })),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
@@ -263,7 +263,7 @@ async function runGenerationStage(ctx) {
   let result = await require('./qualityElevation/qualityNativeGeneration').generate(generationContext, generateWorkerResult);
   result = require('./morphogenesis/biomeAllocationRecovery').normalizeGenerationResult(result, ctx.mission);
   const codeRepairPlans = ctx.mission.codeRepairPlans || ctx.mission.codeRepairPlan;
-  require('./workerEvidenceBarrierLocalStages1.js').runGenerationStageStage2({ codeRepairPlans, codeWorker, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; }, workerCodeTestRepair });
+  require('./workerEvidenceBarrierLocalWorkflow.js').runGenerationStage({ codeRepairPlans, codeWorker, get result() { return result; }, set result(__genosNextStageValue) { result = __genosNextStageValue; }, workerCodeTestRepair });
   const schemaFailure = require('./workerEvidenceBarrierLocalSchemaFailure').fromModelResult(result);
   if (schemaFailure) throw schemaFailure;
   return { codeWorker, estimate, budget, agentName, nameMeaning, workerModel, result, generationContext };
@@ -295,14 +295,14 @@ async function runEvidenceStage(ctx) {
   if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
   if (!ctx.codeWorker) evidenceReport = require('./morphogenesis/biomeAllocationRecovery')
     .applyExhaustedRecovery(evidenceReport, ctx.mission, ctx.result.text);
-  { const __genosStageResult1 = require('./workerEvidenceBarrierLocalStages1.js').runEvidenceStageStage1({ consumed, get ctx() { return ctx; }, set ctx(__genosNextStageValue) { ctx = __genosNextStageValue; }, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, proposal }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = require('./workerEvidenceBarrierLocalWorkflow.js').runEvidenceStageStep1({ consumed, get ctx() { return ctx; }, set ctx(__genosNextStageValue) { ctx = __genosNextStageValue; }, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, proposal }); if (workflowResult1) return workflowResult1.value; }
   const validationStartedAt = Date.now();
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, { ...ctx, proposal }); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const allocationValidation = require('./morphogenesisRolePrompt').validateBiomeAllocation(
     evidenceReport.claims?.[0]?.statement, ctx.mission.prompt,
     { ...ctx.mission, ...(ctx.mission.workerAssignment || {}) });
-  require('./workerEvidenceBarrierLocalStages1.js').runEvidenceStageStage3({ allocationValidation, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, require });
+  require('./workerEvidenceBarrierLocalWorkflow.js').runEvidenceStageStep3({ allocationValidation, get evidenceReport() { return evidenceReport; }, set evidenceReport(__genosNextStageValue) { evidenceReport = __genosNextStageValue; }, require });
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);

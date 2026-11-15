@@ -56,7 +56,7 @@ async function main() {
     const observed = { relationType: profile.relationType, direction: profile.direction,
       disclosureLevel: profile.disclosureLevel, authority: profile.authority,
       boundary: 'no subjective feelings claim; no private data authorization' };
-    const enginePass = require('./run-s05-qwenValues1.cjs').mainValue1({ get before() { return before; }, get profile() { return profile; } });
+    const enginePass = require('./run-s05-qwenRules.cjs').main({ get before() { return before; }, get profile() { return profile; } });
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['A pair changed its declared partnership into friendship and reduced disclosure. Report only the stored relationship state. Never claim that GenOS agents feel emotions; a relationship label grants no private-data permission.',
         `GenOS before: ${JSON.stringify({ relationType: before.relationType, disclosureLevel: before.disclosureLevel })}`,

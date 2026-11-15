@@ -13,7 +13,7 @@ async function emitLocalCompleted(ctx, publishSuccess) {
       nativeOracleRef: ctx.nativeOracleRef, identityReceipt: ctx.identityReceipt
     }, 'info', deferred ? 'running' : 'completed');
   const eventType = deferred ? 'LOCAL_WORKER_COMPLETED' : ctx.eventType;
-  const completed = require('./workerEvidenceBarrierLocalCompletionValues1.js').emitLocalCompletedValue1({ ctx, deferred, emit, eventType, terminalStatus });
+  const completed = require('./workerEvidenceBarrierLocalCompletionRules.js').emitLocalCompleted({ ctx, deferred, emit, eventType, terminalStatus });
   await require('./workerEvidencePreterminalReplay').attach({db: ctx.db, mission: ctx.mission, event: completed});
   await publishSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
   if (ctx.unresolved) {

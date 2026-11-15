@@ -47,7 +47,7 @@ function revalidateToolCall({ toolName, args, authorityLease, scopedReplayAllowe
   if (!directToolLeaseAllows(toolName, authorityLease) && !scopedReplay) {
     return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED' };
   }
-  const argumentError = require('./toolLogicValues1.js').revalidateToolCallValue1({ args, scopedReplay, toolName, validateScopedReplayArguments, validateToolArguments });
+  const argumentError = require('./toolLogicRules.js').revalidateToolCall({ args, scopedReplay, toolName, validateScopedReplayArguments, validateToolArguments });
   if (argumentError) {
     return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
   }

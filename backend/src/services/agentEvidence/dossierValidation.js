@@ -65,10 +65,10 @@ function validateWorkerDossiers(dossiers, workers, options = {}) {
   for (const worker of workers) {
     const dossier = dossiersByWorker.get(worker.agentId);
     if (!dossier) continue;
-    const report = dossier.events.map((event) => require('./dossierValidationValues1.js').validateWorkerDossiersValue1({ event }))
+    const report = dossier.events.map((event) => require('./dossierValidationRules.js').validateWorkerDossiersRule1({ event }))
       .find((candidate) => candidate?.outcome === 'success');
     if (report) validateWorkerArtifact({ ...dossier, events: dossier.events.filter((event) =>
-      (require('./dossierValidationValues1.js').validateWorkerDossiersValue2({ event })) === report) }, worker);
+      (require('./dossierValidationRules.js').validateWorkerDossiersRule2({ event })) === report) }, worker);
   }
   return true;
 }

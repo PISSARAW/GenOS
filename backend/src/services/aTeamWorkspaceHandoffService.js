@@ -49,7 +49,7 @@ async function importCommit(source, destination, commit) {
   }
   await runCommand('git', ['cat-file', '-e', `${fullCommit}^{commit}`], { cwd: source });
   const bundle = path.join(path.dirname(destination), `.handoff-${randomUUID()}.bundle`);
-  { const __genosStageResult1 = await require('./aTeamWorkspaceHandoffServiceStages1.js').importCommitStage1({ Error, Object, bundle, destination, fs, fsPromises, fullCommit, path, runCommand, source, undefined }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = await require('./aTeamWorkspaceHandoffServiceWorkflow.js').importWorkspaceCommit({ Error, Object, bundle, destination, fs, fsPromises, fullCommit, path, runCommand, source, undefined }); if (workflowResult1) return workflowResult1.value; }
 }
 
 async function materializeHandoffs({ consumer, handoffs, byWorker }) {

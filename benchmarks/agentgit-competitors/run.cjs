@@ -11,7 +11,7 @@ function digest(value) {
 }
 
 function validateManifest(manifest) {
-  if (require('./runValues1.cjs').validateManifestValue1({ Array, manifest })) {
+  if (require('./runRules.cjs').validateManifest({ Array, manifest })) {
     throw new Error('A nonempty benchmark manifest v1 is required.');
   }
   const ids = manifest.tasks.map((task) => task.id);

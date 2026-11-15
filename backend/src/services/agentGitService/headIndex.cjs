@@ -129,7 +129,7 @@ async function status(req) {
   const base = baseId ? await getObject(db, req, baseId) : null;
   const baseState = base ? JSON.parse(base.state_json) : null;
   const unstaged = require('./stagingPolicy.cjs').unstagedSections(baseState, current, indexData.sections || {});
-  return require('./headIndexValues1.cjs').statusValue1({ Array, Number, agentId, head, index, get indexData() { return indexData; }, ref, stagedCount, stagedSections, unstaged });
+  return require('./headIndexRules.cjs').status({ Array, Number, agentId, head, index, get indexData() { return indexData; }, ref, stagedCount, stagedSections, unstaged });
 }
 
 function buildStateFromIndex(index, agentId) {

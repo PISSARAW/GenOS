@@ -17,14 +17,14 @@ function workspaceInitializationAlertId(workspaceId) {
 function localWorkspaceConfig() {
   const agentId = String(process.env.GENOS_AGENT_ID || '').trim();
   const orchestratorId = String(process.env.GENOS_ORCHESTRATOR_AGENT_ID || '').trim();
-  if (require('./seedValues1.js').localWorkspaceConfigValue1({ agentId, orchestratorId })) return;
+  if (require('./seedRules.js').localWorkspaceConfigRule1({ agentId, orchestratorId })) return;
   const capsuleRoot = String(process.env.GENOS_CAPSULE_ROOT || '').trim();
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (isCapsuleWorkspace(capsuleRoot, workspaceRoot)) return;
   if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   if (!workspaceRoot) return;
-  const name = String(require('./seedValues1.js').localWorkspaceConfigValue2({ path, process, workspaceRoot })).trim();
-  return require('./seedValues1.js').localWorkspaceConfigValue3({ String, name, process, workspaceRoot });
+  const name = String(require('./seedRules.js').localWorkspaceConfigRule2({ path, process, workspaceRoot })).trim();
+  return require('./seedRules.js').localWorkspaceConfigRule3({ String, name, process, workspaceRoot });
 }
 
 function isCapsuleWorkspace(capsuleRoot, workspaceRoot) {

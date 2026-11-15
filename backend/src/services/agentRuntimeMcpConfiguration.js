@@ -52,7 +52,7 @@ function applyWorkerDatabasePolicy({ environment, state, binaries, sourceEnv } =
   const workspaceRoot = String(binaries?.workspace || '').trim();
   const capsuleRoot = String(sourceEnv?.GENOS_CAPSULE_ROOT || '').trim();
   const isCapsuleWorker = isWithin(capsuleRoot, workspaceRoot);
-  const isWorker = require('./agentRuntimeMcpConfigurationValues1.js').applyWorkerDatabasePolicyValue1({ Boolean, agentId, isCapsuleWorker, orchestratorId, state });
+  const isWorker = require('./agentRuntimeMcpConfigurationRules.js').applyWorkerDatabasePolicy({ Boolean, agentId, isCapsuleWorker, orchestratorId, state });
   for (const key of ['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (isWorker) environment[key] = '1';
     else if (sourceEnv[key]) environment[key] = sourceEnv[key];

@@ -83,14 +83,14 @@ async function main() {
     decision = receipt.decision;
     execution = receipt.executed;
     signalCount = signals.length;
-    observed = require('./run-s13-qwenValues1.cjs').mainValue2({ get decision() { return decision; }, get delivered() { return delivered; }, signals });
+    observed = require('./run-s13-qwenRules.cjs').mainRule2({ get decision() { return decision; }, get delivered() { return delivered; }, signals });
     enginePass = observed.action === EXPECTED.action
       && JSON.stringify(observed.recipients) === JSON.stringify(EXPECTED.recipients)
       && JSON.stringify(observed.semanticRefs) === JSON.stringify(EXPECTED.semanticRefs);
     const { response, answer } = await askQwen(observed, seed);
-    const qwenPass = require('./run-s13-qwenValues1.cjs').mainValue4({ JSON, answer, get observed() { return observed; } });
-    const reconciliationPass = require('./run-s13-qwenValues1.cjs').mainValue1({ answer });
-    const passed = require('./run-s13-qwenValues1.cjs').mainValue3({ get enginePass() { return enginePass; }, qwenPass, reconciliationPass });
+    const qwenPass = require('./run-s13-qwenRules.cjs').mainRule4({ JSON, answer, get observed() { return observed; } });
+    const reconciliationPass = require('./run-s13-qwenRules.cjs').mainRule1({ answer });
+    const passed = require('./run-s13-qwenRules.cjs').mainRule3({ get enginePass() { return enginePass; }, qwenPass, reconciliationPass });
     const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S13', seed,
       status: passed ? 'pass' : 'fail', model: MODEL, sourceCommit, expected: EXPECTED,
       observed, decision, execution, signalCount, reconciliationPass,

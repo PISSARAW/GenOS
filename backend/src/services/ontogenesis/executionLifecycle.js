@@ -38,22 +38,22 @@ async function haltForControl(db, ctx, harness) {
 async function observeExecution(db, ctx, harness) {
   const run = await activeExecution(db, ctx.project.id);
   if (!run) return failState(db, ctx, 'execution-introuvable');
-  { const __genosStageResult3 = require('./executionLifecycleStages1.js').observeExecutionStage3({ run }); if (__genosStageResult3) return __genosStageResult3.value; }
+  { const workflowResult3 = require('./executionLifecycleWorkflow.js').observeExecutionStep3({ run }); if (workflowResult3) return workflowResult3.value; }
   const observed = await harness.observe(run);
   // The mission process may persist its terminal result while the harness is
   // observing it. Re-read before marking a dead process interrupted, and use a
   // compare-and-set below so this observer cannot overwrite that result.
   const latest = await activeExecution(db, ctx.project.id);
-  { const __genosStageResult1 = require('./executionLifecycleStages1.js').observeExecutionStage1({ latest, run }); if (__genosStageResult1) return __genosStageResult1.value; }
-  { const __genosStageResult5 = require('./executionLifecycleStages1.js').observeExecutionStage5({ latest }); if (__genosStageResult5) return __genosStageResult5.value; }
-  { const __genosStageResult2 = await require('./executionLifecycleStages1.js').observeExecutionStage2({ Date, JSON, harness, latest, observed, run }); if (__genosStageResult2) return __genosStageResult2.value; }
-  { const __genosStageResult6 = require('./executionLifecycleStages1.js').observeExecutionStage6({ Date, latest }); if (__genosStageResult6) return __genosStageResult6.value; }
+  { const workflowResult1 = require('./executionLifecycleWorkflow.js').observeExecutionStep1({ latest, run }); if (workflowResult1) return workflowResult1.value; }
+  { const workflowResult5 = require('./executionLifecycleWorkflow.js').observeExecutionStep5({ latest }); if (workflowResult5) return workflowResult5.value; }
+  { const workflowResult2 = await require('./executionLifecycleWorkflow.js').stopExpiredExecution({ Date, JSON, harness, latest, observed, run }); if (workflowResult2) return workflowResult2.value; }
+  { const workflowResult6 = require('./executionLifecycleWorkflow.js').observeExecutionStep6({ Date, latest }); if (workflowResult6) return workflowResult6.value; }
   const interrupted = await markExecutionInterrupted(db, { id: latest.id });
   if (!interrupted) {
     const raced = await activeExecution(db, ctx.project.id);
     return { workerResult: 'done', run: raced || latest };
   }
-  { const __genosStageResult4 = require('./executionLifecycleStages1.js').observeExecutionStage4({ Date, run }); if (__genosStageResult4) return __genosStageResult4.value; }
+  { const workflowResult4 = require('./executionLifecycleWorkflow.js').observeExecutionStep4({ Date, run }); if (workflowResult4) return workflowResult4.value; }
   await updateExecution(db, { id: run.id, phase: 'finished', result: { success: false, error: 'runtime-interrompu' } });
   return { workerResult: 'done', run: await activeExecution(db, ctx.project.id) };
 }

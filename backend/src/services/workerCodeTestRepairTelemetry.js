@@ -14,7 +14,7 @@ function classifyFailure(error) {
   const code = String(error?.code || '');
   const text = `${code}\n${error?.message || ''}\n${testOutput(error)}\n${error?.workerArtifactDiagnostics?.error || ''}`;
   if (code === 'WORKER_OUTPUT_SCHEMA_VIOLATION') return 'schema_rejection';
-  if (require('./workerCodeTestRepairTelemetryValues1.js').classifyFailureValue2({ text })) {
+  if (require('./workerCodeTestRepairTelemetryRules.js').classifyFailureRule2({ text })) {
     return 'model_provider_timeout';
   }
   if (code === 'WORKER_TEST_ENVIRONMENT_FAILED') return 'test_environment_unavailable';
@@ -24,10 +24,10 @@ function classifyFailure(error) {
   if (/browserType\.launch|failed to create initial profile|<launching>|target page, context or browser has been closed/i.test(text)) {
     return 'browser_launch_failure';
   }
-  if (require('./workerCodeTestRepairTelemetryValues1.js').classifyFailureValue1({ text })) {
+  if (require('./workerCodeTestRepairTelemetryRules.js').classifyFailureRule1({ text })) {
     return 'app_locator_failure';
   }
-  { const __genosStageResult1 = require('./workerCodeTestRepairTelemetryStages1.js').classifyFailureStage1({ text }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = require('./workerCodeTestRepairTelemetryWorkflow.js').classifyFailure({ text }); if (workflowResult1) return workflowResult1.value; }
   return remainingFailure(code, text);
 }
 
@@ -146,9 +146,9 @@ function summarizeFailedPatches(error) {
 function exportedFunctionSnippets(source, failureText = '') {
   const names = new Set();
   const exportsObject = String(source).match(/\bmodule\.exports\s*=\s*\{([^}]+)\}/);
-  require('./workerCodeTestRepairTelemetryStages1.js').exportedFunctionSnippetsStage2({ exportsObject, names });
+  require('./workerCodeTestRepairTelemetryWorkflow.js').exportedFunctionSnippets({ exportsObject, names });
   for (const match of String(source).matchAll(/\bexports\.([A-Za-z_$][\w$]*)\s*=/g)) names.add(match[1]);
-  for (const match of require('./workerCodeTestRepairTelemetryValues1.js').exportedFunctionSnippetsValue3({ String, source })) names.add(match[1]);
+  for (const match of require('./workerCodeTestRepairTelemetryRules.js').exportedFunctionSnippets({ String, source })) names.add(match[1]);
 
   const relevantNames = [...names].filter((name) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(failureText));
   const functions = [];

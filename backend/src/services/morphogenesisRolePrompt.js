@@ -6,7 +6,7 @@ const ALLOCATION_PATTERN_2 = /\b(?:plafond|capacit[eé])\s+(?:de\s+)?\d+\b|\bd[e
 function morphogenesisRoleInstruction(assignment) {
   const workerAssignment = assignment?.workerAssignment || assignment || {};
   const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
-  const role = String(require('./morphogenesisRolePromptValues1.js').morphogenesisRoleInstructionValue15({ assignment, workerAssignment })).toLowerCase();
+  const role = String(require('./morphogenesisRolePromptRules.js').morphogenesisRoleInstruction({ assignment, workerAssignment })).toLowerCase();
   if (topology !== 'biome') return null;
   if (role === 'environment_mapper') {
     return 'Morphogenesis role: Biome environment mapper. Observe the entities, values, units, and constraints stated in the mission. Return only evidence-grounded structured observations in the required scout_observation artifact; do not produce or claim the final solution.';
@@ -34,31 +34,31 @@ function morphogenesisCompactWorkerRole(assignment) {
 function allocationFacts(source) {
   const items = [...source.matchAll(/\b(item\d+)\s*=\s*(-?\d+)\b/gi)]
     .map((match) => ({ id: match[1], value: Number(match[2]) }));
-  const groups = Number(require('./morphogenesisRolePromptValues1.js').allocationFactsValue8({ source }));
+  const groups = Number(require('./morphogenesisRolePromptRules.js').allocationFactsRule8({ source }));
   const capacityMatch = source.match(ALLOCATION_PATTERN_1);
-  const capacity = Number(require('./morphogenesisRolePromptValues1.js').allocationFactsValue6({ capacityMatch, source }));
+  const capacity = Number(require('./morphogenesisRolePromptRules.js').allocationFactsRule6({ capacityMatch, source }));
   return { items, groups, capacity };
 }
 
 function validateBiomeAllocation(candidate, mission, assignment) {
-  const workerAssignment = require('./morphogenesisRolePromptValues1.js').validateBiomeAllocationValue7({ assignment });
-  const topology = String(require('./morphogenesisRolePromptValues1.js').validateBiomeAllocationValue10({ assignment, workerAssignment })).toLowerCase();
-  const role = String(require('./morphogenesisRolePromptValues1.js').validateBiomeAllocationValue5({ assignment, workerAssignment })).toLowerCase();
-  if (require('./morphogenesisRolePromptValues1.js').validateBiomeAllocationValue11({ role, topology })) return null;
+  const workerAssignment = require('./morphogenesisRolePromptRules.js').validateBiomeAllocationRule7({ assignment });
+  const topology = String(require('./morphogenesisRolePromptRules.js').validateBiomeAllocationRule10({ assignment, workerAssignment })).toLowerCase();
+  const role = String(require('./morphogenesisRolePromptRules.js').validateBiomeAllocationRule5({ assignment, workerAssignment })).toLowerCase();
+  if (require('./morphogenesisRolePromptRules.js').validateBiomeAllocationRule11({ role, topology })) return null;
   const source = String(mission || '').slice(0, 8192);
   const facts = allocationFacts(source);
-  if (require('./morphogenesisRolePromptValues1.js').validateBiomeAllocationValue9({ facts })) return null;
+  if (require('./morphogenesisRolePromptRules.js').validateBiomeAllocationRule9({ facts })) return null;
   let value = candidate;
-  { const __genosStageResult8 = require('./morphogenesisRolePromptStages1.js').validateBiomeAllocationStage8({ JSON, get value() { return value; }, set value(__genosNextStageValue) { value = __genosNextStageValue; } }); if (__genosStageResult8) return __genosStageResult8.value; }
+  { const workflowResult8 = require('./morphogenesisRolePromptWorkflow.js').validateBiomeAllocationStep8({ JSON, get value() { return value; }, set value(__genosNextStageValue) { value = __genosNextStageValue; } }); if (workflowResult8) return workflowResult8.value; }
   const bins = value && value.bins;
-  { const __genosStageResult6 = require('./morphogenesisRolePromptStages1.js').validateBiomeAllocationStage6({ Array, bins, facts }); if (__genosStageResult6) return __genosStageResult6.value; }
+  { const workflowResult6 = require('./morphogenesisRolePromptWorkflow.js').validateBiomeAllocationStep6({ Array, bins, facts }); if (workflowResult6) return workflowResult6.value; }
   const weights = new Map(facts.items.map(({ id, value: weight }) => [id, weight]));
   const seen = [];
   const issues = [];
   bins.forEach((bin, index) => {
-    { const __genosStageResult7 = require('./morphogenesisRolePromptStages1.js').validateBiomeAllocationStage7({ Array, bin, index, issues }); if (__genosStageResult7) return __genosStageResult7.value; }
+    { const workflowResult7 = require('./morphogenesisRolePromptWorkflow.js').validateBiomeAllocationStep7({ Array, bin, index, issues }); if (workflowResult7) return workflowResult7.value; }
     let sum = 0;
-    require('./morphogenesisRolePromptStages1.js').validateBiomeAllocationStage9({ String, bin, issues, seen, get sum() { return sum; }, set sum(__genosNextStageValue) { sum = __genosNextStageValue; }, weights });
+    require('./morphogenesisRolePromptWorkflow.js').validateBiomeAllocationStep9({ String, bin, issues, seen, get sum() { return sum; }, set sum(__genosNextStageValue) { sum = __genosNextStageValue; }, weights });
     if (sum > facts.capacity) issues.push(`candidate.bin_${index + 1}_over_capacity:${sum}`);
   });
   const expected = facts.items.map(({ id }) => id).sort();
@@ -67,32 +67,32 @@ function validateBiomeAllocation(candidate, mission, assignment) {
 }
 
 function morphogenesisWorkerAssignments(assignments, topology, mission) {
-  const mapperIndex = require('./morphogenesisRolePromptValues1.js').morphogenesisWorkerAssignmentsValue2({ Array, String, assignments });
-  const current = require('./morphogenesisRolePromptValues1.js').morphogenesisWorkerAssignmentsValue1({ Array, assignments, mapperIndex });
+  const mapperIndex = require('./morphogenesisRolePromptRules.js').morphogenesisWorkerAssignmentsRule2({ Array, String, assignments });
+  const current = require('./morphogenesisRolePromptRules.js').morphogenesisWorkerAssignmentsRule1({ Array, assignments, mapperIndex });
   const assignedTopology = current.topology || current.workerAssignment?.topology;
-  if (String(require('./morphogenesisRolePromptValues1.js').morphogenesisWorkerAssignmentsValue3({ assignedTopology, topology })).toLowerCase() !== 'biome') return assignments;
-  { const __genosStageResult1 = require('./morphogenesisRolePromptStages1.js').morphogenesisWorkerAssignmentsStage1({ Array, assignments, mapperIndex }); if (__genosStageResult1) return __genosStageResult1.value; }
+  if (String(require('./morphogenesisRolePromptRules.js').morphogenesisWorkerAssignmentsRule3({ assignedTopology, topology })).toLowerCase() !== 'biome') return assignments;
+  { const workflowResult1 = require('./morphogenesisRolePromptWorkflow.js').morphogenesisWorkerAssignmentsStep1({ Array, assignments, mapperIndex }); if (workflowResult1) return workflowResult1.value; }
   const methodId = String(current.methodContract?.methodId || '').toLowerCase();
-  { const __genosStageResult2 = require('./morphogenesisRolePromptStages1.js').morphogenesisWorkerAssignmentsStage2({ assignments, current, methodId }); if (__genosStageResult2) return __genosStageResult2.value; }
+  { const workflowResult2 = require('./morphogenesisRolePromptWorkflow.js').morphogenesisWorkerAssignmentsStep2({ assignments, current, methodId }); if (workflowResult2) return workflowResult2.value; }
   const source = String(mission || '').slice(0, 8192);
   const facts = allocationFacts(source);
-  if (require('./morphogenesisRolePromptValues1.js').morphogenesisWorkerAssignmentsValue4({ facts })) return assignments;
+  if (require('./morphogenesisRolePromptRules.js').morphogenesisWorkerAssignmentsRule4({ facts })) return assignments;
   const terms = facts.items.map(({ id, value }) => `${id}=${value}`);
   const groupTerm = source.match(/\b\d+\s+groupes?\b/i)?.[0];
   const capacityTerm = source.match(ALLOCATION_PATTERN_2)?.[0];
-  require('./morphogenesisRolePromptStages1.js').morphogenesisWorkerAssignmentsStage4({ groupTerm, terms });
-  require('./morphogenesisRolePromptStages1.js').morphogenesisWorkerAssignmentsStage5({ capacityTerm, terms });
+  require('./morphogenesisRolePromptWorkflow.js').morphogenesisWorkerAssignmentsStep4({ groupTerm, terms });
+  require('./morphogenesisRolePromptWorkflow.js').morphogenesisWorkerAssignmentsStep5({ capacityTerm, terms });
   const mapper = { ...current, methodContract: {
     version: 1, methodId: 'scan_literal', parameters: {
       sources: [{ sourceRef: 'mission', text: source }], terms: terms.slice(0, 20)
     }
   } };
-  { const __genosStageResult3 = require('./morphogenesisRolePromptStages1.js').morphogenesisWorkerAssignmentsStage3({ Array, assignments, mapper, mapperIndex }); if (__genosStageResult3) return __genosStageResult3.value; }
+  { const workflowResult3 = require('./morphogenesisRolePromptWorkflow.js').morphogenesisWorkerAssignmentsStep3({ Array, assignments, mapper, mapperIndex }); if (workflowResult3) return workflowResult3.value; }
   return { ...assignments, environment_mapper: mapper };
 }
 
 function bindBiomeMapperAssignment(assignment, mission) {
-  const workerAssignment = require('./morphogenesisRolePromptValues1.js').bindBiomeMapperAssignmentValue14({ assignment });
+  const workerAssignment = require('./morphogenesisRolePromptRules.js').bindBiomeMapperAssignment({ assignment });
   const role = String(assignment?.role || workerAssignment.topologyRole || '').toLowerCase();
   const topology = workerAssignment.topology || assignment?.morphologyTopology || 'biome';
   if (role !== 'environment_mapper' || String(topology).toLowerCase() !== 'biome') return assignment;
@@ -105,13 +105,13 @@ function bindBiomeMapperAssignment(assignment, mission) {
 }
 
 function morphogenesisMissionPrompt(assignment, mission) {
-  const workerAssignment = require('./morphogenesisRolePromptValues1.js').morphogenesisMissionPromptValue13({ assignment });
+  const workerAssignment = require('./morphogenesisRolePromptRules.js').morphogenesisMissionPromptRule13({ assignment });
   const topology = String(workerAssignment.topology || assignment?.morphologyTopology || '').toLowerCase();
-  const role = String(require('./morphogenesisRolePromptValues1.js').morphogenesisMissionPromptValue12({ assignment, workerAssignment })).toLowerCase();
+  const role = String(require('./morphogenesisRolePromptRules.js').morphogenesisMissionPromptRule12({ assignment, workerAssignment })).toLowerCase();
   if (topology !== 'biome' || !['environment_mapper', 'resource_steward'].includes(role)) return mission;
   const source = String(mission || '').replace(/\nRéponds au schéma de preuve GenOS complet:[\s\S]*$/i, '');
   const facts = allocationFacts(source);
-  if (require('./morphogenesisRolePromptValues1.js').morphogenesisMissionPromptValue16({ facts })) return mission;
+  if (require('./morphogenesisRolePromptRules.js').morphogenesisMissionPromptRule16({ facts })) return mission;
   const itemList = facts.items.map(({ id, value }) => `${id}=${value}`).join(',');
   const summary = `items=${itemList};count=${facts.items.length};groups=${facts.groups};max=${facts.capacity}`;
   if (role === 'environment_mapper') {

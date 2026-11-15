@@ -78,7 +78,7 @@ async function main() {
   let deterministicPass = false;
   try {
     ({ previousMission, resumedMission } = await buildMissionProfiles());
-    deterministicPass = require('./run-s23-qwenValues1.cjs').mainValue1({ get previousMission() { return previousMission; }, get resumedMission() { return resumedMission; } });
+    deterministicPass = require('./run-s23-qwenRules.cjs').main({ get previousMission() { return previousMission; }, get resumedMission() { return resumedMission; } });
     if (!deterministicPass) throw new Error('Social relation or its evidence did not survive the mission transition.');
     if (deterministicOnly) {
       const result = { campaignId: 'socialworld-qwen-20261022', scenario: 'S23', seed,

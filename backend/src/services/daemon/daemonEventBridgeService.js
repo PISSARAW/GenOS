@@ -52,7 +52,7 @@ async function applyCheapUpdate(bridge, event, receptor) {
   if (receptor.cheapUpdate === 'head') {
     return applyHeadUpdate(bridge, { ...event, rootPath: event.rootPath || stored.territory.rootPath });
   }
-  { const __genosStageResult1 = await require('./daemonEventBridgeServiceStages1.js').applyCheapUpdateStage1({ bridge, cartographer, event, markIndexStale, require, safeChangedFiles, stored }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = await require('./daemonEventBridgeServiceWorkflow.js').applyCheapUpdate({ bridge, cartographer, event, markIndexStale, require, safeChangedFiles, stored }); if (workflowResult1) return workflowResult1.value; }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
 }

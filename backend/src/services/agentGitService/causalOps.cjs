@@ -34,16 +34,16 @@ function checkDecisions(decisions) {
 
 function checkOutcomeInvariants(state) {
   const invariants = {};
-  require('./causalOpsStages1.cjs').checkOutcomeInvariantsStage2({ Array, checkBudgets, get invariants() { return invariants; }, set invariants(__genosNextStageValue) { invariants = __genosNextStageValue; }, state });
+  require('./causalOpsWorkflow.cjs').checkOutcomeInvariants({ Array, checkBudgets, get invariants() { return invariants; }, set invariants(nextValue) { invariants = nextValue; }, state });
   if (state.permissions && Array.isArray(state.permissions)) invariants.permissionsConsistent = checkPermissions(state.permissions);
   if (state.decisions && Array.isArray(state.decisions)) invariants.decisionsValid = checkDecisions(state.decisions);
   if (state.relations && Array.isArray(state.relations)) {
     const ids = new Set(state.relations.map((row) => row.id));
-    invariants.relationsConsistent = require('./causalOpsValues1.cjs').checkOutcomeInvariantsValue1({ Number, ids, state });
+    invariants.relationsConsistent = require('./causalOpsRules.cjs').checkOutcomeInvariantsRule1({ Number, ids, state });
   }
   if (state.epistemicClaims && Array.isArray(state.epistemicClaims)) {
     const { calibrate } = require('./epistemicClaimMerge.cjs');
-    invariants.claimsCalibrated = require('./causalOpsValues1.cjs').checkOutcomeInvariantsValue3({ JSON, Number, calibrate, state });
+    invariants.claimsCalibrated = require('./causalOpsRules.cjs').checkOutcomeInvariantsRule3({ JSON, Number, calibrate, state });
   }
   return invariants;
 }
@@ -97,7 +97,7 @@ async function buildCausalBlame(db, commit, section) {
 
   // Remonter les ancêtres : si un item existe déjà avec la même valeur, on
   // remonte l'attribution vers l'ancêtre (la valeur n'a pas changé depuis lui).
-  await require('./causalOpsStages1.cjs').buildCausalBlameStage1({ attribution, canonicalize, get current() { return current; }, set current(__genosNextStageValue) { current = __genosNextStageValue; }, db, getCommit, identityOf, require, section, sectionItems, undefined, visited });
+  await require('./causalOpsWorkflow.cjs').buildCausalBlame({ attribution, canonicalize, get current() { return current; }, set current(nextValue) { current = nextValue; }, db, getCommit, identityOf, require, section, sectionItems, undefined, visited });
 
   return Array.from(attribution.values()).map(({ commitId, item, createdAt, createdBy }) => ({
     commitId, item, createdAt, createdBy

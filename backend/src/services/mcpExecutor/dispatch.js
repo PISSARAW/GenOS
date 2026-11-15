@@ -125,7 +125,7 @@ function preValidateTool(context) {
   if (!directToolLeaseAllows(toolName, authorityLease) && !scopedReplay) return leaseDeniedResult(toolName, executionKind);
   const steric = stericCheck(toolName, args);
   if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
-  require('./dispatchStages1.js').preValidateToolStage1({ get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, steric });
+  require('./dispatchWorkflow.js').preValidateTool({ get context() { return context; }, set context(__genosNextStageValue) { context = __genosNextStageValue; }, steric });
   const argumentError = scopedReplay
     ? require('../mcpArgumentValidation').validateScopedReplayArguments(args)
     : validateToolArguments(toolName, args);
@@ -226,7 +226,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
   let stericDocking = null;
-  const scoped = require('./dispatchValues1.js').executeConfiguredTransportValue1({ hasConfiguredEndpoint, normalizedToolName, require, scopedReplayAllowed });
+  const scoped = require('./dispatchRules.js').executeConfiguredTransport({ hasConfiguredEndpoint, normalizedToolName, require, scopedReplayAllowed });
   const validationContext = { registry, toolName: normalizedToolName, args, executionKind, authorityLease, scopedReplayAllowed: scoped };
   const rejection = preValidateTool(validationContext);
   if (rejection) return rejection;

@@ -92,7 +92,7 @@ async function main() {
       duplicateDetected: true, rumorRejected: true };
     observed = { rootHash: secondHop.rootHash, recipients: receipts.map((row) => row.recipientAgentId),
       duplicateDetected: duplicate.duplicate, rumorRejected };
-    enginePass = require('./run-s25-qwenValues1.cjs').mainValue1({ chainValid, duplicate, get firstHop() { return firstHop; }, linked, get rumorRejected() { return rumorRejected; }, get secondHop() { return secondHop; }, source }) && receipts.length === 2;
+    enginePass = require('./run-s25-qwenRules.cjs').mainRule1({ chainValid, duplicate, get firstHop() { return firstHop; }, linked, get rumorRejected() { return rumorRejected; }, get secondHop() { return secondHop; }, source }) && receipts.length === 2;
     const response = await modelProvider.generate({ model: MODEL,
       prompt: ['Copy the GenOS social evidence propagation result. The same source reached B then neighbor C; a duplicate to C was detected and a forged provenance rumor was rejected.',
         `Evidence: ${JSON.stringify(observed)}`,
@@ -111,9 +111,9 @@ async function main() {
     saveResult(result); process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!passed) process.exitCode = 1;
   } catch (error) {
-    const result = require('./run-s25-qwenValues1.cjs').mainValue2({ Date, MODEL, get enginePass() { return enginePass; }, error, get firstHop() { return firstHop; }, get observed() { return observed; }, get qwenResponse() { return qwenResponse; }, get secondHop() { return secondHop; }, seed, sourceCommit, startedAt });
+    const result = require('./run-s25-qwenRules.cjs').mainRule2({ Date, MODEL, get enginePass() { return enginePass; }, error, get firstHop() { return firstHop; }, get observed() { return observed; }, get qwenResponse() { return qwenResponse; }, get secondHop() { return secondHop; }, seed, sourceCommit, startedAt });
     saveResult(result); process.stderr.write(`${JSON.stringify(result, null, 2)}\n`); process.exitCode = 1;
-  } finally { await require('./run-s25-qwenStages1.cjs').mainStage1({ closeDatabase, get db() { return db; }, set db(__genosNextStageValue) { db = __genosNextStageValue; } }); }
+  } finally { await require('./run-s25-qwenWorkflow.cjs').mainStep1({ closeDatabase, get db() { return db; }, set db(__genosNextStageValue) { db = __genosNextStageValue; } }); }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

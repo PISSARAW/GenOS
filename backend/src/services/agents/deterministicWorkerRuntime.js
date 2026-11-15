@@ -21,7 +21,7 @@ async function publish(db, mission, event) {
     throw failure;
   }
   recordWorkerEvidence(mission, event);
-  await require('./deterministicWorkerRuntimeStages1.js').publishStage1({ get event() { return event; }, set event(__genosNextStageValue) { event = __genosNextStageValue; }, mission, recordWorkerEvidence, require, undefined });
+  await require('./deterministicWorkerRuntimeWorkflow.js').publishDeterministicResult({ get event() { return event; }, set event(nextValue) { event = nextValue; }, mission, recordWorkerEvidence, require, undefined });
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) {
     await require('../agentRoundService').advanceAutonomousRound(mission, event);
   }

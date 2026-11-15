@@ -13,19 +13,19 @@ async function commitFromIndex(req, options = {}) {
   const data = JSON.parse(index.index_json);
   const stagedSections = stagedSectionNames(data);
   if (!stagedSections.length) return { success: false, error: 'No sections are staged.' };
-  const refName = require('./commitFromIndexValues1.cjs').commitFromIndexValue2({ options, req });
-  { const __genosStageResult2 = require('./commitFromIndexStages1.cjs').commitFromIndexStage2({ Number, data, refName }); if (__genosStageResult2) return __genosStageResult2.value; }
+  const refName = require('./commitFromIndexRules.cjs').commitFromIndexRule2({ options, req });
+  { const workflowResult2 = require('./commitFromIndexWorkflow.cjs').commitFromIndexStep2({ Number, data, refName }); if (workflowResult2) return workflowResult2.value; }
   const ref = await db.get('SELECT object_id, version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, refName);
-  if (require('./commitFromIndexValues1.cjs').commitFromIndexValue1({ Number, data, ref })) {
+  if (require('./commitFromIndexRules.cjs').commitFromIndexRule1({ Number, data, ref })) {
     return { success: false, error: 'Ref moved since staging; stage again.' };
   }
   const currentState = await collectState(db, req, agentId);
   if (!currentState) return { success: false, error: 'Agent is unavailable in the current tenant.' };
   const parent = data.baseObjectId ? await getObject(db, req, data.baseObjectId) : null;
-  if (require('./commitFromIndexValues1.cjs').commitFromIndexValue3({ agentId, data, parent })) {
+  if (require('./commitFromIndexRules.cjs').commitFromIndexRule3({ agentId, data, parent })) {
     return { success: false, error: 'Staged parent is unavailable in the current scope.' };
   }
-  { const __genosStageResult1 = require('./commitFromIndexStages1.cjs').commitFromIndexStage1({ parent, require }); if (__genosStageResult1) return __genosStageResult1.value; }
+  { const workflowResult1 = require('./commitFromIndexWorkflow.cjs').commitFromIndexStep1({ parent, require }); if (workflowResult1) return workflowResult1.value; }
   const baseState = stagedBaseState(parent);
   const state = buildStateFromIndex({ index: { ...index, index_json: JSON.stringify(data) }, agentId: agentId, currentState: currentState, baseState: baseState });
   const result = await createCommit(req, {
