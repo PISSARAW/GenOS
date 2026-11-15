@@ -123,7 +123,7 @@ async function insertWorker(state) {
 
 async function recordLineage(state) {
   const { db, parent, context, id } = state;
-  await agentEvolution.recordWorkerLineage(db, {
+  const result = await agentEvolution.recordWorkerLineage(db, {
     agentId: id,
     name: forkName(context.orchestratorId),
     role: pick(context.role, 'worker'),
@@ -131,7 +131,8 @@ async function recordLineage(state) {
   }, {
     parentId: context.orchestratorId,
     edgeType: 'fork'
-  }).catch(() => {});
+  });
+  if (!result.success) throw new Error(`Fork lineage persistence failed: ${result.error}`);
 }
 
 async function reserveWorkerSlot(state) {

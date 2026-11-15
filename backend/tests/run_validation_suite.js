@@ -304,6 +304,7 @@ const suites = {
   ],
   relationalPhysiology: [
     ['agent relationship integration regressions', 'test_agent_relation_regressions.js'],
+    ['worker relations end to end', 'test_worker_relations_e2e.cjs'],
     ['organization message tenant isolation', 'test_agent_message_scope.js'],
     ['relational physiology core', 'relationalPhysiology/core.test.cjs'],
     ['relational physiology communication', 'relationalPhysiology/communication.test.cjs'],

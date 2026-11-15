@@ -12,17 +12,40 @@ const geneticsService = require('../geneticsService');
 const agentEvolutionService = require('../agentEvolutionService');
 const genosCli = require('../genosCli');
 
+async function resolveParentB(db, input) {
+  if (input.context.parentB) return input.context.parentB;
+  return require('../breedingRelationshipService').selectPartner(db, {
+    parentA: input.parentA, workspaceId: input.workspaceId, scope: input.scope
+  });
+}
+
+async function validateBreedingPair(db, input) {
+  return require('../breedingRelationshipService').assertCompatible(db, {
+    parentA: input.parentA, parentB: input.parentB, scope: input.scope,
+    allowRelatedParents: input.context.allowRelatedParents === true,
+    requirePartnerRelation: input.context.requirePartnerRelation === true
+  });
+}
+
 async function loadBreedingParents(db, context) {
   const parentA = context.parentA || context.agentId;
-  const parentB = context.parentB;
-  if (!parentA || !parentB) return { error: 'parentA and parentB required for breeding.' };
+  if (!parentA) return { error: 'parentA required for breeding.' };
   const rowA = await db.get('SELECT id, name, name_meaning, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
+  if (!rowA) return { error: 'Parent A not found.' };
+  const scope = await require('../workerRelationProjectionService').workspaceScope(db, rowA.workspace_id);
+  let parentB;
+  try {
+    parentB = await resolveParentB(db, { context, parentA, workspaceId: rowA.workspace_id, scope });
+  } catch (error) { return { error: error.message, code: error.code }; }
   const rowB = await db.get('SELECT id, name, name_meaning, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentB);
-  if (!rowA || !rowB) return { error: 'One or both parents not found.' };
+  if (!rowB) return { error: 'Parent B not found.' };
   if (rowA.workspace_id !== rowB.workspace_id) return { error: 'Parents must belong to the same workspace.' };
   if (context.workspaceId && rowA.workspace_id !== context.workspaceId) {
     return { error: 'Parent workspace does not match the requested workspace.' };
   }
+  try {
+    await validateBreedingPair(db, { context, parentA, parentB, scope });
+  } catch (error) { return { error: error.message, code: error.code }; }
   return { parentA, parentB, rowA, rowB };
 }
 
@@ -134,6 +157,7 @@ function buildLineagePayload(options) {
   const { params, childRecomb, nativeRecomb, rowA, rowB, parentA, parentB } = options;
   return {
     parentIds: [parentA, parentB],
+    edgeType: 'crossover_lineage',
     parents: { parentA: rowA.id, parentB: rowB.id },
     genes: childRecomb.childGenes,
     mutations: childRecomb.mutations,

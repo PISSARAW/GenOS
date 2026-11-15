@@ -111,8 +111,18 @@ function pushExploratoryMutation(mutations, parent, context) {
   }
 }
 
+function sourceGenes(parent, context) {
+  if (parent.genes) return parent.genes;
+  return { role: parent.role || 'worker', strategy: context.strategy || 'tree-search',
+    tools: ['genos_inspect'], temp: 0.45, topP: 0.9 };
+}
+
+function invalidDescriptorResult(result) {
+  return result.rejected.length > 0 || result.applied.length === 0;
+}
+
 async function persistMutant(db, options) {
-  const { parent, mutatedTask, mutantId, mutations, evolved, descriptorResult } = options;
+  const { parent, mutatedTask, mutantId, mutations, descriptorResult } = options;
   const ownerId = parent.execution_mode === 'worker' && parent.parent_agent_id ? parent.parent_agent_id : options.agentId;
   try {
     await withTransaction(db, async () => {
@@ -123,7 +133,8 @@ async function persistMutant(db, options) {
       const lineageResult = await agentEvolutionService.recordWorkerLineage(
         db,
         { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + options.agentId, role: 'mutant' },
-        { parentId: options.agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
+        { parentId: options.agentId, edgeType: 'mutation', genes: descriptorResult.genes,
+          mutations: [...mutations, ...descriptorResult.applied] }
       );
       if (!lineageResult.success) throw new Error(`Mutation lineage persistence failed: ${lineageResult.error}`);
     });
@@ -141,13 +152,8 @@ async function mutate(context) {
   const parent = loaded.parent;
   const mutations = Array.isArray(context.mutations) ? [...context.mutations] : [];
   if (mutations.length === 0) pushExploratoryMutation(mutations, parent, context);
-  const evolved = await agentEvolutionService.evolveWorkerGenome(parent, { role: context.role || 'mutant' }, {
-    strategy: context.strategy,
-    crossoverStrategy: context.crossoverStrategy,
-    mutationRate: context.mutationRate
-  });
-  const descriptorResult = applyMutationDescriptors(evolved.genes, mutations);
-  if (descriptorResult.rejected.length > 0 || descriptorResult.applied.length === 0) {
+  const descriptorResult = applyMutationDescriptors(sourceGenes(parent, context), mutations);
+  if (invalidDescriptorResult(descriptorResult)) {
     return {
       success: false,
       error: 'Mutation descriptors were invalid or produced no change.',
@@ -156,7 +162,8 @@ async function mutate(context) {
   }
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
   const mutantId = 'mutant_' + crypto.randomUUID();
-  const persisted = await persistMutant(db, { agentId, parent, mutatedTask, mutantId, mutations, evolved, descriptorResult });
+  const persisted = await persistMutant(db, { agentId, parent, mutatedTask, mutantId,
+    mutations, descriptorResult });
   if (!persisted.success) return persisted;
   telemetry.emitEvent({
     eventType: 'EVOLUTION_MUTATION',
@@ -164,9 +171,11 @@ async function mutate(context) {
     action: 'MUTATE',
     detail: 'Created mutant ' + mutantId + ' with perturbation: ' + mutations.join('; '),
     severity: 'info',
-    payload: { mutantId, mutations, appliedMutations: descriptorResult.applied, genes: descriptorResult.genes, predictedFitness: evolved.predictedFitness }
+    payload: { mutantId, mutations, appliedMutations: descriptorResult.applied,
+      genes: descriptorResult.genes, predictedFitness: null }
   });
-  return { success: true, mutantId, mutatedTask, genes: descriptorResult.genes, appliedMutations: descriptorResult.applied, predictedFitness: evolved.predictedFitness };
+  return { success: true, mutantId, mutatedTask, genes: descriptorResult.genes,
+    appliedMutations: descriptorResult.applied, predictedFitness: null };
 }
 
 async function loadCurrentGeneValue(db, agentId, targetGene) {

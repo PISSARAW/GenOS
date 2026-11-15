@@ -49,10 +49,11 @@ async function recordFamilyEvent(db, params) {
     throw new Error(`Invalid family event type. Must be one of: ${validTypes.join(', ')}`);
   }
 
-  const id = uuid();
+  const id = params.id || uuid();
   await db.run(
     `INSERT INTO ${FAMILY_TABLE} (id, agent_id, parent_id, event_type, narrative, inherited_traits_json, mutation_reason, generation, branch_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO NOTHING`,
     id, agentId, parentId, eventType, narrative, JSON.stringify(inheritedTraits), mutationReason, generation, branchId
   );
 
@@ -63,36 +64,34 @@ async function getAncestry(db, agentId, maxDepth) {
   await ensureFamilySchema(db);
   maxDepth = maxDepth || 5;
   const ancestry = [];
-  let currentId = agentId;
-  let depth = 0;
-
-  while (currentId && depth < maxDepth) {
+  const frontier = [{ agentId, depth: 0 }];
+  const seen = new Set();
+  while (frontier.length) {
+    const current = frontier.shift();
+    if (seen.has(current.agentId) || current.depth >= maxDepth) continue;
+    seen.add(current.agentId);
     const events = await db.all(
       `SELECT * FROM ${FAMILY_TABLE} WHERE agent_id = ? ORDER BY created_at ASC`,
-      currentId
+      current.agentId
     );
-    if (!events || events.length === 0) break;
-    ancestry.push({ agentId: currentId, events, parents: extractParents(events) });
-    currentId = findParentId(events);
-    depth++;
+    if (!events || events.length === 0) continue;
+    const parents = extractParents(events);
+    ancestry.push({ agentId: current.agentId, events, parents, depth: current.depth });
+    for (const parentId of parents) frontier.push({ agentId: parentId, depth: current.depth + 1 });
   }
-
   return ancestry;
 }
 
 function extractParents(events) {
-  const result = [];
+  const result = new Set();
   for (const e of events) {
-    if (e.parent_id) result.push(e.parent_id);
+    if (e.parent_id) result.add(e.parent_id);
+    try {
+      const inherited = JSON.parse(e.inherited_traits_json || '{}');
+      for (const parentId of inherited.parentIds || []) result.add(parentId);
+    } catch (_) {}
   }
-  return result;
-}
-
-function findParentId(events) {
-  for (const e of events) {
-    if (e.parent_id) return e.parent_id;
-  }
-  return null;
+  return [...result];
 }
 
 async function getDescendants(db, agentId, maxDepth) {
@@ -103,18 +102,24 @@ async function getDescendants(db, agentId, maxDepth) {
   let depth = 0;
 
   while (currentLevel.length > 0 && depth < maxDepth) {
-    const nextLevel = [];
+    const nextLevel = new Set();
+    const levelDescendants = new Map();
     for (const id of currentLevel) {
       const events = await db.all(
         `SELECT * FROM ${FAMILY_TABLE} WHERE parent_id = ? ORDER BY created_at ASC`,
         id
       );
       for (const e of events) {
-        descendants.push({ agentId: e.agent_id, parentId: id, eventType: e.event_type, generation: e.generation, branchId: e.branch_id, when: e.created_at });
-        nextLevel.push(e.agent_id);
+        if (!levelDescendants.has(e.agent_id)) {
+          levelDescendants.set(e.agent_id, { agentId: e.agent_id, parentId: id,
+            eventType: e.event_type, generation: e.generation, branchId: e.branch_id,
+            when: e.created_at });
+        }
+        nextLevel.add(e.agent_id);
       }
     }
-    currentLevel = nextLevel;
+    descendants.push(...levelDescendants.values());
+    currentLevel = [...nextLevel];
     depth++;
   }
 
@@ -131,7 +136,7 @@ function buildAncestryStory(ancestry) {
   const lines = [];
   for (let i = ancestry.length - 1; i >= 0; i--) {
     const level = ancestry[i];
-    const gen = level.events[0]?.generation ?? (ancestry.length - 1 - i);
+    const gen = level.events[0]?.generation ?? level.depth;
     const parentIds = extractParents(level.events);
     if (parentIds.length > 0) {
       lines.push(`Génération ${gen} : ascendant(s) ${parentIds.join(', ')}.`);
@@ -162,18 +167,21 @@ async function buildFamilyStory(db, agentId, opts) {
   const descendants = await getDescendants(db, agentId, maxDepth);
 
   const story = [];
-  const rootEvents = ancestry.length > 0 ? ancestry[ancestry.length - 1].events : [];
+  const root = ancestry.filter((level) => level.parents.length === 0)
+    .sort((left, right) => right.depth - left.depth)[0];
+  const rootEvents = root?.events || [];
   story.push(buildOriginStory(rootEvents));
   story.push(...buildAncestryStory(ancestry));
   story.push(...buildDescendantsStory(descendants));
 
   return {
     agentId,
-    ancestryDepth: ancestry.length,
+    ancestryDepth: ancestryDepth(ancestry),
     descendantCount: descendants.length,
     narrative: story.join('\n'),
     continuity: evaluateFamilyContinuity(ancestry, descendants),
-    ancestry: ancestry.map(a => ({ agentId: a.agentId, eventCount: a.events.length, parents: a.parents })),
+    ancestry: ancestry.map(a => ({ agentId: a.agentId, eventCount: a.events.length,
+      parents: a.parents, depth: a.depth })),
     descendants: descendants.map(d => ({ agentId: d.agentId, eventType: d.eventType, generation: d.generation }))
   };
 }
@@ -185,11 +193,15 @@ function findEventByType(events, type) {
   return null;
 }
 
+function ancestryDepth(ancestry) {
+  return ancestry.reduce((maximum, level) => Math.max(maximum, level.depth + 1), 0);
+}
+
 function evaluateFamilyContinuity(ancestry, descendants) {
   return {
     hasAncestor: ancestry.length > 0,
     hasDescendant: descendants.length > 0,
-    maxDepth: ancestry.length,
+    maxDepth: ancestryDepth(ancestry),
     lineageComplete: isLineageComplete(ancestry),
     hasMutationEvents: hasEventOfType(ancestry, 'mutation'),
     hasMergeEvents: hasEventOfType(ancestry, 'merge'),
@@ -199,8 +211,8 @@ function evaluateFamilyContinuity(ancestry, descendants) {
 
 function isLineageComplete(ancestry) {
   if (ancestry.length === 0) return false;
-  const rootLevel = ancestry[ancestry.length - 1];
-  return hasEventInList(rootLevel.events, 'birth');
+  const roots = ancestry.filter((level) => level.parents.length === 0);
+  return roots.length > 0 && roots.every((level) => hasEventInList(level.events, 'birth'));
 }
 
 function hasEventInList(events, type) {
@@ -250,7 +262,7 @@ function findCommonAncestor(ancestryA, ancestryB, ancestorsA) {
 
 function findDepth(ancestry, parentId) {
   for (let i = 0; i < ancestry.length; i++) {
-    if (ancestry[i].parents.includes(parentId)) return i;
+    if (ancestry[i].parents.includes(parentId)) return ancestry[i].depth;
   }
   return 0;
 }

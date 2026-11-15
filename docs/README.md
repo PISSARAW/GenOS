@@ -2,6 +2,8 @@
 
 - [Profils de dépendances](03-reference/profils-dependances.md) — installation `core` allégée, profil `full` compatible et capacités chargées à la demande.
 
+- [Relations causales entre workers](adr/0800-projection-transactionnelle-relations-workers.md) — projection atomique de la lignée vers la famille et l'organisation, mutations ciblées, amitié prouvée et autorité inchangée.
+
 - [Le Dernier Sas — reprise du 5 novembre](06-qualite-preuves/dernier-sas-reprise-sept-protocoles-2026-11-05.md) — diagnostic, correctifs GQEL et preuves d’exécution.
 
 - [ADR : citations indexées GQEL](adr/2026-11-05-citations-indexees-relectures-gqel.md) — sélection bornée et résolution exacte dans la source.

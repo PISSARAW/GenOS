@@ -1,5 +1,7 @@
 'use strict';
 
+const FRIENDSHIP_ORIGINS = new Set(['colleague', 'coworker', 'collaborator', 'neighbor']);
+
 function requiredText(value, field) {
   const text = String(value || '').trim();
   if (!text) throw new Error(`${field} is required.`);
@@ -22,7 +24,8 @@ function resultOf(run) {
 
 async function loadRelation(db, relationId, scope) {
   const relation = await db.get(
-    `SELECT id, target_agent_id AS targetAgentId, metadata_json AS metadataJson
+    `SELECT id, target_agent_id AS targetAgentId, relation_type AS relationType,
+       relation_class AS relationClass, metadata_json AS metadataJson
      FROM agent_relations WHERE id = ? AND organization_id = ? AND project_id = ?`,
     [relationId, scope.organizationId, scope.projectId]);
   if (!relation) throw Object.assign(new Error('Relation is outside the requested scope.'), { code: 'RELATION_NOT_FOUND' });
@@ -49,6 +52,15 @@ async function aggregateEvidence({ db, relation, scope, domain } = {}) {
   return { outcomes, successes, failures, trust: Number(((1 + successes) / (2 + outcomes.length)).toFixed(6)) };
 }
 
+function friendshipPromotion(relation, aggregate) {
+  return FRIENDSHIP_ORIGINS.has(relation.relationType)
+    && aggregate.outcomes.length >= 3 && aggregate.trust >= 0.75;
+}
+
+function promotedType(relation, promoted) {
+  return promoted ? 'friend' : relation.relationType;
+}
+
 async function updateRelationEvidence({ db, relation, domain, aggregate } = {}) {
   let metadata;
   try { metadata = JSON.parse(relation.metadataJson || '{}'); }
@@ -57,9 +69,22 @@ async function updateRelationEvidence({ db, relation, domain, aggregate } = {}) 
   const learningEvidence = { ...(metadata.learningEvidence || {}), [domain]: aggregate.outcomes.map((item) => item.id) };
   metadata.trustByDomain = trustByDomain;
   metadata.learningEvidence = learningEvidence;
-  await db.run('UPDATE agent_relations SET trust_for_domain = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [JSON.stringify(trustByDomain), JSON.stringify(metadata), relation.id]);
-  return { trustByDomain, learningEvidence };
+  const promoted = friendshipPromotion(relation, aggregate);
+  if (promoted) metadata.friendship = { status: 'established',
+    evidenceRunIds: aggregate.outcomes.map((item) => item.id) };
+  if (promoted) {
+    metadata.interactionCount = aggregate.outcomes.length;
+    metadata.sharedHistory = aggregate.successes / aggregate.outcomes.length;
+    metadata.familiarity = aggregate.trust;
+  }
+  await db.run(`UPDATE agent_relations SET trust_for_domain = ?, metadata_json = ?,
+    relation_type = ?, relation_class = ?, interaction_count = ?, shared_history = ?,
+    familiarity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  [aggregate.trust, JSON.stringify(metadata), promotedType(relation, promoted),
+    promoted ? 'social' : relation.relationClass,
+    metadata.interactionCount, metadata.sharedHistory, metadata.familiarity, relation.id]);
+  return { trustByDomain, learningEvidence,
+    relationType: promotedType(relation, promoted), promoted };
 }
 
 async function recordEvaluationOutcome(input = {}) {
@@ -76,6 +101,7 @@ async function recordEvaluationOutcome(input = {}) {
     const persisted = await updateRelationEvidence({ db: tx, relation: relation, domain: domain, aggregate: aggregate });
     return { relationId, domain, evaluationRunId, current, outcomes: aggregate.outcomes,
       successes: aggregate.successes, failures: aggregate.failures, trust: aggregate.trust,
+      relationType: persisted.relationType, friendshipPromoted: persisted.promoted,
       persisted: persisted.trustByDomain[domain] === aggregate.trust };
   });
 }

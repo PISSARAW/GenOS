@@ -5,6 +5,7 @@ const { ROLES, TYPES, ACKS } = require('./catalog');
 
 const ACTIVE = new Set(['idle', 'running', 'Active']);
 const LIMIT = 2048;
+const ROLE_ALIASES = Object.freeze({ offspring: 'adaptive_worker', mutant: 'adaptive_worker' });
 
 function checkedRows(rows, limit) {
   if (rows.length > limit) throw new Error('RPE_SCOPE_GRAPH_TOO_LARGE');
@@ -16,7 +17,8 @@ function agentState(row) {
 }
 
 function agentRole(row) {
-  const role = String(row.role || '').trim().toLowerCase().replace(/[- ]/g, '_');
+  const raw = String(row.role || '').trim().toLowerCase().replace(/[- ]/g, '_');
+  const role = ROLE_ALIASES[raw] || raw;
   if (!ROLES.includes(role)) throw new Error('RPE_UNMAPPED_AGENT_ROLE');
   return role;
 }

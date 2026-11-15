@@ -276,12 +276,12 @@ async function persistWorker(db, details) {
         if (debit.changes !== 1) {
           throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
         }
-        // Hypostatisation : enregistrer le worker comme entité autonome issue d'un attribut de l'orchestrateur
         const { hypostatize } = require('./ontologyHypostatization');
         const hypostasis = await hypostatize(parent.id, 'worker_capacity', {
           hypostasisType: 'worker_spawn',
           targetConfig: { id },
         });
+        await require('./workerLineagePersistence').persist(db, details);
         emit(parent.id, 'WORKER_HYPOSTATIZED', 'HYPOSTASIS', `Worker '${identity.name}' hypostatized from orchestrator '${parent.id}'.`, { workerId: id, hypostasisId: hypostasis.id, role: assignment.role }, 'info');
       });
       return;

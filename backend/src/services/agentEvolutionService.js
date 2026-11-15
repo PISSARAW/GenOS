@@ -5,7 +5,7 @@
  */
 
 const genetics = require('./geneticsService');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const genomeEventLog = require('./genomeEventLog');
 
 function resolveArchetypeGenes(role = 'worker') {
@@ -211,30 +211,27 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
   if (!db || !workerInfo?.agentId) return { success: false, error: 'Database and agentId are required.' };
   const workspaceId = workerInfo.workspaceId;
   if (!workspaceId) return { success: false, error: 'workspaceId is required for lineage persistence.' };
-  const parentIds = collectParentIds(options);
-  for (const parentId of parentIds) {
-    const check = await validateLineageParent(db, parentId, workerInfo);
-    if (!check.success) return { success: false, error: check.error };
-  }
-  const metadata = buildLineageMetadata(options);
-  const validatedScore = toValidatedScore(options.validatedFitness);
   try {
-    await db.run(
-      `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary, metadata)
-       VALUES (?, ?, ?, 'agent', ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET score = excluded.score, metadata = excluded.metadata`,
-      workerInfo.agentId,
-      workspaceId,
-      workerInfo.name || workerInfo.agentId,
-      validatedScore,
-      `Evolved worker: ${workerInfo.role || 'specialist'}`,
-      metadata
-    );
-    await insertLineageEdges(db, {
-      workspaceId,
-      parentIds,
-      agentId: workerInfo.agentId,
-      edgeType: options.edgeType
+    await withTransaction(db, async (tx) => {
+      const parentIds = collectParentIds(options);
+      for (const parentId of parentIds) {
+        const check = await validateLineageParent(tx, parentId, workerInfo);
+        if (!check.success) throw new Error(check.error);
+      }
+      await tx.run(
+        `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary, metadata)
+         VALUES (?, ?, ?, 'agent', ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET score = excluded.score, metadata = excluded.metadata`,
+        workerInfo.agentId, workspaceId, workerInfo.name || workerInfo.agentId,
+        toValidatedScore(options.validatedFitness),
+        `Evolved worker: ${workerInfo.role || 'specialist'}`, buildLineageMetadata(options)
+      );
+      await insertLineageEdges(tx, { workspaceId, parentIds, agentId: workerInfo.agentId,
+        edgeType: options.edgeType });
+      await require('./workerRelationProjectionService').projectLineage(tx, {
+        workspaceId, parentIds, agentId: workerInfo.agentId, edgeType: options.edgeType,
+        genes: options.genes, mutations: options.mutations
+      });
     });
     return { success: true };
   } catch (err) {

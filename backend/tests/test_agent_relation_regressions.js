@@ -139,20 +139,20 @@ test('relation learning updates only the exact organization and project includin
   await learning.learnFromOutcome({ db, ...scope, senderId: sender, receiverId: receiver, actionTaken: true });
   const rows = await db.all("SELECT id, familiarity, interaction_count FROM agent_relations WHERE id LIKE 'learn-%' ORDER BY id");
   for (const row of rows) {
-    assert.equal(row.interaction_count, row.id === 'learn-p1' ? 13 : 12);
-    assert.equal(row.familiarity, row.id === 'learn-p1' ? 0.75 : 0.7);
+    assert.equal(row.interaction_count, row.id === 'learn-p1' ? 1 : 0);
+    assert.equal(row.familiarity, row.id === 'learn-p1' ? 0.05 : 0);
   }
   await learning.learnFromOutcome({ db, senderId: sender, receiverId: receiver, actionTaken: true });
   const scoped = await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-p1'");
   const unscoped = await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-null'");
-  assert.equal(scoped.interaction_count, 13);
-  assert.equal(unscoped.interaction_count, 13);
+  assert.equal(scoped.interaction_count, 1);
+  assert.equal(unscoped.interaction_count, 1);
   await relations.createRelation({ db, ...scope, id: 'learn-same-scope',
     sourceAgentId: sender, targetAgentId: receiver, relationType: 'friend' });
   await learning.learnFromOutcome({ db, ...scope, relationId: 'learn-p1',
     senderId: sender, receiverId: receiver, actionTaken: true });
-  assert.equal((await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-same-scope'")).interaction_count, 12);
-  assert.equal((await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-p1'")).interaction_count, 14);
+  assert.equal((await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-same-scope'")).interaction_count, 0);
+  assert.equal((await db.get("SELECT interaction_count FROM agent_relations WHERE id = 'learn-p1'")).interaction_count, 2);
 });
 
 test('unknown relationships remain unknown and cannot satisfy an independence request', async () => {
