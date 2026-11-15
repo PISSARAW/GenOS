@@ -16,7 +16,11 @@ async function composeBiologicalMode({ db, context, mode, mission }) {
     db, orchestratorId: context.orchestratorId, mode, mission,
     options: { agentCount, clusterSize, fanout, organization, workerAssignments, variantId,
       available, scope: context.request.scope, configuration: context.request.configuration,
-      sessionOptions: context.request.sessionOptions, missionId: context.missionId }
+      sessionOptions: context.request.sessionOptions, missionId: context.missionId,
+      population: context.request.population,
+      memberCandidates: context.request.member_candidates || context.request.memberCandidates,
+      questionType: context.request.question_type || context.request.questionType,
+      constitution: context.request.constitution }
   });
 }
 

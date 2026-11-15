@@ -44,12 +44,14 @@ async function collectJudgments({ context, session, participants, delphi, invoke
   const committed = new Set(commitments.map((item) => item.memberId));
   const quarantined = [];
   for (const member of participants.filter((item) => !committed.has(item.memberId))) {
+    const workerContribution = contributionFor(context.workerContributions, member.memberId);
     const judgment = await invokeMember(context, {
       member, phase: 'SEALED_JUDGMENT',
       task: delphi ? 'Review anonymous prior-round feedback. Revise or maintain your judgment with reasons and evidence.'
         : 'Form an independent initial judgment.',
       details: delphi ? { anonymousFeedback: delphi.feedback,
-        priorPosition: delphi.previousByMember.get(member.memberId) } : {}
+        priorPosition: delphi.previousByMember.get(member.memberId), workerContribution }
+        : { workerContribution }
     });
     if (context.variantPolicy?.quarantineAware) {
       const result = await variantOrchestrator.quarantineIfRequired({ ...context, session, member, judgment });
@@ -59,6 +61,11 @@ async function collectJudgments({ context, session, participants, delphi, invoke
       memberId: member.memberId, judgment: judgment.judgment || judgment });
   }
   return quarantined;
+}
+
+function contributionFor(contributions, memberId) {
+  if (contributions instanceof Map) return contributions.get(memberId) || null;
+  return contributions?.[memberId] || null;
 }
 
 module.exports = { collect };

@@ -3,10 +3,10 @@
 const assert = require('node:assert/strict');
 const { applyTopologyResults } = require('../src/services/topology/topologyResultApplier.cjs');
 
-async function unavailableFailsClosed() {
+async function biocenoseFailsClosedWithoutWorkerEvidence() {
   const result = await applyTopologyResults({ mode: 'biocenose' });
   assert.deepEqual(result, { applied: false, status: 'BLOCKED',
-    reason: 'TOPOLOGY_RESULT_APPLIER_UNAVAILABLE', mode: 'biocenose' });
+    reason: 'BIOCENOSE_VERIFIED_WORKER_EVIDENCE_REQUIRED', mode: 'biocenose' });
 }
 
 async function injectedApplierIsObserved() {
@@ -29,7 +29,7 @@ async function applierErrorsPropagate() {
 }
 
 async function main() {
-  await unavailableFailsClosed();
+  await biocenoseFailsClosedWithoutWorkerEvidence();
   await injectedApplierIsObserved();
   await applierErrorsPropagate();
   process.stdout.write('Topology result applier: PASS\n');
