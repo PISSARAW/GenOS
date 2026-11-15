@@ -10,11 +10,12 @@
  *  - scanTerritory : full walk (cold start, rebuild) ;
  *  - updateFiles : invalidate + re-index des fichiers changés.
  *
- * Bornes : 2000 fichiers max, 200KB par fichier, dossiers
+ * Bornes : 25000 fichiers max, 200KB par fichier, dossiers
  * build exclus. Tout le reste est indexé comme file brut.
  */
 
 const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const territoryFiles = require('./territoryFiles');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -25,8 +26,9 @@ const { migrateTerritoryGraph } = require('../../../db/migrations/migrateTerrito
 const { withTransaction } = require('../../../db');
 const { migrateDaemonTerritory } = require('../../../db/migrations/migrateDaemonTerritory');
 
-const MAX_FILES = 2000;
+const MAX_FILES = 25000;
 const MAX_FILE_BYTES = 200 * 1024;
+const SCAN_BATCH_SIZE = 100;
 const SKIP_DIRS = territoryFiles.EXCLUDED;
 const JS_EXTENSIONS = new Set(['.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx']);
 
@@ -42,15 +44,34 @@ function toRelPosix(rootPath, absPath) {
   return path.relative(rootPath, absPath).split(path.sep).join('/');
 }
 
-function walkFiles(rootPath, scopePath) {
+function walkFiles(rootPath, scopePath, maxFiles = MAX_FILES) {
   if (!territoryFiles.validScope(rootPath, scopePath)) return [];
+  const gitFiles = listGitFiles(rootPath, scopePath, maxFiles);
+  if (gitFiles) return gitFiles;
   const base = path.resolve(rootPath, scopePath.replace(/^[/\\]+/, ''));
   const out = [];
-  walkDir(base, rootPath, out);
+  walkDir(base, { rootPath, out, maxFiles });
   return out;
 }
 
-function walkDir(current, rootPath, out) {
+function listGitFiles(rootPath, scopePath, maxFiles) {
+  const scope = String(scopePath || '/').replaceAll('\\', '/').replace(/^\/+|\/+$/g, '');
+  const args = ['-C', rootPath, 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--'];
+  if (scope) args.push(scope);
+  try {
+    const output = execFileSync('git', args, {
+      encoding: 'utf8', timeout: 10000, windowsHide: true, maxBuffer: 16 * 1024 * 1024
+    });
+    return output.split('\0').filter(Boolean)
+      .filter((file) => !file.split('/').some((part) => SKIP_DIRS.has(part)))
+      .filter((file) => territoryFiles.safeFile(rootPath, file, scopePath))
+      .slice(0, maxFiles + 1);
+  } catch (_) {
+    return null;
+  }
+}
+
+function walkDir(current, context) {
   let entries = [];
   try {
     entries = fs.readdirSync(current, { withFileTypes: true });
@@ -58,11 +79,11 @@ function walkDir(current, rootPath, out) {
     return;
   }
   for (const entry of entries) {
-    if (out.length > MAX_FILES) return;
+    if (context.out.length > context.maxFiles) return;
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.genos-')) walkDir(path.join(current, entry.name), rootPath, out);
+      if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.genos-')) walkDir(path.join(current, entry.name), context);
     } else if (entry.isFile()) {
-      out.push(toRelPosix(rootPath, path.join(current, entry.name)));
+      context.out.push(toRelPosix(context.rootPath, path.join(current, entry.name)));
     }
   }
 }
@@ -197,24 +218,49 @@ async function scanTerritory(db, args) {
   const territory = await db.get('SELECT root_path FROM daemon_territories WHERE id = ?', args.territoryId);
   if (!territory || path.resolve(territory.root_path) !== path.resolve(args.rootPath)) return { scanned: false, reason: 'territory-root-mismatch' };
   await migrateTerritoryGraph(db);
-  const files = walkFiles(args.rootPath, args.scopePath || '/');
-  return withTransaction(db, () => rebuildGraph(db, { ...args, files }));
+  const maxFiles = args.maxFiles || MAX_FILES;
+  const files = walkFiles(args.rootPath, args.scopePath || '/', maxFiles);
+  return rebuildGraph(db, { ...args, files, maxFiles });
 }
 
 async function rebuildGraph(db, args) {
-  await db.run('DELETE FROM territory_graph_edges WHERE territory_id = ?', args.territoryId);
-  await db.run('DELETE FROM territory_graph_nodes WHERE territory_id = ?', args.territoryId);
+  const maxFiles = args.maxFiles || MAX_FILES;
+  const truncated = args.files.length > maxFiles;
+  await resetGraph(db, args.territoryId);
   let indexed = 0;
-  const truncated = args.files.length > MAX_FILES;
-  for (const relPath of args.files.slice(0, MAX_FILES)) {
+  const files = args.files.slice(0, maxFiles);
+  for (let offset = 0; offset < files.length; offset += SCAN_BATCH_SIZE) {
+    const batch = files.slice(offset, offset + SCAN_BATCH_SIZE);
+    indexed += await withTransaction(db, () => indexBatch(db, { ...args, files: batch }));
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  await finishScan(db, { territoryId: args.territoryId, truncated });
+  return { scanned: args.files.length, indexed, truncated, maxFiles };
+}
+
+async function resetGraph(db, territoryId) {
+  await withTransaction(db, async () => {
+    await db.run('DELETE FROM territory_graph_edges WHERE territory_id = ?', territoryId);
+    await db.run('DELETE FROM territory_graph_nodes WHERE territory_id = ?', territoryId);
+    await db.run(`UPDATE daemon_territories SET state = 'SURVEYING', indexed_head_sha = NULL
+      WHERE id = ? AND state != 'APOPTOTIC'`, territoryId);
+  });
+}
+
+async function indexBatch(db, args) {
+  let indexed = 0;
+  for (const relPath of args.files) {
     const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, scopePath: args.scopePath, relPath });
     if (res.indexed) indexed += 1;
   }
-  if (!truncated) await markTerritoryIndexed(db, args.territoryId);
-  else await db.run(`UPDATE daemon_territories
+  return indexed;
+}
+
+async function finishScan(db, result) {
+  if (!result.truncated) return markTerritoryIndexed(db, result.territoryId);
+  return db.run(`UPDATE daemon_territories
     SET state = 'DEGRADED', indexed_head_sha = NULL, last_indexed_at = datetime('now')
-    WHERE id = ? AND state != 'APOPTOTIC'`, args.territoryId);
-  return { scanned: args.files.length, indexed, truncated, maxFiles: MAX_FILES };
+    WHERE id = ? AND state != 'APOPTOTIC'`, result.territoryId);
 }
 
 async function updateFiles(db, args) {
@@ -258,5 +304,6 @@ module.exports = {
   walkFiles,
   isJsFile,
   MAX_FILES,
+  SCAN_BATCH_SIZE,
   markTerritoryIndexed
 };

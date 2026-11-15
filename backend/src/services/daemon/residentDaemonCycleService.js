@@ -92,8 +92,8 @@ async function refreshIndex(context, job) {
 }
 
 function needsIndexRefresh(territory) {
-  return territory.state === 'STALE'
-    || (territory.state !== 'DEGRADED' && territory.indexedHeadSha !== territory.headSha);
+  if (territory.state === 'APOPTOTIC') return false;
+  return territory.state === 'STALE' || territory.indexedHeadSha !== territory.headSha;
 }
 
 async function investigate(context, job) {

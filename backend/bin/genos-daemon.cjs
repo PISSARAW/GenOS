@@ -21,6 +21,7 @@ const territoryService = require('../src/services/daemon/daemonTerritoryService'
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const eventBridge = require('../src/services/daemon/daemonEventBridgeService');
 const eventConsumer = require('../src/services/daemon/daemonEventConsumerService');
+const repositoryObserver = require('../src/services/daemon/repositoryObserverService');
 const receptorRegistry = require('../src/services/daemon/daemonReceptorRegistry');
 const wakePolicyService = require('../src/services/daemon/daemonWakePolicyService');
 const signalEventBus = require('../src/services/signalEventBus');
@@ -29,6 +30,7 @@ const SUBSCRIBED_SIGNALS = receptorRegistry.listDaemonEvents();
 
 const DEFAULT_HEARTBEAT_MS = 30000;
 const DEFAULT_EVENT_POLL_MS = 1000;
+const DEFAULT_REPOSITORY_POLL_MS = 5000;
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -93,6 +95,27 @@ function startEventPollTimer(context, intervalMs) {
   return timer;
 }
 
+function startRepositoryObserverTimer(observer, intervalMs) {
+  let observing = false;
+  const timer = setInterval(async () => {
+    if (observing) return;
+    observing = true;
+    await observeRepositoryNow(observer);
+    observing = false;
+  }, intervalMs);
+  if (timer.unref) timer.unref();
+  return timer;
+}
+
+async function observeRepositoryNow(observer) {
+  try {
+    return await repositoryObserver.observeRepository(observer);
+  } catch (error) {
+    process.stderr.write(`[genos-daemon] Repository observation failed: ${error.message}\n`);
+    return { observed: false, reason: 'repository-unavailable' };
+  }
+}
+
 async function updatePollHealth(context, health, previousHealth) {
   if (health === previousHealth) return true;
   try {
@@ -119,6 +142,7 @@ async function shutdown(ctx) {
   if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
   if (ctx.heartbeatTimer) clearInterval(ctx.heartbeatTimer);
   if (ctx.eventPollTimer) clearInterval(ctx.eventPollTimer);
+  if (ctx.repositoryObserverTimer) clearInterval(ctx.repositoryObserverTimer);
   if (ctx.eventContext) ctx.eventContext.stopping = true;
   await ctx.eventContext?.pollFlight?.catch(() => {});
   await saveWakeBudget(ctx).catch(() => {});
@@ -160,6 +184,7 @@ async function main() {
     territoryId: flags.territoryId,
     activity: 'BOOTSTRAPPING'
   });
+  const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
 
   const bridge = eventBridge.createBridge({ db, runtime, daemonId: flags.daemonId, deferInvestigation: true });
   await restoreWakeBudget(db, bridge, flags.territoryId).catch(() => false);
@@ -169,11 +194,16 @@ async function main() {
   bridge.cycleContext = eventContext;
   await cycleService.runCycle(eventContext);
   await eventConsumer.initializeCursor(eventContext);
+  const observer = await repositoryObserver.createObserver({
+    db, territoryId: flags.territoryId, rootPath: territory.rootPath
+  });
+  await observeRepositoryNow(observer);
   const unsubscribeSignals = subscribeToSignals(bridge, flags.territoryId);
-  const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
   const eventPollTimer = startEventPollTimer(eventContext, DEFAULT_EVENT_POLL_MS);
+  const repositoryObserverTimer = startRepositoryObserverTimer(observer, DEFAULT_REPOSITORY_POLL_MS);
 
-  const ctx = { db, runtime, bridge, eventContext, unsubscribeSignals, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId, territoryId: flags.territoryId };
+  const ctx = { db, runtime, bridge, eventContext, unsubscribeSignals, heartbeatTimer,
+    eventPollTimer, repositoryObserverTimer, daemonId: flags.daemonId, territoryId: flags.territoryId };
   console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Event poll: ${DEFAULT_EVENT_POLL_MS}ms.`);
 
   const stop = () => { shutdown(ctx).then(() => process.exit(0)).catch(() => process.exit(1)); };
@@ -190,5 +220,6 @@ if (require.main === module) {
 
 module.exports = {
   resolveRegisteredTerritory, createResidentRuntime, eventFromSignal,
-  subscribeToSignals, assertHostDaemonRegistered, main, shutdown, startEventPollTimer, startHeartbeatTimer
+  subscribeToSignals, assertHostDaemonRegistered, main, shutdown, startEventPollTimer,
+  startHeartbeatTimer, startRepositoryObserverTimer, observeRepositoryNow
 };

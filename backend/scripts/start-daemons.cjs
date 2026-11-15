@@ -3,7 +3,7 @@
 
 /**
  * Lance deux daemons résidents (un sur C:, un sur D:) en arrière-plan détaché.
- * Usage : node backend/scripts/start-daemons.cjs <cheminRepoC> <cheminRepoD>
+ * Usage : node backend/scripts/start-daemons.cjs [<cheminRepoC> <cheminRepoD>]
  * Les processus sont détournés (détachés) pour survivre à la fin du script.
  * Les deux daemons ouvrent la base partagée du backend (ADR 0290) : c'est
  * dans son journal `daemon_events` que les producteurs livrent les événements.
@@ -14,12 +14,6 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 const deployment = require('./daemonDeployment.cjs');
-
-const [repoC, repoD] = process.argv.slice(2);
-if (!repoC || !repoD) {
-  process.stderr.write('Usage: node start-daemons.cjs <cheminRepoC> <cheminRepoD>\n');
-  process.exit(2);
-}
 
 const repoRoot = path.resolve(__dirname, '../..');
 const daemonBin = path.join(repoRoot, 'backend', 'bin', 'genos-daemon.cjs');
@@ -41,6 +35,28 @@ function assertIdentityAvailable(dbPath, daemonId) {
   if (head?.lease_until > Date.now()) {
     throw new Error(`${daemonId} est encore protégé par un bail actif jusqu'à ${new Date(head.lease_until).toISOString()}`);
   }
+}
+
+function storedRepositoryPaths() {
+  const dbPath = deployment.sharedDatabasePath();
+  if (!fs.existsSync(dbPath)) throw new Error(`Base partagée absente: ${dbPath}`);
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    return Object.fromEntries(deployment.DAEMONS.map((daemon) => {
+      const row = db.prepare('SELECT root_path FROM daemon_territories WHERE id = ?').get(daemon.territoryId);
+      if (!row?.root_path) throw new Error(`Territoire ${daemon.territoryId} absent de la base partagée`);
+      return [daemon.drive, row.root_path];
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+function repositoryPaths() {
+  const supplied = process.argv.slice(2);
+  if (supplied.length === 0) return storedRepositoryPaths();
+  if (supplied.length !== 2) throw new Error('Usage: node start-daemons.cjs [<cheminRepoC> <cheminRepoD>]');
+  return { C: supplied[0], D: supplied[1] };
 }
 
 function prepare(spec) {
@@ -83,7 +99,7 @@ async function verifyLaunches(launches) {
 }
 
 async function main() {
-  const repoPaths = { C: repoC, D: repoD };
+  const repoPaths = repositoryPaths();
   const specs = deployment.DAEMONS.map((daemon) => ({ ...daemon, repoPath: repoPaths[daemon.drive] }));
   const launches = specs.map(prepare).map(launch);
   await verifyLaunches(launches);

@@ -157,11 +157,12 @@ async function emitTerritoryEvent(db, event) {
 function candidateRoots(input) {
   const roots = [];
   if (input.request) {
-    const direct = input.request.workspacePath || input.request.workspace_path;
+    const direct = input.request.workspacePath || input.request.workspace_path
+      || input.request.workspaceRoot || input.request.workspace_root;
     if (direct) roots.push(direct);
   }
   if (input.repoRoot) roots.push(input.repoRoot);
-  return roots;
+  return [...new Set(roots.map(normalizeRootPath))];
 }
 
 async function announceMissionStart(input) {

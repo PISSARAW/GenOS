@@ -59,6 +59,9 @@ async function main() {
   // 3. Résolution par workspacePath de la requête en priorité.
   const viaWorkspace = await bridge.announceMissionStart({ db, request: { workspacePath: ROOT }, repoRoot: '/tmp/nowhere' });
   assert.equal(viaWorkspace.announced, true);
+  const viaWorkspaceRoot = await bridge.announceMissionStart({ db,
+    request: { workspaceRoot: ROOT, mission: 'inspect workspace root' }, repoRoot: '/tmp/nowhere' });
+  assert.equal(viaWorkspaceRoot.announced, true);
 
   // 4. Outcomes : TEST_FAILED / TEST_RECOVERED / BUILD_FAILED / TERRITORY_COMMIT.
   await bridge.recordTestOutcome(db, { rootPath: ROOT, scope: 'auth.test.js', passed: false });

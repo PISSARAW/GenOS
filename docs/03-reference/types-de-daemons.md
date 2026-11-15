@@ -520,7 +520,7 @@ flowchart LR
 
 ### 8.1 `cartography` — graphe territorial incrémental
 
-- `MAX_FILES 2000`, `MAX_FILE_BYTES 200 Ko`, `SKIP_DIRS = node_modules, .git, .genos, dist, build, target, coverage, .next, vendor`.
+- `MAX_FILES 25000`, `MAX_FILE_BYTES 200 Ko`, `SKIP_DIRS = node_modules, .git, .genos, dist, build, target, coverage, .next, vendor`.
 - `scanTerritory` (full walk) vs `updateFiles` (invalide + réindexe).
 - IDs déterministes `territoryId::kind::path[::name]`, arêtes `territoryId::relation::source=>target`.
 - Invalidation : uniquement le sous-graphe du fichier (nœuds + arêtes sortantes) ;
@@ -842,7 +842,7 @@ flowchart TB
     subgraph Spec["Spécialisation"]
         PHENO["phenotypeService<br/>10 familles"]
         SCOUT["scoutColony<br/>12 / 5min"]
-        CARTO["cartographer<br/>2000 files"]
+        CARTO["cartographer<br/>25000 files"]
         STIG["stigmergy<br/>clamp ±10"]
         NSA["naturalSearchAdapter<br/>sans état"]
         SCHED["computeScheduler<br/>U = EIG·Rel·Urg / Coût"]
@@ -1003,7 +1003,7 @@ pas un succès LLM bout en bout.
    câblé dans `repair/` ; seuls expiration et fichage `abandoned-branch`.
 5. 10 variables d'interoception `DEFERRED` explicitement absentes.
 6. `PERFORMANCE_REGRESSION` non pontée ; adaptateur JS par regex ; graphe plafonné
-   (2000 fichiers, 200 Ko) avec répertoires exclus.
+   (25000 fichiers, 200 Ko) avec répertoires exclus.
 7. Les routes résidentes exposent territoires, briefs, réparations et états ;
    l’ingestion des événements reste raccordée par les ponts de production et le journal.
 8. Documentation d'exploitation encore partiellement en termes d'audit/autofix

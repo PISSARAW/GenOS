@@ -181,7 +181,7 @@ function enableAutostart(customConfig = {}) {
       try { fs.unlinkSync(legacyFile); } catch (_) {}
     }
 
-    const runnerScript = path.join(repoRoot, 'backend/bin/genos-daemon.cjs');
+    const runnerScript = path.join(repoRoot, 'backend/scripts/start-daemons.cjs');
     const nodeExe = process.execPath;
 
     // The Startup folder must launch a durable, non-interactive process.
@@ -189,7 +189,7 @@ function enableAutostart(customConfig = {}) {
     const batchContent = [
       '@echo off',
       `cd /d "${repoRoot}"`,
-      `start "GenOS Sentinel" /b "${nodeExe}" "${runnerScript}" --daemon --no-color`,
+      `start "GenOS Resident Daemons" /b "${nodeExe}" "${runnerScript}"`,
       ''
     ].join('\r\n');
 

@@ -14,8 +14,8 @@ async function openDb() {
   return sqlite.open({ filename: ':memory:', driver: sqlite3.Database });
 }
 
-function writeFiles(root) {
-  for (let index = 0; index <= cartographer.MAX_FILES; index += 1) {
+function writeFiles(root, maxFiles) {
+  for (let index = 0; index <= maxFiles; index += 1) {
     fs.writeFileSync(path.join(root, `file-${index}.txt`), String(index));
   }
 }
@@ -23,22 +23,23 @@ function writeFiles(root) {
 async function main() {
   const db = await openDb();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-carto-truncated-'));
+  const maxFiles = 3;
   try {
-    writeFiles(root);
+    writeFiles(root, maxFiles);
     await territories.createTerritory(db, {
       id: 'territory.truncated-index', organizationId: 'org-test', projectId: 'project-test',
       workspaceId: 'workspace-test', repoIdentity: 'truncated-index', rootPath: root,
       headSha: 'a'.repeat(40)
     });
     const result = await cartographer.scanTerritory(db, {
-      territoryId: 'territory.truncated-index', rootPath: root, scopePath: '/'
+      territoryId: 'territory.truncated-index', rootPath: root, scopePath: '/', maxFiles
     });
     const stored = await territories.getTerritory(db, { id: 'territory.truncated-index' });
     assert.equal(result.truncated, true);
     assert.equal(stored.territory.state, 'DEGRADED');
     assert.equal(stored.territory.indexedHeadSha, null);
     assert.ok(stored.territory.lastIndexedAt);
-    assert.equal(cycle.needsIndexRefresh(stored.territory), false);
+    assert.equal(cycle.needsIndexRefresh(stored.territory), true);
     assert.equal(cycle.needsIndexRefresh({ ...stored.territory, state: 'STALE' }), true);
   } finally {
     await db.close();

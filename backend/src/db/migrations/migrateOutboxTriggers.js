@@ -55,7 +55,7 @@ function buildTrigger(def, operation) {
     'AFTER ' + op + ' ON ' + def.table + '\n' +
     'BEGIN\n' +
     '  INSERT INTO projection_events (event_id, aggregate_type, aggregate_id, event_type, payload_json, created_at)\n' +
-    "  VALUES ('evt_' || strftime('%s','now') || '_' || lower(hex(randomblob(4))), '" + def.aggregate + "', " + idExpr + ", '" + eventType + "', " +
+    "  VALUES ('evt_' || strftime('%s','now') || '_' || lower(hex(randomblob(16))), '" + def.aggregate + "', " + idExpr + ", '" + eventType + "', " +
     "json_object('table', '" + def.table + "', 'operation', '" + op + "', 'id', " + idExpr + "), datetime('now'));\n" +
     'END';
 }

@@ -22,7 +22,7 @@ function pickOr(obj, keys, fallback) {
 }
 
 function resolveWorkspacePath(request) {
-  return pickOr(request, ['workspacePath', 'workspace_path']);
+  return pickOr(request, ['workspacePath', 'workspace_path', 'workspaceRoot', 'workspace_root']);
 }
 
 function resolveWorkspaceId(request) {
