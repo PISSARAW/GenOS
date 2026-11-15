@@ -25,7 +25,8 @@ async function prepareBiologicalContext(db, context) {
   const composition = mode === 'biome'
     ? require('./biomeDispatchBudget.cjs').allocate(composed, context.request) : composed;
   if (composition.sessionId) {
-    context.topologySession = { sessionId: composition.sessionId, revision: composition.revision || 0 };
+    context.topologySession = { sessionId: composition.sessionId, revision: composition.revision || 0,
+      variantPolicy: composition.variantPolicy || null };
   }
   return { parent, mode, mission, composition };
 }

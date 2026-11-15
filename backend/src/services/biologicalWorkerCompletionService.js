@@ -3,7 +3,8 @@
 const semanticValidation = require('./biologicalSemanticValidationService');
 
 async function validateSyncytiumResponses({ db, context, accepted, expectedCount, waitForWorkers }) {
-  const settled = await waitForWorkers(db, accepted, context.request.timeoutMs);
+  const settled = await waitForWorkers(db, accepted, { timeoutMs: context.request.timeoutMs,
+    missionId: context.missionId, requireRuns: true });
   await collectCompletedWorkerStatuses({ db, context, accepted });
   if (!settled) recordDispatchFailure(context, 'orchestrator', 'worker_wait_timeout');
   const validation = await semanticValidation.validate(db, { members: accepted, missionId: context.missionId });
@@ -23,10 +24,7 @@ async function collectCompletedWorkerStatuses({ db, context, accepted }) {
 }
 
 async function dispatchedRunStatus(db, context, member) {
-  if (!member.executionRunId) {
-    const row = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
-    return row?.status || 'missing';
-  }
+  if (!member.executionRunId) return 'missing_run';
   const result = await require('./topology/workerResultReader.cjs').read(db, {
     missionId: context.missionId, executionRunId: member.executionRunId, member
   });
