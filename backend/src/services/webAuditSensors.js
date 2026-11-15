@@ -1,13 +1,15 @@
 'use strict';
 
 const { permittedUrl } = require('./webJourneyVerifier');
+const { loadOptionalPackage, unavailableError } = require('./optionalDependencies');
 
 class WebAuditSensors {
   constructor(options = {}) {
-    this.playwright = options.playwright || require('playwright');
-    this.AxeBuilder = options.AxeBuilder || require('@axe-core/playwright').default;
-    this.chromeLauncher = options.chromeLauncher || require('chrome-launcher');
-    this.lighthouse = options.lighthouse || (() => import('lighthouse').then(module => module.default));
+    this.playwright = options.playwright || null;
+    this.AxeBuilder = options.AxeBuilder || null;
+    this.chromeLauncher = options.chromeLauncher || null;
+    this.lighthouse = options.lighthouse || null;
+    this.packageLoader = options.packageLoader || require;
     this.chromePath = options.chromePath || process.env.GENOS_BROWSER_EXECUTABLE_PATH;
     this.allowedHosts = new Set(options.allowedHosts || []);
   }
@@ -16,7 +18,10 @@ class WebAuditSensors {
     permittedUrl(url, this.allowedHosts);
     let browser;
     try {
-      browser = await this.playwright.chromium.launch({ headless: true,
+      const playwright = this.playwright || loadOptionalPackage('web.audit', 'playwright', this.packageLoader);
+      const AxeBuilder = this.AxeBuilder || loadOptionalPackage(
+        'web.audit', '@axe-core/playwright', this.packageLoader).default;
+      browser = await playwright.chromium.launch({ headless: true,
         ...(this.chromePath ? { executablePath: this.chromePath } : {}) });
       const context = await browser.newContext({ serviceWorkers: 'block' });
       const page = await context.newPage();
@@ -29,7 +34,7 @@ class WebAuditSensors {
       const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
       if (!response?.ok()) throw new Error(`Axe navigation failed: HTTP ${response?.status() ?? 'unknown'}.`);
       permittedUrl(page.url(), this.allowedHosts);
-      const audit = await new this.AxeBuilder({ page }).analyze();
+      const audit = await new AxeBuilder({ page }).analyze();
       const violations = audit.violations.map(item => ({ id: item.id, impact: item.impact,
         nodes: item.nodes.length }));
       return { sensor: 'axe-core', result: violations.length <= maxViolations ? 'confirmed' : 'regressed',
@@ -43,9 +48,11 @@ class WebAuditSensors {
     permittedUrl(url, this.allowedHosts);
     let chrome;
     try {
-      chrome = await this.chromeLauncher.launch({ chromePath: this.chromePath,
+      const chromeLauncher = this.chromeLauncher || loadOptionalPackage(
+        'web.audit', 'chrome-launcher', this.packageLoader);
+      chrome = await chromeLauncher.launch({ chromePath: this.chromePath,
         chromeFlags: ['--headless'], logLevel: 'error' });
-      const run = await this.lighthouse();
+      const run = await this._loadLighthouse();
       const report = await run(url, { port: chrome.port, logLevel: 'error', output: 'json',
         onlyCategories: Object.keys(minScores) });
       if (!report?.lhr || report.lhr.runtimeError) throw new Error('Lighthouse did not complete its audit.');
@@ -59,6 +66,15 @@ class WebAuditSensors {
     } catch (error) {
       return { sensor: 'lighthouse', result: 'inconclusive', error: error.message };
     } finally { if (chrome) await chrome.kill(); }
+  }
+
+  async _loadLighthouse() {
+    if (this.lighthouse) return this.lighthouse();
+    try { return (await import('lighthouse')).default; }
+    catch (error) {
+      if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+      throw unavailableError('web.audit', 'lighthouse');
+    }
   }
 }
 

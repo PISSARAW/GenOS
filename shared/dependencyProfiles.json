@@ -1,0 +1,45 @@
+{
+  "profiles": {
+    "core": {
+      "description": "Runtime principal avec SQLite, sans moteurs de projection ni navigateur.",
+      "omit": ["dev"],
+      "removeCapabilities": true
+    },
+    "full": {
+      "description": "Installation historique complète, capacités optionnelles incluses.",
+      "omit": []
+    }
+  },
+  "capabilities": {
+    "storage.analytics": {
+      "packages": ["duckdb"],
+      "location": "backend",
+      "fallback": "sqlite"
+    },
+    "storage.graph": {
+      "packages": ["@ladybugdb/core"],
+      "location": "backend",
+      "fallback": "sqlite-cte"
+    },
+    "storage.vector-candidate": {
+      "packages": ["@lancedb/lancedb"],
+      "location": "backend",
+      "fallback": "sqlite-vec"
+    },
+    "web.audit": {
+      "packages": ["playwright", "@axe-core/playwright", "chrome-launcher", "lighthouse"],
+      "location": "root",
+      "fallback": "inconclusive"
+    },
+    "web.journey": {
+      "packages": ["playwright"],
+      "location": "root",
+      "fallback": "inconclusive"
+    },
+    "web.scout": {
+      "packages": ["puppeteer"],
+      "location": "root",
+      "fallback": "unavailable"
+    }
+  }
+}

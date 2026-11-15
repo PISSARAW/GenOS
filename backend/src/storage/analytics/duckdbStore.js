@@ -23,7 +23,8 @@ class DuckDBStore {
     const { FILES, ensureDirs } = require('../storagePaths');
     ensureDirs();
     const dbPath = this._dbPath || FILES.duckdb;
-    const duckdb = require('duckdb');
+    const { loadOptionalPackage } = require('../../services/optionalDependencies');
+    const duckdb = loadOptionalPackage('storage.analytics', 'duckdb');
     this._db = new duckdb.Database(dbPath);
     this._available = true;
     try {

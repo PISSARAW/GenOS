@@ -95,7 +95,8 @@ class LadybugStore {
     const { FILES, ensureDirs } = require('../storagePaths');
     ensureDirs();
     const dbPath = this._dbPath || FILES.ladybug;
-    const ladybug = require('@ladybugdb/core');
+    const { loadOptionalPackage } = require('../../services/optionalDependencies');
+    const ladybug = loadOptionalPackage('storage.graph', '@ladybugdb/core');
     this._db = new ladybug.Database(dbPath);
     await this._db.init();
     const conn = new ladybug.Connection(this._db);

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { loadOptionalPackage } = require('./optionalDependencies');
 
 const ROLES = new Set(['button', 'link', 'textbox', 'combobox', 'checkbox', 'heading', 'status']);
 const ACTIONS = new Set(['click', 'fill', 'select']);
@@ -94,7 +95,8 @@ function persistReceipt(artifactsDir, receipt) {
 
 class WebJourneyVerifier {
   constructor(options = {}) {
-    this.playwright = options.playwright || require('playwright');
+    this.playwright = options.playwright || null;
+    this.packageLoader = options.packageLoader || require;
     this.allowedHosts = new Set(options.allowedHosts || []);
     this.artifactsDir = options.artifactsDir || process.env.GENOS_BROWSER_VERIFICATION_ARTIFACTS_DIR
       || path.resolve(process.cwd(), '.genos', 'workspace', 'browser-verifications');
@@ -109,7 +111,9 @@ class WebJourneyVerifier {
     let error = null;
     let finalUrl = null;
     try {
-      browser = await this.playwright.chromium.launch({ headless: true,
+      const playwright = this.playwright || loadOptionalPackage(
+        'web.journey', 'playwright', this.packageLoader);
+      browser = await playwright.chromium.launch({ headless: true,
         ...(this.executablePath ? { executablePath: this.executablePath } : {}) });
       const context = await browser.newContext({ serviceWorkers: 'block' });
       const page = await context.newPage();

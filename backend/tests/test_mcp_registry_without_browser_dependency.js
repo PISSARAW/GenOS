@@ -20,7 +20,7 @@ async function main() {
     const { BrowserPuppeteerAdapter } = require('../src/services/browserPuppeteerAdapter');
     const adapter = new BrowserPuppeteerAdapter();
     assert.equal(browserDependencyLoads, 0);
-    await assert.rejects(adapter.open(), { code: 'MODULE_NOT_FOUND' });
+    await assert.rejects(adapter.open(), { code: 'GENOS_OPTIONAL_CAPABILITY_UNAVAILABLE' });
     assert.equal(browserDependencyLoads, 1, 'actual browser use still requires its dependency');
   } finally {
     Module._load = originalLoad;

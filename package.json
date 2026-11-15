@@ -44,13 +44,18 @@
     "test:mcp-qualification": "node scripts/ci/test_report_mcp_qualification.js",
     "docs:inventory": "node scripts/docs/generate-technical-inventory.js",
     "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check",
+    "deps:inventory": "node scripts/ci/dependency_inventory.cjs",
+    "install:core": "node scripts/install-profile.cjs core",
+    "install:full": "node scripts/install-profile.cjs full",
     "test:daemon": "npm --prefix backend run test:daemon"
   },
   "dependencies": {
+    "msgpackr": "^2.1.0"
+  },
+  "optionalDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "chrome-launcher": "^1.2.2",
     "lighthouse": "^13.5.0",
-    "msgpackr": "^2.1.0",
     "playwright": "^1.63.0",
     "puppeteer": "^25.10.0"
   },

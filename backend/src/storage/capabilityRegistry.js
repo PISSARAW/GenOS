@@ -1,5 +1,7 @@
 'use strict';
 
+const { inspectCapability } = require('../services/optionalDependencies');
+
 /**
  * Storage Capability Registry — dynamic engine availability detection.
  *
@@ -20,19 +22,23 @@ class StorageCapabilityRegistry {
   async register(name, provider, checkFn, options = {}) {
     let available = false;
     let degraded = false;
+    let error = null;
     try {
       available = await checkFn();
       degraded = !available;
-    } catch (_) {
+    } catch (caught) {
       available = false;
       degraded = true;
+      error = { code: caught.code || 'CAPABILITY_CHECK_FAILED', message: caught.message };
     }
-    const capability = { provider, available, degraded, fallback: null, ...options };
+    const capability = { provider, available, degraded, fallback: null, error, ...options };
     this._capabilities.set(name, capability);
     return capability;
   }
 
   async registerGraph() {
+    const status = inspectCapability('storage.graph');
+    if (!status.available) return this._registerMissing('graph', 'ladybug', status);
     const { LadybugStore } = require('./graph/ladybugStore');
     return this.register('graph', 'ladybug', async () => {
       const store = new LadybugStore();
@@ -44,15 +50,20 @@ class StorageCapabilityRegistry {
   }
 
   async registerAnalytics() {
+    const status = inspectCapability('storage.analytics');
+    if (!status.available) return this._registerMissing('analytics', 'duckdb', status);
     const { DuckDBStore } = require('./analytics/duckdbStore');
     return this.register('analytics', 'duckdb', async () => {
       const store = new DuckDBStore();
       await store.init();
-      return store.available !== false;
+      const available = store.available !== false;
+      await store.close();
+      return available;
     });
   }
 
   async registerVector() {
+    const candidate = inspectCapability('storage.vector-candidate');
     // sqlite-vec is always primary; LanceDB is candidate promoted only by benchmark
     return this.register('vector', 'sqlite-vec', async () => {
       try {
@@ -72,8 +83,18 @@ class StorageCapabilityRegistry {
         requiredGain: 0.25,
         requiredVectorCount: 1000000,
         benchmarkReceipt: null,
+        candidateAvailable: candidate.available,
+        candidateMissing: candidate.missing,
       },
     });
+  }
+
+  _registerMissing(name, provider, status) {
+    const capability = { provider, available: false, degraded: true,
+      fallback: status.fallback, error: { code: 'OPTIONAL_DEPENDENCY_MISSING',
+        message: `Missing optional packages: ${status.missing.join(', ')}` } };
+    this._capabilities.set(name, capability);
+    return capability;
   }
 
   async registerSearch() {

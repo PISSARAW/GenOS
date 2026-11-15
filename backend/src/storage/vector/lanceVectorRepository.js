@@ -10,7 +10,7 @@
  * This store only handles vector storage and similarity search.
  */
 
-const lancedb = require('@lancedb/lancedb');
+const { loadOptionalPackage } = require('../../services/optionalDependencies');
 
 class LanceVectorRepository {
   constructor(dbPath = null) {
@@ -23,6 +23,7 @@ class LanceVectorRepository {
 
   async init() {
     try {
+      const lancedb = loadOptionalPackage('storage.vector-candidate', '@lancedb/lancedb');
       this._db = await lancedb.connect(this._dbPath);
       this._available = true;
     } catch (error) {

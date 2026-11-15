@@ -23,6 +23,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [mcp-solar-pro-hermes-nous-setup.md](mcp-solar-pro-hermes-nous-setup.md) — Solar Pro, MCP, Hermes, provider Nous : config, modèles, usage.
 - [experiences-nce.md](experiences-nce.md) — cycles numériques natifs, transfert culturel, vecteurs phénotypiques et ablations exécutées.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [profils-dependances.md](profils-dependances.md) — installations `core` et `full`, capacités optionnelles et replis explicites.
 - [runtime-gqwf.md](runtime-gqwf.md) — fabrique Node, politiques de mission, matérialiseurs, schéma durable, protocoles, erreurs et frontières de reconstruction GQWF.
 - [runtime-pensee-endogene.md](runtime-pensee-endogene.md) — services ETT, contrats, tables append-only, erreurs, coûts, expériences et raccord scheduler.
 - [runtime-aeis.md](runtime-aeis.md) — contrats, pipeline de promotion, oracles natifs, reçus, persistance, refus et limites de l'AEIS.

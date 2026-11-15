@@ -5,10 +5,12 @@ const fs = require('fs');
 const dns = require('dns').promises;
 const net = require('net');
 const { abortable } = require('./operationDeadline');
+const { loadOptionalPackage } = require('./optionalDependencies');
 
 class BrowserPuppeteerAdapter {
   constructor(options = {}) {
     this.puppeteer = options.puppeteer || null;
+    this.packageLoader = options.packageLoader || require;
     this.artifactsDir = options.artifactsDir || path.resolve(process.cwd(), '.genos', 'workspace', 'screenshots');
     this.allowedHosts = new Set(options.allowedHosts || []);
     this.navigationScopes = new WeakMap();
@@ -16,7 +18,8 @@ class BrowserPuppeteerAdapter {
   }
 
   async open(options = {}) {
-    const puppeteer = this.puppeteer || require('puppeteer');
+    const puppeteer = this.puppeteer || loadOptionalPackage(
+      'web.scout', 'puppeteer', this.packageLoader);
     fs.mkdirSync(this.artifactsDir, { recursive: true });
     const configuredExecutable = process.env.GENOS_BROWSER_EXECUTABLE_PATH;
     const launchOptions = { ...options.launchOptions };
