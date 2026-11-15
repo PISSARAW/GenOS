@@ -7,8 +7,8 @@ const {hash,error,sameScope}=require('./gvxContracts');
 async function verifyApplication(profile, applicationId) {
   if(!applicationId||!profile.runtimeDatabaseFile) throw error('GVX_RUNTIME_APPLICATION_PROOF_REQUIRED');
   const filename=fs.realpathSync(path.resolve(profile.runtimeDatabaseFile));
-  const sqlite3=require('sqlite3');
-  const db=await require('sqlite').open({filename,driver:sqlite3.Database,mode:sqlite3.OPEN_READONLY});
+  const sqlite3=require('../db/sqliteDriver');
+  const db=await sqlite3.open({filename,driver:sqlite3.Database,mode:sqlite3.OPEN_READONLY});
   try {
     const row=await db.get('SELECT * FROM gvx_runtime_operations WHERE id = ?',applicationId);
     validateOperation(profile,row);

@@ -2,8 +2,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const sqlite3 = require('../src/db/sqliteDriver');
+const { open } = sqlite3;
 const { VARIANTS, assess } = require('../src/services/trinityNominalQualification');
 const agentGit = require('../src/services/agentGitService');
 const comparisonJournal = require('../src/services/trinityNominalComparisonJournal');

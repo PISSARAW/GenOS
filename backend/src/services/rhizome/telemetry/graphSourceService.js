@@ -2,8 +2,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const sqlite3 = require('../../../db/sqliteDriver');
+const { open } = sqlite3;
 
 function databasePath(input) {
   const root = fs.realpathSync(input.workspace || process.cwd());

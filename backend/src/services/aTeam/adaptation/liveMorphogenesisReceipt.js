@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const Database = require('better-sqlite3');
+const { Database } = require('../../../db/sqliteDriver');
 const store = require('../teamRunStore');
 const evidence = require('./liveMorphogenesisEvidence');
 const projection = require('./liveMorphogenesisProjection');

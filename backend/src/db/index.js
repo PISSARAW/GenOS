@@ -4,8 +4,8 @@
 const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('node:crypto');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+const sqlite3 = require('./sqliteDriver').verbose();
+const { open } = sqlite3;
 const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
 const sqliteVec = require('sqlite-vec');
@@ -50,16 +50,7 @@ function hasDatabaseFile(dbPath) {
   }
 }
 function backupOpenDatabase(sourceDb, backupPath) {
-  return new Promise((resolve, reject) => {
-    const backup = sourceDb.db.backup(backupPath);
-    backup.step(-1, (error, completed) => {
-      if (error || !completed) {
-        backup.finish(() => reject(error || new Error('sqlite-backup-incomplete')));
-        return;
-      }
-      backup.finish(resolve);
-    });
-  });
+  return sourceDb.db.backup(backupPath);
 }
 function pruneDatabaseBackups(resolvedDbPath) {
   try {

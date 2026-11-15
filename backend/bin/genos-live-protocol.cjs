@@ -68,8 +68,8 @@ function buildFixture() {
 }
 
 async function openDb(dbPath) {
-  const sqlite = require('sqlite');
-  const sqlite3 = require('sqlite3');
+  const sqlite = require('../src/db/sqliteDriver');
+  const sqlite3 = sqlite;
   const db = await sqlite.open({ filename: dbPath, driver: sqlite3.Database });
   return {
     run: (sql, ...args) => db.run(sql, ...args),

@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const Database = require('better-sqlite3');
+const { Database } = require('../../db/sqliteDriver');
 const { digest } = require('../evidenceProtocol/canonical');
 const collective = require('../collectiveStateService');
 const snapshots = require('../morphogenesis/morphogenesisTransitionSnapshotService');

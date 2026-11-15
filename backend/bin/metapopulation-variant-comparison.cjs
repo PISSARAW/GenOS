@@ -1,8 +1,8 @@
 'use strict';
 
 const { performance } = require('perf_hooks');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const sqlite3 = require('../src/db/sqliteDriver');
+const { open } = sqlite3;
 const { migrateMetapopulationRuntime } = require('../src/db/migrations/migrateMetapopulationRuntime');
 const coordination = require('../src/services/metapopulationCoordinationService');
 const policy = require('../src/services/metapopulation/policy/metapopulationPolicyService');

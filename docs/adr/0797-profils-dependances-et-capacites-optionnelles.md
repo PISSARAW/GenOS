@@ -55,7 +55,8 @@ les binaires de plateforme dont `sqlite-vec` et ONNX ont besoin.
 - Un repli SQLite ne couvre pas toutes les opérations du moteur spécialisé.
 - La taille économisée doit être mesurée sur des installations propres ; la somme
   des répertoires directs n'inclut pas exactement les dépendances transitives.
-- `better-sqlite3` reste présent jusqu'à la migration asynchrone des protocoles.
+- Les anciens paquets `sqlite` et `sqlite3` restent requis par les tests jusqu'à leur
+  migration ; l'ADR 0799 les retire seulement du runtime de production.
 
 ## Alternatives
 

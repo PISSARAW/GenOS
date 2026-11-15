@@ -1,6 +1,6 @@
 'use strict';
 
-const Database = require('better-sqlite3');
+const { Database } = require('../../db/sqliteDriver');
 const { digest } = require('../evidenceProtocol/canonical');
 
 const resourceKey = (query) => digest([query.scope, query.missionId, query.contextId]);

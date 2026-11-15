@@ -2,8 +2,8 @@
 'use strict';
 
 const actor = require('../src/services/mcpActorCapability');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const sqlite3 = require('../src/db/sqliteDriver');
+const { open } = sqlite3;
 
 async function main() {
   const [phase, toolName, actionId, success, outputHash] = process.argv.slice(2);

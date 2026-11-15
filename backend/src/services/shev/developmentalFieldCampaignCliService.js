@@ -3,8 +3,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { open } = require('sqlite');
-const sqlite3 = require('sqlite3');
+const sqlite3 = require('../../db/sqliteDriver');
+const { open } = sqlite3;
 const { migrateGvxLedger } = require('../../db/migrations/migrateGvxLedger');
 const ledger = require('../gvxDevelopmentLedger');
 const contract = require('./developmentalCampaignContract');

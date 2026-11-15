@@ -933,6 +933,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0795c](0795-observation-daemon-structuree.md) | Observation typée du daemon d’allocation | Accepté | 2026-11-04 | format fournisseur, sérialisation et preuves natives |
 | [0796](0796-banc-cooperation-chaine-native.md) | Banc de coopération par la chaîne native | Accepté | 2026-11-04 | observation préalable, génomes, récupération et clôture |
 | [0797](0797-profils-dependances-et-capacites-optionnelles.md) | Profils de dépendances et capacités optionnelles | Accepté | 2026-11-14 | installation, stockage, navigateur, exploitation |
+| [0798](0798-pont-gouverne-runtime-morphogenese.md) | Pont gouverné du runtime de morphogenèse | Accepté | 2026-11-14 | morphogenèse, autorité, transition, reprise |
+| [0799](0799-pilote-sqlite-canonique.md) | Pilote SQLite canonique | Accepté | 2026-11-15 | persistance, installation, compatibilité |
 | [2026a](2026-11-02-campagne-native-agow-appariee.md) | ADR — Campagne native AGOW appariée | Accepté pour une qualification locale bornée | 2026-11-02 | AGOW, protocole expérimental, état initial et couverture |
 | [2026b](2026-11-02-contrat-actions-modele-ett.md) | Contrat explicite des actions modèle ETT | Accepté | 2026-11-02 | -- |
 | [2026c](2026-11-02-gns-arbitrage-agow.md) | Raccorder GNS à l'arbitrage AGOW | Voir le fichier | -- | -- |

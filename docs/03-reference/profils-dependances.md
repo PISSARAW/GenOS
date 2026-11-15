@@ -1,7 +1,7 @@
 # Profils de dépendances
 
 > **Statut** : référence implémentée  
-> **Dernière revue** : 2026-11-14
+> **Dernière revue** : 2026-11-15
 
 GenOS propose deux installations reproductibles. Le profil `full` reste le profil
 compatible : il installe toutes les dépendances auparavant fournies par les trois
@@ -68,10 +68,11 @@ binaires `sqlite-vec` et ONNX restaient présents. La comparaison réduit d'envi
 66 % le total racine et backend observé ; elle dépend
 de la plateforme, des versions verrouillées et des binaires natifs disponibles.
 
-L'inventaire confirme aussi trois bibliothèques d'accès SQLite dans le backend :
-`sqlite` enveloppe `sqlite3`, tandis que `better-sqlite3` reste consommé par dix-huit
-fichiers de production. Son retrait relève de la migration asynchrone ultérieure et
-ne fait pas partie de ces profils.
+Depuis l'ADR 0799, `better-sqlite3` est l'unique pilote chargé par le code de
+production. La façade `backend/src/db/sqliteDriver.js` fournit le contrat asynchrone
+historique et l'accès synchrone nécessaire aux journaux protocolaires. `sqlite` et
+`sqlite3` restent en dépendances de développement pour les fixtures historiques ;
+ils sont absents du profil `core`.
 
 ## Vérification
 
@@ -81,6 +82,7 @@ les paquets sont absents :
 ```powershell
 node backend/tests/test_optional_dependency_profiles.js
 node backend/tests/test_mcp_registry_without_browser_dependency.js
+node backend/tests/test_sqlite_driver.js
 ```
 
 Le profil complet reste soumis aux suites web, stockage et backend habituelles.

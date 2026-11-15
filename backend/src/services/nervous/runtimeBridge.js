@@ -24,8 +24,8 @@ async function openRuntime(sourceDb) {
   if (fs.existsSync(sidecar) && fs.lstatSync(sidecar).isSymbolicLink()) throw new Error('UNSAFE_SIDECAR');
   const fd = fs.openSync(sidecar, fs.constants.O_CREAT | fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW || 0), 0o600);
   fs.closeSync(fd);
-  const { open } = require('sqlite');
-  const db = await open({ filename: sidecar, driver: require('sqlite3').Database });
+  const { open, Database } = require('../../db/sqliteDriver');
+  const db = await open({ filename: sidecar, driver: Database });
   try {
     const store = await new NervousStore(db).initialize();
     return new NervousRuntime(store);

@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const Database = require('better-sqlite3');
+const { Database } = require('../../db/sqliteDriver');
 const { digest } = require('../evidenceProtocol/canonical');
 
 function sqlite(filename, inspect) {

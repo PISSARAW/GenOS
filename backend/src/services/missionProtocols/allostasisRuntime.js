@@ -2,7 +2,7 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const Database = require('better-sqlite3');
+const { Database } = require('../../db/sqliteDriver');
 const { randomUUID } = require('node:crypto');
 const { digest } = require('../evidenceProtocol/canonical');
 const { createMessage } = require('../allostasisProtocol/contract');
