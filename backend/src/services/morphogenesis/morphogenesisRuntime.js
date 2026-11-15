@@ -93,21 +93,15 @@ class MorphogenesisRuntime {
   constructor(options = {}) {
     this._emit = options.emit || emit;
     if (typeof this._emit !== 'function') throw new TypeError('Morphogenesis emitter must be a function');
-    this._transitionEngine = null;
-    this._agentGit = null;
     this._counterfactual = null;
     this._computeSubstrate = null;
+    this._governedTransition = options.governedTransition
+      || require('./runtime/morphogenesisGovernedTransitionBridge');
   }
 
   async init() {
     if (!this._db) {
       try { this._db = await require('../../db').getDatabase(); } catch {}
-    }
-    if (!this._transitionEngine) {
-      try { this._transitionEngine = require('../morphogenesis/transitionEngineService'); } catch {}
-    }
-    if (!this._agentGit) {
-      try { this._agentGit = require('../morphogenesis/agentGitService'); } catch {}
     }
     if (!this._counterfactual) {
       try { this._counterfactual = require('../counterfactual/counterfactualPlanner'); } catch {}
@@ -202,73 +196,18 @@ async prepareMorphology(strategyContract, options = {}) {
         variantId: morphology.variantId || null, agents: morphology.agents };
     }
 
-    if (!this._transitionEngine) {
-      if (!this._db) {
-        try { this._db = await require('../../db').getDatabase(); } catch {}
-      }
-      if (!this._transitionEngine) {
-        try { this._transitionEngine = require('../morphogenesis/transitionEngineService'); } catch {}
-      }
-    }
+    if (options.mode !== 'commit') return this._executeSimple(morphology, options);
 
-    if (this._transitionEngine) {
-      if (!this._db) {
-        try { this._db = await require('../../db').getDatabase(); } catch {}
-      }
-      const planId = `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const plan = {
-        id: planId,
-        targetOrganization: morphology.topology || 'single_agent',
-        actions: (morphology.agents || []).map((agent, index) => ({
-          type: 'spawn',
-          agentId: agent.agentId || `${planId}-agent-${index}`,
-          role: agent.role || `agent_${index}`,
-          phenotype: agent.phenotype || {},
-          workspace: agent.workspace
-        })),
-      };
-      const transitionSpec = {
-        transitionId: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        plan,
-        collectiveState: currentCollectiveState(),
-        db: this._db || null,
-        targetTopology: morphology.topology,
-        agents: morphology.agents,
-        reason: options.reason || `morphogenesis strategy=${morphology.strategy}`,
-        evidence: options.evidence || null,
-        committedBy: options.orchestratorId || 'morphogenesis_runtime',
-      };
-      if (this._agentGit) {
-        transitionSpec.agentGit = {
-          reason: transitionSpec.reason,
-          evidence: transitionSpec.evidence,
-          committedBy: transitionSpec.committedBy,
-        };
-      }
-      const result = await this._transitionEngine.executeTransition(transitionSpec);
-      const committed = result?.committed === true;
-      const applied = committed;
-      const event = applied ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED';
-      try {
-        this._emit(options.orchestratorId || 'morphogenesis', event, committed ? 'APPLIED' : 'TOPOLOGY_CHANGE_UNAVAILABLE',
-          committed ? 'APPLIED' : 'TOPOLOGY_CHANGE_UNAVAILABLE', { topology: morphology.topology, variantId: morphology.variantId || null, applied }, applied ? 'info' : 'warning');
-      } catch (error) { if (result) result.telemetryError = error.message; }
-      return {
-        ...result,
-        applied,
-        proposed: !applied,
-        committed,
-        decision: committed ? 'APPLIED' : (result?.decision || 'REJECTED'),
-        agents: morphology.agents,
-        topology: morphology.topology,
-        commitId: result?.commitId || null,
-        transitionId: result?.transitionId || transitionSpec.transitionId,
-        receipt: result || null,
-        variantId: morphology.variantId || null,
-      };
-    }
-
-    return this._executeSimple(morphology, options);
+    const governed = await this._governedTransition.execute({
+      db: this._db || await require('../../db').getDatabase(), morphology, options
+    });
+    const event = governed.applied ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED';
+    try {
+      this._emit(options.orchestratorId || 'morphogenesis', event, governed.decision,
+        governed.decision, { topology: morphology.topology, variantId: morphology.variantId || null,
+          applied: governed.applied }, governed.applied ? 'info' : 'warning');
+    } catch (error) { governed.telemetryError = error.message; }
+    return governed;
   }
 
   async _executeSimple(morphology, options) {
@@ -280,14 +219,6 @@ async prepareMorphology(strategyContract, options = {}) {
       topology: morphology.topology,
       variantId: morphology.variantId || null,
     };
-  }
-}
-
-function currentCollectiveState() {
-  try {
-    return require('../collectiveStateService').getState();
-  } catch (_) {
-    return null;
   }
 }
 

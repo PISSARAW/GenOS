@@ -28,6 +28,52 @@ async function seed(db, root) {
     VALUES ('commit-ws','Commit workspace',?,'commit-org','commit-project')`, root);
   await db.run(`INSERT INTO agents(id,name,role,status,execution_mode,workspace_id)
     VALUES ('commit-agent','Commit Agent','orchestrator','idle','orchestrator','commit-ws')`);
+  await db.run(`INSERT INTO agents(id,name,role,status,execution_mode,workspace_id)
+    VALUES ('runtime-agent','Runtime Agent','architect','idle','orchestrator','commit-ws')`);
+}
+
+async function executeRuntimeBridge(db) {
+  const state = collective.deserializeState({ mission: { id: 'runtime-bridge-mission' },
+    agents: { 'runtime-agent': { id: 'runtime-agent', status: 'idle', role: 'architect', lease: ['read'] } },
+    topologyState: { organization: 'trinity', topology: 'trinity', activeSubgraphs: [] },
+    budgets: { total: 100, allocated: 20, remaining: 80, perAgent: { 'runtime-agent': 20 } } });
+  const req = { user: { username: 'operator' }, tenant: {
+    organizationId: 'commit-org', projectId: 'commit-project' } };
+  const runtime = new (require('../src/services/morphogenesis/morphogenesisRuntime').MorphogenesisRuntime)({
+    emit: () => {}
+  });
+  runtime._db = db;
+  const refused = await runtime.executeMorphology({ topology: 'rhizome', agents: [] }, {
+    mode: 'commit', orchestratorId: 'runtime-agent',
+    transitionPlan: { id: 'runtime-bridge-refused', missionId: 'runtime-bridge-refused',
+      actions: [{ type: 'rebind', agentId: 'runtime-agent', targetRole: 'verifier' }],
+      targetOrganization: 'rhizome', expectedGain: 0.7, expectedRisk: 0.2 },
+    runtimeContext: { agentId: 'runtime-agent', missionId: 'runtime-bridge-refused',
+      collectiveState: state }
+  });
+  assert.equal(refused.applied, false);
+  assert.equal(refused.receipt.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
+  assert.ok(refused.receipt.errors.includes('authenticated request scope is required'));
+  assert.equal(state.topologyState.organization, 'trinity');
+  const result = await runtime.executeMorphology({ topology: 'rhizome', variantId: 'default', agents: [] }, {
+    mode: 'commit', orchestratorId: 'runtime-agent',
+    transitionPlan: { id: 'runtime-bridge-plan', missionId: 'runtime-bridge-mission',
+      actions: [{ type: 'rebind', agentId: 'runtime-agent', targetRole: 'verifier' }],
+      targetOrganization: 'rhizome', expectedGain: 0.7, expectedRisk: 0.2,
+      reason: 'runtime-governed-production-bridge' },
+    runtimeContext: { db, req, agentId: 'runtime-agent', missionId: 'runtime-bridge-mission',
+      collectiveState: state }
+  });
+  assert.equal(result.applied, true);
+  assert.equal(result.committed, true);
+  assert.equal(result.decision, 'APPLIED');
+  assert.ok(result.commitId);
+  assert.equal(result.receipt.rustAuthority.decision, 'APPLY');
+  assert.equal(state.topologyState.organization, 'rhizome');
+  assert.equal(state.agents.get('runtime-agent').role, 'verifier');
+  const stored = await snapshots.load({ db, id: result.receipt.durableSnapshot.id });
+  assert.equal(stored.row.status, 'committed');
+  assert.equal((await getLineage(db, 'runtime-agent')).length, 1);
 }
 
 async function execute(db) {
@@ -124,6 +170,7 @@ async function run() {
   const db = await getDatabase(dbPath);
   try {
     await seed(db, root);
+    await executeRuntimeBridge(db);
     await execute(db);
     console.log('authenticated Rust morphogenesis commit: PASS');
   } finally {
