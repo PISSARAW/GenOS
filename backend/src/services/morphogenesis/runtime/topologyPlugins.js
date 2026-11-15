@@ -2,6 +2,7 @@
 
 const { ControllerRegistry } = require('../controllers/registry');
 const { createTopologyRuntimePort } = require('./topologyRuntimePort');
+const holobiontWorkerBridge = require('../../holobionte/runtime/workerMissionAdapters');
 
 const CONTROLLER_TOPOLOGIES = Object.freeze(['trinity', 'a_team', 'rhizome', 'syncytium', 'biocenose']);
 const SERVICE_TOPOLOGIES = Object.freeze(['biome', 'holobionte', 'metapopulation']);
@@ -121,13 +122,14 @@ async function executeHolobionte(args, context) {
   if (input.variantId && Array.isArray(input.variantOperations)) return executeVariantMission(args, input);
   const workerResults = collectMissionWorkers(args, input);
   const capability = capabilityFrom(input);
-  const adapters = missionAdapters(input, workerResults);
+  const adapters = holobiontWorkerBridge.missionAdapters(input, workerResults);
   const created = await require('./sqliteDb').createRuntimeDb({ db: input.db });
   try {
     const result = await require('../../holobionte/runtime/holobiontMissionService').runHolobiontMission(created.db, {
       ...input, hostId: hostFrom(args, input), missionId: missionFrom(args, input), capability,
       ...adapters, workerResults,
-      symbionts: input.symbionts || [{ id: 'resident-mission', contract: contractBody({ hostId: hostFrom(args, input) }, capability) }]
+      symbionts: input.symbionts || [{ id: 'resident-mission',
+        contract: holobiontWorkerBridge.contractBody({ hostId: hostFrom(args, input) }, capability) }]
     });
     return { ...result, driver: created.driver, workerResults, executionMode: 'service_runtime' };
   } finally {
@@ -141,70 +143,6 @@ function capabilityFrom(input) {
   return capability;
 }
 
-function missionAdapters(input, workerResults) {
-  const workerExecutor = workerCapabilityExecutor(workerResults);
-  const executeCapability = input.executeCapability || workerExecutor;
-  const verifyCapability = input.verifyCapability || workerCapabilityVerifier(workerResults);
-  const trialCapabilityExecutor = input.trialCapabilityExecutor
-    || (input.executeCapability ? undefined : workerExecutor);
-  return { executeCapability, verifyCapability, trialCapabilityExecutor };
-}
-
-function workerCapabilityExecutor(results) {
-  return async function executeFromWorkerReceipt() {
-    const worker = results.find((item) => measuredCapability(item.evidenceReport));
-    if (!worker) throw workerAdapterError('No worker result carries measured capability evidence.');
-    const report = worker.evidenceReport;
-    const measured = measuredCapability(report);
-    return { result: report.workerArtifact.content,
-      resourcesConsumed: measured.usage, contributionScore: measured.contributionScore,
-      contractCompliant: measured.contractCompliant,
-      unsafeBehavior: measured.unsafeBehavior, riskScore: measured.riskScore };
-  };
-}
-
-function workerCapabilityVerifier(results) {
-  return async function verifyFromWorkerReceipt(invocation) {
-    const worker = results.find((item, index) => index > 0
-      && evidenceRefs(item.evidenceReport).length > 0);
-    if (!worker) throw workerAdapterError('No independent worker verification receipt is available.');
-    return { status: 'VERIFIED', verifierId: worker.workerId,
-      resultHash: invocation.resultHash, evidenceRefs: evidenceRefs(worker.evidenceReport) };
-  };
-}
-
-function measuredUsage(report) {
-  const usage = report?.usage || report?.workerArtifact?.provenance?.usage;
-  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null;
-  const normalized = Object.fromEntries(Object.entries(usage)
-    .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
-    .map(([key, value]) => [key, Number(value)]));
-  return Object.keys(normalized).length ? normalized : null;
-}
-
-function measuredCapability(report) {
-  const usage = measuredUsage(report);
-  const metrics = report?.metrics || report?.workerArtifact?.provenance?.metrics;
-  if (!usage || !metrics || typeof metrics !== 'object') return null;
-  const contributionScore = Number(metrics.contributionScore);
-  const riskScore = Number(metrics.riskScore);
-  if (!Number.isFinite(contributionScore) || !Number.isFinite(riskScore)
-    || typeof metrics.contractCompliant !== 'boolean'
-    || typeof metrics.unsafeBehavior !== 'boolean') return null;
-  return { usage, contributionScore, riskScore,
-    contractCompliant: metrics.contractCompliant,
-    unsafeBehavior: metrics.unsafeBehavior };
-}
-
-function evidenceRefs(report) {
-  const provenance = report?.workerArtifact?.provenance || {};
-  const refs = provenance.evidenceRefs || provenance.sourceRefs || [];
-  return refs.filter((item) => typeof item === 'string' && item.trim());
-}
-
-function workerAdapterError(message) {
-  return Object.assign(new Error(message), { code: 'HOLOBIONT_WORKER_ADAPTER_REQUIRED' });
-}
 
 async function migrateHolobionte(db) {
   const sessions = require('../../../db/migrations/migrateHolobiontSessions');
@@ -240,17 +178,6 @@ function hostFrom(args = {}, input = {}) {
 
 function missionFrom(args, input) {
   return input.missionId || input.mission || args.mission || 'morphogenesis-mission';
-}
-
-function contractBody(created, capability) {
-  return {
-    hostId: created.hostId, symbiontId: 'resident-mission', capabilitiesOffered: [capability],
-    dependencyCeiling: 0.3, resourcesRequested: { tokens: 20 }, inputs: {}, outputs: {},
-    authorityScope: { level: 'CAPABILITY', actions: [capability] }, toolLeases: [], dataAccess: [],
-    privacyBoundary: {}, evidenceRequirements: [`${capability}-proof`], expectedBenefit: { quality: 'higher' },
-    maxCost: { tokens: 20 }, immunePolicy: {}, adaptationPolicy: {},
-    transmissionPolicy: 'NEVER_INHERIT', terminationConditions: ['mission-end']
-  };
 }
 
 function installMetapopulation(runtime, ports) {

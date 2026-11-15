@@ -31,7 +31,8 @@ async function prepareBiologicalContext(db, context) {
 }
 
 async function dispatchAndValidate({ db, context, mode, parent, composition }) {
-  const members = composition.members || [];
+  const members = (composition.members || [])
+    .filter((member) => member.executionMode !== 'orchestrator');
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
   if (mode !== 'syncytium') {
     await biologicalWorkerCompletion.collectCompletedWorkerStatuses({ db, context, accepted });

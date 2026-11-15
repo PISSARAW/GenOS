@@ -20,7 +20,8 @@ async function composeBiologicalMode({ db, context, mode, mission }) {
       population: context.request.population,
       memberCandidates: context.request.member_candidates || context.request.memberCandidates,
       questionType: context.request.question_type || context.request.questionType,
-      constitution: context.request.constitution }
+      constitution: context.request.constitution,
+      activateOrganization: context.request.activateOrganization }
   });
 }
 
