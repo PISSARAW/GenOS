@@ -16,6 +16,15 @@ function untrustedHostChecks(checks = []) {
     .map(({ check, index }) => ({ index, command: [check?.program, ...(check?.args || [])].join(' ') }));
 }
 
+function trustHostChecks(checks = []) {
+  return (Array.isArray(checks) ? checks : []).map((check) => isDockerCheck(check)
+    ? check : { ...check, trustMode: HOST_TRUST_MODE });
+}
+
+function blockedHostChecksSummary(blockedChecks = []) {
+  return blockedChecks.map(({ index, command }) => `check[${index}]=${command}`).join(';');
+}
+
 function hostVerificationEvidence(check) {
   if (isDockerCheck(check)) return null;
   if (check?.trustMode !== HOST_TRUST_MODE) throw new Error('verification-hote-confiance-operateur-requise');
@@ -28,4 +37,4 @@ function validHostVerificationEvidence(evidence, check) {
 }
 
 module.exports = { HOST_TRUST_MODE, isDockerCheck, hostChecks, untrustedHostChecks,
-  hostVerificationEvidence, validHostVerificationEvidence };
+  trustHostChecks, blockedHostChecksSummary, hostVerificationEvidence, validHostVerificationEvidence };

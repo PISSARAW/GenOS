@@ -7,7 +7,7 @@ const { validateProjectConfig } = require('./configSchema');
 const { validateProjectRoot } = require('./projectRootValidation');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
 const { managedRoot } = require('./worktreeService');
-const { hostChecks, untrustedHostChecks } = require('./verificationTrust');
+const { hostChecks, untrustedHostChecks, blockedHostChecksSummary } = require('./verificationTrust');
 
 function parseProjectConfig(project) {
   try {
@@ -102,8 +102,15 @@ function hostVerificationReadiness(checks) {
 
 async function assertProjectReady(db, projectId, dependencies) {
   const readiness = await inspectProject(db, projectId, dependencies);
-  if (readiness.status !== 'ready') throw new Error('verification-hote-confiance-operateur-requise');
+  if (readiness.status !== 'ready') throw hostVerificationError(readiness);
   return readiness;
+}
+
+function hostVerificationError(readiness) {
+  const details = blockedHostChecksSummary(readiness.hostVerification?.blockedChecks);
+  return new Error(`verification-hote-confiance-operateur-requise:${details}; `
+    + `lancez preflight --project ${readiness.projectId}, puis ajoutez trustMode "operator_trusted_host" `
+    + `aux contrôles indiqués et appliquez config --project ${readiness.projectId} --file <config.json> --reason <raison>`);
 }
 
 module.exports = { assertProjectReady, inspectProject, dockerReadiness, validateIntegrationBranch,

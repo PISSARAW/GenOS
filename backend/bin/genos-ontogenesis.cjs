@@ -15,6 +15,8 @@ const control = require('../src/services/ontogenesis/controlService');
 const autostart = require('../src/services/ontogenesis/autostartService');
 const { createRuntimeHarness } = require('../src/services/ontogenesis/runtimeHarness');
 const { assertProjectReady, inspectProject } = require('../src/services/ontogenesis/readinessService');
+const { untrustedHostChecks, trustHostChecks,
+  blockedHostChecksSummary } = require('../src/services/ontogenesis/verificationTrust');
 
 function flags(argv) {
   const values = {};
@@ -34,7 +36,7 @@ function flags(argv) {
 
 function usage() {
   console.log('Usage: genos-ontogenesis.cjs <commande> [options]');
-  console.log('  init --root DIR [--branch B] [--objective TXT] [--project ID]');
+  console.log('  init --root DIR [--branch B] [--objective TXT] [--project ID] [--trust-host-checks]');
   console.log('  start|status|pause|resume|stop --project ID [--reason TXT]');
   console.log('  autostart --on|--off [--project ID]');
   console.log('  status [--json]');
@@ -87,11 +89,22 @@ async function runInit(db, options) {
   const checked = validateProjectConfig(requested);
   if (!checked.ok) throw new Error(`configuration-invalide:${checked.errors.join(',')}`);
   const rootPath = await validateProjectRoot({ root: options.root, branch: checked.config.branch });
+  const config = initConfigWithHostTrust(checked.config, options);
   const id = await createProject(db, {
     id: options.project || undefined, rootPath,
-    branch: checked.config.branch, objective: options.objective || '', config: checked.config
+    branch: config.branch, objective: options.objective || '', config
   });
   console.log(`projet-cree:${id}`);
+}
+
+function initConfigWithHostTrust(config, options) {
+  const blocked = untrustedHostChecks(config.checks);
+  if (!blocked.length) return config;
+  if (options['trust-host-checks'] !== true) {
+    throw new Error(`verification-hote-confiance-operateur-requise:${blockedHostChecksSummary(blocked)}; `
+      + 'relancez init avec --trust-host-checks pour autoriser explicitement ces contrôles sur la machine hôte');
+  }
+  return { ...config, checks: trustHostChecks(config.checks) };
 }
 
 async function runCommand(db, name, options) {

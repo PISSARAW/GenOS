@@ -121,10 +121,21 @@ async function main() {
     assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli', '--config', config]), /projet-cree:onto_cli/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"status":"ready"/);
     assert.match(invoke(context, ['preflight', '--project', 'onto_cli']), /"docker":"not_required"/);
+    const defaultInit = execute(context, ['init', '--root', root, '--project', 'onto_cli_default']);
+    assert.strictEqual(defaultInit.status, 1);
+    assert.match(defaultInit.stderr, /check\[0\]=npm test/);
+    assert.match(defaultInit.stderr, /--trust-host-checks/);
+    await assertProjectMissing(context.database, 'onto_cli_default');
+    assert.match(invoke(context, ['init', '--root', root, '--project', 'onto_cli_default',
+      '--trust-host-checks']), /projet-cree:onto_cli_default/);
+    assert.match(invoke(context, ['preflight', '--project', 'onto_cli_default']), /"status":"ready"/);
     const untrustedConfig = fixture.testConfig();
     delete untrustedConfig.checks[0].trustMode;
-    fs.writeFileSync(config, JSON.stringify(untrustedConfig));
+    fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
     invoke(context, ['init', '--root', root, '--project', 'onto_cli_host_untrusted', '--config', config]);
+    fs.writeFileSync(config, JSON.stringify(untrustedConfig));
+    invoke(context, ['config', '--project', 'onto_cli_host_untrusted', '--file', config,
+      '--reason', 'Operator revokes host trust']);
     const hostTask = JSON.parse(invoke(context, ['task', '--project', 'onto_cli_host_untrusted',
       '--title', 'Must wait for host trust'])).taskId;
     const blockedPreflight = execute(context, ['preflight', '--project', 'onto_cli_host_untrusted']);
@@ -134,7 +145,14 @@ async function main() {
     assert.strictEqual(blockedReadiness.hostVerification.blockedChecks[0].index, 0);
     const blockedTick = execute(context, ['tick', '--project', 'onto_cli_host_untrusted']);
     assert.strictEqual(blockedTick.status, 1);
-    assert.match(blockedTick.stderr, /verification-hote-confiance-operateur-requise/);
+    assert.match(blockedTick.stderr, /verification-hote-confiance-operateur-requise:check\[0\]=/);
+    assert.match(blockedTick.stderr, /preflight --project onto_cli_host_untrusted/);
+    assert.match(blockedTick.stderr, /config --project onto_cli_host_untrusted/);
+    const blockedRun = execute(context, ['run', '--project', 'onto_cli_host_untrusted']);
+    assert.strictEqual(blockedRun.status, 1);
+    assert.match(blockedRun.stderr, /verification-hote-confiance-operateur-requise:check\[0\]=/);
+    assert.match(blockedRun.stderr, /preflight --project onto_cli_host_untrusted/);
+    assert.match(blockedRun.stderr, /config --project onto_cli_host_untrusted/);
     await assertNoPreflightEffects(context.database, { projectId: 'onto_cli_host_untrusted', task: hostTask });
     fs.writeFileSync(config, JSON.stringify(fixture.testConfig()));
     const revised = JSON.parse(invoke(context, ['config', '--project', 'onto_cli_host_untrusted',
