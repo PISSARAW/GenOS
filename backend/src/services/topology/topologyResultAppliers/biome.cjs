@@ -15,13 +15,13 @@ async function apply(input = {}) {
   const records = await workers.load(db, { missionId: context.missionId,
     sessionId: topology.sessionId, members: accepted });
   if (!records) return blocked('BIOME_VERIFIED_WORKER_EVIDENCE_REQUIRED');
+  const evidenceRefs = records.map(record => record.reference);
   const runtime = await biome.BiomeRuntime.restore(topology.sessionId, null, db);
   if (runtime.stopCondition === 'goal_achieved') return { applied: true, status: 'APPLIED', sessionId: runtime.sessionId };
-  if (runtime.tick > 0) return blocked('BIOME_DISPATCH_SESSION_ALREADY_ADVANCED');
-  const evidenceRefs = records.map(record => record.reference);
-  await runtime.step({ individuals: records.map(workers.individual), evidenceRefs,
-    environmentPatch: { opportunities: records.map(workers.opportunity) },
-    garageCapacity: records.length });
+  if (runtime.tick > 0 && !retryable(runtime, { context, topology, evidenceRefs })) {
+    return blocked('BIOME_DISPATCH_SESSION_ALREADY_ADVANCED');
+  }
+  if (runtime.tick === 0) await initialize(runtime, records, evidenceRefs);
   runtime.options.missionId = context.missionId;
   runtime.options.producerId = context.missionId;
   runtime.options.verifyGoal = verifier({ db, context, topology, accepted, evidenceRefs });
@@ -30,6 +30,26 @@ async function apply(input = {}) {
   return result.goalVerification?.verified === true
     ? { applied: true, status: 'APPLIED', sessionId: runtime.sessionId, tick: result.tick, evidenceRefs }
     : blocked('BIOME_GOAL_ORACLE_UNVERIFIED');
+}
+
+async function initialize(runtime, records, evidenceRefs) {
+  await runtime.step({ individuals: records.map(workers.individual), evidenceRefs,
+    environmentPatch: { opportunities: records.map(workers.opportunity) },
+    garageCapacity: records.length });
+}
+
+function retryable(runtime, scope) {
+  const goal = runtime.state?.goalVerification;
+  return runtime.stopCondition === null && goal?.verified === false
+    && goal.tick === runtime.tick && goal.sessionId === runtime.sessionId
+    && goal.missionId === scope.context.missionId && goal.producerId === scope.context.missionId
+    && sameReferences(goal.evidenceRefs, scope.evidenceRefs)
+    && scope.topology.sessionId === runtime.sessionId;
+}
+
+function sameReferences(left, right) {
+  return Array.isArray(left) && left.length === right.length
+    && left.every((reference, index) => reference === right[index]);
 }
 
 function precondition(input) {
@@ -50,7 +70,10 @@ function verifier(input) {
   return async request => {
     const current = await workers.load(input.db, { missionId: input.context.missionId,
       sessionId: input.topology.sessionId, members: input.accepted });
-    if (!current || current.some((record, index) => record.reference !== input.evidenceRefs[index])) return { verified: false };
+    if (!current || current.some((record, index) => record.reference !== input.evidenceRefs[index])) {
+      return { sessionId: request.sessionId, tick: request.tick, verified: false,
+        evidenceRefs: input.evidenceRefs };
+    }
     return { sessionId: request.sessionId, tick: request.tick, verified: true,
       evidenceRefs: input.evidenceRefs, oracleReceipt: oracle.issue({ ...request,
         health: request.measurements.health, verified: true,
