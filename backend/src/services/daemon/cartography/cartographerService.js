@@ -211,7 +211,9 @@ async function rebuildGraph(db, args) {
     if (res.indexed) indexed += 1;
   }
   if (!truncated) await markTerritoryIndexed(db, args.territoryId);
-  else await db.run("UPDATE daemon_territories SET state = 'STALE', indexed_head_sha = NULL WHERE id = ? AND state != 'APOPTOTIC'", args.territoryId);
+  else await db.run(`UPDATE daemon_territories
+    SET state = 'DEGRADED', indexed_head_sha = NULL, last_indexed_at = datetime('now')
+    WHERE id = ? AND state != 'APOPTOTIC'`, args.territoryId);
   return { scanned: args.files.length, indexed, truncated, maxFiles: MAX_FILES };
 }
 

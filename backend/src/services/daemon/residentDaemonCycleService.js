@@ -84,11 +84,16 @@ async function executeCycle(context) {
 
 async function refreshIndex(context, job) {
   if (job.state.activity === 'BOOTSTRAPPING') return bootstrap(context, job.territory);
-  const stale = job.territory.state === 'STALE' || job.territory.indexedHeadSha !== job.territory.headSha;
+  const stale = needsIndexRefresh(job.territory);
   if (!stale || Date.now() - (context.lastIndexAttemptAt || 0) < 60000) return null;
   context.lastIndexAttemptAt = Date.now();
   return cartographer.scanTerritory(context.db, { territoryId: job.territory.id,
     rootPath: job.territory.rootPath, scopePath: job.territory.scopePath });
+}
+
+function needsIndexRefresh(territory) {
+  return territory.state === 'STALE'
+    || (territory.state !== 'DEGRADED' && territory.indexedHeadSha !== territory.headSha);
 }
 
 async function investigate(context, job) {
@@ -132,4 +137,4 @@ async function maybeReconcile(context) {
   return receipt;
 }
 
-module.exports = { runCycle, drain };
+module.exports = { runCycle, drain, needsIndexRefresh };
