@@ -241,6 +241,7 @@ async function withTransaction(db, callback) {
 module.exports = {
   getDatabase,
   databasePath: () => currentDbPath,
+  resolveDatabasePath: () => databaseFilename(),
   localLedgerSecretPath,
   localToolMembraneSecretPath,
   loadDatabaseSigningSecret,
