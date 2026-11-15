@@ -4,7 +4,7 @@ const values = require('../trinityProvenanceValues');
 const ledger = require('../gvxDevelopmentLedger');
 const provenance = require('../gvxMissionProvenance');
 const enforcement = require('./workerContractEnforcement');
-const CHILD_KINDS = new Set(['scout_cell', 'bounded_worker', 'adaptive_worker', 'verifier_worker']);
+const CHILD_KINDS = new Set(require('../workerAssignmentContract').DELEGABLE_KINDS);
 const SCHEMA = 'genos.bounded-worker-delegation/v1';
 
 function denied(code = 'WORKER_CONTRACT_DENIED') { return values.failure(code); }

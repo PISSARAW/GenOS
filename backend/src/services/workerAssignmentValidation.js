@@ -5,6 +5,9 @@ const workerGarage = require('./workerGarageService');
 function validateAssignments(assignments, plan = {}) {
   const maximum = workerGarage.maxActiveWorkers();
   if (!assignments.length) return;
+  for (const assignment of assignments) {
+    require('./workerAssignmentContract').assertCompleteAssignment(assignment);
+  }
   if (plan.nativeMissionPlan) return validateNativeStages(assignments, maximum);
   if (assignments.length > maximum) {
     throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${maximum}-worker limit.`), {

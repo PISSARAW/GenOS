@@ -9,10 +9,20 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const { TABLES_MODEL_ATTEMPTS } = require('../src/db/schema-model-attempts');
 const { encodeMission, decodeEvents } = require('../src/services/runtimeProtocol');
+const sharedBudget = require('../bin/codex-cli-shared-budget.cjs');
 
 const runtime = path.resolve(__dirname, '../bin/genos-agent-runtime.cjs');
 const scope = { id: 'execution-run:codex-parent', costUsd: 0.25,
   tokens: 100, organizationId: 'org', projectId: 'project' };
+
+const synthesisPlan = { synthesisOnly: true, completedWorkerIds: ['worker-a'],
+  completedWorkerDossiers: [{ workerId: 'worker-a', events: [{ evidenceReport: {
+    outcome: 'success', claims: [{ statement: 'Bounded result verified.', evidence: ['solver://receipt'] }]
+  } }] }] };
+assert.equal(sharedBudget.isCanonicalSynthesis({ executionMode: 'orchestrator',
+  autonomyPlanJson: JSON.stringify(synthesisPlan) }), true);
+assert.equal(sharedBudget.isCanonicalSynthesis({ executionMode: 'worker',
+  autonomyPlanJson: JSON.stringify(synthesisPlan) }), false);
 
 async function database(filename) {
   const db = await open({ filename, driver: sqlite3.Database });

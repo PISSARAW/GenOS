@@ -360,7 +360,11 @@ async function handleChildClose(state, code, signal) {
   const ctx = require('./agent-runtime-close-context.cjs').buildCloseContext(state, code, signal);
   return handleRuntimeClose(ctx);
 }
+
 async function startRuntime(state) {
+  if (sharedBudget.isCanonicalSynthesis(state.mission)) {
+    return require('./agent-runtime-canonical-synthesis.cjs').complete(state);
+  }
   const binaries = resolveBinaries();
   if (state.isWorker) {
     const inventory = await workerMcpPreflight.runWorkerMcpInventoryPreflight({ state, binaries, mcp: buildMcpConfig(binaries) });

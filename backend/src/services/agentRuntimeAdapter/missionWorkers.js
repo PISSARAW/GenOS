@@ -248,7 +248,7 @@ async function dispatchSelectedWorkers(ctx, assignments) {
     autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, {
       plan: ctx.autonomyPlan, mission: ctx.normalizedMission
     });
-    assertWorkerDispatchMatches(assignments, autonomousWorkers);
+    assertWorkerDispatchMatches(assignments, autonomousWorkers, ctx.autonomyPlan);
     const cells = require('../autonomousWorkerCellBridge');
     if (!ctx.autonomyPlan.trinity?.activated) await cells.bind(ctx, autonomousWorkers);
     await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId),
@@ -353,24 +353,35 @@ function linkWorker(member, workers) {
   return { ...member, agentId: worker.agentId, workerId: worker.agentId, status: 'ACTIVE' };
 }
 
-function assertWorkerDispatchMatches(assignments, workers) {
-  if (workers.length !== assignments.length) {
-    throw Object.assign(new Error(`Worker dispatch count mismatch: selected ${assignments.length}, created ${workers.length}.`), {
-      code: 'WORKER_DISPATCH_COUNT_MISMATCH',
-      selectedWorkers: assignments.length,
-      createdWorkers: workers.length
-    });
-  }
-  const assignmentMismatch = assignments.some((assignment, index) => {
-    const worker = workers[index];
-    return !worker?.agentId
-      || (assignment.label && assignment.label !== worker.label)
-      || (assignment.role && assignment.role !== worker.role);
-  });
+function assertWorkerDispatchMatches(assignments, workers, plan = {}) {
+  assertDispatchCount(assignments, workers);
+  const assignmentMismatch = assignments.some((assignment, index) => assignmentIdentityMismatch(assignment, workers[index]));
   const duplicateIds = new Set(workers.map((worker) => worker.agentId)).size !== workers.length;
+  if (plan.nativeMissionPlan && !assignmentMismatch && !duplicateIds) {
+    const nativeMismatch = assignments.some((assignment, index) => nativeDispatchMismatch(assignment, workers[index]));
+    if (nativeMismatch) throw Object.assign(new Error('Created workers differ from the sealed native objective plan.'),
+      { code: 'NATIVE_OBJECTIVE_DISPATCH_MISMATCH' });
+  }
   if (!assignmentMismatch && !duplicateIds) return;
   throw Object.assign(new Error('Created workers do not match the selected assignment identities.'),
     { code: 'WORKER_DISPATCH_ASSIGNMENT_MISMATCH', selectedWorkers: assignments.length, createdWorkers: workers.length });
+}
+
+function assertDispatchCount(assignments, workers) {
+  if (workers.length === assignments.length) return;
+  throw Object.assign(new Error(`Worker dispatch count mismatch: selected ${assignments.length}, created ${workers.length}.`), {
+    code: 'WORKER_DISPATCH_COUNT_MISMATCH', selectedWorkers: assignments.length, createdWorkers: workers.length
+  });
+}
+
+function assignmentIdentityMismatch(assignment, worker) {
+  return !worker?.agentId || Boolean(assignment.label && assignment.label !== worker.label)
+    || Boolean(assignment.role && assignment.role !== worker.role);
+}
+
+function nativeDispatchMismatch(assignment, worker) {
+  return assignment.workerId !== worker.agentId || assignment.workerKind !== worker.workerKind
+    || !require('node:util').isDeepStrictEqual(assignment.methodContract, worker.methodContract);
 }
 
 function emitDispatchDeferred(ctx, assignments) {

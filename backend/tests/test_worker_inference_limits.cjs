@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const limits = require('../src/services/workerInferenceLimits');
 const repair = require('../src/services/workerCodeTestRepair');
-const stages = require('../src/services/workerEvidenceBarrierLocalValues1');
+const stages = require('../src/services/workerEvidenceBarrierLocalRules');
 const details = require('../src/services/workerLocalStageDetails');
 const mission = { localCodeWorker: true, executionBudget: { tokens: 8192, latencyMs: 120000 },
   executionPolicy: { inferenceLimits: { attempts: 1, outputTokens: 1536 } } };
@@ -23,7 +23,7 @@ async function main() {
   assert.equal(details.outputCap(mission), 1536);
   assert.equal(details.outputCap({ ...mission, workerKind: 'resource_steward' }), 768);
   assert.equal(details.outputCap({ ...mission, identityExperimentScenario: true }), 1024);
-  assert.equal(stages.runGenerationStageValue2({ ctx: { mission } }), 1536);
+  assert.equal(stages.runGenerationStageRule2({ ctx: { mission } }), 1536);
   const context = { normalizedMission: structuredClone(mission),
     dispatchedAgent: { execution_mode: 'worker' } };
   require('../src/services/agentRuntimeAdapter/missionPlanning').applyExecutionPolicy(context);

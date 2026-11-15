@@ -58,7 +58,7 @@ function assignmentFor({ objective, index, parentId, missionId }) {
   registry.assertNativeInput(workerKind, method);
   assertDelegationLimit(objective, workerKind);
   const capabilities = kinds.requiredMethodCapabilities(method);
-  return { label: `native-objective-${index + 1}`,
+  const assignment = { label: `native-objective-${index + 1}`,
     workerId: nativeWorkerId({ parentId, missionId, index: index + 1, kind: workerKind }), hypothesis: objective.goal,
     role: workerKind, workerKind, methodContract: method, capabilities,
     rationale: `Unique native executor for ${method.methodId}.`,
@@ -68,6 +68,8 @@ function assignmentFor({ objective, index, parentId, missionId }) {
     recoveryLease: objective.recoveryLease || null,
     ...(objective.delegatedTokenLimit !== undefined ? { delegatedTokenLimit: objective.delegatedTokenLimit } : {}),
     pipelineStage: 0, dependsOn: [] };
+  require('./workerAssignmentContract').assertCompleteAssignment(assignment);
+  return assignment;
 }
 
 function creditAccount(spec, missionId, workerId) {
@@ -158,6 +160,39 @@ function assertNativePlanDigest(plan) {
   }
 }
 
+function rebatchAssignments(assignments, limit) {
+  const stages = [...new Set(assignments.map((item) => item.pipelineStage ?? 0))]
+    .sort((left, right) => left - right);
+  const groups = stages.map((stage) => assignments
+    .filter((item) => (item.pipelineStage ?? 0) === stage));
+  let nextStage = 0;
+  for (const members of groups) {
+    for (let offset = 0; offset < members.length; offset += limit) {
+      for (const assignment of members.slice(offset, offset + limit)) assignment.pipelineStage = nextStage;
+      nextStage += 1;
+    }
+  }
+}
+
+function reconcileNativeFanout(plan, mission) {
+  if (!plan?.nativeMissionPlan) return false;
+  const limit = Math.floor(Number(mission.executionPolicy?.workerFanoutLimit));
+  if (!Number.isSafeInteger(limit) || limit < 1) return false;
+  const peak = Math.max(...plan.dispatchWorkers.map((item) => item.pipelineStage ?? 0));
+  const stageCounts = new Map();
+  for (const assignment of plan.dispatchWorkers) {
+    const stage = assignment.pipelineStage ?? 0;
+    stageCounts.set(stage, (stageCounts.get(stage) || 0) + 1);
+  }
+  if ([...stageCounts.values()].every((count) => count <= limit)) return false;
+  rebatchAssignments(plan.dispatchWorkers, limit);
+  plan.nativeMissionPlan.assignments = plan.dispatchWorkers;
+  plan.nativeMissionPlan.digest = planDigest(plan.dispatchWorkers);
+  plan.nativeMissionPlan.regulatedFanout = { limit, previousLastStage: peak,
+    lastStage: Math.max(...plan.dispatchWorkers.map((item) => item.pipelineStage ?? 0)) };
+  return true;
+}
+
 function applyNativeMissionPlan(plan, mission) {
   const objectives = mission.native_objectives || mission.nativeObjectives;
   if (objectives === undefined) return plan;
@@ -186,4 +221,4 @@ function applyNativeMissionPlan(plan, mission) {
   return plan;
 }
 
-module.exports = { applyNativeMissionPlan, assertNativePlanDigest, selectKind };
+module.exports = { applyNativeMissionPlan, assertNativePlanDigest, reconcileNativeFanout, selectKind };

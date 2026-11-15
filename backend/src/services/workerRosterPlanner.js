@@ -2,16 +2,47 @@
 
 const { KINDS, KIND_CAPABILITIES, resolveWorkerKind } = require('./agents/workerKindService');
 
+const AUTO_KIND_RULES = [
+  [/\b(delegate|délègue|decompose|décompose|sub[- ]?orchestrat|coordinate children)\b/, ['sub_orchestrator', 'liaison_worker', 'verifier_worker']],
+  [/\b(handoff|relais|liaison|bridge|passation|entre équipes|between teams)\b/, ['liaison_worker', 'synthesis_worker', 'verifier_worker']],
+  [/\b(synthetic|synthétique|educational vignette|cas éducatif|medical education|formation clinique)\b/, ['medical_worker', 'teaching_worker', 'verifier_worker']],
+  [/\b(monitor|surveille|watch|daemon|territory|territoire|alerte)\b/, ['resident_daemon', 'scout_cell', 'verifier_worker']],
+  [/\b(forensic|forensique|root cause|cause racine|causal|incident)\b/, ['forensic_worker', 'scout_cell', 'verifier_worker']],
+  [/\b(specialist|spécialiste|expert|architect)\b/, ['specialist', 'verifier_worker', 'bounded_worker']],
+  [/security|sécurité|attack|attaque|adversarial/, ['red_worker', 'verifier_worker', 'bounded_worker']],
+  [/proof|formal|théor|math|preuve|formel|calcul/, ['bounded_worker', 'verifier_worker', 'red_worker']],
+  [/measure|benchmark|experiment|mesur|expérience|expériment/, ['experimental_worker', 'scout_cell', 'verifier_worker']],
+  [/teach|training|formation|enseigne|pédagog/, ['teaching_worker', 'scout_cell', 'verifier_worker']],
+  [/create|crée|création|design|creative|artistique/, ['creative_worker', 'synthesis_worker', 'verifier_worker']],
+  [/recover|recovery|restore|récupér|restaur/, ['recovery_worker', 'forensic_worker', 'verifier_worker']],
+  [/research|search|observe|étud|recherche|observe|explore/, ['scout_cell', 'adaptive_worker', 'synthesis_worker']]
+];
+
+const NICHE_RULES = [
+  [/security|sécurité|threat|menace/, 'security'],
+  [/backend|frontend|software|logiciel|code|architect/, 'software_engineering'],
+  [/data|donnée|database|base de données/, 'data_engineering'],
+  [/design|ux|product|produit/, 'product_design'],
+  [/allocation|scheduling|ordonnancement/, 'resource_allocation']
+];
+
 function defaultAutoKinds(task) {
   const text = String(task || '').toLowerCase();
-  if (/security|sécurité|attack|attaque|adversarial/.test(text)) return ['red_worker', 'verifier_worker', 'bounded_worker'];
-  if (/proof|formal|théor|math|preuve|formel|calcul/.test(text)) return ['math_worker', 'formal_worker', 'verifier_worker'];
-  if (/measure|benchmark|experiment|mesur|expérience|expériment/.test(text)) return ['experimental_worker', 'scout_cell', 'verifier_worker'];
-  if (/teach|training|formation|enseigne|pédagog/.test(text)) return ['teaching_worker', 'scout_cell', 'verifier_worker'];
-  if (/create|crée|création|design|creative|artistique/.test(text)) return ['creative_worker', 'synthesis_worker', 'verifier_worker'];
-  if (/recover|recovery|restore|récupér|restaur/.test(text)) return ['recovery_worker', 'forensic_worker', 'verifier_worker'];
-  if (/research|search|observe|étud|recherche|observe|explore/.test(text)) return ['scout_cell', 'adaptive_worker', 'synthesis_worker'];
-  return ['bounded_worker', 'adaptive_worker', 'verifier_worker'];
+  return AUTO_KIND_RULES.find(([pattern]) => pattern.test(text))?.[1]
+    || ['bounded_worker', 'adaptive_worker', 'verifier_worker'];
+}
+
+function inferredNiche(task) {
+  const text = String(task || '').toLowerCase();
+  return NICHE_RULES.find(([pattern]) => pattern.test(text))?.[1] || null;
+}
+
+function firstTruthy(values) {
+  return values.find(Boolean);
+}
+
+function fallbackValue(value, fallback) {
+  return value || fallback;
 }
 
 function kindsForPolicy(policy, task, count) {
@@ -51,13 +82,21 @@ function assignmentList(roster) {
 
 function plannedAssignment(input) {
   const { kind, index, task, supplied } = input;
-  const selected = resolveWorkerKind(supplied?.workerKind || supplied?.worker_kind || kind, supplied?.role);
+  const selected = resolveWorkerKind(firstTruthy([supplied?.workerKind, supplied?.worker_kind, kind]), supplied?.role);
   assertAssignmentCapabilities(supplied, selected);
-  return { ...supplied, label: supplied?.label || `${selected}-${index + 1}`,
-    role: supplied?.role || selected, workerKind: selected,
-    hypothesis: supplied?.hypothesis || `Execute an independent, bounded part of the mission: ${task}`,
-    capabilities: supplied?.capabilities || KIND_CAPABILITIES[selected],
-    selectionReason: supplied?.selectionReason || 'selected_from_registered_worker_type_policy' };
+  const declaredNiche = firstTruthy([supplied?.nicheDomain, supplied?.specialtyNiche]);
+  const nicheDomain = declaredNiche || inferSpecialistNiche(selected, task);
+  return require('./workerAssignmentContract').preparePromptAssignment({ ...supplied,
+    label: fallbackValue(supplied?.label, `${selected}-${index + 1}`),
+    role: fallbackValue(supplied?.role, selected), workerKind: selected,
+    hypothesis: fallbackValue(supplied?.hypothesis, `Execute an independent, bounded part of the mission: ${task}`),
+    capabilities: fallbackValue(supplied?.capabilities, KIND_CAPABILITIES[selected]),
+    ...(nicheDomain ? { nicheDomain } : {}),
+    selectionReason: fallbackValue(supplied?.selectionReason, 'selected_from_registered_worker_type_policy') });
+}
+
+function inferSpecialistNiche(selected, task) {
+  return selected === 'specialist' ? inferredNiche(task) : null;
 }
 
 function assertAssignmentCapabilities(supplied, selected) {
@@ -74,16 +113,25 @@ function assertAssignmentCapabilities(supplied, selected) {
 }
 
 function buildWorkerRoster(roster, task, defaults) {
-  if (!roster) return defaults;
+  if (!roster) return defaults.map((supplied, index) => plannedAssignment({
+    kind: resolveWorkerKind(supplied.workerKind, supplied.role), index, task, supplied
+  }));
   const supplied = assignmentList(roster);
   const typePolicy = roster.typePolicy || { mode: 'auto', kinds: [], quotas: {} };
+  if (typePolicy.mode === 'all_registered' && supplied.length !== Object.keys(KINDS).length) {
+    throw Object.assign(new Error('Every registered worker kind requires one complete explicit assignment.'), {
+      code: 'WORKER_TYPE_ASSIGNMENTS_REQUIRED', requiredAssignments: Object.keys(KINDS).length,
+      suppliedAssignments: supplied.length
+    });
+  }
   const requested = requestedWorkerCount({ roster, typePolicy, supplied, defaults });
   assertExplicitAssignments({ roster, supplied, requested });
   const selectedKinds = kindsForPolicy(typePolicy, task, requested);
-  if (typePolicy.mode === 'all_registered' && new Set(selectedKinds).size !== Object.keys(KINDS).length) {
+  const planned = selectedKinds.map((kind, index) => plannedAssignment({ kind, index, task, supplied: supplied[index] }));
+  if (typePolicy.mode === 'all_registered' && new Set(planned.map((item) => item.workerKind)).size !== Object.keys(KINDS).length) {
     throw Object.assign(new Error('The worker roster does not cover every registered worker kind.'), { code: 'WORKER_TYPE_COVERAGE_INCOMPLETE' });
   }
-  return selectedKinds.map((kind, index) => plannedAssignment({ kind, index, task, supplied: supplied[index] }));
+  return planned;
 }
 
 function requestedWorkerCount({ roster, typePolicy, supplied, defaults }) {

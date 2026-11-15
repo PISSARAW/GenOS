@@ -147,7 +147,8 @@ async function assertCompletedRunEvidence(db, input) {
   const recordedAt = Date.parse(run?.completedAt);
   const eventAt = Date.parse(terminal?.event.timestamp);
   const completedAt = Math.max(recordedAt, eventAt);
-  if (run?.status !== 'completed' || !Number.isFinite(recordedAt) || !Number.isFinite(eventAt)
+  if (!['completed', 'awaiting_approval'].includes(run?.status)
+      || !Number.isFinite(recordedAt) || !Number.isFinite(eventAt)
       || Math.abs(recordedAt - eventAt) > 60000 || completedAt > Date.parse(saved.envelope.expiresAt)) {
     throw values.failure('EXECUTION_AUTHORITY_COMPLETION_NOT_SEALED');
   }

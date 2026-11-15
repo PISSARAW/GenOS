@@ -39,6 +39,7 @@ async function expiredView(db, input) {
     await assert.rejects(proofs.assertCurrent(db, input), { code: 'EXECUTION_AUTHORITY_EXPIRED' });
     const authority = require('../../src/services/missionEnvelopeAuthority');
     assert.equal((await authority.assertCompletedRunEvidence(db, input.request)).status, 'authorized');
+    await pendingApprovalCompletion(db, input, authority);
     await assert.doesNotReject(proofs.assertCompletedEvidence(db, input));
     await rejectUnsealedCompletion(db, input, authority);
     const view = await require('../../src/services/epistemic/nativeOracleInspection').inspect(db, input.request);
@@ -46,6 +47,17 @@ async function expiredView(db, input) {
     assert.equal(view.current.satisfied, false);
     assert.equal((await gate.historical(db, { ...input.request, event: input.terminal.event })).acceptance.value.status, 'completed');
   } finally { Date.now = clock; }
+}
+
+async function pendingApprovalCompletion(db, input, authority) {
+  await db.run("UPDATE strategy_execution_runs SET status='awaiting_approval' WHERE id=?", input.request.runId);
+  try {
+    assert.equal((await authority.assertCompletedRunEvidence(db, input.request)).status, 'authorized');
+    const row = await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', input.request.runId);
+    assert.equal(row.status, 'awaiting_approval', 'Evidence access must not promote a pending run.');
+  } finally {
+    await db.run("UPDATE strategy_execution_runs SET status='completed' WHERE id=?", input.request.runId);
+  }
 }
 
 async function rejectUnsealedCompletion(db, input, authority) {

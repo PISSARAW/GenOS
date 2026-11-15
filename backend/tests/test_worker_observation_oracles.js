@@ -14,6 +14,8 @@ const { runExperiment } = require('../src/services/agents/deterministicWorkerExp
 const { runVerification } = require('../src/services/agents/deterministicWorkerVerifier');
 const { runRed } = require('../src/services/agents/deterministicWorkerRed');
 const { runTeaching } = require('../src/services/agents/deterministicWorkerTeaching');
+const { runMath } = require('../src/services/agents/deterministicWorkerMath');
+const { runArithmetic } = require('../src/services/agents/workerArithmeticExecutor');
 const { runHandoff } = require('../src/services/agents/workerCoordinationExecutor');
 const { runRecovery } = require('../src/services/agents/workerRecoveryExecutor');
 
@@ -107,6 +109,23 @@ assert.equal(checks.checkObservation(teachingSubject, 'teaching_subset_bitset').
 assert.equal(checks.checkObservation(teachingSubject, 'teaching_subset_enumeration').status, 'verified');
 assert.equal(checks.checkObservation({ ...teachingSubject, result: { ...teaching,
   transferCheck: { ...teaching.transferCheck, learnerSum: 9 } } }, 'teaching_subset_bitset').status, 'refuted');
+
+const mathMethod = { version: 1, methodId: 'compute_integral', parameters: { terms: [2, 3, 5] } };
+const math = runMath(mathMethod).evidenceReport.workerArtifact.content;
+const mathSubject = { domain: 'prime_integral', method: mathMethod, result: math };
+assert.equal(checks.checkObservation(mathSubject, 'prime_integral_convolution').status, 'verified');
+assert.equal(checks.checkObservation(mathSubject, 'prime_integral_quadrature').status, 'verified');
+assert.equal(checks.checkObservation({ ...mathSubject, result: { ...math,
+  I_3: 'pi/2' } }, 'prime_integral_convolution').status, 'refuted');
+
+const arithmeticMethod = { version: 1, methodId: 'check_arithmetic',
+  parameters: { claim: '2 + 2 * 3 = 8' } };
+const arithmetic = runArithmetic(arithmeticMethod);
+const arithmeticSubject = { domain: 'arithmetic_comparison', method: arithmeticMethod, result: arithmetic };
+assert.equal(checks.checkObservation(arithmeticSubject, 'arithmetic_term_scan').status, 'verified');
+assert.equal(checks.checkObservation(arithmeticSubject, 'arithmetic_operator_stack').status, 'verified');
+assert.equal(checks.checkObservation({ ...arithmeticSubject, result: { ...arithmetic,
+  result: 'unknown' } }, 'arithmetic_term_scan').status, 'refuted');
 
 const handoffMethod = { version: 1, methodId: 'prepare_handoff', parameters: {
   sourceGroup: 'producers', targetGroup: 'reviewers', items: [

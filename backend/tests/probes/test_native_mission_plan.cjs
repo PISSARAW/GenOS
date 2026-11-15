@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { fixtures } = require('../helpers/nativeWorkerFixtures');
 const { KINDS } = require('../../src/services/agents/workerKindService');
-const { applyNativeMissionPlan, assertNativePlanDigest } = require('../../src/services/nativeMissionPlanService');
+const { applyNativeMissionPlan, assertNativePlanDigest,
+  reconcileNativeFanout } = require('../../src/services/nativeMissionPlanService');
 const { assertWorkerDispatchMatches } = require('../../src/services/agentRuntimeAdapter/missionWorkers');
 const { assignedWorkerId, validateAssignments } = require('../../src/services/agentFleetWorkers');
 
@@ -21,7 +22,9 @@ function objective(method, kind) {
   return { goal: `Prove native ${kind} result`, successCriteria: ['Signed native evidence'],
     methodContract: method,
     ...(kind === 'symbiotic_worker' ? { hostContractId: 'host-native',
-      hostCapabilities: ['deterministic_procedure'] } : {}) };
+      hostCapabilities: ['deterministic_procedure'] } : {}),
+    ...(kind === 'recovery_worker' ? { recoveryLease: {
+      action: 'restore_checkpoint', path: 'state.txt' } } : {}) };
 }
 
 const entries = Object.entries(methods);
@@ -125,6 +128,22 @@ for (let index = 0; index < entries.length; index += 1) {
   assert.equal(target.pipelineStage, recovery.pipelineStage + 1);
   assert.deepEqual(target.dependsOn, [recovery.label]);
 }
+const sealedWorkerIds = regulatedMatrixPlan.dispatchWorkers.map((worker) => worker.workerId);
+assert.equal(reconcileNativeFanout(regulatedMatrixPlan,
+  { agentId: 'native-parent', executionPolicy: { workerFanoutLimit: 2 } }), true);
+const regulatedStageCounts = new Map();
+for (const assignment of regulatedMatrixPlan.dispatchWorkers) {
+  regulatedStageCounts.set(assignment.pipelineStage,
+    (regulatedStageCounts.get(assignment.pipelineStage) || 0) + 1);
+}
+assert.ok(Math.max(...regulatedStageCounts.values()) <= 2);
+assert.deepEqual(regulatedMatrixPlan.dispatchWorkers.map((worker) => worker.workerId), sealedWorkerIds);
+assert.doesNotThrow(() => assertNativePlanDigest(regulatedMatrixPlan));
+for (let index = 0; index < entries.length; index += 1) {
+  const recovery = regulatedMatrixPlan.dispatchWorkers.find(worker => worker.label === `native-objective-${index + 1}-recovery`);
+  const target = regulatedMatrixPlan.dispatchWorkers.find(worker => worker.label === `native-objective-${index + 1}`);
+  assert.ok(target.pipelineStage > recovery.pipelineStage);
+}
 const subOrchestrator = regulatedMatrixPlan.dispatchWorkers.find(worker => worker.workerKind === 'sub_orchestrator');
 assert.equal(subOrchestrator.delegatedTokenLimit, 1000,
   'native plan must preserve the explicit bounded delegation budget');
@@ -137,4 +156,4 @@ process.stdout.write(JSON.stringify({ schema: 'genos.native-mission-plan-probe/v
   selectedKinds: entries.length, divergentDispatchRefused: true, substitutedWorkerRefused: true,
   unknownMethodRefused: true, insufficientBudgetRefused: true,
   externalRecoveryHelperPlanned: true, externalRecoveryDependencySealed: true,
-  nineteenKindExternalRecoveryPlanBatched: true }) + '\n');
+  twentyKindExternalRecoveryPlanBatched: true }) + '\n');

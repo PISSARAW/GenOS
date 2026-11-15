@@ -8,12 +8,21 @@ const { recordRecoveryLineage } = require('../src/services/agentRecovery/recover
 const genes = { role: 'resident_daemon', strategy: 'tree-search', tools: ['genos_snapshot'], temp: 0.45, topP: 0.9 };
 
 async function prepare(db) {
-  await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY,workspace_id TEXT,name TEXT,role TEXT,execution_mode TEXT,
+  await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY,organization_id TEXT,project_id TEXT);
+    CREATE TABLE agents (id TEXT PRIMARY KEY,workspace_id TEXT,name TEXT,role TEXT,execution_mode TEXT,
       metadata_json TEXT DEFAULT '{}',parent_agent_id TEXT);
     CREATE TABLE lineage_nodes (id TEXT PRIMARY KEY,workspace_id TEXT,agent_id TEXT,label TEXT,node_type TEXT,
       score REAL,state_summary TEXT,metadata TEXT);
     CREATE TABLE lineage_edges (id TEXT PRIMARY KEY,workspace_id TEXT,source_node_id TEXT,target_node_id TEXT,edge_type TEXT);
+    CREATE TABLE agent_relations (id TEXT PRIMARY KEY,source_agent_id TEXT,target_agent_id TEXT,
+      relation_type TEXT,relation_class TEXT,familiarity REAL,interaction_count INTEGER,shared_history REAL,
+      authority REAL,trust_for_domain REAL,common_ground_estimate REAL,epistemic_independence REAL,
+      error_correlation REAL,disclosure_level REAL,preferred_dialect TEXT,last_interaction TEXT,
+      metadata_json TEXT,organization_id TEXT,project_id TEXT,provenance_hash TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE strategy_execution_runs (id TEXT,agent_id TEXT,status TEXT);
+    INSERT INTO workspaces VALUES ('garage','org','project'),('old-capsule','org','project'),
+      ('new-capsule','org','project');
     INSERT INTO agents VALUES ('root','garage','root','orchestrator','orchestrator','{}',NULL);
     INSERT INTO agents VALUES ('source','old-capsule','source','resident_daemon','worker','{}','root');
     INSERT INTO agents VALUES ('fork','new-capsule','fork','independent_reviewer','worker','{}','root');`);

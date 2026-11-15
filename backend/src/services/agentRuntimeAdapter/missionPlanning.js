@@ -268,6 +268,11 @@ function applyExecutionPolicy(ctx) {
   normalizedMission.executionPolicy = require('./missionPlanningRules.js').applyExecutionPolicy({ Array, Boolean, Number, Set, String, get normalizedMission() { return normalizedMission; }, requestedWorkers, get silentUpdates() { return silentUpdates; } });
   applyRegulatedPosture(normalizedMission, arbitration);
   applyValencePosture(ctx);
+  if (require('../nativeMissionPlanService').reconcileNativeFanout(ctx.autonomyPlan, normalizedMission)) {
+    emit(ctx.agentId, 'NATIVE_MISSION_PLAN_REBATCHED', 'PLAN_NATIVE_WORKERS',
+      'Rebatched the sealed native plan to respect the effective regulated fanout.',
+      ctx.autonomyPlan.nativeMissionPlan.regulatedFanout, 'info');
+  }
   normalizedMission.userReporting = userProgress.reportingPolicy(task, silentUpdates);
   applyOrchestratorToolLease(dispatchedAgent, normalizedMission, ctx.autonomyPlan);
   ctx.silentUpdates = silentUpdates;

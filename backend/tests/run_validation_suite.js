@@ -238,6 +238,7 @@ const suites = {
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
     ['worker runtime limits', 'test_worker_runtime_limits.js'],
     ['worker process CPU budget enforcement', 'test_worker_cpu_budget.js'],
+    ['canonical parent preflight provenance', 'test_canonical_synthesis_preflight_provenance.js'],
     ['Lean shared execution deadline', 'test_lean_process_deadline.cjs'],
     ['procedural and formal execution', 'test_deterministic_worker_runners.js'],
     ['native verifier', 'test_deterministic_worker_verifier.js'],
@@ -253,7 +254,8 @@ const suites = {
     ['additional worker method benchmark oracles', 'test_worker_benchmark_method_variants.js'],
     ['native formal worker oracle', 'test_worker_formal_oracle.js'],
     ['native teaching', 'test_deterministic_worker_teaching.js'],
-    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js']
+    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js'],
+    ['specialist delegated with a complete contract', 'test_sub_orchestrator_specialist_delegation.cjs']
   ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],

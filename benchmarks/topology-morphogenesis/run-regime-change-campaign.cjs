@@ -180,7 +180,7 @@ function selectFrozen(trainingAttempts, plan) {
       && attempt.oraclePassed === true && attempt.servedModelOk === true && attempt.budgetOk === true
       && Number.isFinite(Number(attempt.tokenUsage?.total)));
     if (!verified.length) throw new Error(`No verified Qwen training outcome for family ${family}.`);
-    const ranked = require('./run-regime-change-campaignRules.cjs').selectFrozenValue1({ Number, plan, rows });
+    const ranked = require('./run-regime-change-campaignRules.cjs').selectFrozen({ Number, plan, rows });
     frozen[family] = ranked[0].topology;
   }
   return frozen;

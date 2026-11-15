@@ -44,7 +44,7 @@ async function load(db, request) {
     return loadArtifactDomain(db, {binding, request});
   }
   if (['scan_literal', 'monitor_samples', 'synthesize_claims', 'trace_declared_causes', 'measure_lpt',
-    'verify_procedure', 'falsify_procedure', 'teach_subset_sum', 'formal_proof',
+    'verify_procedure', 'falsify_procedure', 'teach_subset_sum', 'formal_proof', 'check_arithmetic', 'compute_integral',
     'restore_checkpoint', 'prepare_handoff', 'coordinate_children', 'adapt_procedure', 'niche_procedure',
     'host_procedure', 'combine_candidates', 'review_synthetic_case'].includes(method?.methodId)) {
     return require('./oracleObservationSubject').load(db, request);
@@ -76,7 +76,8 @@ function executionOptions(subject, request) {
   if (['literal_observation', 'monitor_window', 'claim_synthesis', 'declared_causality', 'lpt_experiment',
     'procedure_verification', 'procedure_falsification', 'subset_sum_teaching', 'formal_theorem',
     'checkpoint_recovery', 'sourced_handoff', 'child_coordination', 'adaptive_strategy', 'niche_procedure',
-    'host_procedure', 'creative_combination', 'synthetic_case_review', 'bounded_function_induction', 'product_power_difference'].includes(subject.domain)) {
+    'host_procedure', 'creative_combination', 'synthetic_case_review', 'arithmetic_comparison', 'prime_integral',
+    'bounded_function_induction', 'product_power_difference'].includes(subject.domain)) {
     return { nativeObservationSubject: request };
   }
   if (subject.domain === 'memory_fidelity') return { nativeMemoryRuntimeSubject: request };

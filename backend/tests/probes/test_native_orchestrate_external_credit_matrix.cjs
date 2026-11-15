@@ -319,6 +319,11 @@ async function main() {
       await fs.writeFile(path.join(workspace, 'state.txt'), 'damaged');
       const request = { mission: `Cycle ${cycle}: before worker dispatch, complete the GenOS snapshot and failure-search preflight; plan one real worker of each native kind, restore each external quota from a signed receipt and finish the orchestration plan.`,
         native_objectives: objectives.map(item => item.objective),
+        completionContract: {
+          invariants: [{ id: 'mission_outcome_success', kind: 'functional',
+            label: 'mission_outcome_success', verifier: { type: 'mission.outcome_success' } }],
+          requiredEvidence: ['biological_worker_receipt'], minimumFunctionalCoverage: 1
+        },
         workspaceId: 'ws-local', workspaceRoot: workspace, workspaceProvisioned: true,
         capsuleRoot: environment.GENOS_CAPSULE_ROOT, preflightSnapshotAgent: snapshotAgent,
         orchestratorId, missionId,

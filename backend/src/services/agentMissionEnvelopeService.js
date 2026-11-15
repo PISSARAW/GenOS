@@ -35,6 +35,7 @@ function execution(ctx) {
     threadId: firstOr(mission.threadId, mission.missionScope?.threadId, ''),
     organizationId: valueOr(ctx.controlTenant?.organization_id, ''),
     projectId: valueOr(ctx.controlTenant?.project_id, ''),
+    preflightObservedTools: mission.preflightObservedTools || [],
     memoryContextJson: optionalJson(mission.memoryContext),
     genomeJson: optionalJson(mission.genome),
     autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(valueOr(ctx.autonomyPlan, {}))),

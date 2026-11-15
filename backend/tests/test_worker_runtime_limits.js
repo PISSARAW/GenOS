@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const { buildWorkerContract } = require('../src/services/agents/workerKindService');
 const { assertWorkerExecutorAvailable, applyWorkerRuntimeLimits } = require('../src/services/agents/workerRuntimeLimitsService');
+const { normalizeMissionBudgets } = require('../src/services/agentRuntimeAdapter/missionBootstrap');
 
 const bounded = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'), timeoutMs: 900000 };
 const budget = applyWorkerRuntimeLimits(bounded, { tokens: 20000, latencyMs: 900000 });
@@ -39,5 +40,14 @@ for (const workerKind of ['procedural_executor', 'formal_worker']) {
     code: 'WORKER_EXECUTOR_UNAVAILABLE'
   });
 }
+
+const mathMethod = { version: 1, methodId: 'compute_integral', parameters: { terms: [2, 3, 5] } };
+const deterministic = { workerKind: 'math_worker', methodContract: mathMethod,
+  executionBudget: { tokens: 0, costUsd: 1, latencyMs: 60000, events: 100 }, timeoutMs: 60000 };
+deterministic.workerContract = buildWorkerContract('math_worker', deterministic);
+const deterministicContext = { normalizedMission: deterministic };
+normalizeMissionBudgets(deterministicContext);
+assert.equal(deterministicContext.normalizedExecutionBudget.tokens, 0,
+  'sealed native workers admit their explicit zero-token budget');
 
 console.log('Worker runtime ceilings and unavailable deterministic runners: PASS');

@@ -35,7 +35,7 @@ Les entrées exécutables sont illustrées dans `backend/tests/helpers/nativeWor
 
 `restore_checkpoint` exige une lease persistée `recoveryLease` avec action `restore_checkpoint` et chemin relatif autorisé, le hash du checkpoint et le hash attendu du fichier courant. Le workspace et le scope doivent coïncider. Les liens symboliques et sorties du scope sont refusés. L'écriture est atomique, puis vérifiée par hash.
 
-`prepare_handoff` produit un dossier destiné au parent ; l'accusé de réception externe reste explicitement en attente. `coordinate_children` supervise au plus cinq enfants et une profondeur de délégation. Chaque enfant reçoit son contrat de méthode. La délégation conserve les limites de types et de budget du dispatcher.
+`prepare_handoff` produit un dossier destiné au parent ; l'accusé de réception externe reste explicitement en attente. `coordinate_children` supervise au plus cinq enfants et une profondeur de délégation. Il accepte les 19 types feuilles avec un contrat complet et refuse un second sous-orchestrateur. Chaque enfant reçoit sa méthode, sa niche, son hôte ou sa lease lorsque le type l'exige. La délégation conserve les plafonds de budget et d'autorité du dispatcher.
 
 `check_arithmetic` vérifie exactement une proposition arithmétique naturelle dans une grammaire fermée ; il ne remplace pas Lean. Les méthodes `formal_proof` et `theorem_proving` exigent leur solveur et leurs reçus existants.
 

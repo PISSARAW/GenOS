@@ -9,7 +9,7 @@ const PROFILES = Object.freeze({
   verifier_worker: { minimumStartTokens: 5000, targetTokens: 8000, maximumTokens: 14000 },
   red_worker: { minimumStartTokens: 5000, targetTokens: 8000, maximumTokens: 14000 },
   synthesis_worker: { minimumStartTokens: 6000, targetTokens: 10000, maximumTokens: 16000 },
-  sub_orchestrator: { minimumStartTokens: 12000, targetTokens: 20000, maximumTokens: 30000 }
+  sub_orchestrator: { minimumStartTokens: 8000, targetTokens: 10000, maximumTokens: 10000 }
 });
 const ROLE_PROFILES = Object.freeze({
   resource_steward: { minimumStartTokens: 3000, targetTokens: 6000, maximumTokens: 12000 }

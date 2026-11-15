@@ -20,7 +20,7 @@ const PI = Math.PI;
 const METHOD_ID = 'compute_integral';
 const METHOD_VERSION = 1;
 
-const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
 function isPrime(n) {
   if (n < 2) return false;
@@ -28,34 +28,20 @@ function isPrime(n) {
   return true;
 }
 
-function nthPrime(index) {
-  let count = 0;
-  for (let n = 2; ; n++) {
-    if (isPrime(n)) {
-      count += 1;
-      if (count === index) return n;
-    }
-  }
-}
-
 function halfWidths(terms) {
   return terms.map((p) => 1 / p);
 }
 
 function densityAtZero(halfWidths) {
-  const a0 = halfWidths[0];
-  const tail = halfWidths.slice(1).reduce((s, a) => s + a, 0);
-  if (a0 > tail) return 0.5;
+  const tail = halfWidths.reduce((sum, width) => sum + width, 0);
+  if (1 > tail) return 0.5;
   // Numerical fallback: integrate the density via convolution.
   // For the Borwein-prime case k=3, exact closed form is known.
   if (halfWidths.length === 3) {
-    const [a, b, c] = halfWidths;
-    // Deficit region: simplex where sum of tail uniforms exceeds a0.
-    const excess = b + c - a; // = 31/30 - 1 = 1/30
+    const excess = tail - 1;
     // Volume of the corner simplex = excess^3 / 6
     const simplexVol = (excess ** 3) / 6;
-    // Normalization = product of (2*tail_width)
-    const norm = (2 * b) * (2 * c);
+    const norm = halfWidths.reduce((product, width) => product * 2 * width, 1);
     return 0.5 - simplexVol / norm;
   }
   // Generic numerical integration of the Irwin-Hall-like density at 0.
@@ -66,7 +52,7 @@ function densityAtZero(halfWidths) {
   for (let i = 0; i <= N; i++) {
     const t = i * step;
     let prod = 1;
-    for (const a of halfWidths) {
+    for (const a of [1, ...halfWidths]) {
       const v = a * t;
       prod *= v === 0 ? 1 : Math.sin(v) / v;
     }
@@ -78,9 +64,8 @@ function densityAtZero(halfWidths) {
 
 function exactI(halfWidths) {
   const k = halfWidths.length;
-  const a0 = halfWidths[0];
-  const tail = halfWidths.slice(1).reduce((s, a) => s + a, 0);
-  if (a0 > tail) {
+  const tail = halfWidths.reduce((sum, width) => sum + width, 0);
+  if (1 > tail) {
     return { exact: 'pi/2', numerator: 1, denominator: 2, deficit: '0', note: 'Symmetrie preservee (a0 > somme des demi-largeurs restantes).' };
   }
   if (k === 3) {
@@ -113,6 +98,10 @@ function assertMathInput(method) {
     if (!Number.isInteger(p) || p < 2 || !isPrime(p)) {
       throw error('WORKER_PROCEDURE_INPUT_INVALID', `Each term must be a prime number, got ${p}.`);
     }
+  }
+  if (terms.some((prime, index) => prime !== PRIMES[index])) {
+    throw error('WORKER_PROCEDURE_INPUT_INVALID',
+      'terms must be the ordered prefix of the prime sequence [2, 3, 5, ...].');
   }
   return input;
 }

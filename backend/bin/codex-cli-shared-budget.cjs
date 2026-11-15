@@ -10,7 +10,17 @@ function runtimeBudget(mission) {
   }
 }
 
+function isCanonicalSynthesis(mission) {
+  if (mission.executionMode !== 'orchestrator') return false;
+  let plan;
+  try { plan = JSON.parse(mission.autonomyPlanJson || '{}'); }
+  catch (_) { return false; }
+  return plan.synthesisOnly === true && Array.isArray(plan.completedWorkerIds)
+    && plan.completedWorkerIds.length > 0 && Array.isArray(plan.completedWorkerDossiers);
+}
+
 async function assertSupported(mission) {
+  if (isCanonicalSynthesis(mission)) return;
   if (!String(mission.modelBudgetScopeJson || '').trim()) return;
   const budgetRoute = require('../src/services/subprocessModelBudgetRoute');
   let route;
@@ -32,4 +42,4 @@ function reject(error) {
   process.exitCode = 1;
 }
 
-module.exports = { assertSupported, reject };
+module.exports = { assertSupported, reject, isCanonicalSynthesis };

@@ -209,15 +209,22 @@ function numbersOf(text) {
   return matches.map((raw) => raw.replace(',', '.'));
 }
 
+function opaqueEvidence(text) {
+  return /^[a-z][a-z0-9+.-]*:\/\/\S+$/iu.test(String(text || '').trim());
+}
+
+function numericContradiction(claim, evidences) {
+  const claimNumbers = numbersOf(claim);
+  const evidenceNumbers = new Set(evidences.flatMap(numbersOf));
+  return claimNumbers.length > 0 && claimNumbers.some((number) => !evidenceNumbers.has(number));
+}
+
 function nliVerdict(claimText, evidenceTexts) {
   const claim = String(claimText || '');
   const evidences = (Array.isArray(evidenceTexts) ? evidenceTexts : []).map(String);
   if (!claim.trim() || !evidences.length) return 'unverifiable';
-  const claimNumbers = numbersOf(claim);
-  const evidenceNumbers = new Set(evidences.flatMap(numbersOf));
-  if (claimNumbers.length && claimNumbers.some((number) => !evidenceNumbers.has(number))) {
-    return 'contradiction';
-  }
+  if (evidences.every(opaqueEvidence)) return 'neutral';
+  if (numericContradiction(claim, evidences)) return 'contradiction';
   const claimNegations = negationCount(claim);
   const mismatch = evidences.some((evidence) => (negationCount(evidence) % 2) !== (claimNegations % 2));
   if (mismatch && claimNegations > 0) return 'contradiction';

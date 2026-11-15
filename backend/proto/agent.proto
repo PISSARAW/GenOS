@@ -71,6 +71,8 @@ message AgentMission {
   string memory_context_json = 48;
   // Expressed cognitive genes used by subprocess inference sampling.
   string genome_json = 49;
+  // Server-verified preflight receipts that satisfy runtime tool invariants.
+  repeated string preflight_observed_tools = 50;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

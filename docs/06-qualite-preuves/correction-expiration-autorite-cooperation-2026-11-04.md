@@ -340,7 +340,7 @@ sources. Le test persistant pointe vers ce reçu ; les anciens reçus sont conse
 
 Le descripteur d’export GCI présentait également une identité périmée. Sa nouvelle
 empreinte d’implémentation est
-`sha256:763c39fbfec7aabad0f87c12fdb935875fc433511b8ff2bc1d75be65f0721d1a`.
+`sha256:d18948fb8ea83c993ca97be10119d89c795ffeeb2dd4bf08bf35c666330840b8`.
 Elle est calculée sur les huit fichiers déclarés, restés inchangés pendant cinq
 tests exécutables : garde de promotion, approbation contrôlée, parcours HTTP,
 contrat d’export et parcours HTTP Linked complet. Tous terminent avec le code 0

@@ -5,9 +5,8 @@ const expression = require('./workerGenomeExpression');
 async function persistedGenes(db, agent) {
   const row = await db.get('SELECT metadata, workspace_id FROM lineage_nodes WHERE id = ?', agent.id);
   if (!row) return null;
-  if (row.workspace_id !== agent.workspace_id) {
-    throw Object.assign(new Error('Worker lineage is outside its authorized workspace.'), { code: 'WORKER_GENOME_SCOPE_MISMATCH' });
-  }
+  await require('./workerLineageScope').assertAuthorized(db,
+    { agent, lineageWorkspaceId: row.workspace_id });
   try {
     const metadata = JSON.parse(row.metadata || '{}');
     return Object.hasOwn(metadata, 'genes') ? expression.express(metadata.genes) : null;

@@ -45,6 +45,9 @@ async function openForMission(mission, runtimeBudget, filename = process.env.GEN
     return { db, ...limits };
   } catch (error) {
     await db.close();
+    if (error.code === 'SQLITE_ERROR') {
+      throw invalid('Shared model budget database is not initialized for routed model usage.');
+    }
     throw error;
   }
 }

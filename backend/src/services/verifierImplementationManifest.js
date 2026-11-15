@@ -107,7 +107,7 @@ const SOURCES = Object.freeze([
   "workerCodeTestRepairNumericFeedbackRules.js",
   "workerCodeTestRepairTelemetryWorkflow.js",
   "workerCodeTestRepairTelemetryRules.js",
-  "workerCodeTestRepairDecisions.js",
+  "workerCodeTestRepairRules.js",
   "workerEvidenceBarrierLocalCompletionRules.js",
   "workerEvidenceBarrierLocalWorkflow.js",
   "workerEvidenceBarrierLocalRules.js",

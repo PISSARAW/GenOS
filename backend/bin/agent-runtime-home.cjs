@@ -7,7 +7,8 @@ function cleanup(state) {
   if (state.cleanedUp) return;
   state.cleanedUp = true;
   if (state.latencyTimer) clearTimeout(state.latencyTimer);
-  fs.rmSync(state.isolatedRuntimeRoot || state.isolatedCodexHome, { recursive: true, force: true });
+  const runtimeRoot = state.isolatedRuntimeRoot || state.isolatedCodexHome;
+  if (runtimeRoot) fs.rmSync(runtimeRoot, { recursive: true, force: true });
 }
 
 function setupCodexHome() {

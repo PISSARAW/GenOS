@@ -54,15 +54,16 @@ async function missionFor(context) {
   const codeMission = boundedCode.enabled(kind);
   const modelBudgetScope = codeMission ? context.parentControl.modelBudgetScope : null;
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
+  const missionOptions = dossierCases.missionOptions(kind);
   const assignment = { workerKind: kind, role: boundedCode.workerRole(kind), label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
     specialtyNiche: 'scheduling', nicheDomain: 'scheduling',
     hostContractId: 'compliance-host', hostCapabilities: structuredWorkers.hostCapabilities(kind),
-    methodContract: codeMission ? null : complianceMethod(kind) };
+    methodContract: codeMission ? null : complianceMethod(kind), ...missionOptions };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
     mission: { prompt: codeMission ? boundedCode.prompt(scenario.sourceRef)
-      : `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, workspaceProvisioned: codeMission, writeLease: codeMission, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, modelBudgetScope, codeVerificationContract: codeMission ? boundedCode.verificationContract() : null, ...dossierCases.missionOptions(kind), executionPolicy: boundedCode.executionPolicy(kind), executionBudget: { tokens: 5000, costUsd: codeMission ? 0.2 : undefined, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+      : `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, workspaceProvisioned: codeMission, writeLease: codeMission, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, modelBudgetScope, codeVerificationContract: codeMission ? boundedCode.verificationContract() : null, ...missionOptions, executionPolicy: boundedCode.executionPolicy(kind), executionBudget: { tokens: 5000, costUsd: codeMission ? 0.2 : undefined, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
 }

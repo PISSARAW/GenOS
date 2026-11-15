@@ -1,6 +1,8 @@
 'use strict';
 
-const ALLOWED_CHILD_KINDS = new Set(['scout_cell', 'bounded_worker', 'adaptive_worker', 'verifier_worker']);
+const ALLOWED_CHILD_KINDS = new Set(require('../workerAssignmentContract').DELEGABLE_KINDS);
+const CHILD_CONTRACT_FIELDS = Object.freeze(['specialtyNiche', 'nicheDomain', 'niche', 'domain',
+  'hostContractId', 'hostCapabilities', 'hostId', 'recoveryLease']);
 const MAX_CHILDREN = 5;
 const MAX_CHILD_TOKENS = 10000;
 const CHILD_TIMEOUT_MS = 60000;
@@ -34,7 +36,14 @@ function childAssignment(args) {
   const kind = String(args.workerKind || 'bounded_worker').trim().toLowerCase();
   if (!ALLOWED_CHILD_KINDS.has(kind)) throw Object.assign(new Error(`Child worker kind '${kind}' is outside the sub-orchestrator allowlist.`), { code: 'SUBORCHESTRATOR_CHILD_KIND_DENIED' });
   const role = String(args.role || kind).slice(0, 80);
-  return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(args), ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
+  const fields = Object.fromEntries(CHILD_CONTRACT_FIELDS
+    .filter((name) => args[name] !== undefined).map((name) => [name, args[name]]));
+  const assignment = { role, workerKind: kind, label: `delegated-${kind}`,
+    hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...fields,
+    ...require('../qualityElevation/qualityMissionContract').qualityMissionFields(args),
+    ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
+  require('../workerAssignmentContract').assertCompleteAssignment(assignment);
+  return assignment;
 }
 
 function workerPlan(parent, assignment, remaining) {

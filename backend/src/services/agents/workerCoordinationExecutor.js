@@ -2,7 +2,7 @@
 
 const { methodInput, error, text, list, resultReport } = require('./workerNativeEvidence');
 const { assertActive } = require('./workerNativeLifecycle');
-const CHILD_KINDS = new Set(['scout_cell', 'bounded_worker', 'adaptive_worker', 'verifier_worker']);
+const CHILD_KINDS = new Set(require('../workerAssignmentContract').DELEGABLE_KINDS);
 
 function validItem(item) {
   return text(item?.sourceRef, 256) && text(item.summary, 2048);
@@ -41,6 +41,7 @@ function assertCoordinationInput(method) {
   const kinds = require('./workerKindService');
   const registry = require('./workerExecutorRegistry');
   for (const child of input.children) {
+    require('../workerAssignmentContract').assertCompleteAssignment(child);
     kinds.assertMethodCompatibility(child.workerKind, child.methodContract);
     if (!registry.hasNativeMethod(child.workerKind, child.methodContract.methodId)) {
       throw error('WORKER_EXECUTOR_UNAVAILABLE', 'Native coordination requires executable child methods.');

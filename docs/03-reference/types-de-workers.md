@@ -1,6 +1,6 @@
 # Types de workers GenOS
 
-Mise à jour du 2026-10-28 : les 19 types disposent de méthodes natives structurées. Le [catalogue des méthodes exécutables](execution-native-workers.md) précise leurs entrées et leurs limites ; la [matrice de qualification](../06-qualite-preuves/qualification-workers.md) sépare les tests de méthode des preuves de mission et des oracles indépendants. Les états de disponibilité historiques ci-dessous doivent être lus avec cette mise à jour.
+Mise à jour du 2026-11-15 : les 20 types disposent de méthodes natives structurées. Le [catalogue des méthodes exécutables](execution-native-workers.md) précise leurs entrées et leurs limites ; la [matrice de qualification](../06-qualite-preuves/qualification-workers.md) sépare les tests de méthode des preuves de mission et des oracles indépendants. Les campagnes historiques à 19 types précèdent l'ajout de `math_worker` et doivent être lues comme telles.
 
 **Frontière d'exécution actuelle :** le backend Node.js est le runtime worker exécutable : il planifie les affectations, dispatch les workers, supervise leurs missions et valide leurs résultats. `crates/genos-worker` fournit des contrats, presets, dossiers typés et primitives de cycle Rust, mais ce crate n'est pas raccordé au dispatch actif. Les sections Rust ci-dessous décrivent ces modèles et leurs tests, pas un second runtime de production.
 
@@ -12,7 +12,7 @@ Mise à jour du 2026-10-28 : les 19 types disposent de méthodes natives structu
 
 ## 1. Définition
 
-Les **types de workers** GenOS sont les 19 profils de contrat utilisés pour caractériser les agents enfants. Ils répondent à la question : *quel contrat d'autorité, de cognition, de mémoire, de communication et de preuves s'applique à un agent enfant pour une mission donnée ?* Aujourd'hui, le runtime Node applique ses contrats et exécute les missions ; le modèle Rust parallèle n'est pas appelé par le dispatch.
+Les **types de workers** GenOS sont les 20 profils de contrat utilisés pour caractériser les agents enfants. Ils répondent à la question : *quel contrat d'autorité, de cognition, de mémoire, de communication et de preuves s'applique à un agent enfant pour une mission donnée ?* Aujourd'hui, le runtime Node applique ses contrats et exécute les missions ; le modèle Rust parallèle n'est pas appelé par le dispatch.
 
 Contrairement à un simple rôle de mission (`implementation`, `analyst`, `frontend_developer`), un type de worker porte un contrat d'autorité et de preuve. Dans le runtime actuel, ce contrat est résolu et appliqué par le backend Node, puis vérifié à la barrière de preuves par un artefact typé avec provenance. Le `WorkerRuntimeContract` Rust est un modèle de contrat distinct : il n'est pas lu par le dispatch Node.
 
@@ -196,7 +196,7 @@ Table fidèle au code (identifiant → deltas → artefact attendu vérifié par
 | `teaching_worker` | `teaching_preset` | Lecture seule. | `training_packet` |
 | `sub_orchestrator` | `suborchestrator_preset` (= adaptive +) | `delegate=true, spawn=true`, lease `["spawn_capped"]`, `depth=1, budget=5`, `tokens=20_000`, `itérations=30`. Seul preset avec spawn/delegate. | `dossier` |
 
-`preset_for(kind, input)` dispatche exhaustivement les 19 branches. Tests Rust (`tests.rs`, 16 tests) : chaque kind a `phenotype==name()`, `evidence` non vide, `validate_contract==[]` ; table des 19 artefacts ; `scout` lecture seule éphémère ; `sub` spawn borné vs `bounded` sans spawn ; aucun preset ne promeut ; spawn/délégation plafonnés ; `procedural` zéro token ; familles couvrant tous les kinds ; changements bornés ; routage `review` ; dossier exige preuves ; `niche_fit`/`dedifferentiate` ; objectif/scope validés.
+`preset_for(kind, input)` dispatche exhaustivement les 20 branches. Tests Rust (`tests.rs`, 16 tests) : chaque kind a `phenotype==name()`, `evidence` non vide, `validate_contract==[]` ; table des 20 artefacts ; `scout` lecture seule éphémère ; `sub` spawn borné vs `bounded` sans spawn ; aucun preset ne promeut ; spawn/délégation plafonnés ; `procedural` zéro token ; familles couvrant tous les kinds ; changements bornés ; routage `review` ; dossier exige preuves ; `niche_fit`/`dedifferentiate` ; objectif/scope validés.
 
 Ces garanties sont **encodées par le preset** ; elles ne prouvent pas à elles seules leur application par les deux runtimes (voir §5 et §45).
 
@@ -206,7 +206,7 @@ Ces garanties sont **encodées par le preset** ; elles ne prouvent pas à elles 
 
 ### 4.1 Catalogue canonique Node
 
-Source : `backend/src/services/agents/workerKindService.js` (124 lignes). `KINDS` gèle les 19 triplets `[famille, artefact, authorityPhenotype]` :
+Source : `backend/src/services/agents/workerKindService.js`. `KINDS` gèle les 20 triplets `[famille, artefact, authorityPhenotype]` :
 
 ```
 scout_cell: Sensory / scout_observation / ScoutCell
@@ -254,7 +254,7 @@ Source : `backend/src/services/agents/phenotypeRegistryService.js` (261 lignes).
 
 `getPhenotype(id)` : lookup direct, sinon normalisation → `KINDS`/`ROLE_ALIASES` → `kindDefinition` → base `authorityPhenotype` + `applyAuthorityOverrides`, avec identifiant synthétique PascalCase. C'est ce qui crée les phénotypes virtuels (`ProceduralExecutor`, `RedWorker`, …) sans les stocker. `buildWorkerContract('sub_orchestrator')` est volontairement non délégant par défaut. La création persistée par `agentFleetWorkers` applique ensuite `grantBoundedDelegation`; le dispatch dédié exige ce contrat borné et non expiré.
 
-`Orchestrator` n'est pas un type de worker dans `WorkerKind`. `Reconciler` est une extension Node hors des 19 canoniques.
+`Orchestrator` n'est pas un type de worker dans `WorkerKind`. `Reconciler` est une extension Node hors des 20 canoniques.
 
 ### 4.3 Contrat Node effectif et overrides
 
@@ -497,9 +497,9 @@ Les topologies (voir `morphogenese.md`) composent des organisations ; les worker
 | `crates/genos-worker/src/phenotype.rs` | `AgentPhenotype`, `WorkerKind`, `family_of`, `niche_fit`, `dedifferentiate`. |
 | `crates/genos-worker/src/cycle.rs` | Cycle universel 18 étapes, `review`, plafonds. |
 | `crates/genos-worker/src/dossier.rs` | `WorkerDossier`, `ScoutObservation`, `VerificationReport`, `CreativeCandidate`, `ClinicalReport`. |
-| `crates/genos-worker/src/presets.rs` | 19 fabriques `*_preset()` + `preset_for()`. |
+| `crates/genos-worker/src/presets.rs` | 20 fabriques `*_preset()` + `preset_for()`. |
 | `crates/genos-worker/src/invariants.rs` | `check_action`, `is_verified_success`. |
-| `crates/genos-worker/src/tests.rs` | 16 tests de contrat et table des 19 artefacts. |
+| `crates/genos-worker/src/tests.rs` | 16 tests de contrat et table des 20 artefacts. |
 | `backend/src/services/agents/workerKindService.js` | Catalogue Node `KINDS`, alias, consignes, overrides, `buildWorkerContract`. |
 | `backend/src/services/topologyWorkerKindService.js` | Capacités de rôles et méthodes, sélection centrale et contrôles pour les huit topologies. |
 | `backend/src/services/agents/phenotypeRegistryService.js` | 9 phénotypes stockés, phénotypes virtuels, `canSpawn`. |
@@ -805,7 +805,7 @@ validateWorkerArtifact(dossier, worker); // INVALID_WORKER_ARTIFACT si type/cham
 
 ---
 
-## 18. Fiches détaillées des 19 types
+## 18. Fiches détaillées des 20 types
 
 Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat Node effectif → artefact et validation → consigne de mission → limites et anti-patterns. Les garanties Rust sont encodées ; côté Node, `buildWorkerContract` refuse spawn/délégation par défaut et seul le sous-orchestrateur persisté reçoit le contrat borné du dispatcher dédié. `write:false` reste le défaut.
 
@@ -1242,7 +1242,7 @@ Associativité, commutativité, idempotence ou monotonie des compositions de wor
 
 ## 44. Conclusion
 
-Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts attendus; `test_worker_kind_registry.js` compare ces trois dimensions aux sources Rust. Cette parité de catalogue ne signifie pas identité des contrats. Le crate Rust définit des presets, recettes, baux et budgets dans `WorkerRuntimeContract`, mais le dispatch Node ne charge ni n'exécute ces valeurs. Le backend Node construit et applique son contrat indépendant, projette certains kinds sur des phénotypes d'autorité existants, puis applique ses propres leases, overrides, contrats d'artefacts et règles de dispatch. Les différences connues sont listées ci-dessous et doivent rester visibles. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type doit être validé dans son runtime avec ses refus attendus, son artefact et sa provenance.
+Rust et Node partagent un catalogue de 20 identifiants, familles et artefacts attendus; `test_worker_kind_registry.js` compare ces trois dimensions aux sources Rust. Cette parité de catalogue ne signifie pas identité des contrats. Le crate Rust définit des presets, recettes, baux et budgets dans `WorkerRuntimeContract`, mais le dispatch Node ne charge ni n'exécute ces valeurs. Le backend Node construit et applique son contrat indépendant, projette certains kinds sur des phénotypes d'autorité existants, puis applique ses propres leases, overrides, contrats d'artefacts et règles de dispatch. Les différences connues sont listées ci-dessous et doivent rester visibles. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type doit être validé dans son runtime avec ses refus attendus, son artefact et sa provenance.
 
 ---
 
@@ -1250,8 +1250,8 @@ Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts at
 
 - **Rust (modèles seulement)** : `genos-worker` expose contrat, cycle (18 étapes), dossiers, 8 règles `check_action` (+ succès vérifié), 19 presets. Ces primitives ne sont pas appelées par le runtime worker Node.
 - **Node** : `workerKindService` (19 `KINDS`, 19 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
-- **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, plafonne les tokens à 10 000 (et au budget du parent), attend le résultat pendant 60 secondes et autorise jusqu'à cinq enfants. Le contrat de délégation dure une heure. Les presets Rust donnent également spawn=5/profondeur=1, mais avec un budget tokens de 20 000 et sans cette expiration Node. Les tests simulent la base et le superviseur; ils ne prouvent pas une mission parent-enfant réelle.
-- **Parité vérifiée** : les identifiants canoniques, familles et artefacts des 19 kinds sont comparés entre `WorkerKind`/`family_of`/`preset_for` Rust et `KINDS` Node par `test_worker_kind_registry.js`.
+- **Délégation bornée** : le chemin `genos_delegate_worker` vérifie l'identité, le contrat persistant et son expiration. Un sous-orchestrateur peut déléguer aux 19 types feuilles avec une affectation complète ; un second `sub_orchestrator` reste refusé. La planification libre du modèle conserve quatre types génériques, car elle ne produit ni lease ni paramètres spécialisés. Le plafond reste de cinq enfants, 10 000 tokens et une profondeur de un. Voir [ADR 0802](../adr/0802-delegation-types-workers-contrats-complets.md).
+- **Parité vérifiée** : les identifiants canoniques, familles et artefacts des 20 kinds sont comparés entre `WorkerKind`/`family_of`/`preset_for` Rust et `KINDS` Node par `test_worker_kind_registry.js`.
 - **Asymétries sémantiques** : `procedural_executor` et `formal_worker` héritent côté Rust de la recette déterministe, du lease solveur et de `tokens=0`; Node porte le plafond de zéro jeton et exécute les méthodes natives enregistrées depuis octobre 2026. `symbiotic_worker` reçoit côté Rust la capacité `procedural_host` et une intersection d'autorité; Node le projette sur `BoundedWorker`. `teaching_worker` est un preset organisationnel avec mémoire culturelle côté Rust, projeté sur `ScoutCell` côté Node. `sub_orchestrator` reçoit un contrat délégant uniquement lors de sa création persistée Node, avec allowlist, plafond de tokens et expiration propres au backend. Ces projections sont documentées, pas déclarées identiques.
 - Le backend applique une traduction Node des invariants, pas le crate Rust. Il n'existe pas de pont Rust→Node sûr et défini (ADR 0064); le test de parité porte donc sur le catalogue et les champs explicitement comparables, pas sur l'équivalence complète du runtime.
 
@@ -1259,7 +1259,7 @@ Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts at
 
 | Chemin | Rôle réel |
 |---|---|
-| `agentFleetWorkers.createAutonomousWorkers` | Dispatch générique des 19 kinds, `resolve + INSERT + prompt + lease`. |
+| `agentFleetWorkers.createAutonomousWorkers` | Dispatch générique des 20 kinds, `resolve + INSERT + prompt + lease`. |
 | `agents/agentIncarnationService.incarnateAgent` | Reconstruction `resolve + build`, `computeLease`, `setupAuthority`, injection `promptRule + evidenceRule`. |
 | `orchestratorDispatchService.buildWorkerMission` | `resolve + build`, injection `promptRule + evidenceRule`. |
 | `agentRuntimeAdapter/missionBootstrap.resolveWorkerIdentity` | Verrou boot : `MISMATCH` et refus des contrats imbriqués non pris en charge. |

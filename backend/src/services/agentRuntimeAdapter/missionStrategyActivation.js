@@ -81,9 +81,14 @@ function assignments(plan) {
   return Array.isArray(plan.dispatchWorkers) ? plan.dispatchWorkers.map((worker) => ({ ...worker })) : [];
 }
 
+function concreteMethod(worker) {
+  const method = worker?.methodContract || worker?.workerAssignment?.methodContract;
+  return method && method.methodId !== 'prompt_defined' ? method : null;
+}
+
 function compatibleBinding(phase, worker) {
   if (!phase || !worker || !phase.methodContract || !phase.workerKind) return false;
-  if (worker.workerKind !== phase.workerKind || worker.methodContract || worker.workerAssignment?.methodContract) return false;
+  if (worker.workerKind !== phase.workerKind || concreteMethod(worker)) return false;
   try {
     workerKinds.assertMethodCompatibility(worker.workerKind, phase.methodContract);
     workerLimits.assertWorkerExecutorAvailable({ workerKind: worker.workerKind, methodContract: phase.methodContract });
@@ -103,8 +108,9 @@ function findBinding(strategy, workers) {
 
 function hasExplicitMethod(mission) {
   const assignments = mission.workerAssignments || mission.worker_assignments;
-  return Boolean(mission.methodContract || mission.workerContract?.mission?.methodContract
-    || (Array.isArray(assignments) && assignments.some((worker) => worker?.methodContract)));
+  const methods = [mission.methodContract, mission.workerContract?.mission?.methodContract,
+    ...(Array.isArray(assignments) ? assignments.map((worker) => worker?.methodContract) : [])];
+  return methods.some((method) => method && method.methodId !== 'prompt_defined');
 }
 
 function applyMissionStrategyToContext(ctx, strategy) {

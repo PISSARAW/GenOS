@@ -8,6 +8,7 @@ function argumentsFor(context) {
 
 async function record({db, mission, event}) {
   if (mission.executionMode !== 'orchestrator') return null;
+  if (event.payload.evidenceReport?.workerArtifact?.type === 'creative_candidate') return null;
   const saved = await require('./missionEnvelopeAuthority').assertRun(db, {
     agentId: mission.agentId, runId: event.payload.executionRunId});
   if (!saved.envelope.workspaceVerificationContract) return null;

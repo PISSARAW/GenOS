@@ -211,11 +211,20 @@ function resolvePlanForCheck(normalizedMission) {
   return null;
 }
 
+function budgetInputForMission(mission) {
+  const input = mission.executionBudget || {};
+  const limits = require('../agents/workerRuntimeLimitsService');
+  if (limits.isDeterministicWorkerMission(mission) && Number(input.tokens) === 0) {
+    return { ...input, tokens: 1 };
+  }
+  return input;
+}
+
 function normalizeMissionBudgets(ctx) {
   const { normalizedMission } = ctx;
   const runtimeEnvironment = bundledRuntimeEnvironment();
   const normalizedExecutionBudget = require('../agents/workerRuntimeLimitsService')
-    .applyWorkerRuntimeLimits(normalizedMission, normalizeMissionBudget(normalizedMission.executionBudget || {}));
+    .applyWorkerRuntimeLimits(normalizedMission, normalizeMissionBudget(budgetInputForMission(normalizedMission)));
   if (normalizedMission.timeoutMs && !normalizedMission.workerBarrierTimeoutMs) {
     normalizedMission.workerBarrierTimeoutMs = Math.max(2000, Math.floor(normalizedMission.timeoutMs * 0.45));
   }

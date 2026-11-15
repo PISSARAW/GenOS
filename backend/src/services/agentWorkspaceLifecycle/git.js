@@ -28,6 +28,9 @@ function runCommand(command, args, { cwd, input, timeoutMs = 120000, env: suppli
     child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code) => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`)); });
+    // A child that exits before draining stdin raises EPIPE on the pipe; without
+    // a listener it kills the whole process. The exit code decides the outcome.
+    child.stdin.on('error', () => {});
     child.stdin.end(input || '');
   });
 }

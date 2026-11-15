@@ -637,6 +637,7 @@ Composition NCE : [ADR 0372 — répertoire appris et recherche bornée](adr/037
 - [0041-medecine-immunite-graduee.md](adr/0041-medecine-immunite-graduee.md) — médecine graduée et immunité proportionnée.
 - [0042-qpu-organe-specialise.md](adr/0042-qpu-organe-specialise.md) — QPU comme organe spécialisé et sélection quantum-inspired.
 - [0043-runtime-worker-phenotypes.md](adr/0043-runtime-worker-phenotypes.md) — décision initiale sur les phénotypes et le cycle worker ; état actuel du runtime décrit dans la [référence des types de workers](03-reference/types-de-workers.md).
+- [0802-delegation-types-workers-contrats-complets.md](adr/0802-delegation-types-workers-contrats-complets.md) — délégation des 19 types feuilles avec validation des méthodes, niches, hôtes et leases.
 - [0044-matrice-autorite-gates-double-runtime.md](adr/0044-matrice-autorite-gates-double-runtime.md) — matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime.
 - [0045-noyau-controle-morphogenetique.md](adr/0045-noyau-controle-morphogenetique.md) — noyau de contrôle morphogénétique de l'orchestrateur Rust.
 - [0183-mesures-workspace-physique-computationnelle.md](adr/0183-mesures-workspace-physique-computationnelle.md) — décision initiale sur les mesures et profils par mission.

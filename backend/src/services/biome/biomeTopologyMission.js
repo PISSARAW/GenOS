@@ -4,10 +4,10 @@ const biome = require('../biomeCoordinationService');
 const { collectTopologyWorkerResults } = require('../morphogenesis/runtime/topologyWorkerResults');
 
 async function execute(args, context) {
-  const input = { ...(context.input || {}), variantId: args.variant || context.input?.variantId };
+  const input = { ...(context.input || {}), variantId: requestedVariant(args, context) };
   const individuals = individualsFrom(args, input);
   const runtime = await biome.BiomeRuntime.create(missionText(args, input), sessionOptions(input));
-  const cycles = await runtime.run({ ...input, individuals }, input.maxTicks ?? 100);
+  const cycles = await runtime.run({ ...input, ...budgetInput(input, context), individuals }, input.maxTicks ?? 100);
   const state = runtime.getState();
   const populations = state.ecology.populations;
   return { sessionId: runtime.sessionId, variant: runtime.variant, cycles,
@@ -16,6 +16,19 @@ async function execute(args, context) {
       individuals: populations.reduce((sum, p) => sum + p.individuals.length, 0) },
     actions: cycles.flatMap(cycle => cycle.actions || []),
     workerResults: collectTopologyWorkerResults(args.workers || [], input) };
+}
+
+function requestedVariant(args, context) {
+  const requested = args.variant || context.input?.variantId;
+  return requested && requested !== 'default' ? requested : undefined;
+}
+
+// The node's token share is the only budget the morphology runtime measures; it seeds the
+// ecological pool unless the caller supplied explicit resources.
+function budgetInput(input, context) {
+  const tokens = Math.floor(Number(context.budget?.tokens));
+  if (!Number.isSafeInteger(tokens) || tokens <= 0) return {};
+  return { resources: input.resources ?? { tokens }, totalBudget: input.totalBudget ?? tokens };
 }
 
 function missionText(args, input) { return input.mission || args.mission || 'Biome mission'; }

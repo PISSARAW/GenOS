@@ -19,8 +19,8 @@ function missionRuntimeContext(request = {}) {
     coordinationPolicy: pickFirst(request, ['coordinationPolicy', 'coordination_policy']),
     workerTokenLimit: pickFirst(request, ['workerTokenLimit', 'worker_token_limit']),
     morphologyExpression: pickFirst(request, ['morphologyExpression', 'morphology_expression']),
-    morphogenesisPolicy: pickFirst(request, ['morphogenesisPolicy', 'morphogenesis_policy']) };
-  if (hasUserTopologyRequest(request)) normalized.userTopologyRequested = true;
+    morphogenesisPolicy: pickFirst(request, ['morphogenesisPolicy', 'morphogenesis_policy']),
+    userTopologyRequested: hasUserTopologyRequest(request) };
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',

@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { dispatchSubOrchestratorWorker, loadAuthorizedParent, childAssignment, MAX_CHILDREN } = require('../src/services/agents/subOrchestratorDispatchService');
+const native = require('./helpers/nativeWorkerFixtures').fixtures(process.cwd());
 
 function metadata(workerKind = 'sub_orchestrator') {
   return JSON.stringify({ workerKind, workerContract: {
@@ -23,7 +24,13 @@ function verifyChildBounds() {
     hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: []
   });
   assert.throws(() => childAssignment({ workerKind: 'sub_orchestrator' }), { code: 'SUBORCHESTRATOR_CHILD_KIND_DENIED' });
-  assert.throws(() => childAssignment({ workerKind: 'formal_worker' }), { code: 'SUBORCHESTRATOR_CHILD_KIND_DENIED' });
+  assert.throws(() => childAssignment({ workerKind: 'formal_worker' }), { code: 'WORKER_NATIVE_METHOD_REQUIRED' });
+  assert.equal(childAssignment({ workerKind: 'formal_worker', methodContract: native.formal_worker }).workerKind,
+    'formal_worker');
+  assert.equal(childAssignment({ workerKind: 'specialist', methodContract: native.specialist }).nicheDomain,
+    undefined);
+  assert.equal(childAssignment({ workerKind: 'symbiotic_worker', methodContract: native.symbiotic_worker,
+    hostContractId: 'host-native', hostCapabilities: ['deterministic_procedure'] }).hostContractId, 'host-native');
 }
 
 async function verifyDispatchSupervision() {

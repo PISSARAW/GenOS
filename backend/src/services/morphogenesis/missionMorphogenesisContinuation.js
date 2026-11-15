@@ -73,8 +73,13 @@ function adaptiveExpression({ plan, state, signals, capacity, challenge, policy 
   if (capacity < 2) return expression.topologyExpression(primary, plan.selectedVariant || null);
   const alternative = rankedAlternative(plan, primary) || currentTopology(state);
   if (!alternative || alternative === primary) return expression.topologyExpression(primary, plan.selectedVariant || null);
-  const leaves = [expression.topologyExpression(primary), expression.topologyExpression(alternative)];
+  const leaves = [expression.topologyExpression(primary, primaryVariant(plan)),
+    expression.topologyExpression(alternative)];
   return composeAdaptiveOperator(leaves, signals, challenge);
+}
+
+function primaryVariant(plan) {
+  return plan.selectedVariant && plan.selectedVariant !== 'default' ? plan.selectedVariant : null;
 }
 
 function composeAdaptiveOperator(leaves, signals, challenge) {

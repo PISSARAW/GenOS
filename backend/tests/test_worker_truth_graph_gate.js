@@ -2,6 +2,10 @@
 
 const assert = require('node:assert/strict');
 const barrier = require('../src/services/workerEvidenceBarrier');
+const compiler = require('../src/services/reportCompilerService');
+
+assert.equal(compiler.nliVerdict('2 + 2 = 4', ['solver://sha256:abc123']), 'neutral',
+  'opaque receipt identifiers are provenance links, not semantic numeric evidence');
 
 async function rejectsMissingGraph() {
   const context = { db: {}, agentId: 'gate-test', autonomyPlan: {} };
